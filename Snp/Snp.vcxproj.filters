@@ -24,10 +24,13 @@
     <ClInclude Include="net_manager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\win_thread.h">
+    <ClInclude Include="packets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="snp_packets.h">
+    <ClInclude Include="..\common\types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\win_thread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -41,7 +44,7 @@
     <ClCompile Include="net_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Shared\win_thread.cpp">
+    <ClCompile Include="..\common\win_thread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

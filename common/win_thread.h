@@ -1,13 +1,10 @@
-#ifndef WIN_THREAD_H
-#define WIN_THREAD_H
+#ifndef SHARED_WIN_THREAD_H_
+#define SHARED_WIN_THREAD_H_
 
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 namespace sbat {
-
-class WinThread
-{
+class WinThread {
   public:
     WinThread();
     bool Start();
@@ -17,9 +14,9 @@ class WinThread
     bool is_running() const { return running_; }
     bool is_terminated() const;
     void Terminate();
-  protected: 
+  protected:
     void Run();
-    static unsigned __stdcall EntryPoint(void*);
+    static unsigned __stdcall EntryPoint(void* thread_instance);
     virtual void Execute() = 0;
 
   private:
@@ -28,6 +25,5 @@ class WinThread
     bool running_;
     HANDLE terminated_event_;
 };
-
-}
-#endif
+}  // namespace sbat
+#endif  // SHARED_WIN_THREAD_H_

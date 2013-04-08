@@ -1,15 +1,15 @@
-#define WIN32_LEAN_AND_MEAN
+#include "./functions.h"
+
 #include <Windows.h>
 #include <io.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include "functions.h"
 
 namespace sbat {
 namespace snp {
-
 int __stdcall Unbind() {
   printf("Unbind called.\n");
+#pragma warning(suppress: 6031)
   getchar();
   FreeConsole();
 
@@ -19,13 +19,13 @@ int __stdcall Unbind() {
 }
 
 int __stdcall FreePacket(sockaddr* from, void* packet, size_t packet_len) {
-  printf("FreePacket called for packet at: 0x%08x\n", from);
+  printf("FreePacket called for packet at: 0x%p\n", from);
 
   return true;
 }
 
 int __stdcall FreeServerPacket(sockaddr* from, void* packet, size_t packet_len) {
-  printf("FreeServerPacket called for packet at: 0x%08x\n", from);
+  printf("FreeServerPacket called for packet at: 0x%p\n", from);
 
   return true;
 }
@@ -33,7 +33,7 @@ int __stdcall FreeServerPacket(sockaddr* from, void* packet, size_t packet_len) 
 int __stdcall GetGameInfo(int unk1, char* game_name, char* password, void* unk2) {
   // unk2 looks like its meant to be filled with the game info of the game being queried
 
-  printf("GetGameInfo(unk1 = %d, game_name = '%s', password = '%s', unk2 = 0x%08x) called.\n", 
+  printf("GetGameInfo(unk1 = %d, game_name = '%s', password = '%s', unk2 = 0x%p) called.\n",
       unk1, game_name, password, unk2);
 
   return false;
@@ -41,9 +41,9 @@ int __stdcall GetGameInfo(int unk1, char* game_name, char* password, void* unk2)
 
 int __stdcall Initialize(void* version_info, void* user_data, void* battle_info,
     void* module_data, HANDLE event_handle) {
-  // the parameters here I think are the same things that get passed into SNetInitializeProvider, 
+  // the parameters here I think are the same things that get passed into SNetInitializeProvider,
   // except without the provider name and added module_data
-  
+
   // version info structure: -- looks to be _clientInfo in storm.h?
   // int unknown (3C) -- probably size?
   // char* game_title (Brood War)
@@ -62,11 +62,11 @@ int __stdcall Initialize(void* version_info, void* user_data, void* battle_info,
 
   // event_handle used in SetEvent, signaling something about sockets/service provider interface?
 
-  if(AllocConsole()) {
-    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<long>(GetStdHandle(STD_OUTPUT_HANDLE)),
-        _O_TEXT), "w"); // correct stdout to point to new console
-    *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<long>(GetStdHandle(STD_INPUT_HANDLE)),
-        _O_TEXT), "r"); // correct stdin to point to new console
+  if (AllocConsole()) {
+    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(GetStdHandle(STD_OUTPUT_HANDLE)),
+        _O_TEXT), "w");  // correct stdout to point to new console
+    *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(GetStdHandle(STD_INPUT_HANDLE)),
+        _O_TEXT), "r");  // correct stdin to point to new console
   }
   printf("Initialize called.\n");
 
@@ -98,41 +98,37 @@ int __stdcall ReceiveGamesList(int unk1, int unk2, void** games_list) {
 }
 
 int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, size_t* packet_len) {
-  //printf("ReceivePacket(...) called.\n");
-
-  if(from_location == nullptr) {
+  if (from_location == nullptr) {
     return false;
   }
   *from_location = nullptr;
-  
-  if(packet_location == nullptr) {
+
+  if (packet_location == nullptr) {
     return false;
   }
   *packet_location = nullptr;
 
-  if(packet_len == nullptr) {
+  if (packet_len == nullptr) {
     return false;
   }
   *packet_len = 0;
 
-  return false; // what do we say to ReceivePacket? not today
+  return false;   // what do we say to ReceivePacket? not today
 }
 
 int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_location,
     size_t* packet_len) {
-  //printf("ReceiveServerPacket(...) called.\n");
-
-  if(from_location == nullptr) {
+  if (from_location == nullptr) {
     return false;
   }
   *from_location = nullptr;
-  
-  if(packet_location == nullptr) {
+
+  if (packet_location == nullptr) {
     return false;
   }
   *packet_location = nullptr;
 
-  if(packet_len == nullptr) {
+  if (packet_len == nullptr) {
     return false;
   }
   *packet_len = 0;
@@ -141,7 +137,7 @@ int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_locati
 }
 
 int __stdcall SendPacket(size_t num_targets, sockaddr* targets, void* data, size_t data_len) {
-  printf("SendPacket called for %d targets with packet of %d bytes\n", num_targets, data_len);
+  printf("SendPacket called for %u targets with packet of %u bytes\n", num_targets, data_len);
 
   return true;
 }
@@ -183,7 +179,7 @@ int __stdcall FindGames(int unk1, void* games_list) {
   // in UDP this packet contains version info (SEXP + version word)
   // this is often called directly after GetGamesList()
 
-  printf("FindGames(%d, 0x%08x) called.\n", unk1, games_list);
+  printf("FindGames(%d, 0x%p) called.\n", unk1, games_list);
 
   return true;
 }
@@ -200,7 +196,7 @@ int __stdcall GetLeagueId(int* league_id) {
   printf("GetLeagueId called.\n");
   *league_id = 0;
 
-  return false; // this function always returns false it seems
+  return false;  // this function always returns false it seems
 }
 
 int __stdcall DoLeagueLogout(const char* player_name) {
@@ -214,6 +210,5 @@ int __stdcall GetReplyTarget(char* dest, size_t dest_len) {
 
   return true;
 }
-
-} // namespace sbat
-} //namespace snp
+}  // namespace snp
+}  // namespace sbat

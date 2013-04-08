@@ -1,10 +1,11 @@
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <io.h>
 #include <fcntl.h>
-#include "../Shared/FuncHook.h"
+#include "../common/types.h"
+#include "../common/func_hook.h"
+#include "./brood_war.h"
 
-#include "BroodWar.h"
+using BW::BroodWar;
 
 typedef void (__stdcall *SNetGetPlayerNameFunc)(int player_id, char* buffer, size_t buffer_size);
 SNetGetPlayerNameFunc SNetGetPlayerName = NULL;
@@ -26,21 +27,18 @@ void killMultiInstanceCheck() {
   WriteMem(0x004E0380, (DWORD)multiInstanceFix, 3);
 }
 
+typedef void (*GameInitFunc)();
+sbat::FuncHook<GameInitFunc>* gameInitHook;
 void HOOK_gameInit() {
-  if(AllocConsole()) {
+  if (AllocConsole()) {
     // correct stdout to point to new console
-    *stdout = *_fdopen(_open_osfhandle((long) GetStdHandle(STD_OUTPUT_HANDLE), _O_TEXT), "w");
+    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(
+        GetStdHandle(STD_OUTPUT_HANDLE)), _O_TEXT), "w");
   }
 
-  BroodWar::BroodWar broodWar;
+  BroodWar broodWar;
   broodWar.ToggleBroodWar(true);
-
-  // need to initialize 0x006D1200 in some way, its a pointer to some important address, maybe unit
-  // list? it gets initialized by 0x004D7390, which gets called a tad further down from our
-  // gameInit hook's location. we might need to run some of the functions down there manually
-  // For now, I'll just try calling this
   broodWar.InitSprites();
-
   broodWar.ChooseNetworkProvider();
   broodWar.ToggleMultiplayer(true);
 
@@ -48,12 +46,12 @@ void HOOK_gameInit() {
   strcpy_s(broodWar.local_player_name(), 25, "life of lively 2 live");
   broodWar.CreateGame("SHIELDBATTERY", "MOTHERFUCKER",
       "C:\\Program Files (x86)\\StarCraft\\Maps\\BroodWar\\(2)Astral Balance.scm", 0x10002,
-      BroodWar::BroodWarSpeed::Fastest);
+      BW::GameSpeed::Fastest);
 
   broodWar.InitGameNetwork();
   broodWar.ProcessLobbyTurns(4);
 
-  if(broodWar.AddComputer(1)) {
+  if (broodWar.AddComputer(1)) {
     printf("Computer added succesfully in slot 1!\n");
   } else {
     printf("Adding computer FAILED!\n");
@@ -64,7 +62,7 @@ void HOOK_gameInit() {
   SNetGetPlayerName(0, player_name, 25);
   printf("Player[0].name: '%s'\n", player_name);
 
-  if(broodWar.StartGame()) {
+  if (broodWar.StartGame()) {
     printf("Game started, gl hf gg!\n");
   } else {
     printf("Game starting FAILED!\n");
@@ -73,16 +71,21 @@ void HOOK_gameInit() {
 
   broodWar.BeginGameplay();
   printf("Completed...\n");
+  delete gameInitHook;
+  gameInitHook = nullptr;
   // TODO(tec27): exit cleanly?
 }
 
-FuncHook gameInitHook; // I love globals lol!
 extern "C" __declspec(dllexport) void scout_onInject() {
   killMultiInstanceCheck();
-  gameInitHook.setup(reinterpret_cast<FuncPtr>(0x004E08A5),
-      reinterpret_cast<FuncPtr>(HOOK_gameInit));
-  gameInitHook.inject();
+  gameInitHook = new sbat::FuncHook<GameInitFunc>(reinterpret_cast<GameInitFunc>(0x004E08A5),
+      HOOK_gameInit);
+  gameInitHook->Inject();
 
   HMODULE storm = LoadLibrary(L"storm.dll");
+  if (storm == NULL) {
+    printf("Fuck, storm was null!");
+    exit(1);
+  }
   SNetGetPlayerName = reinterpret_cast<SNetGetPlayerNameFunc>(GetProcAddress(storm, (LPCSTR)113));
 }

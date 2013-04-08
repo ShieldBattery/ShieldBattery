@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ShieldBattery.cpp">
+    <ClCompile Include="brood_war.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Shared\FuncHook.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BroodWar.cpp">
+    <ClCompile Include="shieldbattery.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Shared\FuncHook.h">
+    <ClInclude Include="brood_war.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BroodWar.h">
+    <ClInclude Include="..\common\func_hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,12 +1,11 @@
-#ifndef SHIELDBATTERY_SNP_FUNCTIONS_H_
-#define SHIELDBATTERY_SNP_FUNCTIONS_H_
+#ifndef SNP_FUNCTIONS_H_
+#define SNP_FUNCTIONS_H_
 
 #include <WinSock2.h>
 #include <Windows.h>
 
 namespace sbat {
 namespace snp {
-
 #define SNPFUNC(Name, ...) typedef int (__stdcall *##Name##Func)(__VA_ARGS__); \
 int __stdcall Name(__VA_ARGS__);
 
@@ -33,7 +32,7 @@ SNPFUNC(StopBroadcastingGame);
 SNPFUNC(FreeDeviceData, void* device_data);
 SNPFUNC(FindGames, int unk1, void* games_list);
 // func20
-SNPFUNC(ReportGameResult, int unk1, int player_slots_len, char* player_name, int* unk2, 
+SNPFUNC(ReportGameResult, int unk1, int player_slots_len, char* player_name, int* unk2,
     char* map_name, char* results);
 // func22
 // func23
@@ -43,8 +42,7 @@ SNPFUNC(DoLeagueLogout, const char* player_name);
 SNPFUNC(GetReplyTarget, char* dest, size_t dest_len);
 
 #undef SNPFUNC
+}  // namespace snp
+}  // namespace sbat
 
-} //namespace snp
-} // namespace sbat
-
-#endif
+#endif  // SNP_FUNCTIONS_H_

@@ -1,26 +1,25 @@
-#ifndef SHIELDBATTERY_SNP_SNP_H_
-#define SHIELDBATTERY_SNP_SNP_H_
+#ifndef SNP_SNP_H_
+#define SNP_SNP_H_
 
-#include "functions.h"
+#include "../common/types.h"
+#include "./functions.h"
 
 namespace sbat {
 namespace snp {
-
 struct SnpCapabilities {
-  DWORD size;
-  DWORD unknown1;
-  DWORD max_packet_size;
-  DWORD unknown3;
-  DWORD displayed_player_count;
-  DWORD unknown4;
-  DWORD player_latency;
-  DWORD max_player_count;
-  DWORD turn_delay;
+  uint32 size;
+  uint32 unknown1;
+  uint32 max_packet_size;
+  uint32 unknown3;
+  uint32 displayed_player_count;
+  uint32 unknown4;
+  uint32 player_latency;
+  uint32 max_player_count;
+  uint32 turn_delay;
 };
 
-// TODO(tec27): update the names/types here as you figure out what they are
 struct SnpFunctions {
-  DWORD size;
+  uint32 size;
 
   void* func1;
   UnbindFunc Unbind;
@@ -34,10 +33,10 @@ struct SnpFunctions {
   ReceiveGamesListFunc ReceiveGamesList;
   ReceivePacketFunc ReceivePacket;
   ReceiveServerPacketFunc ReceiveServerPacket;
-  void* func13; // called from SNetSelectGame - does something with loading resources, 
-                // look at this in non-bnet snp
-                // this actually does a similar thing to login, it creates a dialog and doesn't
-                // return until exit/a game is selected to join/create
+  // called from SNetSelectGame - does something with loading resources, look at this in non-bnet
+  // snp. this actually does a similar thing to login, it creates a dialog and doesn't return until
+  // exit/a game is selected to join/create
+  void* func13;
   SendPacketFunc SendPacket;
   SendCommandFunc SendCommand;
   BroadcastGameFunc BroadcastGame;
@@ -53,15 +52,13 @@ struct SnpFunctions {
   DoLeagueLogoutFunc DoLeagueLogout;
   GetReplyTargetFunc GetReplyTarget;
 };
-
-} // namespace snp
-} // namespace shieldbattery
+}  // namespace snp
+}  // namespace sbat
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE dllInstance, DWORD reason, LPVOID reserved);
 
-BOOL __stdcall SnpQuery(int index, unsigned long* identifier, const char** name,
+BOOL __stdcall SnpQuery(uint32 index, uint32* identifier, const char** name,
     const char** description, const sbat::snp::SnpCapabilities** capabilities);
-BOOL __stdcall SnpBind(int index, sbat::snp::SnpFunctions** functions);
+BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);
 
-
-#endif
+#endif  // SNP_SNP_H_

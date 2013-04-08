@@ -1,13 +1,11 @@
-#ifndef NET_MANAGER_H
-#define NET_MANAGER_H
+#ifndef SNP_NET_MANAGER_H_
+#define SNP_NET_MANAGER_H_
 
-#include <WinSock2.h>
 #include <Windows.h>
-#include "../shared/win_thread.h"
+#include "../common/win_thread.h"
 
 namespace sbat {
 namespace snp {
-
 struct StormPacket;
 
 class NetManager : public WinThread {
@@ -21,7 +19,7 @@ private:
   NetManager(const HANDLE packet_received_event, const u_short port);
   bool Init();
   void ReadSocket();
-  void ProcessStormPacket(const byte& packet_data, const DWORD size, 
+  void ProcessStormPacket(const byte& packet_data, const DWORD size,
       const SOCKADDR_IN& from_address);
 
   const HANDLE packet_received_event_;
@@ -30,8 +28,7 @@ private:
   CRITICAL_SECTION packet_queue_section_;
   StormPacket* packet_queue_;
 };
+}  // namespace snp
+}  // namespace sbat
 
-}
-}
-
-#endif
+#endif  // SNP_NET_MANAGER_H_

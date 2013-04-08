@@ -18,12 +18,12 @@
     <ClCompile Include="Scout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Shared\FuncHook.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Shared\FuncHook.h">
+    <ClInclude Include="..\common\func_hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
