@@ -9,8 +9,6 @@ namespace sbat {
 namespace snp {
 int __stdcall Unbind() {
   printf("Unbind called.\n");
-#pragma warning(suppress: 6031)
-  getchar();
   FreeConsole();
 
   // TODO(tec27): Free NetManager object (see Initialize)

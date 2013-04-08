@@ -90,6 +90,7 @@ XCOPY "$(TargetDir)$(TargetName)" "$(BROOD_WAR_PATH)" /y /f</Command>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\win_helpers.cpp" />
     <ClCompile Include="..\common\win_thread.cpp" />
     <ClCompile Include="functions.cpp" />
     <ClCompile Include="net_manager.cpp" />
@@ -97,6 +98,7 @@ XCOPY "$(TargetDir)$(TargetName)" "$(BROOD_WAR_PATH)" /y /f</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\types.h" />
+    <ClInclude Include="..\common\win_helpers.h" />
     <ClInclude Include="..\common\win_thread.h" />
     <ClInclude Include="functions.h" />
     <ClInclude Include="net_manager.h" />

@@ -2,12 +2,14 @@
 #define SHIELDBATTERY_BROOD_WAR_H_
 
 #include <Windows.h>
+#include <cassert>
 #include <string>
 #include "../common/types.h"
 
-#define CURRENT_BROOD_WAR_VERSION BW::Version::v1161
+#define CURRENT_BROOD_WAR_VERSION sbat::bw::Version::v1161
 
-namespace BW {
+namespace sbat {
+namespace bw {
 // TODO(tec27): move everything but the BroodWar class outta this file (and *maybe* namespace)
 struct PlayerInfo {
   uint32 player_id;
@@ -41,12 +43,12 @@ struct Functions {
   FUNCDEF(void, InitPlayerInfo);
   FUNCDEF(void, ChooseNetworkProvider);
   FUNCDEF(void, InitGameNetwork);
-  FUNCDEF(void, BeginGameplay);
+  FUNCDEF(void, GameLoop);
   FUNCDEF(uint32, GetMapsList, uint32 unk1, char* path, char* last_map_name);
   FUNCDEF(uint32, SelectMapOrDirectory, char* game_name, char* password, int game_type,
       int game_speed, char* map_folder_path);
   FUNCDEF(uint32, AddComputer, uint32 slot_num);
-  FUNCDEF(uint32, StartGame);
+  FUNCDEF(uint32, StartGameCountdown);
   FUNCDEF(void, ProcessLobbyTurn, void* unused);
 };
 #undef FUNCDEF
@@ -104,12 +106,13 @@ Offsets* GetOffsets<Version::v1161>() {
     reinterpret_cast<Functions::ChooseNetworkProviderFunc>(0x004D3CC0);
   offsets->functions.InitGameNetwork =
       reinterpret_cast<Functions::InitGameNetworkFunc>(0x004D4130);
-  offsets->functions.BeginGameplay = reinterpret_cast<Functions::BeginGameplayFunc>(0x004E0710);
+  offsets->functions.GameLoop = reinterpret_cast<Functions::GameLoopFunc>(0x004E0710);
   offsets->functions.GetMapsList = reinterpret_cast<Functions::GetMapsListFunc>(0x004A73C0);
   offsets->functions.SelectMapOrDirectory =
       reinterpret_cast<Functions::SelectMapOrDirectoryFunc>(0x004A8050);
   offsets->functions.AddComputer = reinterpret_cast<Functions::AddComputerFunc>(0x00452720);
-  offsets->functions.StartGame = reinterpret_cast<Functions::StartGameFunc>(0x00452460);
+  offsets->functions.StartGameCountdown =
+      reinterpret_cast<Functions::StartGameCountdownFunc>(0x00452460);
   offsets->functions.ProcessLobbyTurn =
       reinterpret_cast<Functions::ProcessLobbyTurnFunc>(0x004D4340);
 
@@ -122,7 +125,7 @@ Offsets* GetOffsets<Version::v1161>() {
 
 class BroodWar {
   typedef void (__stdcall *MapListEntryCallback)(MapListEntry* map_data, char* map_name,
-    uint32 file_type);
+      uint32 file_type);
 
 public:
   BroodWar();
@@ -132,75 +135,29 @@ public:
   bool CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
 
-  PlayerInfo* players() const { return offsets_->players; }
-  // TODO(tec27): I'd ideally like some easy way of setting these as well that conveys their max
-  // length, not sure what the best way of doing that is yet
-  char* current_map_path() const { return offsets_->current_map_path; }
-  char* current_map_name() const { return offsets_->current_map_name; }
-  char* current_map_folder_path() const { return offsets_->current_map_folder_path; }
-  uint32 local_player_id() const { return *offsets_->local_player_id1; }
-  char* local_player_name() const { return offsets_->local_player_name; }
-  GameSpeed current_game_speed() const {
-    return static_cast<GameSpeed>(*offsets_->current_game_speed);
-  }
-  bool is_brood_war() const { return *offsets_->is_brood_war == 1; }
-  bool is_multiplayer() const { return *offsets_->is_multiplayer == 1; }
-  bool is_game_created() const { return *offsets_->is_game_created == 1; }
+  PlayerInfo* players() const;
+  std::string current_map_path() const;
+  std::string current_map_name() const;
+  std::string current_map_folder_path() const;
+  uint32 local_player_id() const;
+  std::string local_player_name() const;
+  void set_local_player_name(const std::string& name);
+  GameSpeed current_game_speed() const;
+  bool is_brood_war() const;
+  void set_is_brood_war(bool is_brood_war);
+  bool is_multiplayer() const;
+  void set_is_multiplayer(bool is_multiplayer);
+  bool is_game_created() const;
+  void set_is_game_created(bool is_created);
 
-  void InitSprites() { offsets_->functions.InitSprites(); }
-  void InitPlayerInfo() { offsets_->functions.InitPlayerInfo(); }
-  void ChooseNetworkProvider() {
-    Functions::ChooseNetworkProviderFunc choose_network =
-        offsets_->functions.ChooseNetworkProvider;
-    _asm {
-      push eax;
-      push ebx;
-      mov eax, choose_network;
-      mov ebx, 'SBAT'; // network provider identifier, we'll use our custom provider
-      call eax; // TODO(tec27): returns 1 if it fails, we can probably return this somehow
-      pop ebx;
-      pop eax;
-    }
-  }
-  void InitGameNetwork() { offsets_->functions.InitGameNetwork(); }
-
-  // TODO(tec27): these are setters and as such aren't styled properly
-  void SetLocalPlayer(uint32 player_id) {
-    *offsets_->local_player_id0 = player_id;
-    *offsets_->local_player_id1 = player_id;
-    *offsets_->local_player_id2 = player_id;
-    strcpy_s(offsets_->local_player_name, 25, this->players()[player_id].name);
-  }
-  void SetGameSpeed(GameSpeed game_speed) {
-    *offsets_->current_game_speed = static_cast<int>(game_speed);
-  }
-  void ToggleBroodWar(bool toggle_to) {
-    *offsets_->is_brood_war = toggle_to ? 1 : 0;
-  }
-  void ToggleMultiplayer(bool is_multiplayer) {
-    *offsets_->is_multiplayer = is_multiplayer ? 1 : 0;
-  }
-  void set_game_created(bool is_created) {
-    *offsets_->is_game_created = is_created ? 1 : 0;
-  }
-  bool AddComputer(uint32 slot_num) {
-    return offsets_->functions.AddComputer(slot_num) == 1;
-  }
-  void ProcessLobbyTurns(uint32 num_turns = 1) {
-    // Probably need to either sleep or fuck with the last_tick_count at 66FF48
-    while(num_turns-- > 0) {
-      Sleep(260);  // ensure that we actually process a turn! See above.
-      offsets_->functions.ProcessLobbyTurn(nullptr);
-    }
-  }
-  bool StartGame() {
-    return offsets_->functions.StartGame() == 1;
-  }
-  void BeginGameplay() {
-    // #StartGame() simply requests that the game start in the lobby (initiates countdown)
-    // This function actually runs the gameplay (both are badly named, TODO(tec27): fix names)
-    offsets_->functions.BeginGameplay();
-  }
+  void InitSprites();
+  void InitPlayerInfo();
+  bool ChooseNetworkProvider(uint32 provider = 'SBAT');
+  void InitGameNetwork();
+  bool AddComputer(uint32 slot_num);
+  void ProcessLobbyTurns(uint32 num_turns = 1);
+  bool StartGameCountdown();
+  void RunGameLoop();
 
 private:
   void ApplyPatches(void);
@@ -210,5 +167,6 @@ private:
 
   Offsets* offsets_;
 };
-}  // namespace BW
+}  // namespace bw
+}  // namespace sbat
 #endif  // SHIELDBATTERY_BROOD_WAR_H_

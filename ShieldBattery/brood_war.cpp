@@ -3,8 +3,10 @@
 #include <Windows.h>
 #include <string>
 #include "../common/types.h"
+#include "../common/win_helpers.h"
 
-namespace BW {
+namespace sbat {
+namespace bw {
 BroodWar::BroodWar() {
   offsets_ = GetOffsets<CURRENT_BROOD_WAR_VERSION>();
   ApplyPatches();
@@ -18,20 +20,13 @@ BroodWar::BroodWar(Offsets* broodWarOffsets) {
 BroodWar::~BroodWar() {
 }
 
-void BroodWar::ApplyPatches() {  // TODO(tec27): yeah....
+void BroodWar::ApplyPatches() {  // TODO(tec27): yeah... write a better way to do patches
   // Avoid restrictions that only let games start from certain menus
-  DWORD old_protect;
-  if (VirtualProtect(offsets_->start_from_any_glue_patch, 9, PAGE_EXECUTE_READWRITE,
-      &old_protect) == FALSE) {
-    return;
-  }
-
-  for (int i = 0; i < 9; i++) {
-    offsets_->start_from_any_glue_patch[i] = 0x90;  // NOP
-  }
-  if (VirtualProtect(offsets_->start_from_any_glue_patch, 9, old_protect, &old_protect)
-      == FALSE) {
-    return;
+  ScopedVirtualProtect glue_protect(offsets_->start_from_any_glue_patch, 9, PAGE_EXECUTE_READWRITE);
+  if (!glue_protect.has_errors()) {
+    for (int i = 0; i < 9; i++) {
+      offsets_->start_from_any_glue_patch[i] = 0x90;  // NOP
+    }
   }
 
   // Allow loading of any SNP's (even unsigned)
@@ -39,27 +34,126 @@ void BroodWar::ApplyPatches() {  // TODO(tec27): yeah....
   byte* snp_patch =
       reinterpret_cast<byte*>(reinterpret_cast<uint32>(storm) +
       reinterpret_cast<uint32>(offsets_->storm_unsigned_snp_patch));
-  if (VirtualProtect(snp_patch, 26, PAGE_EXECUTE_READWRITE, &old_protect) == FALSE) {
-    return;
-  }
-
-  for (int i = 0; i < 26; i++) {
-    snp_patch[i] = 0x90;  // NOP
-  }
-  if (VirtualProtect(snp_patch, 26, old_protect, &old_protect) == FALSE) {
-    return;
+  ScopedVirtualProtect snp_protect(snp_patch, 26, PAGE_EXECUTE_READWRITE);
+  if (!snp_protect.has_errors()) {
+    for (int i = 0; i < 26; i++) {
+      snp_patch[i] = 0x90;  // NOP
+    }
   }
 
   // Avoid doing a long countdown, and skip dialog-specific countdown code (that will crash)
-  if (VirtualProtect(offsets_->game_countdown_delay_patch, 4, PAGE_EXECUTE_READWRITE,
-      &old_protect) == FALSE) {
-    return;
+  ScopedVirtualProtect countdown_protect(offsets_->game_countdown_delay_patch, 4,
+      PAGE_EXECUTE_READWRITE);
+  if (!countdown_protect.has_errors()) {
+    *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice!
   }
-  *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice!
-  if (VirtualProtect(offsets_->game_countdown_delay_patch, 4, old_protect,
-      &old_protect) == FALSE) {
-    return;
+}
+
+PlayerInfo* BroodWar::players() const {
+    return offsets_->players;
+}
+
+std::string BroodWar::current_map_path() const {
+  return std::string(offsets_->current_map_path);
+}
+
+std::string BroodWar::current_map_name() const {
+  return std::string(offsets_->current_map_name);
+}
+
+std::string BroodWar::current_map_folder_path() const {
+  return std::string(offsets_->current_map_folder_path);
+}
+
+uint32 BroodWar::local_player_id() const {
+  return *offsets_->local_player_id1;
+}
+
+std::string BroodWar::local_player_name() const {
+  return std::string(offsets_->local_player_name);
+}
+
+void BroodWar::set_local_player_name(const std::string& name) {
+  assert(name.length() <= 25);
+  strcpy_s(offsets_->local_player_name, 25, name.c_str());
+}
+
+GameSpeed BroodWar::current_game_speed() const {
+  return static_cast<GameSpeed>(*offsets_->current_game_speed);
+}
+
+bool BroodWar::is_brood_war() const {
+  return *offsets_->is_brood_war == 1;
+}
+
+void BroodWar::set_is_brood_war(bool is_brood_war) {
+  *offsets_->is_brood_war = is_brood_war ? 1 : 0;
+}
+
+bool BroodWar::is_multiplayer() const {
+  return *offsets_->is_multiplayer == 1;
+}
+
+void BroodWar::set_is_multiplayer(bool is_multiplayer) {
+  *offsets_->is_multiplayer = is_multiplayer ? 1 : 0;
+}
+
+bool BroodWar::is_game_created() const {
+  return *offsets_->is_game_created == 1;
+}
+
+void BroodWar::set_is_game_created(bool is_created) {
+  *offsets_->is_game_created = is_created ? 1 : 0;
+}
+
+void BroodWar::InitSprites() {
+  offsets_->functions.InitSprites();
+}
+
+void BroodWar::InitPlayerInfo() {
+  offsets_->functions.InitPlayerInfo();
+}
+
+bool BroodWar::ChooseNetworkProvider(uint32 provider) {
+  auto choose_network = offsets_->functions.ChooseNetworkProvider;
+  int result;
+  _asm {
+    push eax;
+    push ebx;
+    mov eax, choose_network;
+    mov ebx, provider;
+    call eax;
+    mov result, eax;
+    pop ebx;
+    pop eax;
   }
+
+  return result != 1;
+}
+
+void BroodWar::InitGameNetwork() {
+  offsets_->functions.InitGameNetwork();
+}
+
+bool BroodWar::AddComputer(uint32 slot_num) {
+  return offsets_->functions.AddComputer(slot_num) == 1;
+}
+
+void BroodWar::ProcessLobbyTurns(uint32 num_turns) {
+  // TODO(tec27): Deal with sleeping outside this function, make this only process 1 turn each
+  // time (e.g. make it a direct mapping to the game function)
+  while (num_turns-- > 0) {
+    Sleep(260);  // ensure that we actually process a turn! See above.
+    offsets_->functions.ProcessLobbyTurn(nullptr);
+  }
+}
+
+bool BroodWar::StartGameCountdown() {
+  return offsets_->functions.StartGameCountdown() == 1;
+}
+
+void BroodWar::RunGameLoop() {
+  offsets_->functions.GameLoop();
 }
 
 void __stdcall DummyMapListEntryCallback(MapListEntry* map_data, char* map_name, uint32 file_type) {
@@ -67,7 +161,7 @@ void __stdcall DummyMapListEntryCallback(MapListEntry* map_data, char* map_name,
 
 void BroodWar::GetMapsList(const MapListEntryCallback callback) {
   // callback is passed in through eax because blizzard's compiler hates me
-  Functions::GetMapsListFunc get_list = offsets_->functions.GetMapsList;
+  auto get_list = offsets_->functions.GetMapsList;
   uint32 unk1 = 0x28;  // 0x10 can be used for a recent maps list instead
   char* base_path = offsets_->current_map_folder_path;
   char* last_map_name = "";
@@ -87,7 +181,7 @@ void BroodWar::GetMapsList(const MapListEntryCallback callback) {
 
 void BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data) {
-  Functions::SelectMapOrDirectoryFunc select = offsets_->functions.SelectMapOrDirectory;
+  auto select = offsets_->functions.SelectMapOrDirectory;
 
   const char* game_name_param = game_name.c_str();
   const char* password_param = password.c_str();
@@ -149,4 +243,5 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
   SelectMapOrDirectory(game_name, password, game_type, game_speed, current_map);
   return true;
 }
-}  // namespace BW
+}  // namespace bw
+}  // namespace sbat

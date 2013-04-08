@@ -1,37 +1,12 @@
-#ifndef SHARED_FUNC_HOOK_H_
-#define SHARED_FUNC_HOOK_H_
+#ifndef COMMON_FUNC_HOOK_H_
+#define COMMON_FUNC_HOOK_H_
 
 #include <array>
 #include <Windows.h>
 #include "./types.h"
+#include "./win_helpers.h"
 
 namespace sbat {
-// Type for simpler VirtualProtect -> restore old protection usage.
-class ScopedVirtualProtect {
-public:
-  ScopedVirtualProtect(void* address, size_t size, uint32 new_protection)
-      : address_(address),
-        size_(size),
-        old_protection_(0),
-        has_errors_(false) {
-    has_errors_ = VirtualProtect(address_, size_, new_protection,
-        reinterpret_cast<PDWORD>(&old_protection_)) == 0;
-  }
-
-  ~ScopedVirtualProtect() {
-    VirtualProtect(address_, size_, old_protection_, reinterpret_cast<PDWORD>(&old_protection_));
-  }
-
-  bool has_errors() const {
-    return has_errors_;
-  }
-private:
-  void* address_;
-  size_t size_;
-  uint32 old_protection_;
-  bool has_errors_;
-};
-
 // Type for hooking a function at a specific memory location, with methods for replacing and
 // restoring the original code. Function pointer type is specified by F, to allow for hooks of
 // varying parameter lists.
@@ -102,9 +77,9 @@ private:
   F callable_;
   F hook_func_;
   byte* function_;
-  std::array<byte,6> original_mem_;
-  std::array<byte,6> hooked_mem_;
+  std::array<byte, 6> original_mem_;
+  std::array<byte, 6> hooked_mem_;
   bool injected_;
 };
 }  // namespace sbat
-#endif  // SHARED_FUNC_HOOK_H_
+#endif  // COMMON_FUNC_HOOK_H_

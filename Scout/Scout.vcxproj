@@ -79,11 +79,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\win_helpers.cpp" />
     <ClCompile Include="Scout.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\func_hook.h" />
     <ClInclude Include="..\common\types.h" />
+    <ClInclude Include="..\common\win_helpers.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
