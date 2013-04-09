@@ -1,8 +1,13 @@
-#include <Windows.h>
-#include <io.h>
+#include <conio.h>
 #include <fcntl.h>
-#include "../common/types.h"
+#include <io.h>
+#include <Windows.h>
+
+#include <iostream>
+#include <string>
+
 #include "../common/func_hook.h"
+#include "../common/types.h"
 #include "../common/win_helpers.h"
 #include "./brood_war.h"
 
@@ -16,14 +21,21 @@ typedef void (*GameInitFunc)();
 sbat::FuncHook<GameInitFunc>* gameInitHook;
 void HOOK_gameInit() {
   if (AllocConsole()) {
-    // correct stdout to point to new console
-    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(
+    // correct stdout/stdin to point to new console
+    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
         GetStdHandle(STD_OUTPUT_HANDLE)), _O_TEXT), "w");
+    *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
+        GetStdHandle(STD_INPUT_HANDLE)), _O_TEXT), "r");
   }
 
   BroodWar brood_war;
   brood_war.set_is_brood_war(true);
   brood_war.InitSprites();
+
+  printf("What's your name, soldier?\n");
+  std::string name;
+  std::getline(std::cin, name);
+  brood_war.set_local_player_name(name);
 
   while (true) {
     InitNetworkInfo(&brood_war);
@@ -40,41 +52,75 @@ void HOOK_gameInit() {
 }
 
 void InitNetworkInfo(BroodWar* brood_war) {
-  brood_war->ChooseNetworkProvider();
+  if (!brood_war->ChooseNetworkProvider('UDPN'))  {
+    printf("Could not choose network provider!\n");
+  }
   brood_war->set_is_multiplayer(true);
+  // Our SNP will dealloc the console on game finish (what a dick) and then realloc it when we init
+  // it again. Because of this, we do this here to make sure we are always point to the right
+  // stdin and stdout, even when they change
+  *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
+      GetStdHandle(STD_OUTPUT_HANDLE)), _O_TEXT), "w");
+  *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
+      GetStdHandle(STD_INPUT_HANDLE)), _O_TEXT), "r");
+}
+
+void HandleCreateGame(BroodWar* brood_war) {
+  brood_war->CreateGame("SHIELDBATTERY", "",
+      "C:\\Program Files (x86)\\StarCraft\\Maps\\BroodWar\\(2)Astral Balance.scm", 0x10002,
+      bw::GameSpeed::Fastest);
+  brood_war->InitGameNetwork();
+
+  printf("Game created.\n");
+}
+
+void HandleAddAi(BroodWar* brood_war, char slot_num) {
+  if (brood_war->AddComputer(slot_num - '0')) {
+    printf("Computer added succesfully in slot %c!\n", slot_num);
+  } else {
+    printf("Adding computer FAILED!\n");
+  }
+}
+
+void HandleStartGame(BroodWar* brood_war) {
+  if (brood_war->StartGameCountdown()) {
+    printf("Game countdown started, gl hf gg!\n");
+  } else {
+    printf("Starting game countdown FAILED!\n");
+  }
 }
 
 // this function loops until we're ready to exit, responding to both game (via memory and function
 // hooks) and user (via console) input
 bool MainLoop(BroodWar* brood_war) {
+  bool adding_ai = false;
+
+  printf("\nPress a key to perform an action (%s)\n",
+      "c = Create Game, a# = Add AI in slot #, s = Start countdown, ! = Run Game, q = Quit");
   while (true) {
-    // we have to set the local player name or storm will call a different advertising function
-    brood_war->set_local_player_name("life of lively 2 live");
-    brood_war->CreateGame("SHIELDBATTERY", "MOTHERFUCKER",
-        "C:\\Program Files (x86)\\StarCraft\\Maps\\BroodWar\\(2)Astral Balance.scm", 0x10002,
-        bw::GameSpeed::Fastest);
-
-    brood_war->InitGameNetwork();
-    brood_war->ProcessLobbyTurns(4);
-
-    if (brood_war->AddComputer(1)) {
-      printf("Computer added succesfully in slot 1!\n");
-    } else {
-      printf("Adding computer FAILED!\n");
+    if (!_kbhit()) {
+      brood_war->ProcessLobbyTurn();
+      Sleep(250);
+      continue;
     }
-    brood_war->ProcessLobbyTurns(8);
 
-    if (brood_war->StartGameCountdown()) {
-      printf("Game countdown started, gl hf gg!\n");
-    } else {
-      printf("Starting game countdown FAILED!\n");
+    char key = _getch();
+    switch (key) {
+      case 'c': adding_ai = false; HandleCreateGame(brood_war); break;
+      case 'a': adding_ai = true; break;
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7': adding_ai = false; HandleAddAi(brood_war, key); break;
+      case 's': adding_ai = false; HandleStartGame(brood_war); break;
+      case '!': return true;
+      case 'q': return false;
     }
-    brood_war->ProcessLobbyTurns(12);
-
-    break;
   }
-
-  return true;
 }
 
 void WriteMem(void* dest, void* src, uint32 data_len) {

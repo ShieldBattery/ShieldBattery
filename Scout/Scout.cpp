@@ -20,8 +20,8 @@ void __declspec(naked) __declspec(noreturn) HOOK_entryPoint() {
   func_for_free_ = entryPointHook->callable();
   delete entryPointHook;
   entryPointHook = nullptr;
-  // Now we do some hackery to chain a call to FreeLibrary (to unload this module) into a jmp (well, ret)
-  // back to the now restored entry point
+  // Now we do some hackery to chain a call to FreeLibrary (to unload this module) into a jmp
+  // (well, ret) back to the now restored entry point
   __asm {
     push selfInstance; // hModule param for FreeLibrary
     push func_for_free_; // return address for FreeLibrary

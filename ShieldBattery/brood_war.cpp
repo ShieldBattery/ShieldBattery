@@ -7,17 +7,27 @@
 
 namespace sbat {
 namespace bw {
-BroodWar::BroodWar() {
-  offsets_ = GetOffsets<CURRENT_BROOD_WAR_VERSION>();
+BroodWar::BroodWar()
+    : offsets_(GetOffsets<CURRENT_BROOD_WAR_VERSION>()),
+      lobby_chat_hook_(nullptr) {
   ApplyPatches();
 }
 
-BroodWar::BroodWar(Offsets* broodWarOffsets) {
-  offsets_ = broodWarOffsets;
+BroodWar::BroodWar(Offsets* broodWarOffsets)
+    : offsets_(broodWarOffsets),
+      lobby_chat_hook_(nullptr) {
   ApplyPatches();
 }
 
 BroodWar::~BroodWar() {
+  if(lobby_chat_hook_ != NULL) {
+    delete lobby_chat_hook_;
+  }
+}
+
+void __stdcall ShowLobbyChatHook(char* message) {
+  // eax is the player ID
+  printf("> %s\n", message);
 }
 
 void BroodWar::ApplyPatches() {  // TODO(tec27): yeah... write a better way to do patches
@@ -47,6 +57,12 @@ void BroodWar::ApplyPatches() {  // TODO(tec27): yeah... write a better way to d
   if (!countdown_protect.has_errors()) {
     *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice!
   }
+
+  // TODO(tec27): this is really shit for allowing multiple instances of BroodWar, see TODO in
+  // header.
+  lobby_chat_hook_ = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
+      offsets_->functions.ShowLobbyChatMessage, ShowLobbyChatHook);
+  lobby_chat_hook_->Inject();
 }
 
 PlayerInfo* BroodWar::players() const {
@@ -128,7 +144,7 @@ bool BroodWar::ChooseNetworkProvider(uint32 provider) {
     pop eax;
   }
 
-  return result != 1;
+  return result == 1;
 }
 
 void BroodWar::InitGameNetwork() {
@@ -139,13 +155,8 @@ bool BroodWar::AddComputer(uint32 slot_num) {
   return offsets_->functions.AddComputer(slot_num) == 1;
 }
 
-void BroodWar::ProcessLobbyTurns(uint32 num_turns) {
-  // TODO(tec27): Deal with sleeping outside this function, make this only process 1 turn each
-  // time (e.g. make it a direct mapping to the game function)
-  while (num_turns-- > 0) {
-    Sleep(260);  // ensure that we actually process a turn! See above.
-    offsets_->functions.ProcessLobbyTurn(nullptr);
-  }
+void BroodWar::ProcessLobbyTurn() {
+  offsets_->functions.ProcessLobbyTurn(nullptr);
 }
 
 bool BroodWar::StartGameCountdown() {
@@ -179,6 +190,7 @@ void BroodWar::GetMapsList(const MapListEntryCallback callback) {
   }
 }
 
+// TODO(tec27): this should probably return a bool based on what the BW function returns?
 void BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data) {
   auto select = offsets_->functions.SelectMapOrDirectory;
@@ -203,6 +215,7 @@ void BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::str
   }
 }
 
+// TODO(tec27): see above, return what SelectMapOrDirectory returns?
 bool BroodWar::CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed) {
   std::string map_dir;
@@ -225,9 +238,6 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
   // iterate through the maps list until we find the map we want
   MapListEntry* current_map = offsets_->maps_list_root;
   while (current_map != NULL) {
-    if (current_map->filename[0] != '\0') {
-      printf("Iterating map list: %s\n", current_map->filename);
-    }
     if (map_file.compare(current_map->filename) == 0) {
       break;
     }

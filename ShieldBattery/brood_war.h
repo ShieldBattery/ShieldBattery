@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <cassert>
 #include <string>
+#include "../common/func_hook.h"
 #include "../common/types.h"
 
 #define CURRENT_BROOD_WAR_VERSION sbat::bw::Version::v1161
@@ -50,6 +51,7 @@ struct Functions {
   FUNCDEF(uint32, AddComputer, uint32 slot_num);
   FUNCDEF(uint32, StartGameCountdown);
   FUNCDEF(void, ProcessLobbyTurn, void* unused);
+  FUNCDEF(void, ShowLobbyChatMessage, char* message);
 };
 #undef FUNCDEF
 
@@ -115,6 +117,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::StartGameCountdownFunc>(0x00452460);
   offsets->functions.ProcessLobbyTurn =
       reinterpret_cast<Functions::ProcessLobbyTurnFunc>(0x004D4340);
+  offsets->functions.ShowLobbyChatMessage =
+      reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
 
   offsets->start_from_any_glue_patch = reinterpret_cast<unsigned char*>(0x00487076);
   offsets->storm_unsigned_snp_patch = reinterpret_cast<unsigned char*>(0x0003DDD8);
@@ -155,7 +159,7 @@ public:
   bool ChooseNetworkProvider(uint32 provider = 'SBAT');
   void InitGameNetwork();
   bool AddComputer(uint32 slot_num);
-  void ProcessLobbyTurns(uint32 num_turns = 1);
+  void ProcessLobbyTurn();
   bool StartGameCountdown();
   void RunGameLoop();
 
@@ -166,6 +170,8 @@ private:
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
 
   Offsets* offsets_;
+  // TODO(tec27): really need a class that lets me detour to member functions
+  FuncHook<Functions::ShowLobbyChatMessageFunc>* lobby_chat_hook_;
 };
 }  // namespace bw
 }  // namespace sbat
