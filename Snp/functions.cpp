@@ -7,9 +7,14 @@
 
 namespace sbat {
 namespace snp {
+bool need_to_free_console = false;
+
 int __stdcall Unbind() {
   printf("Unbind called.\n");
-  FreeConsole();
+  if (need_to_free_console) {
+    FreeConsole();
+    need_to_free_console = false;
+  }
 
   // TODO(tec27): Free NetManager object (see Initialize)
 
@@ -65,6 +70,7 @@ int __stdcall Initialize(void* version_info, void* user_data, void* battle_info,
         _O_TEXT), "w");  // correct stdout to point to new console
     *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(GetStdHandle(STD_INPUT_HANDLE)),
         _O_TEXT), "r");  // correct stdin to point to new console
+    need_to_free_console = true;
   }
   printf("Initialize called.\n");
 

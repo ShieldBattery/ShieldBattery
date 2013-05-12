@@ -1,9 +1,9 @@
-#include "./net_manager.h"
+#include "snp/net_manager.h"
 
 #include <Windows.h>
 #include <assert.h>
-#include "../common/types.h"
-#include "./packets.h"
+#include "common/types.h"
+#include "snp/packets.h"
 
 namespace sbat {
 namespace snp {

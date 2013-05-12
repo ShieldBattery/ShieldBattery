@@ -4,8 +4,8 @@
 #include <Windows.h>
 #include <cassert>
 #include <string>
-#include "../common/func_hook.h"
-#include "../common/types.h"
+#include "common/func_hook.h"
+#include "common/types.h"
 
 #define CURRENT_BROOD_WAR_VERSION sbat::bw::Version::v1161
 

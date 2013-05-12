@@ -1,7 +1,7 @@
-#include "./win_helpers.h"
+#include "common/win_helpers.h"
 
 #include <Windows.h>
-#include "./types.h"
+#include "common/types.h"
 
 namespace sbat {
 ScopedVirtualProtect::ScopedVirtualProtect(void* address, size_t size, uint32 new_protection)

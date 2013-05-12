@@ -3,8 +3,8 @@
 
 #include <array>
 #include <Windows.h>
-#include "./types.h"
-#include "./win_helpers.h"
+#include "common/types.h"
+#include "common/win_helpers.h"
 
 namespace sbat {
 // Type for hooking a function at a specific memory location, with methods for replacing and

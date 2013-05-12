@@ -1,9 +1,9 @@
-#include "./brood_war.h"
+#include "shieldbattery/brood_war.h"
 
 #include <Windows.h>
 #include <string>
-#include "../common/types.h"
-#include "../common/win_helpers.h"
+#include "common/types.h"
+#include "common/win_helpers.h"
 
 namespace sbat {
 namespace bw {
@@ -20,7 +20,7 @@ BroodWar::BroodWar(Offsets* broodWarOffsets)
 }
 
 BroodWar::~BroodWar() {
-  if(lobby_chat_hook_ != NULL) {
+  if (lobby_chat_hook_ != NULL) {
     delete lobby_chat_hook_;
   }
 }

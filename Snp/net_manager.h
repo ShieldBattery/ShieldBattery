@@ -2,7 +2,7 @@
 #define SNP_NET_MANAGER_H_
 
 #include <Windows.h>
-#include "../common/win_thread.h"
+#include "common/win_thread.h"
 
 namespace sbat {
 namespace snp {

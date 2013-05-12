@@ -1,8 +1,8 @@
 #ifndef SNP_SNP_H_
 #define SNP_SNP_H_
 
-#include "../common/types.h"
-#include "./functions.h"
+#include "common/types.h"
+#include "snp/functions.h"
 
 namespace sbat {
 namespace snp {

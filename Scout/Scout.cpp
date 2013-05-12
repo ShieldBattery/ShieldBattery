@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <string>
 #include <fstream>
-#include "../common/func_hook.h"
+
+#include "common/func_hook.h"
 
 typedef void (*EntryPointFunc)();
 

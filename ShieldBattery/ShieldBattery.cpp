@@ -6,10 +6,10 @@
 #include <iostream>
 #include <string>
 
-#include "../common/func_hook.h"
-#include "../common/types.h"
-#include "../common/win_helpers.h"
-#include "./brood_war.h"
+#include "common/func_hook.h"
+#include "common/types.h"
+#include "common/win_helpers.h"
+#include "shieldbattery/brood_war.h"
 
 namespace sbat {
 using bw::BroodWar;
@@ -56,13 +56,6 @@ void InitNetworkInfo(BroodWar* brood_war) {
     printf("Could not choose network provider!\n");
   }
   brood_war->set_is_multiplayer(true);
-  // Our SNP will dealloc the console on game finish (what a dick) and then realloc it when we init
-  // it again. Because of this, we do this here to make sure we are always point to the right
-  // stdin and stdout, even when they change
-  *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
-      GetStdHandle(STD_OUTPUT_HANDLE)), _O_TEXT), "w");
-  *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
-      GetStdHandle(STD_INPUT_HANDLE)), _O_TEXT), "r");
 }
 
 void HandleCreateGame(BroodWar* brood_war) {

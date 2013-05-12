@@ -1,8 +1,8 @@
-#include "./snp.h"
+#include "snp/snp.h"
 
 #include <Windows.h>
-#include "./functions.h"
-#include "./packets.h"
+#include "snp/functions.h"
+#include "snp/packets.h"
 
 namespace sbat {
 namespace snp {

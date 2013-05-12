@@ -2,7 +2,7 @@
 #define COMMON_WIN_HELPERS_H_
 
 #include <Windows.h>
-#include "./types.h"
+#include "common/types.h"
 
 // Helper Types/Functions for Windows things, to make them easier/safer to use
 

@@ -1,7 +1,7 @@
 #ifndef SNP_PACKETS_H_
 #define SNP_PACKETS_H_
 
-#include "../common/types.h"
+#include "common/types.h"
 
 #define SNP_PACKET_SIZE 512
 
