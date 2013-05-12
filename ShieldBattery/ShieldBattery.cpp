@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 
+#include "deps/node/src/node.h"
 #include "common/func_hook.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
@@ -14,6 +15,8 @@
 namespace sbat {
 using bw::BroodWar;
 
+char* null_arg = "";
+
 void InitNetworkInfo(BroodWar* brood_war);
 bool MainLoop(BroodWar* brood_war);
 
@@ -21,11 +24,14 @@ typedef void (*GameInitFunc)();
 sbat::FuncHook<GameInitFunc>* gameInitHook;
 void HOOK_gameInit() {
   if (AllocConsole()) {
-    // correct stdout/stdin to point to new console
-    *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
-        GetStdHandle(STD_OUTPUT_HANDLE)), _O_TEXT), "w");
-    *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<int32>(
-        GetStdHandle(STD_INPUT_HANDLE)), _O_TEXT), "r");
+    // correct stdout/stderr/stdin to point to new console
+    FILE* fp;
+    freopen_s(&fp, "CONOUT$", "w", stdout);
+    freopen_s(&fp, "CONOUT$", "w", stderr);
+    freopen_s(&fp, "CONIN$", "r", stdin);
+    // make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog
+    // point to console as well
+    std::ios::sync_with_stdio();
   }
 
   BroodWar brood_war;
@@ -39,6 +45,11 @@ void HOOK_gameInit() {
 
   while (true) {
     InitNetworkInfo(&brood_war);
+
+    char** argv = new char*[1];
+    argv[0] = null_arg;
+    node::Start(0, argv);
+
     bool start_game = MainLoop(&brood_war);
     if (!start_game) break;
 
