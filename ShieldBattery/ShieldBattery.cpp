@@ -15,10 +15,21 @@
 namespace sbat {
 using bw::BroodWar;
 
-char* null_arg = "";
-
 void InitNetworkInfo(BroodWar* brood_war);
 bool MainLoop(BroodWar* brood_war);
+
+void StartNode() {
+  HMODULE module_handle;
+  char path[MAX_PATH];
+  GetModuleHandleExA(
+      GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+      reinterpret_cast<LPCSTR>(&StartNode), &module_handle);
+  GetModuleFileNameA(module_handle, path, sizeof(path));
+
+  char** argv = new char*[1];
+  argv[0] = path;
+  node::Start(1, argv);
+}
 
 typedef void (*GameInitFunc)();
 sbat::FuncHook<GameInitFunc>* gameInitHook;
@@ -34,6 +45,9 @@ void HOOK_gameInit() {
     std::ios::sync_with_stdio();
   }
 
+  StartNode();
+
+  // TODO(tec27): Everything below here should be moved to JS
   BroodWar brood_war;
   brood_war.set_is_brood_war(true);
   brood_war.InitSprites();
@@ -45,10 +59,6 @@ void HOOK_gameInit() {
 
   while (true) {
     InitNetworkInfo(&brood_war);
-
-    char** argv = new char*[1];
-    argv[0] = null_arg;
-    node::Start(0, argv);
 
     bool start_game = MainLoop(&brood_war);
     if (!start_game) break;
@@ -127,20 +137,7 @@ bool MainLoop(BroodWar* brood_war) {
   }
 }
 
-void WriteMem(void* dest, void* src, uint32 data_len) {
-  ScopedVirtualProtect dest_protect(dest, data_len, PAGE_EXECUTE_READWRITE);
-  ScopedVirtualProtect src_protect(src, data_len, PAGE_EXECUTE_READWRITE);
-  CopyMemory(dest, src, data_len);
-}
-
-// TODO(tec27): get rid of this
-void killMultiInstanceCheck() {
-  byte multiInstanceFix[] = { 0xC2, 0x04, 0x00 };
-  WriteMem(reinterpret_cast<void*>(0x004E0380), multiInstanceFix, 3);
-}
-
 extern "C" __declspec(dllexport) void scout_onInject() {
-  killMultiInstanceCheck();
   gameInitHook = new sbat::FuncHook<GameInitFunc>(reinterpret_cast<GameInitFunc>(0x004E08A5),
       HOOK_gameInit);
   gameInitHook->Inject();

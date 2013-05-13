@@ -1,5 +1,11 @@
-var http = require('http');
-http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('Hello World from [' + process.pid + ']\n');
-}).listen(1337, '127.0.0.1');
+/* jshint asi: true, laxcomma: true */
+
+// To avoid needing to recompile all the time, we'd like to keep this JS very small and just make it
+// run external JS. As such, we'll reproduce the behavior of the normal `node myfile.js` in here
+// (which requires setting argv to simulate this).
+var path = require('path')
+  , Module = require('module')
+  , shieldbattery_path = path.dirname(path.resolve(process.argv[0]))
+  , bootstrap_path = path.resolve(shieldbattery_path, './shieldbattery.js')
+process.argv[1] = bootstrap_path
+Module.runMain()
