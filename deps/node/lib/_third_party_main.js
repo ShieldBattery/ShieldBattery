@@ -6,6 +6,6 @@
 var path = require('path')
   , Module = require('module')
   , shieldbattery_path = path.dirname(path.resolve(process.argv[0]))
-  , bootstrap_path = path.resolve(shieldbattery_path, './shieldbattery.js')
+  , bootstrap_path = path.resolve(shieldbattery_path, './js/shieldbattery.js')
 process.argv[1] = bootstrap_path
 Module.runMain()

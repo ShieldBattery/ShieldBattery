@@ -63,10 +63,11 @@
       <AdditionalDependencies>gdi32.lib;user32.lib;winmm.lib;advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(TargetPath)" "$(BROOD_WAR_PATH)" /y /f</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f
+xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>copy ouput dll to BW directory</Message>
+      <Message>copy output file and scripts to shieldbattery dir</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -89,6 +90,13 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>gdi32.lib;user32.lib;winmm.lib;advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f
+xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>copy output file and scripts to shieldbattery dir</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\common\win_helpers.cpp" />
