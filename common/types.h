@@ -1,5 +1,5 @@
-#ifndef SHARED_TYPES_H_
-#define SHARED_TYPES_H_
+#ifndef COMMON_TYPES_H_
+#define COMMON_TYPES_H_
 
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
@@ -12,4 +12,4 @@ typedef __int64 int64;
 
 typedef uint8 byte;
 
-#endif  // SHARED_TYPES_H_
+#endif  // COMMON_TYPES_H_
