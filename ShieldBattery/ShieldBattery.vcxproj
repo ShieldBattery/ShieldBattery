@@ -108,6 +108,30 @@
     <ClInclude Include="shieldbattery.h" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\deps\node\deps\cares\cares.vcxproj">
+      <Project>{74cf319d-6651-e4ed-35fd-b82d47dc2516}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\http_parser\http_parser.vcxproj">
+      <Project>{3d75a4d7-c52c-ea52-8959-bdf659a0ed66}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\openssl\openssl.vcxproj">
+      <Project>{5c6460db-f7b1-5315-a0de-79a9dfc525a1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\uv\libuv.vcxproj">
+      <Project>{603c6853-166f-a229-0ce7-b001caf96c76}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\v8\tools\gyp\v8.vcxproj">
+      <Project>{5f03d104-10bb-b3ba-7021-6a64e7aa221f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\v8\tools\gyp\v8_base.vcxproj">
+      <Project>{49e7eeaf-9054-48c6-88ae-03d0f4968b76}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\v8\tools\gyp\v8_nosnapshot.vcxproj">
+      <Project>{4d6734b5-7d37-17ad-7060-e94cfdae292e}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\deps\node\deps\zlib\zlib.vcxproj">
+      <Project>{7ff6f247-3828-69af-7edb-fb0a9ff393e1}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\deps\node\node.vcxproj">
       <Project>{93f00cd2-1ef7-077b-5ab9-908ec137929f}</Project>
     </ProjectReference>
