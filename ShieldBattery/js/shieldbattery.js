@@ -1,8 +1,5 @@
-console.log('module loaded!');
+var bw = require('bw')
 
-var http = require('http')
+console.log('module loaded!')
 
-http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'})
-  res.end('Hello World from [' + process.pid + ']\n')
-}).listen(1337, '127.0.0.1')
+setTimeout(function() { }, 10000);

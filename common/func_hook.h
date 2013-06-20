@@ -3,8 +3,8 @@
 
 #include <array>
 #include <Windows.h>
-#include "common/types.h"
-#include "common/win_helpers.h"
+#include "./types.h"
+#include "./win_helpers.h"
 
 namespace sbat {
 // Type for hooking a function at a specific memory location, with methods for replacing and
@@ -29,6 +29,8 @@ public:
     }
   }
 
+  // TODO(tec27): This should probably update its original memory directly on hooking, so that its
+  // more amenable to things hooking the same locations. On the other hand, fuck it, JS everything!
   bool Inject() {
     if (injected_) return false;
 
@@ -79,6 +81,39 @@ private:
   byte* function_;
   std::array<byte, 6> original_mem_;
   std::array<byte, 6> hooked_mem_;
+  bool injected_;
+};
+
+// Type for hooking in the middle of a function (e.g. if you want to have your hook only fire
+// *sometimes* when a function is called).
+class MidHook {
+  typedef void (__stdcall* MidHookTarget)();
+
+#pragma pack(push, 1)
+  struct Trampoline {
+    byte pushad;
+    byte call;
+    int32 offset;
+    byte popad;
+    byte retn;
+  };
+#pragma pack(pop)
+
+public:
+  MidHook(void* hook_location, MidHookTarget target);
+  ~MidHook();
+  bool Inject();
+  bool Restore();
+
+private:
+  void SetupHook();
+
+  byte* hook_location_;
+  MidHookTarget target_;
+  Trampoline trampoline_;
+  ScopedVirtualProtect trampoline_protect_;
+  std::array<byte, 5> original_mem_;
+  std::array<byte, 5> hooked_mem_;
   bool injected_;
 };
 }  // namespace sbat

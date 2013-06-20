@@ -63,8 +63,7 @@
       <AdditionalDependencies>gdi32.lib;user32.lib;winmm.lib;advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f
-xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>copy output file and scripts to shieldbattery dir</Message>
@@ -78,9 +77,9 @@ xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;SHIELDBATTERY_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;WIN32_LEAN_AND_MEAN;NDEBUG;_WINDOWS;_USRDLL;SHIELDBATTERY_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(SolutionDir);deps\node\src;deps\node\deps\uv\include;deps\node\deps\v8\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\deps\node\src;$(SolutionDir)\deps\node\deps\uv\include;$(SolutionDir)\deps\node\deps\v8\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -91,23 +90,22 @@ xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
       <AdditionalDependencies>gdi32.lib;user32.lib;winmm.lib;advapi32.lib;iphlpapi.lib;psapi.lib;shell32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f
-xcopy "$(ProjectDir)js\*" "$(SHIELDBATTERY_PATH)js" /s /i /y /f</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>copy output file and scripts to shieldbattery dir</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\func_hook.cpp" />
     <ClCompile Include="..\common\win_helpers.cpp" />
-    <ClCompile Include="brood_war.cpp" />
     <ClCompile Include="shieldbattery.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\func_hook.h" />
     <ClInclude Include="..\common\types.h" />
     <ClInclude Include="..\common\win_helpers.h" />
-    <ClInclude Include="brood_war.h" />
+    <ClInclude Include="shieldbattery.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\deps\node\node.vcxproj">

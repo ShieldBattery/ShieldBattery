@@ -1,24 +1,118 @@
+#include "shieldbattery/shieldbattery.h"
+
 #include <conio.h>
 #include <fcntl.h>
 #include <io.h>
 #include <Windows.h>
 
-#include <iostream>
+#include <queue>
 #include <string>
 
 #include "deps/node/src/node.h"
 #include "common/func_hook.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
-#include "shieldbattery/brood_war.h"
 
 namespace sbat {
-using bw::BroodWar;
+struct WorkRequest {
+  void* data;
+  WorkRequestWorkerFunc worker_func;
+  WorkRequestAfterFunc after_cb;
+  uv_async_t async;
+};
 
-void InitNetworkInfo(BroodWar* brood_war);
-bool MainLoop(BroodWar* brood_war);
+// These will be initialized in our dll initialization functions. As long as they run prior to
+// NodeJS execution beginning, there should be no chance of a race
+static uv_mutex_t work_queue_mutex;
+static uv_cond_t work_queue_cond;
+static bool terminated;
+static std::queue<WorkRequest*>* work_queue;
 
-void StartNode() {
+void MainThreadWorker() {
+  while (true) {
+    WorkRequest* req = nullptr;
+
+    uv_mutex_lock(&work_queue_mutex);
+    if (terminated) {
+      uv_mutex_unlock(&work_queue_mutex);
+      break;
+    }
+    if (work_queue->empty()) {
+      // wait for it to be non-empty
+      uv_cond_wait(&work_queue_cond, &work_queue_mutex);
+    }
+
+    if (terminated) {
+      uv_mutex_unlock(&work_queue_mutex);
+      break;
+    }
+
+    // uv_cond_wait can return spuriously, ensure we actually have items
+    if (!work_queue->empty()) {
+      req = work_queue->front();
+      work_queue->pop();
+    }
+    uv_mutex_unlock(&work_queue_mutex);
+
+    if (req != nullptr) {
+      req->worker_func(req->data);
+      uv_async_send(&req->async);
+    }
+  }
+}
+
+void MainThreadAfterClose(uv_handle_t* closed) {
+  WorkRequest* req = reinterpret_cast<WorkRequest*>(closed->data);
+  delete req;
+}
+
+void MainThreadWorkCompleted(uv_async_t* async, int status) {
+  WorkRequest* req = reinterpret_cast<WorkRequest*>(async->data);
+  req->after_cb(req->data);
+  uv_close(reinterpret_cast<uv_handle_t*>(async), MainThreadAfterClose);
+}
+
+void TerminateMainThread() {
+  if (terminated) {
+    return;
+  }
+
+  uv_mutex_lock(&work_queue_mutex);
+  terminated = true;
+  uv_cond_signal(&work_queue_cond);
+  uv_mutex_unlock(&work_queue_mutex);
+}
+
+// Queues work to run on the main thread. Should be used for things that have affinity for the main
+// thread rather than the v8 thread/threadpool (e.g. things that will be processing Windows
+// messages)
+NODE_EXTERN void QueueWorkForMainThread(void* arg,
+    WorkRequestWorkerFunc worker_func, WorkRequestAfterFunc after_cb) {
+  WorkRequest* req = new WorkRequest();
+  req->data = arg;
+  req->worker_func = worker_func;
+  req->after_cb = after_cb;
+  req->async.data = req;
+
+  if (terminated) {
+    delete req;
+    return;
+  }
+
+  uv_mutex_lock(&work_queue_mutex);
+  if (terminated) {
+    delete req;
+    return;
+  }
+  uv_async_init(uv_default_loop(), &req->async, MainThreadWorkCompleted);
+  work_queue->push(req);
+  uv_cond_signal(&work_queue_cond);
+  uv_mutex_unlock(&work_queue_mutex);
+}
+
+
+
+void StartNode(void* arg) {
   HMODULE module_handle;
   char path[MAX_PATH];
   GetModuleHandleExA(
@@ -29,7 +123,11 @@ void StartNode() {
   char** argv = new char*[1];
   argv[0] = path;
   node::Start(1, argv);
+
+  TerminateMainThread();
 }
+
+
 
 typedef void (*GameInitFunc)();
 sbat::FuncHook<GameInitFunc>* gameInitHook;
@@ -40,101 +138,29 @@ void HOOK_gameInit() {
     freopen_s(&fp, "CONOUT$", "w", stdout);
     freopen_s(&fp, "CONOUT$", "w", stderr);
     freopen_s(&fp, "CONIN$", "r", stdin);
-    // make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog
-    // point to console as well
-    std::ios::sync_with_stdio();
   }
 
-  StartNode();
+  uv_mutex_init(&work_queue_mutex);
+  uv_cond_init(&work_queue_cond);
+  terminated = false;
+  work_queue = new std::queue<WorkRequest*>();
 
-  // TODO(tec27): Everything below here should be moved to JS
-  BroodWar brood_war;
-  brood_war.set_is_brood_war(true);
-  brood_war.InitSprites();
+  uv_thread_t node_thread;
+  uv_thread_create(&node_thread, StartNode, nullptr);
 
-  printf("What's your name, soldier?\n");
-  std::string name;
-  std::getline(std::cin, name);
-  brood_war.set_local_player_name(name);
+  MainThreadWorker();
 
-  while (true) {
-    InitNetworkInfo(&brood_war);
-
-    bool start_game = MainLoop(&brood_war);
-    if (!start_game) break;
-
-    brood_war.RunGameLoop();
-    printf("Game completed...\n");
+  uv_mutex_destroy(&work_queue_mutex);
+  uv_cond_destroy(&work_queue_cond);
+  while (!work_queue->empty()) {
+    WorkRequest* req = work_queue->front();
+    work_queue->pop();
+    uv_close(reinterpret_cast<uv_handle_t*>(&req->async), MainThreadAfterClose);
   }
+  delete work_queue;
 
   delete gameInitHook;
   gameInitHook = nullptr;
-  // TODO(tec27): exit cleanly?
-}
-
-void InitNetworkInfo(BroodWar* brood_war) {
-  if (!brood_war->ChooseNetworkProvider('UDPN'))  {
-    printf("Could not choose network provider!\n");
-  }
-  brood_war->set_is_multiplayer(true);
-}
-
-void HandleCreateGame(BroodWar* brood_war) {
-  brood_war->CreateGame("SHIELDBATTERY", "",
-      "C:\\Program Files (x86)\\StarCraft\\Maps\\BroodWar\\(2)Astral Balance.scm", 0x10002,
-      bw::GameSpeed::Fastest);
-  brood_war->InitGameNetwork();
-
-  printf("Game created.\n");
-}
-
-void HandleAddAi(BroodWar* brood_war, char slot_num) {
-  if (brood_war->AddComputer(slot_num - '0')) {
-    printf("Computer added succesfully in slot %c!\n", slot_num);
-  } else {
-    printf("Adding computer FAILED!\n");
-  }
-}
-
-void HandleStartGame(BroodWar* brood_war) {
-  if (brood_war->StartGameCountdown()) {
-    printf("Game countdown started, gl hf gg!\n");
-  } else {
-    printf("Starting game countdown FAILED!\n");
-  }
-}
-
-// this function loops until we're ready to exit, responding to both game (via memory and function
-// hooks) and user (via console) input
-bool MainLoop(BroodWar* brood_war) {
-  bool adding_ai = false;
-
-  printf("\nPress a key to perform an action (%s)\n",
-      "c = Create Game, a# = Add AI in slot #, s = Start countdown, ! = Run Game, q = Quit");
-  while (true) {
-    if (!_kbhit()) {
-      brood_war->ProcessLobbyTurn();
-      Sleep(250);
-      continue;
-    }
-
-    char key = _getch();
-    switch (key) {
-      case 'c': adding_ai = false; HandleCreateGame(brood_war); break;
-      case 'a': adding_ai = true; break;
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7': adding_ai = false; HandleAddAi(brood_war, key); break;
-      case 's': adding_ai = false; HandleStartGame(brood_war); break;
-      case '!': return true;
-      case 'q': return false;
-    }
-  }
 }
 
 extern "C" __declspec(dllexport) void scout_onInject() {
@@ -142,4 +168,6 @@ extern "C" __declspec(dllexport) void scout_onInject() {
       HOOK_gameInit);
   gameInitHook->Inject();
 }
+
+
 }  // namespace sbat
