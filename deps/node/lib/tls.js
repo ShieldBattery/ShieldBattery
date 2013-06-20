@@ -253,6 +253,9 @@ function CryptoStream(pair, options) {
   this._pendingEncoding = '';
   this._pendingCallback = null;
   this._doneFlag = false;
+  this._retryAfterPartial = false;
+  this._halfRead = false;
+  this._sslOutCb = null;
   this._resumingSession = false;
   this._reading = true;
   this._destroyed = false;
@@ -281,8 +284,14 @@ function onCryptoStreamFinish() {
       // NOTE: first call checks if client has sent us shutdown,
       // second call enqueues shutdown into the BIO.
       if (this.pair.ssl.shutdown() !== 1) {
+        if (this.pair.ssl && this.pair.ssl.error)
+          return this.pair.error();
+
         this.pair.ssl.shutdown();
       }
+
+      if (this.pair.ssl && this.pair.ssl.error)
+        return this.pair.error();
     }
   } else {
     debug('encrypted.onfinish');
@@ -310,6 +319,19 @@ function onCryptoStreamEnd() {
 
   if (this.onend) this.onend();
 }
+
+
+// NOTE: Called once `this._opposite` is set.
+CryptoStream.prototype.init = function init() {
+  var self = this;
+  this._opposite.on('sslOutEnd', function() {
+    if (self._sslOutCb) {
+      var cb = self._sslOutCb;
+      self._sslOutCb = null;
+      cb(null);
+    }
+  });
+};
 
 
 CryptoStream.prototype._write = function write(data, encoding, cb) {
@@ -344,9 +366,8 @@ CryptoStream.prototype._write = function write(data, encoding, cb) {
     this.pair.cleartext.read(0);
 
     // Cycle encrypted data
-    if (this.pair.encrypted._internallyPendingBytes()) {
+    if (this.pair.encrypted._internallyPendingBytes())
       this.pair.encrypted.read(0);
-    }
 
     // Get NPN and Server name when ready
     this.pair.maybeInitFinished();
@@ -354,14 +375,26 @@ CryptoStream.prototype._write = function write(data, encoding, cb) {
     // Whole buffer was written
     if (written === data.length) {
       if (this === this.pair.cleartext) {
-        debug('cleartext.write succeed with ' + data.length + ' bytes');
+        debug('cleartext.write succeed with ' + written + ' bytes');
       } else {
-        debug('encrypted.write succeed with ' + data.length + ' bytes');
+        debug('encrypted.write succeed with ' + written + ' bytes');
       }
 
-      return cb(null);
+      // Invoke callback only when all data read from opposite stream
+      if (this._opposite._halfRead) {
+        assert(this._sslOutCb === null);
+        this._sslOutCb = cb;
+      } else {
+        cb(null);
+      }
+      return;
+    } else if (written !== 0 && written !== -1) {
+      assert(!this._retryAfterPartial);
+      this._retryAfterPartial = true;
+      this._write(data.slice(written), encoding, cb);
+      this._retryAfterPartial = false;
+      return;
     }
-    assert(written === 0 || written === -1);
   } else {
     debug('cleartext.write queue is full');
 
@@ -457,25 +490,44 @@ CryptoStream.prototype._read = function read(size) {
         this._opposite._done();
 
       // EOF
-      return this.push(null);
+      this.push(null);
+    } else {
+      // Bail out
+      this.push('');
     }
+  } else {
+    // Give them requested data
+    if (this.ondata) {
+      var self = this;
+      this.ondata(pool, start, start + bytesRead);
 
-    // Bail out
-    return this.push('');
+      // Consume data automatically
+      // simple/test-https-drain fails without it
+      process.nextTick(function() {
+        self.read(bytesRead);
+      });
+    }
+    this.push(pool.slice(start, start + bytesRead));
   }
 
-  // Give them requested data
-  if (this.ondata) {
-    var self = this;
-    this.ondata(pool, start, start + bytesRead);
+  // Let users know that we've some internal data to read
+  var halfRead = this._internallyPendingBytes() !== 0;
 
-    // Consume data automatically
-    // simple/test-https-drain fails without it
-    process.nextTick(function() {
-      self.read(bytesRead);
-    });
+  // Smart check to avoid invoking 'sslOutEnd' in the most of the cases
+  if (this._halfRead !== halfRead) {
+    this._halfRead = halfRead;
+
+    // Notify listeners about internal data end
+    if (!halfRead) {
+      if (this === this.pair.cleartext) {
+        debug('cleartext.sslOutEnd');
+      } else {
+        debug('encrypted.sslOutEnd');
+      }
+
+      this.emit('sslOutEnd');
+    }
   }
-  return this.push(pool.slice(start, start + bytesRead));
 };
 
 
@@ -587,10 +639,19 @@ CryptoStream.prototype.destroySoon = function(err) {
   if (this.writable)
     this.end();
 
-  if (this._writableState.finished)
+  if (this._writableState.finished && this._opposite._ended) {
     this.destroy();
-  else
-    this.once('finish', this.destroy);
+  } else {
+    // Wait for both `finish` and `end` events to ensure that all data that
+    // was written on this side was read from the other side.
+    var self = this;
+    var waiting = 2;
+    function finish() {
+      if (--waiting === 0) self.destroy();
+    }
+    this._opposite.once('end', finish);
+    this.once('finish', finish);
+  }
 };
 
 
@@ -857,6 +918,8 @@ function SecurePair(credentials, isServer, requestCert, rejectUnauthorized,
   /* Let streams know about each other */
   this.cleartext._opposite = this.encrypted;
   this.encrypted._opposite = this.cleartext;
+  this.cleartext.init();
+  this.encrypted.init();
 
   process.nextTick(function() {
     /* The Connection may be destroyed by an abort call */
@@ -1324,6 +1387,9 @@ function pipe(pair, socket) {
 
   pair.encrypted.on('close', function() {
     process.nextTick(function() {
+      // Encrypted should be unpiped from socket to prevent possible
+      // write after destroy.
+      pair.encrypted.unpipe(socket);
       socket.destroy();
     });
   });

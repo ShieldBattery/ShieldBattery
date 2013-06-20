@@ -225,7 +225,7 @@ that some connections will be handled by the parent and some by the child.
 
 For `dgram` servers the workflow is exactly the same.  Here you listen on
 a `message` event instead of `connection` and use `server.bind` instead of
-`server.listen`.
+`server.listen`.  (Currently only supported on UNIX platforms.)
 
 #### Example: sending socket object
 
@@ -466,11 +466,6 @@ See also: `child_process.exec()` and `child_process.fork()`
 * `command` {String} The command to run, with space-separated arguments
 * `options` {Object}
   * `cwd` {String} Current working directory of the child process
-  * `stdio` {Array|String} Child's stdio configuration. (See above)
-    Only stdin is configurable, anything else will lead to unpredictable
-    results.
-  * `customFds` {Array} **Deprecated** File descriptors for the child to use
-    for stdio.  (See above)
   * `env` {Object} Environment key-value pairs
   * `encoding` {String} (Default: 'utf8')
   * `timeout` {Number} (Default: 0)
@@ -524,9 +519,6 @@ the child process is killed.
 * `args` {Array} List of string arguments
 * `options` {Object}
   * `cwd` {String} Current working directory of the child process
-  * `stdio` {Array|String} Child's stdio configuration. (See above)
-  * `customFds` {Array} **Deprecated** File descriptors for the child to use
-    for stdio.  (See above)
   * `env` {Object} Environment key-value pairs
   * `encoding` {String} (Default: 'utf8')
   * `timeout` {Number} (Default: 0)

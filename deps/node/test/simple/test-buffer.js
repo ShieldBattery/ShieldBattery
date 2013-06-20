@@ -221,6 +221,16 @@ new Buffer(0);
 b.write('', 1024);
 b.write('', 2048);
 
+// throw when writing past bounds from the pool
+assert.throws(function() {
+  b.write('a', 2048);
+}, RangeError);
+
+// throw when writing to negative offset
+assert.throws(function() {
+  b.write('a', -1);
+}, RangeError);
+
 // try to copy 0 bytes worth of data into an empty buffer
 b.copy(new Buffer(0), 0, 0, 0);
 
@@ -979,3 +989,19 @@ assert.throws(function() {
     assert.equal(buf.slice(0, -i), s.slice(0, -i));
   }
 })();
+
+// Make sure byteLength properly checks for base64 padding
+assert.equal(Buffer.byteLength('aaa=', 'base64'), 2);
+assert.equal(Buffer.byteLength('aaaa==', 'base64'), 3);
+
+// Regression test for #5482: should throw but not assert in C++ land.
+assert.throws(function() {
+  Buffer('', 'buffer');
+}, TypeError);
+
+assert.doesNotThrow(function () {
+  var slow = new SlowBuffer(1);
+  assert(slow.write('', Buffer.poolSize * 10) === 0);
+  var fast = new Buffer(1);
+  assert(fast.write('', Buffer.poolSize * 10) === 0);
+});
