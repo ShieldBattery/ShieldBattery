@@ -39,7 +39,7 @@ Developing on the JS side of Shieldbattery will require an install of [node.js](
 cd <node-bw-clone-directory>
 npm link
 cd <shieldbattery-clone-directory>/shieldbattery/js
-npm link node-bw
+npm link bw
 ```
 
 This is a one-time process when you first clone the repo (just make sure you keep the node-bw repo up to date!).
