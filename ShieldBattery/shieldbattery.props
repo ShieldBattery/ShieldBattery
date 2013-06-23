@@ -5,7 +5,9 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c
+rmdir "$(SHIELDBATTERY_PATH)\js"
+mklink /D "$(SHIELDBATTERY_PATH)\js" "$(SolutionDir)$(ProjectName)\js"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>

@@ -2,13 +2,11 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup>
-    <TargetName>shieldbat.snp</TargetName>
-  </PropertyGroup>
+  <PropertyGroup />
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>copy /y /b "$(TargetPath)" + "$(ProjectDir)$(TargetName).mpq" "$(TargetDir)$(TargetName)"
-XCOPY "$(TargetDir)$(TargetName)" "$(BROOD_WAR_PATH)" /y /f</Command>
+      <Command>copy /y /b "$(TargetPath)" + "$(SolutionDir)$(ProjectName)\$(TargetName).mpq" "$(TargetDir)shieldbat.snp"
+XCOPY "$(TargetDir)shieldbat.snp" "$(BROOD_WAR_PATH)" /y /f</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
