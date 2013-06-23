@@ -25,7 +25,7 @@ Generating the project files should be straightforward, simply run `vcbuild.bat`
 
 The various project files are:
 - common: utility classes that are used almost everywhere.
-- scout: multiplexing injectee DLL. I use this with InfectInject, but this method will soon be replaced by Psii.
+- scout: multiplexing injectee DLL. I use this with InfectInject, but this method will soon be replaced by Psi.
 - shieldbattery: Node embedded in a dll that loads a specific JS file on startup.
 - snp: Storm Network Provider dll (generic interface dll that Starcraft uses to e.g. send packets and retrieve game lists).
 
@@ -33,7 +33,7 @@ The various project files are:
 Currently running the code is more of a pain than it needs to be. I utilize an InfectInject'd Starcraft exe to load the scout dll before Starcraft's entry point, and inject in wmode and shieldbattery. If you are very eager to run this, you can do so as well, but Psi will come along shortly and make this easier.
 
 ###JavaScript Setup
-Developing on the JS side of Shieldbattery will require an install of (node.js)[http://nodejs.org/] (the latest version, 0.10.12 at the time of writing, will do fine). Once you have installed node, you'll need to setup a link or install of (node-bw)[https://github.com/tec27/node-bw] in `./shieldbattery/js/`. To do so, you can either use `npm install` or `npm link`. I recommend the latter, as node-bw will be changing rapidly for the time being. To do the link route, first clone node-bw from github, then:
+Developing on the JS side of Shieldbattery will require an install of [node.js](http://nodejs.org/) (the latest version, 0.10.12 at the time of writing, will do fine). Once you have installed node, you'll need to setup a link or install of [node-bw](https://github.com/tec27/node-bw) in `./shieldbattery/js/`. To do so, you can either use `npm install` or `npm link`. I recommend the latter, as node-bw will be changing rapidly for the time being. To do the link route, first clone node-bw from github, then:
 
 ```
 cd <node-bw-clone-directory>
