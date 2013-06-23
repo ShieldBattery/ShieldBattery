@@ -161,3 +161,8 @@ pip-log.txt
 
 # Mac crap
 .DS_Store
+
+# Visual Studio Projects cause we're gyp'ing
+*.sln
+*.vcxproj
+*.vcxproj.filters
