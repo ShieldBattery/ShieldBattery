@@ -33,7 +33,7 @@ if defined noprojgen goto msbuild
 
 @rem Generate the VS project.
 SETLOCAL
-  if defined VS100COMNTOOLS call "%VS100COMNTOOLS%\VCVarsQueryRegistry.bat"
+  if defined VS110COMNTOOLS call "%VS110COMNTOOLS%\VCVarsQueryRegistry.bat"
   call "%~dp0\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%~dp0\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%~dp0"
