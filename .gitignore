@@ -169,3 +169,7 @@ pip-log.txt
 
 # files that get moved from deps/node by the build process (needed for native module builds)
 ./common.gypi
+
+# include some of the build folders cause we need to
+!deps/node/deps/v8/build
+!deps/node/deps/cares/build
