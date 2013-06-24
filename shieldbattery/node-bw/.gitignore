@@ -162,10 +162,4 @@ pip-log.txt
 # Mac crap
 .DS_Store
 
-# Visual Studio Projects cause we're gyp'ing
-*.sln
-*.vcxproj
-*.vcxproj.filters
-
-# files that get moved from deps/node by the build process (needed for native module builds)
-./common.gypi
+node_modules

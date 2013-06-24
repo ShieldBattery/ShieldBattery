@@ -1,0 +1,26 @@
+{
+  "name": "psi",
+  "version": "0.0.1",
+  "description": "Native bindings to Psi, the ShieldBattery launcher and dll injector.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "install.bat"
+  },
+  "repository": "",
+  "keywords": [
+    "starcraft",
+    "brood war",
+    "shieldbattery",
+    "psi"
+  ],
+  "author": "Travis Collins (travis@tec27.com)",
+  "license": "MIT",
+  "gypfile": true,
+  "dependencies": {
+    "bindings": "~1.1.0"
+  },
+  "devDependencies": {
+    "node-gyp": "~0.10.1"
+  }
+}

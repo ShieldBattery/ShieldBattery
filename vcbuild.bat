@@ -2,19 +2,21 @@
 
 @rem Modified version of vcbuild.bat from Node
 
+setx SHIELDBATTERY_DEV_ROOT %~dp0
+set SHIELDBATTERY_DEV_ROOT=%~dp0
+
 @rem Ensure environment properly setup
 if not defined BROOD_WAR_PATH goto env-error
 if not defined SHIELDBATTERY_PATH goto env-error
 
 @rem Process arguments.
-set config=Debug
+set config=Release
 set target=Build
 
 :next-arg
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set config=Debug&goto arg-ok
 if /i "%1"=="release"       set config=Release&goto arg-ok
-if /i "%1"=="clean"         set target=Clean&goto arg-ok
 if /i "%1"=="noprojgen"     set noprojgen=1&goto arg-ok
 if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
 
@@ -37,6 +39,7 @@ SETLOCAL
   call "%~dp0\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%~dp0\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%~dp0"
+  copy "%~dp0\deps\node\common.gypi" .\
   python "deps\node\tools\gyp\gyp" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Dlibrary=static_library -Dtarget_arch=ia32 -Dcomponent=static_library shieldbattery.gyp
   if errorlevel 1 goto create-msvs-files-failed
   if not exist shieldbattery.sln goto create-msvs-files-failed
@@ -62,10 +65,32 @@ goto exit
 :msbuild-found
 @rem Build the sln with msbuild.
 msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
-goto exit
+goto link-modules
 
 :create-msvs-files-failed
 echo Failed to create vc project files for shieldbattery.
+goto exit
+
+:link-modules
+@rem Link up the native modules inside the js directory
+cd "%~dp0\psi\node-psi"
+call npm link
+if errorlevel 1 goto linking-failed
+cd "%~dp0\shieldbattery\node-bw"
+call npm link
+if errorlevel 1 goto linking-failed
+cd "%~dp0\js"
+call npm link psi
+if errorlevel 1 goto linking-failed
+call npm link bw
+if errorlevel 1 goto linking-failed
+rmdir "%SHIELDBATTERY_PATH%\js"
+mklink /D "%SHIELDBATTERY_PATH%\js" "%~dp0\js"
+echo JS modules linked.
+goto exit
+
+:linking-failed
+echo Linking JS modules failed, please check command output and ensure node.js is installed and setup on your PATH.
 goto exit
 
 :env-error
@@ -73,11 +98,12 @@ echo Necessary environment variables not set! Please set BROOD_WAR_PATH and SHIE
 goto exit
 
 :help
-echo vcbuild.bat [debug/release] [clean] [noprojgen] [nobuild]
+echo vcbuild.bat [debug/release] [noprojgen] [nobuild]
 echo Examples:
-echo   vcbuild.bat                : builds debug build
-echo   vcbuild.bat release        : builds release build
+echo   vcbuild.bat                : builds release build
+echo   vcbuild.bat debug          : builds debug build
 goto exit
 
 :exit
+cd "%~dp0"
 goto :EOF

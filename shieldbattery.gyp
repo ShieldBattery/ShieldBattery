@@ -10,13 +10,7 @@
         'defines': [ 'DEBUG', '_DEBUG' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
-            'target_conditions': [
-              ['library=="static_library"', {
-                'RuntimeLibrary': 1, # static debug
-              }, {
-                'RuntimeLibrary': 3, # DLL debug
-              }],
-            ],
+            'RuntimeLibrary': 1, # static debug
             'Optimization': 0, # /Od, no optimization
             'MinimalRebuild': 'false',
             'OmitFramePointers': 'false',
@@ -31,13 +25,7 @@
         'defines': [ 'NDEBUG' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
-            'target_conditions': [
-              ['library=="static_library"', {
-                'RuntimeLibrary': 0, # static release
-              }, {
-                'RuntimeLibrary': 2, # debug release
-              }],
-            ],
+            'RuntimeLibrary': 0, # static release
             'Optimization': 3, # /Ox, full optimization
             'FavorSizeOrSpeed': 1, # /Ot, favour speed over size
             'InlineFunctionExpansion': 2, # /Ob2, inline anything eligible
@@ -178,6 +166,29 @@
       ],
       'dependencies': [
         'common',
+      ],
+    },
+
+    {
+      'target_name': 'psi',
+      'type': 'executable',
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
+      ],
+      'sources': [
+        'psi/psi.cpp',
+        # headers
+        'psi/psi.h',
+      ],
+      'msbuild_props': [
+        '$(SolutionDir)psi/psi.props',
+      ],
+      'dependencies': [
+        'common',
+        'deps/node/node.gyp:node',
       ],
     },
   ]
