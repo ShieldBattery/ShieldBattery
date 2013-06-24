@@ -2,7 +2,7 @@
 The client-side parts of the shieldbattery project, including an injector service, an injected game management DLL, a game network provider, and various other utilities. A lot of this is still in flux and will change rapidly.
 
 ##Developer Setup
-Shieldbattery is a combination of C++ and JavaScript, and thus developing for it requires setting up two separate environments. This is slightly complex due to all the various projects changing at once.
+Shieldbattery is a combination of C++ and JavaScript, and thus developing for it involves two different workflows. A script is included to setup both areas, `vcbuild.bat`. This will both generate C++ project files as well as build the native Node modules and link them into your environment.
 
 Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally.
 
