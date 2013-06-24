@@ -100,11 +100,6 @@
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',
       ],
-      'variables': {
-        'library_files': [
-          'asdf/my_cool_library_file.js',
-        ],
-      },
       'dependencies': [
         'common',
         'deps/node/node.gyp:node',
