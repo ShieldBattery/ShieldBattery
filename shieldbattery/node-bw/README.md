@@ -1,3 +1,3 @@
 # node-bw
 
-Readme coming soon!
+Native Node bindings for Starcraft and Shieldbattery.
