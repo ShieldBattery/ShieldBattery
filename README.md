@@ -26,11 +26,13 @@ The various project files/folders are:
 - common: utility classes that are used almost everywhere.
 - js: All the javascript for the various projects, including linked in node-psi and node-bw.
 - psi: background service that handles launching and injecting Starcraft (also embedded Node).
-  - psi/node-psi: native Node bindings for psi
 - scout: multiplexing injectee DLL. I use this with InfectInject, but this method will soon be replaced by Psi.
 - shieldbattery: Node embedded in a dll that loads a specific JS file on startup.
-  - shieldbattery/node-bw: native Node bindings for Starcraft (and to a slight extent, shieldbattery).
 - snp: Storm Network Provider dll (generic interface dll that Starcraft uses to e.g. send packets and retrieve game lists).
+- node-bw: native V8/Node bindings for Starcraft (and to a slight extent, shieldbattery).
+- node-psi: native V8/Node bindings for psi
+
+The generated `shieldbattery.sln` will contain all of these projects, and is what you should use if you desire to edit the code with an IDE.
 
 ####Running Shieldbattery
 Currently running the code is more of a pain than it needs to be. I utilize an InfectInject'd Starcraft exe to load the scout dll before Starcraft's entry point, and inject in wmode and shieldbattery. If you are very eager to run this, you can do so as well, but Psi will come along shortly and make this easier.
