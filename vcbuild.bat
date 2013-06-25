@@ -2,9 +2,6 @@
 
 @rem Modified version of vcbuild.bat from Node
 
-setx SHIELDBATTERY_DEV_ROOT %~dp0
-set SHIELDBATTERY_DEV_ROOT=%~dp0
-
 @rem Ensure environment properly setup
 if not defined BROOD_WAR_PATH goto env-error
 if not defined SHIELDBATTERY_PATH goto env-error
@@ -65,6 +62,7 @@ goto exit
 :msbuild-found
 @rem Build the sln with msbuild.
 msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
+if errorlevel 1 goto exit
 goto link-modules
 
 :create-msvs-files-failed
@@ -73,10 +71,10 @@ goto exit
 
 :link-modules
 @rem Link up the native modules inside the js directory
-cd "%~dp0\psi\node-psi"
+cd "%~dp0\node-psi"
 call npm link
 if errorlevel 1 goto linking-failed
-cd "%~dp0\shieldbattery\node-bw"
+cd "%~dp0\node-bw"
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%~dp0\js"

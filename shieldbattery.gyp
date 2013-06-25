@@ -76,6 +76,7 @@
         ],
       },
     },
+    'msvs_disabled_warnings': [ 4221, 4068 ],
     'defines': [
       'WIN32',
       '_WIN32_WINNT=0x0600', # minimum version is Windows Vista
@@ -191,5 +192,73 @@
         'deps/node/node.gyp:node',
       ],
     },
-  ]
+
+    # Node native modules
+    {
+      'target_name': 'node-bw',
+      'type': 'shared_library',
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
+      ],
+      'sources': [
+        'node-bw/src/module.cpp',
+        'node-bw/src/brood_war.cpp',
+        'node-bw/src/wrapped_brood_war.cpp',
+        # headers
+        'node-bw/src/brood_war.h',
+        'node-bw/src/wrapped_brood_war.h',
+      ],
+      'dependencies': [
+        'common',
+        'shieldbattery',
+      ],
+      'msvs_disabled_warnings': [ 4506, 4251 ],
+      'product_prefix': '',
+      'product_name': 'bw',
+      'product_extension': 'node',
+      'msvs_configuration_attributes': {
+        'OutputDirectory': '$(SolutionDir)node-bw/$(Configuration)/',
+      },
+      'msbuild_props': [
+        '$(SolutionDir)node-natives.props',
+      ],
+      'defines': [
+        'BUILDING_NODE_EXTENSION',
+      ],
+    },
+
+    {
+      'target_name': 'node-psi',
+      'type': 'shared_library',
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
+      ],
+      'sources': [
+        'node-psi/src/module.cpp',
+      ],
+      'dependencies': [
+        'common',
+        'psi',
+      ],
+      'msvs_disabled_warnings': [ 4506, 4251 ],
+      'product_prefix': '',
+      'product_name': 'psi',
+      'product_extension': 'node',
+      'msvs_configuration_attributes': {
+        'OutputDirectory': '$(SolutionDir)node-psi/$(Configuration)/',
+      },
+      'msbuild_props': [
+        '$(SolutionDir)node-natives.props',
+      ],
+      'defines': [
+        'BUILDING_NODE_EXTENSION',
+      ],
+    },
+  ],
 }
