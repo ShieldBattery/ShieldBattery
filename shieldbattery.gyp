@@ -259,6 +259,9 @@
       'defines': [
         'BUILDING_NODE_EXTENSION',
       ],
+      # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
+      # have to manually specify it even though its alread a project dependency
+      'libraries': [ '-l$(SolutionDir)$(Configuration)/psi.lib' ],
     },
   ],
 }

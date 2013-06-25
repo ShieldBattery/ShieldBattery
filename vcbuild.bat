@@ -36,7 +36,6 @@ SETLOCAL
   call "%~dp0\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%~dp0\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%~dp0"
-  copy "%~dp0\deps\node\common.gypi" .\
   python "deps\node\tools\gyp\gyp" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Dlibrary=static_library -Dtarget_arch=ia32 -Dcomponent=static_library shieldbattery.gyp
   if errorlevel 1 goto create-msvs-files-failed
   if not exist shieldbattery.sln goto create-msvs-files-failed
