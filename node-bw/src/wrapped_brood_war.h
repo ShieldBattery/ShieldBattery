@@ -1,5 +1,5 @@
-#ifndef SRC_WRAPPED_BROOD_WAR_H_
-#define SRC_WRAPPED_BROOD_WAR_H_
+#ifndef NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
+#define NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
 
 #include <node.h>
 
@@ -74,7 +74,7 @@ private:
 
   // unwrapper helper
   template <class T>
-  static BroodWar* Unwrap(T &t) {
+  static BroodWar* Unwrap(const T &t) {
     WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(t.This());
     return wrapped_bw->brood_war_;
   }
@@ -85,4 +85,4 @@ private:
 }  // namespace bw
 }  // namespace sbat
 
-#endif  // SRC_WRAPPED_BROOD_WAR_H_
+#endif  // NODE_BW_SRC_WRAPPED_BROOD_WAR_H_

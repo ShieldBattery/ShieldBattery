@@ -215,7 +215,7 @@
         'common',
         'shieldbattery',
       ],
-      'msvs_disabled_warnings': [ 4506, 4251 ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
       'product_prefix': '',
       'product_name': 'bw',
       'product_extension': 'node',
@@ -241,12 +241,15 @@
       ],
       'sources': [
         'node-psi/src/module.cpp',
+        'node-psi/src/wrapped_process.cpp',
+        # headers
+        'node-psi/src/wrapped_process.h',
       ],
       'dependencies': [
         'common',
         'psi',
       ],
-      'msvs_disabled_warnings': [ 4506, 4251 ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
       'product_prefix': '',
       'product_name': 'psi',
       'product_extension': 'node',
