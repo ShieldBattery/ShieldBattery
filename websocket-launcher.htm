@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Websocket Test Launcher</title>
+</head>
+<body>
+  <button id="launcher-btn">Launch It!</button>
+  <script type="text/javascript" src="http://localhost:33198/socket.io/socket.io.js"></script>
+  <script type="text/javascript">
+    var socket = io.connect('http://localhost:33198')
+
+    document.querySelector('#launcher-btn').addEventListener('click', function() {
+      socket.emit('launch', function(err) {
+        if (err) {
+          console.log('Error launching:')
+          console.dir(err)
+        }
+      })
+    })
+  </script>
+</body>
+</html>

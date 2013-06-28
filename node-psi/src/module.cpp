@@ -3,9 +3,11 @@
 #include <v8.h>
 #include <string>
 
-#include "psi/psi.h"
+#include "common/win_helpers.h"
+#include "node-psi/src/wrapped_process.h"
 
-using sbat::psi::Process;
+using sbat::Process;
+using sbat::psi::WrappedProcess;
 
 using std::wstring;
 
@@ -57,17 +59,16 @@ void LaunchAfter(uv_work_t* req, int status) {
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
 
   Local<Value> err = Local<Value>::New(v8::Null());
-  Local<Value> proc = Local<Value>::New(v8::Null());
-  
+  Handle<Value> proc = Local<Value>::New(v8::Null());
+
   if (context->process->has_errors()) {
     err = Exception::Error(String::New(
-        reinterpret_cast<const uint16_t*>(context->process->error().error_message().c_str())));
+        reinterpret_cast<const uint16_t*>(context->process->error().message().c_str())));
   } else {
-    // TODO(tec27): proc = WrappedProcess
-    proc = String::New("This'll be a process soon l;o;l");
+    proc = WrappedProcess::NewInstance(context->process);
   }
 
-  Local<Value> argv[] = { err, proc };
+  Handle<Value> argv[] = { err, proc };
   TryCatch try_catch;
   context->callback->Call(Context::GetCurrent()->Global(), 2, argv);
 
@@ -79,7 +80,7 @@ void LaunchAfter(uv_work_t* req, int status) {
 
   if (try_catch.HasCaught()) {
     node::FatalException(try_catch);
-  }  
+  }
 }
 
 Handle<Value> LaunchProcess(const Arguments& args) {
@@ -123,7 +124,9 @@ Handle<Value> LaunchProcess(const Arguments& args) {
 }
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
-  exports->Set(String::NewSymbol("launchProcess"), 
+  WrappedProcess::Init();
+
+  exports->Set(String::NewSymbol("launchProcess"),
     FunctionTemplate::New(LaunchProcess)->GetFunction());
 }
 

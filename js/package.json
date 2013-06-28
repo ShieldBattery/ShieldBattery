@@ -1,0 +1,27 @@
+{
+  "name": "shieldbattery-js",
+  "version": "0.0.0",
+  "description": "JS files for ShieldBattery",
+  "main": "shieldbattery-entry.js",
+  "dependencies": {
+    "bw": "~0.0.1",
+    "psi": "~0.0.1",
+    "socket.io": "~0.9.16"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tec27/shieldbattery"
+  },
+  "keywords": [
+    "shieldbattery"
+  ],
+  "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tec27/shieldbattery/issues"
+  }
+}

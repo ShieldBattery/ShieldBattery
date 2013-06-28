@@ -123,6 +123,9 @@
         'common/win_helpers.h',
         'common/win_thread.h',
       ],
+      'direct_dependent_settings': {
+        'libraries': [ '-ladvapi32.lib', ],
+      },
     },
 
     {
@@ -243,6 +246,7 @@
         'node-psi/src/module.cpp',
         'node-psi/src/wrapped_process.cpp',
         # headers
+        'node-psi/src/module.h',
         'node-psi/src/wrapped_process.h',
       ],
       'dependencies': [
@@ -264,7 +268,7 @@
       ],
       # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
       # have to manually specify it even though its alread a project dependency
-      'libraries': [ '-l$(SolutionDir)$(Configuration)/psi.lib' ],
+      'libraries': [ '-l$(SolutionDir)$(Configuration)/psi.lib'],
     },
   ],
 }

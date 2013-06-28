@@ -81,6 +81,8 @@ call npm link psi
 if errorlevel 1 goto linking-failed
 call npm link bw
 if errorlevel 1 goto linking-failed
+call npm install
+if errorlevel 1 goto linking-failed
 rmdir "%SHIELDBATTERY_PATH%\js"
 mklink /D "%SHIELDBATTERY_PATH%\js" "%~dp0\js"
 echo JS modules linked.

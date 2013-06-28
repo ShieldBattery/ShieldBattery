@@ -5,5 +5,24 @@ module.exports.launchProcess = function(params, cb) {
   console.log('launching process with params:')
   console.dir(params)
   var args = typeof params.args == 'string' ? params.args : (params.args || []).join(' ')
-  psi.launchProcess(params.appPath, args, !!params.launchSuspended, params.currentDir || '', cb)
+  psi.launchProcess(params.appPath, args, !!params.launchSuspended, params.currentDir || '',
+    function(err, proc) {
+      if (err) cb(err, proc)
+      else cb(err, new Process(proc));
+    })
+}
+
+function Process(cProcess) {
+  this.cProcess = cProcess
+}
+
+// cb is function(err)
+Process.prototype.injectDll = function(dllPath, injectFuncName, cb) {
+  console.log('injecting ' + dllPath + ', then calling ' + injectFuncName)
+  var boundCb = cb.bind(this)
+  this.cProcess.injectDll(dllPath, injectFuncName, boundCb)
+}
+
+Process.prototype.resume = function() {
+  return this.cProcess.resume()
 }

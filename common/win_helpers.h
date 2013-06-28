@@ -27,12 +27,30 @@ public:
   explicit WindowsError(uint32 error_code);
 
   bool is_error() const;
-  uint32 error_code() const;
-  std::wstring error_message() const;
+  uint32 code() const;
+  std::wstring message() const;
 
 private:
-  uint32 error_code_;
-  std::wstring error_message_;
+  uint32 code_;
+  std::wstring message_;
+};
+
+class Process {
+public:
+  Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,
+    const std::wstring& current_dir);
+  ~Process();
+  bool has_errors() const;
+  WindowsError error() const;
+
+  WindowsError InjectDll(const std::wstring& dll_path, const std::string& inject_function_name);
+  WindowsError Resume();
+private:
+  bool EnableSeDebug();
+
+  static bool se_debug_enabled_;
+  PROCESS_INFORMATION process_info_;
+  WindowsError* error_;
 };
 }  // namespace sbat
 #endif  // COMMON_WIN_HELPERS_H_

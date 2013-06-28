@@ -34,7 +34,7 @@ WrappedBroodWar::WrappedBroodWar()
 }
 
 WrappedBroodWar::~WrappedBroodWar() {
-  delete brood_war_;
+  // BroodWar is a singleton, so we don't want to delete it
 }
 
 Persistent<Function> WrappedBroodWar::constructor;
@@ -92,7 +92,7 @@ Handle<Value> WrappedBroodWar::New(const Arguments& args) {
   WrappedBroodWar* bw = new WrappedBroodWar();
   bw->Wrap(args.This());
 
-  return args.This();
+  return scope.Close(args.This());
 }
 
 Handle<Value> WrappedBroodWar::NewInstance(const Arguments& args) {
