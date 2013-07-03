@@ -6,7 +6,9 @@
 
 #include "./brood_war.h"
 #include "shieldbattery/shieldbattery.h"
+#include "v8-helpers/helpers.h"
 
+using std::wstring;
 using v8::AccessorInfo;
 using v8::Arguments;
 using v8::Boolean;
@@ -64,6 +66,8 @@ void WrappedBroodWar::Init() {
       GetLobbyDirtyFlag, SetLobbyDirtyFlag);
 
   // functions
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("initProcess"),
+      FunctionTemplate::New(InitProcess)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("initSprites"),
       FunctionTemplate::New(InitSprites)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("initPlayerInfo"),
@@ -82,6 +86,8 @@ void WrappedBroodWar::Init() {
       FunctionTemplate::New(StartGameCountdown)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("runGameLoop"),
       FunctionTemplate::New(RunGameLoop)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("loadPlugin"),
+      FunctionTemplate::New(LoadPlugin)->GetFunction());
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -232,7 +238,47 @@ void WrappedBroodWar::SetLobbyDirtyFlag(Local<String> property, Local<Value> val
   bw->set_lobby_dirty_flag(value->BooleanValue());
 }
 
+struct InitProcessContext {
+  Persistent<Function> callback;
+};
+
+void InitProcessAfter(void* arg) {
+  HandleScope scope;
+  InitProcessContext* context = reinterpret_cast<InitProcessContext*>(arg);
+  
+  TryCatch try_catch;
+  context->callback->Call(Context::GetCurrent()->Global(), 0, NULL);
+
+  context->callback.Dispose();
+  delete context;
+
+  if (try_catch.HasCaught()) {
+    node::FatalException(try_catch);
+  }
+}
+
 // function definitions
+Handle<Value> WrappedBroodWar::InitProcess(const Arguments& args) {
+  // This only needs to be called once per process launch, but calling it multiple times will not
+  // harm anything
+  HandleScope scope;
+
+  if (args.Length() < 1) {
+    ThrowException(Exception::Error(String::New("Incorrect number of arguments")));
+    return scope.Close(v8::Undefined());
+  } else if (!args[0]->IsFunction()) {
+    ThrowException(Exception::TypeError(String::New("Expected callback function")));
+    return scope.Close(v8::Undefined());
+  }
+
+  InitProcessContext* context = new InitProcessContext;
+  context->callback = Persistent<Function>::New(args[0].As<Function>());
+
+  sbat::InitializeProcess(context, InitProcessAfter);
+
+  return scope.Close(v8::Undefined());
+}
+
 Handle<Value> WrappedBroodWar::InitSprites(const Arguments& args) {
   HandleScope scope;
 
@@ -392,6 +438,26 @@ struct GameLoopContext {
   // TODO(tec27): results from the game to pass back?
 };
 
+void RunGameLoopWork(void* arg) {
+  GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
+  context->bw->RunGameLoop();
+}
+
+void RunGameLoopAfter(void* arg) {
+  HandleScope scope;
+
+  GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
+  TryCatch try_catch;
+  context->cb->Call(Context::GetCurrent()->Global(), 0, NULL);
+
+  context->cb.Dispose();
+  delete context;
+
+  if (try_catch.HasCaught()) {
+    node::FatalException(try_catch);
+  }
+}
+
 Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
   // It is a very bad idea to try to run multiple game loops at once, but in the interest of keeping
   // the C++ side of things simple I'm not going to handle this case here. The JS wrapper will
@@ -408,34 +474,82 @@ Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
   }
   Local<Function> cb = Local<Function>::Cast(args[0]);
 
-  GameLoopContext* context = new GameLoopContext();
+  GameLoopContext* context = new GameLoopContext;
   context->cb = Persistent<Function>::New(cb);
   context->bw = WrappedBroodWar::Unwrap(args);
 
-  sbat::QueueWorkForMainThread(context,
-      WrappedBroodWar::AsyncRunGameLoop, WrappedBroodWar::AsyncAfterRunGameLoop);
+  sbat::QueueWorkForUiThread(context, RunGameLoopWork, RunGameLoopAfter);
 
   return scope.Close(v8::Undefined());
 }
 
-void WrappedBroodWar::AsyncRunGameLoop(void* arg) {
-  GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
-  context->bw->RunGameLoop();
+struct LoadPluginContext {
+  uv_work_t req;
+  wstring* plugin_path;
+  Persistent<Function> callback;
+
+  WindowsError* error;
+};
+
+void LoadPluginWork(uv_work_t* req) {
+  LoadPluginContext* context = reinterpret_cast<LoadPluginContext*>(req->data);
+  HMODULE handle = LoadLibraryW(context->plugin_path->c_str());
+  if (handle != NULL) {
+    context->error = new WindowsError();
+  } else {
+    context->error = new WindowsError(GetLastError());
+  }
 }
 
-void WrappedBroodWar::AsyncAfterRunGameLoop(void* arg) {
+void LoadPluginAfter(uv_work_t* req, int status) {
   HandleScope scope;
+  LoadPluginContext* context = reinterpret_cast<LoadPluginContext*>(req->data);
 
-  GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
+  Local<Value> err = Local<Value>::New(v8::Null());
+  if (context->error->is_error()) {
+    err = Exception::Error(
+        String::New(reinterpret_cast<const uint16_t*>(context->error->message().c_str())));
+  }
+
+  Local<Value> argv[] = { err };
   TryCatch try_catch;
-  context->cb->Call(Context::GetCurrent()->Global(), 0, NULL);
+  context->callback->Call(Context::GetCurrent()->Global(), 1, argv);
 
-  context->cb.Dispose();
+  context->callback.Dispose();
+  delete context->plugin_path;
+  delete context->error;
   delete context;
 
   if (try_catch.HasCaught()) {
     node::FatalException(try_catch);
   }
+}
+
+Handle<Value> WrappedBroodWar::LoadPlugin(const Arguments& args) {
+  // TODO(tec27): for now this is just loading a DLL, eventually this should handle some sort of
+  // plugin API (or not, I dunno yet)
+  HandleScope scope;
+
+  if (args.Length() < 2) {
+    ThrowException(Exception::Error(String::New("Incorrect number of arguments")));
+    return scope.Close(v8::Undefined());
+  }
+  if (!args[0]->IsString() && !args[0]->IsStringObject()) {
+    ThrowException(Exception::TypeError(String::New("pluginPath must be a string")));
+    return scope.Close(v8::Undefined());
+  }
+  if (!args[1]->IsFunction()) {
+    ThrowException(Exception::TypeError(String::New("callback must be a function")));
+    return scope.Close(v8::Undefined());
+  }
+
+  LoadPluginContext* context = new LoadPluginContext;
+  context->plugin_path = ToWstring(args[0].As<String>());
+  context->callback = Persistent<Function>::New(args[1].As<Function>());
+  context->req.data = context;
+  uv_queue_work(uv_default_loop(), &context->req, LoadPluginWork, LoadPluginAfter);
+
+  return scope.Close(v8::Undefined());
 }
 
 }  // namespace bw

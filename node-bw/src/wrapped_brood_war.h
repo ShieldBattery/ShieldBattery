@@ -58,6 +58,7 @@ private:
       const v8::AccessorInfo& info);
 
   // functions
+  static v8::Handle<v8::Value> InitProcess(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitSprites(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitPlayerInfo(const v8::Arguments& args);
   static v8::Handle<v8::Value> ChooseNetworkProvider(const v8::Arguments& args);
@@ -67,10 +68,7 @@ private:
   static v8::Handle<v8::Value> ProcessLobbyTurn(const v8::Arguments& args);
   static v8::Handle<v8::Value> StartGameCountdown(const v8::Arguments& args);
   static v8::Handle<v8::Value> RunGameLoop(const v8::Arguments& args);
-
-  // async helpers
-  static void AsyncRunGameLoop(void* arg);
-  static void AsyncAfterRunGameLoop(void* arg);
+  static v8::Handle<v8::Value> LoadPlugin(const v8::Arguments& args);
 
   // unwrapper helper
   template <class T>

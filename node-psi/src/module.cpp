@@ -1,16 +1,15 @@
+#include "node-psi/src/module.h"
+
 #include <node.h>
 #include <uv.h>
 #include <v8.h>
 #include <string>
 
 #include "common/win_helpers.h"
+#include "v8-helpers/helpers.h"
 #include "node-psi/src/wrapped_process.h"
 
-using sbat::Process;
-using sbat::psi::WrappedProcess;
-
 using std::wstring;
-
 using v8::Arguments;
 using v8::Boolean;
 using v8::Context;
@@ -27,6 +26,9 @@ using v8::ThrowException;
 using v8::TryCatch;
 using v8::Value;
 
+namespace sbat {
+namespace psi {
+
 struct LaunchContext {
   uv_work_t req;
   wstring* app_path;
@@ -37,15 +39,6 @@ struct LaunchContext {
 
   Process* process;
 };
-
-wstring* ToWstring(const Handle<String>& v8_str) {
-  wchar_t* temp = new wchar_t[v8_str->Length() + 1];
-  v8_str->Write(reinterpret_cast<uint16_t*>(temp));
-  wstring* result = new wstring(temp);
-  delete temp;
-
-  return result;
-}
 
 void LaunchWork(uv_work_t* req) {
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
@@ -131,3 +124,6 @@ void Initialize(Handle<Object> exports, Handle<Object> module) {
 }
 
 NODE_MODULE(psi, Initialize);
+
+}  // namespace psi
+}  // namespace sbat

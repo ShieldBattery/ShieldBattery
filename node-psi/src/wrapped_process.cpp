@@ -4,6 +4,7 @@
 #include <string>
 
 #include "common/win_helpers.h"
+#include "v8-helpers/helpers.h"
 #include "node-psi/src/module.h"
 
 using std::string;
@@ -91,7 +92,7 @@ struct InjectDllContext {
 void InjectDllWork(uv_work_t* req) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  context->error = 
+  context->error =
       new WindowsError(context->process->InjectDll(*context->dll_path, *context->inject_func));
 }
 

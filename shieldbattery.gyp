@@ -129,6 +129,33 @@
     },
 
     {
+      # TODO(tec27): roll node native modules into their hosts so this dumb hack of a target isn't
+      # necessary and this can be a static_library instead
+      'target_name': 'v8-helpers',
+      'type': 'none',
+      'sources': [
+        'v8-helpers/helpers.cpp',
+        # headers
+        'v8-helpers/helpers.h',
+      ],
+      'include_dirs': [
+        '.',
+        'deps/node/deps/v8/include',
+      ],
+      'direct_dependent_settings': {
+        'sources': [
+          'v8-helpers/helpers.cpp',
+          # headers
+          'v8-helpers/helpers.h',
+        ],
+        'include_dirs': [
+          '.',
+          'deps/node/deps/v8/include',
+        ],
+      },
+    },
+
+    {
       'target_name': 'snp',
       'type': 'shared_library',
       'include_dirs': [
@@ -216,6 +243,7 @@
       ],
       'dependencies': [
         'common',
+        'v8-helpers',
         'shieldbattery',
       ],
       'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
@@ -251,6 +279,7 @@
       ],
       'dependencies': [
         'common',
+        'v8-helpers',
         'psi',
       ],
       'msvs_disabled_warnings': [ 4506, 4251, 4530 ],

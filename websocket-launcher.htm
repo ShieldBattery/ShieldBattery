@@ -4,10 +4,45 @@
   <title>Websocket Test Launcher</title>
 </head>
 <body>
+  <p>
+    <label for="injectees">Injectees (comma-separated):</label>
+    <input type="text" id="injectees" value="wmode.injectable.dll" />
+  </p>
   <button id="launcher-btn">Launch It!</button>
+  <p id="game-status">Not running</p>
   <script type="text/javascript" src="http://localhost:33198/socket.io/socket.io.js"></script>
   <script type="text/javascript">
-    var socket = io.connect('http://localhost:33198')
+    var socket = io.connect('http://localhost:33198/site')
+      , connectedSockets = 0
+
+    socket.on('hello', function(cb) {
+      cb('world')
+    })
+
+    socket.on('game:connected', function()  {
+      connectedSockets++
+      document.querySelector('#game-status').innerHTML = 'Running'
+    }).on('game:disconnected', function() {
+      connectedSockets--
+      if (connectedSockets <= 0) {
+        document.querySelector('#game-status').innerHTML = 'Not running'
+      }
+    }).on('game:status', function(status) {
+      if (status != 'init') return
+
+      var injectees = document.querySelector('#injectees').value.split(',')
+      socket.emit('game:load', injectees, function(errors) {
+        var launch = true
+        for(var error in errors) {
+          console.log('Error loading ' + error + ': ' + errors[error])
+          launch = false
+        }
+
+        if (launch) {
+          socket.emit('game:start')
+        }
+      })
+    })
 
     document.querySelector('#launcher-btn').addEventListener('click', function() {
       socket.emit('launch', function(err) {

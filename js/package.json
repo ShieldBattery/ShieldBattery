@@ -6,7 +6,8 @@
   "dependencies": {
     "bw": "~0.0.1",
     "psi": "~0.0.1",
-    "socket.io": "~0.9.16"
+    "socket.io": "~0.9.16",
+    "socket.io-client": "~0.9.16"
   },
   "devDependencies": {},
   "scripts": {
