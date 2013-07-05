@@ -129,10 +129,10 @@
     },
 
     {
-      # TODO(tec27): roll node native modules into their hosts so this dumb hack of a target isn't
-      # necessary and this can be a static_library instead
+      # this target should only be used in node extensions. node hosts (shieldbattery, psi) would
+      # need a separate target without the defines
       'target_name': 'v8-helpers',
-      'type': 'none',
+      'type': 'static_library',
       'sources': [
         'v8-helpers/helpers.cpp',
         # headers
@@ -142,17 +142,14 @@
         '.',
         'deps/node/deps/v8/include',
       ],
-      'direct_dependent_settings': {
-        'sources': [
-          'v8-helpers/helpers.cpp',
-          # headers
-          'v8-helpers/helpers.h',
-        ],
-        'include_dirs': [
-          '.',
-          'deps/node/deps/v8/include',
-        ],
-      },
+      'defines': [
+        'USING_UV_SHARED=1',
+        'USING_V8_SHARED=1',
+      ],
+      'defines!': [
+        'BUILDING_UV_SHARED=1',
+        'BUILDING_V8_SHARED=1',
+      ],
     },
 
     {
