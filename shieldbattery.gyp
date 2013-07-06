@@ -126,6 +126,9 @@
       'direct_dependent_settings': {
         'libraries': [ '-ladvapi32.lib', ],
       },
+      'dependencies': [
+        'deps/udis86/udis86.gyp:libudis86'
+      ],
     },
 
     {
