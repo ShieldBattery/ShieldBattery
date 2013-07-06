@@ -116,18 +116,18 @@ public:
   public:
     Builder();
 
-    Builder& SetHookLocation(byte* hook_location);
-    Builder& SetHookLocation(uint32 hook_location);
-    Builder& SetHookLocation(void* hook_location);
+    Builder& At(byte* hook_location);
+    Builder& At(uint32 hook_location);
+    Builder& At(void* hook_location);
 
-    Builder& SetTargetFunction(DetourTarget target_function);
-    Builder& SetTargetFunction(void* target_function);
+    Builder& To(DetourTarget target_function);
+    Builder& To(void* target_function);
 
-    Builder& AddArgument(RegisterArgument argument);
+    Builder& WithArgument(RegisterArgument argument);
 
-    Builder& RunOriginalCodeAfter();
-    Builder& RunOriginalCodeBefore();
-    Builder& DontRunOriginalCode();
+    Builder& RunningOriginalCodeAfter();
+    Builder& RunningOriginalCodeBefore();
+    Builder& NotRunningOriginalCode();
   private:
     byte* hook_location_;
     DetourTarget target_;

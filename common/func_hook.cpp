@@ -16,44 +16,44 @@ Detour::Builder::Builder()
     run_original_(RunOriginalCodeType::After) {
 }
 
-Detour::Builder& Detour::Builder::SetHookLocation(byte* hook_location) {
+Detour::Builder& Detour::Builder::At(byte* hook_location) {
   hook_location_ = hook_location;
   return *this;
 }
 
-Detour::Builder& Detour::Builder::SetHookLocation(uint32 hook_location) {
-  return SetHookLocation(reinterpret_cast<byte*>(hook_location));
+Detour::Builder& Detour::Builder::At(uint32 hook_location) {
+  return At(reinterpret_cast<byte*>(hook_location));
 }
 
-Detour::Builder& Detour::Builder::SetHookLocation(void* hook_location) {
-  return SetHookLocation(reinterpret_cast<byte*>(hook_location));
+Detour::Builder& Detour::Builder::At(void* hook_location) {
+  return At(reinterpret_cast<byte*>(hook_location));
 }
 
-Detour::Builder& Detour::Builder::SetTargetFunction(Detour::DetourTarget target_function) {
+Detour::Builder& Detour::Builder::To(Detour::DetourTarget target_function) {
   target_ = target_function;
   return *this;
 }
 
-Detour::Builder& Detour::Builder::SetTargetFunction(void* target_function) {
-  return SetTargetFunction(reinterpret_cast<DetourTarget>(target_function));
+Detour::Builder& Detour::Builder::To(void* target_function) {
+  return To(reinterpret_cast<DetourTarget>(target_function));
 }
 
-Detour::Builder& Detour::Builder::AddArgument(RegisterArgument argument) {
+Detour::Builder& Detour::Builder::WithArgument(RegisterArgument argument) {
   arguments_.push_back(argument);
   return *this;
 }
 
-Detour::Builder& Detour::Builder::RunOriginalCodeAfter() {
+Detour::Builder& Detour::Builder::RunningOriginalCodeAfter() {
   run_original_ = RunOriginalCodeType::After;
   return *this;
 }
 
-Detour::Builder& Detour::Builder::RunOriginalCodeBefore() {
+Detour::Builder& Detour::Builder::RunningOriginalCodeBefore() {
   run_original_ = RunOriginalCodeType::Before;
   return *this;
 }
 
-Detour::Builder& Detour::Builder::DontRunOriginalCode() {
+Detour::Builder& Detour::Builder::NotRunningOriginalCode() {
   run_original_ = RunOriginalCodeType::Never;
   return *this;
 }

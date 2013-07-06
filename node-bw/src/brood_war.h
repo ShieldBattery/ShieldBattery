@@ -207,11 +207,9 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
 
   offsets->detours.ProcessLobbyPlayerTurns = new Detour(Detour::Builder()
-      .SetHookLocation(0x00486059)
-      .RunOriginalCodeAfter()
-      .AddArgument(RegisterArgument::Eax)  // packet type
-      .AddArgument(RegisterArgument::Ebx)  // packet data
-      .SetTargetFunction(BroodWar::OnProcessLobbyTurn));
+      .At(0x00486059).To(BroodWar::OnProcessLobbyTurn)
+      .WithArgument(RegisterArgument::Eax).WithArgument(RegisterArgument::Ebx)
+      .RunningOriginalCodeAfter());
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->storm_unsigned_snp_patch = reinterpret_cast<byte*>(0x0003DDD8);
