@@ -47,6 +47,7 @@ WindowsError::WindowsError(uint32 error_code)
       reinterpret_cast<wchar_t*>(&message_buffer), 0, nullptr);
   if (message_buffer != nullptr) {
     message_ = message_buffer;
+#pragma warning(suppress: 6280)
     LocalFree(message_buffer);
   } else {
     // In some cases, the code we have is not actually a system code. For these, we will simply
@@ -54,7 +55,7 @@ WindowsError::WindowsError(uint32 error_code)
     message_buffer = new wchar_t[11];
     swprintf_s(message_buffer, 11, L"0x%08x", error_code);
     message_ = message_buffer;
-    delete message_buffer;
+    delete[] message_buffer;
   }
 }
 
@@ -217,7 +218,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
       sizeof(context), &bytes_written);
   if (!success || bytes_written != sizeof(context)) {
     uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, alloc_size, MEM_RELEASE);
+    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
     return WindowsError(error);
   }
 
@@ -226,7 +227,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
       sizeof(inject_proc), &bytes_written);
   if (!success || bytes_written != sizeof(inject_proc)) {
     uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, alloc_size, MEM_RELEASE);
+    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
     return WindowsError(error);
   }
 
@@ -234,7 +235,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
       reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc), remote_context, 0,  nullptr);
   if (thread_handle == nullptr) {
     uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, alloc_size, MEM_RELEASE);
+    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
     return WindowsError(error);
   }
 
@@ -242,7 +243,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   DWORD exit_code;
   GetExitCodeThread(thread_handle, &exit_code);
   
-  VirtualFreeEx(process_info_.hProcess, remote_context, alloc_size, MEM_RELEASE);
+  VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
 
   return WindowsError(exit_code);
 }

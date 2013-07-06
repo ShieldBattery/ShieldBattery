@@ -1,8 +1,10 @@
 #ifndef COMMON_FUNC_HOOK_H_
 #define COMMON_FUNC_HOOK_H_
 
-#include <array>
 #include <Windows.h>
+#include <array>
+#include <vector>
+
 #include "./types.h"
 #include "./win_helpers.h"
 
@@ -84,37 +86,74 @@ private:
   bool injected_;
 };
 
-// Type for hooking in the middle of a function (e.g. if you want to have your hook only fire
-// *sometimes* when a function is called).
-class MidHook {
-  typedef void (__stdcall* MidHookTarget)();
+enum class RegisterArgument : byte {
+  Eax = 0x50,
+  Ecx,
+  Edx,
+  Ebx,
+  Esp,  // note that ESP will not be the same as it was prior to the trampoline
+  Ebp,
+  Esi,
+  Edi
+};
 
-#pragma pack(push, 1)
-  struct Trampoline {
-    byte pushad;
-    byte call;
-    int32 offset;
-    byte popad;
-    byte retn;
-  };
-#pragma pack(pop)
+enum class RunOriginalCodeType {
+  After = 0,
+  Before,
+  Never
+};
 
+// Type for hooking in the middle of a function (e.g. if you only want to have your hook fire some
+// of the time when a function is called, or you want to capture some in-function state in it. These
+// sorts of hooks do not require you to restore on each call to get the original functionality, and
+// instead reproduce the overwritten opcodes in a trampoline.
+class Detour {
+  typedef void (__stdcall* DetourTarget)();
 public:
-  MidHook(void* hook_location, MidHookTarget target);
-  ~MidHook();
+  class Builder {
+    friend class Detour;
+
+  public:
+    Builder();
+
+    Builder& SetHookLocation(byte* hook_location);
+    Builder& SetHookLocation(uint32 hook_location);
+    Builder& SetHookLocation(void* hook_location);
+
+    Builder& SetTargetFunction(DetourTarget target_function);
+    Builder& SetTargetFunction(void* target_function);
+
+    Builder& AddArgument(RegisterArgument argument);
+
+    Builder& RunOriginalCodeAfter();
+    Builder& RunOriginalCodeBefore();
+    Builder& DontRunOriginalCode();
+  private:
+    byte* hook_location_;
+    DetourTarget target_;
+    std::vector<RegisterArgument> arguments_;
+    RunOriginalCodeType run_original_;
+  };
+
+  explicit Detour(const Builder& builder);
+  ~Detour();
+
   bool Inject();
   bool Restore();
 
 private:
-  void SetupHook();
+  Detour(const Detour&);
+  Detour& operator=(const Detour&);
 
   byte* hook_location_;
-  MidHookTarget target_;
-  Trampoline trampoline_;
-  ScopedVirtualProtect trampoline_protect_;
-  std::array<byte, 5> original_mem_;
-  std::array<byte, 5> hooked_mem_;
+  uint32 hook_size_;
+  byte* trampoline_;
+  byte* original_;
+  byte* hooked_;
   bool injected_;
+
+  static const byte TRAMPOLINE_PREAMBLE[];
+  static const byte TRAMPOLINE_POSTSCRIPT[];
 };
 }  // namespace sbat
 #endif  // COMMON_FUNC_HOOK_H_

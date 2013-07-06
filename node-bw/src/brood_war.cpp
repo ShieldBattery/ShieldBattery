@@ -47,7 +47,15 @@ void __stdcall BroodWar::ShowLobbyChatHook(char* message) {
   printf("> %s\n", message);
 }
 
-void BroodWar::ApplyPatches() {  // TODO(tec27): yeah... write a better way to do patches
+void __stdcall BroodWar::OnProcessLobbyTurn(uint32 type, byte* data) {
+  uint32 data_type = data[0];  // just to check that the args are passed correctl
+  printf("lobby: type: 0x%02x\tdata: 0x%02x\n", type, data_type);
+}
+
+void BroodWar::ApplyPatches() {
+  offsets_->detours.ProcessLobbyPlayerTurns->Inject();
+
+  // TODO(tec27): yeah... write a better way to do patches
   // Avoid restrictions that only let games start from certain menus
   ScopedVirtualProtect glue_protect(offsets_->start_from_any_glue_patch, 9, PAGE_EXECUTE_READWRITE);
   if (!glue_protect.has_errors()) {

@@ -17,6 +17,8 @@ socket.on('connect', function() {
   var leftToLoad = plugins.length
     , errors = {}
 
+  if (!plugins.length) done()
+
   plugins.forEach(function(plugin) {
     var absolute = path.resolve(shieldbatteryRoot, 'plugins', plugin)
     bw.loadPlugin(absolute, function(err) {

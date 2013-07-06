@@ -30,7 +30,9 @@
     }).on('game:status', function(status) {
       if (status != 'init') return
 
-      var injectees = document.querySelector('#injectees').value.split(',')
+      var injecteesElem = document.querySelector('#injectees')
+      var injectees = injecteesElem.value ?
+          document.querySelector('#injectees').value.split(',') : []
       socket.emit('game:load', injectees, function(errors) {
         var launch = true
         for(var error in errors) {

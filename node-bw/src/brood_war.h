@@ -68,6 +68,10 @@ struct Functions {
 };
 #undef FUNCDEF
 
+struct Detours {
+  Detour* ProcessLobbyPlayerTurns;
+};
+
 struct Offsets {
   PlayerInfo* players;
   char* current_map_path;
@@ -88,6 +92,7 @@ struct Offsets {
   uint32* game_info_dirty_flag;
 
   Functions functions;
+  Detours detours;
 
   byte* start_from_any_glue_patch;
   byte* storm_unsigned_snp_patch;
@@ -100,6 +105,67 @@ enum class Version {
 
 template <Version version>
 Offsets* GetOffsets();
+
+class BroodWar {
+  typedef void (__stdcall *MapListEntryCallback)(MapListEntry* map_data, char* map_name,
+      uint32 file_type);
+
+public:
+  static BroodWar* Get();
+  ~BroodWar();
+
+  bool CreateGame(const std::string& game_name, const std::string& password,
+      const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
+
+  PlayerInfo* players() const;
+  std::string current_map_path() const;
+  std::string current_map_name() const;
+  std::string current_map_folder_path() const;
+  uint32 local_player_id() const;
+  std::string local_player_name() const;
+  void set_local_player_name(const std::string& name);
+  GameSpeed current_game_speed() const;
+  bool is_brood_war() const;
+  void set_is_brood_war(bool is_brood_war);
+  bool is_multiplayer() const;
+  void set_is_multiplayer(bool is_multiplayer);
+  bool is_hosting_game() const;
+  bool was_booted() const;
+  BootReason boot_reason() const;
+  bool lobby_dirty_flag() const;
+  void set_lobby_dirty_flag(bool dirty);
+
+  void InitSprites();
+  void InitPlayerInfo();
+  bool ChooseNetworkProvider(uint32 provider = 'SBAT');
+  void InitGameNetwork();
+  bool AddComputer(uint32 slot_num);
+  uint32 ProcessLobbyTurn();
+  bool StartGameCountdown();
+  void RunGameLoop();
+
+  // Detour hook functions
+  static void __stdcall OnProcessLobbyTurn(uint32 type, byte* data);
+
+private:
+  BroodWar();
+  explicit BroodWar(Offsets* broodWarOffsets);
+  void ApplyPatches(void);
+  void GetMapsList(const MapListEntryCallback callback);
+  void SelectMapOrDirectory(const std::string& game_name, const std::string& password,
+      uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
+
+  // lobby event hooks
+  static void __stdcall ShowLobbyChatHook(char* message);
+  static void __stdcall OnCloseSlotHook(int32 event_src);
+  static void __stdcall OnOpenSlotHook(int32 event_src);
+  static void __stdcall ComputerizeSlotHook();
+
+  Offsets* offsets_;
+
+  static BroodWar* instance_;
+  static FuncHook<Functions::ShowLobbyChatMessageFunc>* lobby_chat_hook_;
+};
 
 template <> inline
 Offsets* GetOffsets<Version::v1161>() {
@@ -140,70 +206,19 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.ShowLobbyChatMessage =
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
 
+  offsets->detours.ProcessLobbyPlayerTurns = new Detour(Detour::Builder()
+      .SetHookLocation(0x00486059)
+      .RunOriginalCodeAfter()
+      .AddArgument(RegisterArgument::Eax)  // packet type
+      .AddArgument(RegisterArgument::Ebx)  // packet data
+      .SetTargetFunction(BroodWar::OnProcessLobbyTurn));
+
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->storm_unsigned_snp_patch = reinterpret_cast<byte*>(0x0003DDD8);
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);
 
   return offsets;
 }
-
-class BroodWar {
-  typedef void (__stdcall *MapListEntryCallback)(MapListEntry* map_data, char* map_name,
-      uint32 file_type);
-
-public:
-  static BroodWar* Get();
-  ~BroodWar();
-
-  bool CreateGame(const std::string& game_name, const std::string& password,
-      const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
-
-  PlayerInfo* players() const;
-  std::string current_map_path() const;
-  std::string current_map_name() const;
-  std::string current_map_folder_path() const;
-  uint32 local_player_id() const;
-  std::string local_player_name() const;
-  void set_local_player_name(const std::string& name);
-  GameSpeed current_game_speed() const;
-  bool is_brood_war() const;
-  void set_is_brood_war(bool is_brood_war);
-  bool is_multiplayer() const;
-  void set_is_multiplayer(bool is_multiplayer);
-  bool is_hosting_game() const;
-  bool was_booted() const;
-  BootReason boot_reason() const;
-  bool lobby_dirty_flag() const;
-  void set_lobby_dirty_flag(bool dirty);
-
-  void InitSprites();
-  void InitPlayerInfo();
-  bool ChooseNetworkProvider(uint32 provider = 'SBAT');
-  void InitGameNetwork();
-  bool AddComputer(uint32 slot_num);
-  uint32 ProcessLobbyTurn();
-  bool StartGameCountdown();
-  void RunGameLoop();
-
-private:
-  BroodWar();
-  explicit BroodWar(Offsets* broodWarOffsets);
-  void ApplyPatches(void);
-  void GetMapsList(const MapListEntryCallback callback);
-  void SelectMapOrDirectory(const std::string& game_name, const std::string& password,
-      uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
-  
-  // lobby event hooks
-  static void __stdcall ShowLobbyChatHook(char* message);
-  static void __stdcall OnCloseSlotHook(int32 event_src);
-  static void __stdcall OnOpenSlotHook(int32 event_src);
-  static void __stdcall ComputerizeSlotHook();
-
-  Offsets* offsets_;
-
-  static BroodWar* instance_;
-  static FuncHook<Functions::ShowLobbyChatMessageFunc>* lobby_chat_hook_;
-};
 }  // namespace bw
 }  // namespace sbat
 #endif  // SRC_BROOD_WAR_H_
