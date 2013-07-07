@@ -236,9 +236,11 @@
       'sources': [
         'node-bw/src/module.cpp',
         'node-bw/src/brood_war.cpp',
+        'node-bw/src/immediate.cpp',
         'node-bw/src/wrapped_brood_war.cpp',
         # headers
         'node-bw/src/brood_war.h',
+        'node-bw/src/immediate.h',
         'node-bw/src/wrapped_brood_war.h',
       ],
       'dependencies': [

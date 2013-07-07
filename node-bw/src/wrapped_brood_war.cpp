@@ -2,15 +2,24 @@
 
 #include <node.h>
 #include <uv.h>
+#include <list>
+#include <map>
 #include <string>
+#include <vector>
 
 #include "./brood_war.h"
+#include "./immediate.h"
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
+using std::list;
+using std::make_pair;
+using std::map;
+using std::vector;
 using std::wstring;
 using v8::AccessorInfo;
 using v8::Arguments;
+using v8::Array;
 using v8::Boolean;
 using v8::Context;
 using v8::Exception;
@@ -19,6 +28,7 @@ using v8::FunctionTemplate;
 using v8::Handle;
 using v8::HandleScope;
 using v8::Int32;
+using v8::Integer;
 using v8::Local;
 using v8::Object;
 using v8::Persistent;
@@ -31,63 +41,82 @@ using v8::Value;
 namespace sbat {
 namespace bw {
 
+map<WrappedBroodWar*, WrappedBroodWar::EventHandlerMap> WrappedBroodWar::event_handlers_;
+
+EventHandlerContext::EventHandlerContext(Handle<Function> callback)
+    : callback_(Persistent<Function>::New(callback)) {
+}
+
+EventHandlerContext::~EventHandlerContext() {
+  callback_.Dispose();
+}
+
+Handle<Function> EventHandlerContext::callback() const {
+  return callback_;
+}
+
 WrappedBroodWar::WrappedBroodWar()
-  : brood_war_(BroodWar::Get()) {
+    : brood_war_(BroodWar::Get()) {
+  event_handlers_.insert(make_pair(this, WrappedBroodWar::EventHandlerMap()));
 }
 
 WrappedBroodWar::~WrappedBroodWar() {
   // BroodWar is a singleton, so we don't want to delete it
+  event_handlers_.erase(this);
 }
 
 Persistent<Function> WrappedBroodWar::constructor;
 
 void WrappedBroodWar::Init() {
+  BroodWar* bw = BroodWar::Get();
+  EventHandlers handlers;
+  handlers.OnLobbyDownloadStatus = OnLobbyDownloadStatus;
+  handlers.OnLobbySlotChange = OnLobbySlotChange;
+  handlers.OnLobbyStartCountdown = OnLobbyStartCountdown;
+  handlers.OnLobbyGameInit = OnLobbyGameInit;
+  handlers.OnLobbyMissionBriefing = OnLobbyMissionBriefing;
+  handlers.OnLobbyChatMessage = OnLobbyChatMessage;
+  bw->set_event_handlers(handlers);
+
   Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
   tpl->SetClassName(String::NewSymbol("CBroodWar"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // accessors
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("currentMapPath"), GetCurrentMapPath);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("currentMapName"), GetCurrentMapName);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("currentMapFolderPath"),
-      GetCurrentMapFolderPath);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("localPlayerId"), GetLocalPlayerId);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("localPlayerName"),
-      GetLocalPlayerName, SetLocalPlayerName);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("gameSpeed"), GetGameSpeed);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("isBroodWar"),
-      GetIsBroodWar, SetIsBroodWar);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("isMultiplayer"),
-      GetIsMultiplayer, SetIsMultiplayer);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("isHostingGame"), GetIsHostingGame);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("wasBooted"), GetWasBooted);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("bootReason"), GetBootReason);
-  tpl->PrototypeTemplate()->SetAccessor(String::NewSymbol("lobbyDirtyFlag"),
-      GetLobbyDirtyFlag, SetLobbyDirtyFlag);
+  SetProtoAccessor(tpl, "currentMapPath", GetCurrentMapPath);
+  SetProtoAccessor(tpl, "currentMapName", GetCurrentMapName);
+  SetProtoAccessor(tpl, "currentMapFolderPath", GetCurrentMapFolderPath);
+  SetProtoAccessor(tpl, "localPlayerId", GetLocalPlayerId);
+  SetProtoAccessor(tpl, "localPlayerName", GetLocalPlayerName, SetLocalPlayerName);
+  SetProtoAccessor(tpl, "gameSpeed", GetGameSpeed);
+  SetProtoAccessor(tpl, "isBroodWar", GetIsBroodWar, SetIsBroodWar);
+  SetProtoAccessor(tpl, "isMultiplayer", GetIsMultiplayer, SetIsMultiplayer);
+  SetProtoAccessor(tpl, "isHostingGame", GetIsHostingGame);
+  SetProtoAccessor(tpl, "wasBooted", GetWasBooted);
+  SetProtoAccessor(tpl, "bootReason", GetBootReason);
+  SetProtoAccessor(tpl, "lobbyDirtyFlag", GetLobbyDirtyFlag, SetLobbyDirtyFlag);
+
+#define EVENT_HANDLER(name) SetProtoAccessor(tpl, (##name), GetEventHandler, SetEventHandler);
+  EVENT_HANDLER("onLobbyDownloadStatus");
+  EVENT_HANDLER("onLobbySlotChange");
+  EVENT_HANDLER("onLobbyStartCountdown");
+  EVENT_HANDLER("onLobbyGameInit");
+  EVENT_HANDLER("onLobbyMissionBriefing");
+  EVENT_HANDLER("onLobbyChatMessage");
+#undef EVENT_HANDLER
 
   // functions
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("initProcess"),
-      FunctionTemplate::New(InitProcess)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("initSprites"),
-      FunctionTemplate::New(InitSprites)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("initPlayerInfo"),
-      FunctionTemplate::New(InitPlayerInfo)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("chooseNetworkProvider"),
-      FunctionTemplate::New(ChooseNetworkProvider)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("createGame"),
-      FunctionTemplate::New(CreateGame)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("initGameNetwork"),
-      FunctionTemplate::New(InitGameNetwork)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("addComputer"),
-      FunctionTemplate::New(AddComputer)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("processLobbyTurn"),
-      FunctionTemplate::New(ProcessLobbyTurn)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("startGameCountdown"),
-      FunctionTemplate::New(StartGameCountdown)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("runGameLoop"),
-      FunctionTemplate::New(RunGameLoop)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("loadPlugin"),
-      FunctionTemplate::New(LoadPlugin)->GetFunction());
+  SetProtoMethod(tpl, "initProcess", InitProcess);
+  SetProtoMethod(tpl, "initSprites", InitSprites);
+  SetProtoMethod(tpl, "initPlayerInfo", InitPlayerInfo);
+  SetProtoMethod(tpl, "chooseNetworkProvider", ChooseNetworkProvider);
+  SetProtoMethod(tpl, "createGame", CreateGame);
+  SetProtoMethod(tpl, "initGameNetwork", InitGameNetwork);
+  SetProtoMethod(tpl, "addComputer", AddComputer);
+  SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
+  SetProtoMethod(tpl, "startGameCountdown", StartGameCountdown);
+  SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
+  SetProtoMethod(tpl, "loadPlugin", LoadPlugin);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -238,6 +267,41 @@ void WrappedBroodWar::SetLobbyDirtyFlag(Local<String> property, Local<Value> val
   bw->set_lobby_dirty_flag(value->BooleanValue());
 }
 
+Handle<Value> WrappedBroodWar::GetEventHandler(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+
+  String::Utf8Value name(property);
+  std::string std_name(*name);
+  WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(info.This());
+
+  auto i = event_handlers_[wrapped_bw].find(std_name);
+  if (i != event_handlers_[wrapped_bw].end()) {
+    return scope.Close(i->second.callback());
+  }
+
+  return scope.Close(v8::Undefined());
+}
+
+void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value,
+    const AccessorInfo& info) {
+  HandleScope scope;
+
+  if (!value->IsFunction() && !value->IsUndefined() && !value->IsNull()) {
+    ThrowException(Exception::TypeError(String::New("callback must be a function")));
+    return;
+  }
+
+  String::Utf8Value name(property);
+  std::string std_name(*name);
+  WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(info.This());
+
+  if (!value->IsFunction()) {
+    event_handlers_[wrapped_bw].erase(std_name);
+  } else {
+    event_handlers_[wrapped_bw].insert(make_pair(std_name, value.As<Function>()));
+  }
+}
+
 struct InitProcessContext {
   Persistent<Function> callback;
 };
@@ -245,7 +309,7 @@ struct InitProcessContext {
 void InitProcessAfter(void* arg) {
   HandleScope scope;
   InitProcessContext* context = reinterpret_cast<InitProcessContext*>(arg);
-  
+
   TryCatch try_catch;
   context->callback->Call(Context::GetCurrent()->Global(), 0, NULL);
 
@@ -550,6 +614,114 @@ Handle<Value> WrappedBroodWar::LoadPlugin(const Arguments& args) {
   uv_queue_work(uv_default_loop(), &context->req, LoadPluginWork, LoadPluginAfter);
 
   return scope.Close(v8::Undefined());
+}
+
+struct EventHandlerCallbackInfo {
+  std::string* method_name;
+  vector<Persistent<Value>>* args;
+};
+
+void EventHandlerImmediate(void* arg) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = reinterpret_cast<EventHandlerCallbackInfo*>(arg);
+
+  for (auto it = WrappedBroodWar::event_handlers_.begin(); 
+      it != WrappedBroodWar::event_handlers_.end(); ++it) {
+    WrappedBroodWar* wrapped_bw = it->first;
+    auto cb_it = it->second.find(*info->method_name);
+    if (cb_it == it->second.end()) {
+      continue;
+    }
+
+    TryCatch try_catch;
+    Handle<Function> cb = cb_it->second.callback();
+    cb->Call(wrapped_bw->handle_, info->args->size(),
+        (info->args->empty() ? nullptr : &(*info->args)[0]));
+
+    for (auto arg_it = info->args->begin(); arg_it != info->args->end(); ++arg_it) {
+      arg_it->Dispose();
+    }
+    delete info->method_name;
+    delete info->args;
+
+    if (try_catch.HasCaught()) {
+      node::FatalException(try_catch);
+    }
+  }
+}
+
+// I don't think we want to assume these will always be running on the same thread, so I use
+// immediate here to trigger the callbacks ASAPly on the node thread. It just so happens that
+// currently all the lobby events DO happen on the node thread, but this will be more useful for
+// things like ingame hooks.
+void WrappedBroodWar::OnLobbyDownloadStatus(byte slot, byte download_percent) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbyDownloadStatus");
+  info->args = new vector<Persistent<Value>>;
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(download_percent)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnLobbySlotChange(byte slot, byte storm_id, byte type, byte race, byte team) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbySlotChange");
+  info->args = new vector<Persistent<Value>>;
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(storm_id)));
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(type)));
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(race)));
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(team)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnLobbyStartCountdown() {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbyStartCountdown");
+  info->args = new vector<Persistent<Value>>;
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbyGameInit");
+  info->args = new vector<Persistent<Value>>;
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(random_seed)));
+  Local<Array> player_array = Array::New(8);
+  for (int i = 0; i < 8; i++) {
+    player_array->Set(i, Integer::NewFromUnsigned(player_bytes[i]));
+  }
+  info->args->push_back(Persistent<Array>::New(player_array));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnLobbyMissionBriefing(byte slot) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbyMissionBriefing");
+  info->args = new vector<Persistent<Value>>;
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnLobbyChatMessage(byte slot, const std::string& message) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onLobbyChatMessage");
+  info->args = new vector<Persistent<Value>>;
+  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+  info->args->push_back(Persistent<String>::New(String::New(message.c_str())));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 }  // namespace bw

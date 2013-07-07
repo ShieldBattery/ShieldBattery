@@ -2,7 +2,6 @@
 #define SRC_BROOD_WAR_H_
 
 #include <Windows.h>
-#include <cassert>
 #include <string>
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -50,6 +49,15 @@ enum class BootReason {
   CantAuthenticateMap
 };
 
+#pragma pack(push)
+#pragma pack(1)
+struct LobbyGameInitData {
+  byte game_init_command;
+  uint32 random_seed;
+  byte player_bytes[8];
+};
+#pragma pack(pop)
+
 #define FUNCDEF(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
     ##Name##Func Name;
 struct Functions {
@@ -69,7 +77,24 @@ struct Functions {
 #undef FUNCDEF
 
 struct Detours {
-  Detour* ProcessLobbyPlayerTurns;
+  Detour* OnLobbyDownloadStatus;
+  Detour* OnLobbySlotChange;
+  Detour* OnLobbyStartCountdown;
+  Detour* OnLobbyGameInit;
+  Detour* OnLobbyMissionBriefing;
+};
+
+struct FuncHooks {
+  FuncHook<Functions::ShowLobbyChatMessageFunc>* LobbyChatShowMessage;
+};
+
+struct EventHandlers {
+  void (*OnLobbyDownloadStatus)(byte slot, byte download_percent);
+  void (*OnLobbySlotChange)(byte slot, byte storm_id, byte type, byte race, byte team);
+  void (*OnLobbyStartCountdown)();
+  void (*OnLobbyGameInit)(uint32 random_seed, byte player_bytes[8]);
+  void (*OnLobbyMissionBriefing)(byte slot);
+  void (*OnLobbyChatMessage)(byte slot, const std::string& message);
 };
 
 struct Offsets {
@@ -93,6 +118,7 @@ struct Offsets {
 
   Functions functions;
   Detours detours;
+  FuncHooks func_hooks;
 
   byte* start_from_any_glue_patch;
   byte* storm_unsigned_snp_patch;
@@ -113,6 +139,8 @@ class BroodWar {
 public:
   static BroodWar* Get();
   ~BroodWar();
+
+  void set_event_handlers(const EventHandlers& handlers);
 
   bool CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
@@ -145,26 +173,28 @@ public:
   void RunGameLoop();
 
   // Detour hook functions
-  static void __stdcall OnProcessLobbyTurn(uint32 type, byte* data);
+  static void __stdcall OnLobbyDownloadStatus(uint32 slot, uint32 download_percent);
+  static void __stdcall OnLobbySlotChange(byte data[6]);
+  static void __stdcall OnLobbyStartCountdown();
+  static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
+  static void __stdcall OnLobbyMissionBriefing(uint32 slot);
+
+  // FuncHooks
+  static void __stdcall ShowLobbyChatHook(char* message);
 
 private:
   BroodWar();
   explicit BroodWar(Offsets* broodWarOffsets);
-  void ApplyPatches(void);
+  void ApplyPatches();
+  void InjectDetours();
   void GetMapsList(const MapListEntryCallback callback);
   void SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
 
-  // lobby event hooks
-  static void __stdcall ShowLobbyChatHook(char* message);
-  static void __stdcall OnCloseSlotHook(int32 event_src);
-  static void __stdcall OnOpenSlotHook(int32 event_src);
-  static void __stdcall ComputerizeSlotHook();
-
   Offsets* offsets_;
+  EventHandlers* event_handlers_;
 
   static BroodWar* instance_;
-  static FuncHook<Functions::ShowLobbyChatMessageFunc>* lobby_chat_hook_;
 };
 
 template <> inline
@@ -206,10 +236,29 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.ShowLobbyChatMessage =
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
 
-  offsets->detours.ProcessLobbyPlayerTurns = new Detour(Detour::Builder()
-      .At(0x00486059).To(BroodWar::OnProcessLobbyTurn)
-      .WithArgument(RegisterArgument::Eax).WithArgument(RegisterArgument::Ebx)
+  offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
+      .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
+      .WithArgument(RegisterArgument::Ecx).WithArgument(RegisterArgument::Eax)
+      .RunningOriginalCodeBefore());
+  offsets->detours.OnLobbySlotChange = new Detour(Detour::Builder()
+      .At(0x0047148B).To(BroodWar::OnLobbySlotChange)
+      .WithArgument(RegisterArgument::Esi)
       .RunningOriginalCodeAfter());
+  offsets->detours.OnLobbyStartCountdown = new Detour(Detour::Builder()
+      .At(0x0047208E).To(BroodWar::OnLobbyStartCountdown)
+      .RunningOriginalCodeAfter());
+  offsets->detours.OnLobbyGameInit = new Detour(Detour::Builder()
+      .At(0x0047211D).To(BroodWar::OnLobbyGameInit)
+      .WithArgument(RegisterArgument::Edx)
+      .RunningOriginalCodeAfter());
+  offsets->detours.OnLobbyMissionBriefing = new Detour(Detour::Builder()
+      .At(0x00486462).To(BroodWar::OnLobbyMissionBriefing)
+      .WithArgument(RegisterArgument::Eax)
+      .RunningOriginalCodeBefore());
+
+  offsets->func_hooks.LobbyChatShowMessage = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
+      offsets->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
+
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->storm_unsigned_snp_patch = reinterpret_cast<byte*>(0x0003DDD8);

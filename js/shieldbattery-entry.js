@@ -32,24 +32,54 @@ socket.on('connect', function() {
     cb(errors)
   }
 }).on('start', function() {
-  if (!running) {
-    running = true
-    bw.initProcess(function() {
-      console.log('process initialized!')
-      bw.createAndRunGame(function(err) {
-        if (err) {
-          running = false
-          return console.log('Error creating/running game: ' + err)
-        }
+  if (running) return
+  running = true
 
-        console.log('game running!')
-        running = true
-      })
+  bw.initProcess(function() {
+    console.log('process initialized!')
+
+    var gameSettings =
+        { mapPath: 'C:\\Program Files (x86)\\StarCraft\\Maps\\BroodWar\\(2)Astral Balance.scm'
+        , gameType: 0x10002 // melee
+        }
+    bw.createLobby('tec27', gameSettings, onCreateLobby)
+  })
+
+  var lobby
+
+  function onError(err) {
+    running = false
+    console.log(err)
+  }
+
+  function onCreateLobby(err, newLobby) {
+    if (err) return onError(err)
+    lobby = newLobby
+    lobby.addComputer(1, onComputerAdded)
+  }
+
+  function onComputerAdded(err) {
+    if (err) return onError(err)
+    lobby.startCountdown(onCountdownStarted)
+  }
+
+  function onCountdownStarted(err) {
+    if (err) return onError(err)
+    lobby.once('gameInit', function() {
+      lobby.runGameLoop(onGameFinished)
+      console.log('Game started!')
+      running = true
     })
+  }
+
+  function onGameFinished(err) {
+    running = false
+    console.log('Game completed.')
   }
 })
 
 process.on('uncaughtException', function(err) {
-  console.dir(err)
-  setTimeout(function() { process.exit() }, 10000)
+  console.log(err.message)
+  console.log(err.stack)
+  setTimeout(function() { process.exit() }, 20000)
 })

@@ -1,6 +1,7 @@
 #include "./brood_war.h"
 
 #include <Windows.h>
+#include <cassert>
 #include <string>
 #include "common/types.h"
 #include "common/win_helpers.h"
@@ -8,7 +9,6 @@
 namespace sbat {
 namespace bw {
 BroodWar* BroodWar::instance_ = nullptr;
-FuncHook<Functions::ShowLobbyChatMessageFunc>* BroodWar::lobby_chat_hook_ = nullptr;
 
 BroodWar* BroodWar::Get() {
   if (instance_ == nullptr) {
@@ -19,42 +19,89 @@ BroodWar* BroodWar::Get() {
 }
 
 BroodWar::BroodWar()
-    : offsets_(GetOffsets<CURRENT_BROOD_WAR_VERSION>()) {
+    : offsets_(GetOffsets<CURRENT_BROOD_WAR_VERSION>()),
+      event_handlers_(nullptr) {
   ApplyPatches();
+  InjectDetours();
 }
 
 BroodWar::BroodWar(Offsets* broodWarOffsets)
-    : offsets_(broodWarOffsets) {
+    : offsets_(broodWarOffsets),
+      event_handlers_(nullptr) {
   ApplyPatches();
+  InjectDetours();
 }
 
 BroodWar::~BroodWar() {
-#define DELETE_AND_NULL(a) \
-    do { \
-      delete (a); \
-      (a) = nullptr; \
-    } while (0);
-
-  DELETE_AND_NULL(lobby_chat_hook_);
-
-#undef DELETE_AND_NULL
+  delete offsets_;
+  offsets_ = nullptr;
+  delete event_handlers_;
+  event_handlers_ = nullptr;
 
   instance_ = nullptr;
 }
 
-void __stdcall BroodWar::ShowLobbyChatHook(char* message) {
-  // eax is the player ID
-  printf("> %s\n", message);
+void BroodWar::set_event_handlers(const EventHandlers& handlers) {
+  delete event_handlers_;
+  event_handlers_ = new EventHandlers(handlers);
 }
 
-void __stdcall BroodWar::OnProcessLobbyTurn(uint32 type, byte* data) {
-  uint32 data_type = data[0];  // just to check that the args are passed correctl
-  printf("lobby: type: 0x%02x\tdata: 0x%02x\n", type, data_type);
+#define HAVE_HANDLER_FOR(handler) \
+    (instance_ != nullptr && instance_->event_handlers_ != nullptr && \
+    instance_->event_handlers_->##handler != nullptr)
+void __stdcall BroodWar::ShowLobbyChatHook(char* message) {
+  uint32 slot;
+  __asm {
+    mov slot, eax;
+  }
+
+  if (HAVE_HANDLER_FOR(OnLobbyChatMessage)) {
+    instance_->event_handlers_->OnLobbyChatMessage(static_cast<byte>(slot), message);
+  }
+}
+
+void __stdcall BroodWar::OnLobbyDownloadStatus(uint32 slot, uint32 download_percent) {
+  if (HAVE_HANDLER_FOR(OnLobbyDownloadStatus)) {
+    instance_->event_handlers_->OnLobbyDownloadStatus(static_cast<byte>(slot), download_percent);
+  }
+}
+
+void __stdcall BroodWar::OnLobbySlotChange(byte data[6]) {
+  // 3E <b Slot> <b StormId> <b Type> <b Race> <b Team>
+  if (HAVE_HANDLER_FOR(OnLobbySlotChange)) {
+    instance_->event_handlers_->OnLobbySlotChange(data[1], data[2], data[3], data[4], data[5]);
+  }
+}
+
+void __stdcall BroodWar::OnLobbyStartCountdown() {
+  if (HAVE_HANDLER_FOR(OnLobbyStartCountdown)) {
+    instance_->event_handlers_->OnLobbyStartCountdown();
+  }
+}
+
+void __stdcall BroodWar::OnLobbyGameInit(LobbyGameInitData* data) {
+  if (HAVE_HANDLER_FOR(OnLobbyGameInit)) {
+    instance_->event_handlers_->OnLobbyGameInit(data->random_seed, data->player_bytes);
+  }
+}
+
+void __stdcall BroodWar::OnLobbyMissionBriefing(uint32 slot) {
+  if (HAVE_HANDLER_FOR(OnLobbyMissionBriefing)) {
+    instance_->event_handlers_->OnLobbyMissionBriefing(static_cast<byte>(slot));
+  }
+}
+#undef HAVE_HANDLER_FOR
+
+void BroodWar::InjectDetours() {
+  offsets_->detours.OnLobbyDownloadStatus->Inject();
+  offsets_->detours.OnLobbySlotChange->Inject();
+  offsets_->detours.OnLobbyStartCountdown->Inject();
+  offsets_->detours.OnLobbyGameInit->Inject();
+
+  offsets_->func_hooks.LobbyChatShowMessage->Inject();
 }
 
 void BroodWar::ApplyPatches() {
-  offsets_->detours.ProcessLobbyPlayerTurns->Inject();
-
   // TODO(tec27): yeah... write a better way to do patches
   // Avoid restrictions that only let games start from certain menus
   ScopedVirtualProtect glue_protect(offsets_->start_from_any_glue_patch, 9, PAGE_EXECUTE_READWRITE);
@@ -78,12 +125,8 @@ void BroodWar::ApplyPatches() {
   ScopedVirtualProtect countdown_protect(offsets_->game_countdown_delay_patch, 4,
       PAGE_EXECUTE_READWRITE);
   if (!countdown_protect.has_errors()) {
-    *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice!
+    *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice! (this is the minimum)
   }
-
-  lobby_chat_hook_ = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
-      offsets_->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
-  lobby_chat_hook_->Inject();
 }
 
 PlayerInfo* BroodWar::players() const {

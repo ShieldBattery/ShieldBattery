@@ -1,6 +1,7 @@
 #include <node.h>
 #include <v8.h>
 
+#include "./immediate.h"
 #include "./wrapped_brood_war.h"
 
 using v8::Arguments;
@@ -18,6 +19,7 @@ Handle<Value> CreateBroodWar(const Arguments& args) {
 }
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
+  sbat::bw::InitImmediate();
   sbat::bw::WrappedBroodWar::Init();
 
   module->Set(String::NewSymbol("exports"), FunctionTemplate::New(CreateBroodWar)->GetFunction());

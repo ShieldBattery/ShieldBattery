@@ -139,6 +139,7 @@ typedef int (*EntryPointFunc)(HMODULE module_handle);
 sbat::FuncHook<EntryPointFunc>* entry_point_hook;
 int HOOK_EntryPoint(HMODULE module_handle) {
   entry_point_hook->Restore();
+  // TODO(tec27): redirect these to a file so we don't need to have a console any more
   if (AllocConsole()) {
     // correct stdout/stderr/stdin to point to new console
     FILE* fp;

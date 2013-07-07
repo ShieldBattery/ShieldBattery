@@ -2,6 +2,8 @@
 #define NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
 
 #include <node.h>
+#include <map>
+#include <string>
 
 #include "./brood_war.h"
 #include "common/types.h"
@@ -9,10 +11,22 @@
 namespace sbat {
 namespace bw {
 
+class EventHandlerContext {
+public:
+  EventHandlerContext(v8::Handle<v8::Function> callback);
+  ~EventHandlerContext();
+  v8::Handle<v8::Function> callback() const;
+private:
+  v8::Persistent<v8::Function> callback_;
+};
+
 class WrappedBroodWar : public node::ObjectWrap {
 public:
   static void Init();
   static v8::Handle<v8::Value> NewInstance(const v8::Arguments& args);
+
+  typedef std::map<std::string, EventHandlerContext> EventHandlerMap;
+  static std::map<WrappedBroodWar*, EventHandlerMap> event_handlers_;
 
 private:
   WrappedBroodWar();
@@ -56,6 +70,10 @@ private:
       const v8::AccessorInfo& info);
   static void SetLobbyDirtyFlag(v8::Local<v8::String> property, v8::Local<v8::Value> value,
       const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetEventHandler(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static void SetEventHandler(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const v8::AccessorInfo& info);
 
   // functions
   static v8::Handle<v8::Value> InitProcess(const v8::Arguments& args);
@@ -76,6 +94,14 @@ private:
     WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(t.This());
     return wrapped_bw->brood_war_;
   }
+
+  // Event handlers for BroodWar
+  static void OnLobbyDownloadStatus(byte slot, byte download_percent);
+  static void OnLobbySlotChange(byte slot, byte storm_id, byte type, byte race, byte team);
+  static void OnLobbyStartCountdown();
+  static void OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]);
+  static void OnLobbyMissionBriefing(byte slot);
+  static void OnLobbyChatMessage(byte slot, const std::string& message);
 
   BroodWar* brood_war_;
 };
