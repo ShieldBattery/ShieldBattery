@@ -1,5 +1,5 @@
-#ifndef SRC_BROOD_WAR_H_
-#define SRC_BROOD_WAR_H_
+#ifndef NODE_BW_BROOD_WAR_H_
+#define NODE_BW_BROOD_WAR_H_
 
 #include <Windows.h>
 #include <string>
@@ -268,4 +268,4 @@ Offsets* GetOffsets<Version::v1161>() {
 }
 }  // namespace bw
 }  // namespace sbat
-#endif  // SRC_BROOD_WAR_H_
+#endif  // NODE_BW_BROOD_WAR_H_

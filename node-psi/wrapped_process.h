@@ -1,5 +1,5 @@
-#ifndef NODE_PSI_SRC_WRAPPED_PROCESS_H_
-#define NODE_PSI_SRC_WRAPPED_PROCESS_H_
+#ifndef NODE_PSI_WRAPPED_PROCESS_H_
+#define NODE_PSI_WRAPPED_PROCESS_H_
 
 #include <node.h>
 #include "common/win_helpers.h"
@@ -38,4 +38,4 @@ private:
 }  // namespace psi
 }  // namespace sbat
 
-#endif  // NODE_PSI_SRC_WRAPPED_PROCESS_H_
+#endif  // NODE_PSI_WRAPPED_PROCESS_H_

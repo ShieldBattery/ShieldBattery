@@ -234,14 +234,14 @@
         'deps/node/deps/v8/include',
       ],
       'sources': [
-        'node-bw/src/module.cpp',
-        'node-bw/src/brood_war.cpp',
-        'node-bw/src/immediate.cpp',
-        'node-bw/src/wrapped_brood_war.cpp',
+        'node-bw/module.cpp',
+        'node-bw/brood_war.cpp',
+        'node-bw/immediate.cpp',
+        'node-bw/wrapped_brood_war.cpp',
         # headers
-        'node-bw/src/brood_war.h',
-        'node-bw/src/immediate.h',
-        'node-bw/src/wrapped_brood_war.h',
+        'node-bw/brood_war.h',
+        'node-bw/immediate.h',
+        'node-bw/wrapped_brood_war.h',
       ],
       'dependencies': [
         'common',
@@ -273,11 +273,11 @@
         'deps/node/deps/v8/include',
       ],
       'sources': [
-        'node-psi/src/module.cpp',
-        'node-psi/src/wrapped_process.cpp',
+        'node-psi/module.cpp',
+        'node-psi/wrapped_process.cpp',
         # headers
-        'node-psi/src/module.h',
-        'node-psi/src/wrapped_process.h',
+        'node-psi/module.h',
+        'node-psi/wrapped_process.h',
       ],
       'dependencies': [
         'common',

@@ -298,7 +298,8 @@ void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value
   if (!value->IsFunction()) {
     event_handlers_[wrapped_bw].erase(std_name);
   } else {
-    event_handlers_[wrapped_bw].insert(make_pair(std_name, value.As<Function>()));
+    event_handlers_[wrapped_bw].insert(
+        make_pair(std_name, EventHandlerContext(value.As<Function>())));
   }
 }
 

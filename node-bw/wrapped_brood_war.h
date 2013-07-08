@@ -1,5 +1,5 @@
-#ifndef NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
-#define NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
+#ifndef NODE_BW_WRAPPED_BROOD_WAR_H_
+#define NODE_BW_WRAPPED_BROOD_WAR_H_
 
 #include <node.h>
 #include <map>
@@ -13,7 +13,7 @@ namespace bw {
 
 class EventHandlerContext {
 public:
-  EventHandlerContext(v8::Handle<v8::Function> callback);
+  explicit EventHandlerContext(v8::Handle<v8::Function> callback);
   ~EventHandlerContext();
   v8::Handle<v8::Function> callback() const;
 private:
@@ -109,4 +109,4 @@ private:
 }  // namespace bw
 }  // namespace sbat
 
-#endif  // NODE_BW_SRC_WRAPPED_BROOD_WAR_H_
+#endif  // NODE_BW_WRAPPED_BROOD_WAR_H_

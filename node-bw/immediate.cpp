@@ -1,4 +1,4 @@
-#include "node-bw/src/immediate.h"
+#include "node-bw/immediate.h"
 
 #include <node.h>
 #include <uv.h>
