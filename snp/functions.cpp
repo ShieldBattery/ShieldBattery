@@ -1,81 +1,80 @@
 #include "./functions.h"
 
+#include <node.h>
+#include <uv.h>
 #include <Windows.h>
-#include <io.h>
-#include <stdio.h>
-#include <fcntl.h>
+#include <string>
+
+#include "snp/sockets.h"
+#include "shieldbattery/snp_interface.h"
+
+using std::string;
 
 namespace sbat {
 namespace snp {
-bool need_to_free_console = false;
+static ClientInfo* cur_client_info = nullptr;
+
+static uv_mutex_t spoofed_game_mutex;
+static bool spoofed_game_dirty;
+
+static GameInfo* spoofed_game;
+static GameInfo game_list;
 
 int __stdcall Unbind() {
-  //printf("Unbind called.\n");
-  if (need_to_free_console) {
-    FreeConsole();
-    need_to_free_console = false;
+  UnbindSnp();
+
+  uv_mutex_destroy(&spoofed_game_mutex);
+  delete spoofed_game;
+  spoofed_game = nullptr;
+
+  delete cur_client_info;
+  cur_client_info = nullptr;
+
+  return true;
+}
+
+int __stdcall FreePacket(sockaddr* from, void* packet, uint32 packet_len) {
+  FreeStormPacket(reinterpret_cast<StormPacket*>(packet));
+  return true;
+}
+
+int __stdcall FreeServerPacket(sockaddr* from, void* packet, uint32 packet_len) {
+  return true;
+}
+
+int __stdcall GetGameInfo(uint32 index, char* game_name, char* password, GameInfo* result_info) {
+  if (index != 1) {
+    return false;
   }
 
-  // TODO(tec27): Free NetManager object (see Initialize)
+  uv_mutex_lock(&spoofed_game_mutex);
+  if (spoofed_game != nullptr) {
+    memcpy_s(result_info, sizeof(GameInfo), spoofed_game, sizeof(GameInfo));
+    uv_mutex_unlock(&spoofed_game_mutex);
+    return true;
+  }
 
-  return true;
-}
-
-int __stdcall FreePacket(sockaddr* from, void* packet, size_t packet_len) {
-  //printf("FreePacket called for packet at: 0x%p\n", from);
-
-  return true;
-}
-
-int __stdcall FreeServerPacket(sockaddr* from, void* packet, size_t packet_len) {
-  //printf("FreeServerPacket called for packet at: 0x%p\n", from);
-
-  return true;
-}
-
-int __stdcall GetGameInfo(int unk1, char* game_name, char* password, void* unk2) {
-  // unk2 looks like its meant to be filled with the game info of the game being queried
-
-  //printf("GetGameInfo(unk1 = %d, game_name = '%s', password = '%s', unk2 = 0x%p) called.\n",
-  //    unk1, game_name, password, unk2);
-
+  uv_mutex_unlock(&spoofed_game_mutex);
   return false;
 }
 
-int __stdcall Initialize(void* version_info, void* user_data, void* battle_info,
-    void* module_data, HANDLE event_handle) {
-  // the parameters here I think are the same things that get passed into SNetInitializeProvider,
-  // except without the provider name and added module_data
+int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_info,
+    void* module_data, HANDLE receive_event) {
+  cur_client_info = new ClientInfo(*client_info);
 
-  // version info structure: -- looks to be _clientInfo in storm.h?
-  // int unknown (3C) -- probably size?
-  // char* game_title (Brood War)
-  // char* version_str (Version 1.16.1)
-  // unsigned long version_code ('PXES')
-  // int unknown (D3) -- something to do with version code, there's code for printing "PXESD3"
-  // int unknown (0)
-  // int unknown (8) -- this value maxes out at 256
-  // ... rest unknown if it continues, don't seem to be used
+  uv_mutex_init(&spoofed_game_mutex);
+  spoofed_game_dirty = false;
+  spoofed_game = nullptr;
 
-  // battle_info is some kind of structure as well: -- looks to be _battleInfo in storm.h?
-  // int unknown (5C) -- probably size?
-  // int unknown (1)
-  // void* unknown (points to something starting with 0x558BEC81)
-  // ... rest unknown/unused if it continues
+  if (BeginSocketLoop(receive_event) != UV_OK) {
+    return false;
+  }
 
-  // event_handle used in SetEvent, signaling something about sockets/service provider interface?
+  SnpInterface funcs;
+  funcs.SpoofGame = SpoofGame;
+  funcs.StopSpoofingGame = StopSpoofingGame;
 
-  //if (AllocConsole()) {
-  //  *stdout = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(GetStdHandle(STD_OUTPUT_HANDLE)),
-  //      _O_TEXT), "w");  // correct stdout to point to new console
-  //  *stdin = *_fdopen(_open_osfhandle(reinterpret_cast<__int32>(GetStdHandle(STD_INPUT_HANDLE)),
-  //      _O_TEXT), "r");  // correct stdin to point to new console
-  //  need_to_free_console = true;
-  //}
-  //printf("Initialize called.\n");
-
-  // TODO(tec27): create a NetManager object
-
+  BindSnp(funcs);
   return true;
 }
 
@@ -83,25 +82,27 @@ int __stdcall EnumDevices(void** device_data) {
   // this function appears unnecessary in modern protocols.
   // the important thing here is to zero out the pointer returned in modem_data,
   // and return true (no error)
-
-  //printf("EnumDevices called.\n");
-
-  *device_data = NULL;
+  *device_data = nullptr;
   return true;
 }
 
-int __stdcall ReceiveGamesList(int unk1, int unk2, void** games_list) {
-  // this seems to set the games_list pointer to a list of all the games it last received.
-  // if no games list has been received since the last call to this, the pointer is set to null.
-  // usually this is followed up by a call to FindGames which sends out a search packet.
-
-  //printf("ReceiveGamesList(%d, %d, ...) called.\n", unk1, unk2);
-
-  *games_list = NULL;
+int __stdcall ReceiveGamesList(int unk1, int unk2, GameInfo** received_list) {
+  uv_mutex_lock(&spoofed_game_mutex);
+  if (spoofed_game == nullptr) {
+    *received_list = nullptr;
+  } else {
+    *received_list = &game_list;
+    if (spoofed_game_dirty) {
+      memcpy_s(&game_list, sizeof(game_list), spoofed_game, sizeof(game_list));
+      spoofed_game_dirty = false;
+    }
+  }
+  uv_mutex_unlock(&spoofed_game_mutex);
+  
   return true;
 }
 
-int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, size_t* packet_len) {
+int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, uint32* packet_len) {
   if (from_location == nullptr) {
     return false;
   }
@@ -117,11 +118,20 @@ int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, si
   }
   *packet_len = 0;
 
-  return false;   // what do we say to ReceivePacket? not today
+  StormPacket* packet = GetStormPacket();
+  if (packet == nullptr) {
+    return false;
+  }
+
+  *from_location = reinterpret_cast<sockaddr*>(&packet->from_address);
+  *packet_location = packet;
+  *packet_len = packet->size;
+
+  return true;
 }
 
 int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_location,
-    size_t* packet_len) {
+    uint32* packet_len) {
   if (from_location == nullptr) {
     return false;
   }
@@ -140,8 +150,13 @@ int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_locati
   return false;
 }
 
-int __stdcall SendPacket(size_t num_targets, sockaddr* targets, void* data, size_t data_len) {
-  //printf("SendPacket called for %u targets with packet of %u bytes\n", num_targets, data_len);
+int __stdcall SendPacket(uint32 num_targets, sockaddr_in** targets, byte* data, uint32 data_len) {
+  QueuedPacket packet = QueuedPacket();
+  packet.num_targets = num_targets;
+  packet.targets = targets;
+  packet.data = data;
+  packet.data_len = data_len;
+  SendStormPacket(packet);
 
   return true;
 }
@@ -149,70 +164,74 @@ int __stdcall SendPacket(size_t num_targets, sockaddr* targets, void* data, size
 int __stdcall SendCommand(char* unk1, char* player_name, void* unk2, void* unk3, char* command) {
   // battle.snp checks that the data at unk2 and unk3 is 0 or it doesn't send
   // unk1 seems to always be '\\.\\game\<game name>'
-  //printf("SendCommand called for player %s with command `%s` [%s]\n", player_name, command, unk1);
-
   return true;
 }
 
 int __stdcall BroadcastGame(char* game_name, char* password, char* game_data, int game_state,
-    size_t elapsed_time, int game_type, int unk1, int unk2, void* player_data,
-    size_t player_count) {
-  //printf("BroadcastGame(name = '%s', password = '%s', game_data = '%s') called.\n",
-  //    game_name, password, game_data);
-
+    uint32 elapsed_time, int game_type, int unk1, int unk2, void* player_data,
+    uint32 player_count) {
   return true;
 }
 
 int __stdcall StopBroadcastingGame() {
-  //printf("StopBroadcastingGame called.\n");
-
   return true;
 }
 
 int __stdcall FreeDeviceData(void* device_data) {
   // we never allocate modem data, so the pointer passed in will always be NULL.
   // thus, we can simply return true.
-
-  //printf("FreeDeviceData called.\n");
-
   return true;
 }
 
 int __stdcall FindGames(int unk1, void* games_list) {
-  // sends out a packet that I think is used for finding games.
-  // in UDP this packet contains version info (SEXP + version word)
-  // this is often called directly after GetGamesList()
-
-  //printf("FindGames(%d, 0x%p) called.\n", unk1, games_list);
-
   return true;
 }
 
 int __stdcall ReportGameResult(int unk1, int player_slots_len, char* player_name, int* unk2,
     char* map_name, char* results) {
-  //printf("Reporting game result for player '%s' [%d slots] on map '%s':\n%s\n", player_name,
-  //    player_slots_len, map_name, results);
-
   return true;
 }
 
 int __stdcall GetLeagueId(int* league_id) {
-  //printf("GetLeagueId called.\n");
   *league_id = 0;
-
   return false;  // this function always returns false it seems
 }
 
 int __stdcall DoLeagueLogout(const char* player_name) {
-  //printf("DoLeagueLogout('%s') called.\n", player_name);
-
   return true;
 }
 
-int __stdcall GetReplyTarget(char* dest, size_t dest_len) {
-  //printf("GetReplyTarget called.\n");
-
+int __stdcall GetReplyTarget(char* dest, uint32 dest_len) {
   return true;
 }
+
+void SpoofGame(const string& game_name, const sockaddr_in& host_addr, bool is_replay) {
+  GameInfo* info = new GameInfo();
+  
+  info->index = 1;
+  info->game_state = is_replay ? GameState::ReplayActive : GameState::Active;
+  memcpy_s(&info->host_addr, sizeof(info->host_addr), &host_addr, sizeof(host_addr));
+#pragma warning(suppress: 28159)
+  info->update_time = GetTickCount();
+  strcpy_s(info->game_name, game_name.c_str());
+  info->product_code = cur_client_info->product_code;
+  info->version_code = cur_client_info->version_code;
+  info->unk2 = 0x50;
+  info->unk3 = 0xa7;
+
+  uv_mutex_lock(&spoofed_game_mutex);
+  delete spoofed_game;
+  spoofed_game = info;
+  spoofed_game_dirty = true;
+  uv_mutex_unlock(&spoofed_game_mutex);
+}
+
+void StopSpoofingGame() {
+  uv_mutex_lock(&spoofed_game_mutex);
+  delete spoofed_game;
+  spoofed_game = nullptr;
+  uv_mutex_unlock(&spoofed_game_mutex);
+}
+
 }  // namespace snp
 }  // namespace sbat

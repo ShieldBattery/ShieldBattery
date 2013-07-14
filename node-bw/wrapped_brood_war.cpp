@@ -4,6 +4,7 @@
 #include <uv.h>
 #include <list>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@
 using std::list;
 using std::make_pair;
 using std::map;
+using std::shared_ptr;
 using std::vector;
 using std::wstring;
 using v8::AccessorInfo;
@@ -87,6 +89,7 @@ void WrappedBroodWar::Init() {
   SetProtoAccessor(tpl, "currentMapName", GetCurrentMapName);
   SetProtoAccessor(tpl, "currentMapFolderPath", GetCurrentMapFolderPath);
   SetProtoAccessor(tpl, "localPlayerId", GetLocalPlayerId);
+  SetProtoAccessor(tpl, "localLobbyId", GetLocalLobbyId);
   SetProtoAccessor(tpl, "localPlayerName", GetLocalPlayerName, SetLocalPlayerName);
   SetProtoAccessor(tpl, "gameSpeed", GetGameSpeed);
   SetProtoAccessor(tpl, "isBroodWar", GetIsBroodWar, SetIsBroodWar);
@@ -111,6 +114,8 @@ void WrappedBroodWar::Init() {
   SetProtoMethod(tpl, "initPlayerInfo", InitPlayerInfo);
   SetProtoMethod(tpl, "chooseNetworkProvider", ChooseNetworkProvider);
   SetProtoMethod(tpl, "createGame", CreateGame);
+  SetProtoMethod(tpl, "spoofGame", SpoofGame);
+  SetProtoMethod(tpl, "joinGame", JoinGame);
   SetProtoMethod(tpl, "initGameNetwork", InitGameNetwork);
   SetProtoMethod(tpl, "addComputer", AddComputer);
   SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
@@ -162,6 +167,12 @@ Handle<Value> WrappedBroodWar::GetLocalPlayerId(Local<String> property, const Ac
   HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   return scope.Close(Uint32::NewFromUnsigned(bw->local_player_id()));
+}
+
+Handle<Value> WrappedBroodWar::GetLocalLobbyId(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  BroodWar* bw = WrappedBroodWar::Unwrap(info);
+  return scope.Close(Uint32::NewFromUnsigned(bw->local_lobby_id()));
 }
 
 Handle<Value> WrappedBroodWar::GetLocalPlayerName(Local<String> property,
@@ -276,7 +287,7 @@ Handle<Value> WrappedBroodWar::GetEventHandler(Local<String> property, const Acc
 
   auto i = event_handlers_[wrapped_bw].find(std_name);
   if (i != event_handlers_[wrapped_bw].end()) {
-    return scope.Close(i->second.callback());
+    return scope.Close(i->second->callback());
   }
 
   return scope.Close(v8::Undefined());
@@ -298,8 +309,8 @@ void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value
   if (!value->IsFunction()) {
     event_handlers_[wrapped_bw].erase(std_name);
   } else {
-    event_handlers_[wrapped_bw].insert(
-        make_pair(std_name, EventHandlerContext(value.As<Function>())));
+    event_handlers_[wrapped_bw].insert(make_pair(std_name, 
+        shared_ptr<EventHandlerContext>(new EventHandlerContext(value.As<Function>()))));
   }
 }
 
@@ -444,11 +455,55 @@ Handle<Value> WrappedBroodWar::CreateGame(const Arguments& args) {
   }
 
   BroodWar* bw = WrappedBroodWar::Unwrap(args);
-  bool result = bw->CreateGame(game_name ? std::string(game_name) : std::string("ShieldBattery"),
-      password ? std::string(password) : std::string(),
-      std::string(map_path),
+  bool result = bw->CreateGame(game_name ? game_name : "ShieldBattery",
+      password ? password : std::string(),
+      map_path,
       game_type,
       game_speed);
+
+  return scope.Close(Boolean::New(result));
+}
+
+Handle<Value> WrappedBroodWar::SpoofGame(const Arguments& args) {
+  HandleScope scope;
+
+  assert(args.Length() == 4);
+
+  String::AsciiValue game_name_value(args[0]);
+  std::string game_name = *game_name_value;
+  bool is_replay = args[1]->BooleanValue();
+  String::Utf8Value address(args[2]);
+  uint32 port = args[3]->Uint32Value();
+
+  SnpInterface* snp = GetSnpInterface();
+  assert(snp != nullptr);
+  snp->SpoofGame(game_name, uv_ip4_addr(*address, port), is_replay);
+
+  return scope.Close(v8::Undefined());
+}
+
+Handle<Value> WrappedBroodWar::JoinGame(const Arguments& args) {
+  HandleScope scope;
+
+  BroodWar* bw = WrappedBroodWar::Unwrap(args);
+  // Basically none of this info actually matters, although BW likes to check it for some reason.
+  // The actual game info will be distributed upon joining. The thing that *does* matter is the
+  // index, make sure it matches the index you're spoofing at.
+  JoinableGameInfo info = JoinableGameInfo();
+  info.index = 1;
+  strcpy_s(info.game_name, "shieldbattery");
+  info.map_width = 256;
+  info.map_height = 256;
+  info.is_not_eight_player = 0;
+  info.player_count = 0;
+  info.game_speed = static_cast<byte>(GameSpeed::Fastest);
+  info.game_type = 0x10002;
+  info.cdkey_checksum = 0x1D10C1E5;
+  info.tileset = 0x01;
+  strcpy_s(info.game_creator, "fakename");
+  strcpy_s(info.map_name, "fakemap");
+
+  bool result = bw->JoinGame(info);
 
   return scope.Close(Boolean::New(result));
 }
@@ -635,7 +690,7 @@ void EventHandlerImmediate(void* arg) {
     }
 
     TryCatch try_catch;
-    Handle<Function> cb = cb_it->second.callback();
+    Handle<Function> cb = cb_it->second->callback();
     cb->Call(wrapped_bw->handle_, info->args->size(),
         (info->args->empty() ? nullptr : &(*info->args)[0]));
 

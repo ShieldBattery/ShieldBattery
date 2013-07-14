@@ -97,6 +97,7 @@
         'shieldbattery/shieldbattery.cpp',
         # headers
         'shieldbattery/shieldbattery.h',
+        'shieldbattery/snp_interface.h',
       ],
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',
@@ -160,15 +161,18 @@
       'type': 'shared_library',
       'include_dirs': [
         '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
       ],
       'sources': [
         'snp/functions.cpp',
-        'snp/net_manager.cpp',
+        'snp/sockets.cpp',
         'snp/snp.cpp',
         # headers
         'snp/functions.h',
-        'snp/net_manager.h',
         'snp/packets.h',
+        'snp/sockets.h',
         'snp/snp.h',
         # exports
         'snp/snp.def',
@@ -176,6 +180,7 @@
       'link_settings': {
         'libraries': [
           '-lws2_32.lib',
+          '-l$(SolutionDir)$(Configuration)/shieldbattery.lib',
         ],
       },
       'msbuild_props': [
@@ -183,6 +188,10 @@
       ],
       'dependencies': [
         'common',
+        'shieldbattery',
+      ],
+      'defines': [
+        'BUILDING_NODE_EXTENSION',
       ],
     },
 

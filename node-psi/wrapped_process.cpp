@@ -1,11 +1,11 @@
-#include "node-psi/src/wrapped_process.h"
+#include "node-psi/wrapped_process.h"
 
 #include <node.h>
 #include <string>
 
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
-#include "node-psi/src/module.h"
+#include "node-psi/module.h"
 
 using std::string;
 using std::wstring;
@@ -108,7 +108,7 @@ void InjectDllAfter(uv_work_t* req, int status) {
 
   Local<Value> argv[] = { err };
   TryCatch try_catch;
-  context->callback->Call(context->self, 1, argv);
+  context->callback->Call(Local<Object>::New(context->self), 1, argv);
 
   context->callback.Dispose();
   context->self.Dispose();

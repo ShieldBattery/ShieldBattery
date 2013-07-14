@@ -26,6 +26,26 @@ struct MapListEntry {
   char filename[32];
 };
 
+struct JoinableGameInfo {
+  uint32 index;
+  char game_name[24];
+  // the rest of this is a parsed stat string, see http://www.bnetdocs.org/?op=doc&did=13
+  uint32 save_game_checksum;
+  uint16 map_width;
+  uint16 map_height;
+  byte is_not_eight_player;
+  byte player_count;  // only matters if the preceding byte is not set
+  byte game_speed;
+  byte approval;
+  uint32 game_type;
+  uint32 cdkey_checksum;
+  uint16 tileset;
+  uint16 is_replay;
+  char game_creator[25];
+  char map_name[32];
+  byte unk1[31];
+};
+
 enum class GameSpeed {
   Slowest = 0,
   Slower,
@@ -72,6 +92,7 @@ struct Functions {
   FUNCDEF(uint32, AddComputer, uint32 slot_num);
   FUNCDEF(uint32, StartGameCountdown);
   FUNCDEF(uint32, ProcessLobbyTurn, void* unused);
+  FUNCDEF(uint32, JoinGame);
   FUNCDEF(void, ShowLobbyChatMessage, char* message);
 };
 #undef FUNCDEF
@@ -104,7 +125,7 @@ struct Offsets {
   char* current_map_folder_path;
   uint32* local_player_id0;
   uint32* local_player_id1;
-  uint32* local_player_id2;
+  uint32* local_lobby_id;
   char* local_player_name;
   uint32* current_game_speed;
   uint8* is_brood_war;
@@ -144,12 +165,14 @@ public:
 
   bool CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
+  bool JoinGame(const JoinableGameInfo& game_info);
 
   PlayerInfo* players() const;
   std::string current_map_path() const;
   std::string current_map_name() const;
   std::string current_map_folder_path() const;
   uint32 local_player_id() const;
+  uint32 local_lobby_id() const;
   std::string local_player_name() const;
   void set_local_player_name(const std::string& name);
   GameSpeed current_game_speed() const;
@@ -188,7 +211,7 @@ private:
   void ApplyPatches();
   void InjectDetours();
   void GetMapsList(const MapListEntryCallback callback);
-  void SelectMapOrDirectory(const std::string& game_name, const std::string& password,
+  bool SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
 
   Offsets* offsets_;
@@ -207,7 +230,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->current_map_folder_path = reinterpret_cast<char*>(0x0059BB70);
   offsets->local_player_id0 = reinterpret_cast<uint32*>(0x00512684);
   offsets->local_player_id1 = reinterpret_cast<uint32*>(0x00512688);
-  offsets->local_player_id2 = reinterpret_cast<uint32*>(0x0051268C);
+  offsets->local_lobby_id = reinterpret_cast<uint32*>(0x0051268C);
   offsets->local_player_name = reinterpret_cast<char*>(0x0057EE9C);
   offsets->current_game_speed = reinterpret_cast<uint32*>(0x006CDFD4);
   offsets->is_brood_war = reinterpret_cast<uint8*>(0x0058F440);
@@ -233,6 +256,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::StartGameCountdownFunc>(0x00452460);
   offsets->functions.ProcessLobbyTurn =
       reinterpret_cast<Functions::ProcessLobbyTurnFunc>(0x004D4340);
+  offsets->functions.JoinGame = 
+      reinterpret_cast<Functions::JoinGameFunc>(0x004D3B50);
   offsets->functions.ShowLobbyChatMessage =
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
 

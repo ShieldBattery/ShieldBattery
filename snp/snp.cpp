@@ -3,11 +3,12 @@
 #include <Windows.h>
 #include "snp/functions.h"
 #include "snp/packets.h"
+#include "common/types.h"
 
 namespace sbat {
 namespace snp {
 // These have to match what's in the caps.dat file in the MPQ that gets appended to this DLL
-const unsigned __int32 snp_identifier = 'SBAT';
+const uint32 snp_identifier = 'SBAT';
 const char* snp_name = "ShieldBattery";
 const char* snp_description = "Life of lively to live to life of full life thx to shield battery";
 const SnpCapabilities snp_capabilities = {

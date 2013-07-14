@@ -9,6 +9,8 @@ if not defined SHIELDBATTERY_PATH goto env-error
 @rem Process arguments.
 set config=Release
 set target=Build
+set nobuild=
+set noprojgen=
 
 :next-arg
 if "%1"=="" goto args-done

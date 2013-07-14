@@ -7,20 +7,23 @@
 
 namespace sbat {
 namespace snp {
-enum PacketType {
-  PKT_STORM  // TODO(tec27): more types
+enum class PacketType : byte {
+  Storm = 1
 };
 
+#pragma pack(push)
+#pragma pack(1)
 // this packet info wraps the packets sent by storm/us with something that can be used to route it
 struct PacketHeader {
   PacketType type;
-  uint16 size;  // size includes the size of this header
+  uint16 size;  // size does not include the size of this header
 };
+#pragma pack(pop)
 
 // Storm packets that will be queued until read
 struct StormPacket {
   byte data[SNP_PACKET_SIZE];
-  SOCKADDR_IN from_address;
+  sockaddr_in from_address;
   uint32 size;
 
   StormPacket* next;

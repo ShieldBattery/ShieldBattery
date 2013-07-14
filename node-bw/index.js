@@ -14,6 +14,7 @@ function BroodWar(bindings) {
 }
 
 BroodWar._gameCreationTimeout = 10000
+BroodWar._gameJoinTimeout = 10000
 
 // cb is func(err, lobby)
 BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
@@ -40,14 +41,70 @@ BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
 
   var self = this
   this._lobby.on('downloadStatus:0', initListener)
-  var timeout = setTimeout(function() {
+  var timeout = setTimeout(onTimeout, BroodWar._gameCreationTimeout)
+
+  function onTimeout() {
     self._lobby.removeListener('downloadStatus:0', initListener)
-    cb(new Error('Game creation timed out.'))
-  }, BroodWar._gameCreationTimeout)
+    cb(new Error('Game creation timed out'))
+  }
 
   function initListener(percent) {
     if (percent == 100) {
       self._lobby.removeListener('downloadStatus:0', initListener)
+      clearTimeout(timeout)
+      cb(null, self._lobby)
+    } else {
+      clearTimeout(timeout)
+      setTimeout(onTimeout, BroodWar._gameCreationTimeout)
+    }
+  }
+}
+
+BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
+  if (!playerName || !address || !port || !cb) {
+    return setImmediate(function() { cb(new Error('Incorrect arguments')) })
+  }
+
+  cb = cb.bind(this)
+  if (!processInitialized) {
+    return setImmediate(function() { cb(new Error('Process must be initialized first')) })
+  }
+  if (inLobby || inGame) {
+    return setImmediate(function() { cb(new Error('Already in a lobby or game')) })
+  }
+
+  console.log('attempting to join lobby...')
+
+  this.bindings.isBroodWar = true
+  this.bindings.initSprites()
+  this.bindings.localPlayerName = playerName
+  if (!this.bindings.chooseNetworkProvider()) {
+    return setImmediate(function() { cb(new Error('Could not choose network provider')) })
+  }
+  this.bindings.isMultiplayer = true
+
+  this.bindings.spoofGame('shieldbattery', false, address, port)
+  if (!this.bindings.joinGame()) {
+    return cb(new Error('Could not join game'))
+  }
+
+  this.bindings.initGameNetwork()
+  inLobby = true
+  this._lobby.start()
+
+  // TODO(tec27): we really need to handle the other events, like downloads and version
+  // confirmation here so that we know when packets have been exchanged. The download status is
+  // still, however, the final packet exchanged for a successful join
+  var self = this
+  this._lobby.on('downloadStatus:' + this.bindings.localLobbyId, initListener)
+  var timeout = setTimeout(function() {
+    self._lobby.removeListener('downloadStatus:' + self.bindings.localLobbyId, initListener)
+    cb(new Error('Joining game timed out'))
+  }, BroodWar._gameJoinTimeout)
+
+  function initListener(percent) {
+    if (percent == 100) {
+      self._lobby.removeListener('downloadStatus:' + self.bindings.localLobbyId, initListener)
       clearTimeout(timeout)
       cb(null, self._lobby)
     }

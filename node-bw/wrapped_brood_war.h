@@ -3,6 +3,7 @@
 
 #include <node.h>
 #include <map>
+#include <memory>
 #include <string>
 
 #include "./brood_war.h"
@@ -25,7 +26,7 @@ public:
   static void Init();
   static v8::Handle<v8::Value> NewInstance(const v8::Arguments& args);
 
-  typedef std::map<std::string, EventHandlerContext> EventHandlerMap;
+  typedef std::map<std::string, std::shared_ptr<EventHandlerContext>> EventHandlerMap;
   static std::map<WrappedBroodWar*, EventHandlerMap> event_handlers_;
 
 private:
@@ -45,6 +46,8 @@ private:
   static v8::Handle<v8::Value> GetCurrentMapFolderPath(v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> GetLocalPlayerId(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetLocalLobbyId(v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
   static v8::Handle<v8::Value> GetLocalPlayerName(v8::Local<v8::String> property,
       const v8::AccessorInfo& info);
@@ -81,6 +84,8 @@ private:
   static v8::Handle<v8::Value> InitPlayerInfo(const v8::Arguments& args);
   static v8::Handle<v8::Value> ChooseNetworkProvider(const v8::Arguments& args);
   static v8::Handle<v8::Value> CreateGame(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SpoofGame(const v8::Arguments& args);
+  static v8::Handle<v8::Value> JoinGame(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitGameNetwork(const v8::Arguments& args);
   static v8::Handle<v8::Value> AddComputer(const v8::Arguments& args);
   static v8::Handle<v8::Value> ProcessLobbyTurn(const v8::Arguments& args);

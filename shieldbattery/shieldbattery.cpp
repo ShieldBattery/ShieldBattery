@@ -3,12 +3,13 @@
 #include <conio.h>
 #include <fcntl.h>
 #include <io.h>
+#include <node.h>
 #include <Windows.h>
 
 #include <queue>
 #include <string>
 
-#include "deps/node/src/node.h"
+#include "shieldbattery/snp_interface.h"
 #include "common/func_hook.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
@@ -32,6 +33,8 @@ static uv_cond_t work_queue_cond;
 static bool terminated;
 static std::queue<WorkRequest*>* work_queue;
 static uv_thread_t node_thread;
+
+static SnpInterface* snp_interface = nullptr;
 
 void UiThreadWorker() {
   while (true) {
@@ -158,7 +161,7 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   work_queue = new std::queue<WorkRequest*>();
 
   uv_thread_create(&node_thread, StartNode, nullptr);
-  
+
   uv_mutex_lock(&proc_init_mutex);
   uv_cond_wait(&proc_init_cond, &proc_init_mutex);
   uv_mutex_unlock(&proc_init_mutex);
@@ -220,6 +223,19 @@ NODE_EXTERN void InitializeProcess(void* arg, WorkRequestAfterFunc cb) {
     uv_cond_signal(&proc_init_cond);
     uv_mutex_unlock(&proc_init_mutex);
   }
+}
+
+NODE_EXTERN void BindSnp(const SnpInterface& funcs) {
+  delete snp_interface;
+  snp_interface = new SnpInterface(funcs);
+}
+
+NODE_EXTERN void UnbindSnp() {
+  delete snp_interface;
+}
+
+NODE_EXTERN SnpInterface* GetSnpInterface() {
+  return snp_interface;
 }
 
 extern "C" __declspec(dllexport) void OnInject() {

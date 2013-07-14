@@ -22,9 +22,13 @@ siteSockets.on('connection', function(socket) {
     if (gameSocket) {
       gameSocket.emit('load', plugins, function(errors) { cb(errors) })
     }
-  }).on('game:start', function() {
+  }).on('game:start', function(params) {
     if (gameSocket) {
-      gameSocket.emit('start')
+      gameSocket.emit('start', params)
+    }
+  }).on('game:join', function(params) {
+    if (gameSocket) {
+      gameSocket.emit('join', params)
     }
   })
 })
@@ -45,7 +49,6 @@ io.of('/game').on('connection', function(socket) {
 })
 
 function doLaunch(plugins, cb) {
-  console.log('All systems gone! Prepare for downcount!')
   psi.launchProcess(
       { appPath: 'C:\\Program Files (x86)\\Starcraft\\Starcraft.exe'
       , launchSuspended: true
@@ -61,7 +64,8 @@ function doLaunch(plugins, cb) {
           if (err) return cb({ when: 'injecting dll', msg: err.message })
 
           console.log('Dll injected! Attempting to resume process...')
-          var resumeErr = this.resume()
+
+          var resumeErr = proc.resume()
           console.log('Process resumed!')
           if (resumeErr) cb({ when: 'resuming process', msg: resumeErr.message })
         })

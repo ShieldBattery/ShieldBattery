@@ -1,4 +1,4 @@
-#include "node-psi/src/module.h"
+#include "node-psi/module.h"
 
 #include <node.h>
 #include <uv.h>
@@ -7,7 +7,7 @@
 
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
-#include "node-psi/src/wrapped_process.h"
+#include "node-psi/wrapped_process.h"
 
 using std::wstring;
 using v8::Arguments;

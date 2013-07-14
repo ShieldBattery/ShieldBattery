@@ -149,6 +149,10 @@ uint32 BroodWar::local_player_id() const {
   return *offsets_->local_player_id1;
 }
 
+uint32 BroodWar::local_lobby_id() const {
+  return *offsets_->local_lobby_id;
+}
+
 std::string BroodWar::local_player_name() const {
   return std::string(offsets_->local_player_name);
 }
@@ -270,14 +274,14 @@ void BroodWar::GetMapsList(const MapListEntryCallback callback) {
   }
 }
 
-// TODO(tec27): this should probably return a bool based on what the BW function returns?
-void BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
+bool BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data) {
   auto select = offsets_->functions.SelectMapOrDirectory;
 
   const char* game_name_param = game_name.c_str();
   const char* password_param = password.c_str();
   const char* map_folder_path = offsets_->current_map_folder_path;
+  uint32 result;
 
   __asm {
     push eax;
@@ -290,9 +294,13 @@ void BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::str
     mov eax, map_data;
     mov edx, select;
     call edx;
+    mov result, eax;
     pop edx;
     pop eax;
   }
+
+  // this function returns an error code on failure, so 0 is good here
+  return result == 0;
 }
 
 // TODO(tec27): see above, return what SelectMapOrDirectory returns?
@@ -330,8 +338,23 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
     return false;
   }
 
-  SelectMapOrDirectory(game_name, password, game_type, game_speed, current_map);
-  return true;
+  return SelectMapOrDirectory(game_name, password, game_type, game_speed, current_map);
+}
+
+bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
+  // while (!IsDebuggerPresent()) { }
+  // DebugBreak();
+  auto join = offsets_->functions.JoinGame;
+  const JoinableGameInfo* arg = &game_info;
+  uint32 result;
+  __asm {
+    mov eax, join;
+    mov ebx, arg;
+    call eax;
+    mov result, eax;
+  }
+
+  return result == 1;
 }
 }  // namespace bw
 }  // namespace sbat
