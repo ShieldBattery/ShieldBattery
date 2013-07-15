@@ -8,7 +8,7 @@
 namespace sbat {
 namespace snp {
 enum class PacketType : byte {
-  Storm = 1
+  Storm = 0
 };
 
 #pragma pack(push)

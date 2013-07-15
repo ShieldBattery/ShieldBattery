@@ -202,6 +202,14 @@ void BroodWar::set_lobby_dirty_flag(bool dirty) {
   *offsets_->lobby_dirty_flag = dirty ? 1 : 0;
 }
 
+GameState BroodWar::game_state() const {
+  return static_cast<GameState>(*offsets_->game_state);
+}
+
+void BroodWar::set_game_state(GameState state) {
+  *offsets_->game_state = static_cast<uint16>(state);
+}
+
 void BroodWar::InitSprites() {
   offsets_->functions.InitSprites();
 }

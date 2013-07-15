@@ -560,6 +560,8 @@ struct GameLoopContext {
 
 void RunGameLoopWork(void* arg) {
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
+  assert(context->bw->game_state() == GameState::Initializing);
+  context->bw->set_game_state(GameState::Ingame);
   context->bw->RunGameLoop();
 }
 

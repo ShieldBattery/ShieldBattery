@@ -151,6 +151,12 @@ int HOOK_EntryPoint(HMODULE module_handle) {
     freopen_s(&fp, "CONIN$", "r", stdin);
   }
 
+  // TODO(tec27): Add a debug mode based on a file being present or something, and this code:
+  /*printf("Awaiting debugger...");
+  while (!IsDebuggerPresent()) {
+  }
+  printf("attached!\n");*/
+
   uv_cond_init(&proc_init_cond);
   uv_mutex_init(&proc_init_mutex);
   uv_mutex_init(&proc_initialized);

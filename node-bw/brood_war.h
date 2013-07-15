@@ -69,6 +69,19 @@ enum class BootReason {
   CantAuthenticateMap
 };
 
+enum class GameState {
+  Unknown0 = 0,
+  Initializing,
+  Unknown2,
+  Ingame,
+  MenuOrLobby,
+  Unknown5,
+  Unknown6,
+  Unknown7,
+  Unknown8,
+  Unknown9,
+};
+
 #pragma pack(push)
 #pragma pack(1)
 struct LobbyGameInitData {
@@ -136,6 +149,7 @@ struct Offsets {
   int32* boot_reason;
   uint32* lobby_dirty_flag;
   uint32* game_info_dirty_flag;
+  uint16* game_state;
 
   Functions functions;
   Detours detours;
@@ -185,6 +199,8 @@ public:
   BootReason boot_reason() const;
   bool lobby_dirty_flag() const;
   void set_lobby_dirty_flag(bool dirty);
+  GameState game_state() const;
+  void set_game_state(GameState state);
 
   void InitSprites();
   void InitPlayerInfo();
@@ -240,6 +256,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->was_booted = reinterpret_cast<uint32*>(0x005999E8);
   offsets->boot_reason = reinterpret_cast<int32*>(0x005999E0);
   offsets->lobby_dirty_flag = reinterpret_cast<uint32*>(0x005999D4);
+  offsets->game_state = reinterpret_cast<uint16*>(0x00596904);
 
   offsets->functions.InitSprites = reinterpret_cast<Functions::InitSpritesFunc>(0x004D7390);
   offsets->functions.InitPlayerInfo = reinterpret_cast<Functions::InitPlayerInfoFunc>(0x004A91E0);
