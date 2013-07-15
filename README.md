@@ -26,13 +26,16 @@ The various project files/folders are:
 - common: utility classes that are used almost everywhere.
 - js: All the javascript for the various projects, including linked in node-psi and node-bw.
 - psi: background service that handles launching and injecting Starcraft (also embedded Node).
-- scout: multiplexing injectee DLL. I use this with InfectInject, but this method will soon be replaced by Psi.
+- scout: multiplexing injectee DLL. I use this with InfectInject, but this method is deprecated now that psi is working.
 - shieldbattery: Node embedded in a dll that loads a specific JS file on startup.
 - snp: Storm Network Provider dll (generic interface dll that Starcraft uses to e.g. send packets and retrieve game lists).
 - node-bw: native V8/Node bindings for Starcraft (and to a slight extent, shieldbattery).
 - node-psi: native V8/Node bindings for psi
+- v8-helpers: V8-related utility functionality for use in our Node C++ modules (node-bw and node-psi)
 
 The generated `shieldbattery.sln` will contain all of these projects, and is what you should use if you desire to edit the code with an IDE.
 
 ####Running Shieldbattery
-Currently running the code is more of a pain than it needs to be. I utilize an InfectInject'd Starcraft exe to load the scout dll before Starcraft's entry point, and inject in wmode and shieldbattery. If you are very eager to run this, you can do so as well, but Psi will come along shortly and make this easier.
+Run psi.exe as an administrator from your `SHIELDBATTERY_PATH` directory, then launch the `websocket-launcher.htm` and set your settings as you see fit. The command-prompt for psi should show a connection being accepted. The buttons on the website will launch the game and handle all the configuration to get into a game.
+
+If you'd like your testing to be a bit more pleasurable, you can currently tell psi to inject other DLLs into Starcraft. I personally use wmode, and you can download a zip for psi [here](http://tec27.com/sbat-test-plugins.zip). Simply extract the plugins directory to your `SHIELDBATTERY_PATH` and make sure wmode is specified for injecting on the test page.
