@@ -107,6 +107,7 @@ struct Functions {
   FUNCDEF(uint32, ProcessLobbyTurn, void* unused);
   FUNCDEF(uint32, JoinGame);
   FUNCDEF(void, ShowLobbyChatMessage, char* message);
+  FUNCDEF(uint32, LobbySendRaceChange, uint32 slot);
 };
 #undef FUNCDEF
 
@@ -207,6 +208,7 @@ public:
   bool ChooseNetworkProvider(uint32 provider = 'SBAT');
   void InitGameNetwork();
   bool AddComputer(uint32 slot_num);
+  bool SetRace(uint32 slot_num, uint32 race);
   uint32 ProcessLobbyTurn();
   bool StartGameCountdown();
   void RunGameLoop();
@@ -277,6 +279,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::JoinGameFunc>(0x004D3B50);
   offsets->functions.ShowLobbyChatMessage =
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
+  offsets->functions.LobbySendRaceChange =
+      reinterpret_cast<Functions::LobbySendRaceChangeFunc>(0x00452370);
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)

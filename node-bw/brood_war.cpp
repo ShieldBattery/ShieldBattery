@@ -243,6 +243,25 @@ bool BroodWar::AddComputer(uint32 slot_num) {
   return offsets_->functions.AddComputer(slot_num) == 1;
 }
 
+bool BroodWar::SetRace(uint32 slot_num, uint32 race) {
+  auto set_race = offsets_->functions.LobbySendRaceChange;
+  int result;
+  _asm {
+    push eax;
+    push ecx;
+    mov ecx, race;
+    push ecx;
+    mov ecx, set_race;
+    mov eax, slot_num;
+    call ecx;
+    mov result, eax;
+    pop ecx;
+    pop eax;
+  }
+
+  return result == 1;
+}
+
 // Returns a value indicating the data message that was processed, if any.
 // Particularly useful ones (that the game itself uses) are: 0x4B (Force Name Transfer) and
 // 0x53 (Entered Briefing Room). You should probably also check the was_booted variable to ensure

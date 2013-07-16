@@ -148,7 +148,7 @@ function Lobby(bindings) {
     var info = { stormId: stormId, type: type, race: race, team: team }
     self._gameEmitter.emit('slotChange', slot, info)
     self._gameEmitter.emit('slotChange:' + slot, info)
-    console.log('Slot %d changed:\tstormId: %d\ttype: %d\trace %d\tteam: %d', slot, stormId, type,
+    console.log('Slot %d changed:\tstormId: %d\ttype: %d\trace: %d\tteam: %d', slot, stormId, type,
         race, team)
   }
 
@@ -243,6 +243,47 @@ Lobby.prototype.addComputer = function(slot, cb) {
   function changeListener(info) {
     // TODO(tec27): provide a BW constants module for this shit
     if (info.stormId == 0xFF && info.type == 5) {
+      clearTimeout(timeout)
+      self._gameEmitter.removeListener(event, changeListener)
+      cb(null)
+    }
+  }
+}
+
+// slot is optional (defaults to your slot)
+// cb is func(err)
+Lobby.prototype.setRace = function(slot, race, cb) {
+  if (!this._ensureRunning()) return
+
+  if (arguments.length < 3) {
+    cb = race
+    race = slot
+    slot = this.bindings.localLobbyId
+  }
+
+  race = race.toLowerCase()
+  var raceNum
+  switch(race.charAt(0)) {
+    case 'z': raceNum = 0; break;
+    case 't': raceNum = 1; break;
+    case 'p': raceNum = 2; break;
+    default: raceNum = 6; break;
+  }
+
+  if (!this.bindings.setRace(slot, raceNum)) {
+    return setImmediate(function() { cb(new Error('Could not set race for slot ' + slot)) })
+  }
+
+  var event = 'slotChange:' + slot
+    , self = this
+  this._gameEmitter.on(event, changeListener)
+  var timeout = setTimeout(function() {
+    self._gameEmitter.removeListener(event, changeListener)
+    cb(new Error('Setting race in slot ' + slot + ' timed out'))
+  }, Lobby._actionTimeout)
+
+  function changeListener(info) {
+    if (info.race === raceNum) {
       clearTimeout(timeout)
       self._gameEmitter.removeListener(event, changeListener)
       cb(null)

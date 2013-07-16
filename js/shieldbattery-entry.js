@@ -67,6 +67,9 @@ socket.on('connect', function() {
   function onCreateLobby(err, newLobby) {
     if (err) return onError(err)
     lobby = newLobby
+    lobby.setRace('terran', function(err) {
+      if (err) return onError(err)
+    })
     lobby.on('downloadStatus', onDownloadStatus)
   }
 
@@ -74,7 +77,7 @@ socket.on('connect', function() {
     if (slot !== 0 && percent == 100) {
       setTimeout(function() {
         lobby.startCountdown(onCountdownStarted)
-      }, 1000)
+      }, 2000)
     }
   }
 
@@ -111,13 +114,16 @@ socket.on('connect', function() {
   function onJoinLobby(err, newLobby) {
     if (err) return onError(err)
     lobby = newLobby;
+    lobby.setRace('protoss', function(err) {
+      if (err) console.log(err)
+    })
     lobby.once('gameInit', function() {
       lobby.runGameLoop(onGameFinished)
       console.log('Game started!')
       running = true
     })
   }
-  
+
   function onGameFinished(err) {
     running = false
     console.log('Game completed.')

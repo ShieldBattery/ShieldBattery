@@ -118,6 +118,7 @@ void WrappedBroodWar::Init() {
   SetProtoMethod(tpl, "joinGame", JoinGame);
   SetProtoMethod(tpl, "initGameNetwork", InitGameNetwork);
   SetProtoMethod(tpl, "addComputer", AddComputer);
+  SetProtoMethod(tpl, "setRace", SetRace);
   SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
   SetProtoMethod(tpl, "startGameCountdown", StartGameCountdown);
   SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
@@ -531,6 +532,16 @@ Handle<Value> WrappedBroodWar::AddComputer(const Arguments& args) {
 
   BroodWar* bw = WrappedBroodWar::Unwrap(args);
   bool result = bw->AddComputer(args[0]->ToUint32()->Uint32Value());
+  return scope.Close(Boolean::New(result));
+}
+
+Handle<Value> WrappedBroodWar::SetRace(const Arguments& args) {
+  HandleScope scope;
+  
+  assert(args.Length() == 2);
+
+  BroodWar* bw = WrappedBroodWar::Unwrap(args);
+  bool result = bw->SetRace(args[0]->Uint32Value(), args[1]->Uint32Value());
   return scope.Close(Boolean::New(result));
 }
 

@@ -88,6 +88,7 @@ private:
   static v8::Handle<v8::Value> JoinGame(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitGameNetwork(const v8::Arguments& args);
   static v8::Handle<v8::Value> AddComputer(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetRace(const v8::Arguments& args);
   static v8::Handle<v8::Value> ProcessLobbyTurn(const v8::Arguments& args);
   static v8::Handle<v8::Value> StartGameCountdown(const v8::Arguments& args);
   static v8::Handle<v8::Value> RunGameLoop(const v8::Arguments& args);
