@@ -6,6 +6,10 @@ var bw = require('bw')
 var socket = io.connect('http://localhost:33198/game')
   , running = false
 
+bw.on('log', function(level, msg) {
+  console.log('Log from C++: [' + level + '] ' + msg)
+})
+
 socket.on('connect', function() {
   console.log('Connected to psi.')
   socket.emit('status', running ? 'running' : 'init')

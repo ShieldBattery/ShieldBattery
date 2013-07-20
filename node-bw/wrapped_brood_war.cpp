@@ -8,8 +8,9 @@
 #include <string>
 #include <vector>
 
-#include "./brood_war.h"
-#include "./immediate.h"
+#include "node-bw/brood_war.h"
+#include "node-bw/immediate.h"
+#include "logger/logger.h"
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
@@ -58,13 +59,17 @@ Handle<Function> EventHandlerContext::callback() const {
 }
 
 WrappedBroodWar::WrappedBroodWar()
-    : brood_war_(BroodWar::Get()) {
+    : brood_war_(BroodWar::Get()),
+      log_symbol_(Persistent<String>::New(String::NewSymbol("onLog"))) {
   event_handlers_.insert(make_pair(this, WrappedBroodWar::EventHandlerMap()));
+  Logger::Init(WrappedBroodWar::Log, this);
 }
 
 WrappedBroodWar::~WrappedBroodWar() {
   // BroodWar is a singleton, so we don't want to delete it
   event_handlers_.erase(this);
+  Logger::Destroy(Log, this);
+  log_symbol_.Dispose();
 }
 
 Persistent<Function> WrappedBroodWar::constructor;
@@ -142,6 +147,17 @@ Handle<Value> WrappedBroodWar::NewInstance(const Arguments& args) {
   Local<Object> instance = constructor->NewInstance();
 
   return scope.Close(instance);
+}
+
+void WrappedBroodWar::Log(void* arg, LogLevel level, const char* msg) {
+  WrappedBroodWar* wrapped = reinterpret_cast<WrappedBroodWar*>(arg);
+  Local<Value> callback = wrapped->handle_->Get(wrapped->log_symbol_);
+  if (!callback->IsFunction()) {
+    return;
+  }
+
+  Local<Value> argv[] = { Integer::New(static_cast<int32>(level)), String::New(msg) };
+  callback.As<Function>()->Call(wrapped->handle_, 2, argv);
 }
 
 // accessor defitions

@@ -79,36 +79,14 @@ void LaunchAfter(uv_work_t* req, int status) {
 Handle<Value> LaunchProcess(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 5) {
-    ThrowException(Exception::Error(String::New("Incorrect number of arguments")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[0]->IsString() && !args[0]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("appPath must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[1]->IsString() && !args[1]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("argsStr must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[2]->IsBoolean() && !args[2]->IsBooleanObject()) {
-    ThrowException(Exception::TypeError(String::New("launchSuspended must be a bool")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[3]->IsString() && !args[3]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("currentDir must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[4]->IsFunction()) {
-    ThrowException(Exception::TypeError(String::New("cb must be a function")));
-    return scope.Close(v8::Undefined());
-  }
+  assert(args.Length() == 5);
+  assert(args[4]->IsFunction());
 
   LaunchContext* context = new LaunchContext;
-  context->app_path = ToWstring(args[0].As<String>());
-  context->arguments  = ToWstring(args[1].As<String>());
-  context->launch_suspended = args[2]->BooleanValue();
-  context->current_dir = ToWstring(args[3].As<String>());
+  context->app_path = ToWstring(args[0]->ToString());
+  context->arguments  = ToWstring(args[1]->ToString());
+  context->launch_suspended = args[2]->ToBoolean()->BooleanValue();
+  context->current_dir = ToWstring(args[3]->ToString());
   context->callback = Persistent<Function>::New(args[4].As<Function>());
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);

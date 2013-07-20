@@ -104,6 +104,7 @@
       ],
       'dependencies': [
         'common',
+        'logger',
         'deps/node/node.gyp:node',
       ],
     },
@@ -157,6 +158,22 @@
     },
 
     {
+      'target_name': 'logger',
+      'type': 'static_library',
+      'sources': [
+        'logger/logger.cpp',
+        # headers
+        'logger/logger.h',
+      ],
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
+      ],
+    },
+
+    {
       'target_name': 'snp',
       'type': 'shared_library',
       'include_dirs': [
@@ -188,6 +205,7 @@
       ],
       'dependencies': [
         'common',
+        'logger',
         'shieldbattery',
       ],
       'defines': [

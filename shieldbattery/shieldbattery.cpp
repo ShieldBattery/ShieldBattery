@@ -13,6 +13,7 @@
 #include "common/func_hook.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
+#include "logger/logger.h"
 
 namespace sbat {
 struct WorkRequest {
@@ -63,10 +64,13 @@ void UiThreadWorker() {
     uv_mutex_unlock(&work_queue_mutex);
 
     if (req != nullptr) {
+      Logger::Log(LogLevel::Verbose, "UI thread running requested work");
       req->worker_func(req->data);
       uv_async_send(&req->async);
     }
   }
+
+  Logger::Log(LogLevel::Verbose, "UI thread finished");
 }
 
 void UiThreadAfterClose(uv_handle_t* closed) {
@@ -85,6 +89,7 @@ void TerminateUiThread() {
     return;
   }
 
+  Logger::Log(LogLevel::Verbose, "Terminating UI thread");
   uv_mutex_lock(&work_queue_mutex);
   terminated = true;
   uv_cond_signal(&work_queue_cond);
@@ -112,6 +117,7 @@ NODE_EXTERN void QueueWorkForUiThread(void* arg,
     delete req;
     return;
   }
+  Logger::Log(LogLevel::Verbose, "Queuing work for the UI thread");
   uv_async_init(uv_default_loop(), &req->async, UiThreadWorkCompleted);
   work_queue->push(req);
   uv_cond_signal(&work_queue_cond);
@@ -183,6 +189,7 @@ void HOOK_GameInit() {
   delete game_init_hook;
   game_init_hook = nullptr;
 
+  Logger::Log(LogLevel::Verbose, "Game initialization reached, beginning UI thread worker");
   UiThreadWorker();
 
   uv_mutex_destroy(&work_queue_mutex);

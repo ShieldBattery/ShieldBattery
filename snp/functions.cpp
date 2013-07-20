@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <string>
 
+#include "logger/logger.h"
 #include "snp/sockets.h"
 #include "shieldbattery/snp_interface.h"
 
@@ -66,7 +67,10 @@ int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_
   spoofed_game_dirty = false;
   spoofed_game = nullptr;
 
-  if (BeginSocketLoop(receive_event) != UV_OK) {
+  uv_err_code result = BeginSocketLoop(receive_event);
+  if (result != UV_OK) {
+    Logger::Logf(LogLevel::Error, "BeginSocketLoop failed [%d], snp not initialized",
+        result);
     return false;
   }
 
@@ -207,7 +211,7 @@ int __stdcall GetReplyTarget(char* dest, uint32 dest_len) {
 
 void SpoofGame(const string& game_name, const sockaddr_in& host_addr, bool is_replay) {
   GameInfo* info = new GameInfo();
-  
+
   info->index = 1;
   info->game_state = is_replay ? GameState::ReplayActive : GameState::Active;
   memcpy_s(&info->host_addr, sizeof(info->host_addr), &host_addr, sizeof(host_addr));
@@ -218,6 +222,11 @@ void SpoofGame(const string& game_name, const sockaddr_in& host_addr, bool is_re
   info->version_code = cur_client_info->version_code;
   info->unk2 = 0x50;
   info->unk3 = 0xa7;
+
+  char host_name[20];
+  uv_ip4_name(&info->host_addr, host_name, sizeof(host_name));
+  Logger::Logf(LogLevel::Verbose, "Spoofing game for address %s (isReplay: %s)",
+      host_name, is_replay ? "true" : "false");
 
   uv_mutex_lock(&spoofed_game_mutex);
   delete spoofed_game;
