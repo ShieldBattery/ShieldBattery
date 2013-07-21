@@ -8,9 +8,17 @@ var processInitialized = false
   , inLobby = false
   , inGame = false
 
+util.inherits(BroodWar, EventEmitter)
 function BroodWar(bindings) {
+  EventEmitter.call(this)
   this.bindings = bindings
   this._lobby = new Lobby(bindings)
+
+  var self = this
+    , levels = [ 'verbose', 'debug', 'warning', 'error' ]
+  bindings.onLog = function(logLevel, msg) {
+    self.emit('log', levels[logLevel], msg)
+  }
 }
 
 BroodWar._gameCreationTimeout = 10000

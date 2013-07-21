@@ -104,6 +104,7 @@
       ],
       'dependencies': [
         'common',
+        'logger',
         'deps/node/node.gyp:node',
       ],
     },
@@ -153,6 +154,22 @@
       'defines!': [
         'BUILDING_UV_SHARED=1',
         'BUILDING_V8_SHARED=1',
+      ],
+    },
+
+    {
+      'target_name': 'logger',
+      'type': 'static_library',
+      'sources': [
+        'logger/logger.cpp',
+        # headers
+        'logger/logger.h',
+      ],
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
       ],
     },
 

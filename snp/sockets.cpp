@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 
+#include "logger/logger.h"
 #include "snp/packets.h"
 
 using std::make_pair;
@@ -55,6 +56,9 @@ void FreeBuffer(uv_buf_t buf) {
 void OnReceive(uv_udp_t* req, ssize_t nread, uv_buf_t buf, sockaddr* addr, unsigned flags) {
   if (nread == -1) {
     // TODO(tec27): notify shieldbattery of the error
+    uv_err_t err = uv_last_error(loop);
+    Logger::Logf(LogLevel::Error, "Socket closed unexpectedly: %s %s", uv_err_name(err), 
+        uv_strerror(err));
     socket_dead = true;
     uv_close(reinterpret_cast<uv_handle_t*>(&socket), NULL);
     FreeBuffer(buf);
@@ -66,8 +70,10 @@ void OnReceive(uv_udp_t* req, ssize_t nread, uv_buf_t buf, sockaddr* addr, unsig
 }
 
 void OnPacketSent(uv_udp_send_t* req, int status) {
-  if (status == -1) {
-    // error, do something?
+  if (status != 0) {
+    uv_err_t err = uv_last_error(loop);
+    Logger::Logf(LogLevel::Error, "Sending packet failed (cb): %s %s", uv_err_name(err), 
+        uv_strerror(err));
   }
 
   SendPacketContext* context = reinterpret_cast<SendPacketContext*>(req->data);
@@ -95,7 +101,9 @@ void SendPacketInternal(QueuedPacketInternal* packet) {
     uv_udp_send_t* req = new uv_udp_send_t;
     req->data = context;
     if (uv_udp_send(req, &socket, &context->buf, 1, *it, OnPacketSent) != 0) {
-      // TODO(tec27): log failure
+      uv_err_t err = uv_last_error(loop);
+      Logger::Logf(LogLevel::Error, "Sending packet failed: %s %s", uv_err_name(err), 
+          uv_strerror(err));
     }
   }
 }
@@ -123,15 +131,24 @@ uv_err_code BeginSocketLoop(HANDLE receive_signal) {
 
   socket_dead = false;
   if (uv_udp_init(loop, &socket) != 0) {
-    return uv_last_error(loop).code;
+    uv_err_t err = uv_last_error(loop);
+    Logger::Logf(LogLevel::Error, "Failed to init socket: %s %s", uv_err_name(err),
+        uv_strerror(err));
+    return err.code;
   }
   // TODO(tec27): allow for specifying a port through shieldbattery
   sockaddr_in receive_addr = uv_ip4_addr("0.0.0.0", 6112);
   if (uv_udp_bind(&socket, receive_addr, 0) != 0) {
-    return uv_last_error(loop).code;
+    uv_err_t err = uv_last_error(loop);
+    Logger::Logf(LogLevel::Error, "Failed to bind socket: %s %s", uv_err_name(err),
+        uv_strerror(err));
+    return err.code;
   }
   if (uv_udp_recv_start(&socket, AllocBuffer, OnReceive) != 0) {
-    return uv_last_error(loop).code;
+    uv_err_t err = uv_last_error(loop);
+    Logger::Logf(LogLevel::Error, "Failed to start receiving on socket: %s %s", uv_err_name(err),
+        uv_strerror(err));
+    return err.code;
   }
 
   parser = new PacketParser();
@@ -269,6 +286,7 @@ void PacketParser::ParseHeader(const ParserStateMap::iterator& it, ssize_t nread
     it->second.read_state = ParserReadState::PacketData;
 
     if (it->second.header.size > SNP_PACKET_SIZE) {
+      Logger::Log(LogLevel::Debug, "Received a packet larger than the packet size");
       // they sent us an invalid header size (malicious or corrupted)
       // TODO(tec27): can this actually be because of corruption? if so, find a way to re-sync the
       // stream instead of blacklisting

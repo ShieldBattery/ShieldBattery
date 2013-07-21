@@ -6,8 +6,9 @@
 #include <memory>
 #include <string>
 
-#include "./brood_war.h"
+#include "node-bw/brood_war.h"
 #include "common/types.h"
+#include "logger/logger.h"
 
 namespace sbat {
 namespace bw {
@@ -108,7 +109,11 @@ private:
   static void OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]);
   static void OnLobbyMissionBriefing(byte slot);
   static void OnLobbyChatMessage(byte slot, const std::string& message);
+  
+  // Functions for logging
+  static void Log(void* arg, LogLevel level, const char* msg);
 
+  v8::Persistent<v8::String> log_symbol_;
   BroodWar* brood_war_;
 };
 

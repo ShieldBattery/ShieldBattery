@@ -1,8 +1,8 @@
 #include <node.h>
 #include <v8.h>
 
-#include "./immediate.h"
-#include "./wrapped_brood_war.h"
+#include "node-bw/immediate.h"
+#include "node-bw/wrapped_brood_war.h"
 
 using v8::Arguments;
 using v8::FunctionTemplate;

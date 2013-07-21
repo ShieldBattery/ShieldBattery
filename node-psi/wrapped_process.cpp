@@ -1,5 +1,6 @@
 #include "node-psi/wrapped_process.h"
 
+#include <assert.h>
 #include <node.h>
 #include <string>
 
@@ -125,26 +126,12 @@ void InjectDllAfter(uv_work_t* req, int status) {
 Handle<Value> WrappedProcess::InjectDll(const Arguments& args) {
   HandleScope scope;
 
-  if (args.Length() < 3) {
-    ThrowException(Exception::Error(String::New("Incorrect number of arguments")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[0]->IsString() && !args[0]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("dllPath must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[1]->IsString() && !args[1]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("injectFuncName must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[2]->IsFunction()) {
-    ThrowException(Exception::TypeError(String::New("callback must be a function")));
-    return scope.Close(v8::Undefined());
-  }
+  assert(args.Length() == 3);
+  assert(args[2]->IsFunction());
 
   InjectDllContext* context = new InjectDllContext;
-  context->dll_path = ToWstring(args[0].As<String>());
-  String::AsciiValue ascii_value(args[1].As<String>());
+  context->dll_path = ToWstring(args[0]->ToString());
+  String::AsciiValue ascii_value(args[1]->ToString());
   context->inject_func = new string(*ascii_value);
   context->callback = Persistent<Function>::New(args[2].As<Function>());
   context->self = Persistent<Object>::New(args.This());
