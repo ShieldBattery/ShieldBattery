@@ -66,6 +66,7 @@ void UiThreadWorker() {
     if (req != nullptr) {
       Logger::Log(LogLevel::Verbose, "UI thread running requested work");
       req->worker_func(req->data);
+      Logger::Log(LogLevel::Verbose, "UI thread finished running work");
       uv_async_send(&req->async);
     }
   }
@@ -148,14 +149,18 @@ typedef int (*EntryPointFunc)(HMODULE module_handle);
 sbat::FuncHook<EntryPointFunc>* entry_point_hook;
 int HOOK_EntryPoint(HMODULE module_handle) {
   entry_point_hook->Restore();
-  // TODO(tec27): redirect these to a file so we don't need to have a console any more
-  if (AllocConsole()) {
-    // correct stdout/stderr/stdin to point to new console
-    FILE* fp;
-    freopen_s(&fp, "CONOUT$", "w", stdout);
-    freopen_s(&fp, "CONOUT$", "w", stderr);
-    freopen_s(&fp, "CONIN$", "r", stdin);
-  }
+
+  // open a temp file so that node can write errors out to it
+  char temp_path[MAX_PATH];
+  int ret = GetTempPathA(MAX_PATH, temp_path);
+  assert(ret != 0);
+  char temp_file[MAX_PATH];
+  ret = GetTempFileNameA(temp_path, "shieldbattery", 0, temp_file);
+  assert(ret != 0);
+
+  FILE* fp;
+  freopen_s(&fp, temp_file, "w", stdout);
+  freopen_s(&fp, temp_file, "w", stderr);
 
   // TODO(tec27): Add a debug mode based on a file being present or something, and this code:
   /*printf("Awaiting debugger...");

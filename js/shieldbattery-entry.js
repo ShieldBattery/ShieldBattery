@@ -1,5 +1,6 @@
 var bw = require('bw')
   , io = require('socket.io-client')
+  , log = require('./shieldbattery/logger')
   , path = require('path')
   , shieldbatteryRoot = path.dirname(path.resolve(process.argv[0]))
 
@@ -7,16 +8,16 @@ var socket = io.connect('http://localhost:33198/game')
   , running = false
 
 bw.on('log', function(level, msg) {
-  console.log('Log from C++: [' + level + '] ' + msg)
+  log.log(level, msg)
 })
 
 socket.on('connect', function() {
-  console.log('Connected to psi.')
+  log.verbose('Connected to psi.')
   socket.emit('status', running ? 'running' : 'init')
 }).on('disconnect', function() {
-  console.log('Disconnected from psi...')
+  log.verbose('Disconnected from psi...')
 }).on('error', function(err) {
-  console.log('Error connecting to psi, is it running? Error: ' + err)
+  log.error('Error connecting to psi, is it running? Error: ' + err)
 }).on('load', function(plugins, cb) {
   var leftToLoad = plugins.length
     , errors = {}
@@ -40,7 +41,7 @@ socket.on('connect', function() {
   running = true
 
   bw.initProcess(function() {
-    console.log('process initialized!')
+    log.verbose('process initialized!')
 
 // TODO(tec27): make a constants file, but: Possible values for Game Type (Sub Game Type):
 // 0x02: Melee 0x03: Free for All 0x04: 1 vs 1 0x05: Capture The Flag
@@ -65,7 +66,7 @@ socket.on('connect', function() {
 
   function onError(err) {
     running = false
-    console.log(err)
+    log.error(err)
   }
 
   function onCreateLobby(err, newLobby) {
@@ -89,21 +90,22 @@ socket.on('connect', function() {
     if (err) return onError(err)
     lobby.once('gameInit', function() {
       lobby.runGameLoop(onGameFinished)
-      console.log('Game started!')
+      log.verbose('Game started!')
       running = true
     })
   }
 
   function onGameFinished(err) {
     running = false
-    console.log('Game completed.')
+    log.verbose('Game completed.')
+    process.exit()
   }
 }).on('join', function(params) {
   if (running) return
   running = true
 
   bw.initProcess(function() {
-    console.log('process initialized!')
+    log.verbose('process initialized!')
 
     bw.joinLobby(params.username, params.address, params.port, onJoinLobby)
   })
@@ -112,30 +114,31 @@ socket.on('connect', function() {
 
   function onError(err) {
     running = false
-    console.log(err)
+    log.error(err)
   }
 
   function onJoinLobby(err, newLobby) {
     if (err) return onError(err)
     lobby = newLobby;
     lobby.setRace('protoss', function(err) {
-      if (err) console.log(err)
+      if (err) log.error(err)
     })
     lobby.once('gameInit', function() {
       lobby.runGameLoop(onGameFinished)
-      console.log('Game started!')
+      log.verbose('Game started!')
       running = true
     })
   }
 
   function onGameFinished(err) {
     running = false
-    console.log('Game completed.')
+    log.verbose('Game completed.')
+    process.exit()
   }
 })
 
 process.on('uncaughtException', function(err) {
-  console.log(err.message)
-  console.log(err.stack)
-  setTimeout(function() { process.exit() }, 20000)
+  log.error(err.message)
+  log.error(err.stack)
+  process.exit()
 })

@@ -287,6 +287,7 @@
       'defines': [
         'BUILDING_NODE_EXTENSION',
       ],
+      'libraries': [ '-luser32.lib'],
     },
 
     {

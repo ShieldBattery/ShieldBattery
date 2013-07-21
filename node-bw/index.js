@@ -12,13 +12,17 @@ util.inherits(BroodWar, EventEmitter)
 function BroodWar(bindings) {
   EventEmitter.call(this)
   this.bindings = bindings
-  this._lobby = new Lobby(bindings)
+  this._lobby = new Lobby(bindings, this)
 
   var self = this
     , levels = [ 'verbose', 'debug', 'warning', 'error' ]
   bindings.onLog = function(logLevel, msg) {
     self.emit('log', levels[logLevel], msg)
   }
+}
+
+BroodWar.prototype._log = function(level, msg) {
+  this.emit('log', level, msg)
 }
 
 BroodWar._gameCreationTimeout = 10000
@@ -81,7 +85,7 @@ BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
     return setImmediate(function() { cb(new Error('Already in a lobby or game')) })
   }
 
-  console.log('attempting to join lobby...')
+  this._log('verbose', 'Attempting to join lobby')
 
   this.bindings.isBroodWar = true
   this.bindings.initSprites()
@@ -135,8 +139,9 @@ BroodWar.prototype.initProcess = function(cb) {
 }
 
 util.inherits(Lobby, EventEmitter)
-function Lobby(bindings) {
+function Lobby(bindings, bw) {
   EventEmitter.call(this)
+  this.bw = bw
   this.bindings = bindings
   this._running = false
   this._onTurn = this._onTurn.bind(this)
@@ -149,35 +154,36 @@ function Lobby(bindings) {
   this.bindings.onLobbyDownloadStatus = function(slot, percent) {
     self._gameEmitter.emit('downloadStatus', slot, percent)
     self._gameEmitter.emit('downloadStatus:' + slot, percent)
-    console.log('Slot ' + slot + ' is now at ' + percent + '% downloaded')
+    self.bw._log('debug', 'Slot ' + slot + ' is now at ' + percent + '% downloaded')
   }
 
   this.bindings.onLobbySlotChange = function(slot, stormId, type, race, team) {
     var info = { stormId: stormId, type: type, race: race, team: team }
     self._gameEmitter.emit('slotChange', slot, info)
     self._gameEmitter.emit('slotChange:' + slot, info)
-    console.log('Slot %d changed:\tstormId: %d\ttype: %d\trace: %d\tteam: %d', slot, stormId, type,
-        race, team)
+    self.bw._log('debug', util.format('Slot %d changed:\tstormId: %d\ttype: %d\trace: %d\tteam: %d',
+        slot, stormId, type, race, team))
   }
 
   this.bindings.onLobbyStartCountdown = function() {
     self._gameEmitter.emit('countdownStarted')
-    console.log('Countdown started')
+    self.bw._log('debug', 'Countdown started')
   }
 
   this.bindings.onLobbyGameInit = function(seed, playerBytes) {
     self._gameEmitter.emit('gameInit', seed, playerBytes)
-    console.log('Game init happened. Seed: %d\tPlayers: [ %s ]', seed, playerBytes.join(' '))
+    self.bw._log('debug', util.format('Game init happened. Seed: %d\tPlayers: [ %s ]',
+        seed, playerBytes.join(' ')))
   }
 
   this.bindings.onLobbyMissionBriefing = function(slot) {
     self._gameEmitter.emit('missionBriefingEntered', slot)
-    console.log('Slot %d entered mission briefing.', slot)
+    self.bw._log('debug', util.format('Slot %d entered mission briefing.', slot))
   }
 
   this.bindings.onLobbyChatMessage = function(slot, message) {
     self._gameEmitter.emit('chatMessage', slot, message)
-    console.log('[Lobby] <%d>: %s', slot, message)
+    self.bw._log('debug', util.format('[Lobby] <%d>: %s', slot, message))
   }
 
   this._gameEmitter.on('downloadStatus', function(slot, percent) {

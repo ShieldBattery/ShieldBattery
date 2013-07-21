@@ -222,7 +222,7 @@ void FreeStormPacket(StormPacket* packet) {
 void SendStormPacket(const QueuedPacket& packet) {
   QueuedPacketInternal* my_packet = new QueuedPacketInternal();
   my_packet->targets = new vector<sockaddr_in>();
-  for (int i = 0; i < packet.num_targets; i++) {
+  for (uint32 i = 0; i < packet.num_targets; i++) {
     my_packet->targets->push_back(*(packet.targets[i]));
   }
 
