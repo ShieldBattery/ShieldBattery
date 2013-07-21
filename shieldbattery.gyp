@@ -205,7 +205,6 @@
       ],
       'dependencies': [
         'common',
-        'logger',
         'shieldbattery',
       ],
       'defines': [
