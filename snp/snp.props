@@ -6,7 +6,7 @@
   <ItemDefinitionGroup>
     <PostBuildEvent>
       <Command>copy /y /b "$(TargetPath)" + "$(SolutionDir)$(ProjectName)\$(TargetName).mpq" "$(TargetDir)shieldbat.snp"
-XCOPY "$(TargetDir)shieldbat.snp" "$(BROOD_WAR_PATH)" /y /f</Command>
+XCOPY "$(TargetDir)shieldbat.snp" "$(SHIELDBATTERY_PATH)" /y /f</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>

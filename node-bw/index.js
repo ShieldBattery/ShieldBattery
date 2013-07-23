@@ -32,20 +32,22 @@ BroodWar._gameJoinTimeout = 10000
 BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
   cb = cb.bind(this)
   if (!processInitialized) {
-    return setImmediate(function() { cb(new Error('Process must be initialized first')) })
+    return cb(new Error('Process must be initialized first'))
   }
   if (inLobby || inGame) {
-    return setImmediate(function() { cb(new Error('Already in a lobby or game')) })
+    return cb(new Error('Already in a lobby or game'))
   }
 
   this.bindings.isBroodWar = true
   this.bindings.initSprites()
   this.bindings.localPlayerName = playerName
-  this.bindings.chooseNetworkProvider()
+  if (!this.bindings.chooseNetworkProvider()) {
+    return cb(new Error('Could not choose network provider'))
+  }
   this.bindings.isMultiplayer= true
 
   if (!this.bindings.createGame(gameSettings)) {
-    return setImmediate(function() { cb(new Error('Could not create game')) })
+    return cb(new Error('Could not create game'))
   }
   this.bindings.initGameNetwork()
   inLobby = true
@@ -73,16 +75,16 @@ BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
 }
 
 BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
+  cb = cb.bind(this)
   if (!playerName || !address || !port || !cb) {
-    return setImmediate(function() { cb(new Error('Incorrect arguments')) })
+    return cb(new Error('Incorrect arguments'))
   }
 
-  cb = cb.bind(this)
   if (!processInitialized) {
-    return setImmediate(function() { cb(new Error('Process must be initialized first')) })
+    return cb(new Error('Process must be initialized first'))
   }
   if (inLobby || inGame) {
-    return setImmediate(function() { cb(new Error('Already in a lobby or game')) })
+    return cb(new Error('Already in a lobby or game'))
   }
 
   this._log('verbose', 'Attempting to join lobby')
@@ -91,7 +93,7 @@ BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
   this.bindings.initSprites()
   this.bindings.localPlayerName = playerName
   if (!this.bindings.chooseNetworkProvider()) {
-    return setImmediate(function() { cb(new Error('Could not choose network provider')) })
+    return cb(new Error('Could not choose network provider'))
   }
   this.bindings.isMultiplayer = true
 
@@ -131,10 +133,11 @@ BroodWar.prototype.loadPlugin = function(pluginPath, cb) {
 
 // cb if func()
 BroodWar.prototype.initProcess = function(cb) {
+  cb = cb.bind(this)
   if (processInitialized) {
-    setImmediate(function() { cb() })
+    return cb()
   }
-  this.bindings.initProcess(cb.bind(this))
+  this.bindings.initProcess(cb)
   processInitialized = true
 }
 
@@ -231,7 +234,7 @@ Lobby.prototype._onTurn = function() {
 
 Lobby.prototype._ensureRunning = function(cb) {
   if (!this._running) {
-    setImmediate(function() { cb(new Error('Lobby not running')) })
+    cb(new Error('Lobby not running'))
     return false
   }
   return true

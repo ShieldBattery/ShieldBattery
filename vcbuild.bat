@@ -3,7 +3,6 @@
 @rem Modified version of vcbuild.bat from Node
 
 @rem Ensure environment properly setup
-if not defined BROOD_WAR_PATH goto env-error
 if not defined SHIELDBATTERY_PATH goto env-error
 
 @rem Process arguments.
@@ -95,7 +94,7 @@ echo Linking JS modules failed, please check command output and ensure node.js i
 goto exit
 
 :env-error
-echo Necessary environment variables not set! Please set BROOD_WAR_PATH and SHIELDBATTERY_PATH and re-run this script.
+echo Necessary environment variables not set! Please set SHIELDBATTERY_PATH and re-run this script.
 goto exit
 
 :help

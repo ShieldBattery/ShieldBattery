@@ -1,6 +1,7 @@
 #ifndef NODE_BW_BROOD_WAR_H_
 #define NODE_BW_BROOD_WAR_H_
 
+#include <assert.h>
 #include <Windows.h>
 #include <string>
 #include "common/func_hook.h"
@@ -82,14 +83,14 @@ enum class GameState {
   Unknown9,
 };
 
-#pragma pack(push)
 #pragma pack(1)
 struct LobbyGameInitData {
   byte game_init_command;
   uint32 random_seed;
   byte player_bytes[8];
 };
-#pragma pack(pop)
+#pragma pack()
+
 
 #define FUNCDEF(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
     ##Name##Func Name;
@@ -117,6 +118,7 @@ struct Detours {
   Detour* OnLobbyStartCountdown;
   Detour* OnLobbyGameInit;
   Detour* OnLobbyMissionBriefing;
+  Detour* InitializeSnpList;
 };
 
 struct FuncHooks {
@@ -219,6 +221,7 @@ public:
   static void __stdcall OnLobbyStartCountdown();
   static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
   static void __stdcall OnLobbyMissionBriefing(uint32 slot);
+  static void __stdcall OnInitializeSnpList(char* snp_directory);
 
   // FuncHooks
   static void __stdcall ShowLobbyChatHook(char* message);
@@ -241,6 +244,9 @@ private:
 template <> inline
 Offsets* GetOffsets<Version::v1161>() {
   Offsets* offsets = new Offsets;
+
+  byte* storm_base = reinterpret_cast<byte*>(GetModuleHandle("storm.dll"));
+  assert(storm_base != nullptr);
 
   offsets->players = reinterpret_cast<PlayerInfo*>(0x0057EEE0);
   offsets->current_map_path = reinterpret_cast<char*>(0x0057FD3C);
@@ -301,13 +307,17 @@ Offsets* GetOffsets<Version::v1161>() {
       .At(0x00486462).To(BroodWar::OnLobbyMissionBriefing)
       .WithArgument(RegisterArgument::Eax)
       .RunningOriginalCodeBefore());
+  offsets->detours.InitializeSnpList = new Detour(Detour::Builder()
+      .At(storm_base + 0x0003DED9).To(BroodWar::OnInitializeSnpList)
+      .WithArgument(RegisterArgument::Esi)
+      .RunningOriginalCodeAfter());
 
   offsets->func_hooks.LobbyChatShowMessage = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
       offsets->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
 
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
-  offsets->storm_unsigned_snp_patch = reinterpret_cast<byte*>(0x0003DDD8);
+  offsets->storm_unsigned_snp_patch = storm_base + 0x0003DDD8;
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);
 
   return offsets;

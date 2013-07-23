@@ -92,11 +92,20 @@ void __stdcall BroodWar::OnLobbyMissionBriefing(uint32 slot) {
 }
 #undef HAVE_HANDLER_FOR
 
+void __stdcall BroodWar::OnInitializeSnpList(char* snp_directory) {
+  // rewrite the snp_directory to be shieldbattery's directory instead, so that we can place custom
+  // SNPs in our own directory instead of Starcraft's. Note that this will prevent us from using a
+  // standard snp file without copying it to our dir
+  GetModuleFileNameA(GetModuleHandle("shieldbattery.dll"), snp_directory, MAX_PATH);
+}
+
 void BroodWar::InjectDetours() {
   offsets_->detours.OnLobbyDownloadStatus->Inject();
   offsets_->detours.OnLobbySlotChange->Inject();
   offsets_->detours.OnLobbyStartCountdown->Inject();
   offsets_->detours.OnLobbyGameInit->Inject();
+  offsets_->detours.OnLobbyMissionBriefing->Inject();
+  offsets_->detours.InitializeSnpList->Inject();
 
   offsets_->func_hooks.LobbyChatShowMessage->Inject();
 }
@@ -111,14 +120,10 @@ void BroodWar::ApplyPatches() {
   }
 
   // Allow loading of any SNP's (even unsigned)
-  HMODULE storm = LoadLibrary("storm.dll");
-  byte* snp_patch =
-      reinterpret_cast<byte*>(reinterpret_cast<uint32>(storm) +
-      reinterpret_cast<uint32>(offsets_->storm_unsigned_snp_patch));
-  ScopedVirtualProtect snp_protect(snp_patch, 26, PAGE_EXECUTE_READWRITE);
+  ScopedVirtualProtect snp_protect(offsets_->storm_unsigned_snp_patch, 26, PAGE_EXECUTE_READWRITE);
   if (!snp_protect.has_errors()) {
     // 26x NOP
-    memset(snp_patch, 0x90, 26);
+    memset(offsets_->storm_unsigned_snp_patch, 0x90, 26);
   }
 
   // Avoid doing a long countdown, and skip dialog-specific countdown code (that will crash)

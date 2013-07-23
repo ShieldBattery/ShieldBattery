@@ -10,12 +10,10 @@ Developing for shieldbattery will require an install of Visual Studio 2012 or gr
 Building shieldbattery properly requires some environment variables to be set so that it can properly move things around after building. Set your environment variables as follows:
 ```
 SHIELDBATTERY_PATH=<path to your desired shieldbattery test install>
-BROOD_WAR_PATH=<path to your brood war installation>
 ```
 For me, this is:
 ```
 SHIELDBATTERY_PATH=C:\shieldbattery\
-BROOD_WAR_PATH=C:\Program Files (x86)\Starcraft\
 ```
 ####Getting Project Files
 Visual Studio project files are generated using [gyp](https://code.google.com/p/gyp/). This is the canonical source for project files, so they will not be checked into git. You'll need a copy of [Python 2.7.x](http://www.python.org/download/) installed to use gyp.
@@ -24,6 +22,7 @@ Generating the project files should be straightforward, simply run `vcbuild.bat`
 
 The various project files/folders are:
 - common: utility classes that are used almost everywhere.
+- logger: logging class for pushing log lines from C++->JS (so they can be put in the same log file in the same format)
 - js: All the javascript for the various projects, including linked in node-psi and node-bw.
 - psi: background service that handles launching and injecting Starcraft (also embedded Node).
 - scout: multiplexing injectee DLL. I use this with InfectInject, but this method is deprecated now that psi is working.
