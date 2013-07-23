@@ -49,10 +49,18 @@ io.of('/game').on('connection', function(socket) {
 })
 
 function doLaunch(plugins, cb) {
+  // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86%/Starcraft and
+  // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
+  var installPath = psi.getInstallPathFromRegistry()
+  installPath = installPath || 'C:\\Program Files (x86)\\Starcraft'
+  var appPath = installPath +
+      (installPath.charAt(installPath.length - 1) == '\\' ? '' : '\\') +
+      'Starcraft.exe'
+
   psi.launchProcess(
-      { appPath: 'C:\\Program Files (x86)\\Starcraft\\Starcraft.exe'
+      { appPath: appPath
       , launchSuspended: true
-      , currentDir: 'C:\\Program Files (x86)\\Starcraft'
+      , currentDir: installPath
       }, function(err, proc) {
         if (err) return cb({ when: 'launching process', msg: err.message })
 
@@ -76,3 +84,9 @@ function onHttpRequest(req, res) {
   res.writeHead(404)
   res.end()
 }
+
+process.on('uncaughtException', function(err) {
+  console.log(err.message)
+  console.log(err.stack)
+  setTimeout(function() { process.exit() }, 15000)
+})

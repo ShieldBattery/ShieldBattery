@@ -8,6 +8,7 @@
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
 #include "node-psi/wrapped_process.h"
+#include "node-psi/wrapped_registry.h"
 
 using std::wstring;
 using v8::Arguments;
@@ -96,9 +97,11 @@ Handle<Value> LaunchProcess(const Arguments& args) {
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   WrappedProcess::Init();
+  WrappedRegistry::Init();
 
   exports->Set(String::NewSymbol("launchProcess"),
     FunctionTemplate::New(LaunchProcess)->GetFunction());
+  exports->Set(String::NewSymbol("registry"), WrappedRegistry::NewInstance());
 }
 
 NODE_MODULE(psi, Initialize);

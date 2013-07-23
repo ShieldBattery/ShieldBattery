@@ -8,8 +8,26 @@ module.exports.launchProcess = function(params, cb) {
   psi.launchProcess(params.appPath, args, !!params.launchSuspended, params.currentDir || '',
     function(err, proc) {
       if (err) cb(err, proc)
-      else cb(err, new Process(proc));
+      else cb(err, new Process(proc))
     })
+}
+
+module.exports.getInstallPathFromRegistry = function() {
+  var regPath = 'SOFTWARE\\Blizzard Entertainment\\Starcraft'
+    , regValueName = 'InstallPath'
+    , result
+
+  try {
+    result = psi.registry.readString('hkcu', regPath, regValueName)
+  } catch (err) {
+  }
+  if (result) return result
+  try {
+    result = psi.registry.readString('hklm', regPath, regValueName)
+  } catch (err) {
+  }
+
+  return result
 }
 
 function Process(cProcess) {

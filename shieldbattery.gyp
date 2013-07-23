@@ -302,9 +302,11 @@
       'sources': [
         'node-psi/module.cpp',
         'node-psi/wrapped_process.cpp',
+        'node-psi/wrapped_registry.cpp',
         # headers
         'node-psi/module.h',
         'node-psi/wrapped_process.h',
+        'node-psi/wrapped_registry.h',
       ],
       'dependencies': [
         'common',

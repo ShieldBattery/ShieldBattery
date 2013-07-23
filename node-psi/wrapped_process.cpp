@@ -52,10 +52,8 @@ void WrappedProcess::Init() {
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // functions
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("injectDll"),
-      FunctionTemplate::New(InjectDll)->GetFunction());
-  tpl->PrototypeTemplate()->Set(String::NewSymbol("resume"),
-      FunctionTemplate::New(Resume)->GetFunction());
+  SetProtoMethod(tpl, "injectDll", InjectDll);
+  SetProtoMethod(tpl, "resume", Resume);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
