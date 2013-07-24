@@ -20,5 +20,14 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/tec27/manner-pylon/issues"
+  },
+  "dependencies": {
+    "express": "~3.3.4",
+    "socket.io": "~0.9.16",
+    "jade": "~0.33.0",
+    "browserify-middleware": "~1.14.1",
+    "browserify-ngmin": "0.0.1",
+    "stylus": "~0.34.1",
+    "canonical-host": "0.0.4"
   }
 }
