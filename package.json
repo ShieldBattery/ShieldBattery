@@ -1,0 +1,24 @@
+{
+  "name": "manner-pylon",
+  "version": "0.0.1",
+  "description": "The official server implementation for shieldbattery.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tec27/manner-pylon"
+  },
+  "keywords": [
+    "starcraft",
+    "bw",
+    "shieldbattery",
+    "matchmaking"
+  ],
+  "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tec27/manner-pylon/issues"
+  }
+}
