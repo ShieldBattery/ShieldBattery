@@ -31,6 +31,13 @@ goto next-arg
 @rem Skip project generation if requested.
 if defined noprojgen goto msbuild
 
+@rem Look for Visual Studio 2012
+if not defined VS110COMNTOOLS goto msbuild-not-found
+if not exist "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
+call "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat"
+if not defined VCINSTALLDIR goto msbuild-not-found
+set GYP_MSVS_VERSION=2012
+
 @rem Generate the VS project.
 SETLOCAL
   if defined VS110COMNTOOLS call "%VS110COMNTOOLS%\VCVarsQueryRegistry.bat"
@@ -42,24 +49,17 @@ SETLOCAL
   if not exist shieldbattery.sln goto create-msvs-files-failed
   echo Shieldbattery project files generated.
 ENDLOCAL
+goto do-build
 
 :msbuild
 @rem Skip build if requested.
 if defined nobuild goto exit
 
-@rem Look for Visual Studio 2012
-if not defined VS110COMNTOOLS goto msbuild-not-found
-if not exist "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
-call "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat"
-if not defined VCINSTALLDIR goto msbuild-not-found
-set GYP_MSVS_VERSION=2012
-goto msbuild-found
-
 :msbuild-not-found
 echo Build skipped. To build, this file needs to run from VS cmd prompt.
 goto exit
 
-:msbuild-found
+:do-build
 @rem Build the sln with msbuild.
 msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
