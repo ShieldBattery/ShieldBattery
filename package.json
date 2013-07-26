@@ -28,6 +28,9 @@
     "browserify-middleware": "~1.14.1",
     "browserify-ngmin": "0.0.1",
     "stylus": "~0.34.1",
-    "canonical-host": "0.0.4"
+    "canonical-host": "0.0.4",
+    "pg": "~2.2.0",
+    "db-migrate": "~0.5.4",
+    "bcrypt": "~0.7.6"
   }
 }

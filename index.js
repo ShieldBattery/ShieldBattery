@@ -1,3 +1,5 @@
+var config = require('./config')
+
 var canonicalHost = require('canonical-host')
   , express = require('express')
   , fs = require('fs')
@@ -8,7 +10,7 @@ var canonicalHost = require('canonical-host')
   , stylus = require('stylus')
 
 var app = express()
-app.set('port', 443)
+app.set('port', config.httpsPort)
   .set('views', path.join(__dirname, 'views'))
   .set('view engine', 'jade')
   .use(express.logger('dev'))
@@ -42,10 +44,10 @@ httpsServer.listen(app.get('port'), function() {
 })
 
 // create a server that simply forwards requests to https
-var canon = canonicalHost('https://localhost', 301)
+var canon = canonicalHost(config.canonicalHost, 301)
 http.createServer(function(req, res) {
   if (canon(req, res)) return
   // shouldn't ever get here, but if we do, just kill the connection
   res.statusCode = 400
   res.end('Bad request\n')
-}).listen(80)
+}).listen(config.httpPort)
