@@ -723,7 +723,7 @@ function installTargetsError (requested, data) {
 function addNameVersion (name, v, data, cb) {
   if (typeof cb !== "function") cb = data, data = null
 
-  ver = semver.valid(v, true)
+  var ver = semver.valid(v, true)
   if (!ver) return cb(new Error("Invalid version: "+v))
 
   var response
@@ -1173,7 +1173,7 @@ function unpack (pkg, ver, unpackTarget, dMode, fMode, uid, gid, cb) {
       log.error("unpack", "Could not read data for %s", pkg + "@" + ver)
       return cb(er)
     }
-    npm.commands.unbuild([unpackTarget], function (er) {
+    npm.commands.unbuild([unpackTarget], true, function (er) {
       if (er) return cb(er)
       tar.unpack( path.join(npm.cache, pkg, ver, "package.tgz")
                 , unpackTarget
