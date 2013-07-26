@@ -4,7 +4,7 @@ The client-side parts of the shieldbattery project, including an injector servic
 ##Developer Setup
 Shieldbattery is a combination of C++ and JavaScript, and thus developing for it involves two different workflows. A script is included to setup both areas, `vcbuild.bat`. This will both generate C++ project files as well as build the native Node modules and link them into your environment.
 
-Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally.
+Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally. It also requires [node.js](http://nodejs.org/) to be installed, any 0.10.x version should work fine.
 
 ####Environment Setup
 Building shieldbattery properly requires some environment variables to be set so that it can properly move things around after building. Set your environment variables as follows:
@@ -15,6 +15,8 @@ For me, this is:
 ```
 SHIELDBATTERY_PATH=C:\shieldbattery\
 ```
+
+Note that this should *not* be the same place that you cloned the repo. Setting your test install directory to the same directory as your repo will not work correctly, and is not at all a desired way of doing things.
 ####Getting Project Files
 Visual Studio project files are generated using [gyp](https://code.google.com/p/gyp/). This is the canonical source for project files, so they will not be checked into git. You'll need a copy of [Python 2.7.x](http://www.python.org/download/) installed to use gyp.
 
