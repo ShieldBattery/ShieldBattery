@@ -72,7 +72,7 @@ socket.on('connect', function() {
   function onCreateLobby(err, newLobby) {
     if (err) return onError(err)
     lobby = newLobby
-    lobby.setRace('terran', function(err) {
+    lobby.setRace(params.race || 'random', function(err) {
       if (err) return onError(err)
     })
     lobby.on('downloadStatus', onDownloadStatus)
@@ -120,7 +120,7 @@ socket.on('connect', function() {
   function onJoinLobby(err, newLobby) {
     if (err) return onError(err)
     lobby = newLobby;
-    lobby.setRace('protoss', function(err) {
+    lobby.setRace(params.race || 'random', function(err) {
       if (err) log.error(err)
     })
     lobby.once('gameInit', function() {

@@ -46,6 +46,15 @@
       <label for="injectees">Injectees (comma-separated):</label>
       <input type="text" id="injectees" value="wmode.dll" />
     </p>
+    <p>
+      <label for="race">Race:</label>
+      <select id="race">
+        <option value="random" selected>random</option>
+        <option value="zerg">zerg</option>
+        <option value="protoss">protoss</option>
+        <option value="terran">terran</option>
+      </select>
+    </p>
   </div>
   <p>Game status: <span id="game-status" style="font-weight:bold;">Not running</span></p>
   <div class="settings">
@@ -109,6 +118,10 @@
       return document.querySelector('#join-port').value || '6112'
     }
 
+    function getRace() {
+      return document.querySelector('#race').value || 'random'
+    }
+
     function handleStatusCreate(status) {
       if (status != 'init') return
 
@@ -125,6 +138,7 @@
         if (launch) {
           socket.emit('game:start', { username: getUsername()
                                     , map: getHostMapPath()
+                                    , race: getRace()
                                     })
         }
       })
@@ -147,6 +161,7 @@
           socket.emit('game:join',  { username: getUsername()
                                     , address: getJoinAddress()
                                     , port: getJoinPort()
+                                    , race: getRace()
                                     })
         }
       })
