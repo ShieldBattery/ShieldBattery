@@ -16,7 +16,9 @@ app.set('port', config.httpsPort)
   .use(express.logger('dev'))
   .use(express.bodyParser())
   .use(express.methodOverride())
-  .use(stylus.middleware({ src: path.join(__dirname, 'styles') }))
+  .use(stylus.middleware( { src: path.join(__dirname)
+                          , dest: path.join(__dirname, 'public')
+                          }))
   .use(express.static(path.join(__dirname, 'public')))
   .use(app.router)
 
@@ -35,9 +37,7 @@ io.configure(function() {
   io.set('transports', ['websocket'])
 })
 
-app.get('/', function(req, res) {
-  res.send('Warp field stabilized.')
-})
+require('./routes')(app)
 
 httpsServer.listen(app.get('port'), function() {
   console.log('Server listening on port ' + app.get('port'))
