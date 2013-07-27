@@ -13,9 +13,7 @@ function applyRoutes(app) {
 
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
-  app.get('/favicon.ico', function(req, res) {
-    res.status(404)
-  }).get('/robots.txt', function(req, res) {
+  app.get('/robots.txt', function(req, res) {
     res.status(404)
   })
 
