@@ -31,6 +31,8 @@
     "canonical-host": "0.0.4",
     "pg": "~2.2.0",
     "db-migrate": "~0.5.4",
-    "bcrypt": "~0.7.6"
+    "bcrypt": "~0.7.6",
+    "redis": "~0.8.4",
+    "connect-redis": "~1.4.5"
   }
 }
