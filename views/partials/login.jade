@@ -1,0 +1,8 @@
+form(name='loginForm', ng-submit='doLogin(username, password, remember)', novalidate)
+  input(type='text', name='username', ng-model='username', required, placeholder='Username')
+  input(type='text', name='password', ng-model='password', required, placeholder='Password')
+  input(id='remember-login', name='remember-login', type='checkbox', ng-model='remember')
+  label(for='remember-login') Remember me
+  input(type='submit', value='Login', ng-disabled='!loginForm.$valid')
+
+a(href='/user/new') Create new account

@@ -6,17 +6,43 @@ var canonicalHost = require('canonical-host')
   , http = require('http')
   , https = require('https')
   , path = require('path')
+  , redis = require('./redis')
+  , RedisStore = require('connect-redis')(express)
   , socketio = require('socket.io')
   , stylus = require('stylus')
+
+var sessionStore = new RedisStore({ client: redis
+                                  , ttl: config.sessionTtl
+                                  })
+
+function getCsrfToken(req) {
+  return (
+      (req.headers['x-xsrf-token']) ||
+      (req.body && req.body._csrf) ||
+      (req.query && req.query._csrf)
+  )
+}
+
+function setCsrfToken(req, res, next) {
+  res.cookie('XSRF-TOKEN', req.session._csrf)
+  next()
+}
 
 var app = express()
 app.set('port', config.httpsPort)
   .set('views', path.join(__dirname, 'views'))
   .set('view engine', 'jade')
-  .use(express.logger('dev'))
   .use(express.bodyParser())
   .use(express.methodOverride())
-  .use(express.favicon(path.join(__dirname, 'favicon.ico')))
+  .use(express.cookieParser())
+  .use(express.session( { store: sessionStore
+                        , secret: config.sessionSecret
+                        , cookie: { secure: true, maxAge: config.sessionTtl }
+                        }))
+  .use(express.csrf({ value: getCsrfToken }))
+  .use(setCsrfToken)
+  .use(require('./secureHeaders'))
+  .use(express.favicon())
   .use(stylus.middleware( { src: path.join(__dirname)
                           , dest: path.join(__dirname, 'public')
                           }))
@@ -25,6 +51,7 @@ app.set('port', config.httpsPort)
 
 if (app.get('env') == 'development') {
   app.use(express.errorHandler())
+    .use(express.logger('dev'))
 }
 
 var httpsOptions =  { ca: []
@@ -36,6 +63,8 @@ var httpsOptions =  { ca: []
 
 io.configure(function() {
   io.set('transports', ['websocket'])
+    .enable('browser client minification')
+    .enable('browser client etag')
 })
 
 require('./routes')(app)

@@ -8,6 +8,14 @@ config.canonicalHost = 'https://localhost' // main HTTPS url for the site
 config.httpsPort = 443
 config.httpPort = 80
 
-config.db =
-{ connString: JSON.parse(fs.readFileSync('./database.json')).dev
+config.sessionSecret = 'shhhhhhh'
+config.sessionTtl = 1209600 // in seconds
+
+config.db = {
+  connString: JSON.parse(fs.readFileSync('./database.json')).dev
+}
+
+config.redis = {
+  host: 'localhost'
+, port: 6379
 }

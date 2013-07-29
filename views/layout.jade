@@ -1,13 +1,14 @@
 doctype 5
-html(data-ng-app='shieldbattery')
+html(ng-app='shieldbattery')
   head
     meta(charset='utf-8')
+    base(href='/')
     title ShieldBattery
     link(href='https://fonts.googleapis.com/css?family=Roboto:400,400italic,700,700italic',
       rel='stylesheet', type='text/css')
     link(href='/styles/site.css', rel='stylesheet', type='text/css')
-  body(data-ng-cloak)
-    block content
     script(type='text/javascript', src='/lib/angular.js')
+  body(ng-cloak)
+    block content
     script(type='text/javascript', src='/socket.io/socket.io.js')
     script(type='text/javascript', src='/scripts/client.js')

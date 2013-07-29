@@ -1,0 +1,10 @@
+form(name='newUserForm', ng-submit='createUser(username, password, confirmPassword)', novalidate)
+  p(ng-show='responseError') {{ responseError }}
+  input(type='text', name='username', ng-model='username', required,
+    ng-pattern=constants.USERNAME_PATTERN, ng-minlength=constants.USERNAME_MINLENGTH,
+    ng-maxlength=constants.USERNAME_MAXLENGTH, placeholder='Username')
+  input(type='password', name='password', ng-model='password', required,
+    ng-minlength=constants.PASSWORD_MINLENGTH, placeholder='Password')
+  input(type='password', name='confirmPassword', ng-model='confirmPassword', required,
+    placeholder='Confirm Password')
+  input(type='submit', value='Create account', ng-disabled='!newUserForm.$valid || btnDisabled')

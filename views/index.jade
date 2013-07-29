@@ -1,4 +1,8 @@
 extends layout
 
 block content
-  p Warp field stabilized.
+  div(ng-controller='StatusCtrl')
+    p Warp field stabilized.
+    p(ng-show='auth.isLoggedIn') Logged in as {{ auth.user.name }}
+    p(ng-hide='auth.isLoggedIn') Not logged in.
+  div(ng-view)
