@@ -26,10 +26,22 @@ mod.config(function($httpProvider, $routeProvider) {
   $httpProvider.responseInterceptors.push(interceptor)
 })
 
-mod.run(function(authService) {
-  // TODO(tec27): this should only redirect from pages that require login (probably keep a list of
-  // those that don't require it, since its probably fairly small)
-  if (!authService.isLoggedIn) authService.redirectToLogin()
+mod.run(function(authService, $rootScope, $q) {
+  // on the first route change, we need to load the current login status so that its initialized
+  // for the rest of the app (and we can redirect to login as necessary)
+  var unreg = $rootScope.$on('$routeChangeStart', function(event, next, current) {
+    unreg() // only handle the first route!
+
+    var defer = $q.defer()
+    next.resolve = next.resolve || []
+    next.resolve.push(function() {
+      authService.getCurrentUser().always(function() {
+        defer.resolve()
+        if (!authService.isLoggedIn) authService.redirectToLogin()
+      })
+      return defer.promise
+    })
+  })
 })
 
 mod.factory('authService', function($location, $http) {
@@ -52,6 +64,7 @@ AuthService.prototype.redirectToLogin = function() {
 }
 
 AuthService.prototype.createUser = function(username, password, cb) {
+  // TODO(tec27): look into $resource for this?
   var req = this.$http.post('/api/1/users', { username: username, password: password })
     , self = this
   req.success(function(user) {
@@ -60,6 +73,17 @@ AuthService.prototype.createUser = function(username, password, cb) {
   }).error(function(err) {
     cb(err)
   })
+}
+
+AuthService.prototype.getCurrentUser = function() {
+  var self = this
+  return this.$http
+    .get('/api/1/sessions')
+    .success(function(user) {
+      self.user = user
+    }).error(function(err) {
+      self.user = null
+    })
 }
 
 mod.controller('LoginCtrl', function($scope, $location, authService) {

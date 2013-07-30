@@ -42,7 +42,8 @@ function createUser(req, res) {
       return res.send(500)
     }
 
-    var query = 'INSERT INTO users (name, password, created) VALUES ($1, $2, $3)'
+    var query = 'INSERT INTO users (name, password, created) VALUES ($1, $2, $3) ' +
+        'RETURNING id, name, created'
       , params = [ username, hashed, new Date() ]
     client.query(query, params, function(err, result) {
       if (err) {
@@ -54,16 +55,12 @@ function createUser(req, res) {
           console.error('QUERY ERROR: ', err)
           return res.send(500)
         }
-      }
+      } else if (result.rows.length < 1) return res.send(500)
 
-      var query = 'SELECT id, name, created FROM users WHERE name = $1'
-        , params = [username]
-      client.query(query, params, function(err, result) {
-        done()
-        if (err) {
-          console.error('QUERY ERROR: ', err)
-          return res.send(500)
-        } else if (result.rows.length < 1) return res.send(500)
+      // regenerate the session to ensure that logged in sessions and anonymous sessions don't
+      // share a session ID
+      req.session.regenerate(function(err) {
+        if (err) return res.send(500)
 
         req.session.userId = result.rows[0].id
         res.send(result.rows[0])
