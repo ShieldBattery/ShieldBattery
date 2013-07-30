@@ -33,6 +33,7 @@
     "db-migrate": "~0.5.4",
     "bcrypt": "~0.7.6",
     "redis": "~0.8.4",
-    "connect-redis": "~1.4.5"
+    "connect-redis": "~1.4.5",
+    "uid2": "0.0.3"
   }
 }

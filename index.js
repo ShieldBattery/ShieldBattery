@@ -15,33 +15,22 @@ var sessionStore = new RedisStore({ client: redis
                                   , ttl: config.sessionTtl
                                   })
 
-function getCsrfToken(req) {
-  return (
-      (req.headers['x-xsrf-token']) ||
-      (req.body && req.body._csrf) ||
-      (req.query && req.query._csrf)
-  )
-}
-
-function setCsrfToken(req, res, next) {
-  res.cookie('XSRF-TOKEN', req.session._csrf)
-  next()
-}
-
 var app = express()
 app.set('port', config.httpsPort)
   .set('views', path.join(__dirname, 'views'))
   .set('view engine', 'jade')
+  .disable('x-powered-by')
+  .use(express.logger('dev'))
   .use(express.bodyParser())
   .use(express.methodOverride())
   .use(express.cookieParser())
   .use(express.session( { store: sessionStore
                         , secret: config.sessionSecret
-                        , cookie: { secure: true, maxAge: config.sessionTtl }
+                        , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
                         }))
-  .use(express.csrf({ value: getCsrfToken }))
-  .use(setCsrfToken)
-  .use(require('./secureHeaders'))
+  .use(require('./util/csrf')())
+  .use(require('./util/secureHeaders'))
+  .use(require('./util/secureJson'))
   .use(express.favicon())
   .use(stylus.middleware( { src: path.join(__dirname)
                           , dest: path.join(__dirname, 'public')
@@ -51,7 +40,6 @@ app.set('port', config.httpsPort)
 
 if (app.get('env') == 'development') {
   app.use(express.errorHandler())
-    .use(express.logger('dev'))
 }
 
 var httpsOptions =  { ca: []
