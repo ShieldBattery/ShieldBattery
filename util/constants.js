@@ -6,8 +6,8 @@ function d(name, value) {
       })
 }
 
-d('USERNAME_PATTERN', /^[A-Za-z0-9`~!$^&*()[\]\-_+=<>]+$/)
+d('USERNAME_PATTERN', /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/)
 d('USERNAME_MINLENGTH', 3)
-d('USERNAME_MAXLENGTH', 24) // TODO(tec27): rooted in BW's limitations, maybe we should rethink it
+d('USERNAME_MAXLENGTH', 16)
 
 d('PASSWORD_MINLENGTH', 6)
