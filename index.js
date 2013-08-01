@@ -24,6 +24,13 @@ app.set('port', config.httpsPort)
   .use(express.bodyParser())
   .use(express.methodOverride())
   .use(express.cookieParser())
+  // all static things should be above csrf/session checks since they don't depend on them and we
+  // don't want to be making a ton of unnecessary requests to redis, etc.
+  .use(express.favicon())
+  .use(stylus.middleware( { src: path.join(__dirname)
+                          , dest: path.join(__dirname, 'public')
+                          }))
+  .use(express.static(path.join(__dirname, 'public')))
   .use(express.session( { store: sessionStore
                         , secret: config.sessionSecret
                         , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
@@ -31,11 +38,6 @@ app.set('port', config.httpsPort)
   .use(require('./util/csrf')())
   .use(require('./util/secureHeaders'))
   .use(require('./util/secureJson'))
-  .use(express.favicon())
-  .use(stylus.middleware( { src: path.join(__dirname)
-                          , dest: path.join(__dirname, 'public')
-                          }))
-  .use(express.static(path.join(__dirname, 'public')))
   .use(app.router)
 
 if (app.get('env') == 'development') {

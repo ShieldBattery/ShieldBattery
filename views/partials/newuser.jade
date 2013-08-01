@@ -1,10 +1,12 @@
-form(name='newUserForm', ng-submit='createUser(username, password, confirmPassword)', novalidate)
-  p(ng-show='responseError') {{ responseError }}
-  input(type='text', name='username', ng-model='username', required,
-    ng-pattern=constants.USERNAME_PATTERN, ng-minlength=constants.USERNAME_MINLENGTH,
-    ng-maxlength=constants.USERNAME_MAXLENGTH, placeholder='Username')
-  input(type='password', name='password', ng-model='password', required,
-    ng-minlength=constants.PASSWORD_MINLENGTH, placeholder='Password')
-  input(type='password', name='confirmPassword', ng-model='confirmPassword', required,
+form(name='newUserForm', data-ng-submit='createUser(username, password, confirmPassword)', novalidate)
+  p(data-ng-show='responseError') {{ responseError }}
+  input(type='text', name='username', data-ng-model='username', required, placeholder='Username',
+    data-ng-pattern=constants.USERNAME_PATTERN.toString(),
+    data-ng-minlength=constants.USERNAME_MINLENGTH,
+    data-ng-maxlength=constants.USERNAME_MAXLENGTH)
+  input(type='password', name='password', data-ng-model='password', required,
+    data-ng-minlength=constants.PASSWORD_MINLENGTH, placeholder='Password')
+  input(type='password', name='confirmPassword', data-ng-model='confirmPassword', required,
     placeholder='Confirm Password')
-  input(type='submit', value='Create account', ng-disabled='!newUserForm.$valid || btnDisabled')
+  input(type='submit', value='Create account',
+    data-ng-disabled='!newUserForm.$valid || btnDisabled')
