@@ -1,5 +1,6 @@
 var db = require('../db')
   , bcrypt = require('bcrypt')
+  , httpErrors = require('../util/http-errors')
 
 module.exports = function(app, baseApiPath) {
   var sessionsPath = baseApiPath + 'sessions'
@@ -8,14 +9,14 @@ module.exports = function(app, baseApiPath) {
   app.delete(sessionsPath, endSession)
 }
 
-function getCurrentSession(req, res) {
-  if (!req.session.userId) return res.send(410)
+function getCurrentSession(req, res, next) {
+  if (!req.session.userId) return next(new httpErrors.GoneError('Session expired'))
   var userId = req.session.userId
 
   db(function(err, client, done) {
     if (err) {
       req.log.error({err: err}, 'error getting database client')
-      return res.send(500)
+      return next(err)
     }
 
     // TODO(tec27): this sort of query should probably be pulled out into a models file or something
@@ -25,13 +26,13 @@ function getCurrentSession(req, res) {
       done()
       if (err) {
         req.log.error({err: err}, 'error querying database')
-        return res.send(500)
+        return next(err)
       }
 
       if(result.rows.length < 1) {
         req.session.regenerate(function(err) {
-          if (err) res.send(500)
-          else res.send(410)
+          if (err) return next(err)
+          else return next(new httpErrors.GoneError('Session expired'))
         })
       } else {
         req.session.touch()
@@ -41,19 +42,21 @@ function getCurrentSession(req, res) {
   })
 }
 
-function startNewSession(req, res) {
-  if (!!req.session.userId) return res.send(409)
+function startNewSession(req, res, next) {
+  if (!!req.session.userId) return next(new httpErrors.ConflictError('Session already active'))
   var username = req.body.username
     , password = req.body.password
     , remember = !!req.body.remember
-  if (!username || !password) return res.send(400)
+  if (!username || !password) {
+    return next(new httpErrors.BadRequestError('Username and password required'))
+  }
 
   var user
 
   db(function(err, client, done) {
     if (err) {
       req.log.error({err: err}, 'error getting database client')
-      return res.send(500)
+      return next(err)
     }
 
     var query = 'SELECT id, name, password, created FROM users WHERE name = $1'
@@ -62,8 +65,10 @@ function startNewSession(req, res) {
       done()
       if (err) {
         req.log.error({err: err}, 'error querying database')
-        return res.send(500)
-      } else if (result.rows.length < 1) return res.send(401)
+        return next(err)
+      } else if (result.rows.length < 1) {
+        return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
+      }
 
       user = result.rows[0]
       bcrypt.compare(password, user.password, onCompared)
@@ -73,13 +78,13 @@ function startNewSession(req, res) {
   function onCompared(err, same) {
     if (err) {
       req.log.error({err: err}, 'error comparing passwords')
-      return res.send(500)
+      return next(err)
     }
 
-    if (!same) return res.send(401)
+    if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
     var sessionUser = { id: user.id, name: user.name, created: user.created }
     req.session.regenerate(function(err) {
-      if (err) return res.send(500)
+      if (err) return next(err)
 
       req.session.userId = sessionUser.id
       if (!remember) req.session.cookie.expires = false
@@ -88,10 +93,10 @@ function startNewSession(req, res) {
   }
 }
 
-function endSession(req, res) {
-  if (!req.session.userId) return res.send(409)
+function endSession(req, res, next) {
+  if (!req.session.userId) return next(new httpErrors.ConflictError('No session active'))
   req.session.regenerate(function(err) {
-    if (err) res.send(500)
+    if (err) next(err)
     else res.send(200)
   })
 }
