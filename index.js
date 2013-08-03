@@ -5,6 +5,7 @@ var canonicalHost = require('canonical-host')
   , fs = require('fs')
   , http = require('http')
   , https = require('https')
+  , log = require('./logger')
   , path = require('path')
   , redis = require('./redis')
   , RedisStore = require('connect-redis')(express)
@@ -20,7 +21,7 @@ app.set('port', config.httpsPort)
   .set('views', path.join(__dirname, 'views'))
   .set('view engine', 'jade')
   .disable('x-powered-by')
-  .use(express.logger('dev'))
+  .use(require('./util/log-middleware')())
   .use(express.bodyParser())
   .use(express.methodOverride())
   .use(express.cookieParser())
@@ -41,6 +42,8 @@ app.set('port', config.httpsPort)
   .use(app.router)
 
 if (app.get('env') == 'development') {
+  // TODO(tec27): replace this with a handler that can be used in production and dev, but displays
+  // more detail in dev.
   app.use(express.errorHandler())
 }
 
@@ -60,7 +63,7 @@ io.configure(function() {
 require('./routes')(app)
 
 httpsServer.listen(app.get('port'), function() {
-  console.log('Server listening on port ' + app.get('port'))
+  log.info('Server listening on port ' + app.get('port'))
 })
 
 // create a server that simply forwards requests to https

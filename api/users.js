@@ -28,7 +28,7 @@ function createUser(req, res) {
 
   function onHashed(err, result) {
     if (err) {
-      console.err('password hashing error', err)
+      req.log.error({err: err}, 'error hashing password')
       return res.send(500)
     }
 
@@ -38,7 +38,7 @@ function createUser(req, res) {
 
   function onDbClient(err, client, done) {
     if (err) {
-      console.error('DATABASE ERROR: ', err)
+      req.log.error({err: err}, 'error getting database client')
       return res.send(500)
     }
 
@@ -52,7 +52,7 @@ function createUser(req, res) {
           // a user with that name already exists (usually only possible through a race)
           return res.send(409, 'A user with that name already exists')
         } else {
-          console.error('QUERY ERROR: ', err)
+          req.log.error({err: err}, 'error querying database')
           return res.send(500)
         }
       } else if (result.rows.length < 1) return res.send(500)

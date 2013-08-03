@@ -14,7 +14,7 @@ function getCurrentSession(req, res) {
 
   db(function(err, client, done) {
     if (err) {
-      console.error('DATABASE ERROR: ', err)
+      req.log.error({err: err}, 'error getting database client')
       return res.send(500)
     }
 
@@ -24,7 +24,7 @@ function getCurrentSession(req, res) {
     client.query(query, [ userId ], function(err, result) {
       done()
       if (err) {
-        console.error('QUERY ERROR: ', err)
+        req.log.error({err: err}, 'error querying database')
         return res.send(500)
       }
 
@@ -52,7 +52,7 @@ function startNewSession(req, res) {
 
   db(function(err, client, done) {
     if (err) {
-      console.error('DATABASE ERROR: ', err)
+      req.log.error({err: err}, 'error getting database client')
       return res.send(500)
     }
 
@@ -61,7 +61,7 @@ function startNewSession(req, res) {
     client.query(query, params, function(err, result) {
       done()
       if (err) {
-        console.log('QUERY ERROR: ', err)
+        req.log.error({err: err}, 'error querying database')
         return res.send(500)
       } else if (result.rows.length < 1) return res.send(401)
 
@@ -72,7 +72,7 @@ function startNewSession(req, res) {
 
   function onCompared(err, same) {
     if (err) {
-      console.log('BCRYPT ERROR: ' + err)
+      req.log.error({err: err}, 'error comparing passwords')
       return res.send(500)
     }
 
