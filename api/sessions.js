@@ -1,5 +1,5 @@
-var db = require('../db')
-  , bcrypt = require('bcrypt')
+var bcrypt = require('bcrypt')
+  , users = require('../models/users')
   , httpErrors = require('../util/http-errors')
 
 module.exports = function(app, baseApiPath) {
@@ -13,32 +13,20 @@ function getCurrentSession(req, res, next) {
   if (!req.session.userId) return next(new httpErrors.GoneError('Session expired'))
   var userId = req.session.userId
 
-  db(function(err, client, done) {
+  users.find(userId, function(err, user) {
     if (err) {
-      req.log.error({err: err}, 'error getting database client')
-      return next(err)
+      req.log.error({ err: err }, 'error finding user')
+      next(err)
+    } else if (!user) {
+      req.session.regenerate(function(err) {
+        if (err) return next(err)
+
+        next(new httpErrors.GoneError('Session expired'))
+      })
+    } else {
+      req.session.touch()
+      res.send(user)
     }
-
-    // TODO(tec27): this sort of query should probably be pulled out into a models file or something
-    // so that we don't have to keep all of the user queries in sync every time the table changes
-    var query = 'SELECT id, name, created FROM users WHERE id = $1'
-    client.query(query, [ userId ], function(err, result) {
-      done()
-      if (err) {
-        req.log.error({err: err}, 'error querying database')
-        return next(err)
-      }
-
-      if(result.rows.length < 1) {
-        req.session.regenerate(function(err) {
-          if (err) return next(err)
-          else return next(new httpErrors.GoneError('Session expired'))
-        })
-      } else {
-        req.session.touch()
-        res.send(result.rows[0])
-      }
-    })
   })
 }
 
@@ -51,46 +39,32 @@ function startNewSession(req, res, next) {
     return next(new httpErrors.BadRequestError('Username and password required'))
   }
 
-  var user
-
-  db(function(err, client, done) {
+  users.find(username, function(err, user) {
     if (err) {
-      req.log.error({err: err}, 'error getting database client')
+      req.log.error({ err: err }, 'error finding user')
       return next(err)
+    } else if (!user) {
+      return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
     }
 
-    var query = 'SELECT id, name, password, created FROM users WHERE name = $1'
-      , params = [ username ]
-    client.query(query, params, function(err, result) {
-      done()
+    bcrypt.compare(password, user.password, function(err, same) {
       if (err) {
-        req.log.error({err: err}, 'error querying database')
+        req.log.error({ err: err }, 'error comparing passwords')
         return next(err)
-      } else if (result.rows.length < 1) {
-        return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
       }
 
-      user = result.rows[0]
-      bcrypt.compare(password, user.password, onCompared)
+      if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
+      req.session.regenerate(function(err) {
+        if (err) return next(err)
+
+        req.session.userId = user.id
+        if (!remember) req.session.cookie.expires = false
+        console.log('sending user after login')
+        res.send(user)
+        console.log('user sent')
+      })
     })
   })
-
-  function onCompared(err, same) {
-    if (err) {
-      req.log.error({err: err}, 'error comparing passwords')
-      return next(err)
-    }
-
-    if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
-    var sessionUser = { id: user.id, name: user.name, created: user.created }
-    req.session.regenerate(function(err) {
-      if (err) return next(err)
-
-      req.session.userId = sessionUser.id
-      if (!remember) req.session.cookie.expires = false
-      res.send(sessionUser)
-    })
-  }
 }
 
 function endSession(req, res, next) {
