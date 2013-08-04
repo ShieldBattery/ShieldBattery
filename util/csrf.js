@@ -10,10 +10,10 @@ module.exports = function csrf(options) {
 
   return function doCsrf(req, res, next) {
     res.on('header', function() {
-      setter(req, res, getToken(req))
+      setter(req, res, getToken(req, true))
     })
 
-    var token = getToken(req) // need to do this here to ensure every request has a token set
+    var token = getToken(req, false) // need to do this here to ensure every request has a token set
     if (req.method == 'GET' || req.method == 'HEAD' || req.method == 'OPTIONS') return next()
 
     var val = value(req)
@@ -26,9 +26,16 @@ module.exports = function csrf(options) {
     next()
   }
 
-  function getToken(req) {
+  function getToken(req, needsSave) {
     if (!req.session._csrf) {
       req.session._csrf = uid(24)
+      // if the csrf gets regenerated while sending headers, it won't be automatically saved by
+      // the session middleware, so we need to manually trigger the save
+      if (needsSave) {
+        req.session.save(function(err) {
+          if (err) req.log.error({ err: err }, 'error saving session')
+        })
+      }
     }
     return req.session._csrf
   }
