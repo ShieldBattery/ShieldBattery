@@ -59,9 +59,7 @@ function startNewSession(req, res, next) {
 
         req.session.userId = user.id
         if (!remember) req.session.cookie.expires = false
-        console.log('sending user after login')
         res.send(user)
-        console.log('user sent')
       })
     })
   })
