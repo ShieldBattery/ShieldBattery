@@ -3,7 +3,8 @@ form(name='newUserForm', data-ng-submit='createUser(username, password, confirmP
   input(type='text', name='username', data-ng-model='username', required, placeholder='Username',
     data-ng-pattern=constants.USERNAME_PATTERN.toString(),
     data-ng-minlength=constants.USERNAME_MINLENGTH,
-    data-ng-maxlength=constants.USERNAME_MAXLENGTH)
+    data-ng-maxlength=constants.USERNAME_MAXLENGTH,
+    data-sb-unique-user)
   input(type='password', name='password', data-ng-model='password', required,
     data-ng-minlength=constants.PASSWORD_MINLENGTH, placeholder='Password')
   input(type='password', name='confirmPassword', data-ng-model='confirmPassword', required,

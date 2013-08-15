@@ -22,7 +22,7 @@ function createUser(req, res, next) {
   var username = req.body.username
     , password = req.body.password
 
-  if (!isValidUsername(username) || !isValidPassword(password)) {
+  if (!constants.isValidUsername(username) || !constants.isValidPassword(password)) {
     return next(new httpErrors.BadRequestError('Invalid username or password'))
   }
 
@@ -58,16 +58,4 @@ function createUser(req, res, next) {
       res.send(user)
     })
   }
-}
-
-function isValidUsername(username) {
-  return username &&
-      username.length >= constants.USERNAME_MINLENGTH &&
-      username.length <= constants.USERNAME_MAXLENGTH &&
-      constants.USERNAME_PATTERN.test(username)
-}
-
-function isValidPassword(password) {
-  return password &&
-      password.length >= constants.PASSWORD_MINLENGTH
 }

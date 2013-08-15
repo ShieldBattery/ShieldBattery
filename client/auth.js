@@ -43,6 +43,36 @@ mod.run(function(authService, $rootScope, $q) {
   })
 })
 
+mod.directive('sbUniqueUser', function($timeout, authService) {
+  function linkFunc(scope, elem, attrs, ctrl) {
+    var timeout = null
+    var validate = function(value) {
+      if (timeout != null) $timeout.cancel(timeout)
+      if (!value) {
+        timeout = null
+        ctrl.$setValidity('uniqueUser', true)
+        return
+      }
+
+      timeout = $timeout(function() {
+        authService.checkUsernameAvailability(value)
+          .success(function() { ctrl.$setValidity('uniqueUser', true) })
+          .error(function(data, status) {
+            if (status == 404) {
+              ctrl.$setValidity('uniqueUser', false)
+            }
+          })
+      }, 200)
+    }
+    ctrl.$formatters.push(validate)
+    ctrl.$parsers.push(validate)
+  }
+
+  return  { require: 'ngModel'
+          , link: linkFunc
+          }
+})
+
 mod.factory('authService', function($location, $http) {
   return new AuthService($location, $http)
 })
@@ -72,6 +102,10 @@ AuthService.prototype.createUser = function(username, password, cb) {
   }).error(function(err) {
     cb(err)
   })
+}
+
+AuthService.prototype.checkUsernameAvailability = function(username) {
+  return this.$http.get('/api/1/usernameAvailability/' + encodeURIComponent(username))
 }
 
 AuthService.prototype.getCurrentUser = function() {
