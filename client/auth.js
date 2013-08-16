@@ -184,7 +184,6 @@ mod.controller('NewUserCtrl', function($scope, $location, authService) {
   $scope.createUser = function(username, password, confirmPassword) {
     $scope.responseError = null
     if (!$scope.newUserForm.$valid) return
-    if (password != confirmPassword) return // TODO(tec27): this should be a validation
 
     $scope.btnDisabled = true
     authService.createUser(username, password, function(err, user) {
