@@ -73,6 +73,21 @@ mod.directive('sbUniqueUser', function($timeout, authService) {
           }
 })
 
+mod.directive('sbMustMatch', function() {
+  function linkFunc(scope, elem, attrs, ctrl) {
+    var validate = function(value) {
+      ctrl.$setValidity('mustMatch', value == scope[attrs.sbMustMatch])
+    }
+
+    ctrl.$formatters.push(validate)
+    ctrl.$parsers.push(validate)
+  }
+
+  return  { require: 'ngModel'
+          , link: linkFunc
+          }
+})
+
 mod.factory('authService', function($location, $http) {
   return new AuthService($location, $http)
 })

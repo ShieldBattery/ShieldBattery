@@ -8,6 +8,6 @@ form(name='newUserForm', data-ng-submit='createUser(username, password, confirmP
   input(type='password', name='password', data-ng-model='password', required,
     data-ng-minlength=constants.PASSWORD_MINLENGTH, placeholder='Password')
   input(type='password', name='confirmPassword', data-ng-model='confirmPassword', required,
-    placeholder='Confirm Password')
+    data-sb-must-match='password', placeholder='Confirm Password')
   input(type='submit', value='Create account',
     data-ng-disabled='!newUserForm.$valid || btnDisabled')
