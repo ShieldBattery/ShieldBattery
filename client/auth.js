@@ -68,9 +68,7 @@ mod.directive('sbUniqueUser', function($timeout, authService) {
     ctrl.$parsers.push(validate)
   }
 
-  return  { require: 'ngModel'
-          , link: linkFunc
-          }
+  return { link: linkFunc }
 })
 
 mod.directive('sbMustMatch', function() {
@@ -83,9 +81,7 @@ mod.directive('sbMustMatch', function() {
     ctrl.$parsers.push(validate)
   }
 
-  return  { require: 'ngModel'
-          , link: linkFunc
-          }
+  return { link: linkFunc }
 })
 
 mod.factory('authService', function($location, $http) {
