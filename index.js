@@ -9,12 +9,16 @@ var canonicalHost = require('canonical-host')
   , path = require('path')
   , redis = require('./redis')
   , RedisStore = require('connect-redis')(express)
-  , socketio = require('socket.io')
   , stylus = require('stylus')
 
 var sessionStore = new RedisStore({ client: redis
                                   , ttl: config.sessionTtl
                                   })
+  , sessionWare = express.session({ store: sessionStore
+                                  , secret: config.sessionSecret
+                                  , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
+                                  })
+  , cookieParser = express.cookieParser()
 
 var app = express()
 app.set('port', config.httpsPort)
@@ -24,7 +28,7 @@ app.set('port', config.httpsPort)
   .use(require('./util/log-middleware')())
   .use(express.bodyParser())
   .use(express.methodOverride())
-  .use(express.cookieParser())
+  .use(cookieParser)
   // all static things should be above csrf/session checks since they don't depend on them and we
   // don't want to be making a ton of unnecessary requests to redis, etc.
   .use(express.favicon())
@@ -32,10 +36,7 @@ app.set('port', config.httpsPort)
                           , dest: path.join(__dirname, 'public')
                           }))
   .use(express.static(path.join(__dirname, 'public')))
-  .use(express.session( { store: sessionStore
-                        , secret: config.sessionSecret
-                        , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
-                        }))
+  .use(sessionWare)
   .use(require('./util/csrf')())
   .use(require('./util/secureHeaders'))
   .use(require('./util/secureJson'))
@@ -52,14 +53,8 @@ var httpsOptions =  { ca: []
                     , cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
                     }
   , httpsServer = https.createServer(httpsOptions, app)
-  , io = socketio.listen(httpsServer, { secure: true })
 
-io.configure(function() {
-  io.set('transports', ['websocket'])
-    .enable('browser client minification')
-    .enable('browser client etag')
-})
-
+require('./websockets')(httpsServer, cookieParser, sessionWare)
 require('./routes')(app)
 
 httpsServer.listen(app.get('port'), function() {
