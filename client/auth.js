@@ -34,7 +34,7 @@ mod.run(function(authService, $rootScope, $q) {
     var defer = $q.defer()
     next.resolve = next.resolve || []
     next.resolve.push(function() {
-      authService.getCurrentUser().always(function() {
+      authService.getCurrentUser().finally(function() {
         defer.resolve()
         if (!authService.isLoggedIn) authService.redirectToLogin()
       })
@@ -47,11 +47,11 @@ mod.directive('sbUniqueUser', function($timeout, authService) {
   function linkFunc(scope, elem, attrs, ctrl) {
     var timeout = null
     var validate = function(value) {
-      if (timeout != null) $timeout.cancel(timeout)
-      if (!value) {
+      if (timeout) $timeout.cancel(timeout)
+      if (value == null) {
         timeout = null
         ctrl.$setValidity('uniqueUser', true)
-        return
+        return value
       }
 
       timeout = $timeout(function() {
@@ -63,25 +63,31 @@ mod.directive('sbUniqueUser', function($timeout, authService) {
             }
           })
       }, 200)
+
+      return value
     }
     ctrl.$formatters.push(validate)
     ctrl.$parsers.push(validate)
   }
 
-  return { link: linkFunc }
+  return { require: 'ngModel', link: linkFunc }
 })
 
 mod.directive('sbMustMatch', function() {
   function linkFunc(scope, elem, attrs, ctrl) {
     var validate = function(value) {
       ctrl.$setValidity('mustMatch', value == scope[attrs.sbMustMatch])
+      return value
     }
-
     ctrl.$formatters.push(validate)
     ctrl.$parsers.push(validate)
+
+    scope.$watch(attrs.sbMustMatch, function(newValue) {
+      ctrl.$setValidity('mustMatch', ctrl.$modelValue == newValue);
+    })
   }
 
-  return { link: linkFunc }
+  return { require: 'ngModel', link: linkFunc }
 })
 
 mod.factory('authService', function($location, $http) {

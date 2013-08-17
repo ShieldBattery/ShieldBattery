@@ -1,5 +1,7 @@
 var app = angular.module('shieldbattery',
-    [ require('./auth')
+    [ 'ngAnimate'
+    , 'ngRoute'
+    , require('./auth')
     , require('./initializer')
     , require('./status')
     ])
