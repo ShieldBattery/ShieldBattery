@@ -9,6 +9,7 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
   this.cookieParser = cookieParser
   this.sessionWare = sessionMiddleware
   this.io = sio.listen(server, { secure: true })
+  this.connectedUsers = 0
 
   var self = this
   this.io.configure(function() {
@@ -19,9 +20,19 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
     self.io.set('authorization', self.onAuthorization.bind(self))
   })
 
-  this.io.on('connection', function(socket) {
-    socket.emit('hello', socket.handshake.userId)
+  this.io.sockets.on('connection', function(socket) {
+    self.connectedUsers++
+    socket.emit('status', { users: self.connectedUsers })
+
+    socket.on('disconnect', function() {
+      self.connectedUsers--
+    })
   })
+
+  setInterval(function() {
+    self.io.sockets.emit('status', { users: self.connectedUsers })
+  }, 1*60*1000)
+  // TODO(tec27): this timer can be longer (like 5 minutes) but is shorter for demo purposes
 }
 
 var dummyRes = { on: function() {} }

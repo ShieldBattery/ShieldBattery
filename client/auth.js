@@ -1,6 +1,6 @@
 module.exports = 'shieldbattery.auth'
 
-var mod = angular.module('shieldbattery.auth', [])
+var mod = angular.module('shieldbattery.auth', [ require('./sockets') ])
 
 mod.config(function($httpProvider, $routeProvider) {
   $routeProvider.when('/login', { templateUrl: '/partials/login', controller: 'LoginCtrl' })
@@ -90,13 +90,14 @@ mod.directive('sbMustMatch', function() {
   return { require: 'ngModel', link: linkFunc }
 })
 
-mod.factory('authService', function($location, $http) {
-  return new AuthService($location, $http)
+mod.factory('authService', function($location, $http, siteSocket) {
+  return new AuthService($location, $http, siteSocket)
 })
 
-function AuthService($location, $http) {
+function AuthService($location, $http, siteSocket) {
   this.$location = $location
   this.$http = $http
+  this.siteSocket = siteSocket
 
   Object.defineProperty(this, 'isLoggedIn',
       { enumerable: true
@@ -115,6 +116,7 @@ AuthService.prototype.createUser = function(username, password, cb) {
     , self = this
   req.success(function(user) {
     self.user = user
+    self.siteSocket.connect()
     cb(null, user)
   }).error(function(err) {
     cb(err)
@@ -131,6 +133,7 @@ AuthService.prototype.getCurrentUser = function() {
     .get('/api/1/sessions')
     .success(function(user) {
       self.user = user
+      self.siteSocket.connect()
     }).error(function(err) {
       self.user = null
     })
@@ -142,6 +145,7 @@ AuthService.prototype.logIn = function(username, password, remember) {
     .post('/api/1/sessions', { username: username, password: password, remember: !!remember })
     .success(function(user) {
       self.user = user
+      self.siteSocket.connect()
     })
 }
 
@@ -151,6 +155,7 @@ AuthService.prototype.logOut = function() {
     .delete('/api/1/sessions')
     .success(function(user) {
       self.user = null
+      self.siteSocket.disconnect()
     })
 }
 

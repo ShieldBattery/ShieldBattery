@@ -2,7 +2,10 @@ var app = angular.module('shieldbattery',
     [ 'ngAnimate'
     , 'ngRoute'
     , require('./auth')
+    , require('./dashboard')
     , require('./initializer')
+    , require('./server-status')
+    , require('./sockets')
     , require('./status')
     ])
 
