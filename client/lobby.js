@@ -137,7 +137,7 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
 })
 
 mod.controller('LobbyViewCtrl',
-    function($scope, $routeParams, $location, $timeout, authService, siteSocket) {
+    function($scope, $routeParams, $location, $timeout, authService, siteSocket, psiSocket) {
   // TODO(tec27): ideally the joined lobby would be maintained in a service, and the route would
   // make sure we joined *before* starting this controller. For the sake of development speed I am
   // skipping this for now, but will soon implement it this way
@@ -205,7 +205,6 @@ mod.controller('LobbyViewCtrl',
   }
 
   function onMessage(data) {
-    console.log('message: ' + data.action)
     switch (data.action) {
       case 'join': onJoin(data.slot, data.player); break
       case 'part': onPart(data.slot); break
@@ -243,6 +242,10 @@ mod.controller('LobbyViewCtrl',
 
     function countdownTick() {
       $scope.countdownSeconds--
+      if ($scope.isHost && $scope.countdownSeconds == 3) {
+        // we need to give the host some extra time to get the game ready for connections
+        launchGame()
+      }
       if ($scope.countdownSeconds > 0) {
         $timeout(countdownTick, 1000)
       }
@@ -257,6 +260,55 @@ mod.controller('LobbyViewCtrl',
       return
     }
 
-    console.log('we should be connecting to ' + host + ':' + port)
+    launchGame(host, port)
   }
+
+  // psi communication
+  function launchGame(host, port) {
+    psiSocket.once('game/status', handleStatus)
+    psiSocket.emit('launch', function(err) {
+      if (err) {
+        console.log('Error launching:')
+        console.dir(err)
+      }
+    })
+
+    function handleStatus(status) {
+      if (status != 'init') return
+
+      var plugins = [ 'wmode.dll' ]
+      psiSocket.emit('game/load', plugins, onLoad)
+    }
+
+    function onLoad(errors) {
+      var launch = true
+      Object.keys(errors).forEach(function(key) {
+        console.log('Error loading ' + key + ': ' + errors[key])
+        launch = false
+      })
+      if (!launch) return
+
+      var race = 'r'
+      for (var i = 0, len = $scope.lobby.players.length; i < len; i++) {
+        if ($scope.lobby.players[i].name == authService.user.name) {
+          race = $scope.lobby.players[i].race
+          break
+        }
+      }
+
+      if ($scope.isHost) {
+        psiSocket.emit('game/start', { username: authService.user.name
+                                  , map: $scope.lobby.map
+                                  , race: race
+                                  })
+      } else {
+        psiSocket.emit('game/join',  { username: authService.user.name
+                                  , address: host
+                                  , port: port
+                                  , race: race
+                                  })
+      }
+    }
+  }
+
 })
