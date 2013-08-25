@@ -90,10 +90,10 @@
       cb('world')
     })
 
-    socket.on('game:connected', function()  {
+    socket.on('game/connected', function()  {
       connectedSockets++
       document.querySelector('#game-status').innerHTML = 'Running'
-    }).on('game:disconnected', function() {
+    }).on('game/disconnected', function() {
       connectedSockets--
       if (connectedSockets <= 0) {
         document.querySelector('#game-status').innerHTML = 'Not running'
@@ -128,7 +128,7 @@
       var injecteesElem = document.querySelector('#injectees')
       var injectees = injecteesElem.value ?
           document.querySelector('#injectees').value.split(',') : []
-      socket.emit('game:load', injectees, function(errors) {
+      socket.emit('game/load', injectees, function(errors) {
         var launch = true
         for(var error in errors) {
           console.log('Error loading ' + error + ': ' + errors[error])
@@ -136,7 +136,7 @@
         }
 
         if (launch) {
-          socket.emit('game:start', { username: getUsername()
+          socket.emit('game/start', { username: getUsername()
                                     , map: getHostMapPath()
                                     , race: getRace()
                                     })
@@ -150,7 +150,7 @@
       var injecteesElem = document.querySelector('#injectees')
       var injectees = injecteesElem.value ?
           document.querySelector('#injectees').value.split(',') : []
-      socket.emit('game:load', injectees, function(errors) {
+      socket.emit('game/load', injectees, function(errors) {
         var launch = true
         for(var error in errors) {
           console.log('Error loading ' + error + ': ' + errors[error])
@@ -158,7 +158,7 @@
         }
 
         if (launch) {
-          socket.emit('game:join',  { username: getUsername()
+          socket.emit('game/join',  { username: getUsername()
                                     , address: getJoinAddress()
                                     , port: getJoinPort()
                                     , race: getRace()
@@ -168,7 +168,7 @@
     }
 
     document.querySelector('#launcher-btn').addEventListener('click', function() {
-      socket.once('game:status', handleStatusCreate)
+      socket.once('game/status', handleStatusCreate)
       socket.emit('launch', function(err) {
         if (err) {
           console.log('Error launching:')
@@ -178,7 +178,7 @@
     })
 
     document.querySelector('#join-btn').addEventListener('click', function() {
-      socket.once('game:status', handleStatusJoin)
+      socket.once('game/status', handleStatusJoin)
       socket.emit('launch', function(err) {
         if (err) {
           console.log('Error joining:')
