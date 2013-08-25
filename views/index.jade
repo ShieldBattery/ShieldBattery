@@ -4,6 +4,9 @@ block content
   div(ng-hide='appInitialized') - LOADING -
   div(ng-show='appInitialized')
     div(ng-controller='StatusCtrl')
+      p(ng-show='!siteSocket.connected') Site socket not connected!
+      p(ng-show='!psiSocket.connected') Psi socket not connected! 
+        a(href='', ng-click='retryPsi()') (retry)
       p(ng-show='auth.isLoggedIn') Logged in as {{ auth.user.name }} 
         a(href='', ng-click='logOut()') Log out
       p(ng-hide='auth.isLoggedIn') Not logged in

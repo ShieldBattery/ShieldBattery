@@ -1,0 +1,6 @@
+form(name='lobbyForm', data-ng-submit='createLobby(name, map, size)', novalidate)
+  p(data-ng-show='responseError') {{ responseError }}
+  input(type='text', required, data-ng-model='name', placeholder='Lobby Name')
+  input(type='text', required, data-ng-model='map', placeholder='Map Path')
+  input(type='number', required, data-ng-model='size', placeholder='# of players', min=2, max=8)
+  input(type='submit', value='Create', data-ng-disabled='!lobbyForm.$valid || btnDisabled')

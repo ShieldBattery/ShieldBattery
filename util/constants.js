@@ -16,10 +16,10 @@ module.exports.isValidUsername = function(username) {
   return username &&
     username.length >= module.exports.USERNAME_MINLENGTH &&
     username.length <= module.exports.USERNAME_MAXLENGTH &&
-    module.exports.USERNAME_PATTERN.test(username) 
+    module.exports.USERNAME_PATTERN.test(username)
 }
 
 module.exports.isValidPassword = function(password) {
   return password &&
-      password.length >= constants.PASSWORD_MINLENGTH
+      password.length >= module.exports.PASSWORD_MINLENGTH
 }

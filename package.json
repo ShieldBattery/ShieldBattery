@@ -4,7 +4,7 @@
   "description": "The official server implementation for shieldbattery.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha -R spec --recursive test/",
     "start": "node index.js | bunyan"
   },
   "repository": {
@@ -37,5 +37,9 @@
     "connect-redis": "~1.4.5",
     "uid2": "0.0.3",
     "bunyan": "~0.21.4"
+  },
+  "devDependencies": {
+    "mocha": "~1.12.0",
+    "chai": "~1.7.2"
   }
 }

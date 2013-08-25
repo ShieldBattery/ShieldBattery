@@ -6,6 +6,10 @@ mod.factory('siteSocket', function($rootScope) {
   return new AngularSocket(null, $rootScope)
 })
 
+mod.factory('psiSocket', function($rootScope) {
+  return new AngularSocket('http://127.0.0.1:33198', $rootScope)
+})
+
 function AngularSocket(host, $rootScope) {
   this.host = host
   this.scope = $rootScope
@@ -24,19 +28,23 @@ function AngularSocket(host, $rootScope) {
 AngularSocket.prototype.connect = function() {
   if (this.connected) return this
 
-  this.socket = io.connect(this.host)
-  this.socket.on('connect', this._onConnect)
-    .on('error', this._onError)
-    .on('disconnect', this._onDisconnect)
+  if (!this.socket) {
+    this.socket = io.connect(this.host)
+    this.socket.on('connect', this._onConnect)
+      .on('error', this._onError)
+      .on('disconnect', this._onDisconnect)
 
-  var i, len
-  for (i = 0, len = this._socketListeners.length; i < len; i++) {
-    this.socket.on(this._socketListeners[i].event, this._socketListeners[i].cb)
+    var i, len
+    for (i = 0, len = this._socketListeners.length; i < len; i++) {
+      this.socket.on(this._socketListeners[i].event, this._socketListeners[i].cb)
+    }
+    for (i = 0, len = this._socketOnceListeners.length; i < len; i++) {
+      this.socket.once(this._socketOnceListeners[i].event, this._socketOnceListeners[i].cb)
+    }
+    this._socketOnceListeners = []
+  } else {
+    this.socket.socket.reconnect()
   }
-  for (i = 0, len = this._socketOnceListeners.length; i < len; i++) {
-    this.socket.once(this._socketOnceListeners[i].event, this._socketOnceListeners[i].cb)
-  }
-  this._socketOnceListeners = []
 
   return this
 }
@@ -50,10 +58,8 @@ AngularSocket.prototype.disconnect = function() {
 
 AngularSocket.prototype._onConnect = function() {
   console.log('socket connected.')
-  var self = this
-  this.scope.$apply(function() {
-    self.connected = true
-  })
+  this.connected = true
+  this.scope.$apply()
 }
 
 AngularSocket.prototype._onError = function(err) {
@@ -71,72 +77,74 @@ AngularSocket.prototype._onDisconnect = function() {
   // onDisconnect is called immediately (in the same event loop turn) if disconnected manually.
   // To prevent this from causing nested $digest loops, we defer $apply to the next turn.
   setTimeout(function() {
-    self.scope.$apply(function() {
-      self.connected = false
-    })
+    self.connected = false
+    self.scope.$apply()
   }, 0)
 }
 
+// Unlike the normal socket.io API, this returns a function that can be used to remove the listener
 AngularSocket.prototype.on = function(eventName, cb) {
   var self = this
   var wrappedCb = function() {
-    var args = arguments
-    self.scope.$apply(function() {
-      cb.apply(self.socket, args)
-    })
+    cb.apply(self, arguments)
+    self.scope.$apply()
   }
 
-  this._socketListeners.push({ event: eventName, cb: wrappedCb })
+  var listener = { event: eventName, cb: wrappedCb }
+  this._socketListeners.push(listener)
   if (this.socket) {
     this.socket.on(eventName, wrappedCb)
   }
+
+  var removed = false
+  return function() {
+    if (removed) return
+    removed = true
+    self.socket.removeListener(eventName, wrappedCb)
+    var index = self._socketListeners.indexOf(listener)
+    if (index >= 0) self._socketListeners.splice(index, 1)
+  }
 }
 
+// Unlike the normal socket.io API, this returns a function that can be used to remove the listener
 AngularSocket.prototype.once = function(eventName, cb) {
   var self = this
   var wrappedCb = function() {
-    var args = arguments
-    self.scope.$apply(function() {
-      cb.apply(self.socket, args)
-    })
+    cb.apply(self, arguments)
+    self.scope.$apply()
   }
 
+  var listener
   if (this.socket) {
     this.socket.once(eventName, wrappedCb)
   } else {
-    this._socketOnceListeners.push({ event: eventName, cb: wrappedCb })
+    listener = { event: eventName, cb: wrappedCb }
+    this._socketOnceListeners.push(listener)
+  }
+
+  var removed = false
+  return function() {
+    if (removed) return
+    removed = true
+    self.socket.removeListener(eventName, wrappedCb)
+    var index = self._socketOnceListeners.indexOf(listener)
+    if (index >= 0) self._socketOnceListeners.splice(index, 1)
   }
 }
 
-AngularSocket.prototype.emit = function(eventName, data, cb) {
+AngularSocket.prototype.emit = function(eventName) {
   if (!this.socket) return this
 
-  if (!cb) {
-    this.socket.emit(eventName, data)
-    return this
-  }
-
   var self = this
-  self.socket.emit(eventName, data, function() {
-    var args = arguments
-    self.scope.$apply(function() {
-      cb.apply(self.socket, args)
-    })
-  })
-
-  return this
-}
-
-AngularSocket.prototype.removeListener = function(eventName, cb) {
-  for (var i = 0, len = this._socketListeners; i < len; i++) {
-    var listener = this._socketListeners[i]
-    if (listener.event == eventName && listener.cb == cb) {
-      this._socketListeners.splice(i, 1)
-      break
+    , args = Array.prototype.slice.apply(arguments)
+  if (typeof arguments[arguments.length - 1] == 'function') {
+    var cb = args[args.length - 1]
+    args[args.length - 1] = function() {
+      cb.apply(self, arguments)
+      self.scope.$apply()
     }
   }
 
-  if (this.socket) this.socket.removeListener(eventName, cb)
-
+  this.socket.emit.apply(this.socket, args)
   return this
 }

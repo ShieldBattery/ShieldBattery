@@ -4,6 +4,7 @@ var app = angular.module('shieldbattery',
     , require('./auth')
     , require('./dashboard')
     , require('./initializer')
+    , require('./lobby')
     , require('./server-status')
     , require('./sockets')
     , require('./status')

@@ -2,7 +2,7 @@ var modName = 'shieldbattery.initializer'
 module.exports = modName
 var mod = angular.module(modName, [])
 
-mod.run(function($rootScope) {
+mod.run(function($rootScope, psiSocket) {
   // After the first route change completes, we'll mark the application as loaded.
   // Theoretically, this works. If we end up needing some more complex logic, we should probably
   // keep some sort of registry of things being initialized so we know when they complete.
@@ -18,4 +18,6 @@ mod.run(function($rootScope) {
     unregSuccess()
     unregError()
   }
+
+  psiSocket.connect()
 })

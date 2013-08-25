@@ -1,8 +1,16 @@
 var sio = require('socket.io')
+  , path = require('path')
+  , fs = require('fs')
 
 module.exports = function(server, cookieParser, sessionMiddleware) {
   return new WebsocketServer(server, cookieParser, sessionMiddleware)
 }
+
+var apiHandlers = []
+  , jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
+fs.readdirSync(path.join(__dirname, 'wsapi')).filter(jsFileMatcher).forEach(function(filename) {
+  apiHandlers.push(require('./wsapi/' + filename))
+})
 
 function WebsocketServer(server, cookieParser, sessionMiddleware) {
   this.httpServer = server
@@ -14,11 +22,14 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
   var self = this
   this.io.configure(function() {
     self.io.set('transports', ['websocket'])
+      .set('log level', 2)
       .enable('browser client minification')
       .enable('browser client etag')
 
     self.io.set('authorization', self.onAuthorization.bind(self))
   })
+
+  this.apiHandlers = apiHandlers.map(function(handler) { return handler(self.io) })
 
   this.io.sockets.on('connection', function(socket) {
     self.connectedUsers++
@@ -27,6 +38,8 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
     socket.on('disconnect', function() {
       self.connectedUsers--
     })
+
+    self._applyApiHandlers(socket)
   })
 
   setInterval(function() {
@@ -58,7 +71,14 @@ WebsocketServer.prototype.onAuthorization = function(data, cb) {
       }
       data.sessionId = parserData.sessionID
       data.userId = parserData.session.userId
+      data.userName = parserData.session.userName
       cb(null, true)
     })
   })
+}
+
+WebsocketServer.prototype._applyApiHandlers = function(socket) {
+  for (var i = 0, len = this.apiHandlers.length; i < len; i++) {
+    this.apiHandlers[i].apply(socket)
+  }
 }

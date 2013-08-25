@@ -58,6 +58,7 @@ function startNewSession(req, res, next) {
         if (err) return next(err)
 
         req.session.userId = user.id
+        req.session.userName = user.name
         if (!remember) req.session.cookie.expires = false
         res.send(user)
       })
