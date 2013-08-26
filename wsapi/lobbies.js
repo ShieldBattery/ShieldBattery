@@ -1,7 +1,8 @@
-var Endpoint = require('../util/websocket-endpoint')
-  , util = require('util')
+var Emitter = require('events').EventEmitter
+  , Endpoint = require('../util/websocket-endpoint')
   , SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
+  , util = require('util')
 
 module.exports = function(io) {
   return new LobbyHandler(io)
@@ -22,13 +23,35 @@ function LobbyHandler(io) {
 }
 util.inherits(LobbyHandler, Endpoint)
 
+var LOBBY_LIST_CHANNEL = 'lobbies/list'
+  , LOBBY_LIST_MESSAGE = 'lobbies/message'
 LobbyHandler.prototype.subscribe = function(socket, cb) {
-  socket.join('lobbies/list')
+  socket.join(LOBBY_LIST_CHANNEL)
   cb(this._lobbies)
 }
 
 LobbyHandler.prototype.unsubscribe = function(socket) {
-  socket.leave('lobbies/list')
+  socket.leave(LOBBY_LIST_CHANNEL)
+}
+
+LobbyHandler.prototype._doCreateLobby = function(host, hostUserId, name, map, size) {
+  var lobby = new Lobby(host, name, map, size)
+  this._lobbyMap.put(lobby.name, lobby)
+  // TODO(tec27): we should probably separate the joining out from the creation here, would make the
+  // following line unnecessary and just make everything a lot cleaner
+  this._userLobbyMap.put(hostUserId, lobby)
+  listUtils.sortedInsert(this._lobbies, lobby, Lobby.compare)
+  this.io.sockets.in(LOBBY_LIST_CHANNEL)
+      .emit(LOBBY_LIST_MESSAGE, { action: 'create', lobby: lobby })
+
+  var self = this
+  lobby.emitter.on('addPlayer', function onAddPlayer(slot, player) {
+    self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
+  }).on('removePlayer', function onRemovePlayer(slot, player) {
+    self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
+  })
+
+  return true
 }
 
 LobbyHandler.prototype.create = function(socket, params, cb) {
@@ -44,12 +67,17 @@ LobbyHandler.prototype.create = function(socket, params, cb) {
     return cb({ msg: 'A lobby with that name already exists' })
   }
 
-  var lobby = new Lobby(socket.handshake.userName, params.name, params.map, params.size)
-  this._lobbyMap.put(lobby.name, lobby)
-  this._userLobbyMap.put(socket.handshake.userId, lobby)
-  listUtils.sortedInsert(this._lobbies, lobby, Lobby.compare)
-  cb(null)
-  this.io.sockets.in('lobbies/list').emit('lobbies/message', { action: 'create', lobby: lobby })
+  var host = socket.handshake.userName
+    , hostUserId = socket.handshake.userId
+  if (this._doCreateLobby(host, hostUserId, params.name, params.map, params.size)) {
+    cb(null)
+  } else {
+    cb({ msg: 'Error creating lobby' })
+  }
+}
+
+LobbyHandler.prototype._updateJoinedLobby = function(lobby, msg) {
+  this.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message', msg)
 }
 
 LobbyHandler.prototype.join = function(socket, params, cb) {
@@ -76,22 +104,16 @@ LobbyHandler.prototype.join = function(socket, params, cb) {
 
   var player = new LobbyPlayer(socket.handshake.userName, 'r', false)
   this._userLobbyMap.put(socket.handshake.userId, lobby)
-  var slot = lobby.addPlayer(player)
+  lobby.addPlayer(player)
 
-  this.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
-      { action: 'join', slot: slot, player: player })
   return finish(lobby)
 
   function finish(lobby) {
     var userName = socket.handshake.userName
       , handleDisconnect = function() {
-          var slot = lobby.removePlayer(userName)
+          lobby.removePlayer(userName)
           // TODO(tec27): ideally all we'd need to do is call the above; figure out how to push
-          // these actions into one function call
-          if (slot >= 0) {
-            self.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
-                { action: 'part', slot: slot })
-          }
+          // these actions into the remove event handler
           self._disconnectHandlers.del(userName)
           self._userLobbyMap.del(socket.handshake.userId)
         }
@@ -131,8 +153,6 @@ LobbyHandler.prototype.part = function(socket, cb) {
   }
 
   socket.leave(lobby._socketChannel)
-  this.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
-      { action: 'part', slot: slot })
   cb(null)
 }
 
@@ -143,8 +163,7 @@ LobbyHandler.prototype.chat = function(socket, params) {
 
   var lobby = this._userLobbyMap.get(socket.handshake.userId)
     , userName = socket.handshake.userName
-  this.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
-      { action: 'chat', from: userName, text: params.msg })
+  this._updateJoinedLobby(lobby, { action: 'chat', from: userName, text: params.msg })
 }
 
 LobbyHandler.prototype.startCountdown = function(socket, cb) {
@@ -160,13 +179,12 @@ LobbyHandler.prototype.startCountdown = function(socket, cb) {
 
   var self = this
   lobby.startCountdown(function() {
-    self.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
+    self._updateJoinedLobby(lobby,
         { action: 'countdownComplete', host: socket.handshake.address.address, port: 6112 })
   })
 
   cb(null)
-  self.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message',
-      { action: 'countdownStarted' })
+  this._updateJoinedLobby(lobby, { action: 'countdownStarted' })
 }
 
 function Lobby(hostUsername, name, map, size) {
@@ -175,6 +193,13 @@ function Lobby(hostUsername, name, map, size) {
   this.map = map
   this.size = size
 
+  // Ideally Lobby would just be an EventEmitter itself, but it adds a bunch of properties that
+  // would get stringified in JSON. To avoid that, we add it as a non-enumerable property
+  Object.defineProperty(this, 'emitter',
+      { value: new Emitter()
+      , writable: false
+      , enumerable: false
+      })
   Object.defineProperty(this, 'slots',
       { value: new Array(size)
       , writable: false
@@ -214,6 +239,7 @@ Lobby.prototype.addPlayer = function(player) {
   for (var i = 0; i < this.size; i++) {
     if (!this.slots[i]) {
       this.slots[i] = player
+      this.emitter.emit('addPlayer', i, player)
       return i
     }
   }
@@ -231,7 +257,9 @@ Lobby.prototype.removePlayer = function(playerName) {
 
   for (i = 0; i < this.size; i++) {
     if (!!this.slots[i] && this.slots[i].name == playerName) {
+      var player = this.slots[i]
       this.slots[i] = undefined
+      this.emitter.emit('removePlayer', i, player)
       return i
     }
   }
