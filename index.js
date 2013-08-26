@@ -48,11 +48,7 @@ if (app.get('env') == 'development') {
   app.use(express.errorHandler())
 }
 
-var httpsOptions =  { ca: []
-                    , key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8')
-                    , cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
-                    }
-  , httpsServer = https.createServer(httpsOptions, app)
+var httpsServer = https.createServer(config.https, app)
 
 require('./websockets')(httpsServer, cookieParser, sessionWare)
 require('./routes')(app)

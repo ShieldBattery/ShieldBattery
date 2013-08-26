@@ -24,3 +24,9 @@ config.logLevels = {
   file: 'warn'
 , console: 'debug'
 }
+
+config.https = {
+  ca: []
+, key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8')
+, cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
+}
