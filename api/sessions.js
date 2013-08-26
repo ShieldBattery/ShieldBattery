@@ -1,6 +1,7 @@
 var bcrypt = require('bcrypt')
   , users = require('../models/users')
   , httpErrors = require('../util/http-errors')
+  , initSession = require('../util/init-session')
 
 module.exports = function(app, baseApiPath) {
   var sessionsPath = baseApiPath + 'sessions'
@@ -57,8 +58,7 @@ function startNewSession(req, res, next) {
       req.session.regenerate(function(err) {
         if (err) return next(err)
 
-        req.session.userId = user.id
-        req.session.userName = user.name
+        initSession(req, user)
         if (!remember) req.session.cookie.expires = false
         res.send(user)
       })
