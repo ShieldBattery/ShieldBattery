@@ -79,8 +79,8 @@ Handle<Value> WrappedRegistry::ReadString(const Arguments& args) {
 
   wchar_t value[MAX_PATH];
   DWORD value_size = sizeof(value);
-  result = WindowsError(
-      RegGetValueW(key, NULL, value_name->c_str(), RRF_RT_REG_SZ, NULL, value, &value_size));
+  result = WindowsError(RegQueryValueExW(key, value_name->c_str(), NULL, NULL,
+    reinterpret_cast<LPBYTE>(value), &value_size));
   RegCloseKey(key);
 
   delete root_key_str;

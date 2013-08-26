@@ -79,7 +79,7 @@
     'msvs_disabled_warnings': [ 4221, 4068 ],
     'defines': [
       'WIN32',
-      '_WIN32_WINNT=0x0600', # minimum version is Windows Vista
+      '_WIN32_WINNT=0x0502', # minimum version is Windows XP SP2 (matching libuv's claims)
     ],
   },
 
