@@ -8,18 +8,21 @@ module.exports = function(io) {
   return new LobbyHandler(io)
 }
 
+// TODO(tec27): Its theoretically possible to get these maps back into LobbyHandler as instance
+// variables and remove some of this global state. I'd like to do this when convenient. I believe
+// it should be easier after we do a better job of mapping sockets to players throughout the
+// application (e.g. each player gets their own namespace that we use to send them messages) instead
+// of having a one-off solution for lobbies.
+var lobbyMap = new SimpleMap()
+  , lobbies = []
+    // player -> their current lobby. Each player can be in at most one lobby at a time.
+  , playerLobbyMap = new SimpleMap()
+    // player -> all their active sockets in lobbies (effectively player+lobby -> socket, since we
+    // only allow players to be in a single lobby across all active sessions)
+  , playerSockets = new SimpleMap()
+
 function LobbyHandler(io) {
   Endpoint.call(this, io, 'lobbies')
-
-  console.log('initializing')
-
-  this._lobbyMap = new SimpleMap()
-  this._lobbies = []
-  this._userLobbyMap = new SimpleMap()
-
-  // This assumes 1 disconnect per user across all our lobbies. This is fine as long as each user
-  // can only be in 1 lobby at a time, but will cause problems otherwise
-  this._disconnectHandlers = new SimpleMap()
 }
 util.inherits(LobbyHandler, Endpoint)
 
@@ -27,31 +30,62 @@ var LOBBY_LIST_CHANNEL = 'lobbies/list'
   , LOBBY_LIST_MESSAGE = 'lobbies/message'
 LobbyHandler.prototype.subscribe = function(socket, cb) {
   socket.join(LOBBY_LIST_CHANNEL)
-  cb(this._lobbies)
+  cb(lobbies)
 }
 
 LobbyHandler.prototype.unsubscribe = function(socket) {
   socket.leave(LOBBY_LIST_CHANNEL)
 }
 
-LobbyHandler.prototype._doCreateLobby = function(host, hostUserId, name, map, size) {
+LobbyHandler.prototype._addSocketForPlayer = function(socket, playerName) {
+  if (!playerSockets.has(playerName)) {
+    playerSockets.put(playerName, [ socket ])
+  } else {
+    var sockets = playerSockets.get(playerName)
+    if (sockets.indexOf(socket) != -1) return // socket already in the list
+
+    sockets.push(socket)
+  }
+
+  socket.on('disconnect', lobbyDisconnectListener)
+}
+
+LobbyHandler.prototype._clearSocketsForPlayer = function(playerName) {
+  if (!playerSockets.has(playerName)) return
+
+  var sockets = playerSockets.get(playerName)
+  playerSockets.del(playerName)
+  for (var i = 0, len = sockets.length; i < len; i++) {
+    sockets[i].removeListener('disconnect', lobbyDisconnectListener)
+  }
+}
+
+LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
   var lobby = new Lobby(host, name, map, size)
-  this._lobbyMap.put(lobby.name, lobby)
+  lobbyMap.put(lobby.name, lobby)
   // TODO(tec27): we should probably separate the joining out from the creation here, would make the
   // following line unnecessary and just make everything a lot cleaner
-  this._userLobbyMap.put(hostUserId, lobby)
-  listUtils.sortedInsert(this._lobbies, lobby, Lobby.compare)
+  playerLobbyMap.put(host, lobby)
+  listUtils.sortedInsert(lobbies, lobby, Lobby.compare)
   this.io.sockets.in(LOBBY_LIST_CHANNEL)
       .emit(LOBBY_LIST_MESSAGE, { action: 'create', lobby: lobby })
 
   var self = this
   lobby.emitter.on('addPlayer', function onAddPlayer(slot, player) {
     self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
+    playerLobbyMap.put(player.name, lobby)
+    ;(playerSockets.get(player.name) || []).forEach(function(socket) {
+      socket.join(lobby._socketChannel)
+    })
   }).on('removePlayer', function onRemovePlayer(slot, player) {
+    playerLobbyMap.del(player.name)
+    ;(playerSockets.get(player.name) || []).forEach(function(socket) {
+      socket.leave(lobby._socketChannel)
+    })
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
   })
 
-  return true
+  return lobby
 }
 
 LobbyHandler.prototype.create = function(socket, params, cb) {
@@ -63,13 +97,16 @@ LobbyHandler.prototype.create = function(socket, params, cb) {
     return cb({ msg: 'Invalid size' })
   }
 
-  if (this._lobbyMap.has(params.name)) {
+  if (lobbyMap.has(params.name)) {
     return cb({ msg: 'A lobby with that name already exists' })
   }
 
   var host = socket.handshake.userName
-    , hostUserId = socket.handshake.userId
-  if (this._doCreateLobby(host, hostUserId, params.name, params.map, params.size)) {
+    , lobby = this._doCreateLobby(host, params.name, params.map, params.size)
+  if (lobby) {
+    // TODO(tec27): remove this when the initial join is separated from lobby creation
+    this._addSocketForPlayer(socket, host)
+    socket.join(lobby._socketChannel)
     cb(null)
   } else {
     cb({ msg: 'Error creating lobby' })
@@ -80,98 +117,89 @@ LobbyHandler.prototype._updateJoinedLobby = function(lobby, msg) {
   this.io.sockets.in(lobby._socketChannel).emit('lobbies/joined/message', msg)
 }
 
+function lobbyDisconnectListener() {
+  var name = this.handshake.userName
+  if (!playerSockets.has(name)) return
+
+  var sockets = playerSockets.get(name)
+  if (sockets.length == 1 && sockets[0] === this) {
+    // no active sockets left, remove this user from whatever lobby they were in
+    playerSockets.del(name)
+    if (playerLobbyMap.has(name)) {
+      playerLobbyMap.get(name).removePlayer(name)
+    }
+    return
+  }
+
+  // Find the socket in the list, and remove it. There are still some active sockets left, so until
+  // they disconnect we will keep them in the lobby.
+  for (var i = 0, len = sockets.length; i < len; i++) {
+    if (sockets[i] === this) {
+      sockets.splice(i, 1)
+    }
+  }
+}
+
 LobbyHandler.prototype.join = function(socket, params, cb) {
   var self = this
-  if (!params.name || !this._lobbyMap.has(params.name)) {
+  if (!params.name || !lobbyMap.has(params.name)) {
     return cb({ msg: 'No lobby with that name exists' })
-  } else if (this._userLobbyMap.has(socket.handshake.userId)) {
-    var oldLobby = this._userLobbyMap.get(socket.handshake.userId)
+  } else if (playerLobbyMap.has(socket.handshake.userName)) {
+    var oldLobby = playerLobbyMap.get(socket.handshake.userName)
     if (oldLobby.name == params.name) {
       // trying to join a lobby they're already in, simply return them the lobby info
-      // TODO(tec27): reevaluate whether this is necessary/desirable once we have a lobby service on
-      // the client and the whole (host creates -> then follows it up with a 'duplicate' join) thing
-      // goes away
-      return finish(oldLobby)
+      self._addSocketForPlayer(socket, socket.handshake.userName)
+      socket.join(oldLobby._socketChannel)
+      return cb(null, oldLobby.getFullDescription())
     }
 
     return cb({ msg: 'You cannot enter multiple lobbies at once' })
   }
 
-  var lobby = this._lobbyMap.get(params.name)
+  var lobby = lobbyMap.get(params.name)
   if (lobby.size - lobby.numPlayers < 1) {
     return cb({ msg: 'Lobby full' })
   }
 
   var player = new LobbyPlayer(socket.handshake.userName, 'r', false)
-  this._userLobbyMap.put(socket.handshake.userId, lobby)
+  self._addSocketForPlayer(socket, player.name)
   lobby.addPlayer(player)
-
-  return finish(lobby)
-
-  function finish(lobby) {
-    var userName = socket.handshake.userName
-      , handleDisconnect = function() {
-          lobby.removePlayer(userName)
-          // TODO(tec27): ideally all we'd need to do is call the above; figure out how to push
-          // these actions into the remove event handler
-          self._disconnectHandlers.del(userName)
-          self._userLobbyMap.del(socket.handshake.userId)
-        }
-
-    // TODO(tec27): only the last socket for this user to join this lobby matters. Ideally we only
-    // let them use one socket, but I haven't quite figured out how I want to do this yet. This
-    // implementation is definitely not ideal, given that old sockets stay connected, they just no
-    // longer have the ability to trigger parts through disconnect.
-    if (self._disconnectHandlers.has(userName)) {
-      socket.removeListener('disconnect', self._disconnectHandlers.get(userName))
-    }
-    self._disconnectHandlers.put(userName, handleDisconnect)
-    socket.on('disconnect', handleDisconnect)
-
-    socket.join(lobby._socketChannel)
-    cb(null, lobby.getFullDescription())
-  }
+  cb(null, lobby.getFullDescription())
 }
 
 // TODO(tec27): when a lobby has no players left in it, close it down. Also deal with hosts
 LobbyHandler.prototype.part = function(socket, cb) {
-  if (!this._userLobbyMap.has(socket.handshake.userId)) {
+  if (!playerLobbyMap.has(socket.handshake.userName)) {
     return cb({ msg: 'You are not currently in a lobby' })
   }
 
-  var lobby = this._userLobbyMap.get(socket.handshake.userId)
-    , userName = socket.handshake.userName
+  var userName = socket.handshake.userName
+    , lobby = playerLobbyMap.get(userName)
     , slot = lobby.removePlayer(userName)
 
-  if (this._disconnectHandlers.has(userName)) {
-    socket.removeListener('disconnect', this._disconnectHandlers.get(userName))
-    this._disconnectHandlers.del(userName)
-  }
-  this._userLobbyMap.del(socket.handshake.userId)
   if (slot < 0) {
-    return cb({ msg: 'Error leaving lobby' })
+    cb({ msg: 'Error leaving lobby' })
+  } else {
+    cb(null)
   }
-
-  socket.leave(lobby._socketChannel)
-  cb(null)
 }
 
 LobbyHandler.prototype.chat = function(socket, params) {
-  if (!params.msg || !this._userLobbyMap.has(socket.handshake.userId)) {
+  if (!params.msg || !playerLobbyMap.has(socket.handshake.userName)) {
     return
   }
 
-  var lobby = this._userLobbyMap.get(socket.handshake.userId)
+  var lobby = playerLobbyMap.get(socket.handshake.userName)
     , userName = socket.handshake.userName
   this._updateJoinedLobby(lobby, { action: 'chat', from: userName, text: params.msg })
 }
 
 LobbyHandler.prototype.startCountdown = function(socket, cb) {
-  if (!this._userLobbyMap.has(socket.handshake.userId)) {
+  if (!playerLobbyMap.has(socket.handshake.userName)) {
     return cb({ msg: 'You are not in a lobby' })
   }
 
-  var lobby = this._userLobbyMap.get(socket.handshake.userId)
+  var lobby = playerLobbyMap.get(socket.handshake.userName)
     , player = lobby.getPlayer(socket.handshake.userName)
   if (!player || !player.isHost) {
     return cb({ msg: 'You must be the host to start the countdown' })
@@ -210,6 +238,8 @@ function Lobby(hostUsername, name, map, size) {
       , writable: false
       , enumerable: false
       })
+  // TODO(tec27): I don't like doing this here, it leads to duplicated code elsewhere. Ideally
+  // lobbies can be created empty, and if a player is added to an empty lobby, he becomes the host.
   this.players[0] = this.slots[0] = new LobbyPlayer(hostUsername, 'r', true)
 
   Object.defineProperty(this, 'numPlayers',
