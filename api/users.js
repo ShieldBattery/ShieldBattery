@@ -55,6 +55,7 @@ function createUser(req, res, next) {
       if (err) return next(err)
 
       req.session.userId = user.id
+      req.session.userName = user.name
       res.send(user)
     })
   }
