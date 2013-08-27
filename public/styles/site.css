@@ -5,7 +5,18 @@ body {
 }
 .chat-messages {
   height: 400px;
+  max-width: 900px;
   border: 1px solid #999;
-  border-radius: 10px;
+  border-radius: 4px;
+  padding: 2px 4px;
   overflow: auto;
+}
+.chat-messages p {
+  font-size: 14px;
+  margin: 0px;
+  line-height: 150%;
+}
+.chat-message-box {
+  width: 90%;
+  max-width: 860px;
 }

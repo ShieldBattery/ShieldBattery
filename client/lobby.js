@@ -78,7 +78,7 @@ mod.controller('LobbyListCtrl', function($scope, siteSocket) {
     siteSocket.emit('lobbies/subscribe', function(list) {
       $scope.lobbies.length = 0
       for (var i = 0, len = list.length; i < len; i++) {
-        $scope.lobbies.push(list[i])
+        addLobby(list[i])
       }
     })
   }
@@ -145,7 +145,10 @@ mod.controller('LobbyViewCtrl',
   $scope.responseError = null
   $scope.chat = []
   $scope.lobby = {}
-  $scope.isHost = false
+  Object.defineProperty($scope, 'isHost',
+      { get: function() { return this.lobby.host == authService.user.name }
+      , enumerable: true
+      })
 
   $scope.countingDown = false
   $scope.countdownSeconds = null
@@ -187,7 +190,6 @@ mod.controller('LobbyViewCtrl',
 
   function joinThisLobby() {
     inLobby = false
-    $scope.isHost = false
     siteSocket.emit('lobbies/join', { name: $routeParams.name }, function(err, lobbyData) {
       if (err) {
         console.log('error joining: ' + err.msg)
@@ -198,12 +200,6 @@ mod.controller('LobbyViewCtrl',
       Object.keys(lobbyData).forEach(function(key) {
         $scope.lobby[key] = lobbyData[key]
       })
-      for (var i = 0, len = $scope.lobby.players.length; i < len; i++) {
-        if ($scope.lobby.players[i].name == authService.user.name) {
-          $scope.isHost = $scope.lobby.players[i].isHost
-          break
-        }
-      }
       inLobby = true
     })
   }
@@ -213,6 +209,7 @@ mod.controller('LobbyViewCtrl',
       case 'join': onJoin(data.slot, data.player); break
       case 'part': onPart(data.slot); break
       case 'chat': onChat(data.from, data.text); break
+      case 'newHost': onNewHost(data.name); break
       case 'countdownStarted': onCountdownStarted(); break
       case 'countdownComplete': onCountdownCompleted(data.host, data.port); break
       default: console.log('Unknown lobby action: ' + data.action); break
@@ -227,16 +224,23 @@ mod.controller('LobbyViewCtrl',
 
   function onPart(slot) {
     var player = $scope.lobby.slots[slot]
-      , index = $scope.lobby.players.indexOf(player)
     $scope.lobby.slots[slot] = null
-    if (index >= 0) {
-      $scope.lobby.players.splice(index, 1)
+    for (var i = 0, len = $scope.lobby.players.length; i < len; i++) {
+      if ($scope.lobby.players[i].name == player.name) {
+        $scope.lobby.players.splice(i, 1)
+        break
+      }
     }
     $scope.chat.push({ from: '<SYSTEM>', text: player.name + ' has left the game' })
   }
 
   function onChat(from, text) {
     $scope.chat.push({ from: from, text: text })
+  }
+
+  function onNewHost(host) {
+    $scope.lobby.host = host
+    $scope.chat.push({ from: '<SYSTEM>', text: host + ' is now the host' })
   }
 
   function onCountdownStarted() {

@@ -61,14 +61,9 @@ LobbyHandler.prototype._clearSocketsForPlayer = function(playerName) {
 }
 
 LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
-  var lobby = new Lobby(host, name, map, size)
+  var lobby = new Lobby(name, map, size)
   lobbyMap.put(lobby.name, lobby)
-  // TODO(tec27): we should probably separate the joining out from the creation here, would make the
-  // following line unnecessary and just make everything a lot cleaner
-  playerLobbyMap.put(host, lobby)
   listUtils.sortedInsert(lobbies, lobby, Lobby.compare)
-  this.io.sockets.in(LOBBY_LIST_CHANNEL)
-      .emit(LOBBY_LIST_MESSAGE, { action: 'create', lobby: lobby })
 
   var self = this
   lobby.emitter.on('addPlayer', function onAddPlayer(slot, player) {
@@ -83,7 +78,23 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
       socket.leave(lobby._socketChannel)
     })
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
+  }).on('newHost', function onNewHost(playerName) {
+    self._updateJoinedLobby(lobby, { action: 'newHost', name: playerName })
+    self.io.sockets.in(LOBBY_LIST_CHANNEL)
+        .emit(LOBBY_LIST_MESSAGE, { action: 'update', lobby: lobby })
+  }).on('closed', function onLobbyClosed() {
+    lobbyMap.del(lobby.name)
+    var index = lobbies.indexOf(lobby)
+    if (index != -1) {
+      lobbies.splice(index, 1)
+    }
+    self.io.sockets.in(LOBBY_LIST_CHANNEL)
+        .emit(LOBBY_LIST_MESSAGE, { action: 'remove', lobby: lobby })
   })
+
+  lobby.addPlayer(new LobbyPlayer(host, 'r'))
+  this.io.sockets.in(LOBBY_LIST_CHANNEL)
+      .emit(LOBBY_LIST_MESSAGE, { action: 'create', lobby: lobby })
 
   return lobby
 }
@@ -108,7 +119,6 @@ LobbyHandler.prototype.create = function(socket, params, cb) {
   var host = socket.handshake.userName
     , lobby = this._doCreateLobby(host, params.name, params.map, params.size)
   if (lobby) {
-    // TODO(tec27): remove this when the initial join is separated from lobby creation
     this._addSocketForPlayer(socket, host)
     socket.join(lobby._socketChannel)
     cb(null)
@@ -165,7 +175,7 @@ LobbyHandler.prototype.join = function(socket, params, cb) {
     return cb({ msg: 'Lobby full' })
   }
 
-  var player = new LobbyPlayer(socket.handshake.userName, 'r', false)
+  var player = new LobbyPlayer(socket.handshake.userName, 'r')
   self._addSocketForPlayer(socket, player.name)
   lobby.addPlayer(player)
   cb(null, lobby.getFullDescription())
@@ -205,7 +215,7 @@ LobbyHandler.prototype.startCountdown = function(socket, cb) {
 
   var lobby = playerLobbyMap.get(socket.handshake.userName)
     , player = lobby.getPlayer(socket.handshake.userName)
-  if (!player || !player.isHost) {
+  if (!player || !lobby || !lobby.host == player.name) {
     return cb({ msg: 'You must be the host to start the countdown' })
   }
 
@@ -219,8 +229,8 @@ LobbyHandler.prototype.startCountdown = function(socket, cb) {
   this._updateJoinedLobby(lobby, { action: 'countdownStarted' })
 }
 
-function Lobby(hostUsername, name, map, size) {
-  this.host = hostUsername
+function Lobby(name, map, size) {
+  this.host = null
   this.name = name
   this.map = map
   this.size = size
@@ -242,9 +252,6 @@ function Lobby(hostUsername, name, map, size) {
       , writable: false
       , enumerable: false
       })
-  // TODO(tec27): I don't like doing this here, it leads to duplicated code elsewhere. Ideally
-  // lobbies can be created empty, and if a player is added to an empty lobby, he becomes the host.
-  this.players[0] = this.slots[0] = new LobbyPlayer(hostUsername, 'r', true)
 
   Object.defineProperty(this, 'numPlayers',
       { get: function() { return this.players.length }
@@ -269,6 +276,11 @@ Lobby.prototype.addPlayer = function(player) {
     throw new Error('No space for player')
   }
 
+  if (this.players.length === 0) {
+    // this is the first player to join the lobby, must be the creator
+    this.host = player.name
+  }
+
   this.players.push(player)
   for (var i = 0; i < this.size; i++) {
     if (!this.slots[i]) {
@@ -282,7 +294,7 @@ Lobby.prototype.addPlayer = function(player) {
 Lobby.prototype.removePlayer = function(playerName) {
   var i
     , len
-  for (i =  0, len = this.players.length; i <  len; i++) {
+  for (i = 0, len = this.players.length; i < len; i++) {
     if (this.players[i].name == playerName) {
       this.players.splice(i, 1)
       break
@@ -294,10 +306,20 @@ Lobby.prototype.removePlayer = function(playerName) {
       var player = this.slots[i]
       this.slots[i] = undefined
       this.emitter.emit('removePlayer', i, player)
-      return i
     }
   }
-  return -1
+  var slotNum = i < this.size ? i : -1
+
+  if (!this.players.length) {
+    // lobby is empty, close it down
+    this.emitter.emit('closed')
+  } else if (this.host == playerName) {
+    // host left, pick a new host (earliest joiner)
+    this.host = this.players[0].name
+    this.emitter.emit('newHost', this.host)
+  }
+
+  return slotNum
 }
 
 Lobby.prototype.getPlayer = function(playerName) {
@@ -330,8 +352,7 @@ Lobby.compare = function(a, b) {
   return a.name.localeCompare(b.name)
 }
 
-function LobbyPlayer(name, race, isHost) {
+function LobbyPlayer(name, race) {
   this.name = name
   this.race = race
-  this.isHost = isHost
 }
