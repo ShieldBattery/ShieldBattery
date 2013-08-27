@@ -9,5 +9,6 @@ block content
         a(href='', ng-click='retryPsi()') (retry)
       p(ng-show='auth.isLoggedIn') Logged in as {{ auth.user.name }} 
         a(href='', ng-click='logOut()') Log out
-      p(ng-hide='auth.isLoggedIn') Not logged in
+      p(ng-hide='auth.isLoggedIn') Not logged in 
+        a(href='/login') Log in
     div(ng-view)
