@@ -124,13 +124,14 @@ AuthService.prototype.createUser = function(username, password, cb) {
 }
 
 AuthService.prototype.checkUsernameAvailability = function(username) {
-  return this.$http.get('/api/1/usernameAvailability/' + encodeURIComponent(username))
+  return this.$http.get('/api/1/usernameAvailability/' + encodeURIComponent(username) +
+      '?t=' + Date.now())
 }
 
 AuthService.prototype.getCurrentUser = function() {
   var self = this
   return this.$http
-    .get('/api/1/sessions')
+    .get('/api/1/sessions?t=' + Date.now())
     .success(function(user) {
       self.user = user
       self.siteSocket.connect()
