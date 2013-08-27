@@ -173,17 +173,20 @@ mod.controller('LobbyViewCtrl',
                       , siteSocket.on('lobbies/joined/message', onMessage)
                       ]
 
+  var inLobby = false
   joinThisLobby()
   $scope.$on('$destroy', function(event) {
     // unsubscribe when this controller gets destroyed
     for (var i = 0, len = unsubscribers.length; i < len; i++) {
       unsubscribers[i]()
     }
-    siteSocket.emit('lobbies/part', function(err) {
-    })
+    if (inLobby) {
+      siteSocket.emit('lobbies/part', function(err) {})
+    }
   })
 
   function joinThisLobby() {
+    inLobby = false
     $scope.isHost = false
     siteSocket.emit('lobbies/join', { name: $routeParams.name }, function(err, lobbyData) {
       if (err) {
@@ -201,6 +204,7 @@ mod.controller('LobbyViewCtrl',
           break
         }
       }
+      inLobby = true
     })
   }
 

@@ -89,6 +89,10 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
 }
 
 LobbyHandler.prototype.create = function(socket, params, cb) {
+  if (playerLobbyMap.has(socket.handshake.userName)) {
+    return cb({ msg: 'You cannot enter multiple lobbies at once' })
+  }
+
   if (!params.name || params.name == 'new') {
     return cb({ msg: 'Invalid name' })
   } else if (!params.map) {
