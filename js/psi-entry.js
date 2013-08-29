@@ -1,9 +1,7 @@
 var psi = require('psi')
   , path = require('path')
-  , httpServer = require('http').createServer(onHttpRequest)
+  , httpServer = require('./psi/http-server')(33198, '127.0.0.1')
   , io = require('socket.io').listen(httpServer)
-
-httpServer.listen(33198, '127.0.0.1')
 
 io.configure(function() {
   io.set('transports', ['websocket'])

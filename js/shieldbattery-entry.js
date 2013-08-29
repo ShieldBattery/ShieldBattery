@@ -4,7 +4,7 @@ var bw = require('bw')
   , path = require('path')
   , shieldbatteryRoot = path.dirname(path.resolve(process.argv[0]))
 
-var socket = io.connect('http://localhost:33198/game')
+var socket = io.connect('https://lifeoflively.net:33198/game')
   , running = false
 
 bw.on('log', function(level, msg) {
