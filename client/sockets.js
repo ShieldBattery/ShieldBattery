@@ -7,7 +7,7 @@ mod.factory('siteSocket', function($rootScope) {
 })
 
 mod.factory('psiSocket', function($rootScope) {
-  return new AngularSocket('http://localhost:33198/site', $rootScope)
+  return new AngularSocket('https://lifeoflively.net:33198/site', $rootScope)
 })
 
 function AngularSocket(host, $rootScope) {
