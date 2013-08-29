@@ -246,7 +246,7 @@ Lobby.prototype.addComputer = function(slot, cb) {
   // TODO(tec27): when we have a cache of the current slot states we could do more preemptive
   // checking here
   if (!this.bindings.addComputer(slot)) {
-    return setImmediate(function() { cb(new Error('Could not add computer in slot ' + slot)) })
+    return cb(new Error('Could not add computer in slot ' + slot))
   }
 
   var event = 'slotChange:' + slot
@@ -288,7 +288,7 @@ Lobby.prototype.setRace = function(slot, race, cb) {
   }
 
   if (!this.bindings.setRace(slot, raceNum)) {
-    return setImmediate(function() { cb(new Error('Could not set race for slot ' + slot)) })
+    return cb(new Error('Could not set race for slot ' + slot))
   }
 
   var event = 'slotChange:' + slot
@@ -316,7 +316,7 @@ Lobby.prototype.startCountdown = function(cb) {
   if (!this._ensureRunning()) return
 
   if (!this.bindings.startGameCountdown()) {
-    return setImmediate(function() { cb(new Error('Couldn\'t start countdown')) })
+    return cb(new Error('Couldn\'t start countdown'))
   }
 
   var self = this
