@@ -2,13 +2,29 @@ extends layout
 
 block content
   div(ng-hide='appInitialized') - LOADING -
-  div(ng-show='appInitialized')
-    div(ng-controller='StatusCtrl')
-      p(ng-show='!siteSocket.connected') Site socket not connected!
-      p(ng-show='!psiSocket.connected') Psi socket not connected! 
-        a(href='', ng-click='retryPsi()') (retry)
-      p(ng-show='auth.isLoggedIn') Logged in as {{ auth.user.name }} 
-        a(href='', ng-click='logOut()') Log out
-      p(ng-hide='auth.isLoggedIn') Not logged in 
-        a(href='/login') Log in
-    div(ng-view)
+  .container(ng-show='appInitialized')
+    nav.row.equal-height
+      .logo.col-3
+        a(href='/') ShieldBattery
+      .col-2
+        a(href='/') Play
+      .col-2
+        a(href='/') Chat
+      .col-2
+        a(href='/') Watch
+      .col-2
+        a(href='/') Analyze
+      .col-1
+        a(href='/') Configure
+    .row
+      .col-3.left-nav(ng-controller='StatusCtrl')
+        ul(ng-hide='siteSocket.connected && psiSocket.connected')
+          li(ng-show='!siteSocket.connected') Site socket not connected!
+          li(ng-show='!psiSocket.connected') Psi socket not connected! 
+            a(href='', ng-click='retryPsi()') (retry)
+        .profile
+          span(ng-show='auth.isLoggedIn') Logged in as {{ auth.user.name }} 
+            a(href='', ng-click='logOut()') Log out
+          span(ng-hide='auth.isLoggedIn')
+            a(href='/login') Log in
+      main.col-9(ng-view)
