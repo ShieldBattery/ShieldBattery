@@ -101,7 +101,7 @@ p {
   padding-left: 15px;
   margin-right: 18px;
   margin-left: 18px;
-  min-width: 640px;
+  min-width: 612px;
 }
 @media (min-width: 996px) {
   .container {
