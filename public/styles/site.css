@@ -26,6 +26,7 @@ nav {
   border-left: 1px solid;
   border-right: 1px solid;
   border-color: #ccc;
+  overflow: hidden;
 }
 p {
   margin: 0 0 10px;
@@ -98,9 +99,23 @@ p {
 .container {
   padding-right: 15px;
   padding-left: 15px;
-  margin-right: auto;
-  margin-left: auto;
-  max-width: 1200px;
+  margin-right: 18px;
+  margin-left: 18px;
+  min-width: 640px;
+}
+@media (min-width: 996px) {
+  .container {
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 960px;
+  }
+}
+@media (min-width: 1236px) {
+  .container {
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 1200px;
+  }
 }
 .left-nav {
   padding-top: 10px;
