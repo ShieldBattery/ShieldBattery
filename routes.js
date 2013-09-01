@@ -34,6 +34,7 @@ function applyRoutes(app) {
       , templateData = { constants: constants }
     res.render(partialPath, templateData, function (err, html) {
       if (err) {
+        req.log.error({ err: err, path: partialPath }, 'error rendering template')
         send404(req, res)
       }
 

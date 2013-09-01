@@ -9,7 +9,16 @@ mod.config(function($routeProvider) {
   $routeProvider
     .when('/lobbies', { templateUrl: '/partials/lobbyList', controller: 'LobbyListCtrl' })
     .when('/lobbies/new', { templateUrl: '/partials/lobbyCreate', controller: 'LobbyCreateCtrl' })
-    .when('/lobbies/:name', { templateUrl: '/partials/lobbyView', controller: 'LobbyViewCtrl' })
+    .when('/lobbies/:name', { templateUrl: '/partials/lobbyView'
+                            , controller: 'LobbyViewCtrl'
+                            , resolve:  { lobby: function($route, joinedLobby) {
+                                            // TODO(tec27): take users to a confirmation screen if
+                                            // they're already in another lobby, etc.
+                                            var lobbyName = $route.current.params.name
+                                            return joinedLobby.join(lobbyName)
+                                          }
+                                        }
+                            })
 })
 
 mod.filter('encodeUriComponent', function() {
@@ -55,6 +64,251 @@ mod.directive('autoScroll', function() {
 
 function compareLobbies(a, b) {
   return a.name.localeCompare(b.name)
+}
+
+mod.factory('joinedLobby', function($timeout, $q, siteSocket, psiSocket, authService) {
+  return new JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService)
+})
+
+function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
+  this.$timeout = $timeout
+  this.$q = $q
+  this.siteSocket = siteSocket
+  this.psiSocket = psiSocket
+  this.authService = authService
+  this.lobby = null
+  this.chat = []
+  this.countingDown = false
+  this.initializingGame = false
+
+  Object.defineProperty(this, 'inLobby',
+      { get: function() { return !!this.lobby }
+      , enumerable: true
+      })
+  Object.defineProperty(this, 'isHost',
+      { get: function() { return !!this.lobby && this.lobby.host == authService.user.name }
+      , enumerable: true
+      })
+
+  this._unsubOnLeave = []
+}
+
+JoinedLobbyService.prototype.sendChat = function(msg) {
+  if (!this.inLobby) return
+  this.siteSocket.emit('lobbies/chat', { msg: msg })
+}
+
+JoinedLobbyService.prototype.join = function(lobbyName) {
+  var self = this
+  if (this.inLobby) {
+    if (this.lobby.name == lobbyName) {
+      // if you're trying to join the same lobby you're already in, we immediately return a resolved
+      // promise since no action is necessary
+      var deferred = this.$q.defer()
+      deferred.resolve(this)
+      return deferred.promise
+    } else {
+      this.leave()
+    }
+  }
+  this._unsubOnLeave =  [ this.siteSocket.on('connect', sendJoin)
+                        , this.siteSocket.on('lobbies/joined/message', this._onMessage.bind(this))
+                        ]
+  // deferred to use if we are not currently connected, shared between sendJoinCalls
+  var connectDeferred
+    , connectTimeout
+  return sendJoin()
+
+  function sendJoin() {
+    if (!self.siteSocket.connected) {
+      if (!connectDeferred) {
+        connectDeferred = self.$q.defer()
+        connectTimeout = self.$timeout(function() {
+          connectDeferred.reject({ msg: 'Not connected' })
+          connectDeferred = null
+          connectTimeout = null
+        }, 5000)
+      }
+      return connectDeferred.promise
+    }
+
+    var deferred = connectDeferred ? connectDeferred : self.$q.defer()
+    self.siteSocket.emit('lobbies/join', { name: lobbyName }, function(err, lobbyData) {
+      if (err) {
+        console.log('error joining: ' + err.msg)
+        deferred.reject(err)
+        if (deferred === connectDeferred) {
+          self.$timeout.cancel(connectTimeout)
+          connectDeferred = null
+        }
+
+        self.leave() // ensure everything gets cleaned up
+        return
+      }
+
+      if (!self.lobby) self.lobby = {}
+      Object.keys(lobbyData).forEach(function(key) {
+        self.lobby[key] = lobbyData[key]
+      })
+
+      deferred.resolve(self)
+      if (deferred === connectDeferred) {
+        self.$timeout.cancel(connectTimeout)
+        connectDeferred = null
+      }
+    })
+
+    return deferred.promise
+  }
+}
+
+JoinedLobbyService.prototype.leave = function() {
+  if (!this.inLobby) return
+
+  this.siteSocket.emit('lobbies/part', function(err) {})
+  this._unsubOnLeave.forEach(function(unsub) { unsub() })
+  this._unsubOnLeave.length = 0
+  this.lobby = null
+  this.chat.length = 0
+  this.countingDown = false
+  this.initializingGame = false
+}
+
+JoinedLobbyService.prototype.startCountdown = function() {
+  if (!this.inLobby || !this.isHost) return
+
+  var deferred = this.$q.defer()
+  this.siteSocket.emit('lobbies/startCountdown', function(err) {
+    if (err) {
+      console.log('error starting countdown: ' + err.msg)
+      deferred.reject(err)
+      return
+    }
+
+    deferred.resolve()
+  })
+  return deferred.promise
+}
+
+JoinedLobbyService.prototype._systemMessage = function(msg) {
+  this.chat.push({ system: true, text: msg })
+}
+
+JoinedLobbyService.prototype._onMessage = function(data) {
+  switch(data.action) {
+    case 'join': this._onJoin(data.slot, data.player); break
+    case 'part': this._onPart(data.slot); break
+    case 'chat': this._onChat(data.from, data.text); break
+    case 'newHost': this._onNewHost(data.name); break
+    case 'countdownStarted': this._onCountdownStarted(); break
+    case 'countdownComplete': this._onCountdownCompleted(data.host, data.port); break
+    default: console.log('Unknown lobby action: ' + data.action); break
+  }
+}
+
+JoinedLobbyService.prototype._onJoin = function(slot, player) {
+  if (!this.lobby) return
+  this.lobby.slots[slot] = player
+  this.lobby.players.push(player)
+  this._systemMessage(player.name + ' has joined the game')
+}
+
+JoinedLobbyService.prototype._onPart = function(slot) {
+  if (!this.lobby) return
+  var player = this.lobby.slots[slot]
+  this.lobby.slots[slot] = null
+  for (var i = 0, len = this.lobby.players.length; i < len; i++) {
+    if (this.lobby.players[i].name == player.name) {
+      this.lobby.players.splice(i, 1)
+      break
+    }
+  }
+  this._systemMessage(player.name + ' has left the game')
+}
+
+JoinedLobbyService.prototype._onChat = function(from, text) {
+  this.chat.push({ from: from, text: text })
+}
+
+JoinedLobbyService.prototype._onNewHost = function(host) {
+  this.lobby.host = host
+  this._systemMessage(host + ' is now the host')
+}
+
+JoinedLobbyService.prototype._onCountdownStarted = function() {
+  this.countingDown = true
+  this.countdownSeconds = 5
+  this.$timeout(countdownTick, 1000)
+
+  var self = this
+  function countdownTick() {
+    self.countdownSeconds--
+    if (self.isHost && self.countdownSeconds == 3) {
+      self._launchGame()
+    }
+    if (self.countdownSeconds > 0) {
+      self.$timeout(countdownTick, 1000)
+    }
+  }
+}
+
+JoinedLobbyService.prototype._onCountdownCompleted = function(host, port) {
+  this.countingDown = false
+  this.initializingGame = true
+  if (this.isHost) {
+    // we already did our part, and this host/port is our own, so we can ignore it
+    return
+  }
+
+  this._launchGame(host, port)
+}
+
+JoinedLobbyService.prototype._launchGame = function(host, port) {
+  this.psiSocket.once('game/status', handleStatus)
+  this.psiSocket.emit('launch', function(err) {
+    if (err) {
+      console.log('Error launching:')
+      console.dir(err)
+    }
+  })
+
+  var self = this
+  function handleStatus(status) {
+    if (status != 'init') return
+
+    var plugins = [ 'wmode.dll' ]
+    self.psiSocket.emit('game/load', plugins, onLoad)
+  }
+
+  function onLoad(errors) {
+    var launch = true
+    Object.keys(errors).forEach(function(key) {
+      console.log('Error loading ' + key + ': ' + errors[key])
+      launch = false
+    })
+    if (!launch) return
+
+    var race = 'r'
+    for (var i = 0, len = self.lobby.players.length; i < len; i++) {
+      if (self.lobby.players[i].name == self.authService.user.name) {
+        race = self.lobby.players[i].race
+        break
+      }
+    }
+
+    if (self.isHost) {
+      self.psiSocket.emit('game/start', { username: self.authService.user.name
+                                        , map: self.lobby.map
+                                        , race: race
+                                        })
+    } else {
+      self.psiSocket.emit('game/join',  { username: self.authService.user.name
+                                        , address: host
+                                        , port: port
+                                        , race: race
+                                        })
+    }
+  }
 }
 
 mod.controller('LobbyListCtrl', function($scope, siteSocket) {
@@ -136,187 +390,28 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
   }
 })
 
-mod.controller('LobbyViewCtrl',
-    function($scope, $routeParams, $location, $timeout, authService, siteSocket, psiSocket) {
-  // TODO(tec27): ideally the joined lobby would be maintained in a service, and the route would
-  // make sure we joined *before* starting this controller. For the sake of development speed I am
-  // skipping this for now, but will soon implement it this way
-
-  $scope.responseError = null
-  $scope.chat = []
-  $scope.lobby = {}
-  Object.defineProperty($scope, 'isHost',
-      { get: function() { return this.lobby.host == authService.user.name }
-      , enumerable: true
-      })
-
-  $scope.countingDown = false
-  $scope.countdownSeconds = null
-
-  $scope.initializingGame = false
+mod.controller('LobbyViewCtrl', function($scope, $routeParams, $location, joinedLobby) {
+  $scope.joinedLobby = joinedLobby
 
   $scope.sendChat = function(text) {
     if (!$scope.chatForm.$valid) return
-    siteSocket.emit('lobbies/chat', { msg: text })
+    joinedLobby.sendChat($scope.chatMsg)
     $scope.chatMsg = ''
     $scope.chatForm.$setPristine(true)
   }
 
   $scope.startCountdown = function() {
-    if (!$scope.isHost) return
-    siteSocket.emit('lobbies/startCountdown', function(err) {
-      if (err) {
-        console.log('error starting countdown: ' + err.msg)
-        return
-      }
-    })
+    joinedLobby.startCountdown()
   }
 
-  var unsubscribers = [ siteSocket.on('connect', joinThisLobby)
-                      , siteSocket.on('lobbies/joined/message', onMessage)
-                      ]
+  $scope.leaveLobby = function() {
+    joinedLobby.leave()
+  }
 
-  var inLobby = false
-  joinThisLobby()
-  $scope.$on('$destroy', function(event) {
-    // unsubscribe when this controller gets destroyed
-    for (var i = 0, len = unsubscribers.length; i < len; i++) {
-      unsubscribers[i]()
-    }
-    if (inLobby) {
-      siteSocket.emit('lobbies/part', function(err) {})
+  // watch the lobby status so that we can redirect elsewhere if the user leaves this lobby
+  $scope.$watch('joinedLobby.inLobby', function(inLobby) {
+    if (!inLobby) {
+      $location.path('/')
     }
   })
-
-  function joinThisLobby() {
-    inLobby = false
-    siteSocket.emit('lobbies/join', { name: $routeParams.name }, function(err, lobbyData) {
-      if (err) {
-        console.log('error joining: ' + err.msg)
-        $location.path('/lobbies')
-        return
-      }
-
-      Object.keys(lobbyData).forEach(function(key) {
-        $scope.lobby[key] = lobbyData[key]
-      })
-      inLobby = true
-    })
-  }
-
-  function onMessage(data) {
-    switch (data.action) {
-      case 'join': onJoin(data.slot, data.player); break
-      case 'part': onPart(data.slot); break
-      case 'chat': onChat(data.from, data.text); break
-      case 'newHost': onNewHost(data.name); break
-      case 'countdownStarted': onCountdownStarted(); break
-      case 'countdownComplete': onCountdownCompleted(data.host, data.port); break
-      default: console.log('Unknown lobby action: ' + data.action); break
-    }
-  }
-
-  function onJoin(slot, player) {
-    $scope.lobby.slots[slot] = player
-    $scope.lobby.players.push(player)
-    $scope.chat.push({ from: '<SYSTEM>', text: player.name + ' has joined the game' })
-  }
-
-  function onPart(slot) {
-    var player = $scope.lobby.slots[slot]
-    $scope.lobby.slots[slot] = null
-    for (var i = 0, len = $scope.lobby.players.length; i < len; i++) {
-      if ($scope.lobby.players[i].name == player.name) {
-        $scope.lobby.players.splice(i, 1)
-        break
-      }
-    }
-    $scope.chat.push({ from: '<SYSTEM>', text: player.name + ' has left the game' })
-  }
-
-  function onChat(from, text) {
-    $scope.chat.push({ from: from, text: text })
-  }
-
-  function onNewHost(host) {
-    $scope.lobby.host = host
-    $scope.chat.push({ from: '<SYSTEM>', text: host + ' is now the host' })
-  }
-
-  function onCountdownStarted() {
-    $scope.countingDown = true
-    $scope.countdownSeconds = 5
-    $timeout(countdownTick, 1000)
-
-    function countdownTick() {
-      $scope.countdownSeconds--
-      if ($scope.isHost && $scope.countdownSeconds == 3) {
-        // we need to give the host some extra time to get the game ready for connections
-        launchGame()
-      }
-      if ($scope.countdownSeconds > 0) {
-        $timeout(countdownTick, 1000)
-      }
-    }
-  }
-
-  function onCountdownCompleted(host, port) {
-    $scope.countingDown = false
-    $scope.initializingGame = true
-    if ($scope.isHost) {
-      // we already did out part, and this host/port is our own, so we can ignore it
-      return
-    }
-
-    launchGame(host, port)
-  }
-
-  // psi communication
-  function launchGame(host, port) {
-    psiSocket.once('game/status', handleStatus)
-    psiSocket.emit('launch', function(err) {
-      if (err) {
-        console.log('Error launching:')
-        console.dir(err)
-      }
-    })
-
-    function handleStatus(status) {
-      if (status != 'init') return
-
-      var plugins = [ 'wmode.dll' ]
-      psiSocket.emit('game/load', plugins, onLoad)
-    }
-
-    function onLoad(errors) {
-      var launch = true
-      Object.keys(errors).forEach(function(key) {
-        console.log('Error loading ' + key + ': ' + errors[key])
-        launch = false
-      })
-      if (!launch) return
-
-      var race = 'r'
-      for (var i = 0, len = $scope.lobby.players.length; i < len; i++) {
-        if ($scope.lobby.players[i].name == authService.user.name) {
-          race = $scope.lobby.players[i].race
-          break
-        }
-      }
-
-      if ($scope.isHost) {
-        psiSocket.emit('game/start', { username: authService.user.name
-                                  , map: $scope.lobby.map
-                                  , race: race
-                                  })
-      } else {
-        psiSocket.emit('game/join',  { username: authService.user.name
-                                  , address: host
-                                  , port: port
-                                  , race: race
-                                  })
-      }
-    }
-  }
-
 })

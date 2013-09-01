@@ -3,6 +3,7 @@ var app = angular.module('shieldbattery',
     , 'ngRoute'
     , require('./auth')
     , require('./dashboard')
+    , require('./errors')
     , require('./initializer')
     , require('./lobby')
     , require('./server-status')

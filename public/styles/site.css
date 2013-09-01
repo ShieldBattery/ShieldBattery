@@ -138,3 +138,14 @@ p {
   font-size: 13.6px;
   margin: 0px;
 }
+.route-error {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-weight: bold;
+  text-align: center;
+  background-color: #f99;
+  border-bottom: 1px solid;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  border-color: #ccc;
+}

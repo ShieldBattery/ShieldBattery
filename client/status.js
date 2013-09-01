@@ -1,8 +1,10 @@
 module.exports = 'shieldbattery.status'
-var mod = angular.module('shieldbattery.status', [ require('./auth') ])
+var mod = angular.module('shieldbattery.status', [ require('./auth'), require('./lobby') ])
 
-mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket, psiSocket) {
+mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket, psiSocket,
+    joinedLobby) {
   $scope.auth = authService
+  $scope.joinedLobby = joinedLobby
 
   $scope.logOut = function() {
     if (!authService.isLoggedIn) return
@@ -16,5 +18,9 @@ mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket
 
   $scope.retryPsi = function() {
     if (!psiSocket.connected) psiSocket.connect()
+  }
+
+  $scope.leaveLobby = function() {
+    joinedLobby.leave()
   }
 })

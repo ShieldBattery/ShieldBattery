@@ -1,18 +1,23 @@
-h2 {{ lobby.name }}
-h4 Map: {{ lobby.map }}
-h4 Players: {{ lobby.players.length }} / {{ lobby.size }}
-h1(data-ng-show='countingDown') {{ countdownSeconds }}
-h1(data-ng-show='initializingGame') Game initializing, please wait...
-a(href='', ng-click='startCountdown()',
-  ng-show='isHost && lobby.players.length > 1 && !(countingDown || initializingGame)') Start game
+a(href='', data-ng-click='leaveLobby()') Leave lobby
+h2 {{ joinedLobby.lobby.name }}
+h4 Map: {{ joinedLobby.lobby.map }}
+h4 Players: {{ joinedLobby.lobby.players.length }} / {{ joinedLobby.lobby.size }}
+h1(data-ng-show='joinedLobby.countingDown') {{ joinedLobby.countdownSeconds }}
+h1(data-ng-show='joinedLobby.initializingGame') Game initializing, please wait...
+a(href='', data-ng-click='startCountdown()',
+  data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length > 1 && !(joinedLobby.countingDown || joinedLobby.initializingGame)')
+  | Start game
 ul
-  li(data-ng-repeat='slot in lobby.slots')
-    span(data-ng-show='!slot') &lt; Empty &gt;
+  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by (slot ? slot.name : $index)')
+    span(data-ng-show='!slot') <em>Empty</em>
     span(data-ng-hide='!slot') {{ slot.name }}
 .row
   .col-12
     .chat-messages(data-auto-scroll)
-      p(data-ng-repeat='msg in chat') {{ msg.from }}: {{ msg.text }}
+      p(data-ng-repeat='msg in joinedLobby.chat')
+        span(data-ng-switch='!!msg.system')
+          span(data-ng-switch-when='true') <strong>{{ msg.text }}</strong>
+          span(data-ng-switch-when='false') {{ msg.from }}: {{ msg.text }}
 form.row(name='chatForm', novalidate, data-ng-submit='sendChat(chatMsg)')
   span.col-11
     input(type='text', placeholder='message', data-ng-model='chatMsg', required)

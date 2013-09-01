@@ -1,6 +1,6 @@
 var modName = 'shieldbattery.initializer'
 module.exports = modName
-var mod = angular.module(modName, [])
+var mod = angular.module(modName, [ require('./sockets') ])
 
 mod.run(function($rootScope, psiSocket) {
   // After the first route change completes, we'll mark the application as loaded.

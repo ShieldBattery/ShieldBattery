@@ -32,14 +32,17 @@ mod.run(function(authService, $rootScope, $q) {
     unreg() // only handle the first route!
 
     var defer = $q.defer()
-    next.resolve = next.resolve || []
-    next.resolve.push(function() {
+    // TODO(tec27): We actually need to *wrap* all the current resolves so that we resolve first,
+    // since otherwise they'll happen in parallel, and things that depend on us having a valid
+    // session already set up might not work
+    next.resolve = next.resolve || {}
+    next.resolve.__currentUser = function() {
       authService.getCurrentUser().finally(function() {
         defer.resolve()
         if (!authService.isLoggedIn) authService.redirectToLogin()
       })
       return defer.promise
-    })
+    }
   })
 })
 
