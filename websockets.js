@@ -1,6 +1,7 @@
 var sio = require('socket.io')
   , path = require('path')
   , fs = require('fs')
+  , userIo = require('./util/user-io.js')
 
 module.exports = function(server, cookieParser, sessionMiddleware) {
   return new WebsocketServer(server, cookieParser, sessionMiddleware)
@@ -18,6 +19,8 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
   this.sessionWare = sessionMiddleware
   this.io = sio.listen(server, { secure: true })
   this.connectedUsers = 0
+
+  userIo(this.io)
 
   var self = this
   this.io.configure(function() {

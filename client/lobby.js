@@ -80,6 +80,7 @@ function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
   this.chat = []
   this.countingDown = false
   this.initializingGame = false
+  this.joinInProgress = false
 
   Object.defineProperty(this, 'inLobby',
       { get: function() { return !!this.lobby }
@@ -91,6 +92,18 @@ function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
       })
 
   this._unsubOnLeave = []
+
+  var self = this
+  // received when we connect and are already in a lobby, or when another socket for our account
+  // (e.g. another tab) joins a lobby
+  siteSocket.on('lobbies/join', function(lobbyName) {
+    self.join(lobbyName)
+  })
+  // received when another tab leaves a lobby
+  siteSocket.on('lobbies/part', function() {
+    self.lobby = null
+    self.leave()
+  })
 }
 
 JoinedLobbyService.prototype.sendChat = function(msg) {
@@ -100,17 +113,27 @@ JoinedLobbyService.prototype.sendChat = function(msg) {
 
 JoinedLobbyService.prototype.join = function(lobbyName) {
   var self = this
+    , deferred
   if (this.inLobby) {
     if (this.lobby.name == lobbyName) {
       // if you're trying to join the same lobby you're already in, we immediately return a resolved
       // promise since no action is necessary
-      var deferred = this.$q.defer()
+      deferred = this.$q.defer()
       deferred.resolve(this)
       return deferred.promise
     } else {
       this.leave()
     }
+  } else if (this._unsubOnLeave.length) {
+    this.leave()
+  } else if (this.joinInProgress) {
+    // TODO(tec27): I think we could return our previously returned promise here if the lobby name
+    // is the same, and make this more friendly (I think this is an edge case anyway, though)
+    deferred = this.$q.defer()
+    deferred.reject({ msg: 'There is already another join action in progress' })
+    return deferred.promise
   }
+
   this._unsubOnLeave =  [ this.siteSocket.on('connect', sendJoin)
                         , this.siteSocket.on('lobbies/joined/message', this._onMessage.bind(this))
                         ]
@@ -127,6 +150,7 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
           connectDeferred.reject({ msg: 'Not connected' })
           connectDeferred = null
           connectTimeout = null
+          self.leave()
         }, 5000)
       }
       return connectDeferred.promise
@@ -146,7 +170,9 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
         return
       }
 
-      if (!self.lobby) self.lobby = {}
+      if (!self.lobby) {
+        self.lobby = {}
+      }
       Object.keys(lobbyData).forEach(function(key) {
         self.lobby[key] = lobbyData[key]
       })
@@ -163,15 +189,17 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
 }
 
 JoinedLobbyService.prototype.leave = function() {
-  if (!this.inLobby) return
+  if (this.inLobby) {
+    this.siteSocket.emit('lobbies/part', function(err) {})
+  }
 
-  this.siteSocket.emit('lobbies/part', function(err) {})
   this._unsubOnLeave.forEach(function(unsub) { unsub() })
   this._unsubOnLeave.length = 0
   this.lobby = null
   this.chat.length = 0
   this.countingDown = false
   this.initializingGame = false
+  this.joinInProgress = false
 }
 
 JoinedLobbyService.prototype.startCountdown = function() {
