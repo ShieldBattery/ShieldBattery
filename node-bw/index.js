@@ -210,7 +210,8 @@ function Lobby(bindings, bw) {
   }
 }
 
-Lobby._turnTime = 250
+// turns will only be processed every 250ms, but data messages can be processed much faster
+Lobby._turnTime = 25
 Lobby._actionTimeout = 10000
 
 Lobby.prototype.start = function() {
