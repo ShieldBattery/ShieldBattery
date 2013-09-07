@@ -818,6 +818,7 @@ void EventHandlerImmediate(void* arg) {
   for (auto it = WrappedBroodWar::event_handlers_.begin(); 
       it != WrappedBroodWar::event_handlers_.end(); ++it) {
     WrappedBroodWar* wrapped_bw = it->first;
+#pragma warning(suppress: 6011)
     auto cb_it = it->second.find(*info->method_name);
     if (cb_it == it->second.end()) {
       continue;
@@ -825,6 +826,7 @@ void EventHandlerImmediate(void* arg) {
 
     TryCatch try_catch;
     Handle<Function> cb = cb_it->second->callback();
+#pragma warning(suppress: 28182)
     cb->Call(wrapped_bw->handle_, info->args->size(),
         (info->args->empty() ? nullptr : &(*info->args)[0]));
 

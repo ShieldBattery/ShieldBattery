@@ -1,18 +1,24 @@
+// Put log and bw first to ensure we can log as much as possible in the event of a crash
+var log = require('./shieldbattery/logger')
+process.on('uncaughtException', function(err) {
+  log.error(err.message)
+  log.error(err.stack)
+  process.exit()
+})
+log.verbose('Shieldbattery running')
+
 var bw = require('bw')
-  , io = require('socket.io-client')
-  , log = require('./shieldbattery/logger')
-  , path = require('path')
-  , shieldbatteryRoot = path.dirname(path.resolve(process.argv[0]))
-  , host = require('./shieldbattery/host')
-  , join = require('./shieldbattery/join')
-
-var socket = io.connect('https://lifeoflively.net:33198/game')
-
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
-log.verbose('Shieldbattery running')
+var io = require('socket.io-client')
+  , path = require('path')
+  , host = require('./shieldbattery/host')
+  , join = require('./shieldbattery/join')
+  , shieldbatteryRoot = path.dirname(path.resolve(process.argv[0]))
+
+var socket = io.connect('https://lifeoflively.net:33198/game')
 
 socket.on('connect', function() {
   log.verbose('Connected to psi.')
@@ -49,8 +55,4 @@ socket.on('connect', function() {
   join(socket)
 })
 
-process.on('uncaughtException', function(err) {
-  log.error(err.message)
-  log.error(err.stack)
-  process.exit()
-})
+
