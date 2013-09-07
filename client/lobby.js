@@ -19,6 +19,9 @@ mod.config(function($routeProvider) {
                                           }
                                         }
                             })
+    .when('/loading/:name', { templateUrl: '/partials/lobbyLoading'
+                            , controller: 'LobbyLoadingCtrl'
+                            })
 })
 
 mod.filter('encodeUriComponent', function() {
@@ -230,6 +233,7 @@ JoinedLobbyService.prototype._onMessage = function(data) {
     case 'newHost': this._onNewHost(data.name); break
     case 'countdownStarted': this._onCountdownStarted(); break
     case 'countdownComplete': this._onCountdownCompleted(data.host, data.port); break
+    case 'startGame': this._onStartGame(); break
     default: console.log('Unknown lobby action: ' + data.action); break
   }
 }
@@ -271,9 +275,6 @@ JoinedLobbyService.prototype._onCountdownStarted = function() {
   var self = this
   function countdownTick() {
     self.countdownSeconds--
-    if (self.isHost && self.countdownSeconds == 3) {
-      self._launchGame()
-    }
     if (self.countdownSeconds > 0) {
       self.$timeout(countdownTick, 1000)
     }
@@ -283,39 +284,96 @@ JoinedLobbyService.prototype._onCountdownStarted = function() {
 JoinedLobbyService.prototype._onCountdownCompleted = function(host, port) {
   this.countingDown = false
   this.initializingGame = true
-  if (this.isHost) {
-    // we already did our part, and this host/port is our own, so we can ignore it
-    return
-  }
-
   this._launchGame(host, port)
 }
 
 JoinedLobbyService.prototype._launchGame = function(host, port) {
-  this.psiSocket.once('game/status', handleStatus)
+  var subs = []
+    , self = this
+
+  function cleanUp() {
+    subs.forEach(function(unsub) {
+      unsub()
+    })
+    subs.length = 0
+  }
+  // TODO(tec27): when errors happen, we need to notify the server that we couldn't launch the game
+
   this.psiSocket.emit('launch', function(err) {
     if (err) {
       console.log('Error launching:')
       console.dir(err)
+      return cleanUp()
     }
+
+    loadPlugins()
   })
 
-  var self = this
-  function handleStatus(status) {
-    if (status != 'init') return
 
+  function loadPlugins() {
     var plugins = [ 'wmode.dll' ]
-    self.psiSocket.emit('game/load', plugins, onLoad)
+    self.psiSocket.emit('game/load', plugins, function(errs) {
+      var launch = true
+      Object.keys(errs).forEach(function(key) {
+        console.log('Error loading ' + key + ': ' + errs[key])
+        launch = false
+      })
+      if (!launch) {
+        return cleanUp()
+      }
+
+      initiateGameMode()
+    })
   }
 
-  function onLoad(errors) {
-    var launch = true
-    Object.keys(errors).forEach(function(key) {
-      console.log('Error loading ' + key + ': ' + errors[key])
-      launch = false
-    })
-    if (!launch) return
+  function initiateGameMode() {
+    if (self.isHost) {
+      self.psiSocket.emit('game/hostMode')
+      createGameLobby()
+    } else {
+      self.psiSocket.emit('game/joinMode')
+      joinGameLobby()
+    }
+  }
 
+  function createGameLobby() {
+    self.psiSocket.emit('game/createLobby',
+        { username: self.authService.user.name, map: self.lobby.map },
+        function(err) {
+      if (err) {
+        console.log('error creating game: ' + err.msg)
+        return cleanUp()
+      }
+
+      setRace()
+    })
+  }
+
+  var joinFailures = 0
+    , maxJoinFailures = 5
+  function joinGameLobby() {
+    var params =  { username: self.authService.user.name
+                  , host: host
+                  , port: port
+                  }
+    self.psiSocket.emit('game/joinLobby', params, function(err) {
+      if (err) {
+        console.log('error joining game: ' + err.msg)
+        joinFailures++
+        if (joinFailures < maxJoinFailures) {
+          console.log('retrying...')
+          return setTimeout(joinGameLobby, 50)
+        } else {
+          console.log('too many failures, bailing out')
+          return cleanUp()
+        }
+      }
+
+      setRace()
+    })
+  }
+
+  function setRace() {
     var race = 'r'
     for (var i = 0, len = self.lobby.players.length; i < len; i++) {
       if (self.lobby.players[i].name == self.authService.user.name) {
@@ -324,19 +382,31 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       }
     }
 
-    if (self.isHost) {
-      self.psiSocket.emit('game/start', { username: self.authService.user.name
-                                        , map: self.lobby.map
-                                        , race: race
-                                        })
-    } else {
-      self.psiSocket.emit('game/join',  { username: self.authService.user.name
-                                        , address: host
-                                        , port: port
-                                        , race: race
-                                        })
-    }
+    self.psiSocket.emit('game/setRace', race, function(err) {
+      if (err) {
+        console.log('error setting race: ' + err.msg)
+        return cleanUp()
+      }
+
+      self.siteSocket.emit('lobbies/readyUp')
+      subs.push(self.psiSocket.on('game/gameFinished', function() {
+        self.psiSocket.emit('game/quit')
+        cleanUp()
+      }))
+    })
   }
+}
+
+JoinedLobbyService.prototype._onStartGame = function() {
+  if (!this.isHost) return
+
+  this.psiSocket.emit('game/startGame', function(err) {
+    if (err) {
+      console.log('error starting game: ' + err)
+      return
+    }
+  })
+  // TODO(tec27): report errors to server here as well
 }
 
 mod.controller('LobbyListCtrl', function($scope, siteSocket) {
@@ -418,7 +488,7 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
   }
 })
 
-mod.controller('LobbyViewCtrl', function($scope, $routeParams, $location, joinedLobby) {
+mod.controller('LobbyViewCtrl', function($scope, $location, joinedLobby) {
   $scope.joinedLobby = joinedLobby
 
   $scope.sendChat = function(text) {
@@ -442,4 +512,18 @@ mod.controller('LobbyViewCtrl', function($scope, $routeParams, $location, joined
       $location.path('/')
     }
   })
+  // watch for the lobby going into initialization mode
+  $scope.$watch('joinedLobby.initializingGame', function(initializing) {
+    if (initializing) {
+      $location.path('/loading/' + encodeURIComponent(joinedLobby.lobby.name))
+    }
+  })
+})
+
+mod.controller('LobbyLoadingCtrl', function($scope, $routeParams, $location, joinedLobby) {
+  if (!joinedLobby.inLobby || $routeParams.name != joinedLobby.lobby.name ||
+      !joinedLobby.initializingGame) {
+    $location.path('/lobbies/' + encodeURIComponent($routeParams.name)).replace()
+  }
+  $scope.joinedLobby = joinedLobby
 })

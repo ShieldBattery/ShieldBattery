@@ -3,7 +3,6 @@ h2 {{ joinedLobby.lobby.name }}
 h4 Map: {{ joinedLobby.lobby.map }}
 h4 Players: {{ joinedLobby.lobby.players.length }} / {{ joinedLobby.lobby.size }}
 h1(data-ng-show='joinedLobby.countingDown') {{ joinedLobby.countdownSeconds }}
-h1(data-ng-show='joinedLobby.initializingGame') Game initializing, please wait...
 a(href='', data-ng-click='startCountdown()',
   data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length > 1 && !(joinedLobby.countingDown || joinedLobby.initializingGame)')
   | Start game

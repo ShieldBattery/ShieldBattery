@@ -61,6 +61,9 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
     }
     self.io.sockets.in(LOBBY_LIST_CHANNEL)
         .emit(LOBBY_LIST_MESSAGE, { action: 'remove', lobby: lobby })
+  }).on('playersReady', function onPlayersReady() {
+    self._updateJoinedLobby(lobby, { action: 'startGame' })
+    // TODO(tec27): remove/transfer lobby
   })
 
   lobby.addPlayer(new LobbyPlayer(host, 'r'))
@@ -182,6 +185,16 @@ LobbyHandler.prototype.startCountdown = function(socket, cb) {
   this._updateJoinedLobby(lobby, { action: 'countdownStarted' })
 }
 
+LobbyHandler.prototype.readyUp = function(socket) {
+  var user = this.io.users.get(socket)
+  if (!this.playerLobbyMap.has(user.name)) {
+    return
+  }
+
+  var lobby = this.playerLobbyMap.get(user.name)
+  lobby.setPlayerReady(user.name)
+}
+
 function Lobby(name, map, size) {
   this.host = null
   this.name = name
@@ -219,6 +232,18 @@ function Lobby(name, map, size) {
 
   Object.defineProperty(this, '_isCountingDown',
       { value: false
+      , writable: true
+      , enumerable: false
+      })
+
+  Object.defineProperty(this, '_initializingGame',
+      { value: false
+      , writable: true
+      , enumerable: false
+      })
+
+  Object.defineProperty(this, '_playerReadiness',
+      { value: new Array(size)
       , writable: true
       , enumerable: false
       })
@@ -298,8 +323,38 @@ Lobby.prototype.getFullDescription = function() {
 }
 
 Lobby.prototype.startCountdown = function(cb) {
+  this._initializingGame = false
   this._isCountingDown = true
-  setTimeout(cb, 5000)
+
+  var self = this
+  setTimeout(function() {
+    self._isCountingDown = false
+    self._initializingGame = true
+    self._playerReadiness = new Array(self.size)
+    cb()
+  }, 5000)
+}
+
+Lobby.prototype.setPlayerReady = function(playerName) {
+  var found = false
+    , allReady = true
+  for (var i = 0; i < this.size; i++) {
+    if (!this.slots[i]) {
+      continue
+    }
+    else if (!found && this.slots[i].name == playerName) {
+      found = true
+      this._playerReadiness[i] = true
+    } else if (!this._playerReadiness[i]) {
+      allReady = false
+    }
+
+    if (found && !allReady) break
+  }
+
+  if (allReady) {
+    this.emitter.emit('playersReady')
+  }
 }
 
 Lobby.compare = function(a, b) {
