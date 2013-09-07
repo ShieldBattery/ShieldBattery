@@ -11,24 +11,60 @@ io.configure(function() {
 var siteSockets = io.of('/site')
   , gameSocket
 
+// directly pass a command from the siteSocket to the gameSocket (and pass the response back)
+function passThrough(gameCommand) {
+  return function() {
+    var args = Array.prototype.slice.call(arguments, 0)
+    if (args.length > 0 && typeof args[args.length - 1] == 'function') {
+      if (!gameSocket) {
+        return args[args.length - 1]({ msg: 'Not connected to game' })
+      }
+
+      var cb = args[args.length - 1]
+      args[args.length - 1] = function(dummyParam) {
+        cb.apply(this, arguments)
+      }
+    }
+
+    if (!gameSocket) return
+    args.unshift(gameCommand)
+    gameSocket.emit.apply(gameSocket, args)
+  }
+}
+
+// directly pass an event from the gameSocket back to the siteSocket
+function passBack(gameEvent) {
+  return function() {
+    var args = Array.prototype.slice.call(arguments, 0)
+    if (args.length > 0 && typeof args[args.length - 1] == 'function') {
+      var cb = args[args.length - 1]
+      args[args.length - 1] = function(dummyParam) {
+        cb.apply(this, arguments)
+      }
+    }
+
+    args.unshift(gameEvent)
+    siteSockets.emit.apply(siteSockets, args)
+  }
+}
+
 siteSockets.on('connection', function(socket) {
   console.log('site client connected.')
   socket.on('launch', function(cb) {
     doLaunch(cb)
   }).on('disconnect', function() {
     console.log('site client disconnected.')
-  }).on('game/load', function(plugins, cb) {
-    if (gameSocket) {
-      gameSocket.emit('load', plugins, function(errors) { cb(errors) })
-    }
-  }).on('game/start', function(params) {
-    if (gameSocket) {
-      gameSocket.emit('start', params)
-    }
-  }).on('game/join', function(params) {
-    if (gameSocket) {
-      gameSocket.emit('join', params)
-    }
+  })
+
+  ;[ 'load'
+  , 'hostMode'
+  , 'joinMode'
+  , 'createLobby'
+  , 'joinLobby'
+  , 'setRace'
+  , 'startGame'
+  ].forEach(function(command) {
+    socket.on('game/' + command, passThrough(command))
   })
 })
 
@@ -40,14 +76,17 @@ io.of('/game').on('connection', function(socket) {
     console.log('game client disconnected.')
     siteSockets.emit('game/disconnected')
     gameSocket = null
-  }).on('error', function(err) {
-    console.log('game client error: ' + err)
-  }).on('status', function(status) {
-    siteSockets.emit('game/status', status)
+  })
+
+  ;[ 'playerJoined'
+  , 'gameStarted'
+  , 'gameFinished'
+  ].forEach(function(command) {
+    socket.on(command, passBack('game/' + command))
   })
 })
 
-function doLaunch(plugins, cb) {
+function doLaunch(cb) {
   // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86%/Starcraft and
   // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
   var installPath = psi.getInstallPathFromRegistry()
@@ -75,13 +114,9 @@ function doLaunch(plugins, cb) {
           var resumeErr = proc.resume()
           console.log('Process resumed!')
           if (resumeErr) cb({ when: 'resuming process', msg: resumeErr.message })
+          else cb()
         })
       })
-}
-
-function onHttpRequest(req, res) {
-  res.writeHead(404)
-  res.end()
 }
 
 process.on('uncaughtException', function(err) {
