@@ -22,6 +22,46 @@ private:
   v8::Persistent<v8::Function> callback_;
 };
 
+class BwPlayerSlot : public node::ObjectWrap {
+public:
+  static void Init();
+  static v8::Handle<v8::Value> NewInstance(PlayerInfo* player_info);
+
+private:
+  BwPlayerSlot();
+  ~BwPlayerSlot();
+  void set_player_info(PlayerInfo* player_info);
+
+  // Disallow copying
+  BwPlayerSlot(const BwPlayerSlot&);
+  BwPlayerSlot& operator=(const BwPlayerSlot&);
+
+  static v8::Persistent<v8::Function> constructor;
+  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+
+  // getters
+  static v8::Handle<v8::Value> GetPlayerId(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetStormId(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetType(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetRace(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetTeam(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+  static v8::Handle<v8::Value> GetName(v8::Local<v8::String> property,
+      const v8::AccessorInfo& info);
+
+  template <class T>
+  static PlayerInfo* Unwrap(const T &t) {
+    BwPlayerSlot* wrapped = ObjectWrap::Unwrap<BwPlayerSlot>(t.This());
+    return wrapped->player_info_;
+  }
+
+  PlayerInfo* player_info_;
+};
+
 class WrappedBroodWar : public node::ObjectWrap {
 public:
   static void Init();

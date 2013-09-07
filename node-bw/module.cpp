@@ -20,6 +20,7 @@ Handle<Value> CreateBroodWar(const Arguments& args) {
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   sbat::bw::InitImmediate();
+  sbat::bw::BwPlayerSlot::Init();
   sbat::bw::WrappedBroodWar::Init();
 
   module->Set(String::NewSymbol("exports"), FunctionTemplate::New(CreateBroodWar)->GetFunction());

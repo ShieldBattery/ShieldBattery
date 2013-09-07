@@ -58,9 +58,93 @@ Handle<Function> EventHandlerContext::callback() const {
   return callback_;
 }
 
+BwPlayerSlot::BwPlayerSlot() : player_info_(nullptr) {
+}
+
+BwPlayerSlot::~BwPlayerSlot() {
+}
+
+void BwPlayerSlot::set_player_info(PlayerInfo* player_info) {
+  player_info_ = player_info;
+}
+
+Persistent<Function> BwPlayerSlot::constructor;
+
+void BwPlayerSlot::Init() {
+  Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
+  tpl->SetClassName(String::NewSymbol("BwPlayerSlot"));
+  tpl->InstanceTemplate()->SetInternalFieldCount(1);
+
+  // functions
+  SetProtoAccessor(tpl, "playerId", GetPlayerId);
+  SetProtoAccessor(tpl, "stormId", GetStormId);
+  SetProtoAccessor(tpl, "type", GetType);
+  SetProtoAccessor(tpl, "race", GetRace);
+  SetProtoAccessor(tpl, "team", GetTeam);
+  SetProtoAccessor(tpl, "name", GetName);
+
+  constructor = Persistent<Function>::New(tpl->GetFunction());
+}
+
+Handle<Value> BwPlayerSlot::New(const Arguments& args) {
+  HandleScope scope;
+
+  BwPlayerSlot* playerSlot = new BwPlayerSlot();
+  playerSlot->Wrap(args.This());
+
+  return scope.Close(args.This());
+}
+
+Handle<Value> BwPlayerSlot::NewInstance(PlayerInfo* player_info) {
+  HandleScope scope;
+
+  Local<Object> instance = constructor->NewInstance();
+  BwPlayerSlot* wrapped = ObjectWrap::Unwrap<BwPlayerSlot>(instance);
+  wrapped->set_player_info(player_info);
+
+  return scope.Close(instance);
+}
+
+Handle<Value> BwPlayerSlot::GetPlayerId(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(Integer::NewFromUnsigned(player_info->player_id));
+}
+
+Handle<Value> BwPlayerSlot::GetStormId(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(Integer::NewFromUnsigned(player_info->storm_id));
+}
+
+Handle<Value> BwPlayerSlot::GetType(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(Integer::NewFromUnsigned(static_cast<uint32>(player_info->type)));
+}
+
+Handle<Value> BwPlayerSlot::GetRace(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(Integer::NewFromUnsigned(static_cast<uint32>(player_info->race)));
+}
+
+Handle<Value> BwPlayerSlot::GetTeam(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(Integer::NewFromUnsigned(static_cast<uint32>(player_info->team)));
+}
+
+Handle<Value> BwPlayerSlot::GetName(Local<String> property, const AccessorInfo& info) {
+  HandleScope scope;
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  return scope.Close(String::New(player_info->name));
+}
+
 WrappedBroodWar::WrappedBroodWar()
     : brood_war_(BroodWar::Get()),
       log_symbol_(Persistent<String>::New(String::NewSymbol("onLog"))) {
+  HandleScope scope;
   event_handlers_.insert(make_pair(this, WrappedBroodWar::EventHandlerMap()));
   Logger::Init(WrappedBroodWar::Log, this);
 }
@@ -145,6 +229,15 @@ Handle<Value> WrappedBroodWar::NewInstance(const Arguments& args) {
   HandleScope scope;
 
   Local<Object> instance = constructor->NewInstance();
+  WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(instance);
+  BroodWar* bw = wrapped_bw->brood_war_;
+
+  Local<Array> slots = Array::New(8);
+  PlayerInfo* infos = bw->players();
+  for (int i = 0; i < 8; i++) {
+    slots->Set(i, BwPlayerSlot::NewInstance(&infos[i]));
+  }
+  instance->Set(String::NewSymbol("slots"), slots);
 
   return scope.Close(instance);
 }

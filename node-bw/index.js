@@ -152,6 +152,13 @@ function Lobby(bindings, bw) {
   // without allowing external parties to remove our listeners. Pertinent events will be forwarded
   // on to the external emitter
   this._gameEmitter = new EventEmitter()
+  this.slots = new Array(this.bindings.slots.length)
+
+  var i
+    , len
+  for (i = 0, len = this.bindings.slots.length; i < len; i++) {
+    this.slots[i] = new PlayerSlot(this.bindings.slots[i])
+  }
 
   var self = this
   this.bindings.onLobbyDownloadStatus = function(slot, percent) {
@@ -205,7 +212,7 @@ function Lobby(bindings, bw) {
       self.emit('downloadStatus:' + i, percent)
     })
   }
-  for (var i = 0; i < 8; i++) {
+  for (i = 0; i < 8; i++) {
     createForwarder(i)
   }
 }
@@ -244,8 +251,7 @@ Lobby.prototype._ensureRunning = function(cb) {
 // cb is func(err)
 Lobby.prototype.addComputer = function(slot, cb) {
   if (!this._ensureRunning()) return
-  // TODO(tec27): when we have a cache of the current slot states we could do more preemptive
-  // checking here
+  // TODO(tec27): use slot info to do preemptive checking here
   if (!this.bindings.addComputer(slot)) {
     return cb(new Error('Could not add computer in slot ' + slot))
   }
@@ -344,6 +350,53 @@ Lobby.prototype.runGameLoop = function(cb) {
 
   this.stop()
   this.emit('gameStarted')
+}
+
+function PlayerSlot(nativeSlot) {
+  function def(context, name, getter) {
+    Object.defineProperty(context, name,
+        { get: getter
+        , enumerable: true
+        , writable: false
+        })
+  }
+
+  this.nativeSlot = nativeSlot
+
+  def(this, 'playerId', function() { return this.nativeSlot.playerId })
+  def(this, 'stormId', function() { return this.nativeSlot.stormId })
+  def(this, 'type', this._convertType)
+  def(this, 'race', this._convertRace)
+  def(this, 'team', function() { return this.nativeSlot.team })
+  def(this, 'name', function() { return this.nativeSlot.name })
+}
+
+PlayerSlot.prototype._convertType = function() {
+  switch (this.nativeSlot.type) {
+    case 0: return 'none'
+    case 1: return 'computer'
+    case 2: return 'human'
+    case 3: return 'rescuepassive'
+    // case 4: unknown
+    case 5: return 'openprefercomputer'
+    case 6: return 'openpreferhuman'
+    case 7: return 'neutral'
+    case 8: return 'closed'
+    case 9: return 'observer'
+    case 10: return 'playerleft'
+    case 11: return 'computerleft'
+    default: return 'unknown'
+  }
+}
+
+PlayerSlot.prototype._convertRace = function() {
+  switch (this.nativeSlot.race) {
+    case 0: return 'zerg'
+    case 1: return 'terran'
+    case 2: return 'protoss'
+    case 6: return 'random'
+    default: return 'unknown'
+  }
 }
 
 module.exports = new BroodWar(bw)
