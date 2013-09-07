@@ -1,11 +1,12 @@
 // Put log and bw first to ensure we can log as much as possible in the event of a crash
 var log = require('./shieldbattery/logger')
 process.on('uncaughtException', function(err) {
-  log.error(err.message)
   log.error(err.stack)
-  process.exit()
+  // give the log time to write out
+  setTimeout(function() {
+    process.exit()
+  }, 100)
 })
-log.verbose('Shieldbattery running')
 
 var bw = require('bw')
 bw.on('log', function(level, msg) {
@@ -53,6 +54,10 @@ socket.on('connect', function() {
 }).on('joinMode', function() {
   log.verbose('enabling join mode')
   join(socket)
+}).on('quit', function() {
+  setTimeout(function() {
+    process.exit()
+  }, 100)
 })
 
 

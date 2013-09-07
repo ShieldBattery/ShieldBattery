@@ -74,9 +74,9 @@ BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
   }
 }
 
-BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
+BroodWar.prototype.joinLobby = function(playerName, host, port, cb) {
   cb = cb.bind(this)
-  if (!playerName || !address || !port || !cb) {
+  if (!playerName || !host || !port || !cb) {
     return cb(new Error('Incorrect arguments'))
   }
 
@@ -97,7 +97,7 @@ BroodWar.prototype.joinLobby = function(playerName, address, port, cb) {
   }
   this.bindings.isMultiplayer = true
 
-  this.bindings.spoofGame('shieldbattery', false, address, port)
+  this.bindings.spoofGame('shieldbattery', false, host, port)
   if (!this.bindings.joinGame()) {
     return cb(new Error('Could not join game'))
   }
@@ -131,7 +131,7 @@ BroodWar.prototype.loadPlugin = function(pluginPath, cb) {
   this.bindings.loadPlugin(pluginPath, cb.bind(module.exports))
 }
 
-// cb if func()
+// cb is func()
 BroodWar.prototype.initProcess = function(cb) {
   cb = cb.bind(this)
   if (processInitialized) {
@@ -352,15 +352,14 @@ Lobby.prototype.runGameLoop = function(cb) {
   this.emit('gameStarted')
 }
 
-function PlayerSlot(nativeSlot) {
-  function def(context, name, getter) {
-    Object.defineProperty(context, name,
-        { get: getter
-        , enumerable: true
-        , writable: false
-        })
-  }
+function def(context, name, getter) {
+  Object.defineProperty(context, name,
+      { get: getter
+      , enumerable: true
+      })
+}
 
+function PlayerSlot(nativeSlot) {
   this.nativeSlot = nativeSlot
 
   def(this, 'playerId', function() { return this.nativeSlot.playerId })

@@ -35,8 +35,9 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
   }
 
   this.started = true
+  log.verbose('joinLobby called')
   bw.initProcess(function afterInit() {
-    log.verbose('Process initialized.')
+    log.verbose('process initialized')
 
     bw.joinLobby(params.username, params.host, params.port, onJoined)
   })
@@ -53,11 +54,11 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
     self.installLobbyHandlers()
     cb()
 
-    self.curLobby.once('gameInit') {
+    self.curLobby.once('gameInit', function() {
       self.curLobby.runGameLoop(self.onGameFinished.bind(self))
       self.socket.emit('gameStarted')
       log.verbose('game started')
-    }
+    })
   }
 }
 
@@ -67,6 +68,7 @@ JoinHandler.prototype.onSetRace = function(race, cb) {
     return cb({ msg: 'You are not in a lobby' })
   }
 
+  log.verbose('setRace(' + race + ') called')
   this.curLobby.setRace(race, function(err) {
     if (err) {
       log.error(err)
@@ -94,4 +96,5 @@ JoinHandler.prototype.onGameFinished = function(err) {
   } else {
     log.verbose('game finished')
     this.socket.emit('gameFinished')
-  }}
+  }
+}

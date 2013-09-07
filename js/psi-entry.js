@@ -3,6 +3,12 @@ var psi = require('psi')
   , httpServer = require('./psi/http-server')(33198, '127.0.0.1')
   , io = require('socket.io').listen(httpServer)
 
+process.on('uncaughtException', function(err) {
+  console.log(err.message)
+  console.log(err.stack)
+  setTimeout(function() { process.exit() }, 15000)
+})
+
 io.configure(function() {
   io.set('transports', ['websocket'])
     .set('log level', 2)
@@ -63,6 +69,7 @@ siteSockets.on('connection', function(socket) {
   , 'joinLobby'
   , 'setRace'
   , 'startGame'
+  , 'quit'
   ].forEach(function(command) {
     socket.on('game/' + command, passThrough(command))
   })
@@ -85,6 +92,22 @@ io.of('/game').on('connection', function(socket) {
     socket.on(command, passBack('game/' + command))
   })
 })
+
+function awaitGameConnection(timeout, cb) {
+  if (gameSocket) {
+    return cb(false)
+  }
+  io.of('/game').once('connection', onConnection)
+  var timeoutId = setTimeout(function() {
+    io.of('/game').removeListener('connection', onConnection)
+    cb(true)
+  }, timeout)
+
+  function onConnection() {
+    clearTimeout(timeoutId)
+    cb(false)
+  }
+}
 
 function doLaunch(cb) {
   // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86%/Starcraft and
@@ -113,14 +136,15 @@ function doLaunch(cb) {
 
           var resumeErr = proc.resume()
           console.log('Process resumed!')
-          if (resumeErr) cb({ when: 'resuming process', msg: resumeErr.message })
-          else cb()
+          if (resumeErr) return cb({ when: 'resuming process', msg: resumeErr.message })
+
+          awaitGameConnection(5000, function(timedOut) {
+            if (timedOut) {
+              cb({ when: 'resuming process', msg: 'waiting for game connection timed out' })
+            } else {
+              cb()
+            }
+          })
         })
       })
 }
-
-process.on('uncaughtException', function(err) {
-  console.log(err.message)
-  console.log(err.stack)
-  setTimeout(function() { process.exit() }, 15000)
-})

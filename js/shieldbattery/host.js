@@ -48,8 +48,9 @@ HostHandler.prototype.onCreateLobby = function(socket, params, cb) {
   }
 
   this.started = true
+  log.verbose('createLobby called')
   bw.initProcess(function afterInit() {
-    log.verbose('Process initialized.')
+    log.verbose('process initialized')
 
     var gameSettings =  { mapPath: params.map
                         , gameType: 0x00010002 // melee (see TODO above)
@@ -78,6 +79,7 @@ HostHandler.prototype.onSetRace = function(socket, race, cb) {
     return cb({ msg: 'You are not in a lobby' })
   }
 
+  log.verbose('setRace(' + race + ') called')
   this.curLobby.setRace(race, function(err) {
     if (err) {
       log.error(err)
@@ -100,6 +102,8 @@ HostHandler.prototype.onStartGame = function(socket, cb) {
     log.error('startGame called without being in a lobby')
     return cb({ msg: 'You are not in a lobby' })
   }
+
+  log.verbose('startGame called')
 
   var self = this
   this.curLobby.startCountdown(function(err) {
