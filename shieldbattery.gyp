@@ -330,5 +330,43 @@
       # have to manually specify it even though its alread a project dependency
       'libraries': [ '-l$(SolutionDir)$(Configuration)/psi.lib'],
     },
+
+    {
+      'target_name': 'forge',
+      'type': 'shared_library',
+      'include_dirs': [
+        '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
+        'deps/node/deps/v8/include',
+      ],
+      'sources': [
+        'forge/direct_glaw.cpp',
+        'forge/forge.cpp',
+        'forge/module.cpp',
+        # headers
+        'forge/direct_glaw.h',
+        'forge/forge.h',
+      ],
+      'dependencies': [
+        'common',
+        'v8-helpers',
+        'shieldbattery',
+      ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
+      'product_prefix': '',
+      'product_name': 'forge',
+      'product_extension': 'node',
+      'msvs_configuration_attributes': {
+        'OutputDirectory': '$(SolutionDir)forge/$(Configuration)/',
+      },
+      'msbuild_props': [
+        '$(SolutionDir)node-natives.props',
+      ],
+      'defines': [
+        'BUILDING_NODE_EXTENSION',
+      ],
+      'libraries': [ '-luser32.lib'],
+    },
   ],
 }

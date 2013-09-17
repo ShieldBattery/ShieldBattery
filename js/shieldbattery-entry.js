@@ -13,6 +13,13 @@ bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
+var forge = require('forge')
+if (!forge.inject()) {
+  throw new Error('forge injection failed')
+} else {
+  log.verbose('forge injected')
+}
+
 var io = require('socket.io-client')
   , path = require('path')
   , host = require('./shieldbattery/host')

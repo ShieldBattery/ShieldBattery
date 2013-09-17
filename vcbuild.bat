@@ -77,10 +77,15 @@ if errorlevel 1 goto linking-failed
 cd "%~dp0\node-bw"
 call npm link
 if errorlevel 1 goto linking-failed
+cd "%~dp0\forge"
+call npm link
+if errorlevel 1 goto linking-failed
 cd "%~dp0\js"
 call npm link psi
 if errorlevel 1 goto linking-failed
 call npm link bw
+if errorlevel 1 goto linking-failed
+call npm link forge
 if errorlevel 1 goto linking-failed
 call npm install
 if errorlevel 1 goto linking-failed

@@ -1,0 +1,26 @@
+{
+  "name": "forge",
+  "version": "0.0.1",
+  "description": "Windowed mode and rendering wrapper for ShieldBattery",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tec27/shieldbattery"
+  },
+  "keywords": [
+    "starcraft",
+    "brood war",
+    "shieldbattery",
+    "opengl",
+    "windowed mode",
+    "rendering"
+  ],
+  "author": "Travis Collins (travis@tec27.com)",
+  "license": "MIT",
+  "dependencies": {
+    "bindings": "~1.1.0"
+  }
+}
