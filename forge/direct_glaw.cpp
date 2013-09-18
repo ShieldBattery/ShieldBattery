@@ -1,4 +1,5 @@
 #include "forge/direct_glaw.h"
+
 #include "logger/logger.h"
 
 #define DIRECTDRAWLOG true
@@ -200,7 +201,7 @@ HRESULT WINAPI DirectGlaw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp, 
     DWORD flags) {
   if(DIRECTDRAWLOG) { 
     Logger::Logf(LogLevel::Verbose, "SetDisplayMode called (%d,%d), %d, %d with flags: %08x",
-      width, height, bpp, refresh_rate, flags);
+        width, height, bpp, refresh_rate, flags);
   }
 
   return DDERR_UNSUPPORTED; // TODO(tec27): Implement
@@ -257,7 +258,7 @@ HRESULT WINAPI DirectGlaw::GetDeviceIdentifier(DDDEVICEIDENTIFIER2* identifier, 
 HRESULT WINAPI DirectGlaw::StartModeTest(SIZE* modes_to_test, DWORD num_entries, DWORD flags) {
   if(DIRECTDRAWLOG) { 
     Logger::Logf(LogLevel::Verbose, "StartModeTest called with %d entries and flags: %08x",
-      num_entries, flags);
+        num_entries, flags);
   }
 
   return DDERR_UNSUPPORTED; // TODO(tec27): Implement

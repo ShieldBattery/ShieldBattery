@@ -2,6 +2,8 @@
 #define FORGE_DIRECT_GLAW_H_
 // Fake DirectDraw7 implementation that forwards drawing responsibility to OpenGL
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
+
+#include <node.h>
 #include <Windows.h>
 #include <ddraw.h>
 
