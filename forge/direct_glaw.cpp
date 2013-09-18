@@ -17,7 +17,11 @@ HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, 
   return DD_OK;
 }
 
-DirectGlaw::DirectGlaw() {
+DirectGlaw::DirectGlaw()
+  : window_(NULL),
+    display_width_(0),
+    display_height_(0),
+    display_bpp_(0) {
 }
 
 DirectGlaw::~DirectGlaw(){
@@ -69,7 +73,8 @@ HRESULT WINAPI DirectGlaw::CreatePalette(DWORD flags, PALETTEENTRY* color_array,
   if(DIRECTDRAWLOG) { 
     Logger::Logf(LogLevel::Verbose, "CreatePalette called with flags: %08x", flags);
   }
-
+  // BW calls this initially with DDPCAPS_8BIT (8-bit entries) and DDPCAPS_ALLOW256 (allow all 256
+  // entries to be defined)
   return DDERR_UNSUPPORTED; // TODO(tec27): Implement
 }
 
@@ -194,7 +199,8 @@ HRESULT WINAPI DirectGlaw::SetCooperativeLevel(HWND window_handle, DWORD flags) 
     Logger::Logf(LogLevel::Verbose, "SetCooperativeLevel called with flags: %08x", flags);
   }
 
-  return DDERR_UNSUPPORTED; // TODO(tec27): Implement
+  window_ = window_handle;
+  return DD_OK;
 }
 
 HRESULT WINAPI DirectGlaw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp, DWORD refresh_rate,
@@ -204,7 +210,10 @@ HRESULT WINAPI DirectGlaw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp, 
         width, height, bpp, refresh_rate, flags);
   }
 
-  return DDERR_UNSUPPORTED; // TODO(tec27): Implement
+  display_width_ = width;
+  display_height_ = height;
+  display_bpp_ = bpp;
+  return DD_OK;
 }
 
 HRESULT WINAPI DirectGlaw::WaitForVerticalBlank(DWORD flags, HANDLE event_handle) {

@@ -57,6 +57,12 @@ public:
   HRESULT WINAPI GetDeviceIdentifier(DDDEVICEIDENTIFIER2* identifier, DWORD flags);
   HRESULT WINAPI StartModeTest(SIZE* modes_to_test, DWORD num_entries, DWORD flags);
   HRESULT WINAPI EvaluateMode(DWORD flags, DWORD* timeout_secs);
+
+private:
+  HWND window_;
+  DWORD display_width_;
+  DWORD display_height_;
+  DWORD display_bpp_;
 };
 
 }  // namespace forge
