@@ -353,7 +353,7 @@
         'v8-helpers',
         'shieldbattery',
       ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530, 4996 ],
       'product_prefix': '',
       'product_name': 'forge',
       'product_extension': 'node',

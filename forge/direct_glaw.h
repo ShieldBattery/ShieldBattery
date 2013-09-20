@@ -3,6 +3,7 @@
 // Fake DirectDraw7 implementation that forwards drawing responsibility to OpenGL
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
+#include <array>
 #include <node.h>
 #include <Windows.h>
 #include <ddraw.h>
@@ -59,10 +60,31 @@ public:
   HRESULT WINAPI EvaluateMode(DWORD flags, DWORD* timeout_secs);
 
 private:
+  int refcount_;
   HWND window_;
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;
+};
+
+class DirectGlawPalette : public IDirectDrawPalette {
+public:
+  DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array);
+  ~DirectGlawPalette();
+
+  /*** IUnknown methods ***/
+  HRESULT WINAPI QueryInterface(REFIID riid, void** obj_out);
+  ULONG WINAPI AddRef();
+  ULONG WINAPI Release();
+  /*** IDirectDrawPalette methods ***/
+  HRESULT WINAPI GetCaps(DWORD* caps);
+  HRESULT WINAPI GetEntries(DWORD flags, DWORD start, DWORD count, PALETTEENTRY* palette_out);
+  HRESULT WINAPI Initialize(IDirectDraw* owner, DWORD flags, PALETTEENTRY* color_array);
+  HRESULT WINAPI SetEntries(DWORD unused, DWORD start, DWORD count, PALETTEENTRY* entries);
+
+private:
+  int refcount_;
+  std::array<PALETTEENTRY, 256> entries_;
 };
 
 }  // namespace forge
