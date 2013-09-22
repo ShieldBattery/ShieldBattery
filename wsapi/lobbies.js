@@ -136,6 +136,24 @@ LobbyHandler.prototype.join = function(socket, params, cb) {
   user.except(socket).emit('lobbies/join', lobby.name)
 }
 
+LobbyHandler.prototype.addComputer = function(socket, cb) {
+  var user = this.io.users.get(socket)
+  if (!this.playerLobbyMap.has(user.name)) {
+    return cb({ msg: 'You are not currently in a lobby' })
+  }
+
+  var lobby = this.playerLobbyMap.get(user.name)
+  if (lobby.host != user.name) {
+    return cb({ msg: 'You must be the host to add computer players' })
+  } else if (lobby.size - lobby.numPlayers < 1) {
+    return cb({ msg: 'Lobby full' })
+  }
+
+  var computer = new LobbyComputer('r')
+  lobby.addPlayer(computer)
+  cb(null)
+}
+
 LobbyHandler.prototype.part = function(socket, cb) {
   var user = this.io.users.get(socket)
   if (!this.playerLobbyMap.has(user.name)) {
@@ -288,14 +306,23 @@ Lobby.prototype.removePlayer = function(playerName) {
     }
   }
   var slotNum = i < this.size ? i : -1
+  var nonCompCount = 0
+  for (i = 0; i < this.players.length; i++) {
+    if (!this.players[i].isComputer) nonCompCount++
+  }
 
-  if (!this.players.length) {
+  if (!nonCompCount) {
     // lobby is empty, close it down
     this.emitter.emit('closed')
   } else if (this.host == playerName) {
     // host left, pick a new host (earliest joiner)
-    this.host = this.players[0].name
-    this.emitter.emit('newHost', this.host)
+    for (i = 0; i < this.players.length; i++) {
+      if (this.players[i].isComputer) continue
+
+      this.host = this.players[i].name
+      this.emitter.emit('newHost', this.host)
+      break
+    }
   }
 
   return slotNum
@@ -342,10 +369,10 @@ Lobby.prototype.setPlayerReady = function(playerName) {
     if (!this.slots[i]) {
       continue
     }
-    else if (!found && this.slots[i].name == playerName) {
+    else if (!found && !this.slots[i].isComputer && this.slots[i].name == playerName) {
       found = true
       this._playerReadiness[i] = true
-    } else if (!this._playerReadiness[i]) {
+    } else if (!this._playerReadiness[i] && !this.slots[i].isComputer) {
       allReady = false
     }
 
@@ -361,7 +388,13 @@ Lobby.compare = function(a, b) {
   return a.name.localeCompare(b.name)
 }
 
-function LobbyPlayer(name, race) {
+function LobbyPlayer(name, race, isComputer) {
   this.name = name
   this.race = race
+  this.isComputer = !!isComputer
 }
+
+function LobbyComputer(race) {
+  LobbyPlayer.call(this, 'Computer', race, true)
+}
+util.inherits(LobbyComputer, LobbyPlayer)

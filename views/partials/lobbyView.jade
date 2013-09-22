@@ -7,9 +7,11 @@ a(href='', data-ng-click='startCountdown()',
   data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length > 1 && !(joinedLobby.countingDown || joinedLobby.initializingGame)')
   | Start game
 ul
-  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by (slot ? slot.name : $index)')
+  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by $index')
     span(data-ng-show='!slot') <em>Empty</em>
     span(data-ng-hide='!slot') {{ slot.name }}
+a(data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length < joinedLobby.lobby.size', data-ng-click='addComputer()', href='')
+  | Add computer
 .row
   .col-12
     .chat-messages(data-auto-scroll)

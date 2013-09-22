@@ -205,6 +205,19 @@ JoinedLobbyService.prototype.leave = function() {
   this.joinInProgress = false
 }
 
+JoinedLobbyService.prototype.addComputer = function() {
+  if (!this.inLobby || !this.isHost || this.lobby.players.length >= this.lobby.size) {
+    return
+  }
+
+  this.siteSocket.emit('lobbies/addComputer', function(err) {
+    if (err) {
+      console.log('error adding computer: ' + err.msg)
+      return
+    }
+  })
+}
+
 JoinedLobbyService.prototype.startCountdown = function() {
   if (!this.inLobby || !this.isHost) return
 
@@ -296,6 +309,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       unsub()
     })
     subs.length = 0
+    self.psiSocket.emit('game/quit')
   }
   // TODO(tec27): when errors happen, we need to notify the server that we couldn't launch the game
 
@@ -345,8 +359,35 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
         return cleanUp()
       }
 
+      // add any computer players before setting our race
+      for (var i = 0; i < self.lobby.players.length; i++) {
+        if (self.lobby.players[i].isComputer) {
+          return addComputers()
+        }
+      }
+
+      // if no computers need to be added, set our race immediately
       setRace()
     })
+  }
+
+  function addComputers() {
+    var computers = self.lobby.players.filter(function(player) { return player.isComputer })
+      , i = 0
+    addComputer()
+
+    function addComputer() {
+      self.psiSocket.emit('game/addComputer', computers[i].race, function(err) {
+        if (err) {
+          console.log('error adding computer: ' + err.msg)
+          return cleanUp()
+        }
+
+        i++
+        if (i < computers.length) addComputer()
+        else setRace()
+      })
+    }
   }
 
   var joinFailures = 0
@@ -390,7 +431,6 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
 
       self.siteSocket.emit('lobbies/readyUp')
       subs.push(self.psiSocket.on('game/gameFinished', function() {
-        self.psiSocket.emit('game/quit')
         cleanUp()
       }))
     })
@@ -504,6 +544,10 @@ mod.controller('LobbyViewCtrl', function($scope, $location, joinedLobby) {
 
   $scope.leaveLobby = function() {
     joinedLobby.leave()
+  }
+
+  $scope.addComputer = function() {
+    joinedLobby.addComputer()
   }
 
   // watch the lobby status so that we can redirect elsewhere if the user leaves this lobby
