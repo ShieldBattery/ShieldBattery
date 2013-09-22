@@ -127,10 +127,6 @@ BroodWar.prototype.joinLobby = function(playerName, host, port, cb) {
 
 // cb is func(err)
 BroodWar.prototype.loadPlugin = function(pluginPath, cb) {
-  if (pluginPath.indexOf('wmode') != -1) {
-    // TODO(tec27): fix the server code to not pass this, temporary hack for work on forge
-    return cb(null)
-  }
   pluginPath = path.resolve(pluginPath)
   this.bindings.loadPlugin(pluginPath, cb.bind(module.exports))
 }
