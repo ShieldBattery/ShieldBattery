@@ -27,6 +27,7 @@ function HostHandler(socket) {
 
   socket.on('createLobby', this.onCreateLobby.bind(this, socket))
   socket.on('setRace', this.onSetRace.bind(this, socket))
+  socket.on('addComputer', this.onAddComputer.bind(this, socket))
   socket.on('startGame', this.onStartGame.bind(this, socket))
 }
 
@@ -87,6 +88,50 @@ HostHandler.prototype.onSetRace = function(socket, race, cb) {
     }
 
     cb()
+  })
+}
+
+HostHandler.prototype.onAddComputer = function(socket, race, cb) {
+  var self = this
+  if (!this.started || !this.curLobby) {
+    log.error('addComputer called without being in a lobby')
+    return cb({ msg: 'You are not in a lobby' })
+  }
+
+  log.verbose('addComputer(' + race + ') called')
+  log.verbose(JSON.stringify(this.curLobby.slots, null, 2))
+  // find the first empty slot to add a computer to. Kind of hacky, ideally this would be based off
+  // of the slot order in the website lobby, but currently we have no guarantee that ordering will
+  // be maintained
+  var targetSlot = -1
+  for (var i = 0; i < this.curLobby.slots.length; i++) {
+    var slotType = this.curLobby.slots[i].type
+    if (slotType == 'open') {
+      targetSlot = i
+      break
+    }
+  }
+
+  if (targetSlot == -1) {
+    log.error('Could not find an empty slot for computer')
+    return cb({ msg: 'No empty slot could be found' })
+  }
+
+  this.curLobby.addComputer(targetSlot, function(err) {
+    if (err) {
+      log.error(err)
+      return cb({ msg: err.message })
+    }
+
+    log.verbose('Computer added, setting race for it')
+    self.curLobby.setRace(targetSlot, race, function(err) {
+      if (err) {
+        log.error(err)
+        return cb({ msg: err.message })
+      }
+
+      return cb(null)
+    })
   })
 }
 

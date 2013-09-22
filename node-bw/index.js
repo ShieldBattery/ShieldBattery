@@ -377,8 +377,8 @@ PlayerSlot.prototype._convertType = function() {
     case 2: return 'human'
     case 3: return 'rescuepassive'
     // case 4: unknown
-    case 5: return 'openprefercomputer'
-    case 6: return 'openpreferhuman'
+    case 5: return 'lobbycomputer'
+    case 6: return 'open'
     case 7: return 'neutral'
     case 8: return 'closed'
     case 9: return 'observer'

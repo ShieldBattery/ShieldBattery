@@ -68,6 +68,7 @@ siteSockets.on('connection', function(socket) {
   , 'createLobby'
   , 'joinLobby'
   , 'setRace'
+  , 'addComputer'
   , 'startGame'
   , 'quit'
   ].forEach(function(command) {
@@ -110,7 +111,7 @@ function awaitGameConnection(timeout, cb) {
 }
 
 function doLaunch(cb) {
-  // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86%/Starcraft and
+  // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86)%/Starcraft and
   // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
   var installPath = psi.getInstallPathFromRegistry()
   installPath = installPath || 'C:\\Program Files (x86)\\Starcraft'
