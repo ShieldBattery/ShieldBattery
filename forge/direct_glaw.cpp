@@ -1,6 +1,7 @@
 #include "forge/direct_glaw.h"
 
 #include <array>
+#include <algorithm>
 
 #include "logger/logger.h"
 
@@ -94,7 +95,12 @@ HRESULT WINAPI DirectGlaw::CreatePalette(DWORD flags, PALETTEENTRY* color_array,
 HRESULT WINAPI DirectGlaw::CreateSurface(DDSURFACEDESC2* surface_desc,
     IDirectDrawSurface7** surface_out, IUnknown* unused) {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlaw::CreateSurface called");
+    Logger::Logf(LogLevel::Verbose,
+        "DirectGlaw::CreateSurface called with flags: %08x, height: %d, width: %d, pitch: %d, "
+        "backBufferCount: %d, caps1: %08x, caps2: %08x", surface_desc->dwFlags,
+        surface_desc->dwHeight, surface_desc->dwWidth, surface_desc->lPitch,
+        surface_desc->dwBackBufferCount, surface_desc->ddsCaps.dwCaps,
+        surface_desc->ddsCaps.dwCaps2);
   }
 
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
@@ -353,7 +359,7 @@ HRESULT WINAPI DirectGlawPalette::GetCaps(DWORD* caps) {
 HRESULT WINAPI DirectGlawPalette::GetEntries(DWORD unused, DWORD start, DWORD count,
     PALETTEENTRY* palette_out) {
   if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose, 
+    Logger::Logf(LogLevel::Verbose,
         "DirectGlawPalette::GetEntries called with start: %d, count: %d", start, count);
   }
   assert(start >= 0);
@@ -375,7 +381,7 @@ HRESULT WINAPI DirectGlawPalette::Initialize(IDirectDraw* owner, DWORD flags,
 HRESULT WINAPI DirectGlawPalette::SetEntries(DWORD unused, DWORD start, DWORD count,
     PALETTEENTRY* entries) {
   if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose, 
+    Logger::Logf(LogLevel::Verbose,
         "DirectGlawPalette::SetEntries called with start: %d, count: %d", start, count);
   }
   assert(start >= 0);
