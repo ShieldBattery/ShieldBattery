@@ -13,7 +13,6 @@ bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
-
 var forge = require('forge')
 if (!forge.inject()) {
   throw new Error('forge injection failed')
