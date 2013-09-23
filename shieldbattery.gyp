@@ -342,6 +342,8 @@
       ],
       'sources': [
         'forge/direct_glaw.cpp',
+        'forge/direct_glaw_palette.cpp',
+        'forge/direct_glaw_surface.cpp',
         'forge/forge.cpp',
         'forge/module.cpp',
         # headers

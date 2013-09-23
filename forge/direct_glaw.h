@@ -4,9 +4,13 @@
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
 #include <array>
+#include <vector>
 #include <node.h>
 #include <Windows.h>
 #include <ddraw.h>
+
+// enables/disables in-depth logging about DirectDraw method calls
+#define DIRECTDRAWLOG true
 
 namespace sbat {
 namespace forge {
@@ -59,6 +63,11 @@ public:
   HRESULT WINAPI StartModeTest(SIZE* modes_to_test, DWORD num_entries, DWORD flags);
   HRESULT WINAPI EvaluateMode(DWORD flags, DWORD* timeout_secs);
 
+  // custom methods
+  inline DWORD display_width() const { return display_width_; }
+  inline DWORD display_height() const { return display_height_; }
+  inline DWORD display_bpp() const { return display_bpp_; }
+
 private:
   int refcount_;
   HWND window_;
@@ -70,7 +79,7 @@ private:
 class DirectGlawPalette : public IDirectDrawPalette {
 public:
   DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array);
-  ~DirectGlawPalette();
+  virtual ~DirectGlawPalette();
 
   /*** IUnknown methods ***/
   HRESULT WINAPI QueryInterface(REFIID riid, void** obj_out);
@@ -85,6 +94,81 @@ public:
 private:
   int refcount_;
   std::array<PALETTEENTRY, 256> entries_;
+};
+
+class DirectGlawSurface : public IDirectDrawSurface7 {
+public:
+  DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_desc);
+  virtual ~DirectGlawSurface();
+
+  /*** IUnknown methods ***/
+  HRESULT WINAPI QueryInterface(REFIID riid, void** obj_out);
+  ULONG WINAPI AddRef();
+  ULONG WINAPI Release();
+  /*** IDirectDrawSurface methods ***/
+  HRESULT WINAPI AddAttachedSurface(IDirectDrawSurface7* surface);
+  HRESULT WINAPI AddOverlayDirtyRect(RECT* dirty_rect);
+  HRESULT WINAPI Blt(RECT* dest_rect, IDirectDrawSurface7* src, RECT* src_rect, DWORD flags,
+      DDBLTFX* fx);
+  HRESULT WINAPI BltBatch(DDBLTBATCH* operations, DWORD count, DWORD unused);
+  HRESULT WINAPI BltFast(DWORD x, DWORD y, IDirectDrawSurface7* src, RECT* src_rect, DWORD flags);
+  HRESULT WINAPI DeleteAttachedSurface(DWORD flags, IDirectDrawSurface7* attached);
+  HRESULT WINAPI EnumAttachedSurfaces(void* context, LPDDENUMSURFACESCALLBACK7 callback);
+  HRESULT WINAPI EnumOverlayZOrders(DWORD flags, void* context,
+      LPDDENUMSURFACESCALLBACK7 callback);
+  HRESULT WINAPI Flip(IDirectDrawSurface7* target_override, DWORD flags);
+  HRESULT WINAPI GetAttachedSurface(DDSCAPS2* caps, IDirectDrawSurface7** surface_out);
+  HRESULT WINAPI GetBltStatus(DWORD flags);
+  HRESULT WINAPI GetCaps(DDSCAPS2* caps_out);
+  HRESULT WINAPI GetClipper(IDirectDrawClipper** clipper_out);
+  HRESULT WINAPI GetColorKey(DWORD flags, DDCOLORKEY* color_key_out);
+  HRESULT WINAPI GetDC(HDC* dc_out);
+  HRESULT WINAPI GetFlipStatus(DWORD flags);
+  HRESULT WINAPI GetOverlayPosition(LONG* x_out, LONG* y_out);
+  HRESULT WINAPI GetPalette(IDirectDrawPalette** palette_out);
+  HRESULT WINAPI GetPixelFormat(DDPIXELFORMAT* pixel_format_out);
+  HRESULT WINAPI GetSurfaceDesc(DDSURFACEDESC2* surface_desc_out);
+  HRESULT WINAPI Initialize(IDirectDraw* direct_draw, DDSURFACEDESC2* surface_desc);
+  HRESULT WINAPI IsLost();
+  HRESULT WINAPI Lock(RECT* dest_rect, DDSURFACEDESC2* surface_desc, DWORD flags, HANDLE unused);
+  HRESULT WINAPI ReleaseDC(HDC dc);
+  HRESULT WINAPI Restore();
+  HRESULT WINAPI SetClipper(IDirectDrawClipper* clipper);
+  HRESULT WINAPI SetColorKey(DWORD flags, DDCOLORKEY* color_key);
+  HRESULT WINAPI SetOverlayPosition(LONG x, LONG y);
+  HRESULT WINAPI SetPalette(IDirectDrawPalette* palette);
+  HRESULT WINAPI Unlock(RECT* locked_rect);
+  HRESULT WINAPI UpdateOverlay(RECT* src_rect, IDirectDrawSurface7* dest_surface, RECT* dest_rect,
+      DWORD flags, DDOVERLAYFX* overlay_fx);
+  HRESULT WINAPI UpdateOverlayDisplay(DWORD unused);
+  HRESULT WINAPI UpdateOverlayZOrder(DWORD flags, IDirectDrawSurface7* surface_ref);
+  /*** Added in the v2 interface ***/
+  HRESULT WINAPI GetDDInterface(void** direct_draw);
+  HRESULT WINAPI PageLock(DWORD unused);
+  HRESULT WINAPI PageUnlock(DWORD unused);
+  /*** Added in the v3 interface ***/
+  HRESULT WINAPI SetSurfaceDesc(DDSURFACEDESC2* surface_desc, DWORD unused);
+  /*** Added in the v4 interface ***/
+  HRESULT WINAPI SetPrivateData(REFGUID tag, void* data, DWORD data_size, DWORD flags);
+  HRESULT WINAPI GetPrivateData(REFGUID tag, void* buffer, DWORD* buffer_size);
+  HRESULT WINAPI FreePrivateData(REFGUID tag);
+  HRESULT WINAPI GetUniquenessValue(DWORD* value);
+  HRESULT WINAPI ChangeUniquenessValue();
+  /*** Moved Texture7 methods here ***/
+  HRESULT WINAPI SetPriority(DWORD priority);
+  HRESULT WINAPI GetPriority(DWORD* priority_out);
+  HRESULT WINAPI SetLOD(DWORD lod);
+  HRESULT WINAPI GetLOD(DWORD* lod_out);
+
+private:
+  int refcount_;
+  DirectGlaw* owner_;
+  DirectGlawPalette* palette_;
+  DDSURFACEDESC2 surface_desc_;
+  DWORD width_;
+  DWORD height_;
+  LONG pitch_;
+  std::vector<byte> surface_data_;
 };
 
 }  // namespace forge
