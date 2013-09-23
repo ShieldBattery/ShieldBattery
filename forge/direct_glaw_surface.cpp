@@ -286,9 +286,16 @@ HRESULT WINAPI DirectGlawSurface::Lock(RECT* dest_rect, DDSURFACEDESC2* surface_
 
   // Ensure our assumptions are correct across all lock calls, if this ever fails, please fix or
   // file a bug :)
-  assert(flags == DDLOCK_WAIT);  
+  assert(flags == DDLOCK_WAIT);
+  assert(surface_desc->dwSize == surface_desc_.dwSize);
+  memcpy(surface_desc, &surface_desc_, surface_desc->dwSize);
+  surface_desc->dwFlags |= DDSD_LPSURFACE | DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH;
+  surface_desc->lpSurface = &surface_data_[0];
+  // this should maybe actually implement a lock of some sort, but since I'm not sure of the exact
+  // behavior of DDraw here, and we aren't actually shuffling memory, and I trust BW to have few
+  // lock stomping issues (ha, ha), I'll leave this out for now
 
-  return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
+  return DD_OK;
 }
 
 HRESULT WINAPI DirectGlawSurface::ReleaseDC(HDC dc) {
@@ -346,11 +353,10 @@ HRESULT WINAPI DirectGlawSurface::SetPalette(IDirectDrawPalette* palette) {
 }
 
 HRESULT WINAPI DirectGlawSurface::Unlock(RECT* locked_rect) {
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface::Unlock called");
-  }
+  // Similar to Lock, this is also very spammy, so we don't log it
 
-  return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
+  // we don't actually lock anything, so we can just say this was fine
+  return DD_OK;
 }
 
 HRESULT WINAPI DirectGlawSurface::UpdateOverlay(RECT* src_rect, IDirectDrawSurface7* dest_surface,
