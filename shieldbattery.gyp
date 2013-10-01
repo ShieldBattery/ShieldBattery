@@ -354,6 +354,7 @@
         'common',
         'v8-helpers',
         'shieldbattery',
+        'deps/glew/glew.gyp:glew',
       ],
       'msvs_disabled_warnings': [ 4506, 4251, 4530, 4996 ],
       'product_prefix': '',
