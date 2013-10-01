@@ -2,13 +2,14 @@ var bw = require('bw')
   , log = require('./logger')
   , sub = require('./sub')
 
-module.exports = function(socket) {
-  return new JoinHandler(socket)
+module.exports = function(socket, forge) {
+  return new JoinHandler(socket, forge)
 }
 
 // TODO(tec27): Figure out how to extract out the common code between this and HostHandler
-function JoinHandler(socket) {
+function JoinHandler(socket, forge) {
   this.socket = socket
+  this.forge = forge
   this.started = false
   this.curLobby = null
   this.subs = []
@@ -39,6 +40,10 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
   bw.initProcess(function afterInit() {
     log.verbose('process initialized')
 
+    self.endWndProc = self.forge.runWndProc(function() {
+      log.verbose('forge\'s wndproc pump finished')
+    })
+
     bw.joinLobby(params.username, params.host, params.port, onJoined)
   })
 
@@ -55,6 +60,7 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
     cb()
 
     self.curLobby.once('gameInit', function() {
+      self.endWndProc()
       self.curLobby.runGameLoop(self.onGameFinished.bind(self))
       self.socket.emit('gameStarted')
       log.verbose('game started')

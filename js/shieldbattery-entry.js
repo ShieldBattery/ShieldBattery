@@ -57,10 +57,10 @@ socket.on('connect', function() {
   }
 }).on('hostMode', function() {
   log.verbose('enabling host mode')
-  host(socket)
+  host(socket, forge)
 }).on('joinMode', function() {
   log.verbose('enabling join mode')
-  join(socket)
+  join(socket, forge)
 }).on('quit', function() {
   setTimeout(function() {
     process.exit()

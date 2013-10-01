@@ -7,3 +7,12 @@ module.exports.inject = function() {
 module.exports.restore = function() {
   return forge.restore()
 }
+
+function endWndProc() {
+  return forge.endWndProc()
+}
+
+module.exports.runWndProc = function(cb) {
+  forge.runWndProc(cb)
+  return endWndProc
+}

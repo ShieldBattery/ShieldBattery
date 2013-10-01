@@ -43,6 +43,8 @@ private:
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
   static v8::Handle<v8::Value> Inject(const v8::Arguments& args);
   static v8::Handle<v8::Value> Restore(const v8::Arguments& args);
+  static v8::Handle<v8::Value> RunWndProc(const v8::Arguments& args);
+  static v8::Handle<v8::Value> EndWndProc(const v8::Arguments& args);
   
   static v8::Persistent<v8::Function> constructor;
   static Forge* instance_;

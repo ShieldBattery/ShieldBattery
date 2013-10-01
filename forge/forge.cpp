@@ -9,6 +9,7 @@
 #include "common/types.h"
 #include "forge/direct_glaw.h"
 #include "logger/logger.h"
+#include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
 namespace sbat {
@@ -16,6 +17,7 @@ namespace forge {
 
 using v8::Arguments;
 using v8::Boolean;
+using v8::Context;
 using v8::Function;
 using v8::FunctionTemplate;
 using v8::Handle;
@@ -24,6 +26,7 @@ using v8::Local;
 using v8::Object;
 using v8::Persistent;
 using v8::String;
+using v8::TryCatch;
 using v8::Value;
 
 Persistent<Function> Forge::constructor;
@@ -63,6 +66,8 @@ void Forge::Init() {
 
   SetProtoMethod(tpl, "inject", Inject);
   SetProtoMethod(tpl, "restore", Restore);
+  SetProtoMethod(tpl, "runWndProc", RunWndProc);
+  SetProtoMethod(tpl, "endWndProc", EndWndProc);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -100,6 +105,67 @@ Handle<Value> Forge::Restore(const Arguments& args) {
   result &= instance_->hooks_.GetProcAddress->Restore();
 
   return scope.Close(Boolean::New(result));
+}
+
+#define WM_END_WND_PROC_WORKER (WM_USER + 27)
+
+struct WndProcContext {
+  Persistent<Function> cb;
+  bool quit;
+};
+
+void WndProcWorker(void* arg) {
+  WndProcContext* context = reinterpret_cast<WndProcContext*>(arg);
+  context->quit = false;
+
+  MSG msg;
+  while (GetMessage(&msg, NULL, 0, 0)) {
+    if (msg.message == WM_END_WND_PROC_WORKER) {
+      return;
+    }
+
+    TranslateMessage(&msg);
+    DispatchMessage(&msg);
+  }
+
+  context->quit = true;
+}
+
+void WndProcWorkerAfter(void* arg) {
+  HandleScope scope;
+
+  WndProcContext* context = reinterpret_cast<WndProcContext*>(arg);
+  TryCatch try_catch;
+  Handle<Value> argv[] = { v8::Null(), Boolean::New(context->quit) };
+  context->cb->Call(Context::GetCurrent()->Global(), 2, argv);
+
+  context->cb.Dispose();
+  delete context;
+  if (try_catch.HasCaught()) {
+    node::FatalException(try_catch);
+  }
+}
+
+Handle<Value> Forge::RunWndProc(const Arguments& args) {
+  HandleScope scope;
+  assert(instance_->window_handle_ != NULL);
+  assert(args.Length() > 0);
+  Local<Function> cb = args[0].As<Function>();
+
+  WndProcContext* context = new WndProcContext();
+  context->cb = Persistent<Function>::New(cb);
+
+  sbat::QueueWorkForUiThread(context, WndProcWorker, WndProcWorkerAfter);
+
+  return scope.Close(v8::Undefined());
+}
+
+Handle<Value> Forge::EndWndProc(const Arguments& args) {
+  HandleScope scope;
+  assert(instance_->window_handle_ != NULL);
+
+  PostMessage(instance_->window_handle_, WM_END_WND_PROC_WORKER, NULL, NULL);
+  return scope.Close(v8::Undefined());
 }
 
 HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
