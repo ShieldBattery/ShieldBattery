@@ -168,6 +168,21 @@ Handle<Value> Forge::EndWndProc(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
+LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
+  Logger::Logf(LogLevel::Verbose, "WndProc(..., 0x%x, 0x%08x, 0x%08x)", msg, wparam, lparam);
+  
+  switch(msg) {
+  case 0: break;
+  default: break;
+  }
+
+  if (!instance_->original_wndproc_) {
+    return DefWindowProc(window_handle, msg, wparam, lparam);
+  } else {
+    return instance_->original_wndproc_(window_handle, msg, wparam, lparam);
+  }
+}
+
 HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     LPCSTR lpWindowName, DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent,
     HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
@@ -177,6 +192,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     return instance_->hooks_.CreateWindowExA->original()(dwExStyle, lpClassName, lpWindowName,
         dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
   }
+  assert(instance_->window_handle_ == NULL);
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen
   int width = 640;
@@ -191,6 +207,10 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       left, top, width, height);
   instance_->window_handle_ = instance_->hooks_.CreateWindowExA->original()(dwExStyle, lpClassName,
       lpWindowName, style, left, top, width, height, hWndParent, hMenu, hInstance, lpParam);
+  instance_->original_wndproc_ = reinterpret_cast<WNDPROC>(
+      GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
+  SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
+
   return instance_->window_handle_;
 }
 
