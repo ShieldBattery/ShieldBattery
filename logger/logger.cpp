@@ -2,6 +2,7 @@
 
 #include <node.h>
 #include <uv.h>
+#include <assert.h>
 #include <list>
 
 namespace sbat {
@@ -114,10 +115,14 @@ void Logger::OnLogsQueued(uv_async_t* handle, int status) {
 
     for (auto it = temp_queue.begin(); it != temp_queue.end(); ++it) {
       const LogContext& context = *it;
+      assert(reinterpret_cast<DWORD>(context.func) != 0xcdcdcdcd);
       context.func(context.arg, context.level, context.msg);
       delete[] context.msg;
     }
+
+    uv_mutex_lock(&instance_mutex_);
   }
+  uv_mutex_unlock(&instance_mutex_);
 }
 
 }  // namespace sbat
