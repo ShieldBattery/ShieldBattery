@@ -113,7 +113,7 @@ function rollover(baseFilename, maxRollovers) {
   for (var i = maxRollovers - 2; i >= 0; i--) {
     var src = baseFilename + '.' + i + '.log'
       , dest = baseFilename + '.' + (i + 1) + '.log'
-    if (fs.exisitsSync(src)) {
+    if (fs.existsSync(src)) {
       fs.renameSync(src, dest)
     }
   }
