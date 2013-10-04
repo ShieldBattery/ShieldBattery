@@ -1,5 +1,6 @@
 #include "forge/direct_glaw.h"
 
+#include <gl/gl.h>
 #include <vector>
 
 #include "logger/logger.h"
@@ -39,6 +40,8 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
       if (DIRECTDRAWLOG) {
         Logger::Log(LogLevel::Verbose, "DirectGlaw: primary surface created");
       }
+
+      owner_->InitializeOpenGl();
     }
   }
 
@@ -355,6 +358,8 @@ HRESULT WINAPI DirectGlawSurface::SetPalette(IDirectDrawPalette* palette) {
 HRESULT WINAPI DirectGlawSurface::Unlock(RECT* locked_rect) {
   // Similar to Lock, this is also very spammy, so we don't log it
 
+  Render();
+
   // we don't actually lock anything, so we can just say this was fine
   return DD_OK;
 }
@@ -495,6 +500,23 @@ HRESULT WINAPI DirectGlawSurface::GetLOD(DWORD* lod_out) {
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
 }
 
+float theta = 0.0f;
+void DirectGlawSurface::Render() {
+  glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+  glClear( GL_COLOR_BUFFER_BIT );
+			
+  glPushMatrix();
+  glRotatef( theta, 0.0f, 0.0f, 1.0f );
+  glBegin( GL_TRIANGLES );
+  glColor3f( 1.0f, 0.0f, 0.0f ); glVertex2f( 0.0f, 1.0f );
+  glColor3f( 0.0f, 1.0f, 0.0f ); glVertex2f( 0.87f, -0.5f );
+  glColor3f( 0.0f, 0.0f, 1.0f ); glVertex2f( -0.87f, -0.5f );
+  glEnd();
+  glPopMatrix();
+			
+  owner_->SwapBuffers();
+  theta += 1.0f;
+}
 
 }  // namespace forge
 }  // namespace sbat

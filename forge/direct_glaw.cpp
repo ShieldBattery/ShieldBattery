@@ -1,5 +1,7 @@
 #include "forge/direct_glaw.h"
 
+#include <gl/glew.h>
+
 #include "logger/logger.h"
 
 namespace sbat {
@@ -20,12 +22,21 @@ HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, 
 DirectGlaw::DirectGlaw()
   : refcount_(1),
     window_(NULL),
+    dc_(NULL),
+    gl_context_(NULL),
     display_width_(0),
     display_height_(0),
-    display_bpp_(0) {
+    display_bpp_(0),
+    opengl_initialized_(false) {
 }
 
 DirectGlaw::~DirectGlaw() {
+  if (opengl_initialized_) {
+    // TODO(tec27): wrap this in RAII classes instead
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(gl_context_);
+    ReleaseDC(window_, dc_);
+  }
 }
 
 HRESULT WINAPI DirectGlaw::QueryInterface(REFIID riid, void** obj_out) {
@@ -298,6 +309,48 @@ HRESULT WINAPI DirectGlaw::EvaluateMode(DWORD flags, DWORD* timeout_secs) {
   }
 
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
+}
+
+void DirectGlaw::InitializeOpenGl() {
+  if (opengl_initialized_) return;
+
+  Logger::Log(LogLevel::Verbose, "DirectGlaw initializing OpenGL");
+
+  dc_ = GetDC(window_);
+  PIXELFORMATDESCRIPTOR pixel_format = PIXELFORMATDESCRIPTOR();
+  pixel_format.nSize = sizeof(pixel_format);
+  pixel_format.nVersion = 1;
+  pixel_format.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+  pixel_format.iPixelType = PFD_TYPE_RGBA;
+  pixel_format.cColorBits = 24;
+  pixel_format.cDepthBits = 32;
+  pixel_format.iLayerType = PFD_MAIN_PLANE;
+  int format = ChoosePixelFormat(dc_, &pixel_format);
+  SetPixelFormat(dc_, format, &pixel_format);
+
+  gl_context_ = wglCreateContext(dc_);
+  assert(gl_context_ != NULL);
+  wglMakeCurrent(dc_, gl_context_);
+
+  GLenum err = glewInit();
+  if (err != GLEW_OK)  {
+    // TODO(tec27): kill process somehow
+    Logger::Logf(LogLevel::Error, "GLEW error: %s", glewGetErrorString(err));
+    return;
+  }
+  if (!GLEW_VERSION_2_0) {
+    Logger::Log(LogLevel::Error, "OpenGL 2.0 not available");
+    return;
+  }
+
+  opengl_initialized_ = true;
+
+  Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
+}
+
+void DirectGlaw::SwapBuffers() {
+  assert(opengl_initialized_);
+  ::SwapBuffers(dc_);
 }
 
 }  // namespace forge

@@ -69,13 +69,18 @@ public:
   inline DWORD display_width() const { return display_width_; }
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
+  void InitializeOpenGl();
+  void SwapBuffers();
 
 private:
   int refcount_;
   HWND window_;
+  HDC dc_;
+  HGLRC gl_context_;
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;
+  bool opengl_initialized_;
 };
 
 class DirectGlawPalette : public IDirectDrawPalette {
@@ -161,6 +166,12 @@ public:
   HRESULT WINAPI GetPriority(DWORD* priority_out);
   HRESULT WINAPI SetLOD(DWORD lod);
   HRESULT WINAPI GetLOD(DWORD* lod_out);
+
+  // custom functions
+  inline bool is_primary_surface() const { 
+    return (surface_desc_.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) != 0;
+  }
+  void Render();
 
 private:
   int refcount_;

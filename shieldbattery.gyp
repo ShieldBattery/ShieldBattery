@@ -369,7 +369,7 @@
       'defines': [
         'BUILDING_NODE_EXTENSION',
       ],
-      'libraries': [ '-luser32.lib'],
+      'libraries': [ '-luser32.lib', '-lgdi32.lib' ],
     },
   ],
 }

@@ -688,6 +688,7 @@ void RunGameLoopWork(void* arg) {
     // hackishly bring the window to the front, getting around Win7 restrictions on when you can
     // do this
     ShowWindow(hwnd, SW_SHOW);
+    BringWindowToTop(hwnd);
     SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0,  0, 0,SWP_NOMOVE | SWP_NOSIZE);
     SetWindowPos(hwnd,HWND_NOTOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);

@@ -169,11 +169,19 @@ Handle<Value> Forge::EndWndProc(const Arguments& args) {
 }
 
 LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
-  Logger::Logf(LogLevel::Verbose, "WndProc(..., 0x%x, 0x%08x, 0x%08x)", msg, wparam, lparam);
+  Logger::Logf(LogLevel::Verbose, "WndProc(..., 0x%04x, 0x%08x, 0x%08x)", msg, wparam, lparam);
   
   switch(msg) {
-  case 0: break;
-  default: break;
+  case WM_NCACTIVATE:  
+  case WM_NCHITTEST:
+  case WM_NCLBUTTONDOWN:
+  case WM_NCLBUTTONUP:
+  case WM_NCMOUSEMOVE:
+  case WM_NCPAINT:
+  case WM_PAINT:
+    return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_CLOSE:
+    MessageBox(window_handle, "Omg." ,"Pls no...", MB_OK);
   }
 
   if (!instance_->original_wndproc_) {
@@ -197,16 +205,24 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   // be full-screen
   int width = 640;
   int height = 480;
-  // TODO(tec27): should we call through to GetSystemMetricsHook->original() instead? Might be good
-  // for compatibility with any other windowed mode stuff that expects to be able to modify the IAT
-  // entries and have an affect, although I don't think we really care
   int left = (GetSystemMetrics(SM_CXSCREEN) - 640) / 2;  // for now, we'll just center the window
   int top = (GetSystemMetrics(SM_CYSCREEN) - 480) / 2;
-  DWORD style = dwStyle & ~WS_SYSMENU;
+  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
+
+  // we want the *client rect* to be 640x480, not the actual window size
+  RECT window_rect;
+  window_rect.left = left;
+  window_rect.top =  top;
+  window_rect.right = left + width;
+  window_rect.bottom = top + height;
+  AdjustWindowRect(&window_rect, style, FALSE);
+
   Logger::Logf(LogLevel::Verbose, "Rewriting CreateWindowExA call to (%d, %d), %dx%d)",
-      left, top, width, height);
+      window_rect.left, window_rect.top,
+      window_rect.right - window_rect.left, window_rect.bottom - window_rect.top);
   instance_->window_handle_ = instance_->hooks_.CreateWindowExA->original()(dwExStyle, lpClassName,
-      lpWindowName, style, left, top, width, height, hWndParent, hMenu, hInstance, lpParam);
+      lpWindowName, style, window_rect.left, window_rect.top, window_rect.right - window_rect.left,
+      window_rect.bottom - window_rect.top, hWndParent, hMenu, hInstance, lpParam);
   instance_->original_wndproc_ = reinterpret_cast<WNDPROC>(
       GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
   SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
