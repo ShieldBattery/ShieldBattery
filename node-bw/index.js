@@ -39,12 +39,11 @@ BroodWar.prototype.createLobby = function(playerName, gameSettings, cb) {
   }
 
   this.bindings.isBroodWar = true
-  this.bindings.initSprites()
   this.bindings.localPlayerName = playerName
   if (!this.bindings.chooseNetworkProvider()) {
     return cb(new Error('Could not choose network provider'))
   }
-  this.bindings.isMultiplayer= true
+  this.bindings.isMultiplayer = true
 
   if (!this.bindings.createGame(gameSettings)) {
     return cb(new Error('Could not create game'))
@@ -90,7 +89,6 @@ BroodWar.prototype.joinLobby = function(playerName, host, port, cb) {
   this._log('verbose', 'Attempting to join lobby')
 
   this.bindings.isBroodWar = true
-  this.bindings.initSprites()
   this.bindings.localPlayerName = playerName
   if (!this.bindings.chooseNetworkProvider()) {
     return cb(new Error('Could not choose network provider'))
@@ -141,8 +139,16 @@ BroodWar.prototype.initProcess = function(cb) {
   if (processInitialized) {
     return cb()
   }
-  this.bindings.initProcess(cb)
-  processInitialized = true
+  var self = this
+  this.bindings.initProcess(function(err) {
+    if (err) return cb(err)
+
+    self.bindings.isBroodWar = true
+    self.bindings.initSprites(function(err) {
+      processInitialized = true
+      cb(err)
+    })
+  })
 }
 
 util.inherits(Lobby, EventEmitter)

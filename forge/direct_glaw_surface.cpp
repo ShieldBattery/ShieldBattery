@@ -9,6 +9,7 @@
 namespace sbat {
 namespace forge {
 
+using std::array;
 using std::vector;
 
 DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_desc)
@@ -19,7 +20,9 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
     width_(owner->display_width()),
     height_(owner->display_height()),
     pitch_(0),
-    surface_data_() {
+    surface_data_(),
+    vertex_buffer_(),
+    element_buffer_() {
   owner_->AddRef();
 
   if (surface_desc_.dwFlags & DDSD_WIDTH) {
@@ -51,6 +54,23 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
   surface_desc_.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH;
 
   surface_data_ = vector<byte>(height_ * pitch_, 0);
+  
+  // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
+  const array<GLfloat, 16> vertex_data =
+      { -1.0f, -1.0f, 0.0f, 1.0f,
+        1.0f, -1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 1.0f, 0.0f };
+  vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, vertex_data));
+  const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
+  element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
+
+  glGenTextures(1, &texture_);
+  glBindTexture(GL_TEXTURE_2D, texture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
 DirectGlawSurface::~DirectGlawSurface() {
@@ -352,13 +372,16 @@ HRESULT WINAPI DirectGlawSurface::SetPalette(IDirectDrawPalette* palette) {
   }
 
   palette_ = reinterpret_cast<DirectGlawPalette*>(palette);
+  palette_->InitForOpenGl();
   return DD_OK;
 }
 
 HRESULT WINAPI DirectGlawSurface::Unlock(RECT* locked_rect) {
   // Similar to Lock, this is also very spammy, so we don't log it
 
-  Render();
+  if (isPrimarySurface()) {
+    Render();
+  }
 
   // we don't actually lock anything, so we can just say this was fine
   return DD_OK;
@@ -500,22 +523,38 @@ HRESULT WINAPI DirectGlawSurface::GetLOD(DWORD* lod_out) {
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
 }
 
-float theta = 0.0f;
 void DirectGlawSurface::Render() {
   glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
   glClear( GL_COLOR_BUFFER_BIT );
-			
-  glPushMatrix();
-  glRotatef( theta, 0.0f, 0.0f, 1.0f );
-  glBegin( GL_TRIANGLES );
-  glColor3f( 1.0f, 0.0f, 0.0f ); glVertex2f( 0.0f, 1.0f );
-  glColor3f( 0.0f, 1.0f, 0.0f ); glVertex2f( 0.87f, -0.5f );
-  glColor3f( 0.0f, 0.0f, 1.0f ); glVertex2f( -0.87f, -0.5f );
-  glEnd();
-  glPopMatrix();
-			
+
+  GLuint shader_program = owner_->shader_program();
+  if (!shader_program) {
+    return;
+  }
+  const ShaderResources* resources = owner_->shader_resources();
+  glUseProgram(shader_program);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture_);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width_, height_, 0, GL_RED, GL_UNSIGNED_BYTE,
+      &surface_data_[0]);
+  glUniform1i(resources->uniforms.bw_screen, 0);
+  palette_->BindTexture(resources->uniforms.palette, GL_TEXTURE1, 1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
+  glEnableVertexAttribArray(resources->attributes.position);
+  glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
+      reinterpret_cast<void*>(0));
+  glEnableVertexAttribArray(resources->attributes.texpos);
+  glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
+      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
+  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
+
+  glDisableVertexAttribArray(resources->attributes.texpos);
+  glDisableVertexAttribArray(resources->attributes.position);
+
   owner_->SwapBuffers();
-  theta += 1.0f;
 }
 
 }  // namespace forge

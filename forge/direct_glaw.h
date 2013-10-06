@@ -3,11 +3,14 @@
 // Fake DirectDraw7 implementation that forwards drawing responsibility to OpenGL
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
-#include <array>
-#include <vector>
 #include <node.h>
 #include <Windows.h>
 #include <ddraw.h>
+#include <gl/glew.h>
+#include <gl/gl.h>
+#include <array>
+#include <memory>
+#include <vector>
 
 #include "common/types.h"
 
@@ -18,6 +21,18 @@ namespace sbat {
 namespace forge {
 
 HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, IUnknown* unused);
+
+struct ShaderResources {
+  struct {
+    GLint bw_screen;
+    GLint palette;
+  } uniforms;
+
+  struct {
+    GLint position;
+    GLint texpos;
+  } attributes;
+};
 
 class DirectGlaw : public IDirectDraw7 {
 public:
@@ -69,10 +84,17 @@ public:
   inline DWORD display_width() const { return display_width_; }
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
+  inline GLuint shader_program() const { return shader_program_; }
+  inline const ShaderResources* shader_resources() const { return &shader_resources_; }
   void InitializeOpenGl();
   void SwapBuffers();
+  void SetVertexShader(char* shader_src);
+  void SetFragmentShader(char* shader_src);
 
 private:
+  GLuint BuildShader(GLenum type, const char* src);
+  void BuildProgram();
+
   int refcount_;
   HWND window_;
   HDC dc_;
@@ -81,6 +103,10 @@ private:
   DWORD display_height_;
   DWORD display_bpp_;
   bool opengl_initialized_;
+  GLuint vertex_shader_;
+  GLuint fragment_shader_;
+  GLuint shader_program_;
+  ShaderResources shader_resources_;
 };
 
 class DirectGlawPalette : public IDirectDrawPalette {
@@ -98,9 +124,54 @@ public:
   HRESULT WINAPI Initialize(IDirectDraw* owner, DWORD flags, PALETTEENTRY* color_array);
   HRESULT WINAPI SetEntries(DWORD unused, DWORD start, DWORD count, PALETTEENTRY* entries);
 
+  // Custom functions
+  void InitForOpenGl();
+  inline void BindTexture(GLint uniform, int glTexture, int texture_slot) {
+    glActiveTexture(glTexture);
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glUniform1i(uniform, texture_slot);
+  }
+
 private:
+  struct PaletteTextureEntry {
+    byte red;
+    byte green;
+    byte blue;
+  };
+
+  static PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry);
+
   int refcount_;
   std::array<PALETTEENTRY, 256> entries_;
+  std::array<PaletteTextureEntry, 256> texture_data_;
+  GLuint texture_;
+  bool is_opengl_inited;
+};
+
+template <typename T, int n>
+class GlStaticBuffer {
+public:
+  GlStaticBuffer(GLenum buffer_target, const std::array<T, n>& data) : data_(data), buffer_(0) {
+    glGenBuffers(1, &buffer_);
+    glBindBuffer(buffer_target, buffer_);
+    glBufferData(buffer_target, data_.size() * sizeof(T), &data_[0], GL_STATIC_DRAW);
+  }
+
+  ~GlStaticBuffer() {
+    if (buffer_) {
+      glDeleteBuffers(1, &buffer_);
+    }
+  }
+
+  inline GLuint buffer() { return buffer_; }
+
+private:
+  // Disable copying
+  GlStaticBuffer(const GlStaticBuffer&);
+  GlStaticBuffer& operator=(const GlStaticBuffer&);
+
+  std::array<T, n> data_;
+  GLuint buffer_;
 };
 
 class DirectGlawSurface : public IDirectDrawSurface7 {
@@ -168,7 +239,7 @@ public:
   HRESULT WINAPI GetLOD(DWORD* lod_out);
 
   // custom functions
-  inline bool is_primary_surface() const { 
+  inline bool isPrimarySurface() const {
     return (surface_desc_.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) != 0;
   }
   void Render();
@@ -182,6 +253,9 @@ private:
   DWORD height_;
   LONG pitch_;
   std::vector<byte> surface_data_;
+  GLuint texture_;
+  std::unique_ptr<GlStaticBuffer<GLfloat, 16>> vertex_buffer_;
+  std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
 };
 
 }  // namespace forge

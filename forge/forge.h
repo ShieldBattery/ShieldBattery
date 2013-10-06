@@ -5,6 +5,7 @@
 #include <v8.h>
 
 #include "common/func_hook.h"
+#include "forge/direct_glaw.h"
 
 namespace sbat {
 namespace forge {
@@ -24,6 +25,7 @@ class Forge : public node::ObjectWrap {
 public:
   static void Init();
   static v8::Handle<v8::Value> NewInstance();
+  static void RegisterDirectGlaw(DirectGlaw* direct_glaw);
 
 private:
   Forge();
@@ -47,6 +49,8 @@ private:
   static v8::Handle<v8::Value> Restore(const v8::Arguments& args);
   static v8::Handle<v8::Value> RunWndProc(const v8::Arguments& args);
   static v8::Handle<v8::Value> EndWndProc(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetVertexShader(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetFragmentShader(const v8::Arguments& args);
 
   static v8::Persistent<v8::Function> constructor;
   static Forge* instance_;
@@ -54,6 +58,9 @@ private:
   ImportHooks hooks_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
+  DirectGlaw* direct_glaw_;
+  char* vertex_shader_src_;
+  char* fragment_shader_src_;
 };
 
 }  // namespace forge

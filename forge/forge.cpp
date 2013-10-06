@@ -34,7 +34,11 @@ Forge* Forge::instance_ = nullptr;
 
 Forge::Forge()
     : hooks_(),
-      window_handle_(NULL) {
+      window_handle_(NULL),
+      original_wndproc_(nullptr),
+      direct_glaw_(nullptr),
+      vertex_shader_src_(nullptr),
+      fragment_shader_src_(nullptr) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -56,6 +60,15 @@ Forge::~Forge() {
   DELETE_(GetProcAddress);
   #undef DELETE_
 
+  if (direct_glaw_) {
+    direct_glaw_->Release();
+    direct_glaw_ = nullptr;
+  }
+  delete[] vertex_shader_src_;
+  vertex_shader_src_ = nullptr;
+  delete[] fragment_shader_src_;
+  fragment_shader_src_ = nullptr;
+
   instance_ = nullptr;
 }
 
@@ -68,8 +81,21 @@ void Forge::Init() {
   SetProtoMethod(tpl, "restore", Restore);
   SetProtoMethod(tpl, "runWndProc", RunWndProc);
   SetProtoMethod(tpl, "endWndProc", EndWndProc);
+  SetProtoMethod(tpl, "setVertexShader", SetVertexShader);
+  SetProtoMethod(tpl, "setFragmentShader", SetFragmentShader);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
+}
+
+void Forge::RegisterDirectGlaw(DirectGlaw* direct_glaw) {
+  assert(instance_->direct_glaw_ == nullptr);
+  assert(instance_->vertex_shader_src_);
+  assert(instance_->fragment_shader_src_);
+
+  direct_glaw->AddRef();
+  instance_->direct_glaw_ = direct_glaw;
+  direct_glaw->SetVertexShader(instance_->vertex_shader_src_);
+  direct_glaw->SetFragmentShader(instance_->fragment_shader_src_);
 }
 
 Handle<Value> Forge::New(const Arguments& args) {
@@ -128,6 +154,7 @@ void WndProcWorker(void* arg) {
     DispatchMessage(&msg);
   }
 
+  // TODO(tec27): deal with this quit flag
   context->quit = true;
 }
 
@@ -165,6 +192,34 @@ Handle<Value> Forge::EndWndProc(const Arguments& args) {
   assert(instance_->window_handle_ != NULL);
 
   PostMessage(instance_->window_handle_, WM_END_WND_PROC_WORKER, NULL, NULL);
+  return scope.Close(v8::Undefined());
+}
+
+Handle<Value> Forge::SetVertexShader(const Arguments& args) {
+  HandleScope scope;
+  assert(instance_->window_handle_ == NULL);
+  assert(args.Length() >= 1);
+  String::AsciiValue shader_src(args[0]);
+  if (instance_->vertex_shader_src_) {
+    delete[] instance_->vertex_shader_src_;
+  }
+  instance_->vertex_shader_src_ = new char[shader_src.length() + 1];
+  strcpy_s(instance_->vertex_shader_src_, shader_src.length() + 1, *shader_src);
+  
+  return scope.Close(v8::Undefined());
+}
+
+Handle<Value> Forge::SetFragmentShader(const Arguments& args) {
+  HandleScope scope;
+  assert(instance_->window_handle_ == NULL);
+  assert(args.Length() >= 1);
+  String::AsciiValue shader_src(args[0]);
+  if (instance_->fragment_shader_src_) {
+    delete[] instance_->fragment_shader_src_;
+  }
+  instance_->fragment_shader_src_ = new char[shader_src.length() + 1];
+  strcpy_s(instance_->fragment_shader_src_, shader_src.length() + 1, *shader_src);
+  
   return scope.Close(v8::Undefined());
 }
 

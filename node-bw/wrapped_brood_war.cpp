@@ -465,11 +465,41 @@ Handle<Value> WrappedBroodWar::InitProcess(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
-Handle<Value> WrappedBroodWar::InitSprites(const Arguments& args) {
+struct InitSpritesContext {
+  Persistent<Function> cb;
+  BroodWar* bw;
+};
+
+void InitSpritesWork(void* arg) {
+  InitSpritesContext* context = reinterpret_cast<InitSpritesContext*>(arg);
+  context->bw->InitSprites();
+}
+
+void InitSpritesAfter(void* arg) {
   HandleScope scope;
 
-  BroodWar* bw = WrappedBroodWar::Unwrap(args);
-  bw->InitSprites();
+  InitSpritesContext* context = reinterpret_cast<InitSpritesContext*>(arg);
+  TryCatch try_catch;
+  context->cb->Call(Context::GetCurrent()->Global(), 0, NULL);
+
+  context->cb.Dispose();
+  delete context;
+
+  if (try_catch.HasCaught()) {
+    node::FatalException(try_catch);
+  }
+}
+
+Handle<Value> WrappedBroodWar::InitSprites(const Arguments& args) {
+  HandleScope scope;
+  assert(args.Length() >= 1);
+  Local<Function> cb = args[0].As<Function>();
+
+  InitSpritesContext* context = new InitSpritesContext();
+  context->cb = Persistent<Function>::New(cb);
+  context->bw = WrappedBroodWar::Unwrap(args);
+
+  sbat::QueueWorkForUiThread(context, InitSpritesWork, InitSpritesAfter);
 
   return scope.Close(v8::Undefined());
 }

@@ -1,7 +1,9 @@
 #include "forge/direct_glaw.h"
 
 #include <gl/glew.h>
+#include <gl/gl.h>
 
+#include "forge/forge.h"
 #include "logger/logger.h"
 
 namespace sbat {
@@ -27,7 +29,11 @@ DirectGlaw::DirectGlaw()
     display_width_(0),
     display_height_(0),
     display_bpp_(0),
-    opengl_initialized_(false) {
+    opengl_initialized_(false),
+    vertex_shader_(0),
+    fragment_shader_(0),
+    shader_program_(0), 
+    shader_resources_() {
 }
 
 DirectGlaw::~DirectGlaw() {
@@ -36,6 +42,19 @@ DirectGlaw::~DirectGlaw() {
     wglMakeCurrent(NULL, NULL);
     wglDeleteContext(gl_context_);
     ReleaseDC(window_, dc_);
+  }
+
+  if (shader_program_) {
+    glDeleteProgram(shader_program_);
+    shader_program_ = 0;
+  }
+  if (vertex_shader_) {
+    glDeleteShader(vertex_shader_);
+    vertex_shader_ = 0;
+  }
+  if (fragment_shader_) {
+    glDeleteShader(fragment_shader_);
+    fragment_shader_ = 0;
   }
 }
 
@@ -346,11 +365,86 @@ void DirectGlaw::InitializeOpenGl() {
   opengl_initialized_ = true;
 
   Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
+
+  Forge::RegisterDirectGlaw(this);
 }
 
 void DirectGlaw::SwapBuffers() {
   assert(opengl_initialized_);
   ::SwapBuffers(dc_);
+}
+
+void DirectGlaw::SetVertexShader(char* shader_src) {
+  vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_src);
+  assert(vertex_shader_ != 0);
+
+  if (fragment_shader_ != 0) {
+    BuildProgram();
+  }
+}
+
+void DirectGlaw::SetFragmentShader(char* shader_src) {
+  fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_src);
+  assert(fragment_shader_ != 0);
+
+  if (vertex_shader_ != 0) {
+    BuildProgram();
+  }
+}
+
+GLuint DirectGlaw::BuildShader(GLenum type, const char* src) {
+  GLuint shader = glCreateShader(type);
+  GLint length = strlen(src);
+  glShaderSource(shader, 1, reinterpret_cast<const GLchar**>(&src), &length);
+  glCompileShader(shader);
+
+  GLint shader_ok;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
+  if (!shader_ok) {
+    Logger::Log(LogLevel::Error, "DirectGlaw: compiling shader failed");
+    GLint log_length;
+    char* log;
+    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
+    log = new char[log_length];
+    glGetShaderInfoLog(shader, log_length, NULL, log);
+    Logger::Log(LogLevel::Error, log);
+    delete[] log;
+    glDeleteShader(shader);
+    return 0;
+  }
+
+  return shader;
+}
+
+void DirectGlaw::BuildProgram() {
+  GLuint new_program = glCreateProgram();
+  glAttachShader(new_program, vertex_shader_);
+  glAttachShader(new_program, fragment_shader_);
+  glLinkProgram(new_program);
+
+  GLint program_ok;
+  glGetProgramiv(new_program, GL_LINK_STATUS, &program_ok);
+  if (!program_ok) {
+    Logger::Log(LogLevel::Error, "DirectGlaw: linking program failed");
+    GLint log_length;
+    char* log;
+    glGetProgramiv(new_program, GL_INFO_LOG_LENGTH, &log_length);
+    log = new char[log_length];
+    glGetProgramInfoLog(new_program, log_length, NULL, log);
+    Logger::Log(LogLevel::Error, log);
+    delete[] log;
+    glDeleteProgram(new_program);
+    return;
+  }
+
+  if (shader_program_ != 0) {
+    glDeleteProgram(shader_program_);
+  }
+  shader_program_ = new_program;
+  shader_resources_.uniforms.bw_screen = glGetUniformLocation(shader_program_, "bw_screen");
+  shader_resources_.uniforms.palette = glGetUniformLocation(shader_program_, "palette");
+  shader_resources_.attributes.position = glGetAttribLocation(shader_program_, "position");
+  shader_resources_.attributes.texpos = glGetAttribLocation(shader_program_, "texpos");
 }
 
 }  // namespace forge

@@ -12,11 +12,16 @@ using std::array;
 
 DirectGlawPalette::DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array)
     : refcount_(1),
-      entries_() {
+      entries_(),
+      texture_data_(),
+      texture_(0),
+      is_opengl_inited(false) {
   // BW calls this initially with DDPCAPS_8BIT (8-bit entries) and DDPCAPS_ALLOW256 (allow all 256
   // entries to be defined). To make things simple, we will only accept those values
   assert(flags == (DDPCAPS_8BIT | DDPCAPS_ALLOW256));
   std::copy(&color_array[0], &color_array[entries_.size()], entries_.begin());
+  std::transform(entries_.begin(), entries_.end(), texture_data_.begin(),
+      ConvertToPaletteTextureEntry);
 }
 
 DirectGlawPalette::~DirectGlawPalette() {
@@ -94,8 +99,39 @@ HRESULT WINAPI DirectGlawPalette::SetEntries(DWORD unused, DWORD start, DWORD co
   assert(count > 0);
   assert(start + count <= entries_.size());
 
-  std::copy(&entries[0], &entries[entries_.size()], entries_.begin() + start);
+  std::copy(&entries[0], &entries[count], entries_.begin() + start);
+  std::transform(&entries[0], &entries[count], texture_data_.begin() + start,
+      ConvertToPaletteTextureEntry);
+
+  if (is_opengl_inited) {
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texture_data_.size(), 1, 0, GL_RGB, GL_UNSIGNED_BYTE,
+        &texture_data_[0]);
+  }
   return DD_OK;
+}
+
+DirectGlawPalette::PaletteTextureEntry DirectGlawPalette::ConvertToPaletteTextureEntry(
+    const PALETTEENTRY& entry) {
+  const PaletteTextureEntry result = { entry.peRed, entry.peGreen, entry.peBlue };
+  return result;
+}
+
+void DirectGlawPalette::InitForOpenGl() {
+  if (is_opengl_inited) {
+    return;
+  }
+
+  glGenTextures(1, &texture_);
+  glBindTexture(GL_TEXTURE_2D, texture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, texture_data_.size(), 1, 0, GL_RGB, GL_UNSIGNED_BYTE,
+      &texture_data_[0]);
+
+  is_opengl_inited = true;
 }
 
 }  // namespace forge
