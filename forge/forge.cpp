@@ -260,8 +260,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   // be full-screen
   int width = 640;
   int height = 480;
-  int left = (GetSystemMetrics(SM_CXSCREEN) - 640) / 2;  // for now, we'll just center the window
-  int top = (GetSystemMetrics(SM_CYSCREEN) - 480) / 2;
+  int left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;  // for now, we'll just center the window
+  int top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
   DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
   // we want the *client rect* to be 640x480, not the actual window size
