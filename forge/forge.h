@@ -18,6 +18,13 @@ struct ImportHooks {
       HINSTANCE hInstance, LPVOID lpParam);
   HOOKABLE(int, GetSystemMetrics, int nIndex);
   HOOKABLE(FARPROC, GetProcAddress, HMODULE hModule, LPCSTR lpProcName);
+  HOOKABLE(BOOL, IsIconic, HWND hWnd);
+  HOOKABLE(BOOL, ClientToScreen, HWND hWnd, LPPOINT lpPoint);
+  HOOKABLE(BOOL, ScreenToClient, HWND hWnd, LPPOINT lpPoint);
+  HOOKABLE(BOOL, GetClientRect, HWND hWnd, LPRECT lpRect);
+  HOOKABLE(BOOL, GetCursorPos, LPPOINT lpPoint);
+  HOOKABLE(BOOL, SetCursorPos, int x, int y);
+  HOOKABLE(BOOL, ClipCursor, const LPRECT lpRect);
 };
 #undef HOOKABLE
 
@@ -35,6 +42,15 @@ private:
   Forge& operator=(const Forge&);
 
   static LRESULT WINAPI WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam);
+  static inline int GetX(LPARAM lparam) {
+    return (int) (short) LOWORD(lparam);
+  }
+  static inline int GetY(LPARAM lparam) {
+    return (int) (short) HIWORD(lparam);
+  }
+  static inline LPARAM MakePositionParam(int x, int y) {
+    return (LPARAM) (((int) ((short) x)) | ((y) << 16));
+  }
 
   // hooks
   static HWND __stdcall CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
@@ -42,6 +58,13 @@ private:
       HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
   static int __stdcall GetSystemMetricsHook(int nIndex);
   static FARPROC __stdcall GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName);
+  static BOOL __stdcall IsIconicHook(HWND hWnd);
+  static BOOL __stdcall ClientToScreenHook(HWND hWnd, LPPOINT lpPoint);
+  static BOOL __stdcall ScreenToClientHook(HWND hWnd, LPPOINT lpPoint);
+  static BOOL __stdcall GetClientRectHook(HWND hWnd, LPRECT lpRect);
+  static BOOL __stdcall GetCursorPosHook(LPPOINT lpPoint);
+  static BOOL __stdcall SetCursorPosHook(int x, int y);
+  static BOOL __stdcall ClipCursorHook(const LPRECT lpRect);
 
   // callable from JS
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
@@ -61,6 +84,11 @@ private:
   DirectGlaw* direct_glaw_;
   char* vertex_shader_src_;
   char* fragment_shader_src_;
+
+  int client_x_;
+  int client_y_;
+  int cursor_x_;
+  int cursor_y_;
 };
 
 }  // namespace forge

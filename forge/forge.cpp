@@ -38,7 +38,11 @@ Forge::Forge()
       original_wndproc_(nullptr),
       direct_glaw_(nullptr),
       vertex_shader_src_(nullptr),
-      fragment_shader_src_(nullptr) {
+      fragment_shader_src_(nullptr),
+      client_x_(0),
+      client_y_(0),
+      cursor_x_(0),
+      cursor_y_(0) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -49,6 +53,20 @@ Forge::Forge()
       process, "user32.dll", "GetSystemMetrics", GetSystemMetricsHook);
   hooks_.GetProcAddress = new ImportHook<ImportHooks::GetProcAddressFunc>(
       process, "kernel32.dll", "GetProcAddress", GetProcAddressHook);
+  hooks_.IsIconic = new ImportHook<ImportHooks::IsIconicFunc>(
+      process, "user32.dll", "IsIconic", IsIconicHook);
+  hooks_.ClientToScreen = new ImportHook<ImportHooks::ClientToScreenFunc>(
+      process, "user32.dll", "ClientToScreen", ClientToScreenHook);
+  hooks_.ScreenToClient = new ImportHook<ImportHooks::ScreenToClientFunc>(
+      process, "user32.dll", "ScreenToClient", ScreenToClientHook);
+  hooks_.GetClientRect = new ImportHook<ImportHooks::GetClientRectFunc>(
+      process, "user32.dll", "GetClientRect", GetClientRectHook);
+  hooks_.GetCursorPos = new ImportHook<ImportHooks::GetCursorPosFunc>(
+      process, "user32.dll", "GetCursorPos", GetCursorPosHook);
+  hooks_.SetCursorPos = new ImportHook<ImportHooks::SetCursorPosFunc>(
+      process, "user32.dll", "SetCursorPos", SetCursorPosHook);
+  hooks_.ClipCursor = new ImportHook<ImportHooks::ClipCursorFunc>(
+      process, "user32.dll", "ClipCursor", ClipCursorHook);
 }
 
 Forge::~Forge() {
@@ -58,6 +76,13 @@ Forge::~Forge() {
   DELETE_(CreateWindowExA);
   DELETE_(GetSystemMetrics);
   DELETE_(GetProcAddress);
+  DELETE_(IsIconic);
+  DELETE_(ClientToScreen);
+  DELETE_(ScreenToClient);
+  DELETE_(GetClientRect);
+  DELETE_(GetCursorPos);
+  DELETE_(SetCursorPos);
+  DELETE_(ClipCursor);
   #undef DELETE_
 
   if (direct_glaw_) {
@@ -118,6 +143,13 @@ Handle<Value> Forge::Inject(const Arguments& args) {
   result &= instance_->hooks_.CreateWindowExA->Inject();
   result &= instance_->hooks_.GetSystemMetrics->Inject();
   result &= instance_->hooks_.GetProcAddress->Inject();
+  result &= instance_->hooks_.IsIconic->Inject();
+  result &= instance_->hooks_.ClientToScreen->Inject();
+  result &= instance_->hooks_.ScreenToClient->Inject();
+  result &= instance_->hooks_.GetClientRect->Inject();
+  result &= instance_->hooks_.GetCursorPos->Inject();
+  result &= instance_->hooks_.SetCursorPos->Inject();
+  result &= instance_->hooks_.ClipCursor->Inject();
 
   return scope.Close(Boolean::New(result));
 }
@@ -129,6 +161,13 @@ Handle<Value> Forge::Restore(const Arguments& args) {
   result &= instance_->hooks_.CreateWindowExA->Restore();
   result &= instance_->hooks_.GetSystemMetrics->Restore();
   result &= instance_->hooks_.GetProcAddress->Restore();
+  result &= instance_->hooks_.IsIconic->Restore();
+  result &= instance_->hooks_.ClientToScreen->Restore();
+  result &= instance_->hooks_.ScreenToClient->Restore();
+  result &= instance_->hooks_.GetClientRect->Restore();
+  result &= instance_->hooks_.GetCursorPos->Restore();
+  result &= instance_->hooks_.SetCursorPos->Restore();
+  result &= instance_->hooks_.ClipCursor->Restore();
 
   return scope.Close(Boolean::New(result));
 }
@@ -223,9 +262,8 @@ Handle<Value> Forge::SetFragmentShader(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
-LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
-  Logger::Logf(LogLevel::Verbose, "WndProc(..., 0x%04x, 0x%08x, 0x%08x)", msg, wparam, lparam);
-  
+LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {  
+  bool call_orig = true;
   switch(msg) {
   case WM_NCACTIVATE:  
   case WM_NCHITTEST:
@@ -234,9 +272,26 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_NCMOUSEMOVE:
   case WM_NCPAINT:
   case WM_PAINT:
+  case WM_ACTIVATE:
+  case WM_ACTIVATEAPP:
+  case WM_KILLFOCUS:
+  case WM_SETFOCUS:
+  case WM_SHOWWINDOW:
+  case WM_SIZE:
+  case WM_SYSCOMMAND:
     return DefWindowProc(window_handle, msg, wparam, lparam);
-  case WM_CLOSE:
-    MessageBox(window_handle, "Omg." ,"Pls no...", MB_OK);
+  case WM_MOVE:
+    instance_->client_x_ = GetX(lparam);
+    instance_->client_y_ = GetY(lparam);
+    return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_MOUSEMOVE:
+    // cache the actual mouse position for GetCursorPos
+    instance_->cursor_x_ = GetX(lparam);
+    instance_->cursor_y_ = GetY(lparam);
+  }
+
+  if (!call_orig) {
+    return 0;
   }
 
   if (!instance_->original_wndproc_) {
@@ -263,6 +318,10 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   int left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;  // for now, we'll just center the window
   int top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
   DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
+
+  // set our initial cached client rect positions
+  instance_->client_x_ = left;
+  instance_->client_y_ = top;
 
   // we want the *client rect* to be 640x480, not the actual window size
   RECT window_rect;
@@ -305,6 +364,88 @@ FARPROC __stdcall Forge::GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName) 
   } else {
     return instance_->hooks_.GetProcAddress->original()(hModule, lpProcName);
   }
+}
+
+BOOL __stdcall Forge::IsIconicHook(HWND hWnd) {
+  if (hWnd == instance_->window_handle_) {
+    return FALSE;
+  } else {
+    return instance_->hooks_.IsIconic->original()(hWnd);
+  }
+}
+
+BOOL __stdcall Forge::ClientToScreenHook(HWND hWnd, LPPOINT lpPoint) {
+  if (hWnd != instance_->window_handle_) {
+    return  instance_->hooks_.ClientToScreen->original()(hWnd, lpPoint);
+  }
+
+  // We want BW to think its full screen, and therefore any coordinates it wants in screenspace
+  // would be the same as the ones its passing in
+  return TRUE;
+}
+
+BOOL __stdcall Forge::ScreenToClientHook(HWND hWnd, LPPOINT lpPoint) {
+  if (hWnd != instance_->window_handle_) {
+    return instance_->hooks_.ScreenToClient->original()(hWnd, lpPoint);
+  }
+
+  Logger::Logf(LogLevel::Verbose, "ScreenToClient(%d, %d)", lpPoint->x, lpPoint->y);
+  RECT window_rect;
+  RECT client_rect;
+  GetWindowRect(hWnd, &window_rect);
+  GetClientRect(hWnd, &client_rect);
+  LONG border_size_x = ((window_rect.right - window_rect.left) - client_rect.right) / 2;
+  int border_size_y = GetSystemMetrics(SM_CYCAPTION);
+  lpPoint->x += window_rect.left + border_size_x;
+  lpPoint->y += window_rect.top + border_size_y;
+  assert((window_rect.bottom - window_rect.top) ==
+      (client_rect.bottom + border_size_y + border_size_x));
+
+  BOOL result = instance_->hooks_.ScreenToClient->original()(hWnd, lpPoint);
+  Logger::Logf(LogLevel::Verbose, "=> (%d, %d)", lpPoint->x, lpPoint->y);
+  return result;
+}
+
+BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
+  if (hWnd != instance_->window_handle_) {
+    return instance_->hooks_.GetClientRect->original()(hWnd, lpRect);
+  }
+
+  lpRect->left = 0;
+  lpRect->top = 0;
+  lpRect->right = 640;
+  lpRect->bottom = 480;
+  return TRUE;
+}
+
+BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
+  // BW thinks its running full screen in 640x480, so we give it our client area coords
+  lpPoint->x = instance_->cursor_x_;
+  lpPoint->y = instance_->cursor_y_;
+  return TRUE;
+}
+
+BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
+  // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
+  // the additional top/left space it doesn't know about
+  x += instance_->client_x_;
+  y += instance_->client_y_;
+  return instance_->hooks_.SetCursorPos->original()(x, y);
+}
+
+BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
+  if (lpRect == NULL) {
+    // if they're clearing the clip, we just call through because there's nothing to adjust
+    return instance_->hooks_.ClipCursor->original()(lpRect);
+  }
+  // BW thinks its running full screen 640x480, so it will request a 640x480 clip
+  // Instead, we'll request our window's actual client area
+  RECT actual_rect;
+  actual_rect.left = lpRect->left + instance_->client_x_;
+  actual_rect.top = lpRect->top + instance_->client_y_;
+  actual_rect.right = actual_rect.left + 640;
+  actual_rect.bottom = actual_rect.top + 480;
+  return instance_->hooks_.ClipCursor->original()(&actual_rect);
 }
 
 }  // namespace forge
