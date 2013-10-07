@@ -15,7 +15,7 @@
 #include "common/types.h"
 
 // enables/disables in-depth logging about DirectDraw method calls
-#define DIRECTDRAWLOG true
+#define DIRECTDRAWLOG false
 
 namespace sbat {
 namespace forge {
