@@ -372,6 +372,7 @@ HRESULT WINAPI DirectGlawSurface::SetPalette(IDirectDrawPalette* palette) {
   }
 
   palette_ = reinterpret_cast<DirectGlawPalette*>(palette);
+  palette_->AddRef();
   palette_->InitForOpenGl();
   return DD_OK;
 }
