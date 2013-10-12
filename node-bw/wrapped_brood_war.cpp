@@ -211,7 +211,6 @@ void WrappedBroodWar::Init() {
   SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
   SetProtoMethod(tpl, "startGameCountdown", StartGameCountdown);
   SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
-  SetProtoMethod(tpl, "loadPlugin", LoadPlugin);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -764,75 +763,6 @@ Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
   context->bw = WrappedBroodWar::Unwrap(args);
 
   sbat::QueueWorkForUiThread(context, RunGameLoopWork, RunGameLoopAfter);
-
-  return scope.Close(v8::Undefined());
-}
-
-struct LoadPluginContext {
-  uv_work_t req;
-  wstring* plugin_path;
-  Persistent<Function> callback;
-
-  WindowsError* error;
-};
-
-void LoadPluginWork(uv_work_t* req) {
-  LoadPluginContext* context = reinterpret_cast<LoadPluginContext*>(req->data);
-  HMODULE handle = LoadLibraryW(context->plugin_path->c_str());
-  if (handle != NULL) {
-    context->error = new WindowsError();
-  } else {
-    context->error = new WindowsError(GetLastError());
-  }
-}
-
-void LoadPluginAfter(uv_work_t* req, int status) {
-  HandleScope scope;
-  LoadPluginContext* context = reinterpret_cast<LoadPluginContext*>(req->data);
-
-  Local<Value> err = Local<Value>::New(v8::Null());
-  if (context->error->is_error()) {
-    err = Exception::Error(
-        String::New(reinterpret_cast<const uint16_t*>(context->error->message().c_str())));
-  }
-
-  Local<Value> argv[] = { err };
-  TryCatch try_catch;
-  context->callback->Call(Context::GetCurrent()->Global(), 1, argv);
-
-  context->callback.Dispose();
-  delete context->plugin_path;
-  delete context->error;
-  delete context;
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
-}
-
-Handle<Value> WrappedBroodWar::LoadPlugin(const Arguments& args) {
-  // TODO(tec27): for now this is just loading a DLL, eventually this should handle some sort of
-  // plugin API (or not, I dunno yet)
-  HandleScope scope;
-
-  if (args.Length() < 2) {
-    ThrowException(Exception::Error(String::New("Incorrect number of arguments")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[0]->IsString() && !args[0]->IsStringObject()) {
-    ThrowException(Exception::TypeError(String::New("pluginPath must be a string")));
-    return scope.Close(v8::Undefined());
-  }
-  if (!args[1]->IsFunction()) {
-    ThrowException(Exception::TypeError(String::New("callback must be a function")));
-    return scope.Close(v8::Undefined());
-  }
-
-  LoadPluginContext* context = new LoadPluginContext;
-  context->plugin_path = ToWstring(args[0].As<String>());
-  context->callback = Persistent<Function>::New(args[1].As<Function>());
-  context->req.data = context;
-  uv_queue_work(uv_default_loop(), &context->req, LoadPluginWork, LoadPluginAfter);
 
   return scope.Close(v8::Undefined());
 }

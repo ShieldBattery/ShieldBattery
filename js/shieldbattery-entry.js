@@ -24,7 +24,6 @@ var io = require('socket.io-client')
   , path = require('path')
   , host = require('./shieldbattery/host')
   , join = require('./shieldbattery/join')
-  , shieldbatteryRoot = path.dirname(path.resolve(process.argv[0]))
 
 var socket = io.connect('https://lifeoflively.net:33198/game')
 
@@ -34,27 +33,6 @@ socket.on('connect', function() {
   log.verbose('Disconnected from psi...')
 }).on('error', function(err) {
   log.error('Error connecting to psi, is it running? Error: ' + err)
-}).on('load', function(plugins, cb) {
-  var leftToLoad = plugins.length
-    , errors = {}
-
-  if (!plugins.length) done()
-
-  plugins.forEach(function(plugin) {
-    var absolute = path.resolve(shieldbatteryRoot, 'plugins', plugin)
-    bw.loadPlugin(absolute, function(err) {
-      if (err) {
-        errors[plugin] = err.message
-        log.error('could not load ' + plugin + ': ' + err)
-      }
-      leftToLoad--
-      if (!leftToLoad) done()
-    })
-  })
-
-  function done() {
-    cb(errors)
-  }
 }).on('hostMode', function() {
   log.verbose('enabling host mode')
   host(socket, forge)
