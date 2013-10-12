@@ -131,6 +131,7 @@
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'
       ],
+      'msvs_disabled_warnings': [ 4996 ],
     },
 
     {
