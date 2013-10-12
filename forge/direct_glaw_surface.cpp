@@ -21,6 +21,7 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
     height_(owner->display_height()),
     pitch_(0),
     surface_data_(),
+    texture_(0),
     vertex_buffer_(),
     element_buffer_() {
   owner_->AddRef();
@@ -69,8 +70,12 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
   glBindTexture(GL_TEXTURE_2D, texture_);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width_, height_, 0, GL_RED, GL_UNSIGNED_BYTE,
+      &surface_data_[0]);
 }
 
 DirectGlawSurface::~DirectGlawSurface() {
@@ -525,8 +530,8 @@ HRESULT WINAPI DirectGlawSurface::GetLOD(DWORD* lod_out) {
 }
 
 void DirectGlawSurface::Render() {
-  glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-  glClear( GL_COLOR_BUFFER_BIT );
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
   GLuint shader_program = owner_->shader_program();
   if (!shader_program) {
@@ -537,7 +542,7 @@ void DirectGlawSurface::Render() {
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width_, height_, 0, GL_RED, GL_UNSIGNED_BYTE,
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, GL_RED, GL_UNSIGNED_BYTE,
       &surface_data_[0]);
   glUniform1i(resources->uniforms.bw_screen, 0);
   palette_->BindTexture(resources->uniforms.palette, GL_TEXTURE1, 1);

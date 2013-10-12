@@ -134,12 +134,16 @@ public:
 
 private:
   struct PaletteTextureEntry {
-    byte red;
-    byte green;
     byte blue;
+    byte green;
+    byte red;
+    byte alpha;
   };
 
-  static PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry);
+  static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
+    const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
+    return result;
+  }
 
   int refcount_;
   std::array<PALETTEENTRY, 256> entries_;
