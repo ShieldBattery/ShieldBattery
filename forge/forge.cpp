@@ -278,8 +278,13 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_SETFOCUS:
   case WM_SHOWWINDOW:
   case WM_SIZE:
-  case WM_SYSCOMMAND:
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_SYSCOMMAND:
+    if (wparam == SC_KEYMENU || wparam == SC_MOUSEMENU) {
+      return 0;
+    } else {
+      return DefWindowProc(window_handle, msg, wparam, lparam);
+    }
   case WM_MOVE:
     instance_->client_x_ = GetX(lparam);
     instance_->client_y_ = GetY(lparam);
