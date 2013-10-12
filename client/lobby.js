@@ -320,25 +320,8 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       return cleanUp()
     }
 
-    loadPlugins()
+    initiateGameMode()
   })
-
-
-  function loadPlugins() {
-    var plugins = [ 'wmode.dll' ]
-    self.psiSocket.emit('game/load', plugins, function(errs) {
-      var launch = true
-      Object.keys(errs).forEach(function(key) {
-        console.log('Error loading ' + key + ': ' + errs[key])
-        launch = false
-      })
-      if (!launch) {
-        return cleanUp()
-      }
-
-      initiateGameMode()
-    })
-  }
 
   function initiateGameMode() {
     if (self.isHost) {
