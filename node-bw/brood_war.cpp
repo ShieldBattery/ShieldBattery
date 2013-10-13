@@ -376,8 +376,6 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
 }
 
 bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
-  // while (!IsDebuggerPresent()) { }
-  // DebugBreak();
   auto join = offsets_->functions.JoinGame;
   const JoinableGameInfo* arg = &game_info;
   uint32 result;
