@@ -133,12 +133,14 @@ public:
   }
 
 private:
+#pragma pack(push, 1)
   struct PaletteTextureEntry {
     byte blue;
     byte green;
     byte red;
     byte alpha;
   };
+#pragma pack(pop)
 
   static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
     const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
@@ -243,7 +245,7 @@ public:
   HRESULT WINAPI GetLOD(DWORD* lod_out);
 
   // custom functions
-  inline bool isPrimarySurface() const {
+  inline bool is_primary_surface() const {
     return (surface_desc_.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) != 0;
   }
   void Render();
@@ -256,10 +258,15 @@ private:
   DWORD width_;
   DWORD height_;
   LONG pitch_;
+  uint32 texture_internal_format_;
+  uint32 texture_format_;
   std::vector<byte> surface_data_;
-  GLuint texture_;
+  std::array<GLuint, 2> textures_;
+  uint32 texture_in_use_;
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
+  LARGE_INTEGER counter_frequency_;
+  LARGE_INTEGER last_frame_time_;
 };
 
 }  // namespace forge

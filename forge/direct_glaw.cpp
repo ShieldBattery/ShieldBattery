@@ -1,6 +1,7 @@
 #include "forge/direct_glaw.h"
 
 #include <gl/glew.h>
+#include <gl/wglew.h>
 #include <gl/gl.h>
 
 #include "forge/forge.h"
@@ -341,7 +342,7 @@ void DirectGlaw::InitializeOpenGl() {
   pixel_format.nVersion = 1;
   pixel_format.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
   pixel_format.iPixelType = PFD_TYPE_RGBA;
-  pixel_format.cColorBits = 24;
+  pixel_format.cColorBits = 32;
   pixel_format.cDepthBits = 32;
   pixel_format.iLayerType = PFD_MAIN_PLANE;
   int format = ChoosePixelFormat(dc_, &pixel_format);
@@ -360,6 +361,11 @@ void DirectGlaw::InitializeOpenGl() {
   if (!GLEW_VERSION_2_0) {
     Logger::Log(LogLevel::Error, "OpenGL 2.0 not available");
     return;
+  }
+  if (!WGLEW_EXT_swap_control) {
+    Logger::Log(LogLevel::Warning, "OpenGL does not support swap control, vsync may cause issues");
+  } else {
+    wglSwapIntervalEXT(0); // disable vsync, which causes some pretty annoying issues in BW
   }
 
   opengl_initialized_ = true;

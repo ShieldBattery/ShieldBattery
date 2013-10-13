@@ -20,11 +20,21 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
     width_(owner->display_width()),
     height_(owner->display_height()),
     pitch_(0),
+    texture_internal_format_(GL_RGBA8),
+    texture_format_(GL_LUMINANCE),
     surface_data_(),
-    texture_(0),
+    textures_(),
+    texture_in_use_(0),
     vertex_buffer_(),
-    element_buffer_() {
+    element_buffer_(),
+    counter_frequency_(),
+    last_frame_time_() {
   owner_->AddRef();
+
+  if (GLEW_VERSION_3_0) {
+    texture_internal_format_ = GL_R8;
+    texture_format_ = GL_RED;
+  }
 
   if (surface_desc_.dwFlags & DDSD_WIDTH) {
     width_ = surface_desc_.dwWidth;
@@ -66,16 +76,22 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
   const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
   element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
 
-  glGenTextures(1, &texture_);
-  glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width_, height_, 0, GL_RED, GL_UNSIGNED_BYTE,
-      &surface_data_[0]);
+  glGenTextures(textures_.size(), &textures_[0]);
+  for (uint32 i = 0; i < textures_.size(); ++i) {
+    glActiveTexture(GL_TEXTURE0 + i);
+    glBindTexture(GL_TEXTURE_2D, textures_[i]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D, 0, texture_internal_format_, width_, height_, 0,
+        texture_format_, GL_UNSIGNED_BYTE, NULL);
+  }
+
+  QueryPerformanceFrequency(&counter_frequency_);
+  counter_frequency_.QuadPart /= 1000LL; // convert to ticks per millisecond
 }
 
 DirectGlawSurface::~DirectGlawSurface() {
@@ -310,7 +326,9 @@ HRESULT WINAPI DirectGlawSurface::IsLost() {
 
 HRESULT WINAPI DirectGlawSurface::Lock(RECT* dest_rect, DDSURFACEDESC2* surface_desc, DWORD flags,
     HANDLE unused) {
-  // Lock is incredibly spammy, so we never log this call out, even when set to log DirectDraw calls
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface::Lock called");
+  }
 
   // Ensure our assumptions are correct across all lock calls, if this ever fails, please fix or
   // file a bug :)
@@ -383,9 +401,11 @@ HRESULT WINAPI DirectGlawSurface::SetPalette(IDirectDrawPalette* palette) {
 }
 
 HRESULT WINAPI DirectGlawSurface::Unlock(RECT* locked_rect) {
-  // Similar to Lock, this is also very spammy, so we don't log it
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface::Unlock called");
+  }
 
-  if (isPrimarySurface()) {
+  if (is_primary_surface()) {
     Render();
   }
 
@@ -530,8 +550,35 @@ HRESULT WINAPI DirectGlawSurface::GetLOD(DWORD* lod_out) {
 }
 
 void DirectGlawSurface::Render() {
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
+  // iteration loop during data intialization when there's nothing to actually render) and this
+  // causes issues when the graphics card decides it doesn't want to queue commands any more. To
+  // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
+  // making rendering calls this fast. 120Hz seems like a "reasonable" limit to me (and by
+  // reasonable, I mean unlikely to cause weird issues), even though BW will never actually update
+  // any state that fast.
+  LARGE_INTEGER frame_time;
+  QueryPerformanceCounter(&frame_time);
+  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 8) {
+    return;
+  }
+
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering");
+  }
+
+  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, texture_format_, GL_UNSIGNED_BYTE,
+      &surface_data_[0]);
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after screen texture copied");
+  }
+  // flip our texture so we don't have to wait for the graphics card in order to render the next
+  // frame
+  ++texture_in_use_;
+  if (texture_in_use_ >= textures_.size()) {
+    texture_in_use_ = 0;
+  }
 
   GLuint shader_program = owner_->shader_program();
   if (!shader_program) {
@@ -540,12 +587,24 @@ void DirectGlawSurface::Render() {
   const ShaderResources* resources = owner_->shader_resources();
   glUseProgram(shader_program);
 
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, GL_RED, GL_UNSIGNED_BYTE,
-      &surface_data_[0]);
-  glUniform1i(resources->uniforms.bw_screen, 0);
-  palette_->BindTexture(resources->uniforms.palette, GL_TEXTURE1, 1);
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after use program");
+  }
+
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after clear");
+  }
+
+  glActiveTexture(GL_TEXTURE0 + texture_in_use_);
+  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
+  glUniform1i(resources->uniforms.bw_screen, texture_in_use_);
+  palette_->BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after textures bound");
+  }
 
   glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
   glEnableVertexAttribArray(resources->attributes.position);
@@ -561,6 +620,13 @@ void DirectGlawSurface::Render() {
   glDisableVertexAttribArray(resources->attributes.position);
 
   owner_->SwapBuffers();
+
+  QueryPerformanceCounter(&last_frame_time_);
+  if (DIRECTDRAWLOG) {
+    Logger::Logf(LogLevel::Verbose,
+        "DirectGlawSurface rendering completed [perf counter: %lld]",
+        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
+  }
 }
 
 }  // namespace forge
