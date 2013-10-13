@@ -118,6 +118,7 @@ struct Detours {
   Detour* OnLobbyStartCountdown;
   Detour* OnLobbyGameInit;
   Detour* OnLobbyMissionBriefing;
+  Detour* OnMenuErrorDialog;
   Detour* InitializeSnpList;
   Detour* RenderDuringInitSpritesOne;
   Detour* RenderDuringInitSpritesTwo;
@@ -134,6 +135,7 @@ struct EventHandlers {
   void (*OnLobbyGameInit)(uint32 random_seed, byte player_bytes[8]);
   void (*OnLobbyMissionBriefing)(byte slot);
   void (*OnLobbyChatMessage)(byte slot, const std::string& message);
+  void (*OnMenuErrorDialog)(const std::string& message);
 };
 
 struct Offsets {
@@ -223,6 +225,7 @@ public:
   static void __stdcall OnLobbyStartCountdown();
   static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
   static void __stdcall OnLobbyMissionBriefing(uint32 slot);
+  static void __stdcall OnMenuErrorDialog(char* message);
   static void __stdcall OnInitializeSnpList(char* snp_directory);
   static void __stdcall NoOp() { }
 
@@ -310,6 +313,10 @@ Offsets* GetOffsets<Version::v1161>() {
       .At(0x00486462).To(BroodWar::OnLobbyMissionBriefing)
       .WithArgument(RegisterArgument::Eax)
       .RunningOriginalCodeBefore());
+  offsets->detours.OnMenuErrorDialog = new Detour(Detour::Builder()
+      .At(0x004BB0FF).To(BroodWar::OnMenuErrorDialog)
+      .WithArgument(RegisterArgument::Edx)
+      .RunningOriginalCodeAfter());
   offsets->detours.InitializeSnpList = new Detour(Detour::Builder()
       .At(storm_base + 0x0003DED9).To(BroodWar::OnInitializeSnpList)
       .WithArgument(RegisterArgument::Esi)

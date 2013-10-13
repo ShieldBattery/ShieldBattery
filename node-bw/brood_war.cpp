@@ -90,6 +90,12 @@ void __stdcall BroodWar::OnLobbyMissionBriefing(uint32 slot) {
     instance_->event_handlers_->OnLobbyMissionBriefing(static_cast<byte>(slot));
   }
 }
+
+void __stdcall BroodWar::OnMenuErrorDialog(char* message) {
+  if (HAVE_HANDLER_FOR(OnMenuErrorDialog)) {
+    instance_->event_handlers_->OnMenuErrorDialog(message);
+  }
+}
 #undef HAVE_HANDLER_FOR
 
 void __stdcall BroodWar::OnInitializeSnpList(char* snp_directory) {
@@ -105,6 +111,7 @@ void BroodWar::InjectDetours() {
   offsets_->detours.OnLobbyStartCountdown->Inject();
   offsets_->detours.OnLobbyGameInit->Inject();
   offsets_->detours.OnLobbyMissionBriefing->Inject();
+  offsets_->detours.OnMenuErrorDialog->Inject();
   offsets_->detours.InitializeSnpList->Inject();
   offsets_->detours.RenderDuringInitSpritesOne->Inject();
   offsets_->detours.RenderDuringInitSpritesTwo->Inject();

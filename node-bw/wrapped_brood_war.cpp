@@ -167,6 +167,7 @@ void WrappedBroodWar::Init() {
   handlers.OnLobbyGameInit = OnLobbyGameInit;
   handlers.OnLobbyMissionBriefing = OnLobbyMissionBriefing;
   handlers.OnLobbyChatMessage = OnLobbyChatMessage;
+  handlers.OnMenuErrorDialog = OnMenuErrorDialog;
   bw->set_event_handlers(handlers);
 
   Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
@@ -195,6 +196,7 @@ void WrappedBroodWar::Init() {
   EVENT_HANDLER("onLobbyGameInit");
   EVENT_HANDLER("onLobbyMissionBriefing");
   EVENT_HANDLER("onLobbyChatMessage");
+  EVENT_HANDLER("onMenuErrorDialog");
 #undef EVENT_HANDLER
 
   // functions
@@ -872,6 +874,16 @@ void WrappedBroodWar::OnLobbyChatMessage(byte slot, const std::string& message) 
   info->method_name = new std::string("onLobbyChatMessage");
   info->args = new vector<Persistent<Value>>;
   info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+  info->args->push_back(Persistent<String>::New(String::New(message.c_str())));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnMenuErrorDialog(const std::string& message) {
+  HandleScope scope;
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onMenuErrorDialog");
+  info->args = new vector<Persistent<Value>>;
   info->args->push_back(Persistent<String>::New(String::New(message.c_str())));
 
   AddImmediateCallback(EventHandlerImmediate, info);

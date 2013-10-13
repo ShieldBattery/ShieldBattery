@@ -37,7 +37,12 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
 
   this.started = true
   log.verbose('joinLobby called')
-  bw.initProcess(function afterInit() {
+  bw.initProcess(function afterInit(err) {
+    if (err) {
+      log.error(err)
+      cb({ msg: err.message })
+      return
+    }
     log.verbose('process initialized')
 
     self.endWndProc = self.forge.runWndProc(function() {
@@ -50,6 +55,7 @@ JoinHandler.prototype.onJoinLobby = function(params, cb) {
   function onJoined(err, newLobby) {
     if (err) {
       self.started = false
+      self.endWndProc()
       log.error(err)
       cb({ msg: err.message })
       return

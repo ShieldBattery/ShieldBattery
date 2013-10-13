@@ -1,7 +1,6 @@
 var bindings = require('bindings')('bw')
   , bw = bindings()
   , EventEmitter = require('events').EventEmitter
-  , path = require('path')
   , util = require('util')
 
 var processInitialized = false
@@ -127,6 +126,7 @@ BroodWar.prototype.joinLobby = function(playerName, host, port, cb) {
 BroodWar.prototype.initProcess = function(cb) {
   cb = cb.bind(this)
   if (processInitialized) {
+    this._log('verbose', 'Already initialized')
     return cb()
   }
   var self = this
@@ -135,7 +135,9 @@ BroodWar.prototype.initProcess = function(cb) {
 
     self.bindings.isBroodWar = true
     self.bindings.initSprites(function(err) {
-      processInitialized = true
+      if (!err) {
+        processInitialized = true
+      }
       cb(err)
     })
   })
@@ -194,6 +196,10 @@ function Lobby(bindings, bw) {
   this.bindings.onLobbyChatMessage = function(slot, message) {
     self._gameEmitter.emit('chatMessage', slot, message)
     self.bw._log('debug', util.format('[Lobby] <%d>: %s', slot, message))
+  }
+
+  this.bindings.onMenuErrorDialog = function(message) {
+    self.bw._log('error', 'BW Error: ' + message)
   }
 
   this._gameEmitter.on('downloadStatus', function(slot, percent) {

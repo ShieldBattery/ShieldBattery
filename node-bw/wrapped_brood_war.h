@@ -148,6 +148,7 @@ private:
   static void OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]);
   static void OnLobbyMissionBriefing(byte slot);
   static void OnLobbyChatMessage(byte slot, const std::string& message);
+  static void OnMenuErrorDialog(const std::string& message);
   
   // Functions for logging
   static void Log(void* arg, LogLevel level, const char* msg);
