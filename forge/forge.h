@@ -3,6 +3,7 @@
 
 #include <node.h>
 #include <v8.h>
+#include <dsound.h>
 
 #include "common/func_hook.h"
 #include "forge/direct_glaw.h"
@@ -27,6 +28,9 @@ struct ImportHooks {
   HOOKABLE(BOOL, ClipCursor, const LPRECT lpRect);
 };
 #undef HOOKABLE
+
+typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr, 
+    const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
 
 class Forge : public node::ObjectWrap {
 public:
@@ -65,6 +69,10 @@ private:
   static BOOL __stdcall GetCursorPosHook(LPPOINT lpPoint);
   static BOOL __stdcall SetCursorPosHook(int x, int y);
   static BOOL __stdcall ClipCursorHook(const LPRECT lpRect);
+  static HRESULT __stdcall DirectSoundCreate8Hook(
+      const GUID* device, IDirectSound8** direct_sound_out, IUnknown* unused);
+  static HRESULT __stdcall CreateSoundBufferHook(IDirectSound8* this_ptr, 
+      const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
 
   // callable from JS
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
@@ -79,6 +87,7 @@ private:
   static Forge* instance_;
 
   ImportHooks hooks_;
+  FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
   DirectGlaw* direct_glaw_;

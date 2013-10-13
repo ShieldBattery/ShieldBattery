@@ -34,6 +34,7 @@ Forge* Forge::instance_ = nullptr;
 
 Forge::Forge()
     : hooks_(),
+      create_sound_buffer_hook_(nullptr),
       window_handle_(NULL),
       original_wndproc_(nullptr),
       direct_glaw_(nullptr),
@@ -85,6 +86,16 @@ Forge::~Forge() {
   DELETE_(ClipCursor);
   #undef DELETE_
 
+  if (create_sound_buffer_hook_) {
+    delete create_sound_buffer_hook_;
+    create_sound_buffer_hook_ = nullptr;
+    // we use LoadLibrary in DirectSoundCreateHook, so we need to free the library here if its still
+    // loaded
+    HMODULE dsound = GetModuleHandle("dsound.dll");
+    if (dsound != NULL) {
+      FreeLibrary(dsound);
+    }
+  }
   if (direct_glaw_) {
     direct_glaw_->Release();
     direct_glaw_ = nullptr;
@@ -366,6 +377,9 @@ FARPROC __stdcall Forge::GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName) 
   if (strcmp(lpProcName, "DirectDrawCreate") == 0) {
     Logger::Log(LogLevel::Verbose, "Injecting custom DirectDrawCreate");
     return reinterpret_cast<FARPROC>(DirectGlawCreate);
+  } else if (strcmp(lpProcName, "DirectSoundCreate8")) {
+    Logger::Log(LogLevel::Verbose, "Injecting custom DirectSoundCreate8");
+    return reinterpret_cast<FARPROC>(DirectSoundCreate8Hook);
   } else {
     return instance_->hooks_.GetProcAddress->original()(hModule, lpProcName);
   }
@@ -451,6 +465,53 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   actual_rect.right = actual_rect.left + 640;
   actual_rect.bottom = actual_rect.top + 480;
   return instance_->hooks_.ClipCursor->original()(&actual_rect);
+}
+
+typedef HRESULT (__stdcall *DirectSoundCreateFunc)(const GUID* device,
+    IDirectSound8** direct_sound_out, IUnknown* unused);
+HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
+    IDirectSound8** direct_sound_out, IUnknown* unused) {
+  HMODULE dsound = LoadLibrary("dsound.dll");
+  assert(dsound != NULL);
+  DirectSoundCreateFunc real_create = reinterpret_cast<DirectSoundCreateFunc>(
+      GetProcAddress(dsound, "DirectSoundCreate8"));
+  assert(real_create != NULL);
+  HRESULT result = real_create(device, direct_sound_out, unused);
+  if (result != DS_OK) {
+    Logger::Log(LogLevel::Verbose, "DirectSound creation failed");
+    return result;
+  }
+
+  Logger::Log(LogLevel::Verbose, "DirectSound created");
+  if (instance_->create_sound_buffer_hook_ == nullptr) {
+    Logger::Log(LogLevel::Verbose, "Hooking CreateSoundBuffer");
+    // the vtable isn't really full of CreateSoundBufferFuncs, but close enough ;)
+    CreateSoundBufferFunc* vtable = *reinterpret_cast<CreateSoundBufferFunc**>(*direct_sound_out);
+    CreateSoundBufferFunc create_sound_buffer = vtable[3]; // 4th function is CSB
+    instance_->create_sound_buffer_hook_ = new FuncHook<CreateSoundBufferFunc>(
+        create_sound_buffer, Forge::CreateSoundBufferHook);
+    instance_->create_sound_buffer_hook_->Inject();
+    Logger::Logf(LogLevel::Verbose, "CreateSoundBuffer hooked.", create_sound_buffer);
+  }
+
+  return result;
+}
+
+HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr, 
+    const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused) {
+  HRESULT result;
+  instance_->create_sound_buffer_hook_->Restore();
+
+  if (buffer_desc->dwFlags & DSBCAPS_GLOBALFOCUS || buffer_desc->dwFlags & DSBCAPS_PRIMARYBUFFER) {
+    result = this_ptr->CreateSoundBuffer(buffer_desc, buffer_out, unused);
+  } else {
+    DSBUFFERDESC rewritten_desc = *buffer_desc;
+    rewritten_desc.dwFlags |= DSBCAPS_GLOBALFOCUS;
+    result = this_ptr->CreateSoundBuffer(&rewritten_desc, buffer_out, unused);
+  }
+
+  instance_->create_sound_buffer_hook_->Inject();
+  return result;
 }
 
 }  // namespace forge
