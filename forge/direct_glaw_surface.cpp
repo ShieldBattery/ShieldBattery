@@ -562,6 +562,11 @@ void DirectGlawSurface::Render() {
   if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 8) {
     return;
   }
+  // Don't render while minimized (we tell BW its never minimized, so even though it has a check for
+  // this, it will be rendering anyway)
+  if (IsIconic(owner_->window())) {
+    return;
+  }
 
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering");

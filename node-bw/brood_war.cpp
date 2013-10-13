@@ -106,6 +106,8 @@ void BroodWar::InjectDetours() {
   offsets_->detours.OnLobbyGameInit->Inject();
   offsets_->detours.OnLobbyMissionBriefing->Inject();
   offsets_->detours.InitializeSnpList->Inject();
+  offsets_->detours.RenderDuringInitSpritesOne->Inject();
+  offsets_->detours.RenderDuringInitSpritesTwo->Inject();
 
   offsets_->func_hooks.LobbyChatShowMessage->Inject();
 }

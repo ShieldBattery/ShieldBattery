@@ -86,6 +86,7 @@ public:
   inline DWORD display_bpp() const { return display_bpp_; }
   inline GLuint shader_program() const { return shader_program_; }
   inline const ShaderResources* shader_resources() const { return &shader_resources_; }
+  inline HWND window() const { return window_; }
   void InitializeOpenGl();
   void SwapBuffers();
   void SetVertexShader(char* shader_src);

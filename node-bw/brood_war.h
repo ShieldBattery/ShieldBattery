@@ -119,6 +119,8 @@ struct Detours {
   Detour* OnLobbyGameInit;
   Detour* OnLobbyMissionBriefing;
   Detour* InitializeSnpList;
+  Detour* RenderDuringInitSpritesOne;
+  Detour* RenderDuringInitSpritesTwo;
 };
 
 struct FuncHooks {
@@ -222,6 +224,7 @@ public:
   static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
   static void __stdcall OnLobbyMissionBriefing(uint32 slot);
   static void __stdcall OnInitializeSnpList(char* snp_directory);
+  static void __stdcall NoOp() { }
 
   // FuncHooks
   static void __stdcall ShowLobbyChatHook(char* message);
@@ -311,6 +314,13 @@ Offsets* GetOffsets<Version::v1161>() {
       .At(storm_base + 0x0003DED9).To(BroodWar::OnInitializeSnpList)
       .WithArgument(RegisterArgument::Esi)
       .RunningOriginalCodeAfter());
+  // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
+  offsets->detours.RenderDuringInitSpritesOne = new Detour(Detour::Builder()
+      .At(0x0047AEB1).To(BroodWar::NoOp)
+      .NotRunningOriginalCode());
+  offsets->detours.RenderDuringInitSpritesTwo = new Detour(Detour::Builder()
+      .At(0x0047AFB1).To(BroodWar::NoOp)
+      .NotRunningOriginalCode());
 
   offsets->func_hooks.LobbyChatShowMessage = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
       offsets->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
