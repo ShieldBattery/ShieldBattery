@@ -204,7 +204,6 @@ void WndProcWorker(void* arg) {
     DispatchMessage(&msg);
   }
 
-  // TODO(tec27): deal with this quit flag
   context->quit = true;
 }
 

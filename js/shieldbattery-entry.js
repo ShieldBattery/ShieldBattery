@@ -20,29 +20,46 @@ if (!forge.inject()) {
   log.verbose('forge injected')
 }
 
+forge.on('startWndProc', function() {
+  log.verbose('forge\'s wndproc pump started')
+}).on('endWndProc', function() {
+  log.verbose('forge\'s wndproc pump finished')
+})
+
 var io = require('socket.io-client')
-  , path = require('path')
   , host = require('./shieldbattery/host')
   , join = require('./shieldbattery/join')
 
-var socket = io.connect('https://lifeoflively.net:33198/game')
+bw.initProcess(function afterInit(err) {
+  if (err) {
+    throw err
+  }
 
-socket.on('connect', function() {
-  log.verbose('Connected to psi.')
-}).on('disconnect', function() {
-  log.verbose('Disconnected from psi...')
-}).on('error', function(err) {
-  log.error('Error connecting to psi, is it running? Error: ' + err)
-}).on('hostMode', function() {
-  log.verbose('enabling host mode')
-  host(socket, forge)
-}).on('joinMode', function() {
-  log.verbose('enabling join mode')
-  join(socket, forge)
-}).on('quit', function() {
-  setTimeout(function() {
-    process.exit()
-  }, 100)
+  log.verbose('process initialized')
+  forge.runWndProc()
+
+  connectToPsi()
 })
 
+function connectToPsi() {
+  var socket = io.connect('https://lifeoflively.net:33198/game')
+
+  socket.on('connect', function() {
+    log.verbose('Connected to psi.')
+  }).on('disconnect', function() {
+    log.verbose('Disconnected from psi...')
+  }).on('error', function(err) {
+    log.error('Error connecting to psi, is it running? Error: ' + err)
+  }).on('hostMode', function() {
+    log.verbose('enabling host mode')
+    host(socket, forge)
+  }).on('joinMode', function() {
+    log.verbose('enabling join mode')
+    join(socket, forge)
+  }).on('quit', function() {
+    setTimeout(function() {
+      process.exit()
+    }, 100)
+  })
+}
 

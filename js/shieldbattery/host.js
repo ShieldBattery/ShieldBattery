@@ -1,9 +1,10 @@
 var bw = require('bw')
   , log = require('./logger')
   , sub = require('./sub')
+  , forge = require('forge')
 
-module.exports = function(socket, forge) {
-  return new HostHandler(socket, forge)
+module.exports = function(socket) {
+  return new HostHandler(socket)
 }
 
 // TODO(tec27): make a constants file, but: Possible values for Game Type (Sub Game Type):
@@ -19,9 +20,8 @@ module.exports = function(socket, forge) {
 // any mode without a sub game type is just always 0x01 for that
 
 
-function HostHandler(socket, forge) {
+function HostHandler(socket) {
   this.socket = socket
-  this.forge = forge
   this.started = false
   this.curLobby = null
   this.subs = []
@@ -51,18 +51,10 @@ HostHandler.prototype.onCreateLobby = function(socket, params, cb) {
 
   this.started = true
   log.verbose('createLobby called')
-  bw.initProcess(function afterInit() {
-    log.verbose('process initialized')
-
-    self.endWndProc = self.forge.runWndProc(function() {
-      log.verbose('forge\'s wndproc pump finished')
-    })
-
-    var gameSettings =  { mapPath: params.map
-                        , gameType: 0x00010002 // melee (see TODO above)
-                        }
-    bw.createLobby(params.username, gameSettings, onCreated)
-  })
+  var gameSettings =  { mapPath: params.map
+                      , gameType: 0x00010002 // melee (see TODO above)
+                      }
+  bw.createLobby(params.username, gameSettings, onCreated)
 
   function onError(err) {
     self.started = false
@@ -172,7 +164,7 @@ HostHandler.prototype.onStartGame = function(socket, cb) {
 
     function onGameInit() {
       clearTimeout(timeout)
-      self.endWndProc()
+      forge.endWndProc()
       self.curLobby.runGameLoop(self.onGameFinished.bind(self, socket))
       self.socket.emit('gameStarted')
       log.verbose('game started')

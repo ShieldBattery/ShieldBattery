@@ -1,24 +1,54 @@
 var forge = require('bindings')('forge')
   , fs = require('fs')
+  , EventEmitter = require('events').EventEmitter
+  , util = require('util')
 
 var vertShaderSrc = fs.readFileSync(require.resolve('./shaders/vert.glsl'))
   , fragShaderSrc = fs.readFileSync(require.resolve('./shaders/frag.glsl'))
 forge.setVertexShader(vertShaderSrc)
 forge.setFragmentShader(fragShaderSrc)
 
-module.exports.inject = function() {
-  return forge.inject()
+var wndProcRunning = false
+
+function JsForge() {
+  EventEmitter.call(this)
+}
+util.inherits(JsForge, EventEmitter)
+
+JsForge.prototype.inject = function() {
+  var success = forge.inject()
+  if (success) this.emit('injected')
+  return success
 }
 
-module.exports.restore = function() {
-  return forge.restore()
+JsForge.prototype.restore = function() {
+  var success = forge.restore()
+  if (success) this.emit('restored')
+  return success
 }
 
-function endWndProc() {
-  return forge.endWndProc()
+JsForge.prototype.endWndProc = function() {
+  if (wndProcRunning) {
+    forge.endWndProc()
+    wndProcRunning = false
+    this.emit('endWndProc')
+  }
 }
 
-module.exports.runWndProc = function(cb) {
-  forge.runWndProc(cb)
-  return endWndProc
+JsForge.prototype.runWndProc = function() {
+  if (wndProcRunning) {
+    return
+  }
+
+  var self = this
+  forge.runWndProc(function(err, quit) {
+    if (wndProcRunning) {
+      wndProcRunning = false
+      self.emit('endWndProc')
+    }
+  })
+  wndProcRunning = true
+  this.emit('startWndProc')
 }
+
+module.exports = new JsForge()
