@@ -1,6 +1,7 @@
 var bw = require('bw')
+  , LobbySocket = require('./lobby-socket')
   , log = require('./logger')
-  , sub = require('./sub')
+  , util = require('util')
   , forge = require('forge')
 
 module.exports = function(socket) {
@@ -21,29 +22,14 @@ module.exports = function(socket) {
 
 
 function HostHandler(socket) {
-  this.socket = socket
-  this.started = false
-  this.curLobby = null
-  this.subs = []
-
-  socket.on('createLobby', this.onCreateLobby.bind(this, socket))
-  socket.on('setRace', this.onSetRace.bind(this, socket))
-  socket.on('addComputer', this.onAddComputer.bind(this, socket))
-  socket.on('startGame', this.onStartGame.bind(this, socket))
+  LobbySocket.call(this, socket)
+  socket.on('createLobby', this.onCreateLobby.bind(this))
+  socket.on('addComputer', this.onAddComputer.bind(this))
+  socket.on('startGame', this.onStartGame.bind(this))
 }
+util.inherits(HostHandler, LobbySocket)
 
-HostHandler.prototype.installLobbyHandlers = function() {
-  if (!this.curLobby) return
-  this.subs.push(sub(this.curLobby, 'downloadStatus', this.onDownloadStatus.bind(this)))
-}
-
-HostHandler.prototype.clearLobbyHandlers = function() {
-  if (!this.curLobby) return
-  this.subs.forEach(function(unsub) { unsub() })
-  this.subs.length = 0
-}
-
-HostHandler.prototype.onCreateLobby = function(socket, params, cb) {
+HostHandler.prototype.onCreateLobby = function(params, cb) {
   var self = this
   if (this.started) {
     return cb({ msg: 'A game has already been started' })
@@ -71,7 +57,7 @@ HostHandler.prototype.onCreateLobby = function(socket, params, cb) {
   }
 }
 
-HostHandler.prototype.onSetRace = function(socket, race, cb) {
+HostHandler.prototype.onSetRace = function(race, cb) {
   if (!this.started || !this.curLobby) {
     log.error('setRace called without being in a lobby')
     return cb({ msg: 'You are not in a lobby' })
@@ -88,7 +74,7 @@ HostHandler.prototype.onSetRace = function(socket, race, cb) {
   })
 }
 
-HostHandler.prototype.onAddComputer = function(socket, race, cb) {
+HostHandler.prototype.onAddComputer = function(race, cb) {
   var self = this
   if (!this.started || !this.curLobby) {
     log.error('addComputer called without being in a lobby')
@@ -132,14 +118,7 @@ HostHandler.prototype.onAddComputer = function(socket, race, cb) {
   })
 }
 
-HostHandler.prototype.onDownloadStatus = function(slot, percent) {
-  // TODO(tec27): we also need to be able to know when players leave/disconnect
-  if (percent == 100) {
-    this.socket.emit('playerJoined', { slot: slot, player: this.curLobby.slots[slot].name })
-  }
-}
-
-HostHandler.prototype.onStartGame = function(socket, cb) {
+HostHandler.prototype.onStartGame = function(cb) {
   if (!this.started || !this.curLobby) {
     log.error('startGame called without being in a lobby')
     return cb({ msg: 'You are not in a lobby' })
@@ -165,7 +144,7 @@ HostHandler.prototype.onStartGame = function(socket, cb) {
     function onGameInit() {
       clearTimeout(timeout)
       forge.endWndProc()
-      self.curLobby.runGameLoop(self.onGameFinished.bind(self, socket))
+      self.curLobby.runGameLoop(self.onGameFinished.bind(self))
       self.socket.emit('gameStarted')
       log.verbose('game started')
       cb()
@@ -173,15 +152,3 @@ HostHandler.prototype.onStartGame = function(socket, cb) {
   })
 }
 
-HostHandler.prototype.onGameFinished = function(socket, err) {
-  this.clearLobbyHandlers()
-  this.started = false
-  this.curLobby = null
-  if (err) {
-    log.error(err)
-    socket.emit('gameFinished', err)
-  } else {
-    log.verbose('game finished')
-    socket.emit('gameFinished')
-  }
-}

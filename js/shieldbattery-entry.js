@@ -52,10 +52,10 @@ function connectToPsi() {
     log.error('Error connecting to psi, is it running? Error: ' + err)
   }).on('hostMode', function() {
     log.verbose('enabling host mode')
-    host(socket, forge)
+    host(socket)
   }).on('joinMode', function() {
     log.verbose('enabling join mode')
-    join(socket, forge)
+    join(socket)
   }).on('quit', function() {
     setTimeout(function() {
       process.exit()
