@@ -96,6 +96,7 @@
       'sources': [
         'shieldbattery/shieldbattery.cpp',
         # headers
+        'shieldbattery/settings.h',
         'shieldbattery/shieldbattery.h',
         'shieldbattery/snp_interface.h',
       ],

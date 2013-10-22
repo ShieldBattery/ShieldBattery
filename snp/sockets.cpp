@@ -7,6 +7,7 @@
 
 #include "logger/logger.h"
 #include "snp/packets.h"
+#include "shieldbattery/settings.h"
 
 using std::make_pair;
 using std::vector;
@@ -124,7 +125,7 @@ void OnQueuedPackets(uv_async_t* handle, int status) {
   }
 }
 
-uv_err_code BeginSocketLoop(HANDLE receive_signal) {
+uv_err_code BeginSocketLoop(HANDLE receive_signal, const Settings& settings) {
   incoming_signal = receive_signal;
   loop = uv_loop_new();
   loop_thread = new uv_thread_t();
@@ -136,20 +137,22 @@ uv_err_code BeginSocketLoop(HANDLE receive_signal) {
         uv_strerror(err));
     return err.code;
   }
-  // TODO(tec27): allow for specifying a port through shieldbattery
-  sockaddr_in receive_addr = uv_ip4_addr("0.0.0.0", 6112);
+  // TODO(tec27): should we allow users to pick an adapter?
+  sockaddr_in receive_addr = uv_ip4_addr("0.0.0.0", settings.bw_port);
   if (uv_udp_bind(&socket, receive_addr, 0) != 0) {
     uv_err_t err = uv_last_error(loop);
     Logger::Logf(LogLevel::Error, "Failed to bind socket: %s %s", uv_err_name(err),
         uv_strerror(err));
     return err.code;
   }
+  Logger::Logf(LogLevel::Debug, "Snp socket bound to 0.0.0.0:%d", settings.bw_port);
   if (uv_udp_recv_start(&socket, AllocBuffer, OnReceive) != 0) {
     uv_err_t err = uv_last_error(loop);
     Logger::Logf(LogLevel::Error, "Failed to start receiving on socket: %s %s", uv_err_name(err),
         uv_strerror(err));
     return err.code;
   }
+  Logger::Log(LogLevel::Debug, "Snp socket ready to receive packets");
 
   parser = new PacketParser();
   uv_mutex_init(&incoming_mutex);

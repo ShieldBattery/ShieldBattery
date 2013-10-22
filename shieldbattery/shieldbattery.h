@@ -2,7 +2,8 @@
 #define SHIELDBATTERY_SHIELDBATTERY_H_
 
 #include <node.h>
-#include "snp_interface.h"
+#include "./settings.h"
+#include "./snp_interface.h"
 
 #define SBAT_AWAIT_DEBUGGER false
 

@@ -11,6 +11,7 @@
 #include "node-bw/brood_war.h"
 #include "node-bw/immediate.h"
 #include "logger/logger.h"
+#include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
@@ -200,6 +201,7 @@ void WrappedBroodWar::Init() {
 #undef EVENT_HANDLER
 
   // functions
+  SetProtoMethod(tpl, "setSettings", SetSettings);
   SetProtoMethod(tpl, "initProcess", InitProcess);
   SetProtoMethod(tpl, "initSprites", InitSprites);
   SetProtoMethod(tpl, "initPlayerInfo", InitPlayerInfo);
@@ -423,6 +425,26 @@ void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value
     event_handlers_[wrapped_bw].insert(make_pair(std_name, 
         shared_ptr<EventHandlerContext>(new EventHandlerContext(value.As<Function>()))));
   }
+}
+
+Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
+  // This function should be called before the dependent modules (Snp, Forge, etc.) are loaded and
+  // initialized, so that they can make use of any custom settings
+  HandleScope scope;
+
+  assert(args.Length() > 0);
+  Local<Object> settings_object = args[0]->ToObject();
+  Settings result = Settings();
+
+  if (settings_object->Has(String::NewSymbol("bwPort"))) {
+    result.bw_port = settings_object->Get(String::NewSymbol("bwPort"))->Int32Value();
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting bwPort");
+    result.bw_port = 6112;
+  }
+
+  sbat::SetSettings(result);
+  return scope.Close(v8::Undefined());
 }
 
 struct InitProcessContext {

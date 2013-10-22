@@ -7,7 +7,6 @@ var processInitialized = false
   , inLobby = false
   , inGame = false
 
-util.inherits(BroodWar, EventEmitter)
 function BroodWar(bindings) {
   EventEmitter.call(this)
   this.bindings = bindings
@@ -18,6 +17,11 @@ function BroodWar(bindings) {
   bindings.onLog = function(logLevel, msg) {
     self.emit('log', levels[logLevel], msg)
   }
+}
+util.inherits(BroodWar, EventEmitter)
+
+BroodWar.prototype.setSettings = function(settings) {
+  this.bindings.setSettings(settings)
 }
 
 BroodWar.prototype._log = function(level, msg) {

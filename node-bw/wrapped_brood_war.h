@@ -120,6 +120,7 @@ private:
       const v8::AccessorInfo& info);
 
   // functions
+  static v8::Handle<v8::Value> SetSettings(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitProcess(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitSprites(const v8::Arguments& args);
   static v8::Handle<v8::Value> InitPlayerInfo(const v8::Arguments& args);

@@ -7,6 +7,7 @@
 
 #include "logger/logger.h"
 #include "snp/sockets.h"
+#include "shieldbattery/settings.h"
 #include "shieldbattery/snp_interface.h"
 
 using std::string;
@@ -67,7 +68,7 @@ int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_
   spoofed_game_dirty = false;
   spoofed_game = nullptr;
 
-  uv_err_code result = BeginSocketLoop(receive_event);
+  uv_err_code result = BeginSocketLoop(receive_event, GetSettings());
   if (result != UV_OK) {
     Logger::Logf(LogLevel::Error, "BeginSocketLoop failed [%d], snp not initialized",
         result);

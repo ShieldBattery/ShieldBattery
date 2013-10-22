@@ -12,6 +12,7 @@ var bw = require('bw')
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
+bw.setSettings({ bwPort: 2727 })
 
 var forge = require('forge')
 if (!forge.inject()) {

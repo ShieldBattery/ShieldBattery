@@ -4,6 +4,7 @@
 #include <node.h>
 #include <map>
 
+#include "shieldbattery/settings.h"
 #include "snp/packets.h"
 
 namespace sbat {
@@ -16,7 +17,7 @@ struct QueuedPacket {
   uint32 data_len;
 };
 
-uv_err_code BeginSocketLoop(HANDLE receive_signal);
+uv_err_code BeginSocketLoop(HANDLE receive_signal, const Settings& settings);
 void EndSocketLoop();
 StormPacket* GetStormPacket();
 void FreeStormPacket(StormPacket* packet);

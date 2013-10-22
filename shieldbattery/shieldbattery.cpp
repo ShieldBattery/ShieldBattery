@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 
+#include "shieldbattery/settings.h"
 #include "shieldbattery/snp_interface.h"
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -36,6 +37,7 @@ static std::queue<WorkRequest*>* work_queue;
 static uv_thread_t node_thread;
 
 static SnpInterface* snp_interface = nullptr;
+static Settings* current_settings = nullptr;
 
 void UiThreadWorker() {
   while (true) {
@@ -253,6 +255,16 @@ NODE_EXTERN void UnbindSnp() {
 
 NODE_EXTERN SnpInterface* GetSnpInterface() {
   return snp_interface;
+}
+
+NODE_EXTERN void SetSettings(const Settings& settings) {
+  delete current_settings;
+  current_settings = new Settings(settings);
+}
+
+NODE_EXTERN const Settings& GetSettings() {
+  assert(current_settings != nullptr);
+  return *current_settings;
 }
 
 extern "C" __declspec(dllexport) void OnInject() {
