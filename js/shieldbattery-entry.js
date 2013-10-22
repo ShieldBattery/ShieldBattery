@@ -12,55 +12,69 @@ var bw = require('bw')
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
-bw.setSettings({ bwPort: 2727 })
-
-var forge = require('forge')
-if (!forge.inject()) {
-  throw new Error('forge injection failed')
-} else {
-  log.verbose('forge injected')
-}
-
-forge.on('startWndProc', function() {
-  log.verbose('forge\'s wndproc pump started')
-}).on('endWndProc', function() {
-  log.verbose('forge\'s wndproc pump finished')
-})
 
 var io = require('socket.io-client')
   , host = require('./shieldbattery/host')
   , join = require('./shieldbattery/join')
+  , socket = io.connect('https://lifeoflively.net:33198/game')
+  , initialized = false
 
-bw.initProcess(function afterInit(err) {
-  if (err) {
-    throw err
-  }
-
-  log.verbose('process initialized')
-  forge.runWndProc()
-
-  connectToPsi()
+socket.on('connect', function() {
+  log.verbose('Connected to psi.')
+}).on('disconnect', function() {
+  log.verbose('Disconnected from psi...')
+}).on('error', function(err) {
+  log.error('Error connecting to psi, is it running? Error: ' + err)
+  setTimeout(function() {
+    process.exit()
+  }, 100)
+}).on('setSettings', function(settings, cb) {
+  log.verbose('received settings, initializing')
+  initialize(settings, function(err) {
+    if (err) {
+      cb({ msg: err.message })
+    } else {
+      cb(null)
+    }
+  })
+}).on('hostMode', function() {
+  log.verbose('enabling host mode')
+  host(socket)
+}).on('joinMode', function() {
+  log.verbose('enabling join mode')
+  join(socket)
+}).on('quit', function() {
+  setTimeout(function() {
+    process.exit()
+  }, 100)
 })
 
-function connectToPsi() {
-  var socket = io.connect('https://lifeoflively.net:33198/game')
+function initialize(settings, cb) {
+  initialized = true
+  bw.setSettings(settings)
 
-  socket.on('connect', function() {
-    log.verbose('Connected to psi.')
-  }).on('disconnect', function() {
-    log.verbose('Disconnected from psi...')
-  }).on('error', function(err) {
-    log.error('Error connecting to psi, is it running? Error: ' + err)
-  }).on('hostMode', function() {
-    log.verbose('enabling host mode')
-    host(socket)
-  }).on('joinMode', function() {
-    log.verbose('enabling join mode')
-    join(socket)
-  }).on('quit', function() {
-    setTimeout(function() {
-      process.exit()
-    }, 100)
+  var forge = require('forge')
+  if (!forge.inject()) {
+    cb(new Error('forge injection failed'))
+  } else {
+    log.verbose('forge injected')
+  }
+
+  forge.on('startWndProc', function() {
+    log.verbose('forge\'s wndproc pump started')
+  }).on('endWndProc', function() {
+    log.verbose('forge\'s wndproc pump finished')
+  })
+
+  bw.initProcess(function afterInit(err) {
+    if (err) {
+      return cb(err)
+    }
+
+    log.verbose('process initialized')
+    forge.runWndProc()
+
+    cb()
   })
 }
 

@@ -62,7 +62,7 @@ siteSockets.on('connection', function(socket) {
     console.log('site client disconnected.')
   })
 
-  ;[ 'load'
+  ;[ 'setSettings'
   , 'hostMode'
   , 'joinMode'
   , 'createLobby'
