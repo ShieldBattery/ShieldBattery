@@ -320,8 +320,20 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       return cleanUp()
     }
 
-    initiateGameMode()
+    initializeSettings()
   })
+
+  function initializeSettings() {
+    self.psiSocket.emit('game/setSettings', { bwPort: 2727 }, function(err) {
+      if (err) {
+        console.log('Error initializing settings:')
+        console.dir(err)
+        return cleanUp()
+      }
+
+      initiateGameMode()
+    })
+  }
 
   function initiateGameMode() {
     if (self.isHost) {
