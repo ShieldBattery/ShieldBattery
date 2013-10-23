@@ -1,13 +1,17 @@
-var psi = require('psi')
-  , path = require('path')
-  , httpServer = require('./psi/http-server')(33198, '127.0.0.1')
-  , io = require('socket.io').listen(httpServer)
-
 process.on('uncaughtException', function(err) {
   console.log(err.message)
   console.log(err.stack)
   setTimeout(function() { process.exit() }, 15000)
 })
+
+var psi = require('psi')
+  , path = require('path')
+  , httpServer = require('./psi/http-server')(33198, '127.0.0.1')
+  , io = require('socket.io').listen(httpServer)
+  , shieldbatteryRoot = path.dirname(process.execPath)
+  , localSettings = require('./psi/local-settings')(path.join(shieldbatteryRoot, 'settings.json'))
+
+console.log('port: ' + localSettings.getSettings().bwPort)
 
 io.configure(function() {
   io.set('transports', ['websocket'])
@@ -127,8 +131,7 @@ function doLaunch(cb) {
         if (err) return cb({ when: 'launching process', msg: err.message })
 
         console.log('Process launched!')
-        var shieldbatteryRoot = path.dirname(process.execPath)
-          , shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
+        var shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
 
         proc.injectDll(shieldbatteryDll, 'OnInject', function(err) {
           if (err) return cb({ when: 'injecting dll', msg: err.message })
