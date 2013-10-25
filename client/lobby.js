@@ -1,5 +1,6 @@
 var SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
+  , timeback = require('../shared/timeback')
 
 module.exports = 'shieldbattery.lobby'
 
@@ -320,11 +321,23 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       return cleanUp()
     }
 
-    initializeSettings()
+    retrieveSettings()
   })
 
-  function initializeSettings() {
-    self.psiSocket.emit('game/setSettings', { bwPort: 2727 }, function(err) {
+  function retrieveSettings() {
+    self.psiSocket.emit('settings/get', timeback(1500, function(err, settings) {
+      if (err) {
+        console.log('Error retrieving settings:')
+        console.dir(err)
+        return cleanUp()
+      }
+
+      initializeSettings(settings)
+    }))
+  }
+
+  function initializeSettings(settings) {
+    self.psiSocket.emit('game/setSettings', settings, function(err) {
       if (err) {
         console.log('Error initializing settings:')
         console.dir(err)
