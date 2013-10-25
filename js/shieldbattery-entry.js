@@ -30,6 +30,7 @@ socket.on('connect', function() {
   }, 100)
 }).on('setSettings', function(settings, cb) {
   log.verbose('received settings, initializing')
+  log.verbose('settings: ' + JSON.stringify(settings, null, 2))
   initialize(settings, function(err) {
     if (err) {
       cb({ msg: err.message })

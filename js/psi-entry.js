@@ -11,8 +11,6 @@ var psi = require('psi')
   , shieldbatteryRoot = path.dirname(process.execPath)
   , localSettings = require('./psi/local-settings')(path.join(shieldbatteryRoot, 'settings.json'))
 
-console.log('port: ' + localSettings.getSettings().bwPort)
-
 io.configure(function() {
   io.set('transports', ['websocket'])
     .set('log level', 2)
@@ -64,6 +62,12 @@ siteSockets.on('connection', function(socket) {
     doLaunch(cb)
   }).on('disconnect', function() {
     console.log('site client disconnected.')
+  }).on('settings/set', function(newSettings, cb) {
+    localSettings.setSettings(newSettings)
+    siteSockets.except(socket.id).emit('settings/change', newSettings)
+    cb()
+  }).on('settings/get', function(cb) {
+    cb(null, localSettings.getSettings())
   })
 
   ;[ 'setSettings'
