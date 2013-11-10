@@ -1,4 +1,4 @@
-const Zlib = module.exports = require('./zlib');
+var Zlib = module.exports = require('./zlib');
 
 // the least I can do is make error messages for the rest of the node.js/zlib api.
 // (thanks, dominictarr)
@@ -32,8 +32,8 @@ function error () {
   }
 });
 
-const _deflate = Zlib.deflate;
-const _gzip = Zlib.gzip;
+var _deflate = Zlib.deflate;
+var _gzip = Zlib.gzip;
 
 Zlib.deflate = function deflate(stringOrBuffer, callback) {
   return _deflate(Buffer(stringOrBuffer), callback);

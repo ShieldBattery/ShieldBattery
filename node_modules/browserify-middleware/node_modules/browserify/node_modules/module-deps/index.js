@@ -108,7 +108,16 @@ module.exports = function (mains, opts) {
                 parseDeps(file, cache[file], pkg);
             }
             else fs.readFile(file, 'utf8', function (err, src) {
-                if (err) return output.emit('error', err);
+                if (err) {
+                    var e = new Error(
+                        err.message
+                        + ' while resolving '
+                        + JSON.stringify(id)
+                        + ' from file '
+                        + parent.filename
+                    );
+                    return output.emit('error', e);
+                }
                 applyTransforms(file, trx, src, pkg);
             });
         });

@@ -39,18 +39,31 @@ var isNodeV4 = /^v0\.4/.test(process.version);
  * WebSocket implementation
  */
 
-function WebSocket(address, options) {
-  var self = this;
+function WebSocket(address, protocols, options) {
+
+  if (protocols && !Array.isArray(protocols) && 'object' == typeof protocols) {
+    // accept the "options" Object as the 2nd argument
+    options = protocols;
+    protocols = null;
+  }
+  if ('string' == typeof protocols) {
+    protocols = [ protocols ];
+  }
+  if (!Array.isArray(protocols)) {
+    protocols = [];
+  }
+  // TODO: actually handle the `Sub-Protocols` part of the WebSocket client
 
   this._socket = null;
   this.bytesReceived = 0;
   this.readyState = null;
   this.supports = {};
 
-  if (Object.prototype.toString.call(address) == '[object Array]') {
+  if (Array.isArray(address)) {
     initAsServerClient.apply(this, address.concat(options));
+  } else {
+    initAsClient.apply(this, [address, protocols, options]);
   }
-  else initAsClient.apply(this, arguments);
 }
 
 /**
@@ -183,7 +196,15 @@ WebSocket.prototype.send = function(data, options, cb) {
   options = options || {};
   options.fin = true;
   if (typeof options.binary == 'undefined') {
-    options.binary = (data instanceof ArrayBuffer || data instanceof Buffer);
+    options.binary = (data instanceof ArrayBuffer || data instanceof Buffer ||
+      data instanceof Uint8Array ||
+      data instanceof Uint16Array ||
+      data instanceof Uint32Array ||
+      data instanceof Int8Array ||
+      data instanceof Int16Array ||
+      data instanceof Int32Array ||
+      data instanceof Float32Array ||
+      data instanceof Float64Array);
   }
   if (typeof options.mask == 'undefined') options.mask = !this._isServer;
   if (data instanceof fs.ReadStream) {
@@ -210,6 +231,7 @@ WebSocket.prototype.stream = function(options, cb) {
     cb = options;
     options = {};
   }
+  var self = this;
   if (typeof cb != 'function') throw new Error('callback must be provided');
   if (this.readyState != WebSocket.OPEN) {
     if (typeof cb == 'function') cb(new Error('not opened'));
@@ -217,14 +239,12 @@ WebSocket.prototype.stream = function(options, cb) {
     return;
   }
   if (this._queue) {
-    var self = this;
     this._queue.push(function() { self.stream(options, cb); });
     return;
   }
   options = options || {};
   if (typeof options.mask == 'undefined') options.mask = !this._isServer;
   startQueue(this);
-  var self = this;
   var send = function(data, final) {
     try {
       if (self.readyState != WebSocket.OPEN) throw new Error('not opened');
@@ -281,7 +301,11 @@ WebSocket.prototype.terminate = function() {
 
 Object.defineProperty(WebSocket.prototype, 'bufferedAmount', {
   get: function get() {
-    return this._socket ? this._socket.bufferSize : 0;
+    var amount = 0;
+    if (this._socket) {
+      amount = this._socket.bufferSize || 0;
+    }
+    return amount;
   }
 });
 
@@ -430,12 +454,14 @@ function initAsServerClient(req, socket, upgradeHead, options) {
   else establishConnection.call(this, Receiver, Sender, socket, upgradeHead);
 }
 
-function initAsClient(address, options) {
+function initAsClient(address, protocols, options) {
   options = new Options({
     origin: null,
     protocolVersion: protocolVersion,
     host: null,
+    headers: null,
     protocol: null,
+    agent: null,
 
     // ssl-related options
     pfx: null,
@@ -457,6 +483,7 @@ function initAsClient(address, options) {
   var isSecure = serverUrl.protocol === 'wss:' || serverUrl.protocol === 'https:';
   var httpObj = isSecure ? https : http;
   var port = serverUrl.port || (isSecure ? 443 : 80);
+  var auth = serverUrl.auth;
 
   // expose state properties
   this._isServer = false;
@@ -470,9 +497,9 @@ function initAsClient(address, options) {
   shasum.update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11');
   var expectedServerKey = shasum.digest('base64');
 
+  var agent = options.value.agent;
   // node<=v0.4.x compatibility
-  var agent;
-  if (isNodeV4) {
+  if (!agent && isNodeV4) {
     isNodeV4 = true;
     agent = new httpObj.Agent({
       host: serverUrl.hostname,
@@ -480,7 +507,14 @@ function initAsClient(address, options) {
     });
   }
 
-  var headerHost = serverUrl.hostname + ':' + port;
+  var headerHost = serverUrl.hostname;
+  // Append port number to Host and Origin header, only if specified in the url and non-default
+  if(serverUrl.port) {
+    if((isSecure && (port != 443)) || (!isSecure && (port != 80))){
+      headerHost = headerHost + ':' + port;
+    }
+  }
+
   var requestOptions = {
     port: port,
     host: serverUrl.hostname,
@@ -493,11 +527,26 @@ function initAsClient(address, options) {
       'Sec-WebSocket-Key': key
     }
   };
+
+  // If we have basic auth.
+  if (auth) {
+    requestOptions.headers['Authorization'] = 'Basic ' + new Buffer(auth).toString('base64');
+  }
+
   if (options.value.protocol) {
     requestOptions.headers['Sec-WebSocket-Protocol'] = options.value.protocol;
   }
+
   if (options.value.host) {
     requestOptions.headers['Host'] = options.value.host;
+  }
+
+  if (options.value.headers) {
+    for (var header in options.value.headers) {
+       if (options.value.headers.hasOwnProperty(header)) {
+        requestOptions.headers[header] = options.value.headers[header];
+       }
+    }
   }
 
   if (options.isDefinedAndNonNull('pfx')
@@ -520,8 +569,10 @@ function initAsClient(address, options) {
     if (options.isDefinedAndNonNull('ciphers')) requestOptions.ciphers = options.value.ciphers;
     if (options.isDefinedAndNonNull('rejectUnauthorized')) requestOptions.rejectUnauthorized = options.value.rejectUnauthorized;
 
-    // global agent ignores client side certificates
-    agent = new httpObj.Agent(requestOptions);
+    if (!agent) {
+        // global agent ignores client side certificates
+        agent = new httpObj.Agent(requestOptions);
+    }
   }
 
   if (isNodeV4) {
@@ -570,7 +621,7 @@ function initAsClient(address, options) {
     }
 
     var serverProt = res.headers['sec-websocket-protocol'];
-    var protList = (options.value.protocol || "").split(/, */); 
+    var protList = (options.value.protocol || "").split(/, */);
     var protError = null;
     if (!options.value.protocol && serverProt) {
         protError = 'server sent a subprotocol even though none requested';
@@ -633,7 +684,6 @@ function establishConnection(ReceiverClass, SenderClass, socket, upgradeHead) {
     self._receiver.add(data);
   }
   var dataHandler = firstHandler;
-  socket.on('data', dataHandler);
   // if data was passed along with the http upgrade,
   // this will schedule a push of that on to the receiver.
   // this has to be done on next tick, since the caller
@@ -677,6 +727,8 @@ function establishConnection(ReceiverClass, SenderClass, socket, upgradeHead) {
   });
   this.readyState = WebSocket.OPEN;
   this.emit('open');
+
+  socket.on('data', dataHandler);
 }
 
 function startQueue(instance) {

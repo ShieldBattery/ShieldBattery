@@ -207,11 +207,12 @@ function writeUInt32BE(value, offset) {
 
 function getArrayBuffer(data) {
   // data is either an ArrayBuffer or ArrayBufferView.
-  var array = data.buffer || data
+  var array = new Uint8Array(data.buffer || data)
     , l = data.byteLength || data.length
+    , o = data.byteOffset || 0
     , buffer = new Buffer(l);
   for (var i = 0; i < l; ++i) {
-    buffer[i] = array[i];
+    buffer[i] = array[o+i];
   }
   return buffer;
 }

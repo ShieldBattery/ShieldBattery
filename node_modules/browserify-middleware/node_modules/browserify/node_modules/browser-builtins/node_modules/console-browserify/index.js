@@ -11,7 +11,7 @@ if (typeof global !== "undefined" && global.console) {
 } else if (typeof window !== "undefined" && window.console) {
     console = window.console
 } else {
-    console = window.console = {}
+    console = {}
 }
 
 var functions = [

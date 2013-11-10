@@ -169,4 +169,16 @@ test('replace module in browser field object', function(done) {
     });
 });
 
+test('override engine shim', function(done) {
+    var parent = {
+        filename: fixtures_dir + '/override-engine-shim/index.js',
+        package: { main: './index.js' },
+        modules: { url: "wonderland" }
+    };
+    resolve('url', parent, function(err, path, pkg) {
+        assert.ifError(err);
+        assert.equal(path, require.resolve('./fixtures/node_modules/override-engine-shim/url-browser'));
+        done();
+    });
+});
 
