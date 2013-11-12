@@ -1,5 +1,4 @@
 /certs/*
-/logs/*
 /config.js
 /database.json
 
