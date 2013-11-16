@@ -9,6 +9,7 @@
 namespace sbat {
 namespace bw {
 BroodWar* BroodWar::instance_ = nullptr;
+bool BroodWar::is_programmatic_chat_ = false;
 
 BroodWar* BroodWar::Get() {
   if (instance_ == nullptr) {
@@ -96,6 +97,26 @@ void __stdcall BroodWar::OnMenuErrorDialog(char* message) {
     instance_->event_handlers_->OnMenuErrorDialog(message);
   }
 }
+
+void __stdcall BroodWar::OnGameLoopIteration() {
+  if (HAVE_HANDLER_FOR(OnGameLoopIteration)) {
+    instance_->event_handlers_->OnGameLoopIteration();
+  }
+}
+
+uint32 __stdcall BroodWar::CheckForChatCommandHook(char* message) {
+  if (!is_programmatic_chat_ && HAVE_HANDLER_FOR(OnCheckForChatCommand)) {
+    byte recipients = instance_->chat_message_recipients();
+    ChatMessageType type = instance_->chat_message_type();
+    instance_->event_handlers_->OnCheckForChatCommand(message, type, recipients);
+    // We act like a command was always parsed in order to give the event handler time to deal with
+    // it asynchronously. If a command was not actually parsed, it should re-send the message with
+    // the programmatic flag set, so that we let it pass through
+    return TRUE;
+  }
+
+  return FALSE;
+}
 #undef HAVE_HANDLER_FOR
 
 void __stdcall BroodWar::OnInitializeSnpList(char* snp_directory) {
@@ -115,8 +136,10 @@ void BroodWar::InjectDetours() {
   offsets_->detours.InitializeSnpList->Inject();
   offsets_->detours.RenderDuringInitSpritesOne->Inject();
   offsets_->detours.RenderDuringInitSpritesTwo->Inject();
+  offsets_->detours.GameLoop->Inject();
 
   offsets_->func_hooks.LobbyChatShowMessage->Inject();
+  offsets_->func_hooks.CheckForMultiplayerChatCommand->Inject();
 }
 
 void BroodWar::ApplyPatches() {
@@ -395,5 +418,39 @@ bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
 
   return result == 1;
 }
+
+void BroodWar::SendMultiplayerChatMessage(const std::string& message, byte recipients,
+    ChatMessageType type) {
+  byte backup_recipients = chat_message_recipients();
+  ChatMessageType backup_type = chat_message_type();
+  is_programmatic_chat_ = true;
+  set_chat_message_recipients(recipients);
+  set_chat_message_type(type);
+
+  const char* c_message = message.c_str();
+  auto send = offsets_->functions.SendMultiplayerChatMessage;
+  __asm {
+    mov ecx, send;
+    mov eax, c_message;
+    call ecx;
+  }
+
+  set_chat_message_type(backup_type);
+  set_chat_message_recipients(backup_recipients);
+  is_programmatic_chat_ = false;
+}
+
+// pass 0 to get the default timeout (7 seconds)
+void BroodWar::DisplayMessage(const std::string& message, uint32 timeout) {
+  auto display = offsets_->functions.DisplayMessage;
+  const char* c_message = message.c_str();
+  __asm {
+    mov ecx, display;
+    mov eax, timeout;  // I believe this is the display time (defaults to 7 seconds)
+    mov edi, c_message;
+    call ecx;
+  }
+}
+
 }  // namespace bw
 }  // namespace sbat

@@ -33,7 +33,9 @@ using v8::Handle;
 using v8::HandleScope;
 using v8::Int32;
 using v8::Integer;
+using v8::Isolate;
 using v8::Local;
+using v8::Locker;
 using v8::Object;
 using v8::Persistent;
 using v8::String;
@@ -46,6 +48,7 @@ namespace sbat {
 namespace bw {
 
 map<WrappedBroodWar*, WrappedBroodWar::EventHandlerMap> WrappedBroodWar::event_handlers_;
+GameLoopQueue* WrappedBroodWar::game_loop_queue_;
 
 EventHandlerContext::EventHandlerContext(Handle<Function> callback)
     : callback_(Persistent<Function>::New(callback)) {
@@ -161,6 +164,9 @@ Persistent<Function> WrappedBroodWar::constructor;
 
 void WrappedBroodWar::Init() {
   BroodWar* bw = BroodWar::Get();
+
+  game_loop_queue_ = new GameLoopQueue();
+
   EventHandlers handlers;
   handlers.OnLobbyDownloadStatus = OnLobbyDownloadStatus;
   handlers.OnLobbySlotChange = OnLobbySlotChange;
@@ -169,6 +175,8 @@ void WrappedBroodWar::Init() {
   handlers.OnLobbyMissionBriefing = OnLobbyMissionBriefing;
   handlers.OnLobbyChatMessage = OnLobbyChatMessage;
   handlers.OnMenuErrorDialog = OnMenuErrorDialog;
+  handlers.OnGameLoopIteration = OnGameLoopIteration;
+  handlers.OnCheckForChatCommand = OnCheckForChatCommand;
   bw->set_event_handlers(handlers);
 
   Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
@@ -198,6 +206,7 @@ void WrappedBroodWar::Init() {
   EVENT_HANDLER("onLobbyMissionBriefing");
   EVENT_HANDLER("onLobbyChatMessage");
   EVENT_HANDLER("onMenuErrorDialog");
+  EVENT_HANDLER("onCheckForChatCommand");
 #undef EVENT_HANDLER
 
   // functions
@@ -215,6 +224,8 @@ void WrappedBroodWar::Init() {
   SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
   SetProtoMethod(tpl, "startGameCountdown", StartGameCountdown);
   SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
+  SetProtoMethod(tpl, "sendMultiplayerChatMessage", SendMultiplayerChatMessage);
+  SetProtoMethod(tpl, "displayIngameMessage", DisplayIngameMessage);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -791,9 +802,69 @@ Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
+struct SendMultiplayerChatMessageContext {
+  std::string message;
+  ChatMessageType type;
+  byte recipients;
+  BroodWar* bw;
+};
+
+// Sends a multiplayer chat message, using the same thread as the game loop to ensure thread safety
+// params: message, type[, recipients]
+Handle<Value> WrappedBroodWar::SendMultiplayerChatMessage(const Arguments& args) {
+  HandleScope scope;
+  assert(args.Length() >= 2);
+
+  String::AsciiValue message_arg(args[0]);
+  ChatMessageType type = static_cast<ChatMessageType>(args[1]->ToUint32()->Uint32Value());
+  byte recipients = static_cast<byte>((args.Length() > 2 ? args[2]->ToUint32() :
+    Uint32::NewFromUnsigned(0)->ToUint32())->Uint32Value());
+  auto context = new SendMultiplayerChatMessageContext();
+  context->message = *message_arg;
+  context->type = type;
+  context->recipients = recipients;
+  context->bw = WrappedBroodWar::Unwrap(args);
+
+  game_loop_queue_->QueueFunc(context, [](void* arg) {
+    auto context = reinterpret_cast<SendMultiplayerChatMessageContext*>(arg);
+    context->bw->SendMultiplayerChatMessage(context->message, context->recipients, context->type);
+    delete context;
+  });
+
+  return scope.Close(v8::Undefined());
+}
+
+struct DisplayIngameMessageContext {
+  std::string message;
+  uint32 timeout;
+  BroodWar* bw;
+};
+
+// Displays a message (in the chat area), using the same thread as the game loop.
+// params: message[, timeout]
+Handle<Value> WrappedBroodWar::DisplayIngameMessage(const Arguments& args) {
+  HandleScope scope;
+  assert(args.Length() >= 1);
+
+  String::AsciiValue message_arg(args[0]);
+  auto context = new DisplayIngameMessageContext();
+  context->message = *message_arg;
+  context->timeout = (args.Length() > 1 ? 
+    args[1]->ToUint32() : Uint32::NewFromUnsigned(0)->ToUint32())->Uint32Value();
+  context->bw = WrappedBroodWar::Unwrap(args);
+
+  game_loop_queue_->QueueFunc(context, [](void *arg) {
+    auto context = reinterpret_cast<DisplayIngameMessageContext*>(arg);
+    context->bw->DisplayMessage(context->message, context->timeout);
+    delete context;
+  });
+
+  return scope.Close(v8::Undefined());
+}
+
 struct EventHandlerCallbackInfo {
   std::string* method_name;
-  vector<Persistent<Value>>* args;
+  vector<shared_ptr<ScopelessValue>>* args;
 };
 
 void EventHandlerImmediate(void* arg) {
@@ -811,13 +882,13 @@ void EventHandlerImmediate(void* arg) {
 
     TryCatch try_catch;
     Handle<Function> cb = cb_it->second->callback();
-#pragma warning(suppress: 28182)
-    cb->Call(wrapped_bw->handle_, info->args->size(),
-        (info->args->empty() ? nullptr : &(*info->args)[0]));
+    vector<Local<Value>> params(info->args->size());
+    std::transform(info->args->begin(), info->args->end(), params.begin(),
+        [](const shared_ptr<ScopelessValue>& value) { return value->ApplyCurrentScope(); });
 
-    for (auto arg_it = info->args->begin(); arg_it != info->args->end(); ++arg_it) {
-      arg_it->Dispose();
-    }
+#pragma warning(suppress: 28182)
+    cb->Call(wrapped_bw->handle_, info->args->size(), (params.empty() ? nullptr : &params[0]));
+
     delete info->method_name;
     delete info->args;
 
@@ -832,83 +903,176 @@ void EventHandlerImmediate(void* arg) {
 // currently all the lobby events DO happen on the node thread, but this will be more useful for
 // things like ingame hooks.
 void WrappedBroodWar::OnLobbyDownloadStatus(byte slot, byte download_percent) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbyDownloadStatus");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(download_percent)));
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
+  info->args->push_back(shared_ptr<ScopelessInteger>(
+      ScopelessInteger::NewFromUnsigned(download_percent)));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnLobbySlotChange(byte slot, byte storm_id, byte type, byte race, byte team) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbySlotChange");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(storm_id)));
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(type)));
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(race)));
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(team)));
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(storm_id)));
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(type)));
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(race)));
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(team)));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnLobbyStartCountdown() {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbyStartCountdown");
-  info->args = new vector<Persistent<Value>>;
+  info->args = new vector<shared_ptr<ScopelessValue>>;
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbyGameInit");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(random_seed)));
-  Local<Array> player_array = Array::New(8);
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(
+      ScopelessInteger::NewFromUnsigned(random_seed)));
+  ScopelessArray* player_array = ScopelessArray::New(8);
   for (int i = 0; i < 8; i++) {
-    player_array->Set(i, Integer::NewFromUnsigned(player_bytes[i]));
+    player_array->Set(i, shared_ptr<ScopelessInteger>(
+        ScopelessInteger::NewFromUnsigned(player_bytes[i])));
   }
-  info->args->push_back(Persistent<Array>::New(player_array));
+  info->args->push_back(shared_ptr<ScopelessArray>(player_array));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnLobbyMissionBriefing(byte slot) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbyMissionBriefing");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnLobbyChatMessage(byte slot, const std::string& message) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onLobbyChatMessage");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<Integer>::New(Integer::NewFromUnsigned(slot)));
-  info->args->push_back(Persistent<String>::New(String::New(message.c_str())));
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
+  info->args->push_back(shared_ptr<ScopelessString>(ScopelessString::New(message)));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 void WrappedBroodWar::OnMenuErrorDialog(const std::string& message) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
   info->method_name = new std::string("onMenuErrorDialog");
-  info->args = new vector<Persistent<Value>>;
-  info->args->push_back(Persistent<String>::New(String::New(message.c_str())));
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessString>(ScopelessString::New(message.c_str())));
 
   AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnCheckForChatCommand(const std::string& message,
+    ChatMessageType message_type, byte recipients) {
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onCheckForChatCommand");
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessString>(ScopelessString::New(message.c_str())));
+  info->args->push_back(shared_ptr<ScopelessInteger>(
+      ScopelessInteger::NewFromUnsigned(static_cast<byte>(message_type))));
+  info->args->push_back(
+      shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(recipients)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnGameLoopIteration() {
+  game_loop_queue_->ExecuteItems();
+}
+
+GameLoopQueue::GameLoopQueue() 
+    : has_items_(false),
+      mutex_(),
+      async_(),
+      items_(),
+      completed_() {
+  uv_async_init(uv_default_loop(), &async_, OnExecutionCompleted);
+  async_.data = this;
+
+  uv_mutex_init(&mutex_);
+}
+
+GameLoopQueue::~GameLoopQueue() {
+  uv_close(reinterpret_cast<uv_handle_t*>(&async_), NULL);
+  uv_mutex_destroy(&mutex_);
+}
+
+void GameLoopQueue::QueueFunc(void* arg, GameLoopWorkerFunc worker_func) {
+  QueueFunc(arg, worker_func, nullptr);
+}
+
+void GameLoopQueue::QueueFunc(void* arg, GameLoopWorkerFunc worker_func,
+    GameLoopAfterFunc after_func) {
+  uv_mutex_lock(&mutex_);
+  items_.push_back(GameLoopFuncContext(arg, worker_func, after_func));
+  has_items_ = true;
+  uv_mutex_unlock(&mutex_);
+}
+
+void GameLoopQueue::ExecuteItems() {
+  if (!has_items()) {
+    return;
+  }
+
+  uv_mutex_lock(&mutex_);
+  if (items_.empty()) {
+    uv_mutex_unlock(&mutex_);
+    return;
+  }
+
+  // For the sake of speed, we'll only do one pass over the items. If any items are added while
+  // these ones are executing, they'll have to wait for the next game loop iteration
+  list<GameLoopFuncContext> executees;
+  executees.splice(executees.begin(), items_);
+  has_items_ = false;
+  uv_mutex_unlock(&mutex_);
+
+  for (auto it = executees.begin(); it != executees.end(); ++it) {
+    const GameLoopFuncContext& context = *it;
+    context.worker_func(context.arg);
+  }
+
+  uv_mutex_lock(&mutex_);
+  completed_.splice(completed_.end(), executees);
+  uv_mutex_unlock(&mutex_);
+  uv_async_send(&async_);
+}
+
+void GameLoopQueue::OnExecutionCompleted(uv_async_t* handle, int status) {
+  GameLoopQueue* instance = reinterpret_cast<GameLoopQueue*>(handle->data);
+
+  uv_mutex_lock(&instance->mutex_);
+  if (instance->completed_.empty()) {
+    uv_mutex_unlock(&instance->mutex_);
+    return;
+  }
+  
+  list<GameLoopFuncContext> done;
+  done.splice(done.begin(), instance->completed_);
+  uv_mutex_unlock(&instance->mutex_);
+
+  for (auto it = done.begin(); it != done.end(); ++it) {
+    const GameLoopFuncContext& context = *it;
+    if (context.after_func != nullptr) {
+      context.after_func(context.arg);
+    }
+  }
 }
 
 }  // namespace bw

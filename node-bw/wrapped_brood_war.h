@@ -62,6 +62,45 @@ private:
   PlayerInfo* player_info_;
 };
 
+typedef void (*GameLoopWorkerFunc)(void* arg);
+typedef void (*GameLoopAfterFunc)(void* arg);
+
+class GameLoopQueue {
+  struct GameLoopFuncContext {
+    GameLoopFuncContext(void* arg, GameLoopWorkerFunc worker_func, GameLoopAfterFunc after_func)
+        : arg(arg),
+          worker_func(worker_func),
+          after_func(after_func) {
+    }
+
+    void* arg;
+    GameLoopWorkerFunc worker_func;
+    GameLoopAfterFunc after_func;  // nullable
+  };
+
+public:
+  GameLoopQueue();
+  ~GameLoopQueue();
+
+  inline bool has_items() { return has_items_; }
+  void QueueFunc(void* arg, GameLoopWorkerFunc worker_func);
+  void QueueFunc(void* arg, GameLoopWorkerFunc worker_func, GameLoopAfterFunc after_func);
+  void ExecuteItems();
+
+private:
+  // Disallow copying
+  GameLoopQueue(const GameLoopQueue&);
+  GameLoopQueue& operator=(const GameLoopQueue&);
+
+  static void OnExecutionCompleted(uv_async_t* handle, int status);
+
+  volatile bool has_items_;
+  uv_mutex_t mutex_;
+  uv_async_t async_;
+  std::list<GameLoopFuncContext> items_;
+  std::list<GameLoopFuncContext> completed_;
+};
+
 class WrappedBroodWar : public node::ObjectWrap {
 public:
   static void Init();
@@ -76,8 +115,6 @@ private:
 
   static v8::Persistent<v8::Function> constructor;
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
-
-  // TODO(tec27): provide accessor for player info somehow
 
   // accessors
   static v8::Handle<v8::Value> GetCurrentMapPath(v8::Local<v8::String> property,
@@ -134,6 +171,8 @@ private:
   static v8::Handle<v8::Value> ProcessLobbyTurn(const v8::Arguments& args);
   static v8::Handle<v8::Value> StartGameCountdown(const v8::Arguments& args);
   static v8::Handle<v8::Value> RunGameLoop(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SendMultiplayerChatMessage(const v8::Arguments& args);
+  static v8::Handle<v8::Value> DisplayIngameMessage(const v8::Arguments& args);
 
   // unwrapper helper
   template <class T>
@@ -150,12 +189,16 @@ private:
   static void OnLobbyMissionBriefing(byte slot);
   static void OnLobbyChatMessage(byte slot, const std::string& message);
   static void OnMenuErrorDialog(const std::string& message);
+  static void OnGameLoopIteration();
+  static void OnCheckForChatCommand(const std::string& message, ChatMessageType message_type,
+      byte recipients);
   
   // Functions for logging
   static void Log(void* arg, LogLevel level, const char* msg);
 
   v8::Persistent<v8::String> log_symbol_;
   BroodWar* brood_war_;
+  static GameLoopQueue* game_loop_queue_;
 };
 
 }  // namespace bw

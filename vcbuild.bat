@@ -85,7 +85,7 @@ call npm link psi
 if errorlevel 1 goto linking-failed
 call npm link bw
 if errorlevel 1 goto linking-failed
-call npm link forge
+call npm link forge-shieldbattery
 if errorlevel 1 goto linking-failed
 call npm install
 if errorlevel 1 goto linking-failed

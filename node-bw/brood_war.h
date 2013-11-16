@@ -83,6 +83,14 @@ enum class GameState {
   Unknown9,
 };
 
+enum class ChatMessageType : byte {
+  Unknown0 = 0,
+  Unknown1,
+  All,
+  Allies,
+  Person
+};
+
 #pragma pack(1)
 struct LobbyGameInitData {
   byte game_init_command;
@@ -90,7 +98,6 @@ struct LobbyGameInitData {
   byte player_bytes[8];
 };
 #pragma pack()
-
 
 #define FUNCDEF(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
     ##Name##Func Name;
@@ -109,6 +116,9 @@ struct Functions {
   FUNCDEF(uint32, JoinGame);
   FUNCDEF(void, ShowLobbyChatMessage, char* message);
   FUNCDEF(uint32, LobbySendRaceChange, uint32 slot);
+  FUNCDEF(void, SendMultiplayerChatMessage);
+  FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
+  FUNCDEF(void, DisplayMessage);
 };
 #undef FUNCDEF
 
@@ -122,10 +132,12 @@ struct Detours {
   Detour* InitializeSnpList;
   Detour* RenderDuringInitSpritesOne;
   Detour* RenderDuringInitSpritesTwo;
+  Detour* GameLoop;
 };
 
 struct FuncHooks {
   FuncHook<Functions::ShowLobbyChatMessageFunc>* LobbyChatShowMessage;
+  FuncHook<Functions::CheckForMultiplayerChatCommandFunc>* CheckForMultiplayerChatCommand;
 };
 
 struct EventHandlers {
@@ -136,6 +148,9 @@ struct EventHandlers {
   void (*OnLobbyMissionBriefing)(byte slot);
   void (*OnLobbyChatMessage)(byte slot, const std::string& message);
   void (*OnMenuErrorDialog)(const std::string& message);
+  void (*OnGameLoopIteration)();
+  void (*OnCheckForChatCommand)(const std::string& message, ChatMessageType message_type,
+      byte recipients);
 };
 
 struct Offsets {
@@ -157,6 +172,8 @@ struct Offsets {
   uint32* lobby_dirty_flag;
   uint32* game_info_dirty_flag;
   uint16* game_state;
+  byte* chat_message_recipients;
+  byte* chat_message_type;
 
   Functions functions;
   Detours detours;
@@ -208,6 +225,18 @@ public:
   void set_lobby_dirty_flag(bool dirty);
   GameState game_state() const;
   void set_game_state(GameState state);
+  inline byte chat_message_recipients() const {
+    return *offsets_->chat_message_recipients;
+  }
+  inline void set_chat_message_recipients(byte recipients) {
+    *offsets_->chat_message_recipients = recipients;
+  }
+  inline ChatMessageType chat_message_type() const {
+    return static_cast<ChatMessageType>(*offsets_->chat_message_type);
+  }
+  inline void set_chat_message_type(ChatMessageType type) {
+    *offsets_->chat_message_type = static_cast<byte>(type);
+  }
 
   void InitSprites();
   void InitPlayerInfo();
@@ -219,6 +248,14 @@ public:
   bool StartGameCountdown();
   void RunGameLoop();
 
+  // !!! The functions below should ONLY be called on the game loop thread !!!
+
+  // recipients is a bitfield, 0th bit = send to first player, 1st = send to second, etc.
+  // Only applies if type >= Person (Allies will result in recipients being set to something else)
+  void SendMultiplayerChatMessage(const std::string& message, byte recipients,
+      ChatMessageType type);
+  void DisplayMessage(const std::string& message, uint32 timeout);
+
   // Detour hook functions
   static void __stdcall OnLobbyDownloadStatus(uint32 slot, uint32 download_percent);
   static void __stdcall OnLobbySlotChange(byte data[6]);
@@ -227,10 +264,12 @@ public:
   static void __stdcall OnLobbyMissionBriefing(uint32 slot);
   static void __stdcall OnMenuErrorDialog(char* message);
   static void __stdcall OnInitializeSnpList(char* snp_directory);
+  static void __stdcall OnGameLoopIteration();
   static void __stdcall NoOp() { }
 
   // FuncHooks
   static void __stdcall ShowLobbyChatHook(char* message);
+  static uint32 __stdcall CheckForChatCommandHook(char* message);
 
 private:
   BroodWar();
@@ -245,6 +284,9 @@ private:
   EventHandlers* event_handlers_;
 
   static BroodWar* instance_;
+  // flag specifying whether a multiplayer chat message is triggered by us (so we know not to try
+  // and pass it to other code to try to interpret as a command)
+  static bool is_programmatic_chat_;
 };
 
 template <> inline
@@ -271,6 +313,8 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->boot_reason = reinterpret_cast<int32*>(0x005999E0);
   offsets->lobby_dirty_flag = reinterpret_cast<uint32*>(0x005999D4);
   offsets->game_state = reinterpret_cast<uint16*>(0x00596904);
+  offsets->chat_message_recipients = reinterpret_cast<byte*>(0x0057F1DA);
+  offsets->chat_message_type = reinterpret_cast<byte*>(0x0068C144);
 
   offsets->functions.InitSprites = reinterpret_cast<Functions::InitSpritesFunc>(0x004D7390);
   offsets->functions.InitPlayerInfo = reinterpret_cast<Functions::InitPlayerInfoFunc>(0x004A91E0);
@@ -287,12 +331,17 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::StartGameCountdownFunc>(0x00452460);
   offsets->functions.ProcessLobbyTurn =
       reinterpret_cast<Functions::ProcessLobbyTurnFunc>(0x004D4340);
-  offsets->functions.JoinGame = 
+  offsets->functions.JoinGame =
       reinterpret_cast<Functions::JoinGameFunc>(0x004D3B50);
   offsets->functions.ShowLobbyChatMessage =
       reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
   offsets->functions.LobbySendRaceChange =
       reinterpret_cast<Functions::LobbySendRaceChangeFunc>(0x00452370);
+  offsets->functions.SendMultiplayerChatMessage =
+      reinterpret_cast<Functions::SendMultiplayerChatMessageFunc>(0x004F3280);
+  offsets->functions.CheckForMultiplayerChatCommand =
+      reinterpret_cast<Functions::CheckForMultiplayerChatCommandFunc>(0x0047F8F0);
+  offsets->functions.DisplayMessage = reinterpret_cast<Functions::DisplayMessageFunc>(0x0048D0C0);
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
@@ -328,9 +377,16 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->detours.RenderDuringInitSpritesTwo = new Detour(Detour::Builder()
       .At(0x0047AFB1).To(BroodWar::NoOp)
       .NotRunningOriginalCode());
+  offsets->detours.GameLoop = new Detour(Detour::Builder()
+      .At(0x004D98EC).To(BroodWar::OnGameLoopIteration)
+      // The function call we're overwriting is a no-op (just a ret), so we can skip it
+      .NotRunningOriginalCode());
 
   offsets->func_hooks.LobbyChatShowMessage = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
       offsets->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
+  offsets->func_hooks.CheckForMultiplayerChatCommand =
+      new FuncHook<Functions::CheckForMultiplayerChatCommandFunc>(
+      offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
 
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);

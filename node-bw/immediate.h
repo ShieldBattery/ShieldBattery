@@ -3,12 +3,6 @@
 
 namespace sbat {
 namespace bw {
-/*uv_check_start(&check_immediate_watcher, node::CheckImmediate);
-  // idle handle is needed only to maintain event loop
-  uv_idle_start(&idle_immediate_dummy, node::IdleImmediateDummy);
-} else {
-  uv_check_stop(&check_immediate_watcher);
-  uv_idle_stop(&idle_immediate_dummy);*/
 typedef void (*ImmediateCallback)(void* arg);
 
 void InitImmediate();

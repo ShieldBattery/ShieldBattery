@@ -13,6 +13,23 @@ bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
+var repl = require('repl')
+bw.chatHandler.on('thisisnotwarcraftinspace', function() {
+  log.debug('got repl command')
+  bw.sendChatMessage.apply(bw, arguments)
+  bw.displayIngameMessage('it\'s much more sophisticated!', 60000)
+  var chatStream = bw.chatHandler.grabExclusiveStream()
+    , remote = repl.start({ input: chatStream, output: chatStream, terminal: false })
+
+  chatStream.setMessageTimeout(60000)
+
+  remote.context.bw = bw
+  remote.on('exit', function() {
+    log.debug('repl exited')
+    chatStream.close()
+  })
+})
+
 var io = require('socket.io-client')
   , host = require('./shieldbattery/host')
   , join = require('./shieldbattery/join')
@@ -54,7 +71,7 @@ function initialize(settings, cb) {
   initialized = true
   bw.setSettings(settings)
 
-  var forge = require('forge')
+  var forge = require('forge-shieldbattery')
   if (!forge.inject()) {
     cb(new Error('forge injection failed'))
   } else {

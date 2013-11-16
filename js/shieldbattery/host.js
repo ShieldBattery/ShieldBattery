@@ -2,7 +2,7 @@ var bw = require('bw')
   , LobbySocket = require('./lobby-socket')
   , log = require('./logger')
   , util = require('util')
-  , forge = require('forge')
+  , forge = require('forge-shieldbattery')
 
 module.exports = function(socket) {
   return new HostHandler(socket)

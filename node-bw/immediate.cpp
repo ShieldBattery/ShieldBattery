@@ -3,6 +3,7 @@
 #include <node.h>
 #include <uv.h>
 #include <list>
+#include "logger/logger.h"
 
 using std::list;
 
@@ -15,11 +16,11 @@ struct ImmediateCallbackInfo {
 };
 
 static uv_mutex_t mutex;
-static uv_check_t check_watcher;
+static uv_async_t async;
 static std::list<ImmediateCallbackInfo> callbacks;
 
-static void CheckImmediate(uv_check_t* handle, int status) {
-  assert(handle == &check_watcher);
+static void CheckImmediate(uv_async_t* handle, int status) {
+  assert(handle == &async);
   assert(status == 0);
 
   uv_mutex_lock(&mutex);
@@ -31,32 +32,28 @@ static void CheckImmediate(uv_check_t* handle, int status) {
     info.callback(info.arg);
     uv_mutex_lock(&mutex);
   }
-
-  uv_check_stop(&check_watcher);
   uv_mutex_unlock(&mutex);
 }
 
 void InitImmediate() {
   uv_mutex_init(&mutex);
-  uv_check_init(uv_default_loop(), &check_watcher);
+  uv_async_init(uv_default_loop(), &async, CheckImmediate);
 }
 
 void FreeImmediate() {
   uv_mutex_destroy(&mutex);
+  uv_close(reinterpret_cast<uv_handle_t*>(&async), NULL);
   callbacks.clear();
 }
 
 void AddImmediateCallback(ImmediateCallback callback, void* arg) {
-  uv_mutex_lock(&mutex);
-  bool start_check = callbacks.empty();
   ImmediateCallbackInfo info;
   info.callback = callback;
   info.arg = arg;
-  callbacks.push_back(info);
 
-  if (start_check) {
-    uv_check_start(&check_watcher, CheckImmediate);
-  }
+  uv_mutex_lock(&mutex);
+  callbacks.push_back(info);
+  uv_async_send(&async);
   uv_mutex_unlock(&mutex);
 }
 

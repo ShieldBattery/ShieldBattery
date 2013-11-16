@@ -2,6 +2,7 @@ var bindings = require('bindings')('bw')
   , bw = bindings()
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
+  , handleChat = require('./chat-handler')
 
 var processInitialized = false
   , inLobby = false
@@ -17,6 +18,8 @@ function BroodWar(bindings) {
   bindings.onLog = function(logLevel, msg) {
     self.emit('log', levels[logLevel], msg)
   }
+
+  this.chatHandler = handleChat(this)
 }
 util.inherits(BroodWar, EventEmitter)
 
@@ -145,6 +148,37 @@ BroodWar.prototype.initProcess = function(cb) {
       cb(err)
     })
   })
+}
+
+// type is 'all', 'allies', or 'player'
+// recipients is only necessary for players, and is a bitfield (8 bits) representing who the message
+//   should be sent to
+BroodWar.prototype.sendChatMessage = function(message, type, recipients) {
+  if (arguments.length < 2) {
+    throw new Error('Incorrect arguments')
+  }
+
+  var typeNum
+  switch (type) {
+    case 'all': typeNum = 2; break
+    case 'allies': typeNum = 3; break
+    default:  typeNum = 4
+  }
+  if (typeNum == 4 && (arguments.length < 3 || (recipients | 0) > 256)) {
+    throw new Error('Incorrect arguments')
+  }
+
+  this.bindings.sendMultiplayerChatMessage(message, typeNum, recipients)
+}
+
+// Displays a message (in the chat area), doesn't send to any other players
+BroodWar.prototype.displayIngameMessage = function(message, timeout) {
+  if (arguments.length < 1) {
+    throw new Argument('Incorrect arguments')
+  }
+
+  timeout = timeout || 0
+  this.bindings.displayIngameMessage(message, timeout)
 }
 
 util.inherits(Lobby, EventEmitter)

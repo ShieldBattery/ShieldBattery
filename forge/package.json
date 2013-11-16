@@ -1,5 +1,5 @@
 {
-  "name": "forge",
+  "name": "forge-shieldbattery",
   "version": "0.0.1",
   "description": "Windowed mode and rendering wrapper for ShieldBattery",
   "main": "index.js",
