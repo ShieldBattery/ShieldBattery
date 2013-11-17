@@ -1,17 +1,45 @@
 #manner-pylon
-The official server for [shieldbattery](https://github.com/tec27/shieldbattery). Currently supports user account creation and lobby system for custom games. More stuff to come soon!
+The official server for [shieldbattery](https://github.com/tec27/shieldbattery).
 
-##Developer Setup
-Manner-pylon is written completely in JavaScript utilizing the AngularJS framework and various NodeJS modules.
+##Dependencies
+manner-pylon requires [node](http://nodejs.org), [postgres](http://postgresql.org), and [redis](http://redis.io) in order to run.
 
-####Localhost Setup
-To setup manner-pylon on your localhost you will need [postgres](http://www.postgresql.org/) and [redis](http://redis.io/). Additionally, you will need to create a self-signed certificate and add it to your trusted root CA. You will also need to edit some settings in `config.example.js` and `database.example.js` files which are explained below and then rename those files to `config.js` and `database.json` respectively.
+###Installing dependencies on Linux/Mac
+The easiest path to installing is to use the normal installer for node (from the [node website](http://nodejs.org), and your OS' package manager (or [brew](http://brew.sh/) for Mac) to install postgres and redis.
 
-Once you install postgres, make sure you have an account which you'll need to edit into the `database.json` file. After that, just run the `db-migrate` file from the command prompt which will create an appropriate database and tables in your postgres.
+###Installing dependencies on Windows
+Use the normal installer for node (from the [node website](http://nodejs.org)). Use the Windows installer from postgres as well (available [here](http://www.postgresql.org/download/windows/)). Installing redis on Windows is somewhat more of a pain. MSOpenTech maintains a fork of redis that works on Windows, but does not contain any of the necessary installer binaries, so you'll have to build them yourself. Clone [the fork](https://github.com/MSOpenTech/redis) and build the solutions as necessary until you end up with an MSI, then use that to install redis (see `redis\msvs\install\readme.txt` in that repository for further instructions). I recommend then using [NSSM](http://nssm.cc) to then create a redis service that runs on startup.
 
-To install redis on Windows you're gonna have to jump through some hoops, but if you follow these instructions it should be no problem. First, you'll have to fork [this project](https://github.com/MSOpenTech/redis) and build the RedisServer solution (open the `redis\msvs\install\readme.txt` file if you need help) to get the MSI installer. However, you're probably gonna need to build the RedisWatcher solution separately first and for that you're gonna need to have [WiX Toolset](http://wixtoolset.org/) installed. Once you have redis installed, it could be useful to make the service out of redis-server program so you don't have to start it manually every time you want to use manner-pylon. For that you can use [this](http://nssm.cc/).
+On Windows you will also need the [OpenSSL development libraries](http://slproweb.com/products/Win32OpenSSL.html) for building one of the binary dependencies (bcrypt). Download and install the Win32 or Win64 (matching your node install's affinity) OpenSSL package (*not* the Light version), making sure to put it in the default location.
 
-The final thing is to make a self-signed certificate and add it to your trusted root CA. You can use [OpenSSL](http://www.openssl.org/related/binaries.html) to make the certificate which should be pretty straightforward. Once you have the certificate and its key created, you need to copy them to the `.\certs\` folder and make the adjustments in `config.js` file if needed.
+##Running the server
+###Initialize node modules
+After downloading the server files, or after pulling new commits, you should rebuild the npm modules using
+```
+npm rebuild
+```
+Dependencies are checked into the repository, so no `npm install` is necessary.
 
-####Running manner-pylon
-If you haven't made the redis-server a service, then you're gonna need to start it up manually. Once you've done that, start the manner-pylon server by typing `node index.js` in the command prompt and then navigate to the https://localhost/ to use it.
+###Acquire SSL certificates
+If you are running the server somewhere remotely, you can get a certificate from a normal CA. If, however, you are running a local development server, you'll need to self-sign a certificate. For instructions on how to do that, see [here](http://stackoverflow.com/a/10176685/1050849). Make sure to note the location of your certificate and private key for configuring the server (in the next step). I recommend putting them as `certs/`, as this location is already gitignored for these purposes.
+
+###Configure the server
+Copy `config.example.js` and `database.example.json` to `config.js` and `database.json`, respectively. Edit these files as you see fit to match your local configuration.
+
+###Initialize the database
+To initialize postgres (after having configured your user in the previous step), simply run
+```
+db-migrate up
+```
+You will need to run this command after pulling in commits that change that database structure as well.
+
+###Actually run the server
+The standard way to run the server is:
+```
+npm start
+```
+This command will give you better (and more colorful) logging output, but you can also simply run:
+```
+node index.js
+```
+
