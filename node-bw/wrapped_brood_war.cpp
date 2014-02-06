@@ -454,6 +454,20 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
     result.bw_port = 6112;
   }
 
+  if (settings_object->Has(String::NewSymbol("width"))) {
+    result.width = settings_object->Get(String::NewSymbol("width"))->Int32Value();
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting width");
+    result.width = 640;
+  }
+
+  if (settings_object->Has(String::NewSymbol("height"))) {
+    result.height = settings_object->Get(String::NewSymbol("height"))->Int32Value();
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting height");
+    result.height = 480;
+  }
+
   sbat::SetSettings(result);
   return scope.Close(v8::Undefined());
 }

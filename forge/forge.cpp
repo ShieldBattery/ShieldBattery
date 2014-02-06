@@ -9,6 +9,7 @@
 #include "common/types.h"
 #include "forge/direct_glaw.h"
 #include "logger/logger.h"
+#include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
@@ -43,7 +44,9 @@ Forge::Forge()
       client_x_(0),
       client_y_(0),
       cursor_x_(0),
-      cursor_y_(0) {
+      cursor_y_(0),
+      width_(0),
+      height_(0) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -328,10 +331,11 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   assert(instance_->window_handle_ == NULL);
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen
-  int width = 640;
-  int height = 480;
-  int left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;  // for now, we'll just center the window
-  int top = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
+  const Settings& settings = GetSettings();
+  instance_->width_ = settings.width;
+  instance_->height_ = settings.height;
+  int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;  // for now, we'll just center the window
+  int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
   DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
   // set our initial cached client rect positions
@@ -342,8 +346,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   RECT window_rect;
   window_rect.left = left;
   window_rect.top =  top;
-  window_rect.right = left + width;
-  window_rect.bottom = top + height;
+  window_rect.right = left + instance_->width_;
+  window_rect.bottom = top + instance_->height_;
   AdjustWindowRect(&window_rect, style, FALSE);
 
   Logger::Logf(LogLevel::Verbose, "Rewriting CreateWindowExA call to (%d, %d), %dx%d)",
@@ -461,8 +465,8 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   RECT actual_rect;
   actual_rect.left = lpRect->left + instance_->client_x_;
   actual_rect.top = lpRect->top + instance_->client_y_;
-  actual_rect.right = actual_rect.left + 640;
-  actual_rect.bottom = actual_rect.top + 480;
+  actual_rect.right = actual_rect.left + instance_->width_;
+  actual_rect.bottom = actual_rect.top + instance_->height_;
   return instance_->hooks_.ClipCursor->original()(&actual_rect);
 }
 
