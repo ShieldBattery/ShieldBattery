@@ -98,6 +98,8 @@ private:
   int client_y_;
   int cursor_x_;
   int cursor_y_;
+  int width_;
+  int height_;
 };
 
 }  // namespace forge
