@@ -4,6 +4,7 @@
 #include <v8.h>
 #include <Windows.h>
 #include <assert.h>
+#include <cmath>
 
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -306,6 +307,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     // cache the actual mouse position for GetCursorPos
     instance_->cursor_x_ = GetX(lparam);
     instance_->cursor_y_ = GetY(lparam);
+    lparam = MakePositionParam(floor((GetX(lparam) * (640.0 / instance_->width_)) + 0.5), floor((GetY(lparam) * (480.0 / instance_->height_) + 0.5)));
   }
 
   if (!call_orig) {
@@ -336,7 +338,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   instance_->height_ = settings.height;
   int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;  // for now, we'll just center the window
   int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
-  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
+  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU; //window mode
+  //DWORD style = WS_POPUP | WS_VISIBLE //borderless window mode
 
   // set our initial cached client rect positions
   instance_->client_x_ = left;
@@ -442,16 +445,16 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
   // BW thinks its running full screen in 640x480, so we give it our client area coords
-  lpPoint->x = instance_->cursor_x_;
-  lpPoint->y = instance_->cursor_y_;
+  lpPoint->x = floor((instance_->cursor_x_ * (640.0 / instance_->width_)) + 0.5);
+  lpPoint->y = floor((instance_->cursor_y_ * (480.0 / instance_->height_)) + 0.5);
   return TRUE;
 }
 
 BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
   // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
   // the additional top/left space it doesn't know about
-  x += instance_->client_x_;
-  y += instance_->client_y_;
+  x = floor(((x * (instance_->width_ / 640.0)) + 0.5)) + instance_->client_x_;
+  y = floor(((y * (instance_->height_ / 480.0)) + 0.5)) + instance_->client_y_;
   return instance_->hooks_.SetCursorPos->original()(x, y);
 }
 
