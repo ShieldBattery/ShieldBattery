@@ -62,6 +62,8 @@ siteSockets.on('connection', function(socket) {
     doLaunch(cb)
   }).on('disconnect', function() {
     console.log('site client disconnected.')
+  }).on('resolution', function(cb) {
+    detectResolution(cb)
   }).on('settings/set', function(newSettings, cb) {
     localSettings.setSettings(newSettings)
     siteSockets.except(socket.id).emit('settings/change', newSettings)
@@ -156,3 +158,9 @@ function doLaunch(cb) {
         })
       })
 }
+
+function detectResolution(cb) {
+  var res = psi.detectResolution()
+  cb(res)
+}
+

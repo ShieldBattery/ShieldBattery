@@ -30,6 +30,10 @@ module.exports.getInstallPathFromRegistry = function() {
   return result
 }
 
+module.exports.detectResolution = function() {
+  return psi.detectResolution()
+}
+
 function Process(cProcess) {
   this.cProcess = cProcess
 }

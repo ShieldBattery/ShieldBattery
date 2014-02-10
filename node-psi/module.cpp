@@ -4,6 +4,7 @@
 #include <uv.h>
 #include <v8.h>
 #include <string>
+#include <Windows.h>
 
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
@@ -19,6 +20,7 @@ using v8::Function;
 using v8::FunctionTemplate;
 using v8::Handle;
 using v8::HandleScope;
+using v8::Integer;
 using v8::Local;
 using v8::Object;
 using v8::Persistent;
@@ -95,12 +97,23 @@ Handle<Value> LaunchProcess(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
+Handle<Value> DetectResolution(const Arguments& args) {
+  HandleScope scope;
+  Handle<Object> resolution = Object::New();
+  resolution->Set(String::New("width"), Integer::New(GetSystemMetrics(SM_CXSCREEN)));
+  resolution->Set(String::New("height"), Integer::New(GetSystemMetrics(SM_CYSCREEN)));
+
+  return scope.Close(resolution);
+}
+
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   WrappedProcess::Init();
   WrappedRegistry::Init();
 
   exports->Set(String::NewSymbol("launchProcess"),
     FunctionTemplate::New(LaunchProcess)->GetFunction());
+  exports->Set(String::NewSymbol("detectResolution"),
+    FunctionTemplate::New(DetectResolution)->GetFunction());
   exports->Set(String::NewSymbol("registry"), WrappedRegistry::NewInstance());
 }
 

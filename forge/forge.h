@@ -11,6 +11,15 @@
 namespace sbat {
 namespace forge {
 
+const DWORD BORDERLESS_WINDOW = WS_POPUP | WS_VISIBLE;
+const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
+
+enum class DisplayMode {
+  FullScreen = 0,
+  BorderlessWindow,
+  Window
+};
+
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
       ImportHook<##Name##Func>* Name;
 struct ImportHooks {
@@ -100,6 +109,7 @@ private:
   int cursor_y_;
   int width_;
   int height_;
+  int display_mode_;
 };
 
 }  // namespace forge
