@@ -4,7 +4,6 @@
 #include <v8.h>
 #include <Windows.h>
 #include <assert.h>
-#include <cmath>
 
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -258,7 +257,7 @@ Handle<Value> Forge::SetVertexShader(const Arguments& args) {
   }
   instance_->vertex_shader_src_ = new char[shader_src.length() + 1];
   strcpy_s(instance_->vertex_shader_src_, shader_src.length() + 1, *shader_src);
-  
+
   return scope.Close(v8::Undefined());
 }
 
@@ -272,14 +271,14 @@ Handle<Value> Forge::SetFragmentShader(const Arguments& args) {
   }
   instance_->fragment_shader_src_ = new char[shader_src.length() + 1];
   strcpy_s(instance_->fragment_shader_src_, shader_src.length() + 1, *shader_src);
-  
+
   return scope.Close(v8::Undefined());
 }
 
-LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {  
+LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
   bool call_orig = true;
-  switch(msg) {
-  case WM_NCACTIVATE:  
+  switch (msg) {
+  case WM_NCACTIVATE:
   case WM_NCHITTEST:
   case WM_NCLBUTTONDOWN:
   case WM_NCLBUTTONUP:
@@ -303,11 +302,24 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->client_x_ = GetX(lparam);
     instance_->client_y_ = GetY(lparam);
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_LBUTTONDBLCLK:
+  case WM_LBUTTONDOWN:
+  case WM_LBUTTONUP:
+  case WM_MBUTTONDBLCLK:
+  case WM_MBUTTONDOWN:
+  case WM_MBUTTONUP:
+  case WM_RBUTTONDBLCLK:
+  case WM_RBUTTONDOWN:
+  case WM_RBUTTONUP:
+  case WM_XBUTTONDBLCLK:
+  case WM_XBUTTONDOWN:
+  case WM_XBUTTONUP:
   case WM_MOUSEMOVE:
     // cache the actual mouse position for GetCursorPos
     instance_->cursor_x_ = GetX(lparam);
     instance_->cursor_y_ = GetY(lparam);
-    lparam = MakePositionParam(floor((GetX(lparam) * (640.0 / instance_->width_)) + 0.5), floor((GetY(lparam) * (480.0 / instance_->height_) + 0.5)));
+    lparam = MakePositionParam(static_cast<int>((GetX(lparam) * (640.0 / instance_->width_)) + 0.5),
+        static_cast<int>((GetY(lparam) * (480.0 / instance_->height_) + 0.5)));
   }
 
   if (!call_orig) {
@@ -338,8 +350,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   instance_->height_ = settings.height;
   int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;  // for now, we'll just center the window
   int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
-  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU; //window mode
-  //DWORD style = WS_POPUP | WS_VISIBLE //borderless window mode
+  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;  // window mode
+  // DWORD style = WS_POPUP | WS_VISIBLE;  // borderless window mode
 
   // set our initial cached client rect positions
   instance_->client_x_ = left;
@@ -445,16 +457,16 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
   // BW thinks its running full screen in 640x480, so we give it our client area coords
-  lpPoint->x = floor((instance_->cursor_x_ * (640.0 / instance_->width_)) + 0.5);
-  lpPoint->y = floor((instance_->cursor_y_ * (480.0 / instance_->height_)) + 0.5);
+  lpPoint->x = static_cast<int>((instance_->cursor_x_ * (640.0 / instance_->width_)) + 0.5);
+  lpPoint->y = static_cast<int>((instance_->cursor_y_ * (480.0 / instance_->height_)) + 0.5);
   return TRUE;
 }
 
 BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
   // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
   // the additional top/left space it doesn't know about
-  x = floor(((x * (instance_->width_ / 640.0)) + 0.5)) + instance_->client_x_;
-  y = floor(((y * (instance_->height_ / 480.0)) + 0.5)) + instance_->client_y_;
+  x = static_cast<int>(((x * (instance_->width_ / 640.0)) + 0.5)) + instance_->client_x_;
+  y = static_cast<int>(((y * (instance_->height_ / 480.0)) + 0.5)) + instance_->client_y_;
   return instance_->hooks_.SetCursorPos->original()(x, y);
 }
 
@@ -493,7 +505,7 @@ HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
     Logger::Log(LogLevel::Verbose, "Hooking CreateSoundBuffer");
     // the vtable isn't really full of CreateSoundBufferFuncs, but close enough ;)
     CreateSoundBufferFunc* vtable = *reinterpret_cast<CreateSoundBufferFunc**>(*direct_sound_out);
-    CreateSoundBufferFunc create_sound_buffer = vtable[3]; // 4th function is CSB
+    CreateSoundBufferFunc create_sound_buffer = vtable[3];  // 4th function is CSB
     instance_->create_sound_buffer_hook_ = new FuncHook<CreateSoundBufferFunc>(
         create_sound_buffer, Forge::CreateSoundBufferHook);
     instance_->create_sound_buffer_hook_->Inject();
@@ -503,7 +515,7 @@ HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
   return result;
 }
 
-HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr, 
+HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused) {
   HRESULT result;
   instance_->create_sound_buffer_hook_->Restore();
