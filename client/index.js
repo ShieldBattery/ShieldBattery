@@ -8,6 +8,7 @@ var app = angular.module('shieldbattery',
     , require('./lobby')
     , require('./server-status')
     , require('./sockets')
+    , require('./settings')
     , require('./status')
     ])
 
