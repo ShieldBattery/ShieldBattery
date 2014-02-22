@@ -14,10 +14,8 @@ block content
         a(href='/') Chat
       .col-2
         a(href='/') Watch
-      .col-2
-        a(href='/') Analyze
       .col-1
-        a(href='/') Configure
+        a(href='/settings') Configure
     .row
       .col-3.left-nav(data-ng-controller='StatusCtrl')
         ul(data-ng-hide='siteSocket.connected && psiSocket.connected')
@@ -37,3 +35,4 @@ block content
             li {{ joinedLobby.lobby.name }} 
               a(href='', data-ng-click='leaveLobby()') (x)
       main.col-9(ng-view)
+

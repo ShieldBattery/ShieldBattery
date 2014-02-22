@@ -1,0 +1,8 @@
+form(name='settingsForm', data-ng-submit='saveSettings()', novalidate)
+  span Display mode: 
+    select(data-ng-model='displayMode', data-ng-options='dm.name for dm in displayModes', data-ng-change='onDisplayModeChange()')
+  span Resolution: 
+    select(data-ng-model='resolution', data-ng-options='res.name for res in resolutions', data-ng-disabled='resDisabled')
+  label(for='maintain-aspect-ratio') Maintain aspect ratio: 
+    input(type='checkbox', id='maintain-aspect-ratio', data-ng-model='maintainAspectRatio')
+  input(type='submit', value='Save', data-ng-disabled='settingsForm.$invalid || btnDisabled')
