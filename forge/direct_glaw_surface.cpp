@@ -39,8 +39,9 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
   if (surface_desc_.dwFlags & DDSD_WIDTH) {
     width_ = surface_desc_.dwWidth;
   }
-  if (surface_desc_.dwFlags & DDSD_WIDTH) {
-    height_ = surface_desc_.dwWidth;
+
+  if (surface_desc_.dwFlags & DDSD_HEIGHT) {
+    height_ = surface_desc_.dwHeight;
   }
 
   if (surface_desc_.dwFlags & DDSD_PITCH) {
