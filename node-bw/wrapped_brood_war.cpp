@@ -468,6 +468,20 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
     result.height = 480;
   }
 
+  if (settings_object->Has(String::NewSymbol("displayMode"))) {
+    result.display_mode = settings_object->Get(String::NewSymbol("displayMode"))->Int32Value();
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting displayMode");
+    result.display_mode = 0;
+  }
+
+  if (settings_object->Has(String::NewSymbol("maintainAspectRatio"))) {
+    result.maintain_aspect_ratio = settings_object->Get(String::NewSymbol("maintainAspectRatio"))->BooleanValue();
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting aspectRatio");
+    result.maintain_aspect_ratio = true;
+  }
+
   sbat::SetSettings(result);
   return scope.Close(v8::Undefined());
 }

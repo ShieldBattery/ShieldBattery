@@ -46,7 +46,8 @@ Forge::Forge()
       cursor_x_(0),
       cursor_y_(0),
       width_(0),
-      height_(0) {
+      height_(0),
+      display_mode_(0) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -346,12 +347,28 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen
   const Settings& settings = GetSettings();
-  instance_->width_ = settings.width;
-  instance_->height_ = settings.height;
+   
+  DWORD style;
+  switch (settings.display_mode) {
+  case DisplayMode::FullScreen:
+    instance_->width_ = (GetSystemMetrics(SM_CXSCREEN));
+    instance_->height_ = (GetSystemMetrics(SM_CYSCREEN));
+    style = BORDERLESS_WINDOW;
+    break;
+  case DisplayMode::BorderlessWindow:
+    instance_->width_ = settings.width;
+    instance_->height_ = settings.height;
+    style = BORDERLESS_WINDOW;
+    break;
+  case DisplayMode::Window:
+    instance_->width_ = settings.width;
+    instance_->height_ = settings.height;
+    style = WINDOW;
+    break;
+  }
+
   int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;  // for now, we'll just center the window
   int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
-  DWORD style = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;  // window mode
-  // DWORD style = WS_POPUP | WS_VISIBLE;  // borderless window mode
 
   // set our initial cached client rect positions
   instance_->client_x_ = left;

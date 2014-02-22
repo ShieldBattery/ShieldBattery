@@ -9,6 +9,8 @@ struct Settings {
   int bw_port;
   int width;
   int height;
+  int display_mode;
+  bool maintain_aspect_ratio;
 };
 
 NODE_EXTERN void SetSettings(const Settings& settings);

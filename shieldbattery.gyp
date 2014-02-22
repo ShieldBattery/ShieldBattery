@@ -289,7 +289,7 @@
       'defines': [
         'BUILDING_NODE_EXTENSION',
       ],
-      'libraries': [ '-luser32.lib'],
+      'libraries': [ '-luser32.lib' ],
     },
 
     {
@@ -330,7 +330,7 @@
       ],
       # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
       # have to manually specify it even though its alread a project dependency
-      'libraries': [ '-l$(SolutionDir)$(Configuration)/psi.lib'],
+      'libraries': [ '-luser32.lib', '-l$(SolutionDir)$(Configuration)/psi.lib' ],
     },
 
     {
