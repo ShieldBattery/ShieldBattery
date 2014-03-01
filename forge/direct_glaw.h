@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "common/types.h"
+#include "forge/open_gl.h"
 
 // enables/disables in-depth logging about DirectDraw method calls
 #define DIRECTDRAWLOG false
@@ -21,18 +22,6 @@ namespace sbat {
 namespace forge {
 
 HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, IUnknown* unused);
-
-struct ShaderResources {
-  struct {
-    GLint bw_screen;
-    GLint palette;
-  } uniforms;
-
-  struct {
-    GLint position;
-    GLint texpos;
-  } attributes;
-};
 
 class DirectGlaw : public IDirectDraw7 {
 public:
@@ -84,30 +73,17 @@ public:
   inline DWORD display_width() const { return display_width_; }
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
-  inline GLuint shader_program() const { return shader_program_; }
-  inline const ShaderResources* shader_resources() const { return &shader_resources_; }
   inline HWND window() const { return window_; }
   void InitializeOpenGl();
-  void SwapBuffers();
-  void SetVertexShader(char* shader_src);
-  void SetFragmentShader(char* shader_src);
+  void Render(const DirectGlawPalette &direct_glaw_palette, const std::vector<byte> &surface_data);
 
 private:
-  GLuint BuildShader(GLenum type, const char* src);
-  void BuildProgram();
-
   int refcount_;
   HWND window_;
-  HDC dc_;
-  HGLRC gl_context_;
+  OpenGl* open_gl_;
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;
-  bool opengl_initialized_;
-  GLuint vertex_shader_;
-  GLuint fragment_shader_;
-  GLuint shader_program_;
-  ShaderResources shader_resources_;
 };
 
 class DirectGlawPalette : public IDirectDrawPalette {
@@ -127,7 +103,7 @@ public:
 
   // Custom functions
   void InitForOpenGl();
-  inline void BindTexture(GLint uniform, int glTexture, int texture_slot) {
+  inline void BindTexture(GLint uniform, int glTexture, int texture_slot) const {
     glActiveTexture(glTexture);
     glBindTexture(GL_TEXTURE_2D, texture_);
     glUniform1i(uniform, texture_slot);
@@ -153,32 +129,6 @@ private:
   std::array<PaletteTextureEntry, 256> texture_data_;
   GLuint texture_;
   bool is_opengl_inited;
-};
-
-template <typename T, int n>
-class GlStaticBuffer {
-public:
-  GlStaticBuffer(GLenum buffer_target, const std::array<T, n>& data) : data_(data), buffer_(0) {
-    glGenBuffers(1, &buffer_);
-    glBindBuffer(buffer_target, buffer_);
-    glBufferData(buffer_target, data_.size() * sizeof(T), &data_[0], GL_STATIC_DRAW);
-  }
-
-  ~GlStaticBuffer() {
-    if (buffer_) {
-      glDeleteBuffers(1, &buffer_);
-    }
-  }
-
-  inline GLuint buffer() { return buffer_; }
-
-private:
-  // Disable copying
-  GlStaticBuffer(const GlStaticBuffer&);
-  GlStaticBuffer& operator=(const GlStaticBuffer&);
-
-  std::array<T, n> data_;
-  GLuint buffer_;
 };
 
 class DirectGlawSurface : public IDirectDrawSurface7 {
@@ -249,7 +199,6 @@ public:
   inline bool is_primary_surface() const {
     return (surface_desc_.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) != 0;
   }
-  void Render();
 
 private:
   int refcount_;
@@ -259,15 +208,7 @@ private:
   DWORD width_;
   DWORD height_;
   LONG pitch_;
-  uint32 texture_internal_format_;
-  uint32 texture_format_;
   std::vector<byte> surface_data_;
-  std::array<GLuint, 2> textures_;
-  uint32 texture_in_use_;
-  std::unique_ptr<GlStaticBuffer<GLfloat, 16>> vertex_buffer_;
-  std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
-  LARGE_INTEGER counter_frequency_;
-  LARGE_INTEGER last_frame_time_;
 };
 
 }  // namespace forge

@@ -4,6 +4,7 @@
 #include <v8.h>
 #include <Windows.h>
 #include <assert.h>
+#include <string>
 
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -41,6 +42,8 @@ Forge::Forge()
       direct_glaw_(nullptr),
       vertex_shader_src_(nullptr),
       fragment_shader_src_(nullptr),
+      fbo_vertex_shader_src_(nullptr),
+      fbo_fragment_shader_src_(nullptr),
       client_x_(0),
       client_y_(0),
       cursor_x_(0),
@@ -104,10 +107,14 @@ Forge::~Forge() {
     direct_glaw_->Release();
     direct_glaw_ = nullptr;
   }
-  delete[] vertex_shader_src_;
+  delete vertex_shader_src_;
   vertex_shader_src_ = nullptr;
-  delete[] fragment_shader_src_;
+  delete fragment_shader_src_;
   fragment_shader_src_ = nullptr;
+  delete fbo_vertex_shader_src_;
+  fbo_vertex_shader_src_ = nullptr;
+  delete fbo_fragment_shader_src_;
+  fbo_fragment_shader_src_ = nullptr;
 
   instance_ = nullptr;
 }
@@ -121,21 +128,22 @@ void Forge::Init() {
   SetProtoMethod(tpl, "restore", Restore);
   SetProtoMethod(tpl, "runWndProc", RunWndProc);
   SetProtoMethod(tpl, "endWndProc", EndWndProc);
-  SetProtoMethod(tpl, "setVertexShader", SetVertexShader);
-  SetProtoMethod(tpl, "setFragmentShader", SetFragmentShader);
+  SetProtoMethod(tpl, "setShaders", SetShaders);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
 
-void Forge::RegisterDirectGlaw(DirectGlaw* direct_glaw) {
+void Forge::RegisterDirectGlaw(OpenGl* open_gl, DirectGlaw* direct_glaw) {
   assert(instance_->direct_glaw_ == nullptr);
   assert(instance_->vertex_shader_src_);
   assert(instance_->fragment_shader_src_);
+  assert(instance_->fbo_vertex_shader_src_);
+  assert(instance_->fbo_fragment_shader_src_);
 
   direct_glaw->AddRef();
   instance_->direct_glaw_ = direct_glaw;
-  direct_glaw->SetVertexShader(instance_->vertex_shader_src_);
-  direct_glaw->SetFragmentShader(instance_->fragment_shader_src_);
+  open_gl->SetShaders(instance_->vertex_shader_src_, instance_->fragment_shader_src_, "main");
+  open_gl->SetShaders(instance_->fbo_vertex_shader_src_, instance_->fbo_fragment_shader_src_, "fbo");
 }
 
 Handle<Value> Forge::New(const Arguments& args) {
@@ -248,30 +256,37 @@ Handle<Value> Forge::EndWndProc(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
-Handle<Value> Forge::SetVertexShader(const Arguments& args) {
+Handle<Value> Forge::SetShaders(const Arguments& args) {
   HandleScope scope;
   assert(instance_->window_handle_ == NULL);
   assert(args.Length() >= 1);
-  String::AsciiValue shader_src(args[0]);
-  if (instance_->vertex_shader_src_) {
-    delete[] instance_->vertex_shader_src_;
+  String::Utf8Value vert(args[0]->ToString());
+  std::string* vertex_src = new std::string(*vert);
+  String::Utf8Value frag(args[1]->ToString());
+  std::string* fragment_src = new std::string(*frag);
+  std::wstring* shader_type = ToWstring(args[2]->ToString());
+  
+  if (*shader_type == L"main") {
+    if (instance_->vertex_shader_src_) {
+      delete instance_->vertex_shader_src_;
+    }
+    instance_->vertex_shader_src_ = vertex_src;
+        
+    if (instance_->fragment_shader_src_) {
+      delete instance_->fragment_shader_src_;
+    }
+    instance_->fragment_shader_src_ = fragment_src;
+  } else if (*shader_type == L"fbo") {
+    if (instance_->fbo_vertex_shader_src_) {
+      delete instance_->fbo_vertex_shader_src_;
+    }
+    instance_->fbo_vertex_shader_src_ = vertex_src;
+    
+    if (instance_->fbo_fragment_shader_src_) {
+      delete instance_->fbo_fragment_shader_src_;
+    }
+    instance_->fbo_fragment_shader_src_ = fragment_src;
   }
-  instance_->vertex_shader_src_ = new char[shader_src.length() + 1];
-  strcpy_s(instance_->vertex_shader_src_, shader_src.length() + 1, *shader_src);
-
-  return scope.Close(v8::Undefined());
-}
-
-Handle<Value> Forge::SetFragmentShader(const Arguments& args) {
-  HandleScope scope;
-  assert(instance_->window_handle_ == NULL);
-  assert(args.Length() >= 1);
-  String::AsciiValue shader_src(args[0]);
-  if (instance_->fragment_shader_src_) {
-    delete[] instance_->fragment_shader_src_;
-  }
-  instance_->fragment_shader_src_ = new char[shader_src.length() + 1];
-  strcpy_s(instance_->fragment_shader_src_, shader_src.length() + 1, *shader_src);
 
   return scope.Close(v8::Undefined());
 }

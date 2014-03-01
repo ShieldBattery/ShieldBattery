@@ -5,8 +5,10 @@ var forge = require('bindings')('forge')
 
 var vertShaderSrc = fs.readFileSync(require.resolve('./shaders/vert.glsl'))
   , fragShaderSrc = fs.readFileSync(require.resolve('./shaders/frag.glsl'))
-forge.setVertexShader(vertShaderSrc)
-forge.setFragmentShader(fragShaderSrc)
+  , fboVertShaderSrc = fs.readFileSync(require.resolve('./shaders/fbo_vert.glsl'))
+  , fboFragShaderSrc = fs.readFileSync(require.resolve('./shaders/fbo_frag.glsl'))
+forge.setShaders(vertShaderSrc, fragShaderSrc, 'main')
+forge.setShaders(fboVertShaderSrc, fboFragShaderSrc, 'fbo')
 
 var wndProcRunning = false
 
