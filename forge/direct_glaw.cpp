@@ -5,6 +5,7 @@
 #include <gl/gl.h>
 
 #include "forge/forge.h"
+#include "forge/open_gl.h"
 #include "logger/logger.h"
 
 namespace sbat {
@@ -25,38 +26,16 @@ HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, 
 DirectGlaw::DirectGlaw()
   : refcount_(1),
     window_(NULL),
-    dc_(NULL),
-    gl_context_(NULL),
+    open_gl_(nullptr),
     display_width_(0),
     display_height_(0),
-    display_bpp_(0),
-    opengl_initialized_(false),
-    vertex_shader_(0),
-    fragment_shader_(0),
-    shader_program_(0), 
-    shader_resources_() {
+    display_bpp_(0) {
+  
 }
 
 DirectGlaw::~DirectGlaw() {
-  if (opengl_initialized_) {
-    // TODO(tec27): wrap this in RAII classes instead
-    wglMakeCurrent(NULL, NULL);
-    wglDeleteContext(gl_context_);
-    ReleaseDC(window_, dc_);
-  }
-
-  if (shader_program_) {
-    glDeleteProgram(shader_program_);
-    shader_program_ = 0;
-  }
-  if (vertex_shader_) {
-    glDeleteShader(vertex_shader_);
-    vertex_shader_ = 0;
-  }
-  if (fragment_shader_) {
-    glDeleteShader(fragment_shader_);
-    fragment_shader_ = 0;
-  }
+  delete open_gl_;
+  open_gl_ = nullptr;
 }
 
 HRESULT WINAPI DirectGlaw::QueryInterface(REFIID riid, void** obj_out) {
@@ -261,6 +240,9 @@ HRESULT WINAPI DirectGlaw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp, 
   display_width_ = width;
   display_height_ = height;
   display_bpp_ = bpp;
+
+  open_gl_ = new OpenGl(window_, display_width_, display_height_);
+
   return DD_OK;
 }
 
@@ -332,125 +314,13 @@ HRESULT WINAPI DirectGlaw::EvaluateMode(DWORD flags, DWORD* timeout_secs) {
 }
 
 void DirectGlaw::InitializeOpenGl() {
-  if (opengl_initialized_) return;
+  assert(open_gl_ != nullptr);
 
-  Logger::Log(LogLevel::Verbose, "DirectGlaw initializing OpenGL");
-
-  dc_ = GetDC(window_);
-  PIXELFORMATDESCRIPTOR pixel_format = PIXELFORMATDESCRIPTOR();
-  pixel_format.nSize = sizeof(pixel_format);
-  pixel_format.nVersion = 1;
-  pixel_format.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-  pixel_format.iPixelType = PFD_TYPE_RGBA;
-  pixel_format.cColorBits = 32;
-  pixel_format.cDepthBits = 32;
-  pixel_format.iLayerType = PFD_MAIN_PLANE;
-  int format = ChoosePixelFormat(dc_, &pixel_format);
-  SetPixelFormat(dc_, format, &pixel_format);
-
-  gl_context_ = wglCreateContext(dc_);
-  assert(gl_context_ != NULL);
-  wglMakeCurrent(dc_, gl_context_);
-
-  GLenum err = glewInit();
-  if (err != GLEW_OK)  {
-    // TODO(tec27): kill process somehow
-    Logger::Logf(LogLevel::Error, "GLEW error: %s", glewGetErrorString(err));
-    return;
-  }
-  if (!GLEW_VERSION_2_0) {
-    Logger::Log(LogLevel::Error, "OpenGL 2.0 not available");
-    return;
-  }
-  if (!WGLEW_EXT_swap_control) {
-    Logger::Log(LogLevel::Warning, "OpenGL does not support swap control, vsync may cause issues");
-  } else {
-    wglSwapIntervalEXT(0); // disable vsync, which causes some pretty annoying issues in BW
-  }
-
-  opengl_initialized_ = true;
-
-  Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
-
-  Forge::RegisterDirectGlaw(this);
+  open_gl_->InitializeOpenGl(this);
 }
 
-void DirectGlaw::SwapBuffers() {
-  assert(opengl_initialized_);
-  ::SwapBuffers(dc_);
-}
-
-void DirectGlaw::SetVertexShader(char* shader_src) {
-  vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_src);
-  assert(vertex_shader_ != 0);
-
-  if (fragment_shader_ != 0) {
-    BuildProgram();
-  }
-}
-
-void DirectGlaw::SetFragmentShader(char* shader_src) {
-  fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_src);
-  assert(fragment_shader_ != 0);
-
-  if (vertex_shader_ != 0) {
-    BuildProgram();
-  }
-}
-
-GLuint DirectGlaw::BuildShader(GLenum type, const char* src) {
-  GLuint shader = glCreateShader(type);
-  GLint length = strlen(src);
-  glShaderSource(shader, 1, reinterpret_cast<const GLchar**>(&src), &length);
-  glCompileShader(shader);
-
-  GLint shader_ok;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
-  if (!shader_ok) {
-    Logger::Log(LogLevel::Error, "DirectGlaw: compiling shader failed");
-    GLint log_length;
-    char* log;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-    log = new char[log_length];
-    glGetShaderInfoLog(shader, log_length, NULL, log);
-    Logger::Log(LogLevel::Error, log);
-    delete[] log;
-    glDeleteShader(shader);
-    return 0;
-  }
-
-  return shader;
-}
-
-void DirectGlaw::BuildProgram() {
-  GLuint new_program = glCreateProgram();
-  glAttachShader(new_program, vertex_shader_);
-  glAttachShader(new_program, fragment_shader_);
-  glLinkProgram(new_program);
-
-  GLint program_ok;
-  glGetProgramiv(new_program, GL_LINK_STATUS, &program_ok);
-  if (!program_ok) {
-    Logger::Log(LogLevel::Error, "DirectGlaw: linking program failed");
-    GLint log_length;
-    char* log;
-    glGetProgramiv(new_program, GL_INFO_LOG_LENGTH, &log_length);
-    log = new char[log_length];
-    glGetProgramInfoLog(new_program, log_length, NULL, log);
-    Logger::Log(LogLevel::Error, log);
-    delete[] log;
-    glDeleteProgram(new_program);
-    return;
-  }
-
-  if (shader_program_ != 0) {
-    glDeleteProgram(shader_program_);
-  }
-  shader_program_ = new_program;
-  shader_resources_.uniforms.bw_screen = glGetUniformLocation(shader_program_, "bw_screen");
-  shader_resources_.uniforms.palette = glGetUniformLocation(shader_program_, "palette");
-  shader_resources_.attributes.position = glGetAttribLocation(shader_program_, "position");
-  shader_resources_.attributes.texpos = glGetAttribLocation(shader_program_, "texpos");
+void DirectGlaw::Render(const DirectGlawPalette &direct_glaw_palette, const std::vector<byte> &surface_data) {
+  open_gl_->Render(direct_glaw_palette, surface_data);
 }
 
 }  // namespace forge

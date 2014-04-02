@@ -348,9 +348,11 @@
         'forge/direct_glaw_surface.cpp',
         'forge/forge.cpp',
         'forge/module.cpp',
+        'forge/open_gl.cpp',
         # headers
         'forge/direct_glaw.h',
         'forge/forge.h',
+        'forge/open_gl.h',
       ],
       'dependencies': [
         'common',

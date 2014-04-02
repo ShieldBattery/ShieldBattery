@@ -3,6 +3,7 @@
 #include <gl/gl.h>
 #include <vector>
 
+#include "forge/open_gl.h"
 #include "logger/logger.h"
 
 
@@ -20,21 +21,8 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
     width_(owner->display_width()),
     height_(owner->display_height()),
     pitch_(0),
-    texture_internal_format_(GL_RGBA8),
-    texture_format_(GL_LUMINANCE),
-    surface_data_(),
-    textures_(),
-    texture_in_use_(0),
-    vertex_buffer_(),
-    element_buffer_(),
-    counter_frequency_(),
-    last_frame_time_() {
+    surface_data_() {
   owner_->AddRef();
-
-  if (GLEW_VERSION_3_0) {
-    texture_internal_format_ = GL_R8;
-    texture_format_ = GL_RED;
-  }
 
   if (surface_desc_.dwFlags & DDSD_WIDTH) {
     width_ = surface_desc_.dwWidth;
@@ -66,33 +54,6 @@ DirectGlawSurface::DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_
   surface_desc_.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH;
 
   surface_data_ = vector<byte>(height_ * pitch_, 0);
-  
-  // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
-  const array<GLfloat, 16> vertex_data =
-      { -1.0f, -1.0f, 0.0f, 1.0f,
-        1.0f, -1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 1.0f, 0.0f };
-  vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, vertex_data));
-  const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
-  element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
-
-  glGenTextures(textures_.size(), &textures_[0]);
-  for (uint32 i = 0; i < textures_.size(); ++i) {
-    glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, textures_[i]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, texture_internal_format_, width_, height_, 0,
-        texture_format_, GL_UNSIGNED_BYTE, NULL);
-  }
-
-  QueryPerformanceFrequency(&counter_frequency_);
-  counter_frequency_.QuadPart /= 1000LL; // convert to ticks per millisecond
 }
 
 DirectGlawSurface::~DirectGlawSurface() {
@@ -407,7 +368,7 @@ HRESULT WINAPI DirectGlawSurface::Unlock(RECT* locked_rect) {
   }
 
   if (is_primary_surface()) {
-    Render();
+    owner_->Render(*palette_, surface_data_);
   }
 
   // we don't actually lock anything, so we can just say this was fine
@@ -548,91 +509,6 @@ HRESULT WINAPI DirectGlawSurface::GetLOD(DWORD* lod_out) {
   }
 
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
-}
-
-void DirectGlawSurface::Render() {
-  // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
-  // iteration loop during data intialization when there's nothing to actually render) and this
-  // causes issues when the graphics card decides it doesn't want to queue commands any more. To
-  // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
-  // making rendering calls this fast. 120Hz seems like a "reasonable" limit to me (and by
-  // reasonable, I mean unlikely to cause weird issues), even though BW will never actually update
-  // any state that fast.
-  LARGE_INTEGER frame_time;
-  QueryPerformanceCounter(&frame_time);
-  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 8) {
-    return;
-  }
-  // Don't render while minimized (we tell BW its never minimized, so even though it has a check for
-  // this, it will be rendering anyway)
-  if (IsIconic(owner_->window())) {
-    return;
-  }
-
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering");
-  }
-
-  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, texture_format_, GL_UNSIGNED_BYTE,
-      &surface_data_[0]);
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after screen texture copied");
-  }
-  // flip our texture so we don't have to wait for the graphics card in order to render the next
-  // frame
-  ++texture_in_use_;
-  if (texture_in_use_ >= textures_.size()) {
-    texture_in_use_ = 0;
-  }
-
-  GLuint shader_program = owner_->shader_program();
-  if (!shader_program) {
-    return;
-  }
-  const ShaderResources* resources = owner_->shader_resources();
-  glUseProgram(shader_program);
-
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after use program");
-  }
-
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after clear");
-  }
-
-  glActiveTexture(GL_TEXTURE0 + texture_in_use_);
-  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
-  glUniform1i(resources->uniforms.bw_screen, texture_in_use_);
-  palette_->BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after textures bound");
-  }
-
-  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
-  glEnableVertexAttribArray(resources->attributes.position);
-  glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(0));
-  glEnableVertexAttribArray(resources->attributes.texpos);
-  glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
-  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
-
-  glDisableVertexAttribArray(resources->attributes.texpos);
-  glDisableVertexAttribArray(resources->attributes.position);
-
-  owner_->SwapBuffers();
-
-  QueryPerformanceCounter(&last_frame_time_);
-  if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose,
-        "DirectGlawSurface rendering completed [perf counter: %lld]",
-        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
-  }
 }
 
 }  // namespace forge
