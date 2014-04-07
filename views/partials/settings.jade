@@ -6,3 +6,5 @@ form(name='settingsForm', data-ng-submit='saveSettings()', novalidate)
   label(for='maintain-aspect-ratio') Maintain aspect ratio: 
     input(type='checkbox', id='maintain-aspect-ratio', data-ng-model='maintainAspectRatio')
   input(type='submit', value='Save', data-ng-disabled='settingsForm.$invalid || btnDisabled')
+span Mouse sensitivity:
+  rzslider( rz-slider-model='mouseSensitivity.value', rz-slider-floor='mouseSensitivity.floor', rz-slider-ceil='mouseSensitivity.ceil')
