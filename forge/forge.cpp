@@ -50,7 +50,9 @@ Forge::Forge()
       cursor_y_(0),
       width_(0),
       height_(0),
-      display_mode_(0) {
+      display_mode_(0),
+      mouse_resolution_width_(0),
+      mouse_resolution_height_(0) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -334,8 +336,8 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     // cache the actual mouse position for GetCursorPos
     instance_->cursor_x_ = GetX(lparam);
     instance_->cursor_y_ = GetY(lparam);
-    lparam = MakePositionParam(static_cast<int>((GetX(lparam) * (640.0 / instance_->width_)) + 0.5),
-        static_cast<int>((GetY(lparam) * (480.0 / instance_->height_) + 0.5)));
+    lparam = MakePositionParam(static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
+        static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_) + 0.5)));
   }
 
   if (!call_orig) {
@@ -359,10 +361,11 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
         dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
   }
   assert(instance_->window_handle_ == NULL);
+  instance_->CalculateMouseResolution();
+
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen
   const Settings& settings = GetSettings();
-   
   DWORD style;
   switch (settings.display_mode) {
   case DisplayMode::FullScreen:
@@ -489,16 +492,16 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
   // BW thinks its running full screen in 640x480, so we give it our client area coords
-  lpPoint->x = static_cast<int>((instance_->cursor_x_ * (640.0 / instance_->width_)) + 0.5);
-  lpPoint->y = static_cast<int>((instance_->cursor_y_ * (480.0 / instance_->height_)) + 0.5);
+  lpPoint->x = static_cast<int>((instance_->cursor_x_ * (640.0 / instance_->mouse_resolution_width_)) + 0.5);
+  lpPoint->y = static_cast<int>((instance_->cursor_y_ * (480.0 / instance_->mouse_resolution_height_)) + 0.5);
   return TRUE;
 }
 
 BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
   // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
   // the additional top/left space it doesn't know about
-  x = static_cast<int>(((x * (instance_->width_ / 640.0)) + 0.5)) + instance_->client_x_;
-  y = static_cast<int>(((y * (instance_->height_ / 480.0)) + 0.5)) + instance_->client_y_;
+  x = static_cast<int>(((x * (instance_->mouse_resolution_width_ / 640.0)) + 0.5)) + instance_->client_x_;
+  y = static_cast<int>(((y * (instance_->mouse_resolution_height_ / 480.0)) + 0.5)) + instance_->client_y_;
   return instance_->hooks_.SetCursorPos->original()(x, y);
 }
 
@@ -512,8 +515,8 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   RECT actual_rect;
   actual_rect.left = lpRect->left + instance_->client_x_;
   actual_rect.top = lpRect->top + instance_->client_y_;
-  actual_rect.right = actual_rect.left + instance_->width_;
-  actual_rect.bottom = actual_rect.top + instance_->height_;
+  actual_rect.right = actual_rect.left + instance_->mouse_resolution_width_;
+  actual_rect.bottom = actual_rect.top + instance_->mouse_resolution_height_;
   return instance_->hooks_.ClipCursor->original()(&actual_rect);
 }
 
@@ -562,6 +565,17 @@ HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
 
   instance_->create_sound_buffer_hook_->Inject();
   return result;
+}
+
+void Forge::CalculateMouseResolution() {
+  const Settings& settings = GetSettings();
+  int delta;
+
+  delta = (settings.width - 640) / 4;
+  mouse_resolution_width_ = settings.width - delta * settings.mouse_sensitivity;
+  mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
+
+  Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %d x %d", mouse_resolution_width_, mouse_resolution_height_);
 }
 
 }  // namespace forge

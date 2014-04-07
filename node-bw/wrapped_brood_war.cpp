@@ -475,6 +475,17 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
     result.display_mode = 0;
   }
 
+  if (settings_object->Has(String::NewSymbol("mouseSensitivity"))) {
+    result.mouse_sensitivity = settings_object->Get(String::NewSymbol("mouseSensitivity"))->Int32Value();
+    if (result.mouse_sensitivity < 0 || result.mouse_sensitivity > 4) {
+      Logger::Log(LogLevel::Warning, "mouseSensitivity out of valid range, using default value");
+      result.mouse_sensitivity = 0;
+    }
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default value for setting mouseSensitivity");
+    result.mouse_sensitivity = 0;
+  }
+
   if (settings_object->Has(String::NewSymbol("maintainAspectRatio"))) {
     result.maintain_aspect_ratio = settings_object->Get(String::NewSymbol("maintainAspectRatio"))->BooleanValue();
   } else {

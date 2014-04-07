@@ -54,6 +54,7 @@ private:
   // Disable copying
   Forge(const Forge&);
   Forge& operator=(const Forge&);
+  void CalculateMouseResolution();
 
   static LRESULT WINAPI WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam);
   static inline int GetX(LPARAM lparam) {
@@ -112,6 +113,8 @@ private:
   int width_;
   int height_;
   int display_mode_;
+  int mouse_resolution_width_;
+  int mouse_resolution_height_;
 };
 
 }  // namespace forge

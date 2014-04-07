@@ -10,6 +10,7 @@ struct Settings {
   int width;
   int height;
   int display_mode;
+  int mouse_sensitivity;
   bool maintain_aspect_ratio;
 };
 
