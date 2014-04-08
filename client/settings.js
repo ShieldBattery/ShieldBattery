@@ -2,7 +2,7 @@ var timeback = require('../shared/timeback')
 
 module.exports = 'shieldbattery.settings'
 
-var mod = angular.module('shieldbattery.settings', [ require('./sockets') ])
+var mod = angular.module('shieldbattery.settings', [ require('./sockets'), 'rzModule' ])
 
 mod.config(function($routeProvider) {
   $routeProvider.when('/settings',
@@ -14,7 +14,6 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                         , { name: 'Borderless Window', value: 1 }
                         , { name: 'Window', value: 2 }
                         ]
-
   var resArray = [ { width: 640, height: 480 }
                  , { width: 800, height: 600 }
                  , { width: 1024, height: 768 }
@@ -27,6 +26,10 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                  , { width: 4000, height: 3000 }
                  , { width: 6400, height: 4800 }
                  ]
+  $scope.mouseSensitivity = { value: 0
+                            , ceil: 4
+                            , floor: 0
+                            }
   $scope.resolutions = []
   $scope.displayMode = {}
   $scope.resolution = {}
@@ -54,6 +57,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
     $scope.settings.width = settings.width
     $scope.settings.height = settings.height
     $scope.settings.displayMode = settings.displayMode
+    $scope.settings.mouseSensitivity = settings.mouseSensitivity
     $scope.settings.maintainAspectRatio = settings.maintainAspectRatio
     initializeSettings()
   }))
@@ -102,6 +106,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
     }
 
     $scope.maintainAspectRatio = !!$scope.settings.maintainAspectRatio
+    $scope.mouseSensitivity.value = $scope.settings.mouseSensitivity || 0
     $scope.bwPort = $scope.settings.bwPort
   }
 
@@ -121,6 +126,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                       , width: $scope.resolution.width
                       , height: $scope.resolution.height
                       , displayMode: $scope.displayMode.value
+                      , mouseSensitivity: $scope.mouseSensitivity.value
                       , maintainAspectRatio: $scope.maintainAspectRatio
                       }
     psiSocket.emit('settings/set', newSettings, function(err) {
