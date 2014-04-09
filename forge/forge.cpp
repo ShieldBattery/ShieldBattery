@@ -52,7 +52,9 @@ Forge::Forge()
       height_(0),
       display_mode_(0),
       mouse_resolution_width_(0),
-      mouse_resolution_height_(0) {
+      mouse_resolution_height_(0),
+      is_started_(false),
+      captured_window_(NULL) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -77,6 +79,10 @@ Forge::Forge()
       process, "user32.dll", "SetCursorPos", SetCursorPosHook);
   hooks_.ClipCursor = new ImportHook<ImportHooks::ClipCursorFunc>(
       process, "user32.dll", "ClipCursor", ClipCursorHook);
+  hooks_.SetCapture = new ImportHook<ImportHooks::SetCaptureFunc>(
+      process, "user32.dll", "SetCapture", SetCaptureHook);
+  hooks_.ReleaseCapture = new ImportHook<ImportHooks::ReleaseCaptureFunc>(
+      process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook);
 }
 
 Forge::~Forge() {
@@ -93,6 +99,8 @@ Forge::~Forge() {
   DELETE_(GetCursorPos);
   DELETE_(SetCursorPos);
   DELETE_(ClipCursor);
+  DELETE_(SetCapture);
+  DELETE_(ReleaseCapture);
   #undef DELETE_
 
   if (create_sound_buffer_hook_) {
@@ -175,6 +183,8 @@ Handle<Value> Forge::Inject(const Arguments& args) {
   result &= instance_->hooks_.GetCursorPos->Inject();
   result &= instance_->hooks_.SetCursorPos->Inject();
   result &= instance_->hooks_.ClipCursor->Inject();
+  result &= instance_->hooks_.SetCapture->Inject();
+  result &= instance_->hooks_.ReleaseCapture->Inject();
 
   return scope.Close(Boolean::New(result));
 }
@@ -193,11 +203,14 @@ Handle<Value> Forge::Restore(const Arguments& args) {
   result &= instance_->hooks_.GetCursorPos->Restore();
   result &= instance_->hooks_.SetCursorPos->Restore();
   result &= instance_->hooks_.ClipCursor->Restore();
+  result &= instance_->hooks_.SetCapture->Restore();
+  result &= instance_->hooks_.ReleaseCapture->Restore();
 
   return scope.Close(Boolean::New(result));
 }
 
 #define WM_END_WND_PROC_WORKER (WM_USER + 27)
+#define WM_GAME_STARTED (WM_USER + 7)
 
 struct WndProcContext {
   Persistent<Function> cb;
@@ -296,7 +309,6 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
 LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
   bool call_orig = true;
   switch (msg) {
-  case WM_NCACTIVATE:
   case WM_NCHITTEST:
   case WM_NCLBUTTONDOWN:
   case WM_NCLBUTTONUP:
@@ -305,6 +317,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_PAINT:
   case WM_ACTIVATE:
   case WM_ACTIVATEAPP:
+  case WM_CAPTURECHANGED:
   case WM_KILLFOCUS:
   case WM_SETFOCUS:
   case WM_SHOWWINDOW:
@@ -338,6 +351,29 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->cursor_y_ = GetY(lparam);
     lparam = MakePositionParam(static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
         static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_) + 0.5)));
+    break;
+  case WM_NCACTIVATE:
+    if(instance_->is_started_) {
+      SetWindowPos(window_handle, (wparam ? HWND_TOPMOST : HWND_NOTOPMOST),
+        0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+    return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_GAME_STARTED:
+    DWORD current_thread = GetCurrentThreadId();
+    DWORD foreground_thread = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+
+    AttachThreadInput(current_thread, foreground_thread, TRUE);
+
+    SetForegroundWindow(window_handle);
+    SetFocus(window_handle);
+    SetActiveWindow(window_handle);
+    EnableWindow(window_handle, TRUE);
+    SetWindowPos(window_handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+
+    AttachThreadInput(current_thread, foreground_thread, FALSE);
+
+    instance_->is_started_ = true;
+    break;
   }
 
   if (!call_orig) {
@@ -567,15 +603,40 @@ HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
   return result;
 }
 
+HWND __stdcall Forge::SetCaptureHook(HWND hWnd) {
+  Logger::Log(LogLevel::Verbose, "SetCaptureHook called.");
+  if(instance_->captured_window_) {
+    PostMessage(instance_->captured_window_, WM_CAPTURECHANGED, 0, LPARAM(hWnd));
+  }
+
+  instance_->captured_window_ = hWnd;
+
+  return instance_->captured_window_;
+}
+
+BOOL __stdcall Forge::ReleaseCaptureHook() {
+  Logger::Log(LogLevel::Verbose, "ReleaseCaptureHook called.");
+
+  instance_->captured_window_ = NULL;
+
+  return TRUE;
+}
+
 void Forge::CalculateMouseResolution() {
   const Settings& settings = GetSettings();
   int delta;
 
-  delta = (settings.width - 640) / 4;
-  mouse_resolution_width_ = settings.width - delta * settings.mouse_sensitivity;
-  mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
+  if(settings.width > settings.height) {
+    delta = (settings.height - 480) / 4;
+    mouse_resolution_height_ = settings.height - delta * settings.mouse_sensitivity;
+    mouse_resolution_width_ = static_cast<int>(mouse_resolution_height_ * 4 / 3);
+  } else {
+    delta = (settings.width - 640) / 4;
+    mouse_resolution_width_ = settings.width - delta * settings.mouse_sensitivity;
+    mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
+  }
 
-  Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %d x %d", mouse_resolution_width_, mouse_resolution_height_);
+  Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %dx%d", mouse_resolution_width_, mouse_resolution_height_);
 }
 
 }  // namespace forge

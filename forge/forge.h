@@ -36,6 +36,8 @@ struct ImportHooks {
   HOOKABLE(BOOL, GetCursorPos, LPPOINT lpPoint);
   HOOKABLE(BOOL, SetCursorPos, int x, int y);
   HOOKABLE(BOOL, ClipCursor, const LPRECT lpRect);
+  HOOKABLE(HWND, SetCapture, HWND hWnd);
+  HOOKABLE(BOOL, ReleaseCapture)
 };
 #undef HOOKABLE
 
@@ -84,6 +86,8 @@ private:
       const GUID* device, IDirectSound8** direct_sound_out, IUnknown* unused);
   static HRESULT __stdcall CreateSoundBufferHook(IDirectSound8* this_ptr, 
       const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
+  static HWND __stdcall SetCaptureHook(HWND hWnd);
+  static BOOL __stdcall ReleaseCaptureHook();
 
   // callable from JS
   static v8::Handle<v8::Value> New(const v8::Arguments& args);
@@ -115,6 +119,8 @@ private:
   int display_mode_;
   int mouse_resolution_width_;
   int mouse_resolution_height_;
+  bool is_started_;
+  HWND captured_window_;
 };
 
 }  // namespace forge

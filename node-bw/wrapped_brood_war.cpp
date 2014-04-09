@@ -781,21 +781,15 @@ struct GameLoopContext {
   // TODO(tec27): results from the game to pass back?
 };
 
+#define WM_GAME_STARTED (WM_USER + 7)
+
 void RunGameLoopWork(void* arg) {
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
   assert(context->bw->game_state() == GameState::Initializing);
 
-  // TODO(tec27): get rid of this temporary hack once we have our own windowed mode
   HWND hwnd = FindWindowA("SWarClass", NULL);
-  if (hwnd != NULL) {
-    // hackishly bring the window to the front, getting around Win7 restrictions on when you can
-    // do this
-    ShowWindow(hwnd, SW_SHOW);
-    BringWindowToTop(hwnd);
-    SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0,  0, 0,SWP_NOMOVE | SWP_NOSIZE);
-    SetWindowPos(hwnd,HWND_NOTOPMOST, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
-  }
+  assert(hwnd != NULL);
+  PostMessage(hwnd, WM_GAME_STARTED, NULL, NULL);
 
   context->bw->set_game_state(GameState::Ingame);
   context->bw->RunGameLoop();
