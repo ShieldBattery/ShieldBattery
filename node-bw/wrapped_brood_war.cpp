@@ -469,14 +469,16 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
   }
 
   if (settings_object->Has(String::NewSymbol("displayMode"))) {
-    result.display_mode = settings_object->Get(String::NewSymbol("displayMode"))->Int32Value();
+    result.display_mode = static_cast<DisplayMode>(
+        settings_object->Get(String::NewSymbol("displayMode"))->Int32Value());
   } else {
     Logger::Log(LogLevel::Warning, "Using default value for setting displayMode");
-    result.display_mode = 0;
+    result.display_mode = DisplayMode::FullScreen;
   }
 
   if (settings_object->Has(String::NewSymbol("mouseSensitivity"))) {
-    result.mouse_sensitivity = settings_object->Get(String::NewSymbol("mouseSensitivity"))->Int32Value();
+    result.mouse_sensitivity =
+        settings_object->Get(String::NewSymbol("mouseSensitivity"))->Int32Value();
     if (result.mouse_sensitivity < 0 || result.mouse_sensitivity > 4) {
       Logger::Log(LogLevel::Warning, "mouseSensitivity out of valid range, using default value");
       result.mouse_sensitivity = 0;
@@ -487,7 +489,8 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
   }
 
   if (settings_object->Has(String::NewSymbol("maintainAspectRatio"))) {
-    result.maintain_aspect_ratio = settings_object->Get(String::NewSymbol("maintainAspectRatio"))->BooleanValue();
+    result.maintain_aspect_ratio =
+        settings_object->Get(String::NewSymbol("maintainAspectRatio"))->BooleanValue();
   } else {
     Logger::Log(LogLevel::Warning, "Using default value for setting aspectRatio");
     result.maintain_aspect_ratio = true;

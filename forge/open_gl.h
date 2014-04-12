@@ -19,6 +19,7 @@ struct ShaderResources {
   struct {
     GLint bw_screen;
     GLint palette;
+    GLint rendered_texture;
   } uniforms;
 
   struct {
@@ -58,7 +59,7 @@ private:
 
 class OpenGl {
 public:
-  OpenGl(HWND window, DWORD display_width, DWORD display_height);
+  OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height);
   virtual ~OpenGl();
 
   void InitializeOpenGl(DirectGlaw* direct_glaw);
@@ -73,6 +74,7 @@ private:
 
   HDC dc_;
   HWND window_;
+  RECT client_rect_;
   HGLRC gl_context_;
   bool initialized_;
   GLuint vertex_shader_;
@@ -83,21 +85,20 @@ private:
   GLuint fbo_fragment_shader_;
   GLuint fbo_shader_program_;
 
-  DWORD width_;
-  DWORD height_;
-  DWORD aspect_ratio_width_;
-  DWORD aspect_ratio_height_;
+  uint32 ddraw_width_;
+  uint32 ddraw_height_;
+  uint32 aspect_ratio_width_;
+  uint32 aspect_ratio_height_;
   uint32 texture_internal_format_;
   uint32 texture_format_;
-  std::array<GLuint, 2> textures_;
-  uint32 texture_in_use_;
+  GLuint screen_texture_;
+  GLuint framebuffer_;
+  GLuint framebuffer_texture_;
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> fbo_vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> fbo_element_buffer_;
-  GLuint frame_buffer_name_;
-  GLuint rendered_texture_;
-  GLuint texID_;
+  GLuint rendered_texture_id_;
   const Settings& settings_;
   LARGE_INTEGER counter_frequency_;
   LARGE_INTEGER last_frame_time_;

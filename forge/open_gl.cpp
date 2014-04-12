@@ -14,9 +14,10 @@ namespace forge {
 
 using std::array;
 
-OpenGl::OpenGl(HWND window, DWORD display_width, DWORD display_height)
-  : window_(window),
-    dc_(NULL),
+OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height)
+  : dc_(NULL),
+    window_(window),
+    client_rect_(),
     gl_context_(NULL),
     initialized_(false),
     vertex_shader_(0),
@@ -26,24 +27,24 @@ OpenGl::OpenGl(HWND window, DWORD display_width, DWORD display_height)
     fbo_vertex_shader_(0),
     fbo_fragment_shader_(0),
     fbo_shader_program_(0),
-    width_(display_width),
-    height_(display_height),
+    ddraw_width_(ddraw_width),
+    ddraw_height_(ddraw_height),
     aspect_ratio_width_(0),
     aspect_ratio_height_(0),
     texture_internal_format_(GL_R8),
     texture_format_(GL_RED),
-    textures_(),
-    texture_in_use_(0),
+    screen_texture_(0),
+    framebuffer_(0),
+    framebuffer_texture_(0),
     vertex_buffer_(),
     element_buffer_(),
     fbo_vertex_buffer_(),
     fbo_element_buffer_(),
-    frame_buffer_name_(0),
-    rendered_texture_(0),
-    texID_(0),
+    rendered_texture_id_(0),
     settings_(GetSettings()),
     counter_frequency_(),
     last_frame_time_() {
+  GetClientRect(window, &client_rect_);
 }
 
 OpenGl::~OpenGl() {
@@ -73,15 +74,16 @@ void OpenGl::InitializeOpenGl(DirectGlaw* direct_glaw) {
 
   Logger::Log(LogLevel::Verbose, "DirectGlaw initializing OpenGL");
 
+  assert(window_ != NULL);
   dc_ = GetDC(window_);
+
   PIXELFORMATDESCRIPTOR pixel_format = PIXELFORMATDESCRIPTOR();
   pixel_format.nSize = sizeof(pixel_format);
   pixel_format.nVersion = 1;
   pixel_format.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
   pixel_format.iPixelType = PFD_TYPE_RGBA;
-  pixel_format.cColorBits = 32;
-  pixel_format.cDepthBits = 32;
-  pixel_format.iLayerType = PFD_MAIN_PLANE;
+  pixel_format.cColorBits = 24;
+  pixel_format.cDepthBits = 16;
   int format = ChoosePixelFormat(dc_, &pixel_format);
   SetPixelFormat(dc_, format, &pixel_format);
 
@@ -99,19 +101,18 @@ void OpenGl::InitializeOpenGl(DirectGlaw* direct_glaw) {
     Logger::Log(LogLevel::Error, "OpenGL 3.3 not available");
     return;
   }
+
   if (!WGLEW_EXT_swap_control) {
     Logger::Log(LogLevel::Warning, "OpenGL does not support swap control, vsync may cause issues");
   } else {
     wglSwapIntervalEXT(0); // disable vsync, which causes some pretty annoying issues in BW
   }
 
-  initialized_ = true;
-
-  Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
-
   Forge::RegisterDirectGlaw(this, direct_glaw);
-
   MakeResources();
+
+  initialized_ = true;
+  Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
 }
 
 void OpenGl::SwapBuffers() {
@@ -203,12 +204,14 @@ void OpenGl::MakeResources() {
   assert(shader_program_ != NULL);
   assert(fbo_shader_program_ != NULL);
 
+  // bw rendering program resources
   shader_resources_.uniforms.bw_screen = glGetUniformLocation(shader_program_, "bw_screen");
   shader_resources_.uniforms.palette = glGetUniformLocation(shader_program_, "palette");
   shader_resources_.attributes.position = glGetAttribLocation(shader_program_, "position");
   shader_resources_.attributes.texpos = glGetAttribLocation(shader_program_, "texpos");
-
-  texID_ = glGetUniformLocation(fbo_shader_program_, "renderedTexture");
+  // fbo rendering resources
+  shader_resources_.uniforms.rendered_texture =
+    glGetUniformLocation(fbo_shader_program_, "renderedTexture");
 
   // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
   const array<GLfloat, 16> vertex_data =
@@ -220,37 +223,35 @@ void OpenGl::MakeResources() {
   const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
   element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
 
-  glGenTextures(textures_.size(), &textures_[0]);
-  for (uint32 i = 0; i < textures_.size(); ++i) {
-    glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, textures_[i]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, texture_internal_format_, width_, height_, 0,
-        texture_format_, GL_UNSIGNED_BYTE, NULL);
-  }
+  // Texture that BW's rendered data will be placed in
+  glGenTextures(1, &screen_texture_);
+  // Framebuffer that gets rendered to in order to convert from palletized -> RGB
+  glGenFramebuffers(1, &framebuffer_);
+  glGenTextures(1, &framebuffer_texture_);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, screen_texture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D, 0, texture_internal_format_, ddraw_width_, ddraw_height_, 0,
+      texture_format_, GL_UNSIGNED_BYTE, NULL);
 
-  glGenFramebuffers(1, &frame_buffer_name_);
-  glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_name_);
-  glGenTextures(1, &rendered_texture_);
-  glBindTexture(GL_TEXTURE_2D, rendered_texture_);
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+  glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0,
-    GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ddraw_width_, ddraw_height_, 0, GL_RGB, GL_UNSIGNED_BYTE,
+      NULL);
 
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, rendered_texture_, 0);
-  GLenum draw_buffers[1] = {GL_COLOR_ATTACHMENT0};
+  GLenum draw_buffers[1] = { GL_COLOR_ATTACHMENT0 };
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, framebuffer_texture_, 0);
   glDrawBuffers(1, draw_buffers);
-
-  if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    return;
+  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
   const array<GLfloat, 16> fbo_vertex_data =
       { -1.0f, -1.0f, 0.0f, 0.0f,
@@ -261,12 +262,15 @@ void OpenGl::MakeResources() {
   const array<GLushort, 4> fbo_element_data = { 0, 1, 2, 3 };
   fbo_element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, fbo_element_data));
 
-  aspect_ratio_width_ = settings_.width;
-  aspect_ratio_height_ = settings_.height;
-  if (settings_.width > settings_.height) {
-    aspect_ratio_width_ = static_cast<int>((settings_.height * 1.333) + 0.5);
-  } else {
-    aspect_ratio_height_ = static_cast<int>((settings_.width * 1.333) + 0.5);
+  if (settings_.display_mode == DisplayMode::FullScreen && settings_.maintain_aspect_ratio) {
+    aspect_ratio_width_ = client_rect_.right;
+    aspect_ratio_height_ = client_rect_.bottom;
+
+    if (aspect_ratio_width_ > aspect_ratio_height_) {
+      aspect_ratio_width_ = static_cast<int>((aspect_ratio_height_ * 1.333) + 0.5);
+    } else {
+      aspect_ratio_height_ = static_cast<int>((aspect_ratio_width_ * 0.75) + 0.5);
+    }
   }
 
   QueryPerformanceFrequency(&counter_frequency_);
@@ -295,27 +299,22 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering");
   }
-
-  // Render to our framebuffer
-  glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_name_);
-  glViewport(0, 0, width_, height_);
-
-  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width_, height_, texture_format_, GL_UNSIGNED_BYTE,
-      &surface_data[0]);
+  
+  glBindTexture(GL_TEXTURE_2D, screen_texture_);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ddraw_width_, ddraw_height_, texture_format_,
+      GL_UNSIGNED_BYTE, &surface_data[0]);
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after screen texture copied");
   }
-  // flip our texture so we don't have to wait for the graphics card in order to render the next
-  // frame
-  ++texture_in_use_;
-  if (texture_in_use_ >= textures_.size()) {
-    texture_in_use_ = 0;
-  }
-
-  if (!shader_program_) {
+  
+  if (!shader_program_ || !fbo_shader_program_) {
     return;
   }
+
+  // Bind the framebuffer for drawing to
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
+  glViewport(0, 0, ddraw_width_, ddraw_height_);
+ 
   const ShaderResources* resources = &shader_resources_;
   glUseProgram(shader_program_);
 
@@ -323,16 +322,10 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
     Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after use program");
   }
 
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after clear");
-  }
-
-  glActiveTexture(GL_TEXTURE0 + texture_in_use_);
-  glBindTexture(GL_TEXTURE_2D, textures_[texture_in_use_]);
-  glUniform1i(resources->uniforms.bw_screen, texture_in_use_);
+  // Draw from the screen texture to the FBO texture (de-palettize)
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, screen_texture_);
+  glUniform1i(resources->uniforms.bw_screen, screen_texture_);
   direct_glaw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after textures bound");
@@ -351,23 +344,23 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   glDisableVertexAttribArray(resources->attributes.texpos);
   glDisableVertexAttribArray(resources->attributes.position);
 
-  // Render to the screen from framebuffer
+  // Unbind the framebuffer so we can render to the screen
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  if (!settings_.maintain_aspect_ratio) {
+  if (settings_.display_mode != DisplayMode::FullScreen) {
 	  glViewport(0, 0, settings_.width, settings_.height);
+  } else if (aspect_ratio_width_ > 0) {
+    glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2) + 0.5),
+        static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2) + 0.5),
+        aspect_ratio_width_, aspect_ratio_height_);
   } else {
-    glViewport(static_cast<int>(((settings_.width - aspect_ratio_width_) / 2) + 0.5),
-      0, aspect_ratio_width_, aspect_ratio_height_);
+    glViewport(0, 0, client_rect_.right, client_rect_.bottom);
   }
-  
+
   glUseProgram(fbo_shader_program_);
 
-  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, rendered_texture_);
-  glUniform1i(texID_, 0);
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
+  glUniform1i(resources->uniforms.rendered_texture, 1);
   
   glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
   glEnableVertexAttribArray(0);

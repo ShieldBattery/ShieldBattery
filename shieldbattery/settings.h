@@ -5,11 +5,17 @@
 
 namespace sbat {
 
+enum class DisplayMode {
+  FullScreen = 0,
+  BorderlessWindow,
+  Window
+};
+
 struct Settings {
   int bw_port;
   int width;
   int height;
-  int display_mode;
+  DisplayMode display_mode;
   int mouse_sensitivity;
   bool maintain_aspect_ratio;
 };

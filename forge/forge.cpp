@@ -61,6 +61,8 @@ Forge::Forge()
   HMODULE process = GetModuleHandle(NULL);
   hooks_.CreateWindowExA = new ImportHook<ImportHooks::CreateWindowExAFunc>(
       process, "user32.dll", "CreateWindowExA", CreateWindowExAHook);
+  hooks_.RegisterClassExA = new ImportHook<ImportHooks::RegisterClassExAFunc>(
+      process, "user32.dll", "RegisterClassExA", RegisterClassExAHook);
   hooks_.GetSystemMetrics = new ImportHook<ImportHooks::GetSystemMetricsFunc>(
       process, "user32.dll", "GetSystemMetrics", GetSystemMetricsHook);
   hooks_.GetProcAddress = new ImportHook<ImportHooks::GetProcAddressFunc>(
@@ -153,7 +155,8 @@ void Forge::RegisterDirectGlaw(OpenGl* open_gl, DirectGlaw* direct_glaw) {
   direct_glaw->AddRef();
   instance_->direct_glaw_ = direct_glaw;
   open_gl->SetShaders(instance_->vertex_shader_src_, instance_->fragment_shader_src_, "main");
-  open_gl->SetShaders(instance_->fbo_vertex_shader_src_, instance_->fbo_fragment_shader_src_, "fbo");
+  open_gl->SetShaders(
+      instance_->fbo_vertex_shader_src_, instance_->fbo_fragment_shader_src_, "fbo");
 }
 
 Handle<Value> Forge::New(const Arguments& args) {
@@ -174,6 +177,7 @@ Handle<Value> Forge::Inject(const Arguments& args) {
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Inject();
+  result &= instance_->hooks_.RegisterClassExA->Inject();
   result &= instance_->hooks_.GetSystemMetrics->Inject();
   result &= instance_->hooks_.GetProcAddress->Inject();
   result &= instance_->hooks_.IsIconic->Inject();
@@ -194,6 +198,7 @@ Handle<Value> Forge::Restore(const Arguments& args) {
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Restore();
+  result &= instance_->hooks_.RegisterClassExA->Restore();
   result &= instance_->hooks_.GetSystemMetrics->Restore();
   result &= instance_->hooks_.GetProcAddress->Restore();
   result &= instance_->hooks_.IsIconic->Restore();
@@ -314,14 +319,16 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_NCLBUTTONUP:
   case WM_NCMOUSEMOVE:
   case WM_NCPAINT:
-  case WM_PAINT:
-  case WM_ACTIVATE:
   case WM_ACTIVATEAPP:
+  case WM_ACTIVATE:
   case WM_CAPTURECHANGED:
   case WM_KILLFOCUS:
+  case WM_PAINT:
   case WM_SETFOCUS:
   case WM_SHOWWINDOW:
   case WM_SIZE:
+  case WM_WINDOWPOSCHANGED:
+  case WM_WINDOWPOSCHANGING:
     return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_SYSCOMMAND:
     if (wparam == SC_KEYMENU || wparam == SC_MOUSEMENU) {
@@ -349,11 +356,12 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     // cache the actual mouse position for GetCursorPos
     instance_->cursor_x_ = GetX(lparam);
     instance_->cursor_y_ = GetY(lparam);
-    lparam = MakePositionParam(static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
+    lparam = MakePositionParam(
+        static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
         static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_) + 0.5)));
     break;
   case WM_NCACTIVATE:
-    if(instance_->is_started_) {
+    if (instance_->is_started_ && GetSettings().display_mode != DisplayMode::FullScreen) {
       SetWindowPos(window_handle, (wparam ? HWND_TOPMOST : HWND_NOTOPMOST),
         0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
@@ -364,15 +372,34 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
 
     AttachThreadInput(current_thread, foreground_thread, TRUE);
 
+    SetWindowPos(window_handle, 
+      GetSettings().display_mode == DisplayMode::FullScreen ? HWND_TOP : HWND_TOPMOST,
+      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     SetForegroundWindow(window_handle);
     SetFocus(window_handle);
     SetActiveWindow(window_handle);
     EnableWindow(window_handle, TRUE);
-    SetWindowPos(window_handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    if (GetSettings().display_mode != DisplayMode::FullScreen) {
+      SetWindowPos(window_handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
 
     AttachThreadInput(current_thread, foreground_thread, FALSE);
 
+    SetWindowPos(window_handle, 
+      GetSettings().display_mode == DisplayMode::FullScreen ? HWND_TOP : HWND_TOPMOST,
+      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+
     instance_->is_started_ = true;
+    // Clip the cursor
+    RECT clip_rect;
+    clip_rect.left = 0;
+    clip_rect.top = 0;
+    clip_rect.right = 640;
+    clip_rect.bottom = 480;
+    ClipCursorHook(&clip_rect);
+    // Move the cursor to the middle of the window
+    SetCursorPosHook(320, 240);
+    
     break;
   }
 
@@ -405,8 +432,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   DWORD style;
   switch (settings.display_mode) {
   case DisplayMode::FullScreen:
-    instance_->width_ = (GetSystemMetrics(SM_CXSCREEN));
-    instance_->height_ = (GetSystemMetrics(SM_CYSCREEN));
+    instance_->width_ = GetSystemMetrics(SM_CXSCREEN);
+    instance_->height_ = GetSystemMetrics(SM_CYSCREEN);
     style = BORDERLESS_WINDOW;
     break;
   case DisplayMode::BorderlessWindow:
@@ -420,15 +447,16 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     style = WINDOW;
     break;
   }
-
-  int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;  // for now, we'll just center the window
+  
+  // for now, we'll just center the window
+  int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;
   int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
 
   // set our initial cached client rect positions
   instance_->client_x_ = left;
   instance_->client_y_ = top;
 
-  // we want the *client rect* to be 640x480, not the actual window size
+  // we want the *client rect* to be our width/height, not the actual window size
   RECT window_rect;
   window_rect.left = left;
   window_rect.top =  top;
@@ -446,7 +474,30 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
   SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
 
+  if (GetSettings().display_mode == DisplayMode::FullScreen ||
+      GetSettings().display_mode == DisplayMode::BorderlessWindow) {
+    // Remove the border
+    int left = instance_->client_x_ - window_rect.left;
+    int top = instance_->client_y_ - window_rect.top;
+    Logger::Logf(LogLevel::Verbose, "Setting window region to: %d,%d - %d,%d",
+        left, top, left + instance_->width_, top + instance_->height_);
+    SetWindowRgn(instance_->window_handle_,
+        CreateRectRgn(left, top, left + instance_->width_, top + instance_->height_), TRUE);
+  }
+
   return instance_->window_handle_;
+}
+
+ATOM __stdcall Forge::RegisterClassExAHook(const WNDCLASSEX* lpwcx) {
+  if (strcmp(lpwcx->lpszClassName, "SWarClass") != 0) {
+    return instance_->hooks_.RegisterClassExA->original()(lpwcx);
+  }
+
+  WNDCLASSEX rewritten = *lpwcx;
+  rewritten.style |= CS_OWNDC;
+  rewritten.hCursor = LoadCursor(NULL, IDC_ARROW);
+  Logger::Log(LogLevel::Verbose, "Rewrote SWarClass to have CS_OWNDC");
+  return instance_->hooks_.RegisterClassExA->original()(&rewritten);
 }
 
 int __stdcall Forge::GetSystemMetricsHook(int nIndex) {
@@ -528,16 +579,24 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
   // BW thinks its running full screen in 640x480, so we give it our client area coords
-  lpPoint->x = static_cast<int>((instance_->cursor_x_ * (640.0 / instance_->mouse_resolution_width_)) + 0.5);
-  lpPoint->y = static_cast<int>((instance_->cursor_y_ * (480.0 / instance_->mouse_resolution_height_)) + 0.5);
+  lpPoint->x = static_cast<int>(
+      (instance_->cursor_x_ * (640.0 / instance_->mouse_resolution_width_)) + 0.5);
+  lpPoint->y = static_cast<int>(
+      (instance_->cursor_y_ * (480.0 / instance_->mouse_resolution_height_)) + 0.5);
   return TRUE;
 }
 
 BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
+  if (!instance_->is_started_) {
+    // if we're not actually in the game yet, just ignore any requests to reposition the cursor
+    return TRUE;
+  }
   // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
   // the additional top/left space it doesn't know about
-  x = static_cast<int>(((x * (instance_->mouse_resolution_width_ / 640.0)) + 0.5)) + instance_->client_x_;
-  y = static_cast<int>(((y * (instance_->mouse_resolution_height_ / 480.0)) + 0.5)) + instance_->client_y_;
+  x = static_cast<int>(((x * (instance_->mouse_resolution_width_ / 640.0)) + 0.5)) +
+      instance_->client_x_;
+  y = static_cast<int>(((y * (instance_->mouse_resolution_height_ / 480.0)) + 0.5)) +
+      instance_->client_y_;
   return instance_->hooks_.SetCursorPos->original()(x, y);
 }
 
@@ -546,6 +605,12 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
     // if they're clearing the clip, we just call through because there's nothing to adjust
     return instance_->hooks_.ClipCursor->original()(lpRect);
   }
+
+  if (!instance_->is_started_) {
+    // if we're not actually in the game yet, just ignore any requests to lock the cursor
+    return TRUE;
+  }
+
   // BW thinks its running full screen 640x480, so it will request a 640x480 clip
   // Instead, we'll request our window's actual client area
   RECT actual_rect;
@@ -604,9 +669,8 @@ HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
 }
 
 HWND __stdcall Forge::SetCaptureHook(HWND hWnd) {
-  Logger::Log(LogLevel::Verbose, "SetCaptureHook called.");
   if(instance_->captured_window_) {
-    PostMessage(instance_->captured_window_, WM_CAPTURECHANGED, 0, LPARAM(hWnd));
+    PostMessage(instance_->captured_window_, WM_CAPTURECHANGED, NULL, LPARAM(hWnd));
   }
 
   instance_->captured_window_ = hWnd;
@@ -615,8 +679,6 @@ HWND __stdcall Forge::SetCaptureHook(HWND hWnd) {
 }
 
 BOOL __stdcall Forge::ReleaseCaptureHook() {
-  Logger::Log(LogLevel::Verbose, "ReleaseCaptureHook called.");
-
   instance_->captured_window_ = NULL;
 
   return TRUE;
@@ -636,7 +698,8 @@ void Forge::CalculateMouseResolution() {
     mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
   }
 
-  Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %dx%d", mouse_resolution_width_, mouse_resolution_height_);
+  Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %dx%d",
+      mouse_resolution_width_, mouse_resolution_height_);
 }
 
 }  // namespace forge

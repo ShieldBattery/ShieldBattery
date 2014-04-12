@@ -12,14 +12,12 @@
 namespace sbat {
 namespace forge {
 
-const DWORD BORDERLESS_WINDOW = WS_POPUP | WS_VISIBLE;
+// Annoyingly, Windows makes assumptions that if you SwapBuffer, have no borders, and are the same
+// size as the monitor you're on, you want exclusive fullscreen. There doesn't seem to be a way to
+// turn this off, so we trick Windows by having a border (even for borderless windows!) and stopping
+// it from drawing with SetWindowRgn. Bill Gates whyyyyyyy?
+const DWORD BORDERLESS_WINDOW = WS_CAPTION | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
-
-enum class DisplayMode {
-  FullScreen = 0,
-  BorderlessWindow,
-  Window
-};
 
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
       ImportHook<##Name##Func>* Name;
@@ -27,6 +25,7 @@ struct ImportHooks {
   HOOKABLE(HWND, CreateWindowExA, DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName,
       DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu,
       HINSTANCE hInstance, LPVOID lpParam);
+  HOOKABLE(ATOM, RegisterClassExA, const WNDCLASSEX* lpwcx);
   HOOKABLE(int, GetSystemMetrics, int nIndex);
   HOOKABLE(FARPROC, GetProcAddress, HMODULE hModule, LPCSTR lpProcName);
   HOOKABLE(BOOL, IsIconic, HWND hWnd);
@@ -73,6 +72,7 @@ private:
   static HWND __stdcall CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       LPCSTR lpWindowName, DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent,
       HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
+  static ATOM __stdcall RegisterClassExAHook(const WNDCLASSEX* lpwcx);
   static int __stdcall GetSystemMetricsHook(int nIndex);
   static FARPROC __stdcall GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName);
   static BOOL __stdcall IsIconicHook(HWND hWnd);
