@@ -311,16 +311,21 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
   return scope.Close(v8::Undefined());
 }
 
+const int FOREGROUND_HOTKEY_ID = 1337;
+const int FOREGROUND_HOTKEY_TIMEOUT = 1000;
 LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
   bool call_orig = true;
   switch (msg) {
   case WM_NCHITTEST:
+    if (GetSettings().display_mode != DisplayMode::Window) {
+      return HTCLIENT;
+    }
   case WM_NCLBUTTONDOWN:
   case WM_NCLBUTTONUP:
   case WM_NCMOUSEMOVE:
   case WM_NCPAINT:
-  case WM_ACTIVATEAPP:
   case WM_ACTIVATE:
+  case WM_ACTIVATEAPP:
   case WM_CAPTURECHANGED:
   case WM_KILLFOCUS:
   case WM_PAINT:
@@ -367,39 +372,45 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     }
     return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_GAME_STARTED:
-    DWORD current_thread = GetCurrentThreadId();
-    DWORD foreground_thread = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
-
-    AttachThreadInput(current_thread, foreground_thread, TRUE);
-
-    SetWindowPos(window_handle, 
-      GetSettings().display_mode == DisplayMode::FullScreen ? HWND_TOP : HWND_TOPMOST,
-      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-    SetForegroundWindow(window_handle);
-    SetFocus(window_handle);
-    SetActiveWindow(window_handle);
-    EnableWindow(window_handle, TRUE);
-    if (GetSettings().display_mode != DisplayMode::FullScreen) {
-      SetWindowPos(window_handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
+    // allow you to do so if you're handling a global hotkey. So... we register a global hotkey and
+    // then press it ourselves, then bring ourselves into the foreground while handling it.
+    RegisterHotKey(instance_->window_handle_, FOREGROUND_HOTKEY_ID, NULL, VK_F22);
+    {
+      INPUT key_input = INPUT();
+      key_input.type = INPUT_KEYBOARD;
+      key_input.ki.wVk = VK_F22;
+      key_input.ki.wScan = MapVirtualKey(VK_F22, 0);
+      SendInput(1, &key_input, sizeof(key_input));
+      key_input.ki.dwFlags |= KEYEVENTF_KEYUP;
+      SendInput(1, &key_input, sizeof(key_input));
+      // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
+      SetTimer(instance_->window_handle_, FOREGROUND_HOTKEY_ID, FOREGROUND_HOTKEY_TIMEOUT, NULL);
     }
 
-    AttachThreadInput(current_thread, foreground_thread, FALSE);
-
-    SetWindowPos(window_handle, 
-      GetSettings().display_mode == DisplayMode::FullScreen ? HWND_TOP : HWND_TOPMOST,
-      0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-
     instance_->is_started_ = true;
-    // Clip the cursor
-    RECT clip_rect;
-    clip_rect.left = 0;
-    clip_rect.top = 0;
-    clip_rect.right = 640;
-    clip_rect.bottom = 480;
-    ClipCursorHook(&clip_rect);
-    // Move the cursor to the middle of the window
-    SetCursorPosHook(320, 240);
-    
+    break;
+  case WM_HOTKEY:
+  case WM_TIMER:
+    if (wparam == FOREGROUND_HOTKEY_ID) {
+      // remove hotkey and timer
+      UnregisterHotKey(instance_->window_handle_, FOREGROUND_HOTKEY_ID);
+      KillTimer(instance_->window_handle_, FOREGROUND_HOTKEY_ID);
+
+      // Show the window and bring it to the front
+      ShowWindow(instance_->window_handle_, SW_SHOWNORMAL);
+      SetForegroundWindow(instance_->window_handle_);
+
+      // Clip the cursor
+      RECT clip_rect;
+      clip_rect.left = 0;
+      clip_rect.top = 0;
+      clip_rect.right = 640;
+      clip_rect.bottom = 480;
+      ClipCursorHook(&clip_rect);
+      // Move the cursor to the middle of the window
+      SetCursorPosHook(320, 240);
+    }
     break;
   }
 
@@ -424,7 +435,6 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
         dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
   }
   assert(instance_->window_handle_ == NULL);
-  instance_->CalculateMouseResolution();
 
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen
@@ -447,6 +457,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     style = WINDOW;
     break;
   }
+
+  instance_->CalculateMouseResolution(instance_->width_, instance_->height_);
   
   // for now, we'll just center the window
   int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;
@@ -467,12 +479,15 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   Logger::Logf(LogLevel::Verbose, "Rewriting CreateWindowExA call to (%d, %d), %dx%d)",
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top);
-  instance_->window_handle_ = instance_->hooks_.CreateWindowExA->original()(dwExStyle, lpClassName,
-      lpWindowName, style, window_rect.left, window_rect.top, window_rect.right - window_rect.left,
-      window_rect.bottom - window_rect.top, hWndParent, hMenu, hInstance, lpParam);
+  instance_->window_handle_ = instance_->hooks_.CreateWindowExA->original()(dwExStyle,
+      lpClassName, lpWindowName, style, window_rect.left, window_rect.top,
+      window_rect.right - window_rect.left, window_rect.bottom - window_rect.top, hWndParent, hMenu,
+      hInstance, lpParam);
   instance_->original_wndproc_ = reinterpret_cast<WNDPROC>(
       GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
   SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
+  SetWindowPos(instance_->window_handle_, HWND_BOTTOM, 0, 0, 0, 0,
+      SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_HIDEWINDOW);
 
   if (GetSettings().display_mode == DisplayMode::FullScreen ||
       GetSettings().display_mode == DisplayMode::BorderlessWindow) {
@@ -495,7 +510,6 @@ ATOM __stdcall Forge::RegisterClassExAHook(const WNDCLASSEX* lpwcx) {
 
   WNDCLASSEX rewritten = *lpwcx;
   rewritten.style |= CS_OWNDC;
-  rewritten.hCursor = LoadCursor(NULL, IDC_ARROW);
   Logger::Log(LogLevel::Verbose, "Rewrote SWarClass to have CS_OWNDC");
   return instance_->hooks_.RegisterClassExA->original()(&rewritten);
 }
@@ -578,7 +592,7 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 }
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
-  // BW thinks its running full screen in 640x480, so we give it our client area coords
+  // BW thinks its running full screen in 640x480, so we give it our mouse_resolution-scaled coords
   lpPoint->x = static_cast<int>(
       (instance_->cursor_x_ * (640.0 / instance_->mouse_resolution_width_)) + 0.5);
   lpPoint->y = static_cast<int>(
@@ -591,8 +605,8 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
     // if we're not actually in the game yet, just ignore any requests to reposition the cursor
     return TRUE;
   }
-  // BW thinks its running full screen in 640x480, so we take the coords it gives us and tack on
-  // the additional top/left space it doesn't know about
+  // BW thinks its running full screen in 640x480, so we take the coords it gives us and scale by
+  // our mouse resolution, then tack on the additional top/left space it doesn't know about
   x = static_cast<int>(((x * (instance_->mouse_resolution_width_ / 640.0)) + 0.5)) +
       instance_->client_x_;
   y = static_cast<int>(((y * (instance_->mouse_resolution_height_ / 480.0)) + 0.5)) +
@@ -602,6 +616,7 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
 
 BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   if (lpRect == NULL) {
+    Logger::Log(LogLevel::Verbose, "Clipping disabled");
     // if they're clearing the clip, we just call through because there's nothing to adjust
     return instance_->hooks_.ClipCursor->original()(lpRect);
   }
@@ -612,12 +627,16 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   }
 
   // BW thinks its running full screen 640x480, so it will request a 640x480 clip
-  // Instead, we'll request our window's actual client area
+  // Instead, we'll request a mouse_resolution-sized rect at the top-left of our client area
   RECT actual_rect;
-  actual_rect.left = lpRect->left + instance_->client_x_;
-  actual_rect.top = lpRect->top + instance_->client_y_;
+  actual_rect.left = static_cast<int>(
+    (lpRect->left * (instance_->mouse_resolution_width_ / 640.0)) + 0.5) + instance_->client_x_;
+  actual_rect.top = static_cast<int>(
+    (lpRect->top * (instance_->mouse_resolution_height_ / 480.0)) + 0.5) + instance_->client_y_;
   actual_rect.right = actual_rect.left + instance_->mouse_resolution_width_;
   actual_rect.bottom = actual_rect.top + instance_->mouse_resolution_height_;
+  Logger::Logf(LogLevel::Verbose, "Clipping to %d,%d - %d,%d",
+      actual_rect.left, actual_rect.top, actual_rect.right, actual_rect.bottom);
   return instance_->hooks_.ClipCursor->original()(&actual_rect);
 }
 
@@ -684,17 +703,17 @@ BOOL __stdcall Forge::ReleaseCaptureHook() {
   return TRUE;
 }
 
-void Forge::CalculateMouseResolution() {
+void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
   const Settings& settings = GetSettings();
   int delta;
 
-  if(settings.width > settings.height) {
-    delta = (settings.height - 480) / 4;
-    mouse_resolution_height_ = settings.height - delta * settings.mouse_sensitivity;
+  if(width > height) {
+    delta = (height - 480) / 4;
+    mouse_resolution_height_ = height - delta * settings.mouse_sensitivity;
     mouse_resolution_width_ = static_cast<int>(mouse_resolution_height_ * 4 / 3);
   } else {
-    delta = (settings.width - 640) / 4;
-    mouse_resolution_width_ = settings.width - delta * settings.mouse_sensitivity;
+    delta = (width - 640) / 4;
+    mouse_resolution_width_ = width - delta * settings.mouse_sensitivity;
     mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
   }
 
