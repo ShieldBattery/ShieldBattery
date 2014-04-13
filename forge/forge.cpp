@@ -486,8 +486,12 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   instance_->original_wndproc_ = reinterpret_cast<WNDPROC>(
       GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
   SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
-  SetWindowPos(instance_->window_handle_, HWND_BOTTOM, 0, 0, 0, 0,
-      SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_HIDEWINDOW);
+  // In some cases, Windows seems to not give us a window of the size we requested, so we also
+  // re-apply the size and position here just in case
+  SetWindowPos(instance_->window_handle_, HWND_BOTTOM, 
+      window_rect.left, window_rect.top,
+      window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
+      SWP_NOACTIVATE | SWP_HIDEWINDOW);
 
   if (GetSettings().display_mode == DisplayMode::FullScreen ||
       GetSettings().display_mode == DisplayMode::BorderlessWindow) {
