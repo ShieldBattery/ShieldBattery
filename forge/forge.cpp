@@ -345,6 +345,16 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->client_x_ = GetX(lparam);
     instance_->client_y_ = GetY(lparam);
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_GETMINMAXINFO:
+    DefWindowProc(window_handle, msg, wparam, lparam);
+    {
+      // Make it so Windows doesn't limit this window to the display resolution, so we can size the
+      // client area to precisely match the display resolution (with borders hanging over)
+      MINMAXINFO* min_max = reinterpret_cast<MINMAXINFO*>(lparam);
+      min_max->ptMaxTrackSize.x = 999999;
+      min_max->ptMaxTrackSize.y = 999999;
+    }
+    break;
   case WM_LBUTTONDBLCLK:
   case WM_LBUTTONDOWN:
   case WM_LBUTTONUP:
@@ -375,7 +385,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
     // allow you to do so if you're handling a global hotkey. So... we register a global hotkey and
     // then press it ourselves, then bring ourselves into the foreground while handling it.
-    RegisterHotKey(instance_->window_handle_, FOREGROUND_HOTKEY_ID, NULL, VK_F22);
+    RegisterHotKey(window_handle, FOREGROUND_HOTKEY_ID, NULL, VK_F22);
     {
       INPUT key_input = INPUT();
       key_input.type = INPUT_KEYBOARD;
@@ -385,7 +395,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       key_input.ki.dwFlags |= KEYEVENTF_KEYUP;
       SendInput(1, &key_input, sizeof(key_input));
       // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
-      SetTimer(instance_->window_handle_, FOREGROUND_HOTKEY_ID, FOREGROUND_HOTKEY_TIMEOUT, NULL);
+      SetTimer(window_handle, FOREGROUND_HOTKEY_ID, FOREGROUND_HOTKEY_TIMEOUT, NULL);
     }
 
     instance_->is_started_ = true;
@@ -394,12 +404,12 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_TIMER:
     if (wparam == FOREGROUND_HOTKEY_ID) {
       // remove hotkey and timer
-      UnregisterHotKey(instance_->window_handle_, FOREGROUND_HOTKEY_ID);
-      KillTimer(instance_->window_handle_, FOREGROUND_HOTKEY_ID);
+      UnregisterHotKey(window_handle, FOREGROUND_HOTKEY_ID);
+      KillTimer(window_handle, FOREGROUND_HOTKEY_ID);
 
       // Show the window and bring it to the front
-      ShowWindow(instance_->window_handle_, SW_SHOWNORMAL);
-      SetForegroundWindow(instance_->window_handle_);
+      ShowWindow(window_handle, SW_SHOWNORMAL);
+      SetForegroundWindow(window_handle);
 
       // Clip the cursor
       RECT clip_rect;
