@@ -496,6 +496,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     int top = instance_->client_y_ - window_rect.top;
     Logger::Logf(LogLevel::Verbose, "Setting window region to: %d,%d - %d,%d",
         left, top, left + instance_->width_, top + instance_->height_);
+    assert(left + instance_->width_ <= window_rect.right - window_rect.left);
+    assert(top + instance_->height_ <= window_rect.bottom - window_rect.top);
     SetWindowRgn(instance_->window_handle_,
         CreateRectRgn(left, top, left + instance_->width_, top + instance_->height_), TRUE);
   }
