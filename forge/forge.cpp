@@ -354,7 +354,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       min_max->ptMaxTrackSize.x = 999999;
       min_max->ptMaxTrackSize.y = 999999;
     }
-    break;
+    return 0;
   case WM_LBUTTONDBLCLK:
   case WM_LBUTTONDOWN:
   case WM_LBUTTONUP:
