@@ -2,6 +2,7 @@
 #define COMMON_WIN_HELPERS_H_
 
 #include <Windows.h>
+#include <Wtsapi32.h>
 #include <string>
 #include "common/types.h"
 

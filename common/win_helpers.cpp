@@ -1,6 +1,7 @@
 #include "common/win_helpers.h"
 
 #include <Windows.h>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include "common/types.h"
@@ -83,44 +84,44 @@ struct InjectContext {
 // Thread proc function for injecting, looks like:
 // int InjectProc(InjectContext* context);
 const byte inject_proc[] = {
-  0x55,                               // PUSH EBP
-  0x8B, 0xEC,                         // MOV EBP, ESP
-  0x83, 0xEC, 0x08,                   // SUB ESP, 8
-  0x8B, 0x45, 0x08,                   // MOV EAX, &context->dll_path
-  0x50,                               // PUSH EAX
-  0x8B, 0x4D, 0x08,                   // MOV ECX, context
-  0x8B, 0x91, 0x08, 0x03, 0x00, 0x00, // MOV EDX, context->LoadLibraryW
-  0xFF, 0xD2,                         // CALL LoadLibraryW(&context->dll_path)
-  0x89, 0x45, 0xFC,                   // MOV [LOCAL.1], EAX (module_handle)
-  0x83, 0x7D, 0xFC, 0x00,             // CMP [LOCAL.1], 0
-  0x75, 0x0D,                         // JNZ LOADLIB_SUCCESS
-  0x8B, 0x45, 0x08,                   // MOV EAX, context
-  0x8B, 0x88, 0x10, 0x03, 0x00, 0x00, // MOV ECX, context->GetLasttError
-  0xFF, 0xD1,                         // CALL GetLastError()
-  0xEB, 0x34,                         // JMP EXIT
+  0x55,                                 // PUSH EBP
+  0x8B, 0xEC,                           // MOV EBP, ESP
+  0x83, 0xEC, 0x08,                     // SUB ESP, 8
+  0x8B, 0x45, 0x08,                     // MOV EAX, &context->dll_path
+  0x50,                                 // PUSH EAX
+  0x8B, 0x4D, 0x08,                     // MOV ECX, context
+  0x8B, 0x91, 0x08, 0x03, 0x00, 0x00,   // MOV EDX, context->LoadLibraryW
+  0xFF, 0xD2,                           // CALL LoadLibraryW(&context->dll_path)
+  0x89, 0x45, 0xFC,                     // MOV [LOCAL.1], EAX (module_handle)
+  0x83, 0x7D, 0xFC, 0x00,               // CMP [LOCAL.1], 0
+  0x75, 0x0D,                           // JNZ LOADLIB_SUCCESS
+  0x8B, 0x45, 0x08,                     // MOV EAX, context
+  0x8B, 0x88, 0x10, 0x03, 0x00, 0x00,   // MOV ECX, context->GetLasttError
+  0xFF, 0xD1,                           // CALL GetLastError()
+  0xEB, 0x34,                           // JMP EXIT
 // LOADLIB_SUCCESS:
-  0x8B, 0x55, 0x08,                   // MOV EDX, context
-  0x81, 0xC2, 0x08, 0x02, 0x00, 0x00, // ADD EDX, 208 (EDX = &context->inject_proc_name)
-  0x52,                               // PUSH EDX
-  0x8B, 0x45, 0xFC,                   // MOV EAX, module_handle
-  0x50,                               // PUSH EAX
-  0x8B, 0x4D, 0x08,                   // MOV ECX, context
-  0x8B, 0x91, 0x0C, 0x03, 0x00, 0x00, // MOV EDX, context->GetProcAddress
-  0xFF, 0xD2,                         // CALL GetProcAddress(module_handle, inject_proc_name)
-  0x89, 0x45, 0xF8,                   // MOV [LOCAL.2], EAX (func)
-  0x83, 0x7D, 0xF8, 0x00,             // CMP [LOCAL.2], 0
-  0x75, 0x0D,                         // JNZ GETPROC_SUCCESS
-  0x8B, 0x45, 0x08,                   // MOV EAX, context
-  0x8B, 0x88, 0x10, 0x03, 0x00, 0x00, // MOV ECX, context->GetLastError
-  0xFF, 0xD1,                         // CALL GetLastError()
-  0xEB, 0x05,                         // JMP EXIT
+  0x8B, 0x55, 0x08,                     // MOV EDX, context
+  0x81, 0xC2, 0x08, 0x02, 0x00, 0x00,   // ADD EDX, 208 (EDX = &context->inject_proc_name)
+  0x52,                                 // PUSH EDX
+  0x8B, 0x45, 0xFC,                     // MOV EAX, module_handle
+  0x50,                                 // PUSH EAX
+  0x8B, 0x4D, 0x08,                     // MOV ECX, context
+  0x8B, 0x91, 0x0C, 0x03, 0x00, 0x00,   // MOV EDX, context->GetProcAddress
+  0xFF, 0xD2,                           // CALL GetProcAddress(module_handle, inject_proc_name)
+  0x89, 0x45, 0xF8,                     // MOV [LOCAL.2], EAX (func)
+  0x83, 0x7D, 0xF8, 0x00,               // CMP [LOCAL.2], 0
+  0x75, 0x0D,                           // JNZ GETPROC_SUCCESS
+  0x8B, 0x45, 0x08,                     // MOV EAX, context
+  0x8B, 0x88, 0x10, 0x03, 0x00, 0x00,   // MOV ECX, context->GetLastError
+  0xFF, 0xD1,                           // CALL GetLastError()
+  0xEB, 0x05,                           // JMP EXIT
 // GETPROC_SUCCESS:
-  0xFF, 0x55, 0xF8,                   // CALL func
-  0x33, 0xC0,                         // XOR EAX, EAX (return value = 0)
+  0xFF, 0x55, 0xF8,                     // CALL func
+  0x33, 0xC0,                           // XOR EAX, EAX (return value = 0)
 // EXIT:
-  0x8B, 0xE5,                         // MOV ESP, EBP
-  0x5D,                               // POP EBP
-  0xC2, 0x04, 0x00                    // RETN 4
+  0x8B, 0xE5,                           // MOV ESP, EBP
+  0x5D,                                 // POP EBP
+  0xC2, 0x04, 0x00                      // RETN 4
 };
 
 bool Process::se_debug_enabled_ = false;
@@ -135,16 +136,19 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
     }
   }
 
+  HANDLE token;
   STARTUPINFOW startup_info = { 0 };
   // CreateProcessW claims to sometimes modify arguments, no fucking clue why
   vector<wchar_t> arguments_writable(arguments.length() + 1);
+  int token_num = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
-  if (!CreateProcessW(app_path.c_str(),  &arguments_writable[0], nullptr, nullptr, false,
-      launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(), &startup_info,
+  if (!CreateProcessAsUserW(token, app_path.c_str(), &arguments_writable[0], nullptr, nullptr,
+      false, launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(), &startup_info,
       &process_info_)) {
     error_ = new WindowsError(GetLastError());
     return;
   }
+  CloseHandle(token);
 }
 
 Process::~Process() {
@@ -242,7 +246,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   WaitForSingleObject(thread_handle, 5000);
   DWORD exit_code;
   GetExitCodeThread(thread_handle, &exit_code);
-  
+
   VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
 
   return WindowsError(exit_code);
