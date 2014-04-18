@@ -725,16 +725,18 @@ BOOL __stdcall Forge::ReleaseCaptureHook() {
 
 void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
   const Settings& settings = GetSettings();
-  int delta;
+  double delta;
 
   if(width > height) {
-    delta = (height - 480) / 4;
-    mouse_resolution_height_ = height - delta * settings.mouse_sensitivity;
-    mouse_resolution_width_ = static_cast<int>(mouse_resolution_height_ * 4 / 3);
+    delta = (height - 480.0) / 4;
+    mouse_resolution_height_ = static_cast<int>(
+        (height - (delta * settings.mouse_sensitivity)) + 0.5);
+    mouse_resolution_width_ = static_cast<int>((mouse_resolution_height_ * 4.0 / 3) + 0.5);
   } else {
-    delta = (width - 640) / 4;
-    mouse_resolution_width_ = width - delta * settings.mouse_sensitivity;
-    mouse_resolution_height_ = static_cast<int>(mouse_resolution_width_ * 3 / 4);
+    delta = (width - 640.0) / 4;
+    mouse_resolution_width_ = static_cast<int>(
+        (width - (delta * settings.mouse_sensitivity)) + 0.5);
+    mouse_resolution_height_ = static_cast<int>((mouse_resolution_width_ * 3.0 / 4) + 0.5);
   }
 
   Logger::Logf(LogLevel::Verbose, "Mouse Resolution: %dx%d",
