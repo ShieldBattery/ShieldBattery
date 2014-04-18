@@ -582,6 +582,9 @@ BOOL __stdcall Forge::ScreenToClientHook(HWND hWnd, LPPOINT lpPoint) {
     return instance_->hooks_.ScreenToClient->original()(hWnd, lpPoint);
   }
 
+  // TODO(tec27): I don't think BW even actually uses this, and this implementation is wrong given
+  // our different window types. Figure out if BW calls this, and if not, delete it.
+
   Logger::Logf(LogLevel::Verbose, "ScreenToClient(%d, %d)", lpPoint->x, lpPoint->y);
   RECT window_rect;
   RECT client_rect;
