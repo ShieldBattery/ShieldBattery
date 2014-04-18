@@ -373,7 +373,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->cursor_y_ = GetY(lparam);
     lparam = MakePositionParam(
         static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
-        static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_) + 0.5)));
+        static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_)) + 0.5));
     break;
   case WM_NCACTIVATE:
     if (instance_->is_started_ && GetSettings().display_mode != DisplayMode::FullScreen) {
