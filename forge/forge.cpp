@@ -636,7 +636,6 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
 
 BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   if (lpRect == NULL) {
-    Logger::Log(LogLevel::Verbose, "Clipping disabled");
     // if they're clearing the clip, we just call through because there's nothing to adjust
     return instance_->hooks_.ClipCursor->original()(lpRect);
   }
@@ -655,8 +654,6 @@ BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
     (lpRect->top * (instance_->mouse_resolution_height_ / 480.0)) + 0.5) + instance_->client_y_;
   actual_rect.right = actual_rect.left + instance_->mouse_resolution_width_;
   actual_rect.bottom = actual_rect.top + instance_->mouse_resolution_height_;
-  Logger::Logf(LogLevel::Verbose, "Clipping to %d,%d - %d,%d",
-      actual_rect.left, actual_rect.top, actual_rect.right, actual_rect.bottom);
   return instance_->hooks_.ClipCursor->original()(&actual_rect);
 }
 
