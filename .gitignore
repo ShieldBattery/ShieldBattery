@@ -1,6 +1,4 @@
+node_modules/
 /certs/*
 /config.js
 /database.json
-
-# compiled (machine-specific) parts of binary modules
-build/
