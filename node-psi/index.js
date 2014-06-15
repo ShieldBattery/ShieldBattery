@@ -1,4 +1,11 @@
 var psi = require('bindings')('psi')
+  , EventEmitter = require('events').EventEmitter
+
+module.exports = new EventEmitter()
+
+psi.registerShutdownHandler(function() {
+  module.exports.emit('shutdown')
+})
 
 // cb is function(err, proc)
 module.exports.launchProcess = function(params, cb) {

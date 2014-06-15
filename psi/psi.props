@@ -5,13 +5,26 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c
+sc create Psi binpath= "$(SHIELDBATTERY_PATH)psi.exe" type= own start= auto</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Message>copy output into test install</Message>
+      <Message>copy output into test path and create a service</Message>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>sc query "Psi" | findstr /I "RUNNING"^
+  &amp;&amp; (echo "Service running, stopping" &amp;&amp; sc stop Psi &amp;&amp; echo "Service exists, deleting" &amp;&amp; sc delete Psi)^
+  || (sc query "Psi" | findstr /I "SERVICE_NAME:"^
+    &amp;&amp; (echo "Service exists, deleting" &amp;&amp; sc delete Psi)^
+    || (echo "Service doesn't exist, OK" &amp;&amp; exit /B 0)^
+  )
+
+echo "Waiting for service to be actually deleted..."
+PING -n 6 127.0.0.1&gt;nul</Command>
+      <Message>Stop/delete the  running service</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup />
 </Project>

@@ -3,13 +3,14 @@
 #include <node.h>
 #include <uv.h>
 #include <v8.h>
-#include <string>
 #include <Windows.h>
+#include <string>
 
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
 #include "node-psi/wrapped_process.h"
 #include "node-psi/wrapped_registry.h"
+#include "psi/psi.h"
 
 using std::wstring;
 using v8::Arguments;
@@ -106,14 +107,40 @@ Handle<Value> DetectResolution(const Arguments& args) {
   return scope.Close(resolution);
 }
 
+Persistent<Function> callback;
+
+Handle<Value> ShutdownHandler(const Arguments& args) {
+  HandleScope scope;
+  assert(args.Length() == 1);
+  assert(args[0]->IsFunction());
+
+  if (!callback.IsEmpty()) {
+    callback.Dispose();
+  }
+
+  callback = Persistent<Function>::New(args[0].As<Function>());
+  return scope.Close(v8::Undefined());
+}
+
+void EmitShutdown() {
+  if (callback.IsEmpty()) {
+    return;
+  }
+
+  callback->Call(Context::GetCurrent()->Global(), 0, nullptr);
+}
+
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   WrappedProcess::Init();
   WrappedRegistry::Init();
+  PsiService::SetShutdownCallback(EmitShutdown);
 
   exports->Set(String::NewSymbol("launchProcess"),
     FunctionTemplate::New(LaunchProcess)->GetFunction());
   exports->Set(String::NewSymbol("detectResolution"),
     FunctionTemplate::New(DetectResolution)->GetFunction());
+  exports->Set(String::NewSymbol("registerShutdownHandler"),
+    FunctionTemplate::New(ShutdownHandler)->GetFunction());
   exports->Set(String::NewSymbol("registry"), WrappedRegistry::NewInstance());
 }
 

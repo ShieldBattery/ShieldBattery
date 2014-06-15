@@ -127,7 +127,7 @@
         'common/win_thread.h',
       ],
       'direct_dependent_settings': {
-        'libraries': [ '-ladvapi32.lib', ],
+        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', ],
       },
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'
@@ -329,7 +329,7 @@
         'BUILDING_NODE_EXTENSION',
       ],
       # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
-      # have to manually specify it even though its alread a project dependency
+      # have to manually specify it even though it's already a project dependency
       'libraries': [ '-luser32.lib', '-l$(SolutionDir)$(Configuration)/psi.lib' ],
     },
 

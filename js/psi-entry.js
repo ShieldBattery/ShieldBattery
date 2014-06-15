@@ -1,7 +1,10 @@
+var log = require('./psi/logger')
 process.on('uncaughtException', function(err) {
-  console.log(err.message)
-  console.log(err.stack)
-  setTimeout(function() { process.exit() }, 15000)
+  log.error(err.stack)
+  // give the log time to write out
+  setTimeout(function() {
+    process.exit()
+  }, 100)
 })
 
 var psi = require('psi')
@@ -55,6 +58,13 @@ function passBack(gameEvent) {
     siteSockets.emit.apply(siteSockets, args)
   }
 }
+
+psi.on('shutdown', function() {
+  httpServer.close()
+  log.verbose('httpServer closed')
+  localSettings.stopWatching()
+  log.verbose('localSettings stopped watching')
+})
 
 siteSockets.on('connection', function(socket) {
   console.log('site client connected.')
