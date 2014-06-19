@@ -119,7 +119,7 @@ JoinedLobbyService.prototype._path = function(end) {
 
 JoinedLobbyService.prototype.sendChat = function(msg) {
   if (!this.inLobby) return
-  this.siteSocket.emit('lobbies/chat', { msg: msg })
+  this.siteSocket.publish(this._path(), { action: 'chat', text: msg })
 }
 
 JoinedLobbyService.prototype.join = function(lobbyName) {

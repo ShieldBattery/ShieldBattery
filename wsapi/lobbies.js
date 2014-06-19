@@ -39,7 +39,7 @@ function LobbyHandler(nydus) {
   }).subscribe(basePath + '/:lobby', function(req, res) {
     self.subscribeLobby(req, res)
   }).publish(basePath + '/:lobby', function(req, event, complete) {
-    // TODO(tec27): only allow chat publishing, and send it to all subscribers
+    self.sendChat(req, event, complete)
   })
 }
 
@@ -191,14 +191,21 @@ LobbyHandler.prototype.part = function(req, res) {
   }
 }
 
-LobbyHandler.prototype.chat = function(socket, params) {
-  var user = socket.handshake.userName
-  if (!params.msg || !this.playerLobbyMap.has(user)) {
+LobbyHandler.prototype.sendChat = function(req, event, complete) {
+  var user = req.socket.handshake.userName
+  if (event.action != 'chat' || event.text === undefined) {
+    return
+  }
+  if (!this.playerLobbyMap.has(user)) {
     return
   }
 
   var lobby = this.playerLobbyMap.get(user)
-  this._updateJoinedLobby(lobby, { action: 'chat', from: user, text: params.msg })
+  if (req.params.lobby != lobby.name) {
+    return
+  }
+
+  complete({ action: 'chat', from: user, text: event.text })
 }
 
 LobbyHandler.prototype.startCountdown = function(req, res) {
