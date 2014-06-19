@@ -145,7 +145,8 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     return deferred.promise
   }
 
-  this._connectListener = this.siteSocket.on('connect', sendJoin)
+  this._connectListener = sendJoin
+  this.siteSocket.on('connect', sendJoin)
   // deferred to use if we are not currently connected, shared between sendJoinCalls
   var connectDeferred
     , connectTimeout
@@ -193,8 +194,7 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     }
 
     function handleError(err) {
-      console.log('error joining: ')
-      console.dir(err)
+      console.log('error joining: ' + err.details.msg)
       deferred.reject(err)
       if (deferred === connectDeferred) {
         self.$timeout.cancel(connectTimeout)
@@ -211,10 +211,10 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
 JoinedLobbyService.prototype.leave = function() {
   if (this.inLobby) {
     this.siteSocket.unsubscribe(this._path(), this._onMessage)
-    this.siteSocket.call(this._path('/part'))
+    this.siteSocket.call(this._path('/part/' + this.myId))
   }
 
-  this._siteSocket.removeListener('connect', this._connectListener)
+  this.siteSocket.removeListener('connect', this._connectListener)
   this._connectListener = null
   this.lobby = null
   this.chat.length = 0
@@ -230,7 +230,7 @@ JoinedLobbyService.prototype.addComputer = function() {
 
   this.siteSocket.call(this._path('/addComputer'), function(err) {
     if (err) {
-      console.log('error adding computer: ' + err.msg)
+      console.log('error adding computer: ' + err.details.msg)
       return
     }
   })
@@ -241,8 +241,7 @@ JoinedLobbyService.prototype.startCountdown = function() {
   var deferred = this.$q.defer()
   this.siteSocket.call(this._path('/startCountdown'), function(err) {
     if (err) {
-      console.log('error starting countdown')
-      console.dir(err)
+      console.log('error starting countdown: ' + err.details.msg)
       deferred.reject(err)
       return
     }
@@ -388,7 +387,8 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
         { username: self.authService.user.name, map: self.lobby.map },
         function(err) {
       if (err) {
-        console.log('error creating game: ' + err.msg)
+        console.log('error creating game: ')
+        console.dir(err)
         return cleanUp()
       }
 
@@ -412,7 +412,8 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
     function addComputer() {
       self.psiSocket.emit('game/addComputer', computers[i].race, function(err) {
         if (err) {
-          console.log('error adding computer: ' + err.msg)
+          console.log('error adding computer: ')
+          console.dir(err)
           return cleanUp()
         }
 
@@ -432,7 +433,8 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
                   }
     self.psiSocket.emit('game/joinLobby', params, function(err) {
       if (err) {
-        console.log('error joining game: ' + err.msg)
+        console.log('error joining game: ')
+        console.dir(err)
         joinFailures++
         if (joinFailures < maxJoinFailures) {
           console.log('retrying...')
@@ -458,7 +460,8 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
 
     self.psiSocket.emit('game/setRace', race, function(err) {
       if (err) {
-        console.log('error setting race: ' + err.msg)
+        console.log('error setting race: ')
+        console.dir(err)
         return cleanUp()
       }
 
@@ -551,7 +554,7 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
     siteSocket.call('/lobbies/create', { name: name, map: map, size: size }, function(err) {
       $scope.btnDisabled = false
       if (err) {
-        $scope.responseError = err.msg
+        $scope.responseError = err.details.msg
       } else {
         $location.path('/lobbies/' + encodeURIComponent(name))
       }

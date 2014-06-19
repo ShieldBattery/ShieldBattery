@@ -168,19 +168,26 @@ LobbyHandler.prototype.addComputer = function(req, res) {
   res.complete()
 }
 
-LobbyHandler.prototype.part = function(socket, cb) {
-  var user = socket.handshake.userName
+LobbyHandler.prototype.part = function(req, res) {
+  var user = req.socket.handshake.userName
   if (!this.playerLobbyMap.has(user)) {
-    return cb({ msg: 'You are not currently in a lobby' })
+    return res.fail(409, 'conflict', { msg: 'You are not currently in a lobby' })
   }
 
   var lobby = this.playerLobbyMap.get(user)
-    , slot = lobby.removePlayer(user)
+  if (req.params.lobby != lobby.name) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot leave a lobby you are not in' })
+  }
+  var player = lobby.getPlayer(req.params.playerId)
+  if (!player || player.name != user) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot part for other users' })
+  }
+  var slot = lobby.removePlayer(req.params.playerId)
 
   if (slot < 0) {
-    cb({ msg: 'Error leaving lobby' })
+    return res.fail(500, 'internal server error', { msg: 'Error removing user' })
   } else {
-    cb(null)
+    return res.complete()
   }
 }
 
@@ -218,9 +225,6 @@ LobbyHandler.prototype.startCountdown = function(req, res) {
 LobbyHandler.prototype.readyUp = function(req, res) {
   var user = req.socket.handshake.userName
     , playerId = req.params.playerId
-  if (!playerId) {
-    return res.fail(400, 'bad request', { msg: 'You must specify a player ID' })
-  }
   if (!this.playerLobbyMap.has(user)) {
     return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to ready up' })
   }
