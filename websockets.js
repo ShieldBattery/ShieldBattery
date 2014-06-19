@@ -1,7 +1,6 @@
-var sio = require('socket.io')
+var nydus = require('nydus')
   , path = require('path')
   , fs = require('fs')
-  , userIo = require('./util/user-io.js')
 
 module.exports = function(server, cookieParser, sessionMiddleware) {
   return new WebsocketServer(server, cookieParser, sessionMiddleware)
@@ -14,39 +13,37 @@ fs.readdirSync(path.join(__dirname, 'wsapi')).filter(jsFileMatcher).forEach(func
 })
 
 function WebsocketServer(server, cookieParser, sessionMiddleware) {
+  var self = this
   this.httpServer = server
   this.cookieParser = cookieParser
   this.sessionWare = sessionMiddleware
-  this.io = sio.listen(server, { secure: true })
+
+  function authorize(info, cb) {
+    self.onAuthorization(info, cb)
+  }
+
+  this.nydus = nydus(server, { authorize: authorize })
   this.connectedUsers = 0
 
-  userIo(this.io)
-
-  var self = this
-  this.io.configure(function() {
-    self.io.set('transports', ['websocket'])
-      .set('log level', 2)
-      .enable('browser client minification')
-      .enable('browser client etag')
-
-    self.io.set('authorization', self.onAuthorization.bind(self))
+  apiHandlers.forEach(function(handler) {
+    handler(self.nydus)
   })
 
-  this.apiHandlers = apiHandlers.map(function(handler) { return handler(self.io) })
-
-  this.io.sockets.on('connection', function(socket) {
+  this.nydus.on('connection', function(socket) {
     self.connectedUsers++
-    socket.emit('status', { users: self.connectedUsers })
 
     socket.on('disconnect', function() {
       self.connectedUsers--
     })
+  })
 
-    self._applyApiHandlers(socket)
+  self.nydus.router.subscribe('/status', function(req, res) {
+    res.complete()
+    req.socket.publish('/status', { users: self.connectedUsers })
   })
 
   setInterval(function() {
-    self.io.sockets.emit('status', { users: self.connectedUsers })
+    self.nydus.publish('/status', { users: self.connectedUsers })
   }, 1*60*1000)
   // TODO(tec27): this timer can be longer (like 5 minutes) but is shorter for demo purposes
 }
@@ -54,34 +51,28 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
 var dummyRes = { on: function() {} }
 WebsocketServer.prototype.onAuthorization = function(data, cb) {
   // TODO(tec27): log this stuff to bunyan
-  if (data.xdomain) {
-    return cb(new Error('Invalid request'))
-  }
-  if (!data || !data.headers || !data.headers.cookie) {
-    return cb(new Error('Invalid cookies'))
+  var req = data.req
+  if (!req.headers.cookie) {
+    return cb(false)
   }
 
   var self = this
-    , parserData = { headers: data.headers }
+    , parserData = { headers: req.headers }
   this.cookieParser(parserData, {}, function(err) {
-    if (err) return cb(err)
+    if (err) return cb(false)
 
-    parserData.originalUrl = data.url // necessary for session middleware
+    parserData.originalUrl = req.url // necessary for session middleware
     self.sessionWare(parserData, dummyRes, function(err) {
       delete dummyRes.end
       if (err || !parserData.session || !parserData.session.userId) {
-        return cb(new Error('Not logged in'))
+        return cb(false)
       }
-      data.sessionId = parserData.sessionID
-      data.userId = parserData.session.userId
-      data.userName = parserData.session.userName
-      cb(null, true)
+      var handshakeData = { sessionId: parserData.sessionID
+                          , userId: parserData.session.userId
+                          , userName: parserData.session.userName
+                          , address: req.connection.remoteAddress
+                          }
+      cb(true, handshakeData)
     })
   })
-}
-
-WebsocketServer.prototype._applyApiHandlers = function(socket) {
-  for (var i = 0, len = this.apiHandlers.length; i < len; i++) {
-    this.apiHandlers[i].apply(socket)
-  }
 }

@@ -7,10 +7,10 @@ mod.factory('serverStatus', function(siteSocket) {
 })
 
 function ServerStatus(siteSocket) {
-  this.connectedUsers = 0
+  this.connectedUsers = '?'
 
   var self = this
-  siteSocket.on('status', function(data) {
+  siteSocket.subscribe('/status', function(data) {
     self.connectedUsers = data.users || 0
   })
 }

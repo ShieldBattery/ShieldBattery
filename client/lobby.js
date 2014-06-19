@@ -95,19 +95,26 @@ function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
       , enumerable: true
       })
 
-  this._unsubOnLeave = []
+  this._connectListener = null
+  this._onMessage = this._onMessage.bind(this)
 
-  var self = this
   // received when we connect and are already in a lobby, or when another socket for our account
   // (e.g. another tab) joins a lobby
-  siteSocket.on('lobbies/join', function(lobbyName) {
+  /*siteSocket.on('lobbies/join', function(lobbyName) {
     self.join(lobbyName)
   })
   // received when another tab leaves a lobby
   siteSocket.on('lobbies/part', function() {
     self.lobby = null
     self.leave()
-  })
+  })*/
+}
+
+JoinedLobbyService.prototype._path = function(end) {
+  if (!this.inLobby) {
+    throw new Error('You must be in a lobby to generate paths')
+  }
+  return '/lobbies/' + encodeURIComponent(this.lobby.name) + (end || '')
 }
 
 JoinedLobbyService.prototype.sendChat = function(msg) {
@@ -128,7 +135,7 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     } else {
       this.leave()
     }
-  } else if (this._unsubOnLeave.length) {
+  } else if (this._connectListener) {
     this.leave()
   } else if (this.joinInProgress) {
     // TODO(tec27): I think we could return our previously returned promise here if the lobby name
@@ -138,12 +145,11 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     return deferred.promise
   }
 
-  this._unsubOnLeave =  [ this.siteSocket.on('connect', sendJoin)
-                        , this.siteSocket.on('lobbies/joined/message', this._onMessage.bind(this))
-                        ]
+  this._connectListener = this.siteSocket.on('connect', sendJoin)
   // deferred to use if we are not currently connected, shared between sendJoinCalls
   var connectDeferred
     , connectTimeout
+    , lobbyUri = '/lobbies/' + encodeURIComponent(lobbyName)
   return sendJoin()
 
   function sendJoin() {
@@ -161,32 +167,42 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     }
 
     var deferred = connectDeferred ? connectDeferred : self.$q.defer()
-    self.siteSocket.emit('lobbies/join', { name: lobbyName }, function(err, lobbyData) {
+    self.siteSocket.call(lobbyUri + '/join', function(err, myId) {
       if (err) {
-        console.log('error joining: ' + err.msg)
-        deferred.reject(err)
-        if (deferred === connectDeferred) {
-          self.$timeout.cancel(connectTimeout)
-          connectDeferred = null
-        }
+        return handleError(err)
+      }
 
-        self.leave() // ensure everything gets cleaned up
-        return
+      self.myId = myId
+      self.siteSocket.subscribe(lobbyUri, self._onMessage, subscribeCb)
+    })
+
+    function subscribeCb(err) {
+      if (err) {
+        return handleError(err)
       }
 
       if (!self.lobby) {
         self.lobby = {}
       }
-      Object.keys(lobbyData).forEach(function(key) {
-        self.lobby[key] = lobbyData[key]
-      })
 
       deferred.resolve(self)
       if (deferred === connectDeferred) {
         self.$timeout.cancel(connectTimeout)
         connectDeferred = null
       }
-    })
+    }
+
+    function handleError(err) {
+      console.log('error joining: ')
+      console.dir(err)
+      deferred.reject(err)
+      if (deferred === connectDeferred) {
+        self.$timeout.cancel(connectTimeout)
+        connectDeferred = null
+      }
+
+      self.leave() // ensure everything gets cleaned up
+    }
 
     return deferred.promise
   }
@@ -194,11 +210,12 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
 
 JoinedLobbyService.prototype.leave = function() {
   if (this.inLobby) {
-    this.siteSocket.emit('lobbies/part', function(err) {})
+    this.siteSocket.unsubscribe(this._path(), this._onMessage)
+    this.siteSocket.call(this._path('/part'))
   }
 
-  this._unsubOnLeave.forEach(function(unsub) { unsub() })
-  this._unsubOnLeave.length = 0
+  this._siteSocket.removeListener('connect', this._connectListener)
+  this._connectListener = null
   this.lobby = null
   this.chat.length = 0
   this.countingDown = false
@@ -211,7 +228,7 @@ JoinedLobbyService.prototype.addComputer = function() {
     return
   }
 
-  this.siteSocket.emit('lobbies/addComputer', function(err) {
+  this.siteSocket.call(this._path('/addComputer'), function(err) {
     if (err) {
       console.log('error adding computer: ' + err.msg)
       return
@@ -220,12 +237,12 @@ JoinedLobbyService.prototype.addComputer = function() {
 }
 
 JoinedLobbyService.prototype.startCountdown = function() {
-  if (!this.inLobby || !this.isHost) return
 
   var deferred = this.$q.defer()
-  this.siteSocket.emit('lobbies/startCountdown', function(err) {
+  this.siteSocket.call(this._path('/startCountdown'), function(err) {
     if (err) {
-      console.log('error starting countdown: ' + err.msg)
+      console.log('error starting countdown')
+      console.dir(err)
       deferred.reject(err)
       return
     }
@@ -241,6 +258,7 @@ JoinedLobbyService.prototype._systemMessage = function(msg) {
 
 JoinedLobbyService.prototype._onMessage = function(data) {
   switch(data.action) {
+    case 'update': this._onFullUpdate(data.lobby); break
     case 'join': this._onJoin(data.slot, data.player); break
     case 'part': this._onPart(data.slot); break
     case 'chat': this._onChat(data.from, data.text); break
@@ -250,6 +268,13 @@ JoinedLobbyService.prototype._onMessage = function(data) {
     case 'startGame': this._onStartGame(); break
     default: console.log('Unknown lobby action: ' + data.action); break
   }
+}
+
+JoinedLobbyService.prototype._onFullUpdate = function(lobbyData) {
+  var self = this
+  Object.keys(lobbyData).forEach(function(key) {
+    self.lobby[key] = lobbyData[key]
+  })
 }
 
 JoinedLobbyService.prototype._onJoin = function(slot, player) {
@@ -437,7 +462,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
         return cleanUp()
       }
 
-      self.siteSocket.emit('lobbies/readyUp')
+      self.siteSocket.call(self._path('/readyUp/' + self.myId))
       subs.push(self.psiSocket.on('game/gameFinished', function() {
         cleanUp()
       }))
@@ -461,35 +486,33 @@ mod.controller('LobbyListCtrl', function($scope, siteSocket) {
   $scope.lobbies = []
   var lobbyMap = new SimpleMap()
 
-  var subscriptions = [ siteSocket.on('connect', subscribeToLobbies)
-                      , siteSocket.on('lobbies/message', lobbyUpdate)
-                      ]
-
+  siteSocket.on('connect', subscribeToLobbies)
   subscribeToLobbies()
   $scope.$on('$destroy', function(event) {
-    // unsubscribe when this controller gets destroyed
-    for (var i = 0, len = subscriptions.length; i < len; i++) {
-      subscriptions[i]()
-    }
-    siteSocket.emit('lobbies/unsubscribe')
+    siteSocket.removeListener('connect', subscribeToLobbies)
+    siteSocket.unsubscribe('/lobbies', lobbyUpdate)
   })
 
   function subscribeToLobbies() {
-    siteSocket.emit('lobbies/subscribe', function(list) {
-      $scope.lobbies.length = 0
-      for (var i = 0, len = list.length; i < len; i++) {
-        addLobby(list[i])
-      }
-    })
+    if (!siteSocket.connected) {
+      return
+    }
+    siteSocket.subscribe('/lobbies', lobbyUpdate)
   }
 
   function lobbyUpdate(data) {
-    if (data.action == 'create') {
+    var i, len
+    if (data.action == 'full') {
+      $scope.lobbies.length = 0
+      for (i = 0, len = data.list.length; i < len; i++) {
+        addLobby(data.list[i])
+      }
+    } else if (data.action == 'create') {
       addLobby(data.lobby)
     } else if (data.action == 'remove') {
       if (lobbyMap.has(data.lobby.name)) {
         lobbyMap.del(data.lobby.name)
-        for (var i = 0, len = $scope.lobbies.length; i < len; i++) {
+        for (i = 0, len = $scope.lobbies.length; i < len; i++) {
           if (compareLobbies(data.lobby, $scope.lobbies[i]) === 0) {
             $scope.lobbies.splice(i, 1)
             break
@@ -525,7 +548,7 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
     if (!$scope.lobbyForm.$valid) return
 
     $scope.btnDisabled = true
-    siteSocket.emit('lobbies/create', { name: name, map: map, size: size }, function(err) {
+    siteSocket.call('/lobbies/create', { name: name, map: map, size: size }, function(err) {
       $scope.btnDisabled = false
       if (err) {
         $scope.responseError = err.msg

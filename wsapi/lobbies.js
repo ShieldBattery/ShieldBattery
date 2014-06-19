@@ -1,269 +1,280 @@
 var Emitter = require('events').EventEmitter
-  , Endpoint = require('../util/websocket-endpoint')
   , SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
   , util = require('util')
+  , idgen = require('idgen')
 
-module.exports = function(io) {
-  return new LobbyHandler(io)
+module.exports = function(nydus) {
+  return new LobbyHandler(nydus)
 }
 
-function LobbyHandler(io) {
-  Endpoint.call(this, io, 'lobbies')
-
+function LobbyHandler(nydus) {
+  this.nydus = nydus
   this.lobbyMap = new SimpleMap()
   this.lobbies = []
   // player -> their current lobby. Each player can be in at most one lobby at a time.
   this.playerLobbyMap = new SimpleMap()
-}
-util.inherits(LobbyHandler, Endpoint)
 
-var LOBBY_LIST_CHANNEL = 'lobbies/list'
-  , LOBBY_LIST_MESSAGE = 'lobbies/message'
-LobbyHandler.prototype.subscribe = function(socket, cb) {
-  socket.join(LOBBY_LIST_CHANNEL)
-  cb(this.lobbies)
+  var self = this
+    , basePath = '/lobbies'
+  nydus.router.call(basePath + '/create', function(req, res, params) {
+    self.create(req, res, params)
+  }).call(basePath + '/:lobby/join', function(req, res) {
+    self.join(req, res)
+  }).call(basePath + '/:lobby/part/:playerId', function(req, res) {
+    self.part(req, res)
+  }).call(basePath + '/:lobby/addComputer', function(req, res) {
+    self.addComputer(req, res)
+  }).call(basePath + '/:lobby/startCountdown', function(req, res) {
+    self.startCountdown(req, res)
+  }).call(basePath + '/:lobby/readyUp/:playerId', function(req, res) {
+    self.readyUp(req, res)
+  }).subscribe(basePath, function(req, res) {
+    // Anyone can listen to the lobby list at any time
+    res.complete()
+    var lobbyList = self.lobbies.map(function(lobby) {
+      return lobby.$
+    })
+    req.socket.publish(basePath, { action: 'full', list: lobbyList })
+  }).subscribe(basePath + '/:lobby', function(req, res) {
+    self.subscribeLobby(req, res)
+  }).publish(basePath + '/:lobby', function(req, event, complete) {
+    // TODO(tec27): only allow chat publishing, and send it to all subscribers
+  })
 }
 
-LobbyHandler.prototype.unsubscribe = function(socket) {
-  socket.leave(LOBBY_LIST_CHANNEL)
-}
-
-LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
+LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) {
   var lobby = new Lobby(name, map, size)
   this.lobbyMap.put(lobby.name, lobby)
   listUtils.sortedInsert(this.lobbies, lobby, Lobby.compare)
 
   var self = this
-  lobby.emitter.on('addPlayer', function onAddPlayer(slot, player) {
+  lobby.on('addPlayer', function onAddPlayer(slot, player) {
     self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
     self.playerLobbyMap.put(player.name, lobby)
-    self.io.users.get(player.name)
-        .join(lobby._socketChannel)
-        .on('connection', onConnection)
-        .on('disconnect', onDisconnect)
+    socket.on('disconnect', onDisconnect)
   }).on('removePlayer', function onRemovePlayer(slot, player) {
     self.playerLobbyMap.del(player.name)
-    self.io.users.get(player.name)
-        .leave(lobby._socketChannel)
-        .removeListener('connection', onConnection)
-        .removeListener('disconnect', onDisconnect)
+    socket.removeListener('disconnect', onDisconnect)
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
   }).on('newHost', function onNewHost(playerName) {
     self._updateJoinedLobby(lobby, { action: 'newHost', name: playerName })
-    self.io.sockets.in(LOBBY_LIST_CHANNEL)
-        .emit(LOBBY_LIST_MESSAGE, { action: 'update', lobby: lobby })
+    self.nydus.publish('/lobbies', { action: 'update', lobby: lobby.$ })
   }).on('closed', function onLobbyClosed() {
     self.lobbyMap.del(lobby.name)
     var index = self.lobbies.indexOf(lobby)
     if (index != -1) {
       self.lobbies.splice(index, 1)
     }
-    self.io.sockets.in(LOBBY_LIST_CHANNEL)
-        .emit(LOBBY_LIST_MESSAGE, { action: 'remove', lobby: lobby })
+    self.nydus.publish('/lobbies', { action: 'remove', lobby: lobby.$ })
   }).on('playersReady', function onPlayersReady() {
     self._updateJoinedLobby(lobby, { action: 'startGame' })
     // TODO(tec27): remove/transfer lobby
   })
 
   lobby.addPlayer(new LobbyPlayer(host, 'r'))
-  this.io.sockets.in(LOBBY_LIST_CHANNEL)
-      .emit(LOBBY_LIST_MESSAGE, { action: 'create', lobby: lobby })
+  this.nydus.publish('/lobbies', { action: 'create', lobby: lobby.$ })
 
   return lobby
-
-  function onConnection(socket) {
-    socket.emit('lobbies/join', lobby.name)
-  }
 
   function onDisconnect() {
     lobby.removePlayer(host)
   }
 }
 
-LobbyHandler.prototype.create = function(socket, params, cb) {
-  var user = this.io.users.get(socket)
-  if (this.playerLobbyMap.has(user.name)) {
-    return cb({ msg: 'You cannot enter multiple lobbies at once' })
+LobbyHandler.prototype.create = function(req, res, params) {
+  var user = req.socket.handshake.userName
+  if (this.playerLobbyMap.has(user)) {
+    return res.fail(409, 'conflict', { msg: 'You cannot enter multiple lobbies at once' })
   }
 
-  if (!params.name || params.name == 'new') {
-    return cb({ msg: 'Invalid name' })
+  if (!params.name) {
+    return res.fail(400, 'bad request', { msg: 'Invalid name' })
   } else if (!params.map) {
-    return cb({ msg: 'Invalid map' })
+    return res.fail(400, 'bad request', { msg: 'Invalid map' })
   } else if (!params.size || params.size < 2 || params.size > 8) {
-    return cb({ msg: 'Invalid size' })
+    return res.fail(400, 'bad request', { msg: 'Invalid size' })
   }
 
   if (this.lobbyMap.has(params.name)) {
-    return cb({ msg: 'A lobby with that name already exists' })
+    return res.fail(409, 'conflict', { msg: 'A lobby with that name already exists' })
   }
 
-  var lobby = this._doCreateLobby(user.name, params.name, params.map, params.size)
-  if (lobby) {
-    cb(null)
-    user.except(socket).emit('lobbies/join', lobby.name)
-  } else {
-    cb({ msg: 'Error creating lobby' })
-  }
+  this._doCreateLobby(user, params.name, params.map, params.size, req.socket)
+  res.complete()
 }
 
 LobbyHandler.prototype._updateJoinedLobby = function(lobby, msg) {
-  this.io.users.in(lobby._socketChannel).emit('lobbies/joined/message', msg)
+  this.nydus.publish(lobby._topic, msg)
 }
 
-LobbyHandler.prototype.join = function(socket, params, cb) {
-  var user = this.io.users.get(socket)
-  if (!params.name || !this.lobbyMap.has(params.name)) {
-    return cb({ msg: 'No lobby with that name exists' })
-  } else if (this.playerLobbyMap.has(user.name)) {
-    var oldLobby = this.playerLobbyMap.get(user.name)
-    if (oldLobby.name == params.name) {
-      return cb(null, oldLobby.getFullDescription())
+LobbyHandler.prototype.join = function(req, res) {
+  var user = req.socket.handshake.userName
+  if (!req.params.lobby || !this.lobbyMap.has(req.params.lobby)) {
+    return res.fail(404, 'not found', { msg: 'No lobby with that name exists' })
+  } else if (this.playerLobbyMap.has(user)) {
+    var oldLobby = this.playerLobbyMap.get(user)
+    if (oldLobby.name == req.params.lobby) {
+      return res.complete(oldLobby.findPlayerWithName(user).id)
     }
 
-    return cb({ msg: 'You cannot enter multiple lobbies at once' })
+    return res.fail(409, 'conflict', { msg: 'You cannot enter multiple lobbies at once' })
   }
 
-  var lobby = this.lobbyMap.get(params.name)
+  var lobby = this.lobbyMap.get(req.params.lobby)
   if (lobby.size - lobby.numPlayers < 1) {
-    return cb({ msg: 'Lobby full' })
+    return res.fail(409, 'conflict', { msg: 'The lobby is full' })
   }
 
-  var player = new LobbyPlayer(user.name, 'r')
+  var player = new LobbyPlayer(user, 'r')
   lobby.addPlayer(player)
-  cb(null, lobby.getFullDescription())
-  user.except(socket).emit('lobbies/join', lobby.name)
+  res.complete(player.id)
 }
 
-LobbyHandler.prototype.addComputer = function(socket, cb) {
-  var user = this.io.users.get(socket)
-  if (!this.playerLobbyMap.has(user.name)) {
-    return cb({ msg: 'You are not currently in a lobby' })
+LobbyHandler.prototype.subscribeLobby = function(req, res) {
+  // TODO(tec27): immediately publish lobby state to the socket
+  var user = req.socket.handshake.userName
+  if (!req.params.lobby || !this.lobbyMap.has(req.params.lobby)) {
+    return res.fail(404, 'not found', { msg: 'No lobby with that name exists' })
+  }
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to subscribe to it' })
   }
 
-  var lobby = this.playerLobbyMap.get(user.name)
-  if (lobby.host != user.name) {
-    return cb({ msg: 'You must be the host to add computer players' })
+  var lobby = this.lobbyMap.get(req.params.lobby)
+  if (this.playerLobbyMap.get(user) != lobby) {
+    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to subscribe to it' })
+  }
+
+  res.complete()
+  req.socket.publish(lobby._topic, { action: 'update', lobby: lobby.getFullDescription() })
+}
+
+LobbyHandler.prototype.addComputer = function(req, res) {
+  var user = req.socket.handshake.userName
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to add computer players' })
+  }
+
+  var lobby = this.playerLobbyMap.get(user)
+  if (lobby.host != user) {
+    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to add computer players' })
   } else if (lobby.size - lobby.numPlayers < 1) {
-    return cb({ msg: 'Lobby full' })
+    return res.fail(409, 'conflict', { msg: 'The lobby is full' })
   }
 
   var computer = new LobbyComputer('r')
   lobby.addPlayer(computer)
-  cb(null)
+  res.complete()
 }
 
 LobbyHandler.prototype.part = function(socket, cb) {
-  var user = this.io.users.get(socket)
-  if (!this.playerLobbyMap.has(user.name)) {
+  var user = socket.handshake.userName
+  if (!this.playerLobbyMap.has(user)) {
     return cb({ msg: 'You are not currently in a lobby' })
   }
 
-  var lobby = this.playerLobbyMap.get(user.name)
-    , slot = lobby.removePlayer(user.name)
+  var lobby = this.playerLobbyMap.get(user)
+    , slot = lobby.removePlayer(user)
 
   if (slot < 0) {
     cb({ msg: 'Error leaving lobby' })
   } else {
     cb(null)
-    user.except(socket).emit('lobbies/part')
   }
 }
 
 LobbyHandler.prototype.chat = function(socket, params) {
-  var user = this.io.users.get(socket)
-  if (!params.msg || !this.playerLobbyMap.has(user.name)) {
+  var user = socket.handshake.userName
+  if (!params.msg || !this.playerLobbyMap.has(user)) {
     return
   }
 
-  var lobby = this.playerLobbyMap.get(user.name)
-  this._updateJoinedLobby(lobby, { action: 'chat', from: user.name, text: params.msg })
+  var lobby = this.playerLobbyMap.get(user)
+  this._updateJoinedLobby(lobby, { action: 'chat', from: user, text: params.msg })
 }
 
-LobbyHandler.prototype.startCountdown = function(socket, cb) {
-  var user = this.io.users.get(socket)
-  if (!this.playerLobbyMap.has(user.name)) {
-    return cb({ msg: 'You are not in a lobby' })
+LobbyHandler.prototype.startCountdown = function(req, res) {
+  var user = req.socket.handshake.userName
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to start the countdown' })
   }
 
-  var lobby = this.playerLobbyMap.get(user.name)
-    , player = lobby.getPlayer(user.name)
-  if (!player || !lobby || lobby.host != player.name) {
-    return cb({ msg: 'You must be the host to start the countdown' })
+  var lobby = this.playerLobbyMap.get(user)
+  if (!lobby || req.params.lobby != lobby.name || lobby.host != user) {
+    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to start the countdown' })
   }
 
   var self = this
   lobby.startCountdown(function() {
     self._updateJoinedLobby(lobby,
-        { action: 'countdownComplete', host: socket.handshake.address.address, port: 6112 })
+        { action: 'countdownComplete', host: req.socket.handshake.address.address, port: 6112 })
   })
 
-  cb(null)
+  res.complete()
   this._updateJoinedLobby(lobby, { action: 'countdownStarted' })
 }
 
-LobbyHandler.prototype.readyUp = function(socket) {
-  var user = this.io.users.get(socket)
-  if (!this.playerLobbyMap.has(user.name)) {
-    return
+LobbyHandler.prototype.readyUp = function(req, res) {
+  var user = req.socket.handshake.userName
+    , playerId = req.params.playerId
+  if (!playerId) {
+    return res.fail(400, 'bad request', { msg: 'You must specify a player ID' })
+  }
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to ready up' })
   }
 
-  var lobby = this.playerLobbyMap.get(user.name)
-  lobby.setPlayerReady(user.name)
+  var lobby = this.playerLobbyMap.get(user)
+  if (!lobby || req.params.lobby != lobby.name) {
+    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to ready up' })
+  }
+  var player = lobby.getPlayer(playerId)
+  if (!player || player.name != user) {
+    return res.fail(403, 'forbidden', { msg: 'You can only ready up yourself' })
+  }
+
+  lobby.setPlayerReady(playerId)
+  return res.complete()
 }
 
 function Lobby(name, map, size) {
+  Emitter.call(this)
   this.host = null
+  this.hostId = null
   this.name = name
   this.map = map
   this.size = size
 
-  // Ideally Lobby would just be an EventEmitter itself, but it adds a bunch of properties that
-  // would get stringified in JSON. To avoid that, we add it as a non-enumerable property
-  Object.defineProperty(this, 'emitter',
-      { value: new Emitter()
-      , writable: false
-      , enumerable: false
-      })
-  Object.defineProperty(this, 'slots',
-      { value: new Array(size)
-      , writable: false
-      , enumerable: false
-      })
-  Object.defineProperty(this, 'players',
-      { value: []
-      , writable: false
-      , enumerable: false
-      })
+  this.slots = new Array(size)
+  this.players = []
+  this._topic = '/lobbies/' + encodeURIComponent(this.name)
+  this._isCountingDown = false
+  this._initializingGame = false
+  this._playerReadiness = new Array(size)
 
   Object.defineProperty(this, 'numPlayers',
       { get: function() { return this.players.length }
       , enumerable: true
       })
 
-  Object.defineProperty(this, '_socketChannel',
-      { value: 'lobbies/joined/' + this.name
-      , writable: false
-      , enumerable: false
-      })
+  // Property representing the serialized data to send to clients
+  this.$ = new SerializedLobby(this)
+}
+util.inherits(Lobby, Emitter)
 
-  Object.defineProperty(this, '_isCountingDown',
-      { value: false
-      , writable: true
-      , enumerable: false
+function SerializedLobby(lobby) {
+  Object.defineProperty(this, 'host',
+      { get: function() { return lobby.host }
+      , enumerable: true
       })
+  this.name = lobby.name
+  this.map = lobby.map
+  this.size = lobby.size
 
-  Object.defineProperty(this, '_initializingGame',
-      { value: false
-      , writable: true
-      , enumerable: false
-      })
-
-  Object.defineProperty(this, '_playerReadiness',
-      { value: new Array(size)
-      , writable: true
-      , enumerable: false
+  Object.defineProperty(this, 'numPlayers',
+      { get: function() { return lobby.players.length }
+      , enumerable: true
       })
 }
 
@@ -275,33 +286,34 @@ Lobby.prototype.addPlayer = function(player) {
   if (this.players.length === 0) {
     // this is the first player to join the lobby, must be the creator
     this.host = player.name
+    this.hostId = player.id
   }
 
   this.players.push(player)
   for (var i = 0; i < this.size; i++) {
     if (!this.slots[i]) {
       this.slots[i] = player
-      this.emitter.emit('addPlayer', i, player)
+      this.emit('addPlayer', i, player)
       return i
     }
   }
 }
 
-Lobby.prototype.removePlayer = function(playerName) {
+Lobby.prototype.removePlayer = function(id) {
   var i
     , len
   for (i = 0, len = this.players.length; i < len; i++) {
-    if (this.players[i].name == playerName) {
+    if (this.players[i].id == id) {
       this.players.splice(i, 1)
       break
     }
   }
 
   for (i = 0; i < this.size; i++) {
-    if (this.slots[i] && this.slots[i].name == playerName) {
+    if (this.slots[i] && this.slots[i].id == id) {
       var player = this.slots[i]
       this.slots[i] = undefined
-      this.emitter.emit('removePlayer', i, player)
+      this.emit('removePlayer', i, player)
       break
     }
   }
@@ -313,14 +325,15 @@ Lobby.prototype.removePlayer = function(playerName) {
 
   if (!nonCompCount) {
     // lobby is empty, close it down
-    this.emitter.emit('closed')
-  } else if (this.host == playerName) {
+    this.emit('closed')
+  } else if (this.hostId == id) {
     // host left, pick a new host (earliest joiner)
     for (i = 0; i < this.players.length; i++) {
       if (this.players[i].isComputer) continue
 
       this.host = this.players[i].name
-      this.emitter.emit('newHost', this.host)
+      this.hostId = this.players[id].id
+      this.emit('newHost', this.hostId)
       break
     }
   }
@@ -328,9 +341,18 @@ Lobby.prototype.removePlayer = function(playerName) {
   return slotNum
 }
 
-Lobby.prototype.getPlayer = function(playerName) {
+Lobby.prototype.getPlayer = function(id) {
   for (var i = 0; i < this.size; i++) {
-    if (!!this.slots[i] && this.slots[i].name == playerName) {
+    if (!!this.slots[i] && this.slots[i].id == id) {
+      return this.slots[i]
+    }
+  }
+  return null
+}
+
+Lobby.prototype.findPlayerWithName = function(name) {
+  for (var i = 0; i < this.size; i++) {
+    if (!!this.slots[i] && this.slots[i].name == name && !this.slots[i].isComputer) {
       return this.slots[i]
     }
   }
@@ -341,6 +363,7 @@ Lobby.prototype.getPlayer = function(playerName) {
 // joined it instead of just viewing it on the lobby list
 Lobby.prototype.getFullDescription = function() {
   return  { host: this.host
+          , hostId: this.hostId
           , name: this.name
           , map: this.map
           , size: this.size
@@ -362,14 +385,14 @@ Lobby.prototype.startCountdown = function(cb) {
   }, 5000)
 }
 
-Lobby.prototype.setPlayerReady = function(playerName) {
+Lobby.prototype.setPlayerReady = function(id) {
   var found = false
     , allReady = true
   for (var i = 0; i < this.size; i++) {
     if (!this.slots[i]) {
       continue
     }
-    else if (!found && !this.slots[i].isComputer && this.slots[i].name == playerName) {
+    else if (!found && !this.slots[i].isComputer && this.slots[i].id == id) {
       found = true
       this._playerReadiness[i] = true
     } else if (!this._playerReadiness[i] && !this.slots[i].isComputer) {
@@ -380,7 +403,7 @@ Lobby.prototype.setPlayerReady = function(playerName) {
   }
 
   if (allReady) {
-    this.emitter.emit('playersReady')
+    this.emit('playersReady')
   }
 }
 
@@ -388,13 +411,19 @@ Lobby.compare = function(a, b) {
   return a.name.localeCompare(b.name)
 }
 
-function LobbyPlayer(name, race, isComputer) {
+function LobbyMember(name, race, isComputer) {
+  this.id = idgen()
   this.name = name
   this.race = race
   this.isComputer = !!isComputer
 }
 
-function LobbyComputer(race) {
-  LobbyPlayer.call(this, 'Computer', race, true)
+function LobbyPlayer(name, race) {
+  LobbyMember.call(this, name, race, false)
 }
-util.inherits(LobbyComputer, LobbyPlayer)
+util.inherits(LobbyPlayer, LobbyMember)
+
+function LobbyComputer(race) {
+  LobbyMember.call(this, 'Computer', race, true)
+}
+util.inherits(LobbyComputer, LobbyMember)

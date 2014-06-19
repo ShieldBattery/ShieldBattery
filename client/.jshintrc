@@ -24,6 +24,5 @@
 
     // Custom Globals
     "predef": [ "angular"
-              , "io"
               ]
 }
