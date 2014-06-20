@@ -4,9 +4,9 @@
   "description": "JS files for ShieldBattery",
   "main": "shieldbattery-entry.js",
   "dependencies": {
-    "bw": "~0.0.1",
+    "shieldbattery-bw": "~0.0.1",
     "forge-shieldbattery": "~0.0.1",
-    "psi": "~0.0.1",
+    "shieldbattery-psi": "~0.0.1",
     "socket.io": "~0.9.16",
     "socket.io-client": "~0.9.16",
     "mkdirp": "~0.3.5"

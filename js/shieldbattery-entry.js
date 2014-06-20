@@ -8,7 +8,7 @@ process.on('uncaughtException', function(err) {
   }, 100)
 })
 
-var bw = require('bw')
+var bw = require('shieldbattery-bw')
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })

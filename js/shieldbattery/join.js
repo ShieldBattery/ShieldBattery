@@ -1,4 +1,4 @@
-var bw = require('bw')
+var bw = require('shieldbattery-bw')
   , LobbySocket = require('./lobby-socket')
   , log = require('./logger')
   , util = require('util')

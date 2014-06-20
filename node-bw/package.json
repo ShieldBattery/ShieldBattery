@@ -1,5 +1,5 @@
 {
-  "name": "bw",
+  "name": "shieldbattery-bw",
   "version": "0.0.1",
   "description": "Native bindings to internal Starcraft: Brood War functionality.",
   "main": "index.js",

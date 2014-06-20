@@ -1,5 +1,5 @@
 {
-  "name": "psi",
+  "name": "shieldbattery-psi",
   "version": "0.0.1",
   "description": "Native bindings to Psi, the ShieldBattery launcher and dll injector.",
   "main": "index.js",

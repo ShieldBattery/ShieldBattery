@@ -81,9 +81,9 @@ cd "%~dp0\forge"
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%~dp0\js"
-call npm link psi
+call npm link shieldbattery-psi
 if errorlevel 1 goto linking-failed
-call npm link bw
+call npm link shieldbattery-bw
 if errorlevel 1 goto linking-failed
 call npm link forge-shieldbattery
 if errorlevel 1 goto linking-failed
