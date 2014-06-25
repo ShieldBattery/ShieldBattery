@@ -10,6 +10,10 @@ d('USERNAME_PATTERN', /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/)
 d('USERNAME_MINLENGTH', 3)
 d('USERNAME_MAXLENGTH', 16)
 
+d('EMAIL_PATTERN', /^[^@]+@[^@]+$/)
+d('EMAIL_MINLENGTH', 3)
+d('EMAIL_MAXLENGTH', 100)
+
 d('PASSWORD_MINLENGTH', 6)
 
 module.exports.isValidUsername = function(username) {
@@ -17,6 +21,13 @@ module.exports.isValidUsername = function(username) {
     username.length >= module.exports.USERNAME_MINLENGTH &&
     username.length <= module.exports.USERNAME_MAXLENGTH &&
     module.exports.USERNAME_PATTERN.test(username)
+}
+
+module.exports.isValidEmail = function(email) {
+  return email &&
+    email.length >= module.exports.EMAIL_MINLENGTH &&
+    email.length <= module.exports.EMAIL_MAXLENGTH &&
+    module.exports.EMAIL_PATTERN.test(email)
 }
 
 module.exports.isValidPassword = function(password) {
