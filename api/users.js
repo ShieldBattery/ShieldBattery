@@ -21,10 +21,13 @@ module.exports = function(app, baseApiPath) {
 
 function createUser(req, res, next) {
   var username = req.body.username
+    , email = req.body.email
     , password = req.body.password
 
-  if (!constants.isValidUsername(username) || !constants.isValidPassword(password)) {
-    return next(new httpErrors.BadRequestError('Invalid username or password'))
+  if (!constants.isValidUsername(username) ||
+      !constants.isValidEmail(email) ||
+      !constants.isValidPassword(password)) {
+    return next(new httpErrors.BadRequestError('Invalid parameters'))
   }
 
   bcrypt.hash(password, 10, onHashed)
@@ -35,7 +38,7 @@ function createUser(req, res, next) {
       return next(err)
     }
 
-    var user = users.create(username, result)
+    var user = users.create(username, email, result)
     user.save(onSaved)
   }
 

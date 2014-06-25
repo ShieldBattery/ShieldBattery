@@ -113,9 +113,13 @@ AuthService.prototype.redirectToLogin = function() {
   this.$location.path('/login')
 }
 
-AuthService.prototype.createUser = function(username, password, cb) {
+AuthService.prototype.createUser = function(username, email, password, cb) {
   // TODO(tec27): look into $resource for this?
-  var req = this.$http.post('/api/1/users', { username: username, password: password })
+  var req = this.$http.post('/api/1/users',
+      { username: username
+      , email: email
+      , password: password
+      })
     , self = this
   req.success(function(user) {
     self.user = user
@@ -192,12 +196,12 @@ mod.controller('NewUserCtrl', function($scope, $location, authService) {
   $scope.btnDisabled = false
   $scope.responseError = null
 
-  $scope.createUser = function(username, password, confirmPassword) {
+  $scope.createUser = function(username, email, password, confirmPassword) {
     $scope.responseError = null
     if (!$scope.newUserForm.$valid) return
 
     $scope.btnDisabled = true
-    authService.createUser(username, password, function(err, user) {
+    authService.createUser(username, email, password, function(err, user) {
       if (err) {
         $scope.btnDisabled = false
         $scope.responseError = err

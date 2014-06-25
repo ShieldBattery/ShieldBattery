@@ -14,21 +14,25 @@ function User(props, _fromDb) {
 
   this.id = this._fromDb ? props.id : null
   this.name = props.name
+  this.email = props.email
   defPrivate(this, 'password', props.password)
   this.created = props.created || new Date()
 }
 
 User.prototype.save = function(cb) {
-  if (!this.name || !this.password || !this.created) return cb(new Error('Incomplete data'))
+  if (!this.name || !this.email || !this.password || !this.created) {
+    return cb(new Error('Incomplete data'))
+  }
   var query
     , params
   if (!this._fromDb) {
-    query = 'INSERT INTO users (name, password, created) VALUES ($1, $2, $3) RETURNING id'
-    params = [ this.name, this.password, this.created ]
+    query = 'INSERT INTO users (name, email, password, created)' +
+        'VALUES ($1, $2, $3, $4) RETURNING id'
+    params = [ this.name, this.email, this.password, this.created ]
   } else {
     if (!this.id) return cb(new Error('Incomplete data'))
-    query = 'UPDATE users SET name = $1, password = $2, created = $3 WHERE id = $4'
-    params = [ this.name, this.password. this.created, this.id ]
+    query = 'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
+    params = [ this.name, this.email, this.password. this.created, this.id ]
   }
 
   var self = this
@@ -51,16 +55,17 @@ User.prototype.save = function(cb) {
   })
 }
 
-function createUser(name, hashedPassword, createdDate) {
+function createUser(name, email, hashedPassword, createdDate) {
   return new User(
       { name: name
+      , email: email
       , password: hashedPassword
       , created: createdDate || new Date()
       })
 }
 
 function findUser(criteria, cb) {
-  var query = 'SELECT id, name, password, created FROM users WHERE '
+  var query = 'SELECT id, name, email, password, created FROM users WHERE '
     , params
   if (typeof criteria != 'number') {
     // by name
