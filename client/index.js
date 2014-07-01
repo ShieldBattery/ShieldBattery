@@ -1,6 +1,7 @@
 var app = angular.module('shieldbattery',
     [ 'ngAnimate'
     , 'ngRoute'
+    , require('./admin')
     , require('./auth')
     , require('./dashboard')
     , require('./errors')

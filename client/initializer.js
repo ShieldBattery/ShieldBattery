@@ -11,11 +11,15 @@ mod.run(function($rootScope, psiSocket) {
 
   // Enough what if's, let's do the thing!
   var unregSuccess = $rootScope.$on('$routeChangeSuccess', doIt)
-    , unregError = $rootScope.$on('$routeChangeError', doIt)
+    , unregError = $rootScope.$on('$routeChangeError', routeError)
 
   function doIt() {
     $rootScope.appInitialized = true
     unregSuccess()
+  }
+
+  function routeError(event, current, previous, rejection) {
+    console.log(rejection)
     unregError()
   }
 

@@ -10,7 +10,7 @@ mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket
     if (!authService.isLoggedIn) return
     authService.logOut()
       .success(function() { $location.path('/') })
-      .error(function() { alert('OMG LOGGING OUT FAILED') }) // TODO(tec27): :)
+      .error(function() { window.alert('OMG LOGGING OUT FAILED') }) // TODO(tec27): :)
   }
 
   $scope.siteSocket = siteSocket
@@ -22,5 +22,13 @@ mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket
 
   $scope.leaveLobby = function() {
     joinedLobby.leave()
+  }
+
+  $scope.showAdminLink = function() {
+    if (!$scope.auth.permissions) return false
+
+    return $scope.auth.permissions.editPermissions ||
+      $scope.auth.permissions.debug ||
+      $scope.auth.permissions.acceptInvites
   }
 })

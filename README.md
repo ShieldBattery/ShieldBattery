@@ -33,7 +33,7 @@ Copy `config.example.js` and `database.example.json` to `config.js` and `databas
 ###Initialize the database
 To initialize postgres (after having configured your user in the previous step), simply run
 ```
-db-migrate up
+npm run migrate-up
 ```
 You will need to run this command after pulling in commits that change that database structure as well.
 

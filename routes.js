@@ -48,7 +48,14 @@ function applyRoutes(app) {
 
   // catch-all for the remainder, renders the index and expects angular to handle routing clientside
   app.get('*', function(req, res) {
-    res.render('index')
+    var sessionData = null
+    if (req.session.userId) {
+      sessionData = {}
+      sessionData.user = { id: req.session.userId, name: req.session.userName }
+      sessionData.permissions = req.session.permissions
+      req.session.touch()
+    }
+    res.render('index', { curSession: sessionData })
   })
 }
 

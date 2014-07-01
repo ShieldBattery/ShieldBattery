@@ -3,19 +3,30 @@ var constants = require('../util/constants')
   , users = require('../models/users')
   , httpErrors = require('../util/http-errors')
   , initSession = require('../util/init-session')
+  , checkPermissions = require('../util/check-permissions')
 
 module.exports = function(app, baseApiPath) {
   var usersPath = baseApiPath + 'users'
-  app.get(usersPath + '/:id', function(req, res, next) {
-    // TODO(tec27): return user object if authorized
-    next(new httpErrors.ImATeapotError())
-  })
-
+  app.get(usersPath + '/:searchTerm', checkPermissions(['editPermissions']), find)
   app.post(usersPath, createUser)
 
   app.put(usersPath + '/:id', function(req, res, next) {
     // TODO(tec27): update a user
     next(new httpErrors.ImATeapotError())
+  })
+}
+
+function find(req, res, next) {
+  var searchTerm = req.params.searchTerm
+  users.find(searchTerm, function(err, user) {
+    if (err) {
+      req.log.error({ err: err }, 'error finding user by name')
+      next(err)
+    } else if (!user) {
+      res.send([])
+    } else {
+      res.send([ user ])
+    }
   })
 }
 
@@ -42,7 +53,7 @@ function createUser(req, res, next) {
     user.save(onSaved)
   }
 
-  function onSaved(err, user) {
+  function onSaved(err, user, permissions) {
     if (err) {
       if (err.code && err.code == 23505) {
         // TODO(tec27): this is a nasty check, we should find a better way of dealing with this
@@ -58,8 +69,8 @@ function createUser(req, res, next) {
     req.session.regenerate(function(err) {
       if (err) return next(err)
 
-      initSession(req, user)
-      res.send(user)
+      initSession(req, user, permissions)
+      res.send({user: user, permissions: permissions})
     })
   }
 }

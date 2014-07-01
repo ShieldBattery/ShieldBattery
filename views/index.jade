@@ -1,6 +1,9 @@
 extends layout
 
 block content
+  if curSession
+    script(type='text/javascript').
+      window._sbSession=!{JSON.stringify(curSession)}
   div(data-ng-hide='appInitialized') - LOADING -
   .container(data-ng-show='appInitialized', data-ng-controller='ErrorsCtrl')
     .row.route-error(data-ng-show='!!routeError') {{ routeError }} 
@@ -25,6 +28,8 @@ block content
         .profile
           span(data-ng-show='auth.isLoggedIn')
             p Logged in as {{ auth.user.name }}
+            p(data-ng-show='showAdminLink()')
+              a(href='/admin') Admin
             p
               a(href='', data-ng-click='logOut()') Log out
           span(data-ng-hide='auth.isLoggedIn')
@@ -35,4 +40,3 @@ block content
             li {{ joinedLobby.lobby.name }} 
               a(href='', data-ng-click='leaveLobby()') (x)
       main.col-9(ng-view)
-

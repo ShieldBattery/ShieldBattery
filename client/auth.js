@@ -28,25 +28,12 @@ mod.config(function($httpProvider, $routeProvider) {
   $httpProvider.responseInterceptors.push(interceptor)
 })
 
-mod.run(function(authService, $rootScope, $q) {
-  // on the first route change, we need to load the current login status so that its initialized
-  // for the rest of the app (and we can redirect to login as necessary)
-  var unreg = $rootScope.$on('$routeChangeStart', function(event, next, current) {
-    unreg() // only handle the first route!
+mod.run(function(authService) {
+  authService.initCurrentUser()
 
-    var defer = $q.defer()
-    // TODO(tec27): We actually need to *wrap* all the current resolves so that we resolve first,
-    // since otherwise they'll happen in parallel, and things that depend on us having a valid
-    // session already set up might not work
-    next.resolve = next.resolve || {}
-    next.resolve.__currentUser = function() {
-      authService.getCurrentUser().finally(function() {
-        defer.resolve()
-        if (!authService.isLoggedIn) authService.redirectToLogin()
-      })
-      return defer.promise
-    }
-  })
+  if (!authService.isLoggedIn) {
+    authService.redirectToLogin()
+  }
 })
 
 mod.directive('sbUniqueUser', function($timeout, authService) {
@@ -96,14 +83,16 @@ mod.directive('sbMustMatch', function() {
   return { require: 'ngModel', link: linkFunc }
 })
 
-mod.factory('authService', function($location, $http, siteSocket) {
-  return new AuthService($location, $http, siteSocket)
+mod.factory('authService', function($location, $http, $q, siteSocket) {
+  return new AuthService($location, $http, $q, siteSocket)
 })
 
 inherits(AuthService, EventEmitter)
-function AuthService($location, $http, siteSocket) {
+function AuthService($location, $http, $q, siteSocket) {
+  EventEmitter.call(this)
   this.$location = $location
   this.$http = $http
+  this.$q = $q
   this.siteSocket = siteSocket
 
   Object.defineProperty(this, 'isLoggedIn',
@@ -111,6 +100,7 @@ function AuthService($location, $http, siteSocket) {
       , get: function() { return !!this.user }
       })
   this.user = null
+  this.permissions = null
 }
 
 AuthService.prototype.redirectToLogin = function() {
@@ -125,11 +115,12 @@ AuthService.prototype.createUser = function(username, email, password, cb) {
       , password: password
       })
     , self = this
-  req.success(function(user) {
-    self.user = user
+  req.success(function(result) {
+    self.user = result.user
+    self.permissions = result.permissions
     self.siteSocket.connect()
-    cb(null, user)
-    self.emit('userChanged', user)
+    cb(null, self.user, self.permissions)
+    self.emit('userChanged', result.user)
   }).error(function(err) {
     cb(err)
   })
@@ -140,28 +131,27 @@ AuthService.prototype.checkUsernameAvailability = function(username) {
       '?t=' + Date.now())
 }
 
-AuthService.prototype.getCurrentUser = function() {
-  var self = this
-  return this.$http
-    .get('/api/1/sessions?t=' + Date.now())
-    .success(function(user) {
-      self.user = user
-      self.siteSocket.connect()
-      self.emit('userChanged', user)
-    }).error(function(err) {
-      self.user = null
-      self.emit('userChanged', null)
-    })
+AuthService.prototype.initCurrentUser = function() {
+  // get the current user from the page body (if its not there, assume not logged in)
+  if (window._sbSession) {
+    var session = window._sbSession
+    this.user = session.user
+    this.permissions = session.permissions
+    this.siteSocket.connect()
+    this.emit('userChanged', this.user)
+    window._sbSession = null
+  }
 }
 
 AuthService.prototype.logIn = function(username, password, remember) {
   var self = this
   return this.$http
     .post('/api/1/sessions', { username: username, password: password, remember: !!remember })
-    .success(function(user) {
-      self.user = user
+    .success(function(result) {
+      self.user = result.user
+      self.permissions = result.permissions
       self.siteSocket.connect()
-      self.emit('userChanged', user)
+      self.emit('userChanged', result.user)
     })
 }
 
@@ -171,9 +161,22 @@ AuthService.prototype.logOut = function() {
     .delete('/api/1/sessions')
     .success(function(user) {
       self.user = null
+      self.permissions = null
       self.siteSocket.disconnect()
       self.emit('userChanged', null)
     })
+}
+
+AuthService.prototype.checkPermissions = function(permissionsArray) {
+  var deferred = this.$q.defer()
+
+  for (var i = 0; i < permissionsArray.length; i++) {
+    if (!this.permissions[permissionsArray[i]]) {
+      deferred.reject('Not enough permissions')
+    }
+  }
+  deferred.resolve()
+  return deferred.promise
 }
 
 mod.controller('LoginCtrl', function($scope, $location, authService) {
@@ -210,7 +213,7 @@ mod.controller('NewUserCtrl', function($scope, $location, authService) {
     if (!$scope.newUserForm.$valid) return
 
     $scope.btnDisabled = true
-    authService.createUser(username, email, password, function(err, user) {
+    authService.createUser(username, email, password, function(err, user, permissions) {
       if (err) {
         $scope.btnDisabled = false
         $scope.responseError = err

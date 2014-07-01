@@ -1,0 +1,21 @@
+form(name='findUserForm', data-ng-submit='findUser()', novalidate)
+  span Find user: 
+    input(type='text', name='searchTerm', data-ng-model='searchTerm', required,
+      placeholder='username')
+    input(type='submit', value='Find', data-ng-disabled='findUserForm.$invalid')
+p(data-ng-show='noResult')
+  | No results
+p(data-ng-show='error')
+  | Error: {{error}}
+div(data-ng-hide='noResult || firstSearch')
+  p User: {{user.name}}
+  p ID: {{user.id}}
+  form(name='permissionsForm', data-ng-submit='updatePermissions()', novalidate)
+    label(for='edit-permissions') Edit permissions: 
+      input(type='checkbox', id='edit-permissions', data-ng-model='permissions.editPermissions',
+        data-ng-disabled='user.name == auth.user.name')
+    label(for='debug') Debug: 
+      input(type='checkbox', id='debug', data-ng-model='permissions.debug')
+    label(for='accept-invites') Accept beta invites: 
+      input(type='checkbox', id='accept-invites', data-ng-model='permissions.acceptInvites')
+    input(type='submit', value='Save')

@@ -99,6 +99,7 @@ function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, aut
 
   this._connectListener = null
   this._onMessage = this._onMessage.bind(this)
+  var self = this
 
   // TODO(tec27): abstract this out into a thing that handles re-registrations and stuff
   this.eventScope = $rootScope.$new(true)
@@ -107,11 +108,10 @@ function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, aut
     subUserTopic()
   }
 
-  var self = this
   authService.on('userChanged', function(user) {
     if (self.userTopic) {
-      this.eventScope.$destroy()
-      this.eventScope = $rootScope.$new(true)
+      self.eventScope.$destroy()
+      self.eventScope = $rootScope.$new(true)
     }
 
     if (!user) {

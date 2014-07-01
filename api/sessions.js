@@ -1,5 +1,6 @@
 var bcrypt = require('bcrypt')
   , users = require('../models/users')
+  , permissions = require('../models/permissions')
   , httpErrors = require('../util/http-errors')
   , initSession = require('../util/init-session')
 
@@ -26,7 +27,7 @@ function getCurrentSession(req, res, next) {
       })
     } else {
       req.session.touch()
-      res.send(user)
+      res.send({user: user, permissions: req.session.permissions})
     }
   })
 }
@@ -56,11 +57,21 @@ function startNewSession(req, res, next) {
 
       if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
       req.session.regenerate(function(err) {
-        if (err) return next(err)
+        if (err) {
+          req.log.error({ err: err }, 'error regenerating session')
+          return next(err)
+        }
 
-        initSession(req, user)
-        if (!remember) req.session.cookie.expires = false
-        res.send(user)
+        permissions.get(user.id, function(err, permissions) {
+          if (err) {
+            req.log.error({ err: err }, 'error getting permissions')
+            return next(err)
+          }
+
+          initSession(req, user, permissions)
+          if (!remember) req.session.cookie.expires = false
+          res.send({user: user, permissions: permissions})
+        })
       })
     })
   })

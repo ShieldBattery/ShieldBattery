@@ -4,6 +4,8 @@
   "description": "The official server implementation for shieldbattery.",
   "main": "index.js",
   "scripts": {
+    "migrate-up": "db-migrate up",
+    "migrate-down": "db-migrate down",
     "test": "mocha -R spec --recursive test/",
     "start": "node index.js | bunyan"
   },

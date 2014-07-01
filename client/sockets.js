@@ -93,7 +93,12 @@ AngularSocket.prototype.connect = function() {
   return this
 }
 
-// TODO(tec27): do we need a disconnect function for AngularSocket? Probably for logout, yeah
+AngularSocket.prototype.disconnect = function() {
+  if (!this.connected) return this
+
+  this.socket.socket.close()
+  return this
+}
 
 /**
  * Subscribes (persistently) to a particular topic for a particular scope.
