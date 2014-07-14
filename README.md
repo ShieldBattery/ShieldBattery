@@ -14,11 +14,15 @@ On Windows you will also need the [OpenSSL development libraries](http://slprowe
 
 ##Running the server
 ###Initialize node modules
-After downloading the server files, or after pulling new commits, you should rebuild the npm modules using
+After downloading the server files, or after pulling new commits, you should update/install the npm modules using
 ```
-npm rebuild
+npm install
 ```
-Dependencies are checked into the repository, so no `npm install` is necessary.
+OR
+```
+npm update
+```
+If you are unsure of which you need to run, running both should be fine.
 
 ###Acquire SSL certificates
 If you are running the server somewhere remotely, you can get a certificate from a normal CA. If, however, you are running a local development server, you'll need to self-sign a certificate. For instructions on how to do that, see [here](http://stackoverflow.com/a/10176685/1050849). Make sure to note the location of your certificate and private key for configuring the server (in the next step). I recommend putting them as `certs/`, as this location is already gitignored for these purposes.
