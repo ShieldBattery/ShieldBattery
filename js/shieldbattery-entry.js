@@ -30,10 +30,9 @@ bw.chatHandler.on('thisisnotwarcraftinspace', function() {
   })
 })
 
-var io = require('socket.io-client')
-  , host = require('./shieldbattery/host')
-  , join = require('./shieldbattery/join')
-  , socket = io.connect('https://lifeoflively.net:33198/game')
+var setupRoutes = require('./shieldbattery/routes')
+  , socket = require('nydus-client')('wss://lifeoflively.net:33198',
+      { websocketOptions: { origin: 'BROODWARS' } })
   , initialized = false
 
 socket.on('connect', function() {
@@ -45,27 +44,26 @@ socket.on('connect', function() {
   setTimeout(function() {
     process.exit()
   }, 100)
-}).on('setSettings', function(settings, cb) {
+})
+
+socket.router.call('/setSettings', function(req, res, settings) {
   log.verbose('received settings, initializing')
   log.verbose('settings: ' + JSON.stringify(settings, null, 2))
   initialize(settings, function(err) {
     if (err) {
-      cb({ msg: err.message })
+      res.fail(500, 'internal server error', { msg: err.message })
     } else {
-      cb(null)
+      res.complete()
     }
   })
-}).on('hostMode', function() {
-  log.verbose('enabling host mode')
-  host(socket)
-}).on('joinMode', function() {
-  log.verbose('enabling join mode')
-  join(socket)
-}).on('quit', function() {
+}).call('/quit', function(req, res) {
+  res.complete()
   setTimeout(function() {
     process.exit()
   }, 100)
 })
+
+setupRoutes(socket)
 
 function initialize(settings, cb) {
   initialized = true

@@ -9,54 +9,16 @@ process.on('uncaughtException', function(err) {
 
 var psi = require('shieldbattery-psi')
   , path = require('path')
+  , EventEmitter = require('events').EventEmitter
   , httpServer = require('./psi/http-server')(33198, '127.0.0.1')
-  , io = require('socket.io').listen(httpServer)
+  , nydus = require('nydus')(httpServer, { authorize: authorize })
   , shieldbatteryRoot = path.dirname(process.execPath)
   , localSettings = require('./psi/local-settings')(path.join(shieldbatteryRoot, 'settings.json'))
 
-io.configure(function() {
-  io.set('transports', ['websocket'])
-    .set('log level', 2)
-})
-
-var siteSockets = io.of('/site')
-  , gameSocket
-
-// directly pass a command from the siteSocket to the gameSocket (and pass the response back)
-function passThrough(gameCommand) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments, 0)
-    if (args.length > 0 && typeof args[args.length - 1] == 'function') {
-      if (!gameSocket) {
-        return args[args.length - 1]({ msg: 'Not connected to game' })
-      }
-
-      var cb = args[args.length - 1]
-      args[args.length - 1] = function(dummyParam) {
-        cb.apply(this, arguments)
-      }
-    }
-
-    if (!gameSocket) return
-    args.unshift(gameCommand)
-    gameSocket.emit.apply(gameSocket, args)
-  }
-}
-
-// directly pass an event from the gameSocket back to the siteSocket
-function passBack(gameEvent) {
-  return function() {
-    var args = Array.prototype.slice.call(arguments, 0)
-    if (args.length > 0 && typeof args[args.length - 1] == 'function') {
-      var cb = args[args.length - 1]
-      args[args.length - 1] = function(dummyParam) {
-        cb.apply(this, arguments)
-      }
-    }
-
-    args.unshift(gameEvent)
-    siteSockets.emit.apply(siteSockets, args)
-  }
+function authorize(info, cb) {
+  // TODO(tec27): Don't allow any connections except from the game and from approved sites
+  var clientType = info.origin == 'BROODWARS' ? 'game' : 'site'
+  cb(true, { clientType: clientType })
 }
 
 psi.on('shutdown', function() {
@@ -66,61 +28,86 @@ psi.on('shutdown', function() {
   log.verbose('localSettings stopped watching')
 })
 
-siteSockets.on('connection', function(socket) {
-  console.log('site client connected.')
-  socket.on('launch', function(cb) {
-    doLaunch(cb)
-  }).on('disconnect', function() {
-    console.log('site client disconnected.')
-  }).on('resolution', function(cb) {
-    detectResolution(cb)
-  }).on('settings/set', function(newSettings, cb) {
-    localSettings.setSettings(newSettings)
-    siteSockets.except(socket.id).emit('settings/change', newSettings)
-    cb()
-  }).on('settings/get', function(cb) {
-    cb(null, localSettings.getSettings())
-  })
+var gameSocket = null
+  , gameConnectedEmitter = new EventEmitter()
 
-  ;[ 'setSettings'
-  , 'hostMode'
-  , 'joinMode'
-  , 'createLobby'
-  , 'joinLobby'
-  , 'setRace'
-  , 'addComputer'
-  , 'startGame'
-  , 'quit'
-  ].forEach(function(command) {
-    socket.on('game/' + command, passThrough(command))
-  })
-})
+nydus.on('connection', function(socket) {
+  log.verbose('websocket (' + socket.handshake.clientType + ') connected.')
+  if (socket.handshake.clientType == 'game') {
+    gameSocket = socket
+    gameConnectedEmitter.emit('connected')
+  }
 
-io.of('/game').on('connection', function(socket) {
-  console.log('game client connected.')
-  siteSockets.emit('game/connected')
-  gameSocket = socket
   socket.on('disconnect', function() {
-    console.log('game client disconnected.')
-    siteSockets.emit('game/disconnected')
-    gameSocket = null
-  })
-
-  ;[ 'playerJoined'
-  , 'gameStarted'
-  , 'gameFinished'
-  ].forEach(function(command) {
-    socket.on(command, passBack('game/' + command))
+    log.verbose('websocket (' + socket.handshake.clientType + ') disconnected.')
+    if (socket.handshake.clientType == 'game') {
+      nydus.publish('/game/disconnected')
+      gameSocket = null
+    }
   })
 })
+
+nydus.router.call('/launch', function(req, res) {
+  doLaunch(req, res)
+}).call('/getResolution', function(req, res) {
+  detectResolution(req, res)
+}).publish('/settings', function(req, newSettings, complete) {
+  localSettings.setSettings(newSettings)
+  complete(newSettings)
+}).subscribe('/settings', function(req, res) {
+  res.complete()
+  req.socket.publish('/settings', localSettings.getSettings())
+}).call('/getSettings', function(req, res) {
+  res.complete(localSettings.getSettings())
+})
+
+;[ 'setSettings'
+, 'createLobby'
+, 'joinLobby'
+, 'setRace'
+, 'addComputer'
+, 'startGame'
+, 'quit'
+].forEach(function(command) {
+  nydus.router.call('/game/' + command, function(/*req, res, params...*/) {
+    // pass through the calls directly to the game, and return responses back to the site
+    var res = arguments[1]
+    if (!gameSocket) {
+      return res.fail(502, 'bad gateway', { msg: 'no game client connected.' })
+    }
+
+    var callArgs = [ '/' + command ].concat(Array.prototype.slice.call(arguments, 2))
+    callArgs.push(function() {
+      var err = arguments[0]
+      if (err) {
+        res.fail(err.code, err.desc, err.details);
+      } else {
+        res.complete.apply(res, Array.prototype.slice.call(arguments, 1))
+      }
+    })
+    gameSocket.call.apply(gameSocket, callArgs)
+  })
+})
+
+;[ 'playerJoined'
+, 'gameStarted'
+, 'gameFinished'
+].forEach(function(command) {
+  nydus.router.publish('/' + command, function(req, event, complete) {
+    complete(event)
+  }).subscribe('/' + command, function(req, res) {
+    res.complete()
+  })
+})
+
 
 function awaitGameConnection(timeout, cb) {
   if (gameSocket) {
     return cb(false)
   }
-  io.of('/game').once('connection', onConnection)
+  gameConnectedEmitter.once('connected', onConnection)
   var timeoutId = setTimeout(function() {
-    io.of('/game').removeListener('connection', onConnection)
+    gameConnectedEmitter.removeListener('connected', onConnection)
     cb(true)
   }, timeout)
 
@@ -130,7 +117,7 @@ function awaitGameConnection(timeout, cb) {
   }
 }
 
-function doLaunch(cb) {
+function doLaunch(req, res) {
   // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86)%/Starcraft and
   // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
   var installPath = psi.getInstallPathFromRegistry()
@@ -144,33 +131,43 @@ function doLaunch(cb) {
       , launchSuspended: true
       , currentDir: installPath
       }, function(err, proc) {
-        if (err) return cb({ when: 'launching process', msg: err.message })
+        if (err) {
+          return res.fail(500, 'internal server error',
+              { when: 'launching process', msg: err.message })
+        }
 
-        console.log('Process launched!')
+        log.verbose('Process launched')
         var shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
 
         proc.injectDll(shieldbatteryDll, 'OnInject', function(err) {
-          if (err) return cb({ when: 'injecting dll', msg: err.message })
+          if (err) {
+            return res.fail(500, 'internal server error',
+                { when: 'injecting dll', msg: err.message })
+          }
 
-          console.log('Dll injected! Attempting to resume process...')
+          log.verbose('Dll injected. Attempting to resume process...')
 
           var resumeErr = proc.resume()
-          console.log('Process resumed!')
-          if (resumeErr) return cb({ when: 'resuming process', msg: resumeErr.message })
+          log.verbose('Process resumed')
+          if (resumeErr) {
+            return res.fail(500, 'internal server error',
+                { when: 'resuming process', msg: resumeErr.message })
+          }
 
           awaitGameConnection(5000, function(timedOut) {
             if (timedOut) {
-              cb({ when: 'resuming process', msg: 'waiting for game connection timed out' })
+              res.fail(504, 'gateway timeout',
+                  { when: 'resuming process', msg: 'waiting for game connection timed out' })
             } else {
-              cb()
+              res.complete()
             }
           })
         })
       })
 }
 
-function detectResolution(cb) {
-  var res = psi.detectResolution()
-  cb(res)
+function detectResolution(req, res) {
+  var resolution = psi.detectResolution()
+  res.complete(resolution)
 }
 
