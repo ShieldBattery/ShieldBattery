@@ -52,9 +52,11 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) 
   lobby.on('addPlayer', function onAddPlayer(slot, player) {
     self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
     self.playerLobbyMap.put(player.name, lobby)
+    // TODO(tec27): this is broken and adding a disconnect handler to the wrong socket, FIXME
     socket.on('disconnect', onDisconnect)
   }).on('removePlayer', function onRemovePlayer(slot, player) {
     self.playerLobbyMap.del(player.name)
+    // TODO(tec27): broken, see above
     socket.removeListener('disconnect', onDisconnect)
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
   }).on('newHost', function onNewHost(playerName) {

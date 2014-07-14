@@ -326,19 +326,24 @@ JoinedLobbyService.prototype._onCountdownCompleted = function(host, port) {
 }
 
 JoinedLobbyService.prototype._launchGame = function(host, port) {
-  var subs = []
-    , self = this
+  var self = this
 
   function cleanUp() {
-    subs.forEach(function(unsub) {
-      unsub()
+    try {
+      self.psiSocket.unsubscribe('/gameFinished', cleanUp)
+    } catch (err) {
+      // ignore non-existent subscription errors
+    }
+    self.psiSocket.call('/game/quit', function(err) {
+      if (err) {
+        console.log('error quitting:')
+        console.dir(err)
+      }
     })
-    subs.length = 0
-    self.psiSocket.emit('game/quit')
   }
   // TODO(tec27): when errors happen, we need to notify the server that we couldn't launch the game
 
-  this.psiSocket.emit('launch', function(err) {
+  this.psiSocket.call('/launch', function(err) {
     if (err) {
       console.log('Error launching:')
       console.dir(err)
@@ -349,7 +354,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
   })
 
   function retrieveSettings() {
-    self.psiSocket.emit('settings/get', timeback(1500, function(err, settings) {
+    self.psiSocket.call('/getSettings', timeback(1500, function(err, settings) {
       if (err) {
         console.log('Error retrieving settings:')
         console.dir(err)
@@ -361,29 +366,23 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
   }
 
   function initializeSettings(settings) {
-    self.psiSocket.emit('game/setSettings', settings, function(err) {
+    self.psiSocket.call('/game/setSettings', settings, function(err) {
       if (err) {
         console.log('Error initializing settings:')
         console.dir(err)
         return cleanUp()
       }
 
-      initiateGameMode()
+      if (self.isHost) {
+        createGameLobby()
+      } else {
+        joinGameLobby()
+      }
     })
   }
 
-  function initiateGameMode() {
-    if (self.isHost) {
-      self.psiSocket.emit('game/hostMode')
-      createGameLobby()
-    } else {
-      self.psiSocket.emit('game/joinMode')
-      joinGameLobby()
-    }
-  }
-
   function createGameLobby() {
-    self.psiSocket.emit('game/createLobby',
+    self.psiSocket.call('/game/createLobby',
         { username: self.authService.user.name, map: self.lobby.map },
         function(err) {
       if (err) {
@@ -410,7 +409,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
     addComputer()
 
     function addComputer() {
-      self.psiSocket.emit('game/addComputer', computers[i].race, function(err) {
+      self.psiSocket.call('/game/addComputer', computers[i].race, function(err) {
         if (err) {
           console.log('error adding computer: ')
           console.dir(err)
@@ -431,7 +430,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
                   , host: host
                   , port: port
                   }
-    self.psiSocket.emit('game/joinLobby', params, function(err) {
+    self.psiSocket.call('/game/joinLobby', params, function(err) {
       if (err) {
         console.log('error joining game: ')
         console.dir(err)
@@ -458,7 +457,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       }
     }
 
-    self.psiSocket.emit('game/setRace', race, function(err) {
+    self.psiSocket.call('/game/setRace', race, function(err) {
       if (err) {
         console.log('error setting race: ')
         console.dir(err)
@@ -466,9 +465,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       }
 
       self.siteSocket.call(self._path('/readyUp/' + self.myId))
-      subs.push(self.psiSocket.on('game/gameFinished', function() {
-        cleanUp()
-      }))
+      self.psiSocket.subscribe('/gameFinished', cleanUp)
     })
   }
 }
@@ -476,9 +473,10 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
 JoinedLobbyService.prototype._onStartGame = function() {
   if (!this.isHost) return
 
-  this.psiSocket.emit('game/startGame', function(err) {
+  this.psiSocket.call('/game/startGame', function(err) {
     if (err) {
-      console.log('error starting game: ' + err)
+      console.log('error starting game:')
+      console.dir(err)
       return
     }
   })
