@@ -261,7 +261,7 @@ JoinedLobbyService.prototype._onMessage = function(data) {
     case 'join': this._onJoin(data.slot, data.player); break
     case 'part': this._onPart(data.slot); break
     case 'chat': this._onChat(data.from, data.text); break
-    case 'newHost': this._onNewHost(data.name); break
+    case 'newHost': this._onNewHost(data.id, data.name); break
     case 'countdownStarted': this._onCountdownStarted(); break
     case 'countdownComplete': this._onCountdownCompleted(data.host, data.port); break
     case 'startGame': this._onStartGame(); break
@@ -300,9 +300,10 @@ JoinedLobbyService.prototype._onChat = function(from, text) {
   this.chat.push({ from: from, text: text })
 }
 
-JoinedLobbyService.prototype._onNewHost = function(host) {
-  this.lobby.host = host
-  this._systemMessage(host + ' is now the host')
+JoinedLobbyService.prototype._onNewHost = function(hostId, hostName) {
+  this.lobby.hostId = hostId
+  this.lobby.host = hostName
+  this._systemMessage(hostName + ' is now the host')
 }
 
 JoinedLobbyService.prototype._onCountdownStarted = function() {
@@ -487,19 +488,14 @@ mod.controller('LobbyListCtrl', function($scope, siteSocket) {
   $scope.lobbies = []
   var lobbyMap = new SimpleMap()
 
-  siteSocket.on('connect', subscribeToLobbies)
-  subscribeToLobbies()
-  $scope.$on('$destroy', function(event) {
-    siteSocket.removeListener('connect', subscribeToLobbies)
-    siteSocket.unsubscribe('/lobbies', lobbyUpdate)
-  })
-
-  function subscribeToLobbies() {
-    if (!siteSocket.connected) {
-      return
+  siteSocket.subscribeScope($scope, '/lobbies')
+  $scope.$on('/site/lobbies', function($event, err, data) {
+    if (err) {
+      return console.log('error subscribing to lobbies:', err)
     }
-    siteSocket.subscribe('/lobbies', lobbyUpdate)
-  }
+
+    lobbyUpdate(data)
+  })
 
   function lobbyUpdate(data) {
     var i, len

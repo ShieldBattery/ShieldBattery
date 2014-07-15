@@ -35,14 +35,6 @@ function AngularSocket(host, $rootScope, prefix) {
     , 'subscribe'
     , 'unsubscribe'
     , 'publish'
-    // EventEmitter methods
-    , 'on'
-    , 'once'
-    , 'addListener'
-    , 'removeListener'
-    , 'removeAllListeners'
-    , 'setMaxListeners'
-    , 'listeners'
     ].forEach(function(func) {
     this[func] = function() {
       self.socket[func].apply(self.socket, arguments)
@@ -53,6 +45,9 @@ function AngularSocket(host, $rootScope, prefix) {
     { get: function() { return this.socket.router }
     , enumerable: true
     })
+
+  // we'd rather not have socket errors cause a bunch of console spam for no good reason
+  this.on('error', function() {})
 }
 
 ;['addListener'
@@ -98,7 +93,7 @@ AngularSocket.prototype.connect = function() {
   return this
 }
 
-// TODO(tec27): do we need a disconnect function for AngularSocket?
+// TODO(tec27): do we need a disconnect function for AngularSocket? Probably for logout, yeah
 
 /**
  * Subscribes (persistently) to a particular topic for a particular scope.

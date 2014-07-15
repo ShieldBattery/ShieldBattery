@@ -59,8 +59,8 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) 
     // TODO(tec27): broken, see above
     socket.removeListener('disconnect', onDisconnect)
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
-  }).on('newHost', function onNewHost(playerName) {
-    self._updateJoinedLobby(lobby, { action: 'newHost', name: playerName })
+  }).on('newHost', function onNewHost(hostId, hostName) {
+    self._updateJoinedLobby(lobby, { action: 'newHost', id: hostId, name: hostName })
     self.nydus.publish('/lobbies', { action: 'update', lobby: lobby.$ })
   }).on('closed', function onLobbyClosed() {
     self.lobbyMap.del(lobby.name)
@@ -281,6 +281,10 @@ function SerializedLobby(lobby) {
       { get: function() { return lobby.host }
       , enumerable: true
       })
+  Object.defineProperty(this, 'hostId',
+      { get: function() { return lobby.hostId }
+      , enumerable: true
+      })
   this.name = lobby.name
   this.map = lobby.map
   this.size = lobby.size
@@ -345,8 +349,8 @@ Lobby.prototype.removePlayer = function(id) {
       if (this.players[i].isComputer) continue
 
       this.host = this.players[i].name
-      this.hostId = this.players[id].id
-      this.emit('newHost', this.hostId)
+      this.hostId = this.players[i].id
+      this.emit('newHost', this.hostId, this.host)
       break
     }
   }
