@@ -1,5 +1,3 @@
-var timeback = require('../shared/timeback')
-
 module.exports = 'shieldbattery.settings'
 
 var mod = angular.module('shieldbattery.settings', [ require('./sockets'), 'rzModule' ])
@@ -40,27 +38,33 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
   $scope.resDisabled = false
   $scope.btnDisabled = false
 
-  psiSocket.emit('resolution', function(res) {
+  psiSocket.call('/getResolution', function(err, res) {
+    if (err) {
+      console.log('Error retrieving resolution')
+      console.dir(err)
+      return
+    }
+
     $scope.res.width = res.width
     $scope.res.height = res.height
     initializeSettings()
   })
 
-  psiSocket.emit('settings/get', timeback(1500, function(err, settings) {
+  psiSocket.subscribeScope($scope, '/settings')
+  $scope.$on('/psi/settings', function($event, err, settings) {
     if (err) {
-      console.log('Error retrieving settings:')
-      console.dir(err)
-      return
+      console.log('error subscribing to settings:', err)
+    } else {
+      onSettings(settings)
     }
+  })
 
-    $scope.settings.bwPort = settings.bwPort
-    $scope.settings.width = settings.width
-    $scope.settings.height = settings.height
-    $scope.settings.displayMode = settings.displayMode
-    $scope.settings.mouseSensitivity = settings.mouseSensitivity
-    $scope.settings.maintainAspectRatio = settings.maintainAspectRatio
+  function onSettings(settings) {
+    for (var key in settings) {
+      $scope.settings[key] = settings[key]
+    }
     initializeSettings()
-  }))
+  }
 
   function filterResolutions() {
     var filteredRes = resArray.filter(function(r) {
@@ -92,7 +96,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
       filterResolutions()
       var resName = $scope.settings.width + 'x' + $scope.settings.height
           , index = -1
-  
+
       for(var i = 0; i < $scope.resolutions.length; i++) {
         if ($scope.resolutions[i].name == resName) {
           index = i
@@ -121,7 +125,6 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
   $scope.saveSettings = function() {
     if (!$scope.settingsForm.$valid) return
 
-    $scope.btnDisabled = true
     var newSettings = { bwPort: $scope.bwPort
                       , width: $scope.resolution.width
                       , height: $scope.resolution.height
@@ -129,15 +132,6 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                       , mouseSensitivity: $scope.mouseSensitivity.value
                       , maintainAspectRatio: $scope.maintainAspectRatio
                       }
-    psiSocket.emit('settings/set', newSettings, function(err) {
-      if (err) {
-        console.log('Error settingsettings:')
-        console.dir(err)
-        $scope.btnDisabled = false
-        return
-      }
-    })
-
-    $scope.btnDisabled = false
+    psiSocket.publish('/settings', newSettings, false)
   }
 })

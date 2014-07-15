@@ -1,19 +1,24 @@
 module.exports = 'shieldbattery.sockets'
 var nydus = require('nydus-client')
+  , EventEmitter = require('events').EventEmitter
+  , inherits = require('inherits')
 
 var mod = angular.module('shieldbattery.sockets', [])
 
 mod.factory('siteSocket', function($rootScope) {
-  return new AngularSocket(null, $rootScope)
+  return new AngularSocket(null, $rootScope, '/site')
 })
 
 mod.factory('psiSocket', function($rootScope) {
-  return new AngularSocket('wss://lifeoflively.net:33198', $rootScope)
+  return new AngularSocket('wss://lifeoflively.net:33198', $rootScope, '/psi')
 })
 
-function AngularSocket(host, $rootScope) {
+inherits(AngularSocket, EventEmitter)
+function AngularSocket(host, $rootScope, prefix) {
+  EventEmitter.call(this)
   this.host = host
   this.scope = $rootScope
+  this.prefix = prefix
   this.connected = false
   this.lastError = null
 
@@ -25,8 +30,6 @@ function AngularSocket(host, $rootScope) {
     this[func] = this[func].bind(this)
   }, this)
 
-  this._subscribeListeners = []
-
   var self = this
   ; [ 'call'
     , 'subscribe'
@@ -35,6 +38,7 @@ function AngularSocket(host, $rootScope) {
     // EventEmitter methods
     , 'on'
     , 'once'
+    , 'addListener'
     , 'removeListener'
     , 'removeAllListeners'
     , 'setMaxListeners'
@@ -49,6 +53,31 @@ function AngularSocket(host, $rootScope) {
     { get: function() { return this.socket.router }
     , enumerable: true
     })
+}
+
+;['addListener'
+, 'on'
+, 'once'
+, 'removeListener'
+, 'removeAllListeners'
+, 'listeners'
+].forEach(function(method) {
+  var origMethod = AngularSocket.prototype[method]
+  AngularSocket.prototype[method] = genEventEmitterMethod(method, origMethod)
+})
+
+function genEventEmitterMethod(method, origMethod) {
+  return function(ev, fn) {
+    switch(ev) {
+      case 'connect':
+      case 'disconnect':
+      case 'error':
+        return origMethod.call(this, ev, fn)
+      default:
+        this.socket[method](ev, fn)
+        return this
+    }
+  }
 }
 
 AngularSocket.prototype.connect = function() {
@@ -71,8 +100,40 @@ AngularSocket.prototype.connect = function() {
 
 // TODO(tec27): do we need a disconnect function for AngularSocket?
 
+/**
+ * Subscribes (persistently) to a particular topic for a particular scope.
+ * If the socket is not connected, or disconnects and reconnects the subscription will be renewed.
+ * Events are broadcasted on the scope specified, using this socket's prefix and the topicPath as
+ * the name. On scope destruction, the topic will be unsubscribed from.
+ */
+AngularSocket.prototype.subscribeScope = function(scope, topicPath) {
+  var broadcastName = this.prefix + topicPath
+    , self = this
+
+  function sub() {
+    if (!self.connected) return
+    self.subscribe(topicPath, onEvent, function(err) {
+      if (err) {
+        scope.$broadcast(broadcastName, err)
+      }
+    })
+  }
+
+  function onEvent(event) {
+    scope.$broadcast(broadcastName, null, event)
+  }
+
+  sub()
+  this.on('connect', sub)
+  scope.$on('$destroy', function() {
+    self.removeListener('connect', sub)
+    self.unsubscribe(topicPath, onEvent)
+  })
+}
+
 AngularSocket.prototype._onConnect = function() {
   console.log('socket connected.')
+  this.emit('connect')
   this.connected = true
   this.scope.$apply()
 }
@@ -83,12 +144,14 @@ AngularSocket.prototype._onError = function(err) {
   var self = this
   this.scope.$apply(function() {
     self.lastError = err
+    self.emit('error', err)
   })
 }
 
 AngularSocket.prototype._onDisconnect = function() {
   console.log('socket disconnected.')
   var self = this
+  this.emit('disconnect')
   // onDisconnect is called immediately (in the same event loop turn) if disconnected manually.
   // To prevent this from causing nested $digest loops, we defer $apply to the next turn.
   setTimeout(function() {
@@ -96,4 +159,3 @@ AngularSocket.prototype._onDisconnect = function() {
     self.scope.$apply()
   }, 0)
 }
-

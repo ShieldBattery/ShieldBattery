@@ -487,8 +487,7 @@ mod.controller('LobbyListCtrl', function($scope, siteSocket) {
   $scope.lobbies = []
   var lobbyMap = new SimpleMap()
 
-  // TODO(tec27): FIXME can't subscribe to connect events because socket isn't around yet
-  // siteSocket.on('connect', subscribeToLobbies)
+  siteSocket.on('connect', subscribeToLobbies)
   subscribeToLobbies()
   $scope.$on('$destroy', function(event) {
     siteSocket.removeListener('connect', subscribeToLobbies)
