@@ -1,6 +1,7 @@
 var nydus = require('nydus')
   , path = require('path')
   , fs = require('fs')
+  , createUserSockets = require('./util/user-sockets')
 
 module.exports = function(server, cookieParser, sessionMiddleware) {
   return new WebsocketServer(server, cookieParser, sessionMiddleware)
@@ -23,18 +24,17 @@ function WebsocketServer(server, cookieParser, sessionMiddleware) {
   }
 
   this.nydus = nydus(server, { authorize: authorize })
+  this.userSockets = createUserSockets(this.nydus)
   this.connectedUsers = 0
 
   apiHandlers.forEach(function(handler) {
-    handler(self.nydus)
+    handler(self.nydus, self.userSockets)
   })
 
-  this.nydus.on('connection', function(socket) {
+  this.userSockets.on('newUser', function(user) {
     self.connectedUsers++
-
-    socket.on('disconnect', function() {
-      self.connectedUsers--
-    })
+  }).on('userQuit', function(userName) {
+    self.connectedUsers--
   })
 
   self.nydus.router.subscribe('/status', function(req, res) {

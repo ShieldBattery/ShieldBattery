@@ -1,5 +1,8 @@
 module.exports = 'shieldbattery.auth'
 
+var EventEmitter = require('events').EventEmitter
+  , inherits = require('inherits')
+
 var mod = angular.module('shieldbattery.auth', [ require('./sockets') ])
 
 mod.config(function($httpProvider, $routeProvider) {
@@ -97,6 +100,7 @@ mod.factory('authService', function($location, $http, siteSocket) {
   return new AuthService($location, $http, siteSocket)
 })
 
+inherits(AuthService, EventEmitter)
 function AuthService($location, $http, siteSocket) {
   this.$location = $location
   this.$http = $http
@@ -125,6 +129,7 @@ AuthService.prototype.createUser = function(username, email, password, cb) {
     self.user = user
     self.siteSocket.connect()
     cb(null, user)
+    self.emit('userChanged', user)
   }).error(function(err) {
     cb(err)
   })
@@ -142,8 +147,10 @@ AuthService.prototype.getCurrentUser = function() {
     .success(function(user) {
       self.user = user
       self.siteSocket.connect()
+      self.emit('userChanged', user)
     }).error(function(err) {
       self.user = null
+      self.emit('userChanged', null)
     })
 }
 
@@ -154,6 +161,7 @@ AuthService.prototype.logIn = function(username, password, remember) {
     .success(function(user) {
       self.user = user
       self.siteSocket.connect()
+      self.emit('userChanged', user)
     })
 }
 
@@ -164,6 +172,7 @@ AuthService.prototype.logOut = function() {
     .success(function(user) {
       self.user = null
       self.siteSocket.disconnect()
+      self.emit('userChanged', null)
     })
 }
 

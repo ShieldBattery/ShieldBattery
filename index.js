@@ -28,7 +28,6 @@ app.set('port', config.httpsPort)
   .use(require('./util/log-middleware')())
   .use(express.urlencoded())
   .use(express.json())
-  .use(express.methodOverride())
   .use(cookieParser)
   // all static things should be above csrf/session checks since they don't depend on them and we
   // don't want to be making a ton of unnecessary requests to redis, etc.

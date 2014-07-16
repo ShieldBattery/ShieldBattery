@@ -4,12 +4,13 @@ var Emitter = require('events').EventEmitter
   , util = require('util')
   , idgen = require('idgen')
 
-module.exports = function(nydus) {
-  return new LobbyHandler(nydus)
+module.exports = function(nydus, userSockets) {
+  return new LobbyHandler(nydus, userSockets)
 }
 
-function LobbyHandler(nydus) {
+function LobbyHandler(nydus, userSockets) {
   this.nydus = nydus
+  this.userSockets = userSockets
   this.lobbyMap = new SimpleMap()
   this.lobbies = []
   // player -> their current lobby. Each player can be in at most one lobby at a time.
@@ -43,7 +44,7 @@ function LobbyHandler(nydus) {
   })
 }
 
-LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) {
+LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
   var lobby = new Lobby(name, map, size)
   this.lobbyMap.put(lobby.name, lobby)
   listUtils.sortedInsert(this.lobbies, lobby, Lobby.compare)
@@ -51,13 +52,20 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) 
   var self = this
   lobby.on('addPlayer', function onAddPlayer(slot, player) {
     self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
-    self.playerLobbyMap.put(player.name, lobby)
-    // TODO(tec27): this is broken and adding a disconnect handler to the wrong socket, FIXME
-    socket.on('disconnect', onDisconnect)
+    if (!player.isComputer) {
+      self.playerLobbyMap.put(player.name, lobby)
+      var user = self.userSockets.get(player.name)
+      user.on('disconnect', onDisconnect)
+        .on('subscribe', publishLobby)
+        .publish('lobby', { name: name })
+    }
   }).on('removePlayer', function onRemovePlayer(slot, player) {
-    self.playerLobbyMap.del(player.name)
-    // TODO(tec27): broken, see above
-    socket.removeListener('disconnect', onDisconnect)
+    if (!player.isComputer) {
+      self.playerLobbyMap.del(player.name)
+      var user = self.userSockets.get(player.name)
+      user.removeListener('disconnect', onDisconnect)
+        .removeListener('subscribe', publishLobby)
+    }
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
   }).on('newHost', function onNewHost(hostId, hostName) {
     self._updateJoinedLobby(lobby, { action: 'newHost', id: hostId, name: hostName })
@@ -82,11 +90,15 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size, socket) 
   function onDisconnect() {
     lobby.removePlayer(host)
   }
+
+  function publishLobby(user, socket) {
+    user.publishTo(socket, 'lobby', { name: name })
+  }
 }
 
 LobbyHandler.prototype.create = function(req, res, params) {
-  var user = req.socket.handshake.userName
-  if (this.playerLobbyMap.has(user)) {
+  var user = this.userSockets.get(req.socket)
+  if (this.playerLobbyMap.has(user.userName)) {
     return res.fail(409, 'conflict', { msg: 'You cannot enter multiple lobbies at once' })
   }
 
@@ -102,7 +114,7 @@ LobbyHandler.prototype.create = function(req, res, params) {
     return res.fail(409, 'conflict', { msg: 'A lobby with that name already exists' })
   }
 
-  this._doCreateLobby(user, params.name, params.map, params.size, req.socket)
+  this._doCreateLobby(user.userName, params.name, params.map, params.size)
   res.complete()
 }
 

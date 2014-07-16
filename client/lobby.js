@@ -70,13 +70,15 @@ function compareLobbies(a, b) {
   return a.name.localeCompare(b.name)
 }
 
-mod.factory('joinedLobby', function($timeout, $q, siteSocket, psiSocket, authService) {
-  return new JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService)
+mod.factory('joinedLobby', function($timeout, $q, $rootScope, siteSocket, psiSocket, authService) {
+  return new JoinedLobbyService(
+      $timeout, $q, $rootScope, siteSocket, psiSocket, authService)
 })
 
-function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
+function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, authService) {
   this.$timeout = $timeout
   this.$q = $q
+  this.$rootScope = $rootScope
   this.siteSocket = siteSocket
   this.psiSocket = psiSocket
   this.authService = authService
@@ -98,16 +100,42 @@ function JoinedLobbyService($timeout, $q, siteSocket, psiSocket, authService) {
   this._connectListener = null
   this._onMessage = this._onMessage.bind(this)
 
-  // received when we connect and are already in a lobby, or when another socket for our account
-  // (e.g. another tab) joins a lobby
-  /*siteSocket.on('lobbies/join', function(lobbyName) {
-    self.join(lobbyName)
+  // TODO(tec27): abstract this out into a thing that handles re-registrations and stuff
+  this.eventScope = $rootScope.$new(true)
+  this.userTopic = null
+  if (authService.isLoggedIn) {
+    subUserTopic()
+  }
+
+  var self = this
+  authService.on('userChanged', function(user) {
+    if (self.userTopic) {
+      this.eventScope.$destroy()
+      this.eventScope = $rootScope.$new(true)
+    }
+
+    if (!user) {
+      self.userTopic = null
+    } else {
+      subUserTopic()
+    }
   })
-  // received when another tab leaves a lobby
-  siteSocket.on('lobbies/part', function() {
-    self.lobby = null
-    self.leave()
-  })*/
+
+  function subUserTopic() {
+    self.userTopic = '/users/' + encodeURIComponent(authService.user.name)
+    siteSocket.subscribeScope(self.eventScope, self.userTopic)
+    self.eventScope.$on('/site' + self.userTopic, onUserTopic)
+  }
+
+  function onUserTopic($event, err, msg) {
+    if (err) {
+      return console.log('error subscribing to user topic', err)
+    } else if (msg.type != 'lobby') {
+      return
+    }
+
+    self.join(msg.data.name)
+  }
 }
 
 JoinedLobbyService.prototype._path = function(end) {
@@ -286,6 +314,10 @@ JoinedLobbyService.prototype._onJoin = function(slot, player) {
 JoinedLobbyService.prototype._onPart = function(slot) {
   if (!this.lobby) return
   var player = this.lobby.slots[slot]
+  if (player.name == this.authService.user.name) {
+    // this is us (from another socket), so just call leave and it will clean up everything
+    return this.leave()
+  }
   this.lobby.slots[slot] = null
   for (var i = 0, len = this.lobby.players.length; i < len; i++) {
     if (this.lobby.players[i].name == player.name) {

@@ -128,8 +128,8 @@ AngularSocket.prototype.subscribeScope = function(scope, topicPath) {
 
 AngularSocket.prototype._onConnect = function() {
   console.log('socket connected.')
-  this.emit('connect')
   this.connected = true
+  this.emit('connect')
   this.scope.$apply()
 }
 
@@ -146,11 +146,11 @@ AngularSocket.prototype._onError = function(err) {
 AngularSocket.prototype._onDisconnect = function() {
   console.log('socket disconnected.')
   var self = this
-  this.emit('disconnect')
   // onDisconnect is called immediately (in the same event loop turn) if disconnected manually.
   // To prevent this from causing nested $digest loops, we defer $apply to the next turn.
   setTimeout(function() {
     self.connected = false
+    self.emit('disconnect')
     self.scope.$apply()
   }, 0)
 }
