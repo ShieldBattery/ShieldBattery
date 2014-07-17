@@ -2,23 +2,29 @@ var config = require('./config')
 
 var canonicalHost = require('canonical-host')
   , express = require('express')
-  , fs = require('fs')
   , http = require('http')
   , https = require('https')
   , log = require('./logger')
   , path = require('path')
   , redis = require('./redis')
-  , RedisStore = require('connect-redis')(express)
+  , expressSession = require('express-session')
+  , RedisStore = require('connect-redis')(expressSession)
   , stylus = require('stylus')
+  , bodyParser = require('body-parser')
+  , cookieParser = require('cookie-parser')()
+  , serveStatic = require('serve-static')
+  , errorHandler = require('errorhandler')
+  , csrfCookie = require('./util/csrf-cookie')
 
 var sessionStore = new RedisStore({ client: redis
                                   , ttl: config.sessionTtl
                                   })
-  , sessionWare = express.session({ store: sessionStore
+  , sessionWare = expressSession({ store: sessionStore
                                   , secret: config.sessionSecret
                                   , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
+                                  , saveUninitialized: true
+                                  , resave: true
                                   })
-  , cookieParser = express.cookieParser()
 
 var app = express()
 app.set('port', config.httpsPort)
@@ -26,26 +32,25 @@ app.set('port', config.httpsPort)
   .set('view engine', 'jade')
   .disable('x-powered-by')
   .use(require('./util/log-middleware')())
-  .use(express.urlencoded())
-  .use(express.json())
   .use(cookieParser)
+  .use(bodyParser.json())
+  .use(bodyParser.urlencoded({ extended: true }))
   // all static things should be above csrf/session checks since they don't depend on them and we
   // don't want to be making a ton of unnecessary requests to redis, etc.
-  .use(express.favicon())
   .use(stylus.middleware( { src: path.join(__dirname)
                           , dest: path.join(__dirname, 'public')
                           }))
-  .use(express.static(path.join(__dirname, 'public')))
+  .use(serveStatic(path.join(__dirname, 'public')))
   .use(sessionWare)
   .use(require('./util/csrf')())
+  .use(csrfCookie)
   .use(require('./util/secureHeaders'))
   .use(require('./util/secureJson'))
-  .use(app.router)
 
 if (app.get('env') == 'development') {
   // TODO(tec27): replace this with a handler that can be used in production and dev, but displays
   // more detail in dev.
-  app.use(express.errorHandler())
+  app.use(errorHandler())
 }
 
 var httpsServer = https.createServer(config.https, app)

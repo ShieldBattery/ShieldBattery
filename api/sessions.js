@@ -23,7 +23,10 @@ function getCurrentSession(req, res, next) {
       req.session.regenerate(function(err) {
         if (err) return next(err)
 
-        next(new httpErrors.GoneError('Session expired'))
+        req.csrfRegen(function(err) {
+          if (err) return next(err)
+          next(new httpErrors.GoneError('Session expired'))
+        })
       })
     } else {
       req.session.touch()
@@ -56,31 +59,49 @@ function startNewSession(req, res, next) {
       }
 
       if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
-      req.session.regenerate(function(err) {
-        if (err) {
-          req.log.error({ err: err }, 'error regenerating session')
-          return next(err)
-        }
 
-        permissions.get(user.id, function(err, permissions) {
-          if (err) {
-            req.log.error({ err: err }, 'error getting permissions')
-            return next(err)
-          }
-
-          initSession(req, user, permissions)
-          if (!remember) req.session.cookie.expires = false
-          res.send({user: user, permissions: permissions})
-        })
-      })
+      regenSession(user)
     })
   })
+
+  function regenSession(user) {
+    req.session.regenerate(function(err) {
+      if (err) {
+        req.log.error({ err: err }, 'error regenerating session')
+        return next(err)
+      }
+
+      req.csrfRegen(function(err) {
+        if (err) return next(err)
+        getPermissions(user)
+      })
+    })
+  }
+
+  function getPermissions(user) {
+    permissions.get(user.id, function(err, permissions) {
+      if (err) {
+        req.log.error({ err: err }, 'error getting permissions')
+        return next(err)
+      }
+
+      initSession(req, user, permissions)
+      if (!remember) req.session.cookie.expires = false
+      res.send({user: user, permissions: permissions})
+    })
+  }
 }
 
 function endSession(req, res, next) {
   if (!req.session.userId) return next(new httpErrors.ConflictError('No session active'))
   req.session.regenerate(function(err) {
-    if (err) next(err)
-    else res.send(200)
+    if (err) {
+      next(err)
+    } else {
+      req.csrfRegen(function(err) {
+        if (err) return next(err)
+        res.send(200)
+      })
+    }
   })
 }

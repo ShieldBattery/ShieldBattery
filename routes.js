@@ -45,6 +45,7 @@ function applyRoutes(app) {
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
   app.get('/robots.txt', send404)
+    .get('/favicon.ico', send404)
 
   // catch-all for the remainder, renders the index and expects angular to handle routing clientside
   app.get('*', function(req, res) {

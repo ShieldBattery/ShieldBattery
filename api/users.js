@@ -69,8 +69,12 @@ function createUser(req, res, next) {
     req.session.regenerate(function(err) {
       if (err) return next(err)
 
-      initSession(req, user, permissions)
-      res.send({user: user, permissions: permissions})
+      req.csrfRegen(function(err) {
+        if (err) return next(err)
+
+        initSession(req, user, permissions)
+        res.send({user: user, permissions: permissions})
+      })
     })
   }
 }
