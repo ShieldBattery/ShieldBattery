@@ -1,14 +1,18 @@
 var bcrypt = require('bcrypt')
+  , Router = require('express').Router
   , users = require('../models/users')
   , permissions = require('../models/permissions')
   , httpErrors = require('../util/http-errors')
   , initSession = require('../util/init-session')
 
-module.exports = function(app, baseApiPath) {
-  var sessionsPath = baseApiPath + 'sessions'
-  app.get(sessionsPath, getCurrentSession)
-  app.post(sessionsPath, startNewSession)
-  app.delete(sessionsPath, endSession)
+module.exports = function() {
+  var router = Router()
+  router.route('/')
+    .get(getCurrentSession)
+    .delete(endSession)
+    .post(startNewSession)
+
+  return router
 }
 
 function getCurrentSession(req, res, next) {

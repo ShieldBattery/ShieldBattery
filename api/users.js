@@ -1,22 +1,25 @@
 var constants = require('../util/constants')
   , bcrypt = require('bcrypt')
+  , createRouter = require('express').Router
   , users = require('../models/users')
   , httpErrors = require('../util/http-errors')
   , initSession = require('../util/init-session')
   , checkPermissions = require('../util/check-permissions')
 
-module.exports = function(app, baseApiPath) {
-  var usersPath = baseApiPath + 'users'
-  app.get(usersPath + '/:searchTerm', checkPermissions(['editPermissions']), find)
-  app.post(usersPath, createUser)
+module.exports = function() {
+  var router = createRouter()
+  router.post('/', createUser)
+    .get('/:searchTerm', checkPermissions(['editPermissions']), find)
+    .put('/:id', function(req, res, next) {
+      // TODO(tec27): update a user
+      next(new httpErrors.ImATeapotError())
+    })
 
-  app.put(usersPath + '/:id', function(req, res, next) {
-    // TODO(tec27): update a user
-    next(new httpErrors.ImATeapotError())
-  })
+  return router
 }
 
 function find(req, res, next) {
+  console.log('omg')
   var searchTerm = req.params.searchTerm
   users.find(searchTerm, function(err, user) {
     if (err) {

@@ -1,10 +1,14 @@
 var permissions = require('../models/permissions')
   , checkPermissions = require('../util/check-permissions')
+  , Router = require('express').Router
 
-module.exports = function(app, baseApiPath) {
-  var permissionsPath = baseApiPath + 'admin/permissions'
-  app.get(permissionsPath + '/:userId', checkPermissions(['editPermissions']), getPermissions)
-  app.post(permissionsPath + '/:userId', checkPermissions(['editPermissions']), updatePermissions)
+module.exports = function() {
+  var router = Router()
+  router.route('/:userId')
+    .get(checkPermissions(['editPermissions']), getPermissions)
+    .post(checkPermissions(['editPermissions']), updatePermissions)
+
+  return router
 }
 
 function getPermissions(req, res, next) {

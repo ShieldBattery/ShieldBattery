@@ -1,10 +1,14 @@
 var constants = require('../util/constants')
   , httpErrors = require('../util/http-errors')
   , users = require('../models/users')
+  , Router = require('express').Router
 
-module.exports = function(app, baseApiPath) {
-  var apiPath = baseApiPath + 'usernameAvailability'
-  app.get(apiPath + '/:username', checkAvailability)
+module.exports = function() {
+  var router = Router()
+  router.route('/:username')
+    .get(checkAvailability)
+
+  return router
 }
 
 function checkAvailability(req, res, next) {

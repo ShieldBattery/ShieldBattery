@@ -62,7 +62,7 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
         }
 
         $scope.user = user[0]
-        $http.get('api/1/admin/permissions/' + $scope.user.id)
+        $http.get('api/1/permissions/' + $scope.user.id)
           .success(function(permissions) {
             $scope.permissions = permissions
           }).error(function(err) {
@@ -77,7 +77,7 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
   }
 
   $scope.updatePermissions = function() {
-    $http.post('api/1/admin/permissions/' + $scope.user.id,
+    $http.post('api/1/permissions/' + $scope.user.id,
       { editPermissions: $scope.permissions.editPermissions
       , debug: $scope.permissions.debug
       , acceptInvites: $scope.permissions.acceptInvites

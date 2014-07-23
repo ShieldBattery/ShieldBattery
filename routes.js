@@ -18,15 +18,14 @@ function applyRoutes(app) {
   var apiFiles = fs.readdirSync(path.join(__dirname, 'api'))
     , baseApiPath = '/api/1/'
   apiFiles.filter(jsFileMatcher).forEach(function(filename) {
-    var f = require('./api/' + filename)
-    f(app, baseApiPath)
+    var apiPath = baseApiPath + path.basename(filename, '.js')
+    app.use(apiPath, require('./api/' + filename)())
+    console.log('mounted ' + apiPath)
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  app.get('/api/*', send404)
-    .post('/api/*', send404)
-    .put('/api/*', send404)
-    .delete('/api/*', send404)
+  app.route('/api/*')
+    .all(send404)
 
   // partials
   app.get('/partials/:name', function(req, res) {
