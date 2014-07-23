@@ -7,7 +7,7 @@ p(data-ng-show='noResult')
   | No results
 p(data-ng-show='error')
   | Error: {{error}}
-div(data-ng-hide='noResult || firstSearch')
+div(data-ng-hide='!user || firstSearch')
   p User: {{user.name}}
   p ID: {{user.id}}
   form(name='permissionsForm', data-ng-submit='updatePermissions()', novalidate)

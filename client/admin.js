@@ -51,7 +51,6 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
   $scope.findUser = function() {
     if (!$scope.findUserForm.$valid) return
 
-    $scope.firstSearch = false
     $scope.error = null
     $http.get('api/1/users/' + encodeURIComponent($scope.searchTerm))
       .success(function(user) {
@@ -73,6 +72,8 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
         $scope.error = err
         $scope.user = null
         $scope.noResult = true
+      }).finally(function() {
+        $scope.firstSearch = false
       })
   }
 
