@@ -213,6 +213,8 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
       if (!self.lobby) {
         self.lobby = {}
       }
+      // ensure this name is available for use in generating paths immediately
+      self.lobby.name = lobbyName
 
       deferred.resolve(self)
       if (deferred === connectDeferred) {
