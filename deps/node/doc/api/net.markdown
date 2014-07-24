@@ -96,7 +96,7 @@ Here is an example of a client of echo server as described previously:
 To connect on the socket `/tmp/echo.sock` the second line would just be
 changed to
 
-    var client = net.connect({path: '/tmp/echo.sock'},
+    var client = net.connect({path: '/tmp/echo.sock'});
 
 ## net.connect(port, [host], [connectListener])
 ## net.createConnection(port, [host], [connectListener])
@@ -116,7 +116,6 @@ The `connectListener` parameter will be added as an listener for the
 ## Class: net.Server
 
 This class is used to create a TCP or UNIX server.
-A server is a `net.Socket` that can listen for new incoming connections.
 
 ### server.listen(port, [host], [backlog], [callback])
 
@@ -236,14 +235,14 @@ This becomes `null` when sending a socket to a child with
 `child_process.fork()`. To poll forks and get current number of active
 connections use asynchronous `server.getConnections` instead.
 
-`net.Server` is an [EventEmitter][] with the following events:
-
 ### server.getConnections(callback)
 
 Asynchronously get the number of concurrent connections on the server. Works
 when sockets were sent to forks.
 
 Callback should take two arguments `err` and `count`.
+
+`net.Server` is an [EventEmitter][] with the following events:
 
 ### Event: 'listening'
 
@@ -282,12 +281,14 @@ Construct a new socket object.
 `options` is an object with the following defaults:
 
     { fd: null
-      type: null
-      allowHalfOpen: false
+      allowHalfOpen: false,
+      readable: false,
+      writable: false
     }
 
-`fd` allows you to specify the existing file descriptor of socket. `type`
-specified underlying protocol. It can be `'tcp4'`, `'tcp6'`, or `'unix'`.
+`fd` allows you to specify the existing file descriptor of socket.
+Set `readable` and/or `writable` to `true` to allow reads and/or writes on this
+socket (NOTE: Works only when `fd` is passed).
 About `allowHalfOpen`, refer to `createServer()` and `'end'` event.
 
 ### socket.connect(port, [host], [connectListener])
@@ -525,5 +526,6 @@ Returns true if input is a version 6 IP address, otherwise returns false.
 ['end']: #net_event_end
 [EventEmitter]: events.html#events_class_events_eventemitter
 ['listening']: #net_event_listening
+[server.getConnections()]: #net_server_getconnections_callback
 [Readable Stream]: stream.html#stream_readable_stream
 [stream.setEncoding()]: stream.html#stream_stream_setencoding_encoding

@@ -1,13 +1,13 @@
 .\" Generated with Ronnjs 0.3.8
 .\" http://github.com/kapouer/ronnjs/
 .
-.TH "NPM\-FAQ" "7" "July 2013" "" ""
+.TH "NPM\-FAQ" "7" "June 2014" "" ""
 .
 .SH "NAME"
 \fBnpm-faq\fR \-\- Frequently Asked Questions
 .
 .SH "Where can I find these docs in HTML?"
-\fIhttps://npmjs\.org/doc/\fR, or run:
+\fIhttps://www\.npmjs\.org/doc/\fR, or run:
 .
 .IP "" 4
 .
@@ -84,7 +84,8 @@ That\'s what it\'s for\.  Install it globally, then link it into each
 program that uses it\.
 .
 .SH "Whatever, I really want the old style &#39;everything global&#39; style\."
-Write your own package manager, then\.  It\'s not that hard\.
+Write your own package manager\.  You could probably even wrap up \fBnpm\fR
+in a shell script if you really wanted to\.
 .
 .P
 npm will not help you do something that is known to be a bad idea\.
@@ -93,7 +94,7 @@ npm will not help you do something that is known to be a bad idea\.
 Mikeal Rogers answered this question very well:
 .
 .P
-\fIhttp://www\.mikealrogers\.com/posts/nodemodules\-in\-git\.html\fR
+\fIhttp://www\.futurealoof\.com/posts/nodemodules\-in\-git\.html\fR
 .
 .P
 tl;dr
@@ -179,7 +180,7 @@ In those cases, you can do this:
 .IP "" 4
 .
 .nf
-curl https://npmjs\.org/install\.sh | sh
+curl https://www\.npmjs\.org/install\.sh | sh
 .
 .fi
 .
@@ -339,7 +340,7 @@ change it again?  npm doesn\'t currently track any state about past
 configuration settings, so this would be rather difficult to do
 properly\.  It would have to track every previous value for this
 config, and always accept any of them, or else yesterday\'s install may
-be broken tomorrow\.  Complexity hurdle #5\.
+be broken tomorrow\.  Complexity hurdle #4\.
 .
 .P
 Never going to happen\.  The folder is named \fBnode_modules\fR\|\.  It is
@@ -372,6 +373,9 @@ Windows:
 .IP "\(bu" 4
 \fIhttps://github\.com/hakobera/nvmw\fR
 .
+.IP "\(bu" 4
+\fIhttps://github\.com/nanjingboy/nvmw\fR
+.
 .IP "" 0
 .
 .SH "How can I use npm for development?"
@@ -402,17 +406,21 @@ Go to \fIhttps://npmjs\.org/forgot\fR\|\.
 Either the registry is down, or node\'s DNS isn\'t able to reach out\.
 .
 .P
-To check if the registry is down, open up \fIhttp://registry\.npmjs\.org/\fR
-in a web browser\.  This will also tell you if you are just unable to
-access the internet for some reason\.
+To check if the registry is down, open up \fIhttps://registry\.npmjs\.org/\fR in a web browser\.  This will also tell
+you if you are just unable to access the internet for some reason\.
 .
 .P
-If the registry IS down, let me know by emailing \fIi@izs\.me\fR or posting
-an issue at \fIhttps://github\.com/isaacs/npm/issues\fR\|\.  We\'ll have
-someone kick it or something\.
+If the registry IS down, let us know by emailing \fIsupport@npmjs\.com\fR
+or posting an issue at \fIhttps://github\.com/npm/npm/issues\fR\|\.  If it\'s
+down for the world (and not just on your local network) then we\'re
+probably already being pinged about it\.
+.
+.P
+You can also often get a faster response by visiting the #npm channel
+on Freenode IRC\.
 .
 .SH "Why no namespaces?"
-Please see this discussion: \fIhttps://github\.com/isaacs/npm/issues/798\fR
+Please see this discussion: \fIhttps://github\.com/npm/npm/issues/798\fR
 .
 .P
 tl;dr \- It doesn\'t actually make things better, and can make them worse\.
@@ -422,16 +430,19 @@ If you want to namespace your own packages, you may: simply use the \fB\-\fR cha
 There is not sufficient need to impose namespace rules on everyone\.
 .
 .SH "Who does npm?"
-\fBnpm view npm author\fR
+npm was originally written by Isaac Z\. Schlueter, and many others have
+contributed to it, some of them quite substantially\.
 .
 .P
-\fBnpm view npm contributors\fR
+The npm open source project, The npm Registry, and the community
+website \fIhttps://www\.npmjs\.org\fR are maintained and operated by the
+good folks at npm, Inc\. \fIhttp://www\.npmjs\.com\fR
 .
 .SH "I have a question or request not addressed here\. Where should I put it?"
 Post an issue on the github project:
 .
 .IP "\(bu" 4
-\fIhttps://github\.com/isaacs/npm/issues\fR
+\fIhttps://github\.com/npm/npm/issues\fR
 .
 .IP "" 0
 .

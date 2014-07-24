@@ -37,7 +37,8 @@ if (process.env.NODE_DEBUG && /http/.test(process.env.NODE_DEBUG)) {
 }
 
 function readStart(socket) {
-  if (!socket || !socket._handle || !socket._handle.readStart) return;
+  if (!socket || !socket._handle || !socket._handle.readStart || socket._paused)
+    return;
   socket._handle.readStart();
 }
 
@@ -172,10 +173,8 @@ function parserOnMessageComplete() {
     stream.push(null);
   }
 
-  if (parser.socket.readable) {
-    // force to read the next incoming message
-    readStart(parser.socket);
-  }
+  // force to read the next incoming message
+  readStart(parser.socket);
 }
 
 
@@ -345,9 +344,7 @@ IncomingMessage.prototype._read = function(n) {
   // We actually do almost nothing here, because the parserOnBody
   // function fills up our internal buffer directly.  However, we
   // do need to unpause the underlying socket so that it flows.
-  if (!this.socket.readable)
-    this.push(null);
-  else
+  if (this.socket.readable)
     readStart(this.socket);
 };
 
@@ -447,6 +444,8 @@ function OutgoingMessage() {
   this.useChunkedEncodingByDefault = true;
   this.sendDate = false;
 
+  this._headerSent = false;
+  this._header = '';
   this._hasBody = true;
   this._trailer = '';
 
@@ -493,7 +492,9 @@ OutgoingMessage.prototype._send = function(data, encoding) {
   // the same packet. Future versions of Node are going to take care of
   // this at a lower level and in a more general way.
   if (!this._headerSent) {
-    if (typeof data === 'string') {
+    if (typeof data === 'string' &&
+        encoding !== 'hex' &&
+        encoding !== 'base64') {
       data = this._header + data;
     } else {
       this.output.unshift(this._header);
@@ -540,25 +541,6 @@ OutgoingMessage.prototype._writeRaw = function(data, encoding) {
 
 
 OutgoingMessage.prototype._buffer = function(data, encoding) {
-  if (data.length === 0) return;
-
-  var length = this.output.length;
-
-  if (length === 0 || typeof data != 'string') {
-    this.output.push(data);
-    this.outputEncodings.push(encoding);
-    return false;
-  }
-
-  var lastEncoding = this.outputEncodings[length - 1];
-  var lastData = this.output[length - 1];
-
-  if ((encoding && lastEncoding === encoding) ||
-      (!encoding && data.constructor === lastData.constructor)) {
-    this.output[length - 1] = lastData + data;
-    return false;
-  }
-
   this.output.push(data);
   this.outputEncodings.push(encoding);
 
@@ -768,6 +750,92 @@ Object.defineProperty(OutgoingMessage.prototype, 'headersSent', {
 });
 
 
+// Convert a number in the range 0-15 to a lowercase hexadecimal digit.
+function hex(val) {
+  // The comparison and bit hacks are deliberate. We could look up the
+  // value in a buffer with hexdigits[val & 15] but that adds a couple
+  // of bounds checks to each conversion.
+  return val <= 9 ? (val | 48) : ((val - 9) | 96);
+}
+
+
+function chunkify(chunk, headers, trailers, last) {
+  var chunklen = chunk.length;
+  var buflen = chunklen + 4;  // '\r\n' + chunk + '\r\n'
+  var offset = 0;
+  var octets = 1;
+
+  // Skip expensive Buffer.byteLength() calls; only ISO-8859-1 characters
+  // are allowed in HTTP headers, therefore:
+  //
+  //   headers.length == Buffer.byteLength(headers.length)
+  //   trailers.length == Buffer.byteLength(trailers.length)
+  //
+  // Note: the actual encoding that is used is ASCII. That's de jure
+  // a violation of the spec but de facto correct because many HTTP
+  // clients get confused by non-ASCII headers.
+  if (last === true) buflen += 5;  // '0\r\n\r\n'
+  if (headers !== '') buflen += headers.length;
+  if (trailers !== '') buflen += trailers.length;
+
+  if (chunklen & 0xf0000000) octets += 7;
+  else if (chunklen & 0xf000000) octets += 6;
+  else if (chunklen & 0xf00000) octets += 5;
+  else if (chunklen & 0xf0000) octets += 4;
+  else if (chunklen & 0xf000) octets += 3;
+  else if (chunklen & 0xf00) octets += 2;
+  else if (chunklen & 0xf0) octets += 1;
+  buflen += octets;
+
+  var buf = new Buffer(buflen);
+
+  if (headers !== '') {
+    buf.write(headers, 0, headers.length, 'ascii');
+    offset = headers.length;
+  }
+
+  // Write chunk length in hex to buffer. This effectively limits us
+  // to 4 GB chunks but that's okay because buffers are max 1 GB anyway.
+  switch (octets) {
+    case 8: buf[offset++] = hex((chunklen >>> 28) & 15);
+    case 7: buf[offset++] = hex((chunklen >>> 24) & 15);
+    case 6: buf[offset++] = hex((chunklen >>> 20) & 15);
+    case 5: buf[offset++] = hex((chunklen >>> 16) & 15);
+    case 4: buf[offset++] = hex((chunklen >>> 12) & 15);
+    case 3: buf[offset++] = hex((chunklen >>> 8) & 15);
+    case 2: buf[offset++] = hex((chunklen >>> 4) & 15);
+  }
+  buf[offset++] = hex(chunklen & 15);
+
+  // Add '\r\n'.
+  buf[offset++] = 13;
+  buf[offset++] = 10;
+
+  // Copy buffer.
+  chunk.copy(buf, offset);
+  offset += chunklen;
+
+  // Add trailing '\r\n'.
+  buf[offset++] = 13;
+  buf[offset++] = 10;
+
+  if (last === true) {
+    // Add trailing '0\r\n\r\n'.
+    buf[offset++] = 48;
+    buf[offset++] = 13;
+    buf[offset++] = 10;
+    buf[offset++] = 13;
+    buf[offset++] = 10;
+  }
+
+  if (trailers !== '') {
+    buf.write(trailers, offset, trailers.length, 'ascii');
+  }
+
+  return buf;
+}
+
+
 OutgoingMessage.prototype.write = function(chunk, encoding) {
   if (!this._header) {
     this._implicitHeader();
@@ -787,23 +855,6 @@ OutgoingMessage.prototype.write = function(chunk, encoding) {
   // signal the user to keep writing.
   if (chunk.length === 0) return true;
 
-  // TODO(bnoordhuis) Temporary optimization hack, remove in v0.11. We only
-  // want to convert the buffer when we're sending:
-  //
-  //   a) Transfer-Encoding chunks, because it lets us pack the chunk header
-  //      and the chunk into a single write(), or
-  //
-  //   b) the first chunk of a fixed-length request, because it lets us pack
-  //      the request headers and the chunk into a single write().
-  //
-  // Converting to strings is expensive, CPU-wise, but reducing the number
-  // of write() calls more than makes up for that because we're dramatically
-  // reducing the number of TCP roundtrips.
-  if (chunk instanceof Buffer && (this.chunkedEncoding || !this._headerSent)) {
-    chunk = chunk.toString('binary');
-    encoding = 'binary';
-  }
-
   var len, ret;
   if (this.chunkedEncoding) {
     if (typeof(chunk) === 'string' &&
@@ -812,10 +863,17 @@ OutgoingMessage.prototype.write = function(chunk, encoding) {
       len = Buffer.byteLength(chunk, encoding);
       chunk = len.toString(16) + CRLF + chunk + CRLF;
       ret = this._send(chunk, encoding);
+    } else if (Buffer.isBuffer(chunk)) {
+      var buf = chunkify(chunk, '', '', false);
+      ret = this._send(buf, encoding);
     } else {
-      // buffer, or a non-toString-friendly encoding
-      len = chunk.length;
-      this._send(len.toString(16) + CRLF);
+      // Non-toString-friendly encoding.
+      if (typeof chunk === 'string')
+        len = Buffer.byteLength(chunk, encoding);
+      else
+        len = chunk.length;
+
+      this._send(len.toString(16) + CRLF, 'ascii');
       this._send(chunk, encoding);
       ret = this._send(CRLF);
     }
@@ -883,6 +941,10 @@ OutgoingMessage.prototype.end = function(data, encoding) {
   if (hot && Buffer.isBuffer(data) && data.length > 120 * 1024)
     hot = false;
 
+  // Can't concatenate safely with hex or base64 encodings.
+  if (encoding === 'hex' || encoding === 'base64')
+    hot = false;
+
   if (hot) {
     // Hot path. They're doing
     //   res.writeHead();
@@ -900,52 +962,7 @@ OutgoingMessage.prototype.end = function(data, encoding) {
       }
     } else if (Buffer.isBuffer(data)) {
       if (this.chunkedEncoding) {
-        var chunk_size = data.length.toString(16);
-
-        // Skip expensive Buffer.byteLength() calls; only ISO-8859-1 characters
-        // are allowed in HTTP headers. Therefore:
-        //
-        //   this._header.length == Buffer.byteLength(this._header.length)
-        //   this._trailer.length == Buffer.byteLength(this._trailer.length)
-        //
-        var header_len = this._header.length;
-        var chunk_size_len = chunk_size.length;
-        var data_len = data.length;
-        var trailer_len = this._trailer.length;
-
-        var len = header_len +
-                  chunk_size_len +
-                  2 + // '\r\n'.length
-                  data_len +
-                  5 + // '\r\n0\r\n'.length
-                  trailer_len +
-                  2;  // '\r\n'.length
-
-        var buf = new Buffer(len);
-        var off = 0;
-
-        buf.write(this._header, off, header_len, 'ascii');
-        off += header_len;
-
-        buf.write(chunk_size, off, chunk_size_len, 'ascii');
-        off += chunk_size_len;
-
-        crlf_buf.copy(buf, off);
-        off += 2;
-
-        data.copy(buf, off);
-        off += data_len;
-
-        zero_chunk_buf.copy(buf, off);
-        off += 5;
-
-        if (trailer_len > 0) {
-          buf.write(this._trailer, off, trailer_len, 'ascii');
-          off += trailer_len;
-        }
-
-        crlf_buf.copy(buf, off);
-
+        var buf = chunkify(data, this._header, this._trailer, true);
         ret = this.connection.write(buf);
       } else {
         var header_len = this._header.length;
@@ -966,7 +983,7 @@ OutgoingMessage.prototype.end = function(data, encoding) {
 
   if (!hot) {
     if (this.chunkedEncoding) {
-      ret = this._send('0\r\n' + this._trailer + '\r\n'); // Last chunk.
+      ret = this._send('0\r\n' + this._trailer + '\r\n', 'ascii');
     } else {
       // Force a flush, HACK.
       ret = this._send('');
@@ -1327,7 +1344,9 @@ function ClientRequest(options, cb) {
   var self = this;
   OutgoingMessage.call(self);
 
-  self.agent = options.agent === undefined ? globalAgent : options.agent;
+  self.agent = options.agent;
+  if (!options.agent && options.agent !== false && !options.createConnection)
+    self.agent = globalAgent;
 
   var defaultPort = options.defaultPort || 80;
 
@@ -1943,6 +1962,7 @@ function connectionListener(socket) {
   });
 
   socket.ondata = function(d, start, end) {
+    assert(!socket._paused);
     var ret = parser.execute(d, start, end - start);
     if (ret instanceof Error) {
       debug('parse error');
@@ -1968,6 +1988,12 @@ function connectionListener(socket) {
         // Got upgrade header or CONNECT method, but have no handler.
         socket.destroy();
       }
+    }
+
+    if (socket._paused) {
+      // onIncoming paused the socket, we should pause the parser as well
+      debug('pause parser');
+      socket.parser.pause();
     }
   };
 
@@ -1997,8 +2023,34 @@ function connectionListener(socket) {
   // The following callback is issued after the headers have been read on a
   // new message. In this callback we setup the response object and pass it
   // to the user.
+
+  socket._paused = false;
+  function socketOnDrain() {
+    // If we previously paused, then start reading again.
+    if (socket._paused) {
+      socket._paused = false;
+      socket.parser.resume();
+      readStart(socket);
+    }
+  }
+  socket.on('drain', socketOnDrain);
+
   parser.onIncoming = function(req, shouldKeepAlive) {
     incoming.push(req);
+
+    // If the writable end isn't consuming, then stop reading
+    // so that we don't become overwhelmed by a flood of
+    // pipelined requests that may never be resolved.
+    if (!socket._paused) {
+      var needPause = socket._writableState.needDrain;
+      if (needPause) {
+        socket._paused = true;
+        // We also need to pause the parser, but don't do that until after
+        // the call to execute, because we may still be processing the last
+        // chunk.
+        readStop(socket);
+      }
+    }
 
     var res = new ServerResponse(req);
 
@@ -2026,7 +2078,7 @@ function connectionListener(socket) {
       // if the user never called req.read(), and didn't pipe() or
       // .resume() or .on('data'), then we call req._dump() so that the
       // bytes will be pulled off the wire.
-      if (!req._consuming)
+      if (!req._consuming && !req._readableState.oldMode)
         req._dump();
 
       res.detachSocket(socket);

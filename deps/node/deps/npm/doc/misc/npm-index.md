@@ -115,6 +115,10 @@ Publish a package
 
 Rebuild a package
 
+## npm-repo(1)
+
+Open package repository page in the browser
+
 ## npm-restart(1)
 
 Start a package
@@ -205,6 +209,10 @@ Display npm bin folder
 
 Bugs for a package in a web browser maybe
 
+## npm-cache(3)
+
+manage the npm cache programmatically
+
 ## npm-commands(3)
 
 npm commands
@@ -280,6 +288,10 @@ Publish a package
 ## npm-rebuild(3)
 
 Rebuild a package
+
+## npm-repo(3)
+
+Open package repository page in the browser
 
 ## npm-restart(3)
 

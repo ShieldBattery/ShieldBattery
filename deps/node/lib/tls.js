@@ -445,23 +445,28 @@ CryptoStream.prototype._read = function read(size) {
   }
 
   var bytesRead = 0,
-      start = this._buffer.offset;
+      start = this._buffer.offset,
+      last = start;
   do {
-    var read = this._buffer.use(this.pair.ssl, out, size);
+    assert(last === this._buffer.offset);
+    var read = this._buffer.use(this.pair.ssl, out, size - bytesRead);
     if (read > 0) {
       bytesRead += read;
-      size -= read;
     }
+    last = this._buffer.offset;
 
     // Handle and report errors
     if (this.pair.ssl && this.pair.ssl.error) {
       this.pair.error();
       break;
     }
+  } while (read > 0 &&
+           !this._buffer.isFull &&
+           bytesRead < size &&
+           this.pair.ssl !== null);
 
-    // Get NPN and Server name when ready
-    this.pair.maybeInitFinished();
-  } while (read > 0 && !this._buffer.isFull && bytesRead < size);
+  // Get NPN and Server name when ready
+  this.pair.maybeInitFinished();
 
   // Create new buffer if previous was filled up
   var pool = this._buffer.pool;
@@ -481,16 +486,21 @@ CryptoStream.prototype._read = function read(size) {
 
   if (bytesRead === 0) {
     // EOF when cleartext has finished and we have nothing to read
-    if (this._opposite._finished && this._internallyPendingBytes() === 0) {
+    if (this._opposite._finished && this._internallyPendingBytes() === 0 ||
+        this.pair.ssl && this.pair.ssl.receivedShutdown) {
       // Perform graceful shutdown
       this._done();
 
       // No half-open, sorry!
-      if (this === this.pair.cleartext)
+      if (this === this.pair.cleartext) {
         this._opposite._done();
 
-      // EOF
-      this.push(null);
+        // EOF
+        this.push(null);
+      } else if (!this.pair.ssl || !this.pair.ssl.receivedShutdown) {
+        // EOF
+        this.push(null);
+      }
     } else {
       // Bail out
       this.push('');
@@ -498,16 +508,16 @@ CryptoStream.prototype._read = function read(size) {
   } else {
     // Give them requested data
     if (this.ondata) {
-      var self = this;
       this.ondata(pool, start, start + bytesRead);
 
-      // Consume data automatically
-      // simple/test-https-drain fails without it
-      process.nextTick(function() {
-        self.read(bytesRead);
-      });
+      // Force state.reading to set to false
+      this.push('');
+
+      // Try reading more, we most likely have some data
+      this.read(0);
+    } else {
+      this.push(pool.slice(start, start + bytesRead));
     }
-    this.push(pool.slice(start, start + bytesRead));
   }
 
   // Let users know that we've some internal data to read
@@ -929,6 +939,10 @@ function SecurePair(credentials, isServer, requestCert, rejectUnauthorized,
     /* The Connection may be destroyed by an abort call */
     if (self.ssl) {
       self.ssl.start();
+
+      /* In case of cipher suite failures - SSL_accept/SSL_connect may fail */
+      if (self.ssl && self.ssl.error)
+        self.error();
     }
   });
 }
@@ -1314,12 +1328,13 @@ exports.connect = function(/* [port, host], options, cb */) {
 
   var sslcontext = crypto.createCredentials(options);
 
-  convertNPNProtocols(options.NPNProtocols, this);
+  var NPN = {};
+  convertNPNProtocols(options.NPNProtocols, NPN);
   var hostname = options.servername || options.host || 'localhost',
       pair = new SecurePair(sslcontext, false, true,
                             options.rejectUnauthorized === true ? true : false,
                             {
-                              NPNProtocols: this.NPNProtocols,
+                              NPNProtocols: NPN.NPNProtocols,
                               servername: hostname,
                               cleartext: options.cleartext,
                               encrypted: options.encrypted
@@ -1394,7 +1409,7 @@ function pipe(pair, socket) {
       // Encrypted should be unpiped from socket to prevent possible
       // write after destroy.
       pair.encrypted.unpipe(socket);
-      socket.destroy();
+      socket.destroySoon();
     });
   });
 

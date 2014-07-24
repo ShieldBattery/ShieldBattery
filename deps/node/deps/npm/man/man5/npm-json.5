@@ -1,7 +1,7 @@
 .\" Generated with Ronnjs 0.3.8
 .\" http://github.com/kapouer/ronnjs/
 .
-.TH "PACKAGE\.JSON" "5" "July 2013" "" ""
+.TH "PACKAGE\.JSON" "5" "June 2014" "" ""
 .
 .SH "NAME"
 \fBpackage.json\fR \-\- Specifics of npm\'s package\.json handling
@@ -13,41 +13,6 @@ file\.  It must be actual JSON, not just a JavaScript object literal\.
 .P
 A lot of the behavior described in this document is affected by the config
 npm help  settings described in \fBnpm\-config\fR\|\.
-.
-.SH "DEFAULT VALUES"
-npm will default some values based on package contents\.
-.
-.IP "\(bu" 4
-\fB"scripts": {"start": "node server\.js"}\fR
-.
-.IP
-If there is a \fBserver\.js\fR file in the root of your package, then npm
-will default the \fBstart\fR command to \fBnode server\.js\fR\|\.
-.
-.IP "\(bu" 4
-\fB"scripts":{"preinstall": "node\-waf clean || true; node\-waf configure build"}\fR
-.
-.IP
-If there is a \fBwscript\fR file in the root of your package, npm will
-default the \fBpreinstall\fR command to compile using node\-waf\.
-.
-.IP "\(bu" 4
-\fB"scripts":{"preinstall": "node\-gyp rebuild"}\fR
-.
-.IP
-If there is a \fBbinding\.gyp\fR file in the root of your package, npm will
-default the \fBpreinstall\fR command to compile using node\-gyp\.
-.
-.IP "\(bu" 4
-\fB"contributors": [\.\.\.]\fR
-.
-.IP
-If there is an \fBAUTHORS\fR file in the root of your package, npm will
-treat each line as a \fBName <email> (url)\fR format, where email and url
-are optional\.  Lines which start with a \fB#\fR or are blank, will be
-ignored\.
-.
-.IP "" 0
 .
 .SH "name"
 The \fImost\fR important things in your package\.json are the name and version fields\.
@@ -91,24 +56,7 @@ Version must be parseable by node\-semver \fIhttps://github\.com/isaacs/node\-se
 with npm as a dependency\.  (\fBnpm install semver\fR to use it yourself\.)
 .
 .P
-Here\'s how npm\'s semver implementation deviates from what\'s on semver\.org:
-.
-.IP "\(bu" 4
-Versions can start with "v"
-.
-.IP "\(bu" 4
-A numeric item separated from the main three\-number version by a hyphen
-will be interpreted as a "build" number, and will \fIincrease\fR the version\.
-But, if the tag is not a number separated by a hyphen, then it\'s treated
-as a pre\-release tag, and is \fIless than\fR the version without a tag\.
-So, \fB0\.1\.2\-7 > 0\.1\.2\-7\-beta > 0\.1\.2\-6 > 0\.1\.2 > 0\.1\.2beta\fR
-.
-.IP "" 0
-.
-.P
-This is a little bit confusing to explain, but matches what you see in practice
-when people create tags in git like "v1\.2\.3" and then do "git describe" to generate
-a patch version\.
+npm help  More on version numbers and ranges at semver\.
 .
 .SH "description"
 Put a description in it\.  It\'s a string\.  This helps people discover your
@@ -160,37 +108,26 @@ You should specify a license for your package so that people know how they are
 permitted to use it, and any restrictions you\'re placing on it\.
 .
 .P
-The simplest way, assuming you\'re using a common license such as BSD or MIT, is
-to just specify the name of the license you\'re using, like this:
+The simplest way, assuming you\'re using a common license such as BSD\-3\-Clause
+or MIT, is to just specify the standard SPDX ID of the license you\'re using,
+like this:
 .
 .IP "" 4
 .
 .nf
-{ "license" : "BSD" }
+{ "license" : "BSD\-3\-Clause" }
 .
 .fi
 .
 .IP "" 0
 .
 .P
-If you have more complex licensing terms, or you want to provide more detail
-in your package\.json file, you can use the more verbose plural form, like this:
-.
-.IP "" 4
-.
-.nf
-"licenses" : [
-  { "type" : "MyLicense"
-  , "url" : "http://github\.com/owner/project/path/to/license"
-  }
-]
-.
-.fi
-.
-.IP "" 0
+You can check the full list of SPDX license IDs \fIhttps://spdx\.org/licenses/\fR\|\.
+Ideally you should pick one that is OSI \fIhttp://opensource\.org/licenses/alphabetical\fR approved\.
 .
 .P
-It\'s also a good idea to include a license file at the top level in your package\.
+It\'s also a good idea to include a LICENSE file at the top level in
+your package\.
 .
 .SH "people fields: author, contributors"
 The "author" is one person\.  "contributors" is an array of people\.  A "person"
@@ -412,7 +349,7 @@ Do it like this:
 .nf
 "repository" :
   { "type" : "git"
-  , "url" : "http://github\.com/isaacs/npm\.git"
+  , "url" : "http://github\.com/npm/npm\.git"
   }
 "repository" :
   { "type" : "svn"
@@ -460,22 +397,19 @@ npm help  See \fBnpm\-confignpm help  \fR and \fBnpm\-scripts\fR for more on pac
 configs\.
 .
 .SH "dependencies"
-Dependencies are specified with a simple hash of package name to version
-range\. The version range is EITHER a string which has one or more
-space\-separated descriptors, OR a range like "fromVersion \- toVersion"
+Dependencies are specified with a simple hash of package name to
+version range\. The version range is a string which has one or more
+space\-separated descriptors\.  Dependencies can also be identified with
+a tarball or git URL\.
 .
 .P
-\fBPlease do not put test harnesses in your \fBdependencies\fR hash\.\fR  See \fBdevDependencies\fR, below\.
+\fBPlease do not put test harnesses or transpilers in your \fBdependencies\fR hash\.\fR  See \fBdevDependencies\fR, below\.
 .
 .P
-Version range descriptors may be any of the following styles, where "version"
-is a semver compatible version identifier\.
+npm help  See semver for more details about specifying version ranges\.
 .
 .IP "\(bu" 4
 \fBversion\fR Must match \fBversion\fR exactly
-.
-.IP "\(bu" 4
-\fB=version\fR Same as just \fBversion\fR
 .
 .IP "\(bu" 4
 \fB>version\fR Must be greater than \fBversion\fR
@@ -490,10 +424,13 @@ is a semver compatible version identifier\.
 \fB<=version\fR
 .
 .IP "\(bu" 4
-\fB~version\fR See \'Tilde Version Ranges\' below
+npm help  \fB~version\fR "Approximately equivalent to version"  See semver
 .
 .IP "\(bu" 4
-\fB1\.2\.x\fR See \'X Version Ranges\' below
+npm help  \fB^version\fR "Compatible with version"  See semver
+.
+.IP "\(bu" 4
+\fB1\.2\.x\fR 1\.2\.0, 1\.2\.1, etc\., but not 1\.3\.0
 .
 .IP "\(bu" 4
 \fBhttp://\.\.\.\fR See \'URLs as Dependencies\' below
@@ -512,6 +449,9 @@ is a semver compatible version identifier\.
 .
 .IP "\(bu" 4
 \fBgit\.\.\.\fR See \'Git URLs as Dependencies\' below
+.
+.IP "\(bu" 4
+\fBuser/repo\fR See \'GitHub URLs\' below
 .
 .IP "" 0
 .
@@ -539,63 +479,8 @@ For example, these are all valid:
 .
 .IP "" 0
 .
-.SS "Tilde Version Ranges"
-A range specifier starting with a tilde \fB~\fR character is matched against
-a version in the following fashion\.
-.
-.IP "\(bu" 4
-The version must be at least as high as the range\.
-.
-.IP "\(bu" 4
-The version must be less than the next major revision above the range\.
-.
-.IP "" 0
-.
-.P
-For example, the following are equivalent:
-.
-.IP "\(bu" 4
-\fB"~1\.2\.3" = ">=1\.2\.3 <1\.3\.0"\fR
-.
-.IP "\(bu" 4
-\fB"~1\.2" = ">=1\.2\.0 <1\.3\.0"\fR
-.
-.IP "\(bu" 4
-\fB"~1" = ">=1\.0\.0 <1\.1\.0"\fR
-.
-.IP "" 0
-.
-.SS "X Version Ranges"
-An "x" in a version range specifies that the version number must start
-with the supplied digits, but any digit may be used in place of the x\.
-.
-.P
-The following are equivalent:
-.
-.IP "\(bu" 4
-\fB"1\.2\.x" = ">=1\.2\.0 <1\.3\.0"\fR
-.
-.IP "\(bu" 4
-\fB"1\.x\.x" = ">=1\.0\.0 <2\.0\.0"\fR
-.
-.IP "\(bu" 4
-\fB"1\.2" = "1\.2\.x"\fR
-.
-.IP "\(bu" 4
-\fB"1\.x" = "1\.x\.x"\fR
-.
-.IP "\(bu" 4
-\fB"1" = "1\.x\.x"\fR
-.
-.IP "" 0
-.
-.P
-You may not supply a comparator with a version containing an x\.  Any
-digits after the first "x" are ignored\.
-.
 .SS "URLs as Dependencies"
-Starting with npm version 0\.2\.14, you may specify a tarball URL in place
-of a version range\.
+You may specify a tarball URL in place of a version range\.
 .
 .P
 This tarball will be downloaded and installed locally to your package at
@@ -621,6 +506,24 @@ git+https://user@hostname/project/blah\.git#commit\-ish
 The \fBcommit\-ish\fR can be any tag, sha, or branch which can be supplied as
 an argument to \fBgit checkout\fR\|\.  The default is \fBmaster\fR\|\.
 .
+.SH "GitHub URLs"
+As of version 1\.1\.65, you can refer to GitHub urls as just "foo": "user/foo\-project"\. For example:
+.
+.IP "" 4
+.
+.nf
+{
+  "name": "foo",
+  "version": "0\.0\.0",
+  "dependencies": {
+    "express": "visionmedia/express"
+  }
+}
+.
+.fi
+.
+.IP "" 0
+.
 .SH "devDependencies"
 If someone is planning on downloading and using your module in their
 program, then they probably don\'t want or need to download and build
@@ -630,9 +533,93 @@ the external test or documentation framework that you use\.
 In this case, it\'s best to list these additional items in a \fBdevDependencies\fR hash\.
 .
 .P
-These things will be installed whenever the \fB\-\-dev\fR configuration flag
-is set\.  This flag is set automatically when doing \fBnpm link\fR or when doing \fBnpm install\fR from the root of a package, and can be managed like any other npm
+These things will be installed when doing \fBnpm link\fR or \fBnpm install\fR
+from the root of a package, and can be managed like any other npm
 npm help  configuration param\.  See \fBnpm\-config\fR for more on the topic\.
+.
+.P
+For build steps that are not platform\-specific, such as compiling
+CoffeeScript or other languages to JavaScript, use the \fBprepublish\fR
+script to do this, and make the required package a devDependency\.
+.
+.P
+For example:
+.
+.IP "" 4
+.
+.nf
+{ "name": "ethopia\-waza",
+  "description": "a delightfully fruity coffee varietal",
+  "version": "1\.2\.3",
+  "devDependencies": {
+    "coffee\-script": "~1\.6\.3"
+  },
+  "scripts": {
+    "prepublish": "coffee \-o lib/ \-c src/waza\.coffee"
+  },
+  "main": "lib/waza\.js"
+}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+The \fBprepublish\fR script will be run before publishing, so that users
+can consume the functionality without requiring them to compile it
+themselves\.  In dev mode (ie, locally running \fBnpm install\fR), it\'ll
+run this script as well, so that you can test it easily\.
+.
+.SH "peerDependencies"
+In some cases, you want to express the compatibility of your package with an
+host tool or library, while not necessarily doing a \fBrequire\fR of this host\.
+This is usually refered to as a \fIplugin\fR\|\. Notably, your module may be exposing
+a specific interface, expected and specified by the host documentation\.
+.
+.P
+For example:
+.
+.IP "" 4
+.
+.nf
+{
+  "name": "tea\-latte",
+  "version": "1\.3\.5"
+  "peerDependencies": {
+    "tea": "2\.x"
+  }
+}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+This ensures your package \fBtea\-latte\fR can be installed \fIalong\fR with the second
+major version of the host package \fBtea\fR only\. The host package is automatically
+installed if needed\. \fBnpm install tea\-latte\fR could possibly yield the following
+dependency graph:
+.
+.IP "" 4
+.
+.nf
+├── tea\-latte@1\.3\.5
+└── tea@2\.2\.0
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Trying to install another plugin with a conflicting requirement will cause an
+error\. For this reason, make sure your plugin requirement is as broad as
+possible, and not to lock it down to specific patch versions\.
+.
+.P
+Assuming the host complies with semver \fIhttp://semver\.org/\fR, only changes in
+the host package\'s major version will break your plugin\. Thus, if you\'ve worked
+with every 1\.x version of the host package, use \fB"^1\.0"\fR or \fB"1\.x"\fR to express
+this\. If you depend on features introduced in 1\.5\.2, use \fB">= 1\.5\.2 < 2"\fR\|\.
 .
 .SH "bundledDependencies"
 Array of package names that will be bundled when publishing the package\.
@@ -680,7 +667,7 @@ You can specify the version of node that your stuff works on:
 .IP "" 4
 .
 .nf
-{ "engines" : { "node" : ">=0\.1\.27 <0\.1\.30" } }
+{ "engines" : { "node" : ">=0\.10\.3 <0\.12" } }
 .
 .fi
 .
@@ -819,6 +806,34 @@ Any config values can be overridden, but of course only "tag" and
 .P
 npm help  See \fBnpm\-config\fR to see the list of config options that can be
 overridden\.
+.
+.SH "DEFAULT VALUES"
+npm will default some values based on package contents\.
+.
+.IP "\(bu" 4
+\fB"scripts": {"start": "node server\.js"}\fR
+.
+.IP
+If there is a \fBserver\.js\fR file in the root of your package, then npm
+will default the \fBstart\fR command to \fBnode server\.js\fR\|\.
+.
+.IP "\(bu" 4
+\fB"scripts":{"preinstall": "node\-gyp rebuild"}\fR
+.
+.IP
+If there is a \fBbinding\.gyp\fR file in the root of your package, npm will
+default the \fBpreinstall\fR command to compile using node\-gyp\.
+.
+.IP "\(bu" 4
+\fB"contributors": [\.\.\.]\fR
+.
+.IP
+If there is an \fBAUTHORS\fR file in the root of your package, npm will
+treat each line as a \fBName <email> (url)\fR format, where email and url
+are optional\.  Lines which start with a \fB#\fR or are blank, will be
+ignored\.
+.
+.IP "" 0
 .
 .SH "SEE ALSO"
 .

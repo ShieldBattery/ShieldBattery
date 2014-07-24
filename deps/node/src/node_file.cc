@@ -24,6 +24,7 @@
 #include "node_buffer.h"
 #include "node_stat_watcher.h"
 #include "req_wrap.h"
+#include "util.h"
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -50,14 +51,22 @@ using namespace v8;
 
 class FSReqWrap: public ReqWrap<uv_fs_t> {
  public:
+  void* operator new(size_t size, char* storage) { return storage; }
+
   FSReqWrap(const char* syscall)
-    : syscall_(syscall) {
+    : syscall_(syscall),
+      dest_len_(0) {
   }
 
-  const char* syscall() { return syscall_; }
+  inline const char* syscall() const { return syscall_; }
+  inline const char* dest() const { return dest_; }
+  inline unsigned int dest_len() const { return dest_len_; }
+  inline void dest_len(unsigned int dest_len) { dest_len_ = dest_len; }
 
  private:
   const char* syscall_;
+  unsigned int dest_len_;
+  char dest_[1];
 };
 
 
@@ -75,7 +84,7 @@ static Persistent<String> oncomplete_sym;
 #define GET_OFFSET(a) ((a)->IsNumber() ? (a)->IntegerValue() : -1)
 #define GET_TRUNCATE_LENGTH(a) ((a)->IntegerValue())
 
-static inline int IsInt64(double x) {
+static inline bool IsInt64(double x) {
   return x == static_cast<double>(static_cast<int64_t>(x));
 }
 
@@ -102,6 +111,14 @@ static void After(uv_fs_t *req) {
       argv[0] = UVException(req->errorno,
                             NULL,
                             req_wrap->syscall());
+    } else if ((req->errorno == UV_EEXIST ||
+                req->errorno == UV_ENOTEMPTY ||
+                req->errorno == UV_EPERM) &&
+               req_wrap->dest_len() > 0) {
+      argv[0] = UVException(req->errorno,
+                            NULL,
+                            req_wrap->syscall(),
+                            req_wrap->dest());
     } else {
       argv[0] = UVException(req->errorno,
                             NULL,
@@ -212,10 +229,22 @@ struct fs_req_wrap {
 };
 
 
-#define ASYNC_CALL(func, callback, ...)                           \
-  FSReqWrap* req_wrap = new FSReqWrap(#func);                     \
-  int r = uv_fs_##func(uv_default_loop(), &req_wrap->req_,        \
-      __VA_ARGS__, After);                                        \
+#define ASYNC_DEST_CALL(func, callback, dest_path, ...)           \
+  FSReqWrap* req_wrap;                                            \
+  char* dest_str = (dest_path);                                   \
+  int dest_len = dest_str == NULL ? 0 : strlen(dest_str);         \
+  char* storage = new char[sizeof(*req_wrap) + dest_len];         \
+  req_wrap = new (storage) FSReqWrap(#func);                      \
+  req_wrap->dest_len(dest_len);                                   \
+  if (dest_str != NULL) {                                         \
+    memcpy(const_cast<char*>(req_wrap->dest()),                   \
+           dest_str,                                              \
+           dest_len + 1);                                         \
+  }                                                               \
+  int r = uv_fs_##func(uv_default_loop(),                         \
+                       &req_wrap->req_,                           \
+                       __VA_ARGS__,                               \
+                       After);                                    \
   req_wrap->object_->Set(oncomplete_sym, callback);               \
   req_wrap->Dispatched();                                         \
   if (r < 0) {                                                    \
@@ -227,13 +256,29 @@ struct fs_req_wrap {
   }                                                               \
   return scope.Close(req_wrap->object_);
 
-#define SYNC_CALL(func, path, ...)                                \
+#define ASYNC_CALL(func, callback, ...)                           \
+  ASYNC_DEST_CALL(func, callback, NULL, __VA_ARGS__)              \
+
+#define SYNC_DEST_CALL(func, path, dest, ...)                     \
   fs_req_wrap req_wrap;                                           \
-  int result = uv_fs_##func(uv_default_loop(), &req_wrap.req, __VA_ARGS__, NULL); \
+  int result = uv_fs_##func(uv_default_loop(),                    \
+                            &req_wrap.req,                        \
+                            __VA_ARGS__,                          \
+                            NULL);                                \
   if (result < 0) {                                               \
     int code = uv_last_error(uv_default_loop()).code;             \
-    return ThrowException(UVException(code, #func, "", path));    \
-  }
+    if (dest != NULL &&                                           \
+        (code == UV_EEXIST ||                                     \
+         code == UV_ENOTEMPTY ||                                  \
+         code == UV_EPERM)) {                                     \
+      return ThrowException(UVException(code, #func, "", dest));  \
+    } else {                                                      \
+      return ThrowException(UVException(code, #func, "", path));  \
+    }                                                             \
+  }                                                               \
+
+#define SYNC_CALL(func, path, ...)                                \
+  SYNC_DEST_CALL(func, path, NULL, __VA_ARGS__)                   \
 
 #define SYNC_REQ req_wrap.req
 
@@ -359,7 +404,7 @@ static Handle<Value> Stat(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(stat, args[1], *path)
@@ -376,7 +421,7 @@ static Handle<Value> LStat(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(lstat, args[1], *path)
@@ -414,12 +459,12 @@ static Handle<Value> Symlink(const Arguments& args) {
   if (!args[0]->IsString()) return TYPE_ERROR("dest path must be a string");
   if (!args[1]->IsString()) return TYPE_ERROR("src path must be a string");
 
-  String::Utf8Value dest(args[0]);
-  String::Utf8Value path(args[1]);
+  node::Utf8Value dest(args[0]);
+  node::Utf8Value path(args[1]);
   int flags = 0;
 
   if (args[2]->IsString()) {
-    String::Utf8Value mode(args[2]);
+    node::Utf8Value mode(args[2]);
     if (strcmp(*mode, "dir") == 0) {
       flags |= UV_FS_SYMLINK_DIR;
     } else if (strcmp(*mode, "junction") == 0) {
@@ -431,9 +476,9 @@ static Handle<Value> Symlink(const Arguments& args) {
   }
 
   if (args[3]->IsFunction()) {
-    ASYNC_CALL(symlink, args[3], *dest, *path, flags)
+    ASYNC_DEST_CALL(symlink, args[3], *dest, *dest, *path, flags)
   } else {
-    SYNC_CALL(symlink, *path, *dest, *path, flags)
+    SYNC_DEST_CALL(symlink, *path, *dest, *dest, *path, flags)
     return Undefined();
   }
 }
@@ -447,13 +492,13 @@ static Handle<Value> Link(const Arguments& args) {
   if (!args[0]->IsString()) return TYPE_ERROR("dest path must be a string");
   if (!args[1]->IsString()) return TYPE_ERROR("src path must be a string");
 
-  String::Utf8Value orig_path(args[0]);
-  String::Utf8Value new_path(args[1]);
+  node::Utf8Value orig_path(args[0]);
+  node::Utf8Value new_path(args[1]);
 
   if (args[2]->IsFunction()) {
-    ASYNC_CALL(link, args[2], *orig_path, *new_path)
+    ASYNC_DEST_CALL(link, args[2], *new_path, *orig_path, *new_path)
   } else {
-    SYNC_CALL(link, *orig_path, *orig_path, *new_path)
+    SYNC_DEST_CALL(link, *orig_path, *new_path, *orig_path, *new_path)
     return Undefined();
   }
 }
@@ -464,7 +509,7 @@ static Handle<Value> ReadLink(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(readlink, args[1], *path)
@@ -482,14 +527,14 @@ static Handle<Value> Rename(const Arguments& args) {
   if (len < 2) return TYPE_ERROR("new path required");
   if (!args[0]->IsString()) return TYPE_ERROR("old path must be a string");
   if (!args[1]->IsString()) return TYPE_ERROR("new path must be a string");
-  
-  String::Utf8Value old_path(args[0]);
-  String::Utf8Value new_path(args[1]);
+
+  node::Utf8Value old_path(args[0]);
+  node::Utf8Value new_path(args[1]);
 
   if (args[2]->IsFunction()) {
-    ASYNC_CALL(rename, args[2], *old_path, *new_path)
+    ASYNC_DEST_CALL(rename, args[2], *new_path, *old_path, *new_path)
   } else {
-    SYNC_CALL(rename, *old_path, *old_path, *new_path)
+    SYNC_DEST_CALL(rename, *old_path, *new_path, *old_path, *new_path)
     return Undefined();
   }
 }
@@ -554,7 +599,7 @@ static Handle<Value> Unlink(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(unlink, args[1], *path)
@@ -570,7 +615,7 @@ static Handle<Value> RMDir(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(rmdir, args[1], *path)
@@ -587,7 +632,7 @@ static Handle<Value> MKDir(const Arguments& args) {
     return THROW_BAD_ARGS;
   }
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
   int mode = static_cast<int>(args[1]->Int32Value());
 
   if (args[2]->IsFunction()) {
@@ -604,7 +649,7 @@ static Handle<Value> ReadDir(const Arguments& args) {
   if (args.Length() < 1) return TYPE_ERROR("path required");
   if (!args[0]->IsString()) return TYPE_ERROR("path must be a string");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
 
   if (args[1]->IsFunction()) {
     ASYNC_CALL(readdir, args[1], *path, 0 /*flags*/)
@@ -642,7 +687,7 @@ static Handle<Value> Open(const Arguments& args) {
   if (!args[1]->IsInt32()) return TYPE_ERROR("flags must be an int");
   if (!args[2]->IsInt32()) return TYPE_ERROR("mode must be an int");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
   int flags = args[1]->Int32Value();
   int mode = static_cast<int>(args[2]->Int32Value());
 
@@ -689,7 +734,7 @@ static Handle<Value> Write(const Arguments& args) {
   }
 
   ssize_t len = args[3]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("off + len > buffer.length")));
   }
@@ -752,7 +797,7 @@ static Handle<Value> Read(const Arguments& args) {
   }
 
   len = args[3]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("Length extends beyond buffer")));
   }
@@ -782,7 +827,7 @@ static Handle<Value> Chmod(const Arguments& args) {
   if(args.Length() < 2 || !args[0]->IsString() || !args[1]->IsInt32()) {
     return THROW_BAD_ARGS;
   }
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
   int mode = static_cast<int>(args[1]->Int32Value());
 
   if(args[2]->IsFunction()) {
@@ -829,7 +874,7 @@ static Handle<Value> Chown(const Arguments& args) {
   if (!args[1]->IsUint32()) return TYPE_ERROR("uid must be an unsigned int");
   if (!args[2]->IsUint32()) return TYPE_ERROR("gid must be an unsigned int");
 
-  String::Utf8Value path(args[0]);
+  node::Utf8Value path(args[0]);
   uv_uid_t uid = static_cast<uv_uid_t>(args[1]->Uint32Value());
   uv_gid_t gid = static_cast<uv_gid_t>(args[2]->Uint32Value());
 
@@ -880,7 +925,7 @@ static Handle<Value> UTimes(const Arguments& args) {
   if (!args[1]->IsNumber()) return TYPE_ERROR("atime must be a number");
   if (!args[2]->IsNumber()) return TYPE_ERROR("mtime must be a number");
 
-  const String::Utf8Value path(args[0]);
+  const node::Utf8Value path(args[0]);
   const double atime = static_cast<double>(args[1]->NumberValue());
   const double mtime = static_cast<double>(args[2]->NumberValue());
 

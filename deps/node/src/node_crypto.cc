@@ -26,7 +26,7 @@
 #include "node.h"
 #include "node_buffer.h"
 #include "string_bytes.h"
-#include "node_root_certs.h"
+#include "util.h"
 
 #include <string.h>
 #ifdef _MSC_VER
@@ -63,6 +63,12 @@ static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
                                  | XN_FLAG_FN_SN;
 
 namespace node {
+
+const char* root_certs[] = {
+#include "node_root_certs.h"  // NOLINT(build/include_order)
+  NULL
+};
+
 namespace crypto {
 
 using namespace v8;
@@ -152,6 +158,48 @@ Handle<Value> ThrowCryptoTypeError(unsigned long err) {
 }
 
 
+// Ensure that OpenSSL has enough entropy (at least 256 bits) for its PRNG.
+// The entropy pool starts out empty and needs to fill up before the PRNG
+// can be used securely.  Once the pool is filled, it never dries up again;
+// its contents is stirred and reused when necessary.
+//
+// OpenSSL normally fills the pool automatically but not when someone starts
+// generating random numbers before the pool is full: in that case OpenSSL
+// keeps lowering the entropy estimate to thwart attackers trying to guess
+// the initial state of the PRNG.
+//
+// When that happens, we will have to wait until enough entropy is available.
+// That should normally never take longer than a few milliseconds.
+//
+// OpenSSL draws from /dev/random and /dev/urandom.  While /dev/random may
+// block pending "true" randomness, /dev/urandom is a CSPRNG that doesn't
+// block under normal circumstances.
+//
+// The only time when /dev/urandom may conceivably block is right after boot,
+// when the whole system is still low on entropy.  That's not something we can
+// do anything about.
+inline void CheckEntropy() {
+  for (;;) {
+    int status = RAND_status();
+    assert(status >= 0);  // Cannot fail.
+    if (status != 0)
+      break;
+    if (RAND_poll() == 0)  // Give up, RAND_poll() not supported.
+      break;
+  }
+}
+
+
+bool EntropySource(unsigned char* buffer, size_t length) {
+  // Ensure that OpenSSL's PRNG is properly seeded.
+  CheckEntropy();
+  // RAND_bytes() can return 0 to indicate that the entropy data is not truly
+  // random. That's okay, it's still better than V8's stock source of entropy,
+  // which is /dev/urandom on UNIX platforms and the current time on Windows.
+  return RAND_bytes(buffer, length) != -1;
+}
+
+
 void SecureContext::Initialize(Handle<Object> target) {
   HandleScope scope;
 
@@ -194,7 +242,7 @@ Handle<Value> SecureContext::Init(const Arguments& args) {
   OPENSSL_CONST SSL_METHOD *method = SSLv23_method();
 
   if (args.Length() == 1 && args[0]->IsString()) {
-    String::Utf8Value sslmethod(args[0]);
+    node::Utf8Value sslmethod(args[0]);
 
     if (strcmp(*sslmethod, "SSLv2_method") == 0) {
 #ifndef OPENSSL_NO_SSL2
@@ -314,7 +362,7 @@ static BIO* LoadBIO (Handle<Value> v) {
   int r = -1;
 
   if (v->IsString()) {
-    String::Utf8Value s(v);
+    node::Utf8Value s(v);
     r = BIO_write(bio, *s, s.length());
   } else if (Buffer::HasInstance(v)) {
     char* buffer_data = Buffer::Data(v);
@@ -366,7 +414,7 @@ Handle<Value> SecureContext::SetKey(const Arguments& args) {
   BIO *bio = LoadBIO(args[0]);
   if (!bio) return False();
 
-  String::Utf8Value passphrase(args[1]);
+  node::Utf8Value passphrase(args[1]);
 
   EVP_PKEY* key = PEM_read_bio_PrivateKey(bio, NULL, NULL,
                                           len == 1 ? NULL : *passphrase);
@@ -596,7 +644,7 @@ Handle<Value> SecureContext::SetCiphers(const Arguments& args) {
     return ThrowException(Exception::TypeError(String::New("Bad parameter")));
   }
 
-  String::Utf8Value ciphers(args[0]);
+  node::Utf8Value ciphers(args[0]);
   SSL_CTX_set_cipher_list(sc->ctx_, *ciphers);
 
   return True();
@@ -625,7 +673,7 @@ Handle<Value> SecureContext::SetSessionIdContext(const Arguments& args) {
     return ThrowException(Exception::TypeError(String::New("Bad parameter")));
   }
 
-  String::Utf8Value sessionIdContext(args[0]);
+  node::Utf8Value sessionIdContext(args[0]);
   const unsigned char* sid_ctx = (const unsigned char*) *sessionIdContext;
   unsigned int sid_ctx_len = sessionIdContext.length();
 
@@ -737,12 +785,14 @@ Handle<Value> SecureContext::LoadPKCS12(const Arguments& args) {
 size_t ClientHelloParser::Write(const uint8_t* data, size_t len) {
   HandleScope scope;
 
+  assert(state_ != kEnded);
+  
   // Just accumulate data, everything will be pushed to BIO later
   if (state_ == kPaused) return 0;
 
   // Copy incoming data to the internal buffer
   // (which has a size of the biggest possible TLS frame)
-  size_t available = sizeof(data_) - offset_;
+  size_t available = kBufferSize - offset_;
   size_t copied = len < available ? len : available;
   memcpy(data_ + offset_, data, copied);
   offset_ += copied;
@@ -777,7 +827,7 @@ size_t ClientHelloParser::Write(const uint8_t* data, size_t len) {
     }
 
     // Sanity check (too big frame, or too small)
-    if (frame_len_ >= sizeof(data_)) {
+    if (frame_len_ >= kBufferSize) {
       // Let OpenSSL handle it
       Finish();
       return copied;
@@ -858,7 +908,6 @@ size_t ClientHelloParser::Write(const uint8_t* data, size_t len) {
     argv[0] = hello;
     MakeCallback(conn_->handle_, onclienthello_sym, 1, argv);
     break;
-   case kEnded:
    default:
     break;
   }
@@ -875,6 +924,9 @@ void ClientHelloParser::Finish() {
   int r = BIO_write(conn_->bio_read_, reinterpret_cast<char*>(data_), offset_);
   conn_->HandleBIOError(conn_->bio_read_, "BIO_write", r);
   conn_->SetShutdownFlags();
+
+  delete[] data_;
+  data_ = NULL;
 }
 
 
@@ -1022,7 +1074,6 @@ void Connection::Initialize(Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(t, "getCurrentCipher", Connection::GetCurrentCipher);
   NODE_SET_PROTOTYPE_METHOD(t, "start", Connection::Start);
   NODE_SET_PROTOTYPE_METHOD(t, "shutdown", Connection::Shutdown);
-  NODE_SET_PROTOTYPE_METHOD(t, "receivedShutdown", Connection::ReceivedShutdown);
   NODE_SET_PROTOTYPE_METHOD(t, "close", Connection::Close);
 
 #ifdef OPENSSL_NPN_NEGOTIATED
@@ -1189,6 +1240,7 @@ int Connection::SelectSNIContextCallback_(SSL *s, int *ad, void* arg) {
         p->sniContext_ = Persistent<Value>::New(ret);
         SecureContext *sc = ObjectWrap::Unwrap<SecureContext>(
                                 Local<Object>::Cast(ret));
+        p->InitNPN(sc, true);
         SSL_set_SSL_CTX(s, sc->ctx_);
       } else {
         return SSL_TLSEXT_ERR_NOACK;
@@ -1223,26 +1275,13 @@ Handle<Value> Connection::New(const Arguments& args) {
 
   if (is_server) SSL_set_info_callback(p->ssl_, SSLInfoCallback);
 
-#ifdef OPENSSL_NPN_NEGOTIATED
-  if (is_server) {
-    // Server should advertise NPN protocols
-    SSL_CTX_set_next_protos_advertised_cb(sc->ctx_,
-                                          AdvertiseNextProtoCallback_,
-                                          NULL);
-  } else {
-    // Client should select protocol from advertised
-    // If server supports NPN
-    SSL_CTX_set_next_proto_select_cb(sc->ctx_,
-                                     SelectNextProtoCallback_,
-                                     NULL);
-  }
-#endif
+  p->InitNPN(sc, is_server);
 
 #ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
   if (is_server) {
     SSL_CTX_set_tlsext_servername_callback(sc->ctx_, SelectSNIContextCallback_);
   } else {
-    String::Utf8Value servername(args[2]);
+    node::Utf8Value servername(args[2]);
     SSL_set_tlsext_host_name(p->ssl_, *servername);
   }
 #endif
@@ -1328,7 +1367,7 @@ Handle<Value> Connection::EncIn(const Arguments& args) {
 
   size_t off = args[1]->Int32Value();
   size_t len = args[2]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("off + len > buffer.length")));
   }
@@ -1369,7 +1408,7 @@ Handle<Value> Connection::ClearOut(const Arguments& args) {
 
   size_t off = args[1]->Int32Value();
   size_t len = args[2]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("off + len > buffer.length")));
   }
@@ -1445,7 +1484,7 @@ Handle<Value> Connection::EncOut(const Arguments& args) {
 
   size_t off = args[1]->Int32Value();
   size_t len = args[2]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("off + len > buffer.length")));
   }
@@ -1479,7 +1518,7 @@ Handle<Value> Connection::ClearIn(const Arguments& args) {
 
   size_t off = args[1]->Int32Value();
   size_t len = args[2]->Int32Value();
-  if (off + len > buffer_length) {
+  if (!Buffer::IsWithinBounds(off, len, buffer_length)) {
     return ThrowException(Exception::Error(
           String::New("off + len > buffer.length")));
   }
@@ -1778,20 +1817,6 @@ Handle<Value> Connection::Shutdown(const Arguments& args) {
 }
 
 
-Handle<Value> Connection::ReceivedShutdown(const Arguments& args) {
-  HandleScope scope;
-
-  Connection *ss = Connection::Unwrap(args);
-
-  if (ss->ssl_ == NULL) return False();
-  int r = SSL_get_shutdown(ss->ssl_);
-
-  if (r & SSL_RECEIVED_SHUTDOWN) return True();
-
-  return False();
-}
-
-
 Handle<Value> Connection::IsInitFinished(const Arguments& args) {
   HandleScope scope;
 
@@ -1978,6 +2003,24 @@ Handle<Value> Connection::Close(const Arguments& args) {
     ss->ssl_ = NULL;
   }
   return True();
+}
+
+
+void Connection::InitNPN(SecureContext* sc, bool is_server) {
+#ifdef OPENSSL_NPN_NEGOTIATED
+  if (is_server) {
+    // Server should advertise NPN protocols
+    SSL_CTX_set_next_protos_advertised_cb(sc->ctx_,
+                                          AdvertiseNextProtoCallback_,
+                                          NULL);
+  } else {
+    // Client should select protocol from advertised
+    // If server supports NPN
+    SSL_CTX_set_next_proto_select_cb(sc->ctx_,
+                                     SelectNextProtoCallback_,
+                                     NULL);
+  }
+#endif
 }
 
 #ifdef OPENSSL_NPN_NEGOTIATED
@@ -2191,7 +2234,7 @@ class Cipher : public ObjectWrap {
     ssize_t key_written = DecodeWrite(key_buf, key_buf_len, args[1], BINARY);
     assert(key_written == key_buf_len);
 
-    String::Utf8Value cipherType(args[0]);
+    node::Utf8Value cipherType(args[0]);
 
     bool r = cipher->CipherInit(*cipherType, key_buf, key_buf_len);
 
@@ -2242,7 +2285,7 @@ class Cipher : public ObjectWrap {
     ssize_t iv_written = DecodeWrite(iv_buf, iv_len, args[2], BINARY);
     assert(iv_written == iv_len);
 
-    String::Utf8Value cipherType(args[0]);
+    node::Utf8Value cipherType(args[0]);
 
     bool r = cipher->CipherInitIv(*cipherType, key_buf,key_len,iv_buf,iv_len);
 
@@ -2265,10 +2308,13 @@ class Cipher : public ObjectWrap {
     unsigned char* out = 0;
     int out_len = 0, r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = cipher->CipherUpdate(buf, written, &out, &out_len);
       delete[] buf;
     } else {
@@ -2498,7 +2544,7 @@ class Decipher : public ObjectWrap {
     ssize_t key_written = DecodeWrite(key_buf, key_len, args[1], BINARY);
     assert(key_written == key_len);
 
-    String::Utf8Value cipherType(args[0]);
+    node::Utf8Value cipherType(args[0]);
 
     bool r = cipher->DecipherInit(*cipherType, key_buf,key_len);
 
@@ -2549,7 +2595,7 @@ class Decipher : public ObjectWrap {
     ssize_t iv_written = DecodeWrite(iv_buf, iv_len, args[2], BINARY);
     assert(iv_written == iv_len);
 
-    String::Utf8Value cipherType(args[0]);
+    node::Utf8Value cipherType(args[0]);
 
     bool r = cipher->DecipherInitIv(*cipherType, key_buf,key_len,iv_buf,iv_len);
 
@@ -2574,10 +2620,13 @@ class Decipher : public ObjectWrap {
     unsigned char* out = 0;
     int out_len = 0, r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = cipher->DecipherUpdate(buf, written, &out, &out_len);
       delete[] buf;
     } else {
@@ -2727,7 +2776,7 @@ class Hmac : public ObjectWrap {
       return ThrowException(exception);
     }
 
-    String::Utf8Value hashType(args[0]);
+    node::Utf8Value hashType(args[0]);
 
     bool r;
 
@@ -2763,10 +2812,13 @@ class Hmac : public ObjectWrap {
     // Only copy the data if we have to, because it's a string
     int r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = hmac->HmacUpdate(buf, written);
       delete[] buf;
     } else {
@@ -2869,7 +2921,7 @@ class Hash : public ObjectWrap {
         "Must give hashtype string as argument")));
     }
 
-    String::Utf8Value hashType(args[0]);
+    node::Utf8Value hashType(args[0]);
 
     Hash *hash = new Hash();
     if (!hash->HashInit(*hashType)) {
@@ -2892,10 +2944,13 @@ class Hash : public ObjectWrap {
     // Only copy the data if we have to, because it's a string
     int r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = hash->HashUpdate(buf, written);
       delete[] buf;
     } else {
@@ -3002,9 +3057,15 @@ class Sign : public ObjectWrap {
     if(!BIO_write(bp, key_pem, key_pemLen)) return 0;
 
     pkey = PEM_read_bio_PrivateKey( bp, NULL, NULL, NULL );
-    if (pkey == NULL) return 0;
+    if (pkey == NULL) {
+      ERR_print_errors_fp(stderr);
+      return 0;
+    }
 
-    EVP_SignFinal(&mdctx, *md_value, md_len, pkey);
+    if (!EVP_SignFinal(&mdctx, *md_value, md_len, pkey)) {
+      ERR_print_errors_fp(stderr);
+      return 0;
+    }
     EVP_MD_CTX_cleanup(&mdctx);
     initialised_ = false;
     EVP_PKEY_free(pkey);
@@ -3034,7 +3095,7 @@ class Sign : public ObjectWrap {
         "Must give signtype string as argument")));
     }
 
-    String::Utf8Value signType(args[0]);
+    node::Utf8Value signType(args[0]);
 
     bool r = sign->SignInit(*signType);
 
@@ -3055,10 +3116,13 @@ class Sign : public ObjectWrap {
     // Only copy the data if we have to, because it's a string
     int r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = sign->SignUpdate(buf, written);
       delete[] buf;
     } else {
@@ -3101,8 +3165,11 @@ class Sign : public ObjectWrap {
 
     int r = sign->SignFinal(&md_value, &md_len, buf, len);
     if (r == 0) {
+      delete [] buf;
+      delete [] md_value;
       md_value = NULL;
       md_len = r;
+      return ThrowException(Exception::Error(String::New("SignFinal error")));
     }
 
     delete [] buf;
@@ -3170,6 +3237,9 @@ class Verify : public ObjectWrap {
 
   int VerifyFinal(char* key_pem, int key_pemLen, unsigned char* sig, int siglen) {
     if (!initialised_) return 0;
+
+    ClearErrorOnReturn clear_error_on_return;
+    (void) &clear_error_on_return;  // Silence compiler warning.
 
     EVP_PKEY* pkey = NULL;
     BIO *bp = NULL;
@@ -3258,7 +3328,7 @@ class Verify : public ObjectWrap {
         "Must give verifytype string as argument")));
     }
 
-    String::Utf8Value verifyType(args[0]);
+    node::Utf8Value verifyType(args[0]);
 
     bool r = verify->VerifyInit(*verifyType);
 
@@ -3280,10 +3350,13 @@ class Verify : public ObjectWrap {
     // Only copy the data if we have to, because it's a string
     int r;
     if (args[0]->IsString()) {
+      Local<String> string = args[0].As<String>();
       enum encoding encoding = ParseEncoding(args[1], BINARY);
-      size_t buflen = StringBytes::StorageSize(args[0], encoding);
+      if (!StringBytes::IsValidString(string, encoding))
+        return ThrowTypeError("Bad input string");
+      size_t buflen = StringBytes::StorageSize(string, encoding);
       char* buf = new char[buflen];
-      size_t written = StringBytes::Write(buf, buflen, args[0], encoding);
+      size_t written = StringBytes::Write(buf, buflen, string, encoding);
       r = verify->VerifyUpdate(buf, written);
       delete[] buf;
     } else {
@@ -3438,7 +3511,7 @@ class DiffieHellman : public ObjectWrap {
           String::New("No group name given")));
     }
 
-    String::Utf8Value group_name(args[0]);
+    node::Utf8Value group_name(args[0]);
 
     modp_group* it = modp_groups;
 
@@ -3960,6 +4033,9 @@ void RandomBytesWork(uv_work_t* work_req) {
                                          work_req_);
   int r;
 
+  // Ensure that OpenSSL's PRNG is properly seeded.
+  CheckEntropy();
+
   if (pseudoRandom == true) {
     r = RAND_pseudo_bytes(reinterpret_cast<unsigned char*>(req->data_),
                           req->size_);
@@ -3993,7 +4069,9 @@ void RandomBytesCheck(RandomBytesRequest* req, Local<Value> argv[2]) {
     Buffer* buffer = Buffer::New(req->data_, req->size_, RandomBytesFree, NULL);
     argv[0] = Local<Value>::New(Null());
     argv[1] = Local<Object>::New(buffer->handle_);
+    req->data_ = NULL;
   }
+  free(req->data_);
 }
 
 

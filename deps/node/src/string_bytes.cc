@@ -199,7 +199,7 @@ size_t StringBytes::Write(char* buf,
       break;
 
     case UTF8:
-      len = str->WriteUtf8(buf, buflen, chars_written, flags);
+      len = str->WriteUtf8(buf, buflen, chars_written, WRITE_UTF8_FLAGS);
       break;
 
     case UCS2:
@@ -254,6 +254,13 @@ size_t StringBytes::Write(char* buf,
   }
 
   return len;
+}
+
+
+bool StringBytes::IsValidString(Handle<String> string, enum encoding enc) {
+  if (enc == HEX && string->Length() % 2 != 0) return false;
+  // TODO(bnoordhuis) Add BASE64 check?
+  return true;
 }
 
 

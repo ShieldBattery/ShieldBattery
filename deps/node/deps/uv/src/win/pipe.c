@@ -1240,9 +1240,9 @@ static void uv_pipe_read_eof(uv_loop_t* loop, uv_pipe_t* handle,
 
   uv__set_artificial_error(loop, UV_EOF);
   if (handle->read2_cb) {
-    handle->read2_cb(handle, -1, uv_null_buf_, UV_UNKNOWN_HANDLE);
+    handle->read2_cb(handle, -1, buf, UV_UNKNOWN_HANDLE);
   } else {
-    handle->read_cb((uv_stream_t*) handle, -1, uv_null_buf_);
+    handle->read_cb((uv_stream_t*) handle, -1, buf);
   }
 }
 
@@ -1404,7 +1404,7 @@ void uv_process_pipe_read_req(uv_loop_t* loop, uv_pipe_t* handle,
           break;
         }
       } else {
-        uv_pipe_read_error_or_eof(loop, handle, GetLastError(), uv_null_buf_);
+        uv_pipe_read_error_or_eof(loop, handle, GetLastError(), buf);
         break;
       }
     }
@@ -1480,6 +1480,13 @@ void uv_process_pipe_accept_req(uv_loop_t* loop, uv_pipe_t* handle,
 
   assert(handle->type == UV_NAMED_PIPE);
 
+  if (handle->flags & UV__HANDLE_CLOSING) {
+    /* The req->pipeHandle should be freed already in uv_pipe_cleanup(). */
+    assert(req->pipeHandle == INVALID_HANDLE_VALUE);
+    DECREASE_PENDING_REQ_COUNT(handle);
+    return;
+  }
+
   if (REQ_SUCCESS(req)) {
     assert(req->pipeHandle != INVALID_HANDLE_VALUE);
     req->next_pending = handle->pending_accepts;
@@ -1528,9 +1535,9 @@ void uv_process_pipe_shutdown_req(uv_loop_t* loop, uv_pipe_t* handle,
 
   UNREGISTER_HANDLE_REQ(loop, handle, req);
 
-  /* Initialize and optionally start the eof timer. */
-  /* This makes no sense if we've already seen EOF. */
   if (handle->flags & UV_HANDLE_READABLE) {
+    /* Initialize and optionally start the eof timer. Only do this if the */
+    /* pipe is readable and we haven't seen EOF come in ourselves. */
     eof_timer_init(handle);
 
     /* If reading start the timer right now. */
@@ -1538,6 +1545,12 @@ void uv_process_pipe_shutdown_req(uv_loop_t* loop, uv_pipe_t* handle,
     if (handle->flags & UV_HANDLE_READ_PENDING) {
       eof_timer_start(handle);
     }
+
+  } else {
+    /* This pipe is not readable. We can just close it to let the other end */
+    /* know that we're done writing. */
+    CloseHandle(handle->handle);
+    handle->handle = INVALID_HANDLE_VALUE;
   }
 
   if (req->cb) {

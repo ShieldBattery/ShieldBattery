@@ -1,9 +1,6 @@
 {
   'variables': {
     'v8_use_snapshot%': 'true',
-    # Turn off -Werror in V8
-    # See http://codereview.chromium.org/8159015
-    'werror': '',
     'node_use_dtrace%': 'false',
     'node_use_etw%': 'false',
     'node_use_perfctr%': 'false',
@@ -161,8 +158,12 @@
         }],
         [ 'node_use_dtrace=="true"', {
           'defines': [ 'HAVE_DTRACE=1' ],
-          'dependencies': [ 'node_dtrace_header' ],
+          'dependencies': [
+            'node_dtrace_header',
+            'specialize_node_d',
+          ],
           'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)' ],
+
           #
           # DTrace is supported on solaris, mac, and bsd.  There are three
           # object files associated with DTrace support, but they're not all
@@ -291,6 +292,12 @@
             # rather than gyp's preferred "solaris"
             'PLATFORM="sunos"',
           ],
+        }],
+        [
+          'OS=="linux" and node_shared_v8=="false"', {
+            'ldflags': [
+              '-Wl,--whole-archive <(V8_BASE) -Wl,--no-whole-archive',
+            ],
         }],
       ],
       'msvs_settings': {
@@ -423,10 +430,10 @@
               'action_name': 'node_dtrace_provider_o',
               'inputs': [
                 'src/node_provider.d',
-                '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace.o'
+                '<(OBJ_DIR)/node/src/node_dtrace.o'
               ],
               'outputs': [
-                '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace_provider.o'
+                '<(OBJ_DIR)/node/src/node_dtrace_provider.o'
               ],
               'action': [ 'dtrace', '-G', '-xnolibs', '-s', '<@(_inputs)',
                 '-o', '<@(_outputs)' ]
@@ -444,7 +451,7 @@
             {
               'action_name': 'node_dtrace_ustack_constants',
               'inputs': [
-                '<(PRODUCT_DIR)/obj.target/deps/v8/tools/gyp/libv8_base.a'
+                '<(V8_BASE)'
               ],
               'outputs': [
                 '<(SHARED_INTERMEDIATE_DIR)/v8constants.h'
@@ -462,7 +469,7 @@
                 '<(SHARED_INTERMEDIATE_DIR)/v8constants.h'
               ],
               'outputs': [
-                '<(PRODUCT_DIR)/obj.target/node/src/node_dtrace_ustack.o'
+                '<(OBJ_DIR)/node/src/node_dtrace_ustack.o'
               ],
               'conditions': [
                 [ 'target_arch=="ia32"', {
@@ -478,8 +485,34 @@
                   ]
                 } ],
               ]
-            }
+            },
           ]
+        } ],
+      ]
+    },
+    {
+      'target_name': 'specialize_node_d',
+      'type': 'none',
+      'conditions': [
+        [ 'node_use_dtrace=="true"', {
+          'actions': [
+            {
+              'action_name': 'specialize_node_d',
+              'inputs': [
+                'src/node.d'
+              ],
+              'outputs': [
+                '<(PRODUCT_DIR)/node.d',
+              ],
+              'action': [
+                'tools/specialize_node_d.py',
+                '<@(_outputs)',
+                '<@(_inputs)',
+                '<@(OS)',
+                '<@(target_arch)',
+              ],
+            },
+          ],
         } ],
       ]
     }

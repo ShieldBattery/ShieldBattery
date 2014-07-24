@@ -5,7 +5,6 @@ markdowns = $(shell find doc -name '*.md' | grep -v 'index') README.md
 
 html_docdeps = html/dochead.html \
                html/docfoot.html \
-               html/docfoot-script.html \
                scripts/doc-build.sh \
                package.json
 
@@ -71,7 +70,7 @@ link: uninstall
 	node cli.js link -f
 
 clean: ronnclean doc-clean uninstall
-	rm npmrc
+	rm -rf npmrc
 	node cli.js cache clean
 
 uninstall:
@@ -154,13 +153,13 @@ html/doc/misc/%.html: doc/misc/%.md $(html_docdeps)
 ronn: node_modules/.bin/ronn
 
 node_modules/.bin/ronn:
-	node cli.js install ronn
+	node cli.js install ronn --no-global
 
 doc: man
 
 man: $(cli_docs) $(api_docs)
 
-test:
+test: doc
 	node cli.js test
 
 publish: link doc
@@ -170,9 +169,7 @@ publish: link doc
 	git push origin &&\
 	git push origin --tags &&\
 	npm publish &&\
-	npm tag npm@$(shell npm -v) $(shell npm -v | awk -F. '{print $$1 "." $$2}') &&\
-	make doc-publish &&\
-	make zip-publish
+	make doc-publish
 
 docpublish: doc-publish
 doc-publish: doc
@@ -190,13 +187,10 @@ doc-publish: doc
   done
 	rsync -vazu --stats --no-implied-dirs --delete \
     html/doc/* \
-    node@npmjs.org:/home/node/npm-www/doc
-	rsync -vazu --stats --no-implied-dirs --delete \
-    html/static/webfonts/ \
-    node@npmjs.org:/home/node/npm-www/static/webfonts
+    ../npm-www/doc
 	rsync -vazu --stats --no-implied-dirs --delete \
     html/static/style.css \
-    node@npmjs.org:/home/node/npm-www/static/
+    ../npm-www/static/
 	#cleanup
 	rm -rf html/api
 	for f in html/doc/*.html; do \
@@ -207,13 +201,10 @@ doc-publish: doc
     esac; \
   done
 
-zip-publish: release
-	scp release/* node@nodejs.org:dist/npm/
-
 release:
 	@bash scripts/release.sh
 
 sandwich:
-	@[ $$(whoami) = "root" ] && (echo "ok"; echo "ham" > sandwich) || echo "make it yourself" && exit 13
+	@[ $$(whoami) = "root" ] && (echo "ok"; echo "ham" > sandwich) || (echo "make it yourself" && exit 13)
 
-.PHONY: all latest install dev link doc clean uninstall test man doc-publish doc-clean docclean docpublish release zip-publish
+.PHONY: all latest install dev link doc clean uninstall test man doc-publish doc-clean docclean docpublish release

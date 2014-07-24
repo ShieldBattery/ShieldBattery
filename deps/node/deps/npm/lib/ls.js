@@ -36,7 +36,8 @@ function ls (args, silent, cb) {
   })
 
   var depth = npm.config.get("depth")
-  readInstalled(dir, depth, log.warn, function (er, data) {
+  var opt = { depth: depth, log: log.warn, dev: true }
+  readInstalled(dir, opt, function (er, data) {
     var bfs = bfsify(data, args)
       , lite = getLite(bfs)
 
@@ -62,6 +63,8 @@ function ls (args, silent, cb) {
       out = makeArchy(bfs, long, dir)
     }
     console.log(out)
+
+    if (args.length && !data._found) process.exitCode = 1
 
     // if any errors were found, then complain and exit status 1
     if (lite.problems && lite.problems.length) {
@@ -125,8 +128,7 @@ function getLite (data, noname) {
       var dep = data.dependencies[d]
       if (typeof dep === "string") {
         lite.problems = lite.problems || []
-        var p
-        if (data.depth >= maxDepth) {
+        if (data.depth > maxDepth) {
           p = "max depth reached: "
         } else {
           p = "missing: "
@@ -220,14 +222,14 @@ function makeArchy (data, long, dir) {
 function makeArchy_ (data, long, dir, depth, parent, d) {
   var color = npm.color
   if (typeof data === "string") {
-    if (depth < npm.config.get("depth")) {
+    if (depth -1 <= npm.config.get("depth")) {
       // just missing
       var p = parent.link || parent.path
       var unmet = "UNMET DEPENDENCY"
       if (color) {
         unmet = "\033[31;40m" + unmet + "\033[0m"
       }
-      data = unmet + " " + d + " " + data
+      data = unmet + " " + d + "@" + data
     } else {
       data = d+"@"+ data
     }

@@ -56,8 +56,8 @@ This is an [EventEmitter][] with the following events:
 
 Emitted each time there is a request. Note that there may be multiple requests
 per connection (in the case of keep-alive connections).
- `request` is an instance of `http.IncomingMessage` and `response` is
- an instance of `http.ServerResponse`
+ `request` is an instance of [http.IncomingMessage][] and `response` is
+an instance of [http.ServerResponse][].
 
 ### Event: 'connection'
 
@@ -83,7 +83,7 @@ Emitted each time a request with an http Expect: 100-continue is received.
 If this event isn't listened for, the server will automatically respond
 with a 100 Continue as appropriate.
 
-Handling this event involves calling `response.writeContinue` if the client
+Handling this event involves calling [response.writeContinue()][] if the client
 should continue to send the request body, or generating an appropriate HTTP
 response (e.g., 400 Bad Request) if the client should not continue to send the
 request body.
@@ -233,7 +233,18 @@ The response implements the [Writable Stream][] interface. This is an
 `function () { }`
 
 Indicates that the underlying connection was terminated before
-`response.end()` was called or able to flush.
+[response.end()][] was called or able to flush.
+
+### Event: 'finish'
+
+`function () { }`
+
+Emitted when the response has been sent. More specifically, this event is
+emitted when the last segment of the response headers and body have been
+handed off to the operating system for transmission over the network. It
+does not imply that the client has received anything yet.
+
+After this event, no more events will be emitted on the response object.
 
 ### response.writeContinue()
 
@@ -255,9 +266,9 @@ Example:
       'Content-Type': 'text/plain' });
 
 This method must only be called once on a message and it must
-be called before `response.end()` is called.
+be called before [response.end()][] is called.
 
-If you call `response.write()` or `response.end()` before calling this, the
+If you call [response.write()][] or [response.end()][] before calling this, the
 implicit/mutable headers will be calculated and call this function for you.
 
 Note: that Content-Length is given in bytes not characters. The above example
@@ -284,9 +295,9 @@ sockets.
 
 ### response.statusCode
 
-When using implicit headers (not calling `response.writeHead()` explicitly), this property
-controls the status code that will be sent to the client when the headers get
-flushed.
+When using implicit headers (not calling [response.writeHead()][] explicitly),
+this property controls the status code that will be sent to the client when
+the headers get flushed.
 
 Example:
 
@@ -315,7 +326,7 @@ Boolean (read-only). True if headers were sent, false otherwise.
 
 ### response.sendDate
 
-When true, the Date header will be automatically generated and sent in 
+When true, the Date header will be automatically generated and sent in
 the response if it is not already present in the headers. Defaults to true.
 
 This should only be disabled for testing; HTTP requires the Date header
@@ -342,8 +353,8 @@ Example:
 
 ### response.write(chunk, [encoding])
 
-If this method is called and `response.writeHead()` has not been called, it will
-switch to implicit header mode and flush the implicit headers.
+If this method is called and [response.writeHead()][] has not been called,
+it will switch to implicit header mode and flush the implicit headers.
 
 This sends a chunk of the response body. This method may
 be called multiple times to provide successive parts of the body.
@@ -395,7 +406,7 @@ If `data` is specified, it is equivalent to calling `response.write(data, encodi
 followed by `response.end()`.
 
 
-## http.request(options, callback)
+## http.request(options, [callback])
 
 Node maintains several connections per server to make HTTP requests.
 This function allows one to transparently issue requests.
@@ -424,7 +435,10 @@ Options:
  - `false`: opts out of connection pooling with an Agent, defaults request to
    `Connection: close`.
 
-`http.request()` returns an instance of the `http.ClientRequest`
+The optional `callback` parameter will be added as a one time listener for
+the ['response'][] event.
+
+`http.request()` returns an instance of the [http.ClientRequest][]
 class. The `ClientRequest` instance is a writable stream. If one needs to
 upload a file with a POST request, then write to the `ClientRequest` object.
 
@@ -478,7 +492,7 @@ There are a few special headers that should be noted.
 * Sending an Authorization header will override using the `auth` option
   to compute basic authentication.
 
-## http.get(options, callback)
+## http.get(options, [callback])
 
 Since most requests are GET requests without bodies, Node provides this
 convenience method. The only difference between this method and `http.request()`
@@ -526,17 +540,18 @@ Alternatively, you could just opt out of pooling entirely using `agent:false`:
 
 ### agent.maxSockets
 
-By default set to 5. Determines how many concurrent sockets the agent can have 
-open per host.
+By default set to 5. Determines how many concurrent sockets the agent can have
+open per origin. Origin is either a 'host:port' or 'host:port:localAddress'
+combination.
 
 ### agent.sockets
 
-An object which contains arrays of sockets currently in use by the Agent. Do not 
+An object which contains arrays of sockets currently in use by the Agent. Do not
 modify.
 
 ### agent.requests
 
-An object which contains queues of requests that have not yet been assigned to 
+An object which contains queues of requests that have not yet been assigned to
 sockets. Do not modify.
 
 ## http.globalAgent
@@ -556,7 +571,7 @@ data chunk or when closing the connection.
 To get the response, add a listener for `'response'` to the request object.
 `'response'` will be emitted from the request object when the response
 headers have been received.  The `'response'` event is executed with one
-argument which is an instance of `http.IncomingMessage`.
+argument which is an instance of [http.IncomingMessage][].
 
 During the `'response'` event, one can add listeners to the
 response object; particularly to listen for the `'data'` event.
@@ -566,7 +581,9 @@ entirely discarded.  However, if you add a `'response'` event handler,
 then you **must** consume the data from the response object, either by
 calling `response.read()` whenever there is a `'readable'` event, or
 by adding a `'data'` handler, or by calling the `.resume()` method.
-Until the data is consumed, the `'end'` event will not fire.
+Until the data is consumed, the `'end'` event will not fire.  Also, until
+the data is read it will consume memory that can eventually lead to a
+'process out of memory' error.
 
 Note: Node does not check whether Content-Length and the length of the body
 which has been transmitted are equal or not.
@@ -579,7 +596,7 @@ The request implements the [Writable Stream][] interface. This is an
 `function (response) { }`
 
 Emitted when a response is received to this request. This event is emitted only
-once. The `response` argument will be an instance of `http.IncomingMessage`.
+once. The `response` argument will be an instance of [http.IncomingMessage][].
 
 Options:
 
@@ -758,9 +775,10 @@ Once a socket is assigned to this request and is connected
 
 ## http.IncomingMessage
 
-An `IncomingMessage` object is created by `http.Server` or `http.ClientRequest`
-and passed as the first argument to the `'request'` and `'response'` event
-respectively. It may be used to access response status, headers and data.
+An `IncomingMessage` object is created by [http.Server][] or
+[http.ClientRequest][] and passed as the first argument to the `'request'`
+and `'response'` event respectively. It may be used to access response status,
+headers and data.
 
 It implements the [Readable Stream][] interface, as well as the
 following additional events, methods, and properties.
@@ -769,11 +787,8 @@ following additional events, methods, and properties.
 
 `function () { }`
 
-Indicates that the underlaying connection was terminated before
-`response.end()` was called or able to flush.
-
-Just like `'end'`, this event occurs only once per response. See
-[http.ServerResponse][]'s `'close'` event for more information.
+Indicates that the underlaying connection was closed.
+Just like `'end'`, this event occurs only once per response.
 
 ### message.httpVersion
 
@@ -811,14 +826,14 @@ Calls `message.connection.setTimeout(msecs, callback)`.
 
 ### message.method
 
-**Only valid for request obtained from `http.Server`.**
+**Only valid for request obtained from [http.Server][].**
 
 The request method as a string. Read only. Example:
 `'GET'`, `'DELETE'`.
 
 ### message.url
 
-**Only valid for request obtained from `http.Server`.**
+**Only valid for request obtained from [http.Server][].**
 
 Request URL string. This contains only the URL that is
 present in the actual HTTP request. If the request is:
@@ -865,21 +880,30 @@ request.connection.getPeerCertificate() to obtain the client's
 authentication details.
 
 
-[Agent]: #http_class_http_agent
 ['checkContinue']: #http_event_checkcontinue
+['listening']: net.html#net_event_listening
+['response']: #http_event_response
+[Agent]: #http_class_http_agent
 [Buffer]: buffer.html#buffer_buffer
 [EventEmitter]: events.html#events_class_events_eventemitter
+[Readable Stream]: stream.html#stream_class_stream_readable
+[Writable Stream]: stream.html#stream_class_stream_writable
 [global Agent]: #http_http_globalagent
+[http.ClientRequest]: #http_class_http_clientrequest
+[http.IncomingMessage]: #http_http_incomingmessage
+[http.ServerResponse]: #http_class_http_serverresponse
+[http.Server]: #http_class_http_server
 [http.request()]: #http_http_request_options_callback
-[http.IncomingMessage]: #http_class_http_incomingmessage
-['listening']: net.html#net_event_listening
+[http.request()]: #http_http_request_options_callback
 [net.Server.close()]: net.html#net_server_close_callback
 [net.Server.listen(path)]: net.html#net_server_listen_path_callback
 [net.Server.listen(port)]: net.html#net_server_listen_port_host_backlog_callback
-[Readable Stream]: stream.html#stream_readable_stream
+[response.end()]: #http_response_end_data_encoding
+[response.write()]: #http_response_write_chunk_encoding
+[response.writeContinue()]: #http_response_writecontinue
+[response.writeHead()]: #http_response_writehead_statuscode_reasonphrase_headers
 [socket.setKeepAlive()]: net.html#net_socket_setkeepalive_enable_initialdelay
 [socket.setNoDelay()]: net.html#net_socket_setnodelay_nodelay
 [socket.setTimeout()]: net.html#net_socket_settimeout_timeout_callback
 [stream.setEncoding()]: stream.html#stream_stream_setencoding_encoding
 [url.parse()]: url.html#url_url_parse_urlstr_parsequerystring_slashesdenotehost
-[Writable Stream]: stream.html#stream_writable_stream

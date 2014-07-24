@@ -43,7 +43,6 @@
 
 #define EVP_F_EVP_DECRYPTFINAL 101
 
-
 namespace node {
 namespace crypto {
 
@@ -137,6 +136,16 @@ class ClientHelloParser {
                                      state_(kWaiting),
                                      offset_(0),
                                      body_offset_(0) {
+    data_ = new uint8_t[kBufferSize];
+    if (!data_)
+      abort();
+  }
+
+  ~ClientHelloParser() {
+    if (data_) {
+      delete[] data_;
+      data_ = NULL;
+    }
   }
 
   size_t Write(const uint8_t* data, size_t len);
@@ -145,11 +154,12 @@ class ClientHelloParser {
   inline bool ended() { return state_ == kEnded; }
 
  private:
+  static const int kBufferSize = 18432;
   Connection* conn_;
   ParseState state_;
   size_t frame_len_;
 
-  uint8_t data_[18432];
+  uint8_t* data_;
   size_t offset_;
   size_t body_offset_;
 };
@@ -186,9 +196,10 @@ class Connection : ObjectWrap {
   static v8::Handle<v8::Value> VerifyError(const v8::Arguments& args);
   static v8::Handle<v8::Value> GetCurrentCipher(const v8::Arguments& args);
   static v8::Handle<v8::Value> Shutdown(const v8::Arguments& args);
-  static v8::Handle<v8::Value> ReceivedShutdown(const v8::Arguments& args);
   static v8::Handle<v8::Value> Start(const v8::Arguments& args);
   static v8::Handle<v8::Value> Close(const v8::Arguments& args);
+
+  static void InitNPN(SecureContext* sc, bool is_server);
 
 #ifdef OPENSSL_NPN_NEGOTIATED
   // NPN
@@ -279,6 +290,7 @@ class Connection : ObjectWrap {
   friend class SecureContext;
 };
 
+bool EntropySource(unsigned char* buffer, size_t length);
 void InitCrypto(v8::Handle<v8::Object> target);
 
 }  // namespace crypto

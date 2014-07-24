@@ -92,6 +92,33 @@ void OS::Guard(void* address, const size_t size) {
 }
 #endif  // __CYGWIN__
 
+// For our illumos/Solaris mmap hint, we pick a random address in the bottom
+// half of the top half of the address space (that is, the third quarter).
+// Because we do not MAP_FIXED, this will be treated only as a hint -- the
+// system will not fail to mmap() because something else happens to already be
+// mapped at our random address. We deliberately set the hint high enough to
+// get well above the system's break (that is, the heap); illumos and Solaris
+// will try the hint and if that fails allocate as if there were no hint at
+// all. The high hint prevents the break from getting hemmed in at low values,
+// ceding half of the address space to the system heap.
+
+// On all other 32bit platforms the range 0x20000000 - 0x60000000 is relatively
+// unpopulated across a variety of ASLR modes (PAE kernel, NX compat mode, etc)
+// and on macos 10.6 and 10.7.
+
+#ifdef V8_TARGET_ARCH_X64
+# ifdef __sun
+#   define V8_ASLR_MEMORY_SHIFT 0x400000000000ULL
+# else
+#   define V8_ASLR_MEMORY_SHIFT 0
+# endif // __sun
+#else
+# ifdef __sun
+#   define V8_ASLR_MEMORY_SHIFT 0x80000000
+# else
+#   define V8_ASLR_MEMORY_SHIFT 0x20000000
+# endif // __sun
+#endif // V8_TARGET_ARCH_X64
 
 void* OS::GetRandomMmapAddr() {
   Isolate* isolate = Isolate::UncheckedCurrent();
@@ -111,25 +138,8 @@ void* OS::GetRandomMmapAddr() {
     uint32_t raw_addr = V8::RandomPrivate(isolate);
 
     raw_addr &= 0x3ffff000;
-
-# ifdef __sun
-    // For our Solaris/illumos mmap hint, we pick a random address in the bottom
-    // half of the top half of the address space (that is, the third quarter).
-    // Because we do not MAP_FIXED, this will be treated only as a hint -- the
-    // system will not fail to mmap() because something else happens to already
-    // be mapped at our random address. We deliberately set the hint high enough
-    // to get well above the system's break (that is, the heap); Solaris and
-    // illumos will try the hint and if that fails allocate as if there were
-    // no hint at all. The high hint prevents the break from getting hemmed in
-    // at low values, ceding half of the address space to the system heap.
-    raw_addr += 0x80000000;
-# else
-    // The range 0x20000000 - 0x60000000 is relatively unpopulated across a
-    // variety of ASLR modes (PAE kernel, NX compat mode, etc) and on macos
-    // 10.6 and 10.7.
-    raw_addr += 0x20000000;
-# endif
 #endif
+    raw_addr += V8_ASLR_MEMORY_SHIFT;
     return reinterpret_cast<void*>(raw_addr);
   }
   return NULL;
@@ -188,19 +198,37 @@ int OS::GetUserTime(uint32_t* secs,  uint32_t* usecs) {
 
 
 double OS::TimeCurrentMillis() {
-  struct timeval tv;
-  if (gettimeofday(&tv, NULL) < 0) return 0.0;
-  return (static_cast<double>(tv.tv_sec) * 1000) +
-         (static_cast<double>(tv.tv_usec) / 1000);
+  return static_cast<double>(Ticks()) / 1000;
 }
 
 
 int64_t OS::Ticks() {
+#if defined(__linux__)
+  static clockid_t clock_id = static_cast<clockid_t>(-1);
+  struct timespec spec;
+  if (clock_id == static_cast<clockid_t>(-1)) {
+    // CLOCK_REALTIME_COARSE may not be defined by the system headers but
+    // might still be supported by the kernel so use the clock id directly.
+    // Only use CLOCK_REALTIME_COARSE when its granularity <= 1 ms.
+    const clockid_t clock_realtime_coarse = 5;
+    if (clock_getres(clock_realtime_coarse, &spec) == 0 &&
+        spec.tv_nsec <= 1000 * 1000) {
+      clock_id = clock_realtime_coarse;
+    } else {
+      clock_id = CLOCK_REALTIME;
+    }
+  }
+  if (clock_gettime(clock_id, &spec) != 0) {
+    return 0;  // Not really possible.
+  }
+  return static_cast<int64_t>(spec.tv_sec) * 1000000 + (spec.tv_nsec / 1000);
+#else
   // gettimeofday has microsecond resolution.
   struct timeval tv;
   if (gettimeofday(&tv, NULL) < 0)
     return 0;
   return (static_cast<int64_t>(tv.tv_sec) * 1000000) + tv.tv_usec;
+#endif
 }
 
 

@@ -1130,8 +1130,9 @@ Interface.prototype.list = function(delta) {
 
       var current = lineno == 1 + client.currentSourceLine,
           breakpoint = client.breakpoints.some(function(bp) {
-            return bp.script === client.currentScript &&
-                   bp.line == lineno;
+            return (bp.scriptReq === client.currentScript ||
+                    bp.script === client.currentScript) &&
+                    bp.line == lineno;
           });
 
       if (lineno == 1) {
@@ -1374,7 +1375,9 @@ Interface.prototype.setBreakpoint = function(script, line,
     if (script != +script && !this.client.scripts[script]) {
       var scripts = this.client.scripts;
       Object.keys(scripts).forEach(function(id) {
-        if (scripts[id] && scripts[id].name.indexOf(script) !== -1) {
+        if (scripts[id] &&
+            scripts[id].name &&
+            scripts[id].name.indexOf(script) !== -1) {
           if (scriptId) {
             ambiguous = true;
           }

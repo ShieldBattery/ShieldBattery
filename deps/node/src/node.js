@@ -331,8 +331,12 @@
     var index = 1;
     var depth = 2;
 
-    process.nextTick = nextTick;
+    process.nextTick = function nextTick(cb) {
+      process._currentTickHandler(cb);
+    };
+
     // needs to be accessible from cc land
+    process._currentTickHandler = _nextTick;
     process._nextDomainTick = _nextDomainTick;
     process._tickCallback = _tickCallback;
     process._tickDomainCallback = _tickDomainCallback;
@@ -472,7 +476,7 @@
       tickDone(0);
     }
 
-    function nextTick(callback) {
+    function _nextTick(callback) {
       // on the way out, don't bother. it won't get fired anyway.
       if (process._exiting)
         return;
@@ -564,7 +568,7 @@
 
       case 'FILE':
         var fs = NativeModule.require('fs');
-        stream = new fs.SyncWriteStream(fd);
+        stream = new fs.SyncWriteStream(fd, { autoClose: false });
         stream._type = 'fs';
         break;
 
@@ -651,7 +655,7 @@
 
         case 'FILE':
           var fs = NativeModule.require('fs');
-          stdin = new fs.ReadStream(null, { fd: fd });
+          stdin = new fs.ReadStream(null, { fd: fd, autoClose: false });
           break;
 
         case 'PIPE':
@@ -717,7 +721,8 @@
         r = process._kill(pid, 0);
       } else {
         sig = sig || 'SIGTERM';
-        if (startup.lazyConstants()[sig]) {
+        if (startup.lazyConstants()[sig] &&
+            sig.slice(0, 3) === 'SIG') {
           r = process._kill(pid, startup.lazyConstants()[sig]);
         } else {
           throw new Error('Unknown signal: ' + sig);

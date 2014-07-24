@@ -1,12 +1,13 @@
 {
   'variables': {
-    'visibility%': 'hidden',         # V8's visibility setting
-    'target_arch%': 'ia32',          # set v8's target architecture
-    'host_arch%': 'ia32',            # set v8's host architecture
-    'want_separate_host_toolset': 0, # V8 should not build target and host
-    'library%': 'static_library',    # allow override to 'shared_library' for DLL/.so builds
-    'component%': 'static_library',  # NB. these names match with what V8 expects
-    'msvs_multi_core_compile': '0',  # we do enable multicore compiles, but not using the V8 way
+    'werror': '',                     # Turn off -Werror in V8 build.
+    'visibility%': 'hidden',          # V8's visibility setting
+    'target_arch%': 'ia32',           # set v8's target architecture
+    'host_arch%': 'ia32',             # set v8's host architecture
+    'want_separate_host_toolset%': 0, # V8 should not build target and host
+    'library%': 'static_library',     # allow override to 'shared_library' for DLL/.so builds
+    'component%': 'static_library',   # NB. these names match with what V8 expects
+    'msvs_multi_core_compile': '0',   # we do enable multicore compiles, but not using the V8 way
     'gcc_version%': 'unknown',
     'clang%': 0,
     'python%': 'python',
@@ -19,7 +20,14 @@
     'conditions': [
       ['OS != "win"', {
         'v8_postmortem_support': 'true'
-      }]
+      }],
+      ['GENERATOR == "ninja"', {
+        'OBJ_DIR': '<(PRODUCT_DIR)/obj',
+        'V8_BASE': '<(PRODUCT_DIR)/libv8_base.a',
+      }, {
+        'OBJ_DIR': '<(PRODUCT_DIR)/obj.target',
+        'V8_BASE': '<(PRODUCT_DIR)/obj.target/deps/v8/tools/gyp/libv8_base.a',
+      }],
     ],
   },
 
@@ -79,9 +87,11 @@
             ],
           }],
           ['OS=="solaris"', {
-            'cflags': [ '-fno-omit-frame-pointer' ],
             # pull in V8's postmortem metadata
             'ldflags': [ '-Wl,-z,allextract' ]
+          }],
+          ['OS!="mac" and OS!="win"', {
+            'cflags': [ '-fno-omit-frame-pointer' ],
           }],
         ],
         'msvs_settings': {

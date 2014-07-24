@@ -72,21 +72,25 @@ Emitted when an error occurs.
 * `buf` Buffer object.  Message to be sent
 * `offset` Integer. Offset in the buffer where the message starts.
 * `length` Integer. Number of bytes in the message.
-* `port` Integer. destination port
-* `address` String. destination IP
-* `callback` Function. Callback when message is done being delivered.
-  Optional.
+* `port` Integer. Destination port.
+* `address` String. Destination hostname or IP address.
+* `callback` Function. Called when the message has been sent. Optional.
 
-For UDP sockets, the destination port and IP address must be specified.  A string
-may be supplied for the `address` parameter, and it will be resolved with DNS.  An
-optional callback may be specified to detect any DNS errors and when `buf` may be
-re-used.  Note that DNS lookups will delay the time that a send takes place, at
-least until the next tick.  The only way to know for sure that a send has taken place
-is to use the callback.
+For UDP sockets, the destination port and address must be specified.  A string
+may be supplied for the `address` parameter, and it will be resolved with DNS.
 
-If the socket has not been previously bound with a call to `bind`, it's
-assigned a random port number and bound to the "all interfaces" address
-(0.0.0.0 for `udp4` sockets, ::0 for `udp6` sockets).
+If the address is omitted or is an empty string, `'0.0.0.0'` or `'::0'` is used
+instead.  Depending on the network configuration, those defaults may or may not
+work; it's best to be explicit about the destination address.
+
+If the socket has not been previously bound with a call to `bind`, it gets
+assigned a random port number and is bound to the "all interfaces" address
+(`'0.0.0.0'` for `udp4` sockets, `'::0'` for `udp6` sockets.)
+
+An optional callback may be specified to detect DNS errors or for determining
+when it's safe to reuse the `buf` object.  Note that DNS lookups delay the time
+to send for at least one tick.  The only way to know for sure that the datagram
+has been sent is by using a callback.
 
 Example of sending a UDP packet to a random port on `localhost`;
 
@@ -127,19 +131,32 @@ informing the source that the data did not reach its intended recipient).
 
 * `port` Integer
 * `address` String, Optional
-* `callback` Function, Optional
+* `callback` Function with no parameters, Optional. Callback when
+  binding is done.
 
-For UDP sockets, listen for datagrams on a named `port` and optional `address`.
-If `address` is not specified, the OS will try to listen on all addresses.
+For UDP sockets, listen for datagrams on a named `port` and optional
+`address`. If `address` is not specified, the OS will try to listen on
+all addresses.  After binding is done, a "listening" event is emitted
+and the `callback`(if specified) is called. Specifying both a
+"listening" event listener and `callback` is not harmful but not very
+useful.
 
-The `callback` argument, if provided, is added as a one-shot `'listening'`
-event listener.
+A bound datagram socket keeps the node process running to receive
+datagrams.
+
+If binding fails, an "error" event is generated. In rare case (e.g.
+binding a closed socket), an `Error` may be thrown by this method.
 
 Example of a UDP server listening on port 41234:
 
     var dgram = require("dgram");
 
     var server = dgram.createSocket("udp4");
+
+    server.on("error", function (err) {
+      console.log("server error:\n" + err.stack);
+      server.close();
+    });
 
     server.on("message", function (msg, rinfo) {
       console.log("server got: " + msg + " from " +

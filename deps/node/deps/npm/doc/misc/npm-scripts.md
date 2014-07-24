@@ -33,8 +33,8 @@ following scripts:
   Run by the `npm restart` command. Note: `npm restart` will run the
   stop and start scripts if no `restart` script is provided.
 
-Additionally, arbitrary scrips can be run by doing
-`npm run-script <stage> <pkg>`.
+Additionally, arbitrary scripts can be run by doing
+`npm run-script <pkg> <stage>`.
 
 ## NOTE: INSTALL SCRIPTS ARE AN ANTIPATTERN
 

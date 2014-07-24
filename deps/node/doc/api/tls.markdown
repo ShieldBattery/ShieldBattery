@@ -8,11 +8,11 @@ The `tls` module uses OpenSSL to provide Transport Layer Security and/or
 Secure Socket Layer: encrypted stream communication.
 
 TLS/SSL is a public/private key infrastructure. Each client and each
-server must have a private key. A private key is created like this
+server must have a private key. A private key is created like this:
 
     openssl genrsa -out ryans-key.pem 1024
 
-All severs and some clients need to have a certificate. Certificates are public
+All servers and some clients need to have a certificate. Certificates are public
 keys signed by a Certificate Authority or self-signed. The first step to
 getting a certificate is to create a "Certificate Signing Request" (CSR)
 file. This is done with:
@@ -104,9 +104,9 @@ automatically set as a listener for the [secureConnection][] event.  The
   - `cert`: A string or `Buffer` containing the certificate key of the server in
     PEM format. (Required)
 
-  - `ca`: An array of strings or `Buffer`s of trusted certificates. If this is
-    omitted several well known "root" CAs will be used, like VeriSign.
-    These are used to authorize connections.
+  - `ca`: An array of strings or `Buffer`s of trusted certificates in PEM
+    format. If this is omitted several well known "root" CAs will be used,
+    like VeriSign. These are used to authorize connections.
 
   - `crl` : Either a string or list of strings of PEM encoded CRLs (Certificate
     Revocation List)
@@ -252,7 +252,7 @@ Creates a new client connection to the given `port` and `host` (old API) or
     are ignored.
 
   - `pfx`: A string or `Buffer` containing the private key, certificate and
-    CA certs of the server in PFX or PKCS12 format.
+    CA certs of the client in PFX or PKCS12 format.
 
   - `key`: A string or `Buffer` containing the private key of the client in
     PEM format.
@@ -262,16 +262,16 @@ Creates a new client connection to the given `port` and `host` (old API) or
   - `cert`: A string or `Buffer` containing the certificate key of the client in
     PEM format.
 
-  - `ca`: An array of strings or `Buffer`s of trusted certificates. If this is
-    omitted several well known "root" CAs will be used, like VeriSign.
-    These are used to authorize connections.
+  - `ca`: An array of strings or `Buffer`s of trusted certificates in PEM
+    format. If this is omitted several well known "root" CAs will be used,
+    like VeriSign. These are used to authorize connections.
 
   - `rejectUnauthorized`: If `true`, the server certificate is verified against
     the list of supplied CAs. An `'error'` event is emitted if verification
     fails. Default: `true`.
 
-  - `NPNProtocols`: An array of string or `Buffer` containing supported NPN
-    protocols. `Buffer` should have following format: `0x05hello0x05world`,
+  - `NPNProtocols`: An array of strings or `Buffer`s containing supported NPN
+    protocols. `Buffer`s should have following format: `0x05hello0x05world`,
     where first byte is next protocol name's length. (Passing array should
     usually be much simpler: `['hello', 'world']`.)
 

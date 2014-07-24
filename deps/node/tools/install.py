@@ -118,13 +118,19 @@ def npm_files(action):
   else:
     assert(0) # unhandled action type
 
+def subdir_files(path, dest, action):
+  ret = {}
+  for dirpath, dirnames, filenames in os.walk(path):
+    files = [dirpath + '/' + f for f in filenames if f.endswith('.h')]
+    ret[dest + dirpath.replace(path, '')] = files
+  for subdir, files in ret.items():
+    action(files, subdir + '/')
+
 def files(action):
   action(['out/Release/node'], 'bin/node')
 
-  # install unconditionally, checking if the platform supports dtrace doesn't
-  # work when cross-compiling and besides, there's at least one linux flavor
-  # with dtrace support now (oracle's "unbreakable" linux)
-  action(['src/node.d'], 'lib/dtrace/')
+  if 'true' == variables.get('node_use_dtrace'):
+    action(['out/Release/node.d'], 'lib/dtrace/node.d')
 
   if 'freebsd' in sys.platform or 'openbsd' in sys.platform:
     action(['doc/node.1'], 'man/man1/')
@@ -132,6 +138,35 @@ def files(action):
     action(['doc/node.1'], 'share/man/man1/')
 
   if 'true' == variables.get('node_install_npm'): npm_files(action)
+
+  action([
+    'common.gypi',
+    'config.gypi',
+    'src/node.h',
+    'src/node_buffer.h',
+    'src/node_internals.h',
+    'src/node_object_wrap.h',
+    'src/node_version.h',
+  ], 'include/node/')
+
+  if 'false' == variables.get('node_shared_cares'):
+    subdir_files('deps/cares/include', 'include/node/', action)
+
+  if 'false' == variables.get('node_shared_libuv'):
+    subdir_files('deps/uv/include', 'include/node/', action)
+
+  if 'false' == variables.get('node_shared_openssl'):
+    action(['deps/openssl/config/opensslconf.h'], 'include/node/openssl/')
+    subdir_files('deps/openssl/include/openssl', 'include/node/openssl/', action)
+
+  if 'false' == variables.get('node_shared_v8'):
+    subdir_files('deps/v8/include', 'include/node/', action)
+
+  if 'false' == variables.get('node_shared_zlib'):
+    action([
+      'deps/zlib/zconf.h',
+      'deps/zlib/zlib.h',
+    ], 'include/node/')
 
 def run(args):
   global dst_dir, node_prefix, target_defaults, variables

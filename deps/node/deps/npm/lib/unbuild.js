@@ -2,7 +2,7 @@ module.exports = unbuild
 unbuild.usage = "npm unbuild <folder>\n(this is plumbing)"
 
 var readJson = require("read-package-json")
-  , rm = require("rimraf")
+  , rm = require("./utils/gently-rm.js")
   , gentlyRm = require("./utils/gently-rm.js")
   , npm = require("./npm.js")
   , path = require("path")
@@ -20,7 +20,10 @@ function unbuild (args, silent, cb) {
   asyncMap(args, unbuild_(silent), cb)
 }
 
-function unbuild_ (silent) { return function (folder, cb) {
+function unbuild_ (silent) { return function (folder, cb_) {
+  function cb (er) {
+    cb_(er, path.relative(npm.root, folder))
+  }
   folder = path.resolve(folder)
   delete build._didBuild[folder]
   log.info(folder, "unbuild")

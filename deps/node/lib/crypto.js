@@ -263,7 +263,12 @@ Cipher.prototype._transform = function(chunk, encoding, callback) {
 };
 
 Cipher.prototype._flush = function(callback) {
-  this.push(this._binding.final());
+  try {
+    this.push(this._binding.final());
+  } catch (e) {
+    callback(e);
+    return;
+  }
   callback();
 };
 
@@ -603,8 +608,13 @@ function filterDuplicates(names) {
   // for example, 'sha1' instead of 'SHA1'.
   var ctx = {};
   names.forEach(function(name) {
-    if (/^[0-9A-Z\-]+$/.test(name)) name = name.toLowerCase();
-    ctx[name] = true;
+    var key = name;
+    if (/^[0-9A-Z\-]+$/.test(key)) key = key.toLowerCase();
+    if (!ctx.hasOwnProperty(key) || ctx[key] < name)
+      ctx[key] = name;
   });
-  return Object.getOwnPropertyNames(ctx).sort();
+
+  return Object.getOwnPropertyNames(ctx).map(function(key) {
+    return ctx[key];
+  }).sort();
 }

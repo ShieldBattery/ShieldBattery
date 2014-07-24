@@ -1,7 +1,7 @@
 .\" Generated with Ronnjs 0.3.8
 .\" http://github.com/kapouer/ronnjs/
 .
-.TH "NPM\-INSTALL" "1" "July 2013" "" ""
+.TH "NPM\-INSTALL" "1" "June 2014" "" ""
 .
 .SH "NAME"
 \fBnpm-install\fR \-\- Install a package
@@ -13,10 +13,11 @@ npm install (with no args in a package dir)
 npm install <tarball file>
 npm install <tarball url>
 npm install <folder>
-npm install <name> [\-\-save|\-\-save\-dev|\-\-save\-optional]
+npm install <name> [\-\-save|\-\-save\-dev|\-\-save\-optional] [\-\-save\-exact]
 npm install <name>@<tag>
 npm install <name>@<version>
 npm install <name>@<version range>
+npm i (with any of the previous argument usage)
 .
 .fi
 .
@@ -38,7 +39,7 @@ b) a gzipped tarball containing (a)
 c) a url that resolves to (b)
 .
 .IP "\(bu" 4
-d) a \fB<name>@<version>\fR that is published on the registry with (c)
+d) a \fB<name>@<version>\fR that is published on the registry (npm help  see \fBnpm\-registry\fR) with (c)
 .
 .IP "\(bu" 4
 e) a \fB<name>@<tag>\fR that points to (d)
@@ -67,6 +68,11 @@ Install the dependencies in the local node_modules folder\.
 In global mode (ie, with \fB\-g\fR or \fB\-\-global\fR appended to the command),
 it installs the current package context (ie, the current working
 directory) as a global package\.
+.
+.IP
+By default, \fBnpm install\fR will install all modules listed as
+dependencies\. With the \fB\-\-production\fR flag,
+npm will not install modules listed in \fBdevDependencies\fR\|\.
 .
 .IP "\(bu" 4
 \fBnpm install <folder>\fR:
@@ -145,12 +151,22 @@ the package version in your main package\.json:
 \fB\-\-save\-optional\fR: Package will appear in your \fBoptionalDependencies\fR\|\.
 .
 .IP
+When using any of the above options to save dependencies to your
+package\.json, there is an additional, optional flag:
+.
+.IP "\(bu" 4
+\fB\-\-save\-exact\fR: Saved dependencies will be configured with an
+exact version rather than using npm\'s default semver range
+operator\.
+.
+.IP
 Examples:
 .
 .IP
   npm install sax \-\-save
   npm install node\-tap \-\-save\-dev
   npm install dtrace\-provider \-\-save\-optional
+  npm install readable\-stream \-\-save \-\-save\-exact
 .
 .IP
 \fBNote\fR: If there is a file or folder named \fB<name>\fR in the current
@@ -238,9 +254,9 @@ Examples:
 .IP "" 4
 .
 .nf
-  git+ssh://git@github\.com:isaacs/npm\.git#v1\.0\.27
-  git+https://isaacs@github\.com/isaacs/npm\.git
-  git://github\.com/isaacs/npm\.git#v1\.0\.27
+  git+ssh://git@github\.com:npm/npm\.git#v1\.0\.27
+  git+https://isaacs@github\.com/npm/npm\.git
+  git://github\.com/npm/npm\.git#v1\.0\.27
 .
 .fi
 .
@@ -263,7 +279,9 @@ npm install sax@">=0\.1\.0 <0\.2\.0" bench supervisor
 .IP "" 0
 .
 .P
-The \fB\-\-tag\fR argument will apply to all of the specified install targets\.
+The \fB\-\-tag\fR argument will apply to all of the specified install targets\. If a
+tag with the given name exists, the tagged version is preferred over newer
+versions\.
 .
 .P
 The \fB\-\-force\fR argument will force npm to fetch remote resources even if a
@@ -289,6 +307,10 @@ local space in some cases\.
 .P
 The \fB\-\-no\-bin\-links\fR argument will prevent npm from creating symlinks for
 any binaries the package might contain\.
+.
+.P
+The \fB\-\-no\-optional\fR argument will prevent optional dependencies from
+being installed\.
 .
 .P
 The \fB\-\-no\-shrinkwrap\fR argument, which will ignore an available
@@ -405,9 +427,6 @@ npm help  npmrc
 .
 .IP "\(bu" 4
 npm help  registry
-.
-.IP "\(bu" 4
-npm help  folders
 .
 .IP "\(bu" 4
 npm help tag

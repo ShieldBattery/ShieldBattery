@@ -7,10 +7,11 @@ npm-install(1) -- Install a package
     npm install <tarball file>
     npm install <tarball url>
     npm install <folder>
-    npm install <name> [--save|--save-dev|--save-optional]
+    npm install <name> [--save|--save-dev|--save-optional] [--save-exact]
     npm install <name>@<tag>
     npm install <name>@<version>
     npm install <name>@<version range>
+    npm i (with any of the previous argument usage)
 
 ## DESCRIPTION
 
@@ -23,7 +24,7 @@ A `package` is:
 * a) a folder containing a program described by a package.json file
 * b) a gzipped tarball containing (a)
 * c) a url that resolves to (b)
-* d) a `<name>@<version>` that is published on the registry with (c)
+* d) a `<name>@<version>` that is published on the registry (see `npm-registry(7)`) with (c)
 * e) a `<name>@<tag>` that points to (d)
 * f) a `<name>` that has a "latest" tag satisfying (e)
 * g) a `<git remote url>` that resolves to (b)
@@ -42,6 +43,9 @@ after packing it up into a tarball (b).
     it installs the current package context (ie, the current working
     directory) as a global package.
 
+    By default, `npm install` will install all modules listed as
+    dependencies. With the `--production` flag,
+    npm will not install modules listed in `devDependencies`.
 
 * `npm install <folder>`:
 
@@ -87,11 +91,19 @@ after packing it up into a tarball (b).
 
     * `--save-optional`: Package will appear in your `optionalDependencies`.
 
+    When using any of the above options to save dependencies to your
+    package.json, there is an additional, optional flag:
+
+    * `--save-exact`: Saved dependencies will be configured with an
+      exact version rather than using npm's default semver range
+      operator.
+
     Examples:
 
           npm install sax --save
           npm install node-tap --save-dev
           npm install dtrace-provider --save-optional
+          npm install readable-stream --save --save-exact
 
 
     **Note**: If there is a file or folder named `<name>` in the current
@@ -142,16 +154,18 @@ after packing it up into a tarball (b).
 
     Examples:
 
-          git+ssh://git@github.com:isaacs/npm.git#v1.0.27
-          git+https://isaacs@github.com/isaacs/npm.git
-          git://github.com/isaacs/npm.git#v1.0.27
+          git+ssh://git@github.com:npm/npm.git#v1.0.27
+          git+https://isaacs@github.com/npm/npm.git
+          git://github.com/npm/npm.git#v1.0.27
 
 You may combine multiple arguments, and even multiple types of arguments.
 For example:
 
     npm install sax@">=0.1.0 <0.2.0" bench supervisor
 
-The `--tag` argument will apply to all of the specified install targets.
+The `--tag` argument will apply to all of the specified install targets. If a
+tag with the given name exists, the tagged version is preferred over newer
+versions.
 
 The `--force` argument will force npm to fetch remote resources even if a
 local copy exists on disk.
@@ -166,6 +180,9 @@ local space in some cases.
 
 The `--no-bin-links` argument will prevent npm from creating symlinks for
 any binaries the package might contain.
+
+The `--no-optional` argument will prevent optional dependencies from
+being installed.
 
 The `--no-shrinkwrap` argument, which will ignore an available
 shrinkwrap file and use the package.json instead.
@@ -237,7 +254,6 @@ affects a real use-case, it will be investigated.
 * npm-config(7)
 * npmrc(5)
 * npm-registry(7)
-* npm-folders(5)
 * npm-tag(1)
 * npm-rm(1)
 * npm-shrinkwrap(1)

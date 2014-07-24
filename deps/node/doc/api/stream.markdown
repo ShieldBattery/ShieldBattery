@@ -160,7 +160,7 @@ readable.on('data', function(chunk) {
 
 #### Event: 'end'
 
-This event fires when no more data will be provided.
+This event fires when there will be no more data to read.
 
 Note that the `end` event **will not fire** unless the data is
 completely consumed.  This can be done by switching into flowing mode,
@@ -537,7 +537,7 @@ for (var i = 0; i < 100; i ++) {
   writer.write('hello, #' + i + '!\n');
 }
 writer.end('this is the end\n');
-write.on('finish', function() {
+writer.on('finish', function() {
   console.error('all writes are now complete.');
 });
 ```
@@ -576,6 +576,10 @@ writer.on('unpipe', function(src) {
 reader.pipe(writer);
 reader.unpipe(writer);
 ```
+
+#### Event: 'error'
+
+Emitted if there was an error when writing or piping data.
 
 ### Class: stream.Duplex
 
@@ -747,7 +751,7 @@ util.inherits(SimpleProtocol, Readable);
 
 function SimpleProtocol(source, options) {
   if (!(this instanceof SimpleProtocol))
-    return new SimpleProtocol(options);
+    return new SimpleProtocol(source, options);
 
   Readable.call(this, options);
   this._inBody = false;
@@ -843,7 +847,7 @@ SimpleProtocol.prototype._read = function(n) {
     strings using the specified encoding.  Default=null
   * `objectMode` {Boolean} Whether this stream should behave
     as a stream of objects. Meaning that stream.read(n) returns
-    a single value instead of a Buffer of size n
+    a single value instead of a Buffer of size n.  Default=false
 
 In classes that extend the Readable class, make sure to call the
 Readable constructor so that the buffering settings can be properly
@@ -957,6 +961,9 @@ how to implement Writable streams in your programs.
     returning false. Default=16kb
   * `decodeStrings` {Boolean} Whether or not to decode strings into
     Buffers before passing them to [`_write()`][].  Default=true
+  * `objectMode` {Boolean} Whether or not the `write(anyObj)` is
+    a valid operation. If set you can write arbitrary data instead
+    of only `Buffer` / `String` data.  Default=false
 
 In classes that extend the Writable class, make sure to call the
 constructor so that the buffering settings can be properly
@@ -1037,8 +1044,8 @@ connected in some way to the input, such as a [zlib][] stream or a
 There is no requirement that the output be the same size as the input,
 the same number of chunks, or arrive at the same time.  For example, a
 Hash stream will only ever have a single chunk of output which is
-provided when the input is ended.  A zlib stream will either produce
-much smaller or much larger than its input.
+provided when the input is ended.  A zlib stream will produce output
+that is either much smaller or much larger than its input.
 
 Rather than implement the [`_read()`][] and [`_write()`][] methods, Transform
 classes must implement the `_transform()` method, and may optionally
@@ -1114,6 +1121,14 @@ the class that defines it, and should not be called directly by user
 programs.  However, you **are** expected to override this method in
 your own extension classes.
 
+#### Events: 'finish' and 'end'
+
+The [`finish`][] and [`end`][] events are from the parent Writable
+and Readable classes respectively. The `finish` event is fired after
+`.end()` is called and all chunks have been processed by `_transform`,
+`end` is fired after all data has been output which is after the callback
+in `_flush` has been called.
+
 #### Example: `SimpleProtocol` parser v2
 
 The example above of a simple protocol parser can be implemented
@@ -1126,7 +1141,7 @@ approach.
 
 ```javascript
 var util = require('util');
-var Transform = require('stream').Transform);
+var Transform = require('stream').Transform;
 util.inherits(SimpleProtocol, Transform);
 
 function SimpleProtocol(options) {
@@ -1457,10 +1472,12 @@ modify them.
 [Writable]: #stream_class_stream_writable
 [Duplex]: #stream_class_stream_duplex
 [Transform]: #stream_class_stream_transform
+[`end`]: #stream_event_end
+[`finish`]: #stream_event_finish
 [`_read(size)`]: #stream_readable_read_size_1
 [`_read()`]: #stream_readable_read_size_1
 [_read]: #stream_readable_read_size_1
-[`writable.write(chunk)`]
+[`writable.write(chunk)`]: #stream_writable_write_chunk_encoding_callback
 [`write(chunk, encoding, callback)`]: #stream_writable_write_chunk_encoding_callback
 [`write()`]: #stream_writable_write_chunk_encoding_callback
 [`stream.write(chunk)`]: #stream_writable_write_chunk_encoding_callback

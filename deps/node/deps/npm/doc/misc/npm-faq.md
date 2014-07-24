@@ -3,7 +3,7 @@ npm-faq(7) -- Frequently Asked Questions
 
 ## Where can I find these docs in HTML?
 
-<https://npmjs.org/doc/>, or run:
+<https://www.npmjs.org/doc/>, or run:
 
     npm config set viewer browser
 
@@ -68,7 +68,8 @@ program that uses it.
 
 ## Whatever, I really want the old style 'everything global' style.
 
-Write your own package manager, then.  It's not that hard.
+Write your own package manager.  You could probably even wrap up `npm`
+in a shell script if you really wanted to.
 
 npm will not help you do something that is known to be a bad idea.
 
@@ -76,7 +77,7 @@ npm will not help you do something that is known to be a bad idea.
 
 Mikeal Rogers answered this question very well:
 
-<http://www.mikealrogers.com/posts/nodemodules-in-git.html>
+<http://www.futurealoof.com/posts/nodemodules-in-git.html>
 
 tl;dr
 
@@ -144,7 +145,7 @@ command.)
 
 In those cases, you can do this:
 
-    curl https://npmjs.org/install.sh | sh
+    curl https://www.npmjs.org/install.sh | sh
 
 ## What is a `package`?
 
@@ -257,7 +258,7 @@ change it again?  npm doesn't currently track any state about past
 configuration settings, so this would be rather difficult to do
 properly.  It would have to track every previous value for this
 config, and always accept any of them, or else yesterday's install may
-be broken tomorrow.  Complexity hurdle #5.
+be broken tomorrow.  Complexity hurdle #4.
 
 Never going to happen.  The folder is named `node_modules`.  It is
 written indelibly in the Node Way, handed down from the ancient times
@@ -277,6 +278,7 @@ Windows:
 
 * <http://github.com/marcelklehr/nodist>
 * <https://github.com/hakobera/nvmw>
+* <https://github.com/nanjingboy/nvmw>
 
 ## How can I use npm for development?
 
@@ -309,17 +311,21 @@ Go to <https://npmjs.org/forgot>.
 
 Either the registry is down, or node's DNS isn't able to reach out.
 
-To check if the registry is down, open up <http://registry.npmjs.org/>
-in a web browser.  This will also tell you if you are just unable to
-access the internet for some reason.
+To check if the registry is down, open up
+<https://registry.npmjs.org/> in a web browser.  This will also tell
+you if you are just unable to access the internet for some reason.
 
-If the registry IS down, let me know by emailing <i@izs.me> or posting
-an issue at <https://github.com/isaacs/npm/issues>.  We'll have
-someone kick it or something.
+If the registry IS down, let us know by emailing <support@npmjs.com>
+or posting an issue at <https://github.com/npm/npm/issues>.  If it's
+down for the world (and not just on your local network) then we're
+probably already being pinged about it.
+
+You can also often get a faster response by visiting the #npm channel
+on Freenode IRC.
 
 ## Why no namespaces?
 
-Please see this discussion: <https://github.com/isaacs/npm/issues/798>
+Please see this discussion: <https://github.com/npm/npm/issues/798>
 
 tl;dr - It doesn't actually make things better, and can make them worse.
 
@@ -329,15 +335,18 @@ There is not sufficient need to impose namespace rules on everyone.
 
 ## Who does npm?
 
-`npm view npm author`
+npm was originally written by Isaac Z. Schlueter, and many others have
+contributed to it, some of them quite substantially.
 
-`npm view npm contributors`
+The npm open source project, The npm Registry, and [the community
+website](https://www.npmjs.org) are maintained and operated by the
+good folks at [npm, Inc.](http://www.npmjs.com)
 
 ## I have a question or request not addressed here. Where should I put it?
 
 Post an issue on the github project:
 
-* <https://github.com/isaacs/npm/issues>
+* <https://github.com/npm/npm/issues>
 
 ## Why does npm hate me?
 

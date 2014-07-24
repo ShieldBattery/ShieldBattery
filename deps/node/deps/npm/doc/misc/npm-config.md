@@ -24,8 +24,9 @@ same.
 
 ### npmrc Files
 
-The three relevant files are:
+The four relevant files are:
 
+* per-project config file (/path/to/my/project/.npmrc)
 * per-user config file (~/.npmrc)
 * global config file ($PREFIX/npmrc)
 * npm builtin config file (/path/to/npm/npmrc)
@@ -60,6 +61,7 @@ The following shorthands are parsed on the command-line:
 * `-D`: `--save-dev`
 * `-O`: `--save-optional`
 * `-B`: `--save-bundle`
+* `-E`: `--save-exact`
 * `-y`: `--yes`
 * `-n`: `--yes false`
 * `ll` and `la` commands: `ls --long`
@@ -146,7 +148,7 @@ See also the `strict-ssl` config.
 
 ### cache
 
-* Default: Windows: `%APPDATA%\npm-cache`, Posix: `~/.npm`
+* Default: Windows: `%AppData%\npm-cache`, Posix: `~/.npm`
 * Type: path
 
 The location of npm's cache directory.  See `npm-cache(1)`
@@ -194,6 +196,13 @@ re-checking against the registry.
 Note that no purging is done unless the `npm cache clean` command is
 explicitly used, and that only GET requests use the cache.
 
+### cert
+
+* Default: `null`
+* Type: String
+
+A client certificate to pass when accessing the registry.
+
 ### color
 
 * Default: true on Posix, false on Windows
@@ -201,14 +210,6 @@ explicitly used, and that only GET requests use the cache.
 
 If false, never shows colors.  If `"always"` then always shows colors.
 If true, then only prints color codes for tty file descriptors.
-
-### coverage
-
-* Default: false
-* Type: Boolean
-
-A flag to tell test-harness to run with their coverage options enabled,
-if they respond to the `npm_config_coverage` environment variable.
 
 ### depth
 
@@ -242,6 +243,12 @@ set.
 * Type: path
 
 The command to run for `npm edit` or `npm config edit`.
+
+### email
+
+The email of the logged-in user.
+
+Set by the `npm adduser` command.  Should not be set explicitly.
 
 ### engine-strict
 
@@ -305,6 +312,13 @@ The command to use for git commands.  If git is installed on the
 computer, but is not in the `PATH`, then set this to the full path to
 the git binary.
 
+### git-tag-version
+
+* Default: `true`
+* Type: Boolean
+
+Tag the commit when using the `npm version` command.
+
 ### global
 
 * Default: false
@@ -326,17 +340,6 @@ Operates in "global" mode, so that packages are installed into the
 
 The config file to read for global config options.
 
-### globalignorefile
-
-* Default: {prefix}/etc/npmignore
-* Type: path
-
-The config file to read for global ignore patterns to apply to all users
-and all projects.
-
-If not found, but there is a "gitignore" file in the
-same directory, then that will be used instead.
-
 ### group
 
 * Default: GID of the current process
@@ -344,6 +347,13 @@ same directory, then that will be used instead.
 
 The group to use when running package scripts in global mode as the root
 user.
+
+### heading
+
+* Default: `"npm"`
+* Type: String
+
+The string that starts all the debugging log output.
 
 ### https-proxy
 
@@ -353,20 +363,12 @@ user.
 
 A proxy to use for outgoing https requests.
 
-### user-agent
+### ignore-scripts
 
-* Default: node/{process.version} {process.platform} {process.arch}
-* Type: String
+* Default: false
+* Type: Boolean
 
-Sets a User-Agent to the request header
-
-### ignore
-
-* Default: ""
-* Type: string
-
-A white-space separated list of glob patterns of files to always exclude
-from packages when building tarballs.
+If true, npm does not run scripts specified in package.json files.
 
 ### init-module
 
@@ -377,13 +379,6 @@ A module that will be loaded by the `npm init` command.  See the
 documentation for the
 [init-package-json](https://github.com/isaacs/init-package-json) module
 for more information, or npm-init(1).
-
-### init.version
-
-* Default: "0.0.0"
-* Type: semver
-
-The value `npm init` should use by default for the package version.
 
 ### init.author.name
 
@@ -406,6 +401,13 @@ The value `npm init` should use by default for the package author's email.
 
 The value `npm init` should use by default for the package author's homepage.
 
+### init.license
+
+* Default: "ISC"
+* Type: String
+
+The value `npm init` should use by default for the package license.
+
 ### json
 
 * Default: false
@@ -416,6 +418,13 @@ Whether or not to output JSON data, rather than the normal output.
 This feature is currently experimental, and the output data structures
 for many commands is either not implemented in JSON yet, or subject to
 change.  Only the output from `npm ls --json` is currently valid.
+
+### key
+
+* Default: `null`
+* Type: String
+
+A client key to pass when accessing the registry.
 
 ### link
 
@@ -432,6 +441,14 @@ if one of the two conditions are met:
 * The package is not already installed globally, or
 * the globally installed version is identical to the version that is
   being installed locally.
+
+### local-address
+
+* Default: undefined
+* Type: IP Address
+
+The IP address of the local interface to use when making connections
+to the npm registry.  Must be IPv4 in versions of Node prior to 0.12.
 
 ### loglevel
 
@@ -451,7 +468,7 @@ The default is "http", which shows http, warn, and error output.
 * Type: Stream
 
 This is the stream that is passed to the
-[npmlog](https://github.com/isaacs/npmlog) module at run time.
+[npmlog](https://github.com/npm/npmlog) module at run time.
 
 It cannot be set from the command line, but if you are using npm
 programmatically, you may wish to send logs to somewhere other than
@@ -465,7 +482,7 @@ colored output if it is a TTY.
 * Default: false
 * Type: Boolean
 
-Show extended information in `npm ls`
+Show extended information in `npm ls` and `npm search`.
 
 ### message
 
@@ -488,15 +505,7 @@ The node version to use when checking package's "engines" hash.
 * Default: false
 * Type: Boolean
 
-Run tests on installation and report results to the
-`npaturl`.
-
-### npaturl
-
-* Default: Not yet implemented
-* Type: url
-
-The url to report npat test results.
+Run tests on installation.
 
 ### onload-script
 
@@ -613,22 +622,45 @@ bundledDependencies list.
 
 Save installed packages to a package.json file as devDependencies.
 
-When used with the `npm rm` command, it removes it from the devDependencies
-hash.
+When used with the `npm rm` command, it removes it from the
+devDependencies hash.
 
 Only works if there is already a package.json file present.
+
+### save-exact
+
+* Default: false
+* Type: Boolean
+
+Dependencies saved to package.json using `--save`, `--save-dev` or
+`--save-optional` will be configured with an exact version rather than
+using npm's default semver range operator.
 
 ### save-optional
 
 * Default: false
 * Type: Boolean
 
-Save installed packages to a package.json file as optionalDependencies.
+Save installed packages to a package.json file as
+optionalDependencies.
 
-When used with the `npm rm` command, it removes it from the devDependencies
-hash.
+When used with the `npm rm` command, it removes it from the
+devDependencies hash.
 
 Only works if there is already a package.json file present.
+
+### save-prefix
+
+* Default: '^'
+* Type: String
+
+Configure how versions of packages installed to a package.json file via 
+`--save` or `--save-dev` get prefixed.
+
+For example if a package has version `1.2.3`, by default it's version is
+set to `^1.2.3` which allows minor upgrades for that package, but after  
+`npm config set save-prefix='~'` it would be set to `~1.2.3` which only allows
+patch upgrades.
 
 ### searchopts
 
@@ -680,6 +712,17 @@ using `-s` to add a signature.
 
 Note that git requires you to have set up GPG keys in your git configs
 for this to work properly.
+
+### spin
+
+* Default: true
+* Type: Boolean or `"always"`
+
+When set to `true`, npm will display an ascii spinner while it is doing
+things, if `process.stderr` is a TTY.
+
+Set to `false` to suppress the spinner, or set to `always` to output
+the spinner even for non-TTY outputs.
 
 ### strict-ssl
 
@@ -756,16 +799,6 @@ The username on the npm registry.  Set with `npm adduser`
 
 The location of user-level configuration settings.
 
-### userignorefile
-
-* Default: ~/.npmignore
-* Type: path
-
-The location of a user-level ignore file to apply to all packages.
-
-If not found, but there is a .gitignore file in the same directory, then
-that will be used instead.
-
 ### umask
 
 * Default: 022
@@ -777,6 +810,13 @@ and folders.
 Folders and executables are given a mode which is `0777` masked against
 this value.  Other files are given a mode which is `0666` masked against
 this value.  Thus, the defaults are `0755` and `0644` respectively.
+
+### user-agent
+
+* Default: node/{process.version} {process.platform} {process.arch}
+* Type: String
+
+Sets a User-Agent to the request header
 
 ### version
 
@@ -805,17 +845,6 @@ Only relevant when specified explicitly on the command line.
 The program to use to view help content.
 
 Set to `"browser"` to view html help content in the default web browser.
-
-### yes
-
-* Default: null
-* Type: Boolean or null
-
-If set to `null`, then prompt the user for responses in some
-circumstances.
-
-If set to `true`, then answer "yes" to any prompt.  If set to `false`
-then answer "no" to any prompt.
 
 ## SEE ALSO
 

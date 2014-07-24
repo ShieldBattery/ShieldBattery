@@ -190,7 +190,10 @@ Socket.prototype.bind = function(/*port, address, callback*/) {
       cluster = require('cluster');
 
     if (cluster.isWorker) {
-      cluster._getServer(self, ip, port, self.type, -1, function(handle) {
+      cluster._getServer(self, ip, port, self.type, -1, function(handle, err) {
+        if (err)
+          return self.emit('error', errnoException(err, 'bind'));
+
         if (!self._handle)
           // handle has been closed in the mean time.
           return handle.close();
@@ -244,11 +247,25 @@ Socket.prototype.send = function(buffer,
   if (!Buffer.isBuffer(buffer))
     throw new TypeError('First argument must be a buffer object.');
 
+  offset = offset | 0;
+  if (offset < 0)
+    throw new RangeError('Offset should be >= 0');
+
   if (offset >= buffer.length)
-    throw new Error('Offset into buffer too large');
+    throw new RangeError('Offset into buffer too large');
+
+  // Sending a zero-length datagram is kind of pointless but it _is_
+  // allowed, hence check that length >= 0 rather than > 0.
+  length = length | 0;
+  if (length < 0)
+    throw new RangeError('Length should be >= 0');
 
   if (offset + length > buffer.length)
-    throw new Error('Offset + length beyond buffer length');
+    throw new RangeError('Offset + length beyond buffer length');
+
+  port = port | 0;
+  if (port <= 0 || port > 65535)
+    throw new RangeError('Port should be > 0 and < 65536');
 
   callback = callback || noop;
 

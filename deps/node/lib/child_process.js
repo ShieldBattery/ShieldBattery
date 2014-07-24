@@ -111,6 +111,9 @@ var handleConversion = {
 
   'net.Socket': {
     send: function(message, socket) {
+      if (!socket._handle)
+        return;
+
       // if the socket was created by net.Server
       if (socket.server) {
         // the slave should keep track of the socket
@@ -139,7 +142,8 @@ var handleConversion = {
 
     postSend: function(handle) {
       // Close the Socket handle after sending it
-      handle.close();
+      if (handle)
+        handle.close();
     },
 
     got: function(message, handle, emit) {
@@ -438,11 +442,17 @@ function setupChannel(target, channel) {
       // convert TCP object to native handle object
       handle = handleConversion[message.type].send.apply(target, arguments);
 
+      // If handle was sent twice, or it is impossible to get native handle
+      // out of it - just send a text without the handle.
+      if (!handle)
+        message = message.msg;
+
       // Update simultaneous accepts on Windows
       if (obj.simultaneousAccepts) {
         net._setSimultaneousAccepts(handle);
       }
-    } else if (this._handleQueue) {
+    } else if (this._handleQueue &&
+               !(message && message.cmd === 'NODE_HANDLE_ACK')) {
       // Queue request anyway to avoid out-of-order messages.
       this._handleQueue.push({ message: message, handle: null });
       return;
@@ -695,11 +705,21 @@ exports.execFile = function(file /* args, options, callback */) {
 };
 
 
-var spawn = exports.spawn = function(file, args, options) {
-  args = args ? args.slice(0) : [];
+var spawn = exports.spawn = function(file /*, args, options*/) {
+  var args, options;
+  if (Array.isArray(arguments[1])) {
+    args = arguments[1].slice(0);
+    options = arguments[2];
+  } else if (arguments[1] && !Array.isArray(arguments[1])) {
+    throw new TypeError('Incorrect value of args option');
+  } else {
+    args = [];
+    options = arguments[1];
+  }
+
   args.unshift(file);
 
-  var env = (options ? options.env : null) || process.env;
+  var env = (options && options.env ? options.env : null) || process.env;
   var envPairs = [];
   for (var key in env) {
     envPairs.push(key + '=' + env[key]);

@@ -673,6 +673,7 @@ int ssl3_accept(SSL *s)
 		case SSL3_ST_SR_CERT_VRFY_A:
 		case SSL3_ST_SR_CERT_VRFY_B:
 
+			s->s3->flags |= SSL3_FLAGS_CCS_OK;
 			/* we should decide if we expected this one */
 			ret=ssl3_get_cert_verify(s);
 			if (ret <= 0) goto end;
@@ -700,6 +701,7 @@ int ssl3_accept(SSL *s)
 
 		case SSL3_ST_SR_FINISHED_A:
 		case SSL3_ST_SR_FINISHED_B:
+			s->s3->flags |= SSL3_FLAGS_CCS_OK;
 			ret=ssl3_get_finished(s,SSL3_ST_SR_FINISHED_A,
 				SSL3_ST_SR_FINISHED_B);
 			if (ret <= 0) goto end;
@@ -770,7 +772,10 @@ int ssl3_accept(SSL *s)
 				s->s3->tmp.next_state=SSL3_ST_SR_FINISHED_A;
 #else
 				if (s->s3->next_proto_neg_seen)
+					{
+					s->s3->flags |= SSL3_FLAGS_CCS_OK;
 					s->s3->tmp.next_state=SSL3_ST_SR_NEXT_PROTO_A;
+					}
 				else
 					s->s3->tmp.next_state=SSL3_ST_SR_FINISHED_A;
 #endif
@@ -958,7 +963,8 @@ int ssl3_get_client_hello(SSL *s)
 	    (s->version != DTLS1_VERSION && s->client_version < s->version))
 		{
 		SSLerr(SSL_F_SSL3_GET_CLIENT_HELLO, SSL_R_WRONG_VERSION_NUMBER);
-		if ((s->client_version>>8) == SSL3_VERSION_MAJOR)
+		if ((s->client_version>>8) == SSL3_VERSION_MAJOR && 
+			!s->enc_write_ctx && !s->write_hash)
 			{
 			/* similar to ssl3_get_record, send alert using remote version number */
 			s->version = s->client_version;
@@ -1193,12 +1199,9 @@ int ssl3_get_client_hello(SSL *s)
 	 * server_random before calling tls_session_secret_cb in order to allow
 	 * SessionTicket processing to use it in key derivation. */
 	{
-		unsigned long Time;
 		unsigned char *pos;
-		Time=(unsigned long)time(NULL);			/* Time */
 		pos=s->s3->server_random;
-		l2n(Time,pos);
-		if (RAND_pseudo_bytes(pos,SSL3_RANDOM_SIZE-4) <= 0)
+		if (ssl_fill_hello_random(s, 1, pos, SSL3_RANDOM_SIZE) <= 0)
 			{
 			al=SSL_AD_INTERNAL_ERROR;
 			goto f_err;
@@ -1435,19 +1438,13 @@ int ssl3_send_server_hello(SSL *s)
 	unsigned char *p,*d;
 	int i,sl;
 	unsigned long l;
-#ifdef OPENSSL_NO_TLSEXT
-	unsigned long Time;
-#endif
 
 	if (s->state == SSL3_ST_SW_SRVR_HELLO_A)
 		{
 		buf=(unsigned char *)s->init_buf->data;
 #ifdef OPENSSL_NO_TLSEXT
 		p=s->s3->server_random;
-		/* Generate server_random if it was not needed previously */
-		Time=(unsigned long)time(NULL);			/* Time */
-		l2n(Time,p);
-		if (RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-4) <= 0)
+		if (ssl_fill_hello_random(s, 1, p, SSL3_RANDOM_SIZE) <= 0)
 			return -1;
 #endif
 		/* Do the message type and length last */
@@ -1838,7 +1835,7 @@ int ssl3_send_server_key_exchange(SSL *s)
 			SSLerr(SSL_F_SSL3_SEND_SERVER_KEY_EXCHANGE,SSL_R_UNKNOWN_KEY_EXCHANGE_TYPE);
 			goto f_err;
 			}
-		for (i=0; r[i] != NULL && i<4; i++)
+		for (i=0; i < 4 && r[i] != NULL; i++)
 			{
 			nr[i]=BN_num_bytes(r[i]);
 #ifndef OPENSSL_NO_SRP
@@ -1874,7 +1871,7 @@ int ssl3_send_server_key_exchange(SSL *s)
 		d=(unsigned char *)s->init_buf->data;
 		p= &(d[4]);
 
-		for (i=0; r[i] != NULL && i<4; i++)
+		for (i=0; i < 4 && r[i] != NULL; i++)
 			{
 #ifndef OPENSSL_NO_SRP
 			if ((i == 2) && (type & SSL_kSRP))
@@ -2105,6 +2102,11 @@ int ssl3_send_certificate_request(SSL *s)
 		s->init_num=n+4;
 		s->init_off=0;
 #ifdef NETSCAPE_HANG_BUG
+		if (!BUF_MEM_grow_clean(buf, s->init_num + 4))
+			{
+			SSLerr(SSL_F_SSL3_SEND_CERTIFICATE_REQUEST,ERR_R_BUF_LIB);
+			goto err;
+			}
 		p=(unsigned char *)s->init_buf->data + s->init_num;
 
 		/* do the header */
@@ -2821,6 +2823,8 @@ int ssl3_get_client_key_exchange(SSL *s)
 			unsigned char premaster_secret[32], *start;
 			size_t outlen=32, inlen;
 			unsigned long alg_a;
+			int Ttag, Tclass;
+			long Tlen;
 
 			/* Get our certificate private key*/
 			alg_a = s->s3->tmp.new_cipher->algorithm_auth;
@@ -2842,26 +2846,15 @@ int ssl3_get_client_key_exchange(SSL *s)
 					ERR_clear_error();
 				}
 			/* Decrypt session key */
-			if ((*p!=( V_ASN1_SEQUENCE| V_ASN1_CONSTRUCTED))) 
+			if (ASN1_get_object((const unsigned char **)&p, &Tlen, &Ttag, &Tclass, n) != V_ASN1_CONSTRUCTED || 
+				Ttag != V_ASN1_SEQUENCE ||
+			 	Tclass != V_ASN1_UNIVERSAL) 
 				{
 				SSLerr(SSL_F_SSL3_GET_CLIENT_KEY_EXCHANGE,SSL_R_DECRYPTION_FAILED);
 				goto gerr;
 				}
-			if (p[1] == 0x81)
-				{
-				start = p+3;
-				inlen = p[2];
-				}
-			else if (p[1] < 0x80)
-				{
-				start = p+2;
-				inlen = p[1];
-				}
-			else
-				{
-				SSLerr(SSL_F_SSL3_GET_CLIENT_KEY_EXCHANGE,SSL_R_DECRYPTION_FAILED);
-				goto gerr;
-				}
+			start = p;
+			inlen = Tlen;
 			if (EVP_PKEY_decrypt(pkey_ctx,premaster_secret,&outlen,start,inlen) <=0) 
 
 				{

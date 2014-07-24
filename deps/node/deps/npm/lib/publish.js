@@ -49,7 +49,7 @@ function publish (args, isRetry, cb) {
 // That means that we can run publish/postpublish in the dir, rather than
 // in the cache dir.
 function cacheAddPublish (dir, didPre, isRetry, cb) {
-  npm.commands.cache.add(dir, function (er, data) {
+  npm.commands.cache.add(dir, null, false, function (er, data) {
     if (er) return cb(er)
     log.silly("publish", data)
     var cachedir = path.resolve( npm.cache
@@ -72,6 +72,7 @@ function publish_ (arg, data, isRetry, cachedir, cb) {
   var registry = npm.registry
   if (data.publishConfig) {
     var pubConf = new Conf(npm.config)
+    pubConf.save = npm.config.save.bind(npm.config)
 
     // don't modify the actual publishConfig object, in case we have
     // to set a login token or some other data.
