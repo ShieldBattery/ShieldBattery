@@ -6,8 +6,8 @@
   "dependencies": {
     "forge-shieldbattery": "~0.0.1",
     "mkdirp": "^0.5.0",
-    "nydus": "^0.1.6",
-    "nydus-client": "^0.1.2",
+    "nydus": "^0.2.0",
+    "nydus-client": "^0.2.0",
     "shieldbattery-bw": "^0.0.1",
     "shieldbattery-psi": "^0.0.1"
   },
