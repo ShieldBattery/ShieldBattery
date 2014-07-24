@@ -65,6 +65,12 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
       var user = self.userSockets.get(player.name)
       user.removeListener('disconnect', onDisconnect)
         .removeListener('subscribe', publishLobby)
+
+      // ensure they receive the part message, then revoke all subscriptions so they can't spy on
+      // lobbies they're not in
+      process.nextTick(function() {
+        user.revoke(lobby._topic)
+      })
     }
     self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
   }).on('newHost', function onNewHost(hostId, hostName) {

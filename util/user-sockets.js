@@ -102,3 +102,7 @@ UserSocketSet.prototype.publishTo = function(socket, type, data) {
   socket.publish(this._publishPath, { type: type, data: data })
   return this
 }
+
+UserSocketSet.prototype.revoke = function(topicPath) {
+  this.manager.nydus.revoke(this.sockets, topicPath)
+}
