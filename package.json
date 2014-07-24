@@ -28,7 +28,7 @@
     "bcrypt": "^0.7.6",
     "body-parser": "^1.4.3",
     "browserify-middleware": "^3.0.0",
-    "browserify-ngmin": "^0.1.0",
+    "browserify-ngannotate": "0.0.8",
     "bunyan": "^0.23.1",
     "canonical-host": "^0.0.4",
     "connect-redis": "~2.0.0",

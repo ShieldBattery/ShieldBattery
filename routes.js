@@ -11,7 +11,7 @@ function send404(req, res) {
 
 function applyRoutes(app) {
   // client script (browserified)
-  browserify.settings({ transform: [ 'browserify-ngmin' ] })
+  browserify.settings({ transform: [ 'browserify-ngannotate' ] })
   app.get('/scripts/client.js', browserify(require.resolve('./client/index.js')))
 
   // api methods (through HTTP, which should be few, since most stuff is done through websockets)
