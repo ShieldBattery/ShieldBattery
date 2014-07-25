@@ -1,3 +1,7 @@
+var angular = require('angular')
+require('angular-animate')
+require('angular-route')
+
 var app = angular.module('shieldbattery',
     [ 'ngAnimate'
     , 'ngRoute'

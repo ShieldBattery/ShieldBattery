@@ -1,6 +1,7 @@
 var SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
   , timeback = require('../shared/timeback')
+  , angular = require('angular')
 
 module.exports = 'shieldbattery.lobby'
 

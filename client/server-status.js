@@ -1,5 +1,7 @@
 module.exports = 'shieldbattery.serverStatus'
 
+var angular = require('angular')
+
 var mod = angular.module('shieldbattery.serverStatus', [ require('./sockets') ])
 
 mod.factory('serverStatus', function(siteSocket, $rootScope) {

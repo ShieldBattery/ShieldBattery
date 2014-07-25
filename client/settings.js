@@ -1,5 +1,8 @@
 module.exports = 'shieldbattery.settings'
 
+var angular = require('angular')
+require('rzslider')
+
 var mod = angular.module('shieldbattery.settings', [ require('./sockets'), 'rzModule' ])
 
 mod.config(function($routeProvider) {

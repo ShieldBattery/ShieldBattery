@@ -1,4 +1,6 @@
 module.exports = 'shieldbattery.status'
+var angular = require('angular')
+
 var mod = angular.module('shieldbattery.status', [ require('./auth'), require('./lobby') ])
 
 mod.controller('StatusCtrl', function($scope, $location, authService, siteSocket, psiSocket,

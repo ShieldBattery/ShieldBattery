@@ -1,5 +1,8 @@
 var modName = 'shieldbattery.initializer'
 module.exports = modName
+
+var angular = require('angular')
+
 var mod = angular.module(modName, [ require('./sockets') ])
 
 mod.run(function($rootScope, psiSocket) {

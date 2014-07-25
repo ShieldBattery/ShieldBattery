@@ -2,30 +2,31 @@ module.exports = 'shieldbattery.auth'
 
 var EventEmitter = require('events').EventEmitter
   , inherits = require('inherits')
+  , angular = require('angular')
 
 var mod = angular.module('shieldbattery.auth', [ require('./sockets') ])
+
+// break circular dependency of interceptor -> authService -> $http -> interceptor
+var invalidatedSessionEmitter = new EventEmitter()
+mod.factory('unauthorizedErrorInterceptor', function($q, $timeout) {
+  return {
+    responseError: function(response) {
+      if (response.status == 401) {
+        $timeout(function() {
+          invalidatedSessionEmitter.emit('invalidated')
+        }, 0)
+      }
+
+      return $q.reject(response)
+    }
+  }
+})
 
 mod.config(function($httpProvider, $routeProvider) {
   $routeProvider.when('/login', { templateUrl: '/partials/login', controller: 'LoginCtrl' })
     .when('/user/new', { templateUrl: '/partials/newuser', controller: 'NewUserCtrl' })
 
-  var interceptor = ['$location', '$q', function($location, $q) {
-    function onSuccess(response) {
-      return response
-    }
-
-    function onError(response) {
-      if (response.status == 401) {
-        $location.path('/login')
-      }
-
-      return $q.reject(response)
-    }
-
-    return function(promise) { return promise.then(onSuccess, onError) }
-  }]
-
-  $httpProvider.responseInterceptors.push(interceptor)
+  $httpProvider.interceptors.push('unauthorizedErrorInterceptor')
 })
 
 mod.run(function(authService) {
@@ -101,6 +102,12 @@ function AuthService($location, $http, $q, siteSocket) {
       })
   this.user = null
   this.permissions = null
+
+  var self = this
+  invalidatedSessionEmitter.on('invalidated', function() {
+    self.invalidateSession()
+    self.redirectToLogin()
+  })
 }
 
 AuthService.prototype.redirectToLogin = function() {
@@ -160,11 +167,15 @@ AuthService.prototype.logOut = function() {
   return this.$http
     .delete('/api/1/sessions')
     .success(function(user) {
-      self.user = null
-      self.permissions = null
-      self.siteSocket.disconnect()
-      self.emit('userChanged', null)
+      self.invalidateSession()
     })
+}
+
+AuthService.prototype.invalidateSession = function() {
+  this.user = null
+  this.permissions = null
+  this.siteSocket.disconnect()
+  this.emit('userChanged', null)
 }
 
 AuthService.prototype.checkPermissions = function(permissionsArray) {

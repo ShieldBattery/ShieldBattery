@@ -2,6 +2,7 @@ module.exports = 'shieldbattery.sockets'
 var nydus = require('nydus-client')
   , EventEmitter = require('events').EventEmitter
   , inherits = require('inherits')
+  , angular = require('angular')
 
 var mod = angular.module('shieldbattery.sockets', [])
 

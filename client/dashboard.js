@@ -1,5 +1,7 @@
 module.exports = 'shieldbattery.dashboard'
 
+var angular = require('angular')
+
 var mod = angular.module('shieldbattery.dashboard', [ require('./sockets')
                                                     , require('./server-status')
                                                     ])

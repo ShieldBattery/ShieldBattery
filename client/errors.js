@@ -1,5 +1,8 @@
 var modName = 'shieldbattery.errors'
 module.exports = modName
+
+var angular = require('angular')
+
 var mod = angular.module(modName, [])
 
 mod.controller('ErrorsCtrl', function($scope, $rootScope, $location) {

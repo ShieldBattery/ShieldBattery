@@ -23,6 +23,5 @@
     "node": true,
 
     // Custom Globals
-    "predef": [ "angular"
-              ]
+    "predef": []
 }
