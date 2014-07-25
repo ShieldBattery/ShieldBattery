@@ -3,7 +3,8 @@
 #
 check_PROGRAMS = \
     symresolve \
-    bufoverrun
+    bufoverrun \
+    libcheck
 
 bufoverrun_SOURCES  = bufoverrun.c
 bufoverrun_LDADD    = $(top_builddir)/libudis86/libudis86.la
@@ -13,7 +14,13 @@ symresolve_SOURCES = symresolve.c
 symresolve_LDADD   = $(top_builddir)/libudis86/libudis86.la
 symresolve_CFLAGS  = -I$(top_srcdir)/libudis86 -I$(top_srcdir)
 
+libcheck_SOURCES  = libcheck.c
+libcheck_LDADD    = $(top_builddir)/libudis86/libudis86.la
+libcheck_CFLAGS   = -I$(top_srcdir)/libudis86 -I$(top_srcdir)
+
 MAINTAINERCLEANFILES = Makefile.in
+
+DISTCLEANFILES = difftest.sh
 
 YASM    = @YASM@
 PYTHON  = @PYTHON@
@@ -23,12 +30,13 @@ EXTRA_DIST = \
  	$(srcdir)/asm \
 	$(srcdir)/oprgen.py \
 	$(srcdir)/symresolve.ref \
-	$(srcdir)/installcheck.c
+	$(srcdir)/installcheck.c \
+	$(srcdir)/libcheck.c
 
 if HAVE_YASM
-tests: diff-test test-buf-overrun test-sym-resolver 
+tests: difftest test-buf-overrun test-sym-resolver test-libcheck
 else
-tests: warn_no_yasm test-buf-overrun test-sym-resolver 
+tests: warn_no_yasm test-buf-overrun test-sym-resolver test-libcheck
 endif
 
 SEED = 1984
@@ -44,6 +52,9 @@ test-sym-resolver: symresolve
 	@$(top_builddir)/tests/$< > $@.out
 	@diff -w $(srcdir)/symresolve.ref $@.out && echo "$@: passed."
 
+.PHONY: test-libcheck
+test-libcheck: libcheck
+	@./libcheck && echo "$@: passed"
 
 #
 # generate operand tests
@@ -62,66 +73,14 @@ oprtest: oprgen.py
 	@$(call oprtest_generate,16)
 
 
-diff_test_asm = \
-  for mode in 16 32 64; do \
-    for vendor in amd intel any; do \
-      if [ "$${vendor}" == "any" ]; then \
-	    vendor_opt=""; \
-        asmdir=$(srcdir)/asm/$${mode}; \
-	    outdir=$(abs_builddir)/_results/asm/$${mode}; \
-      else \
-	    vendor_opt="-v $${vendor}"; \
-        asmdir=$(srcdir)/asm/$${mode}/$${vendor}; \
-	    outdir=$(builddir)/_results/asm/$${mode}/$${vendor}; \
-      fi; \
-      if [ ! -d "$${asmdir}" ]; then \
-        continue; \
-      fi; \
-	  mkdir -p $${outdir} && \
-      for a in `find $${asmdir} -maxdepth 1 -name "*.asm"` \
-	  		   `find $${outdir} -maxdepth 1 -name "*.asm"`; do \
-	    srcasm=$$a && outasm=$${outdir}/$$(basename $$a) && \
-        $(YASM) -f bin $${srcasm} -o $${outasm}.bin && \
-        if [ "x$(1)" == "xrefup" ]; then \
-          if [ -f "$${srcasm}.ref" ]; then \
-            echo "REFUP  $${outasm}.out -> $${srcasm}.ref" && \
-            $(TESTDIS) $${vendor_opt} -$${mode} $${outasm}.bin > $${outasm}.out && \
-            cp $${outasm}.out $${srcasm}.ref; \
-          fi; \
-          if [ -f "$${srcasm}.Sref" ]; then \
-            echo "REFUP  $${outasm}.out -> $${srcasm}.Sref" && \
-            $(TESTDIS) $${vendor_opt} -att -$${mode} $${outasm}.bin > $${outasm}.out && \
-            cp $${outasm}.out $${srcasm}.Sref; \
-          fi; \
-        else \
-          if [ ! -f "$${srcasm}.ref" ]; then \
-		    echo "[bits $${mode}]" > $${outasm}.out && \
-            $(TESTDIS) $${vendor_opt} -$${mode} -noff -nohex $${outasm}.bin >> $${outasm}.out && \
-            diff -w $${srcasm} $${outasm}.out 2>&1 > $${outasm}.diff.log; \
-		  else \
-            $(TESTDIS) $${vendor_opt} -$${mode} $${outasm}.bin > $${outasm}.out && \
-            diff -w $${srcasm}.ref $${outasm}.out 2>&1 > $${outasm}.diff.log; \
-		  fi && \
-          if [ -f "$${srcasm}.Sref" ]; then \
-            $(TESTDIS) $${vendor_opt} -att -$${mode} $${outasm}.bin > $${outasm}.out && \
-            diff -w $${srcasm}.Sref $${outasm}.out 2>&1 > $${outasm}.diff.log; \
-		  fi && \
-          echo "DIFFTEST $${srcasm}: PASS" || \
-		  echo "DIFFTEST $${srcasm}: ***FAIL*** ($${outasm}.diff.log)";  \
-        fi; \
-      done \
-    done \
-  done
+.PHONY: difftest
+difftest: oprtest $(builddir)/difftest.sh
+	@sh $(builddir)/difftest.sh
 
 
-.PHONY: diff-test
-diff-test: oprtest
-	@$(call diff_test_asm,"diff")
-
-
-.PHONY: diff-test-refup
-diff-test-refup:
-	@$(call diff_test_asm,"refup")
+.PHONY: difftest-refup
+difftest-refup: $(builddir)/difftest.sh
+	@sh $(builddir)/difftest.sh refup
 
 
 .PHONY: warn_no_yasm

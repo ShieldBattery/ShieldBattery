@@ -7,7 +7,7 @@ START-INFO-DIR-ENTRY
 * udis86: (udis86.info). Disassembler library for x86.
 END-INFO-DIR-ENTRY
 
-     udis86 1.7.1, May 26, 2013
+     udis86 1.7.1, September 01, 2013
 
      Vivek Thampi
 
@@ -19,7 +19,7 @@ File: udis86.info,  Node: Top,  Next: Getting Started,  Up: (dir)
 udis86 Documentation
 ********************
 
-     udis86 1.7.1, May 26, 2013
+     udis86 1.7.1, September 01, 2013
 
      Vivek Thampi
 
@@ -202,25 +202,50 @@ File: udis86.info,  Node: Setup Input,  Next: Setup Translation,  Prev: Setup Ma
 2.3 Setup Input
 ===============
 
+libudis86 provides three ways in which you can input binary data: as a
+fixed sized memory buffer, a standard library FILE object, or as a
+callback function.  By default, a *note ud_t: 8. object is initialized
+to read input from `STDIN'.
+
  -- C Function: void ud_set_input_buffer (ud_t*, unsigned char* buffer,
           size_t size)
-     Sets the input source for the library to a buffer of fixed size.
+     Sets the input source for the library to a `buffer' of `size'
+     bytes.
 
  -- C Function: void ud_set_input_file (ud_t*, FILE* filep)
-     This function sets the input source to a file pointed to by a given
-     standard library `FILE' pointer. Note that libudis86 does not
-     perform any checks, and assumes that the file pointer to be
-     properly initialized and the file opened for reading.
+     Sets the input source to a file pointed to by a given standard
+     library `FILE' pointer. Note that libudis86 does not perform any
+     checks, and assumes that the file pointer is properly initialized
+     and open for reading.
 
- -- C Function: void ud_set_input_hook (ud_t* ud_obj, int (*hook)())
-     This function sets the input source for the library. To retrieve
-     each byte in the stream, libudis86 calls back the function pointed
-     to by hook.  The hook function, defined by the client, must return
-     a single byte of input each time it is called. To signal
-     end-of-input, it must return the constant - `UD_EOI'.
+ -- C Function: void ud_set_input_hook (ud_t* ud_obj, int
+          (*hook)(ud_t *ud_obj))
+     Sets a pointer to a function, to callback for input. The callback
+     is invoked each time libudis86 needs the next byte in the input
+     stream. To single end-of-input, this callback must return the
+     constant `UD_EOI'.
+
+See also
+........
+
+     *note ud_set_user_opaque_data(): 11, *note
+ud_set_user_opaque_data(): 11.
 
  -- C Function: void ud_input_skip(ud_t*, size_t n);
-     Skips n number of bytes in the input stream
+     Skips ahead `n' number of bytes in the input stream.
+
+ -- C Function: int ud_input_end(const ud_t*);
+     Test for end of input. You can use this function to test if udis86
+     has exhausted the input.
+
+  At the end of input, udis86 stops disassembly. If you want to restart
+or reset the source of input, you must again invoke one of the above
+functions.
+
+  Sometimes you may want to associate custom data with a udis86 object,
+that you can use with the input callback function, or even in different
+parts of your own project as you pass the object around. You can use
+the following two functions to achieve this.
 
  -- C Function: void ud_set_user_opaque_data (ud_t* ud_obj,
           void* opaque)
@@ -228,8 +253,8 @@ File: udis86.info,  Node: Setup Input,  Next: Setup Translation,  Prev: Setup Ma
      used in client functions, such as the input hook callback function.
 
  -- C Function: void* ud_get_user_opaque_data (const ud_t* ud_obj)
-     This function returns any pointer associated with the udis86
-     object, using the ud_set_opaque_data function.
+     Returns any pointer associated with the udis86 object, using the
+     *note ud_set_user_opaque_data(): 11. function.
 
 
 File: udis86.info,  Node: Setup Translation,  Next: Disassemble,  Prev: Setup Input,  Up: libudis86
@@ -237,30 +262,27 @@ File: udis86.info,  Node: Setup Translation,  Next: Disassemble,  Prev: Setup In
 2.4 Setup Translation
 =====================
 
-libudis86 can translate the decoded instruction into one of two
-dialects: one which resembles an INTEL assembler syntax (such as those
-found in NASM, YASM, et. al.), and the other which resembles GNU
-Assembler (AT&T style) syntax. By default, this is set to INTEL like
-syntax. You can override the default or specify your own translator
-using the following function.
+libudis86 can translate the decoded instruction into one of two assembly
+language dialects: the INTEL syntax (such as those found in NASM and
+YASM) and the other which resembles GNU Assembler (AT&T style) syntax.
+By default, this is set to INTEL like syntax. You can override the
+default or specify your own translator using the following function.
 
  -- C Function: void ud_set_syntax (ud_t*, void (*translator)(ud_t*))
-     libudis86 disassembles one instruction at a time into an
-     intermediate form that lets you inspect the instruction and its
-     various aspects individually.  But to generate the assembly
-     language output, this intermediate form must be translated. This
-     function sets the translator. There are two inbuilt translators,
+     Sets the function that translates the intermediate decode
+     information to a human readable form. There are two inbuilt
+     translators,
 
-        - `UD_SYN_INTEL' for INTEL (NASM-like) syntax.
+        - `UD_SYN_INTEL' for INTEL (NASM-like) syntax. (default)
 
         - `UD_SYN_ATT' for AT&T (GAS-like) syntax.
 
-     If you do not want libudis86 to translate, you can pass NULL to
+     If you do not want libudis86 to translate, you can pass `NULL' to
      the function, with no more translations thereafter. This is useful
      when you only want to identify chunks of code and then create the
      assembly output if needed, or when you are only interested in
      examining the instructions and do not want to waste cycles
-     generating the assembly output.
+     generating the assembly language output.
 
      If you want to create your own translator, you can specify a
      pointer to your own function. This function must accept a single
@@ -307,16 +329,21 @@ instruction.
      Returns the number of bytes disassembled.
 
  -- C Function: uint64_t ud_insn_off (const ud_t*)
-     Returns the starting offset of the disassembled instruction
-     relative to the program counter value specified initially.
+     Returns the offset of the disassembled instruction in terms of the
+     program counter value specified initially.
+
+See also
+........
+
+     *note ud_set_pc(): b.
 
  -- C Function: const char* ud_insn_hex (ud_t*)
-     Returns pointer to character string holding the hexadecimal
+     Returns pointer to a character string holding the hexadecimal
      representation of the disassembled bytes.
 
  -- C Function: const uint8_t* ud_insn_ptr (const ud_t* u)
      Returns pointer to the buffer holding the instruction bytes. Use
-     ud_insn_len(), to determine the length of this buffer.
+     *note ud_insn_len(): 17. to determine the size of this buffer.
 
  -- C Function: const char* ud_insn_asm (const ud_t* u)
      If the syntax is specified, returns pointer to the character
@@ -325,24 +352,41 @@ instruction.
 
  -- C Function: const ud_operand_t* ud_insn_opr (const ud_t* u,
           unsigned int n)
-     Returns a reference to the nth operand of the instruction. If the
-     instruction does not have such an operand, the function returns
-     NULL.
+     Returns a reference (*note ud_operand_t: 1d.) to the nth (starting
+     with 0) operand of the instruction. If the instruction does not
+     have such an operand, the function returns `NULL'.
 
- -- C Function: enum ud_mnemonic_code ud_insn_mnemonic (const ud_t* u)
+ -- C Function: enum ud_mnemonic_code ud_insn_mnemonic (const ud_t *u)
+     New in version 1.7.2.
+
      Returns the instruction mnemonic in the form of an enumerated
      constant (`enum ud_mnemonic_code'). As a convention all mnemonic
      constants are composed by prefixing standard instruction mnemonics
-     with `UD_I'.  For example, `UD_Imov', `UD_Ixor', `UD_Ijmp', etc.
+     with `UD_I'.  For example, the enumerations for `mov', `xor' and
+     `jmp' are `UD_Imov', `UD_Ixor', and `UD_Ijmp', respectively.:
+
+         ud_disassemble(&ud_obj);
+
+         switch (ud_insn_mnemonic(ud_obj)) {
+           case UD_Imov:  printf("mov!"); break;
+           case UD_Ixor:  printf("xor!"); break;
+           case UD_Ijmp:  printf("jmp!"); break;
+           /*...*/
+         }
+
+     Prior to version 1.7.2, the way to access the mnemonic was by a
+     field of `ud_t', `ud_t.mnemonc'. This field is now deprecated and
+     may not be supported in the future.
 
 See also
 ........
 
-     *note ud_lookup_mnemonic(): 1e.
+     `ud_lookup_mnemonic()'
 
- -- C Function: const char* ud_lookup_mnemonic (enum ud_mnemonic_code)
+ -- C Function: const char* ud_const lookup_mnemonic
+          (enum ud_mnemonic_code)
      Returns a pointer to a character string corresponding to the given
-     mnemonic code. Returns a NULL if the code is invalid.
+     mnemonic code. Returns a `NULL' if the code is invalid.
 
 
 File: udis86.info,  Node: Inspect Operands,  Next: Inspect Prefixes,  Prev: Disassemble,  Up: libudis86
@@ -351,7 +395,7 @@ File: udis86.info,  Node: Inspect Operands,  Next: Inspect Prefixes,  Prev: Disa
 ====================
 
 An intermediate representation of instruction operands is available in
-the form of *note ud_operand_t: 20. You can retrieve the nth operand of
+the form of *note ud_operand_t: 1d. You can retrieve the nth operand of
 a disassembled instruction using the function *note ud_insn_opr(): 1c.
 
  -- C Type: ud_operand_t
@@ -587,7 +631,7 @@ particular type or class of prefixes.
  -- C Member: uint8_t ud_t.pfx_repne
      Repne prefix
 
-  These fields default to UD_NONE if the respective prefixes were not
+  These fields default to `UD_NONE' if the respective prefixes were not
 found.
 
 
@@ -599,6 +643,7 @@ Index
  [index ]
 * Menu:
 
+* lookup_mnemonic (C function):          Disassemble.         (line  94)
 * lval.ptr.off (C member):               Inspect Operands.    (line 129)
 * lval.ptr.seg (C member):               Inspect Operands.    (line 126)
 * lval.sbyte (C member):                 Inspect Operands.    (line 102)
@@ -610,15 +655,14 @@ Index
 * lval.uqword (C member):                Inspect Operands.    (line 123)
 * lval.uword (C member):                 Inspect Operands.    (line 111)
 * ud_disassemble (C function):           Disassemble.         (line  13)
-* ud_get_user_opaque_data (C function):  Setup Input.         (line  31)
-* ud_insn_asm (C function):              Disassemble.         (line  51)
-* ud_insn_hex (C function):              Disassemble.         (line  43)
+* ud_get_user_opaque_data (C function):  Setup Input.         (line  56)
+* ud_insn_asm (C function):              Disassemble.         (line  56)
+* ud_insn_hex (C function):              Disassemble.         (line  48)
 * ud_insn_len (C function):              Disassemble.         (line  36)
-* ud_insn_mnemonic (C function):         Disassemble.         (line  62)
+* ud_insn_mnemonic (C function):         Disassemble.         (line  67)
 * ud_insn_off (C function):              Disassemble.         (line  39)
-* ud_insn_opr (C function):              Disassemble.         (line  56)
-* ud_insn_ptr (C function):              Disassemble.         (line  47)
-* ud_lookup_mnemonic (C function):       Disassemble.         (line  73)
+* ud_insn_opr (C function):              Disassemble.         (line  61)
+* ud_insn_ptr (C function):              Disassemble.         (line  52)
 * UD_OP_CONST (C variable):              Inspect Operands.    (line  71)
 * UD_OP_IMM (C variable):                Inspect Operands.    (line  64)
 * UD_OP_JIMM (C variable):               Inspect Operands.    (line  67)
@@ -633,13 +677,13 @@ Index
 * ud_operand_t.scale (C member):         Inspect Operands.    (line  88)
 * ud_operand_t.size (C member):          Inspect Operands.    (line  28)
 * ud_operand_t.type (C member):          Inspect Operands.    (line  31)
-* ud_set_input_buffer (C function):      Setup Input.         (line   6)
-* ud_set_input_file (C function):        Setup Input.         (line  10)
-* ud_set_input_hook (C function):        Setup Input.         (line  16)
+* ud_set_input_buffer (C function):      Setup Input.         (line  11)
+* ud_set_input_file (C function):        Setup Input.         (line  16)
+* ud_set_input_hook (C function):        Setup Input.         (line  22)
 * ud_set_mode (C function):              Setup Machine State. (line  14)
 * ud_set_pc (C function):                Setup Machine State. (line  18)
-* ud_set_syntax (C function):            Setup Translation.   (line  13)
-* ud_set_user_opaque_data (C function):  Setup Input.         (line  26)
+* ud_set_syntax (C function):            Setup Translation.   (line  12)
+* ud_set_user_opaque_data (C function):  Setup Input.         (line  51)
 * ud_set_vendor (C function):            Setup Machine State. (line  23)
 * ud_t (C type):                         ud_t udis86 object.  (line  10)
 * ud_t.pfx_adr (C member):               Inspect Prefixes.    (line  22)
@@ -655,150 +699,150 @@ Index
 
 
 Tag Table:
-Node: Top328
-Ref: index doc531
-Ref: 0531
-Node: Getting Started940
-Ref: getstarted getting-started1025
-Ref: 11025
-Ref: getstarted doc1025
-Ref: 21025
-Node: Building and Installing udis861198
-Ref: getstarted building-and-installing-udis861331
-Ref: 31331
-Node: Interfacing with libudis86 A Quick Example1798
-Ref: getstarted interfacing-with-libudis86-a-quick-example1931
-Ref: 41931
-Node: libudis862785
-Ref: libudis86 libudis862872
-Ref: 52872
-Ref: libudis86 doc2872
-Ref: 62872
-Node: ud_t udis86 object3402
-Ref: libudis86 ud-t-udis86-object3494
-Ref: 73494
-Ref: libudis86 ud_t3734
-Ref: 83734
-Node: Setup Machine State4037
-Ref: libudis86 setup-machine-state4149
-Ref: 94149
-Ref: libudis86 ud_set_mode4681
-Ref: a4681
-Ref: libudis86 ud_set_pc4863
-Ref: b4863
-Ref: libudis86 ud_set_vendor5071
-Ref: c5071
-Node: Setup Input5624
-Ref: libudis86 setup-input5735
-Ref: d5735
-Ref: libudis86 ud_set_input_buffer5768
-Ref: e5768
-Ref: libudis86 ud_set_input_file5934
-Ref: f5934
-Ref: libudis86 ud_set_input_hook6259
-Ref: 106259
-Ref: libudis86 ud_set_user_opaque_data6767
-Ref: 116767
-Ref: libudis86 ud_get_user_opaque_data6994
-Ref: 126994
-Node: Setup Translation7180
-Ref: libudis86 setup-translation7283
-Ref: 137283
-Ref: libudis86 ud_set_syntax7696
-Ref: 147696
-Node: Disassemble8843
-Ref: libudis86 disassemble8951
-Ref: 158951
-Ref: libudis86 ud_disassemble9367
-Ref: 169367
-Ref: libudis86 ud_insn_len10065
-Ref: 1710065
-Ref: libudis86 ud_insn_off10170
-Ref: 1810170
-Ref: libudis86 ud_insn_hex10351
-Ref: 1910351
-Ref: libudis86 ud_insn_ptr10512
-Ref: 1a10512
-Ref: libudis86 ud_insn_asm10702
-Ref: 1b10702
-Ref: libudis86 ud_insn_opr10916
-Ref: 1c10916
-Ref: libudis86 ud_insn_mnemonic11158
-Ref: 1d11158
-Ref: libudis86 ud_lookup_mnemonic11566
-Ref: 1e11566
-Node: Inspect Operands11769
-Ref: libudis86 inspect-operands11876
-Ref: 1f11876
-Ref: libudis86 ud_operand_t12134
-Ref: 2012134
-Ref: libudis86 ud_operand_t size12462
-Ref: 2112462
-Ref: libudis86 ud_operand_t type12548
-Ref: 2212548
-Ref: libudis86 UD_OP_MEM12649
-Ref: 2812649
-Ref: libudis86 UD_OP_PTR13766
-Ref: 2913766
-Ref: libudis86 UD_OP_IMM14079
-Ref: 2c14079
-Ref: libudis86 UD_OP_JIMM14178
-Ref: 2d14178
-Ref: libudis86 UD_OP_CONST14331
-Ref: 2e14331
-Ref: libudis86 UD_OP_REG14437
-Ref: 2f14437
-Ref: libudis86 ud_operand_t base14633
-Ref: 2314633
-Ref: libudis86 ud_operand_t index14840
-Ref: 2414840
-Ref: libudis86 ud_operand_t scale15020
-Ref: 2515020
-Ref: libudis86 ud_operand_t offset15142
-Ref: 2615142
-Ref: libudis86 ud_operand_t lval15341
-Ref: 2715341
-Ref: libudis86 lval sbyte15557
-Ref: 3015557
-Ref: libudis86 lval ubyte15610
-Ref: 3115610
-Ref: libudis86 lval sword15665
-Ref: 3215665
-Ref: libudis86 lval uword15718
-Ref: 3315718
-Ref: libudis86 lval sdword15773
-Ref: 3415773
-Ref: libudis86 lval udword15834
-Ref: 3515834
-Ref: libudis86 lval sqword15897
-Ref: 3615897
-Ref: libudis86 lval uqword15956
-Ref: 3715956
-Ref: libudis86 lval ptr seg16017
-Ref: 2a16017
-Ref: libudis86 lval ptr off16094
-Ref: 2b16094
-Ref: libudis86 ud_type16170
-Ref: 3816170
-Node: Inspect Prefixes18462
-Ref: libudis86 inspect-prefixes18549
-Ref: 3918549
-Ref: libudis86 ud_t pfx_rex18761
-Ref: 3a18761
-Ref: libudis86 ud_t pfx_seg18889
-Ref: 3b18889
-Ref: libudis86 ud_t pfx_opr18954
-Ref: 3c18954
-Ref: libudis86 ud_t pfx_adr19021
-Ref: 3d19021
-Ref: libudis86 ud_t pfx_lock19088
-Ref: 3e19088
-Ref: libudis86 ud_t pfx_rep19142
-Ref: 3f19142
-Ref: libudis86 ud_t pfx_repe19194
-Ref: 4019194
-Ref: libudis86 ud_t pfx_repne19248
-Ref: 4119248
-Node: Index19382
+Node: Top334
+Ref: index doc543
+Ref: 0543
+Node: Getting Started952
+Ref: getstarted getting-started1037
+Ref: 11037
+Ref: getstarted doc1037
+Ref: 21037
+Node: Building and Installing udis861210
+Ref: getstarted building-and-installing-udis861343
+Ref: 31343
+Node: Interfacing with libudis86 A Quick Example1810
+Ref: getstarted interfacing-with-libudis86-a-quick-example1943
+Ref: 41943
+Node: libudis862797
+Ref: libudis86 libudis862884
+Ref: 52884
+Ref: libudis86 doc2884
+Ref: 62884
+Node: ud_t udis86 object3414
+Ref: libudis86 ud-t-udis86-object3506
+Ref: 73506
+Ref: libudis86 ud_t3746
+Ref: 83746
+Node: Setup Machine State4049
+Ref: libudis86 setup-machine-state4161
+Ref: 94161
+Ref: libudis86 ud_set_mode4693
+Ref: a4693
+Ref: libudis86 ud_set_pc4875
+Ref: b4875
+Ref: libudis86 ud_set_vendor5083
+Ref: c5083
+Node: Setup Input5636
+Ref: libudis86 setup-input5747
+Ref: d5747
+Ref: libudis86 ud_set_input_buffer6018
+Ref: e6018
+Ref: libudis86 ud_set_input_file6193
+Ref: f6193
+Ref: libudis86 ud_set_input_hook6490
+Ref: 106490
+Ref: libudis86 ud_set_user_opaque_data7586
+Ref: 117586
+Ref: libudis86 ud_get_user_opaque_data7813
+Ref: 127813
+Node: Setup Translation8003
+Ref: libudis86 setup-translation8106
+Ref: 138106
+Ref: libudis86 ud_set_syntax8501
+Ref: 148501
+Node: Disassemble9479
+Ref: libudis86 disassemble9587
+Ref: 159587
+Ref: libudis86 ud_disassemble10003
+Ref: 1610003
+Ref: libudis86 ud_insn_len10701
+Ref: 1710701
+Ref: libudis86 ud_insn_off10806
+Ref: 1810806
+Ref: libudis86 ud_insn_hex11025
+Ref: 1911025
+Ref: libudis86 ud_insn_ptr11188
+Ref: 1a11188
+Ref: libudis86 ud_insn_asm11386
+Ref: 1b11386
+Ref: libudis86 ud_insn_opr11600
+Ref: 1c11600
+Ref: libudis86 ud_insn_mnemonic11888
+Ref: 1e11888
+Ref: libudis86 lookup_mnemonic12822
+Ref: 1f12822
+Node: Inspect Operands13043
+Ref: libudis86 inspect-operands13150
+Ref: 2013150
+Ref: libudis86 ud_operand_t13408
+Ref: 1d13408
+Ref: libudis86 ud_operand_t size13736
+Ref: 2113736
+Ref: libudis86 ud_operand_t type13822
+Ref: 2213822
+Ref: libudis86 UD_OP_MEM13923
+Ref: 2813923
+Ref: libudis86 UD_OP_PTR15040
+Ref: 2915040
+Ref: libudis86 UD_OP_IMM15353
+Ref: 2c15353
+Ref: libudis86 UD_OP_JIMM15452
+Ref: 2d15452
+Ref: libudis86 UD_OP_CONST15605
+Ref: 2e15605
+Ref: libudis86 UD_OP_REG15711
+Ref: 2f15711
+Ref: libudis86 ud_operand_t base15907
+Ref: 2315907
+Ref: libudis86 ud_operand_t index16114
+Ref: 2416114
+Ref: libudis86 ud_operand_t scale16294
+Ref: 2516294
+Ref: libudis86 ud_operand_t offset16416
+Ref: 2616416
+Ref: libudis86 ud_operand_t lval16615
+Ref: 2716615
+Ref: libudis86 lval sbyte16831
+Ref: 3016831
+Ref: libudis86 lval ubyte16884
+Ref: 3116884
+Ref: libudis86 lval sword16939
+Ref: 3216939
+Ref: libudis86 lval uword16992
+Ref: 3316992
+Ref: libudis86 lval sdword17047
+Ref: 3417047
+Ref: libudis86 lval udword17108
+Ref: 3517108
+Ref: libudis86 lval sqword17171
+Ref: 3617171
+Ref: libudis86 lval uqword17230
+Ref: 3717230
+Ref: libudis86 lval ptr seg17291
+Ref: 2a17291
+Ref: libudis86 lval ptr off17368
+Ref: 2b17368
+Ref: libudis86 ud_type17444
+Ref: 3817444
+Node: Inspect Prefixes19736
+Ref: libudis86 inspect-prefixes19823
+Ref: 3919823
+Ref: libudis86 ud_t pfx_rex20035
+Ref: 3a20035
+Ref: libudis86 ud_t pfx_seg20163
+Ref: 3b20163
+Ref: libudis86 ud_t pfx_opr20228
+Ref: 3c20228
+Ref: libudis86 ud_t pfx_adr20295
+Ref: 3d20295
+Ref: libudis86 ud_t pfx_lock20362
+Ref: 3e20362
+Ref: libudis86 ud_t pfx_rep20416
+Ref: 3f20416
+Ref: libudis86 ud_t pfx_repe20468
+Ref: 4020468
+Ref: libudis86 ud_t pfx_repne20522
+Ref: 4120522
+Node: Index20658
 
 End Tag Table

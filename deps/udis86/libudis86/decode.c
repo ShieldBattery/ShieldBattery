@@ -25,7 +25,6 @@
  */
 #include "udint.h"
 #include "types.h"
-#include "input.h"
 #include "decode.h"
 
 #ifndef __UD_STANDALONE__
@@ -59,7 +58,6 @@
 static int decode_ext(struct ud *u, uint16_t ptr);
 
 enum reg_class { /* register classes */
-  REGCLASS_NONE,
   REGCLASS_GPR,
   REGCLASS_MMX,
   REGCLASS_CR,
@@ -67,6 +65,46 @@ enum reg_class { /* register classes */
   REGCLASS_SEG,
   REGCLASS_XMM
 };
+
+ /* 
+ * inp_start
+ *    Should be called before each de-code operation.
+ */
+static void
+inp_start(struct ud *u)
+{
+  u->inp_ctr = 0;
+}
+
+   
+static uint8_t
+inp_next(struct ud *u)
+{
+  if (u->inp_end == 0) {
+    if (u->inp_buf != NULL) {
+      if (u->inp_buf_index < u->inp_buf_size) {
+        u->inp_ctr++;
+        return (u->inp_curr = u->inp_buf[u->inp_buf_index++]);
+      }
+    } else {
+      int c;
+      if ((c = u->inp_hook(u)) != UD_EOI) {
+        u->inp_curr = c;
+        u->inp_sess[u->inp_ctr++] = u->inp_curr;
+        return u->inp_curr;
+      }
+    }
+  }
+  u->inp_end = 1;
+  UDERR(u, "byte expected, eoi received\n");
+  return 0;
+}
+
+static uint8_t
+inp_curr(struct ud *u)
+{
+  return u->inp_curr;
+}
 
 
 /*
@@ -79,7 +117,7 @@ enum reg_class { /* register classes */
 static uint8_t 
 inp_uint8(struct ud* u)
 {
-  return ud_inp_next(u);
+  return inp_next(u);
 }
 
 static uint16_t 
@@ -87,8 +125,8 @@ inp_uint16(struct ud* u)
 {
   uint16_t r, ret;
 
-  ret = ud_inp_next(u);
-  r = ud_inp_next(u);
+  ret = inp_next(u);
+  r = inp_next(u);
   return ret | (r << 8);
 }
 
@@ -97,12 +135,12 @@ inp_uint32(struct ud* u)
 {
   uint32_t r, ret;
 
-  ret = ud_inp_next(u);
-  r = ud_inp_next(u);
+  ret = inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 8);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 16);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   return ret | (r << 24);
 }
 
@@ -111,20 +149,20 @@ inp_uint64(struct ud* u)
 {
   uint64_t r, ret;
 
-  ret = ud_inp_next(u);
-  r = ud_inp_next(u);
+  ret = inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 8);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 16);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 24);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 32);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 40);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   ret = ret | (r << 48);
-  r = ud_inp_next(u);
+  r = inp_next(u);
   return ret | (r << 56);
 }
 
@@ -157,20 +195,6 @@ eff_adr_mode(int dis_mode, int pfx_adr)
 }
 
 
-/* Looks up mnemonic code in the mnemonic string table
- * Returns NULL if the mnemonic code is invalid
- */
-const char*
-ud_lookup_mnemonic(enum ud_mnemonic_code c)
-{
-  if (c < UD_MAX_MNEMONIC_CODE) {
-    return ud_mnemonics_str[c];
-  } else {
-    return NULL;
-  }
-}
-
-
 /* 
  * decode_prefixes
  *
@@ -180,41 +204,41 @@ static int
 decode_prefixes(struct ud *u)
 {
   int done = 0;
-  uint8_t curr;
+  uint8_t curr, last = 0;
   UD_RETURN_ON_ERROR(u);
 
   do {
-    ud_inp_next(u); 
+    last = curr;
+    curr = inp_next(u); 
     UD_RETURN_ON_ERROR(u);
-    if (inp_len(u) == MAX_INSN_LENGTH) {
+    if (u->inp_ctr == MAX_INSN_LENGTH) {
       UD_RETURN_WITH_ERROR(u, "max instruction length");
     }
-    curr = inp_curr(u);
-
+   
     switch (curr)  
     {
-    case 0x2E : 
+    case 0x2E: 
       u->pfx_seg = UD_R_CS; 
       break;
-    case 0x36 :     
+    case 0x36:     
       u->pfx_seg = UD_R_SS; 
       break;
-    case 0x3E : 
+    case 0x3E: 
       u->pfx_seg = UD_R_DS; 
       break;
-    case 0x26 : 
+    case 0x26: 
       u->pfx_seg = UD_R_ES; 
       break;
-    case 0x64 : 
+    case 0x64: 
       u->pfx_seg = UD_R_FS; 
       break;
-    case 0x65 : 
+    case 0x65: 
       u->pfx_seg = UD_R_GS; 
       break;
-    case 0x67 : /* adress-size override prefix */ 
+    case 0x67: /* adress-size override prefix */ 
       u->pfx_adr = 0x67;
       break;
-    case 0xF0 : 
+    case 0xF0: 
       u->pfx_lock = 0xF0;
       break;
     case 0x66: 
@@ -227,20 +251,14 @@ decode_prefixes(struct ud *u)
       u->pfx_str = 0xf3;
       break;
     default:
-      done = 1;
+      /* consume if rex */
+      done = (u->dis_mode == 64 && (curr & 0xF0) == 0x40) ? 0 : 1;
       break;
     }
   } while (!done);
-
-  if (u->dis_mode == 64 && (curr & 0xF0) == 0x40) {
-    /* rex prefixes in 64bit mode, must be the last prefix
-     */
-    u->pfx_rex = curr;  
-  } else {
-    /* rewind back one byte in stream, since the above loop 
-     * stops with a non-prefix byte. 
-     */
-    inp_back(u);
+  /* rex prefixes in 64bit mode, must be the last prefix */
+  if (u->dis_mode == 64 && (last & 0xF0) == 0x40) {
+    u->pfx_rex = last;  
   }
   return 0;
 }
@@ -249,7 +267,7 @@ decode_prefixes(struct ud *u)
 static inline unsigned int modrm( struct ud * u )
 {
     if ( !u->have_modrm ) {
-        u->modrm = ud_inp_next( u );
+        u->modrm = inp_next( u );
         u->have_modrm = 1;
     }
     return u->modrm;
@@ -283,7 +301,7 @@ static int resolve_mnemonic( struct ud* u )
   }
   /* SWAPGS is only valid in 64bits mode */
   if ( u->mnemonic == UD_Iswapgs && u->dis_mode != 64 ) {
-    UDERR(u, "swapgs invalid in 64bits mode");
+    UDERR(u, "swapgs invalid in 64bits mode\n");
     return -1;
   }
 
@@ -348,9 +366,13 @@ decode_gpr(register struct ud* u, unsigned int s, unsigned char rm)
                 return UD_R_SPL + (rm-4);
             return UD_R_AL + rm;
         } else return UD_R_AL + rm;
+    case 0:
+        /* invalid size in case of a decode error */
+        UD_ASSERT(u->error);
+        return UD_NONE;
     default:
         UD_ASSERT(!"invalid operand size");
-        return 0;
+        return UD_NONE;
   }
 }
 
@@ -374,7 +396,7 @@ decode_reg(struct ud *u,
        * Only 6 segment registers, anything else is an error.
        */
       if ((num & 7) > 5) {
-        UDERR(u, "invalid segment register value");
+        UDERR(u, "invalid segment register value\n");
         return;
       } else {
         reg = UD_R_ES + (num & 7);
@@ -383,7 +405,7 @@ decode_reg(struct ud *u,
     }
     default:
       UD_ASSERT(!"invalid register type");
-      break;
+      return;
   }
   opr->type = UD_OP_REG;
   opr->base = reg;
@@ -511,7 +533,7 @@ decode_modrm_rm(struct ud         *u,
      * Scale-Index-Base (SIB) 
      */
     if ((rm & 7) == 4) {
-      ud_inp_next(u);
+      inp_next(u);
       
       op->scale = (1 << SIB_S(inp_curr(u))) & ~1;
       op->index = UD_R_RAX + (SIB_I(inp_curr(u)) | (REX_X(u->pfx_rex) << 3));
@@ -549,7 +571,7 @@ decode_modrm_rm(struct ud         *u,
 
     /* Scale-Index-Base (SIB) */
     if ((rm & 7) == 4) {
-      ud_inp_next(u);
+      inp_next(u);
 
       op->scale = (1 << SIB_S(inp_curr(u))) & ~1;
       op->index = UD_R_EAX + (SIB_I(inp_curr(u)) | (REX_X(u->pfx_rex) << 3));
@@ -634,7 +656,7 @@ decode_operand(struct ud           *u,
       /* intended fall through */
     case OP_M:
       if (MODRM_MOD(modrm(u)) == 3) {
-        UDERR(u, "expected modrm.mod != 3");
+        UDERR(u, "expected modrm.mod != 3\n");
       }
       /* intended fall through */
     case OP_E:
@@ -653,7 +675,7 @@ decode_operand(struct ud           *u,
       break;
     case OP_N:
       if (MODRM_MOD(modrm(u)) != 3) {
-        UDERR(u, "expected modrm.mod == 3");
+        UDERR(u, "expected modrm.mod == 3\n");
       }
       /* intended fall through */
     case OP_Q:
@@ -664,7 +686,7 @@ decode_operand(struct ud           *u,
       break;
     case OP_U:
       if (MODRM_MOD(modrm(u)) != 3) {
-        UDERR(u, "expected modrm.mod == 3");
+        UDERR(u, "expected modrm.mod == 3\n");
       }
       /* intended fall through */
     case OP_W:
@@ -720,7 +742,7 @@ decode_operand(struct ud           *u,
       /* in 64bits mode, only fs and gs are allowed */
       if (u->dis_mode == 64) {
         if (type != OP_FS && type != OP_GS) {
-          UDERR(u, "invalid segment register in 64bits");
+          UDERR(u, "invalid segment register in 64bits\n");
         }
       }
       operand->type = UD_OP_REG;
@@ -733,7 +755,7 @@ decode_operand(struct ud           *u,
       break ;
     case OP_R :
       if (MODRM_MOD(modrm(u)) != 3) {
-        UDERR(u, "expected modrm.mod == 3");
+        UDERR(u, "expected modrm.mod == 3\n");
       }
       decode_modrm_rm(u, operand, REGCLASS_GPR, size);
       break;
@@ -835,6 +857,7 @@ resolve_pfx_str(struct ud* u)
 static int
 resolve_mode( struct ud* u )
 {
+  int default64;
   /* if in error state, bail out */
   if ( u->error ) return -1; 
 
@@ -843,7 +866,7 @@ resolve_mode( struct ud* u )
 
     /* Check validity of  instruction m64 */
     if ( P_INV64( u->itab_entry->prefix ) ) {
-      UDERR(u, "instruction invalid in 64bits");
+      UDERR(u, "instruction invalid in 64bits\n");
       return -1;
     }
 
@@ -856,7 +879,7 @@ resolve_mode( struct ud* u )
     /* whether this instruction has a default operand size of 
      * 64bit, also hardcoded into the opcode map.
      */
-    u->default64 = P_DEF64( u->itab_entry->prefix ); 
+    default64 = P_DEF64( u->itab_entry->prefix ); 
     /* calculate effective operand size */
     if ( REX_W( u->pfx_rex ) ) {
         u->opr_mode = 64;
@@ -867,7 +890,7 @@ resolve_mode( struct ud* u )
          * the effective operand size in the absence of rex.w
          * prefix is 32.
          */
-        u->opr_mode = ( u->default64 ) ? 64 : 32;
+        u->opr_mode = default64 ? 64 : 32;
     }
 
     /* calculate effective address size */
@@ -879,9 +902,6 @@ resolve_mode( struct ud* u )
     u->opr_mode = ( u->pfx_opr ) ? 32 : 16;
     u->adr_mode = ( u->pfx_adr ) ? 32 : 16;
   }
-
-  /* set flags for implicit addressing */
-  u->implicit_addr = P_IMPADDR( u->itab_entry->prefix );
 
   return 0;
 }
@@ -918,7 +938,7 @@ decode_3dnow(struct ud* u)
   UD_ASSERT(u->le->type == UD_TAB__OPC_3DNOW);
   UD_ASSERT(u->le->table[0xc] != 0);
   decode_insn(u, u->le->table[0xc]);
-  ud_inp_next(u); 
+  inp_next(u); 
   if (u->error) {
     return -1;
   }
@@ -1035,15 +1055,13 @@ decode_opcode(struct ud *u)
 {
   uint16_t ptr;
   UD_ASSERT(u->le->type == UD_TAB__OPC_TABLE);
-  ud_inp_next(u); 
-  if (u->error) {
-    return -1;
-  }
+  UD_RETURN_ON_ERROR(u);
   u->primary_opcode = inp_curr(u);
   ptr = u->le->table[inp_curr(u)];
   if (ptr & 0x8000) {
     u->le = &ud_lookup_table_list[ptr & ~0x8000];
     if (u->le->type == UD_TAB__OPC_TABLE) {
+      inp_next(u);
       return decode_opcode(u);
     }
   }

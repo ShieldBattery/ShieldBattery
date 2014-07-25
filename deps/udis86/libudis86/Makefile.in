@@ -105,8 +105,8 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(include_ladir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libudis86_la_LIBADD =
-am_libudis86_la_OBJECTS = itab.lo input.lo decode.lo syn.lo \
-	syn-intel.lo syn-att.lo udis86.lo
+am_libudis86_la_OBJECTS = itab.lo decode.lo syn.lo syn-intel.lo \
+	syn-att.lo udis86.lo
 libudis86_la_OBJECTS = $(am_libudis86_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -303,13 +303,11 @@ MAINTAINERCLEANFILES = Makefile.in
 lib_LTLIBRARIES = libudis86.la
 libudis86_la_SOURCES = \
     itab.c \
-    input.c \
     decode.c \
     syn.c \
     syn-intel.c \
     syn-att.c \
     udis86.c \
-    input.h \
 	udint.h \
     syn.h \
     decode.h
@@ -410,7 +408,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decode.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/input.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/itab.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syn-att.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/syn-intel.Plo@am__quote@

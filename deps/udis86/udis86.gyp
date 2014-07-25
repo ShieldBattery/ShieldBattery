@@ -5,7 +5,6 @@
       'type': 'static_library',
       'sources': [
         'libudis86/decode.c',
-        'libudis86/input.c',
         'libudis86/itab.c',
         'libudis86/syn.c',
         'libudis86/syn-att.c',
@@ -15,7 +14,6 @@
         'udis86.h',
         'libudis86/decode.h',
         'libudis86/extern.h',
-        'libudis86/input.h',
         'libudis86/itab.h',
         'libudis86/syn.h',
         'libudis86/types.h',

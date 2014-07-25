@@ -92,6 +92,7 @@ ud_syn_rel_target(struct ud *u, struct ud_operand *opr)
   case 16: return (u->pc + opr->lval.sword)  & trunc_mask;
   case 32: return (u->pc + opr->lval.sdword) & trunc_mask;
   default: UD_ASSERT(!"invalid relative offset size.");
+    return 0ull;
   }
 }
 
@@ -104,7 +105,7 @@ ud_syn_rel_target(struct ud *u, struct ud_operand *opr)
  *    returns a negative number and truncates the output.
  */
 int
-ud_asmprintf(struct ud *u, char *fmt, ...)
+ud_asmprintf(struct ud *u, const char *fmt, ...)
 {
   int ret;
   int avail;

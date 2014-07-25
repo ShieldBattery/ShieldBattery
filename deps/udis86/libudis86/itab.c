@@ -7703,7 +7703,7 @@ struct ud_itab_entry ud_itab[] = {
   /* 1405 */ { UD_Icall, O_Jz, O_NONE, O_NONE, P_oso|P_def64 },
   /* 1406 */ { UD_Ijmp, O_Jz, O_NONE, O_NONE, P_oso|P_def64 },
   /* 1407 */ { UD_Ijmp, O_Av, O_NONE, O_NONE, P_oso },
-  /* 1408 */ { UD_Ijmp, O_Jb, O_NONE, O_NONE, P_none },
+  /* 1408 */ { UD_Ijmp, O_Jb, O_NONE, O_NONE, P_def64 },
   /* 1409 */ { UD_Iin, O_AL, O_DX, O_NONE, P_none },
   /* 1410 */ { UD_Iin, O_eAX, O_DX, O_NONE, P_oso },
   /* 1411 */ { UD_Iout, O_DX, O_AL, O_NONE, P_none },
