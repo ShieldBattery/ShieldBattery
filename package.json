@@ -27,7 +27,6 @@
   "dependencies": {
     "bcrypt": "^0.7.6",
     "body-parser": "^1.4.3",
-    "browserify": "^4.2.3",
     "browserify-middleware": "^3.0.0",
     "browserify-ngannotate": "0.0.8",
     "browserify-shim": "^3.6.0",
@@ -57,7 +56,10 @@
     "chai": "^1.9.1"
   },
   "browserify": {
-    "transform": [ "browserify-shim", "browserify-ngannotate" ]
+    "transform": [
+      "browserify-shim",
+      "browserify-ngannotate"
+    ]
   },
   "browser": {
     "angular": "./vendor/angular.js",
@@ -68,9 +70,25 @@
   },
   "browserify-shim": {
     "angular": "angular",
-    "angular-animate": { "depends": [ "angular" ] },
-    "angular-cookies": { "depends": [ "angular" ] },
-    "angular-route": { "depends": [ "angular" ] },
-    "rzslider": { "depends": [ "angular" ] }
+    "angular-animate": {
+      "depends": [
+        "angular"
+      ]
+    },
+    "angular-cookies": {
+      "depends": [
+        "angular"
+      ]
+    },
+    "angular-route": {
+      "depends": [
+        "angular"
+      ]
+    },
+    "rzslider": {
+      "depends": [
+        "angular"
+      ]
+    }
   }
 }
