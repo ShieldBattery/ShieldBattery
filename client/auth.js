@@ -3,8 +3,9 @@ module.exports = 'shieldbattery.auth'
 var EventEmitter = require('events').EventEmitter
   , inherits = require('inherits')
   , angular = require('angular')
+require('angular-cookies')
 
-var mod = angular.module('shieldbattery.auth', [ require('./sockets') ])
+var mod = angular.module('shieldbattery.auth', [ require('./sockets'), 'ngCookies' ])
 
 // break circular dependency of interceptor -> authService -> $http -> interceptor
 var invalidatedSessionEmitter = new EventEmitter()
@@ -29,10 +30,12 @@ mod.config(function($httpProvider, $routeProvider) {
   $httpProvider.interceptors.push('unauthorizedErrorInterceptor')
 })
 
-mod.run(function(authService) {
+mod.run(function($cookies, $location, returningUserChecker, authService) {
   authService.initCurrentUser()
 
-  if (!authService.isLoggedIn) {
+  if (returningUserChecker.isFirstTimeUser) {
+    $location.path('/splash')
+  } else if (!authService.isLoggedIn) {
     authService.redirectToLogin()
   }
 })
@@ -83,6 +86,20 @@ mod.directive('sbMustMatch', function() {
 
   return { require: 'ngModel', link: linkFunc }
 })
+
+mod.factory('returningUserChecker', function($cookies, authService) {
+  return new ReturningUserChecker($cookies, authService)
+})
+
+function ReturningUserChecker($cookies, authService) {
+  this.$cookies = $cookies
+  this.authService = authService
+
+  Object.defineProperty(this, 'isFirstTimeUser',
+      { enumerable: true
+      , get: function() { return !(this.authService.isLoggedIn || this.$cookies.returning) }
+      })
+}
 
 mod.factory('authService', function($location, $http, $q, siteSocket) {
   return new AuthService($location, $http, $q, siteSocket)
