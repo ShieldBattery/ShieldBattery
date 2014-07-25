@@ -4,7 +4,6 @@ var checkPermissions = require('./util/check-permissions')
   , angular = require('angular')
 require('angular-route')
 
-
 var mod = angular.module('shieldbattery.admin', [ require('./auth'), 'ngRoute' ])
 
 mod.config(function($routeProvider) {

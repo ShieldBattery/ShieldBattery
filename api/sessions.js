@@ -4,6 +4,7 @@ var bcrypt = require('bcrypt')
   , permissions = require('../models/permissions')
   , httpErrors = require('../util/http-errors')
   , initSession = require('../util/init-session')
+  , setReturningCookie = require('../util/set-returning-cookie')
 
 module.exports = function() {
   var router = Router()
@@ -90,6 +91,7 @@ function startNewSession(req, res, next) {
       }
 
       initSession(req, user, permissions)
+      setReturningCookie(res)
       if (!remember) req.session.cookie.expires = false
       res.send({user: user, permissions: permissions})
     })
