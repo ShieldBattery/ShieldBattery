@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t *argv[]) {
   };
 
   if (!StartServiceCtrlDispatcher(ServiceTable)) {
-    return 0;
+    return 1;
   }
 
   return 0;

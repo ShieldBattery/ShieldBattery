@@ -167,7 +167,12 @@ function doLaunch(req, res) {
 }
 
 function detectResolution(req, res) {
-  var resolution = psi.detectResolution()
-  res.complete(resolution)
+  psi.detectResolution(function(err, resolution) {
+    if (err) {
+      res.fail(502, 'bad gateway', { when: 'detecting resolution', msg: err.message })
+    } else {
+      res.complete(resolution)
+    }
+  })
 }
 

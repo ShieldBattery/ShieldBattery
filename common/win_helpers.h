@@ -46,12 +46,20 @@ public:
 
   WindowsError InjectDll(const std::wstring& dll_path, const std::string& inject_function_name);
   WindowsError Resume();
+  WindowsError WaitForExit(uint32 max_wait_ms = INFINITE, bool* timed_out = nullptr);
+  WindowsError GetExitCode(uint32* exit_code);
 private:
   bool EnableSeDebug();
 
   static bool se_debug_enabled_;
   PROCESS_INFORMATION process_info_;
   WindowsError* error_;
+};
+
+// Used to pass messages between processes about the current monitor resolution
+struct ResolutionMessage {
+  uint32 width;
+  uint32 height;
 };
 }  // namespace sbat
 #endif  // COMMON_WIN_HELPERS_H_

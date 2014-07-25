@@ -37,8 +37,25 @@ module.exports.getInstallPathFromRegistry = function() {
   return result
 }
 
-module.exports.detectResolution = function() {
-  return psi.detectResolution()
+var cachedRes = null
+  , RES_CACHE_TIME = 10000
+module.exports.detectResolution = function(cb) {
+  if (cachedRes) {
+    return cb(null, cachedRes)
+  }
+
+  psi.detectResolution(function(err, res) {
+    if (err) {
+      return cb(err)
+    }
+
+    cachedRes = res
+    setTimeout(function() {
+      cachedRes = null
+    }, RES_CACHE_TIME)
+
+    cb(null, res)
+  })
 }
 
 function Process(cProcess) {

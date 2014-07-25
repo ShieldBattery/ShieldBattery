@@ -263,4 +263,36 @@ WindowsError Process::Resume() {
 
   return WindowsError();
 }
+
+WindowsError Process::WaitForExit(uint32 max_wait_ms, bool* timed_out) {
+  if (has_errors()) {
+    return error();
+  }
+
+  if (timed_out != nullptr) {
+    *timed_out = false;
+  }
+
+  DWORD result = WaitForSingleObject(process_info_.hProcess, max_wait_ms);
+  if (result == WAIT_TIMEOUT && timed_out != nullptr) {
+    *timed_out = true;
+  } else if (result == WAIT_FAILED) {
+    return WindowsError(GetLastError());
+  }
+
+  return WindowsError();
+}
+
+WindowsError Process::GetExitCode(uint32* exit_code) {
+  if (has_errors()) {
+    return error();
+  }
+
+  BOOL result = GetExitCodeProcess(process_info_.hProcess, reinterpret_cast<LPDWORD>(exit_code));
+  if (result == FALSE) {
+    return WindowsError(GetLastError());
+  }
+
+  return WindowsError();
+}
 }  // namespace sbat

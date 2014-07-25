@@ -71,7 +71,7 @@
         'SuppressStartupBanner': 'true',
         'target_conditions': [
           ['_type=="executable"', {
-            'SubSystem': 1, # console executable
+            'SubSystem': 2, # Windows executable
           }],
         ],
       },
@@ -249,6 +249,36 @@
         'common',
         'deps/node/node.gyp:node',
       ],
+    },
+
+    {
+      'target_name': 'psi-emitter',
+      'type': 'executable',
+      'include_dirs': [
+        '.',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'target_conditions': [
+            # in a target_conditions so it executes late and overrides includes
+            ['_type=="executable"', {
+              'SubSystem': 2, # Windows executable
+            }],
+          ],
+        },
+      },
+      'sources': [
+        'psi-emitter/psi-emitter.cpp',
+        # headers
+        'psi-emitter/psi-emitter.h',
+      ],
+      'msbuild_props': [
+        '$(SolutionDir)psi-emitter/psi-emitter.props',
+      ],
+      'dependencies': [
+        'common',
+      ],
+      'libraries': [ '-luser32.lib', '-lshell32.lib' ],
     },
 
     # Node native modules
