@@ -87,14 +87,14 @@ function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, aut
   this.chat = []
   this.countingDown = false
   this.initializingGame = false
-  this.joinInProgress = false
+  this.myId = null
 
   Object.defineProperty(this, 'inLobby',
       { get: function() { return !!this.lobby }
       , enumerable: true
       })
   Object.defineProperty(this, 'isHost',
-      { get: function() { return !!this.lobby && this.lobby.host == authService.user.name }
+      { get: function() { return !!this.lobby && this.lobby.hostId == this.myId }
       , enumerable: true
       })
 
@@ -166,12 +166,6 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
     }
   } else if (this._connectListener) {
     this.leave()
-  } else if (this.joinInProgress) {
-    // TODO(tec27): I think we could return our previously returned promise here if the lobby name
-    // is the same, and make this more friendly (I think this is an edge case anyway, though)
-    deferred = this.$q.defer()
-    deferred.reject({ msg: 'There is already another join action in progress' })
-    return deferred.promise
   }
 
   this._connectListener = sendJoin
@@ -251,7 +245,6 @@ JoinedLobbyService.prototype.leave = function() {
   this.chat.length = 0
   this.countingDown = false
   this.initializingGame = false
-  this.joinInProgress = false
 }
 
 JoinedLobbyService.prototype.addComputer = function() {
@@ -262,6 +255,19 @@ JoinedLobbyService.prototype.addComputer = function() {
   this.siteSocket.call(this._path('/addComputer'), function(err) {
     if (err) {
       console.log('error adding computer: ' + err.details.msg)
+      return
+    }
+  })
+}
+
+JoinedLobbyService.prototype.setRace = function(id, race) {
+  if (!this.inLobby) {
+    return
+  }
+
+  this.siteSocket.call(this._path('/setRace/' + id), race, function(err) {
+    if (err) {
+      console.log('error setting race of ' + id + ': ' + err.details.msg)
       return
     }
   })
@@ -282,6 +288,26 @@ JoinedLobbyService.prototype.startCountdown = function() {
   return deferred.promise
 }
 
+JoinedLobbyService.prototype._getPlayerIndex = function(id) {
+  for (var i = 0, len = this.lobby.players.length; i < len; i++) {
+    if (this.lobby.players[i].id == id) {
+      return i
+    }
+  }
+
+  return -1
+}
+
+JoinedLobbyService.prototype._getSlotIndex = function(id) {
+  for (var i = 0, len = this.lobby.slots.length; i < len; i++) {
+    if (this.lobby.slots[i].id == id) {
+      return i
+    }
+  }
+
+  return -1
+}
+
 JoinedLobbyService.prototype._systemMessage = function(msg) {
   this.chat.push({ system: true, text: msg })
 }
@@ -290,7 +316,8 @@ JoinedLobbyService.prototype._onMessage = function(data) {
   switch(data.action) {
     case 'update': this._onFullUpdate(data.lobby); break
     case 'join': this._onJoin(data.slot, data.player); break
-    case 'part': this._onPart(data.slot); break
+    case 'part': this._onPart(data.id); break
+    case 'raceChange': this._onRaceChange(data.id, data.race); break
     case 'chat': this._onChat(data.from, data.text); break
     case 'newHost': this._onNewHost(data.id, data.name); break
     case 'countdownStarted': this._onCountdownStarted(); break
@@ -303,8 +330,18 @@ JoinedLobbyService.prototype._onMessage = function(data) {
 JoinedLobbyService.prototype._onFullUpdate = function(lobbyData) {
   var self = this
   Object.keys(lobbyData).forEach(function(key) {
+    if (key == 'players') return
+
     self.lobby[key] = lobbyData[key]
   })
+
+  // match up objects in players and slots so modifying one modifies the other
+  this.lobby.players = []
+  for (var i = 0; i < this.lobby.slots.length; i++) {
+    if (this.lobby.slots[i]) {
+      this.lobby.players.push(this.lobby.slots[i])
+    }
+  }
 }
 
 JoinedLobbyService.prototype._onJoin = function(slot, player) {
@@ -314,21 +351,37 @@ JoinedLobbyService.prototype._onJoin = function(slot, player) {
   this._systemMessage(player.name + ' has joined the game')
 }
 
-JoinedLobbyService.prototype._onPart = function(slot) {
+JoinedLobbyService.prototype._onPart = function(id) {
   if (!this.lobby) return
-  var player = this.lobby.slots[slot]
-  if (player.name == this.authService.user.name) {
+
+  var playerIndex = this._getPlayerIndex(id)
+    , slotIndex = this._getSlotIndex(id)
+  if (playerIndex == -1 || slotIndex == -1) {
+    console.log('no player found with id:' + id)
+    return
+  }
+  var player = this.lobby.players[playerIndex]
+
+  if (!player.isComputer && player.name == this.authService.user.name) {
     // this is us (from another socket), so just call leave and it will clean up everything
     return this.leave()
   }
-  this.lobby.slots[slot] = null
-  for (var i = 0, len = this.lobby.players.length; i < len; i++) {
-    if (this.lobby.players[i].name == player.name) {
-      this.lobby.players.splice(i, 1)
-      break
-    }
+  this.lobby.slots[slotIndex] = null
+  this.lobby.players.splice(playerIndex, 1)
+  this._systemMessage(player.name + (player.isComputer ?
+      (' in slot ' + (slotIndex + 1) + ' has been removed') : (' has left the game')))
+}
+
+JoinedLobbyService.prototype._onRaceChange = function(id, race) {
+  if (!this.lobby) return
+
+  var playerIndex = this._getPlayerIndex(id)
+  if (playerIndex == -1) {
+    console.log('no player found with ID: ' + id)
+    return
   }
-  this._systemMessage(player.name + ' has left the game')
+
+  this.lobby.players[playerIndex].race = race
 }
 
 JoinedLobbyService.prototype._onChat = function(from, text) {
@@ -435,7 +488,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
       }
 
       // if no computers need to be added, set our race immediately
-      setRace()
+      setGameRace()
     })
   }
 
@@ -454,7 +507,7 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
 
         i++
         if (i < computers.length) addComputer()
-        else setRace()
+        else setGameRace()
       })
     }
   }
@@ -480,14 +533,14 @@ JoinedLobbyService.prototype._launchGame = function(host, port) {
         }
       }
 
-      setRace()
+      setGameRace()
     })
   }
 
-  function setRace() {
+  function setGameRace() {
     var race = 'r'
     for (var i = 0, len = self.lobby.players.length; i < len; i++) {
-      if (self.lobby.players[i].name == self.authService.user.name) {
+      if (self.lobby.players[i].id == self.myId) {
         race = self.lobby.players[i].race
         break
       }
@@ -592,6 +645,11 @@ mod.controller('LobbyCreateCtrl', function($scope, $location, siteSocket) {
 })
 
 mod.controller('LobbyViewCtrl', function($scope, $location, joinedLobby) {
+  $scope.RACES =  [ { name: 'zerg', value: 'z' }
+                  , { name: 'terran', value: 't' }
+                  , { name: 'protoss', value: 'p' }
+                  , { name: 'random', value: 'r' }
+                  ]
   $scope.joinedLobby = joinedLobby
 
   $scope.sendChat = function(text) {
@@ -611,6 +669,10 @@ mod.controller('LobbyViewCtrl', function($scope, $location, joinedLobby) {
 
   $scope.addComputer = function() {
     joinedLobby.addComputer()
+  }
+
+  $scope.setRace = function(id, race) {
+    joinedLobby.setRace(id, race)
   }
 
   // watch the lobby status so that we can redirect elsewhere if the user leaves this lobby

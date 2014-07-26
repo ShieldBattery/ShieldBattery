@@ -1,6 +1,6 @@
 h2 Loading...
 h4 Map: {{ joinedLobby.lobby.map }}
 ul
-  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by (slot ? slot.name : $index)')
+  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by (slot ? slot.id : $index)')
     span(data-ng-show='!slot') <em>Empty</em>
     span(data-ng-hide='!slot') {{ slot.name }}

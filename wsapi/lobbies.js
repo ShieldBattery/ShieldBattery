@@ -26,6 +26,8 @@ function LobbyHandler(nydus, userSockets) {
     self.part(req, res)
   }).call(basePath + '/:lobby/addComputer', function(req, res) {
     self.addComputer(req, res)
+  }).call(basePath + '/:lobby/setRace/:playerId', function(req, res, race) {
+    self.setRace(req, res, race)
   }).call(basePath + '/:lobby/startCountdown', function(req, res) {
     self.startCountdown(req, res)
   }).call(basePath + '/:lobby/readyUp/:playerId', function(req, res) {
@@ -72,7 +74,7 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
         user.revoke(lobby._topic)
       })
     }
-    self._updateJoinedLobby(lobby, { action: 'part', slot: slot })
+    self._updateJoinedLobby(lobby, { action: 'part', id: player.id })
   }).on('newHost', function onNewHost(hostId, hostName) {
     self._updateJoinedLobby(lobby, { action: 'newHost', id: hostId, name: hostName })
     self.nydus.publish('/lobbies', { action: 'update', lobby: lobby.$ })
@@ -186,6 +188,32 @@ LobbyHandler.prototype.addComputer = function(req, res) {
   var computer = new LobbyComputer('r')
   lobby.addPlayer(computer)
   res.complete()
+}
+
+LobbyHandler.prototype.setRace = function(req, res, race) {
+  if (race != 'z' && race != 't' && race != 'p' && race != 'r') {
+    return res.fail(400, 'bad request', { msg: 'Invalid race' })
+  }
+
+  var user = req.socket.handshake.userName
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(409, 'conflict', { msg: 'You must be in a lobby to set races' })
+  }
+
+  var lobby = this.playerLobbyMap.get(user)
+  if (lobby.name != req.params.lobby) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot set races in a lobby you aren\'t in' })
+  }
+  var player = lobby.getPlayer(req.params.playerId)
+  if (!player.isComputer && player.name != user) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot set other users\'s races' })
+  } else if (player.isComputer && lobby.host != user) {
+    return res.fail(403, 'forbidden', { msg: 'Only the host can set computer races' })
+  }
+
+  player.race = race
+  res.complete()
+  this._updateJoinedLobby(lobby, { action: 'raceChange', id: player.id, race: player.race })
 }
 
 LobbyHandler.prototype.part = function(req, res) {

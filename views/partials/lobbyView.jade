@@ -1,26 +1,30 @@
-a(href='', data-ng-click='leaveLobby()') Leave lobby
+a(href='', ng-click='leaveLobby()') Leave lobby
 h2 {{ joinedLobby.lobby.name }}
 h4 Map: {{ joinedLobby.lobby.map }}
 h4 Players: {{ joinedLobby.lobby.players.length }} / {{ joinedLobby.lobby.size }}
-h1(data-ng-show='joinedLobby.countingDown') {{ joinedLobby.countdownSeconds }}
-a(href='', data-ng-click='startCountdown()',
-  data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length > 1 && !(joinedLobby.countingDown || joinedLobby.initializingGame)')
+h1(ng-show='joinedLobby.countingDown') {{ joinedLobby.countdownSeconds }}
+a(href='', ng-click='startCountdown()',
+  ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length > 1 && !(joinedLobby.countingDown || joinedLobby.initializingGame)')
   | Start game
 ul
-  li(data-ng-repeat='slot in joinedLobby.lobby.slots track by $index')
-    span(data-ng-show='!slot') <em>Empty</em>
-    span(data-ng-hide='!slot') {{ slot.name }}
-a(data-ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length < joinedLobby.lobby.size', data-ng-click='addComputer()', href='')
+  li(ng-repeat='slot in joinedLobby.lobby.slots track by $index')
+    span(ng-show='!slot') <em>Empty</em>
+    span(ng-hide='!slot') 
+      | {{ slot.name }}
+      select(ng-model='slot.race', ng-change='setRace(slot.id, slot.race)',
+        ng-options='race.value as race.name for race in RACES',
+        ng-disabled='!(slot.isComputer && joinedLobby.isHost) && slot.id != joinedLobby.myId')
+a(ng-show='joinedLobby.isHost && joinedLobby.lobby.players.length < joinedLobby.lobby.size', ng-click='addComputer()', href='')
   | Add computer
 .row
   .col-12
-    .chat-messages(data-auto-scroll)
-      p(data-ng-repeat='msg in joinedLobby.chat')
-        span(data-ng-switch='!!msg.system')
-          span(data-ng-switch-when='true') <strong>{{ msg.text }}</strong>
-          span(data-ng-switch-when='false') {{ msg.from }}: {{ msg.text }}
-form.row(name='chatForm', novalidate, data-ng-submit='sendChat(chatMsg)')
+    .chat-messages(auto-scroll)
+      p(ng-repeat='msg in joinedLobby.chat')
+        span(ng-switch='!!msg.system')
+          span(ng-switch-when='true') <strong>{{ msg.text }}</strong>
+          span(ng-switch-when='false') {{ msg.from }}: {{ msg.text }}
+form.row(name='chatForm', novalidate, ng-submit='sendChat(chatMsg)')
   span.col-11
-    input(type='text', placeholder='message', data-ng-model='chatMsg', required)
+    input(type='text', placeholder='message', ng-model='chatMsg', required)
   span.col-1
-    input(type='submit', value='Send', data-ng-disabled='!chatForm.$valid')
+    input(type='submit', value='Send', ng-disabled='!chatForm.$valid')
