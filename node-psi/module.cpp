@@ -150,7 +150,7 @@ void DetectResolutionWork(uv_work_t* req) {
   }
 
   bool timed_out;
-  WindowsError result = process.WaitForExit(INFINITE, &timed_out);
+  WindowsError result = process.WaitForExit(5000, &timed_out);
   if (result.is_error()) {
     CloseHandle(slot_handle);
     context->exit_code = 101;

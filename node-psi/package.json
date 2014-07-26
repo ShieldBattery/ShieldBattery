@@ -19,6 +19,5 @@
   "author": "Travis Collins (travis@tec27.com)",
   "license": "MIT",
   "dependencies": {
-    "bindings": "~1.1.0"
   }
 }
