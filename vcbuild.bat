@@ -72,12 +72,15 @@ goto exit
 :link-modules
 @rem Link up the native modules inside the js directory
 cd "%~dp0\node-psi"
+call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%~dp0\node-bw"
+call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%~dp0\forge"
+call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%~dp0\js"
