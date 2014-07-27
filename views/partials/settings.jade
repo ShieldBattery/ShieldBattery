@@ -1,10 +1,17 @@
-form(name='settingsForm', data-ng-submit='saveSettings()', novalidate)
-  span Display mode: 
-    select(data-ng-model='displayMode', data-ng-options='dm.name for dm in displayModes', data-ng-change='onDisplayModeChange()')
-  span Resolution: 
-    select(data-ng-model='resolution', data-ng-options='res.name for res in resolutions', data-ng-disabled='resDisabled')
+form(name='settingsForm', ng-submit='saveSettings()', novalidate)
+  label(for='port') Port: 
+    input(ng-model='bwPort', type='text', id='port', placeholder='6112', required,
+      ng-pattern='/[0-9]{1,5}/')
+  label(for='display-mode') Display mode: 
+    select(id='display-mode', ng-model='displayMode', ng-options='dm.name for dm in displayModes',
+      ng-change='onDisplayModeChange()')
+  label(for='resolution') Resolution: 
+    select(id='resolution', ng-model='resolution', ng-options='res.name for res in resolutions',
+      ng-disabled='resDisabled')
   label(for='maintain-aspect-ratio') Maintain aspect ratio: 
-    input(type='checkbox', id='maintain-aspect-ratio', data-ng-model='maintainAspectRatio')
-  input(type='submit', value='Save', data-ng-disabled='settingsForm.$invalid || btnDisabled')
-span Mouse sensitivity:
-  rzslider( rz-slider-model='mouseSensitivity.value', rz-slider-floor='mouseSensitivity.floor', rz-slider-ceil='mouseSensitivity.ceil')
+    input(type='checkbox', id='maintain-aspect-ratio', ng-model='maintainAspectRatio')
+  div
+    span Mouse sensitivity:
+      rzslider(rz-slider-model='mouseSensitivity.value', rz-slider-floor='mouseSensitivity.floor',
+        rz-slider-ceil='mouseSensitivity.ceil')
+  input(type='submit', value='Save', ng-disabled='settingsForm.$invalid || btnDisabled')

@@ -35,7 +35,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
   $scope.displayMode = {}
   $scope.resolution = {}
   $scope.maintainAspectRatio = false
-  $scope.bwPort = -1
+  $scope.bwPort = null
   $scope.res = {}
   $scope.settings = {}
   $scope.resDisabled = false
