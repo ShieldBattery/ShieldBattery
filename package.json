@@ -65,8 +65,7 @@
     "angular": "./vendor/angular.js",
     "angular-animate": "./vendor/angular-animate.js",
     "angular-cookies": "./vendor/angular-cookies.js",
-    "angular-route": "./vendor/angular-route.js",
-    "rzslider": "./vendor/rzslider.js"
+    "angular-route": "./vendor/angular-route.js"
   },
   "browserify-shim": {
     "angular": "angular",
@@ -81,11 +80,6 @@
       ]
     },
     "angular-route": {
-      "depends": [
-        "angular"
-      ]
-    },
-    "rzslider": {
       "depends": [
         "angular"
       ]

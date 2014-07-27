@@ -1,4 +1,4 @@
-form(name='settingsForm', ng-submit='saveSettings()', novalidate)
+form(name='settingsForm', ng-hide='loading', ng-submit='saveSettings()', novalidate)
   label(for='port') Port: 
     input(ng-model='bwPort', type='text', id='port', placeholder='6112', required,
       ng-pattern='/[0-9]{1,5}/')
@@ -11,7 +11,8 @@ form(name='settingsForm', ng-submit='saveSettings()', novalidate)
   label(for='maintain-aspect-ratio') Maintain aspect ratio: 
     input(type='checkbox', id='maintain-aspect-ratio', ng-model='maintainAspectRatio')
   div
-    span Mouse sensitivity:
-      rzslider(rz-slider-model='mouseSensitivity.value', rz-slider-floor='mouseSensitivity.floor',
-        rz-slider-ceil='mouseSensitivity.ceil')
+    label(for='sensitivity') Mouse sensitivity:
+      input(type='range', id='sensitivity', ng-model='mouseSensitivity.value',
+        min='{{mouseSensitivity.min}}', max='{{mouseSensitivity.max}}')
+      span {{mouseSensitivity.value}}
   input(type='submit', value='Save', ng-disabled='settingsForm.$invalid || btnDisabled')

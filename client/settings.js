@@ -1,9 +1,8 @@
 module.exports = 'shieldbattery.settings'
 
 var angular = require('angular')
-require('rzslider')
 
-var mod = angular.module('shieldbattery.settings', [ require('./sockets'), 'rzModule' ])
+var mod = angular.module('shieldbattery.settings', [ require('./sockets') ])
 
 mod.config(function($routeProvider) {
   $routeProvider.when('/settings',
@@ -11,6 +10,8 @@ mod.config(function($routeProvider) {
 })
 
 mod.controller('SettingsCtrl', function($scope, psiSocket) {
+  $scope.loading = true
+
   $scope.displayModes = [ { name: 'Full Screen', value: 0 }
                         , { name: 'Borderless Window', value: 1 }
                         , { name: 'Window', value: 2 }
@@ -28,13 +29,13 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                  , { width: 6400, height: 4800 }
                  ]
   $scope.mouseSensitivity = { value: 0
-                            , ceil: 4
-                            , floor: 0
+                            , max: 4
+                            , min: 0
                             }
   $scope.resolutions = []
   $scope.displayMode = {}
   $scope.resolution = {}
-  $scope.maintainAspectRatio = false
+  $scope.maintainAspectRatio = true
   $scope.bwPort = null
   $scope.res = {}
   $scope.settings = {}
@@ -85,6 +86,8 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
   function initializeSettings() {
     if (!$scope.settings || !$scope.res) return
 
+    $scope.loading = false
+
     $scope.displayMode = $scope.displayModes[$scope.settings.displayMode] ||
       $scope.displayModes[0]
 
@@ -112,7 +115,8 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
       $scope.resDisabled = false
     }
 
-    $scope.maintainAspectRatio = !!$scope.settings.maintainAspectRatio
+    $scope.maintainAspectRatio = $scope.settings.mantainAspectRatio != undefined ?
+        !!$scope.settings.maintainAspectRatio : true
     $scope.mouseSensitivity.value = $scope.settings.mouseSensitivity || 0
     $scope.bwPort = $scope.settings.bwPort
   }
