@@ -13,25 +13,29 @@ Use the normal installer for node (from the [node website](http://nodejs.org)). 
 On Windows you will also need the [OpenSSL development libraries](http://slproweb.com/products/Win32OpenSSL.html) for building one of the binary dependencies (bcrypt). Download and install the Win32 or Win64 (matching your node install's affinity) OpenSSL package (*not* the Light version), making sure to put it in the default location.
 
 ##Running the server
-###Initialize node modules
-After downloading the server files, or after pulling new commits, you should update/install the npm modules using
-```
-npm install
-```
-OR
-```
-npm update
-```
-If you are unsure of which you need to run, running both should be fine.
 
-###Acquire SSL certificates
-If you are running the server somewhere remotely, you can get a certificate from a normal CA. If, however, you are running a local development server, you'll need to self-sign a certificate. For instructions on how to do that, see [here](http://stackoverflow.com/a/10176685/1050849). Make sure to note the location of your certificate and private key for configuring the server (in the next step). I recommend putting them as `certs/`, as this location is already gitignored for these purposes.
+### Cloning the repository
+Install git for windows, login, and clone the `manner-pylon` repository to a folder on your system.
 
 ###Configure the server
 Copy `config.example.js` and `database.example.json` to `config.js` and `database.json`, respectively. Edit these files as you see fit to match your local configuration.
 
+###Initialize node modules
+Update/install the npm modules by running the following command from the root of the `manner-pylon` directory (where `package.json` is located):
+```
+npm update
+```
+followed by
+```
+npm install
+```
+if you are installing for the first time.
+
+###Acquire SSL certificates
+If you are running the server somewhere remotely, you can get a certificate from a normal CA. If, however, you are running a local development server, you'll need to self-sign a certificate. For instructions on how to do that, see [here](http://stackoverflow.com/a/10176685/1050849). After generating the `cert.pem` and `key.pem` files with openssl, you will need to rename the files to `server.crt` and `server.key`, respectively. Create a folder called `certs` in the `manner-pylon` directory and copy the certificate files there. This location is gitignored for these purposes.
+
 ###Initialize the database
-To initialize postgres (after having configured your user in the previous step), simply run
+Open the Postgres **pgAdmin III** management application and create a new database called `shieldbattery`. To initialize the database with values (after having configured your user in the previous step), simply run
 ```
 npm run migrate-up
 ```
