@@ -9,8 +9,10 @@ a(href='', ng-click='startCountdown()',
 ul
   li(ng-repeat='slot in joinedLobby.lobby.slots track by $index')
     span(ng-show='!slot') <em>Empty</em>
-    span(ng-hide='!slot') 
-      | {{ slot.name }}
+    span(ng-hide='!slot')
+      a(href='', ng-hide='!joinedLobby.isHost || slot.id == joinedLobby.myId',
+        ng-click='kick(slot.id)') X
+      span {{ slot.name }}
       select(ng-model='slot.race', ng-change='setRace(slot.id, slot.race)',
         ng-options='race.value as race.name for race in RACES',
         ng-disabled='!(slot.isComputer && joinedLobby.isHost) && slot.id != joinedLobby.myId')

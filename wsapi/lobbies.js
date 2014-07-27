@@ -28,6 +28,8 @@ function LobbyHandler(nydus, userSockets) {
     self.addComputer(req, res)
   }).call(basePath + '/:lobby/setRace/:playerId', function(req, res, race) {
     self.setRace(req, res, race)
+  }).call(basePath + '/:lobby/kick/:playerId', function(req, res) {
+    self.kick(req, res)
   }).call(basePath + '/:lobby/startCountdown', function(req, res) {
     self.startCountdown(req, res)
   }).call(basePath + '/:lobby/readyUp/:playerId', function(req, res) {
@@ -61,7 +63,7 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
         .on('subscribe', publishLobby)
         .publish('lobby', { name: name })
     }
-  }).on('removePlayer', function onRemovePlayer(slot, player) {
+  }).on('removePlayer', function onRemovePlayer(slot, player, kick) {
     if (!player.isComputer) {
       self.playerLobbyMap.del(player.name)
       var user = self.userSockets.get(player.name)
@@ -74,7 +76,7 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
         user.revoke(lobby._topic)
       })
     }
-    self._updateJoinedLobby(lobby, { action: 'part', id: player.id })
+    self._updateJoinedLobby(lobby, { action: kick ? 'kick' : 'part', id: player.id })
   }).on('newHost', function onNewHost(hostId, hostName) {
     self._updateJoinedLobby(lobby, { action: 'newHost', id: hostId, name: hostName })
     self.nydus.publish('/lobbies', { action: 'update', lobby: lobby.$ })
@@ -205,6 +207,9 @@ LobbyHandler.prototype.setRace = function(req, res, race) {
     return res.fail(403, 'forbidden', { msg: 'You cannot set races in a lobby you aren\'t in' })
   }
   var player = lobby.getPlayer(req.params.playerId)
+  if (!player) {
+    return res.fail(404, 'not found', { msg: 'No such user' })
+  }
   if (!player.isComputer && player.name != user) {
     return res.fail(403, 'forbidden', { msg: 'You cannot set other users\'s races' })
   } else if (player.isComputer && lobby.host != user) {
@@ -214,6 +219,35 @@ LobbyHandler.prototype.setRace = function(req, res, race) {
   player.race = race
   res.complete()
   this._updateJoinedLobby(lobby, { action: 'raceChange', id: player.id, race: player.race })
+}
+
+LobbyHandler.prototype.kick = function(req, res) {
+  var user = req.socket.handshake.userName
+  if (!this.playerLobbyMap.has(user)) {
+    return res.fail(409, 'conflict', { msg: 'You must be in a lobby to kick players' })
+  }
+
+  var lobby = this.playerLobbyMap.get(user)
+  if (lobby.name != req.params.lobby) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot kick players in a lobby you aren\'t in' })
+  }
+  if (lobby.host != user) {
+    return res.fail(403, 'forbidden', { msg: 'Only the host can kick players' })
+  }
+  var playerToKick = lobby.getPlayer(req.params.playerId)
+  if (!playerToKick) {
+    return res.fail(404, 'not found', { msg: 'No such user' })
+  }
+  if (playerToKick.name == user) {
+    return res.fail(403, 'forbidden', { msg: 'You cannot kick yourself' })
+  }
+
+  var slot = lobby.removePlayer(playerToKick.id, true)
+  if (slot < 0) {
+    return res.fail(500, 'internal server error', { msg: 'Error removing user' })
+  } else {
+    return res.complete()
+  }
 }
 
 LobbyHandler.prototype.part = function(req, res) {
@@ -362,7 +396,7 @@ Lobby.prototype.addPlayer = function(player) {
   }
 }
 
-Lobby.prototype.removePlayer = function(id) {
+Lobby.prototype.removePlayer = function(id, kick) {
   var i
     , len
   for (i = 0, len = this.players.length; i < len; i++) {
@@ -376,7 +410,7 @@ Lobby.prototype.removePlayer = function(id) {
     if (this.slots[i] && this.slots[i].id == id) {
       var player = this.slots[i]
       this.slots[i] = undefined
-      this.emit('removePlayer', i, player)
+      this.emit('removePlayer', i, player, !!kick)
       break
     }
   }

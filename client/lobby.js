@@ -273,6 +273,19 @@ JoinedLobbyService.prototype.setRace = function(id, race) {
   })
 }
 
+JoinedLobbyService.prototype.kick = function(id) {
+  if (!this.inLobby) {
+    return
+  }
+
+  this.siteSocket.call(this._path('/kick/' + id), function(err) {
+    if (err) {
+      console.log('error kicking ' + id + ': ' + err.details.msg)
+      return
+    }
+  })
+}
+
 JoinedLobbyService.prototype.startCountdown = function() {
 
   var deferred = this.$q.defer()
@@ -317,6 +330,7 @@ JoinedLobbyService.prototype._onMessage = function(data) {
     case 'update': this._onFullUpdate(data.lobby); break
     case 'join': this._onJoin(data.slot, data.player); break
     case 'part': this._onPart(data.id); break
+    case 'kick': this._onKick(data.id); break
     case 'raceChange': this._onRaceChange(data.id, data.race); break
     case 'chat': this._onChat(data.from, data.text); break
     case 'newHost': this._onNewHost(data.id, data.name); break
@@ -368,8 +382,28 @@ JoinedLobbyService.prototype._onPart = function(id) {
   }
   this.lobby.slots[slotIndex] = null
   this.lobby.players.splice(playerIndex, 1)
+  this._systemMessage(player.name + ' has left the game')
+}
+
+JoinedLobbyService.prototype._onKick = function(id) {
+  if (!this.lobby) return
+
+  var playerIndex = this._getPlayerIndex(id)
+    , slotIndex = this._getSlotIndex(id)
+  if (playerIndex == -1 || slotIndex == -1) {
+    console.log('no player found with id:' + id)
+    return
+  }
+  var player = this.lobby.players[playerIndex]
+
+  if (!player.isComputer && player.name == this.authService.user.name) {
+    // TODO(tec27): Display some sort of message to the user to let them know they've been kicked
+    return this.leave()
+  }
+  this.lobby.slots[slotIndex] = null
+  this.lobby.players.splice(playerIndex, 1)
   this._systemMessage(player.name + (player.isComputer ?
-      (' in slot ' + (slotIndex + 1) + ' has been removed') : (' has left the game')))
+      (' in slot ' + (slotIndex + 1) + ' has been removed') : (' has been kicked by the host')))
 }
 
 JoinedLobbyService.prototype._onRaceChange = function(id, race) {
@@ -673,6 +707,10 @@ mod.controller('LobbyViewCtrl', function($scope, $location, joinedLobby) {
 
   $scope.setRace = function(id, race) {
     joinedLobby.setRace(id, race)
+  }
+
+  $scope.kick = function(id) {
+    joinedLobby.kick(id)
   }
 
   // watch the lobby status so that we can redirect elsewhere if the user leaves this lobby
