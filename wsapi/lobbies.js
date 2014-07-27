@@ -59,7 +59,7 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
     if (!player.isComputer) {
       self.playerLobbyMap.put(player.name, lobby)
       var user = self.userSockets.get(player.name)
-      user.on('disconnect', onDisconnect)
+      user.once('disconnect', onDisconnect)
         .on('subscribe', publishLobby)
         .publish('lobby', { name: name })
     }
@@ -67,14 +67,15 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
     if (!player.isComputer) {
       self.playerLobbyMap.del(player.name)
       var user = self.userSockets.get(player.name)
-      user.removeListener('disconnect', onDisconnect)
-        .removeListener('subscribe', publishLobby)
-
-      // ensure they receive the part message, then revoke all subscriptions so they can't spy on
-      // lobbies they're not in
-      process.nextTick(function() {
-        user.revoke(lobby._topic)
-      })
+      if (user) {
+        user.removeListener('disconnect', onDisconnect)
+          .removeListener('subscribe', publishLobby)
+        // ensure they receive the part message, then revoke all subscriptions so they can't spy on
+        // lobbies they're not in
+        process.nextTick(function() {
+          user.revoke(lobby._topic)
+        })
+      }
     }
     self._updateJoinedLobby(lobby, { action: kick ? 'kick' : 'part', id: player.id })
   }).on('newHost', function onNewHost(hostId, hostName) {
@@ -98,7 +99,8 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
   return lobby
 
   function onDisconnect() {
-    lobby.removePlayer(host)
+    var player = lobby.findPlayerWithName(this.userName)
+    lobby.removePlayer(player.id)
   }
 
   function publishLobby(user, socket) {

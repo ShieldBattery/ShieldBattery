@@ -78,6 +78,10 @@ UserSocketSet.prototype.add = function(socket) {
   }
 
   this.sockets.push(socket)
+  var self = this
+  socket.once('disconnect', function() {
+    self.del(socket)
+  })
   this.emit('connection', socket)
 }
 
