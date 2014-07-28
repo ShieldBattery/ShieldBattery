@@ -313,7 +313,7 @@ JoinedLobbyService.prototype._getPlayerIndex = function(id) {
 
 JoinedLobbyService.prototype._getSlotIndex = function(id) {
   for (var i = 0, len = this.lobby.slots.length; i < len; i++) {
-    if (this.lobby.slots[i].id == id) {
+    if (this.lobby.slots[i] && this.lobby.slots[i].id == id) {
       return i
     }
   }
