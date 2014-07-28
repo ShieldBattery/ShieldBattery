@@ -1,4 +1,4 @@
-#version 330
+#version 140
 
 attribute vec2 position;
 attribute vec2 texpos;

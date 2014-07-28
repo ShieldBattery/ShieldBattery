@@ -1,11 +1,11 @@
-#version 330
+#version 140
 
 uniform sampler2D bw_screen;
 uniform sampler2D palette;
 
 varying vec2 texcoord;
 
-layout(location = 0) out vec4 color;
+out vec4 color;
 
 void main() {
   vec4 color_index = texture2D(bw_screen, texcoord);

@@ -97,8 +97,8 @@ void OpenGl::InitializeOpenGl(DirectGlaw* direct_glaw) {
     Logger::Logf(LogLevel::Error, "GLEW error: %s", glewGetErrorString(err));
     return;
   }
-  if (!GLEW_VERSION_3_3) {
-    Logger::Log(LogLevel::Error, "OpenGL 3.3 not available");
+  if (!GLEW_VERSION_3_1) {
+    Logger::Log(LogLevel::Error, "OpenGL 3.1 not available");
     return;
   }
 
