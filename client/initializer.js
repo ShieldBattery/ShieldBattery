@@ -22,7 +22,6 @@ mod.run(function($rootScope, psiSocket) {
   }
 
   function routeError(event, current, previous, rejection) {
-    console.log(rejection)
     unregError()
   }
 
