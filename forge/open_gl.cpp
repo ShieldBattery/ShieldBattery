@@ -249,7 +249,7 @@ void OpenGl::MakeResources() {
       NULL);
 
   GLenum draw_buffers[1] = { GL_COLOR_ATTACHMENT0 };
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, framebuffer_texture_, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_texture_, 0);
   glDrawBuffers(1, draw_buffers);
   assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
