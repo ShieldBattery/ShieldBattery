@@ -87,34 +87,15 @@ function jsDirCreated(err) {
   console.log('Done!\n')
   console.log('Bundling JS...')
 
-  var sbDone = false
-    , psiDone = false
-
-  var sb = createBrowserify()
-  sb.add(require.resolve('../js/shieldbattery-entry.js'))
-  sb.bundle().pipe(fs.createWriteStream(path.join(bundleJsDir, 'shieldbattery-entry.js')))
+  var b = createBrowserify()
+  b.add(require.resolve('../js/index.js'))
+  b.bundle().pipe(fs.createWriteStream(path.join(bundleJsDir, 'index.js')))
     .on('finish', function() {
-      console.log('shieldbattery bundle written!')
-      sbDone = true
-      maybeDone()
+      console.log('JS bundle written!')
+      console.log('Done!\n')
+      console.log('Creating native module dir...')
+      fs.mkdir(nativeDir, nativeDirCreated)
     })
-
-  var psi = createBrowserify()
-  psi.add(require.resolve('../js/psi-entry.js'))
-  psi.bundle().pipe(fs.createWriteStream(path.join(bundleJsDir, 'psi-entry.js')))
-    .on('finish', function() {
-      console.log('psi bundle written!')
-      psiDone = true
-      maybeDone()
-    })
-
-  function maybeDone() {
-    if (!sbDone || !psiDone) return
-
-    console.log('Done!\n')
-    console.log('Creating native module dir...')
-    fs.mkdir(nativeDir, nativeDirCreated)
-  }
 }
 
 function nativeDirCreated(err) {

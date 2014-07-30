@@ -5,11 +5,12 @@
 // (which requires setting argv to simulate this).
 var path = require('path')
   , Module = require('module')
-  , proc_path = path.resolve(process.argv[0])
-  , shieldbattery_path = path.dirname(proc_path)
-  , module_name = path.basename(proc_path, path.extname(proc_path))
-  , bootstrap_path =
-      path.resolve(shieldbattery_path, path.join('.', 'js', module_name + '-entry.js'))
+  , procPath = path.resolve(process.argv[0])
+  , shieldbatteryPath = path.dirname(procPath)
+  , moduleName = path.basename(procPath, path.extname(procPath))
+  , bootstrapPath =
+      path.resolve(shieldbatteryPath, path.join('.', 'js', 'index.js'))
 
-process.argv[1] = bootstrap_path
+process.argv[1] = bootstrapPath
+process.argv[2] = moduleName
 Module.runMain()
