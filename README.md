@@ -1,6 +1,9 @@
 #shieldbattery
 The client-side parts of the shieldbattery project, including an injector service, an injected game management DLL, a game network provider, and various other utilities. A lot of this is still in flux and will change rapidly.
 
+##IRC
+The shieldbattery developers frequent `#shieldbattery-dev` on QuakeNet, feel free to stop in with questions, comments, or just to hang out!
+
 ##Developer Setup
 Shieldbattery is a combination of C++ and JavaScript, and thus developing for it involves two different workflows. A script is included to setup both areas, `vcbuild.bat`. This will both generate C++ project files as well as build the native Node modules and link them into your environment.
 
