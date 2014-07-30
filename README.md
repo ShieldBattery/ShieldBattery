@@ -1,6 +1,9 @@
 #manner-pylon
 The official server for [shieldbattery](https://github.com/tec27/shieldbattery).
 
+##IRC
+The shieldbattery developers (and by extension, manner-pylon) frequent `#shieldbattery-dev` on QuakeNet, feel free to stop in with questions, comments, or just to hang out!
+
 ##Dependencies
 manner-pylon requires [node](http://nodejs.org), [postgres](http://postgresql.org), and [redis](http://redis.io) in order to run.
 
