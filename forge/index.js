@@ -1,12 +1,13 @@
+var fs = require('fs') // done separately so that brfs actually works, ugh
+
 var forge = require('bindings')('forge')
-  , fs = require('fs')
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
 
-var vertShaderSrc = fs.readFileSync(require.resolve('./shaders/vert.glsl'))
-  , fragShaderSrc = fs.readFileSync(require.resolve('./shaders/frag.glsl'))
-  , fboVertShaderSrc = fs.readFileSync(require.resolve('./shaders/fbo_vert.glsl'))
-  , fboFragShaderSrc = fs.readFileSync(require.resolve('./shaders/fbo_frag.glsl'))
+var vertShaderSrc = fs.readFileSync(__dirname + '/shaders/vert.glsl')
+  , fragShaderSrc = fs.readFileSync(__dirname + '/shaders/frag.glsl')
+  , fboVertShaderSrc = fs.readFileSync(__dirname + '/shaders/fbo_vert.glsl')
+  , fboFragShaderSrc = fs.readFileSync(__dirname + '/shaders/fbo_frag.glsl')
 forge.setShaders(vertShaderSrc, fragShaderSrc, 'main')
 forge.setShaders(fboVertShaderSrc, fboFragShaderSrc, 'fbo')
 
