@@ -6,7 +6,7 @@ var browserify = require('browserify-middleware')
 var jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function send404(req, res) {
-  res.send(404)
+  res.status(404).end()
 }
 
 function applyRoutes(app) {
