@@ -1,9 +1,9 @@
 var logger = require('../logger.js')
-  , uid = require('uid2')
+  , uid = require('cuid')
 
 function loggerMiddleware() {
   return function(req, res, next) {
-    var id = req._id || uid(24)
+    var id = req._id || uid()
     req._id = id
     res._id = id
 

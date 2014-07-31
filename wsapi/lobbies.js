@@ -2,7 +2,7 @@ var Emitter = require('events').EventEmitter
   , SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
   , util = require('util')
-  , idgen = require('idgen')
+  , cuid = require('cuid')
 
 module.exports = function(nydus, userSockets) {
   return new LobbyHandler(nydus, userSockets)
@@ -511,7 +511,7 @@ Lobby.compare = function(a, b) {
 }
 
 function LobbyMember(name, race, isComputer) {
-  this.id = idgen()
+  this.id = cuid.slug()
   this.name = name
   this.race = race
   this.isComputer = !!isComputer
