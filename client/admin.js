@@ -54,7 +54,7 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
     if (!$scope.findUserForm.$valid) return
 
     $scope.error = null
-    $http.get('api/1/users/' + encodeURIComponent($scope.searchTerm))
+    $http.get('/api/1/users/' + encodeURIComponent($scope.searchTerm))
       .success(function(user) {
         $scope.noResult = !user.length
         if ($scope.noResult) {
@@ -63,7 +63,7 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
         }
 
         $scope.user = user[0]
-        $http.get('api/1/permissions/' + $scope.user.id)
+        $http.get('/api/1/permissions/' + $scope.user.id)
           .success(function(permissions) {
             $scope.permissions = permissions
           }).error(function(err) {
@@ -80,7 +80,7 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
   }
 
   $scope.updatePermissions = function() {
-    $http.post('api/1/permissions/' + $scope.user.id,
+    $http.post('/api/1/permissions/' + $scope.user.id,
       { editPermissions: $scope.permissions.editPermissions
       , debug: $scope.permissions.debug
       , acceptInvites: $scope.permissions.acceptInvites
@@ -93,5 +93,45 @@ mod.controller('PermissionsCtrl', function($http, $scope, authService) {
   }
 })
 
-mod.controller('InvitesCtrl', function() {
+mod.controller('InvitesCtrl', function($scope, $http, $routeParams) {
+  $scope.loading = true
+  $scope.invitees = []
+  $scope.error = null
+
+  var reqUrl = '/api/1/invites'
+  if ($routeParams.accepted == 'true') {
+    $scope.accepted = true
+    reqUrl += '?accepted=true'
+  } else if ($routeParams.accepted == 'false') {
+    $scope.accepted = false
+    reqUrl += '?accepted=false'
+  }
+  $http.get(reqUrl)
+    .success(function(invites) {
+      $scope.invitees = invites
+    }).error(function(err) {
+      $scope.error = err
+    }).finally(function() {
+      $scope.loading = false
+    })
+
+  $scope.acceptUser = function(user) {
+    if (user.isAccepted) return
+
+    $http.put('/api/1/invites/' + encodeURIComponent(user.email), { isAccepted: true })
+      .success(function(modifiedUser) {
+        for (var i = 0; i < $scope.invitees.length; i++) {
+          if ($scope.invitees[i].email == user.email) {
+            for (var key in modifiedUser) {
+              user[key] = modifiedUser[key]
+            }
+            break
+          }
+        }
+      }).error(function(err) {
+        // TODO(tec27): better modal dialog
+        alert('Error accepting!')
+        console.dir(err)
+      })
+  }
 })

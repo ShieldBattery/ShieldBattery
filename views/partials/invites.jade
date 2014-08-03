@@ -1,1 +1,34 @@
-b Cool people who wanna play on Shieldbattery:
+p Filter:
+ul
+  li
+    a(ng-href='/admin/invites') All
+  li
+    a(ng-href='/admin/invites?accepted=true') Invited
+  li
+    a(ng-href='/admin/invites?accepted=false') Uninvited
+h2(ng-switch='accepted')
+  span(ng-switch-when='true') Invited users
+  span(ng-switch-when='false') Users awaiting invites
+  span(ng-switch-default) All invitees
+span(ng-show='loading') Loading...
+span(ng-show='error') {{ error }}
+table(ng-hide='loading || error')
+  tr
+    th Email
+    th TL Name
+    th OS
+    th Browser
+    th Graphics
+    th Can Host
+    th Accepted
+  tr(ng-repeat='user in invitees')
+    td {{ user.email }}
+    td {{ user.teamliquidName }}
+    td {{ user.os }}
+    td {{ user.browser }}
+    td {{ user.graphics }}
+    td {{ user.canHost != undefined ? !!user.canHost : 'unknown' }}
+    td
+      span(ng-hide='user.isAccepted') No 
+        a(href='', ng-click='acceptUser(user)') Accept
+      span(ng-show='user.isAccepted') Yes

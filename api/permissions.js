@@ -1,9 +1,9 @@
 var permissions = require('../models/permissions')
   , checkPermissions = require('../util/check-permissions')
-  , Router = require('express').Router
+  , createRouter = require('express').Router
 
 module.exports = function() {
-  var router = Router()
+  var router = createRouter()
   router.route('/:userId')
     .get(checkPermissions(['editPermissions']), getPermissions)
     .post(checkPermissions(['editPermissions']), updatePermissions)

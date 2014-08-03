@@ -1,10 +1,10 @@
 var constants = require('../util/constants')
   , httpErrors = require('../util/http-errors')
   , users = require('../models/users')
-  , Router = require('express').Router
+  , createRouter = require('express').Router
 
 module.exports = function() {
-  var router = Router()
+  var router = createRouter()
   router.route('/:username')
     .get(checkAvailability)
 

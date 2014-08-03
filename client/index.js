@@ -14,6 +14,7 @@ var app = angular.module('shieldbattery',
     , require('./server-status')
     , require('./sockets')
     , require('./settings')
+    , require('./splash')
     , require('./status')
     ])
 
