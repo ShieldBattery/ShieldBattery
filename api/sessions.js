@@ -1,5 +1,5 @@
 var bcrypt = require('bcrypt')
-  , Router = require('express').Router
+  , createRouter = require('express').Router
   , users = require('../models/users')
   , permissions = require('../models/permissions')
   , httpErrors = require('../util/http-errors')
@@ -7,7 +7,7 @@ var bcrypt = require('bcrypt')
   , setReturningCookie = require('../util/set-returning-cookie')
 
 module.exports = function() {
-  var router = Router()
+  var router = createRouter()
   router.route('/')
     .get(getCurrentSession)
     .delete(endSession)

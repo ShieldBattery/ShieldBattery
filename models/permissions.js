@@ -13,7 +13,7 @@ function createPermissions(dbClient, userId, cb) {
   params = [ userId ]
 
   dbClient.query(query, params, function(err, result) {
-    if (err) return cb(new Error('Error running query'))
+    if (err) return cb(err)
 
     if (result.rows.length < 1) return cb(new Error('No rows returned'))
 
@@ -29,11 +29,11 @@ function getPermissions(userId, cb) {
   params = [ userId ]
 
   db(function(err, client, done) {
-    if (err) return cb(new Error('Error fetching client from pool'))
+    if (err) return cb(err)
 
     client.query(query, params, function(err, result) {
       done()
-      if (err) return cb(new Error('Error running query'))
+      if (err) return cb(err)
 
       cb(null, new Permissions(result.rows[0]))
     })
@@ -48,11 +48,11 @@ function updatePermissions(userId, perms, cb) {
   params = [ !!perms.editPermissions, !!perms.debug, !!perms.acceptInvites, userId ]
 
   db(function(err, client, done) {
-    if (err) return cb(new Error('Error fetching client from pool'))
+    if (err) return cb(err)
 
     client.query(query, params, function(err, result) {
       done()
-      if (err) return cb(new Error('Error running query'))
+      if (err) return cb(err)
 
       cb(null, new Permissions(result.rows[0]))
     })
