@@ -6,12 +6,14 @@
 #include <gl/glew.h>
 #include <gl/gl.h>
 #include <array>
+#include <map>
 #include <memory>
 #include <vector>
 #include <string>
 
 #include "common/types.h"
 #include "shieldbattery/settings.h"
+#include "forge/renderer.h"
 
 namespace sbat {
 namespace forge {
@@ -58,21 +60,23 @@ private:
   GLuint buffer_;
 };
 
-class OpenGl {
+class OpenGl : public Renderer {
 public:
-  OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height);
   virtual ~OpenGl();
 
-  void InitializeOpenGl(IndirectDraw* indirect_draw);
-  void SwapBuffers();
-  void SetShaders(std::string* vert_shader_src, std::string* frag_shader_src, const char* type);
-  void MakeResources();
-  void Render(const IndirectDrawPalette& indirect_draw_palette,
+  static std::unique_ptr<OpenGl> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+      const std::map<std::string, std::pair<std::string, std::string>>& shaders);
+  
+  virtual void Render(const IndirectDrawPalette& indirect_draw_palette,
       const std::vector<byte>& surface_data);
 
 private:
-  GLuint BuildShader(GLenum type, std::string* src);
+  OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+      const std::map<std::string, std::pair<std::string, std::string>>& shaders);
+  GLuint BuildShader(GLenum type, const std::string& src);
   void BuildProgram(const char* type);
+  void SwapBuffers();
+  void MakeResources();
 
   HDC dc_;
   HWND window_;

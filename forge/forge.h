@@ -9,6 +9,7 @@
 #include "common/func_hook.h"
 #include "forge/indirect_draw.h"
 #include "forge/open_gl.h"
+#include "forge/renderer.h"
 
 namespace sbat {
 namespace forge {
@@ -48,7 +49,8 @@ class Forge : public node::ObjectWrap {
 public:
   static void Init();
   static v8::Handle<v8::Value> NewInstance();
-  static void RegisterIndirectDraw(OpenGl* open_gl, IndirectDraw* indirect_draw);
+  static std::unique_ptr<Renderer> CreateRenderer(
+      HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
 private:
   Forge();
@@ -105,7 +107,6 @@ private:
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
-  IndirectDraw* indirect_draw_;
   std::string* vertex_shader_src_;
   std::string* fragment_shader_src_;
   std::string* fbo_vertex_shader_src_;

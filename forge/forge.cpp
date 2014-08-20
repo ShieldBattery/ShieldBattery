@@ -4,6 +4,8 @@
 #include <v8.h>
 #include <Windows.h>
 #include <assert.h>
+#include <map>
+#include <memory>
 #include <string>
 
 #include "common/func_hook.h"
@@ -17,6 +19,9 @@
 namespace sbat {
 namespace forge {
 
+using std::map;
+using std::pair;
+using std::unique_ptr;
 using v8::Arguments;
 using v8::Boolean;
 using v8::Context;
@@ -39,7 +44,6 @@ Forge::Forge()
       create_sound_buffer_hook_(nullptr),
       window_handle_(NULL),
       original_wndproc_(nullptr),
-      indirect_draw_(nullptr),
       vertex_shader_src_(nullptr),
       fragment_shader_src_(nullptr),
       fbo_vertex_shader_src_(nullptr),
@@ -88,26 +92,21 @@ Forge::Forge()
 }
 
 Forge::~Forge() {
-  #define DELETE_(name) \
-      delete hooks_.##name##; \
-      hooks_.##name## = nullptr;
-  DELETE_(CreateWindowExA);
-  DELETE_(GetSystemMetrics);
-  DELETE_(GetProcAddress);
-  DELETE_(IsIconic);
-  DELETE_(ClientToScreen);
-  DELETE_(ScreenToClient);
-  DELETE_(GetClientRect);
-  DELETE_(GetCursorPos);
-  DELETE_(SetCursorPos);
-  DELETE_(ClipCursor);
-  DELETE_(SetCapture);
-  DELETE_(ReleaseCapture);
-  #undef DELETE_
+  delete hooks_.CreateWindowExA;
+  delete hooks_.GetSystemMetrics;
+  delete hooks_.GetProcAddress;
+  delete hooks_.IsIconic;
+  delete hooks_.ClientToScreen;
+  delete hooks_.ScreenToClient;
+  delete hooks_.GetClientRect;
+  delete hooks_.GetCursorPos;
+  delete hooks_.SetCursorPos;
+  delete hooks_.ClipCursor;
+  delete hooks_.SetCapture;
+  delete hooks_.ReleaseCapture;
 
   if (create_sound_buffer_hook_) {
     delete create_sound_buffer_hook_;
-    create_sound_buffer_hook_ = nullptr;
     // we use LoadLibrary in DirectSoundCreateHook, so we need to free the library here if its still
     // loaded
     HMODULE dsound = GetModuleHandle("dsound.dll");
@@ -115,18 +114,11 @@ Forge::~Forge() {
       FreeLibrary(dsound);
     }
   }
-  if (indirect_draw_) {
-    indirect_draw_->Release();
-    indirect_draw_ = nullptr;
-  }
+
   delete vertex_shader_src_;
-  vertex_shader_src_ = nullptr;
   delete fragment_shader_src_;
-  fragment_shader_src_ = nullptr;
   delete fbo_vertex_shader_src_;
-  fbo_vertex_shader_src_ = nullptr;
   delete fbo_fragment_shader_src_;
-  fbo_fragment_shader_src_ = nullptr;
 
   instance_ = nullptr;
 }
@@ -145,18 +137,21 @@ void Forge::Init() {
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
 
-void Forge::RegisterIndirectDraw(OpenGl* open_gl, IndirectDraw* indirect_draw) {
-  assert(instance_->indirect_draw_ == nullptr);
-  assert(instance_->vertex_shader_src_);
-  assert(instance_->fragment_shader_src_);
-  assert(instance_->fbo_vertex_shader_src_);
-  assert(instance_->fbo_fragment_shader_src_);
+unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
+  assert(instance_->vertex_shader_src_ != nullptr);
+  assert(instance_->fragment_shader_src_ != nullptr);
+  assert(instance_->fbo_vertex_shader_src_ != nullptr);
+  assert(instance_->fbo_fragment_shader_src_ != nullptr);
 
-  indirect_draw->AddRef();
-  instance_->indirect_draw_ = indirect_draw;
-  open_gl->SetShaders(instance_->vertex_shader_src_, instance_->fragment_shader_src_, "main");
-  open_gl->SetShaders(
-      instance_->fbo_vertex_shader_src_, instance_->fbo_fragment_shader_src_, "fbo");
+  map<std::string, pair<std::string, std::string>> shaders;
+  shaders["main"] =
+      std::make_pair(*instance_->vertex_shader_src_, *instance_->fragment_shader_src_);
+  shaders["fbo"] =
+      std::make_pair(*instance_->fbo_vertex_shader_src_, *instance_->fbo_fragment_shader_src_);
+
+  unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, shaders);
+  // TODO(tec27): check for null and exit if so
+  return unique_ptr<Renderer>(std::move(open_gl));
 }
 
 Handle<Value> Forge::New(const Arguments& args) {

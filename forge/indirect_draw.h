@@ -76,14 +76,15 @@ public:
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
   inline HWND window() const { return window_; }
-  void InitializeOpenGl();
   void Render(const IndirectDrawPalette& indirect_draw_palette,
       const std::vector<byte>& surface_data);
 
 private:
+  void MaybeInitializeRenderer();
+
   int refcount_;
   HWND window_;
-  OpenGl* open_gl_;
+  std::unique_ptr<Renderer> renderer_;
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;

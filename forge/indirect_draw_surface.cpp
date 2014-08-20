@@ -43,8 +43,6 @@ IndirectDrawSurface::IndirectDrawSurface(IndirectDraw* owner, DDSURFACEDESC2* su
       if (DIRECTDRAWLOG) {
         Logger::Log(LogLevel::Verbose, "IndirectDraw: primary surface created");
       }
-
-      owner_->InitializeOpenGl();
     }
   }
 

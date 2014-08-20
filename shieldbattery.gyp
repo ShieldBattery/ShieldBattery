@@ -383,6 +383,7 @@
         'forge/indirect_draw.h',
         'forge/forge.h',
         'forge/open_gl.h',
+        'forge/renderer.h',
       ],
       'dependencies': [
         'common',

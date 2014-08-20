@@ -27,15 +27,13 @@ HRESULT WINAPI IndirectDrawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out
 IndirectDraw::IndirectDraw()
   : refcount_(1),
     window_(NULL),
-    open_gl_(nullptr),
+    renderer_(),
     display_width_(0),
     display_height_(0),
     display_bpp_(0) {
 }
 
 IndirectDraw::~IndirectDraw() {
-  delete open_gl_;
-  open_gl_ = nullptr;
 }
 
 HRESULT WINAPI IndirectDraw::QueryInterface(REFIID riid, void** obj_out) {
@@ -226,6 +224,8 @@ HRESULT WINAPI IndirectDraw::SetCooperativeLevel(HWND window_handle, DWORD flags
   }
 
   window_ = window_handle;
+  MaybeInitializeRenderer();
+
   return DD_OK;
 }
 
@@ -240,8 +240,7 @@ HRESULT WINAPI IndirectDraw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp
   display_width_ = width;
   display_height_ = height;
   display_bpp_ = bpp;
-
-  open_gl_ = new OpenGl(window_, display_width_, display_height_);
+  MaybeInitializeRenderer();
 
   return DD_OK;
 }
@@ -313,15 +312,18 @@ HRESULT WINAPI IndirectDraw::EvaluateMode(DWORD flags, DWORD* timeout_secs) {
   return DDERR_UNSUPPORTED;  // TODO(tec27): Implement
 }
 
-void IndirectDraw::InitializeOpenGl() {
-  assert(open_gl_ != nullptr);
-
-  open_gl_->InitializeOpenGl(this);
+void IndirectDraw::MaybeInitializeRenderer() {
+  if (window_ != NULL && display_width_ != 0) {
+    assert(!renderer_);
+    renderer_ = Forge::CreateRenderer(window_, display_width_, display_height_);
+  }
 }
 
 void IndirectDraw::Render(const IndirectDrawPalette &indirect_draw_palette,
     const std::vector<byte> &surface_data) {
-  open_gl_->Render(indirect_draw_palette, surface_data);
+  if (renderer_) {
+    renderer_->Render(indirect_draw_palette, surface_data);
+  }
 }
 
 }  // namespace forge

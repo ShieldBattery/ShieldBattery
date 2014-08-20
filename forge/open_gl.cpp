@@ -3,6 +3,8 @@
 #include <gl/glew.h>
 #include <gl/wglew.h>
 #include <gl/gl.h>
+#include <map>
+#include <memory>
 #include <vector>
 #include <string>
 
@@ -14,8 +16,28 @@ namespace sbat {
 namespace forge {
 
 using std::array;
+using std::map;
+using std::pair;
+using std::string;
+using std::unique_ptr;
 
-OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height)
+unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+    const map<string, pair<string, string>>& shaders) {
+  unique_ptr<OpenGl> open_gl(new OpenGl(window, ddraw_width, ddraw_height, shaders));
+
+  if (!open_gl->initialized_) {
+    Logger::Log(LogLevel::Error, "IndirectDraw failed to initialize OpenGL");
+    open_gl.release();
+    // TODO(tec27): display an error message to the user
+  } else {
+    Logger::Log(LogLevel::Verbose, "IndirectDraw initialized OpenGL successfully");
+  }
+
+  return open_gl;
+}
+
+OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+    const map<string, pair<string, string>>& shaders)
   : dc_(NULL),
     window_(window),
     client_rect_(),
@@ -46,32 +68,6 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height)
     counter_frequency_(),
     last_frame_time_() {
   GetClientRect(window, &client_rect_);
-}
-
-OpenGl::~OpenGl() {
-  if (initialized_) {
-    // TODO(tec27): wrap this in RAII classes instead
-    wglMakeCurrent(NULL, NULL);
-    wglDeleteContext(gl_context_);
-    ReleaseDC(window_, dc_);
-  }
-
-  if (shader_program_) {
-    glDeleteProgram(shader_program_);
-    shader_program_ = 0;
-  }
-  if (vertex_shader_) {
-    glDeleteShader(vertex_shader_);
-    vertex_shader_ = 0;
-  }
-  if (fragment_shader_) {
-    glDeleteShader(fragment_shader_);
-    fragment_shader_ = 0;
-  }
-}
-
-void OpenGl::InitializeOpenGl(IndirectDraw* indirect_draw) {
-  if (initialized_) return;
 
   Logger::Log(LogLevel::Verbose, "IndirectDraw initializing OpenGL");
 
@@ -109,11 +105,52 @@ void OpenGl::InitializeOpenGl(IndirectDraw* indirect_draw) {
     wglSwapIntervalEXT(0);  // disable vsync, which causes some pretty annoying issues in BW
   }
 
-  Forge::RegisterIndirectDraw(this, indirect_draw);
+  // TODO(tec27): make a more generic shader manager instead of finding these keys by literal
+  // TODO(tec27): shader asserts should be proper error handling
+  if (shaders.count("main") != 0) {
+    const pair<string, string> shader_pair = shaders.at("main");
+    vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_pair.first);
+    fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_pair.second);
+    assert(vertex_shader_ != 0);
+    assert(fragment_shader_ != 0);
+    BuildProgram("main");
+  }
+  if (shaders.count("fbo") != 0) {
+    const pair<string, string> shader_pair = shaders.at("fbo");
+    fbo_vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_pair.first);
+    fbo_fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_pair.second);
+    assert(fbo_vertex_shader_ != 0);
+    assert(fbo_fragment_shader_ != 0);
+    BuildProgram("fbo");
+  }
+
+  // TODO(tec27): handle MakeResources failures instead of doing asserts on things that are valid
+  // code paths (but errors)
   MakeResources();
 
   initialized_ = true;
-  Logger::Log(LogLevel::Verbose, "IndirectDraw initialized OpenGL successfully");
+}
+
+OpenGl::~OpenGl() {
+  if (initialized_) {
+    // TODO(tec27): wrap this in RAII classes instead
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(gl_context_);
+    ReleaseDC(window_, dc_);
+  }
+
+  if (shader_program_) {
+    glDeleteProgram(shader_program_);
+    shader_program_ = 0;
+  }
+  if (vertex_shader_) {
+    glDeleteShader(vertex_shader_);
+    vertex_shader_ = 0;
+  }
+  if (fragment_shader_) {
+    glDeleteShader(fragment_shader_);
+    fragment_shader_ = 0;
+  }
 }
 
 void OpenGl::SwapBuffers() {
@@ -121,27 +158,10 @@ void OpenGl::SwapBuffers() {
   ::SwapBuffers(dc_);
 }
 
-void OpenGl::SetShaders(std::string* vert_shader_src, std::string* frag_shader_src,
-    const char* type) {
-  if (type == "main") {
-    vertex_shader_ = BuildShader(GL_VERTEX_SHADER, vert_shader_src);
-    fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, frag_shader_src);
-    assert(vertex_shader_ != 0);
-    assert(fragment_shader_ != 0);
-    BuildProgram("main");
-  } else if (type == "fbo") {
-    fbo_vertex_shader_ = BuildShader(GL_VERTEX_SHADER, vert_shader_src);
-    fbo_fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, frag_shader_src);
-    assert(fbo_vertex_shader_ != 0);
-    assert(fbo_fragment_shader_ != 0);
-    BuildProgram("fbo");
-  }
-}
-
-GLuint OpenGl::BuildShader(GLenum type, std::string* src) {
+GLuint OpenGl::BuildShader(GLenum type, const std::string& src) {
   GLuint shader = glCreateShader(type);
-  GLint length = src->length();
-  const GLchar* shader_temp = src->c_str();
+  GLint length = src.length();
+  const GLchar* shader_temp = src.c_str();
   glShaderSource(shader, 1, reinterpret_cast<const GLchar**>(&shader_temp), &length);
   glCompileShader(shader);
 
@@ -203,9 +223,6 @@ void OpenGl::BuildProgram(const char* type) {
 }
 
 void OpenGl::MakeResources() {
-  assert(shader_program_ != NULL);
-  assert(fbo_shader_program_ != NULL);
-
   // bw rendering program resources
   shader_resources_.uniforms.bw_screen = glGetUniformLocation(shader_program_, "bw_screen");
   shader_resources_.uniforms.palette = glGetUniformLocation(shader_program_, "palette");
