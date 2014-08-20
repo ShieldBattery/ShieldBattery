@@ -1,4 +1,4 @@
-#include "forge/direct_glaw.h"
+#include "forge/indirect_draw.h"
 
 #include <array>
 #include <algorithm>
@@ -10,7 +10,7 @@ namespace forge {
 
 using std::array;
 
-DirectGlawPalette::DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array)
+IndirectDrawPalette::IndirectDrawPalette(DWORD flags, PALETTEENTRY* color_array)
     : refcount_(1),
       entries_(),
       texture_data_(),
@@ -24,30 +24,30 @@ DirectGlawPalette::DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array)
       ConvertToPaletteTextureEntry);
 }
 
-DirectGlawPalette::~DirectGlawPalette() {
+IndirectDrawPalette::~IndirectDrawPalette() {
 }
 
-HRESULT WINAPI DirectGlawPalette::QueryInterface(REFIID riid, void** obj_out) {
+HRESULT WINAPI IndirectDrawPalette::QueryInterface(REFIID riid, void** obj_out) {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawPalette::QueryInterface called");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawPalette::QueryInterface called");
   }
 
   *obj_out = nullptr;
   return DDERR_UNSUPPORTED;
 }
 
-ULONG WINAPI DirectGlawPalette::AddRef() {
+ULONG WINAPI IndirectDrawPalette::AddRef() {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawPalette::AddRef called");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawPalette::AddRef called");
   }
 
   refcount_++;
   return refcount_;
 }
 
-ULONG WINAPI DirectGlawPalette::Release() {
+ULONG WINAPI IndirectDrawPalette::Release() {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawPalette::Release called");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawPalette::Release called");
   }
   refcount_--;
   if (refcount_ <= 0) {
@@ -58,20 +58,20 @@ ULONG WINAPI DirectGlawPalette::Release() {
   }
 }
 
-HRESULT WINAPI DirectGlawPalette::GetCaps(DWORD* caps) {
+HRESULT WINAPI IndirectDrawPalette::GetCaps(DWORD* caps) {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawPalette::GetCaps called");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawPalette::GetCaps called");
   }
   // we assert above what the caps are, so we can just return those here
   *caps = DDPCAPS_8BIT | DDPCAPS_ALLOW256;
   return DD_OK;
 }
 
-HRESULT WINAPI DirectGlawPalette::GetEntries(DWORD unused, DWORD start, DWORD count,
+HRESULT WINAPI IndirectDrawPalette::GetEntries(DWORD unused, DWORD start, DWORD count,
     PALETTEENTRY* palette_out) {
   if (DIRECTDRAWLOG) {
     Logger::Logf(LogLevel::Verbose,
-        "DirectGlawPalette::GetEntries called with start: %d, count: %d", start, count);
+        "IndirectDrawPalette::GetEntries called with start: %d, count: %d", start, count);
   }
   assert(start >= 0);
   assert(count > 0);
@@ -81,19 +81,19 @@ HRESULT WINAPI DirectGlawPalette::GetEntries(DWORD unused, DWORD start, DWORD co
   return DD_OK;
 }
 
-HRESULT WINAPI DirectGlawPalette::Initialize(IDirectDraw* owner, DWORD flags,
+HRESULT WINAPI IndirectDrawPalette::Initialize(IDirectDraw* owner, DWORD flags,
     PALETTEENTRY* color_array) {
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawPalette::Initialize called");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawPalette::Initialize called");
   }
   return DDERR_ALREADYINITIALIZED;  // this is how this is meant to work, apparently.
 }
 
-HRESULT WINAPI DirectGlawPalette::SetEntries(DWORD unused, DWORD start, DWORD count,
+HRESULT WINAPI IndirectDrawPalette::SetEntries(DWORD unused, DWORD start, DWORD count,
     PALETTEENTRY* entries) {
   if (DIRECTDRAWLOG) {
     Logger::Logf(LogLevel::Verbose,
-        "DirectGlawPalette::SetEntries called with start: %d, count: %d", start, count);
+        "IndirectDrawPalette::SetEntries called with start: %d, count: %d", start, count);
   }
   assert(start >= 0);
   assert(count > 0);
@@ -111,7 +111,7 @@ HRESULT WINAPI DirectGlawPalette::SetEntries(DWORD unused, DWORD start, DWORD co
   return DD_OK;
 }
 
-void DirectGlawPalette::InitForOpenGl() {
+void IndirectDrawPalette::InitForOpenGl() {
   if (is_opengl_inited) {
     return;
   }

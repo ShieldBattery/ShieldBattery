@@ -4,9 +4,10 @@
 #include <node.h>
 #include <v8.h>
 #include <dsound.h>
+#include <string>
 
 #include "common/func_hook.h"
-#include "forge/direct_glaw.h"
+#include "forge/indirect_draw.h"
 #include "forge/open_gl.h"
 
 namespace sbat {
@@ -40,14 +41,14 @@ struct ImportHooks {
 };
 #undef HOOKABLE
 
-typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr, 
+typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
 
 class Forge : public node::ObjectWrap {
 public:
   static void Init();
   static v8::Handle<v8::Value> NewInstance();
-  static void RegisterDirectGlaw(OpenGl* open_gl, DirectGlaw* direct_glaw);
+  static void RegisterIndirectDraw(OpenGl* open_gl, IndirectDraw* indirect_draw);
 
 private:
   Forge();
@@ -59,13 +60,13 @@ private:
 
   static LRESULT WINAPI WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam);
   static inline int GetX(LPARAM lparam) {
-    return (int) (short) LOWORD(lparam);
+    return static_cast<int32>(static_cast<int16>(LOWORD(lparam)));
   }
   static inline int GetY(LPARAM lparam) {
-    return (int) (short) HIWORD(lparam);
+    return static_cast<int32>(static_cast<int16>(HIWORD(lparam)));
   }
   static inline LPARAM MakePositionParam(int x, int y) {
-    return (LPARAM) (((int) ((short) x)) | ((y) << 16));
+    return static_cast<LPARAM>(static_cast<int32>(static_cast<int16>(x)) | (y << 16));
   }
 
   // hooks
@@ -84,7 +85,7 @@ private:
   static BOOL __stdcall ClipCursorHook(const LPRECT lpRect);
   static HRESULT __stdcall DirectSoundCreate8Hook(
       const GUID* device, IDirectSound8** direct_sound_out, IUnknown* unused);
-  static HRESULT __stdcall CreateSoundBufferHook(IDirectSound8* this_ptr, 
+  static HRESULT __stdcall CreateSoundBufferHook(IDirectSound8* this_ptr,
       const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
@@ -104,7 +105,7 @@ private:
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
-  DirectGlaw* direct_glaw_;
+  IndirectDraw* indirect_draw_;
   std::string* vertex_shader_src_;
   std::string* fragment_shader_src_;
   std::string* fbo_vertex_shader_src_;

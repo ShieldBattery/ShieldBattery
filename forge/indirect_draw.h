@@ -1,5 +1,5 @@
-#ifndef FORGE_DIRECT_GLAW_H_
-#define FORGE_DIRECT_GLAW_H_
+#ifndef FORGE_INDIRECT_DRAW_H_
+#define FORGE_INDIRECT_DRAW_H_
 // Fake DirectDraw7 implementation that forwards drawing responsibility to OpenGL
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
@@ -21,12 +21,14 @@
 namespace sbat {
 namespace forge {
 
-HRESULT WINAPI DirectGlawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, IUnknown* unused);
+HRESULT WINAPI IndirectDrawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, IUnknown* unused);
 
-class DirectGlaw : public IDirectDraw7 {
+class IndirectDrawPalette;
+
+class IndirectDraw : public IDirectDraw7 {
 public:
-  DirectGlaw();
-  virtual ~DirectGlaw();
+  IndirectDraw();
+  virtual ~IndirectDraw();
 
   // COM methods, woohoo. Renamed parameters and stuff to better match the style around here
   /*** IUnknown methods ***/
@@ -75,7 +77,8 @@ public:
   inline DWORD display_bpp() const { return display_bpp_; }
   inline HWND window() const { return window_; }
   void InitializeOpenGl();
-  void Render(const DirectGlawPalette &direct_glaw_palette, const std::vector<byte> &surface_data);
+  void Render(const IndirectDrawPalette& indirect_draw_palette,
+      const std::vector<byte>& surface_data);
 
 private:
   int refcount_;
@@ -86,10 +89,10 @@ private:
   DWORD display_bpp_;
 };
 
-class DirectGlawPalette : public IDirectDrawPalette {
+class IndirectDrawPalette : public IDirectDrawPalette {
 public:
-  DirectGlawPalette(DWORD flags, PALETTEENTRY* color_array);
-  virtual ~DirectGlawPalette();
+  IndirectDrawPalette(DWORD flags, PALETTEENTRY* color_array);
+  virtual ~IndirectDrawPalette();
 
   /*** IUnknown methods ***/
   HRESULT WINAPI QueryInterface(REFIID riid, void** obj_out);
@@ -131,10 +134,10 @@ private:
   bool is_opengl_inited;
 };
 
-class DirectGlawSurface : public IDirectDrawSurface7 {
+class IndirectDrawSurface : public IDirectDrawSurface7 {
 public:
-  DirectGlawSurface(DirectGlaw* owner, DDSURFACEDESC2* surface_desc);
-  virtual ~DirectGlawSurface();
+  IndirectDrawSurface(IndirectDraw* owner, DDSURFACEDESC2* surface_desc);
+  virtual ~IndirectDrawSurface();
 
   /*** IUnknown methods ***/
   HRESULT WINAPI QueryInterface(REFIID riid, void** obj_out);
@@ -202,8 +205,8 @@ public:
 
 private:
   int refcount_;
-  DirectGlaw* owner_;
-  DirectGlawPalette* palette_;
+  IndirectDraw* owner_;
+  IndirectDrawPalette* palette_;
   DDSURFACEDESC2 surface_desc_;
   DWORD width_;
   DWORD height_;
@@ -214,4 +217,4 @@ private:
 }  // namespace forge
 }  // namespace sbat
 
-#endif  // FORGE_DIRECT_GLAW_H_
+#endif  // FORGE_INDIRECT_DRAW_H_

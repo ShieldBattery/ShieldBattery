@@ -373,14 +373,14 @@
         'deps/node/deps/v8/include',
       ],
       'sources': [
-        'forge/direct_glaw.cpp',
-        'forge/direct_glaw_palette.cpp',
-        'forge/direct_glaw_surface.cpp',
+        'forge/indirect_draw.cpp',
+        'forge/indirect_draw_palette.cpp',
+        'forge/indirect_draw_surface.cpp',
         'forge/forge.cpp',
         'forge/module.cpp',
         'forge/open_gl.cpp',
         # headers
-        'forge/direct_glaw.h',
+        'forge/indirect_draw.h',
         'forge/forge.h',
         'forge/open_gl.h',
       ],

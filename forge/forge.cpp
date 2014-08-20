@@ -8,7 +8,7 @@
 
 #include "common/func_hook.h"
 #include "common/types.h"
-#include "forge/direct_glaw.h"
+#include "forge/indirect_draw.h"
 #include "logger/logger.h"
 #include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"
@@ -39,7 +39,7 @@ Forge::Forge()
       create_sound_buffer_hook_(nullptr),
       window_handle_(NULL),
       original_wndproc_(nullptr),
-      direct_glaw_(nullptr),
+      indirect_draw_(nullptr),
       vertex_shader_src_(nullptr),
       fragment_shader_src_(nullptr),
       fbo_vertex_shader_src_(nullptr),
@@ -115,9 +115,9 @@ Forge::~Forge() {
       FreeLibrary(dsound);
     }
   }
-  if (direct_glaw_) {
-    direct_glaw_->Release();
-    direct_glaw_ = nullptr;
+  if (indirect_draw_) {
+    indirect_draw_->Release();
+    indirect_draw_ = nullptr;
   }
   delete vertex_shader_src_;
   vertex_shader_src_ = nullptr;
@@ -145,15 +145,15 @@ void Forge::Init() {
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
 
-void Forge::RegisterDirectGlaw(OpenGl* open_gl, DirectGlaw* direct_glaw) {
-  assert(instance_->direct_glaw_ == nullptr);
+void Forge::RegisterIndirectDraw(OpenGl* open_gl, IndirectDraw* indirect_draw) {
+  assert(instance_->indirect_draw_ == nullptr);
   assert(instance_->vertex_shader_src_);
   assert(instance_->fragment_shader_src_);
   assert(instance_->fbo_vertex_shader_src_);
   assert(instance_->fbo_fragment_shader_src_);
 
-  direct_glaw->AddRef();
-  instance_->direct_glaw_ = direct_glaw;
+  indirect_draw->AddRef();
+  instance_->indirect_draw_ = indirect_draw;
   open_gl->SetShaders(instance_->vertex_shader_src_, instance_->fragment_shader_src_, "main");
   open_gl->SetShaders(
       instance_->fbo_vertex_shader_src_, instance_->fbo_fragment_shader_src_, "fbo");
@@ -285,13 +285,13 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
   String::Utf8Value frag(args[1]->ToString());
   std::string* fragment_src = new std::string(*frag);
   std::wstring* shader_type = ToWstring(args[2]->ToString());
-  
+
   if (*shader_type == L"main") {
     if (instance_->vertex_shader_src_) {
       delete instance_->vertex_shader_src_;
     }
     instance_->vertex_shader_src_ = vertex_src;
-        
+
     if (instance_->fragment_shader_src_) {
       delete instance_->fragment_shader_src_;
     }
@@ -301,7 +301,7 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
       delete instance_->fbo_vertex_shader_src_;
     }
     instance_->fbo_vertex_shader_src_ = vertex_src;
-    
+
     if (instance_->fbo_fragment_shader_src_) {
       delete instance_->fbo_fragment_shader_src_;
     }
@@ -469,7 +469,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   }
 
   instance_->CalculateMouseResolution(instance_->width_, instance_->height_);
-  
+
   // for now, we'll just center the window
   int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;
   int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
@@ -498,7 +498,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
   // In some cases, Windows seems to not give us a window of the size we requested, so we also
   // re-apply the size and position here just in case
-  SetWindowPos(instance_->window_handle_, HWND_BOTTOM, 
+  SetWindowPos(instance_->window_handle_, HWND_BOTTOM,
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
       SWP_NOACTIVATE | SWP_HIDEWINDOW);
@@ -550,7 +550,7 @@ int __stdcall Forge::GetSystemMetricsHook(int nIndex) {
 FARPROC __stdcall Forge::GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName) {
   if (strcmp(lpProcName, "DirectDrawCreate") == 0) {
     Logger::Log(LogLevel::Verbose, "Injecting custom DirectDrawCreate");
-    return reinterpret_cast<FARPROC>(DirectGlawCreate);
+    return reinterpret_cast<FARPROC>(IndirectDrawCreate);
   } else if (strcmp(lpProcName, "DirectSoundCreate8")) {
     Logger::Log(LogLevel::Verbose, "Injecting custom DirectSoundCreate8");
     return reinterpret_cast<FARPROC>(DirectSoundCreate8Hook);
@@ -708,7 +708,7 @@ HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
 }
 
 HWND __stdcall Forge::SetCaptureHook(HWND hWnd) {
-  if(instance_->captured_window_) {
+  if (instance_->captured_window_) {
     PostMessage(instance_->captured_window_, WM_CAPTURECHANGED, NULL, LPARAM(hWnd));
   }
 
@@ -727,7 +727,7 @@ void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
   const Settings& settings = GetSettings();
   double delta;
 
-  if(width > height) {
+  if (width > height) {
     delta = (height - 480.0) / 4;
     mouse_resolution_height_ = static_cast<int>(
         (height - (delta * settings.mouse_sensitivity)) + 0.5);

@@ -8,6 +8,7 @@
 #include <array>
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "common/types.h"
 #include "shieldbattery/settings.h"
@@ -28,8 +29,8 @@ struct ShaderResources {
   } attributes;
 };
 
-class DirectGlaw;
-class DirectGlawPalette;
+class IndirectDraw;
+class IndirectDrawPalette;
 
 template <typename T, int n>
 class GlStaticBuffer {
@@ -62,11 +63,12 @@ public:
   OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height);
   virtual ~OpenGl();
 
-  void InitializeOpenGl(DirectGlaw* direct_glaw);
+  void InitializeOpenGl(IndirectDraw* indirect_draw);
   void SwapBuffers();
   void SetShaders(std::string* vert_shader_src, std::string* frag_shader_src, const char* type);
   void MakeResources();
-  void Render(const DirectGlawPalette &direct_glaw_palette, const std::vector<byte> &surface_data);
+  void Render(const IndirectDrawPalette& indirect_draw_palette,
+      const std::vector<byte>& surface_data);
 
 private:
   GLuint BuildShader(GLenum type, std::string* src);

@@ -4,8 +4,9 @@
 #include <gl/wglew.h>
 #include <gl/gl.h>
 #include <vector>
+#include <string>
 
-#include "forge/direct_glaw.h"
+#include "forge/indirect_draw.h"
 #include "forge/forge.h"
 #include "logger/logger.h"
 
@@ -22,7 +23,7 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height)
     initialized_(false),
     vertex_shader_(0),
     fragment_shader_(0),
-    shader_program_(0), 
+    shader_program_(0),
     shader_resources_(),
     fbo_vertex_shader_(0),
     fbo_fragment_shader_(0),
@@ -69,10 +70,10 @@ OpenGl::~OpenGl() {
   }
 }
 
-void OpenGl::InitializeOpenGl(DirectGlaw* direct_glaw) {
+void OpenGl::InitializeOpenGl(IndirectDraw* indirect_draw) {
   if (initialized_) return;
 
-  Logger::Log(LogLevel::Verbose, "DirectGlaw initializing OpenGL");
+  Logger::Log(LogLevel::Verbose, "IndirectDraw initializing OpenGL");
 
   assert(window_ != NULL);
   dc_ = GetDC(window_);
@@ -105,14 +106,14 @@ void OpenGl::InitializeOpenGl(DirectGlaw* direct_glaw) {
   if (!WGLEW_EXT_swap_control) {
     Logger::Log(LogLevel::Warning, "OpenGL does not support swap control, vsync may cause issues");
   } else {
-    wglSwapIntervalEXT(0); // disable vsync, which causes some pretty annoying issues in BW
+    wglSwapIntervalEXT(0);  // disable vsync, which causes some pretty annoying issues in BW
   }
 
-  Forge::RegisterDirectGlaw(this, direct_glaw);
+  Forge::RegisterIndirectDraw(this, indirect_draw);
   MakeResources();
 
   initialized_ = true;
-  Logger::Log(LogLevel::Verbose, "DirectGlaw initialized OpenGL successfully");
+  Logger::Log(LogLevel::Verbose, "IndirectDraw initialized OpenGL successfully");
 }
 
 void OpenGl::SwapBuffers() {
@@ -120,7 +121,8 @@ void OpenGl::SwapBuffers() {
   ::SwapBuffers(dc_);
 }
 
-void OpenGl::SetShaders(std::string* vert_shader_src, std::string* frag_shader_src, const char* type) {
+void OpenGl::SetShaders(std::string* vert_shader_src, std::string* frag_shader_src,
+    const char* type) {
   if (type == "main") {
     vertex_shader_ = BuildShader(GL_VERTEX_SHADER, vert_shader_src);
     fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, frag_shader_src);
@@ -146,7 +148,7 @@ GLuint OpenGl::BuildShader(GLenum type, std::string* src) {
   GLint shader_ok;
   glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
   if (!shader_ok) {
-    Logger::Log(LogLevel::Error, "DirectGlaw: compiling shader failed");
+    Logger::Log(LogLevel::Error, "IndirectDraw: compiling shader failed");
     GLint log_length;
     char* log;
     glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
@@ -175,7 +177,7 @@ void OpenGl::BuildProgram(const char* type) {
   GLint program_ok;
   glGetProgramiv(new_program, GL_LINK_STATUS, &program_ok);
   if (!program_ok) {
-    Logger::Log(LogLevel::Error, "DirectGlaw: linking program failed");
+    Logger::Log(LogLevel::Error, "IndirectDraw: linking program failed");
     GLint log_length;
     char* log;
     glGetProgramiv(new_program, GL_INFO_LOG_LENGTH, &log_length);
@@ -249,7 +251,8 @@ void OpenGl::MakeResources() {
       NULL);
 
   GLenum draw_buffers[1] = { GL_COLOR_ATTACHMENT0 };
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_texture_, 0);
+  glFramebufferTexture2D(
+      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_texture_, 0);
   glDrawBuffers(1, draw_buffers);
   assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
@@ -260,7 +263,8 @@ void OpenGl::MakeResources() {
         1.0f, 1.0f, 1.0f, 1.0f };
   fbo_vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, fbo_vertex_data));
   const array<GLushort, 4> fbo_element_data = { 0, 1, 2, 3 };
-  fbo_element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, fbo_element_data));
+  fbo_element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER,
+      fbo_element_data));
 
   if (settings_.display_mode == DisplayMode::FullScreen && settings_.maintain_aspect_ratio) {
     aspect_ratio_width_ = client_rect_.right;
@@ -274,10 +278,11 @@ void OpenGl::MakeResources() {
   }
 
   QueryPerformanceFrequency(&counter_frequency_);
-  counter_frequency_.QuadPart /= 1000LL; // convert to ticks per millisecond
+  counter_frequency_.QuadPart /= 1000LL;  // convert to ticks per millisecond
 }
 
-void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vector<byte> &surface_data) {
+void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
+    const std::vector<byte> &surface_data) {
   // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
   // iteration loop during data intialization when there's nothing to actually render) and this
   // causes issues when the graphics card decides it doesn't want to queue commands any more. To
@@ -297,16 +302,16 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   }
 
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering");
   }
-  
+
   glBindTexture(GL_TEXTURE_2D, screen_texture_);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ddraw_width_, ddraw_height_, texture_format_,
       GL_UNSIGNED_BYTE, &surface_data[0]);
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after screen texture copied");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after screen texture copied");
   }
-  
+
   if (!shader_program_ || !fbo_shader_program_) {
     return;
   }
@@ -314,21 +319,21 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   // Bind the framebuffer for drawing to
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
   glViewport(0, 0, ddraw_width_, ddraw_height_);
- 
+
   const ShaderResources* resources = &shader_resources_;
   glUseProgram(shader_program_);
 
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after use program");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after use program");
   }
 
   // Draw from the screen texture to the FBO texture (de-palettize)
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, screen_texture_);
   glUniform1i(resources->uniforms.bw_screen, screen_texture_);
-  direct_glaw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
+  indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "DirectGlawSurface rendering - after textures bound");
+    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after textures bound");
   }
 
   glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
@@ -347,7 +352,7 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   // Unbind the framebuffer so we can render to the screen
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   if (settings_.display_mode != DisplayMode::FullScreen) {
-	  glViewport(0, 0, settings_.width, settings_.height);
+    glViewport(0, 0, settings_.width, settings_.height);
   } else if (aspect_ratio_width_ > 0) {
     glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2) + 0.5),
         static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2) + 0.5),
@@ -361,7 +366,7 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
   glUniform1i(resources->uniforms.rendered_texture, 1);
-  
+
   glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
   glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
@@ -379,7 +384,7 @@ void OpenGl::Render(const DirectGlawPalette &direct_glaw_palette, const std::vec
   QueryPerformanceCounter(&last_frame_time_);
   if (DIRECTDRAWLOG) {
     Logger::Logf(LogLevel::Verbose,
-        "DirectGlawSurface rendering completed [perf counter: %lld]",
+        "IndirectDrawSurface rendering completed [perf counter: %lld]",
         last_frame_time_.QuadPart / counter_frequency_.QuadPart);
   }
 }

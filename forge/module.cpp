@@ -17,5 +17,5 @@ void Initialize(Handle<Object> exports, Handle<Object> module) {
 
 NODE_MODULE(forge, Initialize);
 
-}
-}
+}  // namespace forge
+}  // namespace sbat
