@@ -4,9 +4,10 @@
 #include <Windows.h>
 #include <array>
 #include <vector>
+#include <string>
 
-#include "./types.h"
-#include "./win_helpers.h"
+#include "common/types.h"
+#include "common/win_helpers.h"
 
 namespace sbat {
 enum class RegisterArgument : byte {
@@ -32,6 +33,7 @@ enum class RunOriginalCodeType {
 // instead reproduce the overwritten opcodes in a trampoline.
 class Detour {
   typedef void (__stdcall* DetourTarget)();
+
 public:
   class Builder {
     friend class Detour;
@@ -230,7 +232,7 @@ private:
     if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
       return nullptr;
     }
-    
+
     PIMAGE_NT_HEADERS nt_header = reinterpret_cast<PIMAGE_NT_HEADERS>(
         reinterpret_cast<byte*>(module_handle) + dos_header->e_lfanew);
     if (nt_header->Signature != IMAGE_NT_SIGNATURE) {
@@ -280,7 +282,7 @@ private:
         }
       }
 
-      import++; // move to the next import
+      import++;  // move to the next import
     }
 
     // we couldn't find the right import

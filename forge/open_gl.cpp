@@ -20,15 +20,17 @@ using std::map;
 using std::pair;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 
 unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     const map<string, pair<string, string>>& shaders) {
   unique_ptr<OpenGl> open_gl(new OpenGl(window, ddraw_width, ddraw_height, shaders));
 
-  if (!open_gl->initialized_) {
+  if (open_gl->has_error()) {
     Logger::Log(LogLevel::Error, "IndirectDraw failed to initialize OpenGL");
+    // TODO(tec27): display this error message to the user (and exit?) instead of just logging it
+    Logger::Log(LogLevel::Error, open_gl->error().c_str());
     open_gl.release();
-    // TODO(tec27): display an error message to the user
   } else {
     Logger::Log(LogLevel::Verbose, "IndirectDraw initialized OpenGL successfully");
   }
@@ -36,20 +38,112 @@ unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_
   return open_gl;
 }
 
+GlContext::GlContext(const WinHdc& dc) 
+  : context_(wglCreateContext(dc.get())) {
+  if (context_ == NULL) {
+    return;
+  }
+  wglMakeCurrent(dc.get(), context_);
+}
+
+GlContext::~GlContext() {
+  if (!has_error()) {
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(context_);
+  }
+}
+
+GlShader::GlShader(GLenum type, const std::string& src) 
+  : id_(glCreateShader(type)) {
+  GLint length = src.length();
+  const GLchar* src_cstr = src.c_str();
+  glShaderSource(id_, 1, reinterpret_cast<const GLchar**>(&src_cstr), &length);
+  glCompileShader(id_);
+
+  GLint shader_ok;
+  glGetShaderiv(id_, GL_COMPILE_STATUS, &shader_ok);
+  if (!shader_ok) {
+    Logger::Log(LogLevel::Error, "OpenGl: compiling shader failed");
+    GLint log_length;
+    glGetShaderiv(id_, GL_INFO_LOG_LENGTH, &log_length);
+
+    vector<char> log_str(log_length);
+    glGetShaderInfoLog(id_, log_length, NULL, log_str.data());
+    Logger::Log(LogLevel::Error, log_str.data());
+    glDeleteShader(id_);
+    id_ = 0;
+  }
+}
+
+GlShader::~GlShader() {
+  if (!has_error()) {
+    glDeleteShader(id_);
+  }
+}
+
+GlVertexShader::GlVertexShader(const std::string& src)
+  : GlShader(GL_VERTEX_SHADER, src) {
+}
+
+GlVertexShader::~GlVertexShader() {
+}
+
+GlFragmentShader::GlFragmentShader(const std::string& src)
+  : GlShader(GL_FRAGMENT_SHADER, src) {
+}
+
+GlFragmentShader::~GlFragmentShader() {
+}
+
+GlShaderProgram::GlShaderProgram(const std::string& vertex_src, const std::string& fragment_src)
+  : id_(0),
+    vertex_(vertex_src),
+    fragment_(fragment_src) {
+  if (vertex_.has_error() || fragment_.has_error()) {
+    return;
+  }
+
+  id_ = glCreateProgram();
+  glAttachShader(id_, vertex_.get());
+  glAttachShader(id_, fragment_.get());
+  glLinkProgram(id_);
+
+  GLint program_ok;
+  glGetProgramiv(id_, GL_LINK_STATUS, &program_ok);
+  if (!program_ok) {
+    Logger::Log(LogLevel::Error, "OpenGl: linking program failed");
+    GLint log_length;
+    glGetProgramiv(id_, GL_INFO_LOG_LENGTH, &log_length);
+    
+    vector<char> log_str(log_length);
+    glGetProgramInfoLog(id_, log_length, NULL, log_str.data());
+    Logger::Log(LogLevel::Error, log_str.data());
+    glDeleteProgram(id_);
+    id_ = 0;
+  }
+}
+
+GlShaderProgram::~GlShaderProgram() {
+  if (!has_error()) {
+    glDeleteProgram(id_);
+  }
+}
+
+// Constructing this *can* fail and leave a partially uninitialized object. The assumption is that
+// this constructor will only ever be called by the factory method, and the factory method will take
+// care of deleting any errored objects instead of returning them higher up, so no methods outside
+// of the constructor will need to check for such a state.
 OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     const map<string, pair<string, string>>& shaders)
-  : dc_(NULL),
+  : error_(),
     window_(window),
+    dc_(window),
     client_rect_(),
-    gl_context_(NULL),
-    initialized_(false),
-    vertex_shader_(0),
-    fragment_shader_(0),
-    shader_program_(0),
+    gl_context_(),
+    screen_shader_(),
+    fbo_shader_(),
     shader_resources_(),
-    fbo_vertex_shader_(0),
-    fbo_fragment_shader_(0),
-    fbo_shader_program_(0),
+    min_millis_per_frame_(16),
     ddraw_width_(ddraw_width),
     ddraw_height_(ddraw_height),
     aspect_ratio_width_(0),
@@ -67,12 +161,8 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     settings_(GetSettings()),
     counter_frequency_(),
     last_frame_time_() {
-  GetClientRect(window, &client_rect_);
-
   Logger::Log(LogLevel::Verbose, "IndirectDraw initializing OpenGL");
-
-  assert(window_ != NULL);
-  dc_ = GetDC(window_);
+  GetClientRect(window, &client_rect_);
 
   PIXELFORMATDESCRIPTOR pixel_format = PIXELFORMATDESCRIPTOR();
   pixel_format.nSize = sizeof(pixel_format);
@@ -81,21 +171,24 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   pixel_format.iPixelType = PFD_TYPE_RGBA;
   pixel_format.cColorBits = 24;
   pixel_format.cDepthBits = 16;
-  int format = ChoosePixelFormat(dc_, &pixel_format);
-  SetPixelFormat(dc_, format, &pixel_format);
+  int format = ChoosePixelFormat(dc_.get(), &pixel_format);
+  SetPixelFormat(dc_.get(), format, &pixel_format);
 
-  gl_context_ = wglCreateContext(dc_);
-  assert(gl_context_ != NULL);
-  wglMakeCurrent(dc_, gl_context_);
+  gl_context_.reset(new GlContext(dc_));
+  if (gl_context_->has_error()) {
+    error_ = "Could not initialize OpenGL context";
+    return;
+  }
 
   GLenum err = glewInit();
   if (err != GLEW_OK)  {
-    // TODO(tec27): kill process somehow
     Logger::Logf(LogLevel::Error, "GLEW error: %s", glewGetErrorString(err));
+    error_ = "Could not initialize GLEW";
     return;
   }
   if (!GLEW_VERSION_3_1) {
     Logger::Log(LogLevel::Error, "OpenGL 3.1 not available");
+    error_ = "This computer does not support OpenGL 3.1. Please try a different renderer.";
     return;
   }
 
@@ -109,129 +202,49 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   // TODO(tec27): shader asserts should be proper error handling
   if (shaders.count("main") != 0) {
     const pair<string, string> shader_pair = shaders.at("main");
-    vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_pair.first);
-    fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_pair.second);
-    assert(vertex_shader_ != 0);
-    assert(fragment_shader_ != 0);
-    BuildProgram("main");
+    screen_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
   }
   if (shaders.count("fbo") != 0) {
     const pair<string, string> shader_pair = shaders.at("fbo");
-    fbo_vertex_shader_ = BuildShader(GL_VERTEX_SHADER, shader_pair.first);
-    fbo_fragment_shader_ = BuildShader(GL_FRAGMENT_SHADER, shader_pair.second);
-    assert(fbo_vertex_shader_ != 0);
-    assert(fbo_fragment_shader_ != 0);
-    BuildProgram("fbo");
+    fbo_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
   }
+
+  if (screen_shader_->has_error() || fbo_shader_->has_error()) {
+    error_ = "Could not build shaders";
+    return;
+  }
+
+  shader_resources_.uniforms.bw_screen = screen_shader_->GetUniformLocation("bw_screen");
+  shader_resources_.uniforms.palette = screen_shader_->GetUniformLocation("palette");
+  shader_resources_.attributes.position = screen_shader_->GetAttribLocation("position");
+  shader_resources_.attributes.texpos = screen_shader_->GetAttribLocation("texpos");
+  shader_resources_.uniforms.rendered_texture = fbo_shader_->GetUniformLocation("renderedTexture");
+
+  DEVMODE devmode;
+  EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
+  if (devmode.dmDisplayFrequency <= 1) {
+    // "Default" setting for the device. I don't know what that means, but the docs say this can
+    // happen, so we'll assume 60hz since that's fairly common and non-problematic
+    min_millis_per_frame_ = 16;
+  } else {
+    min_millis_per_frame_ = 1000 / devmode.dmDisplayFrequency;
+  }
+  Logger::Logf(LogLevel::Verbose, "OpenGl selected min delay per frame: %dms",
+      min_millis_per_frame_);
 
   // TODO(tec27): handle MakeResources failures instead of doing asserts on things that are valid
   // code paths (but errors)
   MakeResources();
-
-  initialized_ = true;
 }
 
 OpenGl::~OpenGl() {
-  if (initialized_) {
-    // TODO(tec27): wrap this in RAII classes instead
-    wglMakeCurrent(NULL, NULL);
-    wglDeleteContext(gl_context_);
-    ReleaseDC(window_, dc_);
-  }
-
-  if (shader_program_) {
-    glDeleteProgram(shader_program_);
-    shader_program_ = 0;
-  }
-  if (vertex_shader_) {
-    glDeleteShader(vertex_shader_);
-    vertex_shader_ = 0;
-  }
-  if (fragment_shader_) {
-    glDeleteShader(fragment_shader_);
-    fragment_shader_ = 0;
-  }
 }
 
 void OpenGl::SwapBuffers() {
-  assert(initialized_);
-  ::SwapBuffers(dc_);
-}
-
-GLuint OpenGl::BuildShader(GLenum type, const std::string& src) {
-  GLuint shader = glCreateShader(type);
-  GLint length = src.length();
-  const GLchar* shader_temp = src.c_str();
-  glShaderSource(shader, 1, reinterpret_cast<const GLchar**>(&shader_temp), &length);
-  glCompileShader(shader);
-
-  GLint shader_ok;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &shader_ok);
-  if (!shader_ok) {
-    Logger::Log(LogLevel::Error, "IndirectDraw: compiling shader failed");
-    GLint log_length;
-    char* log;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_length);
-    log = new char[log_length];
-    glGetShaderInfoLog(shader, log_length, NULL, log);
-    Logger::Log(LogLevel::Error, log);
-    delete[] log;
-    glDeleteShader(shader);
-    return 0;
-  }
-
-  return shader;
-}
-
-void OpenGl::BuildProgram(const char* type) {
-  GLuint new_program = glCreateProgram();
-  if (type == "main") {
-    glAttachShader(new_program, vertex_shader_);
-    glAttachShader(new_program, fragment_shader_);
-  } else if (type == "fbo") {
-    glAttachShader(new_program, fbo_vertex_shader_);
-    glAttachShader(new_program, fbo_fragment_shader_);
-  }
-  glLinkProgram(new_program);
-
-  GLint program_ok;
-  glGetProgramiv(new_program, GL_LINK_STATUS, &program_ok);
-  if (!program_ok) {
-    Logger::Log(LogLevel::Error, "IndirectDraw: linking program failed");
-    GLint log_length;
-    char* log;
-    glGetProgramiv(new_program, GL_INFO_LOG_LENGTH, &log_length);
-    log = new char[log_length];
-    glGetProgramInfoLog(new_program, log_length, NULL, log);
-    Logger::Log(LogLevel::Error, log);
-    delete[] log;
-    glDeleteProgram(new_program);
-    return;
-  }
-
-  if (type == "main") {
-    if (shader_program_ != 0) {
-      glDeleteProgram(shader_program_);
-    }
-    shader_program_ = new_program;
-  } else if (type == "fbo") {
-    if (fbo_shader_program_ != 0) {
-      glDeleteProgram(fbo_shader_program_);
-    }
-    fbo_shader_program_ = new_program;
-  }
+  ::SwapBuffers(dc_.get());
 }
 
 void OpenGl::MakeResources() {
-  // bw rendering program resources
-  shader_resources_.uniforms.bw_screen = glGetUniformLocation(shader_program_, "bw_screen");
-  shader_resources_.uniforms.palette = glGetUniformLocation(shader_program_, "palette");
-  shader_resources_.attributes.position = glGetAttribLocation(shader_program_, "position");
-  shader_resources_.attributes.texpos = glGetAttribLocation(shader_program_, "texpos");
-  // fbo rendering resources
-  shader_resources_.uniforms.rendered_texture =
-    glGetUniformLocation(fbo_shader_program_, "renderedTexture");
-
   // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
   const array<GLfloat, 16> vertex_data =
       { -1.0f, -1.0f, 0.0f, 1.0f,
@@ -304,12 +317,12 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   // iteration loop during data intialization when there's nothing to actually render) and this
   // causes issues when the graphics card decides it doesn't want to queue commands any more. To
   // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
-  // making rendering calls this fast. 120Hz seems like a "reasonable" limit to me (and by
-  // reasonable, I mean unlikely to cause weird issues), even though BW will never actually update
-  // any state that fast.
+  // making rendering calls this fast. We try to pick a value that matches the monitor's refresh
+  // rate, falling back to 60hz if we don't know what that is.
   LARGE_INTEGER frame_time;
   QueryPerformanceCounter(&frame_time);
-  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 8) {
+  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 
+      min_millis_per_frame_) {
     return;
   }
   // Don't render while minimized (we tell BW its never minimized, so even though it has a check for
@@ -319,18 +332,14 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   }
 
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering");
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering");
   }
 
   glBindTexture(GL_TEXTURE_2D, screen_texture_);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ddraw_width_, ddraw_height_, texture_format_,
       GL_UNSIGNED_BYTE, &surface_data[0]);
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after screen texture copied");
-  }
-
-  if (!shader_program_ || !fbo_shader_program_) {
-    return;
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after screen texture copied");
   }
 
   // Bind the framebuffer for drawing to
@@ -338,10 +347,10 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   glViewport(0, 0, ddraw_width_, ddraw_height_);
 
   const ShaderResources* resources = &shader_resources_;
-  glUseProgram(shader_program_);
+  screen_shader_->Use();
 
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after use program");
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after use program");
   }
 
   // Draw from the screen texture to the FBO texture (de-palettize)
@@ -350,7 +359,7 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   glUniform1i(resources->uniforms.bw_screen, screen_texture_);
   indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "IndirectDrawSurface rendering - after textures bound");
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after textures bound");
   }
 
   glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
@@ -378,7 +387,7 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
     glViewport(0, 0, client_rect_.right, client_rect_.bottom);
   }
 
-  glUseProgram(fbo_shader_program_);
+  fbo_shader_->Use();
 
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
@@ -401,7 +410,7 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   QueryPerformanceCounter(&last_frame_time_);
   if (DIRECTDRAWLOG) {
     Logger::Logf(LogLevel::Verbose,
-        "IndirectDrawSurface rendering completed [perf counter: %lld]",
+        "OpenGl rendering completed [perf counter: %lld]",
         last_frame_time_.QuadPart / counter_frequency_.QuadPart);
   }
 }

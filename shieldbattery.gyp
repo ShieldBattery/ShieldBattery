@@ -122,12 +122,13 @@
         'common/win_thread.cpp',
         # headers
         'common/func_hook.h',
+        'common/macros.h',
         'common/types.h',
         'common/win_helpers.h',
         'common/win_thread.h',
       ],
       'direct_dependent_settings': {
-        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', ],
+        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib' ],
       },
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'

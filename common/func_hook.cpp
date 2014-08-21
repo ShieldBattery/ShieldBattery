@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <udis86.h>
 #include <Windows.h>
+#include <algorithm>
 #include <vector>
 
 #include "common/types.h"
@@ -85,17 +86,17 @@ int32 GetRewrittenInstructionLength(ud_mnemonic_code code, uint32 current_len) {
     case UD_Ijge:
     case UD_Ijle:
     case UD_Ijg:
-      return 6; // 0F XX YY YY YY YY
+      return 6;  // 0F XX YY YY YY YY
     case UD_Ijmp:
     case UD_Icall:
-      return 5; // XX YY YY YY YY
+      return 5;  // XX YY YY YY YY
     default:
       return current_len;
   }
 }
 
 uint32 ConstructRelativeOpcode(ud_mnemonic_code code, uint32 pc, uint32 instruction_len,
-   const ud_operand_t* operand, byte* output) {
+    const ud_operand_t* operand, byte* output) {
   int32 orig_offset;
   switch (operand->size) {
   case 8:
@@ -141,7 +142,7 @@ uint32 ConstructRelativeOpcode(ud_mnemonic_code code, uint32 pc, uint32 instruct
     case UD_Ijmp: output[pos++] = 0xE9; break;
     case UD_Icall: output[pos++] = 0xE8; break;
     default:
-      assert(false); // no other opcodes should be found in calls to this
+      assert(false);  // no other opcodes should be found in calls to this
       return -1;
   }
 
@@ -189,13 +190,13 @@ void ReplaceRelativeOffsets(byte* hook_location, uint32 hook_size, byte* output,
         pos += ConstructRelativeOpcode(udis.mnemonic, static_cast<uint32>(ud_insn_off(&udis)),
             ud_insn_len(&udis), operand, &output[pos]);
         break;
-      } 
+      }
       // haven't implemented register handling yet, so better to crash in these cases instead of
       // failing in weird ways later on
       assert(operand == nullptr || operand->type != UD_OP_REG);
 
       // if it wasn't relative/register, continue on and just copy it over as any other opcode
-    default: // not a relative instruction, no correction needed
+    default:  // not a relative instruction, no correction needed
       byte* instruction_ptr = reinterpret_cast<byte*>(ud_insn_off(&udis));
       std::copy(instruction_ptr, instruction_ptr + ud_insn_len(&udis),
           &output[pos]);
@@ -226,7 +227,7 @@ Detour::Detour(const Detour::Builder& builder)
   ud_set_input_buffer(&udis, hook_location_, 20);
   ud_set_pc(&udis, static_cast<uint64_t>(reinterpret_cast<uint32>(hook_location_)));
   size_t replaced_size = 0;
-  
+
   // we do 2 passes:
   // first we figure out how big the trampoline needs to be, then iterate back over the opcodes
   // we're replacing and rewrite any relative offsets. The second pass happens only if we want to

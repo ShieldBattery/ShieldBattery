@@ -11,7 +11,9 @@
 #include <vector>
 #include <string>
 
+#include "common/macros.h"
 #include "common/types.h"
+#include "common/win_helpers.h"
 #include "shieldbattery/settings.h"
 #include "forge/renderer.h"
 
@@ -52,12 +54,70 @@ public:
   inline GLuint buffer() { return buffer_; }
 
 private:
-  // Disable copying
-  GlStaticBuffer(const GlStaticBuffer&);
-  GlStaticBuffer& operator=(const GlStaticBuffer&);
-
   std::array<T, n> data_;
   GLuint buffer_;
+
+  DISALLOW_COPY_AND_ASSIGN(GlStaticBuffer);
+};
+
+class GlContext {
+public:
+  explicit GlContext(const WinHdc& dc);
+  ~GlContext();
+
+  bool has_error() const { return context_ == NULL; }
+private:
+  HGLRC context_;
+
+  DISALLOW_COPY_AND_ASSIGN(GlContext);
+};
+
+class GlShader {
+public:
+  GlShader(GLenum type, const std::string& src);
+  virtual ~GlShader();
+
+  bool has_error() const { return id_ == 0; }
+  GLuint get() const { return id_; }
+private:
+  GLuint id_;
+
+  DISALLOW_COPY_AND_ASSIGN(GlShader);
+};
+
+class GlVertexShader : public GlShader {
+public:
+  GlVertexShader(const std::string& src);
+  virtual ~GlVertexShader();
+};
+
+class GlFragmentShader : public GlShader {
+public:
+  GlFragmentShader(const std::string& src);
+  virtual ~GlFragmentShader();
+};
+
+class GlShaderProgram {
+public:
+  GlShaderProgram(const std::string& vertex_src, const std::string& fragment_src);
+  ~GlShaderProgram();
+
+  bool has_error() const { return id_ == 0; }
+  GLuint get() const { return id_; }
+
+  void Use() const { glUseProgram(id_); }
+  GLint GetUniformLocation(const std::string& name) const { 
+    return glGetUniformLocation(id_, name.c_str());
+  }
+  GLint GetAttribLocation(const std::string& name) const {
+    return glGetAttribLocation(id_, name.c_str());
+  }
+private:
+  GLuint id_;
+  GlVertexShader vertex_;
+  GlFragmentShader fragment_;
+
+  DISALLOW_COPY_AND_ASSIGN(GlShaderProgram);
 };
 
 class OpenGl : public Renderer {
@@ -70,6 +130,9 @@ public:
   virtual void Render(const IndirectDrawPalette& indirect_draw_palette,
       const std::vector<byte>& surface_data);
 
+  bool has_error() { return !error_.empty(); }
+  std::string error() { return error_; }
+
 private:
   OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
@@ -78,19 +141,16 @@ private:
   void SwapBuffers();
   void MakeResources();
 
-  HDC dc_;
+  std::string error_;
   HWND window_;
+  WinHdc dc_;
   RECT client_rect_;
-  HGLRC gl_context_;
-  bool initialized_;
-  GLuint vertex_shader_;
-  GLuint fragment_shader_;
-  GLuint shader_program_;
+  std::unique_ptr<GlContext> gl_context_;
+  std::unique_ptr<GlShaderProgram> screen_shader_;
+  std::unique_ptr<GlShaderProgram> fbo_shader_;
   ShaderResources shader_resources_;
-  GLuint fbo_vertex_shader_;
-  GLuint fbo_fragment_shader_;
-  GLuint fbo_shader_program_;
 
+  uint32 min_millis_per_frame_;
   uint32 ddraw_width_;
   uint32 ddraw_height_;
   uint32 aspect_ratio_width_;
@@ -105,9 +165,12 @@ private:
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> fbo_vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> fbo_element_buffer_;
   GLuint rendered_texture_id_;
+  // TODO(tec27): Don't reference settings at all in renderers
   const Settings& settings_;
   LARGE_INTEGER counter_frequency_;
   LARGE_INTEGER last_frame_time_;
+
+  DISALLOW_COPY_AND_ASSIGN(OpenGl);
 };
 
 }  // namespace forge

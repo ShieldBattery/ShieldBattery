@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <Wtsapi32.h>
 #include <string>
+#include "common/macros.h"
 #include "common/types.h"
 
 // Helper Types/Functions for Windows things, to make them easier/safer to use
@@ -20,6 +21,21 @@ private:
   size_t size_;
   uint32 old_protection_;
   bool has_errors_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedVirtualProtect);
+};
+
+class WinHdc {
+public:
+  explicit WinHdc(HWND window);
+  ~WinHdc();
+
+  HDC get() const { return hdc_; }
+private:
+  HWND window_;
+  HDC hdc_;
+
+  DISALLOW_COPY_AND_ASSIGN(WinHdc);
 };
 
 class WindowsError {
@@ -54,6 +70,8 @@ private:
   static bool se_debug_enabled_;
   PROCESS_INFORMATION process_info_;
   WindowsError* error_;
+
+  DISALLOW_COPY_AND_ASSIGN(Process);
 };
 
 // Used to pass messages between processes about the current monitor resolution

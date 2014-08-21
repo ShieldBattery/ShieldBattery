@@ -229,8 +229,8 @@ HRESULT WINAPI IndirectDraw::SetCooperativeLevel(HWND window_handle, DWORD flags
   return DD_OK;
 }
 
-HRESULT WINAPI IndirectDraw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp, DWORD refresh_rate,
-    DWORD flags) {
+HRESULT WINAPI IndirectDraw::SetDisplayMode(DWORD width, DWORD height, DWORD bpp,
+    DWORD refresh_rate, DWORD flags) {
   if (DIRECTDRAWLOG) {
     Logger::Logf(LogLevel::Verbose,
         "IndirectDraw::SetDisplayMode called (%d,%d), %d, %d with flags: %08x",

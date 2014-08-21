@@ -141,7 +141,7 @@ void DetectResolutionWork(uv_work_t* req) {
   }
 
   wstring args = emitter_path + L" " + slot_name;
-  Process process = Process(emitter_path, args, false, dir);
+  Process process(emitter_path, args, false, dir);
   if (process.has_errors()) {
     CloseHandle(slot_handle);
     context->exit_code = 101;

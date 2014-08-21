@@ -30,6 +30,15 @@ bool ScopedVirtualProtect::has_errors() const {
   return has_errors_;
 }
 
+WinHdc::WinHdc(HWND window)
+  : window_(window),
+    hdc_(GetDC(window)) {
+}
+
+WinHdc::~WinHdc() {
+  ReleaseDC(window_, hdc_);
+}
+
 WindowsError::WindowsError()
     : code_(0),
       message_() {
