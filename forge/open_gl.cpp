@@ -414,8 +414,8 @@ void OpenGl::SwapBuffers() {
   ::SwapBuffers(dc_.get());
 }
 
-void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
-    const std::vector<byte> &surface_data) {
+void OpenGl::Render(const IndirectDrawPalette& indirect_draw_palette,
+    const vector<byte>& surface_data) {
   // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
   // iteration loop during data intialization when there's nothing to actually render) and this
   // causes issues when the graphics card decides it doesn't want to queue commands any more. To
@@ -438,51 +438,61 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
     Logger::Log(LogLevel::Verbose, "OpenGl rendering");
   }
 
-  {
-    GlTextureBinder binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
-    binder.TexSubImage2d(0, 0, 0, ddraw_width_, ddraw_height_, texture_format_, GL_UNSIGNED_BYTE,
-        &surface_data[0]);
-  }
+  CopyDdrawSurface(surface_data);
   if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after screen texture copied");
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after ddraw texture copied");
   }
+  ConvertToFullColor(indirect_draw_palette);
+  if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after converted to full color");
+  }
+  RenderToScreen();
+  SwapBuffers();
 
+  QueryPerformanceCounter(&last_frame_time_);
+  if (DIRECTDRAWLOG) {
+    Logger::Logf(LogLevel::Verbose,
+        "OpenGl rendering completed [perf counter: %lld]",
+        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
+  }
+}
+
+void OpenGl::CopyDdrawSurface(const vector<byte>& surface_data) {
+  GlTextureBinder binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
+  binder.TexSubImage2d(0, 0, 0, ddraw_width_, ddraw_height_, texture_format_, GL_UNSIGNED_BYTE,
+      &surface_data[0]);
+}
+
+void OpenGl::ConvertToFullColor(const IndirectDrawPalette& indirect_draw_palette) {
+  // Converts from 8-bit palette -> RGB by doing a palette lookup and rendering to an FBO texture
   const ShaderResources* resources = &shader_resources_;
+  GlFramebufferBinder fb_binder(*framebuffer_, GL_FRAMEBUFFER);
+  glViewport(0, 0, ddraw_width_, ddraw_height_);
 
-  // Bind the framebuffer for drawing to
-  {
-    GlFramebufferBinder fb_binder(*framebuffer_, GL_FRAMEBUFFER);
-    glViewport(0, 0, ddraw_width_, ddraw_height_);
+  screen_shader_->Use();
 
-    screen_shader_->Use();
+  // Draw from the ddraw texture to the FBO texture (8-bit palette -> RGB)
+  GlTextureBinder tex_binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
+  tex_binder.Uniform1i(resources->uniforms.bw_screen);
+  indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
 
-    if (DIRECTDRAWLOG) {
-      Logger::Log(LogLevel::Verbose, "OpenGl rendering - after use program");
-    }
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
+  glEnableVertexAttribArray(resources->attributes.position);
+  glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE,
+      sizeof(GLfloat) * 4, reinterpret_cast<void*>(0));
+  glEnableVertexAttribArray(resources->attributes.texpos);
+  glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
+      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
+  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
 
-    // Draw from the ddraw texture to the FBO texture (8-bit palette -> RGB)
-    GlTextureBinder tex_binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
-    tex_binder.Uniform1i(resources->uniforms.bw_screen);
-    indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
-    if (DIRECTDRAWLOG) {
-      Logger::Log(LogLevel::Verbose, "OpenGl rendering - after textures bound");
-    }
+  glDisableVertexAttribArray(resources->attributes.texpos);
+  glDisableVertexAttribArray(resources->attributes.position);
+}
 
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
-    glEnableVertexAttribArray(resources->attributes.position);
-    glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE,
-        sizeof(GLfloat) * 4, reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(resources->attributes.texpos);
-    glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
-        reinterpret_cast<void*>(sizeof(GLfloat) * 2));
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
-    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
-
-    glDisableVertexAttribArray(resources->attributes.texpos);
-    glDisableVertexAttribArray(resources->attributes.position);
-  }
-
+void OpenGl::RenderToScreen() {
   // Render from the framebuffer to the actual screen
+  const ShaderResources* resources = &shader_resources_;
   if (settings_.display_mode != DisplayMode::FullScreen) {
     glViewport(0, 0, settings_.width, settings_.height);
   } else if (aspect_ratio_width_ > 0) {
@@ -495,31 +505,20 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
 
   fbo_shader_->Use();
 
-  {
-    GlTextureBinder binder(*framebuffer_texture_, 1, GL_TEXTURE_2D);
-    binder.Uniform1i(resources->uniforms.rendered_texture);
+  GlTextureBinder binder(*framebuffer_texture_, 1, GL_TEXTURE_2D);
+  binder.Uniform1i(resources->uniforms.rendered_texture);
 
-    glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo_element_buffer_->buffer());
-    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
+  glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
+    reinterpret_cast<void*>(0));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
+    reinterpret_cast<void*>(sizeof(GLfloat) * 2));
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo_element_buffer_->buffer());
+  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
 
-    glDisableVertexAttribArray(0);
-  }
-
-  SwapBuffers();
-
-  QueryPerformanceCounter(&last_frame_time_);
-  if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose,
-        "OpenGl rendering completed [perf counter: %lld]",
-        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
-  }
+  glDisableVertexAttribArray(0);
 }
 
 }  // namespace forge

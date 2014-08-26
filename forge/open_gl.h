@@ -202,6 +202,10 @@ private:
 
   void SwapBuffers();
 
+  void CopyDdrawSurface(const std::vector<byte>& surface_data);
+  void ConvertToFullColor(const IndirectDrawPalette& indirect_draw_palette);
+  void RenderToScreen();
+
   std::string error_;
   HWND window_;
   WinHdc dc_;
