@@ -5,7 +5,7 @@ in vec2 texpos;
 
 out vec2 texcoord;
 
-void main(){
+void main() {
   gl_Position = vec4(position, 0.0, 1.0);
   texcoord = texpos;
 }

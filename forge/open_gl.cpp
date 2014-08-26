@@ -7,6 +7,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <utility>
 
 #include "forge/indirect_draw.h"
 #include "forge/forge.h"
@@ -38,7 +39,7 @@ unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_
   return open_gl;
 }
 
-GlContext::GlContext(const WinHdc& dc) 
+GlContext::GlContext(const WinHdc& dc)
   : context_(wglCreateContext(dc.get())) {
   if (context_ == NULL) {
     return;
@@ -53,7 +54,7 @@ GlContext::~GlContext() {
   }
 }
 
-GlShader::GlShader(GLenum type, const std::string& src) 
+GlShader::GlShader(GLenum type, const std::string& src)
   : id_(glCreateShader(type)) {
   GLint length = src.length();
   const GLchar* src_cstr = src.c_str();
@@ -114,7 +115,7 @@ GlShaderProgram::GlShaderProgram(const std::string& vertex_src, const std::strin
     Logger::Log(LogLevel::Error, "OpenGl: linking program failed");
     GLint log_length;
     glGetProgramiv(id_, GL_INFO_LOG_LENGTH, &log_length);
-    
+
     vector<char> log_str(log_length);
     glGetProgramInfoLog(id_, log_length, NULL, log_str.data());
     Logger::Log(LogLevel::Error, log_str.data());
@@ -127,6 +128,77 @@ GlShaderProgram::~GlShaderProgram() {
   if (!has_error()) {
     glDeleteProgram(id_);
   }
+}
+
+GlTexture::GlTexture()
+  : id_() {
+  glGenTextures(1, &id_);
+}
+
+GlTexture::~GlTexture() {
+  glDeleteTextures(1, &id_);
+}
+
+GlTextureBinder::GlTextureBinder(const GlTexture& texture, uint32 active_texture, GLenum bind_target)
+  : active_texture_(active_texture),
+    bind_target_(bind_target) {
+  glActiveTexture(GL_TEXTURE0 + active_texture);
+  glBindTexture(GL_TEXTURE_2D, texture.get());
+}
+
+GlTextureBinder::~GlTextureBinder() {
+  // nothing to do, the only reason/way to unbind textures is glDeleteTextures
+}
+
+GlTextureBinder& GlTextureBinder::TexParameteri(GLenum param_name, GLint param) {
+  glTexParameteri(bind_target_, param_name, param);
+  return *this;
+}
+
+GlTextureBinder& GlTextureBinder::TexImage2d(GLint level, GLint internal_format, GLsizei width,
+      GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid* data) {
+  glTexImage2D(bind_target_, level, internal_format, width, height, border, format, type, data);
+  return *this;
+}
+
+GlTextureBinder& GlTextureBinder::TexSubImage2d(GLint level, GLint xoffset, GLint yoffset,
+    GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* data) {
+  glTexSubImage2D(bind_target_, level, xoffset, yoffset, width, height, format, type, data);
+  return *this;
+}
+
+GlTextureBinder& GlTextureBinder::Uniform1i(GLint location) {
+  glUniform1i(location, active_texture_);
+  return *this;
+}
+
+GlFramebuffer::GlFramebuffer()
+  : id_() {
+  glGenFramebuffers(1, &id_);
+}
+
+GlFramebuffer::~GlFramebuffer() {
+  glDeleteFramebuffers(1, &id_);
+}
+
+GlFramebufferBinder::GlFramebufferBinder(const GlFramebuffer& framebuffer, GLenum bind_target)
+  : bind_target_(bind_target) {
+  glBindFramebuffer(bind_target, framebuffer.get());
+}
+
+GlFramebufferBinder::~GlFramebufferBinder() {
+  glBindFramebuffer(bind_target_, 0);
+}
+
+GlFramebufferBinder& GlFramebufferBinder::Texture2d(GLenum attachment, GLenum textarget,
+    GLuint texture, GLint level) {
+  glFramebufferTexture2D(bind_target_, attachment, textarget, texture, level);
+  return *this;
+}
+
+GlFramebufferBinder& GlFramebufferBinder::DrawBuffers(GLsizei n, const GLenum* bufs) {
+  glDrawBuffers(n, bufs);
+  return *this;
 }
 
 // Constructing this *can* fail and leave a partially uninitialized object. The assumption is that
@@ -150,14 +222,13 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     aspect_ratio_height_(0),
     texture_internal_format_(GL_R8),
     texture_format_(GL_RED),
-    screen_texture_(0),
-    framebuffer_(0),
-    framebuffer_texture_(0),
+    ddraw_texture_(),
+    framebuffer_(),
+    framebuffer_texture_(),
     vertex_buffer_(),
     element_buffer_(),
     fbo_vertex_buffer_(),
     fbo_element_buffer_(),
-    rendered_texture_id_(0),
     settings_(GetSettings()),
     counter_frequency_(),
     last_frame_time_() {
@@ -198,28 +269,6 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     wglSwapIntervalEXT(0);  // disable vsync, which causes some pretty annoying issues in BW
   }
 
-  // TODO(tec27): make a more generic shader manager instead of finding these keys by literal
-  // TODO(tec27): shader asserts should be proper error handling
-  if (shaders.count("main") != 0) {
-    const pair<string, string> shader_pair = shaders.at("main");
-    screen_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
-  }
-  if (shaders.count("fbo") != 0) {
-    const pair<string, string> shader_pair = shaders.at("fbo");
-    fbo_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
-  }
-
-  if (screen_shader_->has_error() || fbo_shader_->has_error()) {
-    error_ = "Could not build shaders";
-    return;
-  }
-
-  shader_resources_.uniforms.bw_screen = screen_shader_->GetUniformLocation("bw_screen");
-  shader_resources_.uniforms.palette = screen_shader_->GetUniformLocation("palette");
-  shader_resources_.attributes.position = screen_shader_->GetAttribLocation("position");
-  shader_resources_.attributes.texpos = screen_shader_->GetAttribLocation("texpos");
-  shader_resources_.uniforms.rendered_texture = fbo_shader_->GetUniformLocation("renderedTexture");
-
   DEVMODE devmode;
   EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
   if (devmode.dmDisplayFrequency <= 1) {
@@ -231,70 +280,6 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   }
   Logger::Logf(LogLevel::Verbose, "OpenGl selected min delay per frame: %dms",
       min_millis_per_frame_);
-
-  // TODO(tec27): handle MakeResources failures instead of doing asserts on things that are valid
-  // code paths (but errors)
-  MakeResources();
-}
-
-OpenGl::~OpenGl() {
-}
-
-void OpenGl::SwapBuffers() {
-  ::SwapBuffers(dc_.get());
-}
-
-void OpenGl::MakeResources() {
-  // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
-  const array<GLfloat, 16> vertex_data =
-      { -1.0f, -1.0f, 0.0f, 1.0f,
-        1.0f, -1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 1.0f, 0.0f };
-  vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, vertex_data));
-  const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
-  element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
-
-  // Texture that BW's rendered data will be placed in
-  glGenTextures(1, &screen_texture_);
-  // Framebuffer that gets rendered to in order to convert from palletized -> RGB
-  glGenFramebuffers(1, &framebuffer_);
-  glGenTextures(1, &framebuffer_texture_);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, screen_texture_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, texture_internal_format_, ddraw_width_, ddraw_height_, 0,
-      texture_format_, GL_UNSIGNED_BYTE, NULL);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-  glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ddraw_width_, ddraw_height_, 0, GL_RGB, GL_UNSIGNED_BYTE,
-      NULL);
-
-  GLenum draw_buffers[1] = { GL_COLOR_ATTACHMENT0 };
-  glFramebufferTexture2D(
-      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_texture_, 0);
-  glDrawBuffers(1, draw_buffers);
-  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-
-  const array<GLfloat, 16> fbo_vertex_data =
-      { -1.0f, -1.0f, 0.0f, 0.0f,
-        1.0f, -1.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 1.0f,
-        1.0f, 1.0f, 1.0f, 1.0f };
-  fbo_vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, fbo_vertex_data));
-  const array<GLushort, 4> fbo_element_data = { 0, 1, 2, 3 };
-  fbo_element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER,
-      fbo_element_data));
 
   if (settings_.display_mode == DisplayMode::FullScreen && settings_.maintain_aspect_ratio) {
     aspect_ratio_width_ = client_rect_.right;
@@ -309,6 +294,124 @@ void OpenGl::MakeResources() {
 
   QueryPerformanceFrequency(&counter_frequency_);
   counter_frequency_.QuadPart /= 1000LL;  // convert to ticks per millisecond
+
+  if (!InitShaders(shaders)) {
+    return;
+  }
+
+  if (!InitTextures()) {
+    return;
+  }
+
+  if (!InitVertices()) {
+    return;
+  }
+}
+
+bool OpenGl::InitShaders(const map<string, pair<string, string>>& shaders) {
+  // TODO(tec27): make a more generic shader manager instead of finding these keys by literal
+  if (shaders.count("main") != 0) {
+    const pair<string, string> shader_pair = shaders.at("main");
+    screen_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
+  } else {
+    error_ = "No main shader found";
+    return false;
+  }
+  if (shaders.count("fbo") != 0) {
+    const pair<string, string> shader_pair = shaders.at("fbo");
+    fbo_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
+  } else {
+    error_ = "No fbo shader found";
+    return false;
+  }
+
+  if (screen_shader_->has_error() || fbo_shader_->has_error()) {
+    error_ = "Could not build shaders";
+    return false;
+  }
+
+  shader_resources_.uniforms.bw_screen = screen_shader_->GetUniformLocation("bw_screen");
+  shader_resources_.uniforms.palette = screen_shader_->GetUniformLocation("palette");
+  shader_resources_.attributes.position = screen_shader_->GetAttribLocation("position");
+  shader_resources_.attributes.texpos = screen_shader_->GetAttribLocation("texpos");
+  shader_resources_.uniforms.rendered_texture = fbo_shader_->GetUniformLocation("rendered_texture");
+
+  return true;
+}
+
+bool OpenGl::InitTextures() {
+  // Texture that BW's rendered data will be placed in
+  ddraw_texture_.reset(new GlTexture());
+  {
+    GlTextureBinder binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
+    binder
+        .TexParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        .TexParameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        .TexParameteri(GL_TEXTURE_BASE_LEVEL, 0)
+        .TexParameteri(GL_TEXTURE_MAX_LEVEL, 0)
+        .TexParameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        .TexParameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        .TexImage2d(0, texture_internal_format_, ddraw_width_, ddraw_height_, 0,
+            texture_format_, GL_UNSIGNED_BYTE, NULL);
+  }
+
+  // Framebuffer that gets rendered to in order to convert from palletized -> RGB
+  framebuffer_.reset(new GlFramebuffer());
+  framebuffer_texture_.reset(new GlTexture());
+  {
+    GlFramebufferBinder framebuffer_binder(*framebuffer_, GL_FRAMEBUFFER);
+    GlTextureBinder texture_binder(*framebuffer_texture_, 0, GL_TEXTURE_2D);
+    texture_binder
+        .TexParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        .TexParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        .TexParameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        .TexParameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        .TexImage2d(0, GL_RGB, ddraw_width_, ddraw_height_, 0, GL_RGB, GL_UNSIGNED_BYTE,
+            NULL);
+
+    GLenum draw_buffers[1] = { GL_COLOR_ATTACHMENT0 };
+    framebuffer_binder
+        .Texture2d(GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebuffer_texture_->get(), 0)
+        .DrawBuffers(1, draw_buffers);
+
+    if (framebuffer_binder.CheckStatus() != GL_FRAMEBUFFER_COMPLETE) {
+      error_ = "Could not initialize framebuffer";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool OpenGl::InitVertices() {
+  // X, Y, U, V -- this flips the texture vertically so it matches the orientation of DDraw surfaces
+  const array<GLfloat, 16> vertex_data =
+      { -1.0f, -1.0f, 0.0f, 1.0f,
+        1.0f, -1.0f, 1.0f, 1.0f,
+        -1.0f, 1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 1.0f, 0.0f };
+  vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, vertex_data));
+  const array<GLushort, 4> element_data = { 0, 1, 2, 3 };
+  element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER, element_data));
+
+  const array<GLfloat, 16> fbo_vertex_data =
+      { -1.0f, -1.0f, 0.0f, 0.0f,
+        1.0f, -1.0f, 1.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.0f };
+  fbo_vertex_buffer_.reset(new GlStaticBuffer<GLfloat, 16>(GL_ARRAY_BUFFER, fbo_vertex_data));
+  const array<GLushort, 4> fbo_element_data = { 0, 1, 2, 3 };
+  fbo_element_buffer_.reset(new GlStaticBuffer<GLushort, 4>(GL_ELEMENT_ARRAY_BUFFER,
+      fbo_element_data));
+
+  return true;
+}
+
+OpenGl::~OpenGl() {
+}
+
+void OpenGl::SwapBuffers() {
+  ::SwapBuffers(dc_.get());
 }
 
 void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
@@ -321,7 +424,7 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
   // rate, falling back to 60hz if we don't know what that is.
   LARGE_INTEGER frame_time;
   QueryPerformanceCounter(&frame_time);
-  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 
+  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart <
       min_millis_per_frame_) {
     return;
   }
@@ -335,48 +438,51 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
     Logger::Log(LogLevel::Verbose, "OpenGl rendering");
   }
 
-  glBindTexture(GL_TEXTURE_2D, screen_texture_);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ddraw_width_, ddraw_height_, texture_format_,
-      GL_UNSIGNED_BYTE, &surface_data[0]);
+  {
+    GlTextureBinder binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
+    binder.TexSubImage2d(0, 0, 0, ddraw_width_, ddraw_height_, texture_format_, GL_UNSIGNED_BYTE,
+        &surface_data[0]);
+  }
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "OpenGl rendering - after screen texture copied");
   }
 
-  // Bind the framebuffer for drawing to
-  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
-  glViewport(0, 0, ddraw_width_, ddraw_height_);
-
   const ShaderResources* resources = &shader_resources_;
-  screen_shader_->Use();
 
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after use program");
+  // Bind the framebuffer for drawing to
+  {
+    GlFramebufferBinder fb_binder(*framebuffer_, GL_FRAMEBUFFER);
+    glViewport(0, 0, ddraw_width_, ddraw_height_);
+
+    screen_shader_->Use();
+
+    if (DIRECTDRAWLOG) {
+      Logger::Log(LogLevel::Verbose, "OpenGl rendering - after use program");
+    }
+
+    // Draw from the ddraw texture to the FBO texture (8-bit palette -> RGB)
+    GlTextureBinder tex_binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
+    tex_binder.Uniform1i(resources->uniforms.bw_screen);
+    indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
+    if (DIRECTDRAWLOG) {
+      Logger::Log(LogLevel::Verbose, "OpenGl rendering - after textures bound");
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
+    glEnableVertexAttribArray(resources->attributes.position);
+    glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE,
+        sizeof(GLfloat) * 4, reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(resources->attributes.texpos);
+    glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
+        reinterpret_cast<void*>(sizeof(GLfloat) * 2));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
+
+    glDisableVertexAttribArray(resources->attributes.texpos);
+    glDisableVertexAttribArray(resources->attributes.position);
   }
 
-  // Draw from the screen texture to the FBO texture (de-palettize)
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, screen_texture_);
-  glUniform1i(resources->uniforms.bw_screen, screen_texture_);
-  indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
-  if (DIRECTDRAWLOG) {
-    Logger::Log(LogLevel::Verbose, "OpenGl rendering - after textures bound");
-  }
-
-  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
-  glEnableVertexAttribArray(resources->attributes.position);
-  glVertexAttribPointer(resources->attributes.position, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(0));
-  glEnableVertexAttribArray(resources->attributes.texpos);
-  glVertexAttribPointer(resources->attributes.texpos, 2, GL_FLOAT, GL_TRUE, sizeof(GLfloat) * 4,
-      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_->buffer());
-  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
-
-  glDisableVertexAttribArray(resources->attributes.texpos);
-  glDisableVertexAttribArray(resources->attributes.position);
-
-  // Unbind the framebuffer so we can render to the screen
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  // Render from the framebuffer to the actual screen
   if (settings_.display_mode != DisplayMode::FullScreen) {
     glViewport(0, 0, settings_.width, settings_.height);
   } else if (aspect_ratio_width_ > 0) {
@@ -389,21 +495,22 @@ void OpenGl::Render(const IndirectDrawPalette &indirect_draw_palette,
 
   fbo_shader_->Use();
 
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, framebuffer_texture_);
-  glUniform1i(resources->uniforms.rendered_texture, 1);
+  {
+    GlTextureBinder binder(*framebuffer_texture_, 1, GL_TEXTURE_2D);
+    binder.Uniform1i(resources->uniforms.rendered_texture);
 
-  glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-    reinterpret_cast<void*>(0));
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
-    reinterpret_cast<void*>(sizeof(GLfloat) * 2));
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo_element_buffer_->buffer());
-  glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
+    glBindBuffer(GL_ARRAY_BUFFER, fbo_vertex_buffer_->buffer());
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
+      reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 4,
+      reinterpret_cast<void*>(sizeof(GLfloat) * 2));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo_element_buffer_->buffer());
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, reinterpret_cast<void*>(0));
 
-  glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(0);
+  }
 
   SwapBuffers();
 

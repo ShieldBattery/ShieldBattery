@@ -2,10 +2,10 @@
 
 out vec4 color;
 
-uniform sampler2D renderedTexture;
+uniform sampler2D rendered_texture;
 
 in vec2 texcoord;
 
-void main(){
-  color = texture(renderedTexture, texcoord);
+void main() {
+  color = texture(rendered_texture, texcoord);
 }
