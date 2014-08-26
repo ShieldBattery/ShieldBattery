@@ -220,7 +220,6 @@ private:
   uint32 ddraw_height_;
   uint32 aspect_ratio_width_;
   uint32 aspect_ratio_height_;
-  uint32 texture_internal_format_;
   uint32 texture_format_;
   std::unique_ptr<GlTexture> ddraw_texture_;
   std::unique_ptr<GlFramebuffer> framebuffer_;

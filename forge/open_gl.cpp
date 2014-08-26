@@ -220,7 +220,6 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     ddraw_height_(ddraw_height),
     aspect_ratio_width_(0),
     aspect_ratio_height_(0),
-    texture_internal_format_(GL_R8),
     texture_format_(GL_RED),
     ddraw_texture_(),
     framebuffer_(),
@@ -351,7 +350,7 @@ bool OpenGl::InitTextures() {
         .TexParameteri(GL_TEXTURE_MAX_LEVEL, 0)
         .TexParameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         .TexParameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-        .TexImage2d(0, texture_internal_format_, ddraw_width_, ddraw_height_, 0,
+        .TexImage2d(0, GL_R8, ddraw_width_, ddraw_height_, 0,
             texture_format_, GL_UNSIGNED_BYTE, NULL);
   }
 
