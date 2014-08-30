@@ -115,7 +115,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
       $scope.resDisabled = false
     }
 
-    $scope.maintainAspectRatio = $scope.settings.mantainAspectRatio != undefined ?
+    $scope.maintainAspectRatio = $scope.settings.maintainAspectRatio != undefined ?
         !!$scope.settings.maintainAspectRatio : true
     $scope.mouseSensitivity.value = $scope.settings.mouseSensitivity || 0
     $scope.bwPort = $scope.settings.bwPort
