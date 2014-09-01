@@ -23,6 +23,8 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+string OpenGl::last_error_ = "";
+
 unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     RendererDisplayMode display_mode, bool maintain_aspect_ratio,
     const map<string, pair<string, string>>& shaders) {
@@ -31,14 +33,19 @@ unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_
 
   if (open_gl->has_error()) {
     Logger::Log(LogLevel::Error, "IndirectDraw failed to initialize OpenGL");
-    // TODO(tec27): display this error message to the user (and exit?) instead of just logging it
+    last_error_ = open_gl->error();
     Logger::Log(LogLevel::Error, open_gl->error().c_str());
     open_gl.release();
   } else {
+    last_error_ = "";
     Logger::Log(LogLevel::Verbose, "IndirectDraw initialized OpenGL successfully");
   }
 
   return open_gl;
+}
+
+string OpenGl::GetLastError() {
+  return last_error_;
 }
 
 GlContext::GlContext(const WinHdc& dc)

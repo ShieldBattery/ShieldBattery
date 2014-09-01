@@ -162,7 +162,14 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   const Settings& settings = GetSettings();
   unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, 
     ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio, shaders);
-  // TODO(tec27): check for null and exit if so
+  
+  if (!open_gl) {
+    // TODO(tec27): We could/should probably send this through JS-land instead, and display an error
+    // on the website (since that's where they'll be looking at this point)
+    MessageBoxA(NULL, OpenGl::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
+    ExitProcess(1);
+  }
+
   return unique_ptr<Renderer>(std::move(open_gl));
 }
 

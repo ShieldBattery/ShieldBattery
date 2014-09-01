@@ -186,6 +186,7 @@ public:
   static std::unique_ptr<OpenGl> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
       RendererDisplayMode display_mode, bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
+  static std::string GetLastError();
 
   virtual void Render(const std::vector<byte>& surface_data);
   virtual void UpdatePalette(const IndirectDrawPalette& palette);
@@ -220,6 +221,8 @@ private:
     const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
     return result;
   }
+
+  static std::string last_error_;
 
   std::string error_;
   HWND window_;
