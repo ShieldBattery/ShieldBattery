@@ -221,6 +221,8 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     aspect_ratio_width_(0),
     aspect_ratio_height_(0),
     texture_format_(GL_RED),
+    palette_texture_(),
+    palette_texture_data_(),
     ddraw_texture_(),
     framebuffer_(),
     framebuffer_texture_(),
@@ -339,6 +341,18 @@ bool OpenGl::InitShaders(const map<string, pair<string, string>>& shaders) {
 }
 
 bool OpenGl::InitTextures() {
+  palette_texture_.reset(new GlTexture());
+  {
+    GlTextureBinder binder(*palette_texture_, 0, GL_TEXTURE_2D);
+    binder
+        .TexParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        .TexParameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        .TexParameteri(GL_TEXTURE_BASE_LEVEL, 0)
+        .TexParameteri(GL_TEXTURE_MAX_LEVEL, 0)
+        .TexParameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        .TexParameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  }
+
   // Texture that BW's rendered data will be placed in
   ddraw_texture_.reset(new GlTexture());
   {
@@ -413,8 +427,16 @@ void OpenGl::SwapBuffers() {
   ::SwapBuffers(dc_.get());
 }
 
-void OpenGl::Render(const IndirectDrawPalette& indirect_draw_palette,
-    const vector<byte>& surface_data) {
+void OpenGl::UpdatePalette(const IndirectDrawPalette& palette) {
+  std::transform(palette.entries().begin(), palette.entries().end(), palette_texture_data_.begin(),
+      ConvertToPaletteTextureEntry);
+
+  GlTextureBinder palette_binder(*palette_texture_, 10, GL_TEXTURE_2D);
+  palette_binder.TexImage2d(0, GL_RGBA8, palette.entries().size(), 1, 0, GL_BGRA,
+      GL_UNSIGNED_BYTE, &palette_texture_data_[0]);
+}
+
+void OpenGl::Render(const vector<byte>& surface_data) {
   // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
   // iteration loop during data intialization when there's nothing to actually render) and this
   // causes issues when the graphics card decides it doesn't want to queue commands any more. To
@@ -441,7 +463,7 @@ void OpenGl::Render(const IndirectDrawPalette& indirect_draw_palette,
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "OpenGl rendering - after ddraw texture copied");
   }
-  ConvertToFullColor(indirect_draw_palette);
+  ConvertToFullColor();
   if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "OpenGl rendering - after converted to full color");
   }
@@ -462,7 +484,7 @@ void OpenGl::CopyDdrawSurface(const vector<byte>& surface_data) {
       &surface_data[0]);
 }
 
-void OpenGl::ConvertToFullColor(const IndirectDrawPalette& indirect_draw_palette) {
+void OpenGl::ConvertToFullColor() {
   // Converts from 8-bit palette -> RGB by doing a palette lookup and rendering to an FBO texture
   const ShaderResources* resources = &shader_resources_;
   GlFramebufferBinder fb_binder(*framebuffer_, GL_FRAMEBUFFER);
@@ -473,7 +495,8 @@ void OpenGl::ConvertToFullColor(const IndirectDrawPalette& indirect_draw_palette
   // Draw from the ddraw texture to the FBO texture (8-bit palette -> RGB)
   GlTextureBinder tex_binder(*ddraw_texture_, 0, GL_TEXTURE_2D);
   tex_binder.Uniform1i(resources->uniforms.bw_screen);
-  indirect_draw_palette.BindTexture(resources->uniforms.palette, GL_TEXTURE10, 10);
+  GlTextureBinder palette_binder(*palette_texture_, 10, GL_TEXTURE_2D);
+  palette_binder.Uniform1i(resources->uniforms.palette);
 
   glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_->buffer());
   glEnableVertexAttribArray(resources->attributes.position);

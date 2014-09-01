@@ -76,8 +76,8 @@ public:
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
   inline HWND window() const { return window_; }
-  void Render(const IndirectDrawPalette& indirect_draw_palette,
-      const std::vector<byte>& surface_data);
+  void Render(const std::vector<byte>& surface_data);
+  void UpdatePalette(const IndirectDrawPalette& palette);
 
 private:
   void MaybeInitializeRenderer();
@@ -90,9 +90,11 @@ private:
   DWORD display_bpp_;
 };
 
+
+
 class IndirectDrawPalette : public IDirectDrawPalette {
 public:
-  IndirectDrawPalette(DWORD flags, PALETTEENTRY* color_array);
+  IndirectDrawPalette(IndirectDraw* owner, DWORD flags, PALETTEENTRY* color_array);
   virtual ~IndirectDrawPalette();
 
   /*** IUnknown methods ***/
@@ -105,34 +107,12 @@ public:
   HRESULT WINAPI Initialize(IDirectDraw* owner, DWORD flags, PALETTEENTRY* color_array);
   HRESULT WINAPI SetEntries(DWORD unused, DWORD start, DWORD count, PALETTEENTRY* entries);
 
-  // Custom functions
-  void InitForOpenGl();
-  inline void BindTexture(GLint uniform, int glTexture, int texture_slot) const {
-    glActiveTexture(glTexture);
-    glBindTexture(GL_TEXTURE_2D, texture_);
-    glUniform1i(uniform, texture_slot);
-  }
+  const std::array<PALETTEENTRY, 256>& entries() const { return entries_; } 
 
 private:
-#pragma pack(push, 1)
-  struct PaletteTextureEntry {
-    byte blue;
-    byte green;
-    byte red;
-    byte alpha;
-  };
-#pragma pack(pop)
-
-  static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
-    const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
-    return result;
-  }
-
+  IndirectDraw* owner_;
   int refcount_;
   std::array<PALETTEENTRY, 256> entries_;
-  std::array<PaletteTextureEntry, 256> texture_data_;
-  GLuint texture_;
-  bool is_opengl_inited;
 };
 
 class IndirectDrawSurface : public IDirectDrawSurface7 {

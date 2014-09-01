@@ -11,8 +11,8 @@ class IndirectDrawPalette;
 class Renderer {
 public:
   virtual ~Renderer() {}
-  virtual void Render(const IndirectDrawPalette& indirect_draw_palette,
-      const std::vector<byte>& surface_data) = 0;
+  virtual void Render(const std::vector<byte>& surface_data) = 0;
+  virtual void UpdatePalette(const IndirectDrawPalette& palette) = 0;
 };
 
 }  // namespace forge

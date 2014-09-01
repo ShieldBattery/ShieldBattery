@@ -91,7 +91,8 @@ HRESULT WINAPI IndirectDraw::CreatePalette(DWORD flags, PALETTEENTRY* color_arra
     Logger::Logf(LogLevel::Verbose, "IndirectDraw::CreatePalette called with flags: %08x", flags);
   }
 
-  *palette_out = new IndirectDrawPalette(flags, color_array);
+  *palette_out = new IndirectDrawPalette(this, flags, color_array);
+  UpdatePalette(*reinterpret_cast<IndirectDrawPalette*>(*palette_out));
   return DD_OK;
 }
 
@@ -319,10 +320,15 @@ void IndirectDraw::MaybeInitializeRenderer() {
   }
 }
 
-void IndirectDraw::Render(const IndirectDrawPalette &indirect_draw_palette,
-    const std::vector<byte> &surface_data) {
+void IndirectDraw::Render(const std::vector<byte>& surface_data) {
   if (renderer_) {
-    renderer_->Render(indirect_draw_palette, surface_data);
+    renderer_->Render(surface_data);
+  }
+}
+
+void IndirectDraw::UpdatePalette(const IndirectDrawPalette& palette) {
+  if (renderer_) {
+    renderer_->UpdatePalette(palette);
   }
 }
 

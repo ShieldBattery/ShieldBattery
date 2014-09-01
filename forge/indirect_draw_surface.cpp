@@ -356,7 +356,6 @@ HRESULT WINAPI IndirectDrawSurface::SetPalette(IDirectDrawPalette* palette) {
 
   palette_ = reinterpret_cast<IndirectDrawPalette*>(palette);
   palette_->AddRef();
-  palette_->InitForOpenGl();
   return DD_OK;
 }
 
@@ -366,7 +365,7 @@ HRESULT WINAPI IndirectDrawSurface::Unlock(RECT* locked_rect) {
   }
 
   if (is_primary_surface()) {
-    owner_->Render(*palette_, surface_data_);
+    owner_->Render(surface_data_);
   }
 
   // we don't actually lock anything, so we can just say this was fine

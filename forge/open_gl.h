@@ -187,13 +187,22 @@ public:
   static std::unique_ptr<OpenGl> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
 
-  virtual void Render(const IndirectDrawPalette& indirect_draw_palette,
-      const std::vector<byte>& surface_data);
+  virtual void Render(const std::vector<byte>& surface_data);
+  virtual void UpdatePalette(const IndirectDrawPalette& palette);
 
   bool has_error() { return !error_.empty(); }
   std::string error() { return error_; }
 
 private:
+  #pragma pack(push, 1)
+  struct PaletteTextureEntry {
+    byte blue;
+    byte green;
+    byte red;
+    byte alpha;
+  };
+  #pragma pack(pop)
+
   OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitShaders(const std::map<std::string, std::pair<std::string, std::string>>& shaders);
@@ -203,8 +212,13 @@ private:
   void SwapBuffers();
 
   void CopyDdrawSurface(const std::vector<byte>& surface_data);
-  void ConvertToFullColor(const IndirectDrawPalette& indirect_draw_palette);
+  void ConvertToFullColor();
   void RenderToScreen();
+
+  static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
+    const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
+    return result;
+  }
 
   std::string error_;
   HWND window_;
@@ -221,6 +235,8 @@ private:
   uint32 aspect_ratio_width_;
   uint32 aspect_ratio_height_;
   uint32 texture_format_;
+  std::unique_ptr<GlTexture> palette_texture_;
+  std::array<PaletteTextureEntry, 256> palette_texture_data_;
   std::unique_ptr<GlTexture> ddraw_texture_;
   std::unique_ptr<GlFramebuffer> framebuffer_;
   std::unique_ptr<GlTexture> framebuffer_texture_;
