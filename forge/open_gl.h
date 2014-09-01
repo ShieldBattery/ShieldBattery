@@ -15,7 +15,6 @@
 #include "common/macros.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
-#include "shieldbattery/settings.h"
 #include "forge/renderer.h"
 
 namespace sbat {
@@ -185,6 +184,7 @@ public:
   virtual ~OpenGl();
 
   static std::unique_ptr<OpenGl> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+      RendererDisplayMode display_mode, bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
 
   virtual void Render(const std::vector<byte>& surface_data);
@@ -203,7 +203,8 @@ private:
   };
   #pragma pack(pop)
 
-  OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+  OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height, RendererDisplayMode display_mode,
+      bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitShaders(const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitTextures();
@@ -232,6 +233,8 @@ private:
   uint32 min_millis_per_frame_;
   uint32 ddraw_width_;
   uint32 ddraw_height_;
+  RendererDisplayMode display_mode_;
+  bool maintain_aspect_ratio_;
   uint32 aspect_ratio_width_;
   uint32 aspect_ratio_height_;
   uint32 texture_format_;
@@ -244,8 +247,6 @@ private:
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> fbo_vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> fbo_element_buffer_;
-  // TODO(tec27): Don't reference settings at all in renderers
-  const Settings& settings_;
   LARGE_INTEGER counter_frequency_;
   LARGE_INTEGER last_frame_time_;
 

@@ -24,8 +24,10 @@ using std::unique_ptr;
 using std::vector;
 
 unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+    RendererDisplayMode display_mode, bool maintain_aspect_ratio,
     const map<string, pair<string, string>>& shaders) {
-  unique_ptr<OpenGl> open_gl(new OpenGl(window, ddraw_width, ddraw_height, shaders));
+  unique_ptr<OpenGl> open_gl(
+      new OpenGl(window, ddraw_width, ddraw_height, display_mode, maintain_aspect_ratio, shaders));
 
   if (open_gl->has_error()) {
     Logger::Log(LogLevel::Error, "IndirectDraw failed to initialize OpenGL");
@@ -206,6 +208,7 @@ GlFramebufferBinder& GlFramebufferBinder::DrawBuffers(GLsizei n, const GLenum* b
 // care of deleting any errored objects instead of returning them higher up, so no methods outside
 // of the constructor will need to check for such a state.
 OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+    RendererDisplayMode display_mode, bool maintain_aspect_ratio,
     const map<string, pair<string, string>>& shaders)
   : error_(),
     window_(window),
@@ -218,6 +221,8 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     min_millis_per_frame_(16),
     ddraw_width_(ddraw_width),
     ddraw_height_(ddraw_height),
+    display_mode_(display_mode),
+    maintain_aspect_ratio_(maintain_aspect_ratio),
     aspect_ratio_width_(0),
     aspect_ratio_height_(0),
     texture_format_(GL_RED),
@@ -230,7 +235,6 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     element_buffer_(),
     fbo_vertex_buffer_(),
     fbo_element_buffer_(),
-    settings_(GetSettings()),
     counter_frequency_(),
     last_frame_time_() {
   Logger::Log(LogLevel::Verbose, "IndirectDraw initializing OpenGL");
@@ -282,7 +286,7 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   Logger::Logf(LogLevel::Verbose, "OpenGl selected min delay per frame: %dms",
       min_millis_per_frame_);
 
-  if (settings_.display_mode == DisplayMode::FullScreen && settings_.maintain_aspect_ratio) {
+  if (display_mode_ == RendererDisplayMode::FullScreen && maintain_aspect_ratio_) {
     aspect_ratio_width_ = client_rect_.right;
     aspect_ratio_height_ = client_rect_.bottom;
 
@@ -515,8 +519,8 @@ void OpenGl::ConvertToFullColor() {
 void OpenGl::RenderToScreen() {
   // Render from the framebuffer to the actual screen
   const ShaderResources* resources = &shader_resources_;
-  if (settings_.display_mode != DisplayMode::FullScreen) {
-    glViewport(0, 0, settings_.width, settings_.height);
+  if (display_mode_ != RendererDisplayMode::FullScreen) {
+    glViewport(0, 0, client_rect_.right, client_rect_.bottom);
   } else if (aspect_ratio_width_ > 0) {
     glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2) + 0.5),
         static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2) + 0.5),

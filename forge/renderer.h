@@ -8,6 +8,12 @@ namespace forge {
 
 class IndirectDrawPalette;
 
+enum class RendererDisplayMode {
+  FullScreen = 0,
+  BorderlessWindow,
+  Window
+};
+
 class Renderer {
 public:
   virtual ~Renderer() {}

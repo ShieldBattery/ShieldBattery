@@ -137,6 +137,16 @@ void Forge::Init() {
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
 
+RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
+  switch (display_mode) {
+  case DisplayMode::BorderlessWindow: return RendererDisplayMode::BorderlessWindow;
+  case DisplayMode::Window: return RendererDisplayMode::Window;
+  case DisplayMode::FullScreen:
+  default:
+    return RendererDisplayMode::FullScreen;
+  }
+}
+
 unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
   assert(instance_->vertex_shader_src_ != nullptr);
   assert(instance_->fragment_shader_src_ != nullptr);
@@ -149,7 +159,9 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   shaders["fbo"] =
       std::make_pair(*instance_->fbo_vertex_shader_src_, *instance_->fbo_fragment_shader_src_);
 
-  unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, shaders);
+  const Settings& settings = GetSettings();
+  unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, 
+    ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio, shaders);
   // TODO(tec27): check for null and exit if so
   return unique_ptr<Renderer>(std::move(open_gl));
 }
