@@ -140,7 +140,7 @@ void DetectResolutionWork(uv_work_t* req) {
     return;
   }
 
-  wstring args = emitter_path + L" " + slot_name;
+  wstring args = L"\"" + emitter_path + L"\" \"" + slot_name + L"\"";
   Process process(emitter_path, args, false, dir);
   if (process.has_errors()) {
     CloseHandle(slot_handle);
