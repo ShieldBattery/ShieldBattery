@@ -8,6 +8,15 @@ var bundleDir = path.join(__dirname, 'bundle')
   , bundleJsDir = path.join(bundleDir, 'js')
   , nativeDir = path.join(bundleJsDir, 'build')
 
+// modules with browser-specific version overrides that we want to ignore
+var IGNORED_BROWSER_VERSIONS = [
+  'cuid',
+  'ws'
+].reduce(function(obj, cur) {
+  obj[cur] = require.resolve(cur)
+  return obj
+}, {})
+
 function createBrowserify() {
   var opts = {
     // equivalent to --bare, with custom built-ins
@@ -17,9 +26,7 @@ function createBrowserify() {
       __filename: insertGlobals.__filename,
       __dirname: insertGlobals.__dirname
     },
-    builtins: {
-      ws: require.resolve('ws') // ensure we don't try and bundle the browser version of ws
-    },
+    builtins: IGNORED_BROWSER_VERSIONS,
     // ignore missing modules to counteract stuff like ws that expects to fail some require's
     ignoreMissing: true,
     // TODO(tec27): utilize the 'missing' event from module_deps (submit PR to browserify to expose
