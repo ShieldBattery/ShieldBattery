@@ -63,9 +63,6 @@ local.properties
 .builds
 *.dotCover
 
-## TODO: If you have NuGet Package Restore enabled, uncomment this
-#packages/
-
 # Visual C++ cache files
 ipch/
 *.aps
@@ -173,3 +170,7 @@ pip-log.txt
 # include some of the build folders cause we need to
 !deps/node/deps/v8/build
 !deps/node/deps/cares/build
+
+# keep the installer solution files
+!installer.sln
+
