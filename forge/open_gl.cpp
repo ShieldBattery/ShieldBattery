@@ -297,10 +297,26 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     aspect_ratio_width_ = client_rect_.right;
     aspect_ratio_height_ = client_rect_.bottom;
 
-    if (aspect_ratio_width_ > aspect_ratio_height_) {
-      aspect_ratio_width_ = static_cast<int>((aspect_ratio_height_ * 1.333) + 0.5);
+    float original_ratio = ((float) ddraw_width) / ddraw_height;
+    float actual_ratio = ((float) aspect_ratio_width_) / aspect_ratio_height_;
+    if (original_ratio > actual_ratio) {
+      float height_unrounded = aspect_ratio_width_ / original_ratio;
+      while (height_unrounded - (static_cast<int>(height_unrounded)) > 0.0001f) {
+        // we want to avoid having fractional parts to avoid weird alignments in linear filtering,
+        // so we decrease the width until no fractions are necessary. Since BW is 4:3, this can be
+        // done in 3 steps or less
+        aspect_ratio_width_--;
+        height_unrounded = aspect_ratio_width_ / original_ratio;
+      }
+      aspect_ratio_height_ = static_cast<int>(height_unrounded);
     } else {
-      aspect_ratio_height_ = static_cast<int>((aspect_ratio_width_ * 0.75) + 0.5);
+      float width_unrounded = aspect_ratio_height_ * original_ratio;
+      while (width_unrounded - (static_cast<int>(width_unrounded)) > 0.0001f) {
+        // same as above, we decrease the height to avoid rounding errors
+        aspect_ratio_height_--;
+        width_unrounded = aspect_ratio_height_ * original_ratio;
+      }
+      aspect_ratio_width_ = static_cast<int>(width_unrounded);
     }
   }
 
@@ -526,14 +542,12 @@ void OpenGl::ConvertToFullColor() {
 void OpenGl::RenderToScreen() {
   // Render from the framebuffer to the actual screen
   const ShaderResources* resources = &shader_resources_;
-  if (display_mode_ != RendererDisplayMode::FullScreen) {
+  if (display_mode_ != RendererDisplayMode::FullScreen || aspect_ratio_width_ == 0) {
     glViewport(0, 0, client_rect_.right, client_rect_.bottom);
   } else if (aspect_ratio_width_ > 0) {
-    glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2) + 0.5),
-        static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2) + 0.5),
+    glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2.) + 0.5),
+        static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2.) + 0.5),
         aspect_ratio_width_, aspect_ratio_height_);
-  } else {
-    glViewport(0, 0, client_rect_.right, client_rect_.bottom);
   }
 
   fbo_shader_->Use();
