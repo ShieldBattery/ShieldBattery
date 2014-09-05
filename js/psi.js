@@ -14,10 +14,37 @@ var psi = require('shieldbattery-psi')
   , nydus = require('nydus')(httpServer, { authorize: authorize })
   , shieldbatteryRoot = path.dirname(process.execPath)
   , localSettings = require('./psi/local-settings')(path.join(shieldbatteryRoot, 'settings.json'))
+  , fs = require('fs')
+  , path = require('path')
+
+var environment = {
+  allowedHosts: [
+    'https://shieldbattery.net',
+    'https://www.shieldbattery.net',
+    'https://dev.shieldbattery.net'
+  ],
+  updateUrl: 'https://shieldbattery.net/update',
+  autoUpdate: true
+}
+if (fs.existsSync(path.join(shieldbatteryRoot, 'dev.json'))) {
+  var devEnv = require(path.join(shieldbatteryRoot, 'dev.json'))
+  environment.allowedHosts = environment.allowedHosts.concat(devEnv.extraAllowedHosts || [])
+  environment.updateUrl = devEnv.updateUrl || environment.updateUrl
+  if (devEnv.autoUpdate !== undefined) {
+    environment.autoUpdate = devEnv.autoUpdate
+  }
+}
+log.verbose('environment:\n' + JSON.stringify(environment))
 
 function authorize(info, cb) {
-  // TODO(tec27): Don't allow any connections except from the game and from approved sites
   var clientType = info.origin == 'BROODWARS' ? 'game' : 'site'
+  if (clientType == 'site') {
+    // ensure that this connection is coming from a site we trust
+    if (environment.allowedHosts.indexOf(info.origin) == -1) {
+      log.warning('Blocked a connection from an untrusted origin: ' + info.origin)
+      return cb(false)
+    }
+  }
   cb(true, { clientType: clientType })
 }
 
