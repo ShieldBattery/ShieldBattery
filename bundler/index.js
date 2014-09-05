@@ -3,6 +3,8 @@ var rimraf = require('rimraf')
   , path = require('path')
   , fs = require('fs')
   , insertGlobals = require('insert-module-globals')
+  , through = require('through2')
+  , crypto = require('crypto')
 
 var bundleDir = path.join(__dirname, 'bundle')
   , bundleJsDir = path.join(bundleDir, 'js')
@@ -38,9 +40,25 @@ function createBrowserify() {
   return b
 }
 
-function packageFilter(info, pkgdir) {
-  var filter = filters[path.basename(pkgdir)]
-  return filter ? filter(info) : info
+var hashes = {}
+var sizes = {}
+function createPassthroughHasher(file) {
+  // sanitize file paths to always use '/' as the separator
+  file = file.split(path.sep).join('/')
+
+  var sha = crypto.createHash('sha1')
+    , size = 0
+
+  return through(function(chunk, enc, cb) {
+    sha.update(chunk)
+    this.push(chunk)
+    size += chunk.length
+    cb()
+  }, function(cb) {
+    hashes[file] = sha.digest('hex')
+    sizes[file] = size
+    cb()
+  })
 }
 
 var binaries = [
@@ -96,7 +114,9 @@ function jsDirCreated(err) {
 
   var b = createBrowserify()
   b.add(require.resolve('../js/index.js'))
-  b.bundle().pipe(fs.createWriteStream(path.join(bundleJsDir, 'index.js')))
+  b.bundle()
+    .pipe(createPassthroughHasher('js/index.js'))
+    .pipe(fs.createWriteStream(path.join(bundleJsDir, 'index.js')))
     .on('finish', function() {
       console.log('JS bundle written!')
       console.log('Done!\n')
@@ -120,7 +140,9 @@ function copyBinaries() {
     var input = binary[0]
       , output = binary[1]
 
-    fs.createReadStream(input).pipe(fs.createWriteStream(output))
+    fs.createReadStream(input)
+      .pipe(createPassthroughHasher(path.relative(bundleDir, binary[1])))
+      .pipe(fs.createWriteStream(output))
       .on('finish', function() {
         console.log(input + ' => ' + output)
         delete copying[input]
@@ -133,7 +155,29 @@ function copyBinaries() {
     if (Object.keys(copying).length) return
 
     console.log('Done!\n')
+    writeManifest();
   }
+}
+
+function writeManifest() {
+  console.log('Writing update manifest...')
+
+  var manifestObj = Object.keys(hashes).reduce(function(prev, cur) {
+    prev[cur] = {
+      sha: hashes[cur],
+      size: sizes[cur]
+    }
+    return prev
+  }, {})
+
+  fs.writeFile(path.join(bundleDir, 'manifest.json'), JSON.stringify(manifestObj), function(err) {
+    if (err) {
+      console.log('Error writing manifest:', err)
+      return
+    }
+
+    console.log('Done!\n')
+  })
 }
 
 checkPrereqs()
