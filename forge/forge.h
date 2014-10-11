@@ -14,6 +14,9 @@
 namespace sbat {
 namespace forge {
 
+using std::map;
+using std::pair;
+
 // Annoyingly, Windows makes assumptions that if you SwapBuffer, have no borders, and are the same
 // size as the monitor you're on, you want exclusive fullscreen. There doesn't seem to be a way to
 // turn this off, so we trick Windows by having a border (even for borderless windows!) and stopping
@@ -107,10 +110,8 @@ private:
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
-  std::string* vertex_shader_src_;
-  std::string* fragment_shader_src_;
-  std::string* fbo_vertex_shader_src_;
-  std::string* fbo_fragment_shader_src_;
+  map<std::string, pair<std::string, std::string>> dx_shaders;
+  map<std::string, pair<std::string, std::string>> gl_shaders;
 
   int client_x_;
   int client_y_;

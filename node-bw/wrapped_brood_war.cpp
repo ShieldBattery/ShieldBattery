@@ -496,6 +496,14 @@ Handle<Value> WrappedBroodWar::SetSettings(const Arguments& args) {
     result.maintain_aspect_ratio = true;
   }
 
+  if (settings_object->Has(String::NewSymbol("renderer"))) {
+    result.renderer = static_cast<RenderMode>(
+        settings_object->Get(String::NewSymbol("renderer"))->Int32Value());
+  } else {
+    Logger::Log(LogLevel::Warning, "Using default renderer");
+    result.renderer = RenderMode::DirectX;
+  }
+
   sbat::SetSettings(result);
   return scope.Close(v8::Undefined());
 }

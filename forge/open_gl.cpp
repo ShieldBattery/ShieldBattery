@@ -338,18 +338,18 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
 
 bool OpenGl::InitShaders(const map<string, pair<string, string>>& shaders) {
   // TODO(tec27): make a more generic shader manager instead of finding these keys by literal
-  if (shaders.count("main") != 0) {
-    const pair<string, string> shader_pair = shaders.at("main");
+  if (shaders.count("depalettizing") != 0) {
+    const pair<string, string> shader_pair = shaders.at("depalettizing");
     screen_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
   } else {
-    error_ = "No main shader found";
+    error_ = "No depalettizing shader found";
     return false;
   }
-  if (shaders.count("fbo") != 0) {
-    const pair<string, string> shader_pair = shaders.at("fbo");
+  if (shaders.count("scaling") != 0) {
+    const pair<string, string> shader_pair = shaders.at("scaling");
     fbo_shader_.reset(new GlShaderProgram(shader_pair.first, shader_pair.second));
   } else {
-    error_ = "No fbo shader found";
+    error_ = "No scaling shader found";
     return false;
   }
 
