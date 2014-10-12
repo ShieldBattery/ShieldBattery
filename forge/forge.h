@@ -8,14 +8,12 @@
 
 #include "common/func_hook.h"
 #include "forge/indirect_draw.h"
+#include "forge/direct_x.h"
 #include "forge/open_gl.h"
 #include "forge/renderer.h"
 
 namespace sbat {
 namespace forge {
-
-using std::map;
-using std::pair;
 
 // Annoyingly, Windows makes assumptions that if you SwapBuffer, have no borders, and are the same
 // size as the monitor you're on, you want exclusive fullscreen. There doesn't seem to be a way to
@@ -110,8 +108,8 @@ private:
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
-  map<std::string, pair<std::string, std::string>> dx_shaders;
-  map<std::string, pair<std::string, std::string>> gl_shaders;
+  std::map<std::string, std::pair<std::string, std::string>> dx_shaders;
+  std::map<std::string, std::pair<std::string, std::string>> gl_shaders;
 
   int client_x_;
   int client_y_;

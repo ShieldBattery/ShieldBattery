@@ -4,14 +4,18 @@ var forge = require('bindings')('forge')
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
 
-var dxVertShaders = { depalettizing: fs.readFileSync(__dirname + '/shaders/directx/vs_depalettizing.hlsl') }
-  , dxPixelShaders = { depalettizing: fs.readFileSync(__dirname + '/shaders/directx/ps_depalettizing.hlsl')
+var dxVertShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/directx/vs_depalettizing.hlsl') }
+  , dxPixelShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/directx/ps_depalettizing.hlsl')
                      , scaling: fs.readFileSync(__dirname + '/shaders/directx/ps_scaling.hlsl')
                      }
-  , glVertShaders = { depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/vs_depalettizing.glsl')
+  , glVertShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/opengl/vs_depalettizing.glsl')
                     , scaling: fs.readFileSync(__dirname + '/shaders/opengl/vs_scaling.glsl')
                     }
-  , glFragShaders = { depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/fs_depalettizing.glsl')
+  , glFragShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/opengl/fs_depalettizing.glsl')
                     , scaling: fs.readFileSync(__dirname + '/shaders/opengl/fs_scaling.glsl')
                     }
 
