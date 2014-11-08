@@ -336,6 +336,8 @@ JoinedLobbyService.prototype._onMessage = function(data) {
     case 'newHost': this._onNewHost(data.id, data.name); break
     case 'countdownStarted': this._onCountdownStarted(); break
     case 'countdownComplete': this._onCountdownCompleted(data.host, data.port); break
+    case 'countdownAborted': this._onCountdownAborted(); break
+    case 'initializationAborted': this._onInitializationAborted(); break
     case 'startGame': this._onStartGame(); break
     default: console.log('Unknown lobby action: ' + data.action); break
   }
@@ -446,6 +448,23 @@ JoinedLobbyService.prototype._onCountdownCompleted = function(host, port) {
   this.countingDown = false
   this.initializingGame = true
   this._launchGame(host, port)
+}
+
+JoinedLobbyService.prototype._onCountdownAborted = function() {
+  this.countingDown = false
+  this.initializingGame = false
+  this._systemMessage('Countdown canceled')
+}
+
+JoinedLobbyService.prototype._onInitializationAborted = function() {
+  this.countingDown = false
+  this.initializingGame = false
+  this.psiSocket.call('/game/quit', function(err) {
+    if (err) {
+      console.log('error quitting:')
+      console.dir(err)
+    }
+  })
 }
 
 JoinedLobbyService.prototype._launchGame = function(host, port) {
