@@ -11,6 +11,7 @@ var app = angular.module('shieldbattery',
     , require('./errors')
     , require('./initializer')
     , require('./lobby')
+    , require('./logger')
     , require('./server-status')
     , require('./sockets')
     , require('./settings')

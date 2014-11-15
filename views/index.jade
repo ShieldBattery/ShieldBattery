@@ -19,6 +19,16 @@ block content
         a(href='/') Watch
       .col-1
         a(href='/settings') Configure
+      .col-1(data-ng-controller='LoggerCtrl', data-ng-show='showLogsButton()')
+        button(data-ng-click='toggleLogs()') Logs
+        .logs(data-ng-show='showLogs')
+          button(data-ng-click='clearLogs()') Clear
+          input(type='search', data-ng-model='search', placeholder='filter messages...')
+          div(data-ng-repeat='message in logger.logs | filter:search')
+            span Message &#35;{{ $index + 1 }}
+            div(data-ng-repeat='(key, value) in message.message', data-ng-class="(message.source == 'siteSocket') ? 'site-socket-logs' : 'psi-socket-logs'")
+              span {{ key }}: {{ value }}
+              br
     .row
       .col-3.left-nav(data-ng-controller='StatusCtrl')
         ul(data-ng-hide='siteSocket.connected && psiSocket.connected')
