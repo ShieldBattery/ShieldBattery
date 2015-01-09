@@ -7,6 +7,7 @@ var app = angular.module('shieldbattery',
     , 'ngRoute'
     , require('./admin')
     , require('./auth')
+    , require('./chat')
     , require('./dashboard')
     , require('./errors')
     , require('./initializer')

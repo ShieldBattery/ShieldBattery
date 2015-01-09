@@ -10,6 +10,7 @@
     "unused": "vars",
     "trailing": true,
     "maxlen": 100,
+    "strict": false,
 
     // Relaxing
     "asi": true,

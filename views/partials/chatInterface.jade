@@ -1,0 +1,3 @@
+form(name='joinChatForm', ng-submit='joinChat(chatChannelName)', novalidate)
+  input(data-ng-model='chatChannelName', type='text', placeholder='Enter a channel name', required)
+  input(type='submit', value='Join', data-ng-disabled='joinChatForm.$invalid')
