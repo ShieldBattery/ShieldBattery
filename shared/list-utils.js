@@ -65,7 +65,7 @@ function replaceInPlace(original, desired, comparator) {
 
 function sortedInsert(list, value, comparator) {
   for (var i = 0, len = list.length; i < len; i++) {
-    if (comparator(value,  list[i]) < 0) {
+    if (comparator(value, list[i]) < 0) {
       list.splice(i, 0, value)
       return i
     }
