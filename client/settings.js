@@ -32,11 +32,15 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                             , max: 4
                             , min: 0
                             }
+  $scope.renderers = [ { name: 'DirectX', value: 0 }
+                     , { name: 'OpenGL', value: 1 }
+                     ]
   $scope.resolutions = []
   $scope.displayMode = {}
   $scope.resolution = {}
   $scope.maintainAspectRatio = true
   $scope.bwPort = null
+  $scope.renderer = {}
   $scope.res = {}
   $scope.settings = {}
   $scope.resDisabled = false
@@ -119,13 +123,17 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
         !!$scope.settings.maintainAspectRatio : true
     $scope.mouseSensitivity.value = $scope.settings.mouseSensitivity || 0
     $scope.bwPort = $scope.settings.bwPort
+    $scope.renderer = $scope.renderers[$scope.settings.renderer] ||
+        $scope.renderers[0]
   }
 
   $scope.onDisplayModeChange = function() {
+    $scope.settings.bwPort = $scope.bwPort
     $scope.settings.width = $scope.resolution.width
     $scope.settings.height = $scope.resolution.height
     $scope.settings.displayMode = $scope.displayMode.value
     $scope.settings.maintainAspectRatio = $scope.maintainAspectRatio
+    $scope.settings.renderer = $scope.renderer.value
     initializeSettings()
   }
 
@@ -138,6 +146,7 @@ mod.controller('SettingsCtrl', function($scope, psiSocket) {
                       , displayMode: $scope.displayMode.value
                       , mouseSensitivity: $scope.mouseSensitivity.value
                       , maintainAspectRatio: $scope.maintainAspectRatio
+                      , renderer: $scope.renderer.value
                       }
     psiSocket.publish('/settings', newSettings, false)
   }

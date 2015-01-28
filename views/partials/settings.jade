@@ -10,6 +10,8 @@ form(name='settingsForm', ng-hide='loading', ng-submit='saveSettings()', novalid
       ng-disabled='resDisabled')
   label(for='maintain-aspect-ratio') Maintain aspect ratio: 
     input(type='checkbox', id='maintain-aspect-ratio', ng-model='maintainAspectRatio')
+  label(for='renderer') Renderer:
+    select(id='renderer', ng-model='renderer', ng-options='r.name for r in renderers')
   div
     label(for='sensitivity') Mouse sensitivity:
       input(type='range', id='sensitivity', ng-model='mouseSensitivity.value',
