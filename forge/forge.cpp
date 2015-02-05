@@ -141,8 +141,8 @@ RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
 }
 
 unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
-  assert(instance_->gl_shaders != nullptr);
-  assert(instance_->dx_shaders != nullptr);
+  assert(!instance_->gl_shaders.empty());
+  assert(!instance_->dx_shaders.empty());
 
   const Settings& settings = GetSettings();
   switch (settings.renderer) {

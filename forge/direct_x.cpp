@@ -594,9 +594,9 @@ bool DirectX::InitTextures() {
 
   D3D10_SAMPLER_DESC rendered_texture_sampler_desc = D3D10_SAMPLER_DESC();
   rendered_texture_sampler_desc.Filter = D3D10_FILTER_MIN_MAG_MIP_LINEAR;
-  rendered_texture_sampler_desc.AddressU = D3D10_TEXTURE_ADDRESS_WRAP;
-  rendered_texture_sampler_desc.AddressV = D3D10_TEXTURE_ADDRESS_WRAP;
-  rendered_texture_sampler_desc.AddressW = D3D10_TEXTURE_ADDRESS_WRAP;
+  rendered_texture_sampler_desc.AddressU = D3D10_TEXTURE_ADDRESS_CLAMP;
+  rendered_texture_sampler_desc.AddressV = D3D10_TEXTURE_ADDRESS_CLAMP;
+  rendered_texture_sampler_desc.AddressW = D3D10_TEXTURE_ADDRESS_CLAMP;
   rendered_texture_sampler_desc.ComparisonFunc = D3D10_COMPARISON_NEVER;
   rendered_texture_sampler_desc.MinLOD = 0;
   rendered_texture_sampler_desc.MaxLOD = D3D10_FLOAT32_MAX;
@@ -826,8 +826,9 @@ void DirectX::CopyDdrawSurface(const std::vector<byte>& surface_data) {
   }
 
   BYTE* mapped_data = mapped_screen_texture->GetData<BYTE*>();
-  for(UINT row = 0; row < ddraw_height_; row++) {
-    std::copy(&surface_data[row*ddraw_width_], &surface_data[row*ddraw_width_ + ddraw_width_],
+  for(UINT row = 0; row < ddraw_height_ - 1; row++) {
+    std::copy(surface_data.begin() + (row * ddraw_width_),
+        surface_data.begin() + (row * ddraw_width_ + ddraw_width_),
         mapped_data);
     mapped_data += mapped_screen_texture->GetRowPitch();
   }
