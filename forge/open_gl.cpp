@@ -3,6 +3,7 @@
 #include <gl/glew.h>
 #include <gl/wglew.h>
 #include <gl/gl.h>
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <vector>
@@ -23,7 +24,8 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-string OpenGl::last_error_ = "";
+
+string OpenGl::last_error_ = "";  // NOLINT
 
 unique_ptr<OpenGl> OpenGl::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     RendererDisplayMode display_mode, bool maintain_aspect_ratio,
@@ -225,13 +227,9 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     screen_shader_(),
     fbo_shader_(),
     shader_resources_(),
-    min_millis_per_frame_(16),
     ddraw_width_(ddraw_width),
     ddraw_height_(ddraw_height),
-    display_mode_(display_mode),
-    maintain_aspect_ratio_(maintain_aspect_ratio),
-    aspect_ratio_width_(0),
-    aspect_ratio_height_(0),
+    output_rect_(),
     texture_format_(GL_RED),
     palette_texture_(),
     palette_texture_data_(),
@@ -242,8 +240,7 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     element_buffer_(),
     fbo_vertex_buffer_(),
     fbo_element_buffer_(),
-    counter_frequency_(),
-    last_frame_time_() {
+    render_skipper_(window) {
   Logger::Log(LogLevel::Verbose, "IndirectDraw initializing OpenGL");
   GetClientRect(window, &client_rect_);
 
@@ -281,47 +278,8 @@ OpenGl::OpenGl(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     wglSwapIntervalEXT(0);  // disable vsync, which causes some pretty annoying issues in BW
   }
 
-  DEVMODE devmode;
-  EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
-  if (devmode.dmDisplayFrequency <= 1) {
-    // "Default" setting for the device. I don't know what that means, but the docs say this can
-    // happen, so we'll assume 60hz since that's fairly common and non-problematic
-    min_millis_per_frame_ = 16;
-  } else {
-    min_millis_per_frame_ = 1000 / devmode.dmDisplayFrequency;
-  }
-  Logger::Logf(LogLevel::Verbose, "OpenGl selected min delay per frame: %dms",
-      min_millis_per_frame_);
-
-  if (display_mode_ == RendererDisplayMode::FullScreen && maintain_aspect_ratio_) {
-    aspect_ratio_width_ = client_rect_.right;
-    aspect_ratio_height_ = client_rect_.bottom;
-
-    float original_ratio = ((float) ddraw_width) / ddraw_height;
-    float actual_ratio = ((float) aspect_ratio_width_) / aspect_ratio_height_;
-    if (original_ratio > actual_ratio) {
-      float height_unrounded = aspect_ratio_width_ / original_ratio;
-      while (height_unrounded - (static_cast<int>(height_unrounded)) > 0.0001f) {
-        // we want to avoid having fractional parts to avoid weird alignments in linear filtering,
-        // so we decrease the width until no fractions are necessary. Since BW is 4:3, this can be
-        // done in 3 steps or less
-        aspect_ratio_width_--;
-        height_unrounded = aspect_ratio_width_ / original_ratio;
-      }
-      aspect_ratio_height_ = static_cast<int>(height_unrounded);
-    } else {
-      float width_unrounded = aspect_ratio_height_ * original_ratio;
-      while (width_unrounded - (static_cast<int>(width_unrounded)) > 0.0001f) {
-        // same as above, we decrease the height to avoid rounding errors
-        aspect_ratio_height_--;
-        width_unrounded = aspect_ratio_height_ * original_ratio;
-      }
-      aspect_ratio_width_ = static_cast<int>(width_unrounded);
-    }
-  }
-
-  QueryPerformanceFrequency(&counter_frequency_);
-  counter_frequency_.QuadPart /= 1000LL;  // convert to ticks per millisecond
+  output_rect_ = GetOutputSize(display_mode, maintain_aspect_ratio, client_rect_,
+      ddraw_width_, ddraw_height_);
 
   if (!InitShaders(shaders)) {
     return;
@@ -464,21 +422,7 @@ void OpenGl::UpdatePalette(const IndirectDrawPalette& palette) {
 }
 
 void OpenGl::Render(const vector<byte>& surface_data) {
-  // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
-  // iteration loop during data intialization when there's nothing to actually render) and this
-  // causes issues when the graphics card decides it doesn't want to queue commands any more. To
-  // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
-  // making rendering calls this fast. We try to pick a value that matches the monitor's refresh
-  // rate, falling back to 60hz if we don't know what that is.
-  LARGE_INTEGER frame_time;
-  QueryPerformanceCounter(&frame_time);
-  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart <
-      min_millis_per_frame_) {
-    return;
-  }
-  // Don't render while minimized (we tell BW its never minimized, so even though it has a check for
-  // this, it will be rendering anyway)
-  if (IsIconic(window_)) {
+  if (render_skipper_.ShouldSkipRender()) {
     return;
   }
 
@@ -497,11 +441,9 @@ void OpenGl::Render(const vector<byte>& surface_data) {
   RenderToScreen();
   SwapBuffers();
 
-  QueryPerformanceCounter(&last_frame_time_);
+  render_skipper_.UpdateLastFrameTime();
   if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose,
-        "OpenGl rendering completed [perf counter: %lld]",
-        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
+    Logger::Log(LogLevel::Verbose, "OpenGl rendering completed");
   }
 }
 
@@ -542,13 +484,8 @@ void OpenGl::ConvertToFullColor() {
 void OpenGl::RenderToScreen() {
   // Render from the framebuffer to the actual screen
   const ShaderResources* resources = &shader_resources_;
-  if (display_mode_ != RendererDisplayMode::FullScreen || aspect_ratio_width_ == 0) {
-    glViewport(0, 0, client_rect_.right, client_rect_.bottom);
-  } else if (aspect_ratio_width_ > 0) {
-    glViewport(static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2.) + 0.5),
-        static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2.) + 0.5),
-        aspect_ratio_width_, aspect_ratio_height_);
-  }
+  glViewport(output_rect_.left, output_rect_.top,
+      output_rect_.right - output_rect_.left, output_rect_.bottom - output_rect_.top);
 
   fbo_shader_->Use();
 

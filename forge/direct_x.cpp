@@ -1,8 +1,11 @@
 #include "forge/direct_x.h"
 
+#include <algorithm>
 #include <map>
-#include <vector>
 #include <string>
+#include <utility>
+#include <vector>
+
 
 #include "forge/indirect_draw.h"
 #include "forge/forge.h"
@@ -16,7 +19,7 @@ using std::pair;
 using std::string;
 using std::unique_ptr;
 
-string DirectX::last_error_ = "";
+string DirectX::last_error_ = "";  // NOLINT
 
 unique_ptr<DirectX> DirectX::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     RendererDisplayMode display_mode, bool maintain_aspect_ratio,
@@ -37,313 +40,289 @@ unique_ptr<DirectX> DirectX::Create(HWND window, uint32 ddraw_width, uint32 ddra
   return direct_x;
 }
 
-void ReleaseCOM(IUnknown* dx_interface) {
-  if (dx_interface) {
-    dx_interface->Release();
-  }
-  dx_interface = NULL;
-}
-
 string GetErrorMsg(HRESULT result) {
   _com_error error(result);
-  return std::string(error.ErrorMessage());
+  return string(error.ErrorMessage());
 }
 
 string DirectX::GetLastError() {
   return last_error_;
 }
 
-DxRenderTargetView::DxRenderTargetView(ID3D10RenderTargetView& render_target_view)
-  : render_target_view_(&render_target_view) {
+DxTextureMapper::DxTextureMapper(const DxTexture& texture, uint32 mip_slice, uint32 array_slice,
+      uint32 mip_levels)
+  : result_(),
+    subresource_(D3D10CalcSubresource(mip_slice, array_slice, mip_levels)),
+    texture_(),
+    mapped_texture_() {
+  result_ = texture.get()->Map(subresource_, D3D10_MAP_WRITE_DISCARD, 0, &mapped_texture_);
+  if (FAILED(result_)) {
+    Logger::Logf(LogLevel::Error, "Error mapping a texture: %s", GetErrorMsg(result_));
+    return;
+  }
+
+  // Store off a pointer to the texture and AddRef it, our ComDeleter will remove that ref when
+  // the mapper is destroyed
+  texture_.reset(texture.get());
+  texture_->AddRef();
 }
 
-DxRenderTargetView::~DxRenderTargetView() {
-  ReleaseCOM(render_target_view_);
-}
-
-DxShaderResourceView::DxShaderResourceView(ID3D10ShaderResourceView& shader_resource_view)
-  : shader_resource_view_(&shader_resource_view) {
-}
-
-DxShaderResourceView::~DxShaderResourceView() {
-  ReleaseCOM(shader_resource_view_);
-}
-
-DxMappedTexture::DxMappedTexture(D3D10_MAPPED_TEXTURE2D mapped_texture)
-  : mapped_texture_(mapped_texture) {
-}
-
-DxMappedTexture::~DxMappedTexture() {
-}
-
-DxTexture::DxTexture(ID3D10Texture2D& texture)
-  : texture_(&texture) {
-}
-
-unique_ptr<DxRenderTargetView> DxTexture::CreateRenderTargetView(DxDevice& device) {
-  return device.CreateRenderTargetView(*texture_);
-}
-
-unique_ptr<DxShaderResourceView> DxTexture::CreateShaderResourceView(DxDevice& device,
-    D3D10_SHADER_RESOURCE_VIEW_DESC srv_desc) {
-  return device.CreateShaderResourceView(*texture_, srv_desc);
-}
-
-DxMappedTexture* DxTexture::Map(UINT subresource) {
-  D3D10_MAPPED_TEXTURE2D mapped_texture;
-  HRESULT result = texture_->Map(subresource, D3D10_MAP_WRITE_DISCARD, 0, &mapped_texture);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error mapping a texture: %s", GetErrorMsg(result));
-    return nullptr;
-  } else {
-    return new DxMappedTexture(mapped_texture);
+DxTextureMapper::~DxTextureMapper() {
+  if (!has_error()) {
+    texture_->Unmap(subresource_);
   }
 }
 
-void DxTexture::Unmap(UINT subresource) {
-  texture_->Unmap(subresource);
+DxTexture::DxTexture(ID3D10Texture2D* texture)
+  : texture_(texture) {
 }
 
 DxTexture::~DxTexture() {
-  ReleaseCOM(texture_);
+  ReleaseCom(texture_);
 }
 
-DxSwapChain::DxSwapChain(IDXGISwapChain& swap_chain)
-  : swap_chain_(&swap_chain) {
-}
-
-unique_ptr<DxTexture> DxSwapChain::GetBuffer() {
+unique_ptr<DxTexture> DxTexture::NewTexture(const DxDevice& device,
+    const D3D10_TEXTURE2D_DESC& texture_desc) {
   ID3D10Texture2D* texture;
-  HRESULT result = swap_chain_->GetBuffer(0, __uuidof(ID3D10Texture2D),
-      reinterpret_cast<void**>(&texture));
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error getting a buffer texture: %s", GetErrorMsg(result));
+  HRESULT result = device.get()->CreateTexture2D(&texture_desc, NULL, &texture);
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error creating a texture: %s", GetErrorMsg(result));
     return nullptr;
   } else {
-    return std::unique_ptr<DxTexture>(new DxTexture(*texture));
+    return unique_ptr<DxTexture>(new DxTexture(texture));
   }
 }
 
-DxSwapChain::~DxSwapChain() {
-  ReleaseCOM(swap_chain_);
+unique_ptr<DxTexture> DxTexture::FromSwapChain(const DxSwapChain& swap_chain) {
+  ID3D10Texture2D* texture;
+  HRESULT result = swap_chain.get()->GetBuffer(0, __uuidof(ID3D10Texture2D),
+      reinterpret_cast<void**>(&texture));
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error getting a buffer texture: %s", GetErrorMsg(result));
+    return nullptr;
+  } else {
+    return std::unique_ptr<DxTexture>(new DxTexture(texture));
+  }
 }
 
-DxBlob::DxBlob(const std::string& src, LPCSTR type, LPCSTR version)
+DxSwapChain::DxSwapChain(const DxDevice& device, DXGI_SWAP_CHAIN_DESC* swap_chain_desc)
+  : result_(),
+    swap_chain_(nullptr) {
+  void* out;
+  result_ = device.get()->QueryInterface(__uuidof(IDXGIDevice), &out);
+  if (FAILED(result_)) {
+    Logger::Logf(LogLevel::Error, "Error querying a device interface: %s", GetErrorMsg(result_));
+    return;
+  }
+  auto dxgi_device = WrapComVoid<IDXGIDevice>(out);
+
+  result_ = dxgi_device->GetParent(__uuidof(IDXGIAdapter), &out);
+  if (FAILED(result_)) {
+    Logger::Logf(LogLevel::Error, "Error getting a dxgi adapter: %s", GetErrorMsg(result_));
+  }
+  auto dxgi_adapter = WrapComVoid<IDXGIAdapter>(out);
+
+  result_ = dxgi_adapter->GetParent(__uuidof(IDXGIFactory), &out);
+  if (FAILED(result_)) {
+    Logger::Logf(LogLevel::Error, "Error getting a dxgi factory: %s", GetErrorMsg(result_));
+    return;
+  }
+  auto dxgi_factory = WrapComVoid<IDXGIFactory>(out);
+
+  result_ = dxgi_factory->CreateSwapChain(device.get(), swap_chain_desc, &swap_chain_);
+}
+
+DxSwapChain::~DxSwapChain() {
+  ReleaseCom(swap_chain_);
+}
+
+DxBlob::DxBlob(const string& src, const string& type, const string& version)
   : blob_(nullptr),
     error_blob_(nullptr),
     result_(NULL) {
-  result_ = D3DCompile(src.c_str(), src.length(), NULL, NULL, NULL, type, version,
+  result_ = D3DCompile(src.c_str(), src.length(), NULL, NULL, NULL, type.c_str(), version.c_str(),
       NULL, NULL, &blob_, &error_blob_);
 }
 
 DxBlob::~DxBlob() {
-  ReleaseCOM(error_blob_);
-  ReleaseCOM(blob_);
+  ReleaseCom(error_blob_);
+  ReleaseCom(blob_);
 }
 
-DxVertexBlob::DxVertexBlob(const std::string& src)
+DxVertexBlob::DxVertexBlob(const string& src)
   : DxBlob(src, "VS_Main", "vs_4_0") {
 }
 
-DxVertexBlob::~DxVertexBlob() {
-}
+DxVertexBlob::~DxVertexBlob() {}
 
-DxPixelBlob::DxPixelBlob(const std::string& src)
+DxPixelBlob::DxPixelBlob(const string& src)
   : DxBlob(src, "PS_Main", "ps_4_0") {
 }
 
-DxPixelBlob::~DxPixelBlob() {
-}
+DxPixelBlob::~DxPixelBlob() {}
 
-DxVertexShader::DxVertexShader(ID3D10VertexShader& vertex_shader)
-  : vertex_shader_(&vertex_shader) {
+DxVertexShader::DxVertexShader(const DxDevice& device, const DxVertexBlob& vertex_blob)
+  : result_(),
+    vertex_shader_(nullptr) {
+  result_ = device.get()->CreateVertexShader(vertex_blob.GetBufferPointer(),
+      vertex_blob.GetBufferSize(), &vertex_shader_);
 }
 
 DxVertexShader::~DxVertexShader() {
-  ReleaseCOM(vertex_shader_);
+  ReleaseCom(vertex_shader_);
 }
 
-DxPixelShader::DxPixelShader(ID3D10PixelShader& pixel_shader)
-  : pixel_shader_(&pixel_shader) {
+DxPixelShader::DxPixelShader(const DxDevice& device, const DxPixelBlob& pixel_blob)
+  : result_(),
+    pixel_shader_(nullptr) {
+  result_ = device.get()->CreatePixelShader(pixel_blob.GetBufferPointer(),
+      pixel_blob.GetBufferSize(), &pixel_shader_);
 }
 
 DxPixelShader::~DxPixelShader() {
-  ReleaseCOM(pixel_shader_);
+  ReleaseCom(pixel_shader_);
 }
 
-DxInputLayout::DxInputLayout(ID3D10InputLayout& input_layout)
-  : input_layout_(&input_layout) {
+DxInputLayout::DxInputLayout(const DxDevice& device,
+      const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
+      const DxVertexBlob& vertex_blob)
+  : result_(),
+    input_layout_(nullptr) {
+  result_ = device.get()->CreateInputLayout(&input_layout_desc, desc_size,
+      vertex_blob.GetBufferPointer(), vertex_blob.GetBufferSize(), &input_layout_);
 }
 
 DxInputLayout::~DxInputLayout() {
-  ReleaseCOM(input_layout_);
+  ReleaseCom(input_layout_);
 }
 
-DxBuffer::DxBuffer(ID3D10Buffer& buffer)
-  : buffer_(&buffer) {
-}
-
-DxSamplerState::DxSamplerState(ID3D10SamplerState& sampler_state)
-  : sampler_state_(&sampler_state) {
+DxSamplerState::DxSamplerState(const DxDevice& device, const D3D10_SAMPLER_DESC& sampler_desc)
+  : result_(),
+    sampler_state_(nullptr) {
+  result_ = device.get()->CreateSamplerState(&sampler_desc, &sampler_state_);
 }
 
 DxSamplerState::~DxSamplerState() {
-  ReleaseCOM(sampler_state_);
+  ReleaseCom(sampler_state_);
 }
 
-DxBuffer::~DxBuffer() {
-  ReleaseCOM(buffer_);
-}
-
-DxVertexBuffer::DxVertexBuffer(ID3D10Buffer& buffer)
-  : DxBuffer(buffer) {
+DxVertexBuffer::DxVertexBuffer(const DxDevice& device, const D3D10_BUFFER_DESC& buffer_desc,
+      const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset)
+  : result_(),
+    buffer_(nullptr),
+    stride_(stride),
+    offset_(offset) {
+  assert(buffer_desc.BindFlags & D3D10_BIND_VERTEX_BUFFER);
+  result_ = device.get()->CreateBuffer(&buffer_desc, &buffer_data, &buffer_);
 }
 
 DxVertexBuffer::~DxVertexBuffer() {
+  ReleaseCom(buffer_);
 }
 
 DxDevice::DxDevice()
   : device_(nullptr),
-    dxgi_device_(nullptr),
-    dxgi_adapter_(nullptr),
-    dxgi_factory_(nullptr),
     result_(NULL) {
   result_ = D3D10CreateDevice(0, D3D10_DRIVER_TYPE_HARDWARE, 0, 0, D3D10_SDK_VERSION, &device_);
 }
 
-unique_ptr<DxSwapChain> DxDevice::CreateSwapChain(DXGI_SWAP_CHAIN_DESC swap_chain_desc) {
-  IDXGISwapChain* swap_chain;
-  HRESULT result = device_->QueryInterface(__uuidof(IDXGIDevice),
-      reinterpret_cast<void**>(&dxgi_device_));
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error querying a device interface: %s", GetErrorMsg(result));
+DxDevice::~DxDevice() {
+  ReleaseCom(device_);
+}
+
+unique_ptr<DxSwapChain> DxDevice::CreateSwapChain(DXGI_SWAP_CHAIN_DESC* swap_chain_desc) {
+  auto state = unique_ptr<DxSwapChain>(new DxSwapChain(*this, swap_chain_desc));
+  if (FAILED(state->result())) {
+    Logger::Logf(LogLevel::Error, "Error creating a swap chain: %s", GetErrorMsg(state->result()));
     return nullptr;
   } else {
-    result = dxgi_device_->GetParent(__uuidof(IDXGIAdapter),
-        reinterpret_cast<void**>(&dxgi_adapter_));
-  }
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error getting a dxgi adapter: %s", GetErrorMsg(result));
-    return nullptr;
-  } else {
-    result = dxgi_adapter_->GetParent(__uuidof(IDXGIFactory),
-        reinterpret_cast<void**>(&dxgi_factory_));
-  }
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error getting a dxgi factory: %s", GetErrorMsg(result));
-    return nullptr;
-  } else {
-    result = dxgi_factory_->CreateSwapChain(device_, &swap_chain_desc, &swap_chain);
-  }
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a DirectX swap chain: %s", GetErrorMsg(result));
-    return nullptr;
-  } else {
-    return unique_ptr<DxSwapChain>(new DxSwapChain(*swap_chain));
+    return state;
   }
 }
 
 unique_ptr<DxVertexShader> DxDevice::CreateVertexShader(const DxVertexBlob& vertex_blob) {
-  ID3D10VertexShader* vertex_shader;
-  HRESULT result = device_->CreateVertexShader(vertex_blob.GetBufferPointer(),
-      vertex_blob.GetBufferSize(), &vertex_shader);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a vertex shader: %s", GetErrorMsg(result));
+  auto shader = unique_ptr<DxVertexShader>(new DxVertexShader(*this, vertex_blob));
+  if (FAILED(shader->result())) {
+    Logger::Logf(LogLevel::Error,
+        "Error creating a vertex shader: %s", GetErrorMsg(shader->result()));
     return nullptr;
   } else {
-    return unique_ptr<DxVertexShader>(new DxVertexShader(*vertex_shader));
+    return shader;
   }
 }
 
 unique_ptr<DxPixelShader> DxDevice::CreatePixelShader(const DxPixelBlob& pixel_blob) {
-  ID3D10PixelShader* pixel_shader;
-  HRESULT result = device_->CreatePixelShader(pixel_blob.GetBufferPointer(),
-      pixel_blob.GetBufferSize(), &pixel_shader);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a pixel shader: %s", GetErrorMsg(result));
+  auto shader = unique_ptr<DxPixelShader>(new DxPixelShader(*this, pixel_blob));
+  if (FAILED(shader->result())) {
+    Logger::Logf(LogLevel::Error,
+        "Error creating a pixel shader: %s", GetErrorMsg(shader->result()));
     return nullptr;
   } else {
-    return unique_ptr<DxPixelShader>(new DxPixelShader(*pixel_shader));
-  }
-}
-
-unique_ptr<DxTexture> DxDevice::CreateTexture2D(D3D10_TEXTURE2D_DESC texture_desc) {
-  ID3D10Texture2D* texture;
-  HRESULT result = device_->CreateTexture2D(&texture_desc, NULL, &texture);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a texture: %s", GetErrorMsg(result));
-    return nullptr;
-  } else {
-    return unique_ptr<DxTexture>(new DxTexture(*texture));
+    return shader;
   }
 }
 
 unique_ptr<DxInputLayout> DxDevice::CreateInputLayout(
-    const D3D10_INPUT_ELEMENT_DESC& input_layout_desc,
-    UINT desc_size, const DxVertexBlob& vertex_blob) {
-  ID3D10InputLayout* input_layout;
-  HRESULT result = device_->CreateInputLayout(&input_layout_desc, desc_size,
-      vertex_blob.GetBufferPointer(), vertex_blob.GetBufferSize(), &input_layout);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating an input layout: %s", GetErrorMsg(result));
+    const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
+    const DxVertexBlob& vertex_blob) {
+  auto layout = unique_ptr<DxInputLayout>(
+      new DxInputLayout(*this, input_layout_desc, desc_size, vertex_blob));
+  if (FAILED(layout->result())) {
+    Logger::Logf(LogLevel::Error,
+        "Error creating an input layout: %s", GetErrorMsg(layout->result()));
     return nullptr;
   } else {
-    return unique_ptr<DxInputLayout>(new DxInputLayout(*input_layout));
+    return layout;
   }
 }
 
-unique_ptr<DxRenderTargetView> DxDevice::CreateRenderTargetView(ID3D10Texture2D& texture) {
+PtrDxRenderTargetView DxDevice::CreateRenderTargetView(const DxTexture& texture) {
   ID3D10RenderTargetView* render_target_view;
-  HRESULT result = device_->CreateRenderTargetView(&texture, NULL, &render_target_view);
-  if (result != S_OK) {
+  HRESULT result = device_->CreateRenderTargetView(texture.get(), NULL, &render_target_view);
+  if (FAILED(result)) {
     Logger::Logf(LogLevel::Error, "Error creating a render target view: %s", GetErrorMsg(result));
     return nullptr;
   } else {
-    return unique_ptr<DxRenderTargetView>(new DxRenderTargetView(*render_target_view));
+    return PtrDxRenderTargetView(render_target_view);
   }
 }
 
-unique_ptr<DxShaderResourceView> DxDevice::CreateShaderResourceView(ID3D10Texture2D& texture,
-    D3D10_SHADER_RESOURCE_VIEW_DESC srv_desc) {
+PtrDxShaderResourceView DxDevice::CreateShaderResourceView(const DxTexture& texture,
+    const D3D10_SHADER_RESOURCE_VIEW_DESC& srv_desc) {
   ID3D10ShaderResourceView* shader_resource_view;
-  HRESULT result = device_->CreateShaderResourceView(&texture, &srv_desc, &shader_resource_view);
-  if (result != S_OK) {
+  HRESULT result =
+      device_->CreateShaderResourceView(texture.get(), &srv_desc, &shader_resource_view);
+  if (FAILED(result)) {
     Logger::Logf(LogLevel::Error, "Error creating a shader resource view: %s",
         GetErrorMsg(result));
     return nullptr;
   } else {
-    return unique_ptr<DxShaderResourceView>(new DxShaderResourceView(*shader_resource_view));
+    return PtrDxShaderResourceView(shader_resource_view);
   }
 }
 
-unique_ptr<DxSamplerState> DxDevice::CreateSamplerState(D3D10_SAMPLER_DESC sampler_desc) {
-  ID3D10SamplerState* sampler_state;
-  HRESULT result = device_->CreateSamplerState(&sampler_desc, &sampler_state);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a texture sampler: %s", GetErrorMsg(result));
+unique_ptr<DxSamplerState> DxDevice::CreateSamplerState(const D3D10_SAMPLER_DESC& sampler_desc) {
+  auto state = unique_ptr<DxSamplerState>(new DxSamplerState(*this, sampler_desc));
+  if (FAILED(state->result())) {
+    Logger::Logf(LogLevel::Error, "Error creating a texture sampler: %s",
+        GetErrorMsg(state->result()));
     return nullptr;
   } else {
-    return unique_ptr<DxSamplerState>(new DxSamplerState(*sampler_state));
+    return state;
   }
 }
 
-unique_ptr<DxVertexBuffer> DxDevice::CreateVertexBuffer(D3D10_BUFFER_DESC buffer_desc,
-    D3D10_SUBRESOURCE_DATA buffer_data) {
-  ID3D10Buffer* vertex_buffer;
-  HRESULT result = device_->CreateBuffer(&buffer_desc, &buffer_data, &vertex_buffer);
-  if (result != S_OK) {
-    Logger::Logf(LogLevel::Error, "Error creating a vertex buffer: %s", GetErrorMsg(result));
+unique_ptr<DxVertexBuffer> DxDevice::CreateVertexBuffer(const D3D10_BUFFER_DESC& buffer_desc,
+    const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset) {
+  auto buffer = unique_ptr<DxVertexBuffer>(
+      new DxVertexBuffer(*this, buffer_desc, buffer_data, stride, offset));
+  if (FAILED(buffer->result())) {
+    Logger::Logf(LogLevel::Error,
+        "Error creating a vertex buffer: %s", GetErrorMsg(buffer->result()));
     return nullptr;
   } else {
-    return unique_ptr<DxVertexBuffer>(new DxVertexBuffer(*vertex_buffer));
+    return buffer;
   }
-}
-
-DxDevice::~DxDevice() {
-  ReleaseCOM(dxgi_factory_);
-  ReleaseCOM(dxgi_adapter_);
-  ReleaseCOM(dxgi_device_);
-  ReleaseCOM(device_);
 }
 
 // Constructing this *can* fail and leave a partially uninitialized object. The assumption is that
@@ -357,10 +336,10 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     window_(window),
     client_rect_(),
     dx_device_(nullptr),
-    dx_swap_chain_(nullptr),
+    swap_chain_(nullptr),
     back_buffer_(nullptr),
-    back_buffer_render_target_view_(nullptr),
-    depalettized_render_target_view_(nullptr),
+    back_buffer_view_(nullptr),
+    depalettized_view_(nullptr),
     depalettized_vertex_shader_(nullptr),
     depalettized_pixel_shader_(nullptr),
     input_layout_(nullptr),
@@ -375,27 +354,31 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     rendered_texture_sampler_(nullptr),
     ddraw_width_(ddraw_width),
     ddraw_height_(ddraw_height),
-    display_mode_(display_mode),
-    maintain_aspect_ratio_(maintain_aspect_ratio),
-    aspect_ratio_width_(0),
-    aspect_ratio_height_(0),
-    counter_frequency_(),
-    last_frame_time_() {
+    ddraw_viewport_(),
+    final_viewport_(),
+    render_skipper_(window) {
   Logger::Log(LogLevel::Verbose, "IndirectDraw initializing DirectX");
   GetClientRect(window, &client_rect_);
 
-  unsigned int width = client_rect_.right - client_rect_.left;
-  unsigned int height = client_rect_.bottom - client_rect_.top;
+  uint32 width = client_rect_.right - client_rect_.left;
+  uint32 height = client_rect_.bottom - client_rect_.top;
 
   dx_device_.reset(new DxDevice);
-  if (dx_device_->get_result() != S_OK) {
+  if (FAILED(dx_device_->result())) {
     Logger::Logf(LogLevel::Error, "Error creating a DirectX device: %s",
-        GetErrorMsg(dx_device_->get_result()));
+        GetErrorMsg(dx_device_->result()));
     error_ = "Error creating a DirectX device";
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectX device created");
   }
+
+  ddraw_viewport_.Width = ddraw_width_;
+  ddraw_viewport_.Height = ddraw_height_;
+  ddraw_viewport_.MinDepth = 0.0f;
+  ddraw_viewport_.MaxDepth = 1.0f;
+  ddraw_viewport_.TopLeftX = 0;
+  ddraw_viewport_.TopLeftY = 0;
 
   DXGI_SWAP_CHAIN_DESC swap_chain_desc = DXGI_SWAP_CHAIN_DESC();
   swap_chain_desc.BufferCount = 1;
@@ -410,15 +393,15 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   swap_chain_desc.SampleDesc.Count = 1;
   swap_chain_desc.SampleDesc.Quality = 0;
 
-  dx_swap_chain_ = dx_device_->CreateSwapChain(swap_chain_desc);
-  if (!dx_swap_chain_) {
+  swap_chain_ = dx_device_->CreateSwapChain(&swap_chain_desc);
+  if (!swap_chain_) {
     error_ = "Error creating a DirectX swap chain";
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectX swap chain created");
   }
 
-  back_buffer_ = dx_swap_chain_->GetBuffer();
+  back_buffer_ = DxTexture::FromSwapChain(*swap_chain_);
   if (!back_buffer_) {
     error_ = "Error getting a back buffer texture";
     return;
@@ -426,43 +409,22 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     Logger::Log(LogLevel::Verbose, "Back buffer texture retrieved");
   }
 
-  back_buffer_render_target_view_ = back_buffer_->CreateRenderTargetView(*dx_device_);
-  if (!back_buffer_render_target_view_) {
+  back_buffer_view_ = dx_device_->CreateRenderTargetView(*back_buffer_);
+  if (!back_buffer_view_) {
     error_ = "Error creating a back buffer render target view";
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Back buffer render target view created");
   }
 
-  if (display_mode_ == RendererDisplayMode::FullScreen && maintain_aspect_ratio_) {
-    aspect_ratio_width_ = client_rect_.right;
-    aspect_ratio_height_ = client_rect_.bottom;
-
-    float original_ratio = ((float) ddraw_width) / ddraw_height;
-    float actual_ratio = ((float) aspect_ratio_width_) / aspect_ratio_height_;
-    if (original_ratio > actual_ratio) {
-      float height_unrounded = aspect_ratio_width_ / original_ratio;
-      while (height_unrounded - (static_cast<int>(height_unrounded)) > 0.0001f) {
-        // we want to avoid having fractional parts to avoid weird alignments in linear filtering,
-        // so we decrease the width until no fractions are necessary. Since BW is 4:3, this can be
-        // done in 3 steps or less
-        aspect_ratio_width_--;
-        height_unrounded = aspect_ratio_width_ / original_ratio;
-      }
-      aspect_ratio_height_ = static_cast<int>(height_unrounded);
-    } else {
-      float width_unrounded = aspect_ratio_height_ * original_ratio;
-      while (width_unrounded - (static_cast<int>(width_unrounded)) > 0.0001f) {
-        // same as above, we decrease the height to avoid rounding errors
-        aspect_ratio_height_--;
-        width_unrounded = aspect_ratio_height_ * original_ratio;
-      }
-      aspect_ratio_width_ = static_cast<int>(width_unrounded);
-    }
-  }
-
-  QueryPerformanceFrequency(&counter_frequency_);
-  counter_frequency_.QuadPart /= 1000LL;  // convert to ticks per millisecond
+  RECT output_rect = 
+      GetOutputSize(display_mode, maintain_aspect_ratio, client_rect_, ddraw_width_, ddraw_height_);
+  final_viewport_.Width = output_rect.right - output_rect.left;
+  final_viewport_.Height = output_rect.bottom - output_rect.top;
+  final_viewport_.MinDepth = 0.0f;
+  final_viewport_.MaxDepth = 1.0f;
+  final_viewport_.TopLeftX = output_rect.left;
+  final_viewport_.TopLeftY = output_rect.top;
 
   if (!InitShaders(shaders)) {
     return;
@@ -475,6 +437,9 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   if (!InitVertices()) {
     return;
   }
+}
+
+DirectX::~DirectX() {
 }
 
 bool DirectX::InitShaders(const map<string, pair<string, string>>& shaders) {
@@ -519,8 +484,7 @@ bool DirectX::InitDepalettizingShader(const map<string, pair<string, string>>& s
     Logger::Log(LogLevel::Verbose, "Palettizing vertex shader created");
   }
 
-  D3D10_INPUT_ELEMENT_DESC input_layout_desc[] =
-  {
+  D3D10_INPUT_ELEMENT_DESC input_layout_desc[] = {
       { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D10_INPUT_PER_VERTEX_DATA, 0 },
       { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D10_INPUT_PER_VERTEX_DATA, 0 }
   };
@@ -533,7 +497,7 @@ bool DirectX::InitDepalettizingShader(const map<string, pair<string, string>>& s
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Input layout created");
   }
-    
+
   DxPixelBlob pixel_blob(shader_pair.second);
   if (pixel_blob.has_error()) {
     Logger::Logf(LogLevel::Error, "Error compiling a palettizing pixel shader: %s",
@@ -543,7 +507,7 @@ bool DirectX::InitDepalettizingShader(const map<string, pair<string, string>>& s
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Palettizing pixel shader compiled");
   }
-    
+
   depalettized_pixel_shader_ = dx_device_->CreatePixelShader(pixel_blob);
   if (!depalettized_pixel_shader_) {
     error_ = "Error creating a depalettizing pixel shader";
@@ -623,7 +587,7 @@ bool DirectX::InitRenderedTexture() {
   rendered_texture_desc.BindFlags = D3D10_BIND_RENDER_TARGET | D3D10_BIND_SHADER_RESOURCE;
   rendered_texture_desc.SampleDesc.Count = 1;
 
-  rendered_texture_ = dx_device_->CreateTexture2D(rendered_texture_desc);
+  rendered_texture_ = DxTexture::NewTexture(*dx_device_, rendered_texture_desc);
   if (!rendered_texture_) {
     error_ = "Error creating a rendered texture";
     return false;
@@ -636,7 +600,7 @@ bool DirectX::InitRenderedTexture() {
   srv_desc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
   srv_desc.Texture2D.MipLevels = rendered_texture_desc.MipLevels;
 
-  rendered_view_ = rendered_texture_->CreateShaderResourceView(*dx_device_, srv_desc);
+  rendered_view_ = dx_device_->CreateShaderResourceView(*rendered_texture_, srv_desc);
   if (!rendered_view_) {
     error_ = "Error creating a rendered resource view";
     return false;
@@ -644,8 +608,8 @@ bool DirectX::InitRenderedTexture() {
     Logger::Log(LogLevel::Verbose, "Rendered resource view created");
   }
 
-  depalettized_render_target_view_ = rendered_texture_->CreateRenderTargetView(*dx_device_);
-  if (!depalettized_render_target_view_) {
+  depalettized_view_ = dx_device_->CreateRenderTargetView(*rendered_texture_);
+  if (!depalettized_view_) {
     error_ = "Error creating a depalettized render target view";
     return false;
   } else if (DIRECTDRAWLOG) {
@@ -667,7 +631,7 @@ bool DirectX::InitBwScreenTexture() {
   bw_screen_texture_desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
   bw_screen_texture_desc.SampleDesc.Count = 1;
 
-  bw_screen_texture_ = dx_device_->CreateTexture2D(bw_screen_texture_desc);
+  bw_screen_texture_ = DxTexture::NewTexture(*dx_device_, bw_screen_texture_desc);
   if (!bw_screen_texture_) {
     error_ = "Error creating a BW screen texture";
     return false;
@@ -680,7 +644,7 @@ bool DirectX::InitBwScreenTexture() {
   srv_desc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
   srv_desc.Texture2D.MipLevels = bw_screen_texture_desc.MipLevels;
 
-  bw_screen_view_ = bw_screen_texture_->CreateShaderResourceView(*dx_device_, srv_desc);
+  bw_screen_view_ = dx_device_->CreateShaderResourceView(*bw_screen_texture_, srv_desc);
   if (!bw_screen_view_) {
     error_ = "Error creating a BW screen resource view";
     return false;
@@ -703,7 +667,7 @@ bool DirectX::InitPaletteTexture() {
   palette_texture_desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
   palette_texture_desc.SampleDesc.Count = 1;
 
-  palette_texture_ = dx_device_->CreateTexture2D(palette_texture_desc);
+  palette_texture_ = DxTexture::NewTexture(*dx_device_, palette_texture_desc);
   if (!palette_texture_) {
     error_ = "Error creating a palette texture";
     return false;
@@ -716,7 +680,7 @@ bool DirectX::InitPaletteTexture() {
   srv_desc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
   srv_desc.Texture2D.MipLevels = palette_texture_desc.MipLevels;
 
-  palette_view_ = palette_texture_->CreateShaderResourceView(*dx_device_, srv_desc);
+  palette_view_ = dx_device_->CreateShaderResourceView(*palette_texture_, srv_desc);
   if (!palette_view_) {
     error_ = "Error creating a palette resource view";
     return false;
@@ -728,12 +692,11 @@ bool DirectX::InitPaletteTexture() {
 }
 
 bool DirectX::InitVertices() {
-  Vertex vertices[] =
-  {
+  Vertex vertices[] = {
     { XMFLOAT2(-1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
     { XMFLOAT2(-1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-    { XMFLOAT2( 1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-    { XMFLOAT2( 1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+    { XMFLOAT2(1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+    { XMFLOAT2(1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
   };
 
   D3D10_BUFFER_DESC vertex_buffer_desc = D3D10_BUFFER_DESC();
@@ -742,11 +705,12 @@ bool DirectX::InitVertices() {
   vertex_buffer_desc.BindFlags = D3D10_BIND_VERTEX_BUFFER;
   vertex_buffer_desc.CPUAccessFlags = 0;
   vertex_buffer_desc.MiscFlags = 0;
-  
+
   D3D10_SUBRESOURCE_DATA vertex_buffer_data = D3D10_SUBRESOURCE_DATA();
   vertex_buffer_data.pSysMem = vertices;
-  
-  vertex_buffer_ = dx_device_->CreateVertexBuffer(vertex_buffer_desc, vertex_buffer_data);
+
+  vertex_buffer_ =
+      dx_device_->CreateVertexBuffer(vertex_buffer_desc, vertex_buffer_data, sizeof(Vertex), 0);
   if (!vertex_buffer_) {
     error_ = "Error creating a vertex buffer";
     return false;
@@ -757,40 +721,24 @@ bool DirectX::InitVertices() {
   return true;
 }
 
-DirectX::~DirectX() {
-}
-
 void DirectX::UpdatePalette(const IndirectDrawPalette& palette) {
-  DxMappedTexture* mapped_palette_texture = palette_texture_->Map(
-      D3D10CalcSubresource(0, 0, 1));
-  if (!mapped_palette_texture) {
+  DxTextureMapper mapper(*palette_texture_, 0, 0, 1);
+  if (mapper.has_error()) {
+    if (DIRECTDRAWLOG) {
+      Logger::Logf(LogLevel::Error,
+          "Mapping palette texture failed: %s", GetErrorMsg(mapper.error()));
+    }
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Palette texture mapped");
   }
 
   std::transform(palette.entries().begin(), palette.entries().end(),
-      mapped_palette_texture->GetData<PaletteTextureEntry*>(), ConvertToPaletteTextureEntry);
-
-  palette_texture_->Unmap(D3D10CalcSubresource(0, 0, 1));
+      mapper.GetData<PaletteTextureEntry*>(), ConvertToPaletteTextureEntry);
 }
 
 void DirectX::Render(const std::vector<byte> &surface_data) {
-  // BW has a nasty habit of trying to render ridiculously fast (like in the middle of a tight 7k
-  // iteration loop during data intialization when there's nothing to actually render) and this
-  // causes issues when the graphics card decides it doesn't want to queue commands any more. To
-  // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
-  // making rendering calls this fast. 120Hz seems like a "reasonable" limit to me (and by
-  // reasonable, I mean unlikely to cause weird issues), even though BW will never actually update
-  // any state that fast.
-  LARGE_INTEGER frame_time;
-  QueryPerformanceCounter(&frame_time);
-  if ((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart < 8) {
-    return;
-  }
-  // Don't render while minimized (we tell BW its never minimized, so even though it has a check for
-  // this, it will be rendering anyway)
-  if (IsIconic(window_)) {
+  if (render_skipper_.ShouldSkipRender()) {
     return;
   }
 
@@ -807,93 +755,60 @@ void DirectX::Render(const std::vector<byte> &surface_data) {
     Logger::Log(LogLevel::Verbose, "DirectX rendering - after converted to full color");
   }
   RenderToScreen();
-  dx_swap_chain_->Present(0, 0);
+  swap_chain_->Present(0, 0);
 
-  QueryPerformanceCounter(&last_frame_time_);
+  render_skipper_.UpdateLastFrameTime();
   if (DIRECTDRAWLOG) {
-    Logger::Logf(LogLevel::Verbose,
-        "DirectX rendering completed [perf counter: %lld]",
-        last_frame_time_.QuadPart / counter_frequency_.QuadPart);
+    Logger::Log(LogLevel::Verbose, "DirectX rendering completed");
   }
 }
 
 void DirectX::CopyDdrawSurface(const std::vector<byte>& surface_data) {
-  DxMappedTexture* mapped_screen_texture = bw_screen_texture_->Map(D3D10CalcSubresource(0, 0, 1));
-  if (!mapped_screen_texture) {
+  DxTextureMapper mapper(*bw_screen_texture_, 0, 0, 1);
+  if (mapper.has_error()) {
+    if (DIRECTDRAWLOG) {
+      Logger::Logf(LogLevel::Error,
+          "Mapping BW screen texture failed: %s", GetErrorMsg(mapper.error()));
+    }
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "BW screen texture mapped");
   }
 
-  BYTE* mapped_data = mapped_screen_texture->GetData<BYTE*>();
-  for(UINT row = 0; row < ddraw_height_ - 1; row++) {
-    std::copy(surface_data.begin() + (row * ddraw_width_),
-        surface_data.begin() + (row * ddraw_width_ + ddraw_width_),
-        mapped_data);
-    mapped_data += mapped_screen_texture->GetRowPitch();
+  BYTE* mapped_data = mapper.GetData<BYTE*>();
+  if (mapper.GetRowPitch() == (ddraw_width_ * sizeof(BYTE))) {
+    // No need to go row-by-row, since the rows are directly adjacent
+    std::copy(surface_data.begin(), surface_data.end(), mapped_data);
+  } else {
+    // Go row-by-row
+    for (uint32 row = 0; row < ddraw_height_; row++, mapped_data += mapper.GetRowPitch()) {
+      std::copy(surface_data.begin() + (row * ddraw_width_),
+          surface_data.begin() + (row * ddraw_width_ + ddraw_width_),
+          mapped_data);
+    }
   }
-
-  bw_screen_texture_->Unmap(D3D10CalcSubresource(0, 0, 1));
 }
 
 void DirectX::ConvertToFullColor() {
-  dx_device_->OMSetRenderTargets(1, depalettized_render_target_view_->get(), NULL);
-
-  D3D10_VIEWPORT viewport;
-  viewport.Width = ddraw_width_;
-  viewport.Height = ddraw_height_;
-  viewport.MinDepth = 0.0f;
-  viewport.MaxDepth = 1.0f;
-  viewport.TopLeftX = 0;
-  viewport.TopLeftY = 0;
-
-  dx_device_->RSSetViewports(1, &viewport);
-
-  unsigned int stride = sizeof(Vertex);
-  unsigned int offset = 0;
-
-  dx_device_->IASetInputLayout(input_layout_->get());
-  dx_device_->IASetVertexBuffers(0, 1, vertex_buffer_->get(), &stride, &offset);
-  dx_device_->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-  dx_device_->VSSetShader(depalettized_vertex_shader_->get());
-  dx_device_->PSSetShader(depalettized_pixel_shader_->get());
-  dx_device_->PSSetShaderResources(0, 1, bw_screen_view_->get());
-  dx_device_->PSSetShaderResources(1, 1, palette_view_->get());
-
-  dx_device_->Draw(4, 0);
+  dx_device_->SetRenderTarget(depalettized_view_)
+      .SetViewports(1, &ddraw_viewport_)
+      .SetInputLayout(*input_layout_)
+      .SetVertexBuffers(*vertex_buffer_)
+      .SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP)
+      .SetVertexShader(*depalettized_vertex_shader_)
+      .SetPixelShader(*depalettized_pixel_shader_)
+      .SetPixelShaderResource(0, bw_screen_view_)
+      .SetPixelShaderResource(1, palette_view_)
+      .Draw(4, 0);
 }
 
 void DirectX::RenderToScreen() {
-  dx_device_->OMSetRenderTargets(1, back_buffer_render_target_view_->get(), NULL);
-
-  D3D10_VIEWPORT viewport;
-  viewport.Width = ddraw_width_;
-  viewport.Height = ddraw_height_;
-  viewport.MinDepth = 0.0f;
-  viewport.MaxDepth = 1.0f;
-  viewport.TopLeftX = 0;
-  viewport.TopLeftY = 0;
-
-  if (display_mode_ != RendererDisplayMode::FullScreen || aspect_ratio_width_ == 0) {
-	  viewport.Width = client_rect_.right;
-    viewport.Height = client_rect_.bottom;
-    viewport.TopLeftX = 0;
-    viewport.TopLeftY = 0;
-  } else if (aspect_ratio_width_ > 0) {
-    viewport.Width = aspect_ratio_width_;
-    viewport.Height = aspect_ratio_height_;
-    viewport.TopLeftX = static_cast<int>(((client_rect_.right - aspect_ratio_width_) / 2.) + 0.5);
-    viewport.TopLeftY = static_cast<int>(((client_rect_.bottom - aspect_ratio_height_) / 2.) + 0.5);
-  }
-
-  dx_device_->RSSetViewports(1, &viewport);
-
-  dx_device_->PSSetShader(scaling_pixel_shader_->get());
-  dx_device_->PSSetShaderResources(0, 1, rendered_view_->get());
-  dx_device_->PSSetSamplers(0, 1, rendered_texture_sampler_->get());
-  
-  dx_device_->Draw(4, 0);
+  dx_device_->SetRenderTarget(back_buffer_view_)
+      .SetViewports(1, &final_viewport_)
+      .SetPixelShader(*scaling_pixel_shader_)
+      .SetPixelShaderResource(0, rendered_view_)
+      .SetPixelShaderSampler(*rendered_texture_sampler_)
+      .Draw(4, 0);
 }
 
 }  // namespace forge

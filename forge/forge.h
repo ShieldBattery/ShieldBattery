@@ -19,7 +19,8 @@ namespace forge {
 // size as the monitor you're on, you want exclusive fullscreen. There doesn't seem to be a way to
 // turn this off, so we trick Windows by having a border (even for borderless windows!) and stopping
 // it from drawing with SetWindowRgn. Bill Gates whyyyyyyy?
-const DWORD BORDERLESS_WINDOW = WS_CAPTION | WS_VISIBLE;
+const DWORD BORDERLESS_WINDOW_SWAP = WS_CAPTION | WS_VISIBLE;
+const DWORD BORDERLESS_WINDOW_NOSWAP = WS_POPUP | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \

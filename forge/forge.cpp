@@ -140,6 +140,16 @@ RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
   }
 }
 
+bool UsesSwapBuffers(RenderMode render_mode) {
+  switch (render_mode) {
+  case RenderMode::OpenGl:
+    return true;
+  case RenderMode::DirectX:
+  default:
+    return false;
+  }
+}
+
 unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
   assert(!instance_->gl_shaders.empty());
   assert(!instance_->dx_shaders.empty());
@@ -148,7 +158,7 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   switch (settings.renderer) {
   case RenderMode::OpenGl:
   {
-    unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, 
+    unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height,
         ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
         instance_->gl_shaders);
 
@@ -164,7 +174,7 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   case RenderMode::DirectX:
   default:
   {
-    unique_ptr<DirectX> direct_x = DirectX::Create(window, ddraw_width, ddraw_height, 
+    unique_ptr<DirectX> direct_x = DirectX::Create(window, ddraw_width, ddraw_height,
         ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
         instance_->dx_shaders);
 
@@ -466,12 +476,12 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   case DisplayMode::FullScreen:
     instance_->width_ = GetSystemMetrics(SM_CXSCREEN);
     instance_->height_ = GetSystemMetrics(SM_CYSCREEN);
-    style = BORDERLESS_WINDOW;
+    style = UsesSwapBuffers(settings.renderer) ? BORDERLESS_WINDOW_SWAP : BORDERLESS_WINDOW_NOSWAP;
     break;
   case DisplayMode::BorderlessWindow:
     instance_->width_ = settings.width;
     instance_->height_ = settings.height;
-    style = BORDERLESS_WINDOW;
+    style = UsesSwapBuffers(settings.renderer) ? BORDERLESS_WINDOW_SWAP : BORDERLESS_WINDOW_NOSWAP;
     break;
   case DisplayMode::Window:
     instance_->width_ = settings.width;
@@ -515,8 +525,9 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
       SWP_NOACTIVATE | SWP_HIDEWINDOW);
 
-  if (GetSettings().display_mode == DisplayMode::FullScreen ||
-      GetSettings().display_mode == DisplayMode::BorderlessWindow) {
+  if (UsesSwapBuffers(GetSettings().renderer) &&
+      (GetSettings().display_mode == DisplayMode::FullScreen ||
+      GetSettings().display_mode == DisplayMode::BorderlessWindow)) {
     // Remove the border
     int left = instance_->client_x_ - window_rect.left;
     int top = instance_->client_y_ - window_rect.top;

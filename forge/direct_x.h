@@ -3,25 +3,47 @@
 
 #include <node.h>
 #include <Windows.h>
-#include <array>
 #include <comdef.h>
-#include <map>
-#include <memory>
 #include <d3d10.h>
 #include <d3dx10.h>
 #include <D3Dcompiler.h>
-#include <vector>
 #include <xnamath.h>
+#include <array>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "common/macros.h"
 #include "common/types.h"
 #include "forge/renderer.h"
+#include "forge/renderer_utils.h"
 
 namespace sbat {
 namespace forge {
 
-struct Vertex
-{
+template<typename ComType>
+void ReleaseCom(ComType* obj) {
+  if (obj) {
+    obj->Release();
+  }
+}
+
+struct ComDeleter {
+public:
+  template<typename T>
+  void operator()(T* obj) {
+    obj->Release();
+  }
+};
+
+template<typename ComType>
+std::unique_ptr<ComType, ComDeleter> WrapComVoid(void* output_ptr) {
+  return std::unique_ptr<ComType, ComDeleter>(reinterpret_cast<ComType*>(output_ptr));
+}
+
+struct Vertex {
   XMFLOAT2 pos;
   XMFLOAT2 texcoord;
 };
@@ -30,98 +52,73 @@ class IndirectDraw;
 class IndirectDrawPalette;
 class DxDevice;
 
-class DxRenderTargetView {
-  friend class DxDevice;
-public:
-  ~DxRenderTargetView();
-
-  ID3D10RenderTargetView* const* get() const { return &render_target_view_; }
-private:
-  DxRenderTargetView(ID3D10RenderTargetView& render_target_view);
-
-  ID3D10RenderTargetView* render_target_view_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxRenderTargetView);
-};
-
-class DxShaderResourceView {
-  friend class DxDevice;
-public:
-  ~DxShaderResourceView();
-
-  ID3D10ShaderResourceView* const* get() const { return &shader_resource_view_; }
-private:
-  DxShaderResourceView(ID3D10ShaderResourceView& shader_resource_view);
-
-  ID3D10ShaderResourceView* shader_resource_view_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxShaderResourceView);
-};
-
-class DxMappedTexture {
-  friend class DxTexture;
-public:
-  ~DxMappedTexture();
-
-  template<typename T>
-  T GetData() const { return reinterpret_cast<T>(mapped_texture_.pData); }
-  UINT GetRowPitch() const { return mapped_texture_.RowPitch; }
-  D3D10_MAPPED_TEXTURE2D get() const { return mapped_texture_; }
-private:
-  DxMappedTexture(D3D10_MAPPED_TEXTURE2D mapped_texture);
-
-  D3D10_MAPPED_TEXTURE2D mapped_texture_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxMappedTexture);
-};
-
-class DxTexture {
-public:
-  DxTexture(ID3D10Texture2D& texture);
-  ~DxTexture();
-
-  std::unique_ptr<DxRenderTargetView> CreateRenderTargetView(DxDevice& device);
-  std::unique_ptr<DxShaderResourceView> CreateShaderResourceView(DxDevice& device,
-      D3D10_SHADER_RESOURCE_VIEW_DESC srv_desc);
-  DxMappedTexture* Map(UINT subresource);
-  void Unmap(UINT subresource);
-
-  ID3D10Texture2D* get() const { return texture_; }
-private:
-  ID3D10Texture2D* texture_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxTexture);
-};
-
 class DxSwapChain {
   friend class DxDevice;
 public:
   ~DxSwapChain();
 
-  std::unique_ptr<DxTexture> GetBuffer();
-  void Present(UINT sync_interval, UINT flags) { swap_chain_->Present(sync_interval, flags); }
+  void Present(uint32 sync_interval, uint32 flags) { swap_chain_->Present(sync_interval, flags); }
 
+  HRESULT result() const { return result_; }
   IDXGISwapChain* get() const { return swap_chain_; }
 private:
-  DxSwapChain(IDXGISwapChain& swap_chain);
+  DxSwapChain(const DxDevice& device, DXGI_SWAP_CHAIN_DESC* swap_chain_desc);
 
+  HRESULT result_;
   IDXGISwapChain* swap_chain_;
 
   DISALLOW_COPY_AND_ASSIGN(DxSwapChain);
 };
 
+class DxTexture {
+public:
+  ~DxTexture();
+
+  static std::unique_ptr<DxTexture> NewTexture(const DxDevice& device,
+      const D3D10_TEXTURE2D_DESC& texture_desc);
+  static std::unique_ptr<DxTexture> FromSwapChain(const DxSwapChain& swap_chain);
+
+  ID3D10Texture2D* get() const { return texture_; }
+private:
+  explicit DxTexture(ID3D10Texture2D* texture);
+
+  ID3D10Texture2D* texture_;
+
+  DISALLOW_COPY_AND_ASSIGN(DxTexture);
+};
+
+class DxTextureMapper {
+public:
+  DxTextureMapper(const DxTexture& texture, uint32 mip_slice, uint32 array_slice,
+      uint32 mip_levels);
+  ~DxTextureMapper();
+
+  template<typename T>
+  T GetData() const { return reinterpret_cast<T>(mapped_texture_.pData); }
+  uint32 GetRowPitch() const { return mapped_texture_.RowPitch; }
+  bool has_error() const { return result_ != S_OK; }
+  HRESULT error() const { return result_; }
+  D3D10_MAPPED_TEXTURE2D get() const { return mapped_texture_; }
+private:
+  HRESULT result_;
+  uint32 subresource_;
+  std::unique_ptr<ID3D10Texture2D, ComDeleter> texture_;
+  D3D10_MAPPED_TEXTURE2D mapped_texture_;
+
+  DISALLOW_COPY_AND_ASSIGN(DxTextureMapper);
+};
+
 class DxBlob {
 public:
-  DxBlob(const std::string& src, LPCSTR type, LPCSTR version);
+  DxBlob(const std::string& src, const std::string& type, const std::string& version);
   virtual ~DxBlob();
 
-  LPVOID GetBufferPointer() const { return blob_->GetBufferPointer(); }
-  SIZE_T GetBufferSize() const { return blob_->GetBufferSize(); }
-  LPVOID GetErrorBufferPointer() const { return error_blob_->GetBufferPointer(); }
+  void* GetBufferPointer() const { return blob_->GetBufferPointer(); }
+  size_t GetBufferSize() const { return blob_->GetBufferSize(); }
+  void* GetErrorBufferPointer() const { return error_blob_->GetBufferPointer(); }
 
   bool has_error() const { return result_ != S_OK; }
   ID3D10Blob* get() const { return blob_; }
-  ID3D10Blob* get_error() const { return error_blob_; }
 private:
   ID3D10Blob* blob_;
   ID3D10Blob* error_blob_;
@@ -129,6 +126,7 @@ private:
 
   DISALLOW_COPY_AND_ASSIGN(DxBlob);
 };
+
 
 class DxVertexBlob : public DxBlob {
 public:
@@ -147,10 +145,12 @@ class DxVertexShader {
 public:
   ~DxVertexShader();
 
+  HRESULT result() const { return result_; }
   ID3D10VertexShader* get() const { return vertex_shader_; }
 private:
-  DxVertexShader(ID3D10VertexShader& vertex_shader);
+  DxVertexShader(const DxDevice& device, const DxVertexBlob& vertex_blob);
 
+  HRESULT result_;
   ID3D10VertexShader* vertex_shader_;
 
   DISALLOW_COPY_AND_ASSIGN(DxVertexShader);
@@ -161,10 +161,12 @@ class DxPixelShader {
 public:
   ~DxPixelShader();
 
+  HRESULT result() const { return result_; }
   ID3D10PixelShader* get() const { return pixel_shader_; }
 private:
-  DxPixelShader(ID3D10PixelShader& pixel_shader);
+  DxPixelShader(const DxDevice& device, const DxPixelBlob& pixel_blob);
 
+  HRESULT result_;
   ID3D10PixelShader* pixel_shader_;
 
   DISALLOW_COPY_AND_ASSIGN(DxPixelShader);
@@ -175,10 +177,13 @@ class DxInputLayout {
 public:
   ~DxInputLayout();
 
+  HRESULT result() const { return result_; }
   ID3D10InputLayout* get() const { return input_layout_; }
 private:
-  DxInputLayout(ID3D10InputLayout& input_layout);
+  DxInputLayout(const DxDevice& device, const D3D10_INPUT_ELEMENT_DESC& input_layout_desc,
+      uint32 desc_size, const DxVertexBlob& vertex_blob);
 
+  HRESULT result_;
   ID3D10InputLayout* input_layout_;
 
   DISALLOW_COPY_AND_ASSIGN(DxInputLayout);
@@ -189,95 +194,111 @@ class DxSamplerState {
 public:
   ~DxSamplerState();
 
-  ID3D10SamplerState* const* get() const { return &sampler_state_; }
+  HRESULT result() const { return result_; }
+  ID3D10SamplerState* get() const { return sampler_state_; }
 private:
-  DxSamplerState(ID3D10SamplerState& sampler_state);
+  DxSamplerState(const DxDevice& device, const D3D10_SAMPLER_DESC& sampler_desc);
 
+  HRESULT result_;
   ID3D10SamplerState* sampler_state_;
 
   DISALLOW_COPY_AND_ASSIGN(DxSamplerState);
 };
 
-class DxBuffer {
-public:
-  DxBuffer(ID3D10Buffer& buffer);
-  virtual ~DxBuffer();
-
-  ID3D10Buffer* const* get() const { return &buffer_; }
-private:
-  ID3D10Buffer* buffer_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxBuffer);
-};
-
-class DxVertexBuffer : public DxBuffer {
+class DxVertexBuffer {
   friend class DxDevice;
 public:
-  virtual ~DxVertexBuffer();
+  ~DxVertexBuffer();
+
+  HRESULT result() const { return result_; }
+  ID3D10Buffer* get() const { return buffer_; }
+  uint32 stride() const { return stride_; }
+  uint32 offset() const { return offset_; }
 private:
-  explicit DxVertexBuffer(ID3D10Buffer& buffer);
+  DxVertexBuffer(const DxDevice& device, const D3D10_BUFFER_DESC& buffer_desc,
+      const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset);
+
+  HRESULT result_;
+  ID3D10Buffer* buffer_;
+  uint32 stride_;
+  uint32 offset_;
+
+  DISALLOW_COPY_AND_ASSIGN(DxVertexBuffer);
 };
+
+typedef std::unique_ptr<ID3D10RenderTargetView, ComDeleter> PtrDxRenderTargetView;
+typedef std::unique_ptr<ID3D10ShaderResourceView, ComDeleter> PtrDxShaderResourceView;
 
 class DxDevice {
 public:
   DxDevice();
   ~DxDevice();
 
-  std::unique_ptr<DxSwapChain> CreateSwapChain(DXGI_SWAP_CHAIN_DESC swap_chain_desc);
+  std::unique_ptr<DxSwapChain> CreateSwapChain(DXGI_SWAP_CHAIN_DESC* swap_chain_desc);
   std::unique_ptr<DxVertexShader> CreateVertexShader(const DxVertexBlob& vertex_blob);
   std::unique_ptr<DxPixelShader> CreatePixelShader(const DxPixelBlob& pixel_blob);
-  std::unique_ptr<DxTexture> CreateTexture2D(D3D10_TEXTURE2D_DESC texture_desc);
   std::unique_ptr<DxInputLayout> CreateInputLayout(
-      const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, UINT desc_size,
+      const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
       const DxVertexBlob& vertex_blob);
-  std::unique_ptr<DxRenderTargetView> CreateRenderTargetView(ID3D10Texture2D& texture);
-  std::unique_ptr<DxShaderResourceView> CreateShaderResourceView(ID3D10Texture2D& texture,
-      D3D10_SHADER_RESOURCE_VIEW_DESC srv_desc);
-  std::unique_ptr<DxSamplerState> CreateSamplerState(D3D10_SAMPLER_DESC sampler_desc);
-  std::unique_ptr<DxVertexBuffer> CreateVertexBuffer(D3D10_BUFFER_DESC buffer_desc,
-      D3D10_SUBRESOURCE_DATA buffer_data);
+  PtrDxRenderTargetView CreateRenderTargetView(const DxTexture& texture);
+  PtrDxShaderResourceView CreateShaderResourceView(const DxTexture& texture,
+      const D3D10_SHADER_RESOURCE_VIEW_DESC& srv_desc);
+  std::unique_ptr<DxSamplerState> CreateSamplerState(const D3D10_SAMPLER_DESC& sampler_desc);
+  std::unique_ptr<DxVertexBuffer> CreateVertexBuffer(const D3D10_BUFFER_DESC& buffer_desc,
+      const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset);
 
-  void OMSetRenderTargets(UINT num_views, ID3D10RenderTargetView* const* render_target_views,
-      ID3D10DepthStencilView* depth_stencil_view) {
-    device_->OMSetRenderTargets(num_views, render_target_views, depth_stencil_view);
+  DxDevice& SetRenderTarget(const PtrDxRenderTargetView& target_view) {
+    ID3D10RenderTargetView* views[] = { target_view.get() };
+    device_->OMSetRenderTargets(1, views, nullptr);
+    return *this;
   }
-  void RSSetViewports(UINT num_view_ports, const D3D10_VIEWPORT* viewports) {
-    device_->RSSetViewports(num_view_ports, viewports);
+  DxDevice& SetViewports(uint32 num_viewports, const D3D10_VIEWPORT* viewports) {
+    device_->RSSetViewports(num_viewports, viewports);
+    return *this;
   }
-  void IASetInputLayout(ID3D10InputLayout* input_layout) {
-    device_->IASetInputLayout(input_layout);
+  DxDevice& SetInputLayout(const DxInputLayout& input_layout) {
+    device_->IASetInputLayout(input_layout.get());
+    return *this;
   }
-  void IASetVertexBuffers(UINT start_slot, UINT num_buffers, ID3D10Buffer* const* vertex_buffers,
-      const UINT* strides, const UINT* offsets) {
-    device_->IASetVertexBuffers(start_slot, num_buffers, vertex_buffers, strides, offsets);
+  DxDevice& SetVertexBuffers(const DxVertexBuffer& vertex_buffer) {
+    ID3D10Buffer* buffers[] = { vertex_buffer.get() };
+    uint32 strides[] = { vertex_buffer.stride() };
+    uint32 offsets[] = { vertex_buffer.offset() };
+    device_->IASetVertexBuffers(0, 1, buffers, strides, offsets);
+    return *this;
   }
-  void IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY topology) {
+  DxDevice& SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY topology) {
     device_->IASetPrimitiveTopology(topology);
+    return *this;
   }
-  void VSSetShader(ID3D10VertexShader* vertex_shader) {
-    device_->VSSetShader(vertex_shader);
+  DxDevice& SetVertexShader(const DxVertexShader& vertex_shader) {
+    device_->VSSetShader(vertex_shader.get());
+    return *this;
   }
-  void PSSetShader(ID3D10PixelShader* pixel_shader) {
-    device_->PSSetShader(pixel_shader);
+  DxDevice& SetPixelShader(const DxPixelShader& pixel_shader) {
+    device_->PSSetShader(pixel_shader.get());
+    return *this;
   }
-  void PSSetShaderResources(UINT start_slot, UINT num_views,
-      ID3D10ShaderResourceView* const* shader_resource_views) {
-    device_->PSSetShaderResources(start_slot, num_views, shader_resource_views);
+  DxDevice& SetPixelShaderResource(uint32 start_slot, const PtrDxShaderResourceView& resource_view) {
+    ID3D10ShaderResourceView* views[] = { resource_view.get() };
+    device_->PSSetShaderResources(start_slot, 1, views);
+    return *this;
   }
-  void PSSetSamplers(UINT start_slot, UINT num_samplers, ID3D10SamplerState* const* samplers) {
-    device_->PSSetSamplers(start_slot, num_samplers, samplers);
+  DxDevice& SetPixelShaderSampler(const DxSamplerState& sampler) {
+    ID3D10SamplerState* samplers[] =  { sampler.get() };
+    device_->PSSetSamplers(0, 1, samplers);
+    return *this;
   }
-  void Draw(UINT vertex_count, UINT start_vertex_location) {
+  DxDevice& Draw(uint32 vertex_count, uint32 start_vertex_location) {
     device_->Draw(vertex_count, start_vertex_location);
+    return *this;
   }
 
-  HRESULT get_result() const { return result_; }
+  HRESULT result() const { return result_; }
   ID3D10Device* get() const { return device_; }
+
 private:
   ID3D10Device* device_;
-  IDXGIDevice* dxgi_device_;
-  IDXGIAdapter* dxgi_adapter_;
-  IDXGIFactory* dxgi_factory_;
   HRESULT result_;
 
   DISALLOW_COPY_AND_ASSIGN(DxDevice);
@@ -286,7 +307,7 @@ private:
 class DirectX : public Renderer {
 public:
   virtual ~DirectX();
-  
+
   static std::unique_ptr<DirectX> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
       RendererDisplayMode display_mode, bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
@@ -338,11 +359,11 @@ private:
   RECT client_rect_;
 
   std::unique_ptr<DxDevice> dx_device_;
-  std::unique_ptr<DxSwapChain> dx_swap_chain_;
+  std::unique_ptr<DxSwapChain> swap_chain_;
   std::unique_ptr<DxTexture> back_buffer_;
-  std::unique_ptr<DxRenderTargetView> back_buffer_render_target_view_;
-  std::unique_ptr<DxRenderTargetView> depalettized_render_target_view_;
-  
+  PtrDxRenderTargetView back_buffer_view_;
+  PtrDxRenderTargetView depalettized_view_;
+
   std::unique_ptr<DxVertexShader> depalettized_vertex_shader_;
   std::unique_ptr<DxPixelShader> depalettized_pixel_shader_;
   std::unique_ptr<DxInputLayout> input_layout_;
@@ -352,19 +373,16 @@ private:
   std::unique_ptr<DxTexture> palette_texture_;
   std::unique_ptr<DxTexture> bw_screen_texture_;
   std::unique_ptr<DxTexture> rendered_texture_;
-  std::unique_ptr<DxShaderResourceView> bw_screen_view_;
-  std::unique_ptr<DxShaderResourceView> palette_view_;
-  std::unique_ptr<DxShaderResourceView> rendered_view_;
+  PtrDxShaderResourceView bw_screen_view_;
+  PtrDxShaderResourceView palette_view_;
+  PtrDxShaderResourceView rendered_view_;
   std::unique_ptr<DxSamplerState> rendered_texture_sampler_;
 
   uint32 ddraw_width_;
   uint32 ddraw_height_;
-  RendererDisplayMode display_mode_;
-  bool maintain_aspect_ratio_;
-  uint32 aspect_ratio_width_;
-  uint32 aspect_ratio_height_;
-  LARGE_INTEGER counter_frequency_;
-  LARGE_INTEGER last_frame_time_;
+  D3D10_VIEWPORT ddraw_viewport_;
+  D3D10_VIEWPORT final_viewport_;
+  RenderSkipper render_skipper_;
 
   DISALLOW_COPY_AND_ASSIGN(DirectX);
 };

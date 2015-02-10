@@ -382,12 +382,14 @@
         'forge/module.cpp',
         'forge/direct_x.cpp',
         'forge/open_gl.cpp',
+        'forge/renderer_utils.cpp',
         # headers
         'forge/indirect_draw.h',
         'forge/forge.h',
         'forge/direct_x.h',
         'forge/open_gl.h',
         'forge/renderer.h',
+        'forge/renderer_utils.h',
       ],
       'dependencies': [
         'common',
