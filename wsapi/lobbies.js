@@ -88,6 +88,10 @@ LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
       self.lobbies.splice(index, 1)
     }
     self.nydus.publish('/lobbies', { action: 'remove', lobby: lobby.$ })
+  }).on('countdownAborted', function onCountdownAborted() {
+    self._updateJoinedLobby(lobby, { action: 'countdownAborted' })
+  }).on('initializationAborted', function onInitializationAborted() {
+    self._updateJoinedLobby(lobby, { action: 'initializationAborted' })
   }).on('playersReady', function onPlayersReady() {
     self._updateJoinedLobby(lobby, { action: 'startGame' })
     // TODO(tec27): remove/transfer lobby
@@ -150,6 +154,9 @@ LobbyHandler.prototype.join = function(req, res) {
   var lobby = this.lobbyMap.get(req.params.lobby)
   if (lobby.size - lobby.numPlayers < 1) {
     return res.fail(409, 'conflict', { msg: 'The lobby is full' })
+  }
+  if (!lobby.isJoinable()) {
+    return res.fail(409, 'conflict', { msg: 'The lobby is not joinable' })
   }
 
   var player = new LobbyPlayer(user, 'r')
@@ -344,8 +351,9 @@ function Lobby(name, map, size) {
   this.slots = new Array(size)
   this.players = []
   this._topic = '/lobbies/' + encodeURIComponent(this.name)
+  this._startCountdownTimer = null
   this._isCountingDown = false
-  this._initializingGame = false
+  this._isInitializingGame = false
   this._playerReadiness = new Array(size)
 
   Object.defineProperty(this, 'numPlayers',
@@ -416,6 +424,15 @@ Lobby.prototype.removePlayer = function(id, kick) {
       break
     }
   }
+
+  if (this._isCountingDown) {
+    this.abortCountdown()
+  }
+
+  if (this._isInitializingGame) {
+    this.abortInitialization()
+  }
+
   var slotNum = i < this.size ? i : -1
   var nonCompCount = 0
   for (i = 0; i < this.players.length; i++) {
@@ -472,16 +489,30 @@ Lobby.prototype.getFullDescription = function() {
 }
 
 Lobby.prototype.startCountdown = function(cb) {
-  this._initializingGame = false
   this._isCountingDown = true
+  this._isInitializingGame = false
 
   var self = this
-  setTimeout(function() {
+  this._startCountdownTimer = setTimeout(function() {
     self._isCountingDown = false
-    self._initializingGame = true
+    self._isInitializingGame = true
     self._playerReadiness = new Array(self.size)
     cb()
   }, 5000)
+}
+
+Lobby.prototype.abortCountdown = function() {
+  clearTimeout(this._startCountdownTimer)
+  this._isCountingDown = false
+  this._isInitializingGame = false
+  this.emit('countdownAborted')
+}
+
+Lobby.prototype.abortInitialization = function() {
+  clearTimeout(this._startCountdownTimer)
+  this._isCountingDown = false
+  this._isInitializingGame = false
+  this.emit('initializationAborted')
 }
 
 Lobby.prototype.setPlayerReady = function(id) {
@@ -504,6 +535,10 @@ Lobby.prototype.setPlayerReady = function(id) {
   if (allReady) {
     this.emit('playersReady')
   }
+}
+
+Lobby.prototype.isJoinable = function() {
+  return !(this._isCountingDown || this._isInitializingGame)
 }
 
 Lobby.compare = function(a, b) {
