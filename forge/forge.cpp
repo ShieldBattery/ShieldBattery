@@ -44,10 +44,8 @@ Forge::Forge()
       create_sound_buffer_hook_(nullptr),
       window_handle_(NULL),
       original_wndproc_(nullptr),
-      vertex_shader_src_(nullptr),
-      fragment_shader_src_(nullptr),
-      fbo_vertex_shader_src_(nullptr),
-      fbo_fragment_shader_src_(nullptr),
+      dx_shaders(),
+      gl_shaders(),
       client_x_(0),
       client_y_(0),
       cursor_x_(0),
@@ -115,11 +113,6 @@ Forge::~Forge() {
     }
   }
 
-  delete vertex_shader_src_;
-  delete fragment_shader_src_;
-  delete fbo_vertex_shader_src_;
-  delete fbo_fragment_shader_src_;
-
   instance_ = nullptr;
 }
 
@@ -147,30 +140,54 @@ RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
   }
 }
 
-unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
-  assert(instance_->vertex_shader_src_ != nullptr);
-  assert(instance_->fragment_shader_src_ != nullptr);
-  assert(instance_->fbo_vertex_shader_src_ != nullptr);
-  assert(instance_->fbo_fragment_shader_src_ != nullptr);
+bool UsesSwapBuffers(RenderMode render_mode) {
+  switch (render_mode) {
+  case RenderMode::OpenGl:
+    return true;
+  case RenderMode::DirectX:
+  default:
+    return false;
+  }
+}
 
-  map<std::string, pair<std::string, std::string>> shaders;
-  shaders["main"] =
-      std::make_pair(*instance_->vertex_shader_src_, *instance_->fragment_shader_src_);
-  shaders["fbo"] =
-      std::make_pair(*instance_->fbo_vertex_shader_src_, *instance_->fbo_fragment_shader_src_);
+unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height) {
+  assert(!instance_->gl_shaders.empty());
+  assert(!instance_->dx_shaders.empty());
 
   const Settings& settings = GetSettings();
-  unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height, 
-    ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio, shaders);
-  
-  if (!open_gl) {
-    // TODO(tec27): We could/should probably send this through JS-land instead, and display an error
-    // on the website (since that's where they'll be looking at this point)
-    MessageBoxA(NULL, OpenGl::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
-    ExitProcess(1);
-  }
+  switch (settings.renderer) {
+  case RenderMode::OpenGl:
+  {
+    unique_ptr<OpenGl> open_gl = OpenGl::Create(window, ddraw_width, ddraw_height,
+        ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
+        instance_->gl_shaders);
 
-  return unique_ptr<Renderer>(std::move(open_gl));
+    if (!open_gl) {
+      // TODO(tec27): We could/should probably send this through JS-land instead, and display an error
+      // on the website (since that's where they'll be looking at this point)
+      MessageBoxA(NULL, OpenGl::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
+      ExitProcess(1);
+    }
+
+    return unique_ptr<Renderer>(std::move(open_gl));
+  }
+  case RenderMode::DirectX:
+  default:
+  {
+    unique_ptr<DirectX> direct_x = DirectX::Create(window, ddraw_width, ddraw_height,
+        ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
+        instance_->dx_shaders);
+
+    if (!direct_x) {
+      // TODO(tec27): We could/should probably send this through JS-land instead, and display an error
+      // on the website (since that's where they'll be looking at this point)
+      MessageBoxA(NULL, DirectX::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
+      ExitProcess(1);
+    }
+
+    return unique_ptr<Renderer>(std::move(direct_x));
+  }
+  }
 }
 
 Handle<Value> Forge::New(const Arguments& args) {
@@ -294,33 +311,24 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
   HandleScope scope;
   assert(instance_->window_handle_ == NULL);
   assert(args.Length() >= 1);
-  String::Utf8Value vert(args[0]->ToString());
-  std::string* vertex_src = new std::string(*vert);
-  String::Utf8Value frag(args[1]->ToString());
-  std::string* fragment_src = new std::string(*frag);
-  std::wstring* shader_type = ToWstring(args[2]->ToString());
+  Handle<Object> dx_vert_shaders = Handle<Object>::Cast(args[0]);
+  Handle<Object> dx_pixel_shaders = Handle<Object>::Cast(args[1]);
+  Handle<Object> gl_vert_shaders = Handle<Object>::Cast(args[2]);
+  Handle<Object> gl_frag_shaders = Handle<Object>::Cast(args[3]);
 
-  if (*shader_type == L"main") {
-    if (instance_->vertex_shader_src_) {
-      delete instance_->vertex_shader_src_;
-    }
-    instance_->vertex_shader_src_ = vertex_src;
+  instance_->dx_shaders["depalettizing"] = std::make_pair(
+      *String::Utf8Value(dx_vert_shaders->Get(String::New("depalettizing"))->ToString()),
+      *String::Utf8Value(dx_pixel_shaders->Get(String::New("depalettizing"))->ToString()));
+  instance_->dx_shaders["scaling"] = std::make_pair(
+      *String::Utf8Value(dx_vert_shaders->Get(String::New("depalettizing"))->ToString()),
+      *String::Utf8Value(dx_pixel_shaders->Get(String::New("scaling"))->ToString()));
 
-    if (instance_->fragment_shader_src_) {
-      delete instance_->fragment_shader_src_;
-    }
-    instance_->fragment_shader_src_ = fragment_src;
-  } else if (*shader_type == L"fbo") {
-    if (instance_->fbo_vertex_shader_src_) {
-      delete instance_->fbo_vertex_shader_src_;
-    }
-    instance_->fbo_vertex_shader_src_ = vertex_src;
-
-    if (instance_->fbo_fragment_shader_src_) {
-      delete instance_->fbo_fragment_shader_src_;
-    }
-    instance_->fbo_fragment_shader_src_ = fragment_src;
-  }
+  instance_->gl_shaders["depalettizing"] = std::make_pair(
+      *String::Utf8Value(gl_vert_shaders->Get(String::New("depalettizing"))->ToString()),
+      *String::Utf8Value(gl_frag_shaders->Get(String::New("depalettizing"))->ToString()));
+  instance_->gl_shaders["scaling"] = std::make_pair(
+      *String::Utf8Value(gl_vert_shaders->Get(String::New("scaling"))->ToString()),
+      *String::Utf8Value(gl_frag_shaders->Get(String::New("scaling"))->ToString()));
 
   return scope.Close(v8::Undefined());
 }
@@ -468,12 +476,12 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   case DisplayMode::FullScreen:
     instance_->width_ = GetSystemMetrics(SM_CXSCREEN);
     instance_->height_ = GetSystemMetrics(SM_CYSCREEN);
-    style = BORDERLESS_WINDOW;
+    style = UsesSwapBuffers(settings.renderer) ? BORDERLESS_WINDOW_SWAP : BORDERLESS_WINDOW_NOSWAP;
     break;
   case DisplayMode::BorderlessWindow:
     instance_->width_ = settings.width;
     instance_->height_ = settings.height;
-    style = BORDERLESS_WINDOW;
+    style = UsesSwapBuffers(settings.renderer) ? BORDERLESS_WINDOW_SWAP : BORDERLESS_WINDOW_NOSWAP;
     break;
   case DisplayMode::Window:
     instance_->width_ = settings.width;
@@ -517,8 +525,9 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
       SWP_NOACTIVATE | SWP_HIDEWINDOW);
 
-  if (GetSettings().display_mode == DisplayMode::FullScreen ||
-      GetSettings().display_mode == DisplayMode::BorderlessWindow) {
+  if (UsesSwapBuffers(GetSettings().renderer) &&
+      (GetSettings().display_mode == DisplayMode::FullScreen ||
+      GetSettings().display_mode == DisplayMode::BorderlessWindow)) {
     // Remove the border
     int left = instance_->client_x_ - window_rect.left;
     int top = instance_->client_y_ - window_rect.top;
@@ -685,7 +694,7 @@ HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
   assert(real_create != NULL);
   HRESULT result = real_create(device, direct_sound_out, unused);
   if (result != DS_OK) {
-    Logger::Log(LogLevel::Verbose, "DirectSound creation failed");
+    Logger::Logf(LogLevel::Verbose, "DirectSound creation failed: %d", result);
     return result;
   }
 

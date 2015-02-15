@@ -372,6 +372,7 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        '$(DXSDK_DIR)Include',
       ],
       'sources': [
         'forge/indirect_draw.cpp',
@@ -379,12 +380,16 @@
         'forge/indirect_draw_surface.cpp',
         'forge/forge.cpp',
         'forge/module.cpp',
+        'forge/direct_x.cpp',
         'forge/open_gl.cpp',
+        'forge/renderer_utils.cpp',
         # headers
         'forge/indirect_draw.h',
         'forge/forge.h',
+        'forge/direct_x.h',
         'forge/open_gl.h',
         'forge/renderer.h',
+        'forge/renderer_utils.h',
       ],
       'dependencies': [
         'common',
@@ -405,7 +410,10 @@
       'defines': [
         'BUILDING_NODE_EXTENSION',
       ],
-      'libraries': [ '-luser32.lib', '-lgdi32.lib' ],
+      'link_settings': {
+        'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
+        'library_dirs': [ '$(DXSDK_DIR)Lib/x86' ],
+      },
     },
   ],
 }

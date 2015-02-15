@@ -11,6 +11,11 @@ enum class DisplayMode {
   Window
 };
 
+enum class RenderMode {
+  DirectX = 0,
+  OpenGl
+};
+
 struct Settings {
   int bw_port;
   int width;
@@ -18,6 +23,7 @@ struct Settings {
   DisplayMode display_mode;
   int mouse_sensitivity;
   bool maintain_aspect_ratio;
+  RenderMode renderer;
 };
 
 NODE_EXTERN void SetSettings(const Settings& settings);

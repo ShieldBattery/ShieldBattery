@@ -4,12 +4,22 @@ var forge = require('bindings')('forge')
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
 
-var vertShaderSrc = fs.readFileSync(__dirname + '/shaders/vert.glsl')
-  , fragShaderSrc = fs.readFileSync(__dirname + '/shaders/frag.glsl')
-  , fboVertShaderSrc = fs.readFileSync(__dirname + '/shaders/fbo_vert.glsl')
-  , fboFragShaderSrc = fs.readFileSync(__dirname + '/shaders/fbo_frag.glsl')
-forge.setShaders(vertShaderSrc, fragShaderSrc, 'main')
-forge.setShaders(fboVertShaderSrc, fboFragShaderSrc, 'fbo')
+var dxVertShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/directx/vs_depalettizing.hlsl') }
+  , dxPixelShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/directx/ps_depalettizing.hlsl')
+                     , scaling: fs.readFileSync(__dirname + '/shaders/directx/ps_scaling.hlsl')
+                     }
+  , glVertShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/opengl/vs_depalettizing.glsl')
+                    , scaling: fs.readFileSync(__dirname + '/shaders/opengl/vs_scaling.glsl')
+                    }
+  , glFragShaders = { depalettizing: fs.readFileSync(__dirname +
+      '/shaders/opengl/fs_depalettizing.glsl')
+                    , scaling: fs.readFileSync(__dirname + '/shaders/opengl/fs_scaling.glsl')
+                    }
+
+forge.setShaders(dxVertShaders, dxPixelShaders, glVertShaders, glFragShaders)
 
 var wndProcRunning = false
 

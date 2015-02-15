@@ -8,6 +8,7 @@
 
 #include "common/func_hook.h"
 #include "forge/indirect_draw.h"
+#include "forge/direct_x.h"
 #include "forge/open_gl.h"
 #include "forge/renderer.h"
 
@@ -18,7 +19,8 @@ namespace forge {
 // size as the monitor you're on, you want exclusive fullscreen. There doesn't seem to be a way to
 // turn this off, so we trick Windows by having a border (even for borderless windows!) and stopping
 // it from drawing with SetWindowRgn. Bill Gates whyyyyyyy?
-const DWORD BORDERLESS_WINDOW = WS_CAPTION | WS_VISIBLE;
+const DWORD BORDERLESS_WINDOW_SWAP = WS_CAPTION | WS_VISIBLE;
+const DWORD BORDERLESS_WINDOW_NOSWAP = WS_POPUP | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
@@ -107,10 +109,8 @@ private:
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
-  std::string* vertex_shader_src_;
-  std::string* fragment_shader_src_;
-  std::string* fbo_vertex_shader_src_;
-  std::string* fbo_fragment_shader_src_;
+  std::map<std::string, std::pair<std::string, std::string>> dx_shaders;
+  std::map<std::string, std::pair<std::string, std::string>> gl_shaders;
 
   int client_x_;
   int client_y_;

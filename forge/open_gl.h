@@ -16,6 +16,7 @@
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "forge/renderer.h"
+#include "forge/renderer_utils.h"
 
 namespace sbat {
 namespace forge {
@@ -233,13 +234,9 @@ private:
   std::unique_ptr<GlShaderProgram> fbo_shader_;
   ShaderResources shader_resources_;
 
-  uint32 min_millis_per_frame_;
   uint32 ddraw_width_;
   uint32 ddraw_height_;
-  RendererDisplayMode display_mode_;
-  bool maintain_aspect_ratio_;
-  uint32 aspect_ratio_width_;
-  uint32 aspect_ratio_height_;
+  RECT output_rect_;
   uint32 texture_format_;
   std::unique_ptr<GlTexture> palette_texture_;
   std::array<PaletteTextureEntry, 256> palette_texture_data_;
@@ -250,8 +247,7 @@ private:
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> element_buffer_;
   std::unique_ptr<GlStaticBuffer<GLfloat, 16>> fbo_vertex_buffer_;
   std::unique_ptr<GlStaticBuffer<GLushort, 4>> fbo_element_buffer_;
-  LARGE_INTEGER counter_frequency_;
-  LARGE_INTEGER last_frame_time_;
+  RenderSkipper render_skipper_;
 
   DISALLOW_COPY_AND_ASSIGN(OpenGl);
 };
