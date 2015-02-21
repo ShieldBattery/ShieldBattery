@@ -24,7 +24,8 @@ function AngularSocket(host, $rootScope, prefix) {
   this.lastError = null
 
   if (!this.host) {
-    this.host = (location.protocol == 'https:' ? 'wss://' : 'ws://') + location.hostname
+    this.host = (location.protocol == 'https:' ? 'wss://' : 'ws://') + location.hostname +
+        ':' + location.port
   }
 
   ;[ '_onConnect', '_onError', '_onDisconnect' ].forEach(function(func) {

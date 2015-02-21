@@ -30,3 +30,5 @@ config.https = {
 , key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8')
 , cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
 }
+// If you want to turn https off (e.g. for local development), you can also do:
+// config.https = false

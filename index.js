@@ -21,13 +21,15 @@ var sessionStore = new RedisStore({ client: redis
                                   })
   , sessionWare = expressSession({ store: sessionStore
                                   , secret: config.sessionSecret
-                                  , cookie: { secure: true, maxAge: config.sessionTtl * 1000 }
+                                  , cookie: { secure: !!config.https
+                                            , maxAge: config.sessionTtl * 1000
+                                            }
                                   , saveUninitialized: true
                                   , resave: true
                                   })
 
 var app = express()
-app.set('port', config.httpsPort)
+app.set('port', config.https ? config.httpsPort : config.httpPort)
   .set('views', path.join(__dirname, 'views'))
   .set('view engine', 'jade')
   .disable('x-powered-by')
@@ -53,20 +55,27 @@ if (app.get('env') == 'development') {
   app.use(errorHandler())
 }
 
-var httpsServer = https.createServer(config.https, app)
+var mainServer
 
-require('./websockets')(httpsServer, cookieParser, sessionWare)
+if (config.https) {
+  mainServer = https.createServer(config.https, app)
+  // create a server that simply forwards requests to https
+  var canon = canonicalHost(config.canonicalHost, 301)
+  http.createServer(function(req, res) {
+    if (canon(req, res)) return
+    // shouldn't ever get here, but if we do, just kill the connection
+    res.statusCode = 400
+    res.end('Bad request\n')
+  }).listen(config.httpPort)
+} else {
+  mainServer = http.createServer(app)
+}
+
+require('./websockets')(mainServer, cookieParser, sessionWare)
 require('./routes')(app)
 
-httpsServer.listen(app.get('port'), function() {
+mainServer.listen(app.get('port'), function() {
   log.info('Server listening on port ' + app.get('port'))
 })
 
-// create a server that simply forwards requests to https
-var canon = canonicalHost(config.canonicalHost, 301)
-http.createServer(function(req, res) {
-  if (canon(req, res)) return
-  // shouldn't ever get here, but if we do, just kill the connection
-  res.statusCode = 400
-  res.end('Bad request\n')
-}).listen(config.httpPort)
+

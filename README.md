@@ -27,11 +27,8 @@ npm update
 ```
 If you are unsure of which you need to run, running both should be fine.
 
-###Acquire SSL certificates
-If you are running the server somewhere remotely, you can get a certificate from a normal CA. If, however, you are running a local development server, you'll need to self-sign a certificate. For instructions on how to do that, see [here](http://stackoverflow.com/a/10176685/1050849). Make sure to note the location of your certificate and private key for configuring the server (in the next step). I recommend putting them as `certs/`, as this location is already gitignored for these purposes.
-
 ###Configure the server
-Copy `config.example.js` and `database.example.json` to `config.js` and `database.json`, respectively. Edit these files as you see fit to match your local configuration.
+Copy `config.example.js` and `database.example.json` to `config.js` and `database.json`, respectively. Edit these files as you see fit to match your local configuration. Make sure to turn off HTTPS (by setting config.https to false) if you're doing local development and don't have certificates.
 
 ###Initialize the database
 To initialize postgres (after having configured your user in the previous step), simply run
