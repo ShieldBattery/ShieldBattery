@@ -18,8 +18,9 @@
     "laxcomma": true,
 
     // Environments
-    "node"          : true,
+    "node": true,
+    "esnext": true,
 
     // Custom Globals
-    "predef"        : [ ]
+    "predef": [ ]
 }
