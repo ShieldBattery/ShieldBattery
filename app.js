@@ -13,6 +13,7 @@ var canonicalHost = require('canonical-host')
 var csrf = require('koa-csrf')
   , csrfCookie = require('./server/security/csrf-cookie')
   , koaBody = require('koa-body')
+  , koaCompress = require('koa-compress')
   , koaError = require('koa-error')
   , koaStatic = require('koa-static')
   , logMiddleware = require('./server/logging/log-middleware')
@@ -30,9 +31,21 @@ app.keys = [ config.sessionSecret ]
 
 app.on('error', err => log.error({ err: err }, 'server error'))
 
+var sessionMiddleware = session({
+  key: 's',
+  store: redisStore({ client: redis }),
+  cookie: {
+    secure: !!config.https,
+    maxAge: config.sessionTtl * 1000,
+  },
+  rolling: true,
+  genSid: () => cuid()
+})
+
 app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
+  .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
   .use(stylus({
@@ -40,16 +53,7 @@ app
     dest: path.join(__dirname, 'public'),
   }))
   .use(koaStatic(path.join(__dirname, 'public')))
-  .use(session({
-    key: 's',
-    store: redisStore({ client: redis }),
-    cookie: {
-      secure: !!config.https,
-      maxAge: config.sessionTtl * 1000,
-    },
-    rolling: true,
-    genSid: () => cuid()
-  }))
+  .use(sessionMiddleware)
   .use(csrfCookie())
   .use(csrf())
   .use(secureHeaders())
@@ -70,7 +74,7 @@ if (config.https) {
   mainServer = http.createServer(app.callback())
 }
 
-require('./websockets')(mainServer, cookieParser, sessionWare)
+require('./websockets')(mainServer, app, sessionMiddleware)
 require('./routes')(app)
 
 mainServer.listen(port, function() {
