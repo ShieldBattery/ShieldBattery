@@ -1,5 +1,5 @@
-// Easier, more readable way of retrieving an HTTP Error type for passing through Express
-// example: return next(new httpErrors.Forbidden('No way, Jose'))
+// Easier, more readable way of retrieving an HTTP Error type for passing through Koa
+// example: throw new httpErrors.Forbidden('No way, Jose'))
 
 var http = require('http')
   , util = require('util')

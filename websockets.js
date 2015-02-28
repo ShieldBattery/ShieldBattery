@@ -9,9 +9,9 @@ module.exports = function(server, koaApp, sessionMiddleware) {
 }
 
 var apiHandlers =
-  fs.readdirSync(path.join(__dirname, 'wsapi'))
+  fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
   .filter(filename => /\.js$/.test(filename))
-  .map(filename => require('./wsapi/' + filename))
+  .map(filename => require('./server/wsapi/' + filename))
 
 class WebsocketServer {
   constructor(server, koaApp, sessionMiddleware) {

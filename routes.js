@@ -1,62 +1,95 @@
-var browserify = require('browserify-middleware')
+var browserify = require('browserify')
+  , koaWatchify = require('koa-watchify')
+  , watchify = require('watchify')
+  , router = require('koa-router')()
   , path = require('path')
   , fs = require('fs')
-  , constants = require('./util/constants')
+  , constants = require('./shared/constants')
 
 var jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
-function send404(req, res) {
-  res.status(404).end()
+function* send404(next) {
+  this.status = 404
 }
 
-function applyRoutes(app) {
-  // client script (browserified)
-  browserify.settings({ transform: [ 'browserify-ngannotate' ] })
-  app.get('/scripts/client.js', browserify(require.resolve('./client/index.js')))
+var IS_DEV = process.env.NODE_ENV == 'development'
 
-  // api methods (through HTTP, which should be few, since most stuff is done through websockets)
-  var apiFiles = fs.readdirSync(path.join(__dirname, 'api'))
+function applyRoutes(app) {
+  app.use(router.routes())
+    .use(router.allowedMethods())
+
+  // client script (browserified)
+  var bundle = browserify({
+    entries: [ require.resolve('./client/index.js') ],
+    fullPaths: IS_DEV,
+    packageCache: {},
+    cache: {}
+  })
+  if (IS_DEV) {
+    bundle = watchify(bundle)
+  }
+  router.get('/scripts/client.js', koaWatchify(bundle))
+
+  // api methods (through HTTP)
+  var apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
     , baseApiPath = '/api/1/'
-  apiFiles.filter(jsFileMatcher).forEach(function(filename) {
+  apiFiles.filter(jsFileMatcher).forEach(filename => {
     var apiPath = baseApiPath + path.basename(filename, '.js')
-    app.use(apiPath, require('./api/' + filename)())
+      , routeHelper = new RouteHelper(router, apiPath)
+    require('./server/api/' + filename)(routeHelper)
     console.log('mounted ' + apiPath)
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  app.route('/api/*')
-    .all(send404)
+  router.all('/api/*', send404)
 
   // partials
-  app.get('/partials/:name', function(req, res) {
-    var partialPath = path.join('partials', req.params.name)
+  router.get('/partials/:name', function*(next) {
+    var partialPath = path.join('partials', this.params.name)
       , templateData = { constants: constants }
-    res.render(partialPath, templateData, function (err, html) {
-      if (err) {
-        req.log.error({ err: err, path: partialPath }, 'error rendering template')
-        send404(req, res)
-      }
-
-      res.end(html)
-    })
+    try {
+      yield this.render(partialPath, templateData)
+    } catch (err) {
+      this.log.error({ err: err, path: partialPath }, 'error rendering template')
+      send404(next)
+    }
   })
 
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
-  app.get('/robots.txt', send404)
+  router.get('/robots.txt', send404)
     .get('/favicon.ico', send404)
 
   // catch-all for the remainder, renders the index and expects angular to handle routing clientside
-  app.get('*', function(req, res) {
+  router.get('*', function*(next) {
     var sessionData = null
-    if (req.session.userId) {
+    if (this.session.userId) {
       sessionData = {}
-      sessionData.user = { id: req.session.userId, name: req.session.userName }
-      sessionData.permissions = req.session.permissions
-      req.session.touch()
+      sessionData.user = { id: this.session.userId, name: this.session.userName }
+      sessionData.permissions = this.session.permissions
     }
-    res.render('index', { curSession: sessionData })
+    yield this.render('index', { curSession: sessionData })
   })
 }
+
+class RouteHelper {
+  constructor(router, apiPath) {
+    this.router = router
+    this.apiPath = apiPath
+  }
+}
+
+['get', 'put', 'post', 'patch', 'delete', 'all'].forEach(method => {
+  RouteHelper.prototype[method] = function() {
+    var args = new Array(arguments.length)
+    for (var i = 0; i < arguments.length; i++) {
+      args[i] = arguments[i]
+    }
+
+    args[0] = this.apiPath + args[0]
+    this.router[method].apply(this.router, args)
+    return this
+  }
+})
 
 module.exports = applyRoutes

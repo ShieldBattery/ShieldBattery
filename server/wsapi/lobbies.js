@@ -1,6 +1,6 @@
 var Emitter = require('events').EventEmitter
-  , SimpleMap = require('../shared/simple-map')
-  , listUtils = require('../shared/list-utils')
+  , SimpleMap = require('../../shared/simple-map')
+  , listUtils = require('../../shared/list-utils')
   , util = require('util')
   , cuid = require('cuid')
 
