@@ -1,4 +1,4 @@
-var SimpleMap = require('../shared/simple-map')
+var SimpleMap = require('../../shared/simple-map')
   , EventEmitter = require('events').EventEmitter
   , inherits = require('util').inherits
 

@@ -3,7 +3,7 @@ var nydus = require('nydus')
   , fs = require('fs')
   , co = require('co')
   , uid = require('cuid')
-  , createUserSockets = require('./util/user-sockets')
+  , createUserSockets = require('./server/websockets/user-sockets')
   , log = require('./server/logging/logger')
 
 module.exports = function(server, koaApp, sessionMiddleware) {
