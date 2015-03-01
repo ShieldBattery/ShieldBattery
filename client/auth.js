@@ -168,24 +168,20 @@ AuthService.prototype.initCurrentUser = function() {
 }
 
 AuthService.prototype.logIn = function(username, password, remember) {
-  var self = this
   return this.$http
     .post('/api/1/sessions', { username: username, password: password, remember: !!remember })
-    .success(function(result) {
-      self.user = result.user
-      self.permissions = result.permissions
-      self.siteSocket.connect()
-      self.emit('userChanged', result.user)
+    .success(result => {
+      this.user = result.user
+      this.permissions = result.permissions
+      this.siteSocket.connect()
+      this.emit('userChanged', result.user)
     })
 }
 
 AuthService.prototype.logOut = function() {
-  var self = this
   return this.$http
     .delete('/api/1/sessions')
-    .success(function(user) {
-      self.invalidateSession()
-    })
+    .success(() => this.invalidateSession())
 }
 
 AuthService.prototype.invalidateSession = function() {
@@ -196,13 +192,15 @@ AuthService.prototype.invalidateSession = function() {
 }
 
 AuthService.prototype.checkPermissions = function(permissionsArray) {
-  var deferred = this.$q.defer()
+  let deferred = this.$q.defer()
 
-  for (var i = 0; i < permissionsArray.length; i++) {
-    if (!this.permissions[permissionsArray[i]]) {
+  for (let permission of permissionsArray) {
+    if (!this.permissions[permission]) {
       deferred.reject('Not enough permissions')
+      return deferred.promise
     }
   }
+
   deferred.resolve()
   return deferred.promise
 }

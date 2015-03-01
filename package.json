@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "babel": "^4.4.6",
+    "babelify": "^5.0.3",
     "bcrypt": "^0.8.0",
     "browserify": "^9.0.3",
     "browserify-ngannotate": "^0.7.1",
@@ -63,6 +64,7 @@
   },
   "browserify": {
     "transform": [
+      "babelify",
       "browserify-shim",
       "browserify-ngannotate"
     ]
