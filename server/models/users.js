@@ -20,105 +20,77 @@ function User(props, _fromDb) {
   this.created = props.created || new Date()
 }
 
-User.prototype.save = function(cb) {
+User.prototype.save = function*() {
   if (!this.name || !this.email || !this.password || !this.created) {
-    return cb(new Error('Incomplete data'))
+    throw new Error('Incomplete data')
   }
+  // TODO(tec27): it's very strange that the return value changes here depending on whether its
+  // an insert or an update, find a way to reconcile those
   if (!this._fromDb) {
-    this._insert(cb)
+    return yield* this._insert()
   } else {
-    this._update(cb)
+    return yield* this._update()
   }
 }
 
-function beginTransaction(cb) {
-  db(function(err, client, done) {
-    if (err) return cb(err)
-
-    client.query('BEGIN', function(err) {
-      if (err) {
-        client.query('ROLLBACK', done)
-        return cb(err)
-      }
-
-      cb(null, client, function(err, commitCb) {
-        if (err) {
-          return client.query('ROLLBACK', done)
-        }
-
-        client.query('COMMIT', function(err) {
-          done(err)
-          commitCb(err)
-        })
-      })
-    })
-  })
-}
-
-User.prototype._insert = function(cb) {
-  var query
+User.prototype._insert = function*() {
+  let query
     , params
   query = 'INSERT INTO users (name, email, password, created) ' +
       'VALUES ($1, $2, $3, $4) RETURNING id'
   params = [ this.name, this.email, this.password, this.created ]
 
-  var self = this
-  beginTransaction(function(err, client, done) {
-    if (err) return cb(err)
+  let { client, done } = yield db()
+  try {
+    yield client.queryPromise('BEGIN')
+  } catch (err) {
+    yield* rollbackFor(err)
+  }
 
-    client.query(query, params, insertCb)
-
-    function insertCb(err, result) {
-      if (err) {
-        done(err)
-        return cb(err)
-      }
-
-      if (result.rows.length < 1) {
-        var lengthError = new Error('No rows returned')
-        done(lengthError)
-        return cb(lengthError)
-      }
-
-      self.id = result.rows[0].id
-      self._fromDb = true
-
-      permissions.create(client, self.id, permissionsCb)
+  try {
+    let result = yield client.queryPromise(query, params)
+    if (result.rows.length < 1) {
+      throw new Error('No rows returned')
     }
 
-    function permissionsCb(err, userPermissions) {
-      if (err) {
-        done(err)
-        return cb(err)
-      }
+    this.id = result.rows[0].id
+    this._fromDb = true
+    let userPermissions = yield* permissions.create(client, this.id)
 
-      done(null, function(err) {
-        if (err) return cb(err)
+    yield client.queryPromise('COMMIT')
+    done()
+    return { user: this, permissions: userPermissions }
+  } catch (err) {
+    yield* rollbackFor(err)
+  }
 
-        cb(null, self, userPermissions)
-      })
+  function* rollbackFor(err) {
+    try {
+      yield client.queryPromise('ROLLBACK')
+    } catch (err) {
+      done(err)
+      throw err
     }
-  })
+
+    done()
+    throw err
+  }
 }
 
-User.prototype._update = function(cb) {
-  var query
+User.prototype._update = function*() {
+  let query
     , params
-  if (!this.id) return cb(new Error('Incomplete data'))
+  if (!this.id) throw new Error('Incomplete data')
   query = 'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
   params = [ this.name, this.email, this.password. this.created, this.id ]
 
-  var self = this
-  db(function(err, client, done) {
-    if (err) return cb(err)
-
-    client.query(query, params, function(err, result) {
-      done()
-      if (err) return cb(err)
-
-      return cb(null, self)
-    })
-  })
+  let { client, done } = yield db()
+  try {
+    yield client.queryPromise(query, params)
+    return this
+  } finally {
+    done()
+  }
 }
 
 function createUser(name, email, hashedPassword, createdDate) {
@@ -130,7 +102,7 @@ function createUser(name, email, hashedPassword, createdDate) {
       })
 }
 
-function findUser(criteria, cb) {
+function* findUser(criteria) {
   var query = 'SELECT id, name, email, password, created FROM users WHERE '
     , params
   if (typeof criteria != 'number') {
@@ -143,17 +115,13 @@ function findUser(criteria, cb) {
     params = [ criteria ]
   }
 
-  db(function(err, client, done) {
-    if (err) return cb(err)
-
-    client.query(query, params, function(err, result) {
-      done()
-      if (err) return cb(err)
-      else if (result.rows.length < 1) return cb(null, null)
-
-      return cb(null, new User(result.rows[0], true))
-    })
-  })
+  let { client, done } = yield db()
+  try {
+    let result = yield client.queryPromise(query, params)
+    return result.rows.length < 1 ? null : new User(result.rows[0], true)
+  } finally {
+    done()
+  }
 }
 
 module.exports =

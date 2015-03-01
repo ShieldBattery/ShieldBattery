@@ -8,19 +8,16 @@ var canonicalHost = require('canonical-host')
   , koa = require('koa')
   , log = require('./server/logging/logger')
   , path = require('path')
-  , redis = require('./redis')
 
 var csrf = require('koa-csrf')
   , csrfCookie = require('./server/security/csrf-cookie')
   , koaBody = require('koa-body')
   , koaCompress = require('koa-compress')
   , koaError = require('koa-error')
-  , koaStatic = require('koa-static')
   , logMiddleware = require('./server/logging/log-middleware')
-  , redisStore = require('koa-redis')
   , secureHeaders = require('./server/security/headers')
   , secureJson = require('./server/security/json')
-  , session = require('koa-generic-session')
+  , sessionMiddleware = require('./server/session/middleware')
   , stylus = require('koa-stylus')
   , views = require('koa-views')
 
@@ -29,17 +26,10 @@ var app = koa()
 
 app.keys = [ config.sessionSecret ]
 
-app.on('error', err => log.error({ err: err }, 'server error'))
+app.on('error', err => {
+  if (err.status) return // likely an HTTP error (expected and fine)
 
-var sessionMiddleware = session({
-  key: 's',
-  store: redisStore({ client: redis }),
-  cookie: {
-    secure: !!config.https,
-    maxAge: config.sessionTtl * 1000,
-  },
-  rolling: true,
-  genSid: () => cuid()
+  log.error({ err: err }, 'server error')
 })
 
 app
@@ -49,15 +39,16 @@ app
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
   .use(stylus({
-    src: __dirname,
+    src: path.join(__dirname, 'styles'),
     dest: path.join(__dirname, 'public'),
   }))
-  .use(koaStatic(path.join(__dirname, 'public')))
   .use(sessionMiddleware)
   .use(csrfCookie())
   .use(csrf())
   .use(secureHeaders())
   .use(secureJson())
+
+require('./routes')(app)
 
 var mainServer
 if (config.https) {
@@ -75,7 +66,6 @@ if (config.https) {
 }
 
 require('./websockets')(mainServer, app, sessionMiddleware)
-require('./routes')(app)
 
 mainServer.listen(port, function() {
   log.info('Server listening on port ' + port)

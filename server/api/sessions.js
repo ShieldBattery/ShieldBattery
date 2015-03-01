@@ -1,113 +1,84 @@
 var bcrypt = require('bcrypt')
-  , createRouter = require('express').Router
+  , thenify = require('thenify')
   , users = require('../models/users')
   , permissions = require('../models/permissions')
-  , httpErrors = require('../util/http-errors')
-  , initSession = require('../util/init-session')
-  , setReturningCookie = require('../util/set-returning-cookie')
+  , httpErrors = require('../http/errors')
+  , initSession = require('../session/init')
+  , setReturningCookie = require('../session/set-returning-cookie')
 
-module.exports = function() {
-  var router = createRouter()
-  router.route('/')
-    .get(getCurrentSession)
-    .delete(endSession)
-    .post(startNewSession)
-
-  return router
+module.exports = function(router) {
+  router
+    .get('/', getCurrentSession)
+    .delete('/', endSession)
+    .post('/', startNewSession)
 }
 
-function getCurrentSession(req, res, next) {
-  if (!req.session.userId) return next(new httpErrors.GoneError('Session expired'))
-  var userId = req.session.userId
+function* getCurrentSession(next) {
+  if (!this.session.userId) throw new httpErrors.GoneError('Session expired')
+  let userId = this.session.userId
 
-  users.find(userId, function(err, user) {
-    if (err) {
-      req.log.error({ err: err }, 'error finding user')
-      next(err)
-    } else if (!user) {
-      req.session.regenerate(function(err) {
-        if (err) return next(err)
+  let user
+  try {
+    user = yield* users.find(userId)
+  } catch (err) {
+    this.log.error({ err: err }, 'error finding user')
+    throw err
+  }
 
-        req.csrfRegen(function(err) {
-          if (err) return next(err)
-          next(new httpErrors.GoneError('Session expired'))
-        })
-      })
-    } else {
-      req.session.touch()
-      res.send({user: user, permissions: req.session.permissions})
-    }
-  })
+  if (!user) {
+    yield this.regenerateSession()
+    throw new httpErrors.GoneError('Session expired')
+  }
+
+  this.body = { user: user, permissions: this.session.permissions }
 }
 
-function startNewSession(req, res, next) {
-  if (!!req.session.userId) return next(new httpErrors.ConflictError('Session already active'))
-  var username = req.body.username
-    , password = req.body.password
-    , remember = !!req.body.remember
+let bcryptCompare = thenify(bcrypt.compare)
+function* startNewSession(next) {
+  if (!!this.session.userId) throw new httpErrors.ConflictError('Session already active')
+  let { username, password, remember } = this.request.body
+  remember = !!remember
   if (!username || !password) {
-    return next(new httpErrors.BadRequestError('Username and password required'))
+    throw new httpErrors.BadRequestError('Username and password required')
   }
 
-  users.find(username, function(err, user) {
-    if (err) {
-      req.log.error({ err: err }, 'error finding user')
-      return next(err)
-    } else if (!user) {
-      return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
-    }
-
-    bcrypt.compare(password, user.password, function(err, same) {
-      if (err) {
-        req.log.error({ err: err }, 'error comparing passwords')
-        return next(err)
-      }
-
-      if (!same) return next(new httpErrors.UnauthorizedError('Incorrect username or password'))
-
-      regenSession(user)
-    })
-  })
-
-  function regenSession(user) {
-    req.session.regenerate(function(err) {
-      if (err) {
-        req.log.error({ err: err }, 'error regenerating session')
-        return next(err)
-      }
-
-      req.csrfRegen(function(err) {
-        if (err) return next(err)
-        getPermissions(user)
-      })
-    })
+  let user
+  try {
+    user = yield* users.find(username)
+  } catch (err) {
+    this.log.error({ err: err }, 'error finding user')
+    throw err
+  }
+  if (!user) {
+    throw new httpErrors.UnauthorizedError('Incorrect username or password')
   }
 
-  function getPermissions(user) {
-    permissions.get(user.id, function(err, permissions) {
-      if (err) {
-        req.log.error({ err: err }, 'error getting permissions')
-        return next(err)
-      }
+  let same
+  try {
+    same = yield bcryptCompare(password, user.password)
+  } catch (err) {
+    this.log.error({ err: err }, 'error comparing passwords')
+    throw err
+  }
+  if (!same) {
+    throw new httpErrors.UnauthorizedError('Incorrect username or password')
+  }
 
-      initSession(req, user, permissions)
-      setReturningCookie(res)
-      if (!remember) req.session.cookie.expires = false
-      res.send({user: user, permissions: permissions})
-    })
+  try {
+    yield this.regenerateSession()
+    let perms = yield* permissions.get(user.id)
+    initSession(this, user, perms)
+    setReturningCookie(this)
+
+    this.body = { user: user, permissions: perms }
+  } catch (err) {
+    this.log.error({ err: err }, 'error regenerating session')
+    throw err
   }
 }
 
-function endSession(req, res, next) {
-  if (!req.session.userId) return next(new httpErrors.ConflictError('No session active'))
-  req.session.regenerate(function(err) {
-    if (err) {
-      next(err)
-    } else {
-      req.csrfRegen(function(err) {
-        if (err) return next(err)
-        res.send(200)
-      })
-    }
-  })
+function* endSession(next) {
+  if (!this.session.userId) throw new httpErrors.ConflictError('No session active')
+  yield this.regenerateSession()
+  this.status = 200
 }

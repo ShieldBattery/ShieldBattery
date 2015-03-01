@@ -1,45 +1,35 @@
 var permissions = require('../models/permissions')
-  , checkPermissions = require('../util/check-permissions')
-  , createRouter = require('express').Router
+  , checkPermissions = require('../permissions/check-permissions')
 
-module.exports = function() {
-  var router = createRouter()
-  router.route('/:userId')
-    .get(checkPermissions(['editPermissions']), getPermissions)
-    .post(checkPermissions(['editPermissions']), updatePermissions)
-
-  return router
+module.exports = function(router) {
+  router
+    .get('/:userId', checkPermissions(['editPermissions']), getPermissions)
+    .post('/:userId', checkPermissions(['editPermissions']), updatePermissions)
 }
 
-function getPermissions(req, res, next) {
-  var userId = req.params.userId
+function* getPermissions(next) {
+  let userId = this.params.userId
 
-  permissions.get(userId, function(err, permissions) {
-    if (err) {
-      req.log.error({ err: err }, 'error querying permissions')
-      next(err)
-    } else if (!permissions) {
-      req.log.error({ err: err }, 'permissions object empty')
-      next(err)
-    } else {
-      res.send(permissions)
-    }
-  })
+  try {
+    this.body = yield* permissions.get(userId)
+  } catch (err) {
+    this.log.error({ err: err }, 'error querying permissions')
+    throw err
+  }
 }
 
-function updatePermissions(req, res, next) {
-  var userId = req.params.userId
-    , perms = { editPermissions: req.body.editPermissions
-              , debug: req.body.debug
-              , acceptInvites: req.body.acceptInvites
+function* updatePermissions(next) {
+  let b = this.request.body
+    , userId = this.params.userId
+    , perms = { editPermissions: b.editPermissions
+              , debug: b.debug
+              , acceptInvites: b.acceptInvites
               }
 
-  permissions.update(userId, perms, function(err, permissions) {
-    if (err) {
-      req.log.error({ err: err }, 'error updating permissions')
-      next(err)
-    }
-
-    res.send(permissions)
-  })
+  try {
+    this.body = yield* permissions.update(userId, perms)
+  } catch (err) {
+    this.log.error({ err: err }, 'error updating permissions')
+    throw err
+  }
 }

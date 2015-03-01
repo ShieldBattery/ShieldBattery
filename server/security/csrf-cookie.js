@@ -1,6 +1,6 @@
 module.exports = function() {
-  return function*(next) {
+  return function* csrfCookie(next) {
     yield next
-    this.cookies.set('XSRF-TOKEN', this.csrf)
+    this.cookies.set('XSRF-TOKEN', this.csrf, { httpOnly: false })
   }
 }

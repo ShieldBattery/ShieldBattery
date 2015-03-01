@@ -2,7 +2,9 @@ var nydus = require('nydus')
   , path = require('path')
   , fs = require('fs')
   , co = require('co')
+  , uid = require('cuid')
   , createUserSockets = require('./util/user-sockets')
+  , log = require('./server/logging/logger')
 
 module.exports = function(server, koaApp, sessionMiddleware) {
   return new WebsocketServer(server, koaApp, sessionMiddleware)
@@ -12,6 +14,12 @@ var apiHandlers =
   fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
   .filter(filename => /\.js$/.test(filename))
   .map(filename => require('./server/wsapi/' + filename))
+
+// dummy response object, needed for session middleware's cookie setting stuff
+var dummyRes = {
+  getHeader: function() {},
+  setHeader: function() {}
+}
 
 class WebsocketServer {
   constructor(server, koaApp, sessionMiddleware) {
@@ -39,16 +47,18 @@ class WebsocketServer {
   }
 
   onAuthorization(data, cb) {
-    // TODO(tec27): log this stuff to bunyan
-    var req = data.req
+    let req = data.req
+      , logger = log.child({ reqId: uid() })
+    logger.info({ req: req}, 'websocket authorizing')
     if (!req.headers.cookie) {
+      logger.error({ err: new Error('request had no cookies') }, 'websocket error')
       return cb(false)
     }
 
-    var koaContext = this.koa.createContext(req, {})
+    var koaContext = this.koa.createContext(req, dummyRes)
       , sessionWare = this.sessionWare
     co(function*() {
-      yield* sessionWare.call(koaContext, function*(){})
+      yield* sessionWare.call(koaContext, (function*(){})())
       return koaContext
     }).then(ctx => {
       if (!ctx.session.userId) {
@@ -62,7 +72,8 @@ class WebsocketServer {
         address: req.connection.remoteAddress,
       }
       cb(true, handshakeData)
-    }).catch(() => {
+    }).catch(err => {
+      logger.error({ err: err }, 'websocket error')
       cb(false)
     })
   }

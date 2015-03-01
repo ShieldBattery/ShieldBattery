@@ -5,7 +5,7 @@ var isJson = require('koa-is-json')
 var jsonPrefix = ')]}\',\n'
 
 module.exports = function() {
-  return function*(next) {
+  return function* secureJson(next) {
     yield next
     if (isJson(this.body)) {
       this.body = jsonPrefix + JSON.stringify(this.body)

@@ -12,12 +12,13 @@ module.exports = function(router) {
 }
 
 function* createInvite(next) {
-  var invite =  { email: this.body.email
-                , teamliquidName: this.body.teamliquidName
-                , os: this.body.os
-                , browser: this.body.browser
-                , graphics: this.body.graphics
-                , canHost: this.body.canHost
+  let b = this.request.body
+  let invite =  { email: b.email
+                , teamliquidName: b.teamliquidName
+                , os: b.os
+                , browser: b.browser
+                , graphics: b.graphics
+                , canHost: b.canHost
                 }
   if (!invite.email || !constants.isValidEmail(invite.email)) {
     throw new httpErrors.BadRequestError('Invalid email')
@@ -55,7 +56,7 @@ function* acceptInvite(next) {
   if (!constants.isValidEmail(this.params.email)) {
     throw new httpErrors.BadRequestError('Invalid email')
   }
-  if (!this.body.isAccepted) {
+  if (!this.request.body.isAccepted) {
     throw new httpErrors.NotImplementedError('Not implemented')
   }
 

@@ -3,16 +3,16 @@ var logger = require('./logger.js')
 
 function logMiddleware() {
   return function*(next) {
-    var id = req._id || uid()
+    var id = this.req._id || uid()
     var startTime = Date.now()
 
     this.log = logger.child({ reqId: id })
-    this.log.info({ req: req } , 'request received')
+    this.log.info({ req: this.req } , 'request received')
 
     yield next
 
     this.res._elapsed = Date.now() - startTime
-    this.log.info({ res: res }, 'response sent')
+    this.log.info({ res: this.res }, 'response sent')
   }
 }
 

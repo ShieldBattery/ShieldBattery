@@ -1,6 +1,6 @@
 // middleware to add some more secure headers to our responses
 module.exports = function() {
-  return function*(next) {
+  return function* secureHeaders(next) {
     yield next
     // prevent framing of our page off our domain
     this.response.set('X-Frame-Options', 'SAMEORIGIN')

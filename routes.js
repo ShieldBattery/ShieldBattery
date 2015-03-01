@@ -1,6 +1,7 @@
 var browserify = require('browserify')
   , koaWatchify = require('koa-watchify')
   , watchify = require('watchify')
+  , koaStatic = require('koa-static')
   , router = require('koa-router')()
   , path = require('path')
   , fs = require('fs')
@@ -9,10 +10,11 @@ var browserify = require('browserify')
 var jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function* send404(next) {
+  console.dir(new Error('omg'))
   this.status = 404
 }
 
-var IS_DEV = process.env.NODE_ENV == 'development'
+var IS_DEV = (process.env.NODE_ENV || 'development') == 'development'
 
 function applyRoutes(app) {
   app.use(router.routes())
@@ -22,6 +24,7 @@ function applyRoutes(app) {
   var bundle = browserify({
     entries: [ require.resolve('./client/index.js') ],
     fullPaths: IS_DEV,
+    debug: IS_DEV,
     packageCache: {},
     cache: {}
   })
@@ -29,6 +32,9 @@ function applyRoutes(app) {
     bundle = watchify(bundle)
   }
   router.get('/scripts/client.js', koaWatchify(bundle))
+
+  // static files
+  router.get(/^\/public\/.+$/, koaStatic(path.join(__dirname)))
 
   // api methods (through HTTP)
   var apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
@@ -41,7 +47,7 @@ function applyRoutes(app) {
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  router.all('/api/*', send404)
+  router.all(/^\/api\/.*$/, send404)
 
   // partials
   router.get('/partials/:name', function*(next) {
@@ -61,7 +67,7 @@ function applyRoutes(app) {
     .get('/favicon.ico', send404)
 
   // catch-all for the remainder, renders the index and expects angular to handle routing clientside
-  router.get('*', function*(next) {
+  router.get(/^\/.*$/, function*(next) {
     var sessionData = null
     if (this.session.userId) {
       sessionData = {}
