@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "babel": "^4.4.6",
+    "babel-runtime": "^4.6.3",
     "babelify": "^5.0.3",
     "bcrypt": "^0.8.0",
     "browserify": "^9.0.3",
@@ -56,6 +57,7 @@
     "pg": "^4.2.0",
     "redis": "^0.12.1",
     "thenify": "^3.1.0",
+    "uglifyify": "^3.0.1",
     "watchify": "^2.4.0"
   },
   "devDependencies": {
@@ -64,7 +66,12 @@
   },
   "browserify": {
     "transform": [
-      "babelify",
+      [
+        "babelify",
+        {
+          "loose": "all"
+        }
+      ],
       "browserify-shim",
       "browserify-ngannotate"
     ]

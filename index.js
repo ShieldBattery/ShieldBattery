@@ -5,7 +5,8 @@ require('babel/register')({
     'es6.constants',
     'es6.templateLiterals',
     'regenerator',
-  ]
+  ],
+  loose: 'all',
 })
 
 require('./app.js')

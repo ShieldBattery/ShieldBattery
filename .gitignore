@@ -2,3 +2,4 @@ node_modules/
 /certs/*
 /config.js
 /database.json
+npm-debug.log

@@ -10,7 +10,6 @@ var browserify = require('browserify')
 var jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function* send404(next) {
-  console.dir(new Error('omg'))
   this.status = 404
 }
 
@@ -23,13 +22,16 @@ function applyRoutes(app) {
   // client script (browserified)
   var bundle = browserify({
     entries: [ require.resolve('./client/index.js') ],
-    fullPaths: IS_DEV,
+    fullPaths: false,
     debug: IS_DEV,
     packageCache: {},
     cache: {}
   })
+
   if (IS_DEV) {
     bundle = watchify(bundle)
+  } else {
+    bundle.transform({ global: true }, 'uglifyify')
   }
   router.get('/scripts/client.js', koaWatchify(bundle))
 

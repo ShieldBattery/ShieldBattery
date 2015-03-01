@@ -1,3 +1,6 @@
+// TODO(tec27): it should be possibly to use the runtime option instead, but this was erroring
+// out when I tried (Cannot find module 'babel-runtime/core-js'). Figure out why this error was
+// happening and then go that route, rather than requiring the polyfill
 require('babel/polyfill')
 
 var angular = require('angular')
