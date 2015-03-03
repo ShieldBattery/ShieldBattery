@@ -1,5 +1,5 @@
 var Emitter = require('events').EventEmitter
-  , SimpleMap = require('../shared/simple-map')
+  , SimpleMap = require('../../shared/simple-map')
   , util = require('util')
 
 module.exports = function(nydus, userSockets) {
