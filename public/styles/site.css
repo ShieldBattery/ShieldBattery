@@ -37,22 +37,16 @@ chat-view {
   display: block;
   position: absolute;
   bottom: 44px;
-  left: 15px;
+  background-color: #fff;
   padding-top: 10px;
   padding-bottom: 10px;
-  border-top: 1px solid;
-  border-left: 1px solid;
-  border-right: 1px solid;
+  border: 1px solid;
   border-color: #ccc;
   border-radius: 0 0 4px 0;
   border-collapse: collapse;
 }
-chat-bar {
-  display: block;
-  position: absolute;
-  bottom: 0px;
-  left: 15px;
-  right: 15px;
+chat-view-minimized {
+  position: relative;
   min-height: 44px;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -161,6 +155,11 @@ p {
   border-top: 1px solid;
   border-color: #ccc;
   border-radius: 0 0 0 4px;
+}
+.chat {
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
 }
 .chat-messages {
   height: 400px;

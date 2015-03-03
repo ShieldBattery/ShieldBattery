@@ -14,43 +14,124 @@ mod.config(function($routeProvider) {
 
 mod.directive('autoScroll', autoScroll)
 
-mod.factory('chat', function(siteSocket) {
-  return new ChatService(siteSocket)
+mod.factory('chat', function($rootScope, siteSocket, authService) {
+  return new ChatService($rootScope, siteSocket, authService)
 })
 
-function ChatService(siteSocket) {
+function ChatService($rootScope, siteSocket, authService) {
+  this.$rootScope = $rootScope
   this.siteSocket = siteSocket
+  this.authService = authService
   this.joinedChatChannels = []
+  this.joinedChatChannelsMap = new SimpleMap()
   this.messagesChatChannelMap = new SimpleMap()
-  this.chatChannel = null
-  this.currentChatChannel = null
-  this.showChatChannel = false
+  this.myUserName = null
+  this.joinsInProgressMap = new SimpleMap()
 
+  this._connectListener = null
   this._onMessage = this._onMessage.bind(this)
+  var self = this
+
+  // TODO(tec27): abstract this out into a thing that handles re-registrations and stuff
+  this.eventScope = $rootScope.$new(true)
+  this.userTopic = null
+  if (authService.isLoggedIn) {
+    console.log('one')
+    subUserTopic()
+  }
+
+  authService.on('userChanged', function(user) {
+    console.log('two')
+    if (self.userTopic) {
+      console.log('three')
+      self.eventScope.$destroy()
+      self.eventScope = $rootScope.$new(true)
+    }
+
+    if (!user) {
+      console.log('four')
+      self.userTopic = null
+    } else {
+      console.log('five')
+      subUserTopic()
+    }
+  })
+
+  function subUserTopic() {
+    console.log('six')
+    self.userTopic = '/users/' + encodeURIComponent(authService.user.name)
+    siteSocket.subscribeScope(self.eventScope, self.userTopic)
+    self.eventScope.$on('/site' + self.userTopic, onUserTopic)
+  }
+
+  function onUserTopic($event, err, msg) {
+    if (err) {
+      return console.log('error subscribing to user topic', err)
+    } else if (msg.type != 'chatChannel') {
+      return
+    }
+
+    console.log('seven')
+    self.join(msg.data.name)
+  }
+}
+
+ChatService.prototype._inChannel = function(chatChannelName) {
+  return this.joinedChatChannels.indexOf(chatChannelName) > -1
+}
+
+ChatService.prototype.join = function(chatChannelName) {
+  console.log('eight')
+
+  var self = this
+  if (this._inChannel(chatChannelName)) {
+    console.log('ten')
+    return
+  } 
+
+  console.log('eleven')
+  sendJoin()
+
+  function sendJoin() {
+    self.siteSocket.call('/chat/' + encodeURIComponent(chatChannelName) + '/join',
+        { name: chatChannelName }, function(err, myUserName) {
+      console.log('twelve')
+      self.myUserName = myUserName
+      self.siteSocket.subscribe('/chat/' + encodeURIComponent(chatChannelName), self._onMessage,
+          subscribeCb)
+    })
+
+    function subscribeCb(err) {
+      console.log('thirteen')
+      if (err) {
+        console.log('error joining: ' + err.details.msg)
+        // TODO(2Pac): Clean up
+      }
+
+      if (!self.joinedChatChannelsMap.has(chatChannelName)) {
+        console.log('fourteen')
+        self.joinedChatChannelsMap.put(chatChannelName, {})
+      }
+
+      console.log('fifteen')
+      if (!self._inChannel(chatChannelName)) {
+        console.log('sixteen')
+        self.joinedChatChannels.push(chatChannelName)
+      }
+    }
+  }
 }
 
 ChatService.prototype.create = function(chatChannelName) {
+  if (this._inChannel(chatChannelName)) {
+    console.log('ten')
+    return
+  }
+
   var self = this
   this.siteSocket.call('/chat/create', { name: chatChannelName }, function(err) {
-    self.siteSocket.call('/chat/' + encodeURIComponent(chatChannelName) + '/join',
-        { name: chatChannelName }, function(err) {
-      self.siteSocket.subscribe('/chat/' + encodeURIComponent(chatChannelName), self._onMessage,
-          subscribeCb)
-
-      function subscribeCb(err) {
-        if (err) {
-          console.log('error joining: ' + err.details.msg)
-          // TODO(2Pac): Clean up
-        }
-
-        if (!self.chatChannel) {
-          self.chatChannel = {}
-        }
-        self.chatChannel.name = chatChannelName
-      }
-
-      self.joinedChatChannels.push(chatChannelName)
-    })
+    console.log('hundred')
+    self.join(chatChannelName)
   })
 }
 
@@ -60,68 +141,95 @@ ChatService.prototype.sendChat = function(chatChannelName, msg) {
 }
 
 ChatService.prototype.leave = function(chatChannelName) {
+  console.log('twenty')
+  if (!this._inChannel(chatChannelName)) {
+    console.log('twentyone')
+    return
+  }
+
+  var index
+  console.log('twentyfour')
   this.siteSocket.unsubscribe('/chat/' + encodeURIComponent(chatChannelName), this._onMessage)
-  this.siteSocket.call('/chat/' + encodeURIComponent(chatChannelName) + '/part')
-  var index = this.joinedChatChannels.indexOf(chatChannelName)
+  console.log('twentythree')
+  this.siteSocket.call('/chat/' + encodeURIComponent(chatChannelName) + '/part/' + this.myUserName)
+  if (this.joinedChatChannelsMap.has(chatChannelName)) {
+    console.log('twentythreeandhalf')
+    index = this.joinedChatChannelsMap.get(chatChannelName).users.indexOf(this.myUserName)
+    if (index > -1) {
+      console.log('twentythreeandquarter')
+      this.joinedChatChannelsMap.get(chatChannelName).users.splice(index, 1)
+    }
+    this.joinedChatChannelsMap.del(chatChannelName)
+  }
+  index = this.joinedChatChannels.indexOf(chatChannelName)
   if (index > -1) {
+    console.log('twentyfive')
     this.joinedChatChannels.splice(index, 1)
-    if (this.joinedChatChannels.length < 1) {
-      this.showChatChannel = false
-      this.currentChatChannel = null
-      return
-    }
-    if (!this.joinedChatChannels[index - 1]) {
-      this.currentChatChannel = this.joinedChatChannels[index]
-      return
-    }
-    this.currentChatChannel = this.joinedChatChannels[index - 1]
   }
 }
 
 ChatService.prototype._onMessage = function(data) {
   switch(data.action) {
     case 'update': this._onFullUpdate(data.chatChannel); break
-    case 'join': this._onJoin(data.user); break
-    case 'part': this._onPart(data.user); break
+    case 'join': this._onJoin(data.chatChannelName, data.user); break
+    case 'part': this._onPart(data.name, data.user); break
     case 'chat': this._onChat(data.channel, data.from, data.text); break
     default: console.log('Unknown chat action: ' + data.action); break
   }
 }
 
 ChatService.prototype._onFullUpdate = function(chatChannelData) {
-  var self = this
+  var chatChannel = this.joinedChatChannelsMap.get(chatChannelData.name)
+  console.log('_onFullUpdate')
+  console.log(chatChannelData.users)
+  console.log(chatChannel.users)
   Object.keys(chatChannelData).forEach(function(key) {
-    self.chatChannel[key] = chatChannelData[key]
+    chatChannel[key] = chatChannelData[key]
   })
 }
 
-ChatService.prototype._onJoin = function(user) {
-  if (!this.chatChannel) return
+ChatService.prototype._onJoin = function(chatChannelName, user) {
+  var chatChannel = this.joinedChatChannelsMap.get(chatChannelName)
+  if (!chatChannel) return
   
-  this.chatChannel.users.push(user)
+  console.log('_onJoin')
+  chatChannel.users.push(user)
+  console.log(chatChannel.users)
 
-  var log = this.messagesChatChannelMap.get(this.chatChannel.name)
+  var log = this.messagesChatChannelMap.get(chatChannel.name)
   if (!log) {
     log = []
-    this.messagesChatChannelMap.put(this.chatChannel.name, log)
+    this.messagesChatChannelMap.put(chatChannel.name, log)
   }
   log.push({ system: true, text: user + ' has joined the channel' })
 }
 
-ChatService.prototype._onPart = function(user) {
-  if (!this.chatChannel) return
+ChatService.prototype._onPart = function(chatChannelName, user) {
+  var chatChannel = this.joinedChatChannelsMap.get(chatChannelName)
+  if (!chatChannel) {
+    console.log('thousand')
+    return
+  }
 
-  var index = this.chatChannel.users.indexOf(user)
+  console.log('thousandone')
+  var index = chatChannel.users.indexOf(user)
   if (index > -1) {
-    this.chatChannel.users.splice(index, 1)
-  }
+    if (chatChannel.users[index] == this.authService.user.name) {
+      console.log('fifty')
+      // this is us (from another socket), so just call leave and it will clean up everything
+      return this.leave(chatChannelName)
+    }
+    console.log('fiftyone')
+    chatChannel.users.splice(index, 1)
+    console.log(this.joinedChatChannelsMap.get(chatChannelName).users)
 
-  var log = this.messagesChatChannelMap.get(this.chatChannel.name)
-  if (!log) {
-    log = []
-    this.messagesChatChannelMap.put(this.chatChannel.name, log)
+    var log = this.messagesChatChannelMap.get(chatChannel.name)
+    if (!log) {
+      log = []
+      this.messagesChatChannelMap.put(chatChannel.name, log)
+    }
+    log.push({ system: true, text: user + ' has left the channel' })
   }
-  log.push({ system: true, text: user + ' has left the channel' })
 }
 
 ChatService.prototype._onChat = function(chatChannelName, from, text) {
@@ -137,58 +245,59 @@ mod.controller('ChatInterfaceCtrl', function($scope, chat) {
   $scope.chat = chat
 
   $scope.joinChat = function(chatChannelName) {
-    if (!$scope.joinChatForm.$valid || chat.joinedChatChannels.indexOf(chatChannelName) != -1) {
-      $scope.chatChannelName = ''
-      $scope.joinChatForm.$setPristine(true)
+    if (!$scope.joinChatForm.$valid) {
+      if (chat.joinedChatChannelsMap.has(chatChannelName)) {
+        $scope.chatChannelName = ''
+        $scope.joinChatForm.$setPristine(true)
+      }
       return
     }
     chat.create(chatChannelName)
-    chat.showChatChannel = true
-    chat.currentChatChannel = chatChannelName
     $scope.chatChannelName = ''
     $scope.joinChatForm.$setPristine(true)
   }
 })
 
-mod.controller('ChatBarCtrl', function($scope, chat) {
+mod.controller('ChatCtrl', function($scope, chat) {
   $scope.chat = chat
-
-  $scope.toggleChannel = function(chatChannelName) {
-    chat.showChatChannel = true
-    chat.currentChatChannel = chatChannelName
-  }
 })
 
-mod.controller('ChatViewCtrl', function($scope, chat) {
-  $scope.chat = chat
+mod.directive('sbChatChannel', function() {
+  function controller($scope, chat) {
+    $scope.chat = chat
+    $scope.minimized = false
 
-  $scope.$watch('chat.currentChatChannel', function () {
-    $scope.refreshChannel()
-  })
+    if (!chat.messagesChatChannelMap.has($scope.channel.name)) {
+      chat.messagesChatChannelMap.put($scope.channel.name, [])
+    }
+    $scope.chatLog = chat.messagesChatChannelMap.get($scope.channel.name)
 
-  $scope.refreshChannel = function() {
-    if (!chat.currentChatChannel) {
-      return
-    } else {
-      if (!chat.messagesChatChannelMap.has(chat.currentChatChannel)) {
-        chat.messagesChatChannelMap.put(chat.currentChatChannel, [])
-      }
-      $scope.chatLog = chat.messagesChatChannelMap.get(chat.currentChatChannel)
+    $scope.sendChat = function(text) {
+      if (!$scope.chatForm.$valid) return
+      chat.sendChat($scope.channel.name, $scope.chatMsg)
+      $scope.chatMsg = ''
+      $scope.chatForm.$setPristine(true)
+    }
+
+    $scope.hideChatChannel = function() {
+      $scope.minimized = true
+    }
+
+    $scope.leaveChatChannel = function() {
+      chat.leave($scope.channel.name)
+    }
+
+    $scope.toggleChatChannel = function() {
+      $scope.minimized = !$scope.minimized
     }
   }
 
-  $scope.sendChat = function(text) {
-    if (!$scope.chatForm.$valid) return
-    chat.sendChat(chat.currentChatChannel, $scope.chatMsg)
-    $scope.chatMsg = ''
-    $scope.chatForm.$setPristine(true)
-  }
-
-  $scope.hideChatChannel = function() {
-    chat.showChatChannel = false
-  }
-
-  $scope.leaveChatChannel = function() {
-    chat.leave(chat.currentChatChannel)
+  return {
+    restrict: 'E',
+    scope: {
+      channel: '='
+    },
+    controller: controller,
+    templateUrl: '/partials/chatView'
   }
 })
