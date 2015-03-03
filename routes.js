@@ -6,14 +6,14 @@ var browserify = require('browserify')
   , path = require('path')
   , fs = require('fs')
   , constants = require('./shared/constants')
+  , isDev = require('./server/env/is-dev')
+  , httpErrors = require('./server/http/errors')
 
 var jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function* send404(next) {
-  this.status = 404
+  throw new httpErrors.NotFoundError()
 }
-
-var IS_DEV = (process.env.NODE_ENV || 'development') == 'development'
 
 function applyRoutes(app) {
   app.use(router.routes())
@@ -21,23 +21,21 @@ function applyRoutes(app) {
 
   // client script (browserified)
   var bundle = browserify({
-    entries: [ require.resolve('./client/index.js') ],
+    entries: [ require.resolve('./client/index.jsx') ],
     fullPaths: false,
-    debug: IS_DEV,
+    debug: isDev,
     packageCache: {},
     cache: {}
   })
 
-  if (IS_DEV) {
+  if (isDev) {
     bundle = watchify(bundle)
   } else {
     bundle.transform({ global: true }, 'uglifyify')
   }
   router.get('/scripts/client.js', koaWatchify(bundle))
 
-  // static files
-  router.get(/^\/public\/.+$/, koaStatic(path.join(__dirname)))
-
+  
   // api methods (through HTTP)
   var apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
     , baseApiPath = '/api/1/'
@@ -51,25 +49,14 @@ function applyRoutes(app) {
   // sending back HTML due to the wildcard rule below
   router.all(/^\/api\/.*$/, send404)
 
-  // partials
-  router.get('/partials/:name', function*(next) {
-    var partialPath = path.join('partials', this.params.name)
-      , templateData = { constants: constants }
-    try {
-      yield this.render(partialPath, templateData)
-    } catch (err) {
-      this.log.error({ err: err, path: partialPath }, 'error rendering template')
-      send404(next)
-    }
-  })
-
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404)
     .get('/favicon.ico', send404)
 
-  // catch-all for the remainder, renders the index and expects angular to handle routing clientside
-  router.get(/^\/.*$/, function*(next) {
+  // catch-all for the remainder, first tries static files, then if not found, renders the index and
+  // expects the client to handle routing
+  router.get(/^\/.*$/, koaStatic(path.join(__dirname, 'public')), function*(next) {
     var sessionData = null
     if (this.session.userId) {
       sessionData = {}

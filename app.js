@@ -8,17 +8,18 @@ var canonicalHost = require('canonical-host')
   , koa = require('koa')
   , log = require('./server/logging/logger')
   , path = require('path')
+  , isDev = require('./server/env/is-dev')
 
 var csrf = require('koa-csrf')
   , csrfCookie = require('./server/security/csrf-cookie')
   , koaBody = require('koa-body')
   , koaCompress = require('koa-compress')
   , koaError = require('koa-error')
+  , less = require('./server/styles/less')
   , logMiddleware = require('./server/logging/log-middleware')
   , secureHeaders = require('./server/security/headers')
   , secureJson = require('./server/security/json')
   , sessionMiddleware = require('./server/session/middleware')
-  , stylus = require('koa-stylus')
   , views = require('koa-views')
 
 var app = koa()
@@ -27,7 +28,7 @@ var app = koa()
 app.keys = [ config.sessionSecret ]
 
 app.on('error', err => {
-  if (err.status) return // likely an HTTP error (expected and fine)
+  if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
   log.error({ err: err }, 'server error')
 })
@@ -38,9 +39,9 @@ app
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
-  .use(stylus({
-    src: path.join(__dirname, 'styles'),
+  .use(less(__dirname, {
     dest: path.join(__dirname, 'public'),
+    once: !isDev,
   }))
   .use(sessionMiddleware)
   .use(csrfCookie())

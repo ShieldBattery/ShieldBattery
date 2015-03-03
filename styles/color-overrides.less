@@ -1,0 +1,10 @@
+@primary-1-color: @blue-500;
+@primary-2-color: @blue-700;
+@primary-3-color: @blue-100;
+@accent-1-color: @amber-A200;
+@accent-2-color: @amber-A400;
+@accent-3-color: @amber-A100;
+
+// spec says white text should be 100% opacity, for some reason material-ui picks 87% (I guess
+// confusion with the black color palette). Fix this for the places where we use white text
+@app-bar-text-color: @full-white;

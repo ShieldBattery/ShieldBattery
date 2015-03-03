@@ -1,12 +1,11 @@
 doctype html
-html(ng-app='shieldbattery', lang='en')
+html(lang='en')
   head
     meta(charset='utf-8')
-    base(href='/')
     title ShieldBattery
-    link(href='https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,400,300,600,700',
-      rel='stylesheet', type='text/css')
-    link(href='/public/styles/site.css', rel='stylesheet', type='text/css')
-  body(ng-cloak)
+    link(href='https://fonts.googleapis.com/css?family=Roboto:400,300,500',
+        rel='stylesheet', type='text/css')
+    link(href='/styles/site.css', rel='stylesheet', type='text/css')
+  body
     block content
     script(type='text/javascript', src='/scripts/client.js')

@@ -30,8 +30,6 @@
     "babelify": "^5.0.3",
     "bcrypt": "^0.8.0",
     "browserify": "^9.0.3",
-    "browserify-ngannotate": "^0.7.1",
-    "browserify-shim": "^3.6.0",
     "bunyan": "^1.3.4",
     "canonical-host": "^0.0.4",
     "co": "^4.4.0",
@@ -49,12 +47,17 @@
     "koa-redis": "^1.0.0",
     "koa-router": "^4.2.0",
     "koa-static": "^1.4.9",
-    "koa-stylus": "0.0.3",
     "koa-views": "^3.0.0",
     "koa-watchify": "^1.1.1",
+    "less-middleware": "^2.0.1",
+    "material-ui": "^0.7.0",
     "nydus": "^0.2.0",
     "nydus-client": "^0.2.0",
     "pg": "^4.2.0",
+    "react": "^0.12.2",
+    "react-router": "^0.12.4",
+    "react-tap-event-plugin": "^0.1.4",
+    "reactify": "^1.0.0",
     "redis": "^0.12.1",
     "thenify": "^3.1.0",
     "uglifyify": "^3.0.1",
@@ -71,33 +74,7 @@
         {
           "loose": "all"
         }
-      ],
-      "browserify-shim",
-      "browserify-ngannotate"
+      ]
     ]
-  },
-  "browser": {
-    "angular": "./vendor/angular.js",
-    "angular-animate": "./vendor/angular-animate.js",
-    "angular-cookies": "./vendor/angular-cookies.js",
-    "angular-route": "./vendor/angular-route.js"
-  },
-  "browserify-shim": {
-    "angular": "angular",
-    "angular-animate": {
-      "depends": [
-        "angular"
-      ]
-    },
-    "angular-cookies": {
-      "depends": [
-        "angular"
-      ]
-    },
-    "angular-route": {
-      "depends": [
-        "angular"
-      ]
-    }
   }
 }
