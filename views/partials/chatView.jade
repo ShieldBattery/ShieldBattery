@@ -1,0 +1,26 @@
+chat-view.col-12(data-ng-show='!minimized')
+  .row
+    span.col-9
+      span {{ channel.name }}
+    span.col-3
+      a(href='', ng-click='hideChatChannel()') Minimize
+      | 
+      a(href='', ng-click='leaveChatChannel()') Leave
+  .row
+    .col-9
+      .chat-messages(auto-scroll)
+        p(ng-repeat='msg in chatLog')
+          span(ng-switch='!!msg.system')
+            span(ng-switch-when='true') <strong>{{ msg.text }}</strong>
+            span(ng-switch-when='false') {{ msg.from }}: {{ msg.text }}
+    .col-3
+      .chat-users
+        p(ng-repeat='user in channel.users')
+          span {{ user }}
+  form.row(name='chatForm', novalidate, ng-submit='sendChat(chatMsg)')
+    span.col-11
+      input(type='text', placeholder='message', ng-model='chatMsg', required)
+    span.col-1
+      input(type='submit', value='Send', ng-disabled='!chatForm.$valid')
+chat-view-minimized.col-1(data-ng-click='toggleChatChannel()', data-ng-show='minimized')
+  span {{ channel.name }}
