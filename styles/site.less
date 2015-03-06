@@ -11,9 +11,7 @@
   padding-right: 80px;
 }
 
-.mui-app-bar-title {
-  margin-left: 16px;
-}
+
 
 .mui-app-bar {
   .mui-icon-button {
@@ -21,5 +19,78 @@
       fill: @app-bar-icon-color;
       color: @app-bar-icon-color;
     }
+  }
+
+  .mui-app-bar-title {
+    margin-left: 16px;
+    margin-bottom: 0px;
+  }
+}
+
+.mui-dialog-window {
+  .mui-dialog-window-contents {
+    background: @dialog-background;
+  }
+}
+
+// correct typography styles for dark themes
+.mui-font-style-display-4 {
+  .mui-text-dark-white;
+}
+
+.mui-font-style-display-3 {
+  .mui-text-dark-white;
+}
+
+.mui-font-style-display-2 {
+  .mui-text-dark-white;
+}
+
+.mui-font-style-display-1 {
+  .mui-text-dark-white;
+}
+
+.mui-font-style-headline {
+  .mui-text-full-white;
+}
+
+.mui-font-style-title {
+  .mui-text-full-white;
+}
+
+.mui-font-style-subhead-2 {
+  .mui-text-full-white;
+}
+
+.mui-font-style-subhead-1 {
+  .mui-text-full-white;
+}
+
+.mui-font-style-body-2 {
+  .mui-text-full-white;
+}
+
+.mui-font-style-body-1 {
+  .mui-text-full-white;
+}
+
+.mui-font-style-caption {
+  .mui-text-dark-white;
+}
+
+.mui-font-style-menu {
+  .mui-text-full-white;
+}
+
+a, a:visited {
+  color: @accent-swatch-400;
+  text-decoration: none;
+
+  &:hover, &:focus {
+    color: @accent-swatch-200;
+  }
+
+  &:active {
+    color: @accent-swatch-100;
   }
 }
