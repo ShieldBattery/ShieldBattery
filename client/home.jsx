@@ -1,8 +1,14 @@
 let React = require('react')
+  , Card = require('./material/card.jsx')
 
 let Home = React.createClass({
   render() {
-    return (<h3>Welcome home.</h3>)
+    return (
+      <Card zDepth={1}>
+        <h3>Welcome home.</h3>
+        <p>Testing a raised card.</p>
+      </Card>
+    )
   }
 })
 
