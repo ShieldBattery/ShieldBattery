@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <array>
+#include <memory>
 #include <vector>
 #include <string>
 
@@ -67,14 +68,30 @@ public:
   bool Restore();
 
 private:
+  class AllocBlock {
+    friend class Detour;
+  public:
+    AllocBlock();
+    ~AllocBlock();
+    uint32 GetBytesLeft();
+  private:
+    void* block_start_;
+    void* pos_;
+  };
+
   Detour(const Detour&);
   Detour& operator=(const Detour&);
 
+  static std::shared_ptr<AllocBlock> AllocSpace(size_t trampoline_size);
+
+  static uint32 page_size_;
+  static std::shared_ptr<AllocBlock> current_block_;
+
   byte* hook_location_;
   uint32 hook_size_;
-  byte* trampoline_;
-  byte* original_;
-  byte* hooked_;
+  std::shared_ptr<AllocBlock> trampoline_block_;
+  std::unique_ptr<byte> original_;
+  std::unique_ptr<byte> hooked_;
   bool injected_;
 
   static const byte TRAMPOLINE_PREAMBLE[];

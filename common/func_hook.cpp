@@ -4,12 +4,14 @@
 #include <udis86.h>
 #include <Windows.h>
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "common/types.h"
 #include "common/win_helpers.h"
 
 namespace sbat {
+using std::shared_ptr;
 using std::vector;
 
 Detour::Builder::Builder()
@@ -207,10 +209,40 @@ void ReplaceRelativeOffsets(byte* hook_location, uint32 hook_size, byte* output,
   assert(pos == output_size);
 }
 
+uint32 Detour::page_size_ = 0;
+shared_ptr<Detour::AllocBlock> Detour::current_block_ = shared_ptr<Detour::AllocBlock>();
+
+Detour::AllocBlock::AllocBlock()
+  : block_start_(nullptr),
+    pos_(nullptr) {
+  if (page_size_ == 0) {
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    page_size_ = info.dwPageSize;
+  }
+  block_start_ = pos_ = VirtualAlloc(nullptr, page_size_, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+}
+
+Detour::AllocBlock::~AllocBlock() {
+  VirtualFree(block_start_, 0, MEM_RELEASE);
+}
+
+uint32 Detour::AllocBlock::GetBytesLeft() {
+  return page_size_ - (reinterpret_cast<byte*>(pos_) - reinterpret_cast<byte*>(block_start_));
+}
+
+shared_ptr<Detour::AllocBlock> Detour::AllocSpace(size_t trampoline_size) {
+  if (!current_block_ || current_block_->GetBytesLeft() < trampoline_size) {
+    current_block_.reset(new AllocBlock());
+  }
+
+  return current_block_;
+}
+
 Detour::Detour(const Detour::Builder& builder)
   : hook_location_(builder.hook_location_),
     hook_size_(0),
-    trampoline_(nullptr),
+    trampoline_block_(nullptr),
     original_(nullptr),
     hooked_(nullptr),
     injected_(false) {
@@ -247,60 +279,61 @@ Detour::Detour(const Detour::Builder& builder)
       1 + sizeof(int32) +  // call <target>  NOLINT
       builder.arguments_.size() +  // push for each register
       (builder.run_original_ != RunOriginalCodeType::Never ? replaced_size : 0);
-  trampoline_ = reinterpret_cast<byte*>(  // have to use VirtualAlloc so that we can execute on it
-      VirtualAlloc(NULL, trampoline_size, MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+  trampoline_block_ = AllocSpace(trampoline_size);
+  byte* trampoline = reinterpret_cast<byte*>(trampoline_block_->pos_);
+  trampoline_block_->pos_ = reinterpret_cast<byte*>(trampoline_block_->pos_) + trampoline_size;
 
-  original_ = new byte[hook_size_];
-  hooked_ = new byte[hook_size_];
-  memcpy_s(original_, hook_size_, hook_location_, hook_size_);
+  original_.reset(new byte[hook_size_]);
+  hooked_.reset(new byte[hook_size_]);
+  memcpy_s(original_.get(), hook_size_, hook_location_, hook_size_);
   if (hook_size_ > 5) {
-    memset(hooked_ + 5, 0x90, hook_size_ - 5);  // fill with NOPs to account for extra bytes
+    memset(hooked_.get() + 5, 0x90, hook_size_ - 5);  // fill with NOPs to account for extra bytes
   }
-  hooked_[0] = 0xE9;  // relative jump
-  *(reinterpret_cast<int32*>(&hooked_[1])) =  // offset from end of command
-      reinterpret_cast<int32>(trampoline_) - (reinterpret_cast<int32>(hook_location_) + 5);
+  hooked_.get()[0] = 0xE9;  // relative jump
+  *(reinterpret_cast<int32*>(&hooked_.get()[1])) =  // offset from end of command
+      reinterpret_cast<int32>(trampoline) - (reinterpret_cast<int32>(hook_location_) + 5);
 
   uint32 pos = 0;
   // add the original code if we are meant to run it before
   if (builder.run_original_ == RunOriginalCodeType::Before) {
-    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline_[pos], replaced_size);
+    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline[pos], replaced_size);
     pos += replaced_size;
   }
 
   // copy in our trampoline preamble
-  memcpy_s(&trampoline_[pos], trampoline_size - pos, Detour::TRAMPOLINE_PREAMBLE,
+  memcpy_s(&trampoline[pos], trampoline_size - pos, Detour::TRAMPOLINE_PREAMBLE,
       sizeof(Detour::TRAMPOLINE_PREAMBLE));
   pos += sizeof(Detour::TRAMPOLINE_PREAMBLE);
 
   // add any necessary PUSH instructions for our arguments; handily they have values equal to their
   // PUSH opcode
   for (auto it = builder.arguments_.rbegin(); it != builder.arguments_.rend(); ++it) {
-    trampoline_[pos++] = static_cast<byte>(*it);
+    trampoline[pos++] = static_cast<byte>(*it);
   }
 
   // generate the call code
 #pragma warning(suppress: 6386)
-  trampoline_[pos] = 0xE8;  // relative call
-  *(reinterpret_cast<int32*>(&trampoline_[pos+1])) =  // offset from end of command
-      reinterpret_cast<int32>(builder.target_) - (reinterpret_cast<int32>(&trampoline_[pos]) + 5);
+  trampoline[pos] = 0xE8;  // relative call
+  *(reinterpret_cast<int32*>(&trampoline[pos+1])) =  // offset from end of command
+      reinterpret_cast<int32>(builder.target_) - (reinterpret_cast<int32>(&trampoline[pos]) + 5);
   pos += 5;
 
   // copy in our trampoline postscript
-  memcpy_s(&trampoline_[pos], trampoline_size - pos, Detour::TRAMPOLINE_POSTSCRIPT,
+  memcpy_s(&trampoline[pos], trampoline_size - pos, Detour::TRAMPOLINE_POSTSCRIPT,
       sizeof(Detour::TRAMPOLINE_POSTSCRIPT));
   pos += sizeof(Detour::TRAMPOLINE_POSTSCRIPT);
 
   // add the original code if we are meant to run it after
   if (builder.run_original_ == RunOriginalCodeType::After) {
-    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline_[pos], replaced_size);
+    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline[pos], replaced_size);
     pos += replaced_size;
   }
 
   // jmp to after the hook spot
-  trampoline_[pos] = 0xE9;  // relative jmp
-  *(reinterpret_cast<int32*>(&trampoline_[pos+1])) =  // offset from end of command
+  trampoline[pos] = 0xE9;  // relative jmp
+  *(reinterpret_cast<int32*>(&trampoline[pos+1])) =  // offset from end of command
       (reinterpret_cast<int32>(hook_location_) + hook_size_) -
-      (reinterpret_cast<int32>(&trampoline_[pos]) + 5);
+      (reinterpret_cast<int32>(&trampoline[pos]) + 5);
   pos += 5;
 
   assert(pos == trampoline_size);
@@ -312,15 +345,6 @@ Detour::~Detour() {
   if (injected_) {
     Restore();
   }
-
-  if (trampoline_ != nullptr) {
-    VirtualFree(trampoline_, 0, MEM_RELEASE);
-    trampoline_ = nullptr;
-  }
-  delete original_;
-  original_ = nullptr;
-  delete hooked_;
-  hooked_ = nullptr;
 }
 
 bool Detour::Inject() {
@@ -333,7 +357,7 @@ bool Detour::Inject() {
     return false;
   }
 
-  memcpy_s(hook_location_, hook_size_, hooked_, hook_size_);
+  memcpy_s(hook_location_, hook_size_, hooked_.get(), hook_size_);
   injected_ = true;
   return true;
 }
@@ -348,7 +372,7 @@ bool Detour::Restore() {
     return false;
   }
 
-  memcpy_s(hook_location_, hook_size_, original_, hook_size_);
+  memcpy_s(hook_location_, hook_size_, original_.get(), hook_size_);
   injected_ = false;
   return true;
 }
