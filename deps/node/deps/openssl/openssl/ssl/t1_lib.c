@@ -204,28 +204,40 @@ static int nid_list[] =
 
 static int pref_list[] =
 	{
+#ifndef OPENSSL_NO_EC2M
 		NID_sect571r1, /* sect571r1 (14) */ 
 		NID_sect571k1, /* sect571k1 (13) */ 
+#endif
 		NID_secp521r1, /* secp521r1 (25) */	
+#ifndef OPENSSL_NO_EC2M
 		NID_sect409k1, /* sect409k1 (11) */ 
 		NID_sect409r1, /* sect409r1 (12) */
+#endif
 		NID_secp384r1, /* secp384r1 (24) */
+#ifndef OPENSSL_NO_EC2M
 		NID_sect283k1, /* sect283k1 (9) */
 		NID_sect283r1, /* sect283r1 (10) */ 
+#endif
 		NID_secp256k1, /* secp256k1 (22) */ 
 		NID_X9_62_prime256v1, /* secp256r1 (23) */ 
+#ifndef OPENSSL_NO_EC2M
 		NID_sect239k1, /* sect239k1 (8) */ 
 		NID_sect233k1, /* sect233k1 (6) */
 		NID_sect233r1, /* sect233r1 (7) */ 
+#endif
 		NID_secp224k1, /* secp224k1 (20) */ 
 		NID_secp224r1, /* secp224r1 (21) */
+#ifndef OPENSSL_NO_EC2M
 		NID_sect193r1, /* sect193r1 (4) */ 
 		NID_sect193r2, /* sect193r2 (5) */ 
+#endif
 		NID_secp192k1, /* secp192k1 (18) */
 		NID_X9_62_prime192v1, /* secp192r1 (19) */ 
+#ifndef OPENSSL_NO_EC2M
 		NID_sect163k1, /* sect163k1 (1) */
 		NID_sect163r1, /* sect163r1 (2) */
 		NID_sect163r2, /* sect163r2 (3) */
+#endif
 		NID_secp160k1, /* secp160k1 (15) */
 		NID_secp160r1, /* secp160r1 (16) */ 
 		NID_secp160r2, /* secp160r2 (17) */ 
@@ -233,7 +245,7 @@ static int pref_list[] =
 
 int tls1_ec_curve_id2nid(int curve_id)
 	{
-	/* ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005) */
+	/* ECC curves from RFC 4492 */
 	if ((curve_id < 1) || ((unsigned int)curve_id >
 				sizeof(nid_list)/sizeof(nid_list[0])))
 		return 0;
@@ -242,7 +254,7 @@ int tls1_ec_curve_id2nid(int curve_id)
 
 int tls1_ec_nid2curve_id(int nid)
 	{
-	/* ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005) */
+	/* ECC curves from RFC 4492 */
 	switch (nid)
 		{
 	case NID_sect163k1: /* sect163k1 (1) */
@@ -352,15 +364,16 @@ int tls12_get_req_sig_algs(SSL *s, unsigned char *p)
 	return (int)slen;
 	}
 
-unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned char *limit)
+unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit)
 	{
 	int extdatalen=0;
-	unsigned char *ret = p;
+	unsigned char *orig = buf;
+	unsigned char *ret = buf;
 
 	/* don't add extensions for SSLv3 unless doing secure renegotiation */
 	if (s->client_version == SSL3_VERSION
 					&& !s->s3->send_connection_binding)
-		return p;
+		return orig;
 
 	ret+=2;
 
@@ -409,7 +422,7 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
               return NULL;
               }
 
-          if((limit - p - 4 - el) < 0) return NULL;
+          if((limit - ret - 4 - el) < 0) return NULL;
           
           s2n(TLSEXT_TYPE_renegotiate,ret);
           s2n(el,ret);
@@ -452,8 +465,7 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
 #endif
 
 #ifndef OPENSSL_NO_EC
-	if (s->tlsext_ecpointformatlist != NULL &&
-	    s->version != DTLS1_VERSION)
+	if (s->tlsext_ecpointformatlist != NULL)
 		{
 		/* Add TLS extension ECPointFormats to the ClientHello message */
 		long lenmax; 
@@ -472,8 +484,7 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
 		memcpy(ret, s->tlsext_ecpointformatlist, s->tlsext_ecpointformatlist_length);
 		ret+=s->tlsext_ecpointformatlist_length;
 		}
-	if (s->tlsext_ellipticcurvelist != NULL &&
-	    s->version != DTLS1_VERSION)
+	if (s->tlsext_ellipticcurvelist != NULL)
 		{
 		/* Add TLS extension EllipticCurves to the ClientHello message */
 		long lenmax; 
@@ -489,11 +500,6 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
 		s2n(TLSEXT_TYPE_elliptic_curves,ret);
 		s2n(s->tlsext_ellipticcurvelist_length + 2, ret);
 
-		/* NB: draft-ietf-tls-ecc-12.txt uses a one-byte prefix for
-		 * elliptic_curve_list, but the examples use two bytes.
-		 * http://www1.ietf.org/mail-archive/web/tls/current/msg00538.html
-		 * resolves this to two bytes.
-		 */
 		s2n(s->tlsext_ellipticcurvelist_length, ret);
 		memcpy(ret, s->tlsext_ellipticcurvelist, s->tlsext_ellipticcurvelist_length);
 		ret+=s->tlsext_ellipticcurvelist_length;
@@ -644,13 +650,13 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
 #endif
 
 #ifndef OPENSSL_NO_SRTP
-        if(SSL_get_srtp_profiles(s))
+	if(SSL_IS_DTLS(s) && SSL_get_srtp_profiles(s))
                 {
                 int el;
 
                 ssl_add_clienthello_use_srtp_ext(s, 0, &el, 0);
                 
-                if((limit - p - 4 - el) < 0) return NULL;
+                if((limit - ret - 4 - el) < 0) return NULL;
 
                 s2n(TLSEXT_TYPE_use_srtp,ret);
                 s2n(el,ret);
@@ -693,24 +699,25 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
 			}
 		}
 
-	if ((extdatalen = ret-p-2)== 0) 
-		return p;
+	if ((extdatalen = ret-orig-2)== 0) 
+		return orig;
 
-	s2n(extdatalen,p);
+	s2n(extdatalen, orig);
 	return ret;
 	}
 
-unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned char *limit)
+unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit)
 	{
 	int extdatalen=0;
-	unsigned char *ret = p;
+	unsigned char *orig = buf;
+	unsigned char *ret = buf;
 #ifndef OPENSSL_NO_NEXTPROTONEG
 	int next_proto_neg_seen;
 #endif
 
 	/* don't add extensions for SSLv3, unless doing secure renegotiation */
 	if (s->version == SSL3_VERSION && !s->s3->send_connection_binding)
-		return p;
+		return orig;
 	
 	ret+=2;
 	if (ret>=limit) return NULL; /* this really never occurs, but ... */
@@ -733,7 +740,7 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
               return NULL;
               }
 
-          if((limit - p - 4 - el) < 0) return NULL;
+          if((limit - ret - 4 - el) < 0) return NULL;
           
           s2n(TLSEXT_TYPE_renegotiate,ret);
           s2n(el,ret);
@@ -748,8 +755,7 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
         }
 
 #ifndef OPENSSL_NO_EC
-	if (s->tlsext_ecpointformatlist != NULL &&
-	    s->version != DTLS1_VERSION)
+	if (s->tlsext_ecpointformatlist != NULL)
 		{
 		/* Add TLS extension ECPointFormats to the ServerHello message */
 		long lenmax; 
@@ -807,13 +813,13 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
 #endif
 
 #ifndef OPENSSL_NO_SRTP
-        if(s->srtp_profile)
+	if(SSL_IS_DTLS(s) && s->srtp_profile)
                 {
                 int el;
 
                 ssl_add_serverhello_use_srtp_ext(s, 0, &el, 0);
                 
-                if((limit - p - 4 - el) < 0) return NULL;
+                if((limit - ret - 4 - el) < 0) return NULL;
 
                 s2n(TLSEXT_TYPE_use_srtp,ret);
                 s2n(el,ret);
@@ -884,10 +890,10 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
 		}
 #endif
 
-	if ((extdatalen = ret-p-2)== 0) 
-		return p;
+	if ((extdatalen = ret-orig-2)== 0) 
+		return orig;
 
-	s2n(extdatalen,p);
+	s2n(extdatalen, orig);
 	return ret;
 	}
 
@@ -998,6 +1004,16 @@ int ssl_parse_clienthello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 	if (s->options & SSL_OP_SAFARI_ECDHE_ECDSA_BUG)
 		ssl_check_for_safari(s, data, d, n);
 #endif /* !OPENSSL_NO_EC */
+
+#ifndef OPENSSL_NO_SRP
+	if (s->srp_ctx.login != NULL)
+		{
+		OPENSSL_free(s->srp_ctx.login);
+		s->srp_ctx.login = NULL;
+		}
+#endif
+
+	s->srtp_profile = NULL;
 
 	if (data >= (d+n-2))
 		goto ri_check;
@@ -1152,8 +1168,7 @@ int ssl_parse_clienthello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 #endif
 
 #ifndef OPENSSL_NO_EC
-		else if (type == TLSEXT_TYPE_ec_point_formats &&
-	             s->version != DTLS1_VERSION)
+		else if (type == TLSEXT_TYPE_ec_point_formats)
 			{
 			unsigned char *sdata = data;
 			int ecpointformatlist_length = *(sdata++);
@@ -1187,15 +1202,16 @@ int ssl_parse_clienthello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 			fprintf(stderr,"\n");
 #endif
 			}
-		else if (type == TLSEXT_TYPE_elliptic_curves &&
-	             s->version != DTLS1_VERSION)
+		else if (type == TLSEXT_TYPE_elliptic_curves)
 			{
 			unsigned char *sdata = data;
 			int ellipticcurvelist_length = (*(sdata++) << 8);
 			ellipticcurvelist_length += (*(sdata++));
 
 			if (ellipticcurvelist_length != size - 2 ||
-				ellipticcurvelist_length < 1)
+				ellipticcurvelist_length < 1 ||
+				/* Each NamedCurve is 2 bytes. */
+				ellipticcurvelist_length & 1)
 				{
 				*al = TLS1_AD_DECODE_ERROR;
 				return 0;
@@ -1447,7 +1463,8 @@ int ssl_parse_clienthello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 
 		/* session ticket processed earlier */
 #ifndef OPENSSL_NO_SRTP
-		else if (type == TLSEXT_TYPE_use_srtp)
+		else if (SSL_IS_DTLS(s) && SSL_get_srtp_profiles(s)
+			 && type == TLSEXT_TYPE_use_srtp)
 			{
 			if(ssl_parse_clienthello_use_srtp_ext(s, data, size,
 							      al))
@@ -1508,6 +1525,7 @@ int ssl_parse_serverhello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 #ifndef OPENSSL_NO_NEXTPROTONEG
 	s->s3->next_proto_neg_seen = 0;
 #endif
+	s->tlsext_ticket_expected = 0;
 
 #ifndef OPENSSL_NO_HEARTBEATS
 	s->tlsext_heartbeat &= ~(SSL_TLSEXT_HB_ENABLED |
@@ -1547,8 +1565,7 @@ int ssl_parse_serverhello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 			}
 
 #ifndef OPENSSL_NO_EC
-		else if (type == TLSEXT_TYPE_ec_point_formats &&
-	             s->version != DTLS1_VERSION)
+		else if (type == TLSEXT_TYPE_ec_point_formats)
 			{
 			unsigned char *sdata = data;
 			int ecpointformatlist_length = *(sdata++);
@@ -1559,15 +1576,18 @@ int ssl_parse_serverhello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 				*al = TLS1_AD_DECODE_ERROR;
 				return 0;
 				}
-			s->session->tlsext_ecpointformatlist_length = 0;
-			if (s->session->tlsext_ecpointformatlist != NULL) OPENSSL_free(s->session->tlsext_ecpointformatlist);
-			if ((s->session->tlsext_ecpointformatlist = OPENSSL_malloc(ecpointformatlist_length)) == NULL)
+			if (!s->hit)
 				{
-				*al = TLS1_AD_INTERNAL_ERROR;
-				return 0;
+				s->session->tlsext_ecpointformatlist_length = 0;
+				if (s->session->tlsext_ecpointformatlist != NULL) OPENSSL_free(s->session->tlsext_ecpointformatlist);
+				if ((s->session->tlsext_ecpointformatlist = OPENSSL_malloc(ecpointformatlist_length)) == NULL)
+					{
+					*al = TLS1_AD_INTERNAL_ERROR;
+					return 0;
+					}
+				s->session->tlsext_ecpointformatlist_length = ecpointformatlist_length;
+				memcpy(s->session->tlsext_ecpointformatlist, sdata, ecpointformatlist_length);
 				}
-			s->session->tlsext_ecpointformatlist_length = ecpointformatlist_length;
-			memcpy(s->session->tlsext_ecpointformatlist, sdata, ecpointformatlist_length);
 #if 0
 			fprintf(stderr,"ssl_parse_serverhello_tlsext s->session->tlsext_ecpointformatlist ");
 			sdata = s->session->tlsext_ecpointformatlist;
@@ -1699,7 +1719,7 @@ int ssl_parse_serverhello_tlsext(SSL *s, unsigned char **p, unsigned char *d, in
 			}
 #endif
 #ifndef OPENSSL_NO_SRTP
-		else if (type == TLSEXT_TYPE_use_srtp)
+		else if (SSL_IS_DTLS(s) && type == TLSEXT_TYPE_use_srtp)
 			{
                         if(ssl_parse_serverhello_use_srtp_ext(s, data, size,
 							      al))
@@ -1800,7 +1820,7 @@ int ssl_prepare_clienthello_tlsext(SSL *s)
 		s->tlsext_ecpointformatlist[1] = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_prime;
 		s->tlsext_ecpointformatlist[2] = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_char2;
 
-		/* we support all named elliptic curves in draft-ietf-tls-ecc-12 */
+		/* we support all named elliptic curves in RFC 4492 */
 		if (s->tlsext_ellipticcurvelist != NULL) OPENSSL_free(s->tlsext_ellipticcurvelist);
 		s->tlsext_ellipticcurvelist_length = sizeof(pref_list)/sizeof(pref_list[0]) * 2;
 		if ((s->tlsext_ellipticcurvelist = OPENSSL_malloc(s->tlsext_ellipticcurvelist_length)) == NULL)
@@ -2348,7 +2368,10 @@ static int tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
 	HMAC_Final(&hctx, tick_hmac, NULL);
 	HMAC_CTX_cleanup(&hctx);
 	if (CRYPTO_memcmp(tick_hmac, etick + eticklen, mlen))
+		{
+		EVP_CIPHER_CTX_cleanup(&ctx);
 		return 2;
+		}
 	/* Attempt to decrypt session data */
 	/* Move p after IV to start of encrypted ticket, update length */
 	p = etick + 16 + EVP_CIPHER_CTX_iv_length(&ctx);
@@ -2361,7 +2384,11 @@ static int tls_decrypt_ticket(SSL *s, const unsigned char *etick, int eticklen,
 		}
 	EVP_DecryptUpdate(&ctx, sdec, &slen, p, eticklen);
 	if (EVP_DecryptFinal(&ctx, sdec + slen, &mlen) <= 0)
+		{
+		EVP_CIPHER_CTX_cleanup(&ctx);
+		OPENSSL_free(sdec);
 		return 2;
+		}
 	slen += mlen;
 	EVP_CIPHER_CTX_cleanup(&ctx);
 	p = sdec;

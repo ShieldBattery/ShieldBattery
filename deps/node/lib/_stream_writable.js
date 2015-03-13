@@ -27,8 +27,8 @@ module.exports = Writable;
 Writable.WritableState = WritableState;
 
 var util = require('util');
-var assert = require('assert');
 var Stream = require('stream');
+var Buffer = require('buffer').Buffer;
 
 util.inherits(Writable, Stream);
 

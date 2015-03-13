@@ -26,9 +26,9 @@ on port 8124:
 
     var net = require('net');
     var server = net.createServer(function(c) { //'connection' listener
-      console.log('server connected');
+      console.log('client connected');
       c.on('end', function() {
-        console.log('server disconnected');
+        console.log('client disconnected');
       });
       c.write('hello\r\n');
       c.pipe(c);
@@ -53,8 +53,12 @@ Use `nc` to connect to a UNIX domain socket server:
 ## net.connect(options, [connectionListener])
 ## net.createConnection(options, [connectionListener])
 
-Constructs a new socket object and opens the socket to the given location.
+A factory method, which returns a new ['net.Socket'](#net_class_net_socket)
+and connects to the supplied address and port.
+
 When the socket is established, the ['connect'][] event will be emitted.
+
+Has the same events as ['net.Socket'](#net_class_net_socket).
 
 For TCP sockets, `options` argument should be an object which specifies:
 
@@ -82,7 +86,7 @@ Here is an example of a client of echo server as described previously:
     var net = require('net');
     var client = net.connect({port: 8124},
         function() { //'connect' listener
-      console.log('client connected');
+      console.log('connected to server!');
       client.write('world!\r\n');
     });
     client.on('data', function(data) {
@@ -90,7 +94,7 @@ Here is an example of a client of echo server as described previously:
       client.end();
     });
     client.on('end', function() {
-      console.log('client disconnected');
+      console.log('disconnected from server');
     });
 
 To connect on the socket `/tmp/echo.sock` the second line would just be
@@ -106,12 +110,16 @@ Creates a TCP connection to `port` on `host`. If `host` is omitted,
 The `connectListener` parameter will be added as an listener for the
 ['connect'][] event.
 
+Is a factory method which returns a new ['net.Socket'](#net_class_net_socket).
+
 ## net.connect(path, [connectListener])
 ## net.createConnection(path, [connectListener])
 
 Creates unix socket connection to `path`.
 The `connectListener` parameter will be added as an listener for the
 ['connect'][] event.
+
+A factory method which returns a new ['net.Socket'](#net_class_net_socket).
 
 ## Class: net.Server
 

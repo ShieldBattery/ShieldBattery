@@ -51,6 +51,8 @@ var lists = {};
 // with them.
 function insert(item, msecs) {
   item._idleStart = Date.now();
+  item._monotonicStartTime = Timer.now();
+
   item._idleTimeout = msecs;
 
   if (msecs < 0) return;
@@ -80,12 +82,12 @@ function listOnTimeout() {
 
   debug('timeout callback ' + msecs);
 
-  var now = Date.now();
+  var now = Timer.now();
   debug('now: ' + now);
 
   var first;
   while (first = L.peek(list)) {
-    var diff = now - first._idleStart;
+    var diff = now - first._monotonicStartTime;
     if (diff < msecs) {
       list.start(msecs - diff, 0);
       debug(msecs + ' list wait because diff is ' + diff);
@@ -177,6 +179,7 @@ exports.active = function(item) {
       insert(item, msecs);
     } else {
       item._idleStart = Date.now();
+      item._monotonicStartTime = Timer.now();
       L.append(list, item);
     }
   }
@@ -282,19 +285,34 @@ var Timeout = function(after) {
   this._idlePrev = this;
   this._idleNext = this;
   this._idleStart = null;
+  this._monotonicStartTime = null;
   this._onTimeout = null;
   this._repeat = false;
 };
 
+
+function unrefdHandle() {
+  this.owner._onTimeout();
+  if (!this.owner._repeat)
+    this.owner.close();
+}
+
+
 Timeout.prototype.unref = function() {
   if (!this._handle) {
-    var now = Date.now();
-    if (!this._idleStart) this._idleStart = now;
-    var delay = this._idleStart + this._idleTimeout - now;
+
+    var nowMonotonic = Timer.now();
+    if (!this._idleStart || !this._monotonicStartTime) {
+      this._idleStart = Date.now();
+      this._monotonicStartTime = nowMonotonic;
+    }
+
+    var delay = this._monotonicStartTime + this._idleTimeout - nowMonotonic;
     if (delay < 0) delay = 0;
     exports.unenroll(this);
     this._handle = new Timer();
-    this._handle.ontimeout = this._onTimeout;
+    this._handle.owner = this;
+    this._handle.ontimeout = unrefdHandle;
     this._handle.start(delay, 0);
     this._handle.domain = this.domain;
     this._handle.unref();
@@ -386,45 +404,104 @@ exports.clearImmediate = function(immediate) {
 
 var unrefList, unrefTimer;
 
+function _makeTimerTimeout(timer) {
+  var domain = timer.domain;
+  var msecs = timer._idleTimeout;
+
+  // Timer has been unenrolled by another timer that fired at the same time,
+  // so don't make it timeout.
+  if (!msecs || msecs < 0)
+    return;
+
+  if (!timer._onTimeout)
+    return;
+
+  if (domain && domain._disposed)
+    return;
+
+  try {
+    var threw = true;
+
+    if (domain) domain.enter();
+
+    debug('unreftimer firing timeout');
+    L.remove(timer);
+    timer._onTimeout();
+
+    threw = false;
+
+    if (domain)
+      domain.exit();
+  } finally {
+    if (threw) process.nextTick(unrefTimeout);
+  }
+}
 
 function unrefTimeout() {
-  var now = Date.now();
+  var now = Timer.now();
 
   debug('unrefTimer fired');
 
-  var first;
-  while (first = L.peek(unrefList)) {
-    var diff = now - first._idleStart;
+  var timeSinceLastActive;
+  var nextTimeoutTime;
+  var nextTimeoutDuration;
+  var minNextTimeoutTime;
+  var timersToTimeout = [];
 
-    if (diff < first._idleTimeout) {
-      diff = first._idleTimeout - diff;
-      unrefTimer.start(diff, 0);
-      unrefTimer.when = now + diff;
-      debug('unrefTimer rescheudling for later');
-      return;
+  // The actual timer fired and has not yet been rearmed,
+  // let's consider its next firing time is invalid for now.
+  // It may be set to a relevant time in the future once
+  // we scanned through the whole list of timeouts and if
+  // we find a timeout that needs to expire.
+  unrefTimer.when = -1;
+
+  // Iterate over the list of timeouts,
+  // call the onTimeout callback for those expired,
+  // and rearm the actual timer if the next timeout to expire
+  // will expire before the current actual timer.
+  var cur = unrefList._idlePrev;
+  while (cur != unrefList) {
+    timeSinceLastActive = now - cur._monotonicStartTime;
+
+    if (timeSinceLastActive < cur._idleTimeout) {
+      // This timer hasn't expired yet, but check if its expiring time is
+      // earlier than the actual timer's expiring time
+
+      nextTimeoutDuration = cur._idleTimeout - timeSinceLastActive;
+      nextTimeoutTime = now + nextTimeoutDuration;
+      if (minNextTimeoutTime == null ||
+          (nextTimeoutTime < minNextTimeoutTime)) {
+        // We found a timeout that will expire earlier,
+        // store its next timeout time now so that we
+        // can rearm the actual timer accordingly when
+        // we scanned through the whole list.
+        minNextTimeoutTime = nextTimeoutTime;
+      }
+    } else {
+      // We found a timer that expired. Do not call its _onTimeout callback
+      // right now, as it could mutate any item of the list (including itself).
+      // Instead, add it to another list that will be processed once the list
+      // of current timers has been fully traversed.
+      timersToTimeout.push(cur);
     }
 
-    L.remove(first);
-
-    var domain = first.domain;
-
-    if (!first._onTimeout) continue;
-    if (domain && domain._disposed) continue;
-
-    try {
-      if (domain) domain.enter();
-      var threw = true;
-      debug('unreftimer firing timeout');
-      first._onTimeout();
-      threw = false;
-      if (domain) domain.exit();
-    } finally {
-      if (threw) process.nextTick(unrefTimeout);
-    }
+    cur = cur._idlePrev;
   }
 
-  debug('unrefList is empty');
-  unrefTimer.when = -1;
+  var nbTimersToTimeout = timersToTimeout.length;
+  for (var timerIdx = 0; timerIdx < nbTimersToTimeout; ++timerIdx)
+    _makeTimerTimeout(timersToTimeout[timerIdx]);
+
+
+  // Rearm the actual timer with the timeout delay
+  // of the earliest timeout found.
+  if (minNextTimeoutTime != null) {
+    unrefTimer.start(minNextTimeoutTime - now, 0);
+    unrefTimer.when = minNextTimeoutTime;
+    debug('unrefTimer rescheduled');
+  } else if (L.isEmpty(unrefList)) {
+    debug('unrefList is empty');
+  }
 }
 
 
@@ -447,41 +524,20 @@ exports._unrefActive = function(item) {
     unrefTimer.ontimeout = unrefTimeout;
   }
 
-  var now = Date.now();
-  item._idleStart = now;
+  var nowDate = Date.now();
+  var nowMonotonicTimestamp = Timer.now();
 
-  if (L.isEmpty(unrefList)) {
-    debug('unrefList empty');
-    L.append(unrefList, item);
+  item._idleStart = nowDate;
+  item._monotonicStartTime = nowMonotonicTimestamp;
 
+  var when = nowMonotonicTimestamp + msecs;
+
+  // If the actual timer is set to fire too late, or not set to fire at all,
+  // we need to make it fire earlier
+  if (unrefTimer.when === -1 || unrefTimer.when > when) {
     unrefTimer.start(msecs, 0);
-    unrefTimer.when = now + msecs;
+    unrefTimer.when = when;
     debug('unrefTimer scheduled');
-    return;
-  }
-
-  var when = now + msecs;
-
-  debug('unrefList find where we can insert');
-
-  var cur, them;
-
-  for (cur = unrefList._idlePrev; cur != unrefList; cur = cur._idlePrev) {
-    them = cur._idleStart + cur._idleTimeout;
-
-    if (when < them) {
-      debug('unrefList inserting into middle of list');
-
-      L.append(cur, item);
-
-      if (unrefTimer.when > when) {
-        debug('unrefTimer is scheduled to fire too late, reschedule');
-        unrefTimer.start(msecs, 0);
-        unrefTimer.when = when;
-      }
-
-      return;
-    }
   }
 
   debug('unrefList append to end');

@@ -23,6 +23,7 @@ var Transform = require('_stream_transform');
 
 var binding = process.binding('zlib');
 var util = require('util');
+var Buffer = require('buffer').Buffer;
 var assert = require('assert').ok;
 
 // zlib doesn't provide these, so kludge them in following the same
@@ -320,6 +321,7 @@ function Zlib(opts, mode) {
 util.inherits(Zlib, Transform);
 
 Zlib.prototype.reset = function reset() {
+  assert(!this._closed, 'zlib binding closed');
   return this._binding.reset();
 };
 
@@ -394,6 +396,8 @@ Zlib.prototype._transform = function(chunk, encoding, cb) {
   var availOutBefore = this._chunkSize - this._offset;
   var inOff = 0;
 
+  if (this._closed)
+    return cb(new Error('zlib binding closed'));
   var req = this._binding.write(flushFlag,
                                 chunk, // in
                                 inOff, // in_off
@@ -435,6 +439,7 @@ Zlib.prototype._transform = function(chunk, encoding, cb) {
       inOff += (availInBefore - availInAfter);
       availInBefore = availInAfter;
 
+      assert(!self._closed, 'zlib binding closed');
       var newReq = self._binding.write(flushFlag,
                                        chunk,
                                        inOff,

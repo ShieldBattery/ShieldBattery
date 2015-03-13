@@ -69,9 +69,13 @@ const char* root_certs[] = {
   NULL
 };
 
+bool SSL2_ENABLE = false;
+bool SSL3_ENABLE = false;
+
 namespace crypto {
 
 using namespace v8;
+
 
 // Forcibly clear OpenSSL's error stack on return. This stops stale errors
 // from popping up later in the lifecycle of crypto operations where they
@@ -263,11 +267,23 @@ Handle<Value> SecureContext::Init(const Arguments& args) {
       return ThrowException(Exception::Error(String::New("SSLv2 methods disabled")));
 #endif
     } else if (strcmp(*sslmethod, "SSLv3_method") == 0) {
+#ifndef OPENSSL_NO_SSL3
       method = SSLv3_method();
+#else
+      return ThrowException(Exception::Error(String::New("SSLv3 methods disabled")));
+#endif
     } else if (strcmp(*sslmethod, "SSLv3_server_method") == 0) {
+#ifndef OPENSSL_NO_SSL3
       method = SSLv3_server_method();
+#else
+      return ThrowException(Exception::Error(String::New("SSLv3 methods disabled")));
+#endif
     } else if (strcmp(*sslmethod, "SSLv3_client_method") == 0) {
+#ifndef OPENSSL_NO_SSL3
       method = SSLv3_client_method();
+#else
+      return ThrowException(Exception::Error(String::New("SSLv3 methods disabled")));
+#endif
     } else if (strcmp(*sslmethod, "SSLv23_method") == 0) {
       method = SSLv23_method();
     } else if (strcmp(*sslmethod, "SSLv23_server_method") == 0) {
@@ -655,7 +671,7 @@ Handle<Value> SecureContext::SetOptions(const Arguments& args) {
 
   SecureContext *sc = ObjectWrap::Unwrap<SecureContext>(args.Holder());
 
-  if (args.Length() != 1 || !args[0]->IntegerValue()) {
+  if (args.Length() != 1 && !args[0]->IsUint32()) {
     return ThrowException(Exception::TypeError(String::New("Bad parameter")));
   }
 
@@ -3984,6 +4000,8 @@ Handle<Value> PBKDF2(const Arguments& args) {
   if (args[4]->IsFunction()) {
     req->obj = Persistent<Object>::New(Object::New());
     req->obj->Set(String::New("ondone"), args[4]);
+    SetActiveDomain(req->obj);
+
     uv_queue_work(uv_default_loop(),
                   &req->work_req,
                   EIO_PBKDF2,
@@ -4111,6 +4129,7 @@ Handle<Value> RandomBytes(const Arguments& args) {
   if (args[1]->IsFunction()) {
     req->obj_ = Persistent<Object>::New(Object::New());
     req->obj_->Set(String::New("ondone"), args[1]);
+    SetActiveDomain(req->obj_);
 
     uv_queue_work(uv_default_loop(),
                   &req->work_req_,
@@ -4242,6 +4261,9 @@ void InitCrypto(Handle<Object> target) {
   name_symbol       = NODE_PSYMBOL("name");
   version_symbol    = NODE_PSYMBOL("version");
   ext_key_usage_symbol = NODE_PSYMBOL("ext_key_usage");
+
+  NODE_DEFINE_CONSTANT(target, SSL3_ENABLE);
+  NODE_DEFINE_CONSTANT(target, SSL2_ENABLE);
 }
 
 }  // namespace crypto

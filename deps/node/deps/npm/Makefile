@@ -1,6 +1,9 @@
 # vim: set softtabstop=2 shiftwidth=2:
 SHELL = bash
 
+PUBLISHTAG = $(shell node scripts/publish-tag.js)
+BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
+
 markdowns = $(shell find doc -name '*.md' | grep -v 'index') README.md
 
 html_docdeps = html/dochead.html \
@@ -69,7 +72,7 @@ dev: install
 link: uninstall
 	node cli.js link -f
 
-clean: ronnclean doc-clean uninstall
+clean: markedclean ronnclean doc-clean uninstall
 	rm -rf npmrc
 	node cli.js cache clean
 
@@ -78,12 +81,16 @@ uninstall:
 
 doc: $(mandocs) $(htmldocs)
 
+markedclean:
+	rm -rf node_modules/marked node_modules/.bin/marked .building_marked
+
 ronnclean:
 	rm -rf node_modules/ronn node_modules/.bin/ronn .building_ronn
 
 docclean: doc-clean
 doc-clean:
 	rm -rf \
+    .building_marked \
     .building_ronn \
     html/doc \
     html/api \
@@ -149,6 +156,10 @@ html/doc/misc/%.html: doc/misc/%.md $(html_docdeps)
 	scripts/doc-build.sh $< $@
 
 
+marked: node_modules/.bin/marked
+
+node_modules/.bin/marked:
+	node cli.js install marked --no-global
 
 ronn: node_modules/.bin/ronn
 
@@ -162,44 +173,15 @@ man: $(cli_docs) $(api_docs)
 test: doc
 	node cli.js test
 
+tag:
+	npm tag npm@$(PUBLISHTAG) latest
+
 publish: link doc
 	@git push origin :v$(shell npm -v) 2>&1 || true
-	@npm unpublish npm@$(shell npm -v) 2>&1 || true
 	git clean -fd &&\
-	git push origin &&\
+	git push origin $(BRANCH) &&\
 	git push origin --tags &&\
-	npm publish &&\
-	make doc-publish
-
-docpublish: doc-publish
-doc-publish: doc
-	# legacy urls
-	for f in $$(find html/doc/{cli,files,misc}/ -name '*.html'); do \
-    j=$$(basename $$f | sed 's|^npm-||g'); \
-    if ! [ -f html/doc/$$j ] && [ $$j != README.html ] && [ $$j != index.html ]; then \
-      perl -pi -e 's/ href="\.\.\// href="/g' <$$f >html/doc/$$j; \
-    fi; \
-  done
-	mkdir -p html/api
-	for f in $$(find html/doc/api/ -name '*.html'); do \
-    j=$$(basename $$f | sed 's|^npm-||g'); \
-    perl -pi -e 's/ href="\.\.\// href="/g' <$$f >html/api/$$j; \
-  done
-	rsync -vazu --stats --no-implied-dirs --delete \
-    html/doc/* \
-    ../npm-www/doc
-	rsync -vazu --stats --no-implied-dirs --delete \
-    html/static/style.css \
-    ../npm-www/static/
-	#cleanup
-	rm -rf html/api
-	for f in html/doc/*.html; do \
-    case $$f in \
-      html/doc/README.html) continue ;; \
-      html/doc/index.html) continue ;; \
-      *) rm $$f ;; \
-    esac; \
-  done
+	npm publish --tag=$(PUBLISHTAG)
 
 release:
 	@bash scripts/release.sh
@@ -207,4 +189,4 @@ release:
 sandwich:
 	@[ $$(whoami) = "root" ] && (echo "ok"; echo "ham" > sandwich) || (echo "make it yourself" && exit 13)
 
-.PHONY: all latest install dev link doc clean uninstall test man doc-publish doc-clean docclean docpublish release
+.PHONY: all latest install dev link doc clean uninstall test man doc-clean docclean release

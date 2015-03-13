@@ -1,8 +1,139 @@
-2014.06.05, Version 0.10.29 (Stable)
+2015.01.26, Version 0.10.36 (Stable)
+
+* openssl: update to 1.0.1l
+
+* v8: Fix debugger and strict mode regression (Julien Gilli)
+
+* v8: don't busy loop in cpu profiler thread (Ben Noordhuis)
+
+
+2014.12.22, Version 0.10.35 (Stable), a363f61ca839e817eb6853c5dc5af8c3b9b9226b
+
+* tls: re-add 1024-bit SSL certs removed by f9456a2 (Chris Dickinson)
+
+* timers: don't close interval timers when unrefd (Julien Gilli)
+
+* timers: don't mutate unref list while iterating it (Julien Gilli)
+
+
+2014.12.17, Version 0.10.34 (Stable), 52795f8fcc2de77cf997e671ea58614e5e425dfe
+
+* uv: update to v0.10.30
+
+* zlib: upgrade to v1.2.8
+
+* child_process: check execFile args is an array (Sam Roberts)
+
+* child_process: check fork args is an array (Sam Roberts)
+
+* crypto: update root certificates (Ben Noordhuis)
+
+* domains: fix issues with abort on uncaught (Julien Gilli)
+
+* timers: Avoid linear scan in _unrefActive. (Julien Gilli)
+
+* timers: fix unref() memory leak (Trevor Norris)
+
+* v8: add api for aborting on uncaught exception (Julien Gilli)
+
+* debugger: fix when using "use strict" (Julien Gilli)
+
+
+2014.10.20, Version 0.10.33 (Stable), 8d045a30e95602b443eb259a5021d33feb4df079
+
+* openssl: Update to 1.0.1j (Addressing multiple CVEs)
+
+* uv: Update to v0.10.29
+
+* child_process: properly support optional args (cjihrig)
+
+* crypto: Disable autonegotiation for SSLv2/3 by default (Fedor Indutny,
+	Timothy J Fontaine, Alexis Campailla)
+
+	This is a behavior change, by default we will not allow the negotiation to
+	SSLv2 or SSLv3. If you want this behavior, run Node.js with either
+	`--enable-ssl2` or `--enable-ssl3` respectively.
+
+	This does not change the behavior for users specifically requesting
+	`SSLv2_method` or `SSLv3_method`. While this behavior is not advised, it is
+	assumed you know what you're doing since you're specifically asking to use
+	these methods.
+
+
+2014.09.16, Version 0.10.32 (Stable), 0fe0d121551593c23a565db8397f85f17bb0f00e
+
+* npm: Update to 1.4.28
+
+* v8: fix a crash introduced by previous release (Fedor Indutny)
+
+* configure: add --openssl-no-asm flag (Fedor Indutny)
+
+* crypto: use domains for any callback-taking method (Chris Dickinson)
+
+* http: do not send `0\r\n\r\n` in TE HEAD responses (Fedor Indutny)
+
+* querystring: fix unescape override (Tristan Berger)
+
+* url: Add support for RFC 3490 separators (Mathias Bynens)
+
+
+2014.08.19, Version 0.10.31 (Stable), 7fabdc23d843cb705d2d0739e7bbdaaf50aa3292
+
+* v8: backport CVE-2013-6668
+
+* openssl: Update to v1.0.1i
+
+* npm: Update to v1.4.23
+
+* cluster: disconnect should not be synchronous (Sam Roberts)
+
+* fs: fix fs.readFileSync fd leak when get RangeError (Jackson Tian)
+
+* stream: fix Readable.wrap objectMode falsy values (James Halliday)
+
+* timers: fix timers with non-integer delay hanging. (Julien Gilli)
+
+
+2014.07.31, Version 0.10.30 (Stable), bc0ff830aff1e016163d855e86ded5c98b0899e8
+
+* uv: Upgrade to v0.10.28
+
+* npm: Upgrade to v1.4.21
+
+* v8: Interrupts must not mask stack overflow.
+
+* Revert "stream: start old-mode read in a next tick" (Fedor Indutny)
+
+* buffer: fix sign overflow in `readUIn32BE` (Fedor Indutny)
+
+* buffer: improve {read,write}{U}Int* methods (Nick Apperson)
+
+* child_process: handle writeUtf8String error (Fedor Indutny)
+
+* deps: backport 4ed5fde4f from v8 upstream (Fedor Indutny)
+
+* 
+
+* lib: remove and restructure calls to isNaN() (cjihrig)
+
+* module: eliminate double `getenv()` (Maciej Małecki)
+
+* stream2: flush extant data on read of ended stream (Chris Dickinson)
+
+* streams: remove unused require('assert') (Rod Vagg)
+
+* timers: backport f8193ab (Julien Gilli)
+
+* util.h: interface compatibility (Oguz Bastemur)
+
+* zlib: do not crash on write after close (Fedor Indutny)
+
+
+2014.06.05, Version 0.10.29 (Stable), ce82d6b8474bde7ac7df6d425fb88fb1bcba35bc
 
 * openssl: to 1.0.1h (CVE-2014-0224)
 
-* npm: upgrade to 1.4.10
+* npm: upgrade to 1.4.14
 
 * utf8: Prevent Node from sending invalid UTF-8 (Felix Geisendörfer)
   - *NOTE* this introduces a breaking change, previously you could construct

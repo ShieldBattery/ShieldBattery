@@ -194,6 +194,7 @@
           },
           'defines': [
             '_DARWIN_USE_64_BIT_INODE=1',
+            '_DARWIN_UNLIMITED_SELECT=1',
           ]
         }],
         [ 'OS!="mac"', {
@@ -322,6 +323,7 @@
         'test/test-platform-output.c',
         'test/test-poll.c',
         'test/test-poll-close.c',
+        'test/test-poll-closesocket.c',
         'test/test-process-title.c',
         'test/test-ref.c',
         'test/test-run-nowait.c',

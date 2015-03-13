@@ -692,6 +692,9 @@ class Isolate {
       int frame_limit,
       StackTrace::StackTraceOptions options);
 
+  typedef bool (*abort_on_uncaught_exception_t)();
+  void SetAbortOnUncaughtException(abort_on_uncaught_exception_t callback);
+
   // Tells whether the current context has experienced an out of memory
   // exception.
   bool is_out_of_memory();
@@ -1292,6 +1295,8 @@ class Isolate {
   DeferredHandles* deferred_handles_head_;
   OptimizingCompilerThread optimizing_compiler_thread_;
 
+  abort_on_uncaught_exception_t abort_on_uncaught_exception_callback_;
+
   friend class ExecutionAccess;
   friend class HandleScopeImplementer;
   friend class IsolateInitializer;
@@ -1392,14 +1397,9 @@ class StackLimitCheck BASE_EMBEDDED {
  public:
   explicit StackLimitCheck(Isolate* isolate) : isolate_(isolate) { }
 
-  bool HasOverflowed() const {
+  inline bool HasOverflowed() const {
     StackGuard* stack_guard = isolate_->stack_guard();
-    // Stack has overflowed in C++ code only if stack pointer exceeds the C++
-    // stack guard and the limits are not set to interrupt values.
-    // TODO(214): Stack overflows are ignored if a interrupt is pending. This
-    // code should probably always use the initial C++ limit.
-    return (reinterpret_cast<uintptr_t>(this) < stack_guard->climit()) &&
-           stack_guard->IsStackOverflow();
+    return reinterpret_cast<uintptr_t>(this) < stack_guard->real_climit();
   }
  private:
   Isolate* isolate_;

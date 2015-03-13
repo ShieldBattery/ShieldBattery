@@ -183,6 +183,8 @@ descriptor) has been closed. Not all streams will emit this.
 
 #### Event: 'error'
 
+* {Error Object}
+
 Emitted if there was an error receiving data.
 
 #### readable.read([size])
@@ -519,11 +521,10 @@ Calling [`write()`][] after calling [`end()`][] will raise an error.
 
 ```javascript
 // write 'hello, ' and then end with 'world!'
-http.createServer(function (req, res) {
-  res.write('hello, ');
-  res.end('world!');
-  // writing more now is not allowed!
-});
+var file = fs.createWriteStream('example.txt');
+file.write('hello, ');
+file.end('world!');
+// writing more now is not allowed!
 ```
 
 #### Event: 'finish'
@@ -578,6 +579,8 @@ reader.unpipe(writer);
 ```
 
 #### Event: 'error'
+
+* {Error object}
 
 Emitted if there was an error when writing or piping data.
 
@@ -1067,7 +1070,7 @@ initialized.
 * `encoding` {String} If the chunk is a string, then this is the
   encoding type.  (Ignore if `decodeStrings` chunk is a buffer.)
 * `callback` {Function} Call this function (optionally with an error
-  argument) when you are done processing the supplied chunk.
+  argument and data) when you are done processing the supplied chunk.
 
 Note: **This function MUST NOT be called directly.**  It should be
 implemented by child classes, and called by the internal Transform
@@ -1087,7 +1090,20 @@ as a result of this chunk.
 
 Call the callback function only when the current chunk is completely
 consumed.  Note that there may or may not be output as a result of any
-particular input chunk.
+particular input chunk. If you supply as the second argument to the
+it will be passed to push method, in other words the following are
+equivalent:
+
+```javascript
+transform.prototype._transform = function (data, encoding, callback) {
+  this.push(data);
+  callback();
+}
+
+transform.prototype._transform = function (data, encoding, callback) {
+  callback(null, data);
+}
+```
 
 This method is prefixed with an underscore because it is internal to
 the class that defines it, and should not be called directly by user

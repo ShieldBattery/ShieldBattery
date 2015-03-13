@@ -82,6 +82,7 @@ typedef int mode_t;
 #include "node_script.h"
 #include "v8_typed_array.h"
 
+#include "node_crypto.h"
 #include "util.h"
 
 using namespace v8;
@@ -125,6 +126,7 @@ static Persistent<String> enter_symbol;
 static Persistent<String> exit_symbol;
 static Persistent<String> disposed_symbol;
 
+static Persistent<String> emitting_toplevel_domain_error_symbol;
 
 static bool print_eval = false;
 static bool force_repl = false;
@@ -903,6 +905,20 @@ Handle<Value> FromConstructorTemplate(Persistent<FunctionTemplate> t,
   return scope.Close(t->GetFunction()->NewInstance(argc, argv));
 }
 
+static bool IsDomainActive() {
+  if (domain_symbol.IsEmpty())
+    domain_symbol = NODE_PSYMBOL("domain");
+
+  Local<Value> domain_v = process->Get(domain_symbol);
+
+  return domain_v->IsObject();
+}
+
+bool ShouldAbortOnUncaughtException() {
+  Local<Value> emitting_toplevel_domain_error_v =
+    process->Get(emitting_toplevel_domain_error_symbol);
+  return !IsDomainActive() || emitting_toplevel_domain_error_v->BooleanValue();
+}
 
 Handle<Value> UsingDomains(const Arguments& args) {
   HandleScope scope;
@@ -2436,6 +2452,11 @@ Handle<Object> SetupProcessObject(int argc, char *argv[]) {
   // pre-set _events object for faster emit checks
   process->Set(String::NewSymbol("_events"), Object::New());
 
+  if (emitting_toplevel_domain_error_symbol.IsEmpty())
+    emitting_toplevel_domain_error_symbol =
+      NODE_PSYMBOL("_emittingTopLevelDomainError");
+  process->Set(emitting_toplevel_domain_error_symbol, False());
+
   return process;
 }
 
@@ -2543,6 +2564,8 @@ static void PrintHelp() {
          "  --trace-deprecation  show stack traces on deprecations\n"
          "  --v8-options         print v8 command line options\n"
          "  --max-stack-size=val set max v8 stack size (bytes)\n"
+         "  --enable-ssl2        enable ssl2\n"
+         "  --enable-ssl3        enable ssl3\n"
          "\n"
          "Environment variables:\n"
 #ifdef _WIN32
@@ -2575,6 +2598,12 @@ static void ParseArgs(int argc, char **argv) {
       const char *p = 0;
       p = 1 + strchr(arg, '=');
       max_stack_size = atoi(p);
+      argv[i] = const_cast<char*>("");
+    } else if (strcmp(arg, "--enable-ssl2") == 0) {
+      SSL2_ENABLE = true;
+      argv[i] = const_cast<char*>("");
+    } else if (strcmp(arg, "--enable-ssl3") == 0) {
+      SSL3_ENABLE = true;
       argv[i] = const_cast<char*>("");
     } else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
       PrintHelp();
@@ -2950,6 +2979,7 @@ char** Init(int argc, char *argv[]) {
   // Fetch a reference to the main isolate, so we have a reference to it
   // even when we need it to access it from another (debugger) thread.
   node_isolate = Isolate::GetCurrent();
+  node_isolate->SetAbortOnUncaughtException(ShouldAbortOnUncaughtException);
 
   // If the --debug flag was specified then initialize the debug thread.
   if (use_debug_agent) {
@@ -3044,6 +3074,7 @@ static char **copy_argv(int argc, char **argv) {
 
   return argv_copy;
 }
+
 
 int Start(int argc, char *argv[]) {
   const char* replaceInvalid = getenv("NODE_INVALID_UTF8");

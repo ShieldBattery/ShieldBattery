@@ -26,7 +26,10 @@ var url = require('url');
 var events = require('events');
 var stream = require('stream');
 var assert = require('assert').ok;
+var Buffer = require('buffer').Buffer;
 var constants = require('constants');
+
+var Timer = process.binding('timer_wrap').Timer;
 
 var DEFAULT_CIPHERS = 'ECDHE-RSA-AES128-SHA256:AES128-GCM-SHA256:' + // TLS 1.2
                       'RC4:HIGH:!MD5:!aNULL:!EDH';                   // TLS 1.0
@@ -790,7 +793,7 @@ function onhandshakestart() {
 
   var self = this;
   var ssl = self.ssl;
-  var now = Date.now();
+  var now = Timer.now();
 
   assert(now >= ssl.lastHandshakeTime);
 
@@ -1143,7 +1146,12 @@ function Server(/* [options], listener */) {
 
   // constructor call
   net.Server.call(this, function(socket) {
-    var creds = crypto.createCredentials(null, sharedCreds.context);
+    var connOps = {
+      secureProtocol: self.secureProtocol,
+      secureOptions: self.secureOptions
+    };
+
+    var creds = crypto.createCredentials(connOps, sharedCreds.context);
 
     var pair = new SecurePair(creds,
                               true,
@@ -1237,11 +1245,16 @@ Server.prototype.setOptions = function(options) {
   if (options.secureProtocol) this.secureProtocol = options.secureProtocol;
   if (options.crl) this.crl = options.crl;
   if (options.ciphers) this.ciphers = options.ciphers;
-  var secureOptions = options.secureOptions || 0;
+
+  var secureOptions = crypto._getSecureOptions(options.secureProtocol,
+                                               options.secureOptions);
+
   if (options.honorCipherOrder) {
     secureOptions |= constants.SSL_OP_CIPHER_SERVER_PREFERENCE;
   }
-  if (secureOptions) this.secureOptions = secureOptions;
+
+  this.secureOptions = secureOptions;
+
   if (options.NPNProtocols) convertNPNProtocols(options.NPNProtocols, this);
   if (options.SNICallback) {
     this.SNICallback = options.SNICallback;
@@ -1323,6 +1336,9 @@ exports.connect = function(/* [port, host], options, cb */) {
     rejectUnauthorized: '0' !== process.env.NODE_TLS_REJECT_UNAUTHORIZED
   };
   options = util._extend(defaults, options || {});
+
+  options.secureOptions = crypto._getSecureOptions(options.secureProtocol,
+                                                   options.secureOptions);
 
   var socket = options.socket ? options.socket : new net.Stream();
 

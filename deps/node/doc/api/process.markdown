@@ -116,7 +116,7 @@ emulation with `process.kill()`, and `child_process.kill()`:
 
 ## process.stdout
 
-A `Writable Stream` to `stdout`.
+A `Writable Stream` to `stdout` (on fd `1`).
 
 Example: the definition of `console.log`
 
@@ -150,7 +150,7 @@ See [the tty docs](tty.html#tty_tty) for more information.
 
 ## process.stderr
 
-A writable stream to stderr.
+A writable stream to stderr (on fd `2`).
 
 `process.stderr` and `process.stdout` are unlike other streams in Node in
 that writes to them are usually blocking.
@@ -164,7 +164,7 @@ that writes to them are usually blocking.
 
 ## process.stdin
 
-A `Readable Stream` for stdin. 
+A `Readable Stream` for stdin (on fd `0`).
 
 Example of opening standard input and listening for both events:
 
@@ -275,6 +275,29 @@ Returns the current working directory of the process.
 ## process.env
 
 An object containing the user environment. See environ(7).
+
+An example of this object looks like:
+
+    { TERM: 'xterm-256color',
+      SHELL: '/usr/local/bin/bash',
+      USER: 'maciej',
+      PATH: '~/.bin/:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin',
+      PWD: '/Users/maciej',
+      EDITOR: 'vim',
+      SHLVL: '1',
+      HOME: '/Users/maciej',
+      LOGNAME: 'maciej',
+      _: '/usr/local/bin/node' }
+
+You can write to this object, but changes won't be reflected outside of your
+process. That means that the following won't work:
+
+    node -e 'process.env.foo = "bar"' && echo $foo
+
+But this will:
+
+    process.env.foo = 'bar';
+    console.log(process.env.foo);
 
 
 ## process.exit([code])

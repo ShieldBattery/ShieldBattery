@@ -24,6 +24,7 @@ var net = require('net');
 var Stream = require('stream');
 var timers = require('timers');
 var url = require('url');
+var Buffer = require('buffer').Buffer;
 var EventEmitter = require('events').EventEmitter;
 var FreeList = require('freelist').FreeList;
 var HTTPParser = process.binding('http_parser').HTTPParser;
@@ -945,6 +946,10 @@ OutgoingMessage.prototype.end = function(data, encoding) {
   if (encoding === 'hex' || encoding === 'base64')
     hot = false;
 
+  // Transfer-encoding: chunked responses to HEAD requests
+  if (this._hasBody && this.chunkedEncoding)
+    hot = false;
+
   if (hot) {
     // Hot path. They're doing
     //   res.writeHead();
@@ -982,7 +987,7 @@ OutgoingMessage.prototype.end = function(data, encoding) {
   }
 
   if (!hot) {
-    if (this.chunkedEncoding) {
+    if (this._hasBody && this.chunkedEncoding) {
       ret = this._send('0\r\n' + this._trailer + '\r\n', 'ascii');
     } else {
       // Force a flush, HACK.
@@ -2078,7 +2083,7 @@ function connectionListener(socket) {
       // if the user never called req.read(), and didn't pipe() or
       // .resume() or .on('data'), then we call req._dump() so that the
       // bytes will be pulled off the wire.
-      if (!req._consuming && !req._readableState.oldMode)
+      if (!req._consuming)
         req._dump();
 
       res.detachSocket(socket);

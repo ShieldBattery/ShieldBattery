@@ -37,6 +37,8 @@ try {
   var crypto = false;
 }
 
+var constants = process.binding('constants');
+
 var stream = require('stream');
 var util = require('util');
 
@@ -56,6 +58,33 @@ function toBuf(str, encoding) {
 
 var assert = require('assert');
 var StringDecoder = require('string_decoder').StringDecoder;
+
+var CONTEXT_DEFAULT_OPTIONS = undefined;
+
+function getSecureOptions(secureProtocol, secureOptions) {
+  if (CONTEXT_DEFAULT_OPTIONS === undefined) {
+    CONTEXT_DEFAULT_OPTIONS = 0;
+
+    if (!binding.SSL3_ENABLE)
+      CONTEXT_DEFAULT_OPTIONS |= constants.SSL_OP_NO_SSLv3;
+
+    if (!binding.SSL2_ENABLE)
+      CONTEXT_DEFAULT_OPTIONS |= constants.SSL_OP_NO_SSLv2;
+  }
+
+  if (secureOptions === undefined) {
+    if (secureProtocol === undefined ||
+        secureProtocol === 'SSLv23_method' ||
+        secureProtocol === 'SSLv23_server_method' ||
+        secureProtocol === 'SSLv23_client_method') {
+      secureOptions |= CONTEXT_DEFAULT_OPTIONS;
+    }
+  }
+
+  return secureOptions;
+}
+exports._getSecureOptions = getSecureOptions;
+
 
 function Credentials(secureProtocol, flags, context) {
   if (!(this instanceof Credentials)) {
@@ -78,7 +107,9 @@ function Credentials(secureProtocol, flags, context) {
     }
   }
 
-  if (flags) this.context.setOptions(flags);
+  flags = getSecureOptions(secureProtocol, flags);
+
+  this.context.setOptions(flags);
 }
 
 exports.Credentials = Credentials;

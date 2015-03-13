@@ -26,6 +26,20 @@
 #include "string_bytes.h"
 
 namespace node {
+// defined in node.cc
+extern v8::Persistent<v8::String> process_symbol;
+extern v8::Persistent<v8::String> domain_symbol;
+
+inline void SetActiveDomain(v8::Persistent<v8::Object> obj) {
+  assert(!process_symbol.IsEmpty());
+  assert(!domain_symbol.IsEmpty());
+  v8::Local<v8::Value> domain = v8::Context::GetCurrent()
+         ->Global()
+         ->Get(process_symbol)
+         ->ToObject()
+         ->Get(domain_symbol);
+  obj->Set(domain_symbol, domain);
+}
 
 class Utf8Value {
   public:
@@ -64,7 +78,7 @@ class Utf8Value {
       return str_;
     };
 
-    size_t length() {
+    size_t length() const {
       return length_;
     };
 

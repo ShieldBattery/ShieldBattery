@@ -55,8 +55,6 @@
       'lib/util.js',
       'lib/vm.js',
       'lib/zlib.js',
-      # Added for running embedded script on startup, embedders should modify this
-      'lib/_third_party_main.js',
     ],
   },
 
@@ -151,7 +149,25 @@
           'sources': [ 'src/node_crypto.cc' ],
           'conditions': [
             [ 'node_shared_openssl=="false"', {
-              'dependencies': [ './deps/openssl/openssl.gyp:openssl' ],
+              'dependencies': [
+                './deps/openssl/openssl.gyp:openssl',
+
+                # For tests
+                './deps/openssl/openssl.gyp:openssl-cli',
+              ],
+              # Do not let unused OpenSSL symbols to slip away
+              'xcode_settings': {
+                'OTHER_LDFLAGS': [
+                  '-Wl,-force_load,<(PRODUCT_DIR)/libopenssl.a',
+                ],
+              },
+              'conditions': [
+                ['OS in "linux freebsd"', {
+                  'ldflags': [
+                    '-Wl,--whole-archive <(PRODUCT_DIR)/libopenssl.a -Wl,--no-whole-archive',
+                  ],
+                }],
+              ],
             }]]
         }, {
           'defines': [ 'HAVE_OPENSSL=0' ]
@@ -273,6 +289,14 @@
             'PLATFORM="darwin"',
           ],
         }],
+        [ 'OS=="mac" and v8_postmortem_support=="true"', {
+          # Do not let `v8dbg_` symbols slip away
+          'xcode_settings': {
+            'OTHER_LDFLAGS': [
+              '-Wl,-force_load,<(V8_BASE)',
+            ],
+          },
+        }],
         [ 'OS=="freebsd"', {
           'libraries': [
             '-lutil',
@@ -294,7 +318,7 @@
           ],
         }],
         [
-          'OS=="linux" and node_shared_v8=="false"', {
+          'OS in "linux freebsd" and node_shared_v8=="false"', {
             'ldflags': [
               '-Wl,--whole-archive <(V8_BASE) -Wl,--no-whole-archive',
             ],

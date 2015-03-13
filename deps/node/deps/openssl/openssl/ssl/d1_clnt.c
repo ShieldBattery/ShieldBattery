@@ -249,6 +249,9 @@ int dtls1_connect(SSL *s)
 			memset(s->s3->client_random,0,sizeof(s->s3->client_random));
 			s->d1->send_cookie = 0;
 			s->hit = 0;
+			s->d1->change_cipher_spec_ok = 0;
+			/* Should have been reset by ssl3_get_finished, too. */
+			s->s3->change_cipher_spec = 0;
 			break;
 
 #ifndef OPENSSL_NO_SCTP
@@ -370,20 +373,6 @@ int dtls1_connect(SSL *s)
 
 		case SSL3_ST_CR_CERT_A:
 		case SSL3_ST_CR_CERT_B:
-#ifndef OPENSSL_NO_TLSEXT
-			ret=ssl3_check_finished(s);
-			if (ret <= 0) goto end;
-			if (ret == 2)
-				{
-				s->hit = 1;
-				if (s->tlsext_ticket_expected)
-					s->state=SSL3_ST_CR_SESSION_TICKET_A;
-				else
-					s->state=SSL3_ST_CR_FINISHED_A;
-				s->init_num=0;
-				break;
-				}
-#endif
 			/* Check if it is anon DH or PSK */
 			if (!(s->s3->tmp.new_cipher->algorithm_auth & SSL_aNULL) &&
 			    !(s->s3->tmp.new_cipher->algorithm_mkey & SSL_kPSK))
@@ -506,7 +495,6 @@ int dtls1_connect(SSL *s)
 				else
 #endif
 					s->state=SSL3_ST_CW_CHANGE_A;
-				s->s3->change_cipher_spec=0;
 				}
 
 			s->init_num=0;
@@ -527,7 +515,6 @@ int dtls1_connect(SSL *s)
 #endif
 				s->state=SSL3_ST_CW_CHANGE_A;
 			s->init_num=0;
-			s->s3->change_cipher_spec=0;
 			break;
 
 		case SSL3_ST_CW_CHANGE_A:
@@ -876,12 +863,18 @@ int dtls1_client_hello(SSL *s)
 		*(p++)=0; /* Add the NULL method */
 
 #ifndef OPENSSL_NO_TLSEXT
+		/* TLS extensions*/
+		if (ssl_prepare_clienthello_tlsext(s) <= 0)
+			{
+			SSLerr(SSL_F_DTLS1_CLIENT_HELLO,SSL_R_CLIENTHELLO_TLSEXT);
+			goto err;
+			}
 		if ((p = ssl_add_clienthello_tlsext(s, p, buf+SSL3_RT_MAX_PLAIN_LENGTH)) == NULL)
 			{
 			SSLerr(SSL_F_DTLS1_CLIENT_HELLO,ERR_R_INTERNAL_ERROR);
 			goto err;
 			}
-#endif		
+#endif
 
 		l=(p-d);
 		d=buf;
@@ -989,6 +982,13 @@ int dtls1_send_client_key_exchange(SSL *s)
 			{
 			RSA *rsa;
 			unsigned char tmp_buf[SSL_MAX_MASTER_KEY_LENGTH];
+
+			if (s->session->sess_cert == NULL)
+				{
+				/* We should always have a server certificate with SSL_kRSA. */
+				SSLerr(SSL_F_DTLS1_SEND_CLIENT_KEY_EXCHANGE,ERR_R_INTERNAL_ERROR);
+				goto err;
+				}
 
 			if (s->session->sess_cert->peer_rsa_tmp != NULL)
 				rsa=s->session->sess_cert->peer_rsa_tmp;
@@ -1180,6 +1180,13 @@ int dtls1_send_client_key_exchange(SSL *s)
 			{
 			DH *dh_srvr,*dh_clnt;
 
+			if (s->session->sess_cert == NULL)
+				{
+				ssl3_send_alert(s,SSL3_AL_FATAL,SSL_AD_UNEXPECTED_MESSAGE);
+				SSLerr(SSL_F_DTLS1_SEND_CLIENT_KEY_EXCHANGE,SSL_R_UNEXPECTED_MESSAGE);
+				goto err;
+				}
+
 			if (s->session->sess_cert->peer_dh_tmp != NULL)
 				dh_srvr=s->session->sess_cert->peer_dh_tmp;
 			else
@@ -1238,6 +1245,13 @@ int dtls1_send_client_key_exchange(SSL *s)
 			EC_KEY *tkey;
 			int ecdh_clnt_cert = 0;
 			int field_size = 0;
+
+			if (s->session->sess_cert == NULL)
+				{
+				ssl3_send_alert(s,SSL3_AL_FATAL,SSL_AD_UNEXPECTED_MESSAGE);
+				SSLerr(SSL_F_DTLS1_SEND_CLIENT_KEY_EXCHANGE,SSL_R_UNEXPECTED_MESSAGE);
+				goto err;
+				}
 
 			/* Did we send out the client's
 			 * ECDH share for use in premaster
@@ -1703,6 +1717,12 @@ int dtls1_send_client_certificate(SSL *s)
 		s->state=SSL3_ST_CW_CERT_D;
 		l=dtls1_output_cert_chain(s,
 			(s->s3->tmp.cert_req == 2)?NULL:s->cert->key->x509);
+		if (!l)
+			{
+			SSLerr(SSL_F_DTLS1_SEND_CLIENT_CERTIFICATE, ERR_R_INTERNAL_ERROR);
+			ssl3_send_alert(s,SSL3_AL_FATAL,SSL_AD_INTERNAL_ERROR);
+			return 0;
+			}
 		s->init_num=(int)l;
 		s->init_off=0;
 
@@ -1714,5 +1734,3 @@ int dtls1_send_client_certificate(SSL *s)
 	/* SSL3_ST_CW_CERT_D */
 	return(dtls1_do_write(s,SSL3_RT_HANDSHAKE));
 	}
-
-

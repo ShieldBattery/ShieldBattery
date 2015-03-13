@@ -31,6 +31,7 @@ var pathModule = require('path');
 var binding = process.binding('fs');
 var constants = process.binding('constants');
 var fs = exports;
+var Buffer = require('buffer').Buffer;
 var Stream = require('stream').Stream;
 var EventEmitter = require('events').EventEmitter;
 
@@ -304,7 +305,13 @@ fs.readFileSync = function(path, options) {
   if (size === 0) {
     buffers = [];
   } else {
-    buffer = new Buffer(size);
+    var threw = true;
+    try {
+      buffer = new Buffer(size);
+      threw = false;
+    } finally {
+      if (threw) fs.closeSync(fd);
+    }
   }
 
   var done = false;

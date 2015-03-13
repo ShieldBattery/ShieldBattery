@@ -24,6 +24,7 @@
 
 // UTILITY
 var util = require('util');
+var b = require('buffer');
 var pSlice = Array.prototype.slice;
 
 // 1. The assert module provides functions that throw
@@ -54,7 +55,7 @@ function replacer(key, value) {
   if (value === undefined) {
     return '' + value;
   }
-  if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+  if (typeof value === 'number' && !isFinite(value)) {
     return value.toString();
   }
   if (typeof value === 'function' || value instanceof RegExp) {
@@ -144,7 +145,7 @@ function _deepEqual(actual, expected) {
   if (actual === expected) {
     return true;
 
-  } else if (Buffer.isBuffer(actual) && Buffer.isBuffer(expected)) {
+  } else if (b.Buffer.isBuffer(actual) && b.Buffer.isBuffer(expected)) {
     if (actual.length != expected.length) return false;
 
     for (var i = 0; i < actual.length; i++) {

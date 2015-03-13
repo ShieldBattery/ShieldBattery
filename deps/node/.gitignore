@@ -15,6 +15,7 @@ node_g
 .benchmark_reports
 /.project
 /.cproject
+icu_config.gypi
 
 /out
 
@@ -57,3 +58,6 @@ deps/openssl/openssl.xml
 /SHASUMS*.txt*
 
 /tools/wrk/wrk
+
+# test artifacts
+tools/faketime

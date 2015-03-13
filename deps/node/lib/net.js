@@ -25,6 +25,7 @@ var timers = require('timers');
 var util = require('util');
 var assert = require('assert');
 var cares = process.binding('cares_wrap');
+var Buffer = require('buffer').Buffer;
 var cluster;
 
 function noop() {}
@@ -306,7 +307,7 @@ Socket.prototype.listen = function() {
 
 
 Socket.prototype.setTimeout = function(msecs, callback) {
-  if (msecs > 0 && !isNaN(msecs) && isFinite(msecs)) {
+  if (msecs > 0 && isFinite(msecs)) {
     timers.enroll(this, msecs);
     timers._unrefActive(this);
     if (callback) {
