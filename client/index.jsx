@@ -6,7 +6,6 @@ require('babel/polyfill')
 let React = require('react')
   , Router = require('react-router')
   , injectTapEventPlugin = require('react-tap-event-plugin')
-  , App = require('./app.jsx')
   , routes = require('./routes.jsx')
 
 injectTapEventPlugin()
