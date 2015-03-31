@@ -181,6 +181,10 @@ BroodWar.prototype.displayIngameMessage = function(message, timeout) {
   this.bindings.displayIngameMessage(message, timeout)
 }
 
+BroodWar.prototype.cleanUpForExit = function(cb) {
+  this.bindings.cleanUpForExit(cb)
+}
+
 util.inherits(Lobby, EventEmitter)
 function Lobby(bindings, bw) {
   EventEmitter.call(this)

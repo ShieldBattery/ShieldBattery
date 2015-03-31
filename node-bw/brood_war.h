@@ -119,6 +119,7 @@ struct Functions {
   FUNCDEF(void, SendMultiplayerChatMessage);
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
+  FUNCDEF(void, CleanUpForExit);
 };
 #undef FUNCDEF
 
@@ -247,6 +248,7 @@ public:
   uint32 ProcessLobbyTurn();
   bool StartGameCountdown();
   void RunGameLoop();
+  void CleanUpForExit();
 
   // !!! The functions below should ONLY be called on the game loop thread !!!
 
@@ -342,6 +344,8 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.CheckForMultiplayerChatCommand =
       reinterpret_cast<Functions::CheckForMultiplayerChatCommandFunc>(0x0047F8F0);
   offsets->functions.DisplayMessage = reinterpret_cast<Functions::DisplayMessageFunc>(0x0048D0C0);
+  offsets->functions.CleanUpForExit =
+      reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)

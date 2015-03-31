@@ -253,7 +253,7 @@ Detour::Detour(const Detour::Builder& builder)
   ud_init(&udis);
   ud_set_mode(&udis, 32);
   ud_set_syntax(&udis, NULL);  // we don't care about readable output!
-  // According to http://onlinedisassembler.com/blog/?p=23, modern day implementations throw a
+  // According to http://blog.onlinedisassembler.com/blog/?p=23, modern day implementations throw a
   // general protection fault at any instructions > 15 bytes, so 20 bytes (4 byte instruction
   // followed by at 15 byte instruction = 19 bytes) should be safe here
   ud_set_input_buffer(&udis, hook_location_, 20);

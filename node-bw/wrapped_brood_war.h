@@ -173,6 +173,7 @@ private:
   static v8::Handle<v8::Value> RunGameLoop(const v8::Arguments& args);
   static v8::Handle<v8::Value> SendMultiplayerChatMessage(const v8::Arguments& args);
   static v8::Handle<v8::Value> DisplayIngameMessage(const v8::Arguments& args);
+  static v8::Handle<v8::Value> CleanUpForExit(const v8::Arguments& args);
 
   // unwrapper helper
   template <class T>
