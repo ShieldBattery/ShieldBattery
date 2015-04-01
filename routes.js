@@ -20,7 +20,7 @@ function applyRoutes(app) {
     .use(router.allowedMethods())
 
   // client script (browserified)
-  var bundle = browserify({
+  let bundle = browserify({
     entries: [ require.resolve('./client/index.jsx') ],
     fullPaths: false,
     debug: isDev,
@@ -29,9 +29,14 @@ function applyRoutes(app) {
   })
 
   if (isDev) {
+    bundle.transform('livereactload', { global: true })
     bundle = watchify(bundle)
+    // start up a livereactload server to enable live reloading
+    let livereload = require('livereactload')
+    livereload.listen()
+    bundle.on('update', () => livereload.notify())
   } else {
-    bundle.transform({ global: true }, 'uglifyify')
+    bundle.transform('uglifyify', { global: true })
   }
   router.get('/scripts/client.js', koaWatchify(bundle))
 
