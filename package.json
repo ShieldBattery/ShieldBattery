@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "chai": "^2.0.0",
+    "livereactload": "tec27/livereactload#windows_paths",
     "mocha": "^2.1.0"
   },
   "browserify": {

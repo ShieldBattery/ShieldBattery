@@ -21,7 +21,7 @@
     // Environments
     "browser": true,
     "node": true,
-    "es6": true,
+    "esnext": true,
 
     // Custom Globals
     "predef": []
