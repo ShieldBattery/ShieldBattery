@@ -226,6 +226,7 @@ void WrappedBroodWar::Init() {
   SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
   SetProtoMethod(tpl, "sendMultiplayerChatMessage", SendMultiplayerChatMessage);
   SetProtoMethod(tpl, "displayIngameMessage", DisplayIngameMessage);
+  SetProtoMethod(tpl, "cleanUpForExit", CleanUpForExit);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
@@ -902,6 +903,48 @@ Handle<Value> WrappedBroodWar::DisplayIngameMessage(const Arguments& args) {
     context->bw->DisplayMessage(context->message, context->timeout);
     delete context;
   });
+
+  return scope.Close(v8::Undefined());
+}
+
+struct CleanUpForExitContext {
+  Persistent<Function> cb;
+  BroodWar* bw;
+};
+
+void CleanUpForExitWork(void* arg) {
+  CleanUpForExitContext* context = reinterpret_cast<CleanUpForExitContext*>(arg);
+
+  context->bw->CleanUpForExit();
+}
+
+void CleanUpForExitAfter(void* arg) {
+  HandleScope scope;
+
+  CleanUpForExitContext* context = reinterpret_cast<CleanUpForExitContext*>(arg);
+  TryCatch try_catch;
+  context->cb->Call(Context::GetCurrent()->Global(), 0, NULL);
+
+  context->cb.Dispose();
+  delete context;
+
+  if (try_catch.HasCaught()) {
+    node::FatalException(try_catch);
+  }
+}
+
+Handle<Value> WrappedBroodWar::CleanUpForExit(const Arguments& args) {
+  HandleScope scope;
+  assert(args.Length() == 1);
+  assert(args[0]->IsFunction());
+
+  Local<Function> cb = Local<Function>::Cast(args[0]);
+
+  CleanUpForExitContext* context = new CleanUpForExitContext;
+  context->cb = Persistent<Function>::New(cb);
+  context->bw = WrappedBroodWar::Unwrap(args);
+
+  sbat::QueueWorkForUiThread(context, CleanUpForExitWork, CleanUpForExitAfter);
 
   return scope.Close(v8::Undefined());
 }

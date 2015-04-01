@@ -268,7 +268,7 @@ NODE_EXTERN const Settings& GetSettings() {
 }
 
 extern "C" __declspec(dllexport) void OnInject() {
-  // note that this is not he exe's entry point, but rather the first point where BW starts doing
+  // note that this is not the exe's entry point, but rather the first point where BW starts doing
   // BW-specific things
   entry_point_hook = new sbat::FuncHook<EntryPointFunc>(
       reinterpret_cast<EntryPointFunc>(0x004E0AE0), HOOK_EntryPoint);

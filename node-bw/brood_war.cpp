@@ -452,5 +452,18 @@ void BroodWar::DisplayMessage(const std::string& message, uint32 timeout) {
   }
 }
 
+void BroodWar::CleanUpForExit() {
+  auto clean_up = offsets_->functions.CleanUpForExit;
+  __asm {
+    push ecx;
+    push ebx;
+    xor bl, bl;
+    mov ecx, clean_up;
+    call ecx;
+    pop ebx;
+    pop ecx;
+  }
+}
+
 }  // namespace bw
 }  // namespace sbat

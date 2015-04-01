@@ -58,9 +58,7 @@ socket.router.call('/setSettings', function(req, res, settings) {
   })
 }).call('/quit', function(req, res) {
   res.complete()
-  setTimeout(function() {
-    process.exit()
-  }, 100)
+  bw.cleanUpForExit(onCleanedUpForExit)
 })
 
 setupRoutes(socket)
@@ -92,5 +90,11 @@ function initialize(settings, cb) {
 
     cb()
   })
+}
+
+function onCleanedUpForExit() {
+  setTimeout(function() {
+    process.exit()
+  }, 100)
 }
 
