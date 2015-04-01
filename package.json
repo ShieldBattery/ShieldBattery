@@ -50,7 +50,7 @@
     "koa-router": "^4.2.0",
     "koa-static": "^1.4.9",
     "koa-stylus": "0.0.3",
-    "koa-views": "^2.1.2",
+    "koa-views": "^3.0.0",
     "koa-watchify": "^1.1.1",
     "nydus": "^0.2.0",
     "nydus-client": "^0.2.0",
@@ -58,7 +58,7 @@
     "redis": "^0.12.1",
     "thenify": "^3.1.0",
     "uglifyify": "^3.0.1",
-    "watchify": "^2.4.0"
+    "watchify": "^3.1.0"
   },
   "devDependencies": {
     "chai": "^2.0.0",
