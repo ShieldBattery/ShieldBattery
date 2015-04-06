@@ -22,6 +22,8 @@
 @accent-swatch-400: @amber-A400;
 @accent-swatch-700: @amber-A700;
 
+@grey-850: #333333;
+
 // the whites have the wrong opacity, so we fix that
 @dark-white: rgba(255, 255, 255, 0.7);
 @light-white: rgba(255, 255, 255, 0.3);
@@ -36,6 +38,7 @@
 @body-text-color: @full-white;
 @border-color: @faint-white;
 @canvas-color: @grey-900;
+@card-background: @grey-850;
 @dialog-background: @grey-800;
 @drop-down-menu-icon-color: @light-white;
 @left-nav-color: @grey-800;
@@ -51,18 +54,18 @@
 @menu-item-hover-color: lighten(@menu-background-color, 10%);
 @menu-item-selected-text-color: @accent-1-color;
 
-@flat-button-color: @canvas-color;
+@flat-button-color: @card-background;
 @flat-button-hover-color: overlay(@flat-button-color, rgba(204, 204, 204, 0.15));
 @flat-button-ripple-color: rgba(204, 204, 204, 0.25);
-@flat-button-primary-hover-color: @primary-swatch-100;
-@flat-button-primary-text-color: @primary-1-color;
-@flat-button-secondary-hover-color: @accent-1-color;
-@flat-button-secondary-text-color: @accent-3-color;
+@flat-button-primary-hover-color: @flat-button-hover-color;
+@flat-button-primary-text-color: @primary-swatch-400;
+@flat-button-secondary-hover-color: @flat-button-hover-color;
+@flat-button-secondary-text-color: @accent-swatch-200;
 
 @raised-button-color: @primary-swatch-500;
-@raised-button-hover-color: @primary-swatch-600;
+@raised-button-hover-color: @primary-swatch-700;
 @raised-button-text-color: @full-white;
-@raised-button-ripple-color: fade(@primary-swatch-700, 0.25);
+@raised-button-ripple-color: fade(@white, 10%);
 @raised-button-focus-ripple-color: @raised-button-ripple-color;
 @raised-button-primary-color: @raised-button-color;
 @raised-button-primary-hover-color: @raised-button-hover-color;
@@ -91,6 +94,7 @@
 @floating-action-button-disabled-text-color: @raised-button-disabled-text-color;
 
 @input-error-color: @red-500;
+@input-focus-underline-color: @primary-swatch-500;
 
 @switches-ripple-color: fade(@primary-swatch-500, 20%);
 

@@ -11,8 +11,6 @@
   padding-right: 80px;
 }
 
-
-
 .mui-app-bar {
   .mui-icon-button {
     * {
@@ -25,11 +23,68 @@
     margin-left: 16px;
     margin-bottom: 0px;
   }
+
+  .mui-drop-down-icon {
+    float: right;
+    height: 48px;
+    width: 48px;
+    margin-top: 8px;
+
+    .mui-menu-control {
+      padding: 12px;
+    }
+
+    .mui-menu {
+      margin-right: 36px;
+      margin-top: 4px;
+    }
+  }
+}
+
+.mui-paper.mui-app-bar > .mui-paper-container {
+  padding-right: 0px;
+}
+
+.mui-drop-down-icon {
+  .mui-menu {
+    .mui-menu-item {
+      padding-left: 24px;
+      padding-right: 24px;
+      min-width: 128px;
+    }
+  }
 }
 
 .mui-dialog-window {
   .mui-dialog-window-contents {
     background: @dialog-background;
+  }
+}
+
+.mui-text-field {
+  .mui-text-field-focus-underline {
+    border-color: @input-focus-underline-color;
+  }
+
+  &.mui-has-floating-labels {
+    &.mui-is-focused {
+      .mui-text-field-floating-label {
+        color: @input-focus-underline-color;
+      }
+    }
+  }
+}
+
+/* Get rid of the ridiculous padding contained within floating text label inputs */
+.mui-text-field.mui-has-floating-labels {
+  height: 48px;
+
+  .mui-text-field-floating-label {
+    top: 0px;
+  }
+
+  .mui-text-field-input {
+    padding-top: 0;
   }
 }
 
@@ -96,6 +151,28 @@ a, a:visited {
 }
 
 .material-card {
-  background-color: @dialog-background;
+  background-color: @card-background;
   padding: 16px;
+}
+
+.mui-paper.card-form {
+  width: 256px + (48px * 2);
+  margin: auto;
+
+  .material-card {
+    padding: 8px;
+  }
+
+  .fields {
+    padding: 0 40px;
+  }
+
+  .mui-checkbox {
+    margin-top: 12px;
+  }
+
+  .button-area {
+    margin-top: 12px;
+    text-align: right;
+  }
 }
