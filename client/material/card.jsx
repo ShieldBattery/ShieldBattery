@@ -4,7 +4,7 @@ let React = require('react')
 let Card = React.createClass({
   render() {
     return (
-      <Paper zDepth={this.props.zDepth} innerClassName='material-card'>
+      <Paper {...this.props} innerClassName='material-card'>
         { this.props.children }
       </Paper>
     )

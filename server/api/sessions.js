@@ -80,5 +80,5 @@ function* startNewSession(next) {
 function* endSession(next) {
   if (!this.session.userId) throw new httpErrors.ConflictError('No session active')
   yield this.regenerateSession()
-  this.status = 200
+  this.status = 204
 }
