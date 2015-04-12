@@ -43,12 +43,7 @@ module.exports = {
         reqId,
       })
     }, data => {
-      let err
-      try {
-        err = JSON.parse(data.response)
-      } catch (e) {
-        err = { error: 'Unknown error' }
-      }
+      let err = tryParseError(data)
       dispatcher.dispatch({
         actionType: actions.AUTH_LOG_IN,
         actionStatus: statuses.FAILURE,
@@ -75,7 +70,8 @@ module.exports = {
           actionStatus: statuses.SUCCESS,
           reqId,
         })
-      }, err => {
+      }, errData => {
+        let err = tryParseError(errData)
         dispatcher.dispatch({
           actionType: actions.AUTH_LOG_OUT,
           actionStatus: statuses.FAILURE,
@@ -86,4 +82,45 @@ module.exports = {
 
     return reqId
   },
+
+  signUp(username, email, password) {
+    let reqId = cuid()
+    dispatcher.dispatch({
+      actionType: actions.AUTH_SIGN_UP,
+      actionStatus: statuses.BEGIN,
+      reqId,
+    })
+
+    xr.post('/api/1/users', { username, email, password })
+      .then(({ data: { user, permissions } }) => {
+        dispatcher.dispatch({
+          actionType: actions.AUTH_SIGN_UP,
+          actionStatus: statuses.SUCCESS,
+          user,
+          permissions,
+          reqId,
+        })
+      }, data => {
+        let err = tryParseError(data)
+        dispatcher.dispatch({
+          actionType: actions.AUTH_SIGN_UP,
+          actionStatus: statuses.FAILURE,
+          reqId,
+          err,
+        })
+      })
+
+    return reqId
+  }
+}
+
+function tryParseError(errData) {
+  let err
+  try {
+    err = JSON.parse(errData.response)
+  } catch (e) {
+    err = { error: 'Unknown error' }
+  }
+
+  return err
 }
