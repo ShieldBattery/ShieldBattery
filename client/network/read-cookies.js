@@ -26,8 +26,7 @@ function readCookies() {
       continue
     }
 
-    // https://github.com/babel/babel/issues/1169?ts=2 - this needs to be a var declaration for now
-    var name = safeDecodeURIComponent(cookie.substring(0, index))
+    let name = safeDecodeURIComponent(cookie.substring(0, index))
     // the first value that is seen for a cookie is the most
     // specific one.  values for the same cookie name that
     // follow are for less specific paths.
