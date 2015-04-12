@@ -1,7 +1,11 @@
-let React = require('react')
-  , Router = require('react-router')
-  , injectTapEventPlugin = require('react-tap-event-plugin')
-  , routes = require('./routes.jsx')
+import React from 'react'
+import Router from 'react-router'
+import injectTapEventPlugin from 'react-tap-event-plugin'
+import routes from './routes.jsx'
+
+// initialize sockets
+import siteSocket from './network/site-socket'
+import psiSocket from './network/psi-socket'
 
 if (!global._injectedTapEventPlugin) {
   injectTapEventPlugin()
