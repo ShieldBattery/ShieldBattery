@@ -15,15 +15,20 @@ class Signup extends React.Component {
             <h3>Sign up</h3>
             <div>
               <TextField floatingLabelText="Username" onEnterKeyDown={e => this.onSignUpClicked()}
-                  tabIndex={1}/>
+                  tabIndex={1} ref="username"/>
             </div>
             <div>
               <TextField floatingLabelText="Password" onEnterKeyDown={e => this.onSignUpClicked()}
-                  tabIndex={1}/>
+                  tabIndex={1} type="password" ref="password"/>
+            </div>
+            <div>
+              <TextField floatingLabelText="Confirm password"
+                  onEnterKeyDown={e => this.onSignUpClicked()} tabIndex={1} type="password"
+                  ref="confirmPassword"/>
             </div>
             <div>
               <TextField floatingLabelText="Email address"
-                  onEnterKeyDown={e => this.onSignUpClicked()} tabIndex={1}/>
+                  onEnterKeyDown={e => this.onSignUpClicked()} tabIndex={1} ref="email"/>
             </div>
           </div>
           <div className="button-area">
@@ -36,6 +41,10 @@ class Signup extends React.Component {
   }
 
   onSignUpClicked() {
+    let username = this.refs.username.getValue()
+      , password = this.refs.password.getValue()
+      , confirmPasword = this.refs.confirmPassword.getValue()
+      , email = this.refs.email.getValue()
     console.log('clicked!')
   }
 }

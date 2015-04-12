@@ -12,6 +12,7 @@ class Login extends React.Component {
       authChangeInProgress: false,
       reqId: null,
       failure: null,
+      notSubmitted: true,
     }
   }
 
@@ -61,11 +62,15 @@ class Login extends React.Component {
           { errContents }
           <div>
             <TextField floatingLabelText="Username" onEnterKeyDown={e => this.onLogInClicked()}
-                tabIndex={1} ref="username"/>
+                tabIndex={1} ref="username"
+                onChange={e => this.validate(this.state.notSubmitted && 'username')}
+                errorText={this.state.formErrors && this.state.formErrors.get('username')}/>
           </div>
           <div>
             <TextField floatingLabelText="Password" onEnterKeyDown={e => this.onLogInClicked()}
-                tabIndex={1} type="password" ref="password"/>
+                tabIndex={1} type="password" ref="password"
+                onChange={e => this.validate(this.state.notSubmitted && 'password')}
+                errorText={this.state.formErrors && this.state.formErrors.get('password')}/>
           </div>
           <Checkbox name="remember" label="Remember me" tabIndex={1}
               ref="remember"/>
@@ -86,16 +91,44 @@ class Login extends React.Component {
     this.context.router.transitionTo('signup')
   }
 
-  onLogInClicked() {
+  validate(dirtyElem) {
     let username = this.refs.username.getValue()
       , password = this.refs.password.getValue()
       , remember = this.refs.remember.isChecked()
-    if (!username || !password) {
-      // FIXME
-      console.log('fuck!')
+      , formErrors = new Map()
+    if (!username && (!dirtyElem || dirtyElem == 'username')) {
+      formErrors.set('username', 'Enter a username')
+    }
+    if (!password && (!dirtyElem || dirtyElem == 'password')) {
+      formErrors.set('password', 'Enter a password')
+    }
+
+    if (formErrors.size) {
+      this.setState({
+        formErrors
+      })
+      return formErrors
+    } else {
+      this.setState({
+        formErrors: null
+      })
+      return null
+    }
+  }
+
+  onLogInClicked() {
+    this.setState({
+      notSubmitted: false
+    })
+    let formErrors = this.validate()
+    if (formErrors) {
+      this.refs[formErrors.keys().next().value].focus()
       return
     }
 
+    let username = this.refs.username.getValue()
+      , password = this.refs.password.getValue()
+      , remember = this.refs.remember.isChecked()
     let id = auther.logIn(username, password, remember)
     this.setState({
       reqId: id
