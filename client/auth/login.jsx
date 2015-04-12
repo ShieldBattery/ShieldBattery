@@ -9,12 +9,14 @@ class Login extends React.Component {
     super()
     this.authStoreListener = () => this.onAuthChange()
     this.state = {
-      loginInProgress: false,
+      authChangeInProgress: false,
       reqId: null,
+      failure: null,
     }
   }
 
   componentDidMount() {
+    this.checkLoggedIn()
     authStore.register(this.authStoreListener)
   }
 
@@ -22,28 +24,41 @@ class Login extends React.Component {
     authStore.unregister(this.authStoreListener)
   }
 
-  onAuthChange() {
+  checkLoggedIn() {
     if (authStore.isLoggedIn) {
       // We're logged in now, hooray!
       // Go wherever the user was intending to go before being directed here (or home)
       let nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
       this.context.router.replaceWith(nextPath)
-      return
+      return true
     }
+    
+    return false
+  }
+
+  onAuthChange() {
+    if (this.checkLoggedIn) return 
 
     this.setState({
-      loginInProgress: authStore.loginInProgress,
+      authChangeInProgress: authStore.authChangeInProgress,
+      failure: authStore.hasFailure(this.state.reqId) ? authStore.lastFailure.err : null
     })
   }
 
   render() {
     let cardContents
-    if (this.state.loginInProgress) {
+    if (this.state.authChangeInProgress) {
       cardContents = <span>Please wait...</span>
     } else {
+      let errContents
+      if (this.state.failure) {
+        errContents = <span>{`Error: ${this.state.failure.error}`}</span>
+      }
+
       cardContents = <form>
         <div className="fields">
           <h3>Log in</h3>
+          { errContents }
           <div>
             <TextField floatingLabelText="Username" onEnterKeyDown={e => this.onLogInClicked()}
                 tabIndex={1} ref="username"/>
@@ -82,6 +97,9 @@ class Login extends React.Component {
     }
 
     let id = auther.logIn(username, password, remember)
+    this.setState({
+      reqId: id
+    })
   }
 }
 
