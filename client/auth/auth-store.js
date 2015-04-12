@@ -24,6 +24,9 @@ class AuthStore extends ChangeEmitter {
       case actions.AUTH_LOG_OUT:
         this.handleLogOut(action)
         break
+      case actions.AUTH_SIGN_UP:
+        this.handleSignUp(action)
+        break
       default:
         return
     }
@@ -74,6 +77,24 @@ class AuthStore extends ChangeEmitter {
         this.authChangeInProgress = false
         this.user = null
         this.permissions = null
+        break
+      case statuses.FAILURE:
+        this.authChangeInProgress = false
+        this.setLastFailure(action.err, action.reqId)
+        break
+    }
+  }
+
+  handleSignUp(action) {
+    switch (action.actionStatus) {
+      case statuses.BEGIN:
+        this.authChangeInProgress = true
+        this.clearLastFailure()
+        break
+      case statuses.SUCCESS:
+        this.authChangeInProgress = false
+        this.user = action.user
+        this.permissions = action.permissions
         break
       case statuses.FAILURE:
         this.authChangeInProgress = false

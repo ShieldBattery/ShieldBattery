@@ -88,7 +88,10 @@ class Login extends React.Component {
   }
 
   onSignUpClicked() {
-    this.context.router.transitionTo('signup')
+    this.context.router.transitionTo('signup', null,
+        Object.assign(this.context.router.getCurrentQuery(), {
+          username: this.refs.username.getValue()
+        }))
   }
 
   validate(dirtyElem) {
