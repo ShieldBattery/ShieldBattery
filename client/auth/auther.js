@@ -1,7 +1,8 @@
-let dispatcher = require('../dispatcher')
-  , xr = require('../network/xr')
-  , actions = require('../actions')
-  , cuid = require('cuid')
+import dispatcher from '../dispatcher'
+import xr from '../network/xr'
+import actions from '../actions'
+import statuses from '../statuses'
+import cuid from 'cuid'
 
 module.exports = {
   initFromPage() {
@@ -10,12 +11,14 @@ module.exports = {
       return
     }
 
-    let s = window._sbSession
+    let { user, permissions } = window._sbSession
     window._sbSession = null
     dispatcher.dispatch({
-      actionType: actions.AUTH_LOG_IN_SUCCESS,
-      user: s.user,
-      permissions: s.permissions
+      actionType: actions.AUTH_LOG_IN,
+      actionStatus: statuses.SUCCESS,
+
+      user,
+      permissions,
     })
   },
 
@@ -23,24 +26,34 @@ module.exports = {
     let reqId = cuid()
     dispatcher.dispatch({
       actionType: actions.AUTH_LOG_IN,
-      reqId: reqId
+      actionStatus: statuses.BEGIN,
+      reqId,
     })
 
     xr.post('/api/1/sessions', {
-      username: username,
-      password: password,
+      username,
+      password,
       remember: !!remember
     }).then(({ data: { user, permissions } }) => {
       dispatcher.dispatch({
-        actionType: actions.AUTH_LOG_IN_SUCCESS,
-        user: user,
-        permissions: permissions,
-        reqId: reqId
+        actionType: actions.AUTH_LOG_IN,
+        actionStatus: statuses.SUCCESS,
+        user,
+        permissions,
+        reqId,
       })
-    }, err => {
+    }, data => {
+      let err
+      try {
+        err = JSON.parse(data.response)
+      } catch (e) {
+        err = { error: 'Unknown error' }
+      }
       dispatcher.dispatch({
-        actionType: actions.AUTH_LOG_IN_FAILURE,
-        reqId: reqId
+        actionType: actions.AUTH_LOG_IN,
+        actionStatus: statuses.FAILURE,
+        reqId,
+        err,
       })
     })
 
@@ -48,12 +61,29 @@ module.exports = {
   },
 
   logOut() {
-    // FIXME(tec27): this can fail, we should have the same action structure as login
+    let reqId = cuid()
+    dispatcher.dispatch({
+      actionType: actions.AUTH_LOG_OUT,
+      actionStatus: statuses.BEGIN,
+      reqId,
+    })
+
     xr.del('/api/1/sessions')
       .then(() => {
         dispatcher.dispatch({
-          actionType: actions.AUTH_LOGGED_OUT
+          actionType: actions.AUTH_LOG_OUT,
+          actionStatus: statuses.SUCCESS,
+          reqId,
+        })
+      }, err => {
+        dispatcher.dispatch({
+          actionType: actions.AUTH_LOG_OUT,
+          actionStatus: statuses.FAILURE,
+          reqId,
+          err,
         })
       })
+
+    return reqId
   },
 }
