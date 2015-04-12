@@ -20,6 +20,7 @@ class ValidatedForm extends React.Component {
         return child
       }
       return React.addons.cloneWithProps(child, {
+        key: child.props.name,
         ref: child.props.name,
         onChange: this._onInputChange,
         validationError: this.state.errors && this.state.errors.get(child.props.name)
