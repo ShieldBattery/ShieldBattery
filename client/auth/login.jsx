@@ -32,12 +32,12 @@ class Login extends React.Component {
       this.context.router.replaceWith(nextPath)
       return true
     }
-    
+
     return false
   }
 
   onAuthChange() {
-    if (this.checkLoggedIn) return 
+    if (this.checkLoggedIn()) return
 
     this.setState({
       authChangeInProgress: authStore.authChangeInProgress,
@@ -65,7 +65,7 @@ class Login extends React.Component {
           </div>
           <div>
             <TextField floatingLabelText="Password" onEnterKeyDown={e => this.onLogInClicked()}
-                tabIndex={1} ref="password"/>
+                tabIndex={1} type="password" ref="password"/>
           </div>
           <Checkbox name="remember" label="Remember me" tabIndex={1}
               ref="remember"/>
