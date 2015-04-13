@@ -4,7 +4,7 @@ import actions from '../actions'
 import statuses from '../statuses'
 import cuid from 'cuid'
 
-module.exports = {
+let auther = {
   initFromPage() {
     // get the current user from the page body (if its not there, assume not logged in)
     if (!window._sbSession) {
@@ -124,3 +124,5 @@ function tryParseError(errData) {
 
   return err
 }
+
+export default auther

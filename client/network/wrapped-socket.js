@@ -51,18 +51,18 @@ class WrappedSocket extends EventEmitter {
   }
 
   _onConnect() {
-    console.log('socket connected')
+    console.log(`socket connected [${this.host}]`)
     this.emit('connect')
   }
 
   _onError(err) {
-    console.log('socket error!')
+    console.log(`socket error! [${this.host}]`)
     console.dir(err)
     this.emit('error', err)
   }
 
   _onDisconnect() {
-    console.log('socket disconnected')
+    console.log(`socket disconnected [${this.host}]`)
     this.emit('disconnect')
   }
 }
