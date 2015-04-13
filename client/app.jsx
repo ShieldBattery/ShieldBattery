@@ -13,15 +13,13 @@ let App = React.createClass({
 
     return (
       <AppCanvas predefinedLayout={1}>
-        <AppBar className='mui-dark-theme' zDepth={0} showMenuIconButton={false}
+        <AppBar className='mui-dark-theme' zDepth={2} showMenuIconButton={false}
             title=<Link to='home'><h1 className='mui-app-bar-title'>ShieldBattery</h1></Link>>
           <DropDownIcon menuItems={overflowMenuItems}
               onChange={ (e, key, payload) => payload.action() }>
             <MoreVert />
           </DropDownIcon>
         </AppBar>
-
-        <LeftNav ref="leftNav" menuItems={[]} docked={false} />
 
         <div className="mui-app-content-canvas">
           <RouteHandler />
