@@ -6,9 +6,10 @@
   list-style: none;
 }
 
-.mui-app-content-canvas {
-  padding-left: 80px;
-  padding-right: 80px;
+.mui-app-page-content {
+  padding-left: 24px;
+  padding-right: 24px;
+  flex: 1 1 auto;
 }
 
 .mui-app-bar {
@@ -161,5 +162,21 @@ a, a:visited {
   .button-area {
     margin-top: 16px;
     text-align: right;
+  }
+}
+
+.page-with-docked-left-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.docked-left-nav {
+  width: 64px * 3;
+
+  .material-card {
+    /* Add more padding so that menu entries align with the title */
+    padding-left: 40px;
   }
 }
