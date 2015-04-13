@@ -165,11 +165,14 @@ a, a:visited {
   }
 }
 
+@docked-bottom-toolbar-height: 64px;
+
 .page-with-docked-left-nav {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   flex-wrap: nowrap;
+  padding-bottom: @docked-bottom-toolbar-height + 16px;
 }
 
 .docked-left-nav {
@@ -178,5 +181,24 @@ a, a:visited {
   .material-card {
     /* Add more padding so that menu entries align with the title */
     padding-left: 40px;
+  }
+}
+
+.docked-bottom-toolbar {
+  position: fixed;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  height: @docked-bottom-toolbar-height;
+  margin: auto;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+
+
+  .material-card {
+    padding: 8px 40px;
   }
 }
