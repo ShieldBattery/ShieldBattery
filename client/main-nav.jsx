@@ -18,7 +18,7 @@ class MainNav extends React.Component {
           <RouteHandler />
         </div>
       </div>
-      <Card className='docked-bottom-toolbar' zDepth={2}>
+      <Card className='docked-bottom-toolbar' zDepth={2} rounded={false}>
         <span>Hello bottom toolbar world!</span>
       </Card>
     </div>)

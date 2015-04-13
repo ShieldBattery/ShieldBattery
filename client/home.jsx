@@ -1,15 +1,18 @@
-let React = require('react')
-  , Card = require('./material/card.jsx')
+import React from 'react'
+import Card from './material/card.jsx'
+import ActiveUserCount from './serverstatus/active-users.jsx'
 
-let Home = React.createClass({
+class Home extends React.Component {
   render() {
     return (
       <Card zDepth={1}>
         <h3>Welcome home.</h3>
-        <p>Testing a raised card.</p>
+        <p>There'll be some content here eventually</p>
+        <p>For now, here's  the user count:</p>
+        <ActiveUserCount />
       </Card>
     )
   }
-})
+}
 
-module.exports = Home
+export default Home
