@@ -68,7 +68,7 @@
   },
   "devDependencies": {
     "chai": "^2.0.0",
-    "livereactload": "^0.3.0",
+    "livereactload": "^0.5.1",
     "mocha": "^2.1.0"
   },
   "browserify": {
