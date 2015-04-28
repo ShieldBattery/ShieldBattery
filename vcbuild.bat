@@ -31,16 +31,30 @@ goto next-arg
 @rem Skip project generation if requested.
 if defined noprojgen goto msbuild
 
+:find-vs-2012
 @rem Look for Visual Studio 2012
-if not defined VS110COMNTOOLS goto msbuild-not-found
-if not exist "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
-call "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat"
-if not defined VCINSTALLDIR goto msbuild-not-found
+if not defined VS110COMNTOOLS goto find-vs-2013
+set VSCOMNTOOLS=%VS110COMNTOOLS%
+if not exist "%VSCOMNTOOLS%\..\..\vc\vcvarsall.bat" goto find-vs-2013
+call "%VSCOMNTOOLS%\..\..\vc\vcvarsall.bat"
+if not defined VCINSTALLDIR goto find-vs-2013
 set GYP_MSVS_VERSION=2012
+goto gen-vs-project
 
+:find-vs-2013
+@rem Look for Visual Studio 2013
+if not defined VS120COMNTOOLS goto msbuild-not-found
+set VSCOMNTOOLS=%VS120COMNTOOLS%
+if not exist "%VSCOMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
+call "%VSCOMNTOOLS%\..\..\vc\vcvarsall.bat"
+if not defined VCINSTALLDIR goto msbuild-not-found
+set GYP_MSVS_VERSION=2013
+goto gen-vs-project
+
+:gen-vs-project
 @rem Generate the VS project.
 SETLOCAL
-  if defined VS110COMNTOOLS call "%VS110COMNTOOLS%\VCVarsQueryRegistry.bat"
+  if defined VSCOMNTOOLS call "%VSCOMNTOOLS%\VCVarsQueryRegistry.bat"
   call "%~dp0\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%~dp0\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%~dp0"
