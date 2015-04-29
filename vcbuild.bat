@@ -5,6 +5,9 @@
 @rem Ensure environment properly setup
 if not defined SHIELDBATTERY_PATH goto env-error
 
+@rem Store %~dp0 because it can change after we call things
+set scriptroot=%~dp0
+
 @rem Process arguments.
 set config=Release
 set target=Build
@@ -20,7 +23,6 @@ if /i "%1"=="nobuild"       set nobuild=1&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
-:arg-ok
 :arg-ok
 shift
 goto next-arg
@@ -55,10 +57,10 @@ goto gen-vs-project
 @rem Generate the VS project.
 SETLOCAL
   if defined VSCOMNTOOLS call "%VSCOMNTOOLS%\VCVarsQueryRegistry.bat"
-  call "%~dp0\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
-  if not exist "%~dp0\deps\node\config.gypi" goto create-msvs-files-failed
-  cd "%~dp0"
-  call "%~dp0\deps\node\tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Ioverrides.gypi -Dlibrary=static_library -Dtarget_arch=ia32 -Dcomponent=static_library shieldbattery.gyp
+  call "%scriptroot%\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
+  if not exist "%scriptroot%\deps\node\config.gypi" goto create-msvs-files-failed
+  cd "%scriptroot%"
+  call "%scriptroot%\deps\node\tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Ioverrides.gypi -Dlibrary=static_library -Dtarget_arch=ia32 -Dcomponent=static_library shieldbattery.gyp
   if errorlevel 1 goto create-msvs-files-failed
   if not exist shieldbattery.sln goto create-msvs-files-failed
   echo Shieldbattery project files generated.
@@ -80,24 +82,24 @@ if errorlevel 1 goto exit
 goto link-modules
 
 :create-msvs-files-failed
-echo Failed to create vc project files for shieldbattery.
+echo Failed to create VS project files for Shieldbattery.
 goto exit
 
 :link-modules
 @rem Link up the native modules inside the js directory
-cd "%~dp0\node-psi"
+cd "%scriptroot%\node-psi"
 call npm install
 call npm link
 if errorlevel 1 goto linking-failed
-cd "%~dp0\node-bw"
+cd "%scriptroot%\node-bw"
 call npm install
 call npm link
 if errorlevel 1 goto linking-failed
-cd "%~dp0\forge"
+cd "%scriptroot%\forge"
 call npm install
 call npm link
 if errorlevel 1 goto linking-failed
-cd "%~dp0\js"
+cd "%scriptroot%\js"
 call npm link shieldbattery-psi
 if errorlevel 1 goto linking-failed
 call npm link shieldbattery-bw
@@ -107,7 +109,7 @@ if errorlevel 1 goto linking-failed
 call npm install
 if errorlevel 1 goto linking-failed
 rmdir "%SHIELDBATTERY_PATH%\js"
-mklink /D "%SHIELDBATTERY_PATH%\js" "%~dp0\js"
+mklink /D "%SHIELDBATTERY_PATH%\js" "%scriptroot%\js"
 echo JS modules linked.
 goto exit
 
@@ -127,5 +129,5 @@ echo   vcbuild.bat debug          : builds debug build
 goto exit
 
 :exit
-cd "%~dp0"
+cd "%scriptroot%"
 goto :EOF
