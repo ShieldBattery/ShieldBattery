@@ -7,7 +7,7 @@ The shieldbattery developers frequent `#shieldbattery-dev` on QuakeNet, feel fre
 ##Developer Setup
 Shieldbattery is a combination of C++ and JavaScript, and thus developing for it involves two different workflows. A script is included to setup both areas, `vcbuild.bat`. This will both generate C++ project files as well as build the native Node modules and link them into your environment.
 
-Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally. It also requires [node.js](http://nodejs.org/) to be installed, any 0.10.x version should work fine.
+Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally. It also requires [iojs](http://iojs.org) or [node.js](http://nodejs.org/) to be installed, any version >= 0.12.x should work fine (if you also want to run manner-pylon, install iojs).
 
 ####Environment Setup
 Building shieldbattery properly requires some environment variables to be set so that it can properly move things around after building. Set your environment variables as follows:
