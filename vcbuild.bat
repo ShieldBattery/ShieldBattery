@@ -1,6 +1,14 @@
 @echo off
 
 @rem Modified version of vcbuild.bat from Node
+if /i "%1"=="help" goto help
+if /i "%1"=="--help" goto help
+if /i "%1"=="-help" goto help
+if /i "%1"=="/help" goto help
+if /i "%1"=="?" goto help
+if /i "%1"=="-?" goto help
+if /i "%1"=="--?" goto help
+if /i "%1"=="/?" goto help
 
 @rem Ensure environment properly setup
 if not defined SHIELDBATTERY_PATH goto env-error
