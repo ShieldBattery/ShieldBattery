@@ -71,16 +71,17 @@ enum class BootReason {
 };
 
 enum class GameState {
-  Unknown0 = 0,
+  Intro = 0,
   Initializing,
-  Unknown2,
+  Exit,
   Ingame,
   MenuOrLobby,
-  Unknown5,
-  Unknown6,
-  Unknown7,
-  Unknown8,
-  Unknown9,
+  Restart,
+  Win,
+  Loss,
+  Credits,
+  Epilog,
+  Cinematic
 };
 
 enum class ChatMessageType : byte {
