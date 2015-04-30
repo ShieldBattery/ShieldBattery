@@ -348,7 +348,7 @@ private:
   void RenderToScreen();
 
   static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
-    const PaletteTextureEntry result = { entry.peBlue, entry.peGreen, entry.peRed, 255 };
+    const PaletteTextureEntry result = { entry.peRed, entry.peGreen, entry.peBlue, 255 };
     return result;
   }
 
