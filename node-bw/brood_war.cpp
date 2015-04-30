@@ -373,7 +373,7 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
   std::string map_dir;
   std::string map_file;
 
-  size_t slash_pos = map_path.find_last_of("\\");
+  size_t slash_pos = map_path.find_last_of("\\/");
   if (slash_pos != std::string::npos) {
     map_dir.assign(map_path.begin(), map_path.begin() + slash_pos);
     map_file.assign(map_path.begin() + slash_pos + 1, map_path.end());
