@@ -181,7 +181,6 @@ struct Offsets {
   FuncHooks func_hooks;
 
   byte* start_from_any_glue_patch;
-  byte* storm_unsigned_snp_patch;
   uint32* game_countdown_delay_patch;
 };
 
@@ -394,7 +393,6 @@ Offsets* GetOffsets<Version::v1161>() {
 
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
-  offsets->storm_unsigned_snp_patch = storm_base + 0x0003DDD8;
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);
 
   return offsets;

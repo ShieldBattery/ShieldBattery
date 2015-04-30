@@ -151,13 +151,6 @@ void BroodWar::ApplyPatches() {
     memset(offsets_->start_from_any_glue_patch, 0x90, 9);
   }
 
-  // Allow loading of any SNP's (even unsigned)
-  ScopedVirtualProtect snp_protect(offsets_->storm_unsigned_snp_patch, 26, PAGE_EXECUTE_READWRITE);
-  if (!snp_protect.has_errors()) {
-    // 26x NOP
-    memset(offsets_->storm_unsigned_snp_patch, 0x90, 26);
-  }
-
   // Avoid doing a long countdown, and skip dialog-specific countdown code (that will crash)
   ScopedVirtualProtect countdown_protect(offsets_->game_countdown_delay_patch, 4,
       PAGE_EXECUTE_READWRITE);
