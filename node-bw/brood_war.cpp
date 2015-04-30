@@ -176,11 +176,11 @@ std::string BroodWar::current_map_folder_path() const {
 }
 
 uint32 BroodWar::local_player_id() const {
-  return *offsets_->local_player_id1;
+  return *offsets_->local_human_id;
 }
 
 uint32 BroodWar::local_lobby_id() const {
-  return *offsets_->local_lobby_id;
+  return *offsets_->local_storm_id;
 }
 
 std::string BroodWar::local_player_name() const {
