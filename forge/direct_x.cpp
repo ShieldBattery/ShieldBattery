@@ -661,7 +661,7 @@ bool DirectX::InitPaletteTexture() {
   palette_texture_desc.Height = 1;
   palette_texture_desc.MipLevels = 1;
   palette_texture_desc.ArraySize = 1;
-  palette_texture_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+  palette_texture_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
   palette_texture_desc.Usage = D3D10_USAGE_DYNAMIC;
   palette_texture_desc.BindFlags = D3D10_BIND_SHADER_RESOURCE;
   palette_texture_desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
