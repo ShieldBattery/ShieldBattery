@@ -719,12 +719,13 @@ Handle<Value> WrappedBroodWar::JoinGame(const Arguments& args) {
   strcpy_s(info.game_name, "shieldbattery");
   info.map_width = 256;
   info.map_height = 256;
-  info.is_not_eight_player = 0;
-  info.player_count = 0;
+  info.active_player_count = 0;
+  info.max_player_count = 0;
   info.game_speed = static_cast<byte>(GameSpeed::Fastest);
-  info.game_type = 0x10002;
-  info.cdkey_checksum = 0x1D10C1E5;
-  info.tileset = 0x01;
+  info.game_type = 2;           // Melee
+  info.game_subtype = 1;        // First subtype
+  info.cdkey_checksum = 'SHIE'; // Doesn't need to be valid (and shouldn't be).
+  info.tileset = 0x01;          // Space Platform
   strcpy_s(info.game_creator, "fakename");
   strcpy_s(info.map_name, "fakemap");
 

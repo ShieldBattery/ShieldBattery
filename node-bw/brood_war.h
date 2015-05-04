@@ -53,17 +53,18 @@ struct JoinableGameInfo {
   uint32 index;
   char game_name[24];
   // the rest of this is a parsed stat string, see http://www.bnetdocs.org/?op=doc&did=13
-  uint32 save_game_checksum;  // dwGameFlags?
+  uint32 save_game_checksum;
   uint16 map_width;
   uint16 map_height;
-  byte is_not_eight_player;   // bActivePlayerCount?
-  byte player_count;  // only matters if the preceding byte is not set
+  byte active_player_count;
+  byte max_player_count;  // only matters if the preceding byte is not set
   byte game_speed;
-  byte approval;      // bGameState?
-  uint32 game_type;   // should be: uint16 game_type; uint16 game_subtype;
+  byte approval;
+  uint16 game_type;
+  uint16 game_subtype;
   uint32 cdkey_checksum;
   uint16 tileset;
-  uint16 is_replay;   // bAutosaved?
+  uint16 is_replay;
   char game_creator[25];
   char map_name[32];
   GameTemplate game_template;
