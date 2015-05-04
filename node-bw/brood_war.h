@@ -27,6 +27,28 @@ struct MapListEntry {
   char filename[32];
 };
 
+#pragma pack(1)
+struct GameTemplate {
+  uint16 game_type;
+  uint16 game_subtype;
+  uint16 game_subtype_display;
+  uint16 game_subtype_label;
+  byte victory_condition;
+  byte resource_type;
+  byte use_standard_unit_stats;
+  byte fog_of_war;
+  byte starting_units;
+  byte use_fixed_position;
+  byte restriction_flags;
+  byte allies_enabled;
+  byte teams_enabled;
+  byte cheats_enabled;
+  byte tournament_mode;
+  uint32 victory_condition_value;
+  uint32 mineral_value;
+  uint32 gas_value;
+};
+
 struct JoinableGameInfo {
   uint32 index;
   char game_name[24];
@@ -34,18 +56,20 @@ struct JoinableGameInfo {
   uint32 save_game_checksum;
   uint16 map_width;
   uint16 map_height;
-  byte is_not_eight_player;
-  byte player_count;  // only matters if the preceding byte is not set
+  byte active_player_count;
+  byte max_player_count;  // only matters if the preceding byte is not set
   byte game_speed;
   byte approval;
-  uint32 game_type;
+  uint16 game_type;
+  uint16 game_subtype;
   uint32 cdkey_checksum;
   uint16 tileset;
   uint16 is_replay;
   char game_creator[25];
   char map_name[32];
-  byte unk1[31];
+  GameTemplate game_template;
 };
+#pragma pack()
 
 enum class GameSpeed {
   Slowest = 0,
@@ -160,9 +184,16 @@ struct Offsets {
   char* current_map_path;
   char* current_map_name;
   char* current_map_folder_path;
-  uint32* local_player_id0;
-  uint32* local_player_id1;
-  uint32* local_lobby_id;
+
+  // Nation is the player that is being controlled. For example in Team Melee, several players are controlling one "nation".
+  uint32* local_nation_id;
+
+  // The player slot that is being used by this player.
+  uint32* local_human_id;
+
+  // The storm id for the player. This is the id to use with storm function calls.
+  uint32* local_storm_id;
+  
   char* local_player_name;
   uint32* current_game_speed;
   uint8* is_brood_war;
@@ -302,9 +333,9 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->current_map_path = reinterpret_cast<char*>(0x0057FD3C);
   offsets->current_map_name = reinterpret_cast<char*>(0x0057FE40);
   offsets->current_map_folder_path = reinterpret_cast<char*>(0x0059BB70);
-  offsets->local_player_id0 = reinterpret_cast<uint32*>(0x00512684);
-  offsets->local_player_id1 = reinterpret_cast<uint32*>(0x00512688);
-  offsets->local_lobby_id = reinterpret_cast<uint32*>(0x0051268C);
+  offsets->local_nation_id = reinterpret_cast<uint32*>(0x00512684);
+  offsets->local_human_id = reinterpret_cast<uint32*>(0x00512688);
+  offsets->local_storm_id = reinterpret_cast<uint32*>(0x0051268C);
   offsets->local_player_name = reinterpret_cast<char*>(0x0057EE9C);
   offsets->current_game_speed = reinterpret_cast<uint32*>(0x006CDFD4);
   offsets->is_brood_war = reinterpret_cast<uint8*>(0x0058F440);
