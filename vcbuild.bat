@@ -76,7 +76,7 @@ ENDLOCAL
 
 :msbuild
 @rem Skip build if requested.
-if defined nobuild goto exit
+if defined nobuild goto link-modules
 goto do-build
 
 :msbuild-not-found
