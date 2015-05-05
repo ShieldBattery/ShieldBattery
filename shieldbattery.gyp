@@ -331,6 +331,7 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        'node-psi/<!(cd node-psi && node -e "require(\'nan\')")',
       ],
       'sources': [
         'node-psi/module.cpp',

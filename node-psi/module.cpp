@@ -1,8 +1,8 @@
 #include "node-psi/module.h"
 
 #include <node.h>
+#include <nan.h>
 #include <uv.h>
-#include <v8.h>
 #include <Windows.h>
 #include <stdlib.h>
 #include <string>
@@ -266,13 +266,13 @@ void Initialize(Handle<Object> exports, Handle<Object> module) {
   WrappedRegistry::Init();
   PsiService::SetShutdownCallback(EmitShutdown);
 
-  exports->Set(String::NewSymbol("launchProcess"),
-    FunctionTemplate::New(LaunchProcess)->GetFunction());
-  exports->Set(String::NewSymbol("detectResolution"),
-    FunctionTemplate::New(DetectResolution)->GetFunction());
-  exports->Set(String::NewSymbol("registerShutdownHandler"),
-    FunctionTemplate::New(ShutdownHandler)->GetFunction());
-  exports->Set(String::NewSymbol("registry"), WrappedRegistry::NewInstance());
+  exports->Set(NanNew("launchProcess"),
+    NanNew<FunctionTemplate>(LaunchProcess)->GetFunction());
+  exports->Set(NanNew("detectResolution"),
+    NanNew<FunctionTemplate>(DetectResolution)->GetFunction());
+  exports->Set(NanNew("registerShutdownHandler"),
+    NanNew<FunctionTemplate>(ShutdownHandler)->GetFunction());
+  exports->Set(NanNew("registry"), WrappedRegistry::NewInstance());
 }
 
 NODE_MODULE(psi, Initialize);

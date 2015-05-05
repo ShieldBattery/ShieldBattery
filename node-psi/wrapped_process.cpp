@@ -2,6 +2,8 @@
 
 #include <assert.h>
 #include <node.h>
+#include <nan.h>
+#include <memory>
 #include <string>
 
 #include "common/win_helpers.h"
@@ -9,6 +11,7 @@
 #include "node-psi/module.h"
 
 using std::string;
+using std::unique_ptr;
 using std::wstring;
 using v8::Arguments;
 using v8::Exception;
@@ -47,110 +50,101 @@ void WrappedProcess::set_process(Process* process) {
 Persistent<Function> WrappedProcess::constructor;
 
 void WrappedProcess::Init() {
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
-  tpl->SetClassName(String::NewSymbol("CProcess"));
+  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
+  tpl->SetClassName(NanNew("CProcess"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // functions
   SetProtoMethod(tpl, "injectDll", InjectDll);
   SetProtoMethod(tpl, "resume", Resume);
-
-  constructor = Persistent<Function>::New(tpl->GetFunction());
+  
+  NanAssignPersistent(constructor, tpl->GetFunction());
 }
 
-Handle<Value> WrappedProcess::New(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(WrappedProcess::New) {
+  NanScope();
 
   WrappedProcess* process = new WrappedProcess();
   process->Wrap(args.This());
 
-  return scope.Close(args.This());
+  NanReturnThis();
 }
 
 Handle<Value> WrappedProcess::NewInstance(Process* process) {
-  HandleScope scope;
+  NanEscapableScope();
 
   Local<Object> instance = constructor->NewInstance();
   WrappedProcess* wrapped = ObjectWrap::Unwrap<WrappedProcess>(instance);
   wrapped->set_process(process);
 
-  return scope.Close(instance);
+  return NanEscapeScope(instance);
 }
 
 struct InjectDllContext {
   uv_work_t req;
-  wstring* dll_path;
-  string* inject_func;
-  Persistent<Function> callback;
+  unique_ptr<wstring> dll_path;
+  unique_ptr<string> inject_func;
+  unique_ptr<NanCallback> callback;
   Persistent<Object> self;
   Process* process;
 
-  WindowsError* error;
+  unique_ptr<WindowsError> error;
 };
 
 void InjectDllWork(uv_work_t* req) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  context->error =
-      new WindowsError(context->process->InjectDll(*context->dll_path, *context->inject_func));
+  context->error.reset(
+      new WindowsError(context->process->InjectDll(*context->dll_path, *context->inject_func)));
 }
 
 void InjectDllAfter(uv_work_t* req, int status) {
-  HandleScope scope;
+  NanScope();
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  Local<Value> err = Local<Value>::New(v8::Null());
+  Local<Value> err = NanNull();
   if (context->error->is_error()) {
     err = Exception::Error(
-        String::New(reinterpret_cast<const uint16_t*>(context->error->message().c_str())));
+        NanNew<String>(reinterpret_cast<const uint16_t*>(context->error->message().c_str())));
   }
 
   Local<Value> argv[] = { err };
   TryCatch try_catch;
-  context->callback->Call(Local<Object>::New(context->self), 1, argv);
+  context->callback->Call(NanNew<Object>(context->self), 1, argv);
 
-  context->callback.Dispose();
-  context->self.Dispose();
-  delete context->dll_path;
-  delete context->inject_func;
-  delete context->error;
+  NanDisposePersistent(context->self);
   delete context;
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
 }
 
-Handle<Value> WrappedProcess::InjectDll(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(WrappedProcess::InjectDll) {
+  NanScope();
 
   assert(args.Length() == 3);
   assert(args[2]->IsFunction());
 
   InjectDllContext* context = new InjectDllContext;
-  context->dll_path = ToWstring(args[0]->ToString());
-  String::AsciiValue ascii_value(args[1]->ToString());
-  context->inject_func = new string(*ascii_value);
-  context->callback = Persistent<Function>::New(args[2].As<Function>());
-  context->self = Persistent<Object>::New(args.This());
+  context->dll_path.reset(ToWstring(args[0]->ToString()));
+  context->inject_func.reset(new string(*NanUtf8String(args[1]->ToString())));
+  context->callback.reset(new NanCallback(args[2].As<Function>()));
+  NanAssignPersistent(context->self, args.This());
   context->process = WrappedProcess::Unwrap(args);
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, InjectDllWork, InjectDllAfter);
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
-Handle<Value> WrappedProcess::Resume(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(WrappedProcess::Resume) {
+  NanScope();
   Process* process = WrappedProcess::Unwrap(args);
 
   WindowsError error = WindowsError(process->Resume());
   if (error.is_error()) {
-    return scope.Close(Exception::Error(
-        String::New(reinterpret_cast<const uint16_t*>(error.message().c_str()))));
+    NanReturnValue(Exception::Error(
+        NanNew<String>(reinterpret_cast<const uint16_t*>(error.message().c_str()))));
   }
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
 }  // namespace psi

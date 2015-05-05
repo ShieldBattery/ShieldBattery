@@ -423,6 +423,10 @@
         "bundle-bindings": {
           "version": "0.1.3",
           "from": "bundle-bindings@>=0.1.3 <0.2.0"
+        },
+        "nan": {
+          "version": "1.8.4",
+          "from": "nan@>=1.8.4 <2.0.0"
         }
       }
     }

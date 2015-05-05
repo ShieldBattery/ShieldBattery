@@ -73,11 +73,11 @@ SETLOCAL
   if not exist shieldbattery.sln goto create-msvs-files-failed
   echo Shieldbattery project files generated.
 ENDLOCAL
-goto do-build
 
 :msbuild
 @rem Skip build if requested.
 if defined nobuild goto exit
+goto do-build
 
 :msbuild-not-found
 echo Build skipped. To build, this file needs to run from VS cmd prompt.
