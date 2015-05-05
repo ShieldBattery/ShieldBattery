@@ -116,6 +116,33 @@ enum class ChatMessageType : byte {
   Person
 };
 
+enum class MapResult : uint32 {
+  OK = 0,
+  GenericError = 0x80000000,
+  Invalid,                    // This scenario is intended for use with a StarCraft Expansion Set.
+  WrongGameType,              // This map can only be played with the "Use Map Settings" game type.
+  LadderBadAuth,              // You must select an authenticated ladder map to start a ladder game.
+  AlreadyExists,              // A game by that name already exists!
+  TooManyNames,               // Unable to create game because there are too many games already running on this network.
+  BadParameters,              // An error occurred while trying to create the game.
+  InvalidPlayerCount,         // The selected scenario is not valid.
+  UnsupportedGameType,        // The selected map does not support the selected game type and options.
+  MissingSaveGamePassword,    // You must enter a password to start a saved game.
+  MissingReplayPassword,      // You must enter a password to start a replay.
+  IsDirectory,                // (Changes the directory)
+  NoHumanSlots,               // This map does not have a slot for a human participant.
+  NoComputerSlots,            // You must have at least one computer opponent.
+  InvalidLeagueMap,           // You must select an official league map to start a league game.
+  GameTypeUnavailable,        // Unable to create game because the selected game type is currently unavailable.
+  NotEnoughSlots,             // The selected map does not have enough player slots for the selected game type.
+  LeagueMissingBroodwar,      // Brood War is required to play league games.
+  LeagueBadAuth,              // You must select an authenticated ladder map to start a ladder game.
+
+  // And some we invented:
+  CustomError = 0x90000000,
+  MapNotFound
+};
+
 #pragma pack(1)
 struct LobbyGameInitData {
   byte game_init_command;
@@ -133,7 +160,7 @@ struct Functions {
   FUNCDEF(void, InitGameNetwork);
   FUNCDEF(void, GameLoop);
   FUNCDEF(uint32, GetMapsList, uint32 unk1, char* path, char* last_map_name);
-  FUNCDEF(uint32, SelectMapOrDirectory, char* game_name, char* password, int game_type,
+  FUNCDEF(MapResult, SelectMapOrDirectory, char* game_name, char* password, int game_type,
       int game_speed, char* map_folder_path);
   FUNCDEF(uint32, AddComputer, uint32 slot_num);
   FUNCDEF(uint32, StartGameCountdown);
@@ -233,7 +260,7 @@ public:
 
   void set_event_handlers(const EventHandlers& handlers);
 
-  bool CreateGame(const std::string& game_name, const std::string& password,
+  MapResult CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
   bool JoinGame(const JoinableGameInfo& game_info);
 
@@ -310,7 +337,7 @@ private:
   void ApplyPatches();
   void InjectDetours();
   void GetMapsList(const MapListEntryCallback callback);
-  bool SelectMapOrDirectory(const std::string& game_name, const std::string& password,
+  MapResult SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
 
   Offsets* offsets_;

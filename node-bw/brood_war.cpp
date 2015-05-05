@@ -331,14 +331,14 @@ void BroodWar::GetMapsList(const MapListEntryCallback callback) {
   }
 }
 
-bool BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
+MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
       uint32 game_type, GameSpeed game_speed, MapListEntry* map_data) {
   auto select = offsets_->functions.SelectMapOrDirectory;
 
   const char* game_name_param = game_name.c_str();
   const char* password_param = password.c_str();
   const char* map_folder_path = offsets_->current_map_folder_path;
-  uint32 result;
+  MapResult result;
 
   __asm {
     push eax;
@@ -356,12 +356,10 @@ bool BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::str
     pop eax;
   }
 
-  // this function returns an error code on failure, so 0 is good here
-  return result == 0;
+  return result;
 }
 
-// TODO(tec27): see above, return what SelectMapOrDirectory returns?
-bool BroodWar::CreateGame(const std::string& game_name, const std::string& password,
+MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& password,
       const std::string& map_path, const uint32 game_type, const GameSpeed game_speed) {
   std::string map_dir;
   std::string map_file;
@@ -392,7 +390,7 @@ bool BroodWar::CreateGame(const std::string& game_name, const std::string& passw
 
   if (current_map == NULL) {
     // map could not be found, unable to create game
-    return false;
+    return MapResult::MapNotFound;
   }
 
   return SelectMapOrDirectory(game_name, password, game_type, game_speed, current_map);

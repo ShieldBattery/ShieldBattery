@@ -680,13 +680,13 @@ Handle<Value> WrappedBroodWar::CreateGame(const Arguments& args) {
   }
 
   BroodWar* bw = WrappedBroodWar::Unwrap(args);
-  bool result = bw->CreateGame(game_name ? game_name : "ShieldBattery",
+  MapResult result = bw->CreateGame(game_name ? game_name : "ShieldBattery",
       password ? password : std::string(),
       map_path,
       game_type,
       game_speed);
 
-  return scope.Close(Boolean::New(result));
+  return scope.Close(Boolean::New(result == MapResult::OK));
 }
 
 Handle<Value> WrappedBroodWar::SpoofGame(const Arguments& args) {
