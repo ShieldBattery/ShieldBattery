@@ -15,6 +15,7 @@
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
 
+using node::SetPrototypeMethod;
 using std::list;
 using std::make_pair;
 using std::map;
@@ -210,23 +211,23 @@ void WrappedBroodWar::Init() {
 #undef EVENT_HANDLER
 
   // functions
-  SetProtoMethod(tpl, "setSettings", SetSettings);
-  SetProtoMethod(tpl, "initProcess", InitProcess);
-  SetProtoMethod(tpl, "initSprites", InitSprites);
-  SetProtoMethod(tpl, "initPlayerInfo", InitPlayerInfo);
-  SetProtoMethod(tpl, "chooseNetworkProvider", ChooseNetworkProvider);
-  SetProtoMethod(tpl, "createGame", CreateGame);
-  SetProtoMethod(tpl, "spoofGame", SpoofGame);
-  SetProtoMethod(tpl, "joinGame", JoinGame);
-  SetProtoMethod(tpl, "initGameNetwork", InitGameNetwork);
-  SetProtoMethod(tpl, "addComputer", AddComputer);
-  SetProtoMethod(tpl, "setRace", SetRace);
-  SetProtoMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
-  SetProtoMethod(tpl, "startGameCountdown", StartGameCountdown);
-  SetProtoMethod(tpl, "runGameLoop", RunGameLoop);
-  SetProtoMethod(tpl, "sendMultiplayerChatMessage", SendMultiplayerChatMessage);
-  SetProtoMethod(tpl, "displayIngameMessage", DisplayIngameMessage);
-  SetProtoMethod(tpl, "cleanUpForExit", CleanUpForExit);
+  SetPrototypeMethod(tpl, "setSettings", SetSettings);
+  SetPrototypeMethod(tpl, "initProcess", InitProcess);
+  SetPrototypeMethod(tpl, "initSprites", InitSprites);
+  SetPrototypeMethod(tpl, "initPlayerInfo", InitPlayerInfo);
+  SetPrototypeMethod(tpl, "chooseNetworkProvider", ChooseNetworkProvider);
+  SetPrototypeMethod(tpl, "createGame", CreateGame);
+  SetPrototypeMethod(tpl, "spoofGame", SpoofGame);
+  SetPrototypeMethod(tpl, "joinGame", JoinGame);
+  SetPrototypeMethod(tpl, "initGameNetwork", InitGameNetwork);
+  SetPrototypeMethod(tpl, "addComputer", AddComputer);
+  SetPrototypeMethod(tpl, "setRace", SetRace);
+  SetPrototypeMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
+  SetPrototypeMethod(tpl, "startGameCountdown", StartGameCountdown);
+  SetPrototypeMethod(tpl, "runGameLoop", RunGameLoop);
+  SetPrototypeMethod(tpl, "sendMultiplayerChatMessage", SendMultiplayerChatMessage);
+  SetPrototypeMethod(tpl, "displayIngameMessage", DisplayIngameMessage);
+  SetPrototypeMethod(tpl, "cleanUpForExit", CleanUpForExit);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }

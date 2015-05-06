@@ -19,6 +19,7 @@
 namespace sbat {
 namespace forge {
 
+using node::SetPrototypeMethod;
 using std::map;
 using std::pair;
 using std::unique_ptr;
@@ -121,11 +122,11 @@ void Forge::Init() {
   tpl->SetClassName(String::NewSymbol("Forge"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-  SetProtoMethod(tpl, "inject", Inject);
-  SetProtoMethod(tpl, "restore", Restore);
-  SetProtoMethod(tpl, "runWndProc", RunWndProc);
-  SetProtoMethod(tpl, "endWndProc", EndWndProc);
-  SetProtoMethod(tpl, "setShaders", SetShaders);
+  SetPrototypeMethod(tpl, "inject", Inject);
+  SetPrototypeMethod(tpl, "restore", Restore);
+  SetPrototypeMethod(tpl, "runWndProc", RunWndProc);
+  SetPrototypeMethod(tpl, "endWndProc", EndWndProc);
+  SetPrototypeMethod(tpl, "setShaders", SetShaders);
 
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
