@@ -10,6 +10,7 @@
 #include "v8-helpers/helpers.h"
 #include "node-psi/module.h"
 
+using node::SetPrototypeMethod;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -55,8 +56,8 @@ void WrappedProcess::Init() {
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // functions
-  SetProtoMethod(tpl, "injectDll", InjectDll);
-  SetProtoMethod(tpl, "resume", Resume);
+  SetPrototypeMethod(tpl, "injectDll", InjectDll);
+  SetPrototypeMethod(tpl, "resume", Resume);
   
   NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -109,7 +110,6 @@ void InjectDllAfter(uv_work_t* req, int status) {
   }
 
   Local<Value> argv[] = { err };
-  TryCatch try_catch;
   context->callback->Call(NanNew<Object>(context->self), 1, argv);
 
   NanDisposePersistent(context->self);

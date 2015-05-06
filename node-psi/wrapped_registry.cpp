@@ -1,12 +1,16 @@
 #include "node-psi/wrapped_registry.h"
 
 #include <node.h>
+#include <nan.h>
 #include <Windows.h>
+#include <memory>
 
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
 
+using node::SetPrototypeMethod;
+using std::unique_ptr;
 using std::wstring;
 using v8::Arguments;
 using v8::Exception;
@@ -20,38 +24,39 @@ using v8::Persistent;
 using v8::String;
 using v8::Value;
 
+
 namespace sbat {
 namespace psi {
 
 Persistent<Function> WrappedRegistry::constructor;
 
 void WrappedRegistry::Init() {
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
-  tpl->SetClassName(String::NewSymbol("Registry"));
+  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
+  tpl->SetClassName(NanNew("Registry"));
 
-  SetProtoMethod(tpl, "readString", ReadString);
+  SetPrototypeMethod(tpl, "readString", ReadString);
 
-  constructor = Persistent<Function>::New(tpl->GetFunction());
+  NanAssignPersistent(constructor, tpl->GetFunction());
 }
 
-Handle<Value> WrappedRegistry::New(const Arguments& args) {
-  HandleScope scope;
-  return scope.Close(args.This());
+NAN_METHOD(WrappedRegistry::New) {
+  NanScope();
+  NanReturnThis();
 }
 
 Handle<Value> WrappedRegistry::NewInstance() {
-  HandleScope scope;
+  NanEscapableScope();
   Local<Object> instance = constructor->NewInstance();
-  return scope.Close(instance);
+  return NanEscapeScope(instance);
 }
 
-Handle<Value> WrappedRegistry::ReadString(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(WrappedRegistry::ReadString) {
+  NanScope();
   assert(args.Length() == 3);
 
-  wstring* root_key_str = ToWstring(args[0]->ToString());
-  wstring* sub_key = ToWstring(args[1]->ToString());
-  wstring* value_name = ToWstring(args[2]->ToString());
+  unique_ptr<wstring> root_key_str(ToWstring(args[0]->ToString()));
+  unique_ptr<wstring> sub_key(ToWstring(args[1]->ToString()));
+  unique_ptr<wstring> value_name(ToWstring(args[2]->ToString()));
 
   HKEY root_key = NULL;
   if (root_key_str->compare(L"hkcr") == 0) {
@@ -65,16 +70,15 @@ Handle<Value> WrappedRegistry::ReadString(const Arguments& args) {
   } else if (root_key_str->compare(L"hku") == 0) {
     root_key = HKEY_USERS;
   }
-  assert(root_key != NULL);
+  if (root_key == NULL) {
+    return NanThrowError("Invalid root key.");
+  }
 
   HKEY key;
   WindowsError result = WindowsError(RegOpenKeyW(root_key, sub_key->c_str(), &key));
   if (result.is_error()) {
-    delete root_key_str;
-    delete sub_key;
-    delete value_name;
     return ThrowException(Exception::Error(
-        String::New(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
+        NanNew<String>(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
   }
 
   wchar_t value[MAX_PATH];
@@ -83,19 +87,15 @@ Handle<Value> WrappedRegistry::ReadString(const Arguments& args) {
     reinterpret_cast<LPBYTE>(value), &value_size));
   RegCloseKey(key);
 
-  delete root_key_str;
-  delete sub_key;
-  delete value_name;
-
   if (result.is_error()) {
     return ThrowException(Exception::Error(
-        String::New(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
+        NanNew<String>(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
   } else {
     if (value_size == 0) {
-      return scope.Close(v8::Undefined());
+      NanReturnUndefined();
     }
 
-    return scope.Close(String::New(reinterpret_cast<const uint16_t*>(value)));
+    NanReturnValue(NanNew<String>(reinterpret_cast<const uint16_t*>(value)));
   }
 }
 

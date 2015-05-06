@@ -5,6 +5,7 @@
 #include <uv.h>
 #include <Windows.h>
 #include <stdlib.h>
+#include <memory>
 #include <string>
 
 #include "common/win_helpers.h"
@@ -13,6 +14,7 @@
 #include "node-psi/wrapped_registry.h"
 #include "psi/psi.h"
 
+using std::unique_ptr;
 using std::wstring;
 using v8::Arguments;
 using v8::Boolean;
@@ -36,11 +38,11 @@ namespace psi {
 
 struct LaunchContext {
   uv_work_t req;
-  wstring* app_path;
-  wstring* arguments;
+  unique_ptr<wstring> app_path;
+  unique_ptr<wstring> arguments;
   bool launch_suspended;
-  wstring* current_dir;
-  Persistent<Function> callback;
+  unique_ptr<wstring> current_dir;
+  unique_ptr<NanCallback> callback;
 
   Process* process;
 };
@@ -53,55 +55,45 @@ void LaunchWork(uv_work_t* req) {
 }
 
 void LaunchAfter(uv_work_t* req, int status) {
-  HandleScope scope;
+  NanScope();
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
 
-  Local<Value> err = Local<Value>::New(v8::Null());
-  Handle<Value> proc = Local<Value>::New(v8::Null());
+  Local<Value> err = NanNull();
+  Handle<Value> proc = NanNull();
 
   if (context->process->has_errors()) {
-    err = Exception::Error(String::New(
+    err = Exception::Error(NanNew<String>(
         reinterpret_cast<const uint16_t*>(context->process->error().message().c_str())));
   } else {
     proc = WrappedProcess::NewInstance(context->process);
   }
 
   Handle<Value> argv[] = { err, proc };
-  TryCatch try_catch;
-  context->callback->Call(Context::GetCurrent()->Global(), 2, argv);
-
-  context->callback.Dispose();
-  delete context->app_path;
-  delete context->arguments;
-  delete context->current_dir;
+  context->callback->Call(NanGetCurrentContext()->Global(), 2, argv);
   delete context;
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
 }
 
-Handle<Value> LaunchProcess(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(LaunchProcess) {
+  NanScope();
 
   assert(args.Length() == 5);
   assert(args[4]->IsFunction());
 
   LaunchContext* context = new LaunchContext;
-  context->app_path = ToWstring(args[0]->ToString());
-  context->arguments  = ToWstring(args[1]->ToString());
+  context->app_path.reset(ToWstring(args[0]->ToString()));
+  context->arguments.reset(ToWstring(args[1]->ToString()));
   context->launch_suspended = args[2]->ToBoolean()->BooleanValue();
-  context->current_dir = ToWstring(args[3]->ToString());
-  context->callback = Persistent<Function>::New(args[4].As<Function>());
+  context->current_dir.reset(ToWstring(args[3]->ToString()));
+  context->callback.reset(new NanCallback(args[4].As<Function>()));
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
 struct ResContext {
   uv_work_t req;
-  Persistent<Function> callback;
+  unique_ptr<NanCallback> callback;
 
   uint32 exit_code;
   WindowsError error;
@@ -192,78 +184,68 @@ void DetectResolutionWork(uv_work_t* req) {
 }
 
 void DetectResolutionAfter(uv_work_t* req, int status) {
-  HandleScope scope;
+  NanScope();
   ResContext* context = reinterpret_cast<ResContext*>(req->data);
 
-  Local<Value> err = Local<Value>::New(v8::Null());
-  Handle<Value> resolution = Local<Value>::New(v8::Null());
+  Local<Value> err = NanNull();
+  Handle<Value> resolution = NanNull();
 
   if (context->exit_code == 101) {
-    err = Exception::Error(String::New(
+    err = Exception::Error(NanNew<String>(
         reinterpret_cast<const uint16_t*>(context->error.message().c_str())));
   } else if (context->exit_code != 0) {
     char msg[100];
     _snprintf(msg, sizeof(msg), "Non-zero exit code: %d", context->exit_code);
-    err = Exception::Error(String::New(msg));
+    err = Exception::Error(NanNew(msg));
   } else {
-    resolution = Object::New();
+    resolution = NanNew<Object>();
     Handle<Object> obj = resolution.As<Object>();
-    obj->Set(String::New("width"), Integer::New(context->message.width));
-    obj->Set(String::New("height"), Integer::New(context->message.height));
+    obj->Set(NanNew("width"), NanNew(context->message.width));
+    obj->Set(NanNew("height"), NanNew(context->message.height));
   }
 
   Handle<Value> argv[] = { err, resolution };
-  TryCatch try_catch;
   context->callback->Call(Context::GetCurrent()->Global(), 2, argv);
-
-  context->callback.Dispose();
   delete context;
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
 }
 
-Handle<Value> DetectResolution(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(DetectResolution) {
+  NanScope();
 
   assert(args.Length() == 1);
   assert(args[0]->IsFunction());
 
   ResContext* context = new ResContext();
   context->req.data = context;
-  context->callback = Persistent<Function>::New(args[0].As<Function>());
+  context->callback.reset(new NanCallback(args[0].As<Function>()));
   uv_queue_work(uv_default_loop(), &context->req, DetectResolutionWork, DetectResolutionAfter);
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
-Persistent<Function> callback;
+unique_ptr<NanCallback> shutdown_callback;
 
-Handle<Value> ShutdownHandler(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(RegisterShutdownHandler) {
+  NanScope();
   assert(args.Length() == 1);
   assert(args[0]->IsFunction());
 
-  if (!callback.IsEmpty()) {
-    callback.Dispose();
-  }
-
-  callback = Persistent<Function>::New(args[0].As<Function>());
-  return scope.Close(v8::Undefined());
+  shutdown_callback.reset(new NanCallback(args[0].As<Function>()));
+  NanReturnUndefined();
 }
 
 void EmitShutdown() {
-  if (callback.IsEmpty()) {
+  if (!shutdown_callback) {
     return;
   }
 
-  callback->Call(Context::GetCurrent()->Global(), 0, nullptr);
+  shutdown_callback->Call(NanGetCurrentContext()->Global(), 0, nullptr);
 }
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   WrappedProcess::Init();
   WrappedRegistry::Init();
+  shutdown_callback = unique_ptr<NanCallback>();
   PsiService::SetShutdownCallback(EmitShutdown);
 
   exports->Set(NanNew("launchProcess"),
@@ -271,7 +253,7 @@ void Initialize(Handle<Object> exports, Handle<Object> module) {
   exports->Set(NanNew("detectResolution"),
     NanNew<FunctionTemplate>(DetectResolution)->GetFunction());
   exports->Set(NanNew("registerShutdownHandler"),
-    NanNew<FunctionTemplate>(ShutdownHandler)->GetFunction());
+    NanNew<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
   exports->Set(NanNew("registry"), WrappedRegistry::NewInstance());
 }
 

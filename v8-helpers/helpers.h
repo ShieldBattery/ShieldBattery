@@ -16,6 +16,7 @@ void SetProtoAccessor(target_t target, const char* name, v8::AccessorGetter gett
   target->PrototypeTemplate()->SetAccessor(String::NewSymbol(name), getter, setter);
 }
 
+// TODO(tec27): delete this, replace with node::SetPrototypeMethod
 template <typename target_t>
 void SetProtoMethod(target_t target, const char* name, v8::InvocationCallback method) {
   v8::Local<v8::FunctionTemplate> func_template = v8::FunctionTemplate::New(method);
