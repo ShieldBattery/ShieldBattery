@@ -424,7 +424,7 @@ PlayerSlot.prototype._convertType = function() {
     case 1: return 'computer'
     case 2: return 'human'
     case 3: return 'rescuepassive'
-    // case 4: unknown
+    case 4: return 'rescueactive'
     case 5: return 'lobbycomputer'
     case 6: return 'open'
     case 7: return 'neutral'
@@ -441,6 +441,9 @@ PlayerSlot.prototype._convertRace = function() {
     case 0: return 'zerg'
     case 1: return 'terran'
     case 2: return 'protoss'
+    case 3: return 'other'
+    case 4: return 'unused'
+    case 5: return 'select'
     case 6: return 'random'
     default: return 'unknown'
   }
