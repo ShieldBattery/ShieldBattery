@@ -37,6 +37,20 @@ goto next-arg
 
 :args-done
 
+:install-deps
+@rem Install all the node module dependencies
+cd "%scriptroot%\node-psi"
+call npm install
+if errorlevel 1 goto install-failed
+cd "%scriptroot%\node-bw"
+call npm install
+if errorlevel 1 goto install-failed
+cd "%scriptroot%\forge"
+call npm install
+if errorlevel 1 goto install-failed
+echo JS modules installed.
+goto project-gen
+
 :project-gen
 @rem Skip project generation if requested.
 if defined noprojgen goto msbuild
@@ -96,15 +110,12 @@ goto exit
 :link-modules
 @rem Link up the native modules inside the js directory
 cd "%scriptroot%\node-psi"
-call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%scriptroot%\node-bw"
-call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%scriptroot%\forge"
-call npm install
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%scriptroot%\js"
@@ -121,8 +132,12 @@ mklink /D "%SHIELDBATTERY_PATH%\js" "%scriptroot%\js"
 echo JS modules linked.
 goto exit
 
+:install-failed
+echo Installing JS modules failed, please check output and ensure node/npm are installed and setup on your PATH.
+goto exit
+
 :linking-failed
-echo Linking JS modules failed, please check command output and ensure node.js is installed and setup on your PATH.
+echo Linking JS modules failed, please check command output and ensure node/npm are installed and setup on your PATH.
 goto exit
 
 :env-error
