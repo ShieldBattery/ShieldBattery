@@ -160,7 +160,7 @@ void BroodWar::ApplyPatches() {
 }
 
 PlayerInfo* BroodWar::players() const {
-    return offsets_->players;
+  return offsets_->players;
 }
 
 std::string BroodWar::current_map_path() const {
@@ -331,12 +331,13 @@ void BroodWar::GetMapsList(const MapListEntryCallback callback) {
   }
 }
 
-MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, const std::string& password,
-      uint32 game_type, GameSpeed game_speed, MapListEntry* map_data) {
+MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, uint32 game_type,
+      GameSpeed game_speed, MapListEntry* map_data) {
   auto select = offsets_->functions.SelectMapOrDirectory;
 
   const char* game_name_param = game_name.c_str();
-  const char* password_param = password.c_str();
+  // password needs to be nullptr so replays can work
+  const char* password_param = nullptr;
   const char* map_folder_path = offsets_->current_map_folder_path;
   MapResult result;
 
@@ -359,8 +360,8 @@ MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, const std
   return result;
 }
 
-MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& password,
-      const std::string& map_path, const uint32 game_type, const GameSpeed game_speed) {
+MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& map_path,
+      const uint32 game_type, const GameSpeed game_speed) {
   std::string map_dir;
   std::string map_file;
 
@@ -393,7 +394,7 @@ MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& 
     return MapResult::MapNotFound;
   }
 
-  return SelectMapOrDirectory(game_name, password, game_type, game_speed, current_map);
+  return SelectMapOrDirectory(game_name, game_type, game_speed, current_map);
 }
 
 bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
