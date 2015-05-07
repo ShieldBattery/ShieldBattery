@@ -260,8 +260,8 @@ public:
 
   void set_event_handlers(const EventHandlers& handlers);
 
-  MapResult CreateGame(const std::string& game_name, const std::string& password,
-      const std::string& map_path, const uint32 game_type, const GameSpeed game_speed);
+  MapResult CreateGame(const std::string& game_name, const std::string& map_path,
+      const uint32 game_type, const GameSpeed game_speed);
   bool JoinGame(const JoinableGameInfo& game_info);
 
   PlayerInfo* players() const;
@@ -337,8 +337,8 @@ private:
   void ApplyPatches();
   void InjectDetours();
   void GetMapsList(const MapListEntryCallback callback);
-  MapResult SelectMapOrDirectory(const std::string& game_name, const std::string& password,
-      uint32 game_type, GameSpeed game_speed, MapListEntry* map_data);
+  MapResult SelectMapOrDirectory(const std::string& game_name, uint32 game_type,
+      GameSpeed game_speed, MapListEntry* map_data);
 
   Offsets* offsets_;
   EventHandlers* event_handlers_;

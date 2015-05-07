@@ -638,7 +638,6 @@ Handle<Value> WrappedBroodWar::CreateGame(const Arguments& args) {
   }
 
   char* game_name = nullptr;
-  char* password = nullptr;
   char* map_path;
   uint32 game_type;
   GameSpeed game_speed = GameSpeed::Fastest;
@@ -648,13 +647,6 @@ Handle<Value> WrappedBroodWar::CreateGame(const Arguments& args) {
       (game_name_value->IsString() || game_name_value->IsStringObject())) {
     String::AsciiValue ascii(game_name_value);
     game_name = *ascii;
-  }
-
-  Local<Value> password_value = config->Get(String::New("password"));
-  if (!password_value.IsEmpty() &&
-      (password_value->IsString() || password_value->IsStringObject())) {
-    String::AsciiValue ascii(password_value);
-    password = *ascii;
   }
 
   Local<Value> map_path_value = config->Get(String::New("mapPath"));
@@ -681,10 +673,7 @@ Handle<Value> WrappedBroodWar::CreateGame(const Arguments& args) {
   }
 
   BroodWar* bw = WrappedBroodWar::Unwrap(args);
-  MapResult result = bw->CreateGame(game_name ? game_name : "ShieldBattery",
-      password ? password : std::string(),
-      map_path,
-      game_type,
+  MapResult result = bw->CreateGame(game_name ? game_name : "ShieldBattery", map_path, game_type,
       game_speed);
 
   return scope.Close(Boolean::New(result == MapResult::OK));
