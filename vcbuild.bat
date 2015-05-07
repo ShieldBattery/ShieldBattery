@@ -99,6 +99,7 @@ goto exit
 
 :do-build
 @rem Build the sln with msbuild.
+cd "%scriptroot%"
 msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
 goto link-modules
