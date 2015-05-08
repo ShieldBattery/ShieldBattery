@@ -148,11 +148,17 @@
       ],
       'include_dirs': [
         '.',
+        'deps/node/src',
+        'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        # We include node-psi's nan since we A) assume node-psi will always be around and
+        # B) don't want to have to have node_modules for v8-helpers
+        'node-psi/<!(cd node-psi && node -e "require(\'nan\')")',
       ],
       'defines': [
         'USING_UV_SHARED=1',
         'USING_V8_SHARED=1',
+        'BUILDING_NODE_EXTENSION',
       ],
       'defines!': [
         'BUILDING_UV_SHARED=1',
@@ -291,6 +297,7 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        'node-bw/<!(cd node-bw && node -e "require(\'nan\')")',
       ],
       'sources': [
         'node-bw/module.cpp',
@@ -373,6 +380,7 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        'forge/<!(cd forge && node -e "require(\'nan\')")',
         '$(DXSDK_DIR)Include',
       ],
       'sources': [

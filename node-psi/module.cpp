@@ -80,10 +80,10 @@ NAN_METHOD(LaunchProcess) {
   assert(args[4]->IsFunction());
 
   LaunchContext* context = new LaunchContext;
-  context->app_path.reset(ToWstring(args[0]->ToString()));
-  context->arguments.reset(ToWstring(args[1]->ToString()));
+  context->app_path = ToWstring(args[0]->ToString());
+  context->arguments = ToWstring(args[1]->ToString());
   context->launch_suspended = args[2]->ToBoolean()->BooleanValue();
-  context->current_dir.reset(ToWstring(args[3]->ToString()));
+  context->current_dir = ToWstring(args[3]->ToString());
   context->callback.reset(new NanCallback(args[4].As<Function>()));
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);

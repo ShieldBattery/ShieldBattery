@@ -1,20 +1,20 @@
 #ifndef V8_HELPERS_HELPERS_H_
 #define V8_HELPERS_HELPERS_H_
 
-#include <v8.h>
 #include <memory>
 #include <string>
 #include <vector>
 
+namespace v8 {
+template <class T> class Handle;
+template <class T> class Local;
+class String;
+class Value;
+}
+
 namespace sbat {
 
-std::wstring* ToWstring(const v8::Handle<v8::String>& v8_str);
-
-template <typename target_t>
-void SetProtoAccessor(target_t target, const char* name, v8::AccessorGetter getter, 
-    v8::AccessorSetter setter = reinterpret_cast<v8::AccessorSetter>(NULL)) {
-  target->PrototypeTemplate()->SetAccessor(String::NewSymbol(name), getter, setter);
-}
+std::unique_ptr<std::wstring> ToWstring(const v8::Handle<v8::String>& v8_str);
 
 // Values that are constructed without a scope, and can have a scope "applied" to them afterwards
 // so that we can allocate v8 values from other threads and give them a context later
@@ -30,7 +30,7 @@ class ScopelessUnsigned;
 class ScopelessInteger : public ScopelessValue {
 public:
   static ScopelessSigned* New(int32_t value);
-  static ScopelessUnsigned* NewFromUnsigned(uint32_t value);  
+  static ScopelessUnsigned* NewFromUnsigned(uint32_t value);
 };
 
 class ScopelessSigned : public ScopelessInteger {

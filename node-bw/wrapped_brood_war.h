@@ -1,6 +1,7 @@
 #ifndef NODE_BW_WRAPPED_BROOD_WAR_H_
 #define NODE_BW_WRAPPED_BROOD_WAR_H_
 
+#include <nan.h>
 #include <node.h>
 #include <map>
 #include <memory>
@@ -12,6 +13,16 @@
 
 namespace sbat {
 namespace bw {
+
+template <typename target_t, typename getter_t>
+inline void SetProtoAccessor(target_t& tpl, const char* name, getter_t getter) {
+  tpl->PrototypeTemplate()->SetAccessor(NanNew(name), getter); 
+}
+
+template <typename target_t, typename getter_t, typename setter_t>
+inline void SetProtoAccessor(target_t& tpl, const char* name, getter_t getter, setter_t setter) {
+  tpl->PrototypeTemplate()->SetAccessor(NanNew(name), getter, setter); 
+}
 
 class EventHandlerContext {
 public:

@@ -123,7 +123,7 @@ NAN_METHOD(WrappedProcess::InjectDll) {
   assert(args[2]->IsFunction());
 
   InjectDllContext* context = new InjectDllContext;
-  context->dll_path.reset(ToWstring(args[0]->ToString()));
+  context->dll_path = ToWstring(args[0]->ToString());
   context->inject_func.reset(new string(*NanUtf8String(args[1]->ToString())));
   context->callback.reset(new NanCallback(args[2].As<Function>()));
   NanAssignPersistent(context->self, args.This());

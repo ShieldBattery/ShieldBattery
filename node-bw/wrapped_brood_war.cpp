@@ -1,5 +1,6 @@
 #include  "./wrapped_brood_war.h"
 
+#include <nan.h>
 #include <node.h>
 #include <uv.h>
 #include <list>

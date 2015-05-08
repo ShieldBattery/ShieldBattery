@@ -1,5 +1,6 @@
 #include "v8-helpers/helpers.h"
 
+#include <nan.h>
 #include <v8.h>
 #include <memory>
 #include <string>
@@ -7,23 +8,24 @@
 
 using std::shared_ptr;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 using std::wstring;
 using v8::Array;
 using v8::Handle;
 using v8::Local;
 using v8::Integer;
+using v8::Int32;
 using v8::String;
+using v8::Uint32;
 using v8::Value;
 
 namespace sbat {
 
-wstring* ToWstring(const Handle<String>& v8_str) {
-  wchar_t* temp = new wchar_t[v8_str->Length() + 1];
-  v8_str->Write(reinterpret_cast<uint16_t*>(temp));
-  wstring* result = new wstring(temp);
-  delete temp;
-
+unique_ptr<wstring> ToWstring(const Handle<String>& v8_str) {
+  unique_ptr<wstring> result(new wstring());
+  result->resize(v8_str->Length() + 1);
+  v8_str->Write(reinterpret_cast<uint16_t*>(&(*result)[0]));
   return result;
 }
 
@@ -51,11 +53,11 @@ ScopelessUnsigned::ScopelessUnsigned(uint32_t value)
 ScopelessUnsigned::~ScopelessUnsigned() { }
 
 Local<Value> ScopelessSigned::ApplyCurrentScope() const {
-    return Integer::New(value_);
+    return NanNew(value_);
 }
 
 Local<Value> ScopelessUnsigned::ApplyCurrentScope() const {
-    return Integer::NewFromUnsigned(value_);
+    return NanNew(value_);
 }
 
 ScopelessArray::ScopelessArray(int length) : items_(length) {
@@ -69,7 +71,7 @@ ScopelessArray* ScopelessArray::New(int length) {
 }
 
 Local<Value> ScopelessArray::ApplyCurrentScope() const {
-  Local<Array> result = Array::New(items_.size());
+  Local<Array> result = NanNew<Array>(items_.size());
   for (size_t i = 0; i < items_.size(); ++i) {
     result->Set(i, items_[i]->ApplyCurrentScope());
   }
@@ -91,7 +93,7 @@ ScopelessString* ScopelessString::New(const string& value) {
 }
 
 Local<Value> ScopelessString::ApplyCurrentScope() const {
-  return String::New(value_.c_str());
+  return NanNew(value_.c_str());
 }
 
 }  // namespace sbat
