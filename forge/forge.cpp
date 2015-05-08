@@ -1,6 +1,7 @@
 #include "forge/forge.h"
 
 #include <node.h>
+#include <nan.h>
 #include <v8.h>
 #include <Windows.h>
 #include <assert.h>
@@ -118,8 +119,8 @@ Forge::~Forge() {
 }
 
 void Forge::Init() {
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
-  tpl->SetClassName(String::NewSymbol("Forge"));
+  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
+  tpl->SetClassName(NanNew("Forge"));
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   SetPrototypeMethod(tpl, "inject", Inject);
@@ -128,7 +129,7 @@ void Forge::Init() {
   SetPrototypeMethod(tpl, "endWndProc", EndWndProc);
   SetPrototypeMethod(tpl, "setShaders", SetShaders);
 
-  constructor = Persistent<Function>::New(tpl->GetFunction());
+  NanAssignPersistent(constructor, tpl->GetFunction());
 }
 
 RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
@@ -191,21 +192,21 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   }
 }
 
-Handle<Value> Forge::New(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::New) {
+  NanScope();
   Forge* forge = new Forge();
   forge->Wrap(args.This());
-  return scope.Close(args.This());
+  NanReturnThis();
 }
 
 Handle<Value> Forge::NewInstance() {
-  HandleScope scope;
+  NanEscapableScope();
   Local<Object> instance = constructor->NewInstance();
-  return scope.Close(instance);
+  return NanEscapeScope(instance);
 }
 
-Handle<Value> Forge::Inject(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::Inject) {
+  NanScope();
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Inject();
@@ -222,11 +223,11 @@ Handle<Value> Forge::Inject(const Arguments& args) {
   result &= instance_->hooks_.SetCapture->Inject();
   result &= instance_->hooks_.ReleaseCapture->Inject();
 
-  return scope.Close(Boolean::New(result));
+  NanReturnValue(NanNew(result));
 }
 
-Handle<Value> Forge::Restore(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::Restore) {
+  NanScope();
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Restore();
@@ -243,14 +244,14 @@ Handle<Value> Forge::Restore(const Arguments& args) {
   result &= instance_->hooks_.SetCapture->Restore();
   result &= instance_->hooks_.ReleaseCapture->Restore();
 
-  return scope.Close(Boolean::New(result));
+  NanReturnValue(NanNew(result));
 }
 
 #define WM_END_WND_PROC_WORKER (WM_USER + 27)
 #define WM_GAME_STARTED (WM_USER + 7)
 
 struct WndProcContext {
-  Persistent<Function> cb;
+  unique_ptr<NanCallback> cb;
   bool quit;
 };
 
@@ -272,44 +273,39 @@ void WndProcWorker(void* arg) {
 }
 
 void WndProcWorkerAfter(void* arg) {
-  HandleScope scope;
+  NanScope();
 
   WndProcContext* context = reinterpret_cast<WndProcContext*>(arg);
-  TryCatch try_catch;
-  Handle<Value> argv[] = { v8::Null(), Boolean::New(context->quit) };
+  Handle<Value> argv[] = { NanNull(), NanNew(context->quit) };
   context->cb->Call(Context::GetCurrent()->Global(), 2, argv);
 
-  context->cb.Dispose();
   delete context;
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
-  }
 }
 
-Handle<Value> Forge::RunWndProc(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::RunWndProc) {
+  NanScope();
   assert(instance_->window_handle_ != NULL);
   assert(args.Length() > 0);
   Local<Function> cb = args[0].As<Function>();
 
   WndProcContext* context = new WndProcContext();
-  context->cb = Persistent<Function>::New(cb);
+  context->cb.reset(new NanCallback(cb));
 
   sbat::QueueWorkForUiThread(context, WndProcWorker, WndProcWorkerAfter);
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
-Handle<Value> Forge::EndWndProc(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::EndWndProc) {
+  NanScope();
   assert(instance_->window_handle_ != NULL);
 
   PostMessage(instance_->window_handle_, WM_END_WND_PROC_WORKER, NULL, NULL);
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
-Handle<Value> Forge::SetShaders(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Forge::SetShaders) {
+  NanScope();
   assert(instance_->window_handle_ == NULL);
   assert(args.Length() >= 1);
   Handle<Object> dx_vert_shaders = Handle<Object>::Cast(args[0]);
@@ -317,21 +313,23 @@ Handle<Value> Forge::SetShaders(const Arguments& args) {
   Handle<Object> gl_vert_shaders = Handle<Object>::Cast(args[2]);
   Handle<Object> gl_frag_shaders = Handle<Object>::Cast(args[3]);
 
+  Local<String> depalettizing = NanNew("depalettizing");
+  Local<String> scaling = NanNew("scaling");
   instance_->dx_shaders["depalettizing"] = std::make_pair(
-      *String::Utf8Value(dx_vert_shaders->Get(String::New("depalettizing"))->ToString()),
-      *String::Utf8Value(dx_pixel_shaders->Get(String::New("depalettizing"))->ToString()));
+      *String::Utf8Value(dx_vert_shaders->Get(depalettizing)->ToString()),
+      *String::Utf8Value(dx_pixel_shaders->Get(depalettizing)->ToString()));
   instance_->dx_shaders["scaling"] = std::make_pair(
-      *String::Utf8Value(dx_vert_shaders->Get(String::New("depalettizing"))->ToString()),
-      *String::Utf8Value(dx_pixel_shaders->Get(String::New("scaling"))->ToString()));
+      *String::Utf8Value(dx_vert_shaders->Get(depalettizing)->ToString()),
+      *String::Utf8Value(dx_pixel_shaders->Get(scaling)->ToString()));
 
   instance_->gl_shaders["depalettizing"] = std::make_pair(
-      *String::Utf8Value(gl_vert_shaders->Get(String::New("depalettizing"))->ToString()),
-      *String::Utf8Value(gl_frag_shaders->Get(String::New("depalettizing"))->ToString()));
+      *String::Utf8Value(gl_vert_shaders->Get(depalettizing)->ToString()),
+      *String::Utf8Value(gl_frag_shaders->Get(depalettizing)->ToString()));
   instance_->gl_shaders["scaling"] = std::make_pair(
-      *String::Utf8Value(gl_vert_shaders->Get(String::New("scaling"))->ToString()),
-      *String::Utf8Value(gl_frag_shaders->Get(String::New("scaling"))->ToString()));
+      *String::Utf8Value(gl_vert_shaders->Get(scaling)->ToString()),
+      *String::Utf8Value(gl_frag_shaders->Get(scaling)->ToString()));
 
-  return scope.Close(v8::Undefined());
+  NanReturnUndefined();
 }
 
 const int FOREGROUND_HOTKEY_ID = 1337;

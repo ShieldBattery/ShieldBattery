@@ -1,4 +1,5 @@
 #include <node.h>
+#include <nan.h>
 #include <v8.h>
 
 #include "forge/forge.h"
@@ -12,7 +13,7 @@ using v8::String;
 
 void Initialize(Handle<Object> exports, Handle<Object> module) {
   Forge::Init();
-  module->Set(String::NewSymbol("exports"), Forge::NewInstance());
+  module->Set(NanNew("exports"), Forge::NewInstance());
 }
 
 NODE_MODULE(forge, Initialize);

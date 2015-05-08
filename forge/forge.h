@@ -2,6 +2,7 @@
 #define FORGE_FORGE_H_
 
 #include <node.h>
+#include <nan.h>
 #include <v8.h>
 #include <dsound.h>
 #include <string>
@@ -54,6 +55,14 @@ public:
   static std::unique_ptr<Renderer> CreateRenderer(
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
+  // callable from JS
+  static NAN_METHOD(New);
+  static NAN_METHOD(Inject);
+  static NAN_METHOD(Restore);
+  static NAN_METHOD(RunWndProc);
+  static NAN_METHOD(EndWndProc);
+  static NAN_METHOD(SetShaders);
+
 private:
   Forge();
   ~Forge();
@@ -93,14 +102,6 @@ private:
       const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
-
-  // callable from JS
-  static v8::Handle<v8::Value> New(const v8::Arguments& args);
-  static v8::Handle<v8::Value> Inject(const v8::Arguments& args);
-  static v8::Handle<v8::Value> Restore(const v8::Arguments& args);
-  static v8::Handle<v8::Value> RunWndProc(const v8::Arguments& args);
-  static v8::Handle<v8::Value> EndWndProc(const v8::Arguments& args);
-  static v8::Handle<v8::Value> SetShaders(const v8::Arguments& args);
 
   static v8::Persistent<v8::Function> constructor;
   static Forge* instance_;
