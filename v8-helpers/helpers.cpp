@@ -24,7 +24,7 @@ namespace sbat {
 
 unique_ptr<wstring> ToWstring(const Handle<String>& v8_str) {
   unique_ptr<wstring> result(new wstring());
-  result->resize(v8_str->Length() + 1);
+  result->resize(v8_str->Length());
   v8_str->Write(reinterpret_cast<uint16_t*>(&(*result)[0]));
   return result;
 }
