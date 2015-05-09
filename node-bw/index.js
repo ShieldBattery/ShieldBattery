@@ -392,9 +392,7 @@ Lobby.prototype.runGameLoop = function(cb) {
   // TODO(tec27): see startCountdown note above
   if (!this._ensureRunning()) return
 
-  this.bindings.runGameLoop(function() {
-    cb(null)
-  })
+  this.bindings.runGameLoop(cb)
 
   this.stop()
   this.emit('gameStarted')

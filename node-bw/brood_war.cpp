@@ -21,7 +21,8 @@ BroodWar* BroodWar::Get() {
 
 BroodWar::BroodWar()
     : offsets_(GetOffsets<CURRENT_BROOD_WAR_VERSION>()),
-      event_handlers_(nullptr) {
+      event_handlers_(nullptr),
+      game_results_() {
   ApplyPatches();
   InjectDetours();
 }
@@ -441,6 +442,53 @@ void BroodWar::DisplayMessage(const std::string& message, uint32 timeout) {
     mov eax, timeout;  // I believe this is the display time (defaults to 7 seconds)
     mov edi, c_message;
     call ecx;
+  }
+}
+
+static GameResult VictoryStateToGameResult(PlayerVictoryState state) {
+  switch (state) {
+  case PlayerVictoryState::Dropped: return GameResult::Disconnected;
+  case PlayerVictoryState::Defeat: return GameResult::Defeat;
+  case PlayerVictoryState::Victory: return GameResult::Victory;
+  default: return GameResult::Playing;
+  }
+}
+
+void BroodWar::ConvertGameResults() {
+  PlayerVictoryState* victory_state = offsets_->victory_state;
+  PlayerLoseType* player_lose_type = offsets_->player_lose_type;
+  bool* player_has_left = offsets_->player_has_left;
+  uint32* player_nation_ids = offsets_->player_nation_ids;
+  uint32* local_storm_id = offsets_->local_storm_id;
+
+  for (size_t i = 0; i < 8; ++i) {
+    instance_->game_results_[i] = GameResult::Playing;
+    uint32 nation_id = player_nation_ids[i];
+    if (nation_id < 8) {
+      instance_->game_results_[i] = VictoryStateToGameResult(victory_state[nation_id]);
+    }
+  }
+
+  if (instance_->game_results_[*local_storm_id] == GameResult::Playing) {
+    instance_->game_results_[*local_storm_id] = GameResult::Defeat;
+  }
+
+  if (*player_lose_type == PlayerLoseType::UnknownDisconnect) {
+    for (int i = 0; i < 8; ++i) {
+      if (player_has_left[i]) {
+        instance_->game_results_[i] = GameResult::Playing;
+      }
+    }
+    instance_->game_results_[*local_storm_id] = GameResult::Disconnected;
+  } else {
+    for (int i = 0; i < 8; ++i) {
+      if (player_has_left[i]) {
+        instance_->game_results_[i] = GameResult::Disconnected;
+      }
+    }
+    if (*player_lose_type == PlayerLoseType::UnknownChecksumMismatch) {
+      instance_->game_results_[*local_storm_id] = GameResult::Playing;
+    }
   }
 }
 

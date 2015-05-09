@@ -21,6 +21,7 @@ using std::list;
 using std::make_pair;
 using std::map;
 using std::shared_ptr;
+using std::unique_ptr;
 using std::vector;
 using std::wstring;
 using v8::AccessorInfo;
@@ -780,9 +781,8 @@ Handle<Value> WrappedBroodWar::StartGameCountdown(const Arguments& args) {
 }
 
 struct GameLoopContext {
-  Persistent<Function> cb;
+  unique_ptr<NanCallback> cb;
   BroodWar* bw;
-  // TODO(tec27): results from the game to pass back?
 };
 
 #define WM_GAME_STARTED (WM_USER + 7)
@@ -797,21 +797,27 @@ void RunGameLoopWork(void* arg) {
 
   context->bw->set_game_state(GameState::Ingame);
   context->bw->RunGameLoop();
+  context->bw->ConvertGameResults();
 }
 
 void RunGameLoopAfter(void* arg) {
-  HandleScope scope;
+  NanScope();
 
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
-  TryCatch try_catch;
-  context->cb->Call(Context::GetCurrent()->Global(), 0, NULL);
-
-  context->cb.Dispose();
-  delete context;
-
-  if (try_catch.HasCaught()) {
-    node::FatalException(try_catch);
+  auto game_results = context->bw->game_results();
+  auto players = context->bw->players();
+  Local<Object> result = NanNew<Object>();
+  for (size_t i = 0; i < 8; ++i) {
+    if (players[i].storm_id < game_results.size()) {
+      result->Set(NanNew(players[i].name),
+          NanNew(static_cast<uint32>(game_results[players[i].storm_id])));
+    }
   }
+  Local<Integer> game_time = NanNew<Integer>(context->bw->game_time());
+  Handle<Value> argv[] = { NanNull(), NanNew(result), game_time };
+  context->cb->Call(Context::GetCurrent()->Global(), 3, argv);
+
+  delete context;
 }
 
 Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
@@ -831,7 +837,7 @@ Handle<Value> WrappedBroodWar::RunGameLoop(const Arguments& args) {
   Local<Function> cb = Local<Function>::Cast(args[0]);
 
   GameLoopContext* context = new GameLoopContext;
-  context->cb = Persistent<Function>::New(cb);
+  context->cb.reset(new NanCallback(cb));
   context->bw = WrappedBroodWar::Unwrap(args);
 
   sbat::QueueWorkForUiThread(context, RunGameLoopWork, RunGameLoopAfter);

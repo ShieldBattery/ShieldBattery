@@ -181,7 +181,9 @@ function onSetRace(req, res, race) {
   })
 }
 
-function onGameFinished(err) {
+function onGameFinished(err, gameResults, gameTime) {
+  log.verbose('gameResults: ' + require('util').inspect(gameResults))
+  log.verbose('gameTime: ' + gameTime)
   handleLobbyDestroyed()
   lobbyStore.lobby = null
   if (err) {

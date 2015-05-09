@@ -11,7 +11,6 @@
 
 namespace sbat {
 namespace bw {
-// TODO(tec27): move everything but the BroodWar class outta this file (and *maybe* namespace)
 struct PlayerInfo {
   uint32 player_id;
   uint32 storm_id;
@@ -143,6 +142,29 @@ enum class MapResult : uint32 {
   MapNotFound
 };
 
+// The win/loss/draw/etc. state that BW stores during and after a game
+enum class PlayerVictoryState : byte {
+  Default = 0,
+  Dropped,
+  Defeat,
+  Victory,
+  Unknown, // This means something, we're not quite sure what
+  Draw
+};
+
+enum class PlayerLoseType : byte {
+  UnknownChecksumMismatch = 1,
+  UnknownDisconnect = 2,
+};
+
+// The result of a game (per player), converted from PlayerVictoryState and other data
+enum class GameResult : uint32 {
+  Playing = 0,
+  Disconnected,
+  Defeat,
+  Victory
+};
+
 #pragma pack(1)
 struct LobbyGameInitData {
   byte game_init_command;
@@ -212,7 +234,8 @@ struct Offsets {
   char* current_map_name;
   char* current_map_folder_path;
 
-  // Nation is the player that is being controlled. For example in Team Melee, several players are controlling one "nation".
+  // Nation is the player that is being controlled. For example in Team Melee, several players are
+  // controlling one "nation".
   uint32* local_nation_id;
 
   // The player slot that is being used by this player.
@@ -220,7 +243,7 @@ struct Offsets {
 
   // The storm id for the player. This is the id to use with storm function calls.
   uint32* local_storm_id;
-  
+
   char* local_player_name;
   uint32* current_game_speed;
   uint8* is_brood_war;
@@ -234,6 +257,11 @@ struct Offsets {
   uint16* game_state;
   byte* chat_message_recipients;
   byte* chat_message_type;
+  PlayerVictoryState* victory_state;
+  PlayerLoseType* player_lose_type;
+  bool* player_has_left;
+  uint32* player_nation_ids;
+  uint32* game_time;
 
   Functions functions;
   Detours detours;
@@ -296,6 +324,12 @@ public:
   inline void set_chat_message_type(ChatMessageType type) {
     *offsets_->chat_message_type = static_cast<byte>(type);
   }
+  inline std::array<GameResult, 8> game_results() const {
+    return game_results_;
+  }
+  inline uint32 game_time() const {
+    return *offsets_->game_time * 42; // Convert to milliseconds, assumes fastest speed
+  }
 
   void InitSprites();
   void InitPlayerInfo();
@@ -315,6 +349,7 @@ public:
   void SendMultiplayerChatMessage(const std::string& message, byte recipients,
       ChatMessageType type);
   void DisplayMessage(const std::string& message, uint32 timeout);
+  void ConvertGameResults();
 
   // Detour hook functions
   static void __stdcall OnLobbyDownloadStatus(uint32 slot, uint32 download_percent);
@@ -342,6 +377,7 @@ private:
 
   Offsets* offsets_;
   EventHandlers* event_handlers_;
+  std::array<GameResult, 8> game_results_;
 
   static BroodWar* instance_;
   // flag specifying whether a multiplayer chat message is triggered by us (so we know not to try
@@ -375,6 +411,11 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->game_state = reinterpret_cast<uint16*>(0x00596904);
   offsets->chat_message_recipients = reinterpret_cast<byte*>(0x0057F1DA);
   offsets->chat_message_type = reinterpret_cast<byte*>(0x0068C144);
+  offsets->victory_state = reinterpret_cast<PlayerVictoryState*>(0x0058D700);
+  offsets->player_lose_type = reinterpret_cast<PlayerLoseType*>(0x00581D61);
+  offsets->player_has_left = reinterpret_cast<bool*>(0x00581D62);
+  offsets->player_nation_ids = reinterpret_cast<uint32*>(0x0057EEC0);
+  offsets->game_time = reinterpret_cast<uint32*>(0x0057F23C);
 
   offsets->functions.InitSprites = reinterpret_cast<Functions::InitSpritesFunc>(0x004D7390);
   offsets->functions.InitPlayerInfo = reinterpret_cast<Functions::InitPlayerInfoFunc>(0x004A91E0);
@@ -449,7 +490,6 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->func_hooks.CheckForMultiplayerChatCommand =
       new FuncHook<Functions::CheckForMultiplayerChatCommandFunc>(
       offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
-
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);
