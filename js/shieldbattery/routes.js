@@ -66,6 +66,13 @@ function onJoinLobby(req, res, params) {
 
   lobbyStore.starting = true
   log.verbose('joinLobby called')
+  if (params.host.indexOf('::ffff:') === 0) {
+    log.warning('converting ipv6 wrapped ipv4 address')
+    params.host = params.host.replace('::ffff:', '')
+  } else if (params.host.indexOf(':') != -1) {
+    log.error(new Error('SNP doesn\'t support ipv6 yet!'))
+    return res.fail(500, 'internal server error', { msg: 'SNP doesn\'t support ipv6 yet!' })
+  }
   bw.joinLobby(params.username, params.host, params.port, onJoined)
 
   function onJoined(err, newLobby) {
@@ -198,7 +205,7 @@ function onGameFinished(err, gameResults, gameTime) {
 function onDownloadStatus(slot, percent) {
   // TODO(tec27): we also need to be able to know when players leave/disconnect
   if (percent == 100) {
-    socket.publish('/playerJoined', { slot: slot, player: this.curLobby.slots[slot].name })
+    socket.publish('/playerJoined', { slot: slot, player: lobbyStore.lobby.slots[slot].name })
   }
 }
 
