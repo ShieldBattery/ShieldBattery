@@ -423,6 +423,11 @@
         'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
         'library_dirs': [ '$(DXSDK_DIR)Lib/x86' ],
       },
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'DelayLoadDLLs': ['opengl32.dll', 'd3d10.dll', 'd3dcompiler_43.dll'],
+        },
+      },
     },
   ],
 }
