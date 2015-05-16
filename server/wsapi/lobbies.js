@@ -313,7 +313,7 @@ LobbyHandler.prototype.startCountdown = function(req, res) {
   var self = this
   lobby.startCountdown(function() {
     self._updateJoinedLobby(lobby,
-        { action: 'countdownComplete', host: req.socket.handshake.address.address, port: 6112 })
+        { action: 'countdownComplete', host: req.socket.handshake.address, port: 6112 })
   })
 
   res.complete()
