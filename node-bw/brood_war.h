@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <Windows.h>
+#include <atomic>
 #include <string>
 #include "common/func_hook.h"
 #include "common/types.h"
@@ -194,6 +195,7 @@ struct Functions {
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
   FUNCDEF(void, CleanUpForExit);
+  FUNCDEF(void, PollInput);
 };
 #undef FUNCDEF
 
@@ -213,6 +215,7 @@ struct Detours {
 struct FuncHooks {
   FuncHook<Functions::ShowLobbyChatMessageFunc>* LobbyChatShowMessage;
   FuncHook<Functions::CheckForMultiplayerChatCommandFunc>* CheckForMultiplayerChatCommand;
+  FuncHook<Functions::PollInputFunc>* PollInput;
 };
 
 struct EventHandlers {
@@ -365,6 +368,10 @@ public:
   // FuncHooks
   static void __stdcall ShowLobbyChatHook(char* message);
   static uint32 __stdcall CheckForChatCommandHook(char* message);
+  static void __stdcall PollInputHook();
+
+  // Static externally callable methods
+  static void SetInputDisabled(bool disabled);
 
 private:
   BroodWar();
@@ -383,6 +390,8 @@ private:
   // flag specifying whether a multiplayer chat message is triggered by us (so we know not to try
   // and pass it to other code to try to interpret as a command)
   static bool is_programmatic_chat_;
+  // flag specifying whether or not we should ignore input/scrolling for the time being
+  static std::atomic<bool> input_disabled_;
 };
 
 template <> inline
@@ -445,6 +454,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.DisplayMessage = reinterpret_cast<Functions::DisplayMessageFunc>(0x0048D0C0);
   offsets->functions.CleanUpForExit =
       reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
+  offsets->functions.PollInput = reinterpret_cast<Functions::PollInputFunc>(0x0047F0E0);
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
@@ -490,6 +500,8 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->func_hooks.CheckForMultiplayerChatCommand =
       new FuncHook<Functions::CheckForMultiplayerChatCommandFunc>(
       offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
+  offsets->func_hooks.PollInput = new FuncHook<Functions::PollInputFunc>(
+      offsets->functions.PollInput, BroodWar::PollInputHook);
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);

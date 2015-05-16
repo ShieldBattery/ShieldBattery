@@ -132,6 +132,27 @@ void Forge::Init() {
   NanAssignPersistent(constructor, tpl->GetFunction());
 }
 
+typedef void (*SetBroodWarInputDisabledFunc)(bool);
+SetBroodWarInputDisabledFunc setInputDisabledFunc = nullptr;
+void SetInputDisabled(bool disabled) {
+  if (setInputDisabledFunc == nullptr) {
+    HMODULE node_bw = GetModuleHandleW(L"bw.node");
+    if (node_bw == nullptr) {
+      // This shouldn't happen, but if it does, we just don't disable/enable input for now
+      return;
+    }
+
+    setInputDisabledFunc = reinterpret_cast<SetBroodWarInputDisabledFunc>(
+        GetProcAddress(node_bw, "SetBroodWarInputDisabled"));
+    if (setInputDisabledFunc == nullptr) {
+      // The function disappeared? :O
+      return;
+    }
+  }
+
+  setInputDisabledFunc(disabled);
+}
+
 RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
   switch (display_mode) {
   case DisplayMode::BorderlessWindow: return RendererDisplayMode::BorderlessWindow;
@@ -401,6 +422,19 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       SetWindowPos(window_handle, (wparam ? HWND_TOPMOST : HWND_NOTOPMOST),
         0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
+
+    if (wparam) {
+      // Window is now active, clip the mouse
+      RECT clip_rect;
+      clip_rect.left = 0;
+      clip_rect.top = 0;
+      clip_rect.right = 640;
+      clip_rect.bottom = 480;
+      ClipCursorHook(&clip_rect);
+    } else {
+      // Window is now inactive, unclip the mouse (and disable input)
+      ClipCursorHook(nullptr);
+    }
     return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_GAME_STARTED:
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
@@ -661,10 +695,12 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
 
 BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   if (lpRect == NULL) {
+    SetInputDisabled(true);
     // if they're clearing the clip, we just call through because there's nothing to adjust
     return instance_->hooks_.ClipCursor->original()(lpRect);
   }
 
+  SetInputDisabled(false);
   if (!instance_->is_started_) {
     // if we're not actually in the game yet, just ignore any requests to lock the cursor
     return TRUE;

@@ -24,6 +24,8 @@ inline void SetProtoAccessor(target_t& tpl, const char* name, getter_t getter, s
   tpl->PrototypeTemplate()->SetAccessor(NanNew(name), getter, setter); 
 }
 
+extern "C" NODE_MODULE_EXPORT void SetBroodWarInputDisabled(bool disabled);
+
 class EventHandlerContext {
 public:
   explicit EventHandlerContext(v8::Handle<v8::Function> callback);

@@ -1160,5 +1160,9 @@ void GameLoopQueue::OnExecutionCompleted(uv_async_t* handle, int status) {
   }
 }
 
+NODE_MODULE_EXPORT void SetBroodWarInputDisabled(bool disabled) {
+  BroodWar::SetInputDisabled(disabled);
+}
+
 }  // namespace bw
 }  // namespace sbat
