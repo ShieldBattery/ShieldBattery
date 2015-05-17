@@ -69,6 +69,9 @@ private:
   // Disable copying
   Forge(const Forge&);
   Forge& operator=(const Forge&);
+  BOOL PerformScaledClipCursor(LPRECT lpRect);
+  void HandleAltRelease();
+  void ClientRectToScreenRect(const LPRECT client_rect);
   void CalculateMouseResolution(uint32 width, uint32 height);
 
   static LRESULT WINAPI WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam);
@@ -124,6 +127,7 @@ private:
   int mouse_resolution_height_;
   bool is_started_;
   HWND captured_window_;
+  std::unique_ptr<RECT> stored_cursor_rect_;
 };
 
 }  // namespace forge
