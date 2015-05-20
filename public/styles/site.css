@@ -33,6 +33,30 @@ nav {
   border-color: #ccc;
   overflow: hidden;
 }
+chat-view {
+  display: block;
+  position: absolute;
+  bottom: 44px;
+  background-color: #fff;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border: 1px solid;
+  border-color: #ccc;
+  border-radius: 0 0 4px 0;
+  border-collapse: collapse;
+}
+chat-view-minimized {
+  position: relative;
+  min-height: 44px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  text-align: center;
+  border-top: 1px solid;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  border-color: #ccc;
+  overflow: hidden;
+}
 p {
   margin: 0 0 10px;
 }
@@ -132,6 +156,11 @@ p {
   border-color: #ccc;
   border-radius: 0 0 0 4px;
 }
+.chat {
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+}
 .chat-messages {
   height: 400px;
   border: 1px solid #999;
@@ -141,6 +170,16 @@ p {
 }
 .chat-messages p {
   font-size: 13.6px;
+  margin: 0px;
+}
+.chat-users {
+  height: 400px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  padding: 2px 4px;
+  overflow: auto;
+}
+.chat-users p {
   margin: 0px;
 }
 .route-error {

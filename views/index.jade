@@ -14,7 +14,7 @@ block content
       .col-2
         a(href='/lobbies') Play
       .col-2
-        a(href='/') Chat
+        a(href='/chat') Chat
       .col-2
         a(href='/') Watch
       .col-1
@@ -40,3 +40,4 @@ block content
             li {{ joinedLobby.lobby.name }} 
               a(href='', data-ng-click='leaveLobby()') (x)
       main.col-9(ng-view)
+    include ./chat.jade

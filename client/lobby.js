@@ -1,6 +1,7 @@
 var SimpleMap = require('../shared/simple-map')
   , listUtils = require('../shared/list-utils')
   , timeback = require('../shared/timeback')
+  , autoScroll = require('./util/auto-scroll')
   , angular = require('angular')
 
 module.exports = 'shieldbattery.lobby'
@@ -17,6 +18,7 @@ mod.config(function($routeProvider) {
                                             // TODO(tec27): take users to a confirmation screen if
                                             // they're already in another lobby, etc.
                                             var lobbyName = $route.current.params.name
+                                            console.log('hundred')
                                             return joinedLobby.join(lobbyName)
                                           }
                                         }
@@ -32,40 +34,7 @@ mod.filter('encodeUriComponent', function() {
   }
 })
 
-mod.directive('autoScroll', function() {
-  function link(scope, elem, attrs, ctrl) {
-    var locked = true
-      , domElem = elem[0]
-      , triggeredScroll = false
-
-    elem.bind('scroll', function() {
-      if (!triggeredScroll) {
-        scope.$apply(function() { locked = isAtBottom(domElem) })
-      }
-    })
-
-    scope.$watch(function() {
-      if (locked) {
-        triggeredScroll = true
-        doScroll(domElem)
-        triggeredScroll = false
-      }
-    })
-  }
-
-  function doScroll(domElem) {
-    domElem.scrollTop = domElem.scrollHeight
-  }
-
-  function isAtBottom(domElem) {
-    return (domElem.scrollTop + domElem.clientHeight) === domElem.scrollHeight
-  }
-
-  return  { priority: 1
-          , restrict: 'A'
-          , link: link
-          }
-})
+mod.directive('autoScroll', autoScroll)
 
 function compareLobbies(a, b) {
   return a.name.localeCompare(b.name)
@@ -103,26 +72,32 @@ function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, aut
   var self = this
 
   // TODO(tec27): abstract this out into a thing that handles re-registrations and stuff
-  this.eventScope = $rootScope.$new(true)
+  /*this.eventScope = $rootScope.$new(true)
   this.userTopic = null
   if (authService.isLoggedIn) {
+    console.log('one')
     subUserTopic()
   }
 
   authService.on('userChanged', function(user) {
+    console.log('two')
     if (self.userTopic) {
+      console.log('three')
       self.eventScope.$destroy()
       self.eventScope = $rootScope.$new(true)
     }
 
     if (!user) {
+      console.log('four')
       self.userTopic = null
     } else {
+      console.log('five')
       subUserTopic()
     }
   })
 
   function subUserTopic() {
+    console.log('six')
     self.userTopic = '/users/' + encodeURIComponent(authService.user.name)
     siteSocket.subscribeScope(self.eventScope, self.userTopic)
     self.eventScope.$on('/site' + self.userTopic, onUserTopic)
@@ -135,8 +110,9 @@ function JoinedLobbyService($timeout, $q, $rootScope, siteSocket, psiSocket, aut
       return
     }
 
+    console.log('seven')
     self.join(msg.data.name)
-  }
+  }*/
 }
 
 JoinedLobbyService.prototype._path = function(end) {
@@ -154,20 +130,26 @@ JoinedLobbyService.prototype.sendChat = function(msg) {
 JoinedLobbyService.prototype.join = function(lobbyName) {
   var self = this
     , deferred
+  console.log('eight')
   if (this.inLobby) {
+    console.log('nine')
     if (this.lobby.name == lobbyName) {
+      console.log('ten')
       // if you're trying to join the same lobby you're already in, we immediately return a resolved
       // promise since no action is necessary
       deferred = this.$q.defer()
       deferred.resolve(this)
       return deferred.promise
     } else {
+      console.log('eleven')
       this.leave()
     }
   } else if (this._connectListener) {
+    console.log('twelve')
     this.leave()
   }
 
+  console.log('thirteen')
   this._connectListener = sendJoin
   this.siteSocket.on('connect', sendJoin)
   // deferred to use if we are not currently connected, shared between sendJoinCalls
@@ -177,8 +159,11 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
   return sendJoin()
 
   function sendJoin() {
+    console.log('fourteen')
     if (!self.siteSocket.connected) {
+      console.log('fifteen')
       if (!connectDeferred) {
+        console.log('sixteen')
         connectDeferred = self.$q.defer()
         connectTimeout = self.$timeout(function() {
           connectDeferred.reject({ msg: 'Not connected' })
@@ -190,33 +175,40 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
       return connectDeferred.promise
     }
 
+    console.log('seventeen')
     var deferred = connectDeferred ? connectDeferred : self.$q.defer()
     self.siteSocket.call(lobbyUri + '/join', function(err, myId) {
       if (err) {
         return handleError(err)
       }
 
+      console.log('eighteen')
       self.myId = myId
       self.siteSocket.subscribe(lobbyUri, self._onMessage, subscribeCb)
     })
 
     function subscribeCb(err) {
+      console.log('nineteen')
       if (err) {
         return handleError(err)
       }
 
       if (!self.lobby) {
+        console.log('twenty')
         self.lobby = {}
       }
+      console.log('twentyone')
       // ensure this name is available for use in generating paths immediately
       self.lobby.name = lobbyName
 
       deferred.resolve(self)
       if (deferred === connectDeferred) {
+        console.log('twentytwo')
         self.$timeout.cancel(connectTimeout)
         connectDeferred = null
       }
     }
+    console.log('twentythree')
 
     function handleError(err) {
       console.log('error joining: ' + err.details.msg)
@@ -234,11 +226,14 @@ JoinedLobbyService.prototype.join = function(lobbyName) {
 }
 
 JoinedLobbyService.prototype.leave = function() {
+  console.log('fifty')
   if (this.inLobby) {
+    console.log('fiftyone')
     this.siteSocket.unsubscribe(this._path(), this._onMessage)
     this.siteSocket.call(this._path('/part/' + this.myId))
   }
 
+  console.log('fiftytwo')
   this.siteSocket.removeListener('connect', this._connectListener)
   this._connectListener = null
   this.lobby = null
