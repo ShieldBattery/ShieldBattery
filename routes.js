@@ -40,7 +40,7 @@ function applyRoutes(app) {
   }
   router.get('/scripts/client.js', koaWatchify(bundle))
 
-  
+
   // api methods (through HTTP)
   var apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
     , baseApiPath = '/api/1/'
@@ -52,7 +52,7 @@ function applyRoutes(app) {
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  router.all(/^\/api\/.*$/, send404)
+  router.all('/api/:param*', send404)
 
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
@@ -61,7 +61,7 @@ function applyRoutes(app) {
 
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
-  router.get(/^\/.*$/, koaStatic(path.join(__dirname, 'public')), function*(next) {
+  router.get('/:param*', koaStatic(path.join(__dirname, 'public')), function*(next) {
     var sessionData = null
     if (this.session.userId) {
       sessionData = {}
