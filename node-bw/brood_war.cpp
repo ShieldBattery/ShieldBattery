@@ -1,6 +1,7 @@
 #include "./brood_war.h"
 
 #include <Windows.h>
+#include <atomic>
 #include <cassert>
 #include <string>
 #include "common/types.h"
@@ -8,8 +9,11 @@
 
 namespace sbat {
 namespace bw {
+using std::atomic;
+
 BroodWar* BroodWar::instance_ = nullptr;
 bool BroodWar::is_programmatic_chat_ = false;
+atomic<bool> BroodWar::input_disabled_(false);
 
 BroodWar* BroodWar::Get() {
   if (instance_ == nullptr) {
@@ -120,6 +124,18 @@ uint32 __stdcall BroodWar::CheckForChatCommandHook(char* message) {
 }
 #undef HAVE_HANDLER_FOR
 
+
+void __stdcall BroodWar::PollInputHook() {
+  if (input_disabled_.load()) {
+    return;
+  }
+
+  auto hook = instance_->offsets_->func_hooks.PollInput;
+  hook->Restore();
+  hook->callable()();
+  hook->Inject();
+}
+
 void __stdcall BroodWar::OnInitializeSnpList(char* snp_directory) {
   // rewrite the snp_directory to be shieldbattery's directory instead, so that we can place custom
   // SNPs in our own directory instead of Starcraft's. Note that this will prevent us from using a
@@ -141,6 +157,7 @@ void BroodWar::InjectDetours() {
 
   offsets_->func_hooks.LobbyChatShowMessage->Inject();
   offsets_->func_hooks.CheckForMultiplayerChatCommand->Inject();
+  offsets_->func_hooks.PollInput->Inject();
 }
 
 void BroodWar::ApplyPatches() {
@@ -503,6 +520,10 @@ void BroodWar::CleanUpForExit() {
     pop ebx;
     pop ecx;
   }
+}
+
+void BroodWar::SetInputDisabled(bool disabled) {
+  input_disabled_ = disabled;
 }
 
 }  // namespace bw
