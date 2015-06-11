@@ -7,14 +7,14 @@ import routes from './routes.jsx'
 import siteSocket from './network/site-socket'
 import psiSocket from './network/psi-socket'
 
-if (!global._injectedTapEventPlugin) {
-  injectTapEventPlugin()
-  global._injectedTapEventPlugin = true
-}
-
 let createApp = () => {
   Router.run(routes, Router.HistoryLocation,
       Handler => React.render(<Handler />, document.getElementById('app')))
 }
 
-createApp()
+if (!global._injectedTapEventPlugin) {
+  injectTapEventPlugin()
+  global._injectedTapEventPlugin = true
+
+  createApp()
+}

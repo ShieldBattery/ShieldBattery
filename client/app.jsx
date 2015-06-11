@@ -1,36 +1,17 @@
-let React = require('react')
-  , { Link, RouteHandler } = require('react-router')
-  , MoreVert = require('./material/icons/more-vert.jsx')
-  , auther = require('./auth/auther.js')
+import React from 'react'
 
-let { AppCanvas, AppBar, LeftNav, DropDownIcon } = require('material-ui')
+import { Theme } from 'material-ui'
+import theme from './theme'
+import AppRoot from './app-root.jsx'
 
-let App = React.createClass({
+class App extends React.Component {
   render() {
-    let overflowMenuItems = [
-      { payload: 'logOut', text: 'Log out', action: () => this.onLogOutClicked() },
-    ]
-
     return (
-      <AppCanvas predefinedLayout={1}>
-        <AppBar className='mui-dark-theme' zDepth={2} showMenuIconButton={false}
-            title=<Link to='home'><h1 className='mui-app-bar-title'>ShieldBattery</h1></Link>>
-          <DropDownIcon menuItems={overflowMenuItems}
-              onChange={ (e, key, payload) => payload.action() }>
-            <MoreVert />
-          </DropDownIcon>
-        </AppBar>
-
-        <div className="mui-app-content-canvas">
-          <RouteHandler />
-        </div>
-      </AppCanvas>
+      <Theme theme={theme}>
+        { props => <AppRoot></AppRoot> }
+      </Theme>
     )
-  },
+  }
+}
 
-  onLogOutClicked() {
-    auther.logOut()
-  },
-})
-
-module.exports = App
+export default App

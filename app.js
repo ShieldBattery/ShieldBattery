@@ -8,14 +8,12 @@ var canonicalHost = require('canonical-host')
   , koa = require('koa')
   , log = require('./server/logging/logger')
   , path = require('path')
-  , isDev = require('./server/env/is-dev')
 
 var csrf = require('koa-csrf')
   , csrfCookie = require('./server/security/csrf-cookie')
   , koaBody = require('koa-body')
   , koaCompress = require('koa-compress')
   , koaError = require('koa-error')
-  , less = require('./server/styles/less')
   , logMiddleware = require('./server/logging/log-middleware')
   , secureHeaders = require('./server/security/headers')
   , secureJson = require('./server/security/json')
@@ -39,10 +37,6 @@ app
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
-  .use(less(__dirname, {
-    dest: path.join(__dirname, 'public'),
-    once: !isDev,
-  }))
   .use(sessionMiddleware)
   .use(csrfCookie())
   .use(csrf())
