@@ -4,6 +4,8 @@ $textSizeTitle = 20
 $textSizeHeadline = 24
 $textSizeDisplay1 = 34
 $textSizeDisplay2 = 45
+$textSizeDisplay3 = 56
+$textSizeDisplay4 = 112
 $textSizeCaption = 12
 $textSizeButton = 14
 
@@ -22,6 +24,15 @@ ul
 ol
 p
   text-rendering optimizeLegibility
+h1
+h2
+h3
+h4
+h5
+h6
+  margin 1rem 0
+  a
+    font-weight inherit
 
 h1
 h2
@@ -29,45 +40,72 @@ h3
 h4
 h5
 h6
+.md-display4
+.md-display3
+.md-display2
+.md-display1
+.md-headline
+.md-title
+.md-subhead
+.md-body2
+.md-body
+.md-caption
+.md-button
   font-weight 400
-  margin 1rem 0
   text-rendering optimizeLegibility
-  a
-    font-weight inherit
 
+.md-display4
+  relativeFontSize($textSizeDisplay4)
+  font-weight 300
+  letter-spacing -0.010em
+  line-height ($textSizeDisplay4)px
+
+.md-display3
+  relativeFontSize($textSizeDisplay3)
+  letter-spacing -0.005em
+  line-height ($textSizeDisplay3)px
+
+.md-display2
 h1
   relativeFontSize($textSizeDisplay2)
   relativeLineHeight(64px, $textSizeDisplay2)
 
+.md-display1
 h2
   relativeFontSize($textSizeDisplay1)
   relativeLineHeight(40px, $textSizeDisplay1)
 
+.md-headline
 h3
   relativeFontSize($textSizeHeadline)
   relativeLineHeight(32px, $textSizeHeadline)
 
+.md-title
 h4
   relativeFontSize($textSizeTitle)
   font-weight 500
   letter-spacing 0.005em
 
+.md-subhead
 h5
   relativeFontSize($textSizeSubhead)
   letter-spacing 0.010em
   relativeLineHeight(24px, $textSizeSubhead)
 
+.md-caption
 h6
   relativeFontSize($textSizeCaption)
   letter-spacing 0.020em
 
+.md-body1
+.md-body2
 p
   letter-spacing 0.010em
   relativeLineHeight(20px, $textSizeBody)
 
-  &.body-2
-    font-weight 500
-    relativeLineHeight(24px, $textSizeBody)
+p.body-2
+  font-weight 500
+  relativeLineHeight(24px, $textSizeBody)
 
 button
   relativeFontSize($textSizeButton)
