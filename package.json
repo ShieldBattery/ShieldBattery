@@ -70,7 +70,7 @@
   },
   "devDependencies": {
     "chai": "^3.0.0",
-    "livereactload": "^0.5.1",
+    "livereactload": "^0.6.0",
     "mocha": "^2.1.0"
   },
   "browserify": {
