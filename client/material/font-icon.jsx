@@ -11,4 +11,8 @@ class FontIcon extends React.Component {
   }
 }
 
+FontIcon.propTypes = {
+  size: React.PropTypes.number,
+}
+
 export default FontIcon

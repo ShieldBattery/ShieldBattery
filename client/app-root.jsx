@@ -3,7 +3,7 @@ import { Link, RouteHandler } from 'react-router'
 import auther from  './auth/auther.js'
 
 import AppBar from './material/app-bar.jsx'
-import { AppCanvas, LeftNav } from 'material-ui'
+import LeftNav from './material/left-nav.jsx'
 
 class AppRoot extends React.Component {
   render() {
@@ -12,12 +12,13 @@ class AppRoot extends React.Component {
     ]
 
     return (
-      <AppCanvas predefinedLayout={1}>
-        <AppBar title='#teamliquid'/>
-        <div className="mui-app-content-canvas">
+      <div className="flex-row">
+        <LeftNav />
+        <div className="flex-grow">
+          <AppBar title='#teamliquid'/>
           <RouteHandler />
         </div>
-      </AppCanvas>
+      </div>
     )
   }
 
