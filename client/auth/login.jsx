@@ -83,7 +83,7 @@ class Login extends React.Component {
           `Enter at least ${constants.PASSWORD_MINLENGTH} characters`)
 
       cardContents = (
-        <ValidatedForm formTitle={'Log in'} errorText={errContents} ref='form'
+        <ValidatedForm formTitle={'Please log in'} errorText={errContents} ref='form'
             buttons={buttons} onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText floatingLabelText='Username' name='username' tabIndex={1}
               required={true} requiredMessage='Enter a username'

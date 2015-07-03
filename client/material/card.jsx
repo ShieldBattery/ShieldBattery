@@ -4,9 +4,9 @@ let React = require('react')
 let Card = React.createClass({
   render() {
     return (
-      <Paper {...this.props} innerClassName='material-card'>
+      <div className='card shadow-1'>
         { this.props.children }
-      </Paper>
+      </div>
     )
   }
 })

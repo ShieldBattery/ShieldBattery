@@ -1,14 +1,14 @@
 import React from 'react'
+import { RouteHandler } from 'react-router'
 
 import { Theme } from 'material-ui'
 import theme from './theme'
-import AppRoot from './app-root.jsx'
 
 class App extends React.Component {
   render() {
     return (
       <Theme theme={theme}>
-        { props => <AppRoot></AppRoot> }
+        { props => <RouteHandler></RouteHandler> }
       </Theme>
     )
   }
