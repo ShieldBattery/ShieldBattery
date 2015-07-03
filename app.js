@@ -18,6 +18,7 @@ var csrf = require('koa-csrf')
   , secureHeaders = require('./server/security/headers')
   , secureJson = require('./server/security/json')
   , sessionMiddleware = require('./server/session/middleware')
+  , stylish = require('./server/styles/stylish')
   , views = require('koa-views')
 
 var app = koa()
@@ -35,6 +36,7 @@ app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
   .use(koaCompress())
+  .use(stylish())
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)

@@ -1,0 +1,28 @@
+@require 'curves.styl'
+
+button
+  user-select none
+  padding 0
+  position relative
+  outline 0
+  border 0
+  display inline-table
+  padding 0 6px
+  margin 6px 8px
+  line-height 36px
+  min-height 36px
+  background 0 0
+  white-space nowrap
+  text-align center
+  text-transform uppercase
+  font-style inherit
+  font-variant inherit
+  font-family inherit
+  text-decoration none
+  cursor pointer
+  overflow hidden
+  transition box-shadow .4s $fastOutSlowIn, background-color .4s $fastOutSlowIn
+
+  &:not([disabled]):hover
+    background-color rgba(158, 158, 158, 0.2)
+
