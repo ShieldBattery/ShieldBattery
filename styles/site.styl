@@ -9,13 +9,14 @@ html
   font-family Roboto, sans-serif
   font-weight normal
   color $colorTextPrimary
-  font-size unit($textSizeBody, px)
+  font-size unit(100 * ($textSizeBody / 16), '%')
   line-height 1.5
   background-color $colorBackground
 
 html
 body
 #app
+#app > div
   -webkit-font-smoothing antialiased
   -webkit-text-size-adjust 100%
   -webkit-tap-highlight-color rgba(0,0,0,0)
@@ -34,5 +35,12 @@ body
 .material-icons
   display inline-block
   vertical-align middle
+
+.flex-row
+  display flex
+  flex-direction row
+
+.flex-grow
+  flex 1
 
 @require 'material-components/*'

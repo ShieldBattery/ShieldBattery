@@ -8,7 +8,7 @@ $textSizeCaption = 12
 $textSizeButton = 14
 
 relativeLineHeight(desiredPx, fontSize)
-  line-height abs(desiredPx / fontSize)
+  line-height unit(desiredPx / fontSize, '')
 
 remify(desired)
   unit(desired / $textSizeBody, rem)
@@ -30,7 +30,7 @@ h4
 h5
 h6
   font-weight 400
-  margin 0
+  margin 1rem 0
   text-rendering optimizeLegibility
   a
     font-weight inherit
