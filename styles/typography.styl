@@ -1,0 +1,87 @@
+$textSizeBody = 14
+$textSizeSubhead = 16
+$textSizeTitle = 20
+$textSizeHeadline = 24
+$textSizeDisplay1 = 34
+$textSizeDisplay2 = 45
+$textSizeCaption = 12
+$textSizeButton = 14
+
+relativeLineHeight(desiredPx, fontSize)
+  line-height abs(desiredPx / fontSize)
+
+remify(desired)
+  unit(desired / $textSizeBody, rem)
+
+relativeFontSize(desired)
+  font-size unit(desired / $textSizeBody, rem)
+
+relativeLineHeight
+
+ul
+ol
+p
+  text-rendering optimizeLegibility
+
+h1
+h2
+h3
+h4
+h5
+h6
+  font-weight 400
+  margin 0
+  text-rendering optimizeLegibility
+  a
+    font-weight inherit
+
+h1
+  relativeFontSize($textSizeDisplay2)
+  relativeLineHeight(64px, $textSizeDisplay2)
+
+h2
+  relativeFontSize($textSizeDisplay1)
+  relativeLineHeight(40px, $textSizeDisplay1)
+
+h3
+  relativeFontSize($textSizeHeadline)
+  relativeLineHeight(32px, $textSizeHeadline)
+
+h4
+  relativeFontSize($textSizeTitle)
+  font-weight 500
+  letter-spacing 0.005em
+
+h5
+  relativeFontSize($textSizeSubhead)
+  letter-spacing 0.010em
+  relativeLineHeight(24px, $textSizeSubhead)
+
+h6
+  relativeFontSize($textSizeCaption)
+  letter-spacing 0.020em
+
+p
+  letter-spacing 0.010em
+  relativeLineHeight(20px, $textSizeBody)
+
+  &.body-2
+    font-weight 500
+    relativeLineHeight(24px, $textSizeBody)
+
+button
+  relativeFontSize($textSizeButton)
+  font-weight 500
+  letter-spacing 0.020em
+  text-transform uppercase
+
+em
+  font-style italic
+
+b
+strong
+  font-weight 500
+
+small
+  font-size 75%
+
