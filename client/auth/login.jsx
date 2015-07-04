@@ -85,11 +85,13 @@ class Login extends React.Component {
       cardContents = (
         <ValidatedForm formTitle={'Please log in'} errorText={errContents} ref='form'
             buttons={buttons} onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText floatingLabelText='Username' name='username' tabIndex={1}
+          <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
+              autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedText floatingLabelText='Password' name='password' tabIndex={1} type='password'
+          <ValidatedText hintText='Password' floatingLabel={true}name='password' tabIndex={1}
+              type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'
               validator={passwordValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>

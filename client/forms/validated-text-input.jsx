@@ -1,6 +1,6 @@
 import React from 'react'
 import ValidatedInput from './validated-input.jsx'
-import { TextField } from 'material-ui'
+import TextField from '../material/text-field.jsx'
 
 class ValidatedTextInput extends ValidatedInput {
   constructor() {
