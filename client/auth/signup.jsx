@@ -87,21 +87,25 @@ class Signup extends React.Component {
         <ValidatedForm formTitle='Sign up'
             errorText={this.state.failure && this.state.failure.error}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText floatingLabelText='Username' name='username' tabIndex={1}
+          <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
               defaultValue={this.context.router.getCurrentQuery().username}
+              autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText floatingLabelText='Email address' name='email' tabIndex={1}
+          <ValidatedText hintText='Email address' floatingLabel={true} name='email' tabIndex={1}
               required={true} requiredMessage='Enter an email address'
+              autoCapitalize='off' autoCorrect='off' spellCheck={false}
               validator={emailValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText floatingLabelText='Password' name='password' tabIndex={1} type='password'
+          <ValidatedText hintText='Password' floatingLabel={true} name='password' tabIndex={1}
+              type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'
               validator={passwordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText floatingLabelText='Confirm password' name='confirmPassword' tabIndex={1}
-              required={true} requiredMessage='Confirm your password' type='password'
+          <ValidatedText hintText='Confirm password' floatingLabel={true} name='confirmPassword'
+              tabIndex={1} type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
+              required={true} requiredMessage='Confirm your password'
               validator={confirmPasswordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
         </ValidatedForm>
