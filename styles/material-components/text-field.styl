@@ -9,10 +9,6 @@ $inputErrorHeight = 24px
   flex-direction column
   position relative
   padding 2px
-  padding-bottom @padding + $inputErrorHeight
-
-  &.error
-    padding-bottom 2px
 
   input[type="text"],
   input[type="password"]
@@ -90,24 +86,40 @@ $inputErrorHeight = 24px
     transform scaleX(0)
     doTransition(duration: 250ms)
 
+  .text-field-error-container
+    pointer-events none
+    height $inputErrorHeight
+    order 4
+
   .text-field-error
     pointer-events none
     relativeFontSize(12)
     line-height $inputErrorHeight
     order 4
     color $colorError
+
+  .text-field-error-enter
     opacity 0
-    transform translate3d(0, -20%, 0)
-    doTransition(duration: 250ms)
+    transform translate3d(0, -30%, 0)
+    doTransition(curve: $linearOutSlowIn, duration: 250ms)
+
+  .text-field-error-enter.text-field-error-enter-active
+    opacity 1
+    transform translate3d(0, 0, 0)
+
+  .text-field-error-leave
+    opacity 1
+    transform translate3d(0, 0, 0)
+    doTransition(curve: $fastOutLinearIn, duration: 250ms)
+
+  .text-field-error-leave.text-field-error-leave-active
+    opacity 0
+    transform translate3d(0, -30%, 0)
 
   &.error
     .text-field-focus-underline
       border-color $colorError
       transform scaleX(1)
-
-    .text-field-error
-      opacity 1
-      transform translate3d(0, 0, 0)
 
   &.has-value:not(.floating-label)
     label
