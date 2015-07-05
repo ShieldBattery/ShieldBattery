@@ -2,6 +2,8 @@ import React from 'react'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 
+let TransitionGroup = React.addons.CSSTransitionGroup
+
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
   constructor(props) {
@@ -34,6 +36,8 @@ class TextField extends React.Component {
 
     let hintText = this.props.hintText ?
         <label htmlFor={this.id}>{this.props.hintText}</label> : null
+    let errorText = this.props.errorText ?
+        <div className="text-field-error" key="error">{this.props.errorText}</div> : null
 
     let inputProps = {
       ref: 'input',
@@ -51,7 +55,9 @@ class TextField extends React.Component {
         <input {...this.props} {...inputProps} />
         <hr className="text-field-underline" />
         <hr className="text-field-focus-underline" />
-        <div className="text-field-error">{this.props.errorText}</div>
+        <TransitionGroup transitionName="text-field-error" className="text-field-error-container">
+          {errorText}
+        </TransitionGroup>
       </div>
     )
   }
