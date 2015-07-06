@@ -8,7 +8,6 @@
   cursor pointer
   overflow visible
   height auto
-  width 100%
   display flex
   align-items center
   padding 8px
@@ -84,16 +83,17 @@
     left 0
     width $boxWidth
     height $boxHeight
+    background-color transparent
     border 2px solid $colorTextSecondary
     border-radius 2px
 
     &:after
-      doTransition(property: transform, duration: 250ms)
-      transform rotate(-45deg)
+      doTransition(duration: 250ms)
+      transform rotate(-135deg)
       display table
       position absolute
-      left ($boxWidth / 3)
-      top ($boxWidth / 9)
+      left ($boxWidth / 3) - 2px
+      top ($boxWidth / 9) - 2px
       width ($boxWidth / 3)
       height ($boxWidth * 2 / 3)
       border 2px solid transparent
@@ -108,7 +108,7 @@
         background-color alpha($amberA400, $alphaDividers)
 
     .check-box-icon
-      border none
+      border 2px solid $amberA400
       background-color $amberA400
 
       &:after

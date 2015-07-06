@@ -28,7 +28,7 @@ class CheckBox extends React.Component {
   }
 
   render() {
-    let classes = classnames('check-box', {
+    let classes = classnames('check-box', this.props.className, {
       checked: this.state.checked,
       disabled: this.props.disabled,
       focused: this.state.isKeyboardFocused,
@@ -134,6 +134,11 @@ CheckBox.propTypes = {
   onChange: React.PropTypes.func,
   disabled: React.PropTypes.bool,
   defaultChecked: React.PropTypes.bool,
+  className: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.array,
+    React.PropTypes.object,
+  ])
 }
 
 export default CheckBox

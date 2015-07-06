@@ -10,7 +10,6 @@ import composeValidators from '../forms/compose-validators'
 import minLengthValidator from '../forms/min-length-validator'
 import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
-import matchOtherValidator from '../forms/match-other-validator'
 import constants from '../../shared/constants'
 
 class Login extends React.Component {
@@ -83,19 +82,26 @@ class Login extends React.Component {
           `Enter at least ${constants.PASSWORD_MINLENGTH} characters`)
 
       cardContents = (
-        <ValidatedForm formTitle={'Please log in'} errorText={errContents} ref='form'
-            buttons={buttons} onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
+        <ValidatedForm ref='form'
+            formTitle={'Please log in'}
+            errorText={errContents}
+            fieldsClassName="flex-row flex-wrap"
+            buttons={buttons}
+            onSubmitted={values => this.onSubmitted(values)}>
+          <ValidatedText className='flex-50' hintText='Username' floatingLabel={true}
+              name='username' tabIndex={1}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedText hintText='Password' floatingLabel={true}name='password' tabIndex={1}
-              type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
+          <ValidatedText className='flex-50' hintText='Password' floatingLabel={true}
+              name='password' tabIndex={1} type='password'
+              autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'
               validator={passwordValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedCheckbox label='Remember me' name='remember' tabIndex={1} />
+          <ValidatedCheckbox className='flex-33' label='Remember me'
+              name='remember' tabIndex={1} />
         </ValidatedForm>
       )
     }

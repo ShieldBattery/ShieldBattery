@@ -26,7 +26,7 @@ class TextField extends React.Component {
   }
 
   render() {
-    let classes = classnames('text-field', {
+    let classes = classnames('text-field', this.props.className, {
       error: !!this.props.errorText,
       'floating-label': this.props.floatingLabel,
       'has-value': this.state.hasValue,
@@ -132,6 +132,11 @@ TextField.propTypes = {
 
 TextField.defaultProps = {
   type: 'text',
+  className: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.array,
+    React.PropTypes.object,
+  ])
 }
 
 export default TextField
