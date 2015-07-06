@@ -8,7 +8,7 @@ class MainLayout extends React.Component {
   render() {
     return (<div className="flex-row">
       <LeftNav />
-      <div className="flex-grow">
+      <div className="flex-1">
         <AppBar title='#teamliquid'/>
         <RouteHandler />
       </div>

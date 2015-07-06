@@ -36,12 +36,43 @@ body
   display inline-block
   vertical-align middle
 
+// TODO(tec27): Move to a system of attributes more like Angular Material
 .flex-row
   display flex
   flex-direction row
 
-.flex-grow
-  flex 1
+.flex-col
+  display flex
+  flex-direction column
+
+.flex-wrap
+  flex-wrap wrap
+
+.flex-justify-start
+  justify-content flex-start
+
+.flex-justify-center
+  justify-content center
+
+.flex-justify-end
+  justify-content flex-end
+
+.flex-fit
+  flex-grow 1
+
+flexNumStyles(num, percent = num)
+  .flex-{num}
+    flex 0 0 unit(percent, '%')
+  .flex-row > .flex-{num}
+    max-width unit(percent, '%')
+  .flex-col > .flex-{num}
+    max-height unit(percent, '%')
+
+for i in (1..20)
+  flexNumStyles(i*5)
+
+flexNumStyles(33, 33.33%)
+flexNumStyles(66, 66.66%)
 
 @require 'material-components/*'
 
@@ -64,5 +95,5 @@ body
       display inline-block
       margin-top 0
 
-.login-wrapper .card .fields h3
+.login-wrapper .card form > h3
   margin-top 0

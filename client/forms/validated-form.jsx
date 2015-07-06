@@ -1,4 +1,5 @@
 import React from 'react'
+import classnames from 'classnames'
 
 class ValidatedForm extends React.Component {
   constructor() {
@@ -27,15 +28,19 @@ class ValidatedForm extends React.Component {
       })
     })
 
+    let fieldsClassName = classnames('fields', this.props.fieldsClassName)
+    let buttonsClassName = classnames('button-area', this.props.buttonsClassName)
+
     let title = this.props.formTitle ? (<h3>{this.props.formTitle}</h3>) : undefined
     let errorText = this.props.errorText ? (<span>{this.props.errorText}</span>) : undefined
     let buttons = this.props.buttons ?
-        (<div className='button-area'>{this.props.buttons}</div>) : undefined
+        (<div className={buttonsClassName}>{this.props.buttons}</div>) : undefined
+
 
     return (
       <form {...this.props}>
-        <div className='fields'>
-          {title}
+        {title}
+        <div className={fieldsClassName}>
           {errorText}
           {children}
         </div>
@@ -113,6 +118,16 @@ ValidatedForm.propTypes = {
   errorText: React.PropTypes.string,
   buttons: React.PropTypes.node,
   onSubmitted: React.PropTypes.func,
+  fieldsClassName: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.array,
+    React.PropTypes.object,
+  ]),
+  buttonsClassName: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.array,
+    React.PropTypes.object,
+  ]),
 }
 
 export default ValidatedForm
