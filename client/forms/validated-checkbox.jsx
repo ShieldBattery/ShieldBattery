@@ -1,6 +1,6 @@
 import React from 'react'
 import ValidatedInput from './validated-input.jsx'
-import { Checkbox } from 'material-ui'
+import CheckBox from '../material/check-box.jsx'
 
 class ValidatedCheckbox extends ValidatedInput {
   constructor() {
@@ -10,9 +10,9 @@ class ValidatedCheckbox extends ValidatedInput {
   render() {
     // TODO(tec27): make this actually display error text
     return (
-      <Checkbox {...this.props}
+      <CheckBox {...this.props}
           ref="input"
-          onCheck={e => this._onChange(e)}/>
+          onChange={e => this._onChange(e)}/>
     )
   }
 
