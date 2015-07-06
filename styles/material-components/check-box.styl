@@ -1,0 +1,128 @@
+@require '../colors.styl'
+@require '../typography.styl'
+
+.check-box
+  $boxWidth = 18px
+  $boxHeight = 18px
+  position relative
+  cursor pointer
+  overflow visible
+  height auto
+  width 100%
+  display flex
+  align-items center
+  padding 8px
+  line-height $boxHeight
+  min-width $boxWidth
+  min-height $boxHeight
+
+  input
+    position absolute
+    cursor pointer
+    opacity 0
+    width 100%
+    height 100%
+    z-index 2
+    left 0
+    top 0
+    padding 0
+    margin 0
+    outline 0
+
+  label
+    order 2
+    user-select text
+    margin-left 10px // the box is 18px wide, so this hits a 4dp multiple
+    pointer-events none
+
+
+
+  &.focused:not(.disabled)
+    .check-box-icon-container:before
+      left -8px
+      top -8px
+      right -8px
+      bottom -8px
+
+    &:not(.checked)
+      .check-box-icon-container:before
+        background-color $colorDividers
+
+  .check-box-icon-container
+    order 1
+    width $boxWidth
+    height $boxHeight
+    position relative
+
+    &:before
+      background-color transparent
+      border-radius 50%
+      content ''
+      position absolute
+      display block
+      width auto
+      height auto
+      left 0
+      top 0
+      right 0
+      bottom 0
+      doTransition()
+
+    &:after
+      content ''
+      position absolute
+      top -10px
+      left -10px
+      bottom -10px
+      right -10px
+      border none
+
+  .check-box-icon
+    doTransition(duration: 250ms)
+    position absolute
+    top 0
+    left 0
+    width $boxWidth
+    height $boxHeight
+    border 2px solid $colorTextSecondary
+    border-radius 2px
+
+    &:after
+      doTransition(property: transform, duration: 250ms)
+      transform rotate(-45deg)
+      display table
+      position absolute
+      left ($boxWidth / 3)
+      top ($boxWidth / 9)
+      width ($boxWidth / 3)
+      height ($boxWidth * 2 / 3)
+      border 2px solid transparent
+      border-top 0
+      border-left 0
+      content ''
+      box-sizing border-box
+
+  &.checked
+    &.focused
+      .check-box-icon-container:before
+        background-color alpha($amberA400, $alphaDividers)
+
+    .check-box-icon
+      border none
+      background-color $amberA400
+
+      &:after
+        transform rotate(45deg)
+        border-color $colorBackground
+
+  &.disabled
+    .check-box-icon
+      border-color $colorTextFaint
+
+  &.checked.disabled
+    &.focused
+      .check-box-icon-container:before
+        background-color $colorDividers
+
+    .check-box-icon
+      background-color $colorTextFaint
