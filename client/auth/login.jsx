@@ -1,6 +1,7 @@
 import React from 'react'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
+import RaisedButton from '../material/raised-button.jsx'
 import authStore from './auth-store'
 import auther from './auther'
 import ValidatedForm from '../forms/validated-form.jsx'
@@ -66,7 +67,7 @@ class Login extends React.Component {
       let buttons = [
         <FlatButton label="Sign up" key='signup-btn'
             onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>,
-        <FlatButton label="Log in" key='login-btn' color='accent'
+        <RaisedButton label="Log in" key='login-btn'
             onClick={e => this.onLogInClicked(e)} tabIndex={1}/>,
       ]
 
