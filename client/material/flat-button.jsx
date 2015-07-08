@@ -2,6 +2,7 @@ import React from 'react'
 import classnames from 'classnames'
 import Button from './button.jsx'
 
+// A button with no elevation
 class FlatButton extends React.Component {
   constructor(props) {
     super(props)

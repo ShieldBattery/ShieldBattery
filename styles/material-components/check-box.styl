@@ -11,9 +11,9 @@
   display flex
   align-items center
   padding 8px
-  line-height $boxHeight
+  line-height ($boxHeight + 2px)
   min-width $boxWidth
-  min-height $boxHeight
+  min-height ($boxHeight + 2px)
 
   input
     position absolute
@@ -70,10 +70,10 @@
     &:after
       content ''
       position absolute
-      top -10px
-      left -10px
-      bottom -10px
-      right -10px
+      top -8px
+      left -8px
+      bottom -8px
+      right -8px
       border none
 
   .check-box-icon

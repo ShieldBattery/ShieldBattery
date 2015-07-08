@@ -7,6 +7,7 @@ $inputErrorHeight = 24px
   relativeFontSize(16)
   display flex
   flex-direction column
+  align-items flex-start
   position relative
   padding 2px
 
@@ -37,6 +38,7 @@ $inputErrorHeight = 24px
   label
     position relative
     top -2px
+    color $colorTextFaint
 
   &.floating-label label
     order 1
@@ -139,7 +141,7 @@ $inputErrorHeight = 24px
 
   &.focused
     .text-field-focus-underline
-      transform: scaleX(1)
+      transform scaleX(1)
 
   &.floating-label
     &.focused

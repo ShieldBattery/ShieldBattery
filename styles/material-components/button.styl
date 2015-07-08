@@ -1,10 +1,14 @@
 @require 'curves.styl'
 @require '../typography.styl'
 
-button
+.material-button-label
+  relativeFontSize($textSizeButton)
+  font-weight 500
+  letter-spacing 0.020em
+  -webkit-font-smoothing antialiased
+
 .material-button
   user-select none
-  padding 0
   position relative
   outline 0
   border none
@@ -14,16 +18,12 @@ button
   line-height 36px
   min-height 36px
   min-width 88px
-  background 0 0
   white-space nowrap
   text-align center
   text-transform uppercase
   font-style inherit
   font-variant inherit
   font-family inherit
-  relativeFontSize($textSizeButton)
-  font-weight 500
-  letter-spacing 0.020em
   text-decoration none
   cursor pointer
   overflow hidden
@@ -35,7 +35,6 @@ button
     &.focused
       background-color rgba(255, 255, 255, 0.08)
 
-.card button:not([disabled])
 .card .material-button:not([disabled])
   &:hover
   &.focused
@@ -97,3 +96,21 @@ button
 
 .card .raised-button[disabled]
   background-color rgba(255, 255, 255, 0.08)
+
+.icon-button
+  position relative
+  padding 0
+  outline 0
+  border none
+  border-radius 50%
+  background-color transparent
+  user-select none
+  white-space nowrap
+  text-align center
+  vertical-align middle
+  font-style inherit
+  font-variant inherit
+  font-size 1rem
+  text-decoration none
+  cursor pointer
+  doTransition(duration: 250ms)
