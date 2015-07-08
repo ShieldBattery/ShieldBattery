@@ -38,7 +38,7 @@ class ValidatedForm extends React.Component {
 
 
     return (
-      <form {...this.props}>
+      <form {...this.props} noValidate={true}>
         {title}
         <div className={fieldsClassName}>
           {errorText}

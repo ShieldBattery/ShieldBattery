@@ -80,6 +80,7 @@
         "babelify",
         {
           "loose": "all",
+          "stage": "1",
           "optional": [
             "runtime"
           ]

@@ -1,6 +1,6 @@
 import React from 'react'
 import Card from '../material/card.jsx'
-import { FlatButton } from 'material-ui'
+import FlatButton from '../material/flat-button.jsx'
 import authStore from './auth-store'
 import auther from './auther'
 import ValidatedForm from '../forms/validated-form.jsx'
@@ -64,10 +64,10 @@ class Login extends React.Component {
       }
 
       let buttons = [
-        <FlatButton type="button" label="Sign up" key='signup-btn' secondary={true}
-            onTouchTap={e => this.onSignUpClicked(e)} tabIndex={2}/>,
-        <FlatButton type ="button" label="Log in" key='login-btn' primary={true}
-            onTouchTap={e => this.onLogInClicked(e)} tabIndex={1}/>,
+        <FlatButton label="Sign up" key='signup-btn'
+            onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>,
+        <FlatButton label="Log in" key='login-btn' color='accent'
+            onClick={e => this.onLogInClicked(e)} tabIndex={1}/>,
       ]
 
       let usernameValidator = composeValidators(
