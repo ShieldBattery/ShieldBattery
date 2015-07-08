@@ -1,6 +1,6 @@
 import React from 'react'
 import Card from '../material/card.jsx'
-import { Checkbox, TextField, FlatButton } from 'material-ui'
+import RaisedButton from '../material/raised-button.jsx'
 import ValidatedForm from '../forms/validated-form.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
 import composeValidators from '../forms/compose-validators'
@@ -58,8 +58,8 @@ class Signup extends React.Component {
       return <Card zDepth={1} className='card-form'><span>Please wait...</span></Card>
     }
 
-    let button = (<FlatButton type='button' label='Sign up' secondary={true}
-        onTouchTap={e => this.onSignUpClicked(e)} tabIndex={1}/>)
+    let button = (<RaisedButton type='button' label='Sign up'
+        onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
     let usernameValidator = composeValidators(
       minLengthValidator(constants.USERNAME_MINLENGTH,
@@ -104,7 +104,8 @@ class Signup extends React.Component {
               validator={passwordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
           <ValidatedText hintText='Confirm password' floatingLabel={true} name='confirmPassword'
-              tabIndex={1} type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
+              tabIndex={1} type='password' autoCapitalize='off' autoCorrect='off'
+              spellCheck={false}
               required={true} requiredMessage='Confirm your password'
               validator={confirmPasswordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
