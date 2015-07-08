@@ -65,8 +65,7 @@ class Login extends React.Component {
       }
 
       let buttons = [
-        <FlatButton label="Sign up" key='signup-btn'
-            onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>,
+
         <RaisedButton label="Log in" key='login-btn'
             onClick={e => this.onLogInClicked(e)} tabIndex={1}/>,
       ]
@@ -107,7 +106,13 @@ class Login extends React.Component {
       )
     }
 
-    return <Card zDepth={1} className="card-form">{cardContents}</Card>
+    return <div>
+      <Card zDepth={1}>{cardContents}</Card>
+      <div className="flex-row flex-justify-center">
+        <p>Don't have an account?</p>
+        <FlatButton label="Sign up" onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
+      </div>
+    </div>
   }
 
   onSignUpClicked() {
