@@ -1,5 +1,6 @@
 import React from 'react'
 import Card from '../material/card.jsx'
+import FlatButton from '../material/flat-button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import ValidatedForm from '../forms/validated-form.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
@@ -82,8 +83,8 @@ class Signup extends React.Component {
     let confirmPasswordValidator = matchOtherValidator('password',
         `Passwords do not match`)
 
-    return (
-      <Card zDepth={1} className='card-form'>
+    return (<div>
+      <Card zDepth={1}>
         <ValidatedForm formTitle='Sign up'
             errorText={this.state.failure && this.state.failure.error}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
@@ -111,11 +112,19 @@ class Signup extends React.Component {
               onEnterKeyDown={e => this.onSignUpClicked()}/>
         </ValidatedForm>
       </Card>
-    )
+      <div className="flex-row flex-justify-center">
+        <p>Already have an account?</p>
+        <FlatButton label="Log in" onClick={e => this.onLogInClicked(e)} tabIndex={2} />
+      </div>
+    </div>)
   }
 
   onSignUpClicked() {
     this.refs.form.trySubmit()
+  }
+
+  onLogInClicked() {
+    this.context.router.transitionTo('login')
   }
 
   onSubmitted(values) {
