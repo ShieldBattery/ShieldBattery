@@ -2,6 +2,7 @@
   "parser": "babel-eslint",
   "plugins": [
     "babel",
+    "import",
     "react"
   ],
 
@@ -201,6 +202,14 @@
     "babel/generator-star-spacing": [2, "after"],
     "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
     "babel/space-in-brackets": 0,
+
+    "import/no-unresolved": 0,
+    "import/named": 2,
+    "import/namespace": 0,
+    "import/no-reassign": 2,
+    "import/no-require": 2,
+    "import/no-named-as-default": 2,
+    "import/default": 0,
 
     "react/display-name": 0,
     "react/jsx-boolean-value": [2, "always"],
