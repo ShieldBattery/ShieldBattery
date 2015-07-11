@@ -17,7 +17,7 @@ class ServerStatusChecker {
 
   registerInterest() {
     this.interested++
-    if (this.interested == 1) {
+    if (this.interested === 1) {
       // this was our first interested client, subscribe to '/status' broadcasts
       this._subscribe()
     }

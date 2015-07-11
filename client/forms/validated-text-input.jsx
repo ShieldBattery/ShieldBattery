@@ -10,7 +10,7 @@ class ValidatedTextInput extends ValidatedInput {
   render() {
     return (
       <TextField {...this.props}
-          ref="input"
+          ref='input'
           errorText={this.props.validationError}
           onChange={e => this._onChange(e)}/>
     )
@@ -35,7 +35,8 @@ class ValidatedTextInput extends ValidatedInput {
   }
 }
 
-ValidatedTextInput.propTypes = Object.assign(ValidatedInput.propTypes, {
-})
+ValidatedTextInput.propTypes = {
+  ...ValidatedInput.propTypes,
+}
 
 export default ValidatedTextInput

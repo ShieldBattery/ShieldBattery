@@ -1,18 +1,18 @@
-let xr = require('xr')
-  , readCookies = require('./read-cookies')
+import xr from 'xr'
+import readCookies from './read-cookies'
 
-let JSON_PREFIX = /^\)\]\}',?\n/
+const JSON_PREFIX = /^\)\]\}',?\n/
 function loadJson(str) {
-  let replaced = str.replace(JSON_PREFIX, '')
+  const replaced = str.replace(JSON_PREFIX, '')
   return JSON.parse(replaced)
 }
 
-let oldHeaders = xr.defaults.headers
+const oldHeaders = xr.defaults.headers
 xr.configure({
   load: loadJson,
 })
 
-let headersArg = {
+const headersArg = {
   get headers() {
     return Object.assign(oldHeaders, {
       'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN']
@@ -21,13 +21,13 @@ let headersArg = {
 }
 
 
-for (let method of ['get', 'put', 'post', 'patch']) {
-  let old = xr[method]
+for (const method of ['get', 'put', 'post', 'patch']) {
+  const old = xr[method]
   xr[method] = (url, data, args) => old(url, data, Object.assign(args || {}, headersArg))
 }
-for (let method of ['del', 'options']) {
-  let old = xr[method]
+for (const method of ['del', 'options']) {
+  const old = xr[method]
   xr[method] = (url, args) => old(url, Object.assign(args || {}, headersArg))
 }
 
-module.exports = xr
+export default xr

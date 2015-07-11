@@ -9,9 +9,9 @@ class FlatButton extends React.Component {
   }
 
   render() {
-    let classes = classnames('flat-button', this.props.className, {
-      primary: this.props.color == 'primary',
-      accent: this.props.color == 'accent',
+    const classes = classnames('flat-button', this.props.className, {
+      primary: this.props.color === 'primary',
+      accent: this.props.color === 'accent',
     })
 
     return (<Button {...this.props} className={classes}/>)

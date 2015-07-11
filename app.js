@@ -1,35 +1,34 @@
-var config = require('./config')
+import config from './config'
 
-var http = require('http')
-  , https = require('https')
+import http from 'http'
+import https from 'https'
 
-var canonicalHost = require('canonical-host')
-  , cuid = require('cuid')
-  , koa = require('koa')
-  , log = require('./server/logging/logger')
-  , path = require('path')
+import canonicalHost from 'canonical-host'
+import koa from 'koa'
+import log from './server/logging/logger'
+import path from 'path'
 
-var csrf = require('koa-csrf')
-  , csrfCookie = require('./server/security/csrf-cookie')
-  , koaBody = require('koa-body')
-  , koaCompress = require('koa-compress')
-  , koaError = require('koa-error')
-  , logMiddleware = require('./server/logging/log-middleware')
-  , secureHeaders = require('./server/security/headers')
-  , secureJson = require('./server/security/json')
-  , sessionMiddleware = require('./server/session/middleware')
-  , stylish = require('./server/styles/stylish')
-  , views = require('koa-views')
+import csrf from 'koa-csrf'
+import csrfCookie from './server/security/csrf-cookie'
+import koaBody from 'koa-body'
+import koaCompress from 'koa-compress'
+import koaError from 'koa-error'
+import logMiddleware from './server/logging/log-middleware'
+import secureHeaders from './server/security/headers'
+import secureJson from './server/security/json'
+import sessionMiddleware from './server/session/middleware'
+import stylish from './server/styles/stylish'
+import views from 'koa-views'
 
-var app = koa()
-  , port = config.https ? config.httpsPort : config.httpPort
+const app = koa()
+const port = config.https ? config.httpsPort : config.httpPort
 
 app.keys = [ config.sessionSecret ]
 
 app.on('error', err => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
-  log.error({ err: err }, 'server error')
+  log.error({ err }, 'server error')
 })
 
 app
@@ -47,11 +46,11 @@ app
 
 require('./routes')(app)
 
-var mainServer
+let mainServer
 if (config.https) {
   mainServer = https.createServer(config.https, app.callback())
   // create a server that simply forwards requests to https
-  var canon = canonicalHost(config.canonicalHost, 301)
+  const canon = canonicalHost(config.canonicalHost, 301)
   http.createServer(function(req, res) {
     if (canon(req, res)) return
     // shouldn't ever get here, but if we do, just kill the connection

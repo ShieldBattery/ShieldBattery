@@ -11,22 +11,22 @@ function safeDecodeURIComponent(str) {
 }
 
 function readCookies() {
-  let currentCookieString = document.cookie || ''
-  if (currentCookieString == lastCookieString) {
+  const currentCookieString = document.cookie || ''
+  if (currentCookieString === lastCookieString) {
     return lastCookies
   }
 
   lastCookieString = currentCookieString
   lastCookies = {}
-  let cookieArray = lastCookieString.split('; ')
+  const cookieArray = lastCookieString.split('; ')
 
-  for (let cookie of cookieArray) {
-    let index = cookie.indexOf('=')
-    if (index < 0) { //ignore nameless cookies
+  for (const cookie of cookieArray) {
+    const index = cookie.indexOf('=')
+    if (index < 0) { // ignore nameless cookies
       continue
     }
 
-    let name = safeDecodeURIComponent(cookie.substring(0, index))
+    const name = safeDecodeURIComponent(cookie.substring(0, index))
     // the first value that is seen for a cookie is the most
     // specific one.  values for the same cookie name that
     // follow are for less specific paths.
@@ -38,4 +38,4 @@ function readCookies() {
   return lastCookies
 }
 
-module.exports = readCookies
+export default readCookies

@@ -9,9 +9,9 @@ class RaisedButton extends React.Component {
   }
 
   render() {
-    let classes = classnames('raised-button', this.props.className, {
-      primary: this.props.color != 'accent',
-      accent: this.props.color == 'accent',
+    const classes = classnames('raised-button', this.props.className, {
+      primary: this.props.color !== 'accent',
+      accent: this.props.color === 'accent',
     })
 
     return (<Button {...this.props} className={classes}/>)

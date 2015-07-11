@@ -1,9 +1,9 @@
-let React = require('react')
+import React from 'react'
 
-let AppNotFound = React.createClass({
+class AppNotFound extends React.Component {
   render() {
     return (<h3>{'Not found :('}</h3>)
   }
-})
+}
 
-module.exports = AppNotFound
+export default AppNotFound

@@ -39,8 +39,8 @@ class AuthStore extends ChangeEmitter {
       this.lastFailure = null
     } else {
       this.lastFailure = {
-        err: err,
-        reqId: reqId,
+        err,
+        reqId,
       }
     }
   }
@@ -108,7 +108,7 @@ class AuthStore extends ChangeEmitter {
   }
 
   hasFailure(reqId) {
-    return reqId && this.lastFailure && this.lastFailure.reqId == reqId
+    return reqId && this.lastFailure && this.lastFailure.reqId === reqId
   }
 }
 

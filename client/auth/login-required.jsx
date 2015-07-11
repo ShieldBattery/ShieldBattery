@@ -1,6 +1,6 @@
-let React = require('react')
-  , { RouteHandler } = require('react-router')
-  , authStore = require('./auth-store')
+import React from 'react'
+import { RouteHandler } from 'react-router'
+import authStore from './auth-store'
 
 class LoginRequired extends React.Component {
   constructor() {

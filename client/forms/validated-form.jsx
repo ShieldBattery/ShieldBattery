@@ -1,4 +1,4 @@
-import React from 'react'
+import React from 'react/addons'
 import classnames from 'classnames'
 
 class ValidatedForm extends React.Component {
@@ -15,7 +15,7 @@ class ValidatedForm extends React.Component {
   }
 
   render() {
-    let children = React.Children.map(this.props.children, child => {
+    const children = React.Children.map(this.props.children, child => {
       if (!child.props.name) {
         // Children without names just won't be validated
         return child
@@ -28,12 +28,12 @@ class ValidatedForm extends React.Component {
       })
     })
 
-    let fieldsClassName = classnames('fields', this.props.fieldsClassName)
-    let buttonsClassName = classnames('button-area', this.props.buttonsClassName)
+    const fieldsClassName = classnames('fields', this.props.fieldsClassName)
+    const buttonsClassName = classnames('button-area', this.props.buttonsClassName)
 
-    let title = this.props.formTitle ? (<h3>{this.props.formTitle}</h3>) : undefined
-    let errorText = this.props.errorText ? (<span>{this.props.errorText}</span>) : undefined
-    let buttons = this.props.buttons ?
+    const title = this.props.formTitle ? (<h3>{this.props.formTitle}</h3>) : undefined
+    const errorText = this.props.errorText ? (<span>{this.props.errorText}</span>) : undefined
+    const buttons = this.props.buttons ?
         (<div className={buttonsClassName}>{this.props.buttons}</div>) : undefined
 
 
@@ -54,14 +54,14 @@ class ValidatedForm extends React.Component {
   }
 
   validate(dirtyElements = null) {
-    let errors = new Map()
-    for (let refName of Object.keys(this.refs)) {
-      let elem = this.refs[refName]
+    const errors = new Map()
+    for (const refName of Object.keys(this.refs)) {
+      const elem = this.refs[refName]
       if (dirtyElements && !dirtyElements.has(elem)) {
         continue
       }
 
-      let error = elem.validate(this)
+      const error = elem.validate(this)
       if (error) {
         errors.set(refName, error)
       }
@@ -86,12 +86,12 @@ class ValidatedForm extends React.Component {
       notSubmitted: false,
     })
 
-    let errors = this.validate()
+    const errors = this.validate()
     if (errors) return errors
 
     if (this.props.onSubmitted) {
       this.props.onSubmitted(new Map(Object.keys(this.refs).map(key => {
-        let ref = this.refs[key]
+        const ref = this.refs[key]
         return [ ref.props.name, ref.getValue() ]
       })))
     }

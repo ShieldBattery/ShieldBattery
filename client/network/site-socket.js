@@ -1,7 +1,7 @@
 import WrappedSocket from './wrapped-socket'
 import authStore from '../auth/auth-store'
 
-let siteSocket = new WrappedSocket(null)
+const siteSocket = new WrappedSocket(null)
 
 if (authStore.isLoggedIn) {
   siteSocket.connect()

@@ -1,7 +1,6 @@
-let React = require('react')
-  , { Paper } = require('material-ui')
+import React from 'react'
 
-let Card = React.createClass({
+class Card extends React.Component {
   render() {
     return (
       <div className='card shadow-1'>
@@ -9,6 +8,6 @@ let Card = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = Card
+export default Card

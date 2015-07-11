@@ -1,7 +1,7 @@
 import keyMirror from 'keymirror'
 
 // Statuses that actions can go through
-let statuses = keyMirror({
+const statuses = keyMirror({
   BEGIN: 0,
 
   // Terminal

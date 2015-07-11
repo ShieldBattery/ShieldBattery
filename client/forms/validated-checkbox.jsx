@@ -11,7 +11,7 @@ class ValidatedCheckbox extends ValidatedInput {
     // TODO(tec27): make this actually display error text
     return (
       <CheckBox {...this.props}
-          ref="input"
+          ref='input'
           onChange={e => this._onChange(e)}/>
     )
   }
@@ -35,7 +35,8 @@ class ValidatedCheckbox extends ValidatedInput {
   }
 }
 
-ValidatedCheckbox.propTypes = Object.assign(ValidatedInput.propTypes, {
-})
+ValidatedCheckbox.propTypes = {
+  ...ValidatedInput.propTypes
+}
 
 export default ValidatedCheckbox

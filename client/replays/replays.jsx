@@ -1,9 +1,9 @@
-let React = require('react')
+import React from 'react'
 
-let Replays = React.createClass({
+class Replays extends React.Component {
   render() {
     return (<h3>Replays</h3>)
   }
-})
+}
 
-module.exports = Replays
+export default Replays

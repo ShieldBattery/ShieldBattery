@@ -15,8 +15,8 @@ class CheckBox extends React.Component {
   }
 
   componentDidMount() {
-    let node = this.refs.input.getDOMNode()
-    if (node.checked != this.state.checked) {
+    const node = this.refs.input.getDOMNode()
+    if (node.checked !== this.state.checked) {
       this.setState({ checked: node.checked })
     }
   }
@@ -28,18 +28,18 @@ class CheckBox extends React.Component {
   }
 
   render() {
-    let classes = classnames('check-box', this.props.className, {
+    const classes = classnames('check-box', this.props.className, {
       checked: this.state.checked,
       disabled: this.props.disabled,
       focused: this.state.isKeyboardFocused,
     })
 
-    let labelElem = this.props.label ?
+    const labelElem = this.props.label ?
         <label htmlFor={this.id}>{this.props.label}</label> : null
 
-    let iconElem = <div className='check-box-icon'></div>
+    const iconElem = <div className='check-box-icon'></div>
 
-    let inputProps = {
+    const inputProps = {
       ref: 'input',
       type: 'checkbox',
       id: this.id,
@@ -50,11 +50,11 @@ class CheckBox extends React.Component {
       onMouseOut: e => this._handleMouseOut(e),
       onChange: e => this._handleChange(e),
     }
-    let inputElem = <input {...this.props} {...inputProps} />
+    const inputElem = <input {...this.props} {...inputProps} />
 
     return (<div className={classes}>
       {inputElem}
-      <div className="check-box-icon-container">
+      <div className='check-box-icon-container'>
         {iconElem}
       </div>
       {labelElem}
@@ -67,8 +67,8 @@ class CheckBox extends React.Component {
 
   setChecked(checked) {
     if (!this.props.hasOwnProperty('checked') || this.props.checked === false) {
-        this.setState({ checked: checked })
-        this.refs.input.getDOMNode().checked = checked
+      this.setState({ checked })
+      this.refs.input.getDOMNode().checked = checked
     }
   }
 
@@ -81,9 +81,9 @@ class CheckBox extends React.Component {
   }
 
   _handleChange(e) {
-    let inputChecked = this.refs.input.getDOMNode().checked
+    const inputChecked = this.refs.input.getDOMNode().checked
     if (!this.props.hasOwnProperty('checked')) {
-      let newState = { checked: inputChecked }
+      const newState = { checked: inputChecked }
       if (!this.mouseActive) {
         newState.isKeyboardFocused = true
       }

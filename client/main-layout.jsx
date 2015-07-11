@@ -6,9 +6,9 @@ import LeftNav from './material/left-nav.jsx'
 
 class MainLayout extends React.Component {
   render() {
-    return (<div className="flex-row">
+    return (<div className='flex-row'>
       <LeftNav />
-      <div className="flex-fit">
+      <div className='flex-fit'>
         <AppBar title='#teamliquid'/>
         <RouteHandler />
       </div>

@@ -1,3 +1,3 @@
-let FluxDispatcher = require('flux').Dispatcher
+const FluxDispatcher = require('flux').Dispatcher
 
-module.exports = new FluxDispatcher()
+export default new FluxDispatcher()
