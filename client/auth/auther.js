@@ -4,14 +4,14 @@ import actions from '../actions'
 import statuses from '../statuses'
 import cuid from 'cuid'
 
-let auther = {
+const auther = {
   initFromPage() {
     // get the current user from the page body (if its not there, assume not logged in)
     if (!window._sbSession) {
       return
     }
 
-    let { user, permissions } = window._sbSession
+    const { user, permissions } = window._sbSession
     window._sbSession = null
     dispatcher.dispatch({
       actionType: actions.AUTH_LOG_IN,
@@ -23,7 +23,7 @@ let auther = {
   },
 
   logIn(username, password, remember) {
-    let reqId = cuid()
+    const reqId = cuid()
     dispatcher.dispatch({
       actionType: actions.AUTH_LOG_IN,
       actionStatus: statuses.BEGIN,
@@ -43,7 +43,7 @@ let auther = {
         reqId,
       })
     }, data => {
-      let err = tryParseError(data)
+      const err = tryParseError(data)
       dispatcher.dispatch({
         actionType: actions.AUTH_LOG_IN,
         actionStatus: statuses.FAILURE,
@@ -56,7 +56,7 @@ let auther = {
   },
 
   logOut() {
-    let reqId = cuid()
+    const reqId = cuid()
     dispatcher.dispatch({
       actionType: actions.AUTH_LOG_OUT,
       actionStatus: statuses.BEGIN,
@@ -71,7 +71,7 @@ let auther = {
           reqId,
         })
       }, errData => {
-        let err = tryParseError(errData)
+        const err = tryParseError(errData)
         dispatcher.dispatch({
           actionType: actions.AUTH_LOG_OUT,
           actionStatus: statuses.FAILURE,
@@ -84,7 +84,7 @@ let auther = {
   },
 
   signUp(username, email, password) {
-    let reqId = cuid()
+    const reqId = cuid()
     dispatcher.dispatch({
       actionType: actions.AUTH_SIGN_UP,
       actionStatus: statuses.BEGIN,
@@ -101,7 +101,7 @@ let auther = {
           reqId,
         })
       }, data => {
-        let err = tryParseError(data)
+        const err = tryParseError(data)
         dispatcher.dispatch({
           actionType: actions.AUTH_SIGN_UP,
           actionStatus: statuses.FAILURE,

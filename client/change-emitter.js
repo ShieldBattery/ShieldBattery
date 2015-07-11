@@ -14,10 +14,10 @@ class ChangeEmitter {
   }
 
   notifyAll() {
-    for (let listener of this._changeListeners) {
+    for (const listener of this._changeListeners) {
       listener()
     }
   }
 }
 
-module.exports = ChangeEmitter
+export default ChangeEmitter

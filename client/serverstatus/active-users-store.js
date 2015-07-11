@@ -11,7 +11,7 @@ class ActiveUsersStore extends ChangeEmitter {
   }
 
   dispatch(action) {
-    if (action.actionType != actions.SERVER_STATUS) return
+    if (action.actionType !== actions.SERVER_STATUS) return
 
     switch (action.actionStatus) {
       case statuses.BEGIN:

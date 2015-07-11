@@ -1,8 +1,8 @@
-import React from 'react'
+import React from 'react/addons'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 
-let TransitionGroup = React.addons.CSSTransitionGroup
+const TransitionGroup = React.addons.CSSTransitionGroup
 
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
@@ -15,8 +15,8 @@ class TextField extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    let hasNewDefault = nextProps.defaultValue !== this.props.defaultValue
-    let hasValueProp = nextProps.hasOwnProperty('value')
+    const hasNewDefault = nextProps.defaultValue !== this.props.defaultValue
+    const hasValueProp = nextProps.hasOwnProperty('value')
 
     if (hasValueProp) {
       this.setState({ hasValue: !!nextProps.value })
@@ -26,7 +26,7 @@ class TextField extends React.Component {
   }
 
   render() {
-    let classes = classnames('text-field', this.props.className, {
+    const classes = classnames('text-field', this.props.className, {
       error: !!this.props.errorText,
       'floating-label': this.props.floatingLabel,
       'has-value': this.state.hasValue,
@@ -34,12 +34,12 @@ class TextField extends React.Component {
       focused: this.state.isFocused,
     })
 
-    let hintText = this.props.hintText ?
+    const hintText = this.props.hintText ?
         <label htmlFor={this.id}>{this.props.hintText}</label> : null
-    let errorText = this.props.errorText ?
-        <div className="text-field-error" key="error">{this.props.errorText}</div> : null
+    const errorText = this.props.errorText ?
+        <div className='text-field-error' key='error'>{this.props.errorText}</div> : null
 
-    let inputProps = {
+    const inputProps = {
       ref: 'input',
       id: this.id,
       onBlur: e => this._onInputBlur(e),
@@ -53,9 +53,9 @@ class TextField extends React.Component {
       <div className={classes}>
         {hintText}
         <input {...this.props} {...inputProps} />
-        <hr className="text-field-underline" />
-        <hr className="text-field-focus-underline" />
-        <TransitionGroup transitionName="text-field-error" className="text-field-error-container">
+        <hr className='text-field-underline'/>
+        <hr className='text-field-focus-underline'/>
+        <TransitionGroup transitionName='text-field-error' className='text-field-error-container'>
           {errorText}
         </TransitionGroup>
       </div>
@@ -109,7 +109,7 @@ class TextField extends React.Component {
   }
 
   _onKeyDown(e) {
-    if (e.keyCode == 13 && this.props.onEnterKeyDown) {
+    if (e.keyCode === 13 && this.props.onEnterKeyDown) {
       this.props.onEnterKeyDown(e)
     }
     if (this.props.onKeyDown) {

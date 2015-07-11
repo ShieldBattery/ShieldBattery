@@ -37,7 +37,7 @@ class Login extends React.Component {
     if (authStore.isLoggedIn) {
       // We're logged in now, hooray!
       // Go wherever the user was intending to go before being directed here (or home)
-      let nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
+      const nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
       this.context.router.replaceWith(nextPath)
       return true
     }
@@ -64,13 +64,12 @@ class Login extends React.Component {
         errContents = `Error: ${this.state.failure.error}`
       }
 
-      let buttons = [
-
-        <RaisedButton label="Log in" key='login-btn'
+      const buttons = [
+        <RaisedButton label='Log in' key='login-btn'
             onClick={e => this.onLogInClicked(e)} tabIndex={1}/>,
       ]
 
-      let usernameValidator = composeValidators(
+      const usernameValidator = composeValidators(
         minLengthValidator(constants.USERNAME_MINLENGTH,
             `Enter at least ${constants.USERNAME_MINLENGTH} characters`),
         maxLengthValidator(constants.USERNAME_MAXLENGTH,
@@ -78,14 +77,14 @@ class Login extends React.Component {
         regexValidator(constants.USERNAME_PATTERN,
             `Username contains invalid characters`)
       )
-      let passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
+      const passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
           `Enter at least ${constants.PASSWORD_MINLENGTH} characters`)
 
       cardContents = (
         <ValidatedForm ref='form'
             formTitle={'Please log in'}
             errorText={errContents}
-            fieldsClassName="flex-row flex-wrap"
+            fieldsClassName='flex-row flex-wrap'
             buttons={buttons}
             onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText className='flex-50' hintText='Username' floatingLabel={true}
@@ -106,13 +105,13 @@ class Login extends React.Component {
       )
     }
 
-    return <div>
+    return (<div>
       <Card zDepth={1}>{cardContents}</Card>
-      <div className="flex-row flex-justify-center">
+      <div className='flex-row flex-justify-center'>
         <p>Don't have an account?</p>
-        <FlatButton label="Sign up" onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
+        <FlatButton label='Sign up' onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
       </div>
-    </div>
+    </div>)
   }
 
   onSignUpClicked() {
@@ -127,7 +126,7 @@ class Login extends React.Component {
   }
 
   onSubmitted(values) {
-    let id = auther.logIn(values.get('username'), values.get('password'), values.get('remember'))
+    const id = auther.logIn(values.get('username'), values.get('password'), values.get('remember'))
     this.setState({
       reqId: id
     })

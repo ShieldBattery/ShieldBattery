@@ -37,7 +37,7 @@ class Signup extends React.Component {
     if (authStore.isLoggedIn) {
       // We're logged in now, hooray!
       // Go wherever the user was intending to go before being directed here (or home)
-      let nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
+      const nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
       this.context.router.replaceWith(nextPath)
       return true
     }
@@ -59,10 +59,10 @@ class Signup extends React.Component {
       return <Card zDepth={1} className='card-form'><span>Please wait...</span></Card>
     }
 
-    let button = (<RaisedButton type='button' label='Sign up'
+    const button = (<RaisedButton type='button' label='Sign up'
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
-    let usernameValidator = composeValidators(
+    const usernameValidator = composeValidators(
       minLengthValidator(constants.USERNAME_MINLENGTH,
           `Use at least ${constants.USERNAME_MINLENGTH} characters`),
       maxLengthValidator(constants.USERNAME_MAXLENGTH,
@@ -70,7 +70,7 @@ class Signup extends React.Component {
       regexValidator(constants.USERNAME_PATTERN,
           `Username contains invalid characters`)
     )
-    let emailValidator = composeValidators(
+    const emailValidator = composeValidators(
       minLengthValidator(constants.EMAIL_MINLENGTH,
           `Use at least ${constants.EMAIL_MINLENGTH} characters`),
       maxLengthValidator(constants.EMAIL_MAXLENGTH,
@@ -78,9 +78,9 @@ class Signup extends React.Component {
       regexValidator(constants.EMAIL_PATTERN,
           `Enter a valid email address`)
     )
-    let passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
+    const passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
         `Use at least ${constants.PASSWORD_MINLENGTH} characters`)
-    let confirmPasswordValidator = matchOtherValidator('password',
+    const confirmPasswordValidator = matchOtherValidator('password',
         `Passwords do not match`)
 
     return (<div>
@@ -112,9 +112,9 @@ class Signup extends React.Component {
               onEnterKeyDown={e => this.onSignUpClicked()}/>
         </ValidatedForm>
       </Card>
-      <div className="flex-row flex-justify-center">
+      <div className='flex-row flex-justify-center'>
         <p>Already have an account?</p>
-        <FlatButton label="Log in" onClick={e => this.onLogInClicked(e)} tabIndex={2} />
+        <FlatButton label='Log in' onClick={e => this.onLogInClicked(e)} tabIndex={2} />
       </div>
     </div>)
   }
@@ -128,7 +128,7 @@ class Signup extends React.Component {
   }
 
   onSubmitted(values) {
-    let id = auther.signUp(values.get('username'), values.get('email'), values.get('password'))
+    const id = auther.signUp(values.get('username'), values.get('email'), values.get('password'))
     this.setState({
       reqId: id
     })

@@ -2,8 +2,8 @@
 // encountered
 function composeValidators(...validators) {
   return val => {
-    for (let validator of validators) {
-      let error = validator(val)
+    for (const validator of validators) {
+      const error = validator(val)
       if (error) {
         return error
       }

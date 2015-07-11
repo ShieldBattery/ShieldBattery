@@ -1,9 +1,9 @@
-let React = require('react')
+import React from 'react'
 
-let Games = React.createClass({
+class Games extends React.Component {
   render() {
-    return (<h3>Games</h3>)
+    return <h3>Games</h3>
   }
-})
+}
 
-module.exports = Games
+export default Games

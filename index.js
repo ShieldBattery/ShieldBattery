@@ -7,6 +7,7 @@ require('babel/register')({
     'regenerator',
   ],
   loose: 'all',
+  stage: 1,
 })
 
 require('./app.js')

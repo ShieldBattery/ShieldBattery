@@ -28,7 +28,8 @@ class ActiveUsersCount extends React.Component {
   }
 
   render() {
-    let activeUsersStr = this.state.activeUsers === null ? 'unknown' : (this.state.activeUsers + '')
+    const activeUsersStr = this.state.activeUsers === null ?
+        'unknown' : (this.state.activeUsers + '')
     return <p>Connected users: {activeUsersStr}</p>
   }
 }

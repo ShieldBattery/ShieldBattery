@@ -9,23 +9,24 @@ class WrappedSocket extends EventEmitter {
     this.lastError = null
 
     if (!this.host) {
-      this.host = (location.protocol == 'https' ? 'wss://' : 'ws://') +
+      const location = window.location
+      this.host = (location.protocol === 'https' ? 'wss://' : 'ws://') +
           location.hostname + ':' + location.port
     }
 
-    ;[ 'call', 'subscribe', 'unsubscribe', 'publish' ].forEach(f => {
-      let self = this
-      self[f] = function() {
+    for (const f of [ 'call', 'subscribe', 'unsubscribe', 'publish' ]) {
+      const self = this
+      this[f] = function() {
         self.socket[f].apply(self.socket, arguments)
       }
-    })
+    }
 
     // we'd rather not have socket errors cause a bunch of console spam for no good reason
     this.on('error', function() {})
   }
 
   get connected() {
-    return this.socket && this.socket.readyState == 'connected'
+    return this.socket && this.socket.readyState === 'connected'
   }
 
   get router() {
@@ -33,7 +34,7 @@ class WrappedSocket extends EventEmitter {
   }
 
   connect() {
-    if (this.connected) return
+    if (this.connected) return this
 
     this.socket = nydus(this.host)
     this.socket.on('connect', () => this._onConnect())
@@ -44,7 +45,7 @@ class WrappedSocket extends EventEmitter {
   }
 
   disconnect() {
-    if (!this.connected) return
+    if (!this.connected) return this
 
     this.socket.close()
     return this
@@ -74,13 +75,13 @@ class WrappedSocket extends EventEmitter {
   'removeAllListeners',
   'listeners',
 ].forEach(method => {
-  let origMethod = WrappedSocket.prototype[method]
+  const origMethod = WrappedSocket.prototype[method]
   WrappedSocket.prototype[method] = genEventEmitterMethod(method, origMethod)
 })
 
 function genEventEmitterMethod(method, origMethod) {
   return function(ev, fn) {
-    switch(ev) {
+    switch (ev) {
       case 'connect':
       case 'disconnect':
       case 'error':

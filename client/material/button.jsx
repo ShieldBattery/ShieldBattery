@@ -14,14 +14,14 @@ class Button extends React.Component {
   }
 
   render() {
-    let { label, ...otherProps } = this.props
+    const { label, ...otherProps } = this.props
 
-    let classes = classnames('material-button', this.props.className, {
+    const classes = classnames('material-button', this.props.className, {
       disabled: this.props.disabled,
       focused: this.state.isKeyboardFocused,
     })
 
-    let buttonProps = {
+    const buttonProps = {
       className: classes,
       onBlur: e => this._handleBlur(e),
       onFocus: e => this._handleFocus(e),
@@ -29,7 +29,7 @@ class Button extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
     }
     return (<button {...otherProps} {...buttonProps}>
-      <span className="material-button-label">{label}</span>
+      <span className='material-button-label'>{label}</span>
     </button>)
   }
 
