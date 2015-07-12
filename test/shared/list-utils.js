@@ -1,6 +1,6 @@
-var listUtils = require('../../shared/list-utils')
+import listUtils from '../../shared/list-utils'
 
-var expect = require('chai').expect
+import { expect } from 'chai'
 
 function compare(a, b) {
   return a.localeCompare(b)
@@ -9,7 +9,7 @@ function compare(a, b) {
 describe('list-utils', function() {
   describe('#replaceInPlace', function() {
     it('should handle a completely empty original list', function() {
-      var a = []
+      const a = []
         , desired = [ 'a', 'b', 'c' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -17,14 +17,14 @@ describe('list-utils', function() {
     })
 
     it('should handle a completely empty desired list', function() {
-      var a = [ 'a', 'b', 'c' ]
+      const a = [ 'a', 'b', 'c' ]
       listUtils.replaceInPlace(a, [], compare)
 
       expect(a).to.have.length(0)
     })
 
     it('should handle desired as a subset of original at the front', function() {
-      var a = [ 'a', 'b', 'c' ]
+      const a = [ 'a', 'b', 'c' ]
         , desired = [ 'a', 'b' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -32,7 +32,7 @@ describe('list-utils', function() {
     })
 
     it('should handle desired as a subset of original in the middle', function() {
-      var a = [ 'a', 'b', 'c', 'd' ]
+      const a = [ 'a', 'b', 'c', 'd' ]
         , desired = [ 'b', 'c' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -40,7 +40,7 @@ describe('list-utils', function() {
     })
 
     it('should handle desired as a subset of original at the end', function() {
-      var a = [ 'a', 'b', 'c' ]
+      const a = [ 'a', 'b', 'c' ]
         , desired = [ 'b', 'c' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -48,7 +48,7 @@ describe('list-utils', function() {
     })
 
     it('should handle a mix of additions and deletions at the front', function() {
-      var a = [ 'a', 'c', 'd', 'e' ]
+      const a = [ 'a', 'c', 'd', 'e' ]
         , desired = [ 'b', 'c', 'd', 'e' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -56,7 +56,7 @@ describe('list-utils', function() {
     })
 
     it('should handle a mix of additions and deletions in the middle', function() {
-      var a = [ 'a', 'c', 'e', 'g' ]
+      const a = [ 'a', 'c', 'e', 'g' ]
         , desired = [ 'a', 'b', 'd', 'e', 'g' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -64,7 +64,7 @@ describe('list-utils', function() {
     })
 
     it('should handle a mix of additions and deletions at the end', function() {
-      var a = [ 'a', 'c', 'e', 'g' ]
+      const a = [ 'a', 'c', 'e', 'g' ]
         , desired = [ 'a', 'c', 'e', 'f', 'h' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -72,7 +72,7 @@ describe('list-utils', function() {
     })
 
     it('should handle completely distinct lists (o < d)', function() {
-      var a = [ 'a', 'b', 'c' ]
+      const a = [ 'a', 'b', 'c' ]
         , desired = [ 'x', 'y', 'z' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -80,7 +80,7 @@ describe('list-utils', function() {
     })
 
     it('should handle completely distinct lists (o > d)', function() {
-      var a = [ 'x', 'y', 'z' ]
+      const a = [ 'x', 'y', 'z' ]
         , desired = [ 'a', 'b', 'c' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -88,7 +88,7 @@ describe('list-utils', function() {
     })
 
     it('should handle completely distinct lists (o ~ d)', function() {
-      var a = [ 'a', 'c', 'e' ]
+      const a = [ 'a', 'c', 'e' ]
         , desired = [ 'b', 'd', 'f' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -96,7 +96,7 @@ describe('list-utils', function() {
     })
 
     it('should handle a crazy combination of additions and deletions', function() {
-      var a = [ 'b', 'c', 'd', 'e', 'h', 'i', 'j', 'k' ]
+      const a = [ 'b', 'c', 'd', 'e', 'h', 'i', 'j', 'k' ]
         , desired = [ 'a', 'd', 'e', 'f', 'g', 'j', 'k', 'l', 'm', 'n', 'o' ]
       listUtils.replaceInPlace(a, desired, compare)
 
@@ -106,7 +106,7 @@ describe('list-utils', function() {
 
   describe('#sortedInsert', function() {
     it('should handle an empty list', function() {
-      var list = []
+      const list = []
         , value = 'a'
         , result = listUtils.sortedInsert(list, value, compare)
 
@@ -115,7 +115,7 @@ describe('list-utils', function() {
     })
 
     it('should handle inserting at the beginning', function() {
-      var list = [ 'b', 'c', 'd' ]
+      const list = [ 'b', 'c', 'd' ]
         , value = 'a'
         , result = listUtils.sortedInsert(list, value, compare)
 
@@ -124,7 +124,7 @@ describe('list-utils', function() {
     })
 
     it('should handle inserting in the middle', function() {
-      var list = [ 'a', 'b', 'd' ]
+      const list = [ 'a', 'b', 'd' ]
         , value = 'c'
         , result = listUtils.sortedInsert(list, value, compare)
 
@@ -133,7 +133,7 @@ describe('list-utils', function() {
     })
 
     it('should handle inserting at the end', function() {
-      var list = [ 'a', 'b', 'c' ]
+      const list = [ 'a', 'b', 'c' ]
         , value = 'd'
         , result = listUtils.sortedInsert(list, value, compare)
 
@@ -142,7 +142,7 @@ describe('list-utils', function() {
     })
 
     it('should handle equal values by inserting after', function() {
-      var list = [ 'a', 'b', 'c' ]
+      const list = [ 'a', 'b', 'c' ]
         , value = 'b'
         , result = listUtils.sortedInsert(list, value, compare)
 

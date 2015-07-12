@@ -1,1 +1,2 @@
-module.exports = (process.env.NODE_ENV || 'development') == 'development'
+const isDev = (process.env.NODE_ENV || 'development') === 'development'
+export default isDev

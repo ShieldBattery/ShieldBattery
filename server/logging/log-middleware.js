@@ -1,13 +1,13 @@
-var logger = require('./logger.js')
-  , uid = require('cuid')
+import logger from './logger.js'
+import uid from 'cuid'
 
-function logMiddleware() {
+export default function logMiddleware() {
   return function*(next) {
-    var id = this.req._id || uid()
-    var startTime = Date.now()
+    const id = this.req._id || uid()
+    const startTime = Date.now()
 
     this.log = logger.child({ reqId: id })
-    this.log.info({ req: this.req } , 'request received')
+    this.log.info({ req: this.req }, 'request received')
 
     yield next
 
@@ -15,5 +15,3 @@ function logMiddleware() {
     this.log.info({ res: this.res }, 'response sent')
   }
 }
-
-module.exports = logMiddleware

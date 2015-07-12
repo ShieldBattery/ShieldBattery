@@ -4,15 +4,15 @@ import path from 'path'
 import isDev from '../env/is-dev'
 
 export default function() {
-  let styleSrc = path.normalize(path.join(__dirname, '..', '..', 'styles'))
+  const styleSrc = path.normalize(path.join(__dirname, '..', '..', 'styles'))
 
   function setup(renderer) {
     return renderer.use(autoprefixer({ browsers: ['last 2 version'] }))
   }
 
-  let options = {
+  const options = {
     src: styleSrc,
-    setup: setup
+    setup,
   }
   if (!isDev) {
     options.compress = true

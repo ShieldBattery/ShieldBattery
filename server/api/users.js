@@ -21,7 +21,7 @@ function* find(next) {
 
   try {
     const user = yield* users.find(searchTerm)
-    this.body = !!user ? [ user ] : []
+    this.body = user ? [ user ] : []
   } catch (err) {
     this.log.error({ err }, 'error finding user by name')
     throw err

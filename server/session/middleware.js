@@ -1,10 +1,10 @@
-var session = require('koa-generic-session')
-  , redisStore = require('koa-redis')
-  , cuid = require('cuid')
-  , redis = require('../redis')
-  , config = require('../../config')
+import session from 'koa-generic-session'
+import redisStore from 'koa-redis'
+import cuid from 'cuid'
+import redis from '../redis'
+import config from '../../config'
 
-module.exports = session({
+export default session({
   key: 's',
   store: redisStore({ client: redis }),
   cookie: {
