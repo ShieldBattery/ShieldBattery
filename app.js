@@ -44,7 +44,8 @@ app
   .use(secureHeaders())
   .use(secureJson())
 
-require('./routes')(app)
+import createRoutes from './routes/'
+createRoutes(app)
 
 let mainServer
 if (config.https) {
@@ -61,7 +62,8 @@ if (config.https) {
   mainServer = http.createServer(app.callback())
 }
 
-require('./websockets')(mainServer, app, sessionMiddleware)
+import setupWebsockets from './websockets'
+setupWebsockets(mainServer, app, sessionMiddleware)
 
 mainServer.listen(port, function() {
   log.info('Server listening on port ' + port)
