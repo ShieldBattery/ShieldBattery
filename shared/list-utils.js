@@ -4,13 +4,13 @@
 // are sorted, and that each list will only contain one item with a particular key
 // (calculated/compared by the comparator function).
 function replaceInPlace(original, desired, comparator) {
-
-  var o = 0
+  let o = 0
     , d = 0
-  for (var dLen = desired.length; d < dLen; d++) {
+  const dLen = desired.length
+  for (; d < dLen; d++) {
     if (o >= original.length) break
 
-    var toRemove = 0
+    let toRemove = 0
       , compared = comparator(original[o], desired[d])
     while (compared < 0 && (o + toRemove) < original.length) {
       toRemove++
@@ -35,8 +35,8 @@ function replaceInPlace(original, desired, comparator) {
     }
 
     // there is/are element(s) to add
-    var newElems = []
-    while(d < dLen && compared > 0) {
+    const newElems = []
+    while (d < dLen && compared > 0) {
       newElems.push(desired[d])
       d++
       if (d < dLen) compared = comparator(original[o + toRemove], desired[d])
@@ -46,7 +46,7 @@ function replaceInPlace(original, desired, comparator) {
       d--
       toRemove++
     }
-    var numNew = newElems.length
+    const numNew = newElems.length
       , args = newElems
     args.unshift(o, toRemove)
     original.splice.apply(original, args)
@@ -64,8 +64,8 @@ function replaceInPlace(original, desired, comparator) {
 }
 
 function sortedInsert(list, value, comparator) {
-  for (var i = 0, len = list.length; i < len; i++) {
-    if (comparator(value,  list[i]) < 0) {
+  for (let i = 0, len = list.length; i < len; i++) {
+    if (comparator(value, list[i]) < 0) {
       list.splice(i, 0, value)
       return i
     }
@@ -75,7 +75,7 @@ function sortedInsert(list, value, comparator) {
   return list.length - 1
 }
 
-module.exports =
-{ replaceInPlace: replaceInPlace
-, sortedInsert: sortedInsert
+export default {
+  replaceInPlace,
+  sortedInsert,
 }

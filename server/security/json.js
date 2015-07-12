@@ -1,10 +1,10 @@
 // middleware that modifies JSON responses to be prefixed with AngularJS's expected prefix (so that
 // its safe to send things like arrays to GET requests)
-var isJson = require('koa-is-json')
+import isJson from 'koa-is-json'
 
-var jsonPrefix = ')]}\',\n'
+const jsonPrefix = ')]}\',\n'
 
-module.exports = function() {
+export default function() {
   return function* secureJson(next) {
     yield next
     if (isJson(this.body)) {

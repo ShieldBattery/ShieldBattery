@@ -1,17 +1,17 @@
 // User model, corresponding to a user account on the site (with a login, password, etc.)
-var db = require('../db')
-  , permissions = require('./permissions')
+import db from '../db'
+import permissions from './permissions'
 
 function defPrivate(o, name, value) {
   Object.defineProperty(o, name, {
     enumerable: false,
     writable: true,
-    value: value
+    value,
   })
 }
 
 function* transact(next) {
-  let { client, done } = yield db()
+  const { client, done } = yield db()
   try {
     yield client.queryPromise('BEGIN')
   } catch (err) {
@@ -19,7 +19,7 @@ function* transact(next) {
   }
 
   try {
-    let result = yield* next(client)
+    const result = yield* next(client)
     yield client.queryPromise('COMMIT')
     done()
     return result
@@ -51,7 +51,7 @@ class User {
     this.created = props.created || new Date()
   }
 
-  *save() {
+  * save() {
     if (!this.name || !this.email || !this.password || !this.created) {
       throw new Error('Incomplete data')
     }
@@ -64,35 +64,35 @@ class User {
     }
   }
 
-  *_insert() {
+  * _insert() {
     let query
       , params
     query = 'INSERT INTO users (name, email, password, created) ' +
         'VALUES ($1, $2, $3, $4) RETURNING id'
     params = [ this.name, this.email, this.password, this.created ]
 
-    var self = this
+    const self = this
     return yield* transact(function*(client) {
-      let result = yield client.queryPromise(query, params)
+      const result = yield client.queryPromise(query, params)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')
       }
 
       self.id = result.rows[0].id
       self._fromDb = true
-      let userPermissions = yield* permissions.create(client, self.id)
+      const userPermissions = yield* permissions.create(client, self.id)
       return { user: self, permissions: userPermissions }
     })
   }
 
-  *_update() {
+  * _update() {
     let query
       , params
     if (!this.id) throw new Error('Incomplete data')
     query = 'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
     params = [ this.name, this.email, this.password. this.created, this.id ]
 
-    let { client, done } = yield db()
+    const { client, done } = yield db()
     try {
       yield client.queryPromise(query, params)
       return this
@@ -104,8 +104,8 @@ class User {
 
 function createUser(name, email, hashedPassword, createdDate) {
   return new User({
-    name: name,
-    email: email,
+    name,
+    email,
     password: hashedPassword,
     created: createdDate || new Date()
   })
@@ -124,16 +124,16 @@ function* findUser(criteria) {
     params = [ criteria ]
   }
 
-  let { client, done } = yield db()
+  const { client, done } = yield db()
   try {
-    let result = yield client.queryPromise(query, params)
+    const result = yield client.queryPromise(query, params)
     return result.rows.length < 1 ? null : new User(result.rows[0], true)
   } finally {
     done()
   }
 }
 
-module.exports = {
+export default {
   create: createUser,
-  find: findUser
+  find: findUser,
 }

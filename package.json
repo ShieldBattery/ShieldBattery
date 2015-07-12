@@ -7,7 +7,7 @@
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
-    "test": "mocha -R spec --recursive test/",
+    "test": "mocha -R spec --compilers js:babel/register --recursive test/",
     "start": "iojs index.js | bunyan"
   },
   "repository": {
