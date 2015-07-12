@@ -36,8 +36,8 @@ function* getCurrentSession(next) {
 const bcryptCompare = thenify(bcrypt.compare)
 function* startNewSession(next) {
   if (this.session.userId) throw new httpErrors.ConflictError('Session already active')
-  const { username, password, remember } = this.request.body
-  remember = !!remember
+  const { username, password } = this.request.body
+  // TODO(tec27): Deal with 'remember' param properly
   if (!username || !password) {
     throw new httpErrors.BadRequestError('Username and password required')
   }

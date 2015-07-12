@@ -44,7 +44,7 @@ app
   .use(secureHeaders())
   .use(secureJson())
 
-import createRoutes from './routes/'
+import createRoutes from './routes'
 createRoutes(app)
 
 let mainServer

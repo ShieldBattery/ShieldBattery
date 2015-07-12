@@ -5,7 +5,7 @@ import users from '../models/users'
 import httpErrors from '../http/errors'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
-import checkPermissions from '../permissions/checkPermissions'
+import checkPermissions from '../permissions/check-permissions'
 
 export default function(router) {
   router.post('/', createUser)
