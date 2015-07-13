@@ -1,5 +1,5 @@
 import dispatcher from '../dispatcher'
-import xr from '../network/xr'
+import fetch from '../network/fetch'
 import actions from '../actions'
 import statuses from '../statuses'
 import cuid from 'cuid'
@@ -30,11 +30,13 @@ const auther = {
       reqId,
     })
 
-    xr.post('/api/1/sessions', {
-      username,
-      password,
-      remember: !!remember
-    // }).then(({ data: { user, permissions } }) => {
+    fetch('/api/1/sessions', {
+      method: 'post',
+      body: JSON.stringify({
+        username,
+        password,
+        remember: !!remember
+      })
     }).then(({ user, permissions }) => {
       dispatcher.dispatch({
         actionType: actions.AUTH_LOG_IN,
@@ -43,8 +45,7 @@ const auther = {
         permissions,
         reqId,
       })
-    }, data => {
-      const err = tryParseError(data)
+    }, err => {
       dispatcher.dispatch({
         actionType: actions.AUTH_LOG_IN,
         actionStatus: statuses.FAILURE,
@@ -64,22 +65,22 @@ const auther = {
       reqId,
     })
 
-    xr.del('/api/1/sessions')
-      .then(() => {
-        dispatcher.dispatch({
-          actionType: actions.AUTH_LOG_OUT,
-          actionStatus: statuses.SUCCESS,
-          reqId,
-        })
-      }, errData => {
-        const err = tryParseError(errData)
-        dispatcher.dispatch({
-          actionType: actions.AUTH_LOG_OUT,
-          actionStatus: statuses.FAILURE,
-          reqId,
-          err,
-        })
+    fetch('/api/1/sessions', {
+      method: 'delete'
+    }).then(() => {
+      dispatcher.dispatch({
+        actionType: actions.AUTH_LOG_OUT,
+        actionStatus: statuses.SUCCESS,
+        reqId,
       })
+    }, err => {
+      dispatcher.dispatch({
+        actionType: actions.AUTH_LOG_OUT,
+        actionStatus: statuses.FAILURE,
+        reqId,
+        err,
+      })
+    })
 
     return reqId
   },
@@ -92,38 +93,28 @@ const auther = {
       reqId,
     })
 
-    xr.post('/api/1/users', { username, email, password })
-      .then(({ user, permissions }) => {
-        dispatcher.dispatch({
-          actionType: actions.AUTH_SIGN_UP,
-          actionStatus: statuses.SUCCESS,
-          user,
-          permissions,
-          reqId,
-        })
-      }, data => {
-        const err = tryParseError(data)
-        dispatcher.dispatch({
-          actionType: actions.AUTH_SIGN_UP,
-          actionStatus: statuses.FAILURE,
-          reqId,
-          err,
-        })
+    fetch('/api/1/users', {
+      method: 'post',
+      body: JSON.stringify({ username, email, password })
+    }).then(({ user, permissions }) => {
+      dispatcher.dispatch({
+        actionType: actions.AUTH_SIGN_UP,
+        actionStatus: statuses.SUCCESS,
+        user,
+        permissions,
+        reqId,
       })
+    }, err => {
+      dispatcher.dispatch({
+        actionType: actions.AUTH_SIGN_UP,
+        actionStatus: statuses.FAILURE,
+        reqId,
+        err,
+      })
+    })
 
     return reqId
   }
-}
-
-function tryParseError(errData) {
-  let err
-  try {
-    err = JSON.parse(errData.response)
-  } catch (e) {
-    err = { error: 'Unknown error' }
-  }
-
-  return err
 }
 
 export default auther
