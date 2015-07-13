@@ -62,7 +62,7 @@ class AuthStore extends ChangeEmitter {
         break
       case statuses.FAILURE:
         this.authChangeInProgress = false
-        this.setLastFailure(action.err, action.reqId)
+        this.setLastFailure(action.err.body, action.reqId)
         break
     }
   }
@@ -80,7 +80,7 @@ class AuthStore extends ChangeEmitter {
         break
       case statuses.FAILURE:
         this.authChangeInProgress = false
-        this.setLastFailure(action.err, action.reqId)
+        this.setLastFailure(action.err.body, action.reqId)
         break
     }
   }
@@ -98,7 +98,7 @@ class AuthStore extends ChangeEmitter {
         break
       case statuses.FAILURE:
         this.authChangeInProgress = false
-        this.setLastFailure(action.err, action.reqId)
+        this.setLastFailure(action.err.body, action.reqId)
         break
     }
   }
