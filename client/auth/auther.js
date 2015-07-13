@@ -34,7 +34,8 @@ const auther = {
       username,
       password,
       remember: !!remember
-    }).then(({ data: { user, permissions } }) => {
+    // }).then(({ data: { user, permissions } }) => {
+    }).then(({ user, permissions }) => {
       dispatcher.dispatch({
         actionType: actions.AUTH_LOG_IN,
         actionStatus: statuses.SUCCESS,
@@ -92,7 +93,7 @@ const auther = {
     })
 
     xr.post('/api/1/users', { username, email, password })
-      .then(({ data: { user, permissions } }) => {
+      .then(({ user, permissions }) => {
         dispatcher.dispatch({
           actionType: actions.AUTH_SIGN_UP,
           actionStatus: statuses.SUCCESS,
