@@ -6,7 +6,7 @@ import httpErrors from '../http/errors'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 
-module.exports = function(router) {
+export default function(router) {
   router
     .get('/', getCurrentSession)
     .delete('/', endSession)
