@@ -2,33 +2,17 @@ import browserify from 'browserify'
 import koaWatchify from 'koa-watchify'
 import watchify from 'watchify'
 import koaStatic from 'koa-static'
-import koaRouter from 'koa-router'
+import KoaRouter from 'koa-router'
 import path from 'path'
 import fs from 'fs'
 import isDev from './server/env/is-dev'
 import httpErrors from './server/http/errors'
 
-const router = koaRouter()
+const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function* send404(next) {
   throw new httpErrors.NotFoundError()
-}
-
-class RouteHelper {
-  constructor(router, apiPath) {
-    this.router = router
-    this.apiPath = apiPath
-  }
-}
-
-for (const method of ['get', 'put', 'post', 'patch', 'delete', 'all']) {
-  RouteHelper.prototype[method] = function() {
-    const args = [ ...arguments ]
-    args[0] = this.apiPath + args[0]
-    this.router[method].apply(this.router, args)
-    return this
-  }
 }
 
 function applyRoutes(app) {
@@ -62,8 +46,9 @@ function applyRoutes(app) {
   const baseApiPath = '/api/1/'
   apiFiles.filter(jsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, '.js')
-    const routeHelper = new RouteHelper(router, apiPath)
-    require('./server/api/' + filename)(routeHelper)
+    const subRouter = new KoaRouter()
+    require('./server/api/' + filename)(subRouter)
+    router.use(apiPath, subRouter.routes())
     console.log('mounted ' + apiPath)
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
