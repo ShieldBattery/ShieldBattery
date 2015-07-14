@@ -1,6 +1,3 @@
-import browserify from 'browserify'
-import koaWatchify from 'koa-watchify'
-import watchify from 'watchify'
 import koaStatic from 'koa-static'
 import KoaRouter from 'koa-router'
 import path from 'path'
@@ -19,27 +16,11 @@ function applyRoutes(app) {
   app.use(router.routes())
     .use(router.allowedMethods())
 
-  // client script (browserified)
-  let bundle = browserify({
-    entries: [ require.resolve('./client/index.jsx') ],
-    fullPaths: false,
-    debug: isDev,
-    packageCache: {},
-    cache: {}
-  })
-
   if (isDev) {
-    bundle.transform('livereactload', { global: true })
-    bundle = watchify(bundle)
-    // start up a livereactload server to enable live reloading
-    const livereload = require('livereactload')
-    livereload.listen()
-    bundle.on('update', () => livereload.notify())
-  } else {
-    bundle.transform('uglifyify', { global: true })
+    System.import('./dev-server')
+      .then(devServer => devServer(router))
+      .catch(err => console.error(err))
   }
-  router.get('/scripts/client.js', koaWatchify(bundle))
-
 
   // api methods (through HTTP)
   const apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))

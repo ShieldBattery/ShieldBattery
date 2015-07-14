@@ -1,17 +1,26 @@
+import '../styles/site.styl'
+
 import React from 'react'
 import Router from 'react-router'
 import routes from './routes.jsx'
 
 // initialize sockets
-import siteSocket from './network/site-socket' // eslint-disable-line no-unused-vars
-import psiSocket from './network/psi-socket' // eslint-disable-line no-unused-vars
+import './network/site-socket'
+import './network/psi-socket'
 
-const createApp = () => {
+new Promise((resolve, reject) => {
+  const elem = document.getElementById('app')
+  if (elem) return resolve(elem)
+
+  document.addEventListener('DOMContentLoaded', e => {
+    const elem = document.getElementById('app')
+    if (elem) {
+      resolve(elem)
+    } else {
+      reject(new Error('app element could not be found'))
+    }
+  })
+}).then(elem => {
   Router.run(routes, Router.HistoryLocation,
-      Handler => React.render(<Handler />, document.getElementById('app')))
-}
-
-if (!global._appCreated) {
-  global._appCreated = true
-  createApp()
-}
+      Handler => React.render(<Handler />, elem))
+})
