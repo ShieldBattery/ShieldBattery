@@ -17,9 +17,7 @@ function applyRoutes(app) {
     .use(router.allowedMethods())
 
   if (isDev) {
-    System.import('./dev-server')
-      .then(devServer => devServer(router))
-      .catch(err => console.error(err))
+    require('./dev-server')(router) // eslint-disable-line import/no-require
   }
 
   // api methods (through HTTP)
