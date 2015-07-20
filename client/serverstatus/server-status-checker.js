@@ -1,64 +1,42 @@
-import dispatcher from '../dispatcher'
-import actions from '../actions'
+import { REGISTER_FOR_SERVER_STATUS, UNREGISTER_FOR_SERVER_STATUS, SERVER_STATUS } from '../actions'
 import siteSocket from '../network/site-socket'
+import * as registry from '../dispatch-registry'
 
-class ServerStatusChecker {
-  constructor() {
-    this.interested = 0
-    this._handleEvent = event => this._onEvent(event)
+function onEvent(event) {
+  registry.dispatch({ type: SERVER_STATUS, payload: event })
+}
 
-    siteSocket.on('connect', () => {
-      if (this.interested >= 1) {
-        this._subscribe()
-      }
-    })
-  }
+function subscribe(dispatch) {
+  siteSocket.subscribe('/status', onEvent, err => {
+    if (err) dispatch({ type: SERVER_STATUS, error: true, payload: { err } })
+  })
+}
 
-  registerInterest() {
-    this.interested++
-    if (this.interested === 1) {
-      // this was our first interested client, subscribe to '/status' broadcasts
-      this._subscribe()
+function unsubscribe(dispatch) {
+  // TODO(tec27): I don't think this check actually makes sense
+  if (!siteSocket.connected) return
+
+  siteSocket.unsubscribe('/status', onEvent)
+}
+
+export function register() {
+  return (dispatch, getState) => {
+    const registered = getState().serverStatus.get('registered')
+    dispatch({ type: REGISTER_FOR_SERVER_STATUS })
+
+    if (!registered) {
+      subscribe(dispatch)
     }
-  }
-
-  unregisterInterest() {
-    this.interested--
-    if (this.interested <= 0) {
-      this._unsubscribe()
-    }
-  }
-
-  _subscribe() {
-    if (!siteSocket.connected) return
-
-    dispatcher.dispatch({
-      actionType: actions.SERVER_STATUS,
-      actionStatus: statuses.BEGIN,
-    })
-
-    siteSocket.subscribe('/status', this._handleEvent, err => {
-      dispatcher.dispatch({
-        actionType: actions.SERVER_STATUS,
-        actionStatus: statuses.FAILURE,
-        err,
-      })
-    })
-  }
-
-  _unsubscribe() {
-    if (!siteSocket.connected) return
-
-    siteSocket.unsubscribe('/status', this._handleEvent)
-  }
-
-  _onEvent(event) {
-    dispatcher.dispatch({
-      actionType: actions.SERVER_STATUS,
-      actionStatus: statuses.SUCCESS,
-      status: event
-    })
   }
 }
 
-export default new ServerStatusChecker()
+export function unregister() {
+  return (dispatch, getState) => {
+    const registered = getState().serverStatus.get('registered')
+    dispatch({ type: UNREGISTER_FOR_SERVER_STATUS })
+
+    if (registered) {
+      unsubscribe(dispatch)
+    }
+  }
+}

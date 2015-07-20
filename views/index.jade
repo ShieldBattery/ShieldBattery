@@ -1,7 +1,7 @@
 extends layout
 
 block content
-  if curSession
+  if initData
     script(type='text/javascript').
-      window._sbSession=!{JSON.stringify(curSession)}
+      window._sbInitData=!{JSON.stringify(initData)}
   div#app

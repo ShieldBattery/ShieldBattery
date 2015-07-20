@@ -17,7 +17,12 @@ class WrappedSocket extends EventEmitter {
     for (const f of [ 'call', 'subscribe', 'unsubscribe', 'publish' ]) {
       const self = this
       this[f] = function() {
-        self.socket[f].apply(self.socket, arguments)
+        const args = arguments
+        if (!self.socket) {
+          self.once('connect', () => self.socket[f].apply(self.socket, args))
+        } else {
+          self.socket[f].apply(self.socket, args)
+        }
       }
     }
 

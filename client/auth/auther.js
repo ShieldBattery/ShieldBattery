@@ -25,22 +25,6 @@ function idRequest(type, fetcher) {
 }
 
 const auther = {
-  initFromPage() {
-    return dispatch => {
-      // get the current user from the page body (if its not there, assume not logged in)
-      if (!window._sbSession) {
-        return
-      }
-
-      const { user, permissions } = window._sbSession
-      window._sbSession = null
-      dispatch({
-        type: AUTH_LOG_IN,
-        payload: { user, permissions }
-      })
-    }
-  },
-
   logIn(username, password, remember) {
     return idRequest(AUTH_LOG_IN, () => fetch('/api/1/sessions', {
       method: 'post',

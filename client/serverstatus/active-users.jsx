@@ -1,35 +1,20 @@
 import React from 'react'
-import serverStatusChecker from './server-status-checker'
-import activeUsersStore from './active-users-store'
+import { connect } from 'react-redux'
+import { register, unregister } from './server-status-checker'
 
+@connect(state => ({ activeUsers: state.serverStatus.get('activeUsers') }))
 class ActiveUsersCount extends React.Component {
-  constructor() {
-    super()
-    this.activeUsersStoreListener = () => this.onActiveUsersChange()
-    this.state = {
-      activeUsers: activeUsersStore.activeUsers
-    }
-  }
-
   componentDidMount() {
-    serverStatusChecker.registerInterest()
-    activeUsersStore.register(this.activeUsersStoreListener)
+    this.props.dispatch(register())
   }
 
   componentWillUnmount() {
-    activeUsersStore.unregister(this.activeUsersStoreListener)
-    serverStatusChecker.unregisterInterest()
-  }
-
-  onActiveUsersChange() {
-    this.setState({
-      activeUsers: activeUsersStore.activeUsers
-    })
+    this.props.dispatch(unregister())
   }
 
   render() {
-    const activeUsersStr = this.state.activeUsers === null ?
-        'unknown' : (this.state.activeUsers + '')
+    const { activeUsers } = this.props
+    const activeUsersStr = activeUsers === null ? 'unknown' : (activeUsers + '')
     return <p>Connected users: {activeUsersStr}</p>
   }
 }

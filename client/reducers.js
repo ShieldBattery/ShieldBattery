@@ -7,3 +7,5 @@ export function router(state = {}, action) {
     location: routerStateReducer(state.location, action)
   }
 }
+
+export { default as serverStatus } from './serverstatus/server-status-reducer'
