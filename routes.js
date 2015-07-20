@@ -42,13 +42,14 @@ function applyRoutes(app) {
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get('/:param*', koaStatic(path.join(__dirname, 'public')), function*(next) {
-    let sessionData
+    const initData = {}
     if (this.session.userId) {
-      sessionData = {}
-      sessionData.user = { id: this.session.userId, name: this.session.userName }
-      sessionData.permissions = this.session.permissions
+      initData.auth = {
+        user: { id: this.session.userId, name: this.session.userName },
+        permissions: this.session.permissions,
+      }
     }
-    yield this.render('index', { curSession: sessionData })
+    yield this.render('index', { initData })
   })
 }
 

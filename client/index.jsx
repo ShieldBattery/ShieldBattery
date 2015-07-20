@@ -3,8 +3,7 @@ import '../styles/site.styl'
 import React from 'react'
 import App from './app.jsx'
 
-// initialize sockets
-import './network/site-socket'
+// initialize socket
 import './network/psi-socket'
 
 new Promise((resolve, reject) => {
