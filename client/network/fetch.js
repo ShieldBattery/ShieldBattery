@@ -15,6 +15,8 @@ function ensureSuccessStatus(res) {
 
 const JSON_PREFIX = /^\)\]\}',?\n/
 function parsePrefixedJson(str) {
+  if (str === '') return null
+
   const replaced = str.replace(JSON_PREFIX, '')
   return JSON.parse(replaced)
 }

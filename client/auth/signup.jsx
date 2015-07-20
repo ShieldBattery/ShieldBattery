@@ -1,4 +1,6 @@
 import React from 'react'
+import { connect } from 'react-redux'
+import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -10,52 +12,32 @@ import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
 import matchOtherValidator from '../forms/match-other-validator'
 import constants from '../../shared/constants'
-import authStore from './auth-store'
 import auther from './auther'
 
+@connect(state => ({ auth: state.auth, router: state.router }))
 class Signup extends React.Component {
-  constructor() {
-    super()
-    this.authStoreListener = () => this.onAuthChange()
+  static contextTypes = {
+    router: React.PropTypes.object.isRequired,
+  }
+
+  constructor(props, context) {
+    super(props, context)
     this.state = {
-      authChangeInProgress: false,
       reqId: null,
-      failure: null,
     }
   }
 
   componentDidMount() {
-    this.checkLoggedIn()
-    authStore.register(this.authStoreListener)
+    redirectIfLoggedIn(this.props, this.context.router)
   }
 
-  componentWillUnmount() {
-    authStore.unregister(this.authStoreListener)
-  }
-
-  checkLoggedIn() {
-    if (authStore.isLoggedIn) {
-      // We're logged in now, hooray!
-      // Go wherever the user was intending to go before being directed here (or home)
-      const nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
-      this.context.router.replaceWith(nextPath)
-      return true
-    }
-
-    return false
-  }
-
-  onAuthChange() {
-    if (this.checkLoggedIn()) return
-
-    this.setState({
-      authChangeInProgress: authStore.authChangeInProgress,
-      failure: authStore.hasFailure(this.state.reqId) ? authStore.lastFailure.err : null
-    })
+  componentWillReceiveProps(nextProps) {
+    redirectIfLoggedIn(nextProps, this.context.router)
   }
 
   render() {
-    if (this.state.authChangeInProgress) {
+    const { auth, router } = this.props
+    if (auth.get('authChangeInProgress')) {
       return <Card zDepth={1} className='card-form'><span>Please wait...</span></Card>
     }
 
@@ -83,13 +65,19 @@ class Signup extends React.Component {
     const confirmPasswordValidator = matchOtherValidator('password',
         `Passwords do not match`)
 
+    let errContents
+    const failure = auth.get('lastFailure')
+    const reqId = this.state.reqId
+    if (reqId && failure && failure.reqId === reqId) {
+      errContents = `Error: ${failure.err}`
+    }
+
     return (<div>
       <Card zDepth={1}>
-        <ValidatedForm formTitle='Sign up'
-            errorText={this.state.failure && this.state.failure.error}
+        <ValidatedForm formTitle='Sign up' errorText={errContents}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
-              defaultValue={this.context.router.getCurrentQuery().username}
+              defaultValue={router.location.query.username}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
@@ -124,19 +112,18 @@ class Signup extends React.Component {
   }
 
   onLogInClicked() {
-    this.context.router.transitionTo('login')
+    this.context.router.transitionTo('/login', this.props.router.location.query)
   }
 
   onSubmitted(values) {
-    const id = auther.signUp(values.get('username'), values.get('email'), values.get('password'))
+    const { id, action } =
+        auther.signUp(values.get('username'), values.get('email'), values.get('password'))
     this.setState({
       reqId: id
     })
+    this.props.dispatch(action)
   }
 }
 
-Signup.contextTypes = {
-  router: React.PropTypes.func
-}
 
 export default Signup

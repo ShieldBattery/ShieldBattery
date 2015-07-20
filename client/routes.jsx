@@ -1,6 +1,6 @@
 import React from 'react'
-import { DefaultRoute, NotFoundRoute, Route } from 'react-router'
-import App from './app.jsx'
+import { Router, Route } from 'react-router'
+import { reduxRouteComponent } from 'redux-react-router'
 import AppNotFound from './app-not-found.jsx'
 import MainLayout from './main-layout.jsx'
 import Home from './home.jsx'
@@ -11,21 +11,21 @@ import LoginLayout from './auth/login-layout.jsx'
 import Login from './auth/login.jsx'
 import Signup from './auth/signup.jsx'
 
-const Routes = (
-  <Route path='/' handler={App}>
-    <Route handler={LoginRequired}>
-      <Route handler={MainLayout}>
-        <DefaultRoute name='home' handler={Home} />
-        <Route name='games' handler={Games} />
-        <Route name='replays' handler={Replays} />
+export default function getRoutes(history, store) {
+  return (<Router history={history}>
+    <Route component={reduxRouteComponent(store)}>
+      <Route component={LoginRequired}>
+        <Route component={MainLayout}>
+          <Route path='/' component={Home} />
+          <Route path='games' component={Games} />
+          <Route path='replays' component={Replays} />
+        </Route>
       </Route>
+      <Route component={LoginLayout}>
+        <Route path='/login' component={Login} />
+        <Route path='/signup' component={Signup} />
+      </Route>
+      <Route path='*' component={AppNotFound} />
     </Route>
-    <Route handler={LoginLayout}>
-      <Route name='login' handler={Login} />
-      <Route name='signup' handler={Signup} />
-    </Route>
-    <NotFoundRoute handler={AppNotFound} />
-  </Route>
-)
-
-export default Routes
+  </Router>)
+}

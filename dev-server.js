@@ -15,8 +15,9 @@ export default function(router) {
   const devServer = new WebpackDevServer(webpack(webpackConfig), {
     contentBase: __dirname,
     hot: true,
-    quiet: true,
+    quiet: false,
     noInfo: true,
+    headers: { 'Access-Control-Allow-Origin': '*' },
     publicPath: '/scripts/',
   })
   devServer.listen(DEV_SERVER_PORT, 'localhost')

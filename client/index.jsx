@@ -1,8 +1,7 @@
 import '../styles/site.styl'
 
 import React from 'react'
-import Router from 'react-router'
-import routes from './routes.jsx'
+import App from './app.jsx'
 
 // initialize sockets
 import './network/site-socket'
@@ -20,7 +19,4 @@ new Promise((resolve, reject) => {
       reject(new Error('app element could not be found'))
     }
   })
-}).then(elem => {
-  Router.run(routes, Router.HistoryLocation,
-      Handler => React.render(<Handler />, elem))
-})
+}).then(elem => React.render(<App/>, elem))

@@ -1,6 +1,5 @@
 import dispatcher from '../dispatcher'
 import actions from '../actions'
-import statuses from '../statuses'
 import ChangeEmitter from '../change-emitter'
 
 class ActiveUsersStore extends ChangeEmitter {

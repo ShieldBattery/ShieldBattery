@@ -1,5 +1,4 @@
 import React from 'react'
-import { RouteHandler } from 'react-router'
 
 class MainLayout extends React.Component {
   render() {
@@ -10,7 +9,7 @@ class MainLayout extends React.Component {
         <h1 className='md-display4 logotext-medium'>Battery</h1>
       </div>
       <div>
-        <RouteHandler />
+        { this.props.children }
       </div>
     </div>)
   }

@@ -6,7 +6,7 @@ import ExtractTextPlugin from 'extract-text-webpack-plugin'
 const isDev = 'production' !== process.env.NODE_ENV
 
 const babelOptions = '?optional[]=runtime&stage=0&loose=all&cacheDirectory'
-const jsxLoader = isDev ? 'react-hot-loader!babel-loader' : 'babel-loader'
+const jsLoader = isDev ? 'react-hot-loader!babel-loader' : 'babel-loader'
 const autoprefix = autoprefixer({ browsers: ['last 2 version'] })
 
 const stylusLoader = {
@@ -27,13 +27,8 @@ const webpackOptions = {
   module: {
     loaders: [
       {
-        test: /\.js$/,
-        loader: `babel-loader${babelOptions}`,
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.jsx$/,
-        loader: `${jsxLoader}${babelOptions}`,
+        test: /\.jsx?$/,
+        loader: `${jsLoader}${babelOptions}`,
         exclude: /node_modules/,
       },
       stylusLoader
@@ -52,7 +47,7 @@ const webpackOptions = {
 if (isDev) {
   webpackOptions.plugins.push(new webpack.HotModuleReplacementPlugin())
   webpackOptions.debug = true
-  webpackOptions.devtool = 'eval-source-map'
+  webpackOptions.devtool = 'inline-source-map'
   webpackOptions.entry = [
     'webpack-dev-server/client?http://localhost:61337',
     'webpack/hot/dev-server',

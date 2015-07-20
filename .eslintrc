@@ -93,7 +93,7 @@
     "no-extra-parens": 0,
     "no-extra-semi": 0,
     "no-extra-strict": 0,
-    "no-fallthrough": 2,
+    "no-fallthrough": 0,
     "no-floating-decimal": 2,
     "no-func-assign": 2,
     "no-implied-eval": 2,
