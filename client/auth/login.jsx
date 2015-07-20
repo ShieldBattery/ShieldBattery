@@ -1,8 +1,9 @@
 import React from 'react'
+import { connect } from 'react-redux'
+import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import authStore from './auth-store'
 import auther from './auther'
 import ValidatedForm from '../forms/validated-form.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
@@ -13,55 +14,38 @@ import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
 import constants from '../../shared/constants'
 
+@connect(state => ({ auth: state.auth, router: state.router }))
 class Login extends React.Component {
-  constructor() {
-    super()
-    this.authStoreListener = () => this.onAuthChange()
+  static contextTypes = {
+    router: React.PropTypes.object.isRequired,
+  }
+
+  constructor(props, context) {
+    super(props, context)
     this.state = {
-      authChangeInProgress: false,
       reqId: null,
-      failure: null,
     }
   }
 
   componentDidMount() {
-    this.checkLoggedIn()
-    authStore.register(this.authStoreListener)
+    redirectIfLoggedIn(this.props, this.context.router)
   }
 
-  componentWillUnmount() {
-    authStore.unregister(this.authStoreListener)
-  }
-
-  checkLoggedIn() {
-    if (authStore.isLoggedIn) {
-      // We're logged in now, hooray!
-      // Go wherever the user was intending to go before being directed here (or home)
-      const nextPath = this.context.router.getCurrentQuery().nextPath || 'home'
-      this.context.router.replaceWith(nextPath)
-      return true
-    }
-
-    return false
-  }
-
-  onAuthChange() {
-    if (this.checkLoggedIn()) return
-
-    this.setState({
-      authChangeInProgress: authStore.authChangeInProgress,
-      failure: authStore.hasFailure(this.state.reqId) ? authStore.lastFailure.err : null
-    })
+  componentWillReceiveProps(nextProps) {
+    redirectIfLoggedIn(nextProps, this.context.router)
   }
 
   render() {
+    const { auth } = this.props
     let cardContents
-    if (this.state.authChangeInProgress) {
+    if (auth.get('authChangeInProgress')) {
       cardContents = <span>Please wait...</span>
     } else {
       let errContents
-      if (this.state.failure) {
-        errContents = `Error: ${this.state.failure.error}`
+      const failure = auth.get('lastFailure')
+      const reqId = this.state.reqId
+      if (reqId && failure && failure.reqId === reqId) {
+        errContents = `Error: ${failure.err}`
       }
 
       const buttons = [
@@ -115,10 +99,10 @@ class Login extends React.Component {
   }
 
   onSignUpClicked() {
-    this.context.router.transitionTo('signup', null,
-        Object.assign(this.context.router.getCurrentQuery(), {
-          username: this.refs.form.getValueOf('username')
-        }))
+    this.context.router.transitionTo('/signup', {
+      ...this.props.router.location.query,
+      username: this.refs.form.getValueOf('username'),
+    })
   }
 
   onLogInClicked() {
@@ -126,15 +110,13 @@ class Login extends React.Component {
   }
 
   onSubmitted(values) {
-    const id = auther.logIn(values.get('username'), values.get('password'), values.get('remember'))
+    const { id, action } =
+        auther.logIn(values.get('username'), values.get('password'), values.get('remember'))
     this.setState({
       reqId: id
     })
+    this.props.dispatch(action)
   }
-}
-
-Login.contextTypes = {
-  router: React.PropTypes.func
 }
 
 export default Login

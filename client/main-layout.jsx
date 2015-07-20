@@ -1,5 +1,4 @@
 import React from 'react'
-import { RouteHandler } from 'react-router'
 
 import AppBar from './material/app-bar.jsx'
 import LeftNav from './material/left-nav.jsx'
@@ -10,7 +9,7 @@ class MainLayout extends React.Component {
       <LeftNav />
       <div className='flex-fit'>
         <AppBar title='#teamliquid'/>
-        <RouteHandler />
+        { this.props.children }
       </div>
     </div>)
   }

@@ -1,42 +1,34 @@
 import React from 'react'
-import { RouteHandler } from 'react-router'
-import authStore from './auth-store'
+import { connect } from 'react-redux'
+import { isLoggedIn } from './auth-utils'
 
+@connect(state => ({ auth: state.auth, router: state.router }))
 class LoginRequired extends React.Component {
-  constructor() {
-    super()
-    this.onAuthChange = () => this.ensureLoggedIn()
+  static contextTypes = {
+    router: React.PropTypes.object.isRequired,
   }
 
-  static willTransitionTo(transition) {
-    if (!authStore.isLoggedIn) {
-      transition.redirect('login', {}, { nextPath: transition.path })
-    }
-  }
-
-  ensureLoggedIn() {
-    if (!authStore.isLoggedIn) {
-      this.context.router.transitionTo('login', {}, {
-        nextPath: this.context.router.getCurrentPath()
+  _ensureAuthed(props) {
+    if (!isLoggedIn(props.auth)) {
+      const { location: loc } = props.router
+      this.context.router.transitionTo('login', {
+        nextPath: this.context.router.makePath(loc.pathname, loc.query)
       })
     }
   }
 
-  componentDidMount() {
-    authStore.register(this.onAuthChange)
+  componentWillMount() {
+    this._ensureAuthed(this.props)
   }
 
-  componentWillUnmount() {
-    authStore.unregister(this.onAuthChange)
+  componentWillReceiveProps(nextProps) {
+    this._ensureAuthed(nextProps)
   }
 
   render() {
-    return <RouteHandler {...this.props} />
+    const children = this.props.children
+    return !Array.isArray(children) ? children : <div>children</div>
   }
 }
 
-LoginRequired.contextTypes = {
-  router: React.PropTypes.func
-}
-
-module.exports = LoginRequired
+export default LoginRequired
