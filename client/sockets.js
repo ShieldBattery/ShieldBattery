@@ -69,6 +69,7 @@ function genEventEmitterMethod(method, origMethod) {
       case 'connect':
       case 'disconnect':
       case 'error':
+      case 'message':
         return origMethod.call(this, ev, fn)
       default:
         this.socket[method](ev, fn)
@@ -86,7 +87,13 @@ AngularSocket.prototype.connect = function() {
     .on('disconnect', this._onDisconnect)
 
   var self = this
-  this.socket.socket.on('message', function() {
+  this.socket.socket.on('message', function(message) {
+    self.emit('message', message)
+    setTimeout(function() {
+      self.scope.$apply()
+    }, 0)
+  }).on('send', function(message) {
+    self.emit('message', message)
     setTimeout(function() {
       self.scope.$apply()
     }, 0)

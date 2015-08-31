@@ -154,3 +154,18 @@ p {
   border-right: 1px solid;
   border-color: #ccc;
 }
+.logs {
+  background: #fff;
+  border: 1px solid;
+  position: absolute;
+  right: 0px;
+  top: 0px;
+  width: 300px;
+  text-align: left;
+}
+.site-socket-logs {
+  color: #f00;
+}
+.psi-socket-logs {
+  color: #00f;
+}
