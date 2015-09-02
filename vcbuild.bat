@@ -48,6 +48,9 @@ if errorlevel 1 goto install-failed
 cd "%scriptroot%\forge"
 call npm install
 if errorlevel 1 goto install-failed
+cd "%scriptroot%\bundler"
+call npm install
+if errorlevel 1 goto install-failed
 echo JS modules installed.
 goto project-gen
 
