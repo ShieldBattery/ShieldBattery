@@ -14,23 +14,23 @@
 #include "node-psi/wrapped_registry.h"
 #include "psi/psi.h"
 
+using Nan::Callback;
+using Nan::FunctionCallbackInfo;
+using Nan::GetCurrentContext;
+using Nan::HandleScope;
+using Nan::New;
+using Nan::Null;
+using Nan::To;
 using std::unique_ptr;
 using std::wstring;
-using v8::Arguments;
 using v8::Boolean;
 using v8::Context;
 using v8::Exception;
 using v8::Function;
 using v8::FunctionTemplate;
-using v8::Handle;
-using v8::HandleScope;
-using v8::Integer;
 using v8::Local;
 using v8::Object;
-using v8::Persistent;
 using v8::String;
-using v8::ThrowException;
-using v8::TryCatch;
 using v8::Value;
 
 namespace sbat {
@@ -42,7 +42,7 @@ struct LaunchContext {
   unique_ptr<wstring> arguments;
   bool launch_suspended;
   unique_ptr<wstring> current_dir;
-  unique_ptr<NanCallback> callback;
+  unique_ptr<Callback> callback;
 
   Process* process;
 };
@@ -55,45 +55,45 @@ void LaunchWork(uv_work_t* req) {
 }
 
 void LaunchAfter(uv_work_t* req, int status) {
-  NanScope();
+  HandleScope scope;
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
 
-  Local<Value> err = NanNull();
-  Handle<Value> proc = NanNull();
+  Local<Value> err = Null();
+  Local<Value> proc = Null();
 
   if (context->process->has_errors()) {
-    err = Exception::Error(NanNew<String>(
-        reinterpret_cast<const uint16_t*>(context->process->error().message().c_str())));
+    err = Exception::Error(New<String>(reinterpret_cast<const uint16_t*>(
+        context->process->error().message().c_str())).ToLocalChecked());
   } else {
     proc = WrappedProcess::NewInstance(context->process);
   }
 
-  Handle<Value> argv[] = { err, proc };
-  context->callback->Call(NanGetCurrentContext()->Global(), 2, argv);
+  Local<Value> argv[] = { err, proc };
+  context->callback->Call(GetCurrentContext()->Global(), 2, argv);
   delete context;
 }
 
-NAN_METHOD(LaunchProcess) {
-  NanScope();
+void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
+  HandleScope scope;
 
-  assert(args.Length() == 5);
-  assert(args[4]->IsFunction());
+  assert(info.Length() == 5);
+  assert(info[4]->IsFunction());
 
   LaunchContext* context = new LaunchContext;
-  context->app_path = ToWstring(args[0]->ToString());
-  context->arguments = ToWstring(args[1]->ToString());
-  context->launch_suspended = args[2]->ToBoolean()->BooleanValue();
-  context->current_dir = ToWstring(args[3]->ToString());
-  context->callback.reset(new NanCallback(args[4].As<Function>()));
+  context->app_path = ToWstring(To<String>(info[0]).ToLocalChecked());
+  context->arguments = ToWstring(To<String>(info[1]).ToLocalChecked());
+  context->launch_suspended = To<Boolean>(info[2]).ToLocalChecked()->BooleanValue();
+  context->current_dir = ToWstring(To<String>(info[3]).ToLocalChecked());
+  context->callback.reset(new Callback(info[4].As<Function>()));
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);
 
-  NanReturnUndefined();
+  return;
 }
 
 struct ResContext {
   uv_work_t req;
-  unique_ptr<NanCallback> callback;
+  unique_ptr<Callback> callback;
 
   uint32 exit_code;
   WindowsError error;
@@ -184,54 +184,56 @@ void DetectResolutionWork(uv_work_t* req) {
 }
 
 void DetectResolutionAfter(uv_work_t* req, int status) {
-  NanScope();
+  HandleScope scope;
   ResContext* context = reinterpret_cast<ResContext*>(req->data);
 
-  Local<Value> err = NanNull();
-  Handle<Value> resolution = NanNull();
+  Local<Value> err = Null();
+  Local<Value> resolution = Null();
 
   if (context->exit_code == 101) {
-    err = Exception::Error(NanNew<String>(
-        reinterpret_cast<const uint16_t*>(context->error.message().c_str())));
+    err = Exception::Error(New<String>(
+        reinterpret_cast<const uint16_t*>(context->error.message().c_str())).ToLocalChecked());
   } else if (context->exit_code != 0) {
     char msg[100];
     _snprintf(msg, sizeof(msg), "Non-zero exit code: %d", context->exit_code);
-    err = Exception::Error(NanNew(msg));
+    err = Exception::Error(New(msg).ToLocalChecked());
   } else {
-    resolution = NanNew<Object>();
-    Handle<Object> obj = resolution.As<Object>();
-    obj->Set(NanNew("width"), NanNew(context->message.width));
-    obj->Set(NanNew("height"), NanNew(context->message.height));
+    resolution = New<Object>();
+    Local<Object> obj = resolution.As<Object>();
+    obj->Set(New("width").ToLocalChecked(), New(context->message.width));
+    obj->Set(New("height").ToLocalChecked(), New(context->message.height));
   }
 
-  Handle<Value> argv[] = { err, resolution };
+  Local<Value> argv[] = { err, resolution };
   context->callback->Call(Context::GetCurrent()->Global(), 2, argv);
   delete context;
 }
 
-NAN_METHOD(DetectResolution) {
-  NanScope();
+void DetectResolution(const FunctionCallbackInfo<Value>& info) {
+  HandleScope scope;
 
-  assert(args.Length() == 1);
-  assert(args[0]->IsFunction());
+  assert(info.Length() == 1);
+  assert(info[0]->IsFunction());
 
   ResContext* context = new ResContext();
   context->req.data = context;
-  context->callback.reset(new NanCallback(args[0].As<Function>()));
+  context->callback.reset(new Callback(info[0].As<Function>()));
   uv_queue_work(uv_default_loop(), &context->req, DetectResolutionWork, DetectResolutionAfter);
 
-  NanReturnUndefined();
+  return;
 }
 
-unique_ptr<NanCallback> shutdown_callback;
+unique_ptr<Callback> shutdown_callback;
 
-NAN_METHOD(RegisterShutdownHandler) {
-  NanScope();
-  assert(args.Length() == 1);
-  assert(args[0]->IsFunction());
+void RegisterShutdownHandler(const FunctionCallbackInfo<Value>& info) {
+  HandleScope scope;
 
-  shutdown_callback.reset(new NanCallback(args[0].As<Function>()));
-  NanReturnUndefined();
+  assert(info.Length() == 1);
+  assert(info[0]->IsFunction());
+
+  shutdown_callback.reset(new Callback(info[0].As<Function>()));
+
+  return;
 }
 
 void EmitShutdown() {
@@ -239,22 +241,22 @@ void EmitShutdown() {
     return;
   }
 
-  shutdown_callback->Call(NanGetCurrentContext()->Global(), 0, nullptr);
+  shutdown_callback->Call(GetCurrentContext()->Global(), 0, nullptr);
 }
 
-void Initialize(Handle<Object> exports, Handle<Object> module) {
+void Initialize(Local<Object> exports, Local<Object> module) {
   WrappedProcess::Init();
   WrappedRegistry::Init();
-  shutdown_callback = unique_ptr<NanCallback>();
+  shutdown_callback = unique_ptr<Callback>();
   PsiService::SetShutdownCallback(EmitShutdown);
 
-  exports->Set(NanNew("launchProcess"),
-    NanNew<FunctionTemplate>(LaunchProcess)->GetFunction());
-  exports->Set(NanNew("detectResolution"),
-    NanNew<FunctionTemplate>(DetectResolution)->GetFunction());
-  exports->Set(NanNew("registerShutdownHandler"),
-    NanNew<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
-  exports->Set(NanNew("registry"), WrappedRegistry::NewInstance());
+  exports->Set(New("launchProcess").ToLocalChecked(),
+    New<FunctionTemplate>(LaunchProcess)->GetFunction());
+  exports->Set(New("detectResolution").ToLocalChecked(),
+    New<FunctionTemplate>(DetectResolution)->GetFunction());
+  exports->Set(New("registerShutdownHandler").ToLocalChecked(),
+    New<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
+  exports->Set(New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());
 }
 
 NODE_MODULE(psi, Initialize);

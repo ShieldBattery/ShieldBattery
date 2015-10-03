@@ -6,7 +6,6 @@
 #include <vector>
 
 namespace v8 {
-template <class T> class Handle;
 template <class T> class Local;
 class String;
 class Value;
@@ -14,7 +13,7 @@ class Value;
 
 namespace sbat {
 
-std::unique_ptr<std::wstring> ToWstring(const v8::Handle<v8::String>& v8_str);
+std::unique_ptr<std::wstring> ToWstring(const v8::Local<v8::String>& v8_str);
 
 // Values that are constructed without a scope, and can have a scope "applied" to them afterwards
 // so that we can allocate v8 values from other threads and give them a context later

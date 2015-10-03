@@ -9,18 +9,20 @@
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
 
-using node::SetPrototypeMethod;
+using Nan::EscapableHandleScope;
+using Nan::FunctionCallbackInfo;
+using Nan::HandleScope;
+using Nan::Persistent;
+using Nan::SetPrototypeMethod;
+using Nan::ThrowError;
+using Nan::To;
 using std::unique_ptr;
 using std::wstring;
-using v8::Arguments;
 using v8::Exception;
 using v8::Function;
 using v8::FunctionTemplate;
-using v8::Handle;
-using v8::HandleScope;
 using v8::Local;
 using v8::Object;
-using v8::Persistent;
 using v8::String;
 using v8::Value;
 
@@ -31,32 +33,35 @@ namespace psi {
 Persistent<Function> WrappedRegistry::constructor;
 
 void WrappedRegistry::Init() {
-  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-  tpl->SetClassName(NanNew("Registry"));
+  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+  tpl->SetClassName(Nan::New("Registry").ToLocalChecked());
 
   SetPrototypeMethod(tpl, "readString", ReadString);
 
-  NanAssignPersistent(constructor, tpl->GetFunction());
+  constructor.Reset(tpl->GetFunction());
 }
 
-NAN_METHOD(WrappedRegistry::New) {
-  NanScope();
-  NanReturnThis();
+void WrappedRegistry::New(const FunctionCallbackInfo<Value>& info) {
+  HandleScope scope;
+  info.GetReturnValue().Set(info.This());
 }
 
-Handle<Value> WrappedRegistry::NewInstance() {
-  NanEscapableScope();
-  Local<Object> instance = constructor->NewInstance();
-  return NanEscapeScope(instance);
+Local<Value> WrappedRegistry::NewInstance() {
+  EscapableHandleScope scope;
+
+  Local<Function> cons = Nan::New<Function>(constructor);
+  Local<Object> instance = cons->NewInstance();
+
+  return scope.Escape(instance);
 }
 
-NAN_METHOD(WrappedRegistry::ReadString) {
-  NanScope();
-  assert(args.Length() == 3);
+void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
+  HandleScope scope;
+  assert(info.Length() == 3);
 
-  unique_ptr<wstring> root_key_str(ToWstring(args[0]->ToString()));
-  unique_ptr<wstring> sub_key(ToWstring(args[1]->ToString()));
-  unique_ptr<wstring> value_name(ToWstring(args[2]->ToString()));
+  unique_ptr<wstring> root_key_str(ToWstring(To<String>(info[0]).ToLocalChecked()));
+  unique_ptr<wstring> sub_key(ToWstring(To<String>(info[1]).ToLocalChecked()));
+  unique_ptr<wstring> value_name(ToWstring(To<String>(info[2]).ToLocalChecked()));
 
   HKEY root_key = NULL;
   if (root_key_str->compare(L"hkcr") == 0) {
@@ -71,14 +76,15 @@ NAN_METHOD(WrappedRegistry::ReadString) {
     root_key = HKEY_USERS;
   }
   if (root_key == NULL) {
-    return NanThrowError("Invalid root key.");
+    return ThrowError("Invalid root key.");
   }
 
   HKEY key;
   WindowsError result = WindowsError(RegOpenKeyW(root_key, sub_key->c_str(), &key));
   if (result.is_error()) {
-    return ThrowException(Exception::Error(
-        NanNew<String>(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
+    ThrowError(Exception::Error(Nan::New<String>(
+        reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
+    return;
   }
 
   wchar_t value[MAX_PATH];
@@ -88,14 +94,16 @@ NAN_METHOD(WrappedRegistry::ReadString) {
   RegCloseKey(key);
 
   if (result.is_error()) {
-    return ThrowException(Exception::Error(
-        NanNew<String>(reinterpret_cast<const uint16_t*>(result.message().c_str()))));
+    ThrowError(Exception::Error(Nan::New<String>(
+        reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
+    return;
   } else {
     if (value_size == 0) {
-      NanReturnUndefined();
+      return;
     }
 
-    NanReturnValue(NanNew<String>(reinterpret_cast<const uint16_t*>(value)));
+    info.GetReturnValue().Set(Nan::New<String>(
+        reinterpret_cast<const uint16_t*>(value)).ToLocalChecked());
   }
 }
 
