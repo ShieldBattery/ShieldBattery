@@ -82,7 +82,7 @@ void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
   HKEY key;
   WindowsError result = WindowsError(RegOpenKeyW(root_key, sub_key->c_str(), &key));
   if (result.is_error()) {
-    ThrowError(Exception::Error(Nan::New<String>(
+    ThrowError(Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
     return;
   }
@@ -94,7 +94,7 @@ void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
   RegCloseKey(key);
 
   if (result.is_error()) {
-    ThrowError(Exception::Error(Nan::New<String>(
+    ThrowError(Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
     return;
   } else {
@@ -102,8 +102,7 @@ void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
       return;
     }
 
-    info.GetReturnValue().Set(Nan::New<String>(
-        reinterpret_cast<const uint16_t*>(value)).ToLocalChecked());
+    info.GetReturnValue().Set(Nan::New(reinterpret_cast<const uint16_t*>(value)).ToLocalChecked());
   }
 }
 

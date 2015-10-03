@@ -108,7 +108,7 @@ void InjectDllAfter(uv_work_t* req, int status) {
 
   Local<Value> err = Null();
   if (context->error->is_error()) {
-    err = Exception::Error(Nan::New<String>(
+    err = Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(context->error->message().c_str())).ToLocalChecked());
   }
 
@@ -144,7 +144,7 @@ void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
 
   WindowsError error = WindowsError(process->Resume());
   if (error.is_error()) {
-    info.GetReturnValue().Set(Exception::Error(Nan::New<String>(
+    info.GetReturnValue().Set(Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(error.message().c_str())).ToLocalChecked()));
   }
 

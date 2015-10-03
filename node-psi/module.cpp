@@ -61,7 +61,7 @@ void LaunchAfter(uv_work_t* req, int status) {
   Local<Value> proc = Null();
 
   if (context->process->has_errors()) {
-    err = Exception::Error(New<String>(reinterpret_cast<const uint16_t*>(
+    err = Exception::Error(New(reinterpret_cast<const uint16_t*>(
         context->process->error().message().c_str())).ToLocalChecked());
   } else {
     proc = WrappedProcess::NewInstance(context->process);
@@ -190,7 +190,7 @@ void DetectResolutionAfter(uv_work_t* req, int status) {
   Local<Value> resolution = Null();
 
   if (context->exit_code == 101) {
-    err = Exception::Error(New<String>(
+    err = Exception::Error(New(
         reinterpret_cast<const uint16_t*>(context->error.message().c_str())).ToLocalChecked());
   } else if (context->exit_code != 0) {
     char msg[100];
