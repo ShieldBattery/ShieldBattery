@@ -11,7 +11,6 @@
 
 using Nan::EscapableHandleScope;
 using Nan::FunctionCallbackInfo;
-using Nan::HandleScope;
 using Nan::Persistent;
 using Nan::SetPrototypeMethod;
 using Nan::ThrowError;
@@ -42,7 +41,6 @@ void WrappedRegistry::Init() {
 }
 
 void WrappedRegistry::New(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   info.GetReturnValue().Set(info.This());
 }
 
@@ -56,7 +54,6 @@ Local<Value> WrappedRegistry::NewInstance() {
 }
 
 void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(info.Length() == 3);
 
   unique_ptr<wstring> root_key_str(ToWstring(To<String>(info[0]).ToLocalChecked()));

@@ -65,8 +65,6 @@ void WrappedProcess::Init() {
 }
 
 void WrappedProcess::New(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   WrappedProcess* process = new WrappedProcess();
   process->Wrap(info.This());
 
@@ -120,8 +118,6 @@ void InjectDllAfter(uv_work_t* req, int status) {
 }
 
 void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   assert(info.Length() == 3);
   assert(info[2]->IsFunction());
 
@@ -139,7 +135,6 @@ void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   Process* process = WrappedProcess::Unwrap(info);
 
   WindowsError error = WindowsError(process->Resume());

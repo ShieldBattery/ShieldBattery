@@ -100,8 +100,6 @@ void BwPlayerSlot::Init() {
 }
 
 void BwPlayerSlot::New(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BwPlayerSlot* playerSlot = new BwPlayerSlot();
   playerSlot->Wrap(info.This());
 
@@ -120,42 +118,36 @@ Local<Value> BwPlayerSlot::NewInstance(PlayerInfo* player_info) {
 }
 
 void BwPlayerSlot::GetPlayerId(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
       static_cast<uint32>(player_info->player_id))));
 }
 
 void BwPlayerSlot::GetStormId(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
       static_cast<uint32>(player_info->storm_id))));
 }
 
 void BwPlayerSlot::GetType(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
       static_cast<uint32>(player_info->type))));
 }
 
 void BwPlayerSlot::GetRace(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
       static_cast<uint32>(player_info->race))));
 }
 
 void BwPlayerSlot::GetTeam(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
       static_cast<uint32>(player_info->team))));
 }
 
 void BwPlayerSlot::GetName(Local<String> property, const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(player_info->name).ToLocalChecked());
 }
@@ -247,8 +239,6 @@ void WrappedBroodWar::Init() {
 }
 
 void WrappedBroodWar::New(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   WrappedBroodWar* bw = new WrappedBroodWar();
   bw->Wrap(info.This());
 
@@ -288,50 +278,42 @@ void WrappedBroodWar::Log(void* arg, LogLevel level, const char* msg) {
 // accessor defitions
 void WrappedBroodWar::GetCurrentMapPath(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->current_map_path().c_str()).ToLocalChecked());
 }
 
 void WrappedBroodWar::GetCurrentMapName(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->current_map_name().c_str()).ToLocalChecked());
 }
 
 void WrappedBroodWar::GetCurrentMapFolderPath(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->current_map_folder_path().c_str()).ToLocalChecked());
 }
 
 void WrappedBroodWar::GetLocalPlayerId(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Uint32::NewFromUnsigned(bw->local_player_id())));
 }
 
 void WrappedBroodWar::GetLocalLobbyId(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(Uint32::NewFromUnsigned(bw->local_lobby_id())));
 }
 
 void WrappedBroodWar::GetLocalPlayerName(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->local_player_name().c_str()).ToLocalChecked());
 }
 
 void WrappedBroodWar::SetLocalPlayerName(Local<String> property, Local<Value> value,
     const PropertyCallbackInfo<void>& info) {
-  HandleScope scope;
-
   if (!value->IsString() && !value->IsStringObject()) {
     ThrowTypeError("Local player name must be a String");
     return;
@@ -345,22 +327,18 @@ void WrappedBroodWar::SetLocalPlayerName(Local<String> property, Local<Value> va
 
 void WrappedBroodWar::GetGameSpeed(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(static_cast<int32>(bw->current_game_speed())));
 }
 
 void WrappedBroodWar::GetIsBroodWar(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->is_brood_war()));
 }
 
 void WrappedBroodWar::SetIsBroodWar(Local<String> property, Local<Value> value,
     const PropertyCallbackInfo<void>& info) {
-  HandleScope scope;
-
   if (!value->IsBoolean() && !value->IsBooleanObject()) {
     ThrowTypeError("isBroodWar must be a Boolean");
     return;
@@ -372,15 +350,12 @@ void WrappedBroodWar::SetIsBroodWar(Local<String> property, Local<Value> value,
 
 void WrappedBroodWar::GetIsMultiplayer(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->is_multiplayer()));
 }
 
 void WrappedBroodWar::SetIsMultiplayer(Local<String> property, Local<Value> value,
     const PropertyCallbackInfo<void>& info) {
-  HandleScope scope;
-
   if (!value->IsBoolean() && !value->IsBooleanObject()) {
     ThrowTypeError("isMultiplayer must be a Boolean");
     return;
@@ -392,36 +367,30 @@ void WrappedBroodWar::SetIsMultiplayer(Local<String> property, Local<Value> valu
 
 void WrappedBroodWar::GetIsHostingGame(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->is_hosting_game()));
 }
 
 void WrappedBroodWar::GetWasBooted(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->was_booted()));
 }
 
 void WrappedBroodWar::GetBootReason(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(static_cast<int32>(bw->boot_reason())));
 }
 
 void WrappedBroodWar::GetLobbyDirtyFlag(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(bw->lobby_dirty_flag()));
 }
 
 void WrappedBroodWar::SetLobbyDirtyFlag(Local<String> property, Local<Value> value,
     const PropertyCallbackInfo<void>& info) {
-  HandleScope scope;
-
   if (!value->IsBoolean() && !value->IsBooleanObject()) {
     ThrowTypeError("lobbyDirtyFlag must be a Boolean");
     return;
@@ -433,8 +402,6 @@ void WrappedBroodWar::SetLobbyDirtyFlag(Local<String> property, Local<Value> val
 
 void WrappedBroodWar::GetEventHandler(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   Utf8String name(property);
   std::string std_name(*name);
   WrappedBroodWar* wrapped_bw = ObjectWrap::Unwrap<WrappedBroodWar>(info.This());
@@ -449,8 +416,6 @@ void WrappedBroodWar::GetEventHandler(Local<String> property,
 
 void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value,
     const PropertyCallbackInfo<void>& info) {
-  HandleScope scope;
-
   if (!value->IsFunction() && !value->IsUndefined() && !value->IsNull()) {
     ThrowTypeError("callback must be a function");
     return;
@@ -471,8 +436,6 @@ void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value
 void WrappedBroodWar::SetSettings(const FunctionCallbackInfo<Value>& info) {
   // This function should be called before the dependent modules (Snp, Forge, etc.) are loaded and
   // initialized, so that they can make use of any custom settings
-  HandleScope scope;
-
   assert(info.Length() > 0);
   Local<Object> settings_object = To<Object>(info[0]).ToLocalChecked();
   Settings result = Settings();
@@ -554,8 +517,6 @@ void InitProcessAfter(void* arg) {
 void WrappedBroodWar::InitProcess(const FunctionCallbackInfo<Value>& info) {
   // This only needs to be called once per process launch, but calling it multiple times will not
   // harm anything
-  HandleScope scope;
-
   if (info.Length() < 1) {
     ThrowError("Incorrect number of arguments");
     return;
@@ -592,7 +553,6 @@ void InitSpritesAfter(void* arg) {
 }
 
 void WrappedBroodWar::InitSprites(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(info.Length() >= 1);
 
   InitSpritesContext* context = new InitSpritesContext();
@@ -605,8 +565,6 @@ void WrappedBroodWar::InitSprites(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::InitPlayerInfo(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   bw->InitPlayerInfo();
 
@@ -614,8 +572,6 @@ void WrappedBroodWar::InitPlayerInfo(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::ChooseNetworkProvider(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   if (info.Length() > 0 &&
       !(info[0]->IsNumber() || info[0]->IsNumberObject() ||
       info[0]->IsUint32() || info[0]->IsInt32())) {
@@ -635,8 +591,6 @@ void WrappedBroodWar::ChooseNetworkProvider(const FunctionCallbackInfo<Value>& i
 }
 
 void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   if (info.Length() < 1) {
     ThrowError("Incorrect number of arguments");
     return;
@@ -695,8 +649,6 @@ void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   assert(info.Length() == 4);
 
   String::AsciiValue game_name_value(info[0]);
@@ -713,8 +665,6 @@ void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   // Basically none of this info actually matters, although BW likes to check it for some reason.
   // The actual game info will be distributed upon joining. The thing that *does* matter is the
@@ -740,8 +690,6 @@ void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::InitGameNetwork(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   bw->InitGameNetwork();
 
@@ -749,8 +697,6 @@ void WrappedBroodWar::InitGameNetwork(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::AddComputer(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   if (info.Length() < 1) {
     ThrowError("Incorrect number of arguments");
     return;
@@ -766,8 +712,6 @@ void WrappedBroodWar::AddComputer(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::SetRace(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-  
   assert(info.Length() == 2);
 
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
@@ -776,8 +720,6 @@ void WrappedBroodWar::SetRace(const FunctionCallbackInfo<Value>& info) {
 }
 
 void WrappedBroodWar::ProcessLobbyTurn(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   uint32 result = bw->ProcessLobbyTurn();
 
@@ -785,8 +727,6 @@ void WrappedBroodWar::ProcessLobbyTurn(const FunctionCallbackInfo<Value>& info) 
 }
 
 void WrappedBroodWar::StartGameCountdown(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   bool result = bw->StartGameCountdown();
 
@@ -814,8 +754,6 @@ void RunGameLoopWork(void* arg) {
 }
 
 void RunGameLoopAfter(void* arg) {
-  HandleScope scope;
-
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
   auto game_results = context->bw->game_results();
   auto players = context->bw->players();
@@ -838,8 +776,6 @@ void WrappedBroodWar::RunGameLoop(const FunctionCallbackInfo<Value>& info) {
   // the C++ side of things simple I'm not going to handle this case here. The JS wrapper will
   // block this from happening itself, but if you're writing custom JS for this or changing the
   // wrapper, ensure that only one game loop is running at once!
-  HandleScope scope;
-
   if (info.Length() < 1) {
     ThrowError("Incorrect number of arguments");
     return;
@@ -868,7 +804,6 @@ struct SendMultiplayerChatMessageContext {
 // Sends a multiplayer chat message, using the same thread as the game loop to ensure thread safety
 // params: message, type[, recipients]
 void WrappedBroodWar::SendMultiplayerChatMessage(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(info.Length() >= 2);
 
   String::AsciiValue message_arg(info[0]);
@@ -900,7 +835,6 @@ struct DisplayIngameMessageContext {
 // Displays a message (in the chat area), using the same thread as the game loop.
 // params: message[, timeout]
 void WrappedBroodWar::DisplayIngameMessage(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(info.Length() >= 1);
 
   String::AsciiValue message_arg(info[0]);
@@ -940,7 +874,6 @@ void CleanUpForExitAfter(void* arg) {
 }
 
 void WrappedBroodWar::CleanUpForExit(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(info.Length() == 1);
   assert(info[0]->IsFunction());
 
@@ -961,7 +894,6 @@ struct EventHandlerCallbackInfo {
 };
 
 void EventHandlerImmediate(void* arg) {
-  HandleScope scope;
   EventHandlerCallbackInfo* info = reinterpret_cast<EventHandlerCallbackInfo*>(arg);
 
   for (auto it = WrappedBroodWar::event_handlers_.begin(); 

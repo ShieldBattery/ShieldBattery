@@ -216,8 +216,6 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
 }
 
 void Forge::New(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   Forge* forge = new Forge();
   forge->Wrap(info.This());
 
@@ -234,7 +232,6 @@ Local<Value> Forge::NewInstance() {
 }
 
 void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Inject();
@@ -255,7 +252,6 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
 }
 
 void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Restore();
@@ -311,7 +307,6 @@ void WndProcWorkerAfter(void* arg) {
 }
 
 void Forge::RunWndProc(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(instance_->window_handle_ != NULL);
   assert(args.Length() > 0);
   Local<Function> cb = info[0].As<Function>();
@@ -325,7 +320,6 @@ void Forge::RunWndProc(const FunctionCallbackInfo<Value>& info) {
 }
 
 void Forge::EndWndProc(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(instance_->window_handle_ != NULL);
 
   PostMessage(instance_->window_handle_, WM_END_WND_PROC_WORKER, NULL, NULL);
@@ -333,7 +327,6 @@ void Forge::EndWndProc(const FunctionCallbackInfo<Value>& info) {
 }
 
 void Forge::SetShaders(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
   assert(instance_->window_handle_ == NULL);
   assert(args.Length() >= 1);
 

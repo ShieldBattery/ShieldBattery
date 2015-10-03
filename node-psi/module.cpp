@@ -73,8 +73,6 @@ void LaunchAfter(uv_work_t* req, int status) {
 }
 
 void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   assert(info.Length() == 5);
   assert(info[4]->IsFunction());
 
@@ -209,8 +207,6 @@ void DetectResolutionAfter(uv_work_t* req, int status) {
 }
 
 void DetectResolution(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   assert(info.Length() == 1);
   assert(info[0]->IsFunction());
 
@@ -225,8 +221,6 @@ void DetectResolution(const FunctionCallbackInfo<Value>& info) {
 unique_ptr<Callback> shutdown_callback;
 
 void RegisterShutdownHandler(const FunctionCallbackInfo<Value>& info) {
-  HandleScope scope;
-
   assert(info.Length() == 1);
   assert(info[0]->IsFunction());
 
