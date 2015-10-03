@@ -24,7 +24,6 @@ using Nan::To;
 using std::unique_ptr;
 using std::wstring;
 using v8::Boolean;
-using v8::Context;
 using v8::Exception;
 using v8::Function;
 using v8::FunctionTemplate;
@@ -205,7 +204,7 @@ void DetectResolutionAfter(uv_work_t* req, int status) {
   }
 
   Local<Value> argv[] = { err, resolution };
-  context->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+  context->callback->Call(GetCurrentContext()->Global(), 2, argv);
   delete context;
 }
 

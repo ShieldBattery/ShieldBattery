@@ -3,7 +3,6 @@
 
 #include <node.h>
 #include <nan.h>
-#include <v8.h>
 #include <dsound.h>
 #include <string>
 
@@ -48,20 +47,20 @@ struct ImportHooks {
 typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
 
-class Forge : public node::ObjectWrap {
+class Forge : public Nan::ObjectWrap {
 public:
   static void Init();
-  static v8::Handle<v8::Value> NewInstance();
+  static v8::Local<v8::Value> NewInstance();
   static std::unique_ptr<Renderer> CreateRenderer(
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
   // callable from JS
-  static NAN_METHOD(New);
-  static NAN_METHOD(Inject);
-  static NAN_METHOD(Restore);
-  static NAN_METHOD(RunWndProc);
-  static NAN_METHOD(EndWndProc);
-  static NAN_METHOD(SetShaders);
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Inject(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Restore(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void RunWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void EndWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void SetShaders(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
 private:
   Forge();
@@ -106,7 +105,7 @@ private:
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
 
-  static v8::Persistent<v8::Function> constructor;
+  static Nan::Persistent<v8::Function> constructor;
   static Forge* instance_;
 
   ImportHooks hooks_;

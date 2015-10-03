@@ -18,6 +18,7 @@ using Nan::Null;
 using Nan::Persistent;
 using Nan::SetPrototypeMethod;
 using Nan::To;
+using Nan::Utf8String;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -127,7 +128,7 @@ void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
   InjectDllContext* context = new InjectDllContext;
   context->dll_path = ToWstring(To<String>(info[0]).ToLocalChecked());
   context->inject_func.reset(
-      new string(*Nan::Utf8String(To<String>(info[1]).ToLocalChecked())));
+      new string(*Utf8String(To<String>(info[1]).ToLocalChecked())));
   context->callback.reset(new Callback(info[2].As<Function>()));
   context->self.Reset(info.This());
   context->process = WrappedProcess::Unwrap(info);
