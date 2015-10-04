@@ -89,7 +89,7 @@ void BwPlayerSlot::Init() {
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // functions
-  SetProtoAccessor(tpl, "playerId", GetStormId);
+  SetProtoAccessor(tpl, "playerId", GetPlayerId);
   SetProtoAccessor(tpl, "stormId", GetStormId);
   SetProtoAccessor(tpl, "type", GetType);
   SetProtoAccessor(tpl, "race", GetRace);
@@ -908,7 +908,6 @@ void EventHandlerImmediate(void* arg) {
 #pragma warning(suppress: 28182)
     MakeCallback(GetCurrentContext()->Global(), cb, info->args->size(),
         (params.empty() ? nullptr : &params[0]));
-    //cb->Call(wrapped_bw->handle_, info->args->size(), (params.empty() ? nullptr : &params[0]));
 
     delete info->method_name;
     delete info->args;
