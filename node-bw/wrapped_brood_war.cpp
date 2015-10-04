@@ -129,7 +129,7 @@ void BwPlayerSlot::GetStormId(Local<String> property, const PropertyCallbackInfo
 
 void BwPlayerSlot::GetType(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->type))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->type)));
 }
 
 void BwPlayerSlot::GetRace(Local<String> property, const PropertyCallbackInfo<Value>& info) {
