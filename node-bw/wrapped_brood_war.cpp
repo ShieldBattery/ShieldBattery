@@ -119,32 +119,27 @@ Local<Value> BwPlayerSlot::NewInstance(PlayerInfo* player_info) {
 
 void BwPlayerSlot::GetPlayerId(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
-      static_cast<uint32>(player_info->player_id))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->player_id)));
 }
 
 void BwPlayerSlot::GetStormId(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
-      static_cast<uint32>(player_info->storm_id))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->storm_id)));
 }
 
 void BwPlayerSlot::GetType(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
-      static_cast<uint32>(player_info->type))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->type))));
 }
 
 void BwPlayerSlot::GetRace(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
-      static_cast<uint32>(player_info->race))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->race)));
 }
 
 void BwPlayerSlot::GetTeam(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Integer::NewFromUnsigned(
-      static_cast<uint32>(player_info->team))));
+  info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->team)));
 }
 
 void BwPlayerSlot::GetName(Local<String> property, const PropertyCallbackInfo<Value>& info) {
@@ -297,13 +292,13 @@ void WrappedBroodWar::GetCurrentMapFolderPath(Local<String> property,
 void WrappedBroodWar::GetLocalPlayerId(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Uint32::NewFromUnsigned(bw->local_player_id())));
+  info.GetReturnValue().Set(Nan::New(bw->local_player_id()));
 }
 
 void WrappedBroodWar::GetLocalLobbyId(Local<String> property,
     const PropertyCallbackInfo<Value>& info) {
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  info.GetReturnValue().Set(Nan::New(Uint32::NewFromUnsigned(bw->local_lobby_id())));
+  info.GetReturnValue().Set(Nan::New(bw->local_lobby_id()));
 }
 
 void WrappedBroodWar::GetLocalPlayerName(Local<String> property,
@@ -320,7 +315,7 @@ void WrappedBroodWar::SetLocalPlayerName(Local<String> property, Local<Value> va
   }
 
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  String::AsciiValue ascii_value(value);
+  Utf8String ascii_value(value);
   char* c_str = *ascii_value;
   bw->set_local_player_name(c_str ? std::string(c_str) : std::string());
 }
@@ -614,7 +609,7 @@ void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
   Local<Value> game_name_value = config->Get(Nan::New("name").ToLocalChecked());
   if (!game_name_value.IsEmpty() &&
       (game_name_value->IsString() || game_name_value->IsStringObject())) {
-    String::AsciiValue ascii(game_name_value);
+    Utf8String ascii(game_name_value);
     game_name = *ascii;
   }
 
@@ -623,7 +618,7 @@ void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
     ThrowTypeError("mapPath must be a String");
     return;
   }
-  String::AsciiValue map_path_ascii(map_path_value);
+  Utf8String map_path_ascii(map_path_value);
   map_path = *map_path_ascii;
 
   Local<Value> game_type_value = config->Get(Nan::New("gameType").ToLocalChecked());
@@ -651,7 +646,7 @@ void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
 void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
   assert(info.Length() == 4);
 
-  String::AsciiValue game_name_value(info[0]);
+  Utf8String game_name_value(info[0]);
   std::string game_name = *game_name_value;
   bool is_replay = info[1]->BooleanValue();
   Utf8String address(info[2]);
@@ -723,7 +718,7 @@ void WrappedBroodWar::ProcessLobbyTurn(const FunctionCallbackInfo<Value>& info) 
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   uint32 result = bw->ProcessLobbyTurn();
 
-  info.GetReturnValue().Set(Nan::New(Uint32::NewFromUnsigned(result)));
+  info.GetReturnValue().Set(Nan::New(result));
 }
 
 void WrappedBroodWar::StartGameCountdown(const FunctionCallbackInfo<Value>& info) {
@@ -765,7 +760,7 @@ void RunGameLoopAfter(void* arg) {
     }
   }
   Local<Integer> game_time = Nan::New(context->bw->game_time());
-  Local<Value> argv[] = { Null(), Nan::New(result), game_time };
+  Local<Value> argv[] = { Null(), result, game_time };
   context->cb->Call(GetCurrentContext()->Global(), 3, argv);
 
   delete context;
@@ -837,7 +832,7 @@ struct DisplayIngameMessageContext {
 void WrappedBroodWar::DisplayIngameMessage(const FunctionCallbackInfo<Value>& info) {
   assert(info.Length() >= 1);
 
-  String::AsciiValue message_arg(info[0]);
+  Utf8String message_arg(info[0]);
   auto context = new DisplayIngameMessageContext();
   context->message = *message_arg;
   context->timeout = (info.Length() > 1 ? To<Uint32>(info[1]).ToLocalChecked() :
