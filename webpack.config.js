@@ -41,7 +41,9 @@ const webpackOptions = {
     new webpack.PrefetchPlugin('react'),
     new webpack.PrefetchPlugin('react/lib/ReactComponentBrowserEnvironment'),
   ],
-  stylus: [ autoprefix ],
+  stylus: {
+    use: [ autoprefix ],
+  },
 }
 
 if (isDev) {
@@ -61,7 +63,8 @@ if (isDev) {
         NODE_ENV: '"production"'
       }
     }),
-    new ExtractTextPlugin('../styles/site.css'),
+    // This path is relative to the publicPath, not this file's directory
+    new ExtractTextPlugin('../styles/site.css', { allChunks: true }),
     new webpack.optimize.UglifyJsPlugin({
       compress: { warnings: false },
       output: { comments: false },
