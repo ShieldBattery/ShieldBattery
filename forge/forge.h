@@ -54,14 +54,6 @@ public:
   static std::unique_ptr<Renderer> CreateRenderer(
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
-  // callable from JS
-  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void Inject(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void Restore(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void RunWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void EndWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void SetShaders(const Nan::FunctionCallbackInfo<v8::Value>& info);
-
 private:
   Forge();
   ~Forge();
@@ -104,6 +96,14 @@ private:
       const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
+
+  // callable from JS
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Inject(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Restore(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void RunWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void EndWndProc(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void SetShaders(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   static Nan::Persistent<v8::Function> constructor;
   static Forge* instance_;

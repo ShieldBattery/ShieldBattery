@@ -12,14 +12,15 @@ public:
   static void Init();
   static v8::Local<v8::Value> NewInstance();
 
-  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void ReadString(const Nan::FunctionCallbackInfo<v8::Value>& info);
 private:
   WrappedRegistry();
   ~WrappedRegistry();
   // Disable copying
   WrappedRegistry(const WrappedRegistry&);
   WrappedRegistry& operator=(const WrappedRegistry&);
+
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void ReadString(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   static Nan::Persistent<v8::Function> constructor;
 };

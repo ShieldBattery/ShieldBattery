@@ -749,6 +749,7 @@ void RunGameLoopWork(void* arg) {
 }
 
 void RunGameLoopAfter(void* arg) {
+  HandleScope scope;
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
   auto game_results = context->bw->game_results();
   auto players = context->bw->players();
@@ -889,6 +890,7 @@ struct EventHandlerCallbackInfo {
 };
 
 void EventHandlerImmediate(void* arg) {
+  HandleScope scope;
   EventHandlerCallbackInfo* info = reinterpret_cast<EventHandlerCallbackInfo*>(arg);
 
   for (auto it = WrappedBroodWar::event_handlers_.begin(); 

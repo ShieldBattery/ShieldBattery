@@ -13,7 +13,6 @@ using v8::Value;
 
 void CreateBroodWar(const FunctionCallbackInfo<Value>& info) {
   HandleScope scope;
-
   info.GetReturnValue().Set(sbat::bw::WrappedBroodWar::NewInstance(info));
 }
 
