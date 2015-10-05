@@ -24,8 +24,9 @@ const createMiddlewaredStore = compose(
 const store = createMiddlewaredStore(topLevelReducer, window._sbInitData)
 registerDispatch(store.dispatch)
 
+import './network/socket-handlers'
+
 if (module.hot) {
-  // Enable Webpack hot module replacement for reducers
   module.hot.accept('./reducers', () => {
     const nextRootReducer = require('./reducers') // eslint-disable-line import/no-require
     store.replaceReducer(nextRootReducer)

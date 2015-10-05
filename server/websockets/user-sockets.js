@@ -52,13 +52,15 @@ class UserSocketSet extends EventEmitter {
 }
 
 class UserManager extends EventEmitter {
-  constructor(nydus) {
+  constructor(nydus, sessionLookup) {
     super()
     this.nydus = nydus
+    this.sessionLookup = sessionLookup
     this.users = new SimpleMap()
 
     this.nydus.on('connection', socket => {
-      const userName = socket.handshake.userName
+      const session = this.sessionLookup.get(socket.conn.request)
+      const userName = session.userName
       if (!this.users.has(userName)) {
         const user = new UserSocketSet(this, userName, socket)
         this.users.put(userName, user)
@@ -70,7 +72,8 @@ class UserManager extends EventEmitter {
       }
     })
 
-    this.nydus.router.subscribe('/users/:user', (req, res) => {
+    // TODO(tec27): fix for new nydus
+    /* this.nydus.router.subscribe('/users/:user', (req, res) => {
       if (req.socket.handshake.userName !== req.params.user) {
         return res.fail(403, 'forbidden',
             { msg: 'You can only subscribe to your own user channel' })
@@ -79,7 +82,7 @@ class UserManager extends EventEmitter {
       res.complete()
       const user = this.get(req.socket)
       user.emit('subscribe', user, req.socket)
-    })
+    })*/
   }
 
   get(nameOrSocket) {
@@ -100,6 +103,6 @@ class UserManager extends EventEmitter {
   }
 }
 
-export default function(nydus) {
-  return new UserManager(nydus)
+export default function(nydus, sessionLookup) {
+  return new UserManager(nydus, sessionLookup)
 }

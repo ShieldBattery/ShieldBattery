@@ -240,8 +240,9 @@ class LobbyHandler {
     // player -> their current lobby. Each player can be in at most one lobby at a time.
     this.playerLobbyMap = new SimpleMap()
 
-    const basePath = '/lobbies'
-    nydus.router
+    // TODO(tec27): fix for new nydus
+    // const basePath = '/lobbies'
+    /* nydus.router
       .call(basePath + '/create', (req, res, params) => this.create(req, res, params))
       .call(basePath + '/:lobby/join', (req, res) => this.join(req, res))
       .call(basePath + '/:lobby/part/:playerId', (req, res) => this.part(req, res))
@@ -259,6 +260,7 @@ class LobbyHandler {
       })
       .subscribe(basePath + '/:lobby', (req, res) => this.subscribeLobby(req, res))
       .publish(basePath + '/:lobby', (req, event, complete) => this.sendChat(req, event, complete))
+    */
   }
 
   _doCreateLobby(host, name, map, size) {
