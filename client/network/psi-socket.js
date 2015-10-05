@@ -1,6 +1,6 @@
-import WrappedSocket from './wrapped-socket'
+import createNydus from 'nydus-client'
 
-const psiSocket = new WrappedSocket('wss://lifeoflively.net:33198')
+const psiSocket = createNydus('wss://lifeoflively.net:33198')
 psiSocket.connect()
 
 export default psiSocket

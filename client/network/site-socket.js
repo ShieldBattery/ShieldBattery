@@ -1,4 +1,7 @@
-import WrappedSocket from './wrapped-socket'
+import createNydus from 'nydus-client'
 
-const siteSocket = new WrappedSocket(null)
+const location = window.location
+const protocol = location.protocol === 'https' ? 'wss' : 'ws'
+
+const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`)
 export default siteSocket
