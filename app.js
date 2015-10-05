@@ -69,14 +69,12 @@ setupWebsockets(mainServer, app, sessionMiddleware)
 
 const compiler = webpack(webpackConfig)
 compiler.run = thenify(compiler.run)
-console.log('running compiler')
 const compilePromise = isDev ? Promise.resolve() : compiler.run()
 if (!isDev) {
   log.info('In production mode, building assets...')
 }
 
 compilePromise.then(stats => {
-  console.log('compiler done!')
   if (stats) {
     if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
       throw new Error(stats.toString())
