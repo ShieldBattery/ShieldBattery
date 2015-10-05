@@ -1,19 +1,18 @@
 #include <node.h>
 #include <nan.h>
-#include <v8.h>
 
 #include "forge/forge.h"
 
 namespace sbat {
 namespace forge {
 
-using v8::Handle;
+using Nan::New;
+using v8::Local;
 using v8::Object;
-using v8::String;
 
-void Initialize(Handle<Object> exports, Handle<Object> module) {
+void Initialize(Local<Object> exports, Local<Object> module) {
   Forge::Init();
-  module->Set(NanNew("exports"), Forge::NewInstance());
+  module->Set(New("exports").ToLocalChecked(), Forge::NewInstance());
 }
 
 NODE_MODULE(forge, Initialize);

@@ -7,13 +7,11 @@
 namespace sbat {
 namespace psi {
 
-class WrappedRegistry : public node::ObjectWrap {
+class WrappedRegistry : public Nan::ObjectWrap {
 public:
   static void Init();
-  static v8::Handle<v8::Value> NewInstance();
+  static v8::Local<v8::Value> NewInstance();
 
-  static NAN_METHOD(New);
-  static NAN_METHOD(ReadString);
 private:
   WrappedRegistry();
   ~WrappedRegistry();
@@ -21,7 +19,10 @@ private:
   WrappedRegistry(const WrappedRegistry&);
   WrappedRegistry& operator=(const WrappedRegistry&);
 
-  static v8::Persistent<v8::Function> constructor;
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void ReadString(const Nan::FunctionCallbackInfo<v8::Value>& info);
+
+  static Nan::Persistent<v8::Function> constructor;
 };
 
 }  // namespace psi

@@ -20,22 +20,23 @@
 namespace sbat {
 namespace forge {
 
-using node::SetPrototypeMethod;
+using Nan::Callback;
+using Nan::EscapableHandleScope;
+using Nan::FunctionCallbackInfo;
+using Nan::GetCurrentContext;
+using Nan::HandleScope;
+using Nan::Null;
+using Nan::Persistent;
+using Nan::SetPrototypeMethod;
+using Nan::Utf8String;
 using std::map;
 using std::pair;
 using std::unique_ptr;
-using v8::Arguments;
-using v8::Boolean;
-using v8::Context;
 using v8::Function;
 using v8::FunctionTemplate;
-using v8::Handle;
-using v8::HandleScope;
 using v8::Local;
 using v8::Object;
-using v8::Persistent;
 using v8::String;
-using v8::TryCatch;
 using v8::Value;
 
 Persistent<Function> Forge::constructor;
@@ -120,8 +121,8 @@ Forge::~Forge() {
 }
 
 void Forge::Init() {
-  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-  tpl->SetClassName(NanNew("Forge"));
+  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+  tpl->SetClassName(Nan::New("Forge").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   SetPrototypeMethod(tpl, "inject", Inject);
@@ -130,7 +131,7 @@ void Forge::Init() {
   SetPrototypeMethod(tpl, "endWndProc", EndWndProc);
   SetPrototypeMethod(tpl, "setShaders", SetShaders);
 
-  NanAssignPersistent(constructor, tpl->GetFunction());
+  constructor.Reset(tpl->GetFunction());
 }
 
 typedef void (*SetBroodWarInputDisabledFunc)(bool);
@@ -214,21 +215,23 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   }
 }
 
-NAN_METHOD(Forge::New) {
-  NanScope();
+void Forge::New(const FunctionCallbackInfo<Value>& info) {
   Forge* forge = new Forge();
-  forge->Wrap(args.This());
-  NanReturnThis();
+  forge->Wrap(info.This());
+
+  info.GetReturnValue().Set(info.This());
 }
 
-Handle<Value> Forge::NewInstance() {
-  NanEscapableScope();
-  Local<Object> instance = constructor->NewInstance();
-  return NanEscapeScope(instance);
+Local<Value> Forge::NewInstance() {
+  EscapableHandleScope scope;
+
+  Local<Function> cons = Nan::New<Function>(constructor);
+  Local<Object> instance = cons->NewInstance();
+
+  return scope.Escape(instance);
 }
 
-NAN_METHOD(Forge::Inject) {
-  NanScope();
+void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Inject();
@@ -245,11 +248,10 @@ NAN_METHOD(Forge::Inject) {
   result &= instance_->hooks_.SetCapture->Inject();
   result &= instance_->hooks_.ReleaseCapture->Inject();
 
-  NanReturnValue(NanNew(result));
+  info.GetReturnValue().Set(Nan::New(result));
 }
 
-NAN_METHOD(Forge::Restore) {
-  NanScope();
+void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   bool result = true;
 
   result &= instance_->hooks_.CreateWindowExA->Restore();
@@ -266,14 +268,14 @@ NAN_METHOD(Forge::Restore) {
   result &= instance_->hooks_.SetCapture->Restore();
   result &= instance_->hooks_.ReleaseCapture->Restore();
 
-  NanReturnValue(NanNew(result));
+  info.GetReturnValue().Set(Nan::New(result));
 }
 
 #define WM_END_WND_PROC_WORKER (WM_USER + 27)
 #define WM_GAME_STARTED (WM_USER + 7)
 
 struct WndProcContext {
-  unique_ptr<NanCallback> cb;
+  unique_ptr<Callback> cb;
   bool quit;
 };
 
@@ -295,63 +297,61 @@ void WndProcWorker(void* arg) {
 }
 
 void WndProcWorkerAfter(void* arg) {
-  NanScope();
+  HandleScope scope;
 
   WndProcContext* context = reinterpret_cast<WndProcContext*>(arg);
-  Handle<Value> argv[] = { NanNull(), NanNew(context->quit) };
-  context->cb->Call(Context::GetCurrent()->Global(), 2, argv);
+  Local<Value> argv[] = { Null(), Nan::New(context->quit) };
+  context->cb->Call(GetCurrentContext()->Global(), 2, argv);
 
   delete context;
 }
 
-NAN_METHOD(Forge::RunWndProc) {
-  NanScope();
+void Forge::RunWndProc(const FunctionCallbackInfo<Value>& info) {
   assert(instance_->window_handle_ != NULL);
   assert(args.Length() > 0);
-  Local<Function> cb = args[0].As<Function>();
+  Local<Function> cb = info[0].As<Function>();
 
   WndProcContext* context = new WndProcContext();
-  context->cb.reset(new NanCallback(cb));
+  context->cb.reset(new Callback(cb));
 
   sbat::QueueWorkForUiThread(context, WndProcWorker, WndProcWorkerAfter);
 
-  NanReturnUndefined();
+  return;
 }
 
-NAN_METHOD(Forge::EndWndProc) {
-  NanScope();
+void Forge::EndWndProc(const FunctionCallbackInfo<Value>& info) {
   assert(instance_->window_handle_ != NULL);
 
   PostMessage(instance_->window_handle_, WM_END_WND_PROC_WORKER, NULL, NULL);
-  NanReturnUndefined();
+  return;
 }
 
-NAN_METHOD(Forge::SetShaders) {
-  NanScope();
+void Forge::SetShaders(const FunctionCallbackInfo<Value>& info) {
   assert(instance_->window_handle_ == NULL);
   assert(args.Length() >= 1);
-  Handle<Object> dx_vert_shaders = Handle<Object>::Cast(args[0]);
-  Handle<Object> dx_pixel_shaders = Handle<Object>::Cast(args[1]);
-  Handle<Object> gl_vert_shaders = Handle<Object>::Cast(args[2]);
-  Handle<Object> gl_frag_shaders = Handle<Object>::Cast(args[3]);
 
-  Local<String> depalettizing = NanNew("depalettizing");
-  Local<String> scaling = NanNew("scaling");
+  Local<Object> dx_vert_shaders = Local<Object>::Cast(info[0]);
+  Local<Object> dx_pixel_shaders = Local<Object>::Cast(info[1]);
+  Local<Object> gl_vert_shaders = Local<Object>::Cast(info[2]);
+  Local<Object> gl_frag_shaders = Local<Object>::Cast(info[3]);
+
+  Local<String> depalettizing = Nan::New("depalettizing").ToLocalChecked();
+  Local<String> scaling = Nan::New("scaling").ToLocalChecked();
   instance_->dx_shaders["depalettizing"] = std::make_pair(
-      *String::Utf8Value(dx_vert_shaders->Get(depalettizing)->ToString()),
-      *String::Utf8Value(dx_pixel_shaders->Get(depalettizing)->ToString()));
+      *Utf8String(dx_vert_shaders->Get(depalettizing)->ToString()),
+      *Utf8String(dx_pixel_shaders->Get(depalettizing)->ToString()));
   instance_->dx_shaders["scaling"] = std::make_pair(
-      *String::Utf8Value(dx_vert_shaders->Get(depalettizing)->ToString()),
-      *String::Utf8Value(dx_pixel_shaders->Get(scaling)->ToString()));
+      *Utf8String(dx_vert_shaders->Get(depalettizing)->ToString()),
+      *Utf8String(dx_pixel_shaders->Get(scaling)->ToString()));
 
   instance_->gl_shaders["depalettizing"] = std::make_pair(
-      *String::Utf8Value(gl_vert_shaders->Get(depalettizing)->ToString()),
-      *String::Utf8Value(gl_frag_shaders->Get(depalettizing)->ToString()));
+      *Utf8String(gl_vert_shaders->Get(depalettizing)->ToString()),
+      *Utf8String(gl_frag_shaders->Get(depalettizing)->ToString()));
   instance_->gl_shaders["scaling"] = std::make_pair(
-      *String::Utf8Value(gl_vert_shaders->Get(scaling)->ToString()),
-      *String::Utf8Value(gl_frag_shaders->Get(scaling)->ToString()));
+      *Utf8String(gl_vert_shaders->Get(scaling)->ToString()),
+      *Utf8String(gl_frag_shaders->Get(scaling)->ToString()));
 
-  NanReturnUndefined();
+  return;
 }
 
 const int FOREGROUND_HOTKEY_ID = 1337;

@@ -10,22 +10,24 @@
 #include "v8-helpers/helpers.h"
 #include "node-psi/module.h"
 
-using node::SetPrototypeMethod;
+using Nan::Callback;
+using Nan::EscapableHandleScope;
+using Nan::FunctionCallbackInfo;
+using Nan::HandleScope;
+using Nan::Null;
+using Nan::Persistent;
+using Nan::SetPrototypeMethod;
+using Nan::To;
+using Nan::Utf8String;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
-using v8::Arguments;
 using v8::Exception;
 using v8::Function;
 using v8::FunctionTemplate;
-using v8::Handle;
-using v8::HandleScope;
 using v8::Local;
 using v8::Object;
-using v8::Persistent;
 using v8::String;
-using v8::ThrowException;
-using v8::TryCatch;
 using v8::Value;
 
 namespace sbat {
@@ -51,41 +53,40 @@ void WrappedProcess::set_process(Process* process) {
 Persistent<Function> WrappedProcess::constructor;
 
 void WrappedProcess::Init() {
-  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-  tpl->SetClassName(NanNew("CProcess"));
+  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+  tpl->SetClassName(Nan::New("CProcess").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   // functions
   SetPrototypeMethod(tpl, "injectDll", InjectDll);
   SetPrototypeMethod(tpl, "resume", Resume);
   
-  NanAssignPersistent(constructor, tpl->GetFunction());
+  constructor.Reset(tpl->GetFunction());
 }
 
-NAN_METHOD(WrappedProcess::New) {
-  NanScope();
-
+void WrappedProcess::New(const FunctionCallbackInfo<Value>& info) {
   WrappedProcess* process = new WrappedProcess();
-  process->Wrap(args.This());
+  process->Wrap(info.This());
 
-  NanReturnThis();
+  info.GetReturnValue().Set(info.This());
 }
 
-Handle<Value> WrappedProcess::NewInstance(Process* process) {
-  NanEscapableScope();
+Local<Value> WrappedProcess::NewInstance(Process* process) {
+  EscapableHandleScope scope;
 
-  Local<Object> instance = constructor->NewInstance();
+  Local<Function> cons = Nan::New<Function>(constructor);
+  Local<Object> instance = cons->NewInstance();
   WrappedProcess* wrapped = ObjectWrap::Unwrap<WrappedProcess>(instance);
   wrapped->set_process(process);
 
-  return NanEscapeScope(instance);
+  return scope.Escape(instance);
 }
 
 struct InjectDllContext {
   uv_work_t req;
   unique_ptr<wstring> dll_path;
   unique_ptr<string> inject_func;
-  unique_ptr<NanCallback> callback;
+  unique_ptr<Callback> callback;
   Persistent<Object> self;
   Process* process;
 
@@ -100,51 +101,49 @@ void InjectDllWork(uv_work_t* req) {
 }
 
 void InjectDllAfter(uv_work_t* req, int status) {
-  NanScope();
+  HandleScope scope;
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  Local<Value> err = NanNull();
+  Local<Value> err = Null();
   if (context->error->is_error()) {
-    err = Exception::Error(
-        NanNew<String>(reinterpret_cast<const uint16_t*>(context->error->message().c_str())));
+    err = Exception::Error(Nan::New(
+        reinterpret_cast<const uint16_t*>(context->error->message().c_str())).ToLocalChecked());
   }
 
   Local<Value> argv[] = { err };
-  context->callback->Call(NanNew<Object>(context->self), 1, argv);
+  context->callback->Call(Nan::New<Object>(context->self), 1, argv);
 
-  NanDisposePersistent(context->self);
+  context->self.Reset();
   delete context;
 }
 
-NAN_METHOD(WrappedProcess::InjectDll) {
-  NanScope();
-
-  assert(args.Length() == 3);
-  assert(args[2]->IsFunction());
+void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() == 3);
+  assert(info[2]->IsFunction());
 
   InjectDllContext* context = new InjectDllContext;
-  context->dll_path = ToWstring(args[0]->ToString());
-  context->inject_func.reset(new string(*NanUtf8String(args[1]->ToString())));
-  context->callback.reset(new NanCallback(args[2].As<Function>()));
-  NanAssignPersistent(context->self, args.This());
-  context->process = WrappedProcess::Unwrap(args);
+  context->dll_path = ToWstring(To<String>(info[0]).ToLocalChecked());
+  context->inject_func.reset(
+      new string(*Utf8String(To<String>(info[1]).ToLocalChecked())));
+  context->callback.reset(new Callback(info[2].As<Function>()));
+  context->self.Reset(info.This());
+  context->process = WrappedProcess::Unwrap(info);
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, InjectDllWork, InjectDllAfter);
 
-  NanReturnUndefined();
+  return;
 }
 
-NAN_METHOD(WrappedProcess::Resume) {
-  NanScope();
-  Process* process = WrappedProcess::Unwrap(args);
+void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
+  Process* process = WrappedProcess::Unwrap(info);
 
   WindowsError error = WindowsError(process->Resume());
   if (error.is_error()) {
-    NanReturnValue(Exception::Error(
-        NanNew<String>(reinterpret_cast<const uint16_t*>(error.message().c_str()))));
+    info.GetReturnValue().Set(Exception::Error(Nan::New(
+        reinterpret_cast<const uint16_t*>(error.message().c_str())).ToLocalChecked()));
   }
 
-  NanReturnUndefined();
+  return;
 }
 
 }  // namespace psi

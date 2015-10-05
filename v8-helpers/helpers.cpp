@@ -12,7 +12,6 @@ using std::unique_ptr;
 using std::vector;
 using std::wstring;
 using v8::Array;
-using v8::Handle;
 using v8::Local;
 using v8::Integer;
 using v8::Int32;
@@ -22,7 +21,7 @@ using v8::Value;
 
 namespace sbat {
 
-unique_ptr<wstring> ToWstring(const Handle<String>& v8_str) {
+unique_ptr<wstring> ToWstring(const Local<String>& v8_str) {
   unique_ptr<wstring> result(new wstring());
   result->resize(v8_str->Length());
   v8_str->Write(reinterpret_cast<uint16_t*>(&(*result)[0]));
@@ -53,11 +52,11 @@ ScopelessUnsigned::ScopelessUnsigned(uint32_t value)
 ScopelessUnsigned::~ScopelessUnsigned() { }
 
 Local<Value> ScopelessSigned::ApplyCurrentScope() const {
-    return NanNew(value_);
+    return Nan::New(value_);
 }
 
 Local<Value> ScopelessUnsigned::ApplyCurrentScope() const {
-    return NanNew(value_);
+    return Nan::New(value_);
 }
 
 ScopelessArray::ScopelessArray(int length) : items_(length) {
@@ -71,7 +70,7 @@ ScopelessArray* ScopelessArray::New(int length) {
 }
 
 Local<Value> ScopelessArray::ApplyCurrentScope() const {
-  Local<Array> result = NanNew<Array>(items_.size());
+  Local<Array> result = Nan::New<Array>(items_.size());
   for (size_t i = 0; i < items_.size(); ++i) {
     result->Set(i, items_[i]->ApplyCurrentScope());
   }
@@ -93,7 +92,7 @@ ScopelessString* ScopelessString::New(const string& value) {
 }
 
 Local<Value> ScopelessString::ApplyCurrentScope() const {
-  return NanNew(value_.c_str());
+  return Nan::New(value_.c_str()).ToLocalChecked();
 }
 
 }  // namespace sbat

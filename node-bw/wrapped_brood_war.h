@@ -1,8 +1,8 @@
 #ifndef NODE_BW_WRAPPED_BROOD_WAR_H_
 #define NODE_BW_WRAPPED_BROOD_WAR_H_
 
-#include <nan.h>
 #include <node.h>
+#include <nan.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -16,29 +16,30 @@ namespace bw {
 
 template <typename target_t, typename getter_t>
 inline void SetProtoAccessor(target_t& tpl, const char* name, getter_t getter) {
-  tpl->PrototypeTemplate()->SetAccessor(NanNew(name), getter); 
+  Nan::SetAccessor(tpl->PrototypeTemplate(), Nan::New<v8::String>(name).ToLocalChecked(), getter);
 }
 
 template <typename target_t, typename getter_t, typename setter_t>
 inline void SetProtoAccessor(target_t& tpl, const char* name, getter_t getter, setter_t setter) {
-  tpl->PrototypeTemplate()->SetAccessor(NanNew(name), getter, setter); 
+  Nan::SetAccessor(tpl->PrototypeTemplate(), Nan::New<v8::String>(name).ToLocalChecked(), getter,
+      setter);
 }
 
 extern "C" NODE_MODULE_EXPORT void SetBroodWarInputDisabled(bool disabled);
 
 class EventHandlerContext {
 public:
-  explicit EventHandlerContext(v8::Handle<v8::Function> callback);
+  explicit EventHandlerContext(v8::Local<v8::Function> callback);
   ~EventHandlerContext();
-  v8::Handle<v8::Function> callback() const;
+  v8::Local<v8::Function> callback() const;
 private:
-  v8::Persistent<v8::Function> callback_;
+  Nan::Persistent<v8::Function> callback_;
 };
 
-class BwPlayerSlot : public node::ObjectWrap {
+class BwPlayerSlot : public Nan::ObjectWrap {
 public:
   static void Init();
-  static v8::Handle<v8::Value> NewInstance(PlayerInfo* player_info);
+  static v8::Local<v8::Value> NewInstance(PlayerInfo* player_info);
 
 private:
   BwPlayerSlot();
@@ -49,22 +50,22 @@ private:
   BwPlayerSlot(const BwPlayerSlot&);
   BwPlayerSlot& operator=(const BwPlayerSlot&);
 
-  static v8::Persistent<v8::Function> constructor;
-  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+  static Nan::Persistent<v8::Function> constructor;
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   // getters
-  static v8::Handle<v8::Value> GetPlayerId(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetStormId(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetType(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetRace(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetTeam(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetName(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+  static void GetPlayerId(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetStormId(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetType(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetRace(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetTeam(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetName(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
 
   template <class T>
   static PlayerInfo* Unwrap(const T &t) {
@@ -114,10 +115,10 @@ private:
   std::list<GameLoopFuncContext> completed_;
 };
 
-class WrappedBroodWar : public node::ObjectWrap {
+class WrappedBroodWar : public Nan::ObjectWrap {
 public:
   static void Init();
-  static v8::Handle<v8::Value> NewInstance(const v8::Arguments& args);
+  static v8::Local<v8::Value> NewInstance(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   typedef std::map<std::string, std::shared_ptr<EventHandlerContext>> EventHandlerMap;
   static std::map<WrappedBroodWar*, EventHandlerMap> event_handlers_;
@@ -126,67 +127,67 @@ private:
   WrappedBroodWar();
   ~WrappedBroodWar();
 
-  static v8::Persistent<v8::Function> constructor;
-  static v8::Handle<v8::Value> New(const v8::Arguments& args);
+  static Nan::Persistent<v8::Function> constructor;
+  static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   // accessors
-  static v8::Handle<v8::Value> GetCurrentMapPath(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetCurrentMapName(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetCurrentMapFolderPath(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetLocalPlayerId(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetLocalLobbyId(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetLocalPlayerName(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+  static void GetCurrentMapPath(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetCurrentMapName(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetCurrentMapFolderPath(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetLocalPlayerId(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetLocalLobbyId(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetLocalPlayerName(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
   static void SetLocalPlayerName(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetGameSpeed(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetIsBroodWar(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+      const Nan::PropertyCallbackInfo<void>& info);
+  static void GetGameSpeed(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetIsBroodWar(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
   static void SetIsBroodWar(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetIsMultiplayer(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+      const Nan::PropertyCallbackInfo<void>& info);
+  static void GetIsMultiplayer(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
   static void SetIsMultiplayer(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetIsHostingGame(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetWasBooted(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetBootReason(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetLobbyDirtyFlag(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+      const Nan::PropertyCallbackInfo<void>& info);
+  static void GetIsHostingGame(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetWasBooted(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetBootReason(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void GetLobbyDirtyFlag(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
   static void SetLobbyDirtyFlag(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-      const v8::AccessorInfo& info);
-  static v8::Handle<v8::Value> GetEventHandler(v8::Local<v8::String> property,
-      const v8::AccessorInfo& info);
+      const Nan::PropertyCallbackInfo<void>& info);
+  static void GetEventHandler(v8::Local<v8::String> property,
+      const Nan::PropertyCallbackInfo<v8::Value>& info);
   static void SetEventHandler(v8::Local<v8::String> property, v8::Local<v8::Value> value,
-      const v8::AccessorInfo& info);
+      const Nan::PropertyCallbackInfo<void>& info);
 
   // functions
-  static v8::Handle<v8::Value> SetSettings(const v8::Arguments& args);
-  static v8::Handle<v8::Value> InitProcess(const v8::Arguments& args);
-  static v8::Handle<v8::Value> InitSprites(const v8::Arguments& args);
-  static v8::Handle<v8::Value> InitPlayerInfo(const v8::Arguments& args);
-  static v8::Handle<v8::Value> ChooseNetworkProvider(const v8::Arguments& args);
-  static v8::Handle<v8::Value> CreateGame(const v8::Arguments& args);
-  static v8::Handle<v8::Value> SpoofGame(const v8::Arguments& args);
-  static v8::Handle<v8::Value> JoinGame(const v8::Arguments& args);
-  static v8::Handle<v8::Value> InitGameNetwork(const v8::Arguments& args);
-  static v8::Handle<v8::Value> AddComputer(const v8::Arguments& args);
-  static v8::Handle<v8::Value> SetRace(const v8::Arguments& args);
-  static v8::Handle<v8::Value> ProcessLobbyTurn(const v8::Arguments& args);
-  static v8::Handle<v8::Value> StartGameCountdown(const v8::Arguments& args);
-  static v8::Handle<v8::Value> RunGameLoop(const v8::Arguments& args);
-  static v8::Handle<v8::Value> SendMultiplayerChatMessage(const v8::Arguments& args);
-  static v8::Handle<v8::Value> DisplayIngameMessage(const v8::Arguments& args);
-  static v8::Handle<v8::Value> CleanUpForExit(const v8::Arguments& args);
+  static void SetSettings(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void InitProcess(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void InitSprites(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void InitPlayerInfo(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void ChooseNetworkProvider(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void CreateGame(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void SpoofGame(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void JoinGame(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void InitGameNetwork(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void AddComputer(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void SetRace(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void ProcessLobbyTurn(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void StartGameCountdown(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void RunGameLoop(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void SendMultiplayerChatMessage(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void DisplayIngameMessage(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void CleanUpForExit(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   // unwrapper helper
   template <class T>
@@ -210,7 +211,7 @@ private:
   // Functions for logging
   static void Log(void* arg, LogLevel level, const char* msg);
 
-  v8::Persistent<v8::String> log_symbol_;
+  Nan::Persistent<v8::String> log_symbol_;
   BroodWar* brood_war_;
   static GameLoopQueue* game_loop_queue_;
 };
