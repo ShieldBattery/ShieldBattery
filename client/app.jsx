@@ -4,7 +4,7 @@ import { applyMiddleware, createStore, combineReducers, compose } from 'redux'
 import thunk from 'redux-thunk'
 import promise from 'redux-promise'
 import { reduxReactRouter, ReduxRouter } from 'redux-router'
-import { batchedUpdatesMiddleware } from 'redux-batched-updates'
+import { batchedUpdatesMiddleware } from './dom/batched-updates'
 import { Provider } from 'react-redux'
 import { createHistory } from 'history'
 import routes from './routes.jsx'
@@ -23,6 +23,14 @@ const createMiddlewaredStore = compose(
 )(createStore)
 const store = createMiddlewaredStore(topLevelReducer, window._sbInitData)
 registerDispatch(store.dispatch)
+
+if (module.hot) {
+  // Enable Webpack hot module replacement for reducers
+  module.hot.accept('./reducers', () => {
+    const nextRootReducer = require('./reducers') // eslint-disable-line import/no-require
+    store.replaceReducer(nextRootReducer)
+  })
+}
 
 export default class App extends React.Component {
   render() {
