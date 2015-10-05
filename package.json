@@ -63,7 +63,7 @@
     "react": "^0.13.1",
     "react-redux": "^0.2.2",
     "react-router": "1.0.0-beta3",
-    "redis": "^0.12.1",
+    "redis": "^2.1.0",
     "redux": "^1.0.0-rc",
     "redux-batched-updates": "^0.1.0",
     "redux-promise": "^0.5.0",
