@@ -15,7 +15,7 @@ class CheckBox extends React.Component {
   }
 
   componentDidMount() {
-    const node = this.refs.input.getDOMNode()
+    const node = this.refs.input
     if (node.checked !== this.state.checked) {
       // Disabling lint as I think this is the only way to really do this, unfortunately
       this.setState({ checked: node.checked }) // eslint-disable-line react/no-did-mount-set-state
@@ -63,18 +63,18 @@ class CheckBox extends React.Component {
   }
 
   isChecked() {
-    return this.refs.input.getDOMNode().checked
+    return this.refs.input.checked
   }
 
   setChecked(checked) {
     if (!this.props.hasOwnProperty('checked') || this.props.checked === false) {
       this.setState({ checked })
-      this.refs.input.getDOMNode().checked = checked
+      this.refs.input.checked = checked
     }
   }
 
   getValue() {
-    return this.refs.input.getDOMNode().value
+    return this.refs.input.value
   }
 
   isKeyboardFocused() {
@@ -82,7 +82,7 @@ class CheckBox extends React.Component {
   }
 
   _handleChange(e) {
-    const inputChecked = this.refs.input.getDOMNode().checked
+    const inputChecked = this.refs.input.checked
     if (!this.props.hasOwnProperty('checked')) {
       const newState = { checked: inputChecked }
       if (!this.mouseActive) {

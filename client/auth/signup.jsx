@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { pushState } from 'redux-router'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -16,10 +17,6 @@ import auther from './auther'
 
 @connect(state => ({ auth: state.auth, router: state.router }))
 class Signup extends React.Component {
-  static contextTypes = {
-    router: React.PropTypes.object.isRequired,
-  }
-
   constructor(props, context) {
     super(props, context)
     this.state = {
@@ -28,11 +25,11 @@ class Signup extends React.Component {
   }
 
   componentDidMount() {
-    redirectIfLoggedIn(this.props, this.context.router)
+    redirectIfLoggedIn(this.props)
   }
 
   componentWillReceiveProps(nextProps) {
-    redirectIfLoggedIn(nextProps, this.context.router)
+    redirectIfLoggedIn(nextProps)
   }
 
   render() {
@@ -112,7 +109,7 @@ class Signup extends React.Component {
   }
 
   onLogInClicked() {
-    this.context.router.transitionTo('/login', this.props.router.location.query)
+    this.props.dispatch(pushState(null, '/login', this.props.router.location.query))
   }
 
   onSubmitted(values) {

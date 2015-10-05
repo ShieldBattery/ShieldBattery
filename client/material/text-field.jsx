@@ -1,8 +1,7 @@
-import React from 'react/addons'
+import React from 'react'
+import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
-
-const TransitionGroup = React.addons.CSSTransitionGroup
 
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
@@ -55,7 +54,11 @@ class TextField extends React.Component {
         <input {...this.props} {...inputProps} />
         <hr className='text-field-underline'/>
         <hr className='text-field-focus-underline'/>
-        <TransitionGroup transitionName='text-field-error' className='text-field-error-container'>
+        <TransitionGroup
+          transitionName='text-field-error'
+          className='text-field-error-container'
+          transitionEnterTimeout={1000}
+          transitionLeaveTimeout={1000}>
           {errorText}
         </TransitionGroup>
       </div>
@@ -63,11 +66,11 @@ class TextField extends React.Component {
   }
 
   blur() {
-    this._getInputNode().blur()
+    this.refs.input.blur()
   }
 
   focus() {
-    this._getInputNode().focus()
+    this.refs.input.focus()
   }
 
   clearValue() {
@@ -75,16 +78,12 @@ class TextField extends React.Component {
   }
 
   getValue() {
-    return this._getInputNode().value
+    return this.refs.input.value
   }
 
   setValue(value) {
-    this._getInputNode().value = value
+    this.refs.input.value = value
     this.setState({ hasValue: !!value })
-  }
-
-  _getInputNode() {
-    return this.refs.input.getDOMNode()
   }
 
   _onInputBlur(e) {

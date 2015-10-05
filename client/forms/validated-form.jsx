@@ -1,4 +1,4 @@
-import React from 'react/addons'
+import React from 'react'
 import classnames from 'classnames'
 
 class ValidatedForm extends React.Component {
@@ -20,7 +20,7 @@ class ValidatedForm extends React.Component {
         // Children without names just won't be validated
         return child
       }
-      return React.addons.cloneWithProps(child, {
+      return React.cloneElement(child, {
         key: child.props.name,
         ref: child.props.name,
         onChange: this._onInputChange,

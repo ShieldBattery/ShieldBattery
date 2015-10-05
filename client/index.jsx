@@ -1,6 +1,7 @@
 import '../styles/site.styl'
 
 import React from 'react'
+import { render } from 'react-dom'
 import App from './app.jsx'
 
 // initialize socket
@@ -18,4 +19,4 @@ new Promise((resolve, reject) => {
       reject(new Error('app element could not be found'))
     }
   })
-}).then(elem => React.render(<App/>, elem))
+}).then(elem => render(<App/>, elem))
