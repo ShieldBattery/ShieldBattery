@@ -17,7 +17,8 @@ class CheckBox extends React.Component {
   componentDidMount() {
     const node = this.refs.input.getDOMNode()
     if (node.checked !== this.state.checked) {
-      this.setState({ checked: node.checked })
+      // Disabling lint as I think this is the only way to really do this, unfortunately
+      this.setState({ checked: node.checked }) // eslint-disable-line react/no-did-mount-set-state
     }
   }
 

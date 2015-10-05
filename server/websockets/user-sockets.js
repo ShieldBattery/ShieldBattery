@@ -1,55 +1,6 @@
 import SimpleMap from '../../shared/simple-map'
 import { EventEmitter } from 'events'
 
-class UserManager extends EventEmitter {
-  constructor(nydus) {
-    super()
-    this.nydus = nydus
-    this.users = new SimpleMap()
-
-    this.nydus.on('connection', socket => {
-      const userName = socket.handshake.userName
-      if (!this.users.has(userName)) {
-        const user = new UserSocketSet(this, userName, socket)
-        this.users.put(userName, user)
-        this.emit('newUser', user)
-
-        user.once('disconnect', () => this._removeUser(userName))
-      } else {
-        this.users.get(userName).add(socket)
-      }
-    })
-
-    this.nydus.router.subscribe('/users/:user', (req, res) => {
-      if (req.socket.handshake.userName !== req.params.user) {
-        return res.fail(403, 'forbidden',
-            { msg: 'You can only subscribe to your own user channel' })
-      }
-
-      res.complete()
-      const user = this.get(req.socket)
-      user.emit('subscribe', user, req.socket)
-    })
-  }
-
-  get(nameOrSocket) {
-    let name
-    if (typeof nameOrSocket == 'string') {
-      name = nameOrSocket
-    } else if (nameOrSocket && nameOrSocket.handshake && nameOrSocket.handshake.userName) {
-      name = nameOrSocket.handshake.userName
-    }
-
-    return this.users.get(name)
-  }
-
-  _removeUser(userName) {
-    this.users.del(userName)
-    this.emit('userQuit', userName)
-    return this
-  }
-}
-
 class UserSocketSet extends EventEmitter {
   constructor(manager, userName, initSocket) {
     super()
@@ -97,6 +48,55 @@ class UserSocketSet extends EventEmitter {
 
   revoke(topicPath) {
     this.manager.nydus.revoke(this.sockets, topicPath)
+  }
+}
+
+class UserManager extends EventEmitter {
+  constructor(nydus) {
+    super()
+    this.nydus = nydus
+    this.users = new SimpleMap()
+
+    this.nydus.on('connection', socket => {
+      const userName = socket.handshake.userName
+      if (!this.users.has(userName)) {
+        const user = new UserSocketSet(this, userName, socket)
+        this.users.put(userName, user)
+        this.emit('newUser', user)
+
+        user.once('disconnect', () => this._removeUser(userName))
+      } else {
+        this.users.get(userName).add(socket)
+      }
+    })
+
+    this.nydus.router.subscribe('/users/:user', (req, res) => {
+      if (req.socket.handshake.userName !== req.params.user) {
+        return res.fail(403, 'forbidden',
+            { msg: 'You can only subscribe to your own user channel' })
+      }
+
+      res.complete()
+      const user = this.get(req.socket)
+      user.emit('subscribe', user, req.socket)
+    })
+  }
+
+  get(nameOrSocket) {
+    let name
+    if (typeof nameOrSocket == 'string') {
+      name = nameOrSocket
+    } else if (nameOrSocket && nameOrSocket.handshake && nameOrSocket.handshake.userName) {
+      name = nameOrSocket.handshake.userName
+    }
+
+    return this.users.get(name)
+  }
+
+  _removeUser(userName) {
+    this.users.del(userName)
+    this.emit('userQuit', userName)
+    return this
   }
 }
 
