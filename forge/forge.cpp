@@ -419,7 +419,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
         static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_)) + 0.5));
     break;
   case WM_SYSKEYDOWN:
-    if (wparam == VK_MENU && (lparam & 0x40000000)) {
+    if (wparam == VK_MENU) {
       instance_->PerformScaledClipCursor(nullptr);
     }
     break;
