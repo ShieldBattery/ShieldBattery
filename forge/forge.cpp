@@ -308,7 +308,7 @@ void WndProcWorkerAfter(void* arg) {
 
 void Forge::RunWndProc(const FunctionCallbackInfo<Value>& info) {
   assert(instance_->window_handle_ != NULL);
-  assert(args.Length() > 0);
+  assert(info.Length() > 0);
   Local<Function> cb = info[0].As<Function>();
 
   WndProcContext* context = new WndProcContext();
@@ -328,7 +328,7 @@ void Forge::EndWndProc(const FunctionCallbackInfo<Value>& info) {
 
 void Forge::SetShaders(const FunctionCallbackInfo<Value>& info) {
   assert(instance_->window_handle_ == NULL);
-  assert(args.Length() >= 1);
+  assert(info.Length() >= 1);
 
   Local<Object> dx_vert_shaders = Local<Object>::Cast(info[0]);
   Local<Object> dx_pixel_shaders = Local<Object>::Cast(info[1]);
