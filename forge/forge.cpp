@@ -59,7 +59,7 @@ Forge::Forge()
       mouse_resolution_width_(0),
       mouse_resolution_height_(0),
       is_started_(false),
-      should_clip_cursor(false),
+      should_clip_cursor_(false),
       captured_window_(NULL),
       stored_cursor_rect_(nullptr) {
   assert(instance_ == nullptr);
@@ -419,7 +419,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
         static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
         static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_)) + 0.5));
 
-    if (instance_->should_clip_cursor) {
+    if (instance_->should_clip_cursor_) {
       // Window is active and the cursor is over the BW window, clip the cursor
       RECT clip_rect;
       clip_rect.left = 0;
@@ -427,18 +427,18 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       clip_rect.right = 640;
       clip_rect.bottom = 480;
       instance_->PerformScaledClipCursor(&clip_rect);
-      instance_->should_clip_cursor = false;
+      instance_->should_clip_cursor_ = false;
     }
     break;
   case WM_SYSKEYDOWN:
     if (wparam == VK_MENU) {
-      instance_->should_clip_cursor = false;
+      instance_->should_clip_cursor_ = false;
       instance_->PerformScaledClipCursor(nullptr);
     }
     break;
   case WM_SYSKEYUP:
     if (wparam == VK_MENU) {
-      instance_->should_clip_cursor = true;
+      instance_->should_clip_cursor_ = true;
       instance_->HandleAltRelease();
     }
     break;
@@ -450,10 +450,10 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
 
     if (wparam) {
       // Window is now active
-      instance_->should_clip_cursor = true;
+      instance_->should_clip_cursor_ = true;
     } else {
       // Window is now inactive, unclip the mouse (and disable input)
-      instance_->should_clip_cursor = false;
+      instance_->should_clip_cursor_ = false;
       instance_->PerformScaledClipCursor(nullptr);
     }
     return DefWindowProc(window_handle, msg, wparam, lparam);
