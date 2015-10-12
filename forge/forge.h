@@ -125,7 +125,7 @@ private:
   int mouse_resolution_width_;
   int mouse_resolution_height_;
   bool is_started_;
-  bool should_clip_cursor;
+  bool should_clip_cursor_;
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
 };
