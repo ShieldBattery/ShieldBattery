@@ -727,13 +727,14 @@ BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
   }
   // BW thinks its running full screen 640x480, so it will request a 640x480 clip
   // Instead, we'll request a mouse_resolution-sized rect at the top-left of our client area
+  double x_scale = mouse_resolution_width_ / 640.0;
+  double y_scale = mouse_resolution_height_ / 480.0;
+
   RECT actual_rect;
-  actual_rect.left = static_cast<int>(
-    (lpRect->left * (mouse_resolution_width_ / 640.0)) + 0.5) + client_x_;
-  actual_rect.top = static_cast<int>(
-    (lpRect->top * (mouse_resolution_height_ / 480.0)) + 0.5) + client_y_;
-  actual_rect.right = actual_rect.left + mouse_resolution_width_;
-  actual_rect.bottom = actual_rect.top + mouse_resolution_height_;
+  actual_rect.left = static_cast<int>(lpRect->left * x_scale + 0.5) + client_x_;
+  actual_rect.top = static_cast<int>(lpRect->top * y_scale + 0.5) + client_y_;
+  actual_rect.right = static_cast<int>(lpRect->right * x_scale + 0.5) + client_x_;
+  actual_rect.bottom = static_cast<int>(lpRect->bottom * y_scale + 0.5) + client_y_;
 
   return hooks_.ClipCursor->original()(&actual_rect);
 }
