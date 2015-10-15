@@ -718,10 +718,10 @@ BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
   if (lpRect == NULL) {
     SetInputDisabled(true);
     // if they're clearing the clip, we just call through because there's nothing to adjust
-    return instance_->hooks_.ClipCursor->original()(lpRect);
+    return hooks_.ClipCursor->original()(lpRect);
   }
   SetInputDisabled(false);
-  if (!instance_->is_started_) {
+  if (!is_started_) {
     // if we're not actually in the game yet, just ignore any requests to lock the cursor
     return TRUE;
   }
@@ -729,13 +729,13 @@ BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
   // Instead, we'll request a mouse_resolution-sized rect at the top-left of our client area
   RECT actual_rect;
   actual_rect.left = static_cast<int>(
-    (lpRect->left * (instance_->mouse_resolution_width_ / 640.0)) + 0.5) + instance_->client_x_;
+    (lpRect->left * (mouse_resolution_width_ / 640.0)) + 0.5) + client_x_;
   actual_rect.top = static_cast<int>(
-    (lpRect->top * (instance_->mouse_resolution_height_ / 480.0)) + 0.5) + instance_->client_y_;
-  actual_rect.right = actual_rect.left + instance_->mouse_resolution_width_;
-  actual_rect.bottom = actual_rect.top + instance_->mouse_resolution_height_;
+    (lpRect->top * (mouse_resolution_height_ / 480.0)) + 0.5) + client_y_;
+  actual_rect.right = actual_rect.left + mouse_resolution_width_;
+  actual_rect.bottom = actual_rect.top + mouse_resolution_height_;
 
-  return instance_->hooks_.ClipCursor->original()(&actual_rect);
+  return hooks_.ClipCursor->original()(&actual_rect);
 }
 
 BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
@@ -834,13 +834,13 @@ void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
 
 void Forge::HandleAltRelease() {
   RECT client_rect;
-  GetClientRect(instance_->window_handle_, &client_rect);
+  GetClientRect(window_handle_, &client_rect);
   ClientRectToScreenRect(&client_rect);
   POINT cursor_position;
   GetCursorPos(&cursor_position);
 
   if (PtInRect(&client_rect, cursor_position)) {
-    instance_->PerformScaledClipCursor(instance_->stored_cursor_rect_.get());
+    PerformScaledClipCursor(stored_cursor_rect_.get());
   }
 }
 
@@ -848,11 +848,11 @@ void Forge::ClientRectToScreenRect(LPRECT client_rect) {
   POINT top_left;
   top_left.x = client_rect->left;
   top_left.y = client_rect->top;
-  ClientToScreen(instance_->window_handle_, &top_left);
+  ClientToScreen(window_handle_, &top_left);
   POINT bottom_right;
   bottom_right.x = client_rect->right;
   bottom_right.y = client_rect->bottom;
-  ClientToScreen(instance_->window_handle_, &bottom_right);
+  ClientToScreen(window_handle_, &bottom_right);
   client_rect->left = top_left.x;
   client_rect->top = top_left.y;
   client_rect->right = bottom_right.x;
