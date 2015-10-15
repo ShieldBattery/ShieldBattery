@@ -422,10 +422,14 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     if (instance_->should_clip_cursor_) {
       // Window is active and the cursor is over the BW window, clip the cursor
       RECT clip_rect;
-      clip_rect.left = 0;
-      clip_rect.top = 0;
-      clip_rect.right = 640;
-      clip_rect.bottom = 480;
+      if (instance_->stored_cursor_rect_ != nullptr) {
+        clip_rect = *instance_->stored_cursor_rect_;
+      } else {
+        clip_rect.left = 0;
+        clip_rect.top = 0;
+        clip_rect.right = 640;
+        clip_rect.bottom = 480;
+      }
       instance_->PerformScaledClipCursor(&clip_rect);
       instance_->should_clip_cursor_ = false;
     }
@@ -741,13 +745,17 @@ BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
 
 BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
   if (lpRect == NULL) {
-    instance_->stored_cursor_rect_.release();
+    instance_->stored_cursor_rect_ = nullptr;
     return instance_->PerformScaledClipCursor(lpRect);
   }
 
   instance_->stored_cursor_rect_ = unique_ptr<RECT>(new RECT(*lpRect));
 
-  return instance_->PerformScaledClipCursor(lpRect);
+  if (instance_->IsCursorInWindow()) {
+    return instance_->PerformScaledClipCursor(lpRect);
+  } else {
+    return TRUE;
+  }
 }
 
 typedef HRESULT (__stdcall *DirectSoundCreateFunc)(const GUID* device,
@@ -834,13 +842,7 @@ void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
 }
 
 void Forge::HandleAltRelease() {
-  RECT client_rect;
-  GetClientRect(window_handle_, &client_rect);
-  ClientRectToScreenRect(&client_rect);
-  POINT cursor_position;
-  GetCursorPos(&cursor_position);
-
-  if (PtInRect(&client_rect, cursor_position)) {
+  if (IsCursorInWindow()) {
     PerformScaledClipCursor(stored_cursor_rect_.get());
   }
 }
@@ -858,6 +860,16 @@ void Forge::ClientRectToScreenRect(LPRECT client_rect) {
   client_rect->top = top_left.y;
   client_rect->right = bottom_right.x;
   client_rect->bottom = bottom_right.y;
+}
+
+bool Forge::IsCursorInWindow() {
+  RECT client_rect;
+  GetClientRect(window_handle_, &client_rect);
+  ClientRectToScreenRect(&client_rect);
+  POINT cursor_position;
+  GetCursorPos(&cursor_position);
+
+  return PtInRect(&client_rect, cursor_position) != FALSE;
 }
 
 }  // namespace forge

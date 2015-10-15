@@ -62,6 +62,7 @@ private:
   Forge& operator=(const Forge&);
   BOOL PerformScaledClipCursor(LPRECT lpRect);
   void HandleAltRelease();
+  bool IsCursorInWindow();
   void ClientRectToScreenRect(const LPRECT client_rect);
   void CalculateMouseResolution(uint32 width, uint32 height);
 
