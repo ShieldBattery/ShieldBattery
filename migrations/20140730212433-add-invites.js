@@ -1,5 +1,14 @@
-var dbm = require('db-migrate');
-var type = dbm.dataType;
+'use strict'
+
+let dbm
+  , type
+  , seed
+
+exports.setup = function(options, seedLink) {
+  dbm = options.dbmigrate
+  type = dbm.dataType
+  seed = seedLink
+}
 
 exports.up = function(db, callback) {
   db.createTable('invites',
