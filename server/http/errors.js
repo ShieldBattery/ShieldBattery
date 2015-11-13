@@ -14,7 +14,7 @@ class HttpError extends Error {
   }
 
   toString() {
-    const str = this.name || this.constructor.name || this.constructor.prototype.name
+    let str = this.name || this.constructor.name || this.constructor.prototype.name
     if (this.message) str += ': ' + this.message
     if (this.cause) str += '; caused by ' + this.cause.toString()
 
