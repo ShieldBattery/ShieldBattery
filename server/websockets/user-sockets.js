@@ -2,11 +2,11 @@ import SimpleMap from '../../shared/simple-map'
 import { EventEmitter } from 'events'
 
 class UserSocketSet extends EventEmitter {
-  constructor(manager, userName, initSocket) {
+  constructor(manager, name, initSocket) {
     super()
     this.manager = manager
-    this.userName = userName
-    this._publishPath = '/users/' + encodeURIComponent(this.userName)
+    this.name = name
+    this._publishPath = '/users/' + encodeURIComponent(this.name)
     this.sockets = initSocket ? [ initSocket ] : []
 
     if (initSocket) {

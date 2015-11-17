@@ -9,7 +9,7 @@ import log from './server/logging/logger'
 const apiHandlers =
   fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
   .filter(filename => /\.js$/.test(filename))
-  .map(filename => require('./server/wsapi/' + filename))
+  .map(filename => require('./server/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {
@@ -28,7 +28,9 @@ class WebsocketServer {
     this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
     this.connectedUsers = 0
 
-    apiHandlers.forEach(handler => handler(this.nydus, this.userSockets))
+    for (const handler of apiHandlers) {
+      handler(this.nydus, this.userSockets)
+    }
 
     this.userSockets
       .on('newUser', () => this.connectedUsers++)
