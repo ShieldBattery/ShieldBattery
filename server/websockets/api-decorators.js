@@ -3,7 +3,7 @@
 const MOUNT_PATH = Symbol('mountPath')
 export function Mount(path) {
   return function(target) {
-    target[MOUNT_PATH] = path
+    target.prototype[MOUNT_PATH] = path
   }
 }
 
