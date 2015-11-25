@@ -1,10 +1,10 @@
-var constants = require('../../shared/constants')
-  , invites = require('../models/invites')
-  , httpErrors = require('../http/errors')
-  , checkPermissions = require('../permissions/check-permissions')
-  , cuid = require('cuid')
+import constants from '../../shared/constants'
+import invites from '../models/invites'
+import httpErrors from '../http/errors'
+import checkPermissions from '../permissions/check-permissions'
+import cuid from 'cuid'
 
-module.exports = function(router) {
+export default function(router) {
   router
     .post('/', createInvite)
     .get('/', checkPermissions(['acceptInvites']), listInvites)
@@ -12,14 +12,15 @@ module.exports = function(router) {
 }
 
 function* createInvite(next) {
-  let b = this.request.body
-  let invite =  { email: b.email
-                , teamliquidName: b.teamliquidName
-                , os: b.os
-                , browser: b.browser
-                , graphics: b.graphics
-                , canHost: b.canHost
-                }
+  const b = this.request.body
+  const invite = {
+    email: b.email,
+    teamliquidName: b.teamliquidName,
+    os: b.os,
+    browser: b.browser,
+    graphics: b.graphics,
+    canHost: b.canHost,
+  }
   if (!invite.email || !constants.isValidEmail(invite.email)) {
     throw new httpErrors.BadRequestError('Invalid email')
   }
@@ -27,7 +28,7 @@ function* createInvite(next) {
   try {
     yield* invites.create(invite)
   } catch (err) {
-    this.log.error({ err: err }, 'error creating invite')
+    this.log.error({ err }, 'error creating invite')
     throw err
   }
 
@@ -37,7 +38,7 @@ function* createInvite(next) {
 function* listInvites(next) {
   try {
     if (this.query.accepted) {
-      if (this.query.accepted == 'true') {
+      if (this.query.accepted === 'true') {
         this.body = yield* invites.getAccepted()
       } else {
         this.body = yield* invites.getUnaccepted()
@@ -46,10 +47,9 @@ function* listInvites(next) {
       this.body = yield* invites.getAll()
     }
   } catch (err) {
-    this.log.error({ err: err }, 'error getting invites')
+    this.log.error({ err }, 'error getting invites')
     throw err
   }
-
 }
 
 function* acceptInvite(next) {
@@ -60,11 +60,11 @@ function* acceptInvite(next) {
     throw new httpErrors.NotImplementedError('Not implemented')
   }
 
-  let token = cuid()
+  const token = cuid()
   try {
     this.body = yield* invites.accept(this.params.email, token)
   } catch (err) {
-    this.log.error({ err: err }, 'error accepting invite')
+    this.log.error({ err }, 'error accepting invite')
     throw err
   }
 }

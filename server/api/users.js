@@ -1,13 +1,13 @@
-var constants = require('../../shared/constants')
-  , bcrypt = require('bcrypt')
-  , thenify = require('thenify')
-  , users = require('../models/users')
-  , httpErrors = require('../http/errors')
-  , initSession = require('../session/init')
-  , setReturningCookie = require('../session/set-returning-cookie')
-  , checkPermissions = require('../permissions/check-permissions')
+import constants from '../../shared/constants'
+import bcrypt from 'bcrypt'
+import thenify from 'thenify'
+import users from '../models/users'
+import httpErrors from '../http/errors'
+import initSession from '../session/init'
+import setReturningCookie from '../session/set-returning-cookie'
+import checkPermissions from '../permissions/check-permissions'
 
-module.exports = function(router) {
+export default function(router) {
   router.post('/', createUser)
     .get('/:searchTerm', checkPermissions(['editPermissions']), find)
     .put('/:id', function(req, res, next) {
@@ -17,20 +17,20 @@ module.exports = function(router) {
 }
 
 function* find(next) {
-  let searchTerm = this.params.searchTerm
+  const searchTerm = this.params.searchTerm
 
   try {
-    let user = yield* users.find(searchTerm)
-    this.body = !!user ? [ user ] : []
+    const user = yield* users.find(searchTerm)
+    this.body = user ? [ user ] : []
   } catch (err) {
-    this.log.error({ err: err }, 'error finding user by name')
+    this.log.error({ err }, 'error finding user by name')
     throw err
   }
 }
 
-var bcryptHash = thenify(bcrypt.hash)
+const bcryptHash = thenify(bcrypt.hash)
 function* createUser(next) {
-  let { username, email, password } = this.request.body
+  const { username, email, password } = this.request.body
 
   if (!constants.isValidUsername(username) ||
       !constants.isValidEmail(email) ||
@@ -42,20 +42,20 @@ function* createUser(next) {
   try {
     hashed = yield bcryptHash(password, 10)
   } catch (err) {
-    this.log.error({ err: err }, 'error hashing password')
+    this.log.error({ err }, 'error hashing password')
     throw err
   }
 
   let result
   try {
-    let user = users.create(username, email, hashed)
+    const user = users.create(username, email, hashed)
     result = yield* user.save()
   } catch (err) {
-    if (err.code && err.code == 23505) {
+    if (err.code && err.code === 23505) {
       // TODO(tec27): this is a nasty check, we should find a better way of dealing with this
       throw new httpErrors.ConflictError('A user with that name already exists')
     }
-    this.log.error({ err: err }, 'error saving user')
+    this.log.error({ err }, 'error saving user')
     throw err
   }
 

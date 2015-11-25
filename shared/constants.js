@@ -1,9 +1,6 @@
 // common constants, shared between multiple pieces of code (and likely client and server)
 function d(name, value) {
-  Object.defineProperty(module.exports, name,
-      { value: value
-      , enumerable: true
-      })
+  Object.defineProperty(module.exports, name, { value, enumerable: true })
 }
 
 d('USERNAME_PATTERN', /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/)

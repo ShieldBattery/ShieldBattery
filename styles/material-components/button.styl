@@ -1,0 +1,116 @@
+@require 'curves.styl'
+@require '../typography.styl'
+
+.material-button-label
+  relativeFontSize($textSizeButton)
+  font-weight 500
+  letter-spacing 0.020em
+  -webkit-font-smoothing antialiased
+
+.material-button
+  user-select none
+  position relative
+  outline 0
+  border none
+  display inline-table
+  padding 0 6px
+  margin 6px 8px
+  line-height 36px
+  min-height 36px
+  min-width 88px
+  white-space nowrap
+  text-align center
+  text-transform uppercase
+  font-style inherit
+  font-variant inherit
+  font-family inherit
+  text-decoration none
+  cursor pointer
+  overflow hidden
+  background-color transparent
+  doTransition(duration: 250ms)
+
+  &:not([disabled])
+    &:hover
+    &.focused
+      background-color rgba(255, 255, 255, 0.08)
+
+.card .material-button:not([disabled])
+  &:hover
+  &.focused
+    background-color rgba(255, 255, 255, 0.05)
+
+.material-button
+  margin 6px 4px
+  padding 0 8px
+  user-select none
+  border-radius 2px
+
+  .material-button-label
+    color $colorTextPrimary
+
+  &[disabled]
+    .material-button-label
+      color $colorTextFaint
+
+.flat-button.primary:not([disabled])
+  .material-button-label
+    color $blue400
+
+.flat-button.accent:not([disabled])
+  .material-button-label
+    color $amberA400
+
+.raised-button:not([disabled])
+  shadow1()
+
+  &:active
+    shadow4()
+
+.raised-button.primary:not([disabled])
+  background-color $blue500
+
+  &:hover
+  &.focused
+    background-color $blue600
+    color darken($blue500, 5%)
+
+  &:active
+    background-color $blue700
+
+.raised-button.accent:not([disabled])
+  background-color $amberA400
+
+  .material-button-label
+    color rgba(0, 0, 0, 0.87)
+
+  &:hover
+  &.focused
+    background-color darken($amberA400, 8%)
+
+  &:active
+    background-color darken($amberA400, 16%)
+
+.raised-button[disabled]
+  background-color rgba(255, 255, 255, 0.12)
+
+.card .raised-button[disabled]
+  background-color rgba(255, 255, 255, 0.08)
+
+.icon-button
+  position relative
+  padding 0
+  outline 0
+  border none
+  border-radius 50%
+  background-color transparent
+  user-select none
+  white-space nowrap
+  text-align center
+  vertical-align middle
+  font-style inherit
+  font-variant inherit
+  font-size 1rem
+  text-decoration none
+  cursor pointer
+  doTransition(duration: 250ms)
