@@ -2,7 +2,6 @@
   "parser": "babel-eslint",
   "plugins": [
     "babel",
-    "import",
     "react"
   ],
 
@@ -178,7 +177,7 @@
     "space-after-function-name": 0,
     "space-after-keywords": [2, "always"],
     "space-before-blocks": [2, "always"],
-    "space-before-function-paren": [0, "never"],
+    "space-before-function-paren": [2, "never"],
     "space-in-brackets": 0,
     "space-in-parens": [2, "never"],
     "space-infix-ops": [2, { "int32Hint": true }],
@@ -201,13 +200,6 @@
     "babel/generator-star-spacing": [2, "after"],
     "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
     "babel/space-in-brackets": 0,
-
-    "import/no-unresolved": 0,
-    "import/named": 0,
-    "import/namespace": 0,
-    "import/no-require": 2,
-    "import/no-named-as-default": 2,
-    "import/default": 0,
 
     "react/display-name": 0,
     "react/jsx-boolean-value": [2, "always"],
