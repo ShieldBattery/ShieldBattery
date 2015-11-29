@@ -65,6 +65,7 @@ class Login extends React.Component {
         <ValidatedForm ref='form'
             formTitle={'Please log in'}
             errorText={errContents}
+            errorsClassName='flex-100'
             fieldsClassName='flex-row flex-wrap'
             buttons={buttons}
             onSubmitted={values => this.onSubmitted(values)}>
