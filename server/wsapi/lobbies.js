@@ -54,6 +54,7 @@ export class Lobby extends EventEmitter {
     return this._serialized
   }
 
+  // Adds a player in the first available slot
   addPlayer(name, race = 'r') {
     if (this.players.size >= this.numSlots) throw new Error('no open slots')
 
@@ -69,6 +70,21 @@ export class Lobby extends EventEmitter {
     if (slot === this.slots.length) throw new Error('no empty slot found')
 
     return { player, slot }
+  }
+
+  // Removes the player with specified `id`, returning whether or not the lobby should be closed
+  removePlayer(id) {
+    if (!this.players.has(id)) throw new Error('player not found')
+    this.players = this.players.delete(id)
+    for (let slot = 0; slot < this.slots.length; slot++) {
+      if (this.slots[slot] && this.slots[slot].id === id) {
+        delete this.slots[slot]
+        break
+      }
+    }
+
+    // TODO(tec27): handle computers
+    return this.players.size === 0
   }
 }
 
