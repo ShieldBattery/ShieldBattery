@@ -117,7 +117,7 @@ export class LobbyApi {
     this.lobbyMap = this.lobbyMap.set(name, lobby)
     this.userToLobby = this.userToLobby.set(user, lobby)
 
-    // TODO(travisc): in theory these should be unnecessary (we just need to monitor user
+    // TODO(tec27): in theory these should be unnecessary (we just need to monitor user
     // disconnects out here, and let Lobby tell us when it can be closed on parts (map disconnects
     // through same part code). Then Lobby could have less complexity (no need for EE).
     lobby.on('close', () => this.lobbyMap = this.lobbyMap.delete(name))
