@@ -205,7 +205,6 @@
     "import/no-unresolved": 0,
     "import/named": 0,
     "import/namespace": 0,
-    "import/no-reassign": 2,
     "import/no-require": 2,
     "import/no-named-as-default": 2,
     "import/default": 0,
