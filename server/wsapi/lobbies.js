@@ -1,5 +1,4 @@
-import { EventEmitter } from 'events'
-import { Map } from 'immutable'
+import { Map, OrderedMap, Record } from 'immutable'
 import cuid from 'cuid'
 import errors from '../http/errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
@@ -20,71 +19,100 @@ function validateBody(bodyValidators) {
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 
-class Player {
-  constructor(name, race) {
-    this.name = name
-    this.id = cuid()
-    this.race = race
-  }
+const Player = new Record({ name: null, id: null, race: 'r', isComputer: false, slot: -1 })
+
+export const Players = {
+  createHuman(name, race, slot) {
+    return new Player({ name, race, id: cuid(), isComputer: false, slot })
+  },
+
+  createComputer(race, slot) {
+    return new Player({ name: 'robit', race, id: cuid(), isComputer: true, slot })
+  },
 }
 
-export class Lobby extends EventEmitter {
-  constructor(name, map, numSlots, hostName, hostRace = 'r') {
-    super()
-    this.name = name
-    this.map = map
-    this.numSlots = numSlots
-    this.players = new Map()
-    this.slots = new Array(numSlots)
-    this.hostName = hostName
-    const { player: hostPlayer } = this.addPlayer(hostName, hostRace)
-    this.hostId = hostPlayer.id
+const Lobby = new Record({
+  name: null,
+  map: null,
+  numSlots: 0,
+  players: new OrderedMap(),
+  hostId: null,
+})
 
-    const self = this
-    this._serialized = {
-      get name() { return self.name },
-      get map() { return self.map },
-      get numSlots() { return self.numSlots },
-      get host() { return { name: self.hostName, id: self.hostId } },
-      get filledSlots() { return self.players.size }
+
+export const Lobbies = {
+  // Creates a new lobby, and an initial host player in the first slot.
+  create(name, map, numSlots, hostName, hostRace = 'r') {
+    const host = Players.createHuman(hostName, hostRace, 0)
+    return new Lobby({
+      name,
+      map,
+      numSlots,
+      players: new OrderedMap({ [host.id]: host }),
+      hostId: host.id
+    })
+  },
+
+  // Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the
+  // open lobbies.
+  toSummaryJson(lobby) {
+    return JSON.stringify({
+      name: lobby.name,
+      map: lobby.map,
+      numSlots: lobby.numSlots,
+      host: { name: lobby.getIn(['players', lobby.hostId, 'name']), id: lobby.hostId },
+      filledSlots: lobby.players.size,
+    })
+  },
+
+  // Finds the next empty slot in the lobby. Returns -1 if there are no available slots.
+  findEmptySlot(lobby) {
+    if (lobby.numSlots <= lobby.players.size) {
+      return -1
     }
-  }
 
-  toJSON() {
-    return this._serialized
-  }
-
-  // Adds a player in the first available slot
-  addPlayer(name, race = 'r') {
-    if (this.players.size >= this.numSlots) throw new Error('no open slots')
-
-    const player = new Player(name, race)
-    this.players = this.players.set(player.id, player)
-    let slot
-    for (slot = 0; slot < this.slots.length; slot++) {
-      if (!this.slots[slot]) {
-        this.slots[slot] = player
-        break
+    const slots = lobby.players.map(p => p.slot).toSet()
+    for (let s = 0; s < lobby.numSlots; s++) {
+      if (!slots.has(s)) {
+        return s
       }
     }
-    if (slot === this.slots.length) throw new Error('no empty slot found')
+  },
 
-    return { player, slot }
-  }
-
-  // Removes the player with specified `id`, returning whether or not the lobby should be closed
-  removePlayer(id) {
-    if (!this.players.has(id)) throw new Error('player not found')
-    this.players = this.players.delete(id)
-    for (let slot = 0; slot < this.slots.length; slot++) {
-      if (this.slots[slot] && this.slots[slot].id === id) {
-        delete this.slots[slot]
-        break
-      }
+  // Adds a player to the lobby, returning the updated lobby. The player should already have the
+  // proper slot set (see #findEmptySlot).
+  addPlayer(lobby, player) {
+    if (player.slot < 0 || player.slot >= lobby.numSlots) {
+      throw new Error('slot out of bounds')
+    } else if (lobby.players.some(p => p.slot === player.slot)) {
+      throw new Error('slot conflict')
     }
 
-    // TODO(tec27): handle computers
-    return this.players.size === 0
+    return lobby.setIn(['players', player.id], player)
+  },
+
+  // Removes the player with specified `id` from a lobby, returning the updated lobby. If the lobby
+  // is closed (e.g. because it no longer has any human players), null will be returned. Note that
+  // if the host is being removed, a new, suitable host will be chosen.
+  removePlayerById(lobby, id) {
+    const updated = lobby.deleteIn(['players', id])
+    if (updated === lobby) {
+      // nothing removed, e.g. player wasn't in the lobby
+      return lobby
+    }
+
+    if (updated.players.isEmpty()) {
+      return null
+    }
+
+    if (lobby.hostId === id) {
+      // the player we removed was the host, find a new host
+      const newHost = updated.players.skipWhile(p => p.isComputer).first()
+      // if a new host was found, set their ID, else close the lobby (only computers left)
+      return newHost ? updated.set('hostId', newHost.id) : null
+    }
+
+    return updated
   }
 }
 
@@ -93,8 +121,8 @@ export class LobbyApi {
   constructor(nydus, userSockets) {
     this.nydus = nydus
     this.userSockets = userSockets
-    this.lobbyMap = new Map()
-    this.userToLobby = new Map()
+    this.lobbies = new Map()
+    this.lobbyUsers = new Map()
   }
 
   @Api('/create',
@@ -113,15 +141,9 @@ export class LobbyApi {
       throw new errors.ConflictError('already another lobby with that name')
     }
 
-    const lobby = new Lobby(name, map, numSlots, user.name)
-    this.lobbyMap = this.lobbyMap.set(name, lobby)
-    this.userToLobby = this.userToLobby.set(user, lobby)
-
-    // TODO(tec27): in theory these should be unnecessary (we just need to monitor user
-    // disconnects out here, and let Lobby tell us when it can be closed on parts (map disconnects
-    // through same part code). Then Lobby could have less complexity (no need for EE).
-    lobby.on('close', () => this.lobbyMap = this.lobbyMap.delete(name))
-      .on('userLeft', user => this.userToLobby = this.userToLobby.delete(user))
+    const lobby = Lobbies.create(name, map, numSlots, user.name)
+    this.lobbies = this.lobbies.set(name, lobby)
+    this.lobbyUsers = this.lobbyUsers.set(user, name)
 
     // TODO(tec27): subscribe user, deal with new sockets for that user
   }
