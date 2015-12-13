@@ -1,103 +1,116 @@
-import SimpleMap from '../../shared/simple-map'
+import { List, Map, Set } from 'immutable'
 import { EventEmitter } from 'events'
 
-class UserSocketSet extends EventEmitter {
-  constructor(manager, name, initSocket) {
+function defaultDataGetter() {}
+
+export class UserSocketGroup extends EventEmitter {
+  constructor(nydus, name, initSocket) {
     super()
-    this.manager = manager
+    this.nydus = nydus
     this.name = name
-    this._publishPath = '/users/' + encodeURIComponent(this.name)
-    this.sockets = initSocket ? [ initSocket ] : []
+    this.sockets = initSocket ? new Set([ initSocket ]) : new Set()
+    this.subscriptions = new Map()
 
     if (initSocket) {
-      initSocket.once('disconnect', () => this.del(initSocket))
+      initSocket.once('disconnect', () => this.delete(initSocket))
     }
   }
 
   add(socket) {
-    if (this.sockets.indexOf(socket) !== -1) {
-      return
-    }
-
-    this.sockets.push(socket)
-    socket.once('disconnect', () => this.del(socket))
-    this.emit('connection', socket)
-  }
-
-  del(socket) {
-    const index = this.sockets.indexOf(socket)
-    if (index === -1) {
-      return
-    }
-
-    this.sockets.splice(index, 1)
-    if (!this.sockets.length) {
-      this.emit('disconnect')
+    const newSockets = this.sockets.add(socket)
+    if (newSockets !== this.sockets) {
+      this.sockets = newSockets
+      socket.once('disconnect', () => this.delete(socket))
+      this._applySubscriptions(socket)
+      this.emit('connection', this, socket)
     }
   }
 
-  publish(type, data) {
-    this.manager.nydus.publish(this._publishPath, { type, data })
-    return this
+  delete(socket) {
+    this.sockets = this.sockets.delete(socket)
+    if (this.sockets.isEmpty()) {
+      this.emit('disconnect', this)
+    }
   }
 
-  publishTo(socket, type, data) {
-    socket.publish(this._publishPath, { type, data })
-    return this
+  // Adds a subscription to all sockets for this user, including any sockets that may connect
+  // after this. `initialDataGetter` should either be null/undefined, or a function(user, socket)
+  // that returns the initialData to use for a subscribe call.
+  subscribe(path, initialDataGetter) {
+    if (this.subscriptions.has(path)) {
+      throw new Error('duplicate persistent subscription: ' + path)
+    }
+
+    this.subscriptions = this.subscriptions.set(path, initialDataGetter || defaultDataGetter)
+    for (const socket of this.sockets) {
+      this.nydus.subscribeClient(socket, path, initialDataGetter(this, socket))
+    }
   }
 
-  revoke(topicPath) {
-    this.manager.nydus.revoke(this.sockets, topicPath)
+  _applySubscriptions(socket) {
+    for (const [path, getter] of this.subscriptions.entries()) {
+      this.nydus.subscribeClient(socket, path, getter(this, socket))
+    }
+  }
+
+  unsubscribe(path) {
+    const updated = this.subscriptions.delete(path)
+    if (updated === this.subscriptions) return
+
+    for (const socket of this.sockets) {
+      this.nydus.unsubscribeClient(socket, path)
+    }
   }
 }
 
-class UserManager extends EventEmitter {
+export class UserManager extends EventEmitter {
   constructor(nydus, sessionLookup) {
     super()
     this.nydus = nydus
     this.sessionLookup = sessionLookup
-    this.users = new SimpleMap()
+    this.users = new Map()
+    this.newUserListeners = new List()
 
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)
       const userName = session.userName
       if (!this.users.has(userName)) {
-        const user = new UserSocketSet(this, userName, socket)
+        const user = new UserSocketGroup(this.nydus, userName, socket)
         this.users.put(userName, user)
         this.emit('newUser', user)
-
         user.once('disconnect', () => this._removeUser(userName))
       } else {
         this.users.get(userName).add(socket)
       }
     })
-
-    // TODO(tec27): fix for new nydus
-    /* this.nydus.router.subscribe('/users/:user', (req, res) => {
-      if (req.socket.handshake.userName !== req.params.user) {
-        return res.fail(403, 'forbidden',
-            { msg: 'You can only subscribe to your own user channel' })
-      }
-
-      res.complete()
-      const user = this.get(req.socket)
-      user.emit('subscribe', user, req.socket)
-    })*/
   }
 
-  get(nameOrSocket) {
-    let name
-    if (typeof nameOrSocket == 'string') {
-      name = nameOrSocket
-    } else if (nameOrSocket && nameOrSocket.handshake && nameOrSocket.handshake.userName) {
-      name = nameOrSocket.handshake.userName
+  // Adds a listener for when new users connect to the server (users that had no other sockets
+  // connected previously). Returns a function that can be used to unsubscribe the listener.
+  addNewUserListener(listener) {
+    this.newUserListeners = this.newUserListeners.push(listener)
+    let called = false
+    return () => {
+      if (called) return
+      called = true
+      const index = this.newUserListeners.findIndex(l => l === listener)
+      if (index >= 0) {
+        this.newUserListeners = this.newUserListeners.delete(index)
+      }
     }
+  }
 
+  getByName(name) {
     return this.users.get(name)
   }
 
+  getBySocket(socket) {
+    const name = this.sessionLookup.get(socket.conn.request).userName
+    return this.getByName(name)
+  }
+
   _removeUser(userName) {
-    this.users.del(userName)
+    this.users.delete(userName)
     this.emit('userQuit', userName)
     return this
   }

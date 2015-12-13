@@ -116,7 +116,9 @@ export const Lobbies = {
   }
 }
 
-@Mount('/lobbies')
+const MOUNT_BASE = '/lobbies'
+
+@Mount(MOUNT_BASE)
 export class LobbyApi {
   constructor(nydus, userSockets) {
     this.nydus = nydus
@@ -144,8 +146,7 @@ export class LobbyApi {
     const lobby = Lobbies.create(name, map, numSlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
-
-    // TODO(tec27): subscribe user, deal with new sockets for that user
+    user.subscribe(LobbyApi._getPath(lobby), () => this.lobbies.get(name))
   }
 
   @Api('/join',
@@ -170,6 +171,17 @@ export class LobbyApi {
     const player = Players.createHuman(user.name, 'r', slot)
     lobby = Lobbies.addPlayer(lobby, player)
     this.lobbies = this.lobbies.set(name, lobby)
+    this.lobbyUsers = this.lobbyUsers.set(user, name)
+    user.subscribe(LobbyApi._getPath(lobby), () => this.lobbies.get(name))
+  }
+
+  @Api('/leave',
+    'getUser',
+    'getLobby')
+  async leave(data, next) {
+    // const user = data.get('user')
+    // const lobby = data.get('lobby')
+    throw new errors.NotImplementedError('SOON')
   }
 
   async getUser(data, next) {
@@ -186,6 +198,20 @@ export class LobbyApi {
     }
 
     return await next(data)
+  }
+
+  async getLobby(data, next) {
+    const user = data.get('user')
+    if (!this.lobbyUsers.has(user)) {
+      throw new errors.BadRequestError('must be in a lobby')
+    }
+    const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
+
+    return await next(newData)
+  }
+
+  static _getPath(lobby) {
+    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}`
   }
 }
 
