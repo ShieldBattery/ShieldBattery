@@ -113,7 +113,20 @@ export const Lobbies = {
     }
 
     return updated
-  }
+  },
+
+  // Removes the player with the specified `name` from a lobby, returning the updated lobby. This
+  // method will only work for removing human players (computer players do not have unique names).
+  // If the lobby is closed, null will be returned. Note that if the host is being removed, a new,
+  // suitable host will be chosen.
+  removePlayerByName(lobby, name) {
+    const player = lobby.players.find(p => !p.isComputer && p.name === name)
+    if (!player) {
+      return lobby
+    }
+
+    return Lobbies.removePlayerById(lobby, player.id)
+  },
 }
 
 const MOUNT_BASE = '/lobbies'
@@ -146,7 +159,10 @@ export class LobbyApi {
     const lobby = Lobbies.create(name, map, numSlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
-    user.subscribe(LobbyApi._getPath(lobby), () => this.lobbies.get(name))
+    user.subscribe(LobbyApi._getPath(lobby), () => ({
+      type: 'init',
+      lobby: this.lobbies.get(name),
+    }))
   }
 
   @Api('/join',
@@ -172,16 +188,44 @@ export class LobbyApi {
     lobby = Lobbies.addPlayer(lobby, player)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
-    user.subscribe(LobbyApi._getPath(lobby), () => this.lobbies.get(name))
+
+    this.nydus.publishTo(lobby, {
+      type: 'join',
+      player,
+    })
+    user.subscribe(LobbyApi._getPath(lobby), () => ({
+      type: 'init',
+      lobby: this.lobbies.get(name),
+    }))
   }
 
   @Api('/leave',
     'getUser',
     'getLobby')
   async leave(data, next) {
-    // const user = data.get('user')
-    // const lobby = data.get('lobby')
-    throw new errors.NotImplementedError('SOON')
+    const user = data.get('user')
+    const lobby = data.get('lobby')
+    const updatedLobby = Lobbies.removePlayerByName(lobby, user.name)
+
+    if (!updatedLobby) {
+      this.lobbies = this.lobbies.delete(lobby.name)
+    } else {
+      this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+    }
+    this.lobbyUsers = this.lobbyUsers.delete(user)
+
+    this.nydus.publishTo(lobby, {
+      type: 'leave',
+      name: user.name,
+    })
+    user.unsubscribe(LobbyApi._getPath(lobby))
+
+    if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
+      this.nydus.publishTo(lobby, {
+        type: 'hostChange',
+        newId: updatedLobby.hostId,
+      })
+    }
   }
 
   async getUser(data, next) {
@@ -208,6 +252,10 @@ export class LobbyApi {
     const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
 
     return await next(newData)
+  }
+
+  _publishTo(lobby, data) {
+    this.nydus.publish(LobbyApi._getPath(lobby), data)
   }
 
   static _getPath(lobby) {

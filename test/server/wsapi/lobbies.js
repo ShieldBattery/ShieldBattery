@@ -84,6 +84,15 @@ describe('Lobbies', () => {
     expect(lobby).to.be.null
   })
 
+  it('should support removing players by name', () => {
+    const orig = BOXER_LOBBY
+    let lobby = Lobbies.removePlayerByName(orig, 'asdf')
+    expect(lobby).to.equal(orig)
+
+    lobby = Lobbies.removePlayerByName(orig, 'Slayers`Boxer')
+    expect(lobby).to.be.null
+  })
+
   it('should close the lobby if only computers are left', () => {
     const computer = Players.createComputer('p', 1)
     let lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)
