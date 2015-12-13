@@ -137,7 +137,7 @@ export class LobbyApi {
     const { name, map, numSlots } = data.get('body')
     const user = data.get('user')
 
-    if (this.lobbyMap.has('name')) {
+    if (this.lobbies.has(name)) {
       throw new errors.ConflictError('already another lobby with that name')
     }
 
@@ -146,6 +146,30 @@ export class LobbyApi {
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
     // TODO(tec27): subscribe user, deal with new sockets for that user
+  }
+
+  @Api('/join',
+    validateBody({
+      name: nonEmptyString,
+    }),
+    'getUser',
+    'ensureNotInLobby')
+  async join(data, next) {
+    const { name } = data.get('body')
+    const user = data.get('user')
+
+    if (!this.lobbies.has(name)) {
+      throw new errors.NotFoundError('no lobby found with that name')
+    }
+
+    let lobby = this.lobbies.get(name)
+    const slot = Lobbies.findEmptySlot(lobby)
+    if (slot < 0) {
+      throw new errors.ConflictError('lobby is full')
+    }
+    const player = Players.createHuman(user.name, 'r', slot)
+    lobby = Lobbies.addPlayer(lobby, player)
+    this.lobbies = this.lobbies.set(name, lobby)
   }
 
   async getUser(data, next) {
@@ -157,7 +181,7 @@ export class LobbyApi {
   }
 
   async ensureNotInLobby(data, next) {
-    if (this.userToLobby.has(data.get('user'))) {
+    if (this.lobbyUsers.has(data.get('user'))) {
       throw new errors.ConflictError('cannot enter multiple lobbies at once')
     }
 
