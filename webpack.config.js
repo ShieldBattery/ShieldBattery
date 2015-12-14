@@ -4,9 +4,6 @@ import path from 'path'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 
 const isDev = 'production' !== process.env.NODE_ENV
-
-const babelOptions = '?optional[]=runtime&stage=0&loose=all&cacheDirectory'
-const jsLoader = isDev ? 'react-hot-loader!babel-loader' : 'babel-loader'
 const autoprefix = autoprefixer({ browsers: ['last 2 version'] })
 
 const stylusLoader = {
@@ -28,8 +25,29 @@ const webpackOptions = {
     loaders: [
       {
         test: /\.jsx?$/,
-        loader: `${jsLoader}${babelOptions}`,
         exclude: /node_modules/,
+        loader: 'babel',
+        query: {
+          cacheDirectory: true,
+          presets: ['react', 'es2015', 'stage-0'],
+          plugins: ['transform-runtime', 'transform-decorators-legacy'],
+          env: {
+            development: {
+              plugins: [
+                ['react-transform', {
+                  transforms: [{
+                    transform: 'react-transform-hmr',
+                    imports: ['react'],
+                    locals: ['module']
+                  }, {
+                    transform: 'react-transform-catch-errors',
+                    imports: ['react', 'redbox-react']
+                  }]
+                }],
+              ]
+            }
+          }
+        }
       },
       stylusLoader
     ],
@@ -51,11 +69,9 @@ if (isDev) {
   webpackOptions.debug = true
   webpackOptions.devtool = 'inline-source-map'
   webpackOptions.entry = [
-    'webpack-dev-server/client?http://localhost:61337',
-    'webpack/hot/dev-server',
+    'webpack-hot-middleware/client',
     webpackOptions.entry,
   ]
-  webpackOptions.output.publicPath = 'http://localhost:61337/scripts/'
 } else {
   webpackOptions.plugins = webpackOptions.plugins.concat([
     new webpack.DefinePlugin({

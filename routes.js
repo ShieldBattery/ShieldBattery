@@ -16,17 +16,13 @@ function applyRoutes(app) {
   app.use(router.routes())
     .use(router.allowedMethods())
 
-  if (isDev) {
-    require('./dev-server')(router) // eslint-disable-line import/no-require
-  }
-
   // api methods (through HTTP)
   const apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
   const baseApiPath = '/api/1/'
   apiFiles.filter(jsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, '.js')
     const subRouter = new KoaRouter()
-    require('./server/api/' + filename)(subRouter)
+    require('./server/api/' + filename).default(subRouter)
     router.use(apiPath, subRouter.routes())
     console.log('mounted ' + apiPath)
   })
@@ -38,6 +34,14 @@ function applyRoutes(app) {
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404)
     .get('/favicon.ico', send404)
+
+  if (isDev) {
+    // We expect the styles to be included in the development JS (so they can be hot reloaded)
+    router.get('/styles/site.css', function*() {
+      this.body = ''
+      this.type = 'text/css'
+    })
+  }
 
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing

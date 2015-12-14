@@ -25,6 +25,7 @@ import views from 'koa-views'
 
 const app = koa()
 const port = config.https ? config.httpsPort : config.httpPort
+const compiler = webpack(webpackConfig)
 
 app.keys = [ config.sessionSecret ]
 
@@ -45,6 +46,14 @@ app
   .use(csrf())
   .use(secureHeaders())
   .use(secureJson())
+
+if (isDev) {
+  app.use(require('koa-webpack-dev-middleware')(compiler, {
+    noInfo: true,
+    publicPath: webpackConfig.output.publicPath
+  }))
+  app.use(require('koa-webpack-hot-middleware')(compiler))
+}
 
 import createRoutes from './routes'
 createRoutes(app)
@@ -67,7 +76,6 @@ if (config.https) {
 import setupWebsockets from './websockets'
 setupWebsockets(mainServer, app, sessionMiddleware)
 
-const compiler = webpack(webpackConfig)
 compiler.run = thenify(compiler.run)
 const compilePromise = isDev ? Promise.resolve() : compiler.run()
 if (!isDev) {
