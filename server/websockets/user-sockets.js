@@ -76,7 +76,7 @@ export class UserManager extends EventEmitter {
       const userName = session.userName
       if (!this.users.has(userName)) {
         const user = new UserSocketGroup(this.nydus, userName, socket)
-        this.users.put(userName, user)
+        this.users.set(userName, user)
         this.emit('newUser', user)
         user.once('disconnect', () => this._removeUser(userName))
       } else {
