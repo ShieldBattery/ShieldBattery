@@ -28,7 +28,7 @@ import './network/socket-handlers'
 
 if (module.hot) {
   module.hot.accept('./reducers', () => {
-    const nextRootReducer = require('./reducers') // eslint-disable-line import/no-require
+    const nextRootReducer = require('./reducers')
     store.replaceReducer(nextRootReducer)
   })
 }
