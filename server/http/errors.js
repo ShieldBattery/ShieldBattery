@@ -34,7 +34,7 @@ Object.keys(http.STATUS_CODES)
     errorName = errorName.substr(-5) === 'Error' ? (errorName) : (errorName + 'Error')
 
     module.exports[errorName] = function(message, cause) {
-      HttpError.call(this, code, message, cause)
+      return new HttpError(code, message, cause)
     }
     util.inherits(module.exports[errorName], HttpError)
     module.exports[errorName].prototype.name = errorName
