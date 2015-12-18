@@ -129,6 +129,8 @@ export const Lobbies = {
   },
 }
 
+const slotNumInRange = s => s >= 2 && s <= 8
+
 const MOUNT_BASE = '/lobbies'
 
 @Mount(MOUNT_BASE)
@@ -144,7 +146,7 @@ export class LobbyApi {
       validateBody({
         name: nonEmptyString,
         map: nonEmptyString,
-        numSlots: s => s >= 2 && s <= 8,
+        numSlots: slotNumInRange,
       }),
       'getUser',
       'ensureNotInLobby')

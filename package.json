@@ -4,11 +4,11 @@
   "description": "The official server implementation for shieldbattery.",
   "main": "index.js",
   "scripts": {
-    "autotest": "mocha --watch -R spec --require test-utils/babelhook --recursive test/",
+    "autotest": "mocha --watch -R spec --compilers js:babel-register --recursive test/",
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
-    "test": "mocha -R spec --require test-utils/babelhook --recursive test/",
+    "test": "mocha -R spec --compilers js:babel-register --recursive test/",
     "start": "node index.js | bunyan"
   },
   "repository": {
