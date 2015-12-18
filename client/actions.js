@@ -1,12 +1,6 @@
-import keyMirror from 'keymirror'
-
 // Every possible dispatched action in the app should be included here, sorted alphabetically
-const actions = keyMirror({
-  AUTH_CHANGE_BEGIN: 0,
-  AUTH_LOG_IN: 0,
-  AUTH_LOG_OUT: 0,
-  AUTH_SIGN_UP: 0,
-  SERVER_STATUS: 0,
-})
-
-export default actions
+export const AUTH_CHANGE_BEGIN = 'AUTH_CHANGE_BEGIN'
+export const AUTH_LOG_IN = 'AUTH_LOG_IN'
+export const AUTH_LOG_OUT = 'AUTH_LOG_OUT'
+export const AUTH_SIGN_UP = 'AUTH_SIGN_UP'
+export const SERVER_STATUS = 'SERVER_STATUS'
