@@ -1,7 +1,7 @@
 import constants from '../../shared/constants'
 import invites from '../models/invites'
-import httpErrors from '../http/errors'
 import checkPermissions from '../permissions/check-permissions'
+import httpErrors from 'http-errors'
 import cuid from 'cuid'
 
 export default function(router) {
@@ -22,7 +22,7 @@ function* createInvite(next) {
     canHost: b.canHost,
   }
   if (!invite.email || !constants.isValidEmail(invite.email)) {
-    throw new httpErrors.BadRequestError('Invalid email')
+    throw new httpErrors.BadRequest('Invalid email')
   }
 
   try {
@@ -54,10 +54,10 @@ function* listInvites(next) {
 
 function* acceptInvite(next) {
   if (!constants.isValidEmail(this.params.email)) {
-    throw new httpErrors.BadRequestError('Invalid email')
+    throw new httpErrors.BadRequest('Invalid email')
   }
   if (!this.request.body.isAccepted) {
-    throw new httpErrors.NotImplementedError('Not implemented')
+    throw new httpErrors.NotImplemented('Not implemented')
   }
 
   const token = cuid()

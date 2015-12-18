@@ -1,6 +1,6 @@
 import { Map, OrderedMap, Record } from 'immutable'
 import cuid from 'cuid'
-import errors from '../http/errors'
+import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 
 function validateBody(bodyValidators) {
@@ -9,7 +9,7 @@ function validateBody(bodyValidators) {
     if (!body) throw new errors.BadRequest('invalid body')
     for (const key of Object.keys(bodyValidators)) {
       if (!bodyValidators[key](body[key])) {
-        throw new errors.BadRequestError(`Invalid ${key}`)
+        throw new errors.BadRequest(`Invalid ${key}`)
       }
     }
 
@@ -153,7 +153,7 @@ export class LobbyApi {
     const user = data.get('user')
 
     if (this.lobbies.has(name)) {
-      throw new errors.ConflictError('already another lobby with that name')
+      throw new errors.Conflict('already another lobby with that name')
     }
 
     const lobby = Lobbies.create(name, map, numSlots, user.name)
@@ -176,13 +176,13 @@ export class LobbyApi {
     const user = data.get('user')
 
     if (!this.lobbies.has(name)) {
-      throw new errors.NotFoundError('no lobby found with that name')
+      throw new errors.NotFound('no lobby found with that name')
     }
 
     let lobby = this.lobbies.get(name)
     const slot = Lobbies.findEmptySlot(lobby)
     if (slot < 0) {
-      throw new errors.ConflictError('lobby is full')
+      throw new errors.Conflict('lobby is full')
     }
     const player = Players.createHuman(user.name, 'r', slot)
     lobby = Lobbies.addPlayer(lobby, player)
@@ -230,7 +230,7 @@ export class LobbyApi {
 
   async getUser(data, next) {
     const user = this.userSockets.get(data.client)
-    if (!user) throw new errors.UnauthorizedError('authorization required')
+    if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
     return await next(newData)
@@ -238,7 +238,7 @@ export class LobbyApi {
 
   async ensureNotInLobby(data, next) {
     if (this.lobbyUsers.has(data.get('user'))) {
-      throw new errors.ConflictError('cannot enter multiple lobbies at once')
+      throw new errors.Conflict('cannot enter multiple lobbies at once')
     }
 
     return await next(data)
@@ -247,7 +247,7 @@ export class LobbyApi {
   async getLobby(data, next) {
     const user = data.get('user')
     if (!this.lobbyUsers.has(user)) {
-      throw new errors.BadRequestError('must be in a lobby')
+      throw new errors.BadRequest('must be in a lobby')
     }
     const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
 

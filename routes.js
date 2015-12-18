@@ -1,15 +1,15 @@
 import koaStatic from 'koa-static'
 import KoaRouter from 'koa-router'
+import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
 import isDev from './server/env/is-dev'
-import httpErrors from './server/http/errors'
 
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
 function* send404(next) {
-  throw new httpErrors.NotFoundError()
+  throw new httpErrors.NotFound()
 }
 
 function applyRoutes(app) {

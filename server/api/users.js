@@ -1,8 +1,8 @@
 import constants from '../../shared/constants'
 import bcrypt from 'bcrypt'
+import httpErrors from 'http-errors'
 import thenify from 'thenify'
 import users from '../models/users'
-import httpErrors from '../http/errors'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
@@ -12,7 +12,7 @@ export default function(router) {
     .get('/:searchTerm', checkPermissions(['editPermissions']), find)
     .put('/:id', function(req, res, next) {
       // TODO(tec27): update a user
-      next(new httpErrors.ImATeapotError())
+      next(new httpErrors.ImATeapot())
     })
 }
 
@@ -35,7 +35,7 @@ function* createUser(next) {
   if (!constants.isValidUsername(username) ||
       !constants.isValidEmail(email) ||
       !constants.isValidPassword(password)) {
-    throw new httpErrors.BadRequestError('Invalid parameters')
+    throw new httpErrors.BadRequest('Invalid parameters')
   }
 
   let hashed
@@ -53,7 +53,7 @@ function* createUser(next) {
   } catch (err) {
     if (err.code && err.code === 23505) {
       // TODO(tec27): this is a nasty check, we should find a better way of dealing with this
-      throw new httpErrors.ConflictError('A user with that name already exists')
+      throw new httpErrors.Conflict('A user with that name already exists')
     }
     this.log.error({ err }, 'error saving user')
     throw err

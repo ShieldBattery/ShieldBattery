@@ -1,8 +1,8 @@
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
+import httpErrors from 'http-errors'
 import users from '../models/users'
 import permissions from '../models/permissions'
-import httpErrors from '../http/errors'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 
@@ -14,7 +14,7 @@ export default function(router) {
 }
 
 function* getCurrentSession(next) {
-  if (!this.session.userId) throw new httpErrors.GoneError('Session expired')
+  if (!this.session.userId) throw new httpErrors.Gone('Session expired')
   const userId = this.session.userId
 
   let user
@@ -27,7 +27,7 @@ function* getCurrentSession(next) {
 
   if (!user) {
     yield this.regenerateSession()
-    throw new httpErrors.GoneError('Session expired')
+    throw new httpErrors.Gone('Session expired')
   }
 
   this.body = { user, permissions: this.session.permissions }
@@ -35,11 +35,11 @@ function* getCurrentSession(next) {
 
 const bcryptCompare = thenify(bcrypt.compare)
 function* startNewSession(next) {
-  if (this.session.userId) throw new httpErrors.ConflictError('Session already active')
+  if (this.session.userId) throw new httpErrors.Conflict('Session already active')
   const { username, password } = this.request.body
   // TODO(tec27): Deal with 'remember' param properly
   if (!username || !password) {
-    throw new httpErrors.BadRequestError('Username and password required')
+    throw new httpErrors.BadRequest('Username and password required')
   }
 
   let user
@@ -50,7 +50,7 @@ function* startNewSession(next) {
     throw err
   }
   if (!user) {
-    throw new httpErrors.UnauthorizedError('Incorrect username or password')
+    throw new httpErrors.Unauthorized('Incorrect username or password')
   }
 
   let same
@@ -61,7 +61,7 @@ function* startNewSession(next) {
     throw err
   }
   if (!same) {
-    throw new httpErrors.UnauthorizedError('Incorrect username or password')
+    throw new httpErrors.Unauthorized('Incorrect username or password')
   }
 
   try {
@@ -78,7 +78,7 @@ function* startNewSession(next) {
 }
 
 function* endSession(next) {
-  if (!this.session.userId) throw new httpErrors.ConflictError('No session active')
+  if (!this.session.userId) throw new httpErrors.Conflict('No session active')
   yield this.regenerateSession()
   this.status = 204
 }
