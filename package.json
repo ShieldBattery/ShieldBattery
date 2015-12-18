@@ -66,8 +66,6 @@
     "koa-router": "^5.0.1",
     "koa-static": "^1.4.9",
     "koa-views": "^3.0.0",
-    "koa-webpack-dev-middleware": "^1.0.1",
-    "koa-webpack-hot-middleware": "^1.0.1",
     "node-libs-browser": "^0.5.2",
     "nydus": "^0.3.2",
     "nydus-client": "^0.3.1",
@@ -77,9 +75,6 @@
     "react-dom": "^0.14.0-rc1",
     "react-redux": "^4.0.0",
     "react-router": "^1.0.0-rc1",
-    "react-transform-catch-errors": "^1.0.0",
-    "react-transform-hmr": "^1.0.1",
-    "redbox-react": "^1.2.0",
     "redis": "^2.1.0",
     "redux": "^3.0.2",
     "redux-batched-updates": "^0.1.0",
@@ -90,8 +85,6 @@
     "stylus-loader": "^1.2.1",
     "thenify": "^3.1.0",
     "webpack": "^1.12.9",
-    "webpack-dev-middleware": "^1.4.0",
-    "webpack-hot-middleware": "^2.6.0",
     "whatwg-fetch": "^0.9.0"
   },
   "devDependencies": {
@@ -101,6 +94,11 @@
     "eslint": "^1.6.0",
     "eslint-plugin-babel": "^3.0.0",
     "eslint-plugin-react": "^3.10.0",
-    "mocha": "^2.1.0"
+    "koa-webpack-dev-middleware": "^1.0.1",
+    "koa-webpack-hot-middleware": "^1.0.1",
+    "mocha": "^2.1.0",
+    "react-transform-catch-errors": "^1.0.0",
+    "react-transform-hmr": "^1.0.1",
+    "redbox-react": "^1.2.0"
   }
 }
