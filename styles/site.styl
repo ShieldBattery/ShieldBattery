@@ -1,114 +1,102 @@
-vendor(prop, args)
-  -moz-{prop} args
-  -webkit-{prop} args
-  {prop} args
+@require 'reset.styl'
+@require 'colors.styl'
+@require 'typography.styl'
 
-clearfix()
-  &:before,
-  &:after
-    content " "
-    display table
-  &:after
-    clear both
+*
+  box-sizing border-box
 
-font-size = 16px
-gutter = 15px
+html
+  font-family Roboto, sans-serif
+  font-weight normal
+  color $colorTextPrimary
+  font-size unit(100 * ($textSizeBody / 16), '%')
+  line-height 1.5
+  background-color $colorBackground
 
-*,
-*:before,
-*:after
-  vendor(box-sizing, border-box)
-
-[ng-cloak],
-[data-ng-cloak],
-.ng-cloak
-  display none !important
-
+html
 body
-  color #333
-  font-family "Open Sans", Arial, sans-serif
-  font-size font-size
-  line-height 1.45
-  margin 0px
+#app
+#app > div
+  -webkit-font-smoothing antialiased
+  -webkit-text-size-adjust 100%
+  -webkit-tap-highlight-color rgba(0,0,0,0)
+  -webkit-touch-callout none
+  height 100%
+  margin 0
+  padding 0
+  position relative
 
-main
-  padding-top 10px
-  padding-bottom 10px
-  border 1px solid #ccc
-  border-radius 0 0 4px 0
-  border-collapse collapse
 
-nav
-  padding-top 10px
-  padding-bottom 10px
-  text-align center
-  border-left 1px solid
-  border-right 1px solid
-  border-color #ccc
-  overflow hidden
+@require 'font-icons.styl'
 
-p
-  margin 0 0 10px
+[disabled]
+  color $colorTextFaint
 
-$col
-  float left
-  min-height 1px
-  padding-right gutter
-  padding-left gutter
+.material-icons
+  display inline-block
+  vertical-align middle
 
-for size in (1..12)
-  .col-{size}
-    @extends $col
-    width ((size * 100) / 12)%
+// TODO(tec27): Move to a system of attributes more like Angular Material
+.flex-row
+  display flex
+  flex-direction row
 
-.row
-  margin-right - gutter
-  margin-left - gutter
-  clearfix()
+.flex-col
+  display flex
+  flex-direction column
 
-.container
-  padding-right gutter
-  padding-left gutter
-  margin-right 18px
-  margin-left 18px
-  min-width 612px
-  @media (min-width: 996px)
-    margin-right auto
-    margin-left auto
-    max-width 960px
-  @media (min-width: 1236px)
-    margin-right auto
-    margin-left auto
-    max-width 1200px
+.flex-wrap
+  flex-wrap wrap
 
-.left-nav
-  padding-top 10px
-  padding-bottom 10px
-  background-color #eee
-  border-bottom 1px solid
-  border-left 1px solid
-  border-top 1px solid
-  border-color #ccc
-  border-radius 0 0 0 4px
+.flex-justify-start
+  justify-content flex-start
 
-.chat-messages
-  height 400px
-  border 1px solid #999
-  border-radius 4px
-  padding 2px 4px
-  overflow auto
+.flex-justify-center
+  justify-content center
 
-  p
-    font-size (font-size * 0.85)
-    margin 0px
+.flex-justify-end
+  justify-content flex-end
 
-.route-error
-  padding-top 10px
-  padding-bottom 10px
-  font-weight bold
-  text-align center
-  background-color #f99
-  border-bottom 1px solid
-  border-left 1px solid
-  border-right 1px solid
-  border-color #ccc
+.flex-fit
+  flex-grow 1
+
+flexNumStyles(num, percent = num)
+  .flex-{num}
+    flex 0 0 unit(percent, '%')
+  .flex-row > .flex-{num}
+    max-width unit(percent, '%')
+  .flex-col > .flex-{num}
+    max-height unit(percent, '%')
+
+for i in (1..20)
+  flexNumStyles(i*5)
+
+flexNumStyles(33, 33.33%)
+flexNumStyles(66, 66.66%)
+
+@require 'material-components/*'
+
+#app > .login-wrapper
+  width 640px + (16px * 2)
+  margin 0 auto
+
+  & > .logo
+    display block
+    margin 0 auto
+    width 256px
+    height 256px
+
+  .logotext
+    display block
+    margin 0 auto 8px
+    text-align center
+
+    h1
+      display inline-block
+      margin-top 0
+
+.login-wrapper .card form > h3
+  margin-top 0
+
+.errors
+  color $colorError

@@ -1,563 +1,270 @@
-var Emitter = require('events').EventEmitter
-  , SimpleMap = require('../../shared/simple-map')
-  , listUtils = require('../../shared/list-utils')
-  , util = require('util')
-  , cuid = require('cuid')
+import { Map, OrderedMap, Record } from 'immutable'
+import cuid from 'cuid'
+import errors from '../http/errors'
+import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 
-module.exports = function(nydus, userSockets) {
-  return new LobbyHandler(nydus, userSockets)
-}
-
-function LobbyHandler(nydus, userSockets) {
-  this.nydus = nydus
-  this.userSockets = userSockets
-  this.lobbyMap = new SimpleMap()
-  this.lobbies = []
-  // player -> their current lobby. Each player can be in at most one lobby at a time.
-  this.playerLobbyMap = new SimpleMap()
-
-  var self = this
-    , basePath = '/lobbies'
-  nydus.router.call(basePath + '/create', function(req, res, params) {
-    self.create(req, res, params)
-  }).call(basePath + '/:lobby/join', function(req, res) {
-    self.join(req, res)
-  }).call(basePath + '/:lobby/part/:playerId', function(req, res) {
-    self.part(req, res)
-  }).call(basePath + '/:lobby/addComputer', function(req, res) {
-    self.addComputer(req, res)
-  }).call(basePath + '/:lobby/setRace/:playerId', function(req, res, race) {
-    self.setRace(req, res, race)
-  }).call(basePath + '/:lobby/kick/:playerId', function(req, res) {
-    self.kick(req, res)
-  }).call(basePath + '/:lobby/startCountdown', function(req, res) {
-    self.startCountdown(req, res)
-  }).call(basePath + '/:lobby/readyUp/:playerId', function(req, res) {
-    self.readyUp(req, res)
-  }).subscribe(basePath, function(req, res) {
-    // Anyone can listen to the lobby list at any time
-    res.complete()
-    var lobbyList = self.lobbies.map(function(lobby) {
-      return lobby.$
-    })
-    req.socket.publish(basePath, { action: 'full', list: lobbyList })
-  }).subscribe(basePath + '/:lobby', function(req, res) {
-    self.subscribeLobby(req, res)
-  }).publish(basePath + '/:lobby', function(req, event, complete) {
-    self.sendChat(req, event, complete)
-  })
-}
-
-LobbyHandler.prototype._doCreateLobby = function(host, name, map, size) {
-  var lobby = new Lobby(name, map, size)
-  this.lobbyMap.put(lobby.name, lobby)
-  listUtils.sortedInsert(this.lobbies, lobby, Lobby.compare)
-
-  var self = this
-  lobby.on('addPlayer', function onAddPlayer(slot, player) {
-    self._updateJoinedLobby(lobby, { action: 'join', slot: slot, player: player })
-    if (!player.isComputer) {
-      self.playerLobbyMap.put(player.name, lobby)
-      var user = self.userSockets.get(player.name)
-      user.once('disconnect', onDisconnect)
-        .on('subscribe', publishLobby)
-        .publish('lobby', { name: name })
-    }
-  }).on('removePlayer', function onRemovePlayer(slot, player, kick) {
-    if (!player.isComputer) {
-      self.playerLobbyMap.del(player.name)
-      var user = self.userSockets.get(player.name)
-      if (user) {
-        user.removeListener('disconnect', onDisconnect)
-          .removeListener('subscribe', publishLobby)
-        // ensure they receive the part message, then revoke all subscriptions so they can't spy on
-        // lobbies they're not in
-        process.nextTick(function() {
-          user.revoke(lobby._topic)
-        })
+function validateBody(bodyValidators) {
+  return async function(data, next) {
+    const body = data.get('body')
+    if (!body) throw new errors.BadRequest('invalid body')
+    for (const key of Object.keys(bodyValidators)) {
+      if (!bodyValidators[key](body[key])) {
+        throw new errors.BadRequestError(`Invalid ${key}`)
       }
     }
-    self._updateJoinedLobby(lobby, { action: kick ? 'kick' : 'part', id: player.id })
-  }).on('newHost', function onNewHost(hostId, hostName) {
-    self._updateJoinedLobby(lobby, { action: 'newHost', id: hostId, name: hostName })
-    self.nydus.publish('/lobbies', { action: 'update', lobby: lobby.$ })
-  }).on('closed', function onLobbyClosed() {
-    self.lobbyMap.del(lobby.name)
-    var index = self.lobbies.indexOf(lobby)
-    if (index != -1) {
-      self.lobbies.splice(index, 1)
-    }
-    self.nydus.publish('/lobbies', { action: 'remove', lobby: lobby.$ })
-  }).on('countdownAborted', function onCountdownAborted() {
-    self._updateJoinedLobby(lobby, { action: 'countdownAborted' })
-  }).on('initializationAborted', function onInitializationAborted() {
-    self._updateJoinedLobby(lobby, { action: 'initializationAborted' })
-  }).on('playersReady', function onPlayersReady() {
-    self._updateJoinedLobby(lobby, { action: 'startGame' })
-    // TODO(tec27): remove/transfer lobby
-  })
 
-  lobby.addPlayer(new LobbyPlayer(host, 'r'))
-  this.nydus.publish('/lobbies', { action: 'create', lobby: lobby.$ })
-
-  return lobby
-
-  function onDisconnect() {
-    var player = lobby.findPlayerWithName(this.userName)
-    lobby.removePlayer(player.id)
-  }
-
-  function publishLobby(user, socket) {
-    user.publishTo(socket, 'lobby', { name: name })
+    return await next(data)
   }
 }
 
-LobbyHandler.prototype.create = function(req, res, params) {
-  var user = this.userSockets.get(req.socket)
-  if (this.playerLobbyMap.has(user.userName)) {
-    return res.fail(409, 'conflict', { msg: 'You cannot enter multiple lobbies at once' })
-  }
+const nonEmptyString = str => typeof str === 'string' && str.length > 0
 
-  if (!params.name) {
-    return res.fail(400, 'bad request', { msg: 'Invalid name' })
-  } else if (!params.map) {
-    return res.fail(400, 'bad request', { msg: 'Invalid map' })
-  } else if (!params.size || params.size < 2 || params.size > 8) {
-    return res.fail(400, 'bad request', { msg: 'Invalid size' })
-  }
+const Player = new Record({ name: null, id: null, race: 'r', isComputer: false, slot: -1 })
 
-  if (this.lobbyMap.has(params.name)) {
-    return res.fail(409, 'conflict', { msg: 'A lobby with that name already exists' })
-  }
+export const Players = {
+  createHuman(name, race, slot) {
+    return new Player({ name, race, id: cuid(), isComputer: false, slot })
+  },
 
-  this._doCreateLobby(user.userName, params.name, params.map, params.size)
-  res.complete()
+  createComputer(race, slot) {
+    return new Player({ name: 'robit', race, id: cuid(), isComputer: true, slot })
+  },
 }
 
-LobbyHandler.prototype._updateJoinedLobby = function(lobby, msg) {
-  this.nydus.publish(lobby._topic, msg)
-}
+const Lobby = new Record({
+  name: null,
+  map: null,
+  numSlots: 0,
+  players: new OrderedMap(),
+  hostId: null,
+})
 
-LobbyHandler.prototype.join = function(req, res) {
-  var user = req.socket.handshake.userName
-  if (!req.params.lobby || !this.lobbyMap.has(req.params.lobby)) {
-    return res.fail(404, 'not found', { msg: 'No lobby with that name exists' })
-  } else if (this.playerLobbyMap.has(user)) {
-    var oldLobby = this.playerLobbyMap.get(user)
-    if (oldLobby.name == req.params.lobby) {
-      return res.complete(oldLobby.findPlayerWithName(user).id)
+
+export const Lobbies = {
+  // Creates a new lobby, and an initial host player in the first slot.
+  create(name, map, numSlots, hostName, hostRace = 'r') {
+    const host = Players.createHuman(hostName, hostRace, 0)
+    return new Lobby({
+      name,
+      map,
+      numSlots,
+      players: new OrderedMap({ [host.id]: host }),
+      hostId: host.id
+    })
+  },
+
+  // Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the
+  // open lobbies.
+  toSummaryJson(lobby) {
+    return JSON.stringify({
+      name: lobby.name,
+      map: lobby.map,
+      numSlots: lobby.numSlots,
+      host: { name: lobby.getIn(['players', lobby.hostId, 'name']), id: lobby.hostId },
+      filledSlots: lobby.players.size,
+    })
+  },
+
+  // Finds the next empty slot in the lobby. Returns -1 if there are no available slots.
+  findEmptySlot(lobby) {
+    if (lobby.numSlots <= lobby.players.size) {
+      return -1
     }
 
-    return res.fail(409, 'conflict', { msg: 'You cannot enter multiple lobbies at once' })
-  }
+    const slots = lobby.players.map(p => p.slot).toSet()
+    for (let s = 0; s < lobby.numSlots; s++) {
+      if (!slots.has(s)) {
+        return s
+      }
+    }
+  },
 
-  var lobby = this.lobbyMap.get(req.params.lobby)
-  if (lobby.size - lobby.numPlayers < 1) {
-    return res.fail(409, 'conflict', { msg: 'The lobby is full' })
-  }
-  if (!lobby.isJoinable()) {
-    return res.fail(409, 'conflict', { msg: 'The lobby is not joinable' })
-  }
+  // Adds a player to the lobby, returning the updated lobby. The player should already have the
+  // proper slot set (see #findEmptySlot).
+  addPlayer(lobby, player) {
+    if (player.slot < 0 || player.slot >= lobby.numSlots) {
+      throw new Error('slot out of bounds')
+    } else if (lobby.players.some(p => p.slot === player.slot)) {
+      throw new Error('slot conflict')
+    }
 
-  var player = new LobbyPlayer(user, 'r')
-  lobby.addPlayer(player)
-  res.complete(player.id)
+    return lobby.setIn(['players', player.id], player)
+  },
+
+  // Removes the player with specified `id` from a lobby, returning the updated lobby. If the lobby
+  // is closed (e.g. because it no longer has any human players), null will be returned. Note that
+  // if the host is being removed, a new, suitable host will be chosen.
+  removePlayerById(lobby, id) {
+    const updated = lobby.deleteIn(['players', id])
+    if (updated === lobby) {
+      // nothing removed, e.g. player wasn't in the lobby
+      return lobby
+    }
+
+    if (updated.players.isEmpty()) {
+      return null
+    }
+
+    if (lobby.hostId === id) {
+      // the player we removed was the host, find a new host
+      const newHost = updated.players.skipWhile(p => p.isComputer).first()
+      // if a new host was found, set their ID, else close the lobby (only computers left)
+      return newHost ? updated.set('hostId', newHost.id) : null
+    }
+
+    return updated
+  },
+
+  // Removes the player with the specified `name` from a lobby, returning the updated lobby. This
+  // method will only work for removing human players (computer players do not have unique names).
+  // If the lobby is closed, null will be returned. Note that if the host is being removed, a new,
+  // suitable host will be chosen.
+  removePlayerByName(lobby, name) {
+    const player = lobby.players.find(p => !p.isComputer && p.name === name)
+    if (!player) {
+      return lobby
+    }
+
+    return Lobbies.removePlayerById(lobby, player.id)
+  },
 }
 
-LobbyHandler.prototype.subscribeLobby = function(req, res) {
-  // TODO(tec27): immediately publish lobby state to the socket
-  var user = req.socket.handshake.userName
-  if (!req.params.lobby || !this.lobbyMap.has(req.params.lobby)) {
-    return res.fail(404, 'not found', { msg: 'No lobby with that name exists' })
-  }
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to subscribe to it' })
-  }
+const MOUNT_BASE = '/lobbies'
 
-  var lobby = this.lobbyMap.get(req.params.lobby)
-  if (this.playerLobbyMap.get(user) != lobby) {
-    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to subscribe to it' })
+@Mount(MOUNT_BASE)
+export class LobbyApi {
+  constructor(nydus, userSockets) {
+    this.nydus = nydus
+    this.userSockets = userSockets
+    this.lobbies = new Map()
+    this.lobbyUsers = new Map()
   }
 
-  res.complete()
-  req.socket.publish(lobby._topic, { action: 'update', lobby: lobby.getFullDescription() })
-}
+  @Api('/create',
+      validateBody({
+        name: nonEmptyString,
+        map: nonEmptyString,
+        numSlots: s => s >= 2 && s <= 8,
+      }),
+      'getUser',
+      'ensureNotInLobby')
+  async create(data, next) {
+    const { name, map, numSlots } = data.get('body')
+    const user = data.get('user')
 
-LobbyHandler.prototype.addComputer = function(req, res) {
-  var user = req.socket.handshake.userName
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to add computer players' })
+    if (this.lobbies.has(name)) {
+      throw new errors.ConflictError('already another lobby with that name')
+    }
+
+    const lobby = Lobbies.create(name, map, numSlots, user.name)
+    this.lobbies = this.lobbies.set(name, lobby)
+    this.lobbyUsers = this.lobbyUsers.set(user, name)
+    user.subscribe(LobbyApi._getPath(lobby), () => ({
+      type: 'init',
+      lobby: this.lobbies.get(name),
+    }))
   }
 
-  var lobby = this.playerLobbyMap.get(user)
-  if (lobby.host != user) {
-    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to add computer players' })
-  } else if (lobby.size - lobby.numPlayers < 1) {
-    return res.fail(409, 'conflict', { msg: 'The lobby is full' })
+  @Api('/join',
+    validateBody({
+      name: nonEmptyString,
+    }),
+    'getUser',
+    'ensureNotInLobby')
+  async join(data, next) {
+    const { name } = data.get('body')
+    const user = data.get('user')
+
+    if (!this.lobbies.has(name)) {
+      throw new errors.NotFoundError('no lobby found with that name')
+    }
+
+    let lobby = this.lobbies.get(name)
+    const slot = Lobbies.findEmptySlot(lobby)
+    if (slot < 0) {
+      throw new errors.ConflictError('lobby is full')
+    }
+    const player = Players.createHuman(user.name, 'r', slot)
+    lobby = Lobbies.addPlayer(lobby, player)
+    this.lobbies = this.lobbies.set(name, lobby)
+    this.lobbyUsers = this.lobbyUsers.set(user, name)
+
+    this.nydus.publishTo(lobby, {
+      type: 'join',
+      player,
+    })
+    user.subscribe(LobbyApi._getPath(lobby), () => ({
+      type: 'init',
+      lobby: this.lobbies.get(name),
+    }))
   }
 
-  var computer = new LobbyComputer('r')
-  lobby.addPlayer(computer)
-  res.complete()
-}
+  @Api('/leave',
+    'getUser',
+    'getLobby')
+  async leave(data, next) {
+    const user = data.get('user')
+    const lobby = data.get('lobby')
+    const updatedLobby = Lobbies.removePlayerByName(lobby, user.name)
 
-LobbyHandler.prototype.setRace = function(req, res, race) {
-  if (race != 'z' && race != 't' && race != 'p' && race != 'r') {
-    return res.fail(400, 'bad request', { msg: 'Invalid race' })
-  }
+    if (!updatedLobby) {
+      this.lobbies = this.lobbies.delete(lobby.name)
+    } else {
+      this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+    }
+    this.lobbyUsers = this.lobbyUsers.delete(user)
 
-  var user = req.socket.handshake.userName
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(409, 'conflict', { msg: 'You must be in a lobby to set races' })
-  }
+    this.nydus.publishTo(lobby, {
+      type: 'leave',
+      name: user.name,
+    })
+    user.unsubscribe(LobbyApi._getPath(lobby))
 
-  var lobby = this.playerLobbyMap.get(user)
-  if (lobby.name != req.params.lobby) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot set races in a lobby you aren\'t in' })
-  }
-  var player = lobby.getPlayer(req.params.playerId)
-  if (!player) {
-    return res.fail(404, 'not found', { msg: 'No such user' })
-  }
-  if (!player.isComputer && player.name != user) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot set other users\'s races' })
-  } else if (player.isComputer && lobby.host != user) {
-    return res.fail(403, 'forbidden', { msg: 'Only the host can set computer races' })
-  }
-
-  player.race = race
-  res.complete()
-  this._updateJoinedLobby(lobby, { action: 'raceChange', id: player.id, race: player.race })
-}
-
-LobbyHandler.prototype.kick = function(req, res) {
-  var user = req.socket.handshake.userName
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(409, 'conflict', { msg: 'You must be in a lobby to kick players' })
-  }
-
-  var lobby = this.playerLobbyMap.get(user)
-  if (lobby.name != req.params.lobby) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot kick players in a lobby you aren\'t in' })
-  }
-  if (lobby.host != user) {
-    return res.fail(403, 'forbidden', { msg: 'Only the host can kick players' })
-  }
-  var playerToKick = lobby.getPlayer(req.params.playerId)
-  if (!playerToKick) {
-    return res.fail(404, 'not found', { msg: 'No such user' })
-  }
-  if (playerToKick.name == user) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot kick yourself' })
-  }
-
-  var slot = lobby.removePlayer(playerToKick.id, true)
-  if (slot < 0) {
-    return res.fail(500, 'internal server error', { msg: 'Error removing user' })
-  } else {
-    return res.complete()
-  }
-}
-
-LobbyHandler.prototype.part = function(req, res) {
-  var user = req.socket.handshake.userName
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(409, 'conflict', { msg: 'You are not currently in a lobby' })
-  }
-
-  var lobby = this.playerLobbyMap.get(user)
-  if (req.params.lobby != lobby.name) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot leave a lobby you are not in' })
-  }
-  var player = lobby.getPlayer(req.params.playerId)
-  if (!player || player.name != user) {
-    return res.fail(403, 'forbidden', { msg: 'You cannot part for other users' })
-  }
-  var slot = lobby.removePlayer(req.params.playerId)
-
-  if (slot < 0) {
-    return res.fail(500, 'internal server error', { msg: 'Error removing user' })
-  } else {
-    return res.complete()
-  }
-}
-
-LobbyHandler.prototype.sendChat = function(req, event, complete) {
-  var user = req.socket.handshake.userName
-  if (event.action != 'chat' || event.text === undefined) {
-    return
-  }
-  if (!this.playerLobbyMap.has(user)) {
-    return
-  }
-
-  var lobby = this.playerLobbyMap.get(user)
-  if (req.params.lobby != lobby.name) {
-    return
-  }
-
-  complete({ action: 'chat', from: user, text: event.text })
-}
-
-LobbyHandler.prototype.startCountdown = function(req, res) {
-  var user = req.socket.handshake.userName
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to start the countdown' })
-  }
-
-  var lobby = this.playerLobbyMap.get(user)
-  if (!lobby || req.params.lobby != lobby.name || lobby.host != user) {
-    return res.fail(403, 'forbidden', { msg: 'You must be a lobby host to start the countdown' })
-  }
-
-  var self = this
-  lobby.startCountdown(function() {
-    self._updateJoinedLobby(lobby,
-        { action: 'countdownComplete', host: req.socket.handshake.address, port: 6112 })
-  })
-
-  res.complete()
-  this._updateJoinedLobby(lobby, { action: 'countdownStarted' })
-}
-
-LobbyHandler.prototype.readyUp = function(req, res) {
-  var user = req.socket.handshake.userName
-    , playerId = req.params.playerId
-  if (!this.playerLobbyMap.has(user)) {
-    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to ready up' })
-  }
-
-  var lobby = this.playerLobbyMap.get(user)
-  if (!lobby || req.params.lobby != lobby.name) {
-    return res.fail(403, 'forbidden', { msg: 'You must be in a lobby to ready up' })
-  }
-  var player = lobby.getPlayer(playerId)
-  if (!player || player.name != user) {
-    return res.fail(403, 'forbidden', { msg: 'You can only ready up yourself' })
-  }
-
-  lobby.setPlayerReady(playerId)
-  return res.complete()
-}
-
-function Lobby(name, map, size) {
-  Emitter.call(this)
-  this.host = null
-  this.hostId = null
-  this.name = name
-  this.map = map
-  this.size = size
-
-  this.slots = new Array(size)
-  this.players = []
-  this._topic = '/lobbies/' + encodeURIComponent(this.name)
-  this._startCountdownTimer = null
-  this._isCountingDown = false
-  this._isInitializingGame = false
-  this._playerReadiness = new Array(size)
-
-  Object.defineProperty(this, 'numPlayers',
-      { get: function() { return this.players.length }
-      , enumerable: true
+    if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
+      this.nydus.publishTo(lobby, {
+        type: 'hostChange',
+        newId: updatedLobby.hostId,
       })
-
-  // Property representing the serialized data to send to clients
-  this.$ = new SerializedLobby(this)
-}
-util.inherits(Lobby, Emitter)
-
-function SerializedLobby(lobby) {
-  Object.defineProperty(this, 'host',
-      { get: function() { return lobby.host }
-      , enumerable: true
-      })
-  Object.defineProperty(this, 'hostId',
-      { get: function() { return lobby.hostId }
-      , enumerable: true
-      })
-  this.name = lobby.name
-  this.map = lobby.map
-  this.size = lobby.size
-
-  Object.defineProperty(this, 'numPlayers',
-      { get: function() { return lobby.players.length }
-      , enumerable: true
-      })
-}
-
-Lobby.prototype.addPlayer = function(player) {
-  if (this.size - this.players.length < 1) {
-    throw new Error('No space for player')
-  }
-
-  if (this.players.length === 0) {
-    // this is the first player to join the lobby, must be the creator
-    this.host = player.name
-    this.hostId = player.id
-  }
-
-  this.players.push(player)
-  for (var i = 0; i < this.size; i++) {
-    if (!this.slots[i]) {
-      this.slots[i] = player
-      this.emit('addPlayer', i, player)
-      return i
-    }
-  }
-}
-
-Lobby.prototype.removePlayer = function(id, kick) {
-  var i
-    , len
-  for (i = 0, len = this.players.length; i < len; i++) {
-    if (this.players[i].id == id) {
-      this.players.splice(i, 1)
-      break
     }
   }
 
-  for (i = 0; i < this.size; i++) {
-    if (this.slots[i] && this.slots[i].id == id) {
-      var player = this.slots[i]
-      this.slots[i] = undefined
-      this.emit('removePlayer', i, player, !!kick)
-      break
-    }
+  async getUser(data, next) {
+    const user = this.userSockets.get(data.client)
+    if (!user) throw new errors.UnauthorizedError('authorization required')
+    const newData = data.set('user', user)
+
+    return await next(newData)
   }
 
-  if (this._isCountingDown) {
-    this.abortCountdown()
-  }
-
-  if (this._isInitializingGame) {
-    this.abortInitialization()
-  }
-
-  var slotNum = i < this.size ? i : -1
-  var nonCompCount = 0
-  for (i = 0; i < this.players.length; i++) {
-    if (!this.players[i].isComputer) nonCompCount++
-  }
-
-  if (!nonCompCount) {
-    // lobby is empty, close it down
-    this.emit('closed')
-  } else if (this.hostId == id) {
-    // host left, pick a new host (earliest joiner)
-    for (i = 0; i < this.players.length; i++) {
-      if (this.players[i].isComputer) continue
-
-      this.host = this.players[i].name
-      this.hostId = this.players[i].id
-      this.emit('newHost', this.hostId, this.host)
-      break
-    }
-  }
-
-  return slotNum
-}
-
-Lobby.prototype.getPlayer = function(id) {
-  for (var i = 0; i < this.size; i++) {
-    if (!!this.slots[i] && this.slots[i].id == id) {
-      return this.slots[i]
-    }
-  }
-  return null
-}
-
-Lobby.prototype.findPlayerWithName = function(name) {
-  for (var i = 0; i < this.size; i++) {
-    if (!!this.slots[i] && this.slots[i].name == name && !this.slots[i].isComputer) {
-      return this.slots[i]
-    }
-  }
-  return null
-}
-
-// Returns an object with the "full" description of this lobby, for giving to people that have
-// joined it instead of just viewing it on the lobby list
-Lobby.prototype.getFullDescription = function() {
-  return  { host: this.host
-          , hostId: this.hostId
-          , name: this.name
-          , map: this.map
-          , size: this.size
-          , slots: this.slots
-          , players: this.players
-          }
-}
-
-Lobby.prototype.startCountdown = function(cb) {
-  this._isCountingDown = true
-  this._isInitializingGame = false
-
-  var self = this
-  this._startCountdownTimer = setTimeout(function() {
-    self._isCountingDown = false
-    self._isInitializingGame = true
-    self._playerReadiness = new Array(self.size)
-    cb()
-  }, 5000)
-}
-
-Lobby.prototype.abortCountdown = function() {
-  clearTimeout(this._startCountdownTimer)
-  this._isCountingDown = false
-  this._isInitializingGame = false
-  this.emit('countdownAborted')
-}
-
-Lobby.prototype.abortInitialization = function() {
-  clearTimeout(this._startCountdownTimer)
-  this._isCountingDown = false
-  this._isInitializingGame = false
-  this.emit('initializationAborted')
-}
-
-Lobby.prototype.setPlayerReady = function(id) {
-  var found = false
-    , allReady = true
-  for (var i = 0; i < this.size; i++) {
-    if (!this.slots[i]) {
-      continue
-    }
-    else if (!found && !this.slots[i].isComputer && this.slots[i].id == id) {
-      found = true
-      this._playerReadiness[i] = true
-    } else if (!this._playerReadiness[i] && !this.slots[i].isComputer) {
-      allReady = false
+  async ensureNotInLobby(data, next) {
+    if (this.lobbyUsers.has(data.get('user'))) {
+      throw new errors.ConflictError('cannot enter multiple lobbies at once')
     }
 
-    if (found && !allReady) break
+    return await next(data)
   }
 
-  if (allReady) {
-    this.emit('playersReady')
+  async getLobby(data, next) {
+    const user = data.get('user')
+    if (!this.lobbyUsers.has(user)) {
+      throw new errors.BadRequestError('must be in a lobby')
+    }
+    const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
+
+    return await next(newData)
+  }
+
+  _publishTo(lobby, data) {
+    this.nydus.publish(LobbyApi._getPath(lobby), data)
+  }
+
+  static _getPath(lobby) {
+    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}`
   }
 }
 
-Lobby.prototype.isJoinable = function() {
-  return !(this._isCountingDown || this._isInitializingGame)
+export default function registerApi(nydus, userSockets) {
+  const api = new LobbyApi(nydus, userSockets)
+  registerApiRoutes(api, nydus)
+  return api
 }
-
-Lobby.compare = function(a, b) {
-  return a.name.localeCompare(b.name)
-}
-
-function LobbyMember(name, race, isComputer) {
-  this.id = cuid.slug()
-  this.name = name
-  this.race = race
-  this.isComputer = !!isComputer
-}
-
-function LobbyPlayer(name, race) {
-  LobbyMember.call(this, name, race, false)
-}
-util.inherits(LobbyPlayer, LobbyMember)
-
-function LobbyComputer(race) {
-  LobbyMember.call(this, 'Computer', race, true)
-}
-util.inherits(LobbyComputer, LobbyMember)

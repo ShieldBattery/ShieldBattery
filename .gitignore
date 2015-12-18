@@ -2,4 +2,6 @@ node_modules/
 /certs/*
 /config.js
 /database.json
+/public/scripts/*
+/public/styles/*
 npm-debug.log

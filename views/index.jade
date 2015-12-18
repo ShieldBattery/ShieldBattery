@@ -1,42 +1,7 @@
 extends layout
 
 block content
-  if curSession
+  if initData
     script(type='text/javascript').
-      window._sbSession=!{JSON.stringify(curSession)}
-  div(data-ng-hide='appInitialized') - LOADING -
-  .container(data-ng-show='appInitialized', data-ng-controller='ErrorsCtrl')
-    .row.route-error(data-ng-show='!!routeError') {{ routeError }} 
-      a(href='', data-ng-click='clearRouteError()') (x)
-    nav.row
-      .logo.col-3
-        a(href='/') ShieldBattery
-      .col-2
-        a(href='/lobbies') Play
-      .col-2
-        a(href='/') Chat
-      .col-2
-        a(href='/') Watch
-      .col-1
-        a(href='/settings') Configure
-    .row
-      .col-3.left-nav(data-ng-controller='StatusCtrl')
-        ul(data-ng-hide='siteSocket.connected && psiSocket.connected')
-          li(data-ng-show='!siteSocket.connected') Site socket not connected!
-          li(data-ng-show='!psiSocket.connected') Psi socket not connected! 
-            a(href='', data-ng-click='retryPsi()') (retry)
-        .profile
-          span(data-ng-show='auth.isLoggedIn')
-            p Logged in as {{ auth.user.name }}
-            p(data-ng-show='showAdminLink()')
-              a(href='/admin') Admin
-            p
-              a(href='', data-ng-click='logOut()') Log out
-          span(data-ng-hide='auth.isLoggedIn')
-            a(href='/login') Log in
-        .game-status(data-ng-show='joinedLobby.inLobby')
-          .nav-section-header Game
-          ul
-            li {{ joinedLobby.lobby.name }} 
-              a(href='', data-ng-click='leaveLobby()') (x)
-      main.col-9(ng-view)
+      window._sbInitData=!{JSON.stringify(initData)}
+  div#app

@@ -1,0 +1,59 @@
+@require './units.styl'
+@require './zindex.styl'
+@require '../colors.styl'
+
+.leftnav
+  width $appBarHeight * 3
+  height 100%
+  background-color $grey800
+  z-index $zIndexAppBar + 1
+  border-right 1px solid $colorDividers
+
+  .logotext
+    width 100%
+    height $appBarHeight
+    padding-left 24px
+    border-bottom 1px solid $colorDividers
+    display flex
+    align-items center
+
+    h3
+      display inline-block
+      margin 0
+
+
+.logotext-light
+  font-weight 300
+  color $blue400
+
+.logotext-medium
+  font-weight 400
+  color $amberA400
+
+.leftnav-divider
+  border none
+  border-top 1px solid $colorDividers
+  margin-top 7px
+  margin-bottom 8px
+
+p.leftnav-subheader
+  color $colorTextSecondary
+  height 36px
+  margin 0
+  line-height @height
+  padding-left 24px
+
+.leftnav-section
+  list-style-type none
+  margin 0
+  padding 0
+
+  .leftnav-entry
+    height 36px
+    margin 0
+    line-height @height
+    padding-left 24px
+
+    &.active
+      background-color rgba(255, 255, 255, 0.12)
+      color $amberA200

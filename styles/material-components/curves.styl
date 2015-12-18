@@ -1,0 +1,9 @@
+$fastOutSlowIn = cubic-bezier(.4, 0, .2, 1)
+$linearOutSlowIn = cubic-bezier(0, 0, .2, 1)
+$fastOutLinearIn = cubic-bezier(.4, 0, 1, 1)
+
+doTransition(curve = $fastOutSlowIn, duration = 400ms, property = all, delay = 0ms)
+  transition-property join(',', property)
+  transition-duration duration
+  transition-timing-function curve
+  transition-delay delay

@@ -1,35 +1,37 @@
-var config = require('./config')
+import config from './config'
+import webpack from 'webpack'
+import webpackConfig from './webpack.config.js'
 
-var http = require('http')
-  , https = require('https')
+import http from 'http'
+import https from 'https'
 
-var canonicalHost = require('canonical-host')
-  , cuid = require('cuid')
-  , koa = require('koa')
-  , log = require('./server/logging/logger')
-  , path = require('path')
+import canonicalHost from 'canonical-host'
+import isDev from './server/env/is-dev'
+import koa from 'koa'
+import log from './server/logging/logger'
+import path from 'path'
+import thenify from 'thenify'
 
-var csrf = require('koa-csrf')
-  , csrfCookie = require('./server/security/csrf-cookie')
-  , koaBody = require('koa-body')
-  , koaCompress = require('koa-compress')
-  , koaError = require('koa-error')
-  , logMiddleware = require('./server/logging/log-middleware')
-  , secureHeaders = require('./server/security/headers')
-  , secureJson = require('./server/security/json')
-  , sessionMiddleware = require('./server/session/middleware')
-  , stylus = require('koa-stylus')
-  , views = require('koa-views')
+import csrf from 'koa-csrf'
+import csrfCookie from './server/security/csrf-cookie'
+import koaBody from 'koa-body'
+import koaCompress from 'koa-compress'
+import koaError from 'koa-error'
+import logMiddleware from './server/logging/log-middleware'
+import secureHeaders from './server/security/headers'
+import secureJson from './server/security/json'
+import sessionMiddleware from './server/session/middleware'
+import views from 'koa-views'
 
-var app = koa()
-  , port = config.https ? config.httpsPort : config.httpPort
+const app = koa()
+const port = config.https ? config.httpsPort : config.httpPort
 
 app.keys = [ config.sessionSecret ]
 
 app.on('error', err => {
-  if (err.status) return // likely an HTTP error (expected and fine)
+  if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
-  log.error({ err: err }, 'server error')
+  log.error({ err }, 'server error')
 })
 
 app
@@ -38,23 +40,20 @@ app
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
   .use(koaBody())
-  .use(stylus({
-    src: path.join(__dirname, 'styles'),
-    dest: path.join(__dirname, 'public'),
-  }))
   .use(sessionMiddleware)
   .use(csrfCookie())
   .use(csrf())
   .use(secureHeaders())
   .use(secureJson())
 
-require('./routes')(app)
+import createRoutes from './routes'
+createRoutes(app)
 
-var mainServer
+let mainServer
 if (config.https) {
   mainServer = https.createServer(config.https, app.callback())
   // create a server that simply forwards requests to https
-  var canon = canonicalHost(config.canonicalHost, 301)
+  const canon = canonicalHost(config.canonicalHost, 301)
   http.createServer(function(req, res) {
     if (canon(req, res)) return
     // shouldn't ever get here, but if we do, just kill the connection
@@ -65,8 +64,30 @@ if (config.https) {
   mainServer = http.createServer(app.callback())
 }
 
-require('./websockets')(mainServer, app, sessionMiddleware)
+import setupWebsockets from './websockets'
+setupWebsockets(mainServer, app, sessionMiddleware)
 
-mainServer.listen(port, function() {
-  log.info('Server listening on port ' + port)
+const compiler = webpack(webpackConfig)
+compiler.run = thenify(compiler.run)
+const compilePromise = isDev ? Promise.resolve() : compiler.run()
+if (!isDev) {
+  log.info('In production mode, building assets...')
+}
+
+compilePromise.then(stats => {
+  if (stats) {
+    if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
+      throw new Error(stats.toString())
+    }
+
+    const statStr = stats.toString({ colors: true })
+    log.info(`Webpack stats:\n${statStr}`)
+  }
+
+  mainServer.listen(port, function() {
+    log.info('Server listening on port ' + port)
+  })
+}).catch(err => {
+  log.error({ err }, 'Error building assets')
+  process.exit(1)
 })
