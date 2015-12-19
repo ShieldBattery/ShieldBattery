@@ -16,10 +16,13 @@ if (initData && initData.auth) {
   initData.auth = Immutable.fromJS(initData.auth)
 }
 
+const isDev = (process.env.NODE_ENV || 'development') === 'development'
 const topLevelReducer = combineReducers(reducers)
 const createMiddlewaredStore = compose(
     applyMiddleware(thunk, promise, batchedUpdatesMiddleware),
-    reduxReactRouter({ routes, createHistory })
+    reduxReactRouter({ routes, createHistory }),
+    // Support for https://github.com/zalmoxisus/redux-devtools-extension
+    isDev && window.devToolsExtension ? window.devToolsExtension() : f => f
 )(createStore)
 const store = createMiddlewaredStore(topLevelReducer, window._sbInitData)
 registerDispatch(store.dispatch)
