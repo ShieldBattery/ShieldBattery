@@ -8,11 +8,11 @@ export class UserSocketGroup extends EventEmitter {
     super()
     this.nydus = nydus
     this.name = name
-    this.sockets = initSocket ? new Set([ initSocket ]) : new Set()
+    this.sockets = new Set()
     this.subscriptions = new Map()
 
     if (initSocket) {
-      initSocket.once('disconnect', () => this.delete(initSocket))
+      this.add(initSocket)
     }
   }
 
@@ -20,7 +20,7 @@ export class UserSocketGroup extends EventEmitter {
     const newSockets = this.sockets.add(socket)
     if (newSockets !== this.sockets) {
       this.sockets = newSockets
-      socket.once('disconnect', () => this.delete(socket))
+      socket.once('close', () => this.delete(socket))
       this._applySubscriptions(socket)
       this.emit('connection', this, socket)
     }
@@ -29,7 +29,7 @@ export class UserSocketGroup extends EventEmitter {
   delete(socket) {
     this.sockets = this.sockets.delete(socket)
     if (this.sockets.isEmpty()) {
-      this.emit('disconnect', this)
+      this.emit('close', this)
     }
   }
 
@@ -78,7 +78,7 @@ export class UserManager extends EventEmitter {
         const user = new UserSocketGroup(this.nydus, userName, socket)
         this.users.set(userName, user)
         this.emit('newUser', user)
-        user.once('disconnect', () => this._removeUser(userName))
+        user.once('close', () => this._removeUser(userName))
       } else {
         this.users.get(userName).add(socket)
       }
