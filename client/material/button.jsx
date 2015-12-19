@@ -81,7 +81,10 @@ class Button extends React.Component {
 }
 
 Button.propTypes = {
-  label: React.PropTypes.string.isRequired,
+  label: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.element,
+  ]).isRequired,
   onBlur: React.PropTypes.func,
   onFocus: React.PropTypes.func,
   onClick: React.PropTypes.func,

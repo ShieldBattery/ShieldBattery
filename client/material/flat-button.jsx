@@ -4,10 +4,6 @@ import Button from './button.jsx'
 
 // A button with no elevation
 class FlatButton extends React.Component {
-  constructor(props) {
-    super(props)
-  }
-
   render() {
     const classes = classnames('flat-button', this.props.className, {
       primary: this.props.color === 'primary',
