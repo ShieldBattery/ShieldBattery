@@ -9,6 +9,8 @@ import FontIcon from './material/font-icon.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
+import ConnectedDialog from './dialogs/connected-dialog.jsx'
+import { openDialog } from './dialogs/dialog-action-creator'
 
 function stateToProps(state) {
   return {
@@ -54,6 +56,7 @@ class MainLayout extends React.Component {
         channel => <Entry key={channel.name} active={channel.active}>{channel.name}</Entry>)
     const whispers = this.props.whispers.map(
         whisper => <Entry key={whisper.from} active={whisper.active}>{whisper.from}</Entry>)
+
     return (<div className='flex-row'>
       <LeftNav>
         {lobbyElems}
@@ -72,10 +75,15 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       <div className='flex-fit'>
-        <AppBar title='#teamliquid'/>
+        <AppBar title='#teamliquid' onSettingsClicked={() => this.handleSettingsClicked()} />
         { this.props.children }
       </div>
+      <ConnectedDialog />
     </div>)
+  }
+
+  handleSettingsClicked() {
+    this.props.dispatch(openDialog('settings'))
   }
 }
 
