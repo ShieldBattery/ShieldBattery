@@ -1,7 +1,9 @@
 extends layout
 
-block content
+block headScripts
   if initData
     script(type='text/javascript').
       window._sbInitData=!{JSON.stringify(initData)}
+
+block content
   div#app

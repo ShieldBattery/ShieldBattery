@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import siteSocket from './network/site-socket'
 
 import AppBar from './material/app-bar.jsx'
-import LeftNav from './material/left-nav.jsx'
+import LeftNav from './material/left-nav/left-nav.jsx'
 
 @connect(state => ({ auth: state.auth }))
 class MainLayout extends React.Component {

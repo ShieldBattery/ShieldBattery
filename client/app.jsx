@@ -24,7 +24,7 @@ const createMiddlewaredStore = compose(
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
     isDev && window.devToolsExtension ? window.devToolsExtension() : f => f
 )(createStore)
-const store = createMiddlewaredStore(topLevelReducer, window._sbInitData)
+const store = createMiddlewaredStore(topLevelReducer, initData)
 registerDispatch(store.dispatch)
 
 import './network/socket-handlers'
