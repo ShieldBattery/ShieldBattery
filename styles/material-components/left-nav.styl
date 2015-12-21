@@ -3,16 +3,16 @@
 @require '../colors.styl'
 
 .leftnav
-  width $appBarHeight * 3
+  width $appBarHeight * 3.5
   height 100%
   background-color $grey800
-  z-index $zIndexAppBar + 1
   border-right 1px solid $colorDividers
+  z-index $zIndexAppBar
 
   .logotext
     width 100%
     height $appBarHeight
-    padding-left 24px
+    padding-left 16px
     border-bottom 1px solid $colorDividers
     display flex
     align-items center
@@ -41,7 +41,11 @@ p.leftnav-subheader
   height 36px
   margin 0
   line-height @height
-  padding-left 24px
+  margin-left 16px
+  margin-right 16px
+  white-space nowrap
+  overflow hidden
+  text-overflow ellipsis
 
 .leftnav-section
   list-style-type none
@@ -52,7 +56,11 @@ p.leftnav-subheader
     height 36px
     margin 0
     line-height @height
-    padding-left 24px
+    padding-left 16px
+    padding-right 16px
+    white-space nowrap
+    overflow hidden
+    text-overflow ellipsis
 
     &.active
       background-color rgba(255, 255, 255, 0.12)

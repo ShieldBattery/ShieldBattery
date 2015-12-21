@@ -13,6 +13,9 @@ import Subheader from './material/left-nav/subheader.jsx'
 function stateToProps(state) {
   return {
     auth: state.auth,
+    lobby: {
+      name: '5v3 BGH Comp Stomp',
+    },
     chatChannels: [
       { name: '#doyoureallywantthem' },
       { name: '#teamliquid', active: true },
@@ -36,12 +39,24 @@ class MainLayout extends React.Component {
   }
 
   render() {
+    let lobbyElems
+    if (this.props.lobby) {
+      lobbyElems = [
+        <Subheader key='lobby-header'>Lobby</Subheader>,
+        <Section key='lobby-section'>
+          <Entry active={this.props.lobby.active}>{this.props.lobby.name}</Entry>
+        </Section>,
+        <Divider key='lobby-divider'/>
+      ]
+    }
+
     const channels = this.props.chatChannels.map(
         channel => <Entry key={channel.name} active={channel.active}>{channel.name}</Entry>)
     const whispers = this.props.whispers.map(
         whisper => <Entry key={whisper.from} active={whisper.active}>{whisper.from}</Entry>)
     return (<div className='flex-row'>
       <LeftNav>
+        {lobbyElems}
         <Subheader>Chat channels</Subheader>
         <Section>
           {channels}
