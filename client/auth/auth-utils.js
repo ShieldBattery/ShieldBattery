@@ -1,7 +1,7 @@
 import { replaceState } from 'redux-router'
 
 export function isLoggedIn(authState) {
-  return !!authState.get('user')
+  return authState.user && authState.user.name
 }
 
 export function redirectIfLoggedIn({ auth, router, dispatch }) {

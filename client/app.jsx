@@ -10,10 +10,11 @@ import { createHistory } from 'history'
 import routes from './routes.jsx'
 import * as reducers from './reducers'
 import { registerDispatch } from './dispatch-registry'
+import { fromJS as authFromJS } from './auth/auth-records'
 
 const initData = window._sbInitData
 if (initData && initData.auth) {
-  initData.auth = Immutable.fromJS(initData.auth)
+  initData.auth = authFromJS(initData.auth)
 }
 
 const isDev = (process.env.NODE_ENV || 'development') === 'development'

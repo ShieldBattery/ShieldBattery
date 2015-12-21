@@ -1,12 +1,7 @@
-import Immutable from 'immutable'
 import { AUTH_CHANGE_BEGIN, AUTH_LOG_IN, AUTH_LOG_OUT, AUTH_SIGN_UP } from '../actions'
+import { Auth, Permissions, User } from './auth-records'
 
-const initialState = Immutable.Map({
-  user: null,
-  permissions: null,
-  authChangeInProgress: false,
-  lastFailure: null,
-})
+const initialState = new Auth()
 
 function begin(state, action) {
   return (state.withMutations(s =>
@@ -17,21 +12,14 @@ function begin(state, action) {
 
 function logInSuccess(state, action) {
   const { user, permissions } = action.payload
-  return (state.withMutations(s =>
-    s.set('authChangeInProgress', false)
-      .set('lastFailure', null)
-      .set('user', Immutable.Map(user))
-      .set('permissions', Immutable.Map(permissions))
-  ))
+  return new Auth({
+    user: new User(user),
+    permissions: new Permissions(permissions)
+  })
 }
 
 function logOutSuccess(state, action) {
-  return (state.withMutations(s =>
-    s.set('authChangeInProgress', false)
-      .set('lastFailure', null)
-      .set('user', null)
-      .set('permissions', null)
-  ))
+  return new Auth()
 }
 
 function handleError(state, action) {

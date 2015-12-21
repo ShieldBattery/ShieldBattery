@@ -34,7 +34,7 @@ class Signup extends React.Component {
 
   render() {
     const { auth, router } = this.props
-    if (auth.get('authChangeInProgress')) {
+    if (auth.authChangeInProgress) {
       return <Card zDepth={1} className='card-form'><span>Please wait...</span></Card>
     }
 
@@ -63,7 +63,7 @@ class Signup extends React.Component {
         `Passwords do not match`)
 
     let errContents
-    const failure = auth.get('lastFailure')
+    const failure = auth.lastFailure
     const reqId = this.state.reqId
     if (reqId && failure && failure.reqId === reqId) {
       errContents = `Error: ${failure.err}`

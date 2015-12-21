@@ -35,11 +35,11 @@ class Login extends React.Component {
   render() {
     const { auth } = this.props
     let cardContents
-    if (auth.get('authChangeInProgress')) {
+    if (auth.authChangeInProgress) {
       cardContents = <span>Please wait...</span>
     } else {
       let errContents
-      const failure = auth.get('lastFailure')
+      const failure = auth.lastFailure
       const reqId = this.state.reqId
       if (reqId && failure && failure.reqId === reqId) {
         errContents = `Error: ${failure.err}`
