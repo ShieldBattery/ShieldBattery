@@ -1,5 +1,4 @@
 import React from 'react'
-import Immutable from 'immutable'
 import { applyMiddleware, createStore, combineReducers, compose } from 'redux'
 import thunk from 'redux-thunk'
 import promise from 'redux-promise'
