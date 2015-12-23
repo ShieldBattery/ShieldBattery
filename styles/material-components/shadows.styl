@@ -15,43 +15,43 @@ doPenumbra(offsetY, blurRadius, spreadRadius)
 doAmbient(offsetY, blurRadius, spreadRadius)
   doShadow(offsetY, blurRadius, spreadRadius, $shadowAmbientOpacity)
 
-$shadowLevel1 = doUmbra(3px, 1px, -2px), doPenumbra(2px, 2px, 0px), doAmbient(1px, 5px, 0px)
-$shadowLevel2 = doUmbra(2px, 4px, -1px), doPenumbra(4px, 5px, 0px), doAmbient(1px, 10px, 0px)
-$shadowLevel3 = doUmbra(3px, 5px, -1px), doPenumbra(6px, 10px, 0px), doAmbient(1px, 18px, 0px)
-$shadowLevel4 = doUmbra(5px, 5px, -3px), doPenumbra(8px, 10px, 1px), doAmbient(3px, 14px, 2px)
-$shadowLevel5 = doUmbra(8px, 10px, -5px), doPenumbra(16px, 24px, 2px), doAmbient(6px, 30px, 5px)
+$shadow2dp = doUmbra(1px, 5px, 0px), doPenumbra(2px, 2px, 0px), doAmbient(3px, 1px, -2px)
+$shadow4dp = doUmbra(2px, 4px, -1px), doPenumbra(4px, 5px, 0px), doAmbient(1px, 10px, 0px)
+$shadow6dp = doUmbra(3px, 5px, -1px), doPenumbra(6px, 10px, 0px), doAmbient(1px, 18px, 0px)
+$shadow8dp = doUmbra(5px, 5px, -3px), doPenumbra(8px, 10px, 1px), doAmbient(3px, 14px, 2px)
+$shadow16dp = doUmbra(8px, 10px, -5px), doPenumbra(16px, 24px, 2px), doAmbient(6px, 30px, 5px)
 
-shadow1()
-  box-shadow $shadowLevel1
-  z-index 1 unless @z-index
-
-.shadow-1
-  shadow1()
-
-shadow2()
-  box-shadow $shadowLevel2
+shadow2dp()
+  box-shadow $shadow2dp
   z-index 2 unless @z-index
 
-.shadow-2
-  shadow2()
+.shadow-2dp
+  shadow2dp()
 
-shadow3()
-  box-shadow $shadowLevel3
-  z-index 3 unless @z-index
-
-.shadow-3
-  shadow3()
-
-shadow4()
-  box-shadow $shadowLevel4
+shadow4dp()
+  box-shadow $shadow4dp
   z-index 4 unless @z-index
 
-.shadow-4
-  shadow4()
+.shadow-4dp
+  shadow4dp()
 
-shadow5()
-  box-shadow $shadowLevel5
-  z-index 5 unless @z-index
+shadow6dp()
+  box-shadow $shadow6dp
+  z-index 6 unless @z-index
 
-.shadow-5
-  shadow5()
+.shadow-6dp
+  shadow6dp()
+
+shadow8dp()
+  box-shadow $shadow8dp
+  z-index 8 unless @z-index
+
+.shadow-8dp
+  shadow8dp()
+
+shadow16dp()
+  box-shadow $shadow16dp
+  z-index 16 unless @z-index
+
+.shadow-16dp
+  shadow16dp()

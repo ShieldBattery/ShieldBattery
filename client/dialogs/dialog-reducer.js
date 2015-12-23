@@ -1,5 +1,11 @@
 import { DIALOG_OPEN, DIALOG_CLOSE } from '../actions'
-import { Dialog } from './dialog-records'
+import { Record } from 'immutable'
+
+
+export const Dialog = new Record({
+  isDialogOpened: false,
+  dialogType: null,
+})
 
 const initialState = new Dialog()
 

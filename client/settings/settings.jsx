@@ -9,19 +9,16 @@ class Settings extends React.Component {
 
   render() {
     return (
-      <div>
-        <div className='dialog-contents'>
-          <h3 className='dialog-title'>Settings</h3>
-          <div className='dialog-body'>
-            Dialog body goes here
-          </div>
-          <div className='dialog-actions'>
-            <FlatButton label='Save' primary={true} onClick={::this.onSettingsSaved} />
-            <FlatButton label='Cancel' onClick={::this.onSettingsCanceled} />
-            {/* TODO(2Pac): Add button for 'Reset to default settings' option*/}
-          </div>
+      <div className='dialog-contents'>
+        <h4 className='dialog-title'>Settings</h4>
+        <div className='dialog-body'>
+          Dialog body goes here
         </div>
-        <div className='dialog-overlay' onClick={::this.onSettingsCanceled} />
+        <div className='dialog-actions'>
+          <FlatButton label='Cancel' color='accent' onClick={::this.onSettingsCanceled} />
+          <FlatButton label='Save' color='accent' onClick={::this.onSettingsSaved} />
+          {/* TODO(2Pac): Add button for 'Reset to default settings' option*/}
+        </div>
       </div>
     )
   }

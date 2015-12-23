@@ -2,9 +2,14 @@ import React from 'react'
 import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import Settings from '../settings/settings.jsx'
+import { closeDialog } from './dialog-action-creator'
 
 @connect(state => ({ dialog: state.dialog }))
 class ConnectedDialog extends React.Component {
+  static contextTypes = {
+    store: React.PropTypes.object.isRequired,
+  }
+
   render() {
     const { dialog } = this.props
     let dialogComponent = null
@@ -22,10 +27,14 @@ class ConnectedDialog extends React.Component {
     }
 
     return (
-      <Dialog>
+      <Dialog onCancel={::this.onCancel}>
         { dialogComponent }
       </Dialog>
     )
+  }
+
+  onCancel() {
+    this.context.store.dispatch(closeDialog())
   }
 }
 
