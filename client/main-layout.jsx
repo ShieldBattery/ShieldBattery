@@ -5,6 +5,7 @@ import siteSocket from './network/site-socket'
 import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import Entry from './material/left-nav/entry.jsx'
+import FlatButton from './material/flat-button.jsx'
 import FontIcon from './material/font-icon.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
@@ -75,14 +76,17 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       <div className='flex-fit'>
-        <AppBar title='#teamliquid' onSettingsClicked={() => this.handleSettingsClicked()} />
+        <AppBar title='#teamliquid'>
+          <FlatButton label={<FontIcon>more_vert</FontIcon>} />
+          <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />
+        </AppBar>
         { this.props.children }
       </div>
       <ConnectedDialog />
     </div>)
   }
 
-  handleSettingsClicked() {
+  onSettingsClicked() {
     this.props.dispatch(openDialog('settings'))
   }
 }
