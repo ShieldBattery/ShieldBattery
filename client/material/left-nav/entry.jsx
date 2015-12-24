@@ -1,7 +1,8 @@
 import React from 'react'
+import styles from './left-nav.css'
 
 const Entry = (props) => {
-  const classes = 'leftnav-entry' + (props.active ? ' active' : '')
+  const classes = props.active ? styles.active : styles.entry
   return <li className={classes}>{props.children}</li>
 }
 Entry.propTypes = {

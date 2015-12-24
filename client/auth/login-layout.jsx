@@ -1,12 +1,13 @@
 import React from 'react'
+import styles from './login.css'
 
 class MainLayout extends React.Component {
   render() {
-    return (<div className='login-wrapper'>
-      <img className='logo' src='/images/logo.svg' />
-      <div className='logotext'>
-        <h1 className='md-display4 logotext-light'>Shield</h1>
-        <h1 className='md-display4 logotext-medium'>Battery</h1>
+    return (<div className={styles.wrapper}>
+      <img className={styles.logo} src='/images/logo.svg' />
+      <div className={styles.logoText}>
+        <h1 className={styles.logoTextLight}>Shield</h1>
+        <h1 className={styles.logoTextMedium}>Battery</h1>
       </div>
       <div>
         { this.props.children }

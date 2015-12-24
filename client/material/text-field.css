@@ -1,0 +1,181 @@
+@value colorTextFaint, colorTextPrimary, colorDividers, colorError from '../styles/colors.css';
+@value amberA400 from '../styles/colors.css';
+@value linearOutSlowIn, fastOutLinearIn from './curves.css';
+
+@value inputErrorHeight: 24px;
+
+.textField {
+  composes: col itemsStart from '../styles/flex.css';
+  font-size: 16px;
+  position: relative;
+  padding: 2px;
+
+  @nest
+      & input[type="text"],
+      & input[type="password"],
+      & input[type="datetime"],
+      & input[type="datetime-local"],
+      & input[type="date"],
+      & input[type="month"],
+      & input[type="time"],
+      & input[type="week"],
+      & input[type="number"],
+      & input[type="email"],
+      & input[type="url"],
+      & input[type="search"],
+      & input[type="tel"],
+      & input[type="color"] {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+  }
+
+  @nest
+      & input[type="date"],
+      & input[type="datetime-local"],
+      & input[type="month"],
+      & input[type="time"],
+      & input[type="week"] {
+    min-height: calc(inputErrorHeight / 16)
+  }
+}
+
+.label {
+  composes: fastOutSlowInShort from './curves.css';
+  position: relative;
+  top: -2px;
+  color: colorTextFaint;
+}
+
+.floatingLabel {
+}
+
+.floatingLabel .label {
+  order: 1;
+  pointer-events: none;
+  -webkit-font-smoothing: antialiased;
+  padding-left: 2px;
+  z-index: 1;
+  transform: translate3d(0, 28px, 0) scale(1);
+  transform-origin: left top;
+}
+
+.input {
+  composes: grow from '../styles/flex.css';
+  order: 2;
+  display: block;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: none;
+  color: colorTextPrimary;
+  padding-top: 2px 2px 0px;
+  line-height: inherit;
+  width: 100%;
+  -ms-flex-preferred-size: inherit;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.input:invalid {
+  outline: none;
+  box-shadow: none;
+}
+
+.underline {
+  pointer-events: none;
+  border: none;
+  border-bottom: 1px solid colorDividers;
+  order: 3;
+  width: 100%;
+  margin: 0;
+}
+
+.focusUnderline {
+  composes: fastOutSlowInShort from './curves.css';
+  composes: underline;
+  margin-top: -1px;
+  border-bottom-width: 2px;
+  border-color: amberA400;
+  transform: scaleX(0);
+  transition: all 250ms fastOutSlowIn;
+}
+
+.errorContainer {
+  pointer-events: none;
+  height: inputErrorHeight;
+  order: 4;
+}
+
+.error {
+  pointer-events: none;
+  font-size: 12px;
+  line-height: inputErrorHeight;
+  order: 4;
+  color: colorError;
+}
+
+.errorEnter {
+  opacity: 0.01;
+  transform: translate3d(0, -30%, 0);
+  transition: all 250ms linearOutSlowIn;
+}
+
+.errorEnterActive {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.errorLeave {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: all 250ms fastOutLinearIn;
+}
+
+.errorLeaveActive {
+  opacity: 0.01;
+  transform: translate3d(0, -30%, 0);
+}
+
+.isError .focusUnderline {
+  border-color: colorError;
+  transform: scaleX(1);
+}
+
+.hasValue:not(.floatingLabel) .label {
+  opacity: 0;
+}
+
+.disabled .input {
+  color: colorTextFaint;
+}
+
+.disabled .underline {
+  height: 1px;
+  border: none;
+  background-position: 0 bottom;
+  background-size: 4px 1px;
+  background-repeat: repeat-x;
+  background-image: linear-gradient(to right, colorDividers 0%, colorDividers 33%, transparent 0%);
+}
+
+.focused .focusUnderline {
+  transform: scaleX(1);
+}
+
+.floatingLabel.focused .label, .floatingLabel.hasValue .label {
+  transform: translate3d(0, 6px, 0) scale(0.75);
+}
+
+.floatingLabel.focused .label {
+  color: amberA400;
+}
+
+.floatingLabel.disabled .label {
+  color: colorTextFaint;
+}
+
+.floatingLabel.error .label {
+  color: colorError;
+}

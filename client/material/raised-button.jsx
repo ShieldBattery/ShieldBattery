@@ -1,6 +1,7 @@
 import React from 'react'
 import classnames from 'classnames'
 import Button from './button.jsx'
+import styles from './button.css'
 
 // A button that has elevation, and raises further when pressed
 class RaisedButton extends React.Component {
@@ -9,9 +10,9 @@ class RaisedButton extends React.Component {
   }
 
   render() {
-    const classes = classnames('raised-button', this.props.className, {
-      primary: this.props.color !== 'accent',
-      accent: this.props.color === 'accent',
+    const classes = classnames(styles.raised, this.props.className, {
+      [styles.primary]: this.props.color !== 'accent',
+      [styles.accent]: this.props.color === 'accent',
     })
 
     return (<Button {...this.props} className={classes}/>)

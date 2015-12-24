@@ -1,5 +1,6 @@
 import React from 'react'
 import classnames from 'classnames'
+import styles from './forms.css'
 
 class ValidatedForm extends React.Component {
   constructor() {
@@ -28,9 +29,9 @@ class ValidatedForm extends React.Component {
       })
     })
 
-    const fieldsClassName = classnames('fields', this.props.fieldsClassName)
-    const errorsClassName = classnames('errors', this.props.errorsClassName)
-    const buttonsClassName = classnames('button-area', this.props.buttonsClassName)
+    const fieldsClassName = classnames(styles.fields, this.props.fieldsClassName)
+    const errorsClassName = classnames(styles.errors, this.props.errorsClassName)
+    const buttonsClassName = classnames(styles.buttons, this.props.buttonsClassName)
 
     const title = this.props.formTitle ? (<h3>{this.props.formTitle}</h3>) : undefined
     const errorText = this.props.errorText ?

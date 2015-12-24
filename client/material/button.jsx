@@ -1,5 +1,6 @@
 import React from 'react'
 import classnames from 'classnames'
+import styles from './button.css'
 
 // Button with Material Design goodness. You don't want to use this directly, see FlatButton or
 // RaisedButton instead
@@ -16,9 +17,8 @@ class Button extends React.Component {
   render() {
     const { label, ...otherProps } = this.props
 
-    const classes = classnames('material-button', this.props.className, {
-      disabled: this.props.disabled,
-      focused: this.state.isKeyboardFocused,
+    const classes = classnames(this.props.className, {
+      [styles.focused]: this.state.isKeyboardFocused,
     })
 
     const buttonProps = {
@@ -29,7 +29,7 @@ class Button extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
     }
     return (<button {...otherProps} {...buttonProps}>
-      <span className='material-button-label'>{label}</span>
+      <span className={styles.label}>{label}</span>
     </button>)
   }
 

@@ -14,6 +14,7 @@ import minLengthValidator from '../forms/min-length-validator'
 import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
 import constants from '../../shared/constants'
+import styles from './login.css'
 
 @connect(state => ({ auth: state.auth, router: state.router }))
 class Login extends React.Component {
@@ -65,31 +66,31 @@ class Login extends React.Component {
         <ValidatedForm ref='form'
             formTitle={'Please log in'}
             errorText={errContents}
-            errorsClassName='flex-100'
-            fieldsClassName='flex-row flex-wrap'
+            errorsClassName={styles.errors}
+            fieldsClassName={styles.fields}
             buttons={buttons}
             onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText className='flex-50' hintText='Username' floatingLabel={true}
+          <ValidatedText className={styles.textFields} hintText='Username' floatingLabel={true}
               name='username' tabIndex={1}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedText className='flex-50' hintText='Password' floatingLabel={true}
+          <ValidatedText className={styles.textFields} hintText='Password' floatingLabel={true}
               name='password' tabIndex={1} type='password'
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'
               validator={passwordValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedCheckbox className='flex-33' label='Remember me'
+          <ValidatedCheckbox className={styles.checkboxes} label='Remember me'
               name='remember' tabIndex={1} />
         </ValidatedForm>
       )
     }
 
     return (<div>
-      <Card zDepth={1}>{cardContents}</Card>
-      <div className='flex-row flex-justify-center'>
+      <Card>{cardContents}</Card>
+      <div className={styles.bottomAction}>
         <p>Don't have an account?</p>
         <FlatButton label='Sign up' onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
       </div>

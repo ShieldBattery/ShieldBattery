@@ -1,0 +1,35 @@
+/* global styles that will be imported at the root of our JS app */
+@value colorTextPrimary, colorTextFaint, colorBackground from './colors.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: Roboto, sans-serif;
+  font-weight: normal;
+  color: colorTextPrimary;
+  font-size: 14px;
+  line-height: 1.5;
+  background-color: colorBackground;
+}
+
+html, body, :global(#app), :global(#app) > div {
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-touch-callout: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+[disabled] {
+  color: colorTextFaint;
+}
+
+/* TODO(tec27): temporary, rewrite into a component or something */
+:global(.content-body) {
+  margin: 16px;
+}

@@ -14,6 +14,7 @@ import regexValidator from '../forms/regex-validator'
 import matchOtherValidator from '../forms/match-other-validator'
 import constants from '../../shared/constants'
 import auther from './auther'
+import styles from './login.css'
 
 @connect(state => ({ auth: state.auth, router: state.router }))
 class Signup extends React.Component {
@@ -35,7 +36,7 @@ class Signup extends React.Component {
   render() {
     const { auth, router } = this.props
     if (auth.authChangeInProgress) {
-      return <Card zDepth={1} className='card-form'><span>Please wait...</span></Card>
+      return <Card><span>Please wait...</span></Card>
     }
 
     const button = (<RaisedButton type='button' label='Sign up'
@@ -71,7 +72,7 @@ class Signup extends React.Component {
 
     return (<div>
       <Card zDepth={1}>
-        <ValidatedForm formTitle='Sign up' errorText={errContents}
+        <ValidatedForm formTitle='Sign up' errorText={errContents} errorClassName={styles.errors}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
               defaultValue={router.location.query.username}
@@ -97,7 +98,7 @@ class Signup extends React.Component {
               onEnterKeyDown={e => this.onSignUpClicked()}/>
         </ValidatedForm>
       </Card>
-      <div className='flex-row flex-justify-center'>
+      <div className={styles.bottomAction}>
         <p>Already have an account?</p>
         <FlatButton label='Log in' onClick={e => this.onLogInClicked(e)} tabIndex={2} />
       </div>

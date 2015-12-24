@@ -1,0 +1,11 @@
+@value zIndexTooltip: 110;
+@value zIndexMenu: 109;
+@value zIndexDialog: 100;
+@value zIndexDialogScrim: 99;
+@value zIndexSnackbar: 90;
+@value zIndexBottomSheet: 80;
+@value zIndexScrollMask: 75;
+@value zIndexSidenav: 70;
+@value zIndexBackdrop: 60;
+@value zIndexFab: 40;
+@value zIndexAppBar: 30;

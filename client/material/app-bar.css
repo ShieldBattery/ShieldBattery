@@ -1,0 +1,37 @@
+@value blue800 from '../styles/colors.css';
+@value standardIncrement from './units.css';
+@value zIndexAppBar from './zindex.css';
+
+.appBar {
+  composes: row from '../styles/flex.css';
+  composes: shadow4dp from './shadows.css';
+  align-items: baseline;
+  width: 100%;
+  height: standardIncrement;
+  margin: 0;
+  padding: 0 16px;
+  background-color: blue800;
+  position: relative;
+  z-index: zIndexAppBar;
+}
+
+.title {
+  composes: grow from '../styles/flex.css';
+  composes: title from '../styles/typography.css';
+  composes: singleLine from '../styles/typography.css';
+  line-height: standardIncrement;
+  margin: 0;
+}
+
+/* TODO(tec27): move to using cloneElement and make this a class we apply? */
+.appBar button {
+  align-self: center;
+
+  @nest &:not([disabled]):hover {
+    background-color: transparent;
+  }
+
+  @nest &:last-child {
+    margin-right: -16px;
+  }
+}

@@ -1,13 +1,14 @@
 import React from 'react'
 import classnames from 'classnames'
 import Button from './button.jsx'
+import styles from './button.css'
 
 // A button with no elevation
 class FlatButton extends React.Component {
   render() {
-    const classes = classnames('flat-button', this.props.className, {
-      primary: this.props.color === 'primary',
-      accent: this.props.color === 'accent',
+    const classes = classnames(styles.flat, this.props.className, {
+      [styles.primary]: this.props.color === 'primary',
+      [styles.accent]: this.props.color === 'accent',
     })
 
     return (<Button {...this.props} className={classes}/>)

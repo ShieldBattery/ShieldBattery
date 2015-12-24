@@ -1,4 +1,5 @@
-import '../styles/site.styl'
+import './styles/reset.css'
+import './styles/global.css'
 
 import React from 'react'
 import { render } from 'react-dom'

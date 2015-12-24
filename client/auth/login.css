@@ -1,0 +1,62 @@
+@value blue400, amberA400 from '../styles/colors.css';
+
+:global(#app) .wrapper {
+  width: calc(640px + (16px * 2));
+  margin: 0 auto;
+}
+
+.logo {
+  display: block;
+  margin: 0 auto;
+  width: 256px;
+  height: 256px;
+}
+
+.logoText {
+  display: block;
+  margin: 0 auto 8px;
+  text-align: center;
+}
+
+.logoTextCommon {
+  display: inline-block;
+  margin-top: 0;
+}
+
+.logoTextLight {
+  composes: display4 from '../styles/typography.css';
+  composes: logoTextCommon;
+  font-weight: 300;
+  color: blue400;
+}
+
+.logoTextMedium {
+  composes: display4 from '../styles/typography.css';
+  composes: logoTextCommon;
+  font-weight: 400;
+  color: amberA400;
+}
+
+.wrapper form > h3 {
+  margin-top: 0;
+}
+
+.errors {
+  composes: take100 from '../styles/flex.css'
+}
+
+.fields {
+  composes: row wrap from '../styles/flex.css'
+}
+
+.textFields {
+  composes: take50 from '../styles/flex.css'
+}
+
+.checkboxes {
+  composes: take33 from '../styles/flex.css'
+}
+
+.bottomAction {
+  composes: row justifyCenter from '../styles/flex.css'
+}

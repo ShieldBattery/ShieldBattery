@@ -1,0 +1,10 @@
+@value grey800 from '../styles/colors.css';
+
+.card {
+  composes: global(cardLayer);
+  composes: shadow2dp from './shadows.css';
+  border-radius: 2px;
+  /* TODO(tec27): there's probably places we don't want 16px padding (full bleed images), */
+  /* figure out a good way to handle that */
+  padding: 16px;
+}

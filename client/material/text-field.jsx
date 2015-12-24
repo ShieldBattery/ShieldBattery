@@ -2,6 +2,7 @@ import React from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
+import styles from './text-field.css'
 
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
@@ -25,18 +26,18 @@ class TextField extends React.Component {
   }
 
   render() {
-    const classes = classnames('text-field', this.props.className, {
-      error: !!this.props.errorText,
-      'floating-label': this.props.floatingLabel,
-      'has-value': this.state.hasValue,
-      disabled: this.props.disabled,
-      focused: this.state.isFocused,
+    const classes = classnames(styles.textField, this.props.className, {
+      [styles.isError]: !!this.props.errorText,
+      [styles.floatingLabel]: this.props.floatingLabel,
+      [styles.hasValue]: this.state.hasValue,
+      [styles.disabled]: this.props.disabled,
+      [styles.focused]: this.state.isFocused,
     })
 
     const hintText = this.props.hintText ?
-        <label htmlFor={this.id}>{this.props.hintText}</label> : null
+        <label className={styles.label} htmlFor={this.id}>{this.props.hintText}</label> : null
     const errorText = this.props.errorText ?
-        <div className='text-field-error' key='error'>{this.props.errorText}</div> : null
+        <div className={styles.error} key='error'>{this.props.errorText}</div> : null
 
     const inputProps = {
       ref: 'input',
@@ -45,20 +46,26 @@ class TextField extends React.Component {
       onChange: e => this._onInputChange(e),
       onFocus: e => this._onInputFocus(e),
       onKeyDown: e => this._onKeyDown(e),
-      type: this.props.type
+      type: this.props.type,
+      className: styles.input,
     }
 
     return (
       <div className={classes}>
         {hintText}
         <input {...this.props} {...inputProps} />
-        <hr className='text-field-underline'/>
-        <hr className='text-field-focus-underline'/>
+        <hr className={styles.underline}/>
+        <hr className={styles.focusUnderline}/>
         <TransitionGroup
-          transitionName='text-field-error'
-          className='text-field-error-container'
-          transitionEnterTimeout={1000}
-          transitionLeaveTimeout={1000}>
+          transitionName={{
+            enter: styles.errorEnter,
+            enterActive: styles.errorEnterActive,
+            leave: styles.errorLeave,
+            leaveActive: styles.errorLeaveActive,
+          }}
+          className={styles.errorContainer}
+          transitionEnterTimeout={250}
+          transitionLeaveTimeout={250}>
           {errorText}
         </TransitionGroup>
       </div>

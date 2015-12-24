@@ -1,0 +1,78 @@
+@value blue400, amberA200, amberA400, grey800 from '../../styles/colors.css';
+@value colorDividers, colorTextSecondary from '../../styles/colors.css';
+@value standardIncrement from '../units.css';
+@value zIndexAppBar from '../zindex.css';
+
+.leftNav {
+  width: calc(standardIncrement * 3.5);
+  height: 100%;
+  background-color: grey800;
+  border-right: 1px solid colorDividers;
+  z-index: zIndexAppBar;
+}
+
+.logo {
+  composes: flex itemsCenter from '../../styles/flex.css';
+  width: 100%;
+  height: standardIncrement;
+  padding-left: 16px;
+  border-bottom: 1px solid colorDividers;
+  margin-bottom: 8px;
+}
+
+.logoText {
+  composes: headline from '../../styles/typography.css';
+  display: inline-block;
+  margin: 0;
+  font-size: 32px;
+}
+
+.logoTextLight {
+  composes: logoText;
+  font-weight: 300;
+  color: blue400;
+}
+
+.logoTextMedium {
+  composes: logoText;
+  font-weight: 400;
+  color: amberA400;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid colorDividers;
+  margin-top: 7px;
+  margin-bottom: 8px;
+}
+
+.entryCommon {
+  height: 36px;
+  line-height: 36px;
+}
+
+.subheader {
+  composes: body2 singleLine from '../../styles/typography.css';
+  composes: entryCommon;
+  color: colorTextSecondary;
+  margin: 0 16px;
+}
+
+.section {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entry {
+  composes: singleLine from '../../styles/typography.css';
+  composes: entryCommon;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.active {
+  composes: entry;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: amberA200;
+}

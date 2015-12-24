@@ -1,0 +1,11 @@
+@value colorError from '../styles/colors.css';
+
+.fields {
+}
+
+.errors {
+  color: colorError;
+}
+
+.buttons {
+}

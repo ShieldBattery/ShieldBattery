@@ -1,0 +1,11 @@
+@value fastOutSlowIn: cubic-bezier(.4, 0, .2, 1);
+@value linearOutSlowIn: cubic-bezier(0, 0, .2, 1);
+@value fastOutLinearIn: cubic-bezier(.4, 0, 1, 1);
+
+.fastOutSlowInShort {
+  transition: all 250ms fastOutSlowIn;
+}
+
+.fastOutSlowInNormal {
+  transition: all 400ms fastOutSlowIn;
+}

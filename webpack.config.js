@@ -1,17 +1,20 @@
 import webpack from 'webpack'
-import autoprefixer from 'autoprefixer-stylus'
 import path from 'path'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
+import cssNext from 'postcss-cssnext'
+import cssFor from 'postcss-for'
+import cssMixins from 'postcss-mixins'
 
 const isDev = 'production' !== process.env.NODE_ENV
-const autoprefix = autoprefixer({ browsers: ['last 2 version'] })
 
-const stylusLoader = {
-  test: /\.styl$/,
-  loader: 'style-loader!css-loader!stylus-loader',
+const cssLoader = 'css-loader?modules&importLoaders=1'
+const styleLoader = {
+  test: /\.css$/,
+  loader:
+      `style-loader!${cssLoader}&localIdentName=[name]__[local]___[hash:base64:5]!postcss-loader`,
 }
 if (!isDev) {
-  stylusLoader.loader = ExtractTextPlugin.extract('style-loader', 'css-loader!stylus-loader')
+  styleLoader.loader = ExtractTextPlugin.extract('style-loader', `${cssLoader}!postcss-loader`)
 }
 
 const webpackOptions = {
@@ -49,7 +52,7 @@ const webpackOptions = {
           }
         }
       },
-      stylusLoader
+      styleLoader
     ],
   },
   resolve: {
@@ -60,9 +63,11 @@ const webpackOptions = {
     new webpack.PrefetchPlugin('react/lib/ReactComponentBrowserEnvironment'),
     new webpack.optimize.OccurenceOrderPlugin(),
   ],
-  stylus: {
-    use: [ autoprefix ],
-  },
+  postcss: [
+    cssMixins,
+    cssFor,
+    cssNext({ browsers: 'last 2 versions' }),
+  ],
 }
 
 if (isDev) {

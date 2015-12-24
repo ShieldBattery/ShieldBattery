@@ -1,0 +1,7 @@
+.layout {
+  composes: row from './styles/flex.css';
+}
+
+.content {
+  composes: grow from './styles/flex.css';
+}

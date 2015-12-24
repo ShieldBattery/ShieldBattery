@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import siteSocket from './network/site-socket'
+import styles from './main-layout.css';
 
 import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
@@ -58,7 +59,7 @@ class MainLayout extends React.Component {
     const whispers = this.props.whispers.map(
         whisper => <Entry key={whisper.from} active={whisper.active}>{whisper.from}</Entry>)
 
-    return (<div className='flex-row'>
+    return (<div className={styles.layout}>
       <LeftNav>
         {lobbyElems}
         <Subheader>Chat channels</Subheader>
@@ -75,7 +76,7 @@ class MainLayout extends React.Component {
           {whispers}
         </Section>
       </LeftNav>
-      <div className='flex-fit'>
+      <div className={styles.content}>
         <AppBar title='#teamliquid'>
           <FlatButton label={<FontIcon>more_vert</FontIcon>} />
           <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />

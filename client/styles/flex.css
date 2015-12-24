@@ -1,0 +1,118 @@
+/* Classes for flex containers */
+.flex {
+  display: flex;
+}
+
+.row {
+  composes: flex;
+  flex-direction: row;
+}
+
+.col {
+  composes: flex;
+  flex-direction: column;
+}
+
+.wrap {
+  composes: flex;
+  flex-wrap: wrap;
+}
+
+.justifyStart {
+  composes: flex;
+  justify-content: start;
+}
+
+.justifyCenter {
+  composes: flex;
+  justify-content: center;
+}
+
+.justifyEnd {
+  composes: flex;
+  justify-content: flex-end;
+}
+
+.itemsStart {
+  composes: flex;
+  align-items: flex-start;
+}
+
+.itemsEnd {
+  composes: flex;
+  align-items: flex-end;
+}
+
+.itemsBaseline {
+  composes: flex;
+  align-items: baseline;
+}
+
+.itemsCenter {
+  composes: flex;
+  align-items: center;
+}
+
+/* Classes for flex items */
+@for $i from 5 to 100 by 5 {
+  .take$(i) {
+    flex: 1 1 $(i)%;
+    max-width: $(i)%;
+    max-height: 100%;
+  }
+
+  .row > .take$(i) {
+    max-width: $(i)%;
+    max-height: 100%;
+  }
+
+  .col > .take$(i) {
+    max-width: 100%;
+    max-height: $(i)%;
+  }
+}
+
+.take33 {
+  flex: 1 1 33.33%;
+  max-width: 33.33%;
+  max-height: 100%;
+}
+
+.row > .take33 {
+  max-width: 33.33%;
+  max-height: 100%;
+}
+
+.col > .take33 {
+  max-width: 100%;
+  max-height: 33.33%;
+}
+
+.take66 {
+  flex: 1 1 66.66%;
+  max-width: 66.66%;
+  max-height: 100%;
+}
+
+.row > .take66 {
+  max-width: 66.66%;
+  max-height: 100%;
+}
+
+.col > .take66 {
+  max-width: 100%;
+  max-height: 66.66%;
+}
+
+.grow {
+  flex-grow: 1;
+}
+
+.shrink {
+  flex-shrink: 1;
+}
+
+.exact {
+  flex-grow: 0;
+  flex-shrink: 0;
+}

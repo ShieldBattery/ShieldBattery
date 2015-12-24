@@ -1,0 +1,141 @@
+@value colorTextPrimary, colorTextFaint, colorTextSecondary from '../styles/colors.css';
+@value blue400, blue500, blue600, blue700 from '../styles/colors.css';
+@value amberA400 from '../styles/colors.css';
+@value shadowDef8dp from './shadows.css';
+
+.label {
+  composes: button from '../styles/typography.css';
+  color: colorTextPrimary;
+  line-height: 36px;
+  white-space: nowrap;
+}
+
+.reset {
+  user-select: none;
+  position: relative;
+  outline: 0;
+  border: none;
+  font-style: inherit;
+  font-variant: inherit;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+.hover {
+  @nest &:not([disabled]) {
+    @nest &:hover, &.focused {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+}
+
+:global(.cardLayer) .hover:not([disabled]) {
+  @nest &:hover, &.focused {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.common {
+  composes: fastOutSlowInShort from './curves.css';
+  composes: reset;
+  composes: hover;
+  display: inline-table;
+  min-height: 36px;
+  border-radius: 2px;
+  text-align: center;
+}
+
+
+.button {
+  composes: common;
+  composes: hover;
+  padding: 0 8px;
+  /* TODO(tec27): Built-in margins screw up alignment, we should probably remove these and */
+  /* replace them with margins that only take effect between contiguous buttons or something */
+  margin: 6px 8px;
+  min-width: 88px;
+}
+
+.button[disabled] .label {
+  color: colorTextFaint;
+}
+
+.primary {}
+.accent {}
+
+.flat {
+  composes: button;
+}
+
+.flat.primary:not([disabled]) .label {
+  color: blue400;
+
+}
+
+.flat.accent:not([disabled]) .label {
+  color: amberA400;
+}
+
+.raised {
+  composes: shadow2dp from './shadows.css';
+  composes: button;
+
+  @nest &:active {
+    box-shadow: shadowDef8dp;
+  }
+}
+
+.raised.primary:not([disabled]) {
+  background-color: blue500;
+
+  @nest &:hover, &.focused {
+    background-color: blue600;
+  }
+
+  @nest &:active {
+    background-color: blue700;
+  }
+}
+
+.raised.accent:not([disabled]) {
+  background-color: amberA400;
+
+  @nest & .label {
+    color: rgba(0, 0, 0, 0.87);
+  }
+
+  @nest &:hover, &.focused {
+    /* TODO(tec27): replace with a color() operation once that works properly with @values */
+    background-color: #ebb000; /* amberA400 darkened 8% */
+  }
+
+  @nest &:active {
+    /* TODO(tec27): replace with a color() operation once that works properly with @values */
+    background-color: #d69b00; /* amberA400 darkened 16% */
+  }
+}
+
+.raised[disabled] {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+:global(.cardLayer) .raised-button[disabled] {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.iconButton {
+  composes: common;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.iconButton .label {
+  color: colorTextPrimary;
+}
+
+.iconButton[disabled] .label {
+  color: colorTextFaint;
+}

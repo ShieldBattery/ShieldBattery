@@ -1,0 +1,133 @@
+@value textSizeBody: 14px;
+@value textSizeSubhead: 16px;
+@value textSizeTitle: 20px;
+@value textSizeHeadline: 24px;
+@value textSizeDisplay1: 34px;
+@value textSizeDisplay2: 45px;
+@value textSizeDisplay3: 56px;
+@value textSizeDisplay4: 112px;
+@value textSizeCaption: 12px;
+@value textSizeButton: 14px;
+
+ul,
+ol {
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: textSizeBody 0;
+
+  @nest & a {
+    font-weight: inherit;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.display4,
+.display3,
+.display2,
+.display1,
+.headline,
+.title,
+.subhead {
+  font-weight: 400;
+  text-rendering: optimizeLegibility;
+}
+
+.body2,
+.body1,
+.caption {
+  font-weight: 400;
+}
+
+.button {
+  font-size: textSizeButton;
+  font-weight: 500;
+  letter-spacing: 0.020em;
+  -webkit-font-smoothing: antialiased;
+  text-transform: uppercase;
+}
+
+.display4 {
+  font-size: textSizeDisplay4;
+  font-weight: 300;
+  letter-spacing: -0.010em;
+  line-height: textSizeDisplay4;
+}
+
+.display3 {
+  font-size: textSizeDisplay3;
+  letter-spacing: -0.005em;
+  line-height: textSizeDisplay3;
+}
+
+h1, .display2 {
+  font-size: textSizeDisplay2;
+  line-height: 64px;
+}
+
+h2, .display1 {
+  font-size: textSizeDisplay1;
+  line-height: 40px;
+}
+
+h3, .headline {
+  font-size: textSizeHeadline;
+  line-height: 32px;
+}
+
+h4, .title {
+  font-size: textSizeTitle;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+
+h5, .subhead {
+  font-size: textSizeSubhead;
+  letter-spacing: 0.010em;
+  line-height: 24px;
+}
+
+h6, .caption {
+  font-size: textSizeCaption;
+  letter-spacing: 0.020em;
+}
+
+p, .body1 {
+  letter-spacing: 0.010em;
+  line-height: 20px;
+}
+
+.body2 {
+  letter-spacing: 0.010em;
+  font-height: 500;
+  line-height: 24px;
+}
+
+em {
+  font-style: italic;
+}
+
+b, strong {
+  font-weight: 500;
+}
+
+small {
+  font-size: 75%;
+}
+
+.singleLine {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
