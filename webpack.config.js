@@ -58,6 +58,7 @@ const webpackOptions = {
   plugins: [
     new webpack.PrefetchPlugin('react'),
     new webpack.PrefetchPlugin('react/lib/ReactComponentBrowserEnvironment'),
+    new webpack.optimize.OccurenceOrderPlugin(),
   ],
   stylus: {
     use: [ autoprefix ],
@@ -69,7 +70,7 @@ if (isDev) {
   webpackOptions.debug = true
   webpackOptions.devtool = 'inline-source-map'
   webpackOptions.entry = [
-    'webpack-hot-middleware/client',
+    'webpack-hot-middleware/client?overlay=false',
     webpackOptions.entry,
   ]
 } else {
