@@ -12,20 +12,19 @@ class ConnectedDialog extends React.Component {
 
   render() {
     const { dialog } = this.props
-    let dialogComponent = null
-    const dialogType = dialog.isDialogOpened ? dialog.dialogType : 'closed'
-    if (dialogType === 'closed') {
-      return <span style={{display: 'none'}} />
+    let dialogComponent
+    if (dialog.isDialogOpened) {
+      switch (dialog.dialogType) {
+        case 'settings':
+          dialogComponent = <Settings />
+          break
+        default:
+          throw new Error('Unknown dialog type: ' + dialog.dialogType)
+      }
     }
 
-    switch (dialogType) {
-      case 'settings':
-        dialogComponent = <Settings />
-        break
-      default:
-        throw new Error('Unknown dialog type')
-    }
-
+    // We always render a dialog even if we don't have one, so that its always mounted (and
+    // thus usable for TransitionGroup animations)
     return (
       <Dialog onCancel={::this.onCancel}>
         { dialogComponent }

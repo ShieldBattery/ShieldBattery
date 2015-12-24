@@ -25,6 +25,7 @@
   opacity 1
   background-color $grey800
   border-radius 2px
+  // This doesn't match spec, but every shadow above this looks ridiculous/bad
   shadow8dp()
 
 .dialog-title
@@ -52,3 +53,43 @@
   left 0px
   opacity 1
   background-color $dialogScrim
+
+// TODO(tec27): ideally these would animate from the triggering click point, but that'll require
+// some more work to calculate and apply through JS
+.dialog-enter
+  .dialog-scrim
+    opacity 0.01
+    doTransition(duration: 250ms)
+
+  .dialog-contents
+    transform translate3d(0,-100%,0) scale(0.1)
+    opacity 0.01
+    transition transform 350ms $linearOutSlowIn, opacity 250ms $fastOutSlowIn
+
+  &.dialog-enter-active
+    .dialog-scrim
+      opacity 1
+
+    .dialog-contents
+      opacity 1
+      transform translate3d(0,0,0) scale(1)
+
+.dialog-leave
+  pointer-events none
+
+  .dialog-scrim
+    opacity 1
+    doTransition(duration: 200ms)
+
+  .dialog-contents
+    transform translate3d(0,0,0) scale(1)
+    opacity 1
+    transition transform 250ms $fastOutLinearIn, opacity 200ms $fastOutSlowIn 50ms
+
+  &.dialog-leave-active
+    .dialog-scrim
+      opacity 0.01
+
+    .dialog-contents
+      transform translate3d(0,-100%,0) scale(0.1)
+      opacity 0.01
