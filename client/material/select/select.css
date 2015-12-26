@@ -1,0 +1,68 @@
+@value grey800, grey700 from '../../styles/colors.css';
+@value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
+
+.select {
+  cursor: pointer;
+  display: flex;
+  padding: 2px 2px 1px;
+  border-bottom: 1px solid #ffffff;
+  background-color: transparent;
+  position: relative;
+  min-width: 64px;
+  flex-grow: 1;
+}
+
+.value {
+  composes: singleLine from '../../styles/typography.css';
+  flex: 1 0 auto;
+  padding-top: 2px;
+}
+
+.icon {
+  display: block;
+  align-items: flex-end;
+  text-align: end;
+  width: 24px;
+  margin: 0 4px;
+  padding-top: 1px;
+}
+
+.overlay {
+  display: block;
+  opacity: 1;
+  background-color: grey800;
+  position: fixed;
+  z-index: zIndexMenu;
+  max-height: 256px;
+  min-height: 48px;
+  padding: 8px 0px;
+  overflow-y: scroll;
+}
+
+.option {
+  composes: singleLine from '../../styles/typography.css';
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  width: auto;
+  padding: 0 16px;
+  height: 48px;
+}
+
+.option:hover {
+  background-color: grey700;
+}
+
+.optionText {
+  padding-top: 16px;
+}
+
+.backdrop {
+  z-index: zIndexMenuBackdrop;
+  position: absolute;
+  background-color: transparent;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
