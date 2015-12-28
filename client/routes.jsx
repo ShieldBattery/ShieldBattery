@@ -14,6 +14,7 @@ const routes = <Route>
     <Route component={MainLayout}>
       <Route path='/' component={Home} />
       <Route path='/chat/:channel' component={ChatChannel} />
+      <Route path='/test' />
     </Route>
   </Route>
   <Route component={LoginLayout}>

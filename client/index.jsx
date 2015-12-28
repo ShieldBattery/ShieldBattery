@@ -3,6 +3,13 @@ import './styles/global.css'
 
 import React from 'react'
 import { render } from 'react-dom'
+import { Provider } from 'react-redux'
+import { createHistory } from 'history'
+import { syncReduxAndRouter } from 'redux-simple-router'
+import createStore from './create-store'
+import { registerDispatch } from './dispatch-registry'
+import { fromJS as authFromJS } from './auth/auth-records'
+import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 
 // initialize socket
@@ -20,4 +27,21 @@ new Promise((resolve, reject) => {
       reject(new Error('app element could not be found'))
     }
   })
-}).then(elem => render(<App/>, elem))
+}).then(elem => {
+  const initData = window._sbInitData
+  if (initData && initData.auth) {
+    initData.auth = authFromJS(initData.auth)
+  }
+
+  const store = createStore(initData)
+  registerDispatch(store.dispatch)
+
+  const history = createHistory()
+  syncReduxAndRouter(history, store, state => state.router)
+
+  registerSocketHandlers()
+
+  return { elem, store, history }
+}).then(({elem, store, history}) => {
+  render(<Provider store={store}><App history={history}/></Provider>, elem)
+})

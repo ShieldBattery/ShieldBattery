@@ -3,6 +3,8 @@ import psiSocket from './psi-socket'
 
 import serverStatus from '../serverstatus/server-status-checker'
 
-;[
-  serverStatus,
-].forEach(f => f({ siteSocket, psiSocket }))
+export default function register() {
+  ;[
+    serverStatus,
+  ].forEach(f => f({ siteSocket, psiSocket }))
+}
