@@ -75,7 +75,7 @@ if (isDev) {
   webpackOptions.debug = true
   webpackOptions.devtool = 'inline-source-map'
   webpackOptions.entry = [
-    'webpack-hot-middleware/client?overlay=false',
+    'webpack-hot-middleware/client',
     webpackOptions.entry,
   ]
 } else {
