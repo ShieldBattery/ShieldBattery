@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { pushState } from 'redux-router'
+import { pushPath } from 'redux-simple-router'
+import { stringify } from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -16,7 +17,7 @@ import constants from '../../shared/constants'
 import auther from './auther'
 import styles from './login.css'
 
-@connect(state => ({ auth: state.auth, router: state.router }))
+@connect(state => ({ auth: state.auth }))
 class Signup extends React.Component {
   constructor(props, context) {
     super(props, context)
@@ -34,7 +35,7 @@ class Signup extends React.Component {
   }
 
   render() {
-    const { auth, router } = this.props
+    const { auth, location } = this.props
     if (auth.authChangeInProgress) {
       return <Card><span>Please wait...</span></Card>
     }
@@ -75,7 +76,7 @@ class Signup extends React.Component {
         <ValidatedForm formTitle='Sign up' errorText={errContents} errorClassName={styles.errors}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
-              defaultValue={router.location.query.username}
+              defaultValue={location.query.username}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
@@ -110,7 +111,10 @@ class Signup extends React.Component {
   }
 
   onLogInClicked() {
-    this.props.dispatch(pushState(null, '/login', this.props.router.location.query))
+    const query = stringify({
+      ...this.props.location.query,
+    })
+    this.props.dispatch(pushPath('/login?' + query, null))
   }
 
   onSubmitted(values) {

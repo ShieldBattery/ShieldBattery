@@ -1,16 +1,15 @@
-import { replaceState } from 'redux-router'
+import { pushPath } from 'redux-simple-router'
 
 export function isLoggedIn(authState) {
   return authState.user && authState.user.name
 }
 
-export function redirectIfLoggedIn({ auth, router, dispatch }) {
+export function redirectIfLoggedIn({ auth, location, dispatch }) {
   if (isLoggedIn(auth)) {
     // We're logged in now, hooray!
     // Go wherever the user was intending to go before being directed here (or home)
-    const nextPath =
-        (router.location && router.location.query && router.location.query.nextPath) || '/'
-    dispatch(replaceState(null, nextPath))
+    const nextPath = (location && location.query && location.query.nextPath) || '/'
+    dispatch(pushPath(nextPath, null))
     return true
   }
 

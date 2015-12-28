@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { pushState } from 'redux-router'
+import { pushPath } from 'redux-simple-router'
+import { stringify } from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -16,7 +17,7 @@ import regexValidator from '../forms/regex-validator'
 import constants from '../../shared/constants'
 import styles from './login.css'
 
-@connect(state => ({ auth: state.auth, router: state.router }))
+@connect(state => ({ auth: state.auth }))
 class Login extends React.Component {
   constructor(props, context) {
     super(props, context)
@@ -98,10 +99,11 @@ class Login extends React.Component {
   }
 
   onSignUpClicked() {
-    this.props.dispatch(pushState(null, '/signup', {
-      ...this.props.router.location.query,
+    const query = stringify({
+      ...this.props.location.query,
       username: this.refs.form.getValueOf('username'),
-    }))
+    })
+    this.props.dispatch(pushPath('/signup?' + query, null))
   }
 
   onLogInClicked() {

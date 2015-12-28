@@ -1,16 +1,18 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { stringify } from 'query-string'
 import { isLoggedIn } from './auth-utils'
-import { pushState } from 'redux-router'
+import { pushPath } from 'redux-simple-router'
 
-@connect(state => ({ auth: state.auth, router: state.router }))
+@connect(state => ({ auth: state.auth }))
 class LoginRequired extends React.Component {
   _ensureAuthed(props) {
     if (!isLoggedIn(props.auth)) {
-      const { location: loc } = props.router
-      props.dispatch(pushState(null, '/login', {
-        nextPath: props.history.createPath(loc.pathname, loc.query),
-      }))
+      const { location: loc } = this.props
+      const query = stringify({
+        nextPath: props.history.createPath(loc.pathname, loc.query)
+      })
+      props.dispatch(pushPath('/login?' + query, null))
     }
   }
 
