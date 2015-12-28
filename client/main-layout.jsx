@@ -1,7 +1,9 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import siteSocket from './network/site-socket'
-import styles from './main-layout.css';
+import auther from './auth/auther'
+import { openDialog } from './dialogs/dialog-action-creator'
+import styles from './main-layout.css'
 
 import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
@@ -12,7 +14,6 @@ import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialog from './dialogs/connected-dialog.jsx'
-import { openDialog } from './dialogs/dialog-action-creator'
 
 function stateToProps(state) {
   return {
@@ -78,10 +79,16 @@ class MainLayout extends React.Component {
       </LeftNav>
       <div className={styles.content}>
         <AppBar title='#teamliquid'>
-          <FlatButton label={<FontIcon>more_vert</FontIcon>} />
+          <FlatButton label={<FontIcon>account_circle</FontIcon>}
+              onClick={::this.onLogOutClicked} />
           <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />
+          <FlatButton label={<FontIcon>more_vert</FontIcon>} />
         </AppBar>
         { this.props.children }
+      </div>
+      <div className={styles.actions}>
+        <div className={styles.actionsBar} />
+
       </div>
       <ConnectedDialog />
     </div>)
@@ -89,6 +96,10 @@ class MainLayout extends React.Component {
 
   onSettingsClicked() {
     this.props.dispatch(openDialog('settings'))
+  }
+
+  onLogOutClicked() {
+    this.props.dispatch(auther.logOut().action)
   }
 }
 

@@ -24,7 +24,7 @@
   composes: headline from '../../styles/typography.css';
   display: inline-block;
   margin: 0;
-  font-size: 32px;
+  font-size: 30px;
 }
 
 .logoTextLight {

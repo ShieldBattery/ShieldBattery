@@ -36,7 +36,6 @@ class Dialog extends React.Component {
           { this.props.children }
       </div>
     }
-    console.dir(transitionNames)
     return (
       <TransitionGroup transitionName={transitionNames}
           transitionEnterTimeout={350} transitionLeaveTimeout={250}>
