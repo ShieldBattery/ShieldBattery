@@ -5,6 +5,7 @@ import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
 import styles from './main-layout.css'
 
+import ActiveUserCount from './serverstatus/active-users.jsx'
 import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import Entry from './material/left-nav/entry.jsx'
@@ -79,6 +80,7 @@ class MainLayout extends React.Component {
       </LeftNav>
       <div className={styles.content}>
         <AppBar title='#teamliquid'>
+          <ActiveUserCount />
           <FlatButton label={<FontIcon>account_circle</FontIcon>}
               onClick={::this.onLogOutClicked} />
           <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />
