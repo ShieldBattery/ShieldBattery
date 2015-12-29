@@ -82,6 +82,7 @@
     "react-router": "^1.0.0-rc1",
     "redis": "^2.1.0",
     "redux": "^3.0.2",
+    "redux-batched-subscribe": "^0.1.4",
     "redux-batched-updates": "^0.1.0",
     "redux-promise": "^0.5.0",
     "redux-simple-router": "^1.0.2",
