@@ -8,7 +8,6 @@ import styles from './main-layout.css'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
-import Entry from './material/left-nav/entry.jsx'
 import FlatButton from './material/flat-button.jsx'
 import FontIcon from './material/font-icon.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
@@ -16,9 +15,9 @@ import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialog from './dialogs/connected-dialog.jsx'
 
-import ChatNavEntry from './chat/chat-nav-entry.jsx'
-import LobbyNavEntry from './lobbies/lobby-nav-entry.jsx'
-import WhisperNavEntry from './whispers/whisper-nav-entry.jsx'
+import ChatNavEntry from './chat/nav-entry.jsx'
+import LobbyNavEntry from './lobbies/nav-entry.jsx'
+import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 function stateToProps(state) {
   return {

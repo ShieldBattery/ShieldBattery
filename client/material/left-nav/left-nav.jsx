@@ -7,6 +7,8 @@ export default function LeftNav(props) {
       <h3 className={styles.logoTextLight}>Shield</h3>
       <h3 className={styles.logoTextMedium}>Battery</h3>
     </div>
-    {props.children}
+    <div className={styles.sections}>
+      {props.children}
+    </div>
   </nav>)
 }
