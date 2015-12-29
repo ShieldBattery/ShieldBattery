@@ -1,3 +1,3 @@
 import React from 'react'
 
-export default () => <span>TODO WhisperView</span>
+export default () => <span>TODO {__filename}</span>

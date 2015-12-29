@@ -71,6 +71,10 @@ const webpackOptions = {
 }
 
 if (isDev) {
+  // Allow __filename usage in our files in dev
+  webpackOptions.context = __dirname
+  webpackOptions.node = { __filename: true }
+
   webpackOptions.plugins.push(new webpack.HotModuleReplacementPlugin())
   webpackOptions.debug = true
   webpackOptions.devtool = 'inline-source-map'
