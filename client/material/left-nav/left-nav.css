@@ -1,5 +1,5 @@
 @value blue400, amberA200, amberA400, grey800 from '../../styles/colors.css';
-@value colorDividers, colorTextSecondary from '../../styles/colors.css';
+@value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
 @value standardIncrement from '../units.css';
 @value zIndexAppBar from '../zindex.css';
 
@@ -65,9 +65,16 @@
 }
 
 .entry {
+  composes: row from '../../styles/flex.css';
   composes: singleLine from '../../styles/typography.css';
   composes: entryCommon;
   margin: 0;
+  padding: 0;
+}
+
+.entry a {
+  flex-grow: 1;
+  height: 100%;
   padding: 0 16px;
 }
 
@@ -75,4 +82,15 @@
   composes: entry;
   background-color: rgba(255, 255, 255, 0.12);
   color: amberA200;
+}
+
+.entry:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+@custom-selector :--any-link :link, :visited, :hover, :active;
+
+.entry a:--any-link {
+  color: currentColor;
+  text-decoration: none;
 }

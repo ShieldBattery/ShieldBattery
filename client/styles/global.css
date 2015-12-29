@@ -1,5 +1,6 @@
 /* global styles that will be imported at the root of our JS app */
 @value colorTextPrimary, colorTextFaint, colorBackground from './colors.css';
+@value amberA200, amberA400 from './colors.css';
 
 * {
   box-sizing: border-box;
@@ -29,7 +30,12 @@ html, body, :global(#app), :global(#app) > div {
   color: colorTextFaint;
 }
 
-/* TODO(tec27): temporary, rewrite into a component or something */
-:global(.content-body) {
-  margin: 16px;
+a:link, a:visited {
+  color: amberA400;
+  text-decoration: none;
+}
+
+a:hover, a:active {
+  color: amberA200;
+  text-decoration: underline;
 }

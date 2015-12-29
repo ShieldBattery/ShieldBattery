@@ -16,6 +16,10 @@ import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialog from './dialogs/connected-dialog.jsx'
 
+import ChatNavEntry from './chat/chat-nav-entry.jsx'
+import LobbyNavEntry from './lobbies/lobby-nav-entry.jsx'
+import WhisperNavEntry from './whispers/whisper-nav-entry.jsx'
+
 function stateToProps(state) {
   return {
     auth: state.auth,
@@ -23,10 +27,10 @@ function stateToProps(state) {
       name: '5v3 BGH Comp Stomp',
     },
     chatChannels: [
-      { name: '#doyoureallywantthem' },
-      { name: '#teamliquid', active: true },
-      { name: '#x17' },
-      { name: '#nohunters' },
+      { name: 'doyoureallywantthem' },
+      { name: 'teamliquid' },
+      { name: 'x17' },
+      { name: 'nohunters' },
     ],
     whispers: [
       { from: 'Pachi' },
@@ -47,19 +51,20 @@ class MainLayout extends React.Component {
   render() {
     let lobbyElems
     if (this.props.lobby) {
+      const lobby = this.props.lobby
       lobbyElems = [
         <Subheader key='lobby-header'>Lobby</Subheader>,
         <Section key='lobby-section'>
-          <Entry active={this.props.lobby.active}>{this.props.lobby.name}</Entry>
+          <LobbyNavEntry key='lobby' lobby={lobby.name} />
         </Section>,
         <Divider key='lobby-divider'/>
       ]
     }
 
     const channels = this.props.chatChannels.map(
-        channel => <Entry key={channel.name} active={channel.active}>{channel.name}</Entry>)
+        channel => <ChatNavEntry key={channel.name} channel={channel.name} />)
     const whispers = this.props.whispers.map(
-        whisper => <Entry key={whisper.from} active={whisper.active}>{whisper.from}</Entry>)
+        whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
 
     return (<div className={styles.layout}>
       <LeftNav>
@@ -67,10 +72,6 @@ class MainLayout extends React.Component {
         <Subheader>Chat channels</Subheader>
         <Section>
           {channels}
-          <Entry>
-            <FontIcon>add_circle</FontIcon>
-            <span>Join another</span>
-          </Entry>
         </Section>
         <Divider/>
         <Subheader>Whispers</Subheader>
@@ -90,7 +91,6 @@ class MainLayout extends React.Component {
       </div>
       <div className={styles.actions}>
         <div className={styles.actionsBar} />
-
       </div>
       <ConnectedDialog />
     </div>)
