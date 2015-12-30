@@ -15,7 +15,7 @@ import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
-import { createLobby } from './lobbies/action-creators'
+import { createLobby, joinLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
   return {
@@ -98,7 +98,8 @@ class MainLayout extends React.Component {
       <div className={styles.activities}>
         <div className={styles.activitiesAppBar} />
         <div className={styles.activitiesContent}>
-          <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick}/>
+          <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick} />
+          <RaisedButton color='primary' label='Join lobby' onClick={::this.onJoinLobbyClick} />
         </div>
       </div>
       <ConnectedDialog />
@@ -107,6 +108,10 @@ class MainLayout extends React.Component {
 
   onCreateLobbyClick() {
     this.props.dispatch(createLobby('baby\'s first lobby', 'c:\\lt.scm', 4))
+  }
+
+  onJoinLobbyClick() {
+    this.props.dispatch(joinLobby('baby\'s first lobby'))
   }
 }
 

@@ -1,5 +1,5 @@
 import { Map, Record } from 'immutable'
-import { LOBBY_INIT_DATA } from '../actions'
+import { LOBBY_INIT_DATA, LOBBY_UPDATE_JOIN } from '../actions'
 
 export const Player = new Record({
   name: null,
@@ -33,6 +33,10 @@ export default function lobbyReducer(state = new Lobby(), action) {
         ...data,
         players: playersObjToMap(data.players)
       })
+    case LOBBY_UPDATE_JOIN:
+      const player = action.payload
+      console.log('action in reducer - ' + JSON.stringify(action))
+      return state.set('players', state.players.set(player.id, player))
   }
 
   return state
