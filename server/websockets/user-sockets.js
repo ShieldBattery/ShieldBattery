@@ -31,25 +31,37 @@ export class UserSocketGroup extends EventEmitter {
     if (this.sockets.isEmpty()) {
       this.emit('close', this)
     }
+    this._applyCleanups()
   }
 
   // Adds a subscription to all sockets for this user, including any sockets that may connect
   // after this. `initialDataGetter` should either be null/undefined, or a function(user, socket)
-  // that returns the initialData to use for a subscribe call.
-  subscribe(path, initialDataGetter) {
+  // that returns the initialData to use for a subscribe call. `cleanup` should either be
+  // null/undefined, or a function(user) that will be called when the user has disconnected
+  // completely.
+  subscribe(path, initialDataGetter, cleanup) {
     if (this.subscriptions.has(path)) {
       throw new Error('duplicate persistent subscription: ' + path)
     }
 
-    this.subscriptions = this.subscriptions.set(path, initialDataGetter || defaultDataGetter)
+    this.subscriptions = this.subscriptions.set(path, {
+      getter: initialDataGetter || defaultDataGetter,
+      cleanup,
+    })
     for (const socket of this.sockets) {
       this.nydus.subscribeClient(socket, path, initialDataGetter(this, socket))
     }
   }
 
   _applySubscriptions(socket) {
-    for (const [path, getter] of this.subscriptions.entries()) {
+    for (const [path, { getter }] of this.subscriptions.entries()) {
       this.nydus.subscribeClient(socket, path, getter(this, socket))
+    }
+  }
+
+  _applyCleanups() {
+    for (const [/* path */, { cleanup }] of this.subscriptions.entries()) {
+      if (cleanup) cleanup(this)
     }
   }
 

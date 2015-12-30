@@ -161,10 +161,7 @@ export class LobbyApi {
     const lobby = Lobbies.create(name, map, numSlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
-    user.subscribe(LobbyApi._getPath(lobby), () => ({
-      type: 'init',
-      lobby: this.lobbies.get(name),
-    }))
+    this._subscribeUserToLobby(lobby, user)
   }
 
   @Api('/join',
@@ -191,14 +188,19 @@ export class LobbyApi {
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
-    this.nydus.publishTo(lobby, {
+    this._publishTo(lobby, {
       type: 'join',
       player,
     })
+    this._subscribeUserToLobby(lobby, user)
+  }
+
+  _subscribeUserToLobby(lobby, user) {
+    const lobbyName = lobby.name
     user.subscribe(LobbyApi._getPath(lobby), () => ({
       type: 'init',
-      lobby: this.lobbies.get(name),
-    }))
+      lobby: this.lobbies.get(lobbyName),
+    }), user => this._removeUserFromLobby(user, this.lobbies.get(lobbyName)))
   }
 
   @Api('/leave',
@@ -207,6 +209,11 @@ export class LobbyApi {
   async leave(data, next) {
     const user = data.get('user')
     const lobby = data.get('lobby')
+
+    this._removeUserFromLobby(user, lobby)
+  }
+
+  _removeUserFromLobby(user, lobby) {
     const updatedLobby = Lobbies.removePlayerByName(lobby, user.name)
 
     if (!updatedLobby) {
@@ -216,14 +223,14 @@ export class LobbyApi {
     }
     this.lobbyUsers = this.lobbyUsers.delete(user)
 
-    this.nydus.publishTo(lobby, {
+    this._publishTo(lobby, {
       type: 'leave',
       name: user.name,
     })
     user.unsubscribe(LobbyApi._getPath(lobby))
 
     if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
-      this.nydus.publishTo(LobbyApi._getPath(lobby), {
+      this._publishTo(lobby, {
         type: 'hostChange',
         newId: updatedLobby.hostId,
       })
