@@ -66,13 +66,27 @@
 .primary {}
 .accent {}
 
+.flatActive {
+  @nest &:not([disabled]) {
+    @nest &:active {
+      background-color: rgba(255, 255, 255, 0.16);
+    }
+  }
+}
+
+:global(.cardLayer) .flatActive:not([disabled]) {
+  @nest &:active {
+    background-color: rgba(255, 255, 255, 0.10);
+  }
+}
+
 .flat {
   composes: button;
+  composes: flatActive;
 }
 
 .flat.primary:not([disabled]) .label {
   color: blue400;
-
 }
 
 .flat.accent:not([disabled]) .label {
@@ -128,8 +142,12 @@
 
 .iconButton {
   composes: common;
+  composes: hover;
+  composes: flatActive;
   border-radius: 50%;
   vertical-align: middle;
+  min-height: 48px;
+  min-width: 48px;
 }
 
 .iconButton .label {

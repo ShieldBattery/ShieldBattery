@@ -6,8 +6,7 @@ import styles from './content-layout.css'
 
 import ActiveUserCount from '../serverstatus/active-users.jsx'
 import AppBar from '../material/app-bar.jsx'
-import FlatButton from '../material/flat-button.jsx'
-import FontIcon from '../material/font-icon.jsx'
+import IconButton from '../material/icon-button.jsx'
 
 @connect()
 export default class ContentLayout extends React.Component {
@@ -19,10 +18,9 @@ export default class ContentLayout extends React.Component {
     return (<div className={styles.content}>
       <AppBar title={this.props.title}>
         <ActiveUserCount />
-        <FlatButton label={<FontIcon>account_circle</FontIcon>}
-            onClick={::this.onLogOutClicked} />
-        <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />
-        <FlatButton label={<FontIcon>more_vert</FontIcon>} />
+        <IconButton icon='account_circle' title='Log out' onClick={::this.onLogOutClicked} />
+        <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
+        <IconButton icon='more_vert' title='More options' />
       </AppBar>
       { this.props.children }
     </div>)

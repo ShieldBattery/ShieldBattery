@@ -8,7 +8,7 @@
   width: 100%;
   height: standardIncrement;
   margin: 0;
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
   background-color: blue800;
   position: relative;
   z-index: zIndexAppBar;
@@ -20,17 +20,4 @@
   composes: singleLine from '../styles/typography.css';
   line-height: standardIncrement;
   margin: 0;
-}
-
-/* TODO(tec27): move to using cloneElement and make this a class we apply? */
-.appBar button {
-  align-self: center;
-
-  @nest &:not([disabled]):hover {
-    background-color: transparent;
-  }
-
-  @nest &:last-child {
-    margin-right: -16px;
-  }
 }
