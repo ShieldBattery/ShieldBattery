@@ -39,8 +39,6 @@ export default class LobbyView extends React.Component {
 
   renderLobby() {
     const { lobby } = this.props
-    const sortedPlayers = lobby.players.valueSeq().sortBy(p => p.slot)
-    console.dir(sortedPlayers)
     return (<div>
       <p>Name: {lobby.name}</p>
       <p>Map: {lobby.map}</p>
