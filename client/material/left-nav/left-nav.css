@@ -16,7 +16,8 @@
   width: 100%;
   height: standardIncrement;
   padding-left: 16px;
-  border-right: 1px solid blue800;
+  /* Color calculated by lightening blue800 12% (opacity of divider colors) */
+  border-right: 1px solid #3178c8;
   border-bottom: 1px solid colorDividers;
 }
 

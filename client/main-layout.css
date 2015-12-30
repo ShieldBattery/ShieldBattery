@@ -6,10 +6,6 @@
   composes: row from './styles/flex.css';
 }
 
-.content {
-  composes: grow from './styles/flex.css';
-}
-
 .actions {
   composes: shadow3dp from './material/shadows.css';
   width: 320px;

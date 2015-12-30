@@ -1,0 +1,3 @@
+.content {
+  composes: grow from '../styles/flex.css';
+}

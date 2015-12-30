@@ -4,7 +4,6 @@ import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import MainLayout from './main-layout.jsx'
-import Home from './home.jsx'
 import LobbyList from './lobbies/list.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LoginRequired from './auth/login-required.jsx'
@@ -17,9 +16,9 @@ import WhisperView from './whispers/view.jsx'
 const routes = <Route>
   <Route component={LoginRequired}>
     <Route component={MainLayout}>
-      <Route path='/' component={Home} />
+      <Route path='/' />
       <Route path='/chat'>
-        <IndexRoute component={ChatList} />
+        <IndexRoute component={ChatList} title='Chat channels'/>
         <Route path=':channel' component={ChatChannel} />
       </Route>
       <Route path='/lobbies'>

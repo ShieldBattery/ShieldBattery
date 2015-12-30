@@ -1,15 +1,10 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { replacePath } from 'redux-simple-router'
 import siteSocket from './network/site-socket'
-import auther from './auth/auther'
-import { openDialog } from './dialogs/dialog-action-creator'
 import styles from './main-layout.css'
 
-import ActiveUserCount from './serverstatus/active-users.jsx'
-import AppBar from './material/app-bar.jsx'
 import Divider from './material/left-nav/divider.jsx'
-import FlatButton from './material/flat-button.jsx'
-import FontIcon from './material/font-icon.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
@@ -37,8 +32,28 @@ function stateToProps(state) {
   }
 }
 
+// Pick a location to redirect the user to given props from the store, used if the user hits the
+// index page
+function doIndexRedirect({ lobby, chatChannels, whispers }) {
+  if (lobby) {
+    return replacePath(`/lobbies/${encodeURIComponent(lobby.name)}`)
+  } else if (chatChannels.length) {
+    return replacePath(`/chat/${encodeURIComponent(chatChannels[0].name)}`)
+  } else if (whispers.length) {
+    return replacePath(`/whispers/${encodeURIComponent(whispers[0].from)}`)
+  } else {
+    return replacePath('/chat/')
+  }
+}
+
 @connect(stateToProps)
 class MainLayout extends React.Component {
+  componentWillMount() {
+    if (!this.props.children) {
+      this.props.dispatch(doIndexRedirect(this.props))
+    }
+  }
+
   componentDidMount() {
     siteSocket.connect()
   }
@@ -78,29 +93,12 @@ class MainLayout extends React.Component {
           {whispers}
         </Section>
       </LeftNav>
-      <div className={styles.content}>
-        <AppBar title='#teamliquid'>
-          <ActiveUserCount />
-          <FlatButton label={<FontIcon>account_circle</FontIcon>}
-              onClick={::this.onLogOutClicked} />
-          <FlatButton label={<FontIcon>settings</FontIcon>} onClick={::this.onSettingsClicked} />
-          <FlatButton label={<FontIcon>more_vert</FontIcon>} />
-        </AppBar>
-        { this.props.children }
-      </div>
+      { this.props.children }
       <div className={styles.actions}>
         <div className={styles.actionsBar} />
       </div>
       <ConnectedDialog />
     </div>)
-  }
-
-  onSettingsClicked() {
-    this.props.dispatch(openDialog('settings'))
-  }
-
-  onLogOutClicked() {
-    this.props.dispatch(auther.logOut().action)
   }
 }
 
