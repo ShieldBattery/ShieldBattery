@@ -1,7 +1,6 @@
 import { DIALOG_OPEN, DIALOG_CLOSE } from '../actions'
 import { Record } from 'immutable'
 
-
 export const Dialog = new Record({
   isDialogOpened: false,
   dialogType: null,

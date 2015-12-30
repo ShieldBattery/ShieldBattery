@@ -17,9 +17,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 function stateToProps(state) {
   return {
     auth: state.auth,
-    lobby: {
-      name: '5v3 BGH Comp Stomp',
-    },
+    lobby: state.lobby.name ? state.lobby : undefined,
     chatChannels: [
       { name: 'doyoureallywantthem' },
       { name: 'teamliquid' },
