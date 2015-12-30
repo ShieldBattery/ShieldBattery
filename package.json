@@ -8,6 +8,7 @@
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
+    "posttest": "npm run lint",
     "test": "mocha -R spec --compilers js:babel-register --recursive test/",
     "start": "node index.js | bunyan"
   },
