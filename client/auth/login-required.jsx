@@ -25,8 +25,12 @@ class LoginRequired extends React.Component {
   }
 
   render() {
-    const children = this.props.children
-    return !Array.isArray(children) ? children : <div>children</div>
+    if (isLoggedIn(this.props.auth)) {
+      const children = this.props.children
+      return !Array.isArray(children) ? children : <div>children</div>
+    } else {
+      return <div></div>
+    }
   }
 }
 
