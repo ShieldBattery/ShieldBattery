@@ -6,21 +6,28 @@
   composes: row from './styles/flex.css';
 }
 
-.actions {
+.activities {
   composes: shadow3dp from './material/shadows.css';
+  composes: col from './styles/flex.css';
   width: 320px;
   height: 100%;
   background-color: grey800;
   z-index: zIndexAppBar;
 }
 
-.actionsBar {
-  composes: row itemsBaseline from './styles/flex.css';
+.activitiesAppBar {
+  composes: row itemsBaseline exact from './styles/flex.css';
   width: 100%;
   height: standardIncrement;
   margin: 0;
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
   background-color: blue700;
   position: relative;
   z-index: zIndexAppBar;
+}
+
+.activitiesContent {
+  composes: col justifyCenter grow from './styles/flex.css';
+  width: 100%;
+  padding: 16px;
 }

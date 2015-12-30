@@ -75,14 +75,14 @@
 
 .entry {
   composes: row from '../../styles/flex.css';
-  composes: singleLine from '../../styles/typography.css';
   composes: entryCommon;
   margin: 0;
   padding: 0;
 }
 
-.entry a {
-  flex-grow: 1;
+.entryLink {
+  composes: grow from '../../styles/flex.css';
+  composes: singleLine from '../../styles/typography.css';
   height: 100%;
   padding: 0 16px;
 }

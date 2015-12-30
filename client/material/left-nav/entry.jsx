@@ -23,6 +23,8 @@ export default class Entry extends React.Component {
     const classes = isActive ? styles.active : styles.entry
 
     // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
-    return <li className={classes}><Link to={link} title={title}>{children}</Link></li>
+    return (<li className={classes}>
+      <Link className={styles.entryLink} to={link} title={title}>{children}</Link>
+    </li>)
   }
 }

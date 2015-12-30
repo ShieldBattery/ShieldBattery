@@ -38,6 +38,22 @@ export default class LobbyView extends React.Component {
   }
 
   renderLobby() {
-    return <span>In this lobby, yeah!</span>
+    const { lobby } = this.props
+    const sortedPlayers = lobby.players.valueSeq().sortBy(p => p.slot)
+    console.dir(sortedPlayers)
+    return (<div>
+      <p>Name: {lobby.name}</p>
+      <p>Map: {lobby.map}</p>
+      <p>Slots: {lobby.players.size} / {lobby.numSlots}</p>
+      <p>Host: {lobby.players.get(lobby.hostId).name}</p>
+      <ul>
+        {
+          lobby.players.valueSeq().sortBy(p => p.slot).map(p => (<li key={p.slot}>
+            <span>{p.slot + 1}. </span><span>{p.name} - </span><span>{p.race} - </span>
+            <span>{p.isComputer ? 'Computer' : 'Human'}</span>
+          </li>)).toArray()
+        }
+      </ul>
+    </div>)
   }
 }

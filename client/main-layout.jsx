@@ -6,6 +6,7 @@ import styles from './main-layout.css'
 
 import Divider from './material/left-nav/divider.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
+import RaisedButton from './material/raised-button.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialog from './dialogs/connected-dialog.jsx'
@@ -13,6 +14,8 @@ import ConnectedDialog from './dialogs/connected-dialog.jsx'
 import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
+
+import { createLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
   return {
@@ -92,11 +95,18 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       { this.props.children }
-      <div className={styles.actions}>
-        <div className={styles.actionsBar} />
+      <div className={styles.activities}>
+        <div className={styles.activitiesAppBar} />
+        <div className={styles.activitiesContent}>
+          <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick}/>
+        </div>
       </div>
       <ConnectedDialog />
     </div>)
+  }
+
+  onCreateLobbyClick() {
+    this.props.dispatch(createLobby('baby\'s first lobby', 'c:\\lt.scm', 4))
   }
 }
 

@@ -223,7 +223,7 @@ export class LobbyApi {
     user.unsubscribe(LobbyApi._getPath(lobby))
 
     if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
-      this.nydus.publishTo(lobby, {
+      this.nydus.publishTo(LobbyApi._getPath(lobby), {
         type: 'hostChange',
         newId: updatedLobby.hostId,
       })
@@ -231,7 +231,7 @@ export class LobbyApi {
   }
 
   async getUser(data, next) {
-    const user = this.userSockets.get(data.client)
+    const user = this.userSockets.getBySocket(data.get('client'))
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
