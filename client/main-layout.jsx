@@ -15,6 +15,7 @@ import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
+import { isLoggedIn } from './auth/auth-utils'
 import { createLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
@@ -50,7 +51,7 @@ function doIndexRedirect({ lobby, chatChannels, whispers }) {
 @connect(stateToProps)
 class MainLayout extends React.Component {
   componentWillMount() {
-    if (!this.props.children) {
+    if (!this.props.children && isLoggedIn(this.props.auth)) {
       this.props.dispatch(doIndexRedirect(this.props))
     }
   }
