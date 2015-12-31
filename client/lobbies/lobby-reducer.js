@@ -34,8 +34,7 @@ export default function lobbyReducer(state = new Lobby(), action) {
         players: playersObjToMap(data.players)
       })
     case LOBBY_UPDATE_JOIN:
-      const player = action.payload
-      console.log('action in reducer - ' + JSON.stringify(action))
+      const player = new Player(action.payload)
       return state.set('players', state.players.set(player.id, player))
   }
 

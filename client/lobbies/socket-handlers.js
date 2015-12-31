@@ -3,9 +3,7 @@ import { dispatch } from '../dispatch-registry'
 
 export default function registerModule({ siteSocket }) {
   siteSocket.registerRoute('/lobbies/:lobby', (route, event) => {
-    console.log('handler called')
     const action = eventToAction(route.params.lobby, event)
-    console.log('action - ' + JSON.stringify(action))
     if (action) dispatch(action)
   })
 }
@@ -18,7 +16,6 @@ function eventToAction(lobbyName, event) {
         payload: event.lobby,
       }
     case 'join':
-      console.log('event - ' + JSON.stringify(event))
       return {
         type: LOBBY_UPDATE_JOIN,
         payload: event.player,
