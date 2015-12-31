@@ -30,8 +30,8 @@ export class UserSocketGroup extends EventEmitter {
     this.sockets = this.sockets.delete(socket)
     if (this.sockets.isEmpty()) {
       this.emit('close', this)
+      this._applyCleanups()
     }
-    this._applyCleanups()
   }
 
   // Adds a subscription to all sockets for this user, including any sockets that may connect
