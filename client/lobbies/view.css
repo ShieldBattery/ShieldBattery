@@ -1,0 +1,16 @@
+.contentArea {
+  padding: 0 16px;
+  margin: 16px 0;
+}
+
+.slots {
+  composes: row itemsStart justifySpaceAround from '../styles/flex.css';
+}
+
+.slotColumn {
+  composes: take45 from '../styles/flex.css';
+}
+
+.slotCard {
+  margin: 16px 0;
+}

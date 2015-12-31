@@ -33,6 +33,16 @@
   justify-content: flex-end;
 }
 
+.justifySpaceAround {
+  composes: flex;
+  justify-content: space-around;
+}
+
+.justifySpaceBetween {
+  composes: flex;
+  justify-content: space-between;
+}
+
 .itemsStart {
   composes: flex;
   align-items: flex-start;
