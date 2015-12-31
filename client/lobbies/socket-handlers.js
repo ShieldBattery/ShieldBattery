@@ -1,4 +1,9 @@
-import { LOBBY_INIT_DATA, LOBBY_UPDATE_JOIN } from '../actions'
+import {
+  LOBBY_INIT_DATA,
+  LOBBY_UPDATE_HOST_CHANGE,
+  LOBBY_UPDATE_JOIN,
+  LOBBY_UPDATE_LEAVE,
+} from '../actions'
 import { dispatch } from '../dispatch-registry'
 
 export default function registerModule({ siteSocket }) {
@@ -13,12 +18,22 @@ function eventToAction(lobbyName, event) {
     case 'init':
       return {
         type: LOBBY_INIT_DATA,
-        payload: event.lobby,
+        payload: event,
       }
     case 'join':
       return {
         type: LOBBY_UPDATE_JOIN,
         payload: event.player,
+      }
+    case 'leave':
+      return {
+        type: LOBBY_UPDATE_LEAVE,
+        payload: event.id,
+      }
+    case 'hostChange':
+      return {
+        type: LOBBY_UPDATE_HOST_CHANGE,
+        payload: event.newId,
       }
     default:
       return null

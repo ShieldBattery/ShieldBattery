@@ -84,13 +84,19 @@ describe('Lobbies', () => {
     expect(lobby).to.be.null
   })
 
-  it('should support removing players by name', () => {
-    const orig = BOXER_LOBBY
-    let lobby = Lobbies.removePlayerByName(orig, 'asdf')
-    expect(lobby).to.equal(orig)
+  it('should support finding players by name', () => {
+    const computer = Players.createComputer('p', 1)
+    const lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)
 
-    lobby = Lobbies.removePlayerByName(orig, 'Slayers`Boxer')
-    expect(lobby).to.be.null
+    let player = Lobbies.findPlayerByName(lobby, 'asdf')
+    expect(player).to.be.undefined
+
+    player = Lobbies.findPlayerByName(lobby, computer.name)
+    expect(player).to.be.undefined
+
+    player = Lobbies.findPlayerByName(lobby, 'Slayers`Boxer')
+    expect(player).to.not.be.undefined
+    expect(player.name).to.equal('Slayers`Boxer')
   })
 
   it('should close the lobby if only computers are left', () => {

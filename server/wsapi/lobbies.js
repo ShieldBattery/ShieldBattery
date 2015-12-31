@@ -115,18 +115,11 @@ export const Lobbies = {
     return updated
   },
 
-  // Removes the player with the specified `name` from a lobby, returning the updated lobby. This
-  // method will only work for removing human players (computer players do not have unique names).
-  // If the lobby is closed, null will be returned. Note that if the host is being removed, a new,
-  // suitable host will be chosen.
-  removePlayerByName(lobby, name) {
-    const player = lobby.players.find(p => !p.isComputer && p.name === name)
-    if (!player) {
-      return lobby
-    }
-
-    return Lobbies.removePlayerById(lobby, player.id)
-  },
+  // Finds the player with the specified name in the lobby. Only works for human players (computer
+  // players do not have unique names). If no player is found, undefined will be returned.
+  findPlayerByName(lobby, name) {
+    return lobby.players.find(p => !p.isComputer && p.name === name)
+  }
 }
 
 const slotNumInRange = s => s >= 2 && s <= 8
@@ -197,24 +190,29 @@ export class LobbyApi {
 
   _subscribeUserToLobby(lobby, user) {
     const lobbyName = lobby.name
-    user.subscribe(LobbyApi._getPath(lobby), () => ({
-      type: 'init',
-      lobby: this.lobbies.get(lobbyName),
-    }), user => this._removeUserFromLobby(user, this.lobbies.get(lobbyName)))
+    user.subscribe(LobbyApi._getPath(lobby), () => {
+      const lobby = this.lobbies.get(lobbyName)
+      const myId = Lobbies.findPlayerByName(lobby, user.name)
+      return {
+        type: 'init',
+        lobby,
+        myId,
+      }
+    }, user => this._removeUserFromLobby(this.lobbies.get(lobbyName), user))
   }
 
   @Api('/leave',
     'getUser',
     'getLobby')
   async leave(data, next) {
-    const user = data.get('user')
     const lobby = data.get('lobby')
-
-    this._removeUserFromLobby(user, lobby)
+    const user = data.get('user')
+    this._removeUserFromLobby(lobby, user)
   }
 
-  _removeUserFromLobby(user, lobby) {
-    const updatedLobby = Lobbies.removePlayerByName(lobby, user.name)
+  _removeUserFromLobby(lobby, user) {
+    const id = Lobbies.findPlayerByName(lobby, user.name).id
+    const updatedLobby = Lobbies.removePlayerById(lobby, id)
 
     if (!updatedLobby) {
       this.lobbies = this.lobbies.delete(lobby.name)
@@ -223,18 +221,18 @@ export class LobbyApi {
     }
     this.lobbyUsers = this.lobbyUsers.delete(user)
 
-    this._publishTo(lobby, {
-      type: 'leave',
-      name: user.name,
-    })
-    user.unsubscribe(LobbyApi._getPath(lobby))
-
     if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
       this._publishTo(lobby, {
         type: 'hostChange',
         newId: updatedLobby.hostId,
       })
     }
+
+    this._publishTo(lobby, {
+      type: 'leave',
+      id,
+    })
+    user.unsubscribe(LobbyApi._getPath(lobby))
   }
 
   async getUser(data, next) {
