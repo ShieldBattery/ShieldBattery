@@ -4,6 +4,8 @@ import {
   LOBBY_CREATE,
   LOBBY_JOIN_BEGIN,
   LOBBY_JOIN,
+  LOBBY_LEAVE_BEGIN,
+  LOBBY_LEAVE,
 } from '../actions'
 
 export function createLobby(name, map, numSlots) {
@@ -36,6 +38,19 @@ export function joinLobby(name) {
       type: LOBBY_JOIN,
       payload: siteSocket.invoke('/lobbies/join', params),
       meta: params
+    })
+  }
+}
+
+export function leaveLobby() {
+  return dispatch => {
+    dispatch({
+      type: LOBBY_LEAVE_BEGIN,
+    })
+
+    dispatch({
+      type: LOBBY_LEAVE,
+      payload: siteSocket.invoke('/lobbies/leave')
     })
   }
 }
