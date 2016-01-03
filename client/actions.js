@@ -17,6 +17,10 @@ export const LOBBY_INIT_DATA = 'LOBBY_INIT_DATA'
 export const LOBBY_JOIN_BEGIN = 'LOBBY_JOIN_BEGIN'
 // The server has responded with success/failure to our lobby joining
 export const LOBBY_JOIN = 'LOBBY_JOIN'
+// We are starting the process of leaving a lobby
+export const LOBBY_LEAVE_BEGIN = 'LOBBY_LEAVE_BEGIN'
+// The server has responded with success/failure to our lobby leaving
+export const LOBBY_LEAVE = 'LOBBY_LEAVE'
 // A lobby we're in now has a new host player
 export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
 // A user has joined a lobby we're in

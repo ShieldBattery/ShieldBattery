@@ -2,7 +2,9 @@ import React from 'react'
 import { connect } from 'react-redux'
 import ContentLayout from '../content/content-layout.jsx'
 import Card from '../material/card.jsx'
+import FlatButton from '../material/flat-button.jsx'
 import styles from './view.css'
+import { leaveLobby } from './action-creators'
 
 const mapStateToProps = state => {
   return {
@@ -69,6 +71,7 @@ export default class LobbyView extends React.Component {
     }
 
     return (<div className={styles.contentArea}>
+      <FlatButton color='primary' label='Leave lobby' onClick={::this.onLeaveLobbyClick} />
       <p>Map: {lobby.map}</p>
       <p>Slots: {lobby.players.size} / {lobby.numSlots}</p>
       <p>Host: {lobby.players.get(lobby.hostId).name}</p>
@@ -77,5 +80,9 @@ export default class LobbyView extends React.Component {
         <div className={styles.slotColumn}>{secondCol}</div>
       </div>
     </div>)
+  }
+
+  onLeaveLobbyClick() {
+    this.props.dispatch(leaveLobby())
   }
 }
