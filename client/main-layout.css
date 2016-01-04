@@ -1,4 +1,4 @@
-@value grey800, blue700 from './styles/colors.css';
+@value grey800, blue700, colorTextSecondary from './styles/colors.css';
 @value standardIncrement from './material/units.css';
 @value zIndexAppBar from './material/zindex.css';
 
@@ -30,4 +30,8 @@
   composes: col justifyCenter grow from './styles/flex.css';
   width: 100%;
   padding: 16px;
+}
+
+.userCount {
+  color: colorTextSecondary;
 }

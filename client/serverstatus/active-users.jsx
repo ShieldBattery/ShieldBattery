@@ -5,8 +5,9 @@ import { connect } from 'react-redux'
 class ActiveUsersCount extends React.Component {
   render() {
     const { activeUsers } = this.props
-    const activeUsersStr = activeUsers === null ? 'unknown' : (activeUsers + '')
-    return <p>Connected users: {activeUsersStr}</p>
+    const pluralized = activeUsers !== 1 ? 'users' : 'user'
+    const activeUsersStr = activeUsers === null ? '' : `${activeUsers} ${pluralized} online`
+    return <p {...this.props}>{activeUsersStr}</p>
   }
 }
 

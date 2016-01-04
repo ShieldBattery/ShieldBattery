@@ -4,7 +4,6 @@ import auther from '../auth/auther'
 import { openDialog } from '../dialogs/dialog-action-creator'
 import styles from './content-layout.css'
 
-import ActiveUserCount from '../serverstatus/active-users.jsx'
 import AppBar from '../material/app-bar.jsx'
 import IconButton from '../material/icon-button.jsx'
 
@@ -17,7 +16,6 @@ export default class ContentLayout extends React.Component {
   render() {
     return (<div className={styles.content}>
       <AppBar title={this.props.title}>
-        <ActiveUserCount />
         <IconButton icon='account_circle' title='Log out' onClick={::this.onLogOutClicked} />
         <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
         <IconButton icon='more_vert' title='More options' />

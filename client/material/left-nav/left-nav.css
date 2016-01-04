@@ -21,12 +21,21 @@
   border-bottom: 1px solid colorDividers;
 }
 
+.border {
+  border-right: 1px solid colorDividers;
+  margin: 0;
+  width: 100%;
+}
+
 .sections {
   composes: grow from '../../styles/flex.css';
-  margin: 0;
+  composes: border;
   padding: 8px 0 0;
-  width: 100%;
-  border-right: 1px solid colorDividers;
+}
+
+.footer {
+  composes: border;
+  padding: 0 16px;
 }
 
 .logoText {

@@ -11,6 +11,7 @@ import RaisedButton from './material/raised-button.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialog from './dialogs/connected-dialog.jsx'
+import ActiveUserCount from './serverstatus/active-users.jsx'
 
 import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
@@ -68,7 +69,7 @@ class MainLayout extends React.Component {
         whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
 
     return (<div className={styles.layout}>
-      <LeftNav>
+      <LeftNav footer={<ActiveUserCount className={styles.userCount}/>}>
         {lobbyElems}
         <Subheader>Chat channels</Subheader>
         <Section>
