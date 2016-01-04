@@ -6,6 +6,7 @@ import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
 
 import Divider from './material/left-nav/divider.jsx'
+import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import RaisedButton from './material/raised-button.jsx'
 import Section from './material/left-nav/section.jsx'
@@ -17,6 +18,8 @@ import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
+import auther from './auth/auther'
+import { openDialog } from './dialogs/dialog-action-creator'
 import { createLobby, joinLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
@@ -83,7 +86,10 @@ class MainLayout extends React.Component {
       </LeftNav>
       { this.props.children }
       <div className={styles.activities}>
-        <div className={styles.activitiesAppBar} />
+        <div className={styles.activitiesAppBar}>
+          <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
+          <IconButton icon='account_circle' title='Log out' onClick={::this.onLogOutClicked} />
+        </div>
         <div className={styles.activitiesContent}>
           <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick} />
           <RaisedButton color='primary' label='Join lobby' onClick={::this.onJoinLobbyClick} />
@@ -91,6 +97,14 @@ class MainLayout extends React.Component {
       </div>
       <ConnectedDialog />
     </div>)
+  }
+
+  onSettingsClicked() {
+    this.props.dispatch(openDialog('settings'))
+  }
+
+  onLogOutClicked() {
+    this.props.dispatch(auther.logOut().action)
   }
 
   onCreateLobbyClick() {

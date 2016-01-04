@@ -16,7 +16,7 @@
 }
 
 .activitiesAppBar {
-  composes: row itemsBaseline exact from './styles/flex.css';
+  composes: row itemsCenter justifyEnd exact from './styles/flex.css';
   width: 100%;
   height: standardIncrement;
   margin: 0;

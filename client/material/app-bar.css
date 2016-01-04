@@ -3,7 +3,7 @@
 @value zIndexAppBar from './zindex.css';
 
 .appBar {
-  composes: row itemsBaseline from '../styles/flex.css';
+  composes: row itemsCenter from '../styles/flex.css';
   composes: shadow4dp from './shadows.css';
   width: 100%;
   height: standardIncrement;
