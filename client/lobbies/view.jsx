@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { pushPath } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import Card from '../material/card.jsx'
-import FlatButton from '../material/flat-button.jsx'
+import IconButton from '../material/icon-button.jsx'
 import { leaveLobby } from './action-creators'
 import styles from './view.css'
 
@@ -37,15 +37,20 @@ export default class LobbyView extends React.Component {
     const { lobby } = this.props
 
     let content
+    let actions
     if (!lobby) {
       content = this.renderJoin()
     } else if (lobby.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else {
       content = this.renderLobby()
+      actions = [
+        <IconButton key='leave' icon='close' title='Leave lobby'
+            onClick={::this.onLeaveLobbyClick} />
+      ]
     }
 
-    return (<ContentLayout title={this.props.routeParams.lobby}>
+    return (<ContentLayout title={this.props.routeParams.lobby} actions={actions}>
       { content }
     </ContentLayout>)
   }
@@ -60,14 +65,12 @@ export default class LobbyView extends React.Component {
 
   renderLobby() {
     const { lobby } = this.props
-    const halfNumSlots = Math.ceil(lobby.numSlots / 2)
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
     }, [])
 
-    const firstCol = []
-    const secondCol = []
+    const slots = []
     for (let i = 0; i < lobby.numSlots; i++) {
       let playerElem
       if (playersBySlot[i]) {
@@ -77,25 +80,19 @@ export default class LobbyView extends React.Component {
           <span>{p.isComputer ? 'Computer' : 'Human'}</span>
         </div>
       } else {
-        playerElem = <em>Empty</em>
+        playerElem = <span>{i + 1}. <em>Empty</em></span>
       }
 
-      if (i < halfNumSlots) {
-        firstCol.push(<Card className={styles.slotCard} key={i}>{playerElem}</Card>)
-      } else {
-        secondCol.push(<Card className={styles.slotCard} key={i}>{playerElem}</Card>)
-      }
+      slots.push(<div className={styles.slotCard} key={i}>{playerElem}</div>)
     }
 
     return (<div className={styles.contentArea}>
-      <FlatButton color='accent' label='Leave' onClick={::this.onLeaveLobbyClick} />
       <p>Map: {lobby.map}</p>
       <p>Slots: {lobby.players.size} / {lobby.numSlots}</p>
       <p>Host: {lobby.players.get(lobby.hostId).name}</p>
-      <div className={styles.slots}>
-        <div className={styles.slotColumn}>{firstCol}</div>
-        <div className={styles.slotColumn}>{secondCol}</div>
-      </div>
+      <Card className={styles.slots}>
+        <div className={styles.slotColumn}>{slots}</div>
+      </Card>
     </div>)
   }
 
