@@ -63,6 +63,36 @@
   align-items: center;
 }
 
+.contentStart {
+  composes: flex;
+  align-content: flex-start;
+}
+
+.contentEnd {
+  composes: flex;
+  align-content: flex-end;
+}
+
+.contentCenter {
+  composes: flex;
+  align-content: center;
+}
+
+.contentSpaceBetween {
+  composes: flex;
+  align-content: space-between;
+}
+
+.contentSpaceAround {
+  composes: flex;
+  align-content: space-around;
+}
+
+.contentStretch {
+  composes: flex;
+  align-content: stretch;
+}
+
 /* Classes for flex items */
 @for $i from 5 to 100 by 5 {
   .take$(i) {

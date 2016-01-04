@@ -83,16 +83,26 @@ export default class LobbyView extends React.Component {
         playerElem = <span>{i + 1}. <em>Empty</em></span>
       }
 
-      slots.push(<div className={styles.slotCard} key={i}>{playerElem}</div>)
+      slots.push(<div className={styles.slot} key={i}>{playerElem}</div>)
     }
 
     return (<div className={styles.contentArea}>
-      <p>Map: {lobby.map}</p>
-      <p>Slots: {lobby.players.size} / {lobby.numSlots}</p>
-      <p>Host: {lobby.players.get(lobby.hostId).name}</p>
-      <Card className={styles.slots}>
-        <div className={styles.slotColumn}>{slots}</div>
-      </Card>
+      <div className={styles.top}>
+        <Card className={styles.slots}>
+          <div className={styles.slotColumn}>{slots}</div>
+        </Card>
+        <div className={styles.info}>
+          <h3 className={styles.mapName}>Fighting Spirit</h3>
+          <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
+          <div className={styles.infoItem}>
+            <span className={styles.infoLabel}>Game type</span>
+            <span className={styles.infoValue}>Melee</span>
+          </div>
+        </div>
+      </div>
+      <div className={styles.chat}>
+        <p className={styles.chatHeader}>Chat</p>
+      </div>
     </div>)
   }
 

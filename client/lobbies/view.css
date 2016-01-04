@@ -1,16 +1,64 @@
+@value colorTextSecondary, colorDividers from '../styles/colors.css';
+
 .contentArea {
-  padding: 0 16px;
-  margin: 16px 0;
+  composes: col from '../styles/flex.css';
+  padding: 0 16px 16px;
+  margin: 0;
+}
+
+.top {
+  composes: row justifySpaceBetween itemsStart contentStart from '../styles/flex.css';
+  width: 100%;
 }
 
 .slots {
-  composes: row itemsStart justifySpaceAround from '../styles/flex.css';
-}
-
-.slotColumn {
-  composes: take45 from '../styles/flex.css';
-}
-
-.slotCard {
   margin: 16px 0;
+  min-width: 480px;
+}
+
+.slot {
+  margin: 16px 0;
+}
+
+.info {
+  margin: 16px 0 16px 24px;
+  width: 256px;
+}
+
+.mapName {
+  composes: headline from '../styles/typography.css';
+  margin-top: 0;
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.mapThumbnail {
+  composes: shadow1dp from '../material/shadows.css';
+  width: 256px;
+  border-radius: 2px;
+}
+
+.infoItem {
+  margin-left: 24px;
+  margin-right: 24px;
+  margin-top: 8px;
+}
+
+.infoLabel {
+  composes: body2 from '../styles/typography.css';
+  color: colorTextSecondary;
+}
+
+.infoValue {
+  composes: subhead from '../styles/typography.css';
+  margin-left: 24px;
+}
+
+.chat {
+  composes: grow from '../styles/flex.css';
+}
+
+.chatHeader {
+  composes: subhead from '../styles/typography.css';
+  color: colorTextSecondary;
 }
