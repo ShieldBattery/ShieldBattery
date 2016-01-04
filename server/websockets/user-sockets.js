@@ -72,6 +72,7 @@ export class UserSocketGroup extends EventEmitter {
     for (const socket of this.sockets) {
       this.nydus.unsubscribeClient(socket, path)
     }
+    this.subscriptions = updated
   }
 }
 
