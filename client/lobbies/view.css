@@ -17,7 +17,39 @@
 }
 
 .slot {
-  margin: 16px 0;
+  composes: row itemsCenter from '../styles/flex.css';
+  height: 56px;
+}
+
+.slotAvatar {
+  margin-right: 16px;
+}
+
+.slotName {
+  composes: grow from '../styles/flex.css';
+  composes: subhead from '../styles/typography.css';
+  margin-right: 16px;
+}
+
+.slotRace {
+  margin-right: 16px;
+}
+
+.slotType {
+  margin-left: 16px;
+}
+
+.slotEmptyAvatar {
+  composes: slotAvatar;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid colorDividers;
+}
+
+.slotEmptyName {
+  composes: slotName;
+  color: colorTextSecondary;
 }
 
 .info {

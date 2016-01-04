@@ -7,6 +7,9 @@ import IconButton from '../material/icon-button.jsx'
 import { leaveLobby } from './action-creators'
 import styles from './view.css'
 
+import EmptySlot from './empty-slot.jsx'
+import FilledSlot from './filled-slot.jsx'
+
 const mapStateToProps = state => {
   return {
     user: state.auth.user,
@@ -68,22 +71,16 @@ export default class LobbyView extends React.Component {
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
-    }, [])
+    }, new Array(lobby.numSlots))
 
-    const slots = []
+    const slots = new Array(lobby.numSlots)
     for (let i = 0; i < lobby.numSlots; i++) {
-      let playerElem
       if (playersBySlot[i]) {
-        const p = playersBySlot[i]
-        playerElem = <div>
-          <span>{p.slot + 1}. </span><span>{p.name} - </span><span>{p.race} - </span>
-          <span>{p.isComputer ? 'Computer' : 'Human'}</span>
-        </div>
+        const { name, race, isComputer } = playersBySlot[i]
+        slots[i] = <FilledSlot name={name} race={race} isComputer={isComputer} />
       } else {
-        playerElem = <span>{i + 1}. <em>Empty</em></span>
+        slots[i] = <EmptySlot />
       }
-
-      slots.push(<div className={styles.slot} key={i}>{playerElem}</div>)
     }
 
     return (<div className={styles.contentArea}>
@@ -92,7 +89,7 @@ export default class LobbyView extends React.Component {
           <div className={styles.slotColumn}>{slots}</div>
         </Card>
         <div className={styles.info}>
-          <h3 className={styles.mapName}>Fighting Spirit</h3>
+          <h3 className={styles.mapName}>{lobby.map}</h3>
           <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Game type</span>

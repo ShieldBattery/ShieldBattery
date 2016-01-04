@@ -1,0 +1,21 @@
+.avatarImage {
+  width: 40px;
+  height: 40px;
+}
+
+img.avatarImage {
+  border-radius: 50%;
+}
+
+.buttonImage {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: auto;
+  overflow: hidden;
+}
+
+.buttonImage > svg {
+  width: 24px;
+  height: 24px;
+}

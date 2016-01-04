@@ -5,6 +5,7 @@ import { goToIndex } from './navigation/action-creators'
 import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
 
+import AvatarButton from './avatars/avatar-button.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
@@ -88,7 +89,8 @@ class MainLayout extends React.Component {
       <div className={styles.activities}>
         <div className={styles.activitiesAppBar}>
           <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
-          <IconButton icon='account_circle' title='Log out' onClick={::this.onLogOutClicked} />
+          <AvatarButton user={this.props.auth.name} title='Log out'
+              onClick={::this.onLogOutClicked} />
         </div>
         <div className={styles.activitiesContent}>
           <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick} />

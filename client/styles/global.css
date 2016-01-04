@@ -39,3 +39,7 @@ a:hover, a:active {
   color: amberA200;
   text-decoration: underline;
 }
+
+svg {
+  fill: currentColor;
+}

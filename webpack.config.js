@@ -17,6 +17,28 @@ if (!isDev) {
   styleLoader.loader = ExtractTextPlugin.extract('style-loader', `${cssLoader}!postcss-loader`)
 }
 
+const babelQuery = {
+  cacheDirectory: true,
+  presets: ['react', 'es2015', 'stage-0'],
+  plugins: ['transform-runtime', 'transform-decorators-legacy'],
+  env: {
+    development: {
+      plugins: [
+        ['react-transform', {
+          transforms: [{
+            transform: 'react-transform-hmr',
+            imports: ['react'],
+            locals: ['module']
+          }, {
+            transform: 'react-transform-catch-errors',
+            imports: ['react', 'redbox-react']
+          }]
+        }],
+      ]
+    }
+  }
+}
+
 const webpackOptions = {
   entry: './client/index.jsx',
   output: {
@@ -30,27 +52,12 @@ const webpackOptions = {
         test: /\.jsx?$/,
         exclude: /node_modules/,
         loader: 'babel',
-        query: {
-          cacheDirectory: true,
-          presets: ['react', 'es2015', 'stage-0'],
-          plugins: ['transform-runtime', 'transform-decorators-legacy'],
-          env: {
-            development: {
-              plugins: [
-                ['react-transform', {
-                  transforms: [{
-                    transform: 'react-transform-hmr',
-                    imports: ['react'],
-                    locals: ['module']
-                  }, {
-                    transform: 'react-transform-catch-errors',
-                    imports: ['react', 'redbox-react']
-                  }]
-                }],
-              ]
-            }
-          }
-        }
+        query: babelQuery,
+      },
+      {
+        test: /\.svg$/,
+        exclude: /node_modules/,
+        loader: `babel?${JSON.stringify(babelQuery)}!svg-react`,
       },
       styleLoader
     ],
