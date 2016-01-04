@@ -53,9 +53,7 @@
   composes: common;
   composes: hover;
   padding: 0 8px;
-  /* TODO(tec27): Built-in margins screw up alignment, we should probably remove these and */
-  /* replace them with margins that only take effect between contiguous buttons or something */
-  margin: 6px 8px;
+  margin: 6px 0;
   min-width: 88px;
 }
 

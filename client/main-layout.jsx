@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { replacePath } from 'redux-simple-router'
+import { goToIndex } from './navigation/action-creators'
 import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
 
@@ -21,29 +22,8 @@ function stateToProps(state) {
   return {
     auth: state.auth,
     lobby: state.lobby.name ? state.lobby : undefined,
-    chatChannels: [
-      { name: 'doyoureallywantthem' },
-      { name: 'teamliquid' },
-      { name: 'x17' },
-      { name: 'nohunters' },
-    ],
-    whispers: [
-      { from: 'Pachi' },
-    ],
-  }
-}
-
-// Pick a location to redirect the user to given props from the store, used if the user hits the
-// index page
-function doIndexRedirect({ lobby, chatChannels, whispers }) {
-  if (lobby) {
-    return replacePath(`/lobbies/${encodeURIComponent(lobby.name)}`)
-  } else if (chatChannels.length) {
-    return replacePath(`/chat/${encodeURIComponent(chatChannels[0].name)}`)
-  } else if (whispers.length) {
-    return replacePath(`/whispers/${encodeURIComponent(whispers[0].from)}`)
-  } else {
-    return replacePath('/chat/')
+    chatChannels: state.chatChannels,
+    whispers: state.whispers,
   }
 }
 
@@ -51,7 +31,13 @@ function doIndexRedirect({ lobby, chatChannels, whispers }) {
 class MainLayout extends React.Component {
   componentWillMount() {
     if (!this.props.children) {
-      this.props.dispatch(doIndexRedirect(this.props))
+      this.props.dispatch(goToIndex(replacePath))
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (!nextProps.children) {
+      nextProps.dispatch(goToIndex(replacePath))
     }
   }
 
