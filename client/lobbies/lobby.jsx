@@ -3,8 +3,10 @@ import styles from './view.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
+import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
+import ChatMessage from '../chat/message.jsx'
 
 export default class Lobby extends React.Component {
   static propTypes = {
@@ -30,9 +32,22 @@ export default class Lobby extends React.Component {
 
     return (<div className={styles.contentArea}>
       <div className={styles.top}>
-        <Card className={lobby.numSlots > 4 ? styles.slotsDense : styles.slotsSparse}>
-          <div className={styles.slotColumn}>{slots}</div>
-        </Card>
+        <div className={styles.left}>
+          <Card className={lobby.numSlots > 5 ? styles.slotsDense : styles.slotsSparse}>
+            <div className={styles.slotColumn}>{slots}</div>
+          </Card>
+          <div className={styles.chat}>
+            <ChatMessage user='tec27' timestamp='1:37 PM' text='gl hf' />
+            <ChatMessage user='tec27' timestamp='1:38 PM' text='1a2a3a' />
+            <ChatMessage user='dronebabo' timestamp='1:40 PM'
+                text='i hope this goes better than last time' />
+            <ChatMessage user='pachi' timestamp='1:41 PM'
+                text={'What if we wrote a much longer message that had to wrap and stuff because' +
+                    ' it was so long. How would that look, exactly? Would it look cool?'}/>
+          </div>
+          <TextField className={styles.chatInput} hintText='Send a message' />
+        </div>
+
         <div className={styles.info}>
           <h3 className={styles.mapName}>{lobby.map}</h3>
           <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
@@ -42,9 +57,6 @@ export default class Lobby extends React.Component {
           </div>
           <RaisedButton className={styles.startButton} color='primary' label='Start game' />
         </div>
-      </div>
-      <div className={styles.chat}>
-        <p className={styles.chatHeader}>Chat</p>
       </div>
     </div>)
   }

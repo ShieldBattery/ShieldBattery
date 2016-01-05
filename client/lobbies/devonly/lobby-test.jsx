@@ -30,14 +30,14 @@ export default class LobbyTest extends React.Component {
   renderLobby(lobby) {
     const containerStyle = {
       width: 400,
-      height: 300,
+      height: 360,
       border: '1px solid rgba(255,255,255,0.12)',
       margin: '4px',
       overflow: 'hidden',
     }
     const scaledStyle = {
       width: 800,
-      height: 600,
+      height: 720,
       transformOrigin: '0 0',
       transform: 'scale(0.5)',
     }

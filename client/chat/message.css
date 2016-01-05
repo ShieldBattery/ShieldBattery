@@ -1,0 +1,33 @@
+@value colorTextSecondary from '../styles/colors.css';
+
+.message {
+  composes: row itemsStart from '../styles/flex.css';
+  min-height: 48px;
+  margin-bottom: 8px;
+}
+
+.content {
+  composes: col grow from '../styles/flex.css';
+  margin-left: 16px;
+}
+
+.metadata {
+  composes: row justifySpaceBetween from '../styles/flex.css'
+}
+
+.username {
+  composes: body2 from '../styles/typography.css';
+  color: colorTextSecondary;
+  line-height: 1;
+}
+
+.timestamp {
+  composes: caption from '../styles/typography.css';
+  color: colorTextSecondary;
+  line-height: 14px;
+}
+
+.text {
+  composes: body1 from '../styles/typography.css';
+  margin-top: 8px;
+}
