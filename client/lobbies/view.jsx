@@ -2,14 +2,11 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { pushPath } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
-import Card from '../material/card.jsx'
 import IconButton from '../material/icon-button.jsx'
-import RaisedButton from '../material/raised-button.jsx'
 import { leaveLobby } from './action-creators'
 import styles from './view.css'
 
-import EmptySlot from './empty-slot.jsx'
-import FilledSlot from './filled-slot.jsx'
+import Lobby from './lobby.jsx'
 
 const mapStateToProps = state => {
   return {
@@ -47,7 +44,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else {
-      content = this.renderLobby()
+      content = <Lobby lobby={lobby} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'
             onClick={::this.onLeaveLobbyClick} />
@@ -65,44 +62,6 @@ export default class LobbyView extends React.Component {
 
   renderLeaveAndJoin() {
     return <p className={styles.contentArea}>You're already in another lobby.</p>
-  }
-
-  renderLobby() {
-    const { lobby } = this.props
-    const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
-      result[p.slot] = p
-      return result
-    }, new Array(lobby.numSlots))
-
-    const slots = new Array(lobby.numSlots)
-    for (let i = 0; i < lobby.numSlots; i++) {
-      if (playersBySlot[i]) {
-        const { name, race, isComputer } = playersBySlot[i]
-        slots[i] = <FilledSlot name={name} race={race} isComputer={isComputer} />
-      } else {
-        slots[i] = <EmptySlot />
-      }
-    }
-
-    return (<div className={styles.contentArea}>
-      <div className={styles.top}>
-        <Card className={lobby.numSlots > 4 ? styles.slotsDense : styles.slotsSparse}>
-          <div className={styles.slotColumn}>{slots}</div>
-        </Card>
-        <div className={styles.info}>
-          <h3 className={styles.mapName}>{lobby.map}</h3>
-          <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Game type</span>
-            <span className={styles.infoValue}>Melee</span>
-          </div>
-          <RaisedButton className={styles.startButton} color='primary' label='Start game' />
-        </div>
-      </div>
-      <div className={styles.chat}>
-        <p className={styles.chatHeader}>Chat</p>
-      </div>
-    </div>)
   }
 
   onLeaveLobbyClick() {

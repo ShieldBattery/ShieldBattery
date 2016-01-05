@@ -13,6 +13,15 @@ import Signup from './auth/signup.jsx'
 import WhisperIndex from './whispers/index.jsx'
 import WhisperView from './whispers/view.jsx'
 
+let devRoutes
+if (process.env.NODE_ENV !== 'production') {
+  const DevLobbies = require('./lobbies/devonly/lobby-test.jsx').default
+
+  devRoutes = <Route>
+    <Route path='/devlobbies' component={DevLobbies} />
+  </Route>
+}
+
 const routes = <Route>
   <Route component={LoginRequired}>
     <Route component={MainLayout}>
@@ -35,6 +44,7 @@ const routes = <Route>
     <Route path='/login' component={Login} />
     <Route path='/signup' component={Signup} />
   </Route>
+  { devRoutes }
   <Route path='*' component={AppNotFound} />
 </Route>
 
