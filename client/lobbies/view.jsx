@@ -4,6 +4,7 @@ import { pushPath } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import Card from '../material/card.jsx'
 import IconButton from '../material/icon-button.jsx'
+import RaisedButton from '../material/raised-button.jsx'
 import { leaveLobby } from './action-creators'
 import styles from './view.css'
 
@@ -85,7 +86,7 @@ export default class LobbyView extends React.Component {
 
     return (<div className={styles.contentArea}>
       <div className={styles.top}>
-        <Card className={styles.slots}>
+        <Card className={lobby.numSlots > 4 ? styles.slotsDense : styles.slotsSparse}>
           <div className={styles.slotColumn}>{slots}</div>
         </Card>
         <div className={styles.info}>
@@ -95,6 +96,7 @@ export default class LobbyView extends React.Component {
             <span className={styles.infoLabel}>Game type</span>
             <span className={styles.infoValue}>Melee</span>
           </div>
+          <RaisedButton className={styles.startButton} color='primary' label='Start game' />
         </div>
       </div>
       <div className={styles.chat}>

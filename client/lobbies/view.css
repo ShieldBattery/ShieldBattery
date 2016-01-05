@@ -7,18 +7,33 @@
 }
 
 .top {
-  composes: row justifySpaceBetween itemsStart contentStart from '../styles/flex.css';
+  composes: row justifySpaceBetween itemsCenter contentStart from '../styles/flex.css';
   width: 100%;
 }
 
 .slots {
+  composes: grow from '../styles/flex.css';
   margin: 16px 0;
-  min-width: 480px;
+  min-width: 320px;
+}
+
+.slotsSparse {
+  composes: slots;
+}
+
+.slotsDense {
+  composes: slots;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .slot {
   composes: row itemsCenter from '../styles/flex.css';
   height: 56px;
+}
+
+.slotsDense .slot {
+  height: 48px;
 }
 
 .slotAvatar {
@@ -84,6 +99,13 @@
 .infoValue {
   composes: subhead from '../styles/typography.css';
   margin-left: 24px;
+}
+
+.startButton {
+  margin-left: 24px;
+  margin-right: 24px;
+  margin-top: 12px;
+  width: calc(100% - 24px - 24px);
 }
 
 .chat {
