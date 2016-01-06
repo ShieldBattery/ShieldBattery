@@ -133,9 +133,9 @@ export const Lobbies = {
   }
 }
 
-const playerIdNum = id => id.length >= 21 && id.length <= 29
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
+const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
 const MOUNT_BASE = '/lobbies'
 
@@ -242,8 +242,8 @@ export class LobbyApi {
 
   @Api('/setRace',
     validateBody({
-      id: playerIdNum,
-      race: nonEmptyString,
+      id: nonEmptyString,
+      race: validRace,
     }),
     'getUser',
     'getLobby',
@@ -252,10 +252,6 @@ export class LobbyApi {
     const { id, race } = data.get('body')
     const lobby = data.get('lobby')
     const player = data.get('player')
-
-    if (race !== 'z' && race !== 't' && race !== 'p' && race !== 'r') {
-      throw new errors.BadRequest('invalid race')
-    }
 
     if (!lobby.players.has(id)) {
       throw new errors.BadRequest('invalid id')
