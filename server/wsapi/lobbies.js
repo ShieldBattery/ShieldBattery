@@ -146,6 +146,7 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
+    this.lobbyLocks = new Map()
   }
 
   @Api('/create',
@@ -219,7 +220,7 @@ export class LobbyApi {
       slotNum
     }),
     'getUser',
-    'getLobby',
+    'acquireLobby',
     'getPlayer',
     'ensureIsLobbyHost')
   async addComputer(data, next) {
@@ -246,7 +247,7 @@ export class LobbyApi {
       race: validRace,
     }),
     'getUser',
-    'getLobby',
+    'acquireLobby',
     'getPlayer')
   async setRace(data, next) {
     const { id, race } = data.get('body')
@@ -276,7 +277,7 @@ export class LobbyApi {
 
   @Api('/leave',
     'getUser',
-    'getLobby')
+    'acquireLobby')
   async leave(data, next) {
     const lobby = data.get('lobby')
     const user = data.get('user')
@@ -316,14 +317,37 @@ export class LobbyApi {
     return await next(newData)
   }
 
-  async getLobby(data, next) {
+  // This method should be called whenever further methods may modify a Lobby. This essentially
+  // creates a queue per lobby, and prevents multiple mutations on the same lobby from
+  // interleaving and resulting in invalid state.
+  async acquireLobby(data, next) {
     const user = data.get('user')
     if (!this.lobbyUsers.has(user)) {
       throw new errors.BadRequest('must be in a lobby')
     }
-    const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
 
-    return await next(newData)
+    const lobbyName = this.lobbyUsers.get(user)
+    const lock = this.lobbyLocks.get(lobbyName) || Promise.resolve()
+
+    const continuer = () => {
+      // Double check that they're still in the lobby
+      if (!this.lobbyUsers.has(user)) {
+        throw new errors.BadRequest('must be in a lobby')
+      }
+      if (this.lobbyUsers.get(user) !== lobbyName) {
+        // user has switched lobbies in the meantime, acquire that lobby instead
+        return this.acquireLobby(data, next)
+      }
+
+      // At this point the lobby is acquired, do what we want with it
+      const newData = data.set('lobby', this.lobbies.get(lobbyName))
+      return next(newData)
+    }
+
+    const newLock = lock.then(continuer, continuer)
+    this.lobbyLocks = this.lobbyLocks.set(lobbyName, newLock)
+
+    return await newLock
   }
 
   async getPlayer(data, next) {
