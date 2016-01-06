@@ -3,6 +3,7 @@ import {
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
+  LOBBY_UPDATE_RACE_CHANGE,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 
@@ -24,6 +25,11 @@ function eventToAction(lobbyName, event) {
       return {
         type: LOBBY_UPDATE_JOIN,
         payload: event.player,
+      }
+    case 'raceChange':
+      return {
+        type: LOBBY_UPDATE_RACE_CHANGE,
+        payload: event,
       }
     case 'leave':
       return {

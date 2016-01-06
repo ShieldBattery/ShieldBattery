@@ -25,11 +25,17 @@ export const LOBBY_JOIN = 'LOBBY_JOIN'
 export const LOBBY_LEAVE_BEGIN = 'LOBBY_LEAVE_BEGIN'
 // The server has responded with success/failure to our lobby leaving
 export const LOBBY_LEAVE = 'LOBBY_LEAVE'
+// We are starting the process of setting the race of a player
+export const LOBBY_SET_RACE_BEGIN = 'LOBBY_SET_RACE_BEGIN'
+// The server has responded with success/failure to our race setting
+export const LOBBY_SET_RACE = 'LOBBY_SET_RACE'
 // A lobby we're in now has a new host player
 export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
 // A user has joined a lobby we're in
 export const LOBBY_UPDATE_JOIN = 'LOBBY_UPDATE_JOIN'
 // A user has left a lobby we're in
 export const LOBBY_UPDATE_LEAVE = 'LOBBY_UPDATE_LEAVE'
+// A user has changed the race in a lobby we're in
+export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 
 export const SERVER_STATUS = 'SERVER_STATUS'

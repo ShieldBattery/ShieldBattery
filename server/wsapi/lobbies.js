@@ -91,6 +91,11 @@ export const Lobbies = {
     return lobby.setIn(['players', player.id], player)
   },
 
+  // Updates the race of a particular player, returning the updated lobby.
+  setRace(lobby, id, newRace) {
+    return lobby.setIn(['players', id, 'race'], newRace)
+  },
+
   // Removes the player with specified `id` from a lobby, returning the updated lobby. If the lobby
   // is closed (e.g. because it no longer has any human players), null will be returned. Note that
   // if the host is being removed, a new, suitable host will be chosen.
@@ -128,6 +133,7 @@ export const Lobbies = {
   }
 }
 
+const playerIdNum = id => id.length >= 21 && id.length <= 29
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
 
@@ -234,6 +240,44 @@ export class LobbyApi {
     })
   }
 
+  @Api('/setRace',
+    validateBody({
+      id: playerIdNum,
+      race: nonEmptyString,
+    }),
+    'getUser',
+    'getLobby',
+    'getPlayer')
+  async setRace(data, next) {
+    const { id, race } = data.get('body')
+    const lobby = data.get('lobby')
+    const player = data.get('player')
+
+    if (race !== 'z' && race !== 't' && race !== 'p' && race !== 'r') {
+      throw new errors.BadRequest('invalid race')
+    }
+
+    if (!lobby.players.has(id)) {
+      throw new errors.BadRequest('invalid id')
+    }
+
+    const playerToSetRace = lobby.players.get(id)
+    if (!playerToSetRace.isComputer && player.id !== playerToSetRace.id) {
+      throw new errors.Forbidden('cannot set other user\'s races')
+    } else if (playerToSetRace.isComputer) {
+      await this.ensureIsLobbyHost(data, () => Promise.resolve())
+    }
+
+    const updatedLobby = Lobbies.setRace(lobby, id, race)
+    this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+
+    this._publishTo(lobby, {
+      type: 'raceChange',
+      id,
+      newRace: race,
+    })
+  }
+
   @Api('/leave',
     'getUser',
     'getLobby')
@@ -282,6 +326,15 @@ export class LobbyApi {
       throw new errors.BadRequest('must be in a lobby')
     }
     const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
+
+    return await next(newData)
+  }
+
+  async getPlayer(data, next) {
+    const user = data.get('user')
+    const lobby = data.get('lobby')
+
+    const newData = data.set('player', Lobbies.findPlayerByName(lobby, user.name))
 
     return await next(newData)
   }

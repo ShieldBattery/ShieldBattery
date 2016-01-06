@@ -8,6 +8,8 @@ import {
   LOBBY_JOIN,
   LOBBY_LEAVE_BEGIN,
   LOBBY_LEAVE,
+  LOBBY_SET_RACE_BEGIN,
+  LOBBY_SET_RACE,
 } from '../actions'
 
 export function createLobby(name, map, numSlots) {
@@ -56,6 +58,23 @@ export function addComputer(slotNum) {
     dispatch({
       type: LOBBY_ADD_COMPUTER,
       payload: siteSocket.invoke('/lobbies/addComputer', params),
+      meta: params
+    })
+  }
+}
+
+export function setRace(id, race) {
+  const params = { id, race }
+
+  return dispatch => {
+    dispatch({
+      type: LOBBY_SET_RACE_BEGIN,
+      payload: params
+    })
+
+    dispatch({
+      type: LOBBY_SET_RACE,
+      payload: siteSocket.invoke('/lobbies/setRace', params),
       meta: params
     })
   }

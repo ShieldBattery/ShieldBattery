@@ -84,6 +84,15 @@ describe('Lobbies', () => {
     expect(lobby).to.be.null
   })
 
+  it('should support setting the race of a player', () => {
+    const computer = Players.createComputer('t', 1)
+    let lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)
+
+    lobby = Lobbies.setRace(lobby, computer.id, 'z')
+
+    expect(lobby.players.get(computer.id).race).to.equal('z')
+  })
+
   it('should support finding players by name', () => {
     const computer = Players.createComputer('p', 1)
     const lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)

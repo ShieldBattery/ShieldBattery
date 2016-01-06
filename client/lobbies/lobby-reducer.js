@@ -4,6 +4,7 @@ import {
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
+  LOBBY_UPDATE_RACE_CHANGE,
 } from '../actions'
 
 export const Player = new Record({
@@ -44,6 +45,11 @@ const handlers = {
   [LOBBY_UPDATE_JOIN](state, action) {
     const player = new Player(action.payload)
     return state.set('players', state.players.set(player.id, player))
+  },
+
+  [LOBBY_UPDATE_RACE_CHANGE](state, action) {
+    const { id, newRace } = action.payload
+    return state.setIn(['players', id, 'race'], newRace)
   },
 
   [LOBBY_UPDATE_LEAVE](state, action) {

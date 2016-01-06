@@ -11,11 +11,12 @@ import ChatMessage from '../chat/message.jsx'
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: React.PropTypes.object.isRequired,
+    onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
   }
 
   render() {
-    const { lobby, onAddComputer } = this.props
+    const { lobby, onSetRace, onAddComputer } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
@@ -24,8 +25,9 @@ export default class Lobby extends React.Component {
     const slots = new Array(lobby.numSlots)
     for (let i = 0; i < lobby.numSlots; i++) {
       if (playersBySlot[i]) {
-        const { name, race, isComputer } = playersBySlot[i]
-        slots[i] = <FilledSlot name={name} race={race} isComputer={isComputer} />
+        const { id, name, race, isComputer } = playersBySlot[i]
+        slots[i] = <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
+            onSetRace={onSetRace ? () => onSetRace(id, 'p') : undefined} />
       } else {
         slots[i] = <EmptySlot key={i}
             onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
