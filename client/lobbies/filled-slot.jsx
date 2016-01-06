@@ -9,7 +9,7 @@ export default class FilledSlot extends React.Component {
     race: PropTypes.string.isRequired,
     isComputer: PropTypes.bool,
     avatarImage: PropTypes.string,
-    onSetRaceClick: PropTypes.func,
+    onSetRace: PropTypes.func,
   }
 
   render() {
@@ -18,7 +18,7 @@ export default class FilledSlot extends React.Component {
     return (<div className={styles.slot}>
       <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
       <span className={styles.slotName}>{name}</span>
-      <FlatButton color='normal' label='Set race' onClick={this.props.onSetRaceClick} />
+      <FlatButton color='normal' label='Set race' onClick={this.props.onSetRace} />
       <span className={styles.slotRace}>{race}</span>
       <span className={styles.slotType}>{isComputer ? 'Computer' : 'Human'}</span>
     </div>)
