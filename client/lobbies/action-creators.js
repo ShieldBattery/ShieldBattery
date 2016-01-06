@@ -1,5 +1,7 @@
 import siteSocket from '../network/site-socket'
 import {
+  LOBBY_ADD_COMPUTER_BEGIN,
+  LOBBY_ADD_COMPUTER,
   LOBBY_CREATE_BEGIN,
   LOBBY_CREATE,
   LOBBY_JOIN_BEGIN,
@@ -37,6 +39,23 @@ export function joinLobby(name) {
     dispatch({
       type: LOBBY_JOIN,
       payload: siteSocket.invoke('/lobbies/join', params),
+      meta: params
+    })
+  }
+}
+
+export function addComputer(slotNum) {
+  const params = { slotNum }
+
+  return dispatch => {
+    dispatch({
+      type: LOBBY_ADD_COMPUTER_BEGIN,
+      payload: params
+    })
+
+    dispatch({
+      type: LOBBY_ADD_COMPUTER,
+      payload: siteSocket.invoke('/lobbies/addComputer', params),
       meta: params
     })
   }

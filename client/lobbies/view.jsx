@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { pushPath } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
-import { leaveLobby } from './action-creators'
+import { addComputer, leaveLobby } from './action-creators'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -44,7 +44,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else {
-      content = <Lobby lobby={lobby} />
+      content = <Lobby lobby={lobby} onAddComputer={::this.onAddComputer} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'
             onClick={::this.onLeaveLobbyClick} />
@@ -66,5 +66,9 @@ export default class LobbyView extends React.Component {
 
   onLeaveLobbyClick() {
     this.props.dispatch(leaveLobby())
+  }
+
+  onAddComputer(slotNum) {
+    this.props.dispatch(addComputer(slotNum))
   }
 }

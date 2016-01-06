@@ -7,6 +7,10 @@ export const AUTH_SIGN_UP = 'AUTH_SIGN_UP'
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 
+// We are starting the process of adding a computer to a lobby
+export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
+// The server has responded with success/failure to our addition of computer in lobby
+export const LOBBY_ADD_COMPUTER = 'LOBBY_ADD_COMPUTER'
 // We are starting the process to create a lobby
 export const LOBBY_CREATE_BEGIN = 'LOBBY_CREATE_BEGIN'
 // The server has responded with success/failure to our lobby creation

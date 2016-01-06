@@ -119,9 +119,16 @@ export const Lobbies = {
   // players do not have unique names). If no player is found, undefined will be returned.
   findPlayerByName(lobby, name) {
     return lobby.players.find(p => !p.isComputer && p.name === name)
+  },
+
+  // Finds the player with the specified slot number in the lobby. If no player is found, undefined
+  // will be returned.
+  findPlayerBySlot(lobby, slotNum) {
+    return lobby.players.find(p => p.slot === slotNum)
   }
 }
 
+const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
 
 const MOUNT_BASE = '/lobbies'
@@ -201,6 +208,32 @@ export class LobbyApi {
     }, user => this._removeUserFromLobby(this.lobbies.get(lobbyName), user))
   }
 
+  @Api('/addComputer',
+    validateBody({
+      slotNum
+    }),
+    'getUser',
+    'getLobby',
+    'getPlayer',
+    'ensureIsLobbyHost')
+  async addComputer(data, next) {
+    const { slotNum } = data.get('body')
+    let lobby = data.get('lobby')
+
+    if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
+      throw new errors.BadRequest('invalid slot')
+    }
+
+    const computer = Players.createComputer('r', slotNum)
+    lobby = Lobbies.addPlayer(lobby, computer)
+    this.lobbies = this.lobbies.set(lobby.name, lobby)
+
+    this._publishTo(lobby, {
+      type: 'join',
+      player: computer,
+    })
+  }
+
   @Api('/leave',
     'getUser',
     'getLobby')
@@ -243,14 +276,6 @@ export class LobbyApi {
     return await next(newData)
   }
 
-  async ensureNotInLobby(data, next) {
-    if (this.lobbyUsers.has(data.get('user'))) {
-      throw new errors.Conflict('cannot enter multiple lobbies at once')
-    }
-
-    return await next(data)
-  }
-
   async getLobby(data, next) {
     const user = data.get('user')
     if (!this.lobbyUsers.has(user)) {
@@ -259,6 +284,25 @@ export class LobbyApi {
     const newData = data.set('lobby', this.lobbies.get(this.lobbyUsers.get(user)))
 
     return await next(newData)
+  }
+
+  async ensureNotInLobby(data, next) {
+    if (this.lobbyUsers.has(data.get('user'))) {
+      throw new errors.Conflict('cannot enter multiple lobbies at once')
+    }
+
+    return await next(data)
+  }
+
+  async ensureIsLobbyHost(data, next) {
+    const lobby = data.get('lobby')
+    const id = data.get('player').id
+
+    if (id !== lobby.hostId) {
+      throw new errors.Unauthorized('must be a lobby host')
+    }
+
+    return await next(data)
   }
 
   _publishTo(lobby, data) {

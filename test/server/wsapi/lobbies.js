@@ -99,6 +99,18 @@ describe('Lobbies', () => {
     expect(player.name).to.equal('Slayers`Boxer')
   })
 
+  it('should support finding players by slot number', () => {
+    const computer = Players.createComputer('p', 1)
+    const lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)
+
+    let player = Lobbies.findPlayerBySlot(lobby, 10)
+    expect(player).to.be.undefined
+
+    player = Lobbies.findPlayerBySlot(lobby, 1)
+    expect(player).to.not.be.undefined
+    expect(player.race).to.equal('p')
+  })
+
   it('should close the lobby if only computers are left', () => {
     const computer = Players.createComputer('p', 1)
     let lobby = Lobbies.addPlayer(BOXER_LOBBY, computer)
