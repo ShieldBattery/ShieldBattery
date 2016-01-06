@@ -89,7 +89,7 @@ class MainLayout extends React.Component {
       <div className={styles.activities}>
         <div className={styles.activitiesAppBar}>
           <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
-          <AvatarButton user={this.props.auth.name} title='Log out'
+          <AvatarButton user={this.props.auth.user.name} title='Log out'
               onClick={::this.onLogOutClicked} />
         </div>
         <div className={styles.activitiesContent}>
