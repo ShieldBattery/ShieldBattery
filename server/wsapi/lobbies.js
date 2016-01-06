@@ -266,6 +266,10 @@ export class LobbyApi {
     }
 
     const updatedLobby = Lobbies.setRace(lobby, id, race)
+    if (lobby === updatedLobby) {
+      // same race as before
+      return
+    }
     this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
 
     this._publishTo(lobby, {
