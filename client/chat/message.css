@@ -2,8 +2,20 @@
 
 .message {
   composes: row itemsStart from '../styles/flex.css';
-  min-height: 48px;
+  min-height: 40px;
   margin-bottom: 8px;
+}
+
+.avatar {
+  composes: exact from '../styles/flex.css';
+  width: 40px;
+  height: 40px;
+  padding-left: 8px;
+}
+
+.avatar svg, .avatar img {
+  width: 24px;
+  height: 24px;
 }
 
 .content {
@@ -29,5 +41,5 @@
 
 .text {
   composes: body1 from '../styles/typography.css';
-  margin-top: 8px;
+  margin-top: 4px;
 }

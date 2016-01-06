@@ -15,7 +15,7 @@ export default class ChatMessage extends React.Component {
     const { user, timestamp, text, avatarImage } = this.props
 
     return (<div className={styles.message}>
-      <Avatar user={user} image={avatarImage} />
+      <Avatar className={styles.avatar} user={user} image={avatarImage} />
       <div className={styles.content}>
         <div className={styles.metadata}>
           <span className={styles.username}>{user}</span>
