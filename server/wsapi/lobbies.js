@@ -206,11 +206,9 @@ export class LobbyApi {
     const lobbyName = lobby.name
     user.subscribe(LobbyApi._getPath(lobby), () => {
       const lobby = this.lobbies.get(lobbyName)
-      const myId = Lobbies.findPlayerByName(lobby, user.name).id
       return {
         type: 'init',
         lobby,
-        myId,
       }
     }, user => this._removeUserFromLobby(this.lobbies.get(lobbyName), user))
   }

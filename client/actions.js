@@ -35,6 +35,8 @@ export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
 export const LOBBY_UPDATE_JOIN = 'LOBBY_UPDATE_JOIN'
 // A user has left a lobby we're in
 export const LOBBY_UPDATE_LEAVE = 'LOBBY_UPDATE_LEAVE'
+// We have left a lobby we're in
+export const LOBBY_UPDATE_LEAVE_SELF = 'LOBBY_UPDATE_LEAVE_SELF'
 // A user has changed the race in a lobby we're in
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 

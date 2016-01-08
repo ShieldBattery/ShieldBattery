@@ -4,6 +4,7 @@ import {
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
+  LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
 } from '../actions'
 
@@ -20,7 +21,6 @@ export const Lobby = new Record({
   numSlots: 0,
   players: new Map(),
   hostId: null,
-  myId: null,
 })
 
 const playersObjToMap = obj => {
@@ -34,10 +34,9 @@ const playersObjToMap = obj => {
 
 const handlers = {
   [LOBBY_INIT_DATA](state, action) {
-    const { lobby, myId } = action.payload
+    const { lobby } = action.payload
     return new Lobby({
       ...lobby,
-      myId,
       players: playersObjToMap(lobby.players),
     })
   },
@@ -53,12 +52,11 @@ const handlers = {
   },
 
   [LOBBY_UPDATE_LEAVE](state, action) {
-    if (action.payload === state.myId) {
-      // We were the ones that left
-      return new Lobby()
-    } else {
-      return state.deleteIn(['players', action.payload])
-    }
+    return state.deleteIn(['players', action.payload])
+  },
+
+  [LOBBY_UPDATE_LEAVE_SELF](state, action) {
+    return new Lobby()
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
