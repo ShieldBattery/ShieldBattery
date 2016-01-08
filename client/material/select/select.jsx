@@ -1,6 +1,16 @@
 import React from 'react'
+import TransitionGroup from 'react-addons-css-transition-group'
 import FontIcon from '../font-icon.jsx'
 import styles from './select.css'
+
+const transitionNames = {
+  enter: styles.enter,
+  enterActive: styles.enterActive,
+  leave: styles.leave,
+  leaveActive: styles.leaveActive,
+}
+
+const OPTIONS_SHOWN = (256 - 16) / 48
 
 class Select extends React.Component {
   constructor(props) {
@@ -15,7 +25,7 @@ class Select extends React.Component {
   }
 
   componentDidMount() {
-    this.setOverlayPosition(this.refs.value)
+    this.updateOverlayPosition(this.refs.value)
   }
 
   componentWillReceiveProps() {
@@ -25,48 +35,70 @@ class Select extends React.Component {
   componentDidUpdate() {
     if (this._positionNeedsUpdating) {
       this._positionNeedsUpdating = false
-      this.setOverlayPosition(this.refs.value)
+      this.updateOverlayPosition()
+    }
+
+    if (this.refs.overlay) {
+      // update the scroll position to center (or at least attempt to) the selected value
+      const valueIndex = this._getValueIndex()
+      const firstDisplayed = this._getFirstDisplayedOptionIndex(
+          valueIndex, React.Children.count(this.props.children))
+      this.refs.overlay.scrollTop = firstDisplayed * 48
     }
   }
 
-  setOverlayPosition(element) {
-    const rect = element.getBoundingClientRect()
+  updateOverlayPosition() {
+    const rect = this.refs.root.getBoundingClientRect()
     const overlayPosition = {
       top: rect.top,
       left: rect.left,
+      width: rect.width,
     }
 
-    // Calling setState in componentDidMount is not recommended, but it's the only place we're sure
-    // that the DOM element exists, so we can get its position
+    // Calling setState in componentDidMount is not recommended, but it's the only place we can
+    // access the DOM element to find its position
     this.setState({ overlayPosition })
   }
 
   render() {
-    const content = this.state.isOpened ? this.renderOverlay() : this.renderSelect()
-
-    return <div>{content}</div>
+    return (
+      <TransitionGroup transitionName={transitionNames}
+          transitionEnterTimeout={250} transitionLeaveTimeout={250}>
+        { this.renderSelect() }
+        { this.renderOverlay() }
+      </TransitionGroup>
+    )
   }
 
   renderSelect() {
-    let displayValue = ''
+    let displayValue
     React.Children.forEach(this.props.children, child => {
       if (this.state.value === child.props.value) {
         displayValue = child.props.text
-        return
       }
     })
 
-    return (<div className={styles.select} onClick={::this.onOpen}>
+    return (<div className={styles.select} onClick={::this.onOpen} ref='root'>
       <span className={styles.value} ref='value'>{displayValue}</span>
       <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
     </div>)
   }
 
   renderOverlay() {
+    if (!this.state.isOpened) return null
+
+    const pos = this.state.overlayPosition
+    const valueIndex = this._getValueIndex()
+    const firstDisplayed = this._getFirstDisplayedOptionIndex(
+        valueIndex, React.Children.count(this.props.children))
+    const valueOffset = (valueIndex - firstDisplayed) * 48
+
     const overlayStyle = {
       // Subtract the padding so the select-option perfectly overlaps with select-value
-      top: (this.state.overlayPosition.top - 22) + 'px',
-      left: (this.state.overlayPosition.left - 16) + 'px'
+      top: pos.top - 18 - valueOffset,
+      left: pos.left - 16 + 2,
+      minWidth: pos.width + 32,
+      transformOrigin: `0 ${valueOffset + 24}px`,
     }
 
     const options = React.Children.map(this.props.children, child => {
@@ -75,10 +107,30 @@ class Select extends React.Component {
       })
     })
 
-    return [<div key='overlay' className={styles.overlay} style={overlayStyle}>
+    return [
+      <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />,
+      <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}>
         {options}
-      </div>,
-      <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />]
+      </div>
+    ]
+  }
+
+  _getValueIndex() {
+    let valueIndex = 0
+    React.Children.forEach(this.props.children, (child, i) => {
+      if (this.state.value === child.props.value) {
+        valueIndex = i
+      }
+    })
+    return valueIndex
+  }
+
+  _getFirstDisplayedOptionIndex(valueIndex, numValues) {
+    const midpoint = Math.ceil(OPTIONS_SHOWN / 2) - 1
+    if (valueIndex <= midpoint || numValues < OPTIONS_SHOWN) {
+      return 0
+    }
+    return Math.min(numValues - OPTIONS_SHOWN, valueIndex - midpoint)
   }
 
   onOpen() {
