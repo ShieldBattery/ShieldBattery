@@ -71,7 +71,7 @@ class Signup extends React.Component {
       errContents = `Error: ${failure.err}`
     }
 
-    return (<div>
+    return (<div className={styles.content}>
       <Card zDepth={1}>
         <ValidatedForm formTitle='Sign up' errorText={errContents} errorClassName={styles.errors}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>

@@ -65,7 +65,7 @@ class Login extends React.Component {
 
       cardContents = (
         <ValidatedForm ref='form'
-            formTitle={'Please log in'}
+            formTitle={'Log in'}
             errorText={errContents}
             errorsClassName={styles.errors}
             fieldsClassName={styles.fields}
@@ -89,7 +89,7 @@ class Login extends React.Component {
       )
     }
 
-    return (<div>
+    return (<div className={styles.content}>
       <Card>{cardContents}</Card>
       <div className={styles.bottomAction}>
         <p>Don't have an account?</p>

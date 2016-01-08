@@ -37,26 +37,35 @@
   color: amberA400;
 }
 
+.content {
+  width: 448px;
+  margin: auto;
+}
+
 .wrapper form > h3 {
   margin-top: 0;
 }
 
 .errors {
-  composes: take100 from '../styles/flex.css'
+  composes: take100 from '../styles/flex.css';
 }
 
 .fields {
-  composes: row wrap from '../styles/flex.css'
+  composes: row wrap from '../styles/flex.css';
 }
 
 .textFields {
-  composes: take50 from '../styles/flex.css'
+  composes: take100 from '../styles/flex.css';
 }
 
 .checkboxes {
-  composes: take33 from '../styles/flex.css'
+  composes: take33 from '../styles/flex.css';
 }
 
 .bottomAction {
-  composes: row justifyCenter from '../styles/flex.css'
+  composes: row justifyCenter from '../styles/flex.css';
+}
+
+.bottomAction > p {
+  margin-right: 8px;
 }
