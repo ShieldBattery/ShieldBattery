@@ -46,35 +46,33 @@ void ThreadFunc(void* arg) {
   uv_run(loop, UV_RUN_DEFAULT);
 }
 
-uv_buf_t AllocBuffer(uv_handle_t* handle, size_t suggested_size) {
-  return uv_buf_init(new char[suggested_size], suggested_size);
+void AllocBuffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t *buf) {
+  *buf = uv_buf_init(new char[suggested_size], suggested_size);
 }
 
 void FreeBuffer(uv_buf_t buf) {
   delete[] buf.base;
 }
 
-void OnReceive(uv_udp_t* req, ssize_t nread, uv_buf_t buf, sockaddr* addr, unsigned flags) {
-  if (nread == -1) {
+void OnReceive(uv_udp_t* req, ssize_t nread, const uv_buf_t *buf, const sockaddr* addr, unsigned flags) {
+  if (nread < 0) {
     // TODO(tec27): notify shieldbattery of the error
-    uv_err_t err = uv_last_error(loop);
-    Logger::Logf(LogLevel::Error, "Socket closed unexpectedly: %s %s", uv_err_name(err), 
-        uv_strerror(err));
+    Logger::Logf(LogLevel::Error, "Socket closed unexpectedly: %s %s", uv_err_name(nread),
+        uv_strerror(nread));
     socket_dead = true;
     uv_close(reinterpret_cast<uv_handle_t*>(&socket), NULL);
-    FreeBuffer(buf);
+    FreeBuffer(*buf);
     return;
   }
 
-  parser->Parse(reinterpret_cast<sockaddr_in*>(addr), nread, buf);
-  FreeBuffer(buf);
+  parser->Parse(reinterpret_cast<const sockaddr_in*>(addr), nread, *buf);
+  FreeBuffer(*buf);
 }
 
 void OnPacketSent(uv_udp_send_t* req, int status) {
-  if (status != 0) {
-    uv_err_t err = uv_last_error(loop);
-    Logger::Logf(LogLevel::Error, "Sending packet failed (cb): %s %s", uv_err_name(err), 
-        uv_strerror(err));
+  if (status < 0) {
+    Logger::Logf(LogLevel::Error, "Sending packet failed (cb): %s %s", uv_err_name(status),
+        uv_strerror(status));
   }
 
   SendPacketContext* context = reinterpret_cast<SendPacketContext*>(req->data);
@@ -93,7 +91,7 @@ void SendPacketInternal(QueuedPacketInternal* packet) {
   }
 
   SendPacketContext* context = new SendPacketContext;
-  context->buf = AllocBuffer(reinterpret_cast<uv_handle_t*>(&socket), packet->data->size());
+  AllocBuffer(reinterpret_cast<uv_handle_t*>(&socket), packet->data->size(), &context->buf);
   assert(context->buf.len >= packet->data->size());
   memcpy_s(context->buf.base, context->buf.len, packet->data->data(), packet->data->size());
   context->ref_count = packet->targets->size();
@@ -101,15 +99,15 @@ void SendPacketInternal(QueuedPacketInternal* packet) {
   for (auto it = packet->targets->begin(); it != packet->targets->end(); ++it) {
     uv_udp_send_t* req = new uv_udp_send_t;
     req->data = context;
-    if (uv_udp_send(req, &socket, &context->buf, 1, *it, OnPacketSent) != 0) {
-      uv_err_t err = uv_last_error(loop);
-      Logger::Logf(LogLevel::Error, "Sending packet failed: %s %s", uv_err_name(err), 
-          uv_strerror(err));
+    int result = uv_udp_send(req, &socket, &context->buf, 1, reinterpret_cast<const sockaddr *>(&*it), OnPacketSent);
+    if (result < 0) {
+      Logger::Logf(LogLevel::Error, "Sending packet failed: %s %s", uv_err_name(result),
+          uv_strerror(result));
     }
   }
 }
 
-void OnQueuedPackets(uv_async_t* handle, int status) {
+void OnQueuedPackets(uv_async_t* handle) {
   uv_mutex_lock(&outgoing_mutex);
   QueuedPacketInternal* p = outgoing_packets;
   outgoing_packets = nullptr;
@@ -125,32 +123,33 @@ void OnQueuedPackets(uv_async_t* handle, int status) {
   }
 }
 
-uv_err_code BeginSocketLoop(HANDLE receive_signal, const Settings& settings) {
+int BeginSocketLoop(HANDLE receive_signal, const Settings& settings) {
   incoming_signal = receive_signal;
   loop = uv_loop_new();
   loop_thread = new uv_thread_t();
 
   socket_dead = false;
-  if (uv_udp_init(loop, &socket) != 0) {
-    uv_err_t err = uv_last_error(loop);
-    Logger::Logf(LogLevel::Error, "Failed to init socket: %s %s", uv_err_name(err),
-        uv_strerror(err));
-    return err.code;
+  int result = uv_udp_init(loop, &socket);
+  if (result < 0) {
+    Logger::Logf(LogLevel::Error, "Failed to init socket: %s %s", uv_err_name(result),
+        uv_strerror(result));
+    return result;
   }
   // TODO(tec27): should we allow users to pick an adapter?
-  sockaddr_in receive_addr = uv_ip4_addr("0.0.0.0", settings.bw_port);
-  if (uv_udp_bind(&socket, receive_addr, 0) != 0) {
-    uv_err_t err = uv_last_error(loop);
-    Logger::Logf(LogLevel::Error, "Failed to bind socket: %s %s", uv_err_name(err),
-        uv_strerror(err));
-    return err.code;
+  sockaddr_in receive_addr;
+  uv_ip4_addr("0.0.0.0", settings.bw_port, &receive_addr);
+  result = uv_udp_bind(&socket, reinterpret_cast<const sockaddr *>(&receive_addr), 0);
+  if (result < 0) {
+    Logger::Logf(LogLevel::Error, "Failed to bind socket: %s %s", uv_err_name(result),
+        uv_strerror(result));
+    return result;
   }
   Logger::Logf(LogLevel::Debug, "Snp socket bound to 0.0.0.0:%d", settings.bw_port);
-  if (uv_udp_recv_start(&socket, AllocBuffer, OnReceive) != 0) {
-    uv_err_t err = uv_last_error(loop);
-    Logger::Logf(LogLevel::Error, "Failed to start receiving on socket: %s %s", uv_err_name(err),
-        uv_strerror(err));
-    return err.code;
+  result = uv_udp_recv_start(&socket, AllocBuffer, OnReceive);
+  if (result < 0) {
+    Logger::Logf(LogLevel::Error, "Failed to start receiving on socket: %s %s", uv_err_name(result),
+        uv_strerror(result));
+    return result;
   }
   Logger::Log(LogLevel::Debug, "Snp socket ready to receive packets");
 
@@ -160,7 +159,7 @@ uv_err_code BeginSocketLoop(HANDLE receive_signal, const Settings& settings) {
   uv_async_init(loop, &outgoing_async, OnQueuedPackets);
 
   uv_thread_create(&loop_thread, ThreadFunc, nullptr);
-  return UV_OK;
+  return 0;
 }
 
 void EndSocketLoop() {
@@ -260,7 +259,7 @@ PacketParser::PacketParser() : states_() {
 PacketParser::~PacketParser() {
 }
 
-void PacketParser::Parse(sockaddr_in* addr, ssize_t nread, uv_buf_t buf) {
+void PacketParser::Parse(const sockaddr_in* addr, ssize_t nread, uv_buf_t buf) {
   sockaddr_in my_addr = sockaddr_in(*addr);
   auto it = states_.find(my_addr);
   if (it == states_.end()) {

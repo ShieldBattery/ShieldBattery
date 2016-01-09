@@ -3,9 +3,12 @@
 
 #include <node.h>
 #include <map>
+#include <winsock2.h>
 
 #include "shieldbattery/settings.h"
 #include "snp/packets.h"
+
+struct uv_buf_t;
 
 namespace sbat {
 namespace snp {
@@ -17,7 +20,7 @@ struct QueuedPacket {
   uint32 data_len;
 };
 
-uv_err_code BeginSocketLoop(HANDLE receive_signal, const Settings& settings);
+int BeginSocketLoop(HANDLE receive_signal, const Settings& settings);
 void EndSocketLoop();
 StormPacket* GetStormPacket();
 void FreeStormPacket(StormPacket* packet);
@@ -55,7 +58,7 @@ public:
   PacketParser();
   ~PacketParser();
 
-  void Parse(sockaddr_in* addr, ssize_t nread, uv_buf_t buf);
+  void Parse(const sockaddr_in* addr, ssize_t nread, uv_buf_t buf);
 
 private:
   void ParseHeader(const ParserStateMap::iterator& state_iterator, ssize_t nread, uv_buf_t buf);

@@ -4,6 +4,7 @@
 #include <node.h>
 #include <Windows.h>
 #include <string>
+#include <winsock2.h>
 
 #include "common/types.h"
 #include "shieldbattery/snp_interface.h"

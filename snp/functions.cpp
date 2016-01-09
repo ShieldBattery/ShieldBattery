@@ -68,8 +68,8 @@ int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_
   spoofed_game_dirty = false;
   spoofed_game = nullptr;
 
-  uv_err_code result = BeginSocketLoop(receive_event, GetSettings());
-  if (result != UV_OK) {
+  int result = BeginSocketLoop(receive_event, GetSettings());
+  if (result != 0) {
     Logger::Logf(LogLevel::Error, "BeginSocketLoop failed [%d], snp not initialized",
         result);
     return false;

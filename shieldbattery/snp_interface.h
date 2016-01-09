@@ -4,9 +4,9 @@
 #include <node.h>
 #include <string>
 
-namespace sbat {
-
 struct sockaddr_in;
+
+namespace sbat {
 
 typedef void (*SpoofGameFunc)(const std::string& game_name, const sockaddr_in& host_addr,
     bool is_replay);
