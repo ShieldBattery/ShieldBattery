@@ -1,5 +1,6 @@
 import React from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
+import classnames from 'classnames'
 import FontIcon from '../font-icon.jsx'
 import styles from './select.css'
 
@@ -16,6 +17,7 @@ class Select extends React.Component {
   constructor(props) {
     super(props)
     this.state = {
+      isFocused: false,
       isOpened: false,
       value: props.defaultValue,
       overlayPosition: null
@@ -62,7 +64,7 @@ class Select extends React.Component {
 
   render() {
     return (
-      <TransitionGroup transitionName={transitionNames}
+      <TransitionGroup transitionName={transitionNames} className={this.props.className}
           transitionEnterTimeout={200} transitionLeaveTimeout={200}>
         { this.renderSelect() }
         { this.renderOverlay() }
@@ -78,10 +80,18 @@ class Select extends React.Component {
       }
     })
 
-    return (<div className={styles.select} onClick={::this.onOpen} ref='root'>
-      <span className={styles.value} ref='value'>{displayValue}</span>
-      <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
-    </div>)
+    const classes = classnames(styles.select, {
+      [styles.focused]: this.state.isFocused,
+      [styles.disabled]: this.props.disabled,
+    })
+
+    return (
+      <div ref='root' className={classes} tabIndex='0' onClick={::this.onOpen}
+          onFocus={::this.onFocus} onBlur={::this.onBlur}>
+        <span className={styles.value} ref='value'>{displayValue}</span>
+        <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
+      </div>
+    )
   }
 
   renderOverlay() {
@@ -133,12 +143,28 @@ class Select extends React.Component {
     return Math.min(numValues - OPTIONS_SHOWN, valueIndex - midpoint)
   }
 
+  focus() {
+    this.refs.root.focus()
+  }
+
+  blur() {
+    this.refs.root.blur()
+  }
+
   onOpen() {
     this.setState({ isOpened: true })
   }
 
   onClose() {
     this.setState({ isOpened: false })
+  }
+
+  onFocus() {
+    this.setState({ isFocused: true })
+  }
+
+  onBlur() {
+    this.setState({ isFocused: false })
   }
 
   onOptionChanged(value) {

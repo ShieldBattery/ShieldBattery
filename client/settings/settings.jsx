@@ -10,9 +10,13 @@ class Settings extends React.Component {
     store: React.PropTypes.object.isRequired,
   }
 
+  componentDidMount() {
+    this.refs.save.focus()
+  }
+
   render() {
     return (
-      <div className={styles.contents}>
+      <div role='dialog' className={styles.contents}>
         <h4 className={styles.title}>Settings</h4>
         <div className={styles.body}>
           <Select defaultValue={2}>
@@ -28,7 +32,7 @@ class Settings extends React.Component {
         </div>
         <div className={styles.actions}>
           <FlatButton label='Cancel' color='accent' onClick={::this.onSettingsCanceled} />
-          <FlatButton label='Save' color='accent' onClick={::this.onSettingsSaved} />
+          <FlatButton ref='save' label='Save' color='accent' onClick={::this.onSettingsSaved} />
           {/* TODO(2Pac): Add button for 'Reset to default settings' option*/}
         </div>
       </div>

@@ -12,7 +12,7 @@ import LeftNav from './material/left-nav/left-nav.jsx'
 import RaisedButton from './material/raised-button.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
-import ConnectedDialog from './dialogs/connected-dialog.jsx'
+import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 
 import ChatNavEntry from './chat/nav-entry.jsx'
@@ -26,7 +26,7 @@ import { createLobby, joinLobby } from './lobbies/action-creators'
 function stateToProps(state) {
   return {
     auth: state.auth,
-    lobby: state.lobby.name ? state.lobby : undefined,
+    lobbyName: state.lobby.name,
     chatChannels: state.chatChannels,
     whispers: state.whispers,
   }
@@ -56,12 +56,12 @@ class MainLayout extends React.Component {
 
   render() {
     let lobbyElems
-    if (this.props.lobby) {
-      const lobby = this.props.lobby
+    if (this.props.lobbyName) {
+      const lobbyName = this.props.lobbyName
       lobbyElems = [
         <Subheader key='lobby-header'>Lobby</Subheader>,
         <Section key='lobby-section'>
-          <LobbyNavEntry key='lobby' lobby={lobby.name} />
+          <LobbyNavEntry key='lobby' lobby={lobbyName} />
         </Section>,
         <Divider key='lobby-divider'/>
       ]
@@ -72,7 +72,7 @@ class MainLayout extends React.Component {
     const whispers = this.props.whispers.map(
         whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
 
-    return (<div className={styles.layout}>
+    return (<ConnectedDialogOverlay className={styles.layout}>
       <LeftNav footer={<ActiveUserCount className={styles.userCount}/>}>
         {lobbyElems}
         <Subheader>Chat channels</Subheader>
@@ -97,8 +97,7 @@ class MainLayout extends React.Component {
           <RaisedButton color='primary' label='Join lobby' onClick={::this.onJoinLobbyClick} />
         </div>
       </div>
-      <ConnectedDialog />
-    </div>)
+    </ConnectedDialogOverlay>)
   }
 
   onSettingsClicked() {

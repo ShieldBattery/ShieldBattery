@@ -4,6 +4,7 @@
 
 .layout {
   composes: row from './styles/flex.css';
+  height: 100%;
 }
 
 .activities {

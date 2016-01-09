@@ -11,7 +11,15 @@ class FlatButton extends React.Component {
       [styles.accent]: this.props.color === 'accent',
     })
 
-    return (<Button {...this.props} className={classes}/>)
+    return (<Button ref='button' {...this.props} className={classes}/>)
+  }
+
+  focus() {
+    this.refs.button.focus()
+  }
+
+  blur() {
+    this.refs.button.blur()
   }
 }
 

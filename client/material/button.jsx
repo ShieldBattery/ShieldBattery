@@ -28,13 +28,21 @@ class Button extends React.Component {
       onClick: e => this._handleClick(e),
       onMouseDown: e => this._handleMouseDown(e),
     }
-    return (<button {...otherProps} {...buttonProps}>
+    return (<button ref='button' {...otherProps} {...buttonProps}>
       <span className={styles.label}>{label}</span>
     </button>)
   }
 
   isKeyboardFocused() {
     return this.state.isKeyboardFocused
+  }
+
+  focus() {
+    this.refs.button.focus()
+  }
+
+  blur() {
+    this.refs.button.blur()
   }
 
   _handleBlur(e) {
