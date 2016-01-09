@@ -399,7 +399,7 @@ MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& 
 
   // iterate through the maps list until we find the map we want
   MapListEntry* current_map = offsets_->maps_list_root;
-  while (current_map != NULL) {
+  while (reinterpret_cast<intptr_t>(current_map) > 0) {
     if (map_file.compare(current_map->filename) == 0) {
       break;
     }
