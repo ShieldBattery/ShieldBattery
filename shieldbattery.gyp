@@ -71,11 +71,6 @@
         'DataExecutionPrevention': 2, # enable DEP
         'AllowIsolation': 'true',
         'SuppressStartupBanner': 'true',
-        'target_conditions': [
-          ['_type=="executable"', {
-            'AdditionalOptions': [ '/SubSystem:Windows' ],
-          }],
-        ],
       },
     },
     'msvs_disabled_warnings': [ 4221, 4068 ],
@@ -273,7 +268,7 @@
           'target_conditions': [
             # in a target_conditions so it executes late and overrides includes
             ['_type=="executable"', {
-              'AdditionalOptions!': [ '/SubSystem:Windows' ],
+              'AdditionalOptions=': [ '/SubSystem:Windows' ],
             }],
           ],
         },
