@@ -62,8 +62,10 @@
          ],
       },
       'VCLibrarianTool': {
+        'TargetMachine': 1, # X86
       },
       'VCLinkerTool': {
+        'LinkIncremental': 2, # enable incremental linking
         'GenerateDebugInformation': 'true',
         'RandomizedBaseAddress': 2, # enable ASLR
         'DataExecutionPrevention': 2, # enable DEP
@@ -71,7 +73,7 @@
         'SuppressStartupBanner': 'true',
         'target_conditions': [
           ['_type=="executable"', {
-            'SubSystem': 2, # Windows executable
+            'AdditionalOptions': [ '/SubSystem:Windows' ],
           }],
         ],
       },
@@ -271,7 +273,7 @@
           'target_conditions': [
             # in a target_conditions so it executes late and overrides includes
             ['_type=="executable"', {
-              'SubSystem': 2, # Windows executable
+              'AdditionalOptions!': [ '/SubSystem:Windows' ],
             }],
           ],
         },
