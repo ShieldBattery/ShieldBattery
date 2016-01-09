@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <io.h>
 #include <node.h>
+#include <winsock2.h>
 #include <Windows.h>
 
 #include <queue>
@@ -81,7 +82,7 @@ void UiThreadAfterClose(uv_handle_t* closed) {
   delete req;
 }
 
-void UiThreadWorkCompleted(uv_async_t* async, int status) {
+void UiThreadWorkCompleted(uv_async_t* async) {
   WorkRequest* req = reinterpret_cast<WorkRequest*>(async->data);
   req->after_cb(req->data);
   uv_close(reinterpret_cast<uv_handle_t*>(async), UiThreadAfterClose);
@@ -236,7 +237,7 @@ NODE_EXTERN void InitializeProcess(void* arg, WorkRequestAfterFunc cb) {
   context->arg = arg;
   context->callback = cb;
   QueueWorkForUiThread(context, InitializeProcessWork, InitializeProcessAfter);
-  if (uv_mutex_trylock(&proc_initialized) == UV_OK) {
+  if (uv_mutex_trylock(&proc_initialized) == 0) {
     // process has not been initialized yet, so we signal it to do so
     uv_mutex_lock(&proc_init_mutex);
     uv_cond_signal(&proc_init_cond);

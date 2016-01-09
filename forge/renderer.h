@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "../common/types.h"
+
 namespace sbat {
 namespace forge {
 

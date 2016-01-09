@@ -3,6 +3,7 @@
 
 #include <node.h>
 #include <nan.h>
+#include <mmsystem.h>
 #include <dsound.h>
 #include <string>
 

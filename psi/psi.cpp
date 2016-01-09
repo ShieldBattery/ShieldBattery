@@ -87,7 +87,7 @@ void PsiService::WaitWorkerThread() {
   uv_thread_join(&worker_thread_);
 }
 
-void PsiService::StopServiceWorker(uv_async_t* handle, int status) {
+void PsiService::StopServiceWorker(uv_async_t* handle) {
   PsiService* service = reinterpret_cast<PsiService*>(handle->data);
   uv_timer_start(&service->shutdown_timer_, ShutdownTimerCallback, 5000, 0);
 
@@ -162,7 +162,7 @@ void PsiService::WorkerThread(LPVOID param) {
   uv_mutex_unlock(&instance->terminated_mutex_);
 }
 
-void PsiService::ShutdownTimerCallback(uv_timer_t* handle, int status) {
+void PsiService::ShutdownTimerCallback(uv_timer_t* handle) {
   // Called when we've exceeded our allotted timeout for shutting down. This being called indicates
   // that there are leftover handles on libuv's event loop (something is long-running and did not
   // properly respond to our 'shutdown' event being emitted). In response, we'll simply call uv_stop

@@ -35,8 +35,9 @@ void Logger::Log(LogLevel level, const char* msg) {
     uv_mutex_unlock(&instance_mutex_);
     return;
   }
-
-  if (instance_->main_thread_ == uv_thread_self()) {
+  
+  uv_thread_t cur_thread = uv_thread_self();
+  if (uv_thread_equal(&instance_->main_thread_, &cur_thread)) {
     // we're on the main thread, no need to use the async
     instance_->func_(instance_->arg_, level, msg);
   } else {
@@ -100,7 +101,7 @@ Logger::~Logger() {
   uv_close(reinterpret_cast<uv_handle_t*>(&async_), NULL);
 }
 
-void Logger::OnLogsQueued(uv_async_t* handle, int status) {
+void Logger::OnLogsQueued(uv_async_t* handle) {
   uv_mutex_lock(&instance_mutex_);
   if (instance_ == nullptr || instance_->log_queue_.empty()) {
     uv_mutex_unlock(&instance_mutex_);

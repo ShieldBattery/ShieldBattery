@@ -36,8 +36,8 @@ private:
   PsiService& operator=(const PsiService&);
 
   static void WorkerThread(LPVOID param);
-  static void StopServiceWorker(uv_async_t* handle, int status);
-  static void ShutdownTimerCallback(uv_timer_t* handle, int status);
+  static void StopServiceWorker(uv_async_t* handle);
+  static void ShutdownTimerCallback(uv_timer_t* handle);
   void SetServiceStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint);
 
   static ShutdownCallbackFunc emit_shutdown_;

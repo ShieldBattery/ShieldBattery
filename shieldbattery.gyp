@@ -79,7 +79,7 @@
     'msvs_disabled_warnings': [ 4221, 4068 ],
     'defines': [
       'WIN32',
-      '_WIN32_WINNT=0x0502', # minimum version is Windows XP SP2 (matching libuv's claims)
+      '_WIN32_WINNT=0x0600', # match libuv
     ],
   },
 
@@ -159,6 +159,7 @@
         'USING_UV_SHARED=1',
         'USING_V8_SHARED=1',
         'BUILDING_NODE_EXTENSION',
+        'WIN32_LEAN_AND_MEAN',
       ],
       'defines!': [
         'BUILDING_UV_SHARED=1',
@@ -218,6 +219,7 @@
       ],
       'defines': [
         'BUILDING_NODE_EXTENSION',
+        'WIN32_LEAN_AND_MEAN',
       ],
     },
 
@@ -326,6 +328,7 @@
       ],
       'defines': [
         'BUILDING_NODE_EXTENSION',
+        'WIN32_LEAN_AND_MEAN',
       ],
       'libraries': [ '-luser32.lib' ],
     },
@@ -366,6 +369,7 @@
       ],
       'defines': [
         'BUILDING_NODE_EXTENSION',
+        'WIN32_LEAN_AND_MEAN',
       ],
       # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
       # have to manually specify it even though it's already a project dependency
@@ -418,6 +422,7 @@
       ],
       'defines': [
         'BUILDING_NODE_EXTENSION',
+        'WIN32_LEAN_AND_MEAN',
       ],
       'link_settings': {
         'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],

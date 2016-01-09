@@ -41,9 +41,9 @@ private:
   ~Logger();
 
   static void InitMutex();
-  static void OnLogsQueued(uv_async_t* handle, int status);
+  static void OnLogsQueued(uv_async_t* handle);
 
-  unsigned long main_thread_;  // NOLINT - return type of uv_thread_self
+  uv_thread_t main_thread_;
   LogFunc func_;
   void* arg_;
   uv_async_t async_;
