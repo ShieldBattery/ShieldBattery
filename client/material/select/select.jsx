@@ -26,20 +26,7 @@ class Select extends React.Component {
     this._positionNeedsUpdating = false
   }
 
-  componentDidMount() {
-    this.updateOverlayPosition(this.refs.value)
-  }
-
-  componentWillReceiveProps() {
-    this._positionNeedsUpdating = true
-  }
-
   componentDidUpdate() {
-    if (this._positionNeedsUpdating) {
-      this._positionNeedsUpdating = false
-      this.updateOverlayPosition()
-    }
-
     if (this.refs.overlay) {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
@@ -49,7 +36,7 @@ class Select extends React.Component {
     }
   }
 
-  updateOverlayPosition() {
+  calculateOverlayPosition() {
     const rect = this.refs.root.getBoundingClientRect()
     const overlayPosition = {
       top: rect.top,
@@ -57,9 +44,7 @@ class Select extends React.Component {
       width: rect.width,
     }
 
-    // Calling setState in componentDidMount is not recommended, but it's the only place we can
-    // access the DOM element to find its position
-    this.setState({ overlayPosition })
+    return overlayPosition
   }
 
   render() {
@@ -152,7 +137,10 @@ class Select extends React.Component {
   }
 
   onOpen() {
-    this.setState({ isOpened: true })
+    this.setState({
+      isOpened: true,
+      overlayPosition: this.calculateOverlayPosition()
+    })
   }
 
   onClose() {

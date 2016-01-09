@@ -10,8 +10,22 @@ class Settings extends React.Component {
     store: React.PropTypes.object.isRequired,
   }
 
+  constructor(props) {
+    super(props)
+    this._focusTimeout = null
+  }
+
   componentDidMount() {
-    this.refs.save.focus()
+    this._focusTimeout = setTimeout(() => {
+      this.refs.save.focus()
+      this._focusTimeout = null
+    }, 0)
+  }
+
+  componentWillUnmount() {
+    if (this._focusTimeout) {
+      clearTimeout(this._focusTimeout)
+    }
   }
 
   render() {
