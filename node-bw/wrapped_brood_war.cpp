@@ -45,6 +45,7 @@ using v8::Function;
 using v8::FunctionTemplate;
 using v8::Int32;
 using v8::Integer;
+using v8::Isolate;
 using v8::Local;
 using v8::Object;
 using v8::ObjectTemplate;
@@ -654,7 +655,9 @@ void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
 
   SnpInterface* snp = GetSnpInterface();
   assert(snp != nullptr);
-  snp->SpoofGame(game_name, uv_ip4_addr(*address, port), is_replay);
+  struct sockaddr_in addr;
+  uv_ip4_addr(*address, port, &addr);
+  snp->SpoofGame(game_name, addr, is_replay);
 
   return;
 }
@@ -802,11 +805,12 @@ struct SendMultiplayerChatMessageContext {
 void WrappedBroodWar::SendMultiplayerChatMessage(const FunctionCallbackInfo<Value>& info) {
   assert(info.Length() >= 2);
 
-  String::AsciiValue message_arg(info[0]);
+  Utf8String message_arg(info[0]);
   ChatMessageType type = static_cast<ChatMessageType>(
       To<Uint32>(info[1]).ToLocalChecked()->Uint32Value());
   byte recipients = static_cast<byte>((info.Length() > 2 ? To<Uint32>(info[2]).ToLocalChecked() :
-      To<Uint32>(Uint32::NewFromUnsigned(0)).ToLocalChecked())->Uint32Value());
+      To<Uint32>(Uint32::NewFromUnsigned(Isolate::GetCurrent(), 0))
+      .ToLocalChecked())->Uint32Value());
   auto context = new SendMultiplayerChatMessageContext();
   context->message = *message_arg;
   context->type = type;
@@ -837,7 +841,8 @@ void WrappedBroodWar::DisplayIngameMessage(const FunctionCallbackInfo<Value>& in
   auto context = new DisplayIngameMessageContext();
   context->message = *message_arg;
   context->timeout = (info.Length() > 1 ? To<Uint32>(info[1]).ToLocalChecked() :
-      To<Uint32>(Uint32::NewFromUnsigned(0)).ToLocalChecked())->Uint32Value();
+      To<Uint32>(Uint32::NewFromUnsigned(Isolate::GetCurrent(), 0))
+      .ToLocalChecked())->Uint32Value();
   context->bw = WrappedBroodWar::Unwrap(info);
 
   game_loop_queue_->QueueFunc(context, [](void *arg) {
@@ -1072,7 +1077,7 @@ void GameLoopQueue::ExecuteItems() {
   uv_async_send(&async_);
 }
 
-void GameLoopQueue::OnExecutionCompleted(uv_async_t* handle, int status) {
+void GameLoopQueue::OnExecutionCompleted(uv_async_t* handle) {
   GameLoopQueue* instance = reinterpret_cast<GameLoopQueue*>(handle->data);
 
   uv_mutex_lock(&instance->mutex_);

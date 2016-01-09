@@ -19,9 +19,8 @@ static uv_mutex_t mutex;
 static uv_async_t async;
 static std::list<ImmediateCallbackInfo> callbacks;
 
-static void CheckImmediate(uv_async_t* handle, int status) {
+static void CheckImmediate(uv_async_t* handle) {
   assert(handle == &async);
-  assert(status == 0);
 
   uv_mutex_lock(&mutex);
   while (!callbacks.empty()) {

@@ -106,7 +106,7 @@ private:
   GameLoopQueue(const GameLoopQueue&);
   GameLoopQueue& operator=(const GameLoopQueue&);
 
-  static void OnExecutionCompleted(uv_async_t* handle, int status);
+  static void OnExecutionCompleted(uv_async_t* handle);
 
   volatile bool has_items_;
   uv_mutex_t mutex_;
