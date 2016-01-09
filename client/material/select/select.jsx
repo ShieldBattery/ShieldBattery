@@ -63,7 +63,7 @@ class Select extends React.Component {
   render() {
     return (
       <TransitionGroup transitionName={transitionNames}
-          transitionEnterTimeout={250} transitionLeaveTimeout={250}>
+          transitionEnterTimeout={200} transitionLeaveTimeout={200}>
         { this.renderSelect() }
         { this.renderOverlay() }
       </TransitionGroup>
