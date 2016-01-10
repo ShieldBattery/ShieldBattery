@@ -35,7 +35,6 @@
           4291,  # no matching operator delete found
           4295,  # array is too small to include a terminating null character
           4389,  # '==' : signed/unsigned mismatch
-          4505,  # unreferenced local function has been removed
           4701,  # potentially uninitialized local variable 'sizew' used
           4703,  # potentially uninitialized local pointer variable 'req' used
           4706,  # assignment within conditional expression
@@ -50,14 +49,6 @@
           },
         },
       }],
-    ],
-  },
-
-  'variables': {
-    'library_files+': [
-      # The hook that gets Node to call our code when started
-      # TODO(tec27): use --link-module for this instead
-      'js/_third_party_main.js',
     ],
   },
 }

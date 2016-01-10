@@ -1,6 +1,35 @@
 {
   'variables': {
     'library': 'static_library',
+    # For whatever reason, VS likes to optimize away the builtins initialization functions in the
+    # node static lib, so we have to force references to all of them in any of our executables that
+    # utilize node
+    'forced_references': [
+      '__register_async_wrap_',
+      '__register_buffer_',
+      '__register_cares_wrap_',
+      '__register_contextify_',
+      '__register_crypto_',
+      '__register_fs_',
+      '__register_fs_event_wrap_',
+      '__register_http_parser_',
+      '__register_js_stream_',
+      '__register_os_',
+      '__register_pipe_wrap_',
+      '__register_process_wrap_',
+      '__register_signal_wrap_',
+      '__register_spawn_sync_',
+      '__register_stream_wrap_',
+      '__register_tcp_wrap_',
+      '__register_timer_wrap_',
+      '__register_tls_wrap_',
+      '__register_tty_wrap_',
+      '__register_udp_wrap_',
+      '__register_util_',
+      '__register_uv_',
+      '__register_v8_',
+      '__register_zlib_',
+    ]
   },
 
   'target_defaults': {
@@ -105,6 +134,11 @@
         'logger',
         'deps/node/node.gyp:node',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'ForceSymbolReferences': [ '<@(forced_references)' ],
+        },
+      },
     },
 
     {
@@ -125,7 +159,7 @@
         'common/win_thread.h',
       ],
       'direct_dependent_settings': {
-        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib', '-lvcruntime.lib' ],
+        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib' ],
       },
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'
@@ -255,6 +289,11 @@
         'common',
         'deps/node/node.gyp:node',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'ForceSymbolReferences': [ '<@(forced_references)' ],
+        },
+      },
     },
 
     {

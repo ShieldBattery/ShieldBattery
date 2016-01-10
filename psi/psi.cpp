@@ -4,14 +4,23 @@
 
 #include "common/win_helpers.h"
 
-int wmain(int argc, wchar_t *argv[]) {
-  SERVICE_TABLE_ENTRY ServiceTable[] = {
-    { SERVICE_NAME, reinterpret_cast<LPSERVICE_MAIN_FUNCTION>(sbat::psi::ServiceMain) },
-    { NULL, NULL }
-  };
+// set this to true if you want to be able to run the service from an IDE/command-line
+// (to e.g. debug it)
+const bool RUN_IN_IDE = true;
 
-  if (!StartServiceCtrlDispatcher(ServiceTable)) {
-    return 1;
+int wmain(int argc, wchar_t *argv[]) {
+  if (RUN_IN_IDE) {
+    // we don't actually use argc/argv, so this is a dumb hack signal
+    sbat::psi::ServiceMain(272727, nullptr);
+  } else {
+    SERVICE_TABLE_ENTRY ServiceTable[] = {
+      { SERVICE_NAME, reinterpret_cast<LPSERVICE_MAIN_FUNCTION>(sbat::psi::ServiceMain) },
+      { NULL, NULL }
+    };
+
+    if (!StartServiceCtrlDispatcher(ServiceTable)) {
+      return 1;
+    }
   }
 
   return 0;
@@ -107,15 +116,24 @@ void PsiService::SignalShutdown() {
 }
 
 void WINAPI ServiceMain(DWORD argc, LPSTR *argv) {
+  bool isServiceMode = argc != 272727;
+  
   PsiService service;
 
-  service.Register();
+  if (isServiceMode) {
+    service.Register();
+  }
   service.InitServiceStatus();
-  service.Start();
+  if (isServiceMode) {
+    service.Start();
+  }
 
   service.StartWorkerThread();
   service.WaitWorkerThread();
-  service.Stop();
+
+  if (isServiceMode) {
+    service.Stop();
+  }
 }
 
 void WINAPI ServiceControlHandler(DWORD ctrl_code, DWORD event_type,
@@ -132,7 +150,7 @@ void WINAPI ServiceControlHandler(DWORD ctrl_code, DWORD event_type,
 
 void PsiService::WorkerThread(LPVOID param) {
   PsiService* instance = reinterpret_cast<PsiService*>(param);
-
+  /*
   // open a temp file so that node can write errors out to it
   char temp_path[MAX_PATH];
   int ret = GetTempPathA(MAX_PATH, temp_path);
@@ -144,7 +162,7 @@ void PsiService::WorkerThread(LPVOID param) {
   FILE* fp;
   freopen_s(&fp, temp_file, "w", stdout);
   freopen_s(&fp, temp_file, "w", stderr);
-
+  */
   HMODULE module_handle;
   char path[MAX_PATH];
   BOOL return_value;
