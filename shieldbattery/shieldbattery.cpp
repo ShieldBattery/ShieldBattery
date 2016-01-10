@@ -1,6 +1,5 @@
 #include "shieldbattery/shieldbattery.h"
 
-#include <conio.h>
 #include <fcntl.h>
 #include <io.h>
 #include <node.h>
@@ -9,6 +8,7 @@
 
 #include <queue>
 #include <string>
+#include <vector>
 
 #include "shieldbattery/settings.h"
 #include "shieldbattery/snp_interface.h"
@@ -16,6 +16,10 @@
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "logger/logger.h"
+
+using std::queue;
+using std::string;
+using std::vector;
 
 namespace sbat {
 struct WorkRequest {
@@ -34,7 +38,7 @@ static uv_mutex_t proc_initialized;
 static uv_mutex_t work_queue_mutex;
 static uv_cond_t work_queue_cond;
 static bool terminated;
-static std::queue<WorkRequest*>* work_queue;
+static queue<WorkRequest*>* work_queue;
 static uv_thread_t node_thread;
 
 static SnpInterface* snp_interface = nullptr;
@@ -136,9 +140,18 @@ void StartNode(void* arg) {
       reinterpret_cast<LPCSTR>(&StartNode), &module_handle);
   GetModuleFileNameA(module_handle, path, sizeof(path));
 
-  char** argv = new char*[1];
-  argv[0] = path;
-  node::Start(1, argv);
+  string pathString(path);
+  string::size_type slashPos = string(path).find_last_of("\\/");
+  string scriptPath = pathString.substr(0, slashPos).append("\\js\\index.js");
+  vector<char> scriptPathArg(scriptPath.begin(), scriptPath.end());
+  scriptPathArg.push_back('\0');
+
+  vector<char*> argv;
+  argv.push_back(path);
+  argv.push_back(&scriptPathArg[0]);
+  argv.push_back("shieldbattery");
+
+  node::Start(argv.size(), &argv[0]);
 
   TerminateUiThread();
 }
@@ -161,12 +174,29 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   ret = GetTempFileNameA(temp_path, "shieldbattery", 0, temp_file);
   assert(ret != 0);
 
+  int fh;
+  ret = _sopen_s(&fh, temp_file, _O_TRUNC | _O_CREAT | _O_WRONLY | _O_TEXT, _SH_DENYNO,
+    _S_IREAD | _S_IWRITE);
+  assert(ret == 0);
+  ret = _dup2(fh, 1 /* stdout */);
+  assert(ret == 0);
+  ret = _dup2(fh, 2 /* stderr */);
+  assert(ret == 0);
+
   FILE* fp;
   freopen_s(&fp, temp_file, "w", stdout);
   freopen_s(&fp, temp_file, "w", stderr);
 
+  // Node uses GetStdHandle for printing fatal v8 failures, so we set that as well
+  HANDLE handle = CreateFileA(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  assert(handle != INVALID_HANDLE_VALUE);
+  SetStdHandle(STD_OUTPUT_HANDLE, handle);
+  SetStdHandle(STD_ERROR_HANDLE, handle);
+
   if (SBAT_AWAIT_DEBUGGER) {
     while (!IsDebuggerPresent()) {
+      Sleep(50);
     }
   }
 
@@ -177,7 +207,7 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   uv_mutex_init(&work_queue_mutex);
   uv_cond_init(&work_queue_cond);
   terminated = false;
-  work_queue = new std::queue<WorkRequest*>();
+  work_queue = new queue<WorkRequest*>();
 
   uv_thread_create(&node_thread, StartNode, nullptr);
 

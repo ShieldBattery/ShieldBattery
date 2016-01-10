@@ -181,7 +181,7 @@ function doLaunch(req, res) {
                 { when: 'resuming process', msg: resumeErr.message })
           }
 
-          awaitGameConnection(5000, function(timedOut) {
+          awaitGameConnection(100000, function(timedOut) {
             if (timedOut) {
               res.fail(504, 'gateway timeout',
                   { when: 'resuming process', msg: 'waiting for game connection timed out' })

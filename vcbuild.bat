@@ -79,7 +79,7 @@ if defined noprojgen goto msbuild
 @rem Generate the VS project.
 SETLOCAL
   @rem Config flags for node's configure script
-  set config_flags=--enable-static --link-module ../../js/_third_party_main.js
+  set config_flags=--enable-static
   call "%scriptroot%\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%scriptroot%\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%scriptroot%"

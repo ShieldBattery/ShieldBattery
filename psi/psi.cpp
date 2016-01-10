@@ -1,12 +1,24 @@
 #include "psi/psi.h"
 
+#include <fcntl.h>
+#include <io.h>
 #include <string>
+#include <vector>
 
 #include "common/win_helpers.h"
 
+using std::string;
+using std::vector;
+
 // set this to true if you want to be able to run the service from an IDE/command-line
 // (to e.g. debug it)
-const bool RUN_IN_IDE = true;
+const bool RUN_IN_IDE = false;
+// set this to true if you want to debug node using something like node-inspector. You'll probably
+// also have to run it outside of a service (see flag above).
+const bool NODE_DEBUG = false;
+// set this to true if you want to wait for the native (i.e. VS) debugger to attach to the process
+// before executing.
+const bool AWAIT_DEBUGGER = false;
 
 int wmain(int argc, wchar_t *argv[]) {
   if (RUN_IN_IDE) {
@@ -31,11 +43,12 @@ namespace psi {
 
 ShutdownCallbackFunc PsiService::emit_shutdown_ = nullptr;
 
-PsiService::PsiService()
+PsiService::PsiService(bool isInServiceMode)
     : async_service_stopper_(),
       shutdown_timer_(),
       terminated_mutex_(),
       worker_thread_(),
+      isInServiceMode_(isInServiceMode),
       terminated_(false),
       service_status_(),
       service_status_handle_(NULL),
@@ -118,7 +131,7 @@ void PsiService::SignalShutdown() {
 void WINAPI ServiceMain(DWORD argc, LPSTR *argv) {
   bool isServiceMode = argc != 272727;
   
-  PsiService service;
+  PsiService service(isServiceMode);
 
   if (isServiceMode) {
     service.Register();
@@ -150,19 +163,36 @@ void WINAPI ServiceControlHandler(DWORD ctrl_code, DWORD event_type,
 
 void PsiService::WorkerThread(LPVOID param) {
   PsiService* instance = reinterpret_cast<PsiService*>(param);
-  /*
-  // open a temp file so that node can write errors out to it
-  char temp_path[MAX_PATH];
-  int ret = GetTempPathA(MAX_PATH, temp_path);
-  assert(ret != 0);
-  char temp_file[MAX_PATH];
-  ret = GetTempFileNameA(temp_path, "psi", 0, temp_file);
-  assert(ret != 0);
 
-  FILE* fp;
-  freopen_s(&fp, temp_file, "w", stdout);
-  freopen_s(&fp, temp_file, "w", stderr);
-  */
+  if (AWAIT_DEBUGGER) {
+    while (!IsDebuggerPresent()) {
+      Sleep(50);
+    }
+  }
+
+  if (instance->isInServiceMode()) {
+    // open a temp file so that node can write errors out to it
+    char temp_path[MAX_PATH];
+    int ret = GetTempPathA(MAX_PATH, temp_path);
+    assert(ret != 0);
+    char temp_file[MAX_PATH];
+    ret = GetTempFileNameA(temp_path, "psi", 0, temp_file);
+    assert(ret != 0);
+
+    int fh;
+    ret = _sopen_s(&fh, temp_file, _O_TRUNC | _O_CREAT | _O_WRONLY | _O_TEXT, _SH_DENYNO,
+        _S_IREAD | _S_IWRITE);
+    assert(ret == 0);
+    ret = _dup2(fh, 1 /* stdout */);
+    assert(ret == 0);
+    ret = _dup2(fh, 2 /* stderr */);
+    assert(ret == 0);
+
+    FILE* fp;
+    freopen_s(&fp, temp_file, "w", stdout);
+    freopen_s(&fp, temp_file, "w", stderr);
+  }
+
   HMODULE module_handle;
   char path[MAX_PATH];
   BOOL return_value;
@@ -171,9 +201,21 @@ void PsiService::WorkerThread(LPVOID param) {
       reinterpret_cast<LPCSTR>(&wmain), &module_handle);
   GetModuleFileNameA(module_handle, path, sizeof(path));
 
-  char** node_argv = new char*[1];
-  node_argv[0] = path;
-  node::Start(1, node_argv);
+  string pathString(path);
+  string::size_type slashPos = string(path).find_last_of("\\/");
+  string scriptPath = pathString.substr(0, slashPos).append("\\js\\index.js");
+  vector<char> scriptPathArg(scriptPath.begin(), scriptPath.end());
+  scriptPathArg.push_back('\0');
+
+  vector<char*> node_argv;
+  node_argv.push_back(path);
+  if (NODE_DEBUG) {
+    node_argv.push_back("--debug=5858");
+  }
+  node_argv.push_back(&scriptPathArg[0]);
+  node_argv.push_back("psi");
+
+  node::Start(node_argv.size(), &node_argv[0]);
 
   uv_mutex_lock(&instance->terminated_mutex_);
   instance->terminated_ = true;

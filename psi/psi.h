@@ -16,12 +16,13 @@ typedef void (*ShutdownCallbackFunc)();
 
 class PsiService {
 public:
-  PsiService();
+  PsiService(bool isInServiceMode);
   ~PsiService();
+
+  bool isInServiceMode() const { return isInServiceMode_; }
 
   void Register();
   void InitServiceStatus();
-  void Pending();
   void Start();
   void Stop();
   void StartWorkerThread();
@@ -31,9 +32,8 @@ public:
   NODE_EXTERN static void SetShutdownCallback(ShutdownCallbackFunc func);
 
 private:
-  // Disable copying
-  PsiService(const PsiService&);
-  PsiService& operator=(const PsiService&);
+  PsiService(const PsiService&) = delete;
+  PsiService& operator=(const PsiService&) = delete;
 
   static void WorkerThread(LPVOID param);
   static void StopServiceWorker(uv_async_t* handle);
@@ -46,6 +46,7 @@ private:
   uv_timer_t shutdown_timer_;
   uv_mutex_t terminated_mutex_;
   uv_thread_t worker_thread_;
+  bool isInServiceMode_;
   bool terminated_;
 
   SERVICE_STATUS service_status_;

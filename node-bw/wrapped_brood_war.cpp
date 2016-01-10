@@ -68,8 +68,9 @@ EventHandlerContext::~EventHandlerContext() {
 }
 
 Local<Function> EventHandlerContext::callback() const {
+  EscapableHandleScope scope;
   Local<Function> cb = Nan::New<Function>(callback_);
-  return cb;
+  return scope.Escape(cb);
 }
 
 BwPlayerSlot::BwPlayerSlot() : player_info_(nullptr) {
@@ -85,6 +86,7 @@ void BwPlayerSlot::set_player_info(PlayerInfo* player_info) {
 Persistent<Function> BwPlayerSlot::constructor;
 
 void BwPlayerSlot::Init() {
+  HandleScope scope;
   Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
   tpl->SetClassName(Nan::New("BwPlayerSlot").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
@@ -166,6 +168,7 @@ WrappedBroodWar::~WrappedBroodWar() {
 Persistent<Function> WrappedBroodWar::constructor;
 
 void WrappedBroodWar::Init() {
+  HandleScope scope;
   BroodWar* bw = BroodWar::Get();
 
   game_loop_queue_ = new GameLoopQueue();
@@ -260,6 +263,7 @@ Local<Value> WrappedBroodWar::NewInstance(const FunctionCallbackInfo<Value>& inf
 }
 
 void WrappedBroodWar::Log(void* arg, LogLevel level, const char* msg) {
+  HandleScope scope;
   WrappedBroodWar* wrapped = reinterpret_cast<WrappedBroodWar*>(arg);
   Local<String> log_symbol = Nan::New<String>(wrapped->log_symbol_);
   Local<Value> callback = Nan::Get(wrapped->handle(), log_symbol).ToLocalChecked();
