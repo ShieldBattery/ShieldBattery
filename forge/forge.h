@@ -5,12 +5,11 @@
 #include <nan.h>
 #include <mmsystem.h>
 #include <dsound.h>
+#include <map>
 #include <string>
 
 #include "common/func_hook.h"
 #include "forge/indirect_draw.h"
-#include "forge/direct_x.h"
-#include "forge/open_gl.h"
 #include "forge/renderer.h"
 
 namespace sbat {
@@ -58,9 +57,11 @@ public:
 private:
   Forge();
   ~Forge();
+
   // Disable copying
   Forge(const Forge&);
   Forge& operator=(const Forge&);
+
   BOOL PerformScaledClipCursor(LPRECT lpRect);
   void HandleAltRelease();
   bool IsCursorInWindow();

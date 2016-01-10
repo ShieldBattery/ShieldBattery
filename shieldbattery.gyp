@@ -125,7 +125,7 @@
         'common/win_thread.h',
       ],
       'direct_dependent_settings': {
-        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib' ],
+        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib', '-lvcruntime.lib' ],
       },
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'
@@ -407,7 +407,7 @@
         'shieldbattery',
         'deps/glew/glew.gyp:glew',
       ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530, 4996 ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530, 4996, 4838 ],
       'product_prefix': '',
       'product_name': 'forge',
       'product_extension': 'node',

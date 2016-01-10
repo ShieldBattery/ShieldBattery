@@ -5,7 +5,6 @@
 #include <Windows.h>
 #include <comdef.h>
 #include <d3d10.h>
-#include <d3dx10.h>
 #include <D3Dcompiler.h>
 #include <xnamath.h>
 #include <array>

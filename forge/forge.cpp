@@ -11,7 +11,9 @@
 
 #include "common/func_hook.h"
 #include "common/types.h"
+#include "forge/direct_x.h"
 #include "forge/indirect_draw.h"
+#include "forge/open_gl.h"
 #include "logger/logger.h"
 #include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"

@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "forge/forge.h"
-#include "forge/open_gl.h"
 #include "logger/logger.h"
 
 namespace sbat {

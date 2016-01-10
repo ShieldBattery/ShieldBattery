@@ -4,7 +4,6 @@
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
 #include <node.h>
-#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <ddraw.h>
 #include <gl/glew.h>
@@ -14,7 +13,7 @@
 #include <vector>
 
 #include "common/types.h"
-#include "forge/open_gl.h"
+#include "renderer.h"
 
 // enables/disables in-depth logging about DirectDraw method calls
 #define DIRECTDRAWLOG false
