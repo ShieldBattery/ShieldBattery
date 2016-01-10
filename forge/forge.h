@@ -40,7 +40,8 @@ struct ImportHooks {
   HOOKABLE(BOOL, SetCursorPos, int x, int y);
   HOOKABLE(BOOL, ClipCursor, const LPRECT lpRect);
   HOOKABLE(HWND, SetCapture, HWND hWnd);
-  HOOKABLE(BOOL, ReleaseCapture)
+  HOOKABLE(BOOL, ReleaseCapture);
+  HOOKABLE(BOOL, ShowWindow, HWND hwnd, int nCmdShow);
 };
 #undef HOOKABLE
 
@@ -99,6 +100,7 @@ private:
       const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
+  static BOOL __stdcall ShowWindowHook(HWND hwnd, int nCmdShow);
 
   // callable from JS
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);

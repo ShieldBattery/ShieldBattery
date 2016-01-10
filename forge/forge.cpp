@@ -94,6 +94,8 @@ Forge::Forge()
       process, "user32.dll", "SetCapture", SetCaptureHook);
   hooks_.ReleaseCapture = new ImportHook<ImportHooks::ReleaseCaptureFunc>(
       process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook);
+  hooks_.ShowWindow = new ImportHook<ImportHooks::ShowWindowFunc>(
+    process, "user32.dll", "ShowWindow", ShowWindowHook);
 }
 
 Forge::~Forge() {
@@ -250,6 +252,7 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.ClipCursor->Inject();
   result &= instance_->hooks_.SetCapture->Inject();
   result &= instance_->hooks_.ReleaseCapture->Inject();
+  result &= instance_->hooks_.ShowWindow->Inject();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -270,6 +273,7 @@ void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.ClipCursor->Restore();
   result &= instance_->hooks_.SetCapture->Restore();
   result &= instance_->hooks_.ReleaseCapture->Restore();
+  result &= instance_->hooks_.ShowWindow->Restore();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -462,6 +466,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       instance_->should_clip_cursor_ = false;
       instance_->PerformScaledClipCursor(nullptr);
     }
+
     return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_GAME_STARTED:
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
@@ -584,6 +589,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
       SWP_NOACTIVATE | SWP_HIDEWINDOW);
+  ShowWindow(instance_->window_handle_, SW_HIDE);
 
   if (UsesSwapBuffers(GetSettings().renderer) &&
       (GetSettings().display_mode == DisplayMode::FullScreen ||
@@ -821,6 +827,15 @@ BOOL __stdcall Forge::ReleaseCaptureHook() {
   instance_->captured_window_ = NULL;
 
   return TRUE;
+}
+
+BOOL __stdcall Forge::ShowWindowHook(HWND hwnd, int nCmdShow) {
+  // We handle the window showing around here, Brood War.
+  if (hwnd == instance_->window_handle_) {
+    return TRUE;
+  } else {
+    return instance_->hooks_.ShowWindow->original()(hwnd, nCmdShow);
+  }
 }
 
 void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
