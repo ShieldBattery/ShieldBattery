@@ -183,9 +183,22 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   ret = _dup2(fh, 2 /* stderr */);
   assert(ret == 0);
 
+  // Can't _dup2 stdout/err before they have a CRT handle associated with them,
+  // so use freopen to allocate a handle for them and then _dup2 it
+  // (The freopened file gets closed once _dup2 is called)
+
+  ret = GetTempFileNameA(temp_path, "shieldbattery", 0, temp_file);
+  assert(ret != 0);
+
   FILE* fp;
-  freopen_s(&fp, temp_file, "w", stdout);
-  freopen_s(&fp, temp_file, "w", stderr);
+  ret = freopen_s(&fp, temp_file, "w", stdout);
+  assert(ret == 0);
+  ret = _dup2(fh, _fileno(stdout));
+  assert(ret == 0);
+  ret = freopen_s(&fp, temp_file, "w", stderr);
+  assert(ret == 0);
+  ret = _dup2(fh, _fileno(stderr));
+  assert(ret == 0);
 
   // Node uses GetStdHandle for printing fatal v8 failures, so we set that as well
   HANDLE handle = CreateFileA(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,

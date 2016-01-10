@@ -188,9 +188,22 @@ void PsiService::WorkerThread(LPVOID param) {
     ret = _dup2(fh, 2 /* stderr */);
     assert(ret == 0);
 
+    // Can't _dup2 stdout/err before they have a CRT handle associated with them,
+    // so use freopen to allocate a handle for them and then _dup2 it
+    // (The freopened file gets closed once _dup2 is called)
+
+    ret = GetTempFileNameA(temp_path, "psi", 0, temp_file);
+    assert(ret != 0);
+
     FILE* fp;
-    freopen_s(&fp, temp_file, "w", stdout);
-    freopen_s(&fp, temp_file, "w", stderr);
+    ret = freopen_s(&fp, temp_file, "w", stdout);
+    assert(ret == 0);
+    ret = _dup2(fh, _fileno(stdout));
+    assert(ret == 0);
+    ret = freopen_s(&fp, temp_file, "w", stderr);
+    assert(ret == 0);
+    ret = _dup2(fh, _fileno(stderr));
+    assert(ret == 0);
   }
 
   HMODULE module_handle;
