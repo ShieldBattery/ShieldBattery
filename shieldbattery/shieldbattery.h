@@ -5,8 +5,6 @@
 #include "./settings.h"
 #include "./snp_interface.h"
 
-#define SBAT_AWAIT_DEBUGGER false
-
 namespace sbat {
 typedef void (*WorkRequestWorkerFunc)(void* arg);
 typedef void (*WorkRequestAfterFunc)(void* arg);

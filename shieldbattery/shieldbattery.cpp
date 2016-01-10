@@ -17,6 +17,12 @@
 #include "common/win_helpers.h"
 #include "logger/logger.h"
 
+// set this to true if you want to debug node using something like node-inspector
+const bool NODE_DEBUG = false;
+// set this to true if you want to wait for the native (i.e. VS) debugger to attach to the process
+// before executing.
+const bool AWAIT_DEBUGGER = false;
+
 using std::queue;
 using std::string;
 using std::vector;
@@ -148,6 +154,9 @@ void StartNode(void* arg) {
 
   vector<char*> argv;
   argv.push_back(path);
+  if (NODE_DEBUG) {
+    argv.push_back("--debug=5858");
+  }
   argv.push_back(&scriptPathArg[0]);
   argv.push_back("shieldbattery");
 
@@ -207,7 +216,7 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   SetStdHandle(STD_OUTPUT_HANDLE, handle);
   SetStdHandle(STD_ERROR_HANDLE, handle);
 
-  if (SBAT_AWAIT_DEBUGGER) {
+  if (AWAIT_DEBUGGER) {
     while (!IsDebuggerPresent()) {
       Sleep(50);
     }
