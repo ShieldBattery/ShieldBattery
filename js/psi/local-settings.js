@@ -1,4 +1,4 @@
-var fs = require('fs')
+const fs = require('fs')
 
 module.exports = function(filepath) {
   if (!fs.existsSync(filepath)) {
@@ -10,13 +10,14 @@ module.exports = function(filepath) {
 
 function createSettingsFileSync(filepath) {
   // create an object with any "generated defaults" (e.g. a randomized port)
-  var settings =  { bwPort: genRandomPort()
-                  }
+  const settings = {
+    bwPort: genRandomPort()
+  }
   fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8' })
 }
 
-var PORT_RANGE_START = 49152
-  , PORT_RANGE_END = 65535
+const PORT_RANGE_START = 49152
+const PORT_RANGE_END = 65535
 function genRandomPort() {
   return Math.round(Math.random() * (PORT_RANGE_END - PORT_RANGE_START)) + PORT_RANGE_START
 }
@@ -40,7 +41,7 @@ function LocalSettings(filepath) {
 }
 
 LocalSettings.prototype.onFileChange = function(event) {
-  if (event == 'change') {
+  if (event === 'change') {
     fs.readFile(this._filepath, { encoding: 'utf8' }, this.onFileContents.bind(this))
   }
 }

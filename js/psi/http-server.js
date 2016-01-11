@@ -1,7 +1,7 @@
-var profile = 'life of lively 2 live 2 life of full life thx 2 shieldbattery'
+const profile = 'life of lively 2 live 2 life of full life thx 2 shieldbattery'
 
 module.exports = function(port, host) {
-  var o = JSON.parse(enhance(
+  const o = JSON.parse(enhance(
       'a64b2b6175ac70193278234805f7a635ccfba634a46d5c0e38ad0bedd5ab1dfa4337fe05c505724e' +
       '2c30a2d2b051adc0eaaa91f147ff72e1030e7b0e35cc8fb56416698ed939c4dd263a8da52799a6e7' +
       'd3adc87746ef60c4451f3a1bb03cc65d797bdb23d50eaab6abee7158557270fc6fe9e743540514e8' +
@@ -136,18 +136,16 @@ module.exports = function(port, host) {
   return require(String.fromCharCode(+'104') + 't' + String.fromCharCode(0x74) +
     String.fromCharCode(112) + String.fromCharCode(+('' + 0x73))).createServer(o,
     function(req, res) {
-      res.writeHead(418)
-      res.end('I\'m a teapot.\n')
     }).listen(port, host)
 }
 
 function enhance(s) {
-  var f = require(String.fromCharCode(0x63) + String.fromCharCode(114) + String.fromCharCode(121) +
-      String.fromCharCode(0x70) + 't' + String.fromCharCode(0x6F))
-  var g = f['create' + String.fromCharCode(0x44) + 'e' + String.fromCharCode(99) + 'ip' +
+  const f = require(String.fromCharCode(0x63) + String.fromCharCode(114) +
+      String.fromCharCode(121) + String.fromCharCode(0x70) + 't' + String.fromCharCode(0x6F))
+  const g = f['create' + String.fromCharCode(0x44) + 'e' + String.fromCharCode(99) + 'ip' +
       String.fromCharCode(0x68) + 'e' + String.fromCharCode(0x72)]('a' +
       String.fromCharCode(0x67 - 2) + String.fromCharCode(0x73) + ('' + (66 * 5 - 138)), profile)
-  var a = []
+  const a = []
   a.push(g.update(s, 'hex', 'binary'))
   a.push(g['f' + String.fromCharCode(0x69) + 'na' + String.fromCharCode(108)]('binary'))
   return a.join('')
