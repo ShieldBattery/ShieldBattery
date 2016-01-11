@@ -130,8 +130,6 @@ void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
   context->process = WrappedProcess::Unwrap(info);
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, InjectDllWork, InjectDllAfter);
-
-  return;
 }
 
 void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
@@ -142,8 +140,6 @@ void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
     info.GetReturnValue().Set(Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(error.message().c_str())).ToLocalChecked()));
   }
-
-  return;
 }
 
 }  // namespace psi
