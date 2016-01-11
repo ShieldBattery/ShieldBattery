@@ -39,10 +39,10 @@ goto next-arg
 
 :install-deps
 @rem Install all the node module dependencies
-cd "%scriptroot%\node-psi"
+cd "%scriptroot%\nan"
 call npm install
 if errorlevel 1 goto install-failed
-cd "%scriptroot%\node-bw"
+cd "%scriptroot%\node-psi"
 call npm install
 if errorlevel 1 goto install-failed
 cd "%scriptroot%\forge"
@@ -107,16 +107,11 @@ goto link-modules
 cd "%scriptroot%\node-psi"
 call npm link
 if errorlevel 1 goto linking-failed
-cd "%scriptroot%\node-bw"
-call npm link
-if errorlevel 1 goto linking-failed
 cd "%scriptroot%\forge"
 call npm link
 if errorlevel 1 goto linking-failed
 cd "%scriptroot%\js"
 call npm link shieldbattery-psi
-if errorlevel 1 goto linking-failed
-call npm link shieldbattery-bw
 if errorlevel 1 goto linking-failed
 call npm link forge-shieldbattery
 if errorlevel 1 goto linking-failed

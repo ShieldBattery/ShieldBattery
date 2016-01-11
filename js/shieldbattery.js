@@ -8,7 +8,7 @@ process.on('uncaughtException', function(err) {
   }, 100)
 })
 
-var bw = require('shieldbattery-bw')
+var bw = require('./shieldbattery/natives/bw')
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
@@ -97,4 +97,3 @@ function onCleanedUpForExit() {
     process.exit()
   }, 100)
 }
-

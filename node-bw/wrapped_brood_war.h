@@ -47,8 +47,8 @@ private:
   void set_player_info(PlayerInfo* player_info);
 
   // Disallow copying
-  BwPlayerSlot(const BwPlayerSlot&);
-  BwPlayerSlot& operator=(const BwPlayerSlot&);
+  BwPlayerSlot(const BwPlayerSlot&) = delete;
+  BwPlayerSlot& operator=(const BwPlayerSlot&) = delete;
 
   static Nan::Persistent<v8::Function> constructor;
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
@@ -103,8 +103,8 @@ public:
 
 private:
   // Disallow copying
-  GameLoopQueue(const GameLoopQueue&);
-  GameLoopQueue& operator=(const GameLoopQueue&);
+  GameLoopQueue(const GameLoopQueue&) = delete;
+  GameLoopQueue& operator=(const GameLoopQueue&) = delete;
 
   static void OnExecutionCompleted(uv_async_t* handle);
 

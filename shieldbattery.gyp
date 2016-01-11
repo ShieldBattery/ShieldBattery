@@ -118,10 +118,20 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        'nan/<!(cd nan && node -e "require(\'nan\')")',
       ],
       'sources': [
+        'node-bw/module.cpp',
+        'node-bw/brood_war.cpp',
+        'node-bw/immediate.cpp',
+        'node-bw/wrapped_brood_war.cpp',
+
         'shieldbattery/shieldbattery.cpp',
         # headers
+        'node-bw/brood_war.h',
+        'node-bw/immediate.h',
+        'node-bw/wrapped_brood_war.h',
+
         'shieldbattery/settings.h',
         'shieldbattery/shieldbattery.h',
         'shieldbattery/snp_interface.h',
@@ -132,8 +142,11 @@
       'dependencies': [
         'common',
         'logger',
+        'v8-helpers',
         'deps/node/node.gyp:node',
       ],
+      'libraries': [ '-luser32.lib' ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
       'msvs_settings': {
         'VCLinkerTool': {
           'ForceSymbolReferences': [ '<@(forced_references)' ],
@@ -324,49 +337,6 @@
         'common',
       ],
       'libraries': [ '-luser32.lib', '-lshell32.lib' ],
-    },
-
-    # Node native modules
-    {
-      'target_name': 'node-bw',
-      'type': 'shared_library',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-        'node-bw/<!(cd node-bw && node -e "require(\'nan\')")',
-      ],
-      'sources': [
-        'node-bw/module.cpp',
-        'node-bw/brood_war.cpp',
-        'node-bw/immediate.cpp',
-        'node-bw/wrapped_brood_war.cpp',
-        # headers
-        'node-bw/brood_war.h',
-        'node-bw/immediate.h',
-        'node-bw/wrapped_brood_war.h',
-      ],
-      'dependencies': [
-        'common',
-        'v8-helpers',
-        'shieldbattery',
-      ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
-      'product_prefix': '',
-      'product_name': 'bw',
-      'product_extension': 'node',
-      'msvs_configuration_attributes': {
-        'OutputDirectory': '$(SolutionDir)node-bw/$(Configuration)/',
-      },
-      'msbuild_props': [
-        '$(SolutionDir)node-natives.props',
-      ],
-      'defines': [
-        'BUILDING_NODE_EXTENSION',
-        'WIN32_LEAN_AND_MEAN',
-      ],
-      'libraries': [ '-luser32.lib' ],
     },
 
     {

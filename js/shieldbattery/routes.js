@@ -1,4 +1,4 @@
-var bw = require('shieldbattery-bw')
+var bw = require('./natives/bw')
   , log = require('./logger')
   , forge = require('forge-shieldbattery')
   , lobbyStore = require('./lobby-store')

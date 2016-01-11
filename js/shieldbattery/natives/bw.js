@@ -1,5 +1,5 @@
-var bindings = require('bindings')('bw')
-  , bw = bindings()
+var bindings = process._linkedBinding('shieldbattery_bw')
+  , bw = bindings.init()
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
   , handleChat = require('./chat-handler')

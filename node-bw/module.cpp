@@ -16,13 +16,12 @@ void CreateBroodWar(const FunctionCallbackInfo<Value>& info) {
   info.GetReturnValue().Set(sbat::bw::WrappedBroodWar::NewInstance(info));
 }
 
-void Initialize(Local<Object> exports, Local<Object> module) {
+void Initialize(Local<Object> exports, Local<Value> unused) {
   sbat::bw::InitImmediate();
   sbat::bw::BwPlayerSlot::Init();
   sbat::bw::WrappedBroodWar::Init();
 
-  module->Set(New("exports").ToLocalChecked(),
-    New<FunctionTemplate>(CreateBroodWar)->GetFunction());
+  exports->Set(New("init").ToLocalChecked(), New<FunctionTemplate>(CreateBroodWar)->GetFunction());
 }
 
-NODE_MODULE(bw, Initialize);
+NODE_MODULE(shieldbattery_bw, Initialize);

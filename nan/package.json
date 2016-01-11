@@ -1,0 +1,17 @@
+{
+  "name": "shieldbattery-nan",
+  "version": "0.0.1",
+  "description": "Nan holder for shieldbattery",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tec27/shieldbattery"
+  },
+  "keywords": [],
+  "author": "Travis Collins (travis@tec27.com)",
+  "license": "MIT",
+  "dependencies": {
+    "nan": "^2.0.9"
+  }
+}
