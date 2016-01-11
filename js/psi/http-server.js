@@ -1,6 +1,6 @@
 const profile = 'life of lively 2 live 2 life of full life thx 2 shieldbattery'
 
-module.exports = function(port, host) {
+export default function(port, host) {
   const o = JSON.parse(enhance(
       'a64b2b6175ac70193278234805f7a635ccfba634a46d5c0e38ad0bedd5ab1dfa4337fe05c505724e' +
       '2c30a2d2b051adc0eaaa91f147ff72e1030e7b0e35cc8fb56416698ed939c4dd263a8da52799a6e7' +
@@ -136,6 +136,7 @@ module.exports = function(port, host) {
   return require(String.fromCharCode(+'104') + 't' + String.fromCharCode(0x74) +
     String.fromCharCode(112) + String.fromCharCode(+('' + 0x73))).createServer(o,
     function(req, res) {
+      res.end()
     }).listen(port, host)
 }
 

@@ -1,6 +1,6 @@
-const fs = require('fs')
+import fs from 'fs'
 
-module.exports = function(filepath) {
+export default function(filepath) {
   if (!fs.existsSync(filepath)) {
     createSettingsFileSync(filepath)
   }
