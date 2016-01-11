@@ -202,4 +202,3 @@ function detectResolution(req, res) {
     }
   })
 }
-

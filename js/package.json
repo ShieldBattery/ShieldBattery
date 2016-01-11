@@ -9,7 +9,7 @@
     "nydus-client": "^0.2.0"
   },
   "devDependencies": {
-    "babel-eslint": "^4.1.6",
+    "babel-eslint": "^5.0.0-beta6",
     "eslint": "^1.10.3",
     "eslint-plugin-babel": "^3.0.0"
   },
