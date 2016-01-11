@@ -237,7 +237,7 @@ void EmitShutdown() {
   shutdown_callback->Call(GetCurrentContext()->Global(), 0, nullptr);
 }
 
-void Initialize(Local<Object> exports, Local<Object> module) {
+void Initialize(Local<Object> exports, Local<Value> unused) {
   WrappedProcess::Init();
   WrappedRegistry::Init();
   shutdown_callback = unique_ptr<Callback>();
@@ -252,7 +252,7 @@ void Initialize(Local<Object> exports, Local<Object> module) {
   exports->Set(New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());
 }
 
-NODE_MODULE(psi, Initialize);
-
 }  // namespace psi
 }  // namespace sbat
+
+NODE_MODULE(shieldbattery_psi, sbat::psi::Initialize);

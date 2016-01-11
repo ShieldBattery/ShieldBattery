@@ -87,8 +87,10 @@
         'SuppressStartupBanner': 'true',
         'WarnAsError': 'false',
         'AdditionalOptions': [
-           '/MP', # compile across multiple CPUs
-         ],
+          '/MP', # compile across multiple CPUs
+        ],
+        # Prevent VS from overwriting .obj files if two files in different dirs have the same name
+        'ObjectFile': '$(IntDir)%(RelativeDir)',
       },
       'VCLibrarianTool': {
         'TargetMachine': 1, # X86
@@ -119,8 +121,18 @@
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
         'nan/<!(cd nan && node -e "require(\'nan\')")',
+        '$(DXSDK_DIR)Include',
       ],
       'sources': [
+        'forge/indirect_draw.cpp',
+        'forge/indirect_draw_palette.cpp',
+        'forge/indirect_draw_surface.cpp',
+        'forge/forge.cpp',
+        'forge/module.cpp',
+        'forge/direct_x.cpp',
+        'forge/open_gl.cpp',
+        'forge/renderer_utils.cpp',
+
         'node-bw/module.cpp',
         'node-bw/brood_war.cpp',
         'node-bw/immediate.cpp',
@@ -128,7 +140,15 @@
 
         'shieldbattery/shieldbattery.cpp',
         # headers
+        'forge/indirect_draw.h',
+        'forge/forge.h',
+        'forge/direct_x.h',
+        'forge/open_gl.h',
+        'forge/renderer.h',
+        'forge/renderer_utils.h',
+
         'node-bw/brood_war.h',
+        'node-bw/forge_interface.h',
         'node-bw/immediate.h',
         'node-bw/wrapped_brood_war.h',
 
@@ -139,16 +159,24 @@
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',
       ],
+      'defines': [
+        'WIN32_LEAN_AND_MEAN',
+      ],
       'dependencies': [
         'common',
         'logger',
         'v8-helpers',
         'deps/node/node.gyp:node',
+        'deps/glew/glew.gyp:glew',
       ],
-      'libraries': [ '-luser32.lib' ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
+      'link_settings': {
+        'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
+        'library_dirs': [ '$(DXSDK_DIR)Lib/x86' ],
+      },
+      'msvs_disabled_warnings': [ 4506, 4251, 4530, 4838, 4996 ],
       'msvs_settings': {
         'VCLinkerTool': {
+          'DelayLoadDLLs': ['opengl32.dll', 'd3d10.dll', 'd3dcompiler_43.dll'],
           'ForceSymbolReferences': [ '<@(forced_references)' ],
         },
       },
@@ -181,8 +209,6 @@
     },
 
     {
-      # this target should only be used in node extensions. node hosts (shieldbattery, psi) would
-      # need a separate target without the defines
       'target_name': 'v8-helpers',
       'type': 'static_library',
       'sources': [
@@ -195,19 +221,10 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
-        # We include node-psi's nan since we A) assume node-psi will always be around and
-        # B) don't want to have to have node_modules for v8-helpers
-        'node-psi/<!(cd node-psi && node -e "require(\'nan\')")',
+        'nan/<!(cd nan && node -e "require(\'nan\')")',
       ],
       'defines': [
-        'USING_UV_SHARED=1',
-        'USING_V8_SHARED=1',
-        'BUILDING_NODE_EXTENSION',
         'WIN32_LEAN_AND_MEAN',
-      ],
-      'defines!': [
-        'BUILDING_UV_SHARED=1',
-        'BUILDING_V8_SHARED=1',
       ],
     },
 
@@ -289,10 +306,20 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
+        'nan/<!(cd nan && node -e "require(\'nan\')")',
       ],
       'sources': [
+        'node-psi/module.cpp',
+        'node-psi/wrapped_process.cpp',
+        'node-psi/wrapped_registry.cpp',
+
         'psi/psi.cpp',
+
         # headers
+        'node-psi/module.h',
+        'node-psi/wrapped_process.h',
+        'node-psi/wrapped_registry.h',
+
         'psi/psi.h',
       ],
       'msbuild_props': [
@@ -300,13 +327,16 @@
       ],
       'dependencies': [
         'common',
+        'v8-helpers',
         'deps/node/node.gyp:node',
       ],
+      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
       'msvs_settings': {
         'VCLinkerTool': {
           'ForceSymbolReferences': [ '<@(forced_references)' ],
         },
       },
+      'libraries': [ '-luser32.lib' ],
     },
 
     {
@@ -337,108 +367,6 @@
         'common',
       ],
       'libraries': [ '-luser32.lib', '-lshell32.lib' ],
-    },
-
-    {
-      'target_name': 'node-psi',
-      'type': 'shared_library',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-        'node-psi/<!(cd node-psi && node -e "require(\'nan\')")',
-      ],
-      'sources': [
-        'node-psi/module.cpp',
-        'node-psi/wrapped_process.cpp',
-        'node-psi/wrapped_registry.cpp',
-        # headers
-        'node-psi/module.h',
-        'node-psi/wrapped_process.h',
-        'node-psi/wrapped_registry.h',
-      ],
-      'dependencies': [
-        'common',
-        'v8-helpers',
-        'psi',
-      ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
-      'product_prefix': '',
-      'product_name': 'psi',
-      'product_extension': 'node',
-      'msvs_configuration_attributes': {
-        'OutputDirectory': '$(SolutionDir)node-psi/$(Configuration)/',
-      },
-      'msbuild_props': [
-        '$(SolutionDir)node-natives.props',
-      ],
-      'defines': [
-        'BUILDING_NODE_EXTENSION',
-        'WIN32_LEAN_AND_MEAN',
-      ],
-      # for reasons I don't quite understand, VS doesn't want to link in the lib from an exe, so we
-      # have to manually specify it even though it's already a project dependency
-      'libraries': [ '-luser32.lib', '-l$(SolutionDir)$(Configuration)/psi.lib' ],
-    },
-
-    {
-      'target_name': 'forge',
-      'type': 'shared_library',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-        'forge/<!(cd forge && node -e "require(\'nan\')")',
-        '$(DXSDK_DIR)Include',
-      ],
-      'sources': [
-        'forge/indirect_draw.cpp',
-        'forge/indirect_draw_palette.cpp',
-        'forge/indirect_draw_surface.cpp',
-        'forge/forge.cpp',
-        'forge/module.cpp',
-        'forge/direct_x.cpp',
-        'forge/open_gl.cpp',
-        'forge/renderer_utils.cpp',
-        # headers
-        'forge/indirect_draw.h',
-        'forge/forge.h',
-        'forge/direct_x.h',
-        'forge/open_gl.h',
-        'forge/renderer.h',
-        'forge/renderer_utils.h',
-      ],
-      'dependencies': [
-        'common',
-        'v8-helpers',
-        'shieldbattery',
-        'deps/glew/glew.gyp:glew',
-      ],
-      'msvs_disabled_warnings': [ 4506, 4251, 4530, 4996, 4838 ],
-      'product_prefix': '',
-      'product_name': 'forge',
-      'product_extension': 'node',
-      'msvs_configuration_attributes': {
-        'OutputDirectory': '$(SolutionDir)forge/$(Configuration)/',
-      },
-      'msbuild_props': [
-        '$(SolutionDir)node-natives.props',
-      ],
-      'defines': [
-        'BUILDING_NODE_EXTENSION',
-        'WIN32_LEAN_AND_MEAN',
-      ],
-      'link_settings': {
-        'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
-        'library_dirs': [ '$(DXSDK_DIR)Lib/x86' ],
-      },
-      'msvs_settings': {
-        'VCLinkerTool': {
-          'DelayLoadDLLs': ['opengl32.dll', 'd3d10.dll', 'd3dcompiler_43.dll'],
-        },
-      },
     },
   ],
 }

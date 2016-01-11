@@ -1,4 +1,4 @@
-var psi = require('bindings')('psi')
+var psi = process._linkedBinding('shieldbattery_psi')
   , EventEmitter = require('events').EventEmitter
 
 module.exports = new EventEmitter()

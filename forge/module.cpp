@@ -9,13 +9,14 @@ namespace forge {
 using Nan::New;
 using v8::Local;
 using v8::Object;
+using v8::Value;
 
-void Initialize(Local<Object> exports, Local<Object> module) {
+void Initialize(Local<Object> exports, Local<Value> unused) {
   Forge::Init();
-  module->Set(New("exports").ToLocalChecked(), Forge::NewInstance());
+  exports->Set(New("instance").ToLocalChecked(), Forge::NewInstance());
 }
 
-NODE_MODULE(forge, Initialize);
+NODE_MODULE(shieldbattery_forge, Initialize);
 
 }  // namespace forge
 }  // namespace sbat

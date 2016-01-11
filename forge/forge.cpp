@@ -15,6 +15,7 @@
 #include "forge/indirect_draw.h"
 #include "forge/open_gl.h"
 #include "logger/logger.h"
+#include "node-bw/forge_interface.h"
 #include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"
 #include "v8-helpers/helpers.h"
@@ -137,27 +138,6 @@ void Forge::Init() {
   SetPrototypeMethod(tpl, "setShaders", SetShaders);
 
   constructor.Reset(tpl->GetFunction());
-}
-
-typedef void (*SetBroodWarInputDisabledFunc)(bool);
-SetBroodWarInputDisabledFunc setInputDisabledFunc = nullptr;
-void SetInputDisabled(bool disabled) {
-  if (setInputDisabledFunc == nullptr) {
-    HMODULE node_bw = GetModuleHandleW(L"bw.node");
-    if (node_bw == nullptr) {
-      // This shouldn't happen, but if it does, we just don't disable/enable input for now
-      return;
-    }
-
-    setInputDisabledFunc = reinterpret_cast<SetBroodWarInputDisabledFunc>(
-        GetProcAddress(node_bw, "SetBroodWarInputDisabled"));
-    if (setInputDisabledFunc == nullptr) {
-      // The function disappeared? :O
-      return;
-    }
-  }
-
-  setInputDisabledFunc(disabled);
 }
 
 RendererDisplayMode ConvertDisplayMode(DisplayMode display_mode) {
@@ -728,11 +708,12 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
 
 BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
   if (lpRect == NULL) {
-    SetInputDisabled(true);
+    sbat::bw::SetBroodWarInputDisabled(true);
     // if they're clearing the clip, we just call through because there's nothing to adjust
     return hooks_.ClipCursor->original()(lpRect);
   }
-  SetInputDisabled(false);
+
+  sbat::bw::SetBroodWarInputDisabled(false);
   if (!is_started_) {
     // if we're not actually in the game yet, just ignore any requests to lock the cursor
     return TRUE;

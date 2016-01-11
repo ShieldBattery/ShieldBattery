@@ -1,6 +1,6 @@
 var fs = require('fs') // done separately so that brfs actually works, ugh
 
-var forge = require('bindings')('forge')
+var forge = process._linkedBinding('shieldbattery_forge').instance
   , EventEmitter = require('events').EventEmitter
   , util = require('util')
 

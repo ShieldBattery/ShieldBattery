@@ -1,6 +1,6 @@
 var bw = require('./natives/bw')
   , log = require('./logger')
-  , forge = require('forge-shieldbattery')
+  , forge = require('./natives/forge')
   , lobbyStore = require('./lobby-store')
   , sub = require('./sub')
 

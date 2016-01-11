@@ -42,12 +42,6 @@ goto next-arg
 cd "%scriptroot%\nan"
 call npm install
 if errorlevel 1 goto install-failed
-cd "%scriptroot%\node-psi"
-call npm install
-if errorlevel 1 goto install-failed
-cd "%scriptroot%\forge"
-call npm install
-if errorlevel 1 goto install-failed
 cd "%scriptroot%\bundler"
 call npm install
 if errorlevel 1 goto install-failed
@@ -91,7 +85,7 @@ ENDLOCAL
 
 :msbuild
 @rem Skip build if requested.
-if defined nobuild goto link-modules
+if defined nobuild goto install-js-deps
 goto do-build
 
 :do-build
@@ -99,24 +93,14 @@ goto do-build
 cd "%scriptroot%"
 msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 if errorlevel 1 goto exit
-goto link-modules
+goto install-js-deps
 
 
-:link-modules
+:install-js-deps
 @rem Link up the native modules inside the js directory
-cd "%scriptroot%\node-psi"
-call npm link
-if errorlevel 1 goto linking-failed
-cd "%scriptroot%\forge"
-call npm link
-if errorlevel 1 goto linking-failed
 cd "%scriptroot%\js"
-call npm link shieldbattery-psi
-if errorlevel 1 goto linking-failed
-call npm link forge-shieldbattery
-if errorlevel 1 goto linking-failed
 call npm install
-if errorlevel 1 goto linking-failed
+if errorlevel 1 goto install-js-deps-failed
 rmdir "%SHIELDBATTERY_PATH%\js"
 mklink /D "%SHIELDBATTERY_PATH%\js" "%scriptroot%\js"
 echo JS modules linked.
@@ -130,8 +114,8 @@ goto exit
 echo Installing JS modules failed, please check output and ensure node/npm are installed and setup on your PATH.
 goto exit
 
-:linking-failed
-echo Linking JS modules failed, please check command output and ensure node/npm are installed and setup on your PATH.
+:install-js-deps-failed
+echo Installing dependencies for JS modules failed, please check command output and ensure node/npm are installed and setup on your PATH.
 goto exit
 
 :env-error

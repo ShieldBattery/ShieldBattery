@@ -7,7 +7,7 @@ process.on('uncaughtException', function(err) {
   }, 100)
 })
 
-var psi = require('shieldbattery-psi')
+var psi = require('./psi/natives/index')
   , path = require('path')
   , EventEmitter = require('events').EventEmitter
   , httpServer = require('./psi/http-server')(33198, '127.0.0.1')

@@ -67,7 +67,7 @@ function initialize(settings, cb) {
   initialized = true
   bw.setSettings(settings)
 
-  var forge = require('forge-shieldbattery')
+  var forge = require('./shieldbattery/natives/forge')
   if (!forge.inject()) {
     cb(new Error('forge injection failed'))
   } else {

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "node-bw/brood_war.h"
+#include "node-bw/forge_interface.h"
 #include "node-bw/immediate.h"
 #include "logger/logger.h"
 #include "shieldbattery/settings.h"
@@ -1102,7 +1103,7 @@ void GameLoopQueue::OnExecutionCompleted(uv_async_t* handle) {
   }
 }
 
-NODE_MODULE_EXPORT void SetBroodWarInputDisabled(bool disabled) {
+void SetBroodWarInputDisabled(bool disabled) {
   BroodWar::SetInputDisabled(disabled);
 }
 
