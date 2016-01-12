@@ -24,7 +24,8 @@ class Process {
   }
 
   resume() {
-    return this._cProcess.resume()
+    const err = this._cProcess.resume()
+    if (err) throw err
   }
 }
 
