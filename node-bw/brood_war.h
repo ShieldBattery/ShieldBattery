@@ -1,5 +1,4 @@
-#ifndef NODE_BW_BROOD_WAR_H_
-#define NODE_BW_BROOD_WAR_H_
+#pragma once
 
 #include <assert.h>
 #include <Windows.h>
@@ -510,4 +509,3 @@ Offsets* GetOffsets<Version::v1161>() {
 }
 }  // namespace bw
 }  // namespace sbat
-#endif  // NODE_BW_BROOD_WAR_H_

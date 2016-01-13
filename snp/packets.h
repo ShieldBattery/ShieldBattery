@@ -1,5 +1,4 @@
-#ifndef SNP_PACKETS_H_
-#define SNP_PACKETS_H_
+#pragma once
 
 #include <winsock2.h>
 
@@ -32,5 +31,3 @@ struct StormPacket {
 };
 }  // namespace snp
 }  // namespace sbat
-
-#endif  // SNP_PACKETS_H_

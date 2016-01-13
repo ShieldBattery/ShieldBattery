@@ -1,5 +1,4 @@
-#ifndef V8_HELPERS_HELPERS_H_
-#define V8_HELPERS_HELPERS_H_
+#pragma once
 
 #include <memory>
 #include <string>
@@ -79,5 +78,3 @@ private:
 };
 
 }  // namespace sbat
-
-#endif  // V8_HELPERS_HELPERS_H_

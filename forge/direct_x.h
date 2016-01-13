@@ -1,5 +1,4 @@
-#ifndef FORGE_DIRECT_X_H_
-#define FORGE_DIRECT_X_H_
+#pragma once
 
 #include <node.h>
 #include <Windows.h>
@@ -388,5 +387,3 @@ private:
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_DIRECT_X_H_

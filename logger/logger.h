@@ -1,5 +1,4 @@
-#ifndef LOGGER_LOGGER_H_
-#define LOGGER_LOGGER_H_
+#pragma once
 
 #include <node.h>
 #include <uv.h>
@@ -54,5 +53,3 @@ private:
 };
 
 }  // namespace sbat
-
-#endif  // LOGGER_LOGGER_H_

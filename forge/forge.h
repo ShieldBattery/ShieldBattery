@@ -1,5 +1,4 @@
-#ifndef FORGE_FORGE_H_
-#define FORGE_FORGE_H_
+#pragma once
 
 #include <node.h>
 #include <nan.h>
@@ -137,5 +136,3 @@ private:
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_FORGE_H_

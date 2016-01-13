@@ -1,5 +1,4 @@
-#ifndef SHIELDBATTERY_SHIELDBATTERY_H_
-#define SHIELDBATTERY_SHIELDBATTERY_H_
+#pragma once
 
 #include <node.h>
 #include "./settings.h"
@@ -15,4 +14,3 @@ NODE_EXTERN void InitializeProcess(void* arg, WorkRequestAfterFunc cb);
 
 NODE_EXTERN SnpInterface* GetSnpInterface();
 }  // namespace sbat
-#endif  // SHIELDBATTERY_SHIELDBATTERY_H_

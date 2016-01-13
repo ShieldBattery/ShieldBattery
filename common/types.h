@@ -1,5 +1,4 @@
-#ifndef COMMON_TYPES_H_
-#define COMMON_TYPES_H_
+#pragma once
 
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
@@ -11,5 +10,3 @@ typedef __int32 int32;
 typedef __int64 int64;
 
 typedef uint8 byte;
-
-#endif  // COMMON_TYPES_H_

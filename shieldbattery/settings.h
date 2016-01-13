@@ -1,5 +1,4 @@
-#ifndef SHIELDBATTERY_SETTINGS_H_
-#define SHIELDBATTERY_SETTINGS_H_
+#pragma once
 
 #include <node.h>
 
@@ -30,5 +29,3 @@ NODE_EXTERN void SetSettings(const Settings& settings);
 NODE_EXTERN const Settings& GetSettings();
 
 }  // namespace sbat
-
-#endif  // SHIELDBATTERY_SETTINGS_H_

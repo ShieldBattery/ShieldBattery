@@ -1,5 +1,4 @@
-#ifndef SHARED_WIN_THREAD_H_
-#define SHARED_WIN_THREAD_H_
+#pragma once
 
 #include <Windows.h>
 
@@ -26,4 +25,3 @@ class WinThread {
     HANDLE terminated_event_;
 };
 }  // namespace sbat
-#endif  // SHARED_WIN_THREAD_H_

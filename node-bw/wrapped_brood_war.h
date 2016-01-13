@@ -1,5 +1,4 @@
-#ifndef NODE_BW_WRAPPED_BROOD_WAR_H_
-#define NODE_BW_WRAPPED_BROOD_WAR_H_
+#pragma once
 
 #include <node.h>
 #include <nan.h>
@@ -216,5 +215,3 @@ private:
 
 }  // namespace bw
 }  // namespace sbat
-
-#endif  // NODE_BW_WRAPPED_BROOD_WAR_H_

@@ -1,5 +1,4 @@
-#ifndef SNP_SOCKETS_H_
-#define SNP_SOCKETS_H_
+#pragma once
 
 #include <node.h>
 #include <map>
@@ -69,5 +68,3 @@ private:
 
 }  // namespace snp
 }  // namespace sbat
-
-#endif  // SNP_SOCKETS_H_

@@ -1,5 +1,4 @@
-#ifndef COMMON_WIN_HELPERS_H_
-#define COMMON_WIN_HELPERS_H_
+#pragma once
 
 #include <Windows.h>
 #include <Wtsapi32.h>
@@ -80,4 +79,3 @@ struct ResolutionMessage {
   uint32 height;
 };
 }  // namespace sbat
-#endif  // COMMON_WIN_HELPERS_H_

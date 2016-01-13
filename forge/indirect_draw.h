@@ -1,5 +1,4 @@
-#ifndef FORGE_INDIRECT_DRAW_H_
-#define FORGE_INDIRECT_DRAW_H_
+#pragma once
 // Fake DirectDraw7 implementation that forwards drawing responsibility to OpenGL
 // Designed to handle everything Brood War needs, not guaranteed to work for anything else
 
@@ -197,5 +196,3 @@ private:
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_INDIRECT_DRAW_H_

@@ -1,5 +1,4 @@
-#ifndef COMMON_FUNC_HOOK_H_
-#define COMMON_FUNC_HOOK_H_
+#pragma once
 
 #include <Windows.h>
 #include <array>
@@ -313,4 +312,3 @@ private:
 };
 
 }  // namespace sbat
-#endif  // COMMON_FUNC_HOOK_H_
