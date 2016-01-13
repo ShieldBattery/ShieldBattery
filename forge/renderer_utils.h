@@ -1,5 +1,4 @@
-#ifndef FORGE_RENDERER_UTILS_H_
-#define FORGE_RENDERER_UTILS_H_
+#pragma once
 
 #include <node.h>
 #include <Windows.h>
@@ -31,5 +30,3 @@ RECT GetOutputSize(RendererDisplayMode mode, bool maintain_aspect_ratio, const R
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_RENDERER_UTILS_H_

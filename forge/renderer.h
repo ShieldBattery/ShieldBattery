@@ -1,5 +1,4 @@
-#ifndef FORGE_RENDERER_H_
-#define FORGE_RENDERER_H_
+#pragma once
 
 #include <vector>
 
@@ -25,5 +24,3 @@ public:
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_RENDERER_H_

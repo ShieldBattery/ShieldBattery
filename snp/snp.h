@@ -1,5 +1,4 @@
-#ifndef SNP_SNP_H_
-#define SNP_SNP_H_
+#pragma once
 
 #include "common/types.h"
 #include "snp/functions.h"
@@ -60,5 +59,3 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE dllInstance, DWORD reason, LPVOID reser
 BOOL __stdcall SnpQuery(uint32 index, uint32* identifier, const char** name,
     const char** description, const sbat::snp::SnpCapabilities** capabilities);
 BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);
-
-#endif  // SNP_SNP_H_

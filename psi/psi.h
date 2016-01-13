@@ -1,5 +1,4 @@
-#ifndef PSI_PSI_H_
-#define PSI_PSI_H_
+#pragma once
 
 #include <node.h>
 #include <uv.h>
@@ -56,5 +55,3 @@ private:
 
 }  // namespace psi
 }  // namespace sbat
-
-#endif  // PSI_PSI_H_

@@ -1,5 +1,4 @@
-#ifndef NODE_PSI_WRAPPED_REGISTRY_H_
-#define NODE_PSI_WRAPPED_REGISTRY_H_
+#pragma once
 
 #include <node.h>
 #include <nan.h>
@@ -27,5 +26,3 @@ private:
 
 }  // namespace psi
 }  // namespace sbat
-
-#endif  // NODE_PSI_WRAPPED_REGISTRY_H_

@@ -1,5 +1,4 @@
-#ifndef SNP_FUNCTIONS_H_
-#define SNP_FUNCTIONS_H_
+#pragma once
 
 #include <node.h>
 #include <Windows.h>
@@ -100,5 +99,3 @@ void SpoofGame(const std::string& game_name, const sockaddr_in& host_addr, bool 
 void StopSpoofingGame();
 }  // namespace snp
 }  // namespace sbat
-
-#endif  // SNP_FUNCTIONS_H_

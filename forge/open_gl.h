@@ -1,5 +1,4 @@
-#ifndef FORGE_OPEN_GL_H_
-#define FORGE_OPEN_GL_H_
+#pragma once
 
 #include <node.h>
 #include <Windows.h>
@@ -254,5 +253,3 @@ private:
 
 }  // namespace forge
 }  // namespace sbat
-
-#endif  // FORGE_OPEN_GL_H_

@@ -1,5 +1,4 @@
-#ifndef SHIELDBATTERY_SNP_INTERFACE_H_
-#define SHIELDBATTERY_SNP_INTERFACE_H_
+#pragma once
 
 #include <node.h>
 #include <string>
@@ -21,5 +20,3 @@ NODE_EXTERN void BindSnp(const SnpInterface& funcs);
 NODE_EXTERN void UnbindSnp();
 
 }  // sbat
-
-#endif  // SHIELDBATTERY_SNP_INTERFACE_H_
