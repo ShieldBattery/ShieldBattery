@@ -6,8 +6,6 @@
 #include <node.h>
 #include <Windows.h>
 #include <ddraw.h>
-#include <gl/glew.h>
-#include <gl/gl.h>
 #include <array>
 #include <memory>
 #include <vector>

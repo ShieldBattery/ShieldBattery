@@ -1,8 +1,5 @@
 #include "forge/indirect_draw.h"
 
-#include <gl/glew.h>
-#include <gl/wglew.h>
-#include <gl/gl.h>
 #include <vector>
 
 #include "forge/forge.h"
