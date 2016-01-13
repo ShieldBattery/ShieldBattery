@@ -18,14 +18,15 @@ using std::map;
 using std::pair;
 using std::string;
 using std::unique_ptr;
+using namespace DirectX;
 
-string DirectX::last_error_ = "";  // NOLINT
+string DirectXRenderer::last_error_ = "";  // NOLINT
 
-unique_ptr<DirectX> DirectX::Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
-    RendererDisplayMode display_mode, bool maintain_aspect_ratio,
+unique_ptr<DirectXRenderer> DirectXRenderer::Create(HWND window, uint32 ddraw_width,
+    uint32 ddraw_height, RendererDisplayMode display_mode, bool maintain_aspect_ratio,
     const map<string, pair<string, string>>& shaders) {
-  unique_ptr<DirectX> direct_x(
-      new DirectX(window, ddraw_width, ddraw_height, display_mode, maintain_aspect_ratio, shaders));
+  unique_ptr<DirectXRenderer> direct_x(new DirectXRenderer(window, ddraw_width, ddraw_height,
+    display_mode, maintain_aspect_ratio, shaders));
 
   if (direct_x->has_error()) {
     Logger::Log(LogLevel::Error, "IndirectDraw failed to initialize DirectX");
@@ -45,7 +46,7 @@ string GetErrorMsg(HRESULT result) {
   return string(error.ErrorMessage());
 }
 
-string DirectX::GetLastError() {
+string DirectXRenderer::GetLastError() {
   return last_error_;
 }
 
@@ -329,7 +330,7 @@ unique_ptr<DxVertexBuffer> DxDevice::CreateVertexBuffer(const D3D10_BUFFER_DESC&
 // this constructor will only ever be called by the factory method, and the factory method will take
 // care of deleting any errored objects instead of returning them higher up, so no methods outside
 // of the constructor will need to check for such a state.
-DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height,
     RendererDisplayMode display_mode, bool maintain_aspect_ratio,
     const map<string, pair<string, string>>& shaders)
   : error_(),
@@ -439,10 +440,10 @@ DirectX::DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height,
   }
 }
 
-DirectX::~DirectX() {
+DirectXRenderer::~DirectXRenderer() {
 }
 
-bool DirectX::InitShaders(const map<string, pair<string, string>>& shaders) {
+bool DirectXRenderer::InitShaders(const map<string, pair<string, string>>& shaders) {
   if (shaders.count("depalettizing") != 0) {
     if (!InitDepalettizingShader(shaders)) {
       return false;
@@ -463,7 +464,7 @@ bool DirectX::InitShaders(const map<string, pair<string, string>>& shaders) {
   return true;
 }
 
-bool DirectX::InitDepalettizingShader(const map<string, pair<string, string>>& shaders) {
+bool DirectXRenderer::InitDepalettizingShader(const map<string, pair<string, string>>& shaders) {
   const pair<string, string> shader_pair = shaders.at("depalettizing");
 
   DxVertexBlob vertex_blob(shader_pair.first);
@@ -519,7 +520,7 @@ bool DirectX::InitDepalettizingShader(const map<string, pair<string, string>>& s
   return true;
 }
 
-bool DirectX::InitScalingShader(const map<string, pair<string, string>>& shaders) {
+bool DirectXRenderer::InitScalingShader(const map<string, pair<string, string>>& shaders) {
   const pair<string, string> shader_pair = shaders.at("scaling");
 
   DxPixelBlob pixel_blob(shader_pair.second);
@@ -543,7 +544,7 @@ bool DirectX::InitScalingShader(const map<string, pair<string, string>>& shaders
   return true;
 }
 
-bool DirectX::InitTextures() {
+bool DirectXRenderer::InitTextures() {
   if (!InitRenderedTexture()) {
     return false;
   }
@@ -576,7 +577,7 @@ bool DirectX::InitTextures() {
   return true;
 }
 
-bool DirectX::InitRenderedTexture() {
+bool DirectXRenderer::InitRenderedTexture() {
   D3D10_TEXTURE2D_DESC rendered_texture_desc = D3D10_TEXTURE2D_DESC();
   rendered_texture_desc.Width = ddraw_width_;
   rendered_texture_desc.Height = ddraw_height_;
@@ -619,7 +620,7 @@ bool DirectX::InitRenderedTexture() {
   return true;
 }
 
-bool DirectX::InitBwScreenTexture() {
+bool DirectXRenderer::InitBwScreenTexture() {
   D3D10_TEXTURE2D_DESC bw_screen_texture_desc = D3D10_TEXTURE2D_DESC();
   bw_screen_texture_desc.Width = ddraw_width_;
   bw_screen_texture_desc.Height = ddraw_height_;
@@ -655,7 +656,7 @@ bool DirectX::InitBwScreenTexture() {
   return true;
 }
 
-bool DirectX::InitPaletteTexture() {
+bool DirectXRenderer::InitPaletteTexture() {
   D3D10_TEXTURE2D_DESC palette_texture_desc = D3D10_TEXTURE2D_DESC();
   palette_texture_desc.Width = 256;
   palette_texture_desc.Height = 1;
@@ -691,7 +692,7 @@ bool DirectX::InitPaletteTexture() {
   return true;
 }
 
-bool DirectX::InitVertices() {
+bool DirectXRenderer::InitVertices() {
   Vertex vertices[] = {
     { XMFLOAT2(-1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
     { XMFLOAT2(-1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
@@ -721,7 +722,7 @@ bool DirectX::InitVertices() {
   return true;
 }
 
-void DirectX::UpdatePalette(const IndirectDrawPalette& palette) {
+void DirectXRenderer::UpdatePalette(const IndirectDrawPalette& palette) {
   DxTextureMapper mapper(*palette_texture_, 0, 0, 1);
   if (mapper.has_error()) {
     if (DIRECTDRAWLOG) {
@@ -737,7 +738,7 @@ void DirectX::UpdatePalette(const IndirectDrawPalette& palette) {
       mapper.GetData<PaletteTextureEntry*>(), ConvertToPaletteTextureEntry);
 }
 
-void DirectX::Render(const std::vector<byte> &surface_data) {
+void DirectXRenderer::Render(const std::vector<byte> &surface_data) {
   if (render_skipper_.ShouldSkipRender()) {
     return;
   }
@@ -763,7 +764,7 @@ void DirectX::Render(const std::vector<byte> &surface_data) {
   }
 }
 
-void DirectX::CopyDdrawSurface(const std::vector<byte>& surface_data) {
+void DirectXRenderer::CopyDdrawSurface(const std::vector<byte>& surface_data) {
   DxTextureMapper mapper(*bw_screen_texture_, 0, 0, 1);
   if (mapper.has_error()) {
     if (DIRECTDRAWLOG) {
@@ -789,7 +790,7 @@ void DirectX::CopyDdrawSurface(const std::vector<byte>& surface_data) {
   }
 }
 
-void DirectX::ConvertToFullColor() {
+void DirectXRenderer::ConvertToFullColor() {
   dx_device_->SetRenderTarget(depalettized_view_)
       .SetViewports(1, &ddraw_viewport_)
       .SetInputLayout(*input_layout_)
@@ -802,7 +803,7 @@ void DirectX::ConvertToFullColor() {
       .Draw(4, 0);
 }
 
-void DirectX::RenderToScreen() {
+void DirectXRenderer::RenderToScreen() {
   dx_device_->SetRenderTarget(back_buffer_view_)
       .SetViewports(1, &final_viewport_)
       .SetPixelShader(*scaling_pixel_shader_)

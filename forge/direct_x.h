@@ -6,7 +6,7 @@
 #include <comdef.h>
 #include <d3d10.h>
 #include <D3Dcompiler.h>
-#include <xnamath.h>
+#include <DirectXMath.h>
 #include <array>
 #include <map>
 #include <memory>
@@ -43,8 +43,8 @@ std::unique_ptr<ComType, ComDeleter> WrapComVoid(void* output_ptr) {
 }
 
 struct Vertex {
-  XMFLOAT2 pos;
-  XMFLOAT2 texcoord;
+  DirectX::XMFLOAT2 pos;
+  DirectX::XMFLOAT2 texcoord;
 };
 
 class IndirectDraw;
@@ -303,12 +303,12 @@ private:
   DISALLOW_COPY_AND_ASSIGN(DxDevice);
 };
 
-class DirectX : public Renderer {
+class DirectXRenderer : public Renderer {
 public:
-  virtual ~DirectX();
+  virtual ~DirectXRenderer();
 
-  static std::unique_ptr<DirectX> Create(HWND window, uint32 ddraw_width, uint32 ddraw_height,
-      RendererDisplayMode display_mode, bool maintain_aspect_ratio,
+  static std::unique_ptr<DirectXRenderer> Create(HWND window, uint32 ddraw_width,
+      uint32 ddraw_height, RendererDisplayMode display_mode, bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   static std::string GetLastError();
 
@@ -328,8 +328,8 @@ private:
   };
   #pragma pack(pop)
 
-  DirectX(HWND window, uint32 ddraw_width, uint32 ddraw_height, RendererDisplayMode display_mode,
-      bool maintain_aspect_ratio,
+  DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height,
+      RendererDisplayMode display_mode, bool maintain_aspect_ratio,
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitShaders(const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitDepalettizingShader(
@@ -383,7 +383,7 @@ private:
   D3D10_VIEWPORT final_viewport_;
   RenderSkipper render_skipper_;
 
-  DISALLOW_COPY_AND_ASSIGN(DirectX);
+  DISALLOW_COPY_AND_ASSIGN(DirectXRenderer);
 };
 
 }  // namespace forge

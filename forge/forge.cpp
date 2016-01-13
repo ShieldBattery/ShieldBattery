@@ -184,14 +184,14 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
   case RenderMode::DirectX:
   default:
   {
-    unique_ptr<DirectX> direct_x = DirectX::Create(window, ddraw_width, ddraw_height,
-        ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
+    unique_ptr<DirectXRenderer> direct_x = DirectXRenderer::Create(window, ddraw_width,
+        ddraw_height, ConvertDisplayMode(settings.display_mode), settings.maintain_aspect_ratio,
         instance_->dx_shaders);
 
     if (!direct_x) {
       // TODO(tec27): We could/should probably send this through JS-land instead, and display an error
       // on the website (since that's where they'll be looking at this point)
-      MessageBoxA(NULL, DirectX::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
+      MessageBoxA(NULL, DirectXRenderer::GetLastError().c_str(), "Shieldbattery Error", MB_OK);
       ExitProcess(1);
     }
 

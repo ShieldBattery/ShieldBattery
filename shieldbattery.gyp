@@ -121,7 +121,6 @@
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
         'nan/<!(cd nan && node -e "require(\'nan\')")',
-        '$(DXSDK_DIR)Include',
       ],
       'sources': [
         'forge/indirect_draw.cpp',
@@ -171,7 +170,6 @@
       ],
       'link_settings': {
         'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
-        'library_dirs': [ '$(DXSDK_DIR)Lib/x86' ],
       },
       'msvs_disabled_warnings': [ 4506, 4251, 4530, 4838, 4996 ],
       'msvs_settings': {
