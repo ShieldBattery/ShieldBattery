@@ -1,6 +1,5 @@
 #include "forge/indirect_draw.h"
 
-#include <gl/gl.h>
 #include <vector>
 
 #include "forge/open_gl.h"
