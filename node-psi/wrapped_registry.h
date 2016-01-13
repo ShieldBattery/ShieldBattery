@@ -15,8 +15,8 @@ private:
   WrappedRegistry();
   ~WrappedRegistry();
   // Disable copying
-  WrappedRegistry(const WrappedRegistry&);
-  WrappedRegistry& operator=(const WrappedRegistry&);
+  WrappedRegistry(const WrappedRegistry&) = delete;
+  WrappedRegistry& operator=(const WrappedRegistry&) = delete;
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void ReadString(const Nan::FunctionCallbackInfo<v8::Value>& info);
