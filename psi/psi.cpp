@@ -54,6 +54,7 @@ PsiService::PsiService(bool isInServiceMode)
       service_status_handle_(NULL),
       service_stop_event_(INVALID_HANDLE_VALUE) {
   uv_async_init(uv_default_loop(), &async_service_stopper_, StopServiceWorker);
+  uv_unref(reinterpret_cast<uv_handle_t*>(&async_service_stopper_));
   async_service_stopper_.data = this;
   uv_timer_init(uv_default_loop(), &shutdown_timer_);
   // Don't let the timer keep the event loop running, it's only for the "kept running too long" case
@@ -238,15 +239,9 @@ void PsiService::WorkerThread(LPVOID param) {
 void PsiService::ShutdownTimerCallback(uv_timer_t* handle) {
   // Called when we've exceeded our allotted timeout for shutting down. This being called indicates
   // that there are leftover handles on libuv's event loop (something is long-running and did not
-  // properly respond to our 'shutdown' event being emitted). In response, we'll simply call uv_stop
-  // and end the loop less gracefully.
-  PsiService* instance = reinterpret_cast<PsiService*>(handle->data);
-
-  uv_mutex_lock(&instance->terminated_mutex_);
-  if (!instance->terminated_) {
-    uv_stop(uv_default_loop());
-  }
-  uv_mutex_unlock(&instance->terminated_mutex_);
+  // properly respond to our 'shutdown' event being emitted). In response, we'll simply exit
+  // immediately, as we don't have many other options.
+  ExitProcess(0);
 }
 
 void PsiService::SetServiceStatus(DWORD current_state, DWORD win32_exit_code, DWORD wait_hint) {

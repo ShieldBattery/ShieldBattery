@@ -230,6 +230,7 @@ void RegisterShutdownHandler(const FunctionCallbackInfo<Value>& info) {
 }
 
 void EmitShutdown() {
+  HandleScope scope;
   if (!shutdown_callback) {
     return;
   }
