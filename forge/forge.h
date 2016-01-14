@@ -59,8 +59,8 @@ private:
   ~Forge();
 
   // Disable copying
-  Forge(const Forge&);
-  Forge& operator=(const Forge&);
+  Forge(const Forge&) = delete;
+  Forge& operator=(const Forge&) = delete;
 
   BOOL PerformScaledClipCursor(LPRECT lpRect);
   void HandleAltRelease();

@@ -78,8 +78,9 @@ private:
     void* pos_;
   };
 
-  Detour(const Detour&);
-  Detour& operator=(const Detour&);
+  // disallow copying
+  Detour(const Detour&) = delete;
+  Detour& operator=(const Detour&) = delete;
 
   static std::shared_ptr<AllocBlock> AllocSpace(size_t trampoline_size);
 
@@ -237,8 +238,8 @@ public:
 
 private:
   // disallow copying
-  ImportHook(const ImportHook&);
-  ImportHook& operator=(const ImportHook&);
+  ImportHook(const ImportHook&) = delete;
+  ImportHook& operator=(const ImportHook&) = delete;
 
   PIMAGE_NT_HEADERS GetNtHeaders(HMODULE module_handle) {
     assert(module_handle != nullptr);

@@ -18,8 +18,8 @@ private:
   void set_process(Process* process);
 
   // Disable copying
-  WrappedProcess(const WrappedProcess&);
-  WrappedProcess& operator=(const WrappedProcess&);
+  WrappedProcess(const WrappedProcess&) = delete;
+  WrappedProcess& operator=(const WrappedProcess&) = delete;
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void InjectDll(const Nan::FunctionCallbackInfo<v8::Value>& info);
