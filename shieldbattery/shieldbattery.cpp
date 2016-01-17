@@ -16,6 +16,7 @@
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "logger/logger.h"
+#include "snp/snp.h"
 
 // set this to true if you want to debug node using something like node-inspector
 const bool NODE_DEBUG = false;
@@ -222,6 +223,19 @@ int HOOK_EntryPoint(HMODULE module_handle) {
     }
   }
 
+  HMODULE sbat_handle;
+  char path[MAX_PATH];
+  GetModuleHandleExA(
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+    reinterpret_cast<LPCSTR>(&HOOK_EntryPoint), &sbat_handle);
+  GetModuleFileNameA(sbat_handle, path, sizeof(path));
+  string pathString(path);
+  string::size_type slashPos = string(path).find_last_of("\\/");
+  string shieldbatteryDir = pathString.substr(0, slashPos + 1);
+  // Set the DLL directory to shieldbattery so that Windows can find our delay-loaded DLLs (and we
+  // don't have to put stuff in the StarCraft dir).
+  SetDllDirectoryA(shieldbatteryDir.c_str());
+
   uv_cond_init(&proc_init_cond);
   uv_mutex_init(&proc_init_mutex);
   uv_mutex_init(&proc_initialized);
@@ -247,6 +261,8 @@ void HOOK_GameInit() {
   // after its entry point
   delete game_init_hook;
   game_init_hook = nullptr;
+
+  snp::InitSnpStructs();
 
   Logger::Log(LogLevel::Verbose, "Game initialization reached, beginning UI thread worker");
   UiThreadWorker();

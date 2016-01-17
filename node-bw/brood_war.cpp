@@ -6,10 +6,13 @@
 #include <string>
 #include "common/types.h"
 #include "common/win_helpers.h"
+#include "snp/snp.h"
 
 namespace sbat {
 namespace bw {
+using sbat::snp::SNetSnpListEntry;
 using std::atomic;
+
 
 BroodWar* BroodWar::instance_ = nullptr;
 bool BroodWar::is_programmatic_chat_ = false;
@@ -136,11 +139,36 @@ void __stdcall BroodWar::PollInputHook() {
   hook->Inject();
 }
 
-void __stdcall BroodWar::OnInitializeSnpList(char* snp_directory) {
-  // rewrite the snp_directory to be shieldbattery's directory instead, so that we can place custom
-  // SNPs in our own directory instead of Starcraft's. Note that this will prevent us from using a
-  // standard snp file without copying it to our dir
-  GetModuleFileNameA(GetModuleHandle("shieldbattery.dll"), snp_directory, MAX_PATH);
+BOOL __stdcall BroodWar::InitializeSnpListHook() {
+  // Set up Storm's SNP list ourselves, so that we don't have to worry about having an MPQ file
+  // appended to this one and don't have to worry about passing signature checks.
+
+  if (!*instance_->offsets_->storm_snp_list_initialized) {
+    *instance_->offsets_->storm_snp_list_initialized = TRUE;
+    auto list = instance_->offsets_->storm_snp_list;
+    auto entry = sbat::snp::GetSnpListEntry();
+    // This will never actually be modified, but declaring it as const in the type is problematic
+    list->prev = const_cast<SNetSnpListEntry*>(entry);
+    list->next = const_cast<SNetSnpListEntry*>(entry);
+  }
+  return TRUE;
+}
+
+BOOL __stdcall BroodWar::UnloadSnpHook(BOOL clear_list) {
+  // Never pass clear_list = true, as we initialized the list and Storm can't free the memory
+  auto hook = instance_->offsets_->func_hooks.UnloadSnp;
+  hook->Restore();
+  BOOL result = hook->callable()(FALSE);
+  hook->Inject();
+
+  if (*instance_->offsets_->storm_snp_list_initialized) {
+    *instance_->offsets_->storm_snp_list_initialized = FALSE;
+    auto list = instance_->offsets_->storm_snp_list;
+    list->next = 0;
+    list->prev = 0;
+  }
+
+  return result;
 }
 
 void BroodWar::InjectDetours() {
@@ -150,7 +178,6 @@ void BroodWar::InjectDetours() {
   offsets_->detours.OnLobbyGameInit->Inject();
   offsets_->detours.OnLobbyMissionBriefing->Inject();
   offsets_->detours.OnMenuErrorDialog->Inject();
-  offsets_->detours.InitializeSnpList->Inject();
   offsets_->detours.RenderDuringInitSpritesOne->Inject();
   offsets_->detours.RenderDuringInitSpritesTwo->Inject();
   offsets_->detours.GameLoop->Inject();
@@ -158,6 +185,8 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.LobbyChatShowMessage->Inject();
   offsets_->func_hooks.CheckForMultiplayerChatCommand->Inject();
   offsets_->func_hooks.PollInput->Inject();
+  offsets_->func_hooks.InitializeSnpList->Inject();
+  offsets_->func_hooks.UnloadSnp->Inject();
 }
 
 void BroodWar::ApplyPatches() {

@@ -10,6 +10,10 @@
 #define CURRENT_BROOD_WAR_VERSION sbat::bw::Version::v1161
 
 namespace sbat {
+namespace snp {
+struct SNetSnpListEntry;
+};
+
 namespace bw {
 struct PlayerInfo {
   uint32 player_id;
@@ -195,6 +199,8 @@ struct Functions {
   FUNCDEF(void, DisplayMessage);
   FUNCDEF(void, CleanUpForExit);
   FUNCDEF(void, PollInput);
+  FUNCDEF(BOOL, InitializeSnpList);
+  FUNCDEF(BOOL, UnloadSnp, BOOL clear_list);
 };
 #undef FUNCDEF
 
@@ -205,7 +211,6 @@ struct Detours {
   Detour* OnLobbyGameInit;
   Detour* OnLobbyMissionBriefing;
   Detour* OnMenuErrorDialog;
-  Detour* InitializeSnpList;
   Detour* RenderDuringInitSpritesOne;
   Detour* RenderDuringInitSpritesTwo;
   Detour* GameLoop;
@@ -215,6 +220,8 @@ struct FuncHooks {
   FuncHook<Functions::ShowLobbyChatMessageFunc>* LobbyChatShowMessage;
   FuncHook<Functions::CheckForMultiplayerChatCommandFunc>* CheckForMultiplayerChatCommand;
   FuncHook<Functions::PollInputFunc>* PollInput;
+  FuncHook<Functions::InitializeSnpListFunc>* InitializeSnpList;
+  FuncHook<Functions::UnloadSnpFunc>* UnloadSnp;
 };
 
 struct EventHandlers {
@@ -264,6 +271,8 @@ struct Offsets {
   bool* player_has_left;
   uint32* player_nation_ids;
   uint32* game_time;
+  bool* storm_snp_list_initialized;
+  sbat::snp::SNetSnpListEntry* storm_snp_list;
 
   Functions functions;
   Detours detours;
@@ -360,7 +369,6 @@ public:
   static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
   static void __stdcall OnLobbyMissionBriefing(uint32 slot);
   static void __stdcall OnMenuErrorDialog(char* message);
-  static void __stdcall OnInitializeSnpList(char* snp_directory);
   static void __stdcall OnGameLoopIteration();
   static void __stdcall NoOp() { }
 
@@ -368,6 +376,8 @@ public:
   static void __stdcall ShowLobbyChatHook(char* message);
   static uint32 __stdcall CheckForChatCommandHook(char* message);
   static void __stdcall PollInputHook();
+  static BOOL __stdcall InitializeSnpListHook();
+  static BOOL __stdcall UnloadSnpHook(BOOL clear_list);
 
   // Static externally callable methods
   static void SetInputDisabled(bool disabled);
@@ -424,6 +434,8 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->player_has_left = reinterpret_cast<bool*>(0x00581D62);
   offsets->player_nation_ids = reinterpret_cast<uint32*>(0x0057EEC0);
   offsets->game_time = reinterpret_cast<uint32*>(0x0057F23C);
+  offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
+  offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
   offsets->functions.InitSprites = reinterpret_cast<Functions::InitSpritesFunc>(0x004D7390);
   offsets->functions.InitPlayerInfo = reinterpret_cast<Functions::InitPlayerInfoFunc>(0x004A91E0);
@@ -454,6 +466,10 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.CleanUpForExit =
       reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
   offsets->functions.PollInput = reinterpret_cast<Functions::PollInputFunc>(0x0047F0E0);
+  offsets->functions.InitializeSnpList =
+      reinterpret_cast<Functions::InitializeSnpListFunc>(storm_base + 0x0003DE90);
+  offsets->functions.UnloadSnp =
+      reinterpret_cast<Functions::UnloadSnpFunc>(storm_base + 0x000380A0);
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
@@ -478,10 +494,6 @@ Offsets* GetOffsets<Version::v1161>() {
       .At(0x004BB0FF).To(BroodWar::OnMenuErrorDialog)
       .WithArgument(RegisterArgument::Edx)
       .RunningOriginalCodeAfter());
-  offsets->detours.InitializeSnpList = new Detour(Detour::Builder()
-      .At(storm_base + 0x0003DED9).To(BroodWar::OnInitializeSnpList)
-      .WithArgument(RegisterArgument::Esi)
-      .RunningOriginalCodeAfter());
   // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
   offsets->detours.RenderDuringInitSpritesOne = new Detour(Detour::Builder()
       .At(0x0047AEB1).To(BroodWar::NoOp)
@@ -501,6 +513,10 @@ Offsets* GetOffsets<Version::v1161>() {
       offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
   offsets->func_hooks.PollInput = new FuncHook<Functions::PollInputFunc>(
       offsets->functions.PollInput, BroodWar::PollInputHook);
+  offsets->func_hooks.InitializeSnpList = new FuncHook<Functions::InitializeSnpListFunc>(
+      offsets->functions.InitializeSnpList, BroodWar::InitializeSnpListHook);
+  offsets->func_hooks.UnloadSnp = new FuncHook<Functions::UnloadSnpFunc>(
+      offsets->functions.UnloadSnp, BroodWar::UnloadSnpHook);
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
   offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);

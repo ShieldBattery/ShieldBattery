@@ -17,6 +17,17 @@ struct SnpCapabilities {
   uint32 turn_delay;
 };
 
+struct SNetSnpListEntry {
+  SNetSnpListEntry* prev;
+  SNetSnpListEntry* next;
+  char file_path[260];
+  uint32 index;
+  uint32 identifier;
+  char name[128];
+  char description[128];
+  SnpCapabilities capabilities;
+};
+
 struct SnpFunctions {
   uint32 size;
 
@@ -51,11 +62,11 @@ struct SnpFunctions {
   DoLeagueLogoutFunc DoLeagueLogout;
   GetReplyTargetFunc GetReplyTarget;
 };
+
+void InitSnpStructs();
+const SNetSnpListEntry* GetSnpListEntry();
+
 }  // namespace snp
 }  // namespace sbat
 
-extern "C" BOOL WINAPI DllMain(HINSTANCE dllInstance, DWORD reason, LPVOID reserved);
-
-BOOL __stdcall SnpQuery(uint32 index, uint32* identifier, const char** name,
-    const char** description, const sbat::snp::SnpCapabilities** capabilities);
 BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);

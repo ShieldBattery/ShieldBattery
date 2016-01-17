@@ -138,6 +138,10 @@
         'node-bw/wrapped_brood_war.cpp',
 
         'shieldbattery/shieldbattery.cpp',
+
+        'snp/functions.cpp',
+        'snp/sockets.cpp',
+        'snp/snp.cpp',
         # headers
         'forge/indirect_draw.h',
         'forge/forge.h',
@@ -154,6 +158,14 @@
         'shieldbattery/settings.h',
         'shieldbattery/shieldbattery.h',
         'shieldbattery/snp_interface.h',
+
+        'snp/functions.h',
+        'snp/packets.h',
+        'snp/sockets.h',
+        'snp/snp.h',
+
+        # exports
+        'snp/snp.def',
       ],
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',
@@ -169,12 +181,18 @@
         'deps/glew/glew.gyp:glew',
       ],
       'link_settings': {
-        'libraries': [ '-luser32.lib', '-lgdi32.lib', '-lD3D10.lib', '-ld3dcompiler.lib' ],
+        'libraries': [
+          '-luser32.lib',
+          '-lgdi32.lib',
+          '-lD3D10.lib',
+          '-ld3dcompiler.lib',
+          '-lws2_32.lib'
+        ],
       },
       'msvs_disabled_warnings': [ 4506, 4251, 4530, 4838, 4996 ],
       'msvs_settings': {
         'VCLinkerTool': {
-          'DelayLoadDLLs': ['opengl32.dll', 'd3d10.dll', 'd3dcompiler_43.dll'],
+          'DelayLoadDLLs': ['opengl32.dll', 'd3d10.dll', 'd3dcompiler_47.dll'],
           'ForceSymbolReferences': [ '<@(forced_references)' ],
         },
       },
@@ -239,46 +257,6 @@
         'deps/node/src',
         'deps/node/deps/uv/include',
         'deps/node/deps/v8/include',
-      ],
-    },
-
-    {
-      'target_name': 'snp',
-      'type': 'shared_library',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-      ],
-      'sources': [
-        'snp/functions.cpp',
-        'snp/sockets.cpp',
-        'snp/snp.cpp',
-        # headers
-        'snp/functions.h',
-        'snp/packets.h',
-        'snp/sockets.h',
-        'snp/snp.h',
-        # exports
-        'snp/snp.def',
-      ],
-      'link_settings': {
-        'libraries': [
-          '-lws2_32.lib',
-          '-l$(SolutionDir)$(Configuration)/shieldbattery.lib',
-        ],
-      },
-      'msbuild_props': [
-        '$(SolutionDir)snp/snp.props',
-      ],
-      'dependencies': [
-        'common',
-        'shieldbattery',
-      ],
-      'defines': [
-        'BUILDING_NODE_EXTENSION',
-        'WIN32_LEAN_AND_MEAN',
       ],
     },
 
