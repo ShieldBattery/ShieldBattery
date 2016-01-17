@@ -5,7 +5,8 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c</Command>
+      <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c
+xcopy "%ProgramFiles(x86)%\Windows Kits\8.1\Redist\D3D\x86\d3dcompiler_47.dll" "$(SHIELDBATTERY_PATH)" /y /f /c</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
