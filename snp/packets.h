@@ -4,10 +4,13 @@
 
 #include "common/types.h"
 
-#define SNP_PACKET_SIZE 512
+
 
 namespace sbat {
 namespace snp {
+// min-MTU - (max-IP-header-size + udp-header-size)
+const size_t SNP_PACKET_SIZE = 576 - (60 + 8);
+
 enum class PacketType : byte {
   Storm = 0
 };
