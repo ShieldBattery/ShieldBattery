@@ -2,7 +2,6 @@
 
 #include <Windows.h>
 #include "snp/functions.h"
-#include "snp/packets.h"
 #include "common/types.h"
 
 namespace sbat {
@@ -75,7 +74,7 @@ const SNetSnpListEntry* GetSnpListEntry() {
 }  // namespace snp
 }  // namespace sbat
 
-BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions) {
+__declspec(dllexport) BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions) {
   if (index > 0) return false;  // we only have one provider, so any index over that is an error
   if (functions == NULL) return false;
 

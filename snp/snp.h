@@ -5,6 +5,9 @@
 
 namespace sbat {
 namespace snp {
+// min-MTU - (max-IP-header-size + udp-header-size)
+const size_t SNP_PACKET_SIZE = 576 - (60 + 8);
+
 struct SnpCapabilities {
   uint32 size;
   uint32 unknown1;
@@ -66,7 +69,13 @@ struct SnpFunctions {
 void InitSnpStructs();
 const SNetSnpListEntry* GetSnpListEntry();
 
+void CreateNetworkHandler(HANDLE receive_event);
+bool RetrieveMessage(sockaddr_in** from_ptr, char** data_ptr, uint32* data_len_ptr);
+void FreeMessage(sockaddr_in* from, char* packet, uint32 data_len);
+void SendNetworkMessage(uint32 num_targets, sockaddr_in** targets, char* data, uint32 data_len);
+void DestroyNetworkHandler();
+
 }  // namespace snp
 }  // namespace sbat
 
-BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);
+__declspec(dllexport) BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);

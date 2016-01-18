@@ -6,7 +6,7 @@
 #include <string>
 
 #include "logger/logger.h"
-#include "snp/sockets.h"
+#include "snp/snp.h"
 #include "shieldbattery/settings.h"
 #include "shieldbattery/snp_interface.h"
 
@@ -23,6 +23,7 @@ static GameInfo* spoofed_game;
 static GameInfo game_list;
 
 int __stdcall Unbind() {
+  DestroyNetworkHandler();
   UnbindSnp();
 
   uv_mutex_destroy(&spoofed_game_mutex);
@@ -35,8 +36,8 @@ int __stdcall Unbind() {
   return true;
 }
 
-int __stdcall FreePacket(sockaddr* from, void* packet, uint32 packet_len) {
-  FreeStormPacket(reinterpret_cast<StormPacket*>(packet));
+int __stdcall FreePacket(sockaddr_in* from, char* packet, uint32 packet_len) {
+  FreeMessage(from, packet, packet_len);
   return true;
 }
 
@@ -68,12 +69,7 @@ int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_
   spoofed_game_dirty = false;
   spoofed_game = nullptr;
 
-  int result = BeginSocketLoop(receive_event, GetSettings());
-  if (result != 0) {
-    Logger::Logf(LogLevel::Error, "BeginSocketLoop failed [%d], snp not initialized",
-        result);
-    return false;
-  }
+  CreateNetworkHandler(receive_event);
 
   SnpInterface funcs;
   funcs.SpoofGame = SpoofGame;
@@ -107,7 +103,8 @@ int __stdcall ReceiveGamesList(int unk1, int unk2, GameInfo** received_list) {
   return true;
 }
 
-int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, uint32* packet_len) {
+int __stdcall ReceivePacket(
+    sockaddr_in** from_location, char** packet_location, uint32* packet_len) {
   if (from_location == nullptr) {
     return false;
   }
@@ -123,16 +120,7 @@ int __stdcall ReceivePacket(sockaddr** from_location, void** packet_location, ui
   }
   *packet_len = 0;
 
-  StormPacket* packet = GetStormPacket();
-  if (packet == nullptr) {
-    return false;
-  }
-
-  *from_location = reinterpret_cast<sockaddr*>(&packet->from_address);
-  *packet_location = packet;
-  *packet_len = packet->size;
-
-  return true;
+  return RetrieveMessage(from_location, packet_location, packet_len);
 }
 
 int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_location,
@@ -155,14 +143,8 @@ int __stdcall ReceiveServerPacket(sockaddr** from_location, void** packet_locati
   return false;
 }
 
-int __stdcall SendPacket(uint32 num_targets, sockaddr_in** targets, byte* data, uint32 data_len) {
-  QueuedPacket packet = QueuedPacket();
-  packet.num_targets = num_targets;
-  packet.targets = targets;
-  packet.data = data;
-  packet.data_len = data_len;
-  SendStormPacket(packet);
-
+int __stdcall SendPacket(uint32 num_targets, sockaddr_in** targets, char* data, uint32 data_len) {
+  SendNetworkMessage(num_targets, targets, data, data_len);
   return true;
 }
 

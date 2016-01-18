@@ -140,8 +140,9 @@
         'shieldbattery/shieldbattery.cpp',
 
         'snp/functions.cpp',
-        'snp/sockets.cpp',
+        'snp/module.cpp',
         'snp/snp.cpp',
+
         # headers
         'forge/indirect_draw.h',
         'forge/forge.h',
@@ -160,12 +161,8 @@
         'shieldbattery/snp_interface.h',
 
         'snp/functions.h',
-        'snp/packets.h',
-        'snp/sockets.h',
+        'snp/module-priv.h',
         'snp/snp.h',
-
-        # exports
-        'snp/snp.def',
       ],
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',
@@ -186,7 +183,7 @@
           '-lgdi32.lib',
           '-lD3D10.lib',
           '-ld3dcompiler.lib',
-          '-lws2_32.lib'
+          '-lws2_32.lib',
         ],
       },
       'msvs_disabled_warnings': [ 4506, 4251, 4530, 4838, 4996 ],

@@ -63,7 +63,7 @@ int __stdcall Name(__VA_ARGS__);
 
 // func1
 SNPFUNC(Unbind);
-SNPFUNC(FreePacket, sockaddr* from, void* packet, uint32 packet_len);
+SNPFUNC(FreePacket, sockaddr_in* from, char* packet, uint32 packet_len);
 SNPFUNC(FreeServerPacket, sockaddr* from, void* packet, uint32 packet_len);
 SNPFUNC(GetGameInfo, uint32 index, char* game_name, char* password, GameInfo* result_info);
 // func6
@@ -72,10 +72,10 @@ SNPFUNC(Initialize, ClientInfo* client_info, void* user_data, void* battle_info,
 // func8
 SNPFUNC(EnumDevices, void** device_data);
 SNPFUNC(ReceiveGamesList, int unk1, int unk2, GameInfo** received_list);
-SNPFUNC(ReceivePacket, sockaddr** from_location, void** packet_location, uint32* packet_len);
+SNPFUNC(ReceivePacket, sockaddr_in** from_location, char** packet_location, uint32* packet_len);
 SNPFUNC(ReceiveServerPacket, sockaddr** from_location, void** packet_location, uint32* packet_len);
 // func13 -- SelectGame
-SNPFUNC(SendPacket, uint32 num_targets, sockaddr_in** targets, byte* data, uint32 data_len);
+SNPFUNC(SendPacket, uint32 num_targets, sockaddr_in** targets, char* data, uint32 data_len);
 SNPFUNC(SendCommand, char* unk1, char* player_name, void* unk2, void* unk3, char* command);
 SNPFUNC(BroadcastGame, char* game_name, char* password, char* game_data, int game_state,
     uint32 elapsed_time, int game_type, int unk1, int unk2, void* player_data,
