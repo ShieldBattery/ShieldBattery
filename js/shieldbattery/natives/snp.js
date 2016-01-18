@@ -1,6 +1,7 @@
 const bindings = process._linkedBinding('shieldbattery_snp')
 
 import dgram from 'dgram'
+import prettyBytes from 'pretty-bytes'
 import log from '../logger'
 
 // TODO(tec27): get this from psi
@@ -99,7 +100,7 @@ class NetworkHandler {
   _logCounters() {
     const c = this.counters
     log.debug('Network handler counters: ' +
-        `${c.bytesSent} bytes sent, ${c.bytesReceived} bytes received, ` +
+        `${prettyBytes(c.bytesSent)} sent, ${prettyBytes(c.bytesReceived)} received, ` +
         `${c.overLengthPackets} over length, ${c.unmappedSends} unmapped sends, ` +
         `${c.unmappedReceives} unmapped receives`)
   }
