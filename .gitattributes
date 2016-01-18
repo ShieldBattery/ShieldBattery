@@ -20,3 +20,10 @@
 *.PDF	 diff=astextplain
 *.rtf	 diff=astextplain
 *.RTF	 diff=astextplain
+
+# Always use LF for node files
+*.js eol=lf
+*.json eol=lf
+.babelrc eol=lf
+.eslintrc eol=lf
+*.md eol=lf
