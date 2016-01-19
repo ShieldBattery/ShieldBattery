@@ -29,6 +29,14 @@ export const LOBBY_LEAVE = 'LOBBY_LEAVE'
 export const LOBBY_SET_RACE_BEGIN = 'LOBBY_SET_RACE_BEGIN'
 // The server has responded with success/failure to our race setting
 export const LOBBY_SET_RACE = 'LOBBY_SET_RACE'
+// We are sending the request to start the game countdown
+export const LOBBY_START_COUNTDOWN_BEGIN = 'LOBBY_START_COUNTDOWN_BEGIN'
+// The server has responded with success/failure for starting the game countdown
+export const LOBBY_START_COUNTDOWN = 'LOBBY_START_COUNTDOWN'
+// A lobby we're in is starting the game countdown
+export const LOBBY_UPDATE_COUNTDOWN_START = 'LOBBY_UPDATE_COUNTDOWN_START'
+// A second has ticked off the countdown for a lobby we're in
+export const LOBBY_UPDATE_COUNTDOWN_TICK = 'LOBBY_UPDATE_COUNTDOWN_TICK'
 // A lobby we're in now has a new host player
 export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
 // A user has joined a lobby we're in

@@ -1,5 +1,7 @@
 import {
   LOBBY_INIT_DATA,
+  LOBBY_UPDATE_COUNTDOWN_START,
+  LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
@@ -44,7 +46,28 @@ const eventToAction = {
   hostChange: (name, event) => ({
     type: LOBBY_UPDATE_HOST_CHANGE,
     payload: event.newId,
-  })
+  }),
+
+  startCountdown: (name, event) => (dispatch, getState) => {
+    let tick = 5
+    dispatch({
+      type: LOBBY_UPDATE_COUNTDOWN_START,
+      payload: tick,
+    })
+
+    // TODO(tec27): deal with cancellations
+
+    const timer = setInterval(() => {
+      tick -= 1
+      dispatch({
+        type: LOBBY_UPDATE_COUNTDOWN_TICK,
+        payload: tick
+      })
+      if (!tick) {
+        clearInterval(timer)
+      }
+    }, 1000)
+  },
 }
 
 export default function registerModule({ siteSocket }) {

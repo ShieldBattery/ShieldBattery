@@ -10,6 +10,8 @@ import {
   LOBBY_LEAVE,
   LOBBY_SET_RACE_BEGIN,
   LOBBY_SET_RACE,
+  LOBBY_START_COUNTDOWN_BEGIN,
+  LOBBY_START_COUNTDOWN,
 } from '../actions'
 
 export function createLobby(name, map, numSlots) {
@@ -89,6 +91,19 @@ export function leaveLobby() {
     dispatch({
       type: LOBBY_LEAVE,
       payload: siteSocket.invoke('/lobbies/leave')
+    })
+  }
+}
+
+export function startCountdown() {
+  return dispatch => {
+    dispatch({
+      type: LOBBY_START_COUNTDOWN_BEGIN,
+    })
+
+    dispatch({
+      type: LOBBY_START_COUNTDOWN,
+      payload: siteSocket.invoke('/lobbies/startCountdown')
     })
   }
 }

@@ -133,6 +133,10 @@ export const Lobbies = {
   }
 }
 
+const Countdown = new Record({
+  timer: null,
+})
+
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
@@ -147,6 +151,7 @@ export class LobbyApi {
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
     this.lobbyLocks = new Map()
+    this.lobbyCountdowns = new Map()
   }
 
   @Api('/create',
@@ -226,7 +231,7 @@ export class LobbyApi {
     let lobby = data.get('lobby')
 
     if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
-      throw new errors.BadRequest('invalid slot')
+      throw new errors.Conflict('slot already occupied')
     }
 
     const computer = Players.createComputer('r', slotNum)
@@ -309,6 +314,36 @@ export class LobbyApi {
       id,
     })
     user.unsubscribe(LobbyApi._getPath(lobby))
+  }
+
+  @Api('/startCountdown',
+    'getUser',
+    'acquireLobby',
+    'getPlayer',
+    'ensureIsLobbyHost')
+  async startCountdown(data, next) {
+    const lobby = data.get('lobby')
+    const lobbyName = lobby.name
+    if (this.lobbyCountdowns.has(lobbyName)) {
+      throw new errors.Conflict('countdown already started')
+    }
+
+    const timer = setTimeout(() => this._completeCountdown(lobbyName), 5000)
+    const countdown = new Countdown({ timer })
+    this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, countdown)
+
+    this._publishTo(lobby, {
+      type: 'startCountdown',
+    })
+  }
+
+  _completeCountdown(lobbyName) {
+    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+    const lobby = this.lobbies.get(lobbyName)
+    this._publishTo(lobby, {
+      type: 'setupGame',
+      // TODO
+    })
   }
 
   async getUser(data, next) {

@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { pushPath } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
-import { addComputer, leaveLobby, setRace } from './action-creators'
+import { addComputer, leaveLobby, setRace, startCountdown } from './action-creators'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -45,7 +45,7 @@ export default class LobbyView extends React.Component {
       content = this.renderLeaveAndJoin()
     } else {
       content = <Lobby lobby={lobby} onAddComputer={::this.onAddComputer}
-          onSetRace={::this.onSetRace} />
+          onSetRace={::this.onSetRace} onStartGame={::this.onStartGame} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'
             onClick={::this.onLeaveLobbyClick} />
@@ -75,5 +75,9 @@ export default class LobbyView extends React.Component {
 
   onSetRace(id, race) {
     this.props.dispatch(setRace(id, race))
+  }
+
+  onStartGame() {
+    this.props.dispatch(startCountdown())
   }
 }

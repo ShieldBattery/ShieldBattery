@@ -13,10 +13,11 @@ export default class Lobby extends React.Component {
     lobby: React.PropTypes.object.isRequired,
     onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
+    onStartGame: React.PropTypes.func,
   };
 
   render() {
-    const { lobby, onSetRace, onAddComputer } = this.props
+    const { lobby, onSetRace, onAddComputer, onStartGame } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
@@ -59,7 +60,8 @@ export default class Lobby extends React.Component {
             <span className={styles.infoLabel}>Game type</span>
             <span className={styles.infoValue}>Melee</span>
           </div>
-          <RaisedButton className={styles.startButton} color='primary' label='Start game' />
+          <RaisedButton className={styles.startButton} color='primary' label='Start game'
+              onClick={onStartGame}/>
         </div>
       </div>
     </div>)
