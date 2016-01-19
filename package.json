@@ -63,7 +63,6 @@
     "koa-error": "^1.1.3",
     "koa-generic-session": "^1.7.0",
     "koa-is-json": "^1.0.0",
-    "koa-pixie-proxy": "^1.0.7",
     "koa-redis": "^1.0.0",
     "koa-router": "^5.0.1",
     "koa-static": "^1.4.9",
