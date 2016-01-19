@@ -6,14 +6,14 @@ export default class Entry extends React.Component {
   static propTypes = {
     link: PropTypes.string.isRequired,
     title: PropTypes.string,
-  }
+  };
 
   // NOTE(tec27): In the next version of react-router, this will be `router`. I've intentionally
   // limited our API above to match what router#isActive will expect (just a href). If you need an
   // entry to something with a query string before that update, well... wait or something.
   static contextTypes = {
     history: PropTypes.object.isRequired
-  }
+  };
 
   render() {
     const { link, title, children } = this.props

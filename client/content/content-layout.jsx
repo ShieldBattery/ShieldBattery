@@ -9,7 +9,7 @@ export default class ContentLayout extends React.Component {
   static propTypes = {
     actions: React.PropTypes.arrayOf(React.PropTypes.element),
     title: React.PropTypes.string,
-  }
+  };
 
   render() {
     return (<div className={styles.content}>

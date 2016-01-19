@@ -5,7 +5,7 @@ import FlatButton from '../material/flat-button.jsx'
 export default class EmptySlot extends React.Component {
   static propTypes = {
     onAddComputer: React.PropTypes.func,
-  }
+  };
 
   render() {
     return (<div className={styles.slot}>

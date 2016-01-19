@@ -9,7 +9,7 @@ export default class ChatMessage extends React.Component {
     timestamp: PropTypes.string.isRequired,
     text: PropTypes.string.isRequired,
     avatarImage: PropTypes.string,
-  }
+  };
 
   render() {
     const { user, timestamp, text, avatarImage } = this.props

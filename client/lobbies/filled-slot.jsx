@@ -10,7 +10,7 @@ export default class FilledSlot extends React.Component {
     isComputer: PropTypes.bool,
     avatarImage: PropTypes.string,
     onSetRace: PropTypes.func,
-  }
+  };
 
   render() {
     const { name, race, isComputer, avatarImage } = this.props

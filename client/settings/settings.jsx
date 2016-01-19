@@ -8,7 +8,7 @@ import styles from '../material/dialog.css'
 class Settings extends React.Component {
   static contextTypes = {
     store: React.PropTypes.object.isRequired,
-  }
+  };
 
   constructor(props) {
     super(props)

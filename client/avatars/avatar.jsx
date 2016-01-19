@@ -8,7 +8,7 @@ export default class Avatar extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     image: PropTypes.string,
-  }
+  };
 
   render() {
     const classes = classnames(styles.avatarImage, this.props.className)

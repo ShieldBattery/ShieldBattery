@@ -13,7 +13,7 @@ export default class Lobby extends React.Component {
     lobby: React.PropTypes.object.isRequired,
     onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
-  }
+  };
 
   render() {
     const { lobby, onSetRace, onAddComputer } = this.props

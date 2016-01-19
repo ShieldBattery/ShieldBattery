@@ -8,7 +8,7 @@ import styles from './button.css'
 export default class IconButton extends React.Component {
   static propTypes = {
     icon: React.PropTypes.string.isRequired,
-  }
+  };
 
   render() {
     const classes = classnames(styles.iconButton, this.props.className)

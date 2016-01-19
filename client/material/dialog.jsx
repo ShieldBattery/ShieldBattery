@@ -13,7 +13,7 @@ const transitionNames = {
 class Dialog extends React.Component {
   static propTypes = {
     onCancel: React.PropTypes.func,
-  }
+  };
 
   constructor(props) {
     super(props)
