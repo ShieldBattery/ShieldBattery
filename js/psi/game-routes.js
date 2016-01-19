@@ -1,7 +1,7 @@
 export function register(nydus, activeGameManager) {
   nydus
     .registerRoute('/game/setupProgress', getGameId, onSetupProgress)
-    .registerRoute('/game/ready', getGameId, onReady)
+    .registerRoute('/game/start', getGameId, onStart)
     .registerRoute('/game/end', getGameId, onEnd)
 
   async function getGameId(data, next) {
@@ -11,17 +11,15 @@ export function register(nydus, activeGameManager) {
   }
 
   async function onSetupProgress(data, next) {
-    if (activeGameManager.id !== data.get('gameId')) return
-    // TODO(tec27): implement
+    activeGameManager.handleSetupProgress(data.get('gameId'), data.get('body').status)
   }
 
-  async function onReady(data, next) {
-    if (activeGameManager.id !== data.get('gameId')) return
-    // TODO(tec27): implement
+  async function onStart(data, next) {
+    activeGameManager.handleGameStart(data.get('gameId'))
   }
 
   async function onEnd(data, next) {
-    if (activeGameManager.id !== data.get('gameId')) return
-    // TODO(tec27): implement
+    const body = data.get('body')
+    activeGameManager.handleGameEnd(data.get('gameId'), body.results, body.time)
   }
 }

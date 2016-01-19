@@ -1,40 +1,90 @@
 import path from 'path'
 import cuid from 'cuid'
+import deepEqual from 'deep-equal'
 import psi from './natives/index'
 import log from './psi/logger'
+import { sendCommand } from './game-command'
 
 export default class ActiveGameManager {
-  constructor() {
-    this._activeGame = null
+  constructor(nydus) {
+    this.nydus = nydus
+    this.activeGameId = null
+    this.config = null
+    this.status = null
   }
 
   get id() {
-    return this._activeGame
+    return this.activeGameId
   }
 
   getStatus() {
-    return null // TODO
+    return this.status
   }
 
-  launchGame(config) {
+  setGameConfig(config) {
+    if (deepEqual(config, this.config)) {
+      // Same config as before, no operation necessary
+      return
+    }
+    if (this.activeGameId) {
+      // Quit the currently active game so we can replace it
+      sendCommand(this.nydus, this.activeGameId, 'quit')
+    }
+    if (!config) {
+      this._setStatus(null)
+      return
+    }
 
+    this.config = config
+    this.activeGameId = cuid()
+    // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
+    this._setStatus('launching')
+    doLaunch(this.activeGameId)
   }
 
   handleGameConnected(id) {
-    return false // TODO
+    if (id !== this.activeGameId) {
+      // Not our active game, must be one we started before and abandoned
+      sendCommand(this.nydus, id, 'quit')
+      log.verbose(`Game ${id} is not our active game, sending quit command`)
+      return
+    }
+
+    this.status = 'configuring'
+    // TODO(tec27): probably need to convert our config to something directly usable by the game
+    // (e.g. with the punched addresses chosen)
+    sendCommand(this.nydus, id, 'setConfig', this.config)
   }
 
   handleGameDisconnected(id) {
-    // TODO
+    if (id !== this.activeGameId) {
+      // Who cares, shut up
+      return
+    }
+
+    this._setStatus(null)
+    this.activeGameId = null
+    this.config = null
   }
 
-  handleSetupProgress(/* TODO */) {
+  handleSetupProgress(gameId, status) {
+    this.status = status
   }
 
-  handleGameReady(/* TODO */) {
+  handleGameStart(gameId) {
+    this._setStatus('playing')
   }
 
-  handleGameEnd(/* TODO */) {
+  handleGameEnd(gameId, results, time) {
+    log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
+    this.nydus.publish('/game/results', { results, time })
+    this._setStatus('done')
+  }
+
+  _setStatus(status) {
+    this.status = status
+    this.nydus.publish('/game/status', status)
+    log.verbose(`Game status updated to '${status}'`)
   }
 }
 
@@ -60,5 +110,4 @@ async function doLaunch(gameId) {
   log.verbose('Dll injected. Attempting to resume process...')
   proc.resume()
   log.verbose('Process resumed')
-  // TODO(tec27): wait for the game to connect
 }

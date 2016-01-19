@@ -15,6 +15,7 @@ import createHttpServer from './psi/http-server'
 import createLocalSettings from './psi/local-settings'
 import { register as registerGameRoutes } from './psi/game-routes'
 import { register as registerSiteRoutes, subscribe as subscribeSiteClient } from './psi/site-routes'
+import { subscribeToCommands } from './psi/game-command'
 import ActiveGameManager from './psi/active-game'
 
 const httpServer = createHttpServer(33198, '127.0.0.1')
@@ -73,9 +74,8 @@ nydusServer.on('connection', function(socket) {
   log.verbose('websocket (' + clientType + ') connected.')
   if (clientType === 'game') {
     const id = socket.conn.request.headers['x-game-id']
-    if (!activeGameManager.handleGameConnected(id)) {
-      log.warning(`Received a game connection that we weren't waiting for: ${id}`)
-    }
+    subscribeToCommands(nydusServer, socket, id)
+    activeGameManager.handleGameConnected(id, socket)
   } else {
     subscribeSiteClient(nydusServer, socket, activeGameManager, localSettings)
   }

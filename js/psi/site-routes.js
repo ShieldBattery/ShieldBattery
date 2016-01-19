@@ -4,21 +4,22 @@ export function register(nydus, localSettings, activeGameManager) {
   nydus
     .registerRoute('/site/getResolution', detectResolution)
     .registerRoute('/site/settings/set', setSettings)
-    .registerRoute('/site/launchGame', launchGame)
+    .registerRoute('/site/setGameConfig', setGameConfig)
 
   async function setSettings(data, next) {
     // TODO(tec27): implement
     nydus.publish('/settings', localSettings.getSettings())
   }
 
-  async function launchGame(data, next) {
+  async function setGameConfig(data, next) {
     // TODO
-    activeGameManager.launchGame(/* ... */)
+    activeGameManager.setGameConfig(/* ... */)
   }
 }
 
 export function subscribe(nydus, client, activeGameManager, localSettings) {
   nydus.subscribeClient(client, '/game/status', activeGameManager.getStatus())
+    .subscribeClient(client, '/game/results')
     .subscribeClient(client, '/settings', localSettings.getSettings())
 }
 
