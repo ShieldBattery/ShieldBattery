@@ -1,6 +1,7 @@
 import { applyMiddleware, createStore, compose } from 'redux'
 import thunk from 'redux-thunk'
 import promise from 'redux-promise'
+import { syncHistory } from 'redux-simple-router'
 import { batchedSubscribe } from 'redux-batched-subscribe'
 /*eslint-disable camelcase*/
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom'
@@ -8,15 +9,18 @@ import { unstable_batchedUpdates as batchedUpdates } from 'react-dom'
 import rootReducer from './root-reducer'
 
 const isDev = (process.env.NODE_ENV || 'development') === 'development'
-const createMiddlewaredStore = compose(
-    applyMiddleware(thunk, promise),
-    batchedSubscribe(batchedUpdates),
-    // Support for https://github.com/zalmoxisus/redux-devtools-extension
-    isDev && window.devToolsExtension ? window.devToolsExtension() : f => f
-)(createStore)
 
-export default function create(initialState) {
+export default function create(initialState, history) {
+  const routerMiddleware = syncHistory(history)
+  const createMiddlewaredStore = compose(
+      applyMiddleware(thunk, promise, routerMiddleware),
+      batchedSubscribe(batchedUpdates),
+      // Support for https://github.com/zalmoxisus/redux-devtools-extension
+      isDev && window.devToolsExtension ? window.devToolsExtension() : f => f
+  )(createStore)
+
   const store = createMiddlewaredStore(rootReducer, initialState)
+  routerMiddleware.listenForReplays(store, state => state.router)
 
   if (module.hot) {
     module.hot.accept('./root-reducer', () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { pushPath } from 'redux-simple-router'
+import { routeActions } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
 import { addComputer, leaveLobby, setRace, startCountdown } from './action-creators'
@@ -29,7 +29,7 @@ function isLeavingLobby(oldProps, newProps) {
 export default class LobbyView extends React.Component {
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(pushPath('/', null))
+      this.props.dispatch(routeActions.push('/'))
     }
   }
 

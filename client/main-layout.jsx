@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { replacePath } from 'redux-simple-router'
+import { routeActions } from 'redux-simple-router'
 import { goToIndex } from './navigation/action-creators'
 import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
@@ -36,13 +36,13 @@ function stateToProps(state) {
 class MainLayout extends React.Component {
   componentWillMount() {
     if (!this.props.children) {
-      this.props.dispatch(goToIndex(replacePath))
+      this.props.dispatch(goToIndex(routeActions.replace))
     }
   }
 
   componentWillReceiveProps(nextProps) {
     if (!nextProps.children) {
-      nextProps.dispatch(goToIndex(replacePath))
+      nextProps.dispatch(goToIndex(routeActions.replace))
     }
   }
 

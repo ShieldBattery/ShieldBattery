@@ -4,8 +4,7 @@ import './styles/global.css'
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
-import { createHistory } from 'history'
-import { syncReduxAndRouter } from 'redux-simple-router'
+import { createHistory, useQueries } from 'history'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
@@ -33,12 +32,9 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  const store = createStore(initData)
+  const history = useQueries(createHistory)()
+  const store = createStore(initData, history)
   registerDispatch(store.dispatch)
-
-  const history = createHistory()
-  syncReduxAndRouter(history, store, state => state.router)
-
   registerSocketHandlers()
 
   return { elem, store, history }
