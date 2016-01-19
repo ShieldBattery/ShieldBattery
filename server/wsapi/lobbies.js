@@ -189,6 +189,9 @@ export class LobbyApi {
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
     }
+    if (this.lobbyCountdowns.has(name)) {
+      throw new errors.Conflict('lobby is counting down')
+    }
 
     let lobby = this.lobbies.get(name)
     const slot = Lobbies.findEmptySlot(lobby)
@@ -229,6 +232,10 @@ export class LobbyApi {
   async addComputer(data, next) {
     const { slotNum } = data.get('body')
     let lobby = data.get('lobby')
+
+    if (this.lobbyCountdowns.has(lobby.name)) {
+      throw new errors.Conflict('lobby is counting down')
+    }
 
     if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
       throw new errors.Conflict('slot already occupied')
@@ -314,6 +321,7 @@ export class LobbyApi {
       id,
     })
     user.unsubscribe(LobbyApi._getPath(lobby))
+    this._maybeCancelCountdown(lobby.name)
   }
 
   @Api('/startCountdown',
@@ -343,6 +351,20 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'setupGame',
       // TODO
+    })
+  }
+
+  // Cancels the countdown if one was occurring (no-op if it was not)
+  _maybeCancelCountdown(lobbyName) {
+    if (!this.lobbyCountdowns.has(lobbyName)) {
+      return
+    }
+
+    const countdown = this.lobbyCountdowns.get(lobbyName)
+    clearTimeout(countdown.timer)
+    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+    this._publishTo(this.lobbies.get(lobbyName), {
+      type: 'cancelCountdown',
     })
   }
 

@@ -1,5 +1,6 @@
 import {
   LOBBY_INIT_DATA,
+  LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_HOST_CHANGE,
@@ -10,11 +11,22 @@ import {
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 
+let countdownTimer = null
+function clearCountdownTimer() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+}
+
 const eventToAction = {
-  init: (name, event) => ({
-    type: LOBBY_INIT_DATA,
-    payload: event,
-  }),
+  init: (name, event) => {
+    clearCountdownTimer()
+    return {
+      type: LOBBY_INIT_DATA,
+      payload: event,
+    }
+  },
 
   join: (name, event) => ({
     type: LOBBY_UPDATE_JOIN,
@@ -32,6 +44,7 @@ const eventToAction = {
     const player = lobby.players.get(event.id).name
     if (user === player) {
       // The leaver was me all along!!!
+      clearCountdownTimer()
       dispatch({
         type: LOBBY_UPDATE_LEAVE_SELF
       })
@@ -49,6 +62,7 @@ const eventToAction = {
   }),
 
   startCountdown: (name, event) => (dispatch, getState) => {
+    clearCountdownTimer()
     let tick = 5
     dispatch({
       type: LOBBY_UPDATE_COUNTDOWN_START,
@@ -57,17 +71,24 @@ const eventToAction = {
 
     // TODO(tec27): deal with cancellations
 
-    const timer = setInterval(() => {
+    countdownTimer = setInterval(() => {
       tick -= 1
       dispatch({
         type: LOBBY_UPDATE_COUNTDOWN_TICK,
         payload: tick
       })
       if (!tick) {
-        clearInterval(timer)
+        clearInterval(countdownTimer)
       }
     }, 1000)
   },
+
+  cancelCountdown: (name, event) => {
+    clearCountdownTimer()
+    return {
+      type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
+    }
+  }
 }
 
 export default function registerModule({ siteSocket }) {
