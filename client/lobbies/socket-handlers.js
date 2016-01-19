@@ -78,7 +78,7 @@ const eventToAction = {
         payload: tick
       })
       if (!tick) {
-        clearInterval(countdownTimer)
+        clearCountdownTimer()
       }
     }, 1000)
   },
