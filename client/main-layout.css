@@ -9,7 +9,7 @@
 
 .activities {
   composes: shadow3dp from './material/shadows.css';
-  composes: col from './styles/flex.css';
+  composes: col exact from './styles/flex.css';
   width: 320px;
   height: 100%;
   background-color: grey800;

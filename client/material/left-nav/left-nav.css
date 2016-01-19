@@ -4,7 +4,7 @@
 @value zIndexLeftNav from '../zindex.css';
 
 .leftNav {
-  composes: col from '../../styles/flex.css';
+  composes: col exact from '../../styles/flex.css';
   width: calc(standardIncrement * 3.5);
   height: 100%;
   background-color: grey800;
