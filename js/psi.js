@@ -7,6 +7,8 @@ process.on('uncaughtException', function(err) {
   }, 100)
 })
 
+log.info('Psi process started')
+
 import path from 'path'
 import fs from 'fs'
 import nydus from 'nydus'
