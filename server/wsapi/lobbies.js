@@ -335,6 +335,9 @@ export class LobbyApi {
     if (this.lobbyCountdowns.has(lobbyName)) {
       throw new errors.Conflict('countdown already started')
     }
+    if (lobby.players.size < 2) {
+      throw new errors.BadRequest('must have at least 2 players')
+    }
 
     const timer = setTimeout(() => this._completeCountdown(lobbyName), 5000)
     const countdown = new Countdown({ timer })

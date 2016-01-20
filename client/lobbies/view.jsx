@@ -35,7 +35,7 @@ export default class LobbyView extends React.Component {
 
   render() {
     const routeLobby = this.props.routeParams.lobby
-    const { lobby } = this.props
+    const { lobby, user } = this.props
 
     let content
     let actions
@@ -44,7 +44,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else {
-      content = <Lobby lobby={lobby} onAddComputer={::this.onAddComputer}
+      content = <Lobby lobby={lobby} user={user} onAddComputer={::this.onAddComputer}
           onSetRace={::this.onSetRace} onStartGame={::this.onStartGame} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'

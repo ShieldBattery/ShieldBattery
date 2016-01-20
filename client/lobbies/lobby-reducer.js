@@ -6,6 +6,9 @@ import {
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
+  LOBBY_UPDATE_COUNTDOWN_START,
+  LOBBY_UPDATE_COUNTDOWN_TICK,
+  LOBBY_UPDATE_COUNTDOWN_CANCELED,
 } from '../actions'
 
 export const Player = new Record({
@@ -21,6 +24,8 @@ export const Lobby = new Record({
   numSlots: 0,
   players: new Map(),
   hostId: null,
+  isCountingDown: false,
+  countdownTimer: -1,
 })
 
 const playersObjToMap = obj => {
@@ -61,6 +66,18 @@ const handlers = {
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
     return state.set('hostId', action.payload)
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_START](state, action) {
+    return state.set('isCountingDown', true).set('countdownTimer', action.payload)
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_TICK](state, action) {
+    return state.set('countdownTimer', action.payload)
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_CANCELED](state, action) {
+    return state.set('isCountingDown', false).set('countdownTimer', -1)
   },
 }
 

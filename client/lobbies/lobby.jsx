@@ -11,9 +11,9 @@ import ChatMessage from '../chat/message.jsx'
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: React.PropTypes.object.isRequired,
+    user: React.PropTypes.object,
     onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
-    onStartGame: React.PropTypes.func,
   };
 
   render() {
@@ -34,6 +34,8 @@ export default class Lobby extends React.Component {
             onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
       }
     }
+
+    const startButtonDisabled = lobby.isCountingDown || lobby.players.size < 2
 
     return (<div className={styles.contentArea}>
       <div className={styles.top}>
@@ -60,10 +62,31 @@ export default class Lobby extends React.Component {
             <span className={styles.infoLabel}>Game type</span>
             <span className={styles.infoValue}>Melee</span>
           </div>
-          <RaisedButton className={styles.startButton} color='primary' label='Start game'
-              onClick={onStartGame}/>
+          { this.renderCountdown() }
+          { this.renderStartButton() }
         </div>
       </div>
     </div>)
+  }
+
+  renderCountdown() {
+    const { lobby } = this.props
+    if (!lobby.isCountingDown) {
+      return null
+    }
+
+    return <h3 className={styles.countdown}>{lobby.countdownTimer}</h3>
+  }
+
+  renderStartButton() {
+    const { lobby, user, onStartGame } = this.props
+    const hostPlayer = lobby.players.get(lobby.hostId)
+    if (!user || hostPlayer.name !== user.name) {
+      return null
+    }
+
+    const isDisabled = lobby.isCountingDown || lobby.players.size < 2
+    return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
+        disabled={isDisabled} onClick={onStartGame}/>)
   }
 }
