@@ -1,13 +1,12 @@
 import log from './psi/logger'
 process.on('uncaughtException', function(err) {
+  console.error(err.stack)
   log.error(err.stack)
   // give the log time to write out
   setTimeout(function() {
-    process.exit()
-  }, 100)
+    process.exit(13)
+  }, 250)
 })
-
-log.info('Psi process started')
 
 import path from 'path'
 import fs from 'fs'
@@ -46,12 +45,18 @@ if (fs.existsSync(path.join(shieldbatteryRoot, 'dev.json'))) {
 }
 log.verbose('environment:\n' + JSON.stringify(environment))
 
+let lastLog = -1
+const logThrottle = 30000
 function authorize(req, cb) {
-  const clientType = req.origin === 'BROODWARS' ? 'game' : 'site'
+  const origin = req.headers.origin
+  const clientType = origin === 'BROODWARS' ? 'game' : 'site'
   if (clientType === 'site') {
     // ensure that this connection is coming from a site we trust
-    if (!environment.allowedHosts.includes(req.origin)) {
-      log.warning('Blocked a connection from an untrusted origin: ' + req.origin)
+    if (!environment.allowedHosts.includes(origin)) {
+      if (Date.now() - lastLog > logThrottle) {
+        lastLog = Date.now()
+        log.warning('Blocked a connection from an untrusted origin: ' + origin)
+      }
       return cb(null, false)
     }
   }

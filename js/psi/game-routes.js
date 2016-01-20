@@ -1,9 +1,4 @@
 export function register(nydus, activeGameManager) {
-  nydus
-    .registerRoute('/game/setupProgress', getGameId, onSetupProgress)
-    .registerRoute('/game/start', getGameId, onStart)
-    .registerRoute('/game/end', getGameId, onEnd)
-
   async function getGameId(data, next) {
     const id = data.get('client').conn.request.headers['x-game-id']
     const newData = data.set('gameId', id)
@@ -22,4 +17,8 @@ export function register(nydus, activeGameManager) {
     const body = data.get('body')
     activeGameManager.handleGameEnd(data.get('gameId'), body.results, body.time)
   }
+
+  nydus.registerRoute('/game/setupProgress', getGameId, onSetupProgress)
+  nydus.registerRoute('/game/start', getGameId, onStart)
+  nydus.registerRoute('/game/end', getGameId, onEnd)
 }
