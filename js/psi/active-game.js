@@ -2,7 +2,7 @@ import path from 'path'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import psi from './natives/index'
-import log from './psi/logger'
+import log from './logger'
 import { sendCommand } from './game-command'
 
 export default class ActiveGameManager {
