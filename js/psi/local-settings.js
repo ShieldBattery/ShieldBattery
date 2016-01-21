@@ -1,6 +1,7 @@
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
+import log from './logger'
 
 class LocalSettings extends EventEmitter {
   constructor(filepath) {
@@ -9,7 +10,7 @@ class LocalSettings extends EventEmitter {
     try {
       this._settings = JSON.parse(fs.readFileSync(filepath, { encoding: 'utf8' }))
     } catch (err) {
-      console.log('Error parsing settings file: ' + err)
+      log.error('Error parsing settings file: ' + err)
     }
     if (!this._settings) {
       throw new Error('Could not read settings file')
@@ -32,7 +33,7 @@ class LocalSettings extends EventEmitter {
 
   onFileContents(err, data) {
     if (err) {
-      console.log('Error getting settings file contents: ' + err)
+      log.error('Error getting settings file contents: ' + err)
       return
     }
 
@@ -42,9 +43,9 @@ class LocalSettings extends EventEmitter {
         this._settings = newData
         this.emit('change')
       }
-      console.log('got new settings: ' + JSON.stringify(this._settings))
+      log.verbose('Got new settings: ' + JSON.stringify(this._settings))
     } catch (err) {
-      console.log('Error parsing settings file: ' + err)
+      log.error('Error parsing settings file: ' + err)
     }
   }
 
@@ -67,7 +68,7 @@ class LocalSettings extends EventEmitter {
     this._settings = newSettings
     fs.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' }, err => {
       if (err) {
-        console.log('Error writing to settings file: ' + err)
+        log.error('Error writing to settings file: ' + err)
       }
     })
     this.emit('change')
