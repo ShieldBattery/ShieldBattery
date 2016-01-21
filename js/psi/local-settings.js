@@ -1,4 +1,78 @@
 import fs from 'fs'
+import { EventEmitter } from 'events'
+import deepEqual from 'deep-equal'
+
+class LocalSettings extends EventEmitter {
+  constructor(filepath) {
+    super()
+    this._filepath = filepath
+    try {
+      this._settings = JSON.parse(fs.readFileSync(filepath, { encoding: 'utf8' }))
+    } catch (err) {
+      console.log('Error parsing settings file: ' + err)
+    }
+    if (!this._settings) {
+      throw new Error('Could not read settings file')
+    }
+
+    this._watcher = this._createWatcher(filepath)
+  }
+
+  // Pulled out due to the bug in babel arrow function transformer that screws with super() calls
+  _createWatcher(filepath) {
+    return fs.watch(filepath, event => this.onFileChange(event))
+  }
+
+  onFileChange(event) {
+    if (event === 'change') {
+      fs.readFile(this._filepath, { encoding: 'utf8' },
+          (err, data) => this.onFileContents(err, data))
+    }
+  }
+
+  onFileContents(err, data) {
+    if (err) {
+      console.log('Error getting settings file contents: ' + err)
+      return
+    }
+
+    try {
+      const newData = JSON.parse(data)
+      if (!deepEqual(newData, this._settings)) {
+        this._settings = newData
+        this.emit('change')
+      }
+      console.log('got new settings: ' + JSON.stringify(this._settings))
+    } catch (err) {
+      console.log('Error parsing settings file: ' + err)
+    }
+  }
+
+  stopWatching() {
+    if (this._watcher) {
+      this._watcher.close()
+      this._watcher = null
+    }
+  }
+
+  get settings() {
+    return this._settings
+  }
+
+  set settings(newSettings) {
+    if (deepEqual(newSettings, this._settings)) {
+      return
+    }
+
+    this._settings = newSettings
+    fs.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' }, err => {
+      if (err) {
+        console.log('Error writing to settings file: ' + err)
+      }
+    })
+    this.emit('change')
+  }
+}
 
 export default function(filepath) {
   if (!fs.existsSync(filepath)) {
@@ -24,58 +98,4 @@ function genRandomPort() {
 
 function jsonify(settings) {
   return JSON.stringify(settings, null, 2)
-}
-
-function LocalSettings(filepath) {
-  this._filepath = filepath
-  try {
-    this._settings = JSON.parse(fs.readFileSync(filepath, { encoding: 'utf8' }))
-  } catch (err) {
-    console.log('Error parsing settings file: ' + err)
-  }
-  if (!this._settings) {
-    throw new Error('Could not read settings file')
-  }
-
-  this._watcher = fs.watch(filepath, this.onFileChange.bind(this))
-}
-
-LocalSettings.prototype.onFileChange = function(event) {
-  if (event === 'change') {
-    fs.readFile(this._filepath, { encoding: 'utf8' }, this.onFileContents.bind(this))
-  }
-}
-
-LocalSettings.prototype.onFileContents = function(err, data) {
-  if (err) {
-    console.log('Error getting settings file contents: ' + err)
-    return
-  }
-
-  try {
-    this._settings = JSON.parse(data)
-    console.log('got new settings: ' + JSON.stringify(this._settings))
-  } catch (err) {
-    console.log('Error parsing settings file: ' + err)
-  }
-}
-
-LocalSettings.prototype.stopWatching = function() {
-  if (this._watcher) {
-    this._watcher.close()
-    this._watcher = null
-  }
-}
-
-LocalSettings.prototype.getSettings = function() {
-  return this._settings
-}
-
-LocalSettings.prototype.setSettings = function(settings) {
-  this._settings = settings
-  fs.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' }, function(err) {
-    if (err) {
-      console.log('Error writing to settings file: ' + err)
-    }
-  })
 }
