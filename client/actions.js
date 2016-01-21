@@ -50,5 +50,7 @@ export const LOBBY_UPDATE_LEAVE_SELF = 'LOBBY_UPDATE_LEAVE_SELF'
 // A user has changed the race in a lobby we're in
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 
+// The settings pertaining to this computer only have changed
+export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
 export const SERVER_STATUS = 'SERVER_STATUS'
