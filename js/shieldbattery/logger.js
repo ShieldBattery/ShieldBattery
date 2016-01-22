@@ -1,7 +1,6 @@
 import path from 'path'
 import logger from '../util/logger'
-const shieldbatteryDir = path.dirname(path.dirname(
-    path.resolve(process.argv[process.argv.length - 2])))
+const shieldbatteryDir = path.dirname(path.dirname(path.resolve(process.argv[1])))
 const logFile = path.join(shieldbatteryDir, 'logs', 'shieldbattery')
 
 // TODO(tec27): configure log levels based on build type

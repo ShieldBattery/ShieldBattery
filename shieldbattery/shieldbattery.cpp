@@ -5,6 +5,7 @@
 #include <node.h>
 #include <winsock2.h>
 #include <Windows.h>
+#include <shellapi.h>
 
 #include <queue>
 #include <string>
@@ -153,6 +154,16 @@ void StartNode(void* arg) {
   vector<char> scriptPathArg(scriptPath.begin(), scriptPath.end());
   scriptPathArg.push_back('\0');
 
+  wchar_t** processArgs;
+  int numProcessArgs;
+  processArgs = CommandLineToArgvW(GetCommandLineW(), &numProcessArgs);
+  assert(numProcessArgs >= 1);
+  const wchar_t* wideGameId = processArgs[0];
+  size_t wideLen = wcslen(wideGameId);
+  char* gameId = new char[wideLen + 1];
+  size_t numConverted;
+  wcstombs_s(&numConverted, gameId, wideLen + 1, wideGameId, wideLen);
+
   vector<char*> argv;
   argv.push_back(path);
   if (NODE_DEBUG) {
@@ -160,8 +171,11 @@ void StartNode(void* arg) {
   }
   argv.push_back(&scriptPathArg[0]);
   argv.push_back("shieldbattery");
+  argv.push_back(gameId);
 
   node::Start(argv.size(), &argv[0]);
+
+  delete[] gameId;
 
   TerminateUiThread();
 }

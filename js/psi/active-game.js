@@ -50,7 +50,7 @@ export default class ActiveGameManager {
       return
     }
 
-    this.status = 'configuring'
+    this._setStatus('configuring')
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
     sendCommand(this.nydus, id, 'setConfig', this.config)
@@ -68,7 +68,7 @@ export default class ActiveGameManager {
   }
 
   handleSetupProgress(gameId, status) {
-    this.status = status
+    this._setStatus(status)
   }
 
   handleGameStart(gameId) {
@@ -90,7 +90,6 @@ export default class ActiveGameManager {
 
 const shieldbatteryRoot = path.dirname(process.execPath)
 async function doLaunch(gameId) {
-  log.verbose('doLaunch called')
   // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86)%/Starcraft and
   // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
   let installPath = psi.getInstallPathFromRegistry()
@@ -98,7 +97,6 @@ async function doLaunch(gameId) {
   const appPath = installPath +
       (installPath.charAt(installPath.length - 1) === '\\' ? '' : '\\') +
       'Starcraft.exe'
-  log.verbose(`appPath: ${appPath}`)
 
   const proc = await psi.launchProcess({
     appPath,

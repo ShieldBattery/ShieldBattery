@@ -40,7 +40,10 @@ bw.chatHandler.on('thisisnotwarcraftinspace', function() {
 })
 
 const socket = nydusClient('wss://lifeoflively.net:33198', {
-  extraHeaders: { origin: 'BROODWARS' }
+  extraHeaders: {
+    origin: 'BROODWARS',
+    'x-game-id': process.argv[process.argv.length - 1]
+  }
 })
 
 socket.on('connect', function() {
@@ -57,11 +60,13 @@ socket.on('connect', function() {
 socket.registerRoute('/game/:id', (route, event) => {
   log.verbose(`TODO: ${JSON.stringify(event)}`)
   if (event.command === 'quit') {
+    // TODO(tec27): if we haven't started initializing yet, this should just process.exit
     bw.cleanUpForExit(onCleanedUpForExit)
   }
 })
 
 // TODO setupRoutes(socket)
+socket.connect()
 
 function initialize(settings, cb) {
   bw.setSettings(settings)
