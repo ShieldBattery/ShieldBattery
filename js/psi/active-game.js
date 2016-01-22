@@ -1,7 +1,7 @@
 import path from 'path'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
-import psi from './natives/index'
+import * as psi from './natives/index'
 import log from './logger'
 import { sendCommand } from './game-command'
 
@@ -90,6 +90,7 @@ export default class ActiveGameManager {
 
 const shieldbatteryRoot = path.dirname(process.execPath)
 async function doLaunch(gameId) {
+  log.verbose('doLaunch called')
   // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86)%/Starcraft and
   // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
   let installPath = psi.getInstallPathFromRegistry()
@@ -97,6 +98,7 @@ async function doLaunch(gameId) {
   const appPath = installPath +
       (installPath.charAt(installPath.length - 1) === '\\' ? '' : '\\') +
       'Starcraft.exe'
+  log.verbose(`appPath: ${appPath}`)
 
   const proc = await psi.launchProcess({
     appPath,

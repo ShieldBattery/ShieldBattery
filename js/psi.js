@@ -6,6 +6,9 @@ process.on('uncaughtException', function(err) {
   setTimeout(function() {
     process.exit(13)
   }, 250)
+}).on('unhandledRejection', function(err) {
+  // Unhandled promise rejections are likely less severe, leave the process up but log it
+  log.error(err.stack)
 })
 
 import path from 'path'
@@ -24,7 +27,7 @@ const nydusServer = nydus(httpServer, { allowRequest: authorize })
 const shieldbatteryRoot = path.dirname(process.execPath)
 const localSettings = createLocalSettings(path.join(shieldbatteryRoot, 'settings.json'))
 const socketTypes = new WeakMap()
-const activeGameManager = new ActiveGameManager()
+const activeGameManager = new ActiveGameManager(nydusServer)
 
 const environment = {
   allowedHosts: [

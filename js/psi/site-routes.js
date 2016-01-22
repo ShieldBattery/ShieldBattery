@@ -7,7 +7,7 @@ export function register(nydus, localSettings, activeGameManager) {
   }
 
   async function setGameConfig(data, next) {
-    const config = data.get('body').gameConfig
+    const config = data.get('body')
     activeGameManager.setGameConfig(config)
   }
 

@@ -26,15 +26,15 @@ class NetworkHandler {
       bytesSent: 0,
       bytesReceived: 0,
     }
-    // TODO(tec27): only create 4/6 if we need them (e.g. only if we have an address of that type)
-    this.socket4 = dgram.createSocket('udp4')
-    this.socket6 = dgram.createSocket('udp6')
+    // Always create an ipv6 socket (which should be fine on Vista+). If we need to send to ipv4
+    // addresses, we convert them to their ipv6-mapped version (::ffff:<ip>)
+    this.socket = dgram.createSocket('udp6')
 
-    this.socket4.on('message', (msg, rinfo) => this._onMessage(msg, rinfo))
-    this.socket6.on('message', (msg, rinfo) => this._onMessage(msg, rinfo))
-
-    this.socket4.bind(settings.bwPort)
-    this.socket6.bind(settings.bwPort)
+    this.socket.on('message', (msg, rinfo) => this._onMessage(msg, rinfo))
+      .on('listening', () => log.debug('Socket listening'))
+      // TODO(tec27): do something better on errors
+      .on('error', err => log.error('Socket error: ' + err))
+    this.socket.bind(settings.bwPort)
 
     // TODO(tec27): get this from psi
     this.mappings = {
@@ -59,8 +59,7 @@ class NetworkHandler {
   destroy() {
     log.debug('Network handler destroyed')
     currentNetwork = null
-    this.socket4.close()
-    this.socket6.close()
+    this.socket.close()
     clearInterval(this.countersTimer)
     this._logCounters()
   }
@@ -73,11 +72,7 @@ class NetworkHandler {
         continue
       }
 
-      if (t.v6) {
-        this.socket6.send(packet, 0, packet.length, t.port, t.address)
-      } else {
-        this.socket4.send(packet, 0, packet.length, t.port, t.address)
-      }
+      this.socket.send(packet, 0, packet.length, t.port, t.address)
       this.counters.bytesSent += packet.length
     }
   }

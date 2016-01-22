@@ -1,11 +1,15 @@
 // Put log and bw first to ensure we can log as much as possible in the event of a crash
 import log from './shieldbattery/logger'
 process.on('uncaughtException', function(err) {
+  console.error(err.stack)
   log.error(err.stack)
   // give the log time to write out
   setTimeout(function() {
-    process.exit()
+    process.exit(13)
   }, 100)
+}).on('unhandledRejection', function(err) {
+  // Unhandled promise rejections are likely less severe, leave the process up but log it
+  log.error(err.stack)
 })
 
 import bw from './shieldbattery/natives/bw'
@@ -36,7 +40,7 @@ bw.chatHandler.on('thisisnotwarcraftinspace', function() {
 })
 
 const socket = nydusClient('wss://lifeoflively.net:33198', {
-  websocketOptions: { origin: 'BROODWARS' }
+  extraHeaders: { origin: 'BROODWARS' }
 })
 
 socket.on('connect', function() {
@@ -50,22 +54,14 @@ socket.on('connect', function() {
   }, 100)
 })
 
-socket.router.call('/setSettings', function(req, res, settings) {
-  log.verbose('received settings, initializing')
-  log.verbose('settings: ' + JSON.stringify(settings, null, 2))
-  initialize(settings, function(err) {
-    if (err) {
-      res.fail(500, 'internal server error', { msg: err.message })
-    } else {
-      res.complete()
-    }
-  })
-}).call('/quit', function(req, res) {
-  res.complete()
-  bw.cleanUpForExit(onCleanedUpForExit)
+socket.registerRoute('/game/:id', (route, event) => {
+  log.verbose(`TODO: ${JSON.stringify(event)}`)
+  if (event.command === 'quit') {
+    bw.cleanUpForExit(onCleanedUpForExit)
+  }
 })
 
-setupRoutes(socket)
+// TODO setupRoutes(socket)
 
 function initialize(settings, cb) {
   bw.setSettings(settings)
