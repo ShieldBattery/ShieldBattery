@@ -1,4 +1,4 @@
-import { Map, OrderedMap, Record } from 'immutable'
+import { List, Map, OrderedMap, Record } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
@@ -137,9 +137,25 @@ const Countdown = new Record({
   timer: null,
 })
 
+const NetworkInfo = new Record({
+  addresses: new List(),
+  port: -1
+})
+// Data collected in preparation for actually starting a game
+const Prep = new Record({
+  networkInfo: new Map(),
+})
+
+export const Preps = {
+  isComplete(prep, lobby) {
+    return lobby.players.every((p, id) => p.isComputer || prep.networkInfo.has(id))
+  }
+}
+
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
+const validPortNumber = p => p > 0 && p <= 65535
 
 const MOUNT_BASE = '/lobbies'
 
@@ -152,6 +168,7 @@ export class LobbyApi {
     this.lobbyUsers = new Map()
     this.lobbyLocks = new Map()
     this.lobbyCountdowns = new Map()
+    this.lobbyPreps = new Map()
   }
 
   @Api('/create',
@@ -342,6 +359,7 @@ export class LobbyApi {
     const timer = setTimeout(() => this._completeCountdown(lobbyName), 5000)
     const countdown = new Countdown({ timer })
     this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, countdown)
+    this.lobbyPreps = this.lobbyPreps.set(lobbyName, new Prep())
 
     this._publishTo(lobby, {
       type: 'startCountdown',
@@ -351,9 +369,23 @@ export class LobbyApi {
   _completeCountdown(lobbyName) {
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
     const lobby = this.lobbies.get(lobbyName)
+    const preps = this.lobbyPreps.get(lobbyName)
+    this.lobbyPreps.delete(lobbyName)
+
+    // TODO(tec27): This basically gives everyone a 5 second time to submit network info, and if
+    // they don't arrive in time, we cancel the thing. Is that enough time?
+    if (!Preps.isComplete(preps, lobby)) {
+      // TODO(tec27): Give a more specific reason? (e.g. players that weren't ready)
+      this._publishTo(lobby, {
+        type: 'cancelCountdown',
+        reason: 'incomplete setup data',
+      })
+      return
+    }
+
     this._publishTo(lobby, {
       type: 'setupGame',
-      // TODO
+      setup: preps
     })
   }
 
@@ -366,9 +398,35 @@ export class LobbyApi {
     const countdown = this.lobbyCountdowns.get(lobbyName)
     clearTimeout(countdown.timer)
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+    this.lobbyPreps = this.lobbyPreps.delete(lobbyName)
     this._publishTo(this.lobbies.get(lobbyName), {
       type: 'cancelCountdown',
     })
+  }
+
+  @Api('/setNetworkInfo',
+    validateBody({
+      port: validPortNumber,
+    }),
+    'getUser',
+    'acquireLobby',
+    'getPlayer')
+  async setNetworkInfo(data, next) {
+    const lobby = data.get('lobby')
+    const lobbyName = lobby.name
+    if (!this.lobbyCountdowns.has(lobbyName)) {
+      throw new errors.BadRequest('countdown must be started')
+    }
+
+    const { conn: { request: req } } = data.get('client')
+    const { port } = data.get('body')
+    const networkInfo = new NetworkInfo({
+      // TODO(tec27): We'll definitely need more addresses than this
+      addresses: new List([req.connection.remoteAddress]),
+      port,
+    })
+    const { id } = data.get('player')
+    this.lobbyPreps = this.lobbyPreps.setIn([lobbyName, 'networkInfo', id], networkInfo)
   }
 
   async getUser(data, next) {

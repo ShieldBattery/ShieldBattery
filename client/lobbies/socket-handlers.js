@@ -61,7 +61,10 @@ const eventToAction = {
     payload: event.newId,
   }),
 
-  startCountdown: (name, event) => (dispatch, getState) => {
+  startCountdown: (name, event, siteSocket) => (dispatch, getState) => {
+    const { bwPort: port } = getState().settings.local
+    siteSocket.invoke('/lobbies/setNetworkInfo', { port })
+
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -95,7 +98,7 @@ export default function registerModule({ siteSocket }) {
   siteSocket.registerRoute('/lobbies/:lobby', (route, event) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type](route.params.lobby, event)
+    const action = eventToAction[event.type](route.params.lobby, event, siteSocket)
     if (action) dispatch(action)
   })
 }

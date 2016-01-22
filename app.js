@@ -92,7 +92,12 @@ compilePromise.then(stats => {
     log.info(`Webpack stats:\n${statStr}`)
   }
 
-  mainServer.listen(port, function() {
+  // TODO(tec27): We can't reasonably support ipv6 without doing STUN and other NAT negotiation,
+  // since not all of our clients may be ipv6. To support both v4 and v6, we need to collect all the
+  // addresses that refer to a client (v4, v6, lan, wan) and pass them out, then let the clients
+  // figure out how to best use them. Until that occurs, we'll force a bind to an ipv4 interface, so
+  // that we only receive those sorts of addresses
+  mainServer.listen(port, '0.0.0.0', function() {
     log.info('Server listening on port ' + port)
   })
 }).catch(err => {
