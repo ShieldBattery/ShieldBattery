@@ -61,7 +61,7 @@ const eventToAction = {
     payload: event.newId,
   }),
 
-  startCountdown: (name, event, siteSocket) => (dispatch, getState) => {
+  startCountdown: (name, event, { siteSocket }) => (dispatch, getState) => {
     const { bwPort: port } = getState().settings.local
     siteSocket.invoke('/lobbies/setNetworkInfo', { port })
 
@@ -91,14 +91,28 @@ const eventToAction = {
     return {
       type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
     }
-  }
+  },
+
+  setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
+    const { lobby: { map, numSlots, players, hostId }, settings } = getState()
+    psiSocket.invoke('/site/setGameConfig', {
+      lobby: {
+        map,
+        numSlots,
+        players,
+        hostId,
+      },
+      settings,
+      setup: event,
+    })
+  },
 }
 
-export default function registerModule({ siteSocket }) {
+export default function registerModule({ siteSocket, psiSocket }) {
   siteSocket.registerRoute('/lobbies/:lobby', (route, event) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type](route.params.lobby, event, siteSocket)
+    const action = eventToAction[event.type](route.params.lobby, event, { siteSocket, psiSocket })
     if (action) dispatch(action)
   })
 }
