@@ -1,121 +1,126 @@
 // Handling for chat, allowing for simple registration of commands and for becoming an exclusive
 // reader of chat (i.e. receiving events for each line and not having those lines go through any
 // registered commands first)
-var EventEmitter = require('events').EventEmitter
-  , util = require('util')
-  , stream = require('stream')
+import { EventEmitter } from 'events'
+import { Duplex } from 'stream'
 
-module.exports = function(bw) {
-  return new ChatHandler(bw)
-}
+class ChatStream extends Duplex {
+  constructor(displayFunc, closeCb) {
+    super()
+    this.displayFunc = displayFunc
+    this.closeCb = closeCb || function() {}
+    this._closed = false
 
-function ChatHandler(bw) {
-  EventEmitter.call(this)
-  this.bw = bw
-  this.bw.bindings.onCheckForChatCommand = this._onChatLine.bind(this)
-}
-util.inherits(ChatHandler, EventEmitter);
-
-ChatHandler.prototype._onChatLine = function(message, type, recipients) {
-  if (!message) return // BW calls these methods even if no message was typed
-
-  if (this._exclusive) {
-    this._exclusive._addLine(message)
-    return
+    this._sendBuffer = ''
+    this._timeout = 0
   }
 
-  var convertedType
-  switch(type) {
-    case 2: convertedType = 'all'; break
-    case 3: convertedType = 'allies'; break
-    case 4: convertedType = 'player'; break
-    default: convertedType = 'unknown'
-  }
-
-  var command = message.split(' ', 1)[0]
-    , handled = this.emit(command, message, convertedType, recipients)
-
-  if (!handled) {
-    // we didn't handle it, so send it back to BW so it goes through to other users
-    this.bw.bindings.sendMultiplayerChatMessage(message, type, recipients)
-  }
-}
-
-ChatHandler.prototype.grabExclusiveStream = function() {
-  if (this._exclusive) {
-    throw new Error('Exclusive lock already obtained')
-  }
-
-  var self = this
-  this._exclusive = new ChatStream(function() {
-    self.bw.displayIngameMessage.apply(self.bw, arguments)
-  }, function() {
-    self._exclusive = null
-  })
-
-  return this._exclusive
-}
-
-function ChatStream(displayFunc, closeCb) {
-  stream.Duplex.call(this)
-  this.displayFunc = displayFunc
-  this.closeCb = closeCb || function() {}
-  this._closed = false
-
-  this._sendBuffer = ''
-  this._timeout = 0
-
-  var self = this
-  this.once('finish', function() {
-    if (self._sendBuffer) {
-      var lines = self._sendBuffer.split('\n')
-      for (var i = 0; i < lines.length; i++) {
-        displayFunc(lines[i], self._timeout)
+  _setupFinishHandler() {
+    this.once('finish', function() {
+      if (this._sendBuffer) {
+        const lines = this._sendBuffer.split('\n')
+        for (const i = 0; i < lines.length; i++) {
+          this.displayFunc(lines[i], this._timeout)
+        }
+        this._sendBuffer = ''
       }
-      self._sendBuffer = ''
+    })
+  }
+
+  close() {
+    if (this._closed) return
+    this.closeCb()
+    this.push(null)
+  }
+
+  _addLine(line) {
+    if (this._closed) return
+    this.write(line + '\n')
+    this.push(line + '\n')
+  }
+
+  _read() {
+    // nothing to do, since our source (chat) tells us when stuff is ready and we can't pause it
+  }
+
+  _write(chunk, encoding, next) {
+    if (this._closed) {
+      next(new Error('Stream is already closed'))
+      return
     }
-  })
-}
-util.inherits(ChatStream, stream.Duplex)
 
-ChatStream.prototype.close = function() {
-  if (this._closed) return
-  this.closeCb()
-  this.push(null)
-}
+    const newBuffer = this._sendBuffer + chunk
+    const lines = newBuffer.split('\n')
+    for (let i = 0; i < lines.length - 1; i++) {
+      this.displayFunc(lines[i], this._timeout)
+    }
 
-ChatStream.prototype._addLine = function(line) {
-  if (this._closed) return
-  this.write(line + '\n')
-  this.push(line + '\n')
-}
-
-ChatStream.prototype._read = function() {
-  // nothing to do, since our source (chat) tells us when stuff is ready and we can't pause it
-}
-
-ChatStream.prototype._write = function(chunk, encoding, next) {
-  if (this._closed) {
-    next(new Error('Stream is already closed'))
-    return
+    this._sendBuffer = lines[lines.length - 1]
+    next()
   }
 
-  var newBuffer = this._sendBuffer + chunk
-    , lines = newBuffer.split('\n')
-  for (var i = 0; i < lines.length - 1; i++) {
-    this.displayFunc(lines[i], this._timeout)
+  end(chunk, enc, cb) {
+    super.end(chunk, enc, cb)
+    this.close()
+    this._closed = true
   }
 
-  this._sendBuffer = lines[lines.length - 1]
-  next()
+  setMessageTimeout(timeout) {
+    this._timeout = timeout
+  }
 }
 
-ChatStream.prototype.end = function() {
-  stream.Duplex.prototype.end.apply(this, arguments)
-  this.close()
-  this._closed = true
+class ChatHandler extends EventEmitter {
+  constructor(bw) {
+    super()
+    this.bw = bw
+    this._exclusive = null
+    this._registerWithBindings()
+  }
+
+  _registerWithBindings() {
+    this.bw.bindings.onCheckForChatCommand =
+        (message, type, recipients) => this._onChatLine(message, type, recipients)
+  }
+
+  _onChatLine(message, type, recipients) {
+    if (!message) return // BW calls these methods even if no message was typed
+
+    if (this._exclusive) {
+      this._exclusive._addLine(message)
+      return
+    }
+
+    let convertedType
+    switch (type) {
+      case 2: convertedType = 'all'; break
+      case 3: convertedType = 'allies'; break
+      case 4: convertedType = 'player'; break
+      default: convertedType = 'unknown'
+    }
+
+    const command = message.split(' ', 1)[0]
+    const handled = this.emit(command, message, convertedType, recipients)
+
+    if (!handled) {
+      // we didn't handle it, so send it back to BW so it goes through to other users
+      this.bw.bindings.sendMultiplayerChatMessage(message, type, recipients)
+    }
+  }
+
+  grabExclusiveStream() {
+    if (this._exclusive) {
+      throw new Error('Exclusive lock already obtained')
+    }
+
+    this._exclusive = new ChatStream(
+        (message, timeout) => this.bw.displayIngameMessage(message, timeout),
+        () => this._exclusive = null)
+
+    return this._exclusive
+  }
 }
 
-ChatStream.prototype.setMessageTimeout = function(timeout) {
-  this._timeout = timeout
+export default function(bw) {
+  return new ChatHandler(bw)
 }
