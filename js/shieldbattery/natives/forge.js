@@ -43,8 +43,6 @@ class JsForge extends EventEmitter {
   endWndProc() {
     if (wndProcRunning) {
       forge.endWndProc()
-      wndProcRunning = false
-      this.emit('endWndProc')
     }
   }
 

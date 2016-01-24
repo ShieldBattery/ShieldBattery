@@ -25,7 +25,8 @@ bw.on('log', function(level, msg) {
 
 import repl from 'repl'
 import nydusClient from 'nydus-client'
-import initGame from './shieldbattery/init-game.js'
+import forge from './shieldbattery/natives/forge'
+import initGame from './shieldbattery/init-game'
 
 bw.chatHandler.on('thisisnotwarcraftinspace', function() {
   log.debug('got repl command')
@@ -63,6 +64,8 @@ socket.on('connect', function() {
 
 socket.registerRoute('/game/:id', (route, event) => {
   if (event.command === 'quit') {
+    log.verbose('Received quit command')
+    forge.endWndProc() // ensure that we aren't blocking the UI thread with forge's wndproc
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
     // TODO(tec27): handle failures
