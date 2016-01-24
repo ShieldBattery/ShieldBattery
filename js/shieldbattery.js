@@ -60,7 +60,6 @@ socket.on('connect', function() {
 socket.registerRoute('/game/:id', (route, event) => {
   log.verbose(`TODO: ${JSON.stringify(event)}`)
   if (event.command === 'quit') {
-    // TODO(tec27): if we haven't started initializing yet, this should just process.exit
     bw.cleanUpForExit(onCleanedUpForExit)
   }
 })

@@ -75,7 +75,7 @@ class Lobby extends EventEmitter {
   }
 
   _makeSlots() {
-    this.slots = this.bindings.slot.map(nativeSlot => new PlayerSlot(nativeSlot))
+    this.slots = this.bindings.slots.map(nativeSlot => new PlayerSlot(nativeSlot))
   }
 
   _setupEventHandlers() {
@@ -435,7 +435,12 @@ class BroodWar extends EventEmitter {
   }
 
   cleanUpForExit(cb) {
-    this.bindings.cleanUpForExit(cb)
+    if (!processInitialized) {
+      // cleaning up for exit is only necessary if any initialization has happened
+      process.nextTick(cb)
+    } else {
+      this.bindings.cleanUpForExit(cb)
+    }
   }
 }
 

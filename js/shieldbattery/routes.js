@@ -2,7 +2,6 @@ var bw = require('./natives/bw')
   , log = require('./logger')
   , forge = require('./natives/forge')
   , lobbyStore = require('./lobby-store')
-  , sub = require('./sub')
 
 var socket
   , lobbySubs = []
