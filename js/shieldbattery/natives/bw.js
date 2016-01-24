@@ -280,7 +280,7 @@ class BroodWar extends EventEmitter {
   // Kept outside of the constructor to deal with arrow-functions+super issues in babel
   _setupLogging() {
     const levels = [ 'verbose', 'debug', 'warning', 'error' ]
-    bindings.onLog = (logLevel, msg) => this.emit('log', levels[logLevel], msg)
+    this.bindings.onLog = (logLevel, msg) => this.emit('log', levels[logLevel], msg)
   }
 
   setSettings(settings) {
