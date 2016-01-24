@@ -8,8 +8,14 @@ process.on('uncaughtException', function(err) {
     process.exit(13)
   }, 100)
 }).on('unhandledRejection', function(err) {
-  // Unhandled promise rejections are likely less severe, leave the process up but log it
   log.error(err.stack)
+  if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+    // These types are very unlikely to be handle-able properly, exit
+    setTimeout(function() {
+      process.exit(13)
+    }, 100)
+  }
+  // Other promise rejections are likely less severe, leave the process up but log it
 })
 
 import bw from './shieldbattery/natives/bw'

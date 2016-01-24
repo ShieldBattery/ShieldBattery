@@ -4,16 +4,22 @@ import dgram from 'dgram'
 import prettyBytes from 'pretty-bytes'
 import log from '../logger'
 
-// TODO(tec27): get this from psi
-const settings = {
-  bwPort: 6112,
-}
-
 let currentNetwork = null
 export { currentNetwork }
 
 // TODO(tec27): pass this in from C++?
 const PACKET_SIZE = 576 - (60 + 8)
+
+let settings = {}
+let mappings = {}
+
+export function setSettings(newSettings) {
+  settings = newSettings
+}
+
+export function setMappings(newMappings) {
+  mappings = newMappings
+}
 
 class NetworkHandler {
   constructor(onReceive) {
