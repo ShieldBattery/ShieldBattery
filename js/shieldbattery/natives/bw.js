@@ -383,24 +383,19 @@ class BroodWar extends EventEmitter {
     }, BroodWar._gameJoinTimeout)
   }
 
-  // cb is func()
-  initProcess(cb) {
-    cb = cb.bind(this)
+  async initProcess() {
     if (processInitialized) {
-      this._log('verbose', 'Already initialized')
-      return cb()
+      return
     }
-    this.bindings.initProcess(err => {
-      if (err) return cb(err)
 
-      this.bindings.isBroodWar = true
-      this.bindings.initSprites(function(err) {
-        if (!err) {
-          processInitialized = true
-        }
-        cb(err)
-      })
+    await new Promise((resolve, reject) => {
+      this.bindings.initProcess(err => err ? reject(err) : resolve())
     })
+    this.bindings.isBroodWar = true
+    await new Promise((resolve, reject) => {
+      this.bindings.initSprites(err => err ? reject(err) : resolve())
+    })
+    processInitialized = true
   }
 
   // type is 'all', 'allies', or 'player'

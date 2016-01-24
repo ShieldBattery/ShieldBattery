@@ -18,10 +18,8 @@ bw.on('log', function(level, msg) {
 })
 
 import repl from 'repl'
-import setupRoutes from './shieldbattery/routes'
 import nydusClient from 'nydus-client'
-import forge from './shieldbattery/natives/forge'
-import './shieldbattery/natives/snp'
+import initGame from './shieldbattery/init-game.js'
 
 bw.chatHandler.on('thisisnotwarcraftinspace', function() {
   log.debug('got repl command')
@@ -58,44 +56,14 @@ socket.on('connect', function() {
 })
 
 socket.registerRoute('/game/:id', (route, event) => {
-  log.verbose(`TODO: ${JSON.stringify(event)}`)
   if (event.command === 'quit') {
-    bw.cleanUpForExit(onCleanedUpForExit)
+    bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
+  } else if (event.command === 'setConfig') {
+    // TODO(tec27): handle failures
+    initGame(event.payload)
+  } else {
+    log.verbose(`TODO: ${JSON.stringify(event)}`)
   }
 })
 
-// TODO setupRoutes(socket)
 socket.connect()
-
-function initialize(settings, cb) {
-  bw.setSettings(settings)
-
-  if (!forge.inject()) {
-    cb(new Error('forge injection failed'))
-  } else {
-    log.verbose('forge injected')
-  }
-
-  forge.on('startWndProc', function() {
-    log.verbose('forge\'s wndproc pump started')
-  }).on('endWndProc', function() {
-    log.verbose('forge\'s wndproc pump finished')
-  })
-
-  bw.initProcess(function afterInit(err) {
-    if (err) {
-      return cb(err)
-    }
-
-    log.verbose('process initialized')
-    forge.runWndProc()
-
-    cb()
-  })
-}
-
-function onCleanedUpForExit() {
-  setTimeout(function() {
-    process.exit()
-  }, 100)
-}
