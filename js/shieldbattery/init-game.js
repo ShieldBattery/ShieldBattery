@@ -30,8 +30,9 @@ function buildMappings(lobby, setup) {
 }
 
 export default async function initGame({ lobby, settings, setup, localUser }) {
-  setSnpSettings(settings)
-  bw.setSettings(settings)
+  // TODO(tec27): handle global settings?
+  setSnpSettings(settings.local)
+  bw.setSettings(settings.local)
 
   const mappings = buildMappings(lobby, setup)
   log.verbose('generated network mappings: ' + JSON.stringify(mappings))
