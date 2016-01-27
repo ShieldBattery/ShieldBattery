@@ -1,6 +1,7 @@
 const bindings = process._linkedBinding('shieldbattery_snp')
 
 import dgram from 'dgram'
+import { isIPv6 } from 'net'
 import prettyBytes from 'pretty-bytes'
 import log from '../logger'
 
@@ -10,15 +11,15 @@ export { currentNetwork }
 // TODO(tec27): pass this in from C++?
 const PACKET_SIZE = 576 - (60 + 8)
 
-let settings = {}
-let mappings = {}
+let _settings = {}
+let _mappings = {}
 
 export function setSettings(newSettings) {
-  settings = newSettings
+  _settings = newSettings
 }
 
 export function setMappings(newMappings) {
-  mappings = newMappings
+  _mappings = newMappings
 }
 
 class NetworkHandler {
@@ -40,20 +41,15 @@ class NetworkHandler {
       .on('listening', () => log.debug('Socket listening'))
       // TODO(tec27): do something better on errors
       .on('error', err => log.error('Socket error: ' + err))
-    this.socket.bind(settings.bwPort)
+    this.socket.bind(_settings.bwPort)
+    this.mappings = Object.keys(_mappings).map(key => {
+      const { port, address } = _mappings[key]
+      return {
+        port,
+        address: isIPv6(address) ? address : `::ffff:${address}`,
+      }
+    })
 
-    // TODO(tec27): get this from psi
-    this.mappings = {
-      // TODO(tec27): this first one should *always* be the host
-      '10.27.27.0': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.1': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.2': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.3': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.4': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.5': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.6': { port: 6112, address: '127.0.0.1' },
-      '10.27.27.7': { port: 6112, address: '127.0.0.1' },
-    }
     this.reverseMappings = Object.keys(this.mappings).reduce((result, key) => {
       const val = this.mappings[key]
       result[`${val.port}|${val.address}`] = key

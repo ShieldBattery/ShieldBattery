@@ -77,5 +77,3 @@ void DestroyNetworkHandler();
 
 }  // namespace snp
 }  // namespace sbat
-
-__declspec(dllexport) BOOL __stdcall SnpBind(uint32 index, sbat::snp::SnpFunctions** functions);

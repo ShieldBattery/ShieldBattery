@@ -12,13 +12,6 @@ function def(context, name, getter) {
 class PlayerSlot {
   constructor(nativeSlot) {
     this.nativeSlot = nativeSlot
-
-    def(this, 'playerId', () => this.nativeSlot.playerId)
-    def(this, 'stormId', () => this.nativeSlot.stormId)
-    def(this, 'type', () => this._convertType)
-    def(this, 'race', () => this._convertRace)
-    def(this, 'team', () => this.nativeSlot.team)
-    def(this, 'name', () => this.nativeSlot.name)
   }
 
   _convertType() {
@@ -52,6 +45,12 @@ class PlayerSlot {
     }
   }
 }
+def(PlayerSlot.prototype, 'playerId', function() { return this.nativeSlot.playerId })
+def(PlayerSlot.prototype, 'stormId', function() { return this.nativeSlot.stormId })
+def(PlayerSlot.prototype, 'type', function() { return this._convertType() })
+def(PlayerSlot.prototype, 'race', function() { return this._convertRace() })
+def(PlayerSlot.prototype, 'team', function() { return this.nativeSlot.team })
+def(PlayerSlot.prototype, 'name', function() { return this.nativeSlot.name })
 
 class Lobby extends EventEmitter {
   // turns will only be processed every 250ms, but data messages can be processed much faster
@@ -153,43 +152,36 @@ class Lobby extends EventEmitter {
     // TODO(tec27): deal with return value here to know what data messages were processed
   }
 
-  _ensureRunning(cb) {
+  _ensureRunning() {
     if (!this._running) {
-      cb(new Error('Lobby not running'))
-      return false
+      throw new Error('Lobby not running')
     }
-    return true
   }
 
-  // cb is func(err)
-  addComputer(slot, cb) {
-    if (!this._ensureRunning()) return undefined
+  async addComputer(slot) {
+    this._ensureRunning()
     // TODO(tec27): use slot info to do preemptive checking here
     if (!this.bindings.addComputer(slot)) {
-      return cb(new Error('Could not add computer in slot ' + slot))
+      throw new Error('Could not add computer in slot ' + slot)
     }
 
-    const event = 'slotChange:' + slot
-    let timeout
-    const changeListener = info => {
-      // TODO(tec27): provide a BW constants module for this shit
-      if (info.stormId === 0xFF && info.type === 5) {
-        clearTimeout(timeout)
-        this._gameEmitter.removeListener(event, changeListener)
-        cb(null)
+    return new Promise((resolve) => {
+      const event = 'slotChange:' + slot
+      const changeListener = info => {
+        // TODO(tec27): provide a BW constants module for this shit
+        if (info.stormId === 0xFF && info.type === 5) {
+          this._gameEmitter.removeListener(event, changeListener)
+          resolve()
+        }
       }
-    }
-    timeout = setTimeout(() => {
-      this._gameEmitter.removeListener(event, changeListener)
-      cb(new Error('Adding computer in slot ' + slot + ' timed out'))
-    }, Lobby._actionTimeout)
-    this._gameEmitter.on(event, changeListener)
+      this._gameEmitter.on(event, changeListener)
+    })
   }
 
   // slot is optional (defaults to your slot)
   // cb is func(err)
   setRace(slot, race, cb) {
-    if (!this._ensureRunning()) return undefined
+    this._ensureRunning()
 
     if (arguments.length < 3) {
       cb = race
@@ -226,38 +218,32 @@ class Lobby extends EventEmitter {
     this._gameEmitter.on(event, changeListener)
   }
 
-  // cb is func(err)
-  startCountdown(cb) {
-    // TODO(tec27): this is probably not really the function we want. Ideally we want something
-    // where you just tell the lobby to start a game and it deals with countdown/init/briefing
-    // logistics and returns a game EE or an error
-    if (!this._ensureRunning()) return undefined
+  async startGame() {
+    this._ensureRunning()
 
-    if (!this.bindings.startGameCountdown()) {
-      return cb(new Error('Couldn\'t start countdown'))
-    }
-
-    let timeout
-    const listener = () => {
-      clearTimeout(timeout)
-      cb(null)
-    }
-    timeout = setTimeout(function() {
-      this._gameEmitter.removeListener('countdownStarted', listener)
-      cb(new Error('Starting countdown timed out'))
-    }, Lobby._actionTimeout)
-    this._gameEmitter.once('countdownStarted', listener)
+    await new Promise((resolve, reject) => {
+      this._gameEmitter.once('countdownStarted', () => resolve())
+      if (!this.bindings.startGameCountdown()) {
+        reject(new Error('Couldn\'t start countdown'))
+      }
+    })
+    await new Promise((resolve, reject) => {
+      this._gameEmitter.once('gameInit', () => resolve())
+    })
   }
 
-  // cb is func(err)
-  runGameLoop(cb) {
-    // TODO(tec27): see startCountdown note above
-    if (!this._ensureRunning()) return
-
-    this.bindings.runGameLoop(cb)
+  async runGameLoop() {
+    this._ensureRunning()
 
     this.stop()
     this.emit('gameStarted')
+
+    return new Promise((resolve, reject) => {
+      this.bindings.runGameLoop((err, results, time) => {
+        if (err) reject(err)
+        else resolve({ results, time })
+      })
+    })
   }
 }
 
@@ -291,47 +277,37 @@ class BroodWar extends EventEmitter {
     this.emit('log', level, msg)
   }
 
-  // cb is func(err, lobby)
-  createLobby(playerName, gameSettings, cb) {
-    cb = cb.bind(this)
+  async createLobby(playerName, gameSettings) {
     if (!processInitialized) {
-      return cb(new Error('Process must be initialized first'))
+      throw new Error('Process must be initialized first')
     }
     if (inLobby) {
-      return cb(new Error('Already in a lobby or game'))
+      throw new Error('Already in a lobby or game')
     }
 
     this.bindings.isBroodWar = true
     this.bindings.localPlayerName = playerName
     if (!this.bindings.chooseNetworkProvider()) {
-      return cb(new Error('Could not choose network provider'))
+      throw new Error('Could not choose network provider')
     }
     this.bindings.isMultiplayer = true
 
     if (!this.bindings.createGame(gameSettings)) {
-      return cb(new Error('Could not create game'))
+      throw new Error('Could not create game')
     }
     this.bindings.initGameNetwork()
     inLobby = true
-    this._lobby.start()
 
-    let initListener
-    const onTimeout = () => {
-      this._lobby.removeListener('downloadStatus:0', initListener)
-      cb(new Error('Game creation timed out'))
-    }
-    const timeout = setTimeout(onTimeout, BroodWar._gameCreationTimeout)
-    initListener = percent => {
-      if (percent === 100) {
-        this._lobby.removeListener('downloadStatus:0', initListener)
-        clearTimeout(timeout)
-        cb(null, this._lobby)
-      } else {
-        clearTimeout(timeout)
-        setTimeout(onTimeout, BroodWar._gameCreationTimeout)
+    return new Promise(resolve => {
+      const initListener = percent => {
+        if (percent === 100) {
+          this._lobby.removeListener('downloadStatus:0', initListener)
+          resolve(this._lobby)
+        }
       }
-    }
-    this._lobby.on('downloadStatus:0', initListener)
+      this._lobby.on('downloadStatus:0', initListener)
+      this._lobby.start()
+    })
   }
 
   joinLobby(playerName, host, port, cb) {

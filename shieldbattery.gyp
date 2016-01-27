@@ -163,6 +163,9 @@
         'snp/functions.h',
         'snp/module-priv.h',
         'snp/snp.h',
+
+        # exports
+        'snp/snp.def',
       ],
       'msbuild_props': [
         '$(SolutionDir)shieldbattery/shieldbattery.props',

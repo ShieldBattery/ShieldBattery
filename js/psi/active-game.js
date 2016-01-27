@@ -46,7 +46,7 @@ export default class ActiveGameManager {
     if (id !== this.activeGameId) {
       // Not our active game, must be one we started before and abandoned
       sendCommand(this.nydus, id, 'quit')
-      log.verbose(`Game ${id} is not our active game, sending quit command`)
+      log.verbose(`Game ${id} is not our active game [${this.activeGameId}], sending quit command`)
       return
     }
 

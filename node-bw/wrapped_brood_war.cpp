@@ -646,6 +646,7 @@ void WrappedBroodWar::CreateGame(const FunctionCallbackInfo<Value>& info) {
   MapResult result = bw->CreateGame(game_name ? game_name : "ShieldBattery", map_path, game_type,
       game_speed);
 
+  // TODO(tec27): pass the result back out to JS so we can use it for deciding what to do?
   info.GetReturnValue().Set(Nan::New(result == MapResult::OK));
 }
 
