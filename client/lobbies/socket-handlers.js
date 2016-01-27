@@ -94,7 +94,7 @@ const eventToAction = {
   },
 
   setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
-    const { lobby: { map, numSlots, players, hostId }, settings } = getState()
+    const { lobby: { map, numSlots, players, hostId }, settings, auth: { user } } = getState()
     psiSocket.invoke('/site/setGameConfig', {
       lobby: {
         map,
@@ -103,7 +103,8 @@ const eventToAction = {
         hostId,
       },
       settings,
-      setup: event,
+      setup: event.setup,
+      localUser: user,
     })
   },
 }
