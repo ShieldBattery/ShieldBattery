@@ -21,7 +21,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
-import { createLobby, joinLobby } from './lobbies/action-creators'
+import { joinLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
   return {
@@ -109,7 +109,7 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick() {
-    this.props.dispatch(createLobby('baby\'s first lobby', 'c:\\lt.scm', 4))
+    this.props.dispatch(openDialog('createLobbyOverlay'))
   }
 
   onJoinLobbyClick() {
