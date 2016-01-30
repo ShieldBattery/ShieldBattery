@@ -2,6 +2,7 @@ import React from 'react'
 import FlatButton from '../material/flat-button.jsx'
 import Select from '../material/select/select.jsx'
 import Option from '../material/select/option.jsx'
+import Slider from '../material/slider.jsx'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import styles from '../material/dialog.css'
 
@@ -43,6 +44,7 @@ class Settings extends React.Component {
             <Option value={7} text='Menu option 7' />
             <Option value={8} text='Menu option 8' />
           </Select>
+          <Slider min={0} max={4} defaultValue={2} step={1} label={'Mouse sensitivity'}/>
         </div>
         <div className={styles.actions}>
           <FlatButton label='Cancel' color='accent' onClick={::this.onSettingsCanceled} />

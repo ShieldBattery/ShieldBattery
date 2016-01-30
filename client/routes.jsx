@@ -17,12 +17,14 @@ let devRoutes
 if (process.env.NODE_ENV !== 'production') {
   const DevLobbies = require('./lobbies/devonly/lobby-test.jsx').default
   const DevSelects = require('./material/devonly/selects-test.jsx').default
+  const DevSliders = require('./material/devonly/slider-test.jsx').default
   const DevTextFields = require('./material/devonly/text-field-test.jsx').default
 
   devRoutes = <Route>
     <Route path='/devlobbies' component={DevLobbies} />
     <Route path='/devmaterial/'>
       <Route path='select' component={DevSelects} />
+      <Route path='slider' component={DevSliders} />
       <Route path='textfield' component={DevTextFields} />
     </Route>
   </Route>
