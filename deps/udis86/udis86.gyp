@@ -24,11 +24,8 @@
           '.',
         ],
       },
-      'link_settings': {
-        'libraries': [ '-lvcruntime.lib' ],
-      },
       'msvs_disabled_warnings': [
-        4013,  # unknown 'memset', handled in dependent libraries by vcruntime.lib
+        4013,  # unknown 'memset', handled in dependent libraries by vcruntime
       ],
     },
   ],
