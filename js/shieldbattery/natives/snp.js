@@ -42,17 +42,19 @@ class NetworkHandler {
       // TODO(tec27): do something better on errors
       .on('error', err => log.error('Socket error: ' + err))
     this.socket.bind(_settings.bwPort)
-    this.mappings = Object.keys(_mappings).map(key => {
+    this.mappings = Object.keys(_mappings).reduce((result, key) => {
       const { port, address } = _mappings[key]
-      return {
+      result[key] = {
         port,
         address: isIPv6(address) ? address : `::ffff:${address}`,
       }
-    })
+      return result
+    }, {})
 
     this.reverseMappings = Object.keys(this.mappings).reduce((result, key) => {
       const val = this.mappings[key]
       result[`${val.port}|${val.address}`] = key
+      return result
     }, {})
 
     this.countersTimer = setInterval(() => this._logCounters(), 4 * 60 * 1000)
@@ -91,7 +93,7 @@ class NetworkHandler {
       return
     }
     this.onReceive(msg, mapped)
-    this.counters.receivedBytes += msg.length
+    this.counters.bytesReceived += msg.length
   }
 
   _logCounters() {

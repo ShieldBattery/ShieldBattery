@@ -551,6 +551,10 @@ void BroodWar::CleanUpForExit() {
   }
 }
 
+uint32 BroodWar::GetLastStormError() {
+  return offsets_->functions.SErrGetLastError();
+}
+
 void BroodWar::SetInputDisabled(bool disabled) {
   input_disabled_ = disabled;
 }

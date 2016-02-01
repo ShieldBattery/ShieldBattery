@@ -15,6 +15,7 @@
 #include "logger/logger.h"
 #include "shieldbattery/settings.h"
 #include "shieldbattery/shieldbattery.h"
+#include "snp/snp.h"
 #include "v8-helpers/helpers.h"
 
 using Nan::Callback;
@@ -659,17 +660,23 @@ void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
   Utf8String address(info[2]);
   uint32 port = info[3]->Uint32Value();
 
-  SnpInterface* snp = GetSnpInterface();
-  assert(snp != nullptr);
   struct sockaddr_in addr;
   uv_ip4_addr(*address, port, &addr);
-  snp->SpoofGame(game_name, addr, is_replay);
+  sbat::snp::SpoofGame(game_name, addr, is_replay);
 
   return;
 }
 
-void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
-  BroodWar* bw = WrappedBroodWar::Unwrap(info);
+struct JoinGameContext {
+  unique_ptr<Callback> cb;
+  BroodWar* bw;
+  bool success;
+};
+
+void JoinGameWork(uv_work_t* req) {
+  JoinGameContext* context = reinterpret_cast<JoinGameContext*>(req->data);
+  BroodWar* bw = context->bw;
+
   // Basically none of this info actually matters, although BW likes to check it for some reason.
   // The actual game info will be distributed upon joining. The thing that *does* matter is the
   // index, make sure it matches the index you're spoofing at.
@@ -689,8 +696,41 @@ void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
   strcpy_s(game_info.map_name, "fakemap");
 
   bool result = bw->JoinGame(game_info);
+  if (!result) {
+    uint32 stormError = bw->GetLastStormError();
+    Logger::Logf(LogLevel::Error, "Storm error when joining lobby: 0x%08x", stormError);
+  }
 
-  info.GetReturnValue().Set(Nan::New(result));
+  context->success = result;
+}
+
+void JoinGameAfter(uv_work_t* req, int status) {
+  HandleScope scope;
+  JoinGameContext* context = reinterpret_cast<JoinGameContext*>(req->data);
+  Local<Value> argv[] = {
+    Nan::New(context->success)
+  };
+  context->cb->Call(1, argv);
+
+  delete context;
+}
+
+void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() >= 1);
+
+  // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
+  // 5 seconds). Since we're on the JS thread, and our network code is on the JS thread, obviously
+  // that won't work out well (although did it work out "well" in the normal network interface? Not
+  // really. But I digress). Therefore, we queue this onto a background thread, which will let our
+  // network code actually do its job.
+
+  BroodWar* bw = WrappedBroodWar::Unwrap(info);
+  uv_work_t* req = new uv_work_t();
+  JoinGameContext* context = new JoinGameContext();
+  context->cb.reset(new Callback(info[0].As<Function>()));
+  context->bw = WrappedBroodWar::Unwrap(info);
+  req->data = context;
+  uv_queue_work(uv_default_loop(), req, JoinGameWork, JoinGameAfter);
 }
 
 void WrappedBroodWar::InitGameNetwork(const FunctionCallbackInfo<Value>& info) {

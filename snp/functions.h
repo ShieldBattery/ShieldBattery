@@ -6,7 +6,6 @@
 #include <winsock2.h>
 
 #include "common/types.h"
-#include "shieldbattery/snp_interface.h"
 
 namespace sbat {
 namespace snp {
@@ -95,7 +94,5 @@ SNPFUNC(GetReplyTarget, char* dest, uint32 dest_len);
 
 #undef SNPFUNC
 
-void SpoofGame(const std::string& game_name, const sockaddr_in& host_addr, bool is_replay);
-void StopSpoofingGame();
 }  // namespace snp
 }  // namespace sbat

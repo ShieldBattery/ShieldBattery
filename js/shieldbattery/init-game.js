@@ -31,6 +31,44 @@ function buildMappings(lobby, setup) {
   return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
 }
 
+async function waitForPlayers(bwLobby, lobbyConfig) {
+  const players = Immutable.fromJS(lobbyConfig.players).valueSeq()
+    .filterNot(p => p.get('isComputer'))
+    .map(p => p.get('name'))
+    .toList()
+
+  const hasAllPlayers = () => {
+    const playerSlots = bwLobby.slots.filter(s => s.type === 'human')
+    const waitingFor = players.filter(p => !playerSlots.find(s => s.name === p))
+    if (!waitingFor.size) {
+      return true
+    } else {
+      log.debug(`Waiting for players: ${waitingFor.toArray().join(', ')}`)
+    }
+  }
+
+  return new Promise(resolve => {
+    if (hasAllPlayers()) {
+      resolve()
+      return
+    }
+
+    const onDownloadStatus = (slot, percent) => {
+      if (percent !== 100) {
+        return
+      }
+      // TODO(tec27): seems like a race here, where a slot could be joined but not at 100 yet when
+      // another slot hits 100, and then we'd think the lobby was ready and try to start it.
+      // Probably need to track that better
+      if (hasAllPlayers()) {
+        resolve()
+        bwLobby.removeListener('downloadStatus', onDownloadStatus)
+      }
+    }
+    bwLobby.on('downloadStatus', onDownloadStatus)
+  })
+}
+
 const CREATION_TIMEOUT = 10000
 const ADD_COMPUTER_TIMEOUT = 3000
 async function createLobby(lobby, localUser) {
@@ -38,7 +76,7 @@ async function createLobby(lobby, localUser) {
     mapPath: lobby.map,
     gameType: melee(),
   }
-  const bwLobby = await timeoutPromise(CREATION_TIMEOUT, bw.createLobby(localUser.name, params),
+  const bwLobby = await timeoutPromise(CREATION_TIMEOUT, bw.createLobby(params),
       'Creating lobby timed out')
   const computers = Immutable.fromJS(lobby.players)
     .valueSeq()
@@ -66,14 +104,28 @@ async function createLobby(lobby, localUser) {
     }
   }
 
-  // TODO(tec27): wait until all players are connected
+  await waitForPlayers(bwLobby, lobby)
   await bwLobby.startGame()
-
   return bwLobby
 }
 
+const JOIN_TIMEOUT = 10000
 async function joinLobby(localUser) {
-  throw new Error('Not yet implemented')
+  let bwLobby
+  while (!bwLobby) {
+    try {
+      bwLobby = await timeoutPromise(JOIN_TIMEOUT,
+          bw.joinLobby('10.27.27.0', 6112), 'Joining lobby timed out')
+    } catch (err) {
+      log.error(`Error joining lobby: ${err}, retrying...`)
+      // Give some time for I/O to happen, since promises are essentially process.nextTick timing
+      await new Promise(resolve => setTimeout(resolve, 30))
+    }
+  }
+
+  await bwLobby.waitForInit()
+
+  return bwLobby
 }
 
 export default async function initGame({ lobby, settings, setup, localUser }) {
@@ -95,6 +147,10 @@ export default async function initGame({ lobby, settings, setup, localUser }) {
   forge.runWndProc()
 
   const myName = localUser.name
+
+  bw.setName(myName)
+  bw.initNetwork()
+
   const isHost = lobby.players[lobby.hostId].name === myName
   const bwLobby = isHost ? await createLobby(lobby, localUser) : await joinLobby(localUser)
 

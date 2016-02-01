@@ -8,7 +8,6 @@
 #include "logger/logger.h"
 #include "snp/snp.h"
 #include "shieldbattery/settings.h"
-#include "shieldbattery/snp_interface.h"
 
 using std::string;
 
@@ -16,6 +15,7 @@ namespace sbat {
 namespace snp {
 static ClientInfo* cur_client_info = nullptr;
 
+static bool is_bound = false;
 static uv_mutex_t spoofed_game_mutex;
 static bool spoofed_game_dirty;
 
@@ -23,8 +23,8 @@ static GameInfo* spoofed_game;
 static GameInfo game_list;
 
 int __stdcall Unbind() {
+  is_bound = false;
   DestroyNetworkHandler();
-  UnbindSnp();
 
   uv_mutex_destroy(&spoofed_game_mutex);
   delete spoofed_game;
@@ -63,6 +63,7 @@ int __stdcall GetGameInfo(uint32 index, char* game_name, char* password, GameInf
 
 int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_info,
     void* module_data, HANDLE receive_event) {
+  is_bound = true;
   cur_client_info = new ClientInfo(*client_info);
 
   uv_mutex_init(&spoofed_game_mutex);
@@ -71,11 +72,6 @@ int __stdcall Initialize(ClientInfo* client_info, void* user_data, void* battle_
 
   CreateNetworkHandler(receive_event);
 
-  SnpInterface funcs;
-  funcs.SpoofGame = SpoofGame;
-  funcs.StopSpoofingGame = StopSpoofingGame;
-
-  BindSnp(funcs);
   return true;
 }
 
@@ -193,6 +189,7 @@ int __stdcall GetReplyTarget(char* dest, uint32 dest_len) {
 }
 
 void SpoofGame(const string& game_name, const sockaddr_in& host_addr, bool is_replay) {
+  assert(is_bound);
   GameInfo* info = new GameInfo();
 
   info->index = 1;
@@ -219,6 +216,7 @@ void SpoofGame(const string& game_name, const sockaddr_in& host_addr, bool is_re
 }
 
 void StopSpoofingGame() {
+  assert(is_bound);
   uv_mutex_lock(&spoofed_game_mutex);
   delete spoofed_game;
   spoofed_game = nullptr;

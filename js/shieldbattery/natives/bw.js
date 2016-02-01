@@ -3,18 +3,20 @@ import handleChat from './chat-handler'
 const bindings = process._linkedBinding('shieldbattery_bw')
 const bw = bindings.init()
 
-// TODO(tec27): use a decorator? Or just write a toJSON implementation to avoid the need for
-// changing the prop descriptor?
-function def(context, name, getter) {
-  Object.defineProperty(context, name, { get: getter, enumerable: true })
-}
-
 class PlayerSlot {
   constructor(nativeSlot) {
     this.nativeSlot = nativeSlot
   }
 
-  _convertType() {
+  get playerId() {
+    return this.nativeSlot.playerId
+  }
+
+  get stormId() {
+    return this.nativeSlot.stormId & 0xFF
+  }
+
+  get type() {
     switch (this.nativeSlot.type) {
       case 0: return 'none'
       case 1: return 'computer'
@@ -32,7 +34,7 @@ class PlayerSlot {
     }
   }
 
-  _convertRace() {
+  get race() {
     switch (this.nativeSlot.race) {
       case 0: return 'zerg'
       case 1: return 'terran'
@@ -44,13 +46,26 @@ class PlayerSlot {
       default: return 'unknown'
     }
   }
+
+  get team() {
+    return this.nativeSlot.team
+  }
+
+  get name() {
+    return this.nativeSlot.name
+  }
+
+  toJSON() {
+    return {
+      playerId: this.playerId,
+      stormId: this.stormId,
+      type: this.type,
+      race: this.race,
+      team: this.team,
+      name: this.name,
+    }
+  }
 }
-def(PlayerSlot.prototype, 'playerId', function() { return this.nativeSlot.playerId })
-def(PlayerSlot.prototype, 'stormId', function() { return this.nativeSlot.stormId })
-def(PlayerSlot.prototype, 'type', function() { return this._convertType() })
-def(PlayerSlot.prototype, 'race', function() { return this._convertRace() })
-def(PlayerSlot.prototype, 'team', function() { return this.nativeSlot.team })
-def(PlayerSlot.prototype, 'name', function() { return this.nativeSlot.name })
 
 class Lobby extends EventEmitter {
   // turns will only be processed every 250ms, but data messages can be processed much faster
@@ -227,6 +242,12 @@ class Lobby extends EventEmitter {
         reject(new Error('Couldn\'t start countdown'))
       }
     })
+    await this.waitForInit()
+  }
+
+  async waitForInit() {
+    this._ensureRunning()
+
     await new Promise((resolve, reject) => {
       this._gameEmitter.once('gameInit', () => resolve())
     })
@@ -251,9 +272,6 @@ let processInitialized = false
 let inLobby = false
 
 class BroodWar extends EventEmitter {
-  static _gameCreationTimeout = 10000;
-  static _gameJoinTimeout = 10000;
-
   constructor(bindings) {
     super()
     this.bindings = bindings
@@ -277,20 +295,24 @@ class BroodWar extends EventEmitter {
     this.emit('log', level, msg)
   }
 
-  async createLobby(playerName, gameSettings) {
+  setName(playerName) {
+    this.bindings.localPlayerName = playerName
+  }
+
+  initNetwork() {
+    if (!this.bindings.chooseNetworkProvider()) {
+      throw new Error('Could not choose network provider')
+    }
+    this.bindings.isMultiplayer = true
+  }
+
+  async createLobby(gameSettings) {
     if (!processInitialized) {
       throw new Error('Process must be initialized first')
     }
     if (inLobby) {
       throw new Error('Already in a lobby or game')
     }
-
-    this.bindings.isBroodWar = true
-    this.bindings.localPlayerName = playerName
-    if (!this.bindings.chooseNetworkProvider()) {
-      throw new Error('Could not choose network provider')
-    }
-    this.bindings.isMultiplayer = true
 
     if (!this.bindings.createGame(gameSettings)) {
       throw new Error('Could not create game')
@@ -310,53 +332,38 @@ class BroodWar extends EventEmitter {
     })
   }
 
-  joinLobby(playerName, host, port, cb) {
-    cb = cb.bind(this)
-    if (!playerName || !host || !port || !cb) {
-      return cb(new Error('Incorrect arguments'))
-    }
-
+  async joinLobby(host, port) {
     if (!processInitialized) {
-      return cb(new Error('Process must be initialized first'))
+      throw new Error('Process must be initialized first')
     }
     if (inLobby) {
-      return cb(new Error('Already in a lobby or game'))
+      throw new Error('Already in a lobby or game')
     }
 
     this._log('verbose', 'Attempting to join lobby')
 
-    this.bindings.isBroodWar = true
-    this.bindings.localPlayerName = playerName
-    if (!this.bindings.chooseNetworkProvider()) {
-      return cb(new Error('Could not choose network provider'))
-    }
-    this.bindings.isMultiplayer = true
-
     this.bindings.spoofGame('shieldbattery', false, host, port)
-    if (!this.bindings.joinGame()) {
-      return cb(new Error('Could not join game'))
+    const isJoined = await new Promise(resolve => this.bindings.joinGame(resolve))
+    if (!isJoined) {
+      throw new Error('Could not join game')
     }
 
     this.bindings.initGameNetwork()
     inLobby = true
-    this._lobby.start()
 
     // TODO(tec27): we really need to handle the other events, like downloads and version
     // confirmation here so that we know when packets have been exchanged. The download status is
     // still, however, the final packet exchanged for a successful join
-    let timeout
-    const initListener = percent => {
-      if (percent === 100) {
-        this._lobby.removeListener('downloadStatus:' + this.bindings.localLobbyId, initListener)
-        clearTimeout(timeout)
-        cb(null, this._lobby)
+    return new Promise(resolve => {
+      const initListener = percent => {
+        if (percent === 100) {
+          this._lobby.removeListener('downloadStatus:' + this.bindings.localLobbyId, initListener)
+          resolve(this._lobby)
+        }
       }
-    }
-    this._lobby.on('downloadStatus:' + this.bindings.localLobbyId, initListener)
-    timeout = setTimeout(() => {
-      this._lobby.removeListener('downloadStatus:' + this.bindings.localLobbyId, initListener)
-      cb(new Error('Joining game timed out'))
-    }, BroodWar._gameJoinTimeout)
+      this._lobby.on('downloadStatus:' + this.bindings.localLobbyId, initListener)
+      this._lobby.start()
+    })
   }
 
   async initProcess() {

@@ -69,6 +69,9 @@ struct SnpFunctions {
 void InitSnpStructs();
 const SNetSnpListEntry* GetSnpListEntry();
 
+void SpoofGame(const std::string& game_name, const sockaddr_in& host_addr, bool is_replay);
+void StopSpoofingGame();
+
 void CreateNetworkHandler(HANDLE receive_event);
 bool RetrieveMessage(sockaddr_in** from_ptr, char** data_ptr, uint32* data_len_ptr);
 void FreeMessage(sockaddr_in* from, char* packet, uint32 data_len);

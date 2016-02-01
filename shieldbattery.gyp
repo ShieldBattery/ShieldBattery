@@ -158,7 +158,6 @@
 
         'shieldbattery/settings.h',
         'shieldbattery/shieldbattery.h',
-        'shieldbattery/snp_interface.h',
 
         'snp/functions.h',
         'snp/module-priv.h',

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "shieldbattery/settings.h"
-#include "shieldbattery/snp_interface.h"
 #include "common/func_hook.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
@@ -49,7 +48,6 @@ static bool terminated;
 static queue<WorkRequest*>* work_queue;
 static uv_thread_t node_thread;
 
-static SnpInterface* snp_interface = nullptr;
 static Settings* current_settings = nullptr;
 
 void UiThreadWorker() {
@@ -325,19 +323,6 @@ NODE_EXTERN void InitializeProcess(void* arg, WorkRequestAfterFunc cb) {
     uv_cond_signal(&proc_init_cond);
     uv_mutex_unlock(&proc_init_mutex);
   }
-}
-
-NODE_EXTERN void BindSnp(const SnpInterface& funcs) {
-  delete snp_interface;
-  snp_interface = new SnpInterface(funcs);
-}
-
-NODE_EXTERN void UnbindSnp() {
-  delete snp_interface;
-}
-
-NODE_EXTERN SnpInterface* GetSnpInterface() {
-  return snp_interface;
 }
 
 NODE_EXTERN void SetSettings(const Settings& settings) {

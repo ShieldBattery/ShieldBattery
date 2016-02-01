@@ -201,6 +201,7 @@ struct Functions {
   FUNCDEF(void, PollInput);
   FUNCDEF(BOOL, InitializeSnpList);
   FUNCDEF(BOOL, UnloadSnp, BOOL clear_list);
+  FUNCDEF(uint32, SErrGetLastError);
 };
 #undef FUNCDEF
 
@@ -352,6 +353,7 @@ public:
   bool StartGameCountdown();
   void RunGameLoop();
   void CleanUpForExit();
+  uint32 GetLastStormError();
 
   // !!! The functions below should ONLY be called on the game loop thread !!!
 
@@ -470,6 +472,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::InitializeSnpListFunc>(storm_base + 0x0003DE90);
   offsets->functions.UnloadSnp =
       reinterpret_cast<Functions::UnloadSnpFunc>(storm_base + 0x000380A0);
+  offsets->functions.SErrGetLastError = reinterpret_cast<Functions::SErrGetLastErrorFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(463)));
 
   offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
       .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
