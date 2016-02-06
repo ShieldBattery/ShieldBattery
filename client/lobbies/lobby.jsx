@@ -17,7 +17,7 @@ export default class Lobby extends React.Component {
   };
 
   render() {
-    const { lobby, onSetRace, onAddComputer, onStartGame } = this.props
+    const { lobby, onSetRace, onAddComputer } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
@@ -34,8 +34,6 @@ export default class Lobby extends React.Component {
             onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
       }
     }
-
-    const startButtonDisabled = lobby.isCountingDown || lobby.players.size < 2
 
     return (<div className={styles.contentArea}>
       <div className={styles.top}>
