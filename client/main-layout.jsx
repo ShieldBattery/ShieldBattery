@@ -5,11 +5,11 @@ import { goToIndex } from './navigation/action-creators'
 import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
 
-import AvatarButton from './avatars/avatar-button.jsx'
+import ActivityBar from './activities/activity-bar.jsx'
+import ActivityButton from './activities/activity-button.jsx'
+import ActivitySpacer from './activities/spacer.jsx'
 import Divider from './material/left-nav/divider.jsx'
-import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
-import RaisedButton from './material/raised-button.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
@@ -86,17 +86,15 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       { this.props.children }
-      <div className={styles.activities}>
-        <div className={styles.activitiesAppBar}>
-          <IconButton icon='settings' title='Settings' onClick={::this.onSettingsClicked} />
-          <AvatarButton user={this.props.auth.user.name} title='Log out'
-              onClick={::this.onLogOutClicked} />
-        </div>
-        <div className={styles.activitiesContent}>
-          <RaisedButton color='primary' label='Create lobby' onClick={::this.onCreateLobbyClick} />
-          <RaisedButton color='primary' label='Join lobby' onClick={::this.onJoinLobbyClick} />
-        </div>
-      </div>
+      <ActivityBar user={this.props.auth.user.name} avatarTitle={'Log out'}
+          onAvatarClick={::this.onLogOutClicked}>
+        <ActivityButton icon='cake' label='Find match' />
+        <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
+        <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
+        <ActivityButton icon='movie' label='Replays' onClick={::this.onJoinLobbyClick} />
+        <ActivitySpacer />
+        <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
+      </ActivityBar>
     </ConnectedDialogOverlay>)
   }
 

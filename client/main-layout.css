@@ -1,36 +1,8 @@
-@value grey800, blue700, colorTextSecondary from './styles/colors.css';
-@value standardIncrement from './material/units.css';
-@value zIndexAppBar from './material/zindex.css';
+@value colorTextSecondary from './styles/colors.css';
 
 .layout {
   composes: row from './styles/flex.css';
   height: 100%;
-}
-
-.activities {
-  composes: shadow3dp from './material/shadows.css';
-  composes: col exact from './styles/flex.css';
-  width: 320px;
-  height: 100%;
-  background-color: grey800;
-  z-index: zIndexAppBar;
-}
-
-.activitiesAppBar {
-  composes: row itemsCenter justifyEnd exact from './styles/flex.css';
-  width: 100%;
-  height: standardIncrement;
-  margin: 0;
-  padding: 0 8px 0 16px;
-  background-color: blue700;
-  position: relative;
-  z-index: zIndexAppBar;
-}
-
-.activitiesContent {
-  composes: col justifyCenter grow from './styles/flex.css';
-  width: 100%;
-  padding: 16px;
 }
 
 .userCount {

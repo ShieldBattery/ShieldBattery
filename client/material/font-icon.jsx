@@ -9,7 +9,7 @@ class FontIcon extends React.Component {
       if (!styles[sizeClass]) {
         throw new Error(`invalid icon size: ${this.props.size}`)
       }
-      classes += ' ' + sizeClass
+      classes += ' ' + styles[sizeClass]
     }
 
     return <i className={classes}>{this.props.children}</i>

@@ -1,0 +1,61 @@
+@value grey900, colorTextPrimary, colorTextSecondary from '../styles/colors.css';
+/* Ensure these styles come after the modules they override */
+@import '../avatars/avatar.css';
+@import '../material/button.css';
+
+.activityBar {
+  composes: col exact justifyStart itemsCenter from '../styles/flex.css';
+  composes: shadow3dp from '../material/shadows.css';
+  width: 96px;
+  height: 100%;
+  background-color: grey900;
+  padding-bottom: 8px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.avatar > svg {
+  width: 40px;
+  height: 40px;
+}
+
+.avatarButton {
+  width: 64px;
+  min-height: 64px;
+}
+
+.button {
+  composes: col justifyCenter itemsCenter from '../styles/flex.css';
+  composes: reset from '../material/button.css';
+  width: 100%;
+  min-height: 96px;
+  padding: 8px;
+  margin-top: 8px;
+  text-align: center;
+  color: colorTextSecondary;
+}
+
+.button:hover {
+  color: colorTextPrimary;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.button:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.buttonLabel {
+  composes: button from '../styles/typography.css';
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.buttonIcon {
+}
+
+.spacer {
+  composes: grow from '../styles/flex.css';
+}
