@@ -1,4 +1,4 @@
-@value grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
+@value colorTextFaint, grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curves.css';
 @value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
 
@@ -13,9 +13,16 @@
   min-height: 30px;
 }
 
+.select:focus {
+  outline: none;
+}
+
 .focused {
   border-color: amberA400;
-  outline: none;
+}
+
+.disabled {
+  color: colorTextFaint;
 }
 
 .value {

@@ -71,8 +71,8 @@ class Select extends React.Component {
     })
 
     return (
-      <div ref='root' className={classes} tabIndex='0' onClick={::this.onOpen}
-          onFocus={::this.onFocus} onBlur={::this.onBlur}>
+      <div ref='root' className={classes} tabIndex={this.props.disabled ? undefined : 0}
+          onClick={::this.onOpen} onFocus={::this.onFocus} onBlur={::this.onBlur}>
         <span className={styles.value} ref='value'>{displayValue}</span>
         <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
       </div>
@@ -137,10 +137,12 @@ class Select extends React.Component {
   }
 
   onOpen() {
-    this.setState({
-      isOpened: true,
-      overlayPosition: this.calculateOverlayPosition()
-    })
+    if (!this.props.disabled) {
+      this.setState({
+        isOpened: true,
+        overlayPosition: this.calculateOverlayPosition()
+      })
+    }
   }
 
   onClose() {
@@ -148,7 +150,9 @@ class Select extends React.Component {
   }
 
   onFocus() {
-    this.setState({ isFocused: true })
+    if (!this.props.disabled) {
+      this.setState({ isFocused: true })
+    }
   }
 
   onBlur() {
