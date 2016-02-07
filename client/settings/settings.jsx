@@ -33,7 +33,7 @@ class Settings extends React.Component {
       <div role='dialog' className={styles.contents}>
         <h4 className={styles.title}>Settings</h4>
         <div className={styles.body}>
-          <Select defaultValue={2}>
+          <Select defaultValue={1}>
             <Option value={1} text='Menu option 1' />
             <Option value={2} text='Menu option 2' />
             <Option value={3} text='Menu option 3' />
