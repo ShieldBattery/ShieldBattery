@@ -22,6 +22,7 @@ class Select extends React.Component {
       value: props.defaultValue,
       overlayPosition: null
     }
+    this._optionChangeHandler = ::this.onOptionChanged
 
     this._positionNeedsUpdating = false
   }
@@ -98,7 +99,7 @@ class Select extends React.Component {
 
     const options = React.Children.map(this.props.children, child => {
       return React.cloneElement(child, {
-        onOptionChange: () => this.onOptionChanged(child.props.value)
+        onOptionSelected: this._optionChangeHandler
       })
     })
 

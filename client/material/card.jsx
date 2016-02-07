@@ -6,7 +6,7 @@ class Card extends React.Component {
   render() {
     const classes = classnames(styles.card, this.props.className)
     return (
-      <div className={classes}>
+      <div className={classes} style={this.props.style}>
         { this.props.children }
       </div>
     )
