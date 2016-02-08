@@ -74,23 +74,23 @@ class Signup extends React.Component {
       <Card zDepth={1}>
         <ValidatedForm formTitle='Sign up' errorText={errContents} errorClassName={styles.errors}
             ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText hintText='Username' floatingLabel={true} name='username' tabIndex={1}
+          <ValidatedText label='Username' floatingLabel={true} name='username' tabIndex={1}
               defaultValue={location.query.username}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText hintText='Email address' floatingLabel={true} name='email' tabIndex={1}
+          <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
               required={true} requiredMessage='Enter an email address'
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               validator={emailValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText hintText='Password' floatingLabel={true} name='password' tabIndex={1}
+          <ValidatedText label='Password' floatingLabel={true} name='password' tabIndex={1}
               type='password' autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'
               validator={passwordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText hintText='Confirm password' floatingLabel={true} name='confirmPassword'
+          <ValidatedText label='Confirm password' floatingLabel={true} name='confirmPassword'
               tabIndex={1} type='password' autoCapitalize='off' autoCorrect='off'
               spellCheck={false}
               required={true} requiredMessage='Confirm your password'

@@ -4,6 +4,8 @@ import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 import styles from './text-field.css'
 
+import InputUnderline from './input-underline.jsx'
+
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
   constructor(props) {
@@ -34,10 +36,8 @@ class TextField extends React.Component {
       [styles.focused]: this.state.isFocused,
     })
 
-    const hintText = this.props.hintText ?
-        <label className={styles.label} htmlFor={this.id}>{this.props.hintText}</label> : null
-    const errorText = this.props.errorText ?
-        <div className={styles.error} key='error'>{this.props.errorText}</div> : null
+    const label = this.props.label ?
+        <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
 
     const inputProps = {
       ref: 'input',
@@ -52,23 +52,37 @@ class TextField extends React.Component {
 
     return (
       <div className={classes}>
-        {hintText}
+        {label}
         <input {...this.props} {...inputProps} />
-        <hr className={styles.underline}/>
-        <hr className={styles.focusUnderline}/>
-        <TransitionGroup
-          transitionName={{
-            enter: styles.errorEnter,
-            enterActive: styles.errorEnterActive,
-            leave: styles.errorLeave,
-            leaveActive: styles.errorLeaveActive,
-          }}
-          className={styles.errorContainer}
-          transitionEnterTimeout={250}
-          transitionLeaveTimeout={250}>
-          {errorText}
-        </TransitionGroup>
+        <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
+            disabled={this.props.disabled} />
+        {this.renderErrors()}
       </div>
+    )
+  }
+
+  renderErrors() {
+    if (!this.props.allowErrors) {
+      return null
+    }
+
+
+    const errorText = this.props.errorText ?
+        <div className={styles.error} key='error'>{this.props.errorText}</div> : null
+
+    return (
+      <TransitionGroup
+        transitionName={{
+          enter: styles.errorEnter,
+          enterActive: styles.errorEnterActive,
+          leave: styles.errorLeave,
+          leaveActive: styles.errorLeaveActive,
+        }}
+        className={styles.errorContainer}
+        transitionEnterTimeout={250}
+        transitionLeaveTimeout={250}>
+        {errorText}
+      </TransitionGroup>
     )
   }
 
@@ -125,24 +139,27 @@ class TextField extends React.Component {
 }
 
 TextField.propTypes = {
+  allowErrors: React.PropTypes.bool,
   errorText: React.PropTypes.string,
   floatingLabel: React.PropTypes.bool,
-  hintText: React.PropTypes.string,
+  label: React.PropTypes.string,
   onBlur: React.PropTypes.func,
   onChange: React.PropTypes.func,
   onFocus: React.PropTypes.func,
   onKeyDown: React.PropTypes.func,
   onEnterKeyDown: React.PropTypes.func,
-  type: React.PropTypes.string
-}
-
-TextField.defaultProps = {
-  type: 'text',
+  type: React.PropTypes.string,
   className: React.PropTypes.oneOfType([
     React.PropTypes.string,
     React.PropTypes.array,
     React.PropTypes.object,
-  ])
+  ]),
+}
+
+TextField.defaultProps = {
+  type: 'text',
+  allowErrors: true,
+  floatingLabel: false,
 }
 
 export default TextField

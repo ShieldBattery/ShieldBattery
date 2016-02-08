@@ -70,13 +70,13 @@ class Login extends React.Component {
             fieldsClassName={styles.fields}
             buttons={buttons}
             onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText className={styles.textFields} hintText='Username' floatingLabel={true}
+          <ValidatedText className={styles.textFields} label='Username' floatingLabel={true}
               name='username' tabIndex={1}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedText className={styles.textFields} hintText='Password' floatingLabel={true}
+            <ValidatedText className={styles.textFields} label='Password' floatingLabel={true}
               name='password' tabIndex={1} type='password'
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'

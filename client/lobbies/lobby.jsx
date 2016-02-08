@@ -50,7 +50,7 @@ export default class Lobby extends React.Component {
                 text={'What if we wrote a much longer message that had to wrap and stuff because' +
                     ' it was so long. How would that look, exactly? Would it look cool?'}/>
           </div>
-          <TextField className={styles.chatInput} hintText='Send a message' />
+          <TextField className={styles.chatInput} label='Send a message' />
         </div>
 
         <div className={styles.info}>

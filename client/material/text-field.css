@@ -83,25 +83,6 @@
   box-shadow: none;
 }
 
-.underline {
-  pointer-events: none;
-  border: none;
-  border-bottom: 1px solid colorDividers;
-  order: 3;
-  width: 100%;
-  margin: 0;
-}
-
-.focusUnderline {
-  composes: fastOutSlowInShort from './curves.css';
-  composes: underline;
-  margin-top: -1px;
-  border-bottom-width: 2px;
-  border-color: amberA400;
-  transform: scaleX(0);
-  transition: all 250ms fastOutSlowIn;
-}
-
 .errorContainer {
   pointer-events: none;
   height: inputErrorHeight;
@@ -138,30 +119,12 @@
   transform: translate3d(0, -30%, 0);
 }
 
-.isError .focusUnderline {
-  border-color: colorError;
-  transform: scaleX(1);
-}
-
 .hasValue:not(.floatingLabel) .label {
   opacity: 0;
 }
 
 .disabled .input {
   color: colorTextFaint;
-}
-
-.disabled .underline {
-  height: 1px;
-  border: none;
-  background-position: 0 bottom;
-  background-size: 4px 1px;
-  background-repeat: repeat-x;
-  background-image: linear-gradient(to right, colorDividers 0%, colorDividers 33%, transparent 0%);
-}
-
-.focused .focusUnderline {
-  transform: scaleX(1);
 }
 
 .floatingLabel.focused .label, .floatingLabel.hasValue .label {
@@ -176,6 +139,6 @@
   color: colorTextFaint;
 }
 
-.floatingLabel.error .label {
+.floatingLabel.focused.isError .label {
   color: colorError;
 }

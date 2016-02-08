@@ -4,6 +4,8 @@ import Card from '../card.jsx'
 import Select from '../select/select.jsx'
 import Option from '../select/option.jsx'
 
+import TextField from '../text-field.jsx'
+
 export default class SelectsTest extends React.Component {
   render() {
     const containerStyle = {
@@ -18,6 +20,7 @@ export default class SelectsTest extends React.Component {
     return (<div style={containerStyle}>
       <Card style={cardStyle}>
         <h3>Select some things</h3>
+        <TextField floatingLabel={true} label='Label' />
         <Select defaultValue={2}>
           <Option value={1} text='Menu option 1' />
           <Option value={2} text='Menu option 2' />
@@ -46,6 +49,8 @@ export default class SelectsTest extends React.Component {
           <Option value={3} text='Menu option 3' />
           <Option value={4} text='Menu option 4' />
         </Select>
+
+        <TextField floatingLabel={true} label='Label 2' errorText='hi' />
       </Card>
     </div>)
   }

@@ -42,7 +42,7 @@
 @value colorTextPrimary: rgba(255, 255, 255, alphaPrimary);
 
 @value colorBackground: grey850;
-@value colorError: #f44336; /* red500 */
+@value colorError: #ff6e6e;
 
 @value dialogScrim: rgba(0, 0, 0, 0.42);
 
