@@ -19,22 +19,23 @@ class Dialog extends React.Component {
 
   constructor(props) {
     super(props)
-    this._onKeyDown = ::this.onKeyDown
+    this._handleKeyDown = ::this.onKeyDown
+    this._handleCancel = ::this.onCancel
   }
 
   componentDidMount() {
-    window.addEventListener('keydown', this._onKeyDown)
+    window.addEventListener('keydown', this._handleKeyDown)
   }
 
   componentWillUnmount() {
-    window.removeEventListener('keydown', this._onKeyDown)
+    window.removeEventListener('keydown', this._handleKeyDown)
   }
 
   render() {
     let child
     if (this.props.children) {
       child = <div key='dialog' className={styles.container}>
-          <div className={styles.scrim} onClick={::this.onCancel} />
+          <div className={styles.scrim} onClick={this._handleCancel} />
           { this.props.children }
       </div>
     }
