@@ -1,12 +1,13 @@
 import React, { PropTypes } from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
-import FontIcon from '../font-icon.jsx'
 import styles from './select.css'
 
 import FloatingLabel from '../input-floating-label.jsx'
+import FontIcon from '../font-icon.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
+import WindowListener from '../../dom/window-listener.jsx'
 
 const transitionNames = {
   enter: styles.enter,
@@ -37,6 +38,7 @@ class Select extends React.Component {
       overlayPosition: null
     }
     this._optionChangeHandler = ::this.onOptionChanged
+    this._handleRecalc = ::this.recalcOverlayPosition
 
     this._positionNeedsUpdating = false
   }
@@ -146,6 +148,8 @@ class Select extends React.Component {
     })
 
     return [
+      <WindowListener key='listenerResize' event='resize' listener={this._handleRecalc} />,
+      <WindowListener key='listenerScroll' event='scroll' listener={this._handleRecalc} />,
       <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />,
       <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}>
         {options}
@@ -179,6 +183,12 @@ class Select extends React.Component {
 
   blur() {
     this.refs.root.blur()
+  }
+
+  recalcOverlayPosition() {
+    this.setState({
+      overlayPosition: this.calculateOverlayPosition(),
+    })
   }
 
   onOpen() {
