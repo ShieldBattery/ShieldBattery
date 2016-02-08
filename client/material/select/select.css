@@ -1,6 +1,7 @@
 @value colorTextFaint, grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curves.css';
 @value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
+@value shadowDef8dp from '../shadows.css';
 
 .select {
   composes: col itemsStart from '../../styles/flex.css';
@@ -83,23 +84,29 @@
 
 .enter.overlay {
   opacity: 0;
-  transform: scale(0.85, 0.5);
-  transition: transform 200ms fastOutSlowIn, opacity 100ms linearOutSlowIn;
+  transform: scale(0.95, 0.5);
+  box-shadow: none;
+  transition: transform 200ms fastOutSlowIn, opacity 100ms linearOutSlowIn,
+      box-shadow 100ms linearOutSlowIn;
 }
 
 .enterActive.overlay {
   opacity: 1;
+  box-shadow: shadowDef8dp;
   transform: scale(1, 1);
 }
 
 .leave.overlay {
   pointer-events: none;
-  transition: transform 200ms fastOutSlowIn, opacity 150ms fastOutSlowIn 50ms;
+  transition: transform 200ms fastOutSlowIn, opacity 150ms fastOutLinearIn 50ms,
+      box-shadow 100ms fastOutLinearIn;
   opacity: 1;
   transform: scale(1, 1);
+  box-shadow: shadowDef8dp;
 }
 
 .leaveActive.overlay {
   opacity: 0;
-  transform: scale(0.85, 0.5);
+  transform: scale(0.95, 0.6);
+  box-shadow: none;
 }
