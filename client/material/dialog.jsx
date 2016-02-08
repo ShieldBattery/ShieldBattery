@@ -3,6 +3,8 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import keycode from 'keycode'
 import styles from './dialog.css'
 
+const ESCAPE = keycode('esc')
+
 const transitionNames = {
   enter: styles.enter,
   enterActive: styles.enterActive,
@@ -17,15 +19,15 @@ class Dialog extends React.Component {
 
   constructor(props) {
     super(props)
-    this._onKeyUp = ::this.onKeyUp
+    this._onKeyDown = ::this.onKeyDown
   }
 
   componentDidMount() {
-    window.addEventListener('keyup', this._onKeyUp)
+    window.addEventListener('keydown', this._onKeyDown)
   }
 
   componentWillUnmount() {
-    window.removeEventListener('keyup', this._onKeyUp)
+    window.removeEventListener('keydown', this._onKeyDown)
   }
 
   render() {
@@ -50,10 +52,10 @@ class Dialog extends React.Component {
     }
   }
 
-  onKeyUp(event) {
+  onKeyDown(event) {
     if (!this.props.children) return
 
-    if (event.keyCode === keycode('esc')) {
+    if (event.keyCode === ESCAPE) {
       this.onCancel()
     }
   }
