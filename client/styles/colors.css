@@ -44,7 +44,7 @@
 @value colorBackground: grey850;
 @value colorError: #ff6e6e;
 
-@value dialogScrim: rgba(0, 0, 0, 0.42);
+@value dialogScrim: #121212;
 
 :global(.cardLayer) {
   background-color: grey800;

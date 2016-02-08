@@ -49,7 +49,7 @@
 .scrim {
   composes: fullSizeFixed;
   z-index: zIndexDialogScrim;
-  opacity: 1;
+  opacity: 0.42;
   background-color: dialogScrim;
 }
 
@@ -58,18 +58,18 @@
   some more work to calculate and apply through JS
 */
 .enter .scrim {
-  opacity: 0.01;
+  opacity: 0;
   transition: all 250ms fastOutSlowIn;
 }
 
 .enter .contents {
   transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
-  opacity: 0.01;
+  opacity: 0;
   transition: transform 350ms linearOutSlowIn, opacity 250ms fastOutSlowIn;
 }
 
 .enterActive .scrim {
-  opacity: 1;
+  opacity: 0.42;
 }
 
 .enterActive .contents {
@@ -82,7 +82,7 @@
 }
 
 .leave .scrim {
-  opacity: 1;
+  opacity: 0.42;
   transition: all 200ms fastOutSlowIn;
 }
 
@@ -93,10 +93,10 @@
 }
 
 .leaveActive .scrim {
-  opacity: 0.01;
+  opacity: 0;
 }
 
 .leaveActive .contents {
   transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
-  opacity: 0.01;
+  opacity: 0;
 }
