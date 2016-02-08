@@ -27,6 +27,7 @@
   top: 0px;
   border-bottom-width: 2px;
   border-color: currentColor;
+  color: inherit;
   transform: scaleX(0);
 }
 

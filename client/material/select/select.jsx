@@ -1,8 +1,12 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import FontIcon from '../font-icon.jsx'
 import styles from './select.css'
+
+import FloatingLabel from '../input-floating-label.jsx'
+import InputError from '../input-error.jsx'
+import InputUnderline from '../input-underline.jsx'
 
 const transitionNames = {
   enter: styles.enter,
@@ -14,6 +18,16 @@ const transitionNames = {
 const OPTIONS_SHOWN = (256 - 16) / 48
 
 class Select extends React.Component {
+  static propTypes = {
+    allowErrors: PropTypes.bool,
+    errorText: PropTypes.string,
+    label: PropTypes.string,
+  };
+
+  static defaultProps = {
+    allowErrors: true,
+  };
+
   constructor(props) {
     super(props)
     this.state = {
@@ -48,6 +62,10 @@ class Select extends React.Component {
     return overlayPosition
   }
 
+  hasValue() {
+    return this.state.value !== undefined
+  }
+
   render() {
     return (
       <TransitionGroup transitionName={transitionNames} className={this.props.className}
@@ -60,11 +78,16 @@ class Select extends React.Component {
 
   renderSelect() {
     let displayValue
-    React.Children.forEach(this.props.children, child => {
-      if (this.state.value === child.props.value) {
-        displayValue = child.props.text
-      }
-    })
+    if (this.hasValue()) {
+      React.Children.forEach(this.props.children, child => {
+        if (this.state.value === child.props.value) {
+          displayValue = child.props.text
+        }
+      })
+    }
+    if (displayValue === undefined || displayValue === '') {
+      displayValue = '\xA0' // &nbsp; to ensure the height is the same, with or without text
+    }
 
     const classes = classnames(styles.select, {
       [styles.focused]: this.state.isFocused,
@@ -72,11 +95,30 @@ class Select extends React.Component {
     })
 
     return (
-      <div ref='root' className={classes} tabIndex={this.props.disabled ? undefined : 0}
+      <div className={classes}
           onClick={::this.onOpen} onFocus={::this.onFocus} onBlur={::this.onBlur}>
-        <span className={styles.value} ref='value'>{displayValue}</span>
-        <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
+        {this.renderLabel()}
+        <span ref='root' className={styles.valueContainer}
+            tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}>
+          <span className={styles.value} ref='value'>{displayValue}</span>
+          <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
+        </span>
+        <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
+            disabled={this.props.disabled} />
+        {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
       </div>
+    )
+  }
+
+  renderLabel() {
+    if (!this.props.label) {
+      return null
+    }
+
+    return (
+      <FloatingLabel htmlFor={this.id} text={this.props.label} hasValue={this.hasValue()}
+          focused={this.state.isFocused} disabled={this.props.disabled}
+          error={!!this.props.errorText} />
     )
   }
 
@@ -91,7 +133,7 @@ class Select extends React.Component {
 
     const overlayStyle = {
       // Subtract the padding so the select-option perfectly overlaps with select-value
-      top: pos.top - 18 - valueOffset,
+      top: pos.top - 14 - valueOffset,
       left: pos.left - 16 + 2,
       minWidth: pos.width + 32,
       transformOrigin: `0 ${valueOffset + 24}px`,
@@ -113,11 +155,13 @@ class Select extends React.Component {
 
   _getValueIndex() {
     let valueIndex = 0
-    React.Children.forEach(this.props.children, (child, i) => {
-      if (this.state.value === child.props.value) {
-        valueIndex = i
-      }
-    })
+    if (this.hasValue()) {
+      React.Children.forEach(this.props.children, (child, i) => {
+        if (this.state.value === child.props.value) {
+          valueIndex = i
+        }
+      })
+    }
     return valueIndex
   }
 
@@ -147,7 +191,8 @@ class Select extends React.Component {
   }
 
   onClose() {
-    this.setState({ isOpened: false })
+    this.setState({ isOpened: false, isFocused: true })
+    this.focus()
   }
 
   onFocus() {
@@ -157,11 +202,15 @@ class Select extends React.Component {
   }
 
   onBlur() {
-    this.setState({ isFocused: false })
+    if (!this.state.isOpened) {
+      // If we're opened, leave isFocused since we'll be reassigning focus on close
+      this.setState({ isFocused: false })
+    }
   }
 
   onOptionChanged(value) {
-    this.setState({ value, isOpened: false })
+    this.setState({ value, isOpened: false, isFocused: true })
+    this.focus()
   }
 }
 

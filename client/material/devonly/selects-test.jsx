@@ -21,7 +21,7 @@ export default class SelectsTest extends React.Component {
       <Card style={cardStyle}>
         <h3>Select some things</h3>
         <TextField floatingLabel={true} label='Label' />
-        <Select defaultValue={2}>
+        <Select defaultValue={2} label='First'>
           <Option value={1} text='Menu option 1' />
           <Option value={2} text='Menu option 2' />
           <Option value={3} text='Menu option 3' />
@@ -32,7 +32,7 @@ export default class SelectsTest extends React.Component {
           <Option value={8} text='Menu option 8' />
         </Select>
 
-        <Select defaultValue={5} disabled={true}>
+        <Select defaultValue={5} disabled={true} label='Disabled'>
           <Option value={1} text='Menu option 1' />
           <Option value={2} text='Menu option 2' />
           <Option value={3} text='Menu option 3' />
@@ -43,7 +43,29 @@ export default class SelectsTest extends React.Component {
           <Option value={8} text='Menu option 8' />
         </Select>
 
-        <Select>
+        <Select label='No default value'>
+          <Option value={1} text='Menu option 1' />
+          <Option value={2} text='Menu option 2' />
+          <Option value={3} text='Menu option 3' />
+          <Option value={4} text='Menu option 4' />
+        </Select>
+
+        <Select defaultValue={1}>
+          <Option value={1} text='No label' />
+          <Option value={2} text='Menu option 2' />
+        </Select>
+
+        <Select defaultValue={1} allowErrors={false}>
+          <Option value={1} text='No label, no allow errors' />
+          <Option value={2} text='Menu option 2' />
+        </Select>
+
+        <Select defaultValue={1} label='No allow errors' allowErrors={false}>
+          <Option value={1} text='Menu option 1' />
+          <Option value={2} text='Menu option 2' />
+        </Select>
+
+        <Select defaultValue={1} label='With errors' errorText='Hi mom'>
           <Option value={1} text='Menu option 1' />
           <Option value={2} text='Menu option 2' />
           <Option value={3} text='Menu option 3' />

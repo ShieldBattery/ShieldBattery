@@ -3,7 +3,6 @@
 .label {
   position: absolute;
   color: colorTextFaint;
-  order: 1;
   pointer-events: none;
   -webkit-font-smoothing: antialiased;
   padding: 2px;

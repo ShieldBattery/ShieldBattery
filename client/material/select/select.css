@@ -2,34 +2,37 @@
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curves.css';
 @value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
 
-
 .select {
-  composes: row from '../../styles/flex.css';
+  composes: col itemsStart from '../../styles/flex.css';
+  position: relative;
+  line-height: 32px;
+  font-size: 16px;
   cursor: pointer;
-  padding: 2px 2px 1px;
-  border-bottom: 1px solid colorDividers;
-  background-color: transparent;
+  padding: 2px;
   min-width: 64px;
-  min-height: 30px;
 }
 
-.select:focus {
-  outline: none;
-}
-
-.focused {
-  border-color: amberA400;
-}
 
 .disabled {
   color: colorTextFaint;
 }
 
+.valueContainer {
+  composes: row from '../../styles/flex.css';
+  min-width: 64px;
+  width: 100%;
+}
+
+.valueContainer:focus {
+  outline: none;
+}
+
 .value {
   composes: grow from '../../styles/flex.css';
   composes: singleLine subhead from '../../styles/typography.css';
-  min-width: 64px;
-  min-height: 26px;
+  line-height: inherit;
+  padding-left: 2px;
+  padding-top: 2px;
 }
 
 .icon {
@@ -37,7 +40,7 @@
   text-align: end;
   width: 24px;
   margin: 0 0 0 4px;
-  padding-top: 1px;
+  line-height: inherit;
 }
 
 .overlay {
