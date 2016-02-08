@@ -65,7 +65,7 @@
   height: 48px;
 }
 
-.option:hover {
+.active {
   background-color: grey700;
 }
 

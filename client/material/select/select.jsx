@@ -16,7 +16,8 @@ const transitionNames = {
   leaveActive: styles.leaveActive,
 }
 
-const OPTIONS_SHOWN = (256 - 16) / 48
+const OPTION_HEIGHT = 48
+const OPTIONS_SHOWN = (256 - 16) / OPTION_HEIGHT
 
 class Select extends React.Component {
   static propTypes = {
@@ -35,21 +36,23 @@ class Select extends React.Component {
       isFocused: false,
       isOpened: false,
       value: props.defaultValue,
-      overlayPosition: null
+      overlayPosition: null,
+      activeIndex: -1,
     }
     this._optionChangeHandler = ::this.onOptionChanged
     this._handleRecalc = ::this.recalcOverlayPosition
+    this._handleMouseMove = ::this.onMouseMove
 
-    this._positionNeedsUpdating = false
+    this._overlayTop = 0
   }
 
-  componentDidUpdate() {
-    if (this.refs.overlay) {
+  componentDidUpdate(prevProps, prevState) {
+    if (!prevState.isOpened && this.refs.overlay) {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
           valueIndex, React.Children.count(this.props.children))
-      this.refs.overlay.scrollTop = firstDisplayed * 48
+      this.refs.overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
     }
   }
 
@@ -131,7 +134,7 @@ class Select extends React.Component {
     const valueIndex = this._getValueIndex()
     const firstDisplayed = this._getFirstDisplayedOptionIndex(
         valueIndex, React.Children.count(this.props.children))
-    const valueOffset = (valueIndex - firstDisplayed) * 48
+    const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
 
     const overlayStyle = {
       // Subtract the padding so the select-option perfectly overlaps with select-value
@@ -140,10 +143,12 @@ class Select extends React.Component {
       minWidth: pos.width + 32,
       transformOrigin: `0 ${valueOffset + 24}px`,
     }
+    this._overlayTop = overlayStyle.top
 
-    const options = React.Children.map(this.props.children, child => {
+    const options = React.Children.map(this.props.children, (child, i) => {
       return React.cloneElement(child, {
-        onOptionSelected: this._optionChangeHandler
+        active: i === this.state.activeIndex,
+        onOptionSelected: this._optionChangeHandler,
       })
     })
 
@@ -151,7 +156,8 @@ class Select extends React.Component {
       <WindowListener key='listenerResize' event='resize' listener={this._handleRecalc} />,
       <WindowListener key='listenerScroll' event='scroll' listener={this._handleRecalc} />,
       <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />,
-      <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}>
+      <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}
+          onMouseMove={this._handleMouseMove}>
         {options}
       </div>
     ]
@@ -189,6 +195,18 @@ class Select extends React.Component {
     this.setState({
       overlayPosition: this.calculateOverlayPosition(),
     })
+  }
+
+  onMouseMove(event) {
+    let localY = event.clientY - (this._overlayTop + 8)
+    localY += this.refs.overlay.scrollTop
+    const numOptions = React.Children.count(this.props.children)
+    const itemIndex = Math.min(numOptions - 1, Math.max(0, Math.floor(localY / OPTION_HEIGHT)))
+    if (itemIndex !== this.state.activeIndex) {
+      this.setState({
+        activeIndex: itemIndex,
+      })
+    }
   }
 
   onOpen() {

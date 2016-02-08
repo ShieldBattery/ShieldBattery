@@ -5,6 +5,7 @@ class Option extends React.Component {
   static propTypes = {
     text: PropTypes.string.isRequired,
     value: PropTypes.any.isRequired,
+    active: PropTypes.bool,
     onOptionSelected: PropTypes.func,
   };
 
@@ -14,8 +15,9 @@ class Option extends React.Component {
   }
 
   render() {
+    const className = styles.option + (this.props.active ? ' ' + styles.active : '')
     return (
-      <div className={styles.option} onClick={this._clickHandler}>
+      <div className={className} onClick={this._clickHandler}>
         <span className={styles.optionText}>
           { this.props.text }
         </span>
