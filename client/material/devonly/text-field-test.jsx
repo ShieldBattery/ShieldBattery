@@ -29,6 +29,8 @@ export default class TextFieldTest extends React.Component {
             onChange={() => this.onChange()} />
         <TextField floatingLabel={true} label='Label 2' errorText='hi' />
         <TextField floatingLabel={true} label='Disabled with value' disabled={true} value={'hi'}/>
+        <TextField floatingLabel={true} label='Disabled with error' disabled={true}
+            errorText={'hi'}/>
         <TextField floatingLabel={true} label='No errors' allowErrors={false} />
         <TextField floatingLabel={false} label='No errors, no float' allowErrors={false} />
       </Card>

@@ -4,6 +4,7 @@
 .textField {
   composes: col itemsStart from '../styles/flex.css';
   font-size: 16px;
+  line-height: 32px;
   position: relative;
   padding: 2px;
 
@@ -25,26 +26,6 @@
     -moz-appearance: none;
     -webkit-appearance: none;
   }
-}
-
-.label {
-  composes: fastOutSlowInShort from './curves.css';
-  position: relative;
-  top: -2px;
-  color: colorTextFaint;
-  order: 1;
-  pointer-events: none;
-  -webkit-font-smoothing: antialiased;
-  padding-left: 2px;
-  z-index: 1;
-  transform: translate3d(0, 28px, 0) scale(1);
-  transform-origin: left top;
-}
-
-.floatingLabel {
-}
-
-.floatingLabel .label {
 }
 
 .input {
@@ -71,27 +52,6 @@
   box-shadow: none;
 }
 
-
-.hasValue:not(.floatingLabel) .label {
-  opacity: 0;
-}
-
 .disabled .input {
   color: colorTextFaint;
-}
-
-.floatingLabel.focused .label, .floatingLabel.hasValue .label {
-  transform: translate3d(0, 6px, 0) scale(0.75);
-}
-
-.floatingLabel.focused .label {
-  color: amberA400;
-}
-
-.floatingLabel.disabled .label {
-  color: colorTextFaint;
-}
-
-.floatingLabel.focused.isError .label {
-  color: colorError;
 }

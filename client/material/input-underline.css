@@ -5,6 +5,7 @@
   pointer-events: none;
   width: 100%;
   margin: 0;
+  padding-bottom: 8px;
   color: amberA400;
   position: relative;
 }
@@ -36,8 +37,12 @@
   color: colorError;
 }
 
-.focused .focusUnderline, .error .focusUnderline {
+.focused .focusUnderline {
   transform: scaleX(1);
+}
+
+.error .underline {
+  border-color: colorError;
 }
 
 .disabled .underline {

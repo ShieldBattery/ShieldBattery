@@ -3,8 +3,10 @@ import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 import styles from './text-field.css'
 
+import FloatingLabel from './input-floating-label.jsx'
 import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
+import Label from './input-label.jsx'
 
 // A single-line Material text field, supporting with and without floating labels
 class TextField extends React.Component {
@@ -12,7 +14,8 @@ class TextField extends React.Component {
     super(props)
     this.id = uniqueId()
     this.state = {
-      hasValue: !!(this.props.value || this.props.defaultValue)
+      hasValue: !!(this.props.value || this.props.defaultValue),
+      isFocused: false,
     }
   }
 
@@ -29,15 +32,8 @@ class TextField extends React.Component {
 
   render() {
     const classes = classnames(styles.textField, this.props.className, {
-      [styles.isError]: !!this.props.errorText,
-      [styles.floatingLabel]: this.props.floatingLabel,
-      [styles.hasValue]: this.state.hasValue,
       [styles.disabled]: this.props.disabled,
-      [styles.focused]: this.state.isFocused,
     })
-
-    const label = this.props.label ?
-        <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
 
     const inputProps = {
       ref: 'input',
@@ -52,13 +48,27 @@ class TextField extends React.Component {
 
     return (
       <div className={classes}>
-        {label}
+        {this.renderLabel()}
         <input {...this.props} {...inputProps} />
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
             disabled={this.props.disabled} />
         {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
       </div>
     )
+  }
+
+  renderLabel() {
+    if (!this.props.label) {
+      return null
+    } else if (this.props.floatingLabel) {
+      return (
+        <FloatingLabel htmlFor={this.id} text={this.props.label} hasValue={this.state.hasValue}
+            focused={this.state.isFocused} disabled={this.props.disabled}
+            error={!!this.props.errorText} />
+      )
+    } else {
+      return <Label htmlFor={this.id} text={this.props.label} hasValue={this.state.hasValue} />
+    }
   }
 
   blur() {
