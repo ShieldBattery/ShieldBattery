@@ -1,8 +1,5 @@
 @value colorTextFaint, colorTextPrimary, colorDividers, colorError from '../styles/colors.css';
 @value amberA400 from '../styles/colors.css';
-@value linearOutSlowIn, fastOutLinearIn from './curves.css';
-
-@value inputErrorHeight: 24px;
 
 .textField {
   composes: col itemsStart from '../styles/flex.css';
@@ -27,15 +24,6 @@
       & input[type="color"] {
     -moz-appearance: none;
     -webkit-appearance: none;
-  }
-
-  @nest
-      & input[type="date"],
-      & input[type="datetime-local"],
-      & input[type="month"],
-      & input[type="time"],
-      & input[type="week"] {
-    min-height: calc(inputErrorHeight / 16)
   }
 }
 
@@ -83,41 +71,6 @@
   box-shadow: none;
 }
 
-.errorContainer {
-  pointer-events: none;
-  height: inputErrorHeight;
-  order: 4;
-}
-
-.error {
-  pointer-events: none;
-  font-size: 12px;
-  line-height: inputErrorHeight;
-  order: 4;
-  color: colorError;
-}
-
-.errorEnter {
-  opacity: 0.01;
-  transform: translate3d(0, -30%, 0);
-  transition: all 250ms linearOutSlowIn;
-}
-
-.errorEnterActive {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
-.errorLeave {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-  transition: all 250ms fastOutLinearIn;
-}
-
-.errorLeaveActive {
-  opacity: 0.01;
-  transform: translate3d(0, -30%, 0);
-}
 
 .hasValue:not(.floatingLabel) .label {
   opacity: 0;

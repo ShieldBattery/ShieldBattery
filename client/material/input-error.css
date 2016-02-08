@@ -1,0 +1,37 @@
+@value colorError from '../styles/colors.css';
+@value linearOutSlowIn, fastOutLinearIn from './curves.css';
+
+.container {
+  pointer-events: none;
+  height: 24px;
+  order: 4;
+}
+
+.error {
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 24px;
+  color: colorError;
+}
+
+.enter {
+  opacity: 0.01;
+  transform: translate3d(0, -30%, 0);
+  transition: all 250ms linearOutSlowIn;
+}
+
+.enterActive {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.leave {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition: all 250ms fastOutLinearIn;
+}
+
+.leaveActive {
+  opacity: 0.01;
+  transform: translate3d(0, -30%, 0);
+}

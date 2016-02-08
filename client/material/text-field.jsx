@@ -1,9 +1,9 @@
 import React from 'react'
-import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 import styles from './text-field.css'
 
+import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 
 // A single-line Material text field, supporting with and without floating labels
@@ -56,33 +56,8 @@ class TextField extends React.Component {
         <input {...this.props} {...inputProps} />
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
             disabled={this.props.disabled} />
-        {this.renderErrors()}
+        {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
       </div>
-    )
-  }
-
-  renderErrors() {
-    if (!this.props.allowErrors) {
-      return null
-    }
-
-
-    const errorText = this.props.errorText ?
-        <div className={styles.error} key='error'>{this.props.errorText}</div> : null
-
-    return (
-      <TransitionGroup
-        transitionName={{
-          enter: styles.errorEnter,
-          enterActive: styles.errorEnterActive,
-          leave: styles.errorLeave,
-          leaveActive: styles.errorLeaveActive,
-        }}
-        className={styles.errorContainer}
-        transitionEnterTimeout={250}
-        transitionLeaveTimeout={250}>
-        {errorText}
-      </TransitionGroup>
     )
   }
 
