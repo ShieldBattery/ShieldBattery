@@ -86,8 +86,8 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       { this.props.children }
-      <ActivityBar user={this.props.auth.user.name} avatarTitle={'Log out'}
-          onAvatarClick={::this.onLogOutClicked}>
+      <ActivityBar user={this.props.auth.user.name} avatarTitle={'Profile'}
+          onLogoutClick={::this.onLogOutClicked}>
         <ActivityButton icon='cake' label='Find match' />
         <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
         <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />

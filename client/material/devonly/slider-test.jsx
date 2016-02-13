@@ -3,8 +3,8 @@ import Card from '../card.jsx'
 
 import Slider from '../slider.jsx'
 
-import Select from '../select/select.jsx'
-import Option from '../select/option.jsx'
+import Select from '../select.jsx'
+import { MenuItem } from '../common/menu-utils.jsx'
 
 import TextField from '../text-field.jsx'
 
@@ -38,14 +38,14 @@ export default class SliderTest extends React.Component {
         <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no min */}
 
         <Select defaultValue={2} label='First'>
-          <Option value={1} text='Menu option 1' />
-          <Option value={2} text='Menu option 2' />
-          <Option value={3} text='Menu option 3' />
-          <Option value={4} text='Menu option 4' />
-          <Option value={5} text='Menu option 5' />
-          <Option value={6} text='Menu option 6' />
-          <Option value={7} text='Menu option 7' />
-          <Option value={8} text='Menu option 8' />
+          <MenuItem value={1} text='Menu option 1' />
+          <MenuItem value={2} text='Menu option 2' />
+          <MenuItem value={3} text='Menu option 3' />
+          <MenuItem value={4} text='Menu option 4' />
+          <MenuItem value={5} text='Menu option 5' />
+          <MenuItem value={6} text='Menu option 6' />
+          <MenuItem value={7} text='Menu option 7' />
+          <MenuItem value={8} text='Menu option 8' />
         </Select>
 
         <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no max */}

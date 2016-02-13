@@ -3,18 +3,20 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import keycode from 'keycode'
 import styles from './select.css'
+import menuUtilsStyles from './common/menu-utils.css'
 
-import FloatingLabel from '../input-floating-label.jsx'
-import FontIcon from '../font-icon.jsx'
-import InputError from '../input-error.jsx'
-import InputUnderline from '../input-underline.jsx'
-import WindowListener from '../../dom/window-listener.jsx'
+import FloatingLabel from './input-floating-label.jsx'
+import FontIcon from './font-icon.jsx'
+import InputError from './input-error.jsx'
+import InputUnderline from './input-underline.jsx'
+import { MenuOverlay, MenuBackdrop } from './common/menu-utils.jsx'
+import WindowListener from '../dom/window-listener.jsx'
 
 const transitionNames = {
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  enter: menuUtilsStyles.enter,
+  enterActive: menuUtilsStyles.enterActive,
+  leave: menuUtilsStyles.leave,
+  leaveActive: menuUtilsStyles.leaveActive,
 }
 
 const SPACE = keycode('space')
@@ -56,12 +58,12 @@ class Select extends React.Component {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (!prevState.isOpened && this.refs.overlay) {
+    if (!prevState.isOpened && this.getOverlayRef()) {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
           valueIndex, React.Children.count(this.props.children))
-      this.refs.overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
+      this.getOverlayRef().scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
     }
   }
@@ -79,6 +81,10 @@ class Select extends React.Component {
 
   hasValue() {
     return this.state.value !== undefined
+  }
+
+  getOverlayRef() {
+    if (this.refs.overlay) return this.refs.overlay.refs.overlay
   }
 
   render() {
@@ -166,11 +172,11 @@ class Select extends React.Component {
     return [
       <WindowListener key='listenerResize' event='resize' listener={this._handleRecalc} />,
       <WindowListener key='listenerScroll' event='scroll' listener={this._handleRecalc} />,
-      <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />,
-      <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}
+      <MenuBackdrop key='backdrop' onBackdropClicked={::this.onClose} />,
+      <MenuOverlay key='overlay' ref='overlay' style={overlayStyle}
           onMouseMove={this._handleMouseMove}>
         {options}
-      </div>
+      </MenuOverlay>
     ]
   }
 
@@ -217,7 +223,7 @@ class Select extends React.Component {
 
     this._lastMouseY = event.clientY
     let localY = event.clientY - (this._overlayTop + VERT_PADDING)
-    localY += this.refs.overlay.scrollTop
+    localY += this.getOverlayRef().scrollTop
     const numOptions = React.Children.count(this.props.children)
     const itemIndex = Math.min(numOptions - 1, Math.max(0, Math.floor(localY / OPTION_HEIGHT)))
     if (itemIndex !== this.state.activeIndex) {
@@ -248,17 +254,17 @@ class Select extends React.Component {
 
     // Adjust scroll position to keep the item in view
     const curTopIndex =
-        Math.ceil(Math.max(0, (this.refs.overlay.scrollTop - VERT_PADDING)) / OPTION_HEIGHT)
+        Math.ceil(Math.max(0, (this.getOverlayRef().scrollTop - VERT_PADDING)) / OPTION_HEIGHT)
     const curBottomIndex = curTopIndex + OPTIONS_SHOWN - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
       // New index is in view, no need to adjust scroll position
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this.refs.overlay.scrollTop = VERT_PADDING + (OPTION_HEIGHT * newIndex)
+      this.getOverlayRef().scrollTop = VERT_PADDING + (OPTION_HEIGHT * newIndex)
     } else {
       // Make the new index the bottom item
-      this.refs.overlay.scrollTop = (OPTION_HEIGHT * ((newIndex + 1) - OPTIONS_SHOWN))
+      this.getOverlayRef().scrollTop = (OPTION_HEIGHT * ((newIndex + 1) - OPTIONS_SHOWN))
     }
   }
 
