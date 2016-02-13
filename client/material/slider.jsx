@@ -61,7 +61,16 @@ class Slider extends React.Component {
     min: PropTypes.number.isRequired,
     max: PropTypes.number.isRequired,
     defaultValue: PropTypes.number,
-    step: PropTypes.number,
+    step: props => {
+      if (typeof props.step !== 'number') {
+        return new Error('`step` must be a number.')
+      }
+      if ((props.max - props.min) % props.step !== 0) {
+        return new Error(
+            'The range between `min` and `max` needs to be evenly divisible by `step`.')
+      }
+      return null
+    },
     label: PropTypes.string,
     tabIndex: PropTypes.number,
   };
