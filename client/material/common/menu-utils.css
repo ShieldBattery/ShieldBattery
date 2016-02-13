@@ -1,48 +1,7 @@
-@value colorTextFaint, grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
+@value grey700, grey800 from '../../styles/colors.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curves.css';
 @value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
 @value shadowDef8dp from '../shadows.css';
-
-.select {
-  composes: col itemsStart from '../../styles/flex.css';
-  position: relative;
-  line-height: 32px;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px;
-  min-width: 64px;
-}
-
-
-.disabled {
-  color: colorTextFaint;
-}
-
-.valueContainer {
-  composes: row from '../../styles/flex.css';
-  min-width: 64px;
-  width: 100%;
-}
-
-.valueContainer:focus {
-  outline: none;
-}
-
-.value {
-  composes: grow from '../../styles/flex.css';
-  composes: singleLine subhead from '../../styles/typography.css';
-  line-height: inherit;
-  padding-left: 2px;
-  padding-top: 2px;
-}
-
-.icon {
-  display: block;
-  text-align: end;
-  width: 24px;
-  margin: 0 0 0 4px;
-  line-height: inherit;
-}
 
 .overlay {
   composes: shadow8dp from '../shadows.css';
@@ -51,11 +10,12 @@
   z-index: zIndexMenu;
   max-height: 256px;
   min-height: 48px;
+  min-width: 156px;
   padding: 8px 0px;
   overflow-y: auto;
 }
 
-.option {
+.menuItem {
   composes: row itemsCenter from '../../styles/flex.css';
   composes: singleLine subhead from '../../styles/typography.css';
   cursor: pointer;
@@ -69,7 +29,7 @@
   background-color: grey700;
 }
 
-.optionText {
+.menuItemText {
 }
 
 .backdrop {
