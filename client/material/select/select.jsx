@@ -6,6 +6,7 @@ import styles from './select.css'
 
 import FloatingLabel from '../input-floating-label.jsx'
 import FontIcon from '../font-icon.jsx'
+import MenuBackdrop from '../menu/backdrop.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
 import WindowListener from '../../dom/window-listener.jsx'
@@ -166,7 +167,7 @@ class Select extends React.Component {
     return [
       <WindowListener key='listenerResize' event='resize' listener={this._handleRecalc} />,
       <WindowListener key='listenerScroll' event='scroll' listener={this._handleRecalc} />,
-      <div key='backdrop' className={styles.backdrop} onClick={::this.onClose} />,
+      <MenuBackdrop key='backdrop' onClick={::this.onClose} />,
       <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}
           onMouseMove={this._handleMouseMove}>
         {options}

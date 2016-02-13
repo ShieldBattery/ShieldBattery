@@ -1,5 +1,5 @@
 import React, { PropTypes } from 'react'
-import styles from './select.css'
+import MenuItem from '../menu/item.jsx'
 
 class Option extends React.Component {
   static propTypes = {
@@ -15,14 +15,8 @@ class Option extends React.Component {
   }
 
   render() {
-    const className = styles.option + (this.props.active ? ' ' + styles.active : '')
-    return (
-      <div className={className} onClick={this._clickHandler}>
-        <span className={styles.optionText}>
-          { this.props.text }
-        </span>
-      </div>
-    )
+    const { text, active } = this.props
+    return <MenuItem onClick={this._clickHandler} text={text} active={active} />
   }
 
   onClick() {
