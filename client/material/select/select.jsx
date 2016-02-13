@@ -82,6 +82,10 @@ class Select extends React.Component {
     return this.state.value !== undefined
   }
 
+  getValue() {
+    return this.hasValue() ? this.state.value : undefined
+  }
+
   render() {
     return (
       <TransitionGroup transitionName={transitionNames} className={this.props.className}

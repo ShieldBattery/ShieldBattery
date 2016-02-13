@@ -107,6 +107,14 @@ class Slider extends React.Component {
     this._removeWindowListeners()
   }
 
+  hasValue() {
+    return this.state.value !== undefined
+  }
+
+  getValue() {
+    return this.hasValue() ? this.state.value : this.props.defaultValue
+  }
+
   _renderBalloon(thumbPercent) {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
@@ -137,7 +145,7 @@ class Slider extends React.Component {
     }
 
     return (
-      <div className={classes} tabIndex={this.props.tabIndex}
+      <div ref='root' className={classes} tabIndex={this.props.tabIndex}
         onFocus={::this.onFocus} onBlur={::this.onBlur} onKeyDown={::this.onKeyDown}>
         {labelElement}
         <Track min={this.props.min} max={this.props.max} step={this.props.step}
@@ -154,6 +162,14 @@ class Slider extends React.Component {
         <div ref='trackArea' className={styles.clickableArea} onMouseDown={::this.onMouseDown}/>
       </div>
     )
+  }
+
+  focus() {
+    this.refs.root.focus()
+  }
+
+  blur() {
+    this.refs.root.blur()
   }
 
   onFocus() {
