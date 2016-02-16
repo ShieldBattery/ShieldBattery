@@ -15,6 +15,7 @@
 
 .disabled {
   color: colorTextFaint;
+  cursor: default;
 }
 
 .valueContainer {

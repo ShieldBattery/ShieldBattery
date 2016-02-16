@@ -134,6 +134,10 @@
   border-color: colorTextFaint;
 }
 
+.disabled label {
+  color: colorTextFaint;
+}
+
 .checked.disabled.focused .iconContainer:before {
   background-color: colorDividers;
 }

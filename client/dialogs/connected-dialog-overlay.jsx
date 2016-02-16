@@ -24,7 +24,7 @@ class ConnectedDialogOverlay extends React.Component {
     // We always render a dialog even if we don't have one, so that its always mounted (and
     // thus usable for TransitionGroup animations)
     return (<div>
-      <div ref='content' className={this.props.className} aria-hidden={dialog.isDialogOpened}>
+      <div className={this.props.className} aria-hidden={dialog.isDialogOpened}>
         {this.props.children}
       </div>
       <span tabIndex={0} onFocus={::this.onFocusTrap}/>

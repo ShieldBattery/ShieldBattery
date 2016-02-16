@@ -33,10 +33,14 @@ class Select extends React.Component {
     allowErrors: PropTypes.bool,
     errorText: PropTypes.string,
     label: PropTypes.string,
+    onValueChanged: PropTypes.func,
+    // function used to compare values for equality, will never be called with null/undefined
+    compareValues: PropTypes.func,
   };
 
   static defaultProps = {
     allowErrors: true,
+    compareValues: (a, b) => a === b
   };
 
   constructor(props) {
@@ -64,6 +68,14 @@ class Select extends React.Component {
           valueIndex, React.Children.count(this.props.children))
       this.refs.overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const hasNewDefault = nextProps.defaultValue !== this.props.defaultValue
+
+    if (hasNewDefault) {
+      this.setState({ value: nextProps.defaultValue })
     }
   }
 
@@ -100,7 +112,11 @@ class Select extends React.Component {
     let displayValue
     if (this.hasValue()) {
       React.Children.forEach(this.props.children, child => {
-        if (this.state.value === child.props.value) {
+        if (this.state.value != null && child.props.value != null) {
+          if (this.props.compareValues(this.state.value, child.props.value)) {
+            displayValue = child.props.text
+          }
+        } else if (this.state.value === child.props.value) { // if both are undefined/null
           displayValue = child.props.text
         }
       })
@@ -183,7 +199,11 @@ class Select extends React.Component {
     let valueIndex = 0
     if (this.hasValue()) {
       React.Children.forEach(this.props.children, (child, i) => {
-        if (this.state.value === child.props.value) {
+        if (this.state.value != null && child.props.value != null) {
+          if (this.props.compareValues(this.state.value, child.props.value)) {
+            valueIndex = i
+          }
+        } else if (this.state.value === child.props.value) { // if both are undefined/null
           valueIndex = i
         }
       })
@@ -283,7 +303,6 @@ class Select extends React.Component {
       }
     }
 
-
     if (handled) {
       event.preventDefault()
       event.stopPropagation()
@@ -341,6 +360,9 @@ class Select extends React.Component {
   }
 
   onOptionChanged(value) {
+    if (this.props.onValueChanged) {
+      this.props.onValueChanged(value)
+    }
     this.setState({ value, isOpened: false, isFocused: true })
     this.focus()
   }

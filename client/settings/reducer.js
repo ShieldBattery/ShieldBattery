@@ -1,5 +1,6 @@
 import { Record } from 'immutable'
 import {
+  LOCAL_SETTINGS_SET,
   LOCAL_SETTINGS_UPDATE,
 } from '../actions'
 
@@ -13,6 +14,7 @@ export const LocalSettings = new Record({
   maintainAspectRatio: true,
   renderer: 0,
 })
+
 export const Settings = new Record({
   local: new LocalSettings(),
   global: null,
@@ -21,6 +23,12 @@ export const Settings = new Record({
 export function localSettingsReducer(state = new LocalSettings(), action) {
   if (action.type === LOCAL_SETTINGS_UPDATE) {
     return new LocalSettings(action.payload)
+  } else if (action.type === LOCAL_SETTINGS_SET) {
+    // LOCAL_SETTINGS_UPDATE will update the settings if the settings file changes. Only handle the
+    // errors here
+    if (action.error) {
+      // TODO(2Pac): deal with the error
+    }
   }
 
   return state
