@@ -1,4 +1,4 @@
-import psi from './natives/index'
+import { detectResolution } from './natives/index'
 
 export function register(nydus, localSettings, activeGameManager) {
   async function setSettings(data, next) {
@@ -11,7 +11,7 @@ export function register(nydus, localSettings, activeGameManager) {
     activeGameManager.setGameConfig(config)
   }
 
-  nydus.registerRoute('/site/getResolution', detectResolution)
+  nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
 
@@ -24,6 +24,6 @@ export function subscribe(nydus, client, activeGameManager, localSettings) {
   nydus.subscribeClient(client, '/settings', localSettings.settings)
 }
 
-async function detectResolution(data, next) {
-  return await psi.detectResolution()
+async function getResolution(data, next) {
+  return await detectResolution()
 }
