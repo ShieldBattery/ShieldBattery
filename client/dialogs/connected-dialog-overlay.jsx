@@ -4,17 +4,17 @@ import Dialog from '../material/dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import { closeDialog } from './dialog-action-creator'
 
-@connect(state => ({ dialog: state.dialog }))
+@connect(state => ({ dialog: state.dialog, settings: state.settings }))
 class ConnectedDialogOverlay extends React.Component {
   render() {
-    const { dialog } = this.props
+    const { dialog, settings } = this.props
     // Dialog content implementations should focus *something* when mounted, so that our focus traps
     // have the proper effect of keeping focus in the dialog
     let dialogComponent
     if (dialog.isDialogOpened) {
       switch (dialog.dialogType) {
         case 'settings':
-          dialogComponent = <Settings />
+          dialogComponent = <Settings settings={settings} />
           break
         default:
           throw new Error('Unknown dialog type: ' + dialog.dialogType)

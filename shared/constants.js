@@ -13,6 +13,8 @@ d('EMAIL_MAXLENGTH', 100)
 
 d('PASSWORD_MINLENGTH', 6)
 
+d('PORT_PATTERN', /[0-9]{1,5}/) // not exactly a port pattern, but close enough
+
 module.exports.isValidUsername = function(username) {
   return username &&
     username.length >= module.exports.USERNAME_MINLENGTH &&

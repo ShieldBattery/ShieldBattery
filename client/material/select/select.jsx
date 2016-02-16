@@ -33,6 +33,7 @@ class Select extends React.Component {
     allowErrors: PropTypes.bool,
     errorText: PropTypes.string,
     label: PropTypes.string,
+    onValueChanged: React.PropTypes.func,
   };
 
   static defaultProps = {
@@ -44,7 +45,7 @@ class Select extends React.Component {
     this.state = {
       isFocused: false,
       isOpened: false,
-      value: props.defaultValue,
+      value: props.defaultValue !== undefined ? props.defaultValue : null,
       overlayPosition: null,
       activeIndex: -1,
     }
@@ -64,6 +65,14 @@ class Select extends React.Component {
           valueIndex, React.Children.count(this.props.children))
       this.refs.overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    const hasNewDefault = nextProps.defaultValue !== this.props.defaultValue
+
+    if (hasNewDefault) {
+      this.setState({ value: nextProps.defaultValue })
     }
   }
 
@@ -341,6 +350,9 @@ class Select extends React.Component {
   }
 
   onOptionChanged(value) {
+    if (this.props.onValueChanged) {
+      this.props.onValueChanged(value)
+    }
     this.setState({ value, isOpened: false, isFocused: true })
     this.focus()
   }
