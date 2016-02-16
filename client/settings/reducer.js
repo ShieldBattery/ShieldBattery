@@ -31,8 +31,8 @@ export function localSettingsReducer(state = new LocalSettings(), action) {
   } else if (action.type === LOCAL_SETTINGS_SET) {
     // LOCAL_SETTINGS_UPDATE will update the settings if the settings file changes. Only handle the
     // errors here
-    if (!action.meta.settings) {
-      return new Error('Error saving the settings')
+    if (action.error) {
+      // TODO(2Pac): deal with the error
     }
   }
 
@@ -45,10 +45,10 @@ export function globalSettingsReducer(state = null, action) {
 
 export function resolutionReducer(state = null, action) {
   if (action.type === RESOLUTION_GET) {
-    if (action.payload) {
+    if (!action.error) {
       return new Resolution(action.payload)
     } else {
-      return new Error('Error retrieving the resolution')
+      // TODO(2Pac): deal with the error
     }
   }
 

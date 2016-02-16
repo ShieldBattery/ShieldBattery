@@ -1,4 +1,5 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import FlatButton from '../material/flat-button.jsx'
 import Option from '../material/select/option.jsx'
 import ValidatedForm from '../forms/validated-form.jsx'
@@ -6,19 +7,16 @@ import ValidatedCheckbox from '../forms/validated-checkbox.jsx'
 import ValidatedSelect from '../forms/validated-select.jsx'
 import ValidatedSlider from '../forms/validated-slider.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
-import patternValidator from '../forms/pattern-validator'
+import numberRangeValidator from '../forms/number-range-validator'
 import constants from '../../shared/constants'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { getResolution, setLocalSettings } from './action-creators'
 import styles from '../material/dialog.css'
 
+@connect(state => ({ settings: state.settings }))
 class Settings extends React.Component {
   static contextTypes = {
     store: React.PropTypes.object.isRequired,
-  };
-
-  static propTypes = {
-    settings: React.PropTypes.object.isRequired,
   };
 
   constructor(props) {
@@ -119,7 +117,7 @@ class Settings extends React.Component {
           onClick={this._onSettingsSavedClicked} />
     ]
 
-    const portValidator = patternValidator(constants.PORT_PATTERN,
+    const portValidator = numberRangeValidator(constants.PORT_MIN_NUMBER, constants.PORT_MAX_NUMBER,
         'Please use 0 - 65535 as a port number')
 
     const defaultWindowSizeValue = this.getDefaultWindowSizeValue(local, resolution)

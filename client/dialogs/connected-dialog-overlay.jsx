@@ -7,14 +7,14 @@ import { closeDialog } from './dialog-action-creator'
 @connect(state => ({ dialog: state.dialog, settings: state.settings }))
 class ConnectedDialogOverlay extends React.Component {
   render() {
-    const { dialog, settings } = this.props
+    const { dialog } = this.props
     // Dialog content implementations should focus *something* when mounted, so that our focus traps
     // have the proper effect of keeping focus in the dialog
     let dialogComponent
     if (dialog.isDialogOpened) {
       switch (dialog.dialogType) {
         case 'settings':
-          dialogComponent = <Settings settings={settings} />
+          dialogComponent = <Settings />
           break
         default:
           throw new Error('Unknown dialog type: ' + dialog.dialogType)
