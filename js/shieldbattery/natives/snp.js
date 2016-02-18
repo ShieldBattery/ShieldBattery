@@ -58,12 +58,15 @@ class NetworkHandler {
     }, {})
 
     this.countersTimer = setInterval(() => this._logCounters(), 4 * 60 * 1000)
+    // TODO(tec27): Figure out wtf is going on with the queuing and remove this
+    this.reallyDumbTimer = setInterval(() => {}, 50)
   }
 
   destroy() {
     log.debug('Network handler destroyed')
     currentNetwork = null
     this.socket.close()
+    clearInterval(this.reallyDumbTimer)
     clearInterval(this.countersTimer)
     this._logCounters()
   }

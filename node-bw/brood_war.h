@@ -72,6 +72,19 @@ struct JoinableGameInfo {
   char map_name[32];
   GameTemplate game_template;
 };
+
+struct LobbyGameInitData {
+  byte game_init_command;
+  uint32 random_seed;
+  byte player_bytes[8];
+};
+
+struct SEvent {
+  uint32 flags;
+  uint32 storm_id;
+  byte* data;
+  uint32 size;
+};
 #pragma pack()
 
 enum class GameSpeed {
@@ -169,14 +182,6 @@ enum class GameResult : uint32 {
   Victory
 };
 
-#pragma pack(1)
-struct LobbyGameInitData {
-  byte game_init_command;
-  uint32 random_seed;
-  byte player_bytes[8];
-};
-#pragma pack()
-
 #define FUNCDEF(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
     ##Name##Func Name;
 struct Functions {
@@ -188,12 +193,8 @@ struct Functions {
   FUNCDEF(uint32, GetMapsList, uint32 unk1, char* path, char* last_map_name);
   FUNCDEF(MapResult, SelectMapOrDirectory, char* game_name, char* password, int game_type,
       int game_speed, char* map_folder_path);
-  FUNCDEF(uint32, AddComputer, uint32 slot_num);
-  FUNCDEF(uint32, StartGameCountdown);
-  FUNCDEF(uint32, ProcessLobbyTurn, void* unused);
   FUNCDEF(uint32, JoinGame);
-  FUNCDEF(void, ShowLobbyChatMessage, char* message);
-  FUNCDEF(uint32, LobbySendRaceChange, uint32 slot);
+  FUNCDEF(void, OnLobbyGameInit);
   FUNCDEF(void, SendMultiplayerChatMessage);
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
@@ -201,41 +202,41 @@ struct Functions {
   FUNCDEF(void, PollInput);
   FUNCDEF(BOOL, InitializeSnpList);
   FUNCDEF(BOOL, UnloadSnp, BOOL clear_list);
+  FUNCDEF(BOOL, InitNetworkPlayerInfo, byte storm_id, uint16 flags, uint16 version_hi,
+      uint16 version_lo);
+  FUNCDEF(BOOL, InitMapFromPath, const char* map_path, DWORD* data_out, BOOL is_campaign);
+  FUNCDEF(void, OnSNetPlayerJoined, SEvent* evt);
+  FUNCDEF(BOOL, MaybeReceiveTurns);
+
   FUNCDEF(uint32, SErrGetLastError);
+  FUNCDEF(BOOL, SNetReceiveMessage, uint32* storm_id, byte** data, size_t* data_len);
+  FUNCDEF(BOOL, SNetReceiveTurn, uint32 start_player, uint32 total_players, byte** data_ptrs,
+      uint32* data_lens, DWORD* player_statuses);
+  FUNCDEF(BOOL, SNetSendMessage, uint32 storm_id, const byte* data, size_t data_len);
+  FUNCDEF(BOOL, SNetSendTurn, const byte* data, size_t data_len);
+  FUNCDEF(BOOL, SNetGetPlayerNames, char** names);
 };
 #undef FUNCDEF
 
 struct Detours {
-  Detour* OnLobbyDownloadStatus;
-  Detour* OnLobbySlotChange;
-  Detour* OnLobbyStartCountdown;
-  Detour* OnLobbyGameInit;
-  Detour* OnLobbyMissionBriefing;
-  Detour* OnMenuErrorDialog;
   Detour* RenderDuringInitSpritesOne;
   Detour* RenderDuringInitSpritesTwo;
   Detour* GameLoop;
 };
 
 struct FuncHooks {
-  FuncHook<Functions::ShowLobbyChatMessageFunc>* LobbyChatShowMessage;
   FuncHook<Functions::CheckForMultiplayerChatCommandFunc>* CheckForMultiplayerChatCommand;
   FuncHook<Functions::PollInputFunc>* PollInput;
   FuncHook<Functions::InitializeSnpListFunc>* InitializeSnpList;
   FuncHook<Functions::UnloadSnpFunc>* UnloadSnp;
+  FuncHook<Functions::OnSNetPlayerJoinedFunc>* OnSNetPlayerJoined;
 };
 
 struct EventHandlers {
-  void (*OnLobbyDownloadStatus)(byte slot, byte download_percent);
-  void (*OnLobbySlotChange)(byte slot, byte storm_id, byte type, byte race, byte team);
-  void (*OnLobbyStartCountdown)();
-  void (*OnLobbyGameInit)(uint32 random_seed, byte player_bytes[8]);
-  void (*OnLobbyMissionBriefing)(byte slot);
-  void (*OnLobbyChatMessage)(byte slot, const std::string& message);
-  void (*OnMenuErrorDialog)(const std::string& message);
   void (*OnGameLoopIteration)();
   void (*OnCheckForChatCommand)(const std::string& message, ChatMessageType message_type,
       byte recipients);
+  void(*OnNetPlayerJoin)(uint32 storm_id);
 };
 
 struct Offsets {
@@ -265,6 +266,7 @@ struct Offsets {
   uint32* lobby_dirty_flag;
   uint32* game_info_dirty_flag;
   uint16* game_state;
+  uint32* lobby_state;
   byte* chat_message_recipients;
   byte* chat_message_type;
   PlayerVictoryState* victory_state;
@@ -280,7 +282,6 @@ struct Offsets {
   FuncHooks func_hooks;
 
   byte* start_from_any_glue_patch;
-  uint32* game_countdown_delay_patch;
 };
 
 enum class Version {
@@ -300,9 +301,10 @@ public:
 
   void set_event_handlers(const EventHandlers& handlers);
 
+  
   MapResult CreateGame(const std::string& game_name, const std::string& map_path,
       const uint32 game_type, const GameSpeed game_speed);
-  bool JoinGame(const JoinableGameInfo& game_info);
+  bool JoinGame(const JoinableGameInfo& game_info, const std::string& map_path);
 
   PlayerInfo* players() const;
   std::string current_map_path() const;
@@ -324,6 +326,8 @@ public:
   void set_lobby_dirty_flag(bool dirty);
   GameState game_state() const;
   void set_game_state(GameState state);
+  uint32 lobby_state() const;
+  void set_lobby_state(uint32 state);
   inline byte chat_message_recipients() const {
     return *offsets_->chat_message_recipients;
   }
@@ -347,10 +351,11 @@ public:
   void InitPlayerInfo();
   bool ChooseNetworkProvider(uint32 provider = 'SBAT');
   void InitGameNetwork();
-  bool AddComputer(uint32 slot_num);
-  bool SetRace(uint32 slot_num, uint32 race);
-  uint32 ProcessLobbyTurn();
-  bool StartGameCountdown();
+  void TickleLobbyNetwork();
+  bool NetSendTurn(const byte* data, size_t data_len);
+  bool NetSendMessage(uint32 storm_id, const byte* data, size_t data_len);
+  bool NetGetPlayerNames(std::array<char*, 8>& names);
+  void DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_bytes);
   void RunGameLoop();
   void CleanUpForExit();
   uint32 GetLastStormError();
@@ -365,21 +370,15 @@ public:
   void ConvertGameResults();
 
   // Detour hook functions
-  static void __stdcall OnLobbyDownloadStatus(uint32 slot, uint32 download_percent);
-  static void __stdcall OnLobbySlotChange(byte data[6]);
-  static void __stdcall OnLobbyStartCountdown();
-  static void __stdcall OnLobbyGameInit(LobbyGameInitData* data);
-  static void __stdcall OnLobbyMissionBriefing(uint32 slot);
-  static void __stdcall OnMenuErrorDialog(char* message);
   static void __stdcall OnGameLoopIteration();
   static void __stdcall NoOp() { }
 
   // FuncHooks
-  static void __stdcall ShowLobbyChatHook(char* message);
   static uint32 __stdcall CheckForChatCommandHook(char* message);
   static void __stdcall PollInputHook();
   static BOOL __stdcall InitializeSnpListHook();
   static BOOL __stdcall UnloadSnpHook(BOOL clear_list);
+  static void __stdcall OnSNetPlayerJoinedHook(SEvent* evt);
 
   // Static externally callable methods
   static void SetInputDisabled(bool disabled);
@@ -392,6 +391,7 @@ private:
   void GetMapsList(const MapListEntryCallback callback);
   MapResult SelectMapOrDirectory(const std::string& game_name, uint32 game_type,
       GameSpeed game_speed, MapListEntry* map_data);
+  MapListEntry* FindMapWithPath(const std::string& map_path);
 
   Offsets* offsets_;
   EventHandlers* event_handlers_;
@@ -429,6 +429,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->boot_reason = reinterpret_cast<int32*>(0x005999E0);
   offsets->lobby_dirty_flag = reinterpret_cast<uint32*>(0x005999D4);
   offsets->game_state = reinterpret_cast<uint16*>(0x00596904);
+  offsets->lobby_state = reinterpret_cast<uint32*>(0x0066FBFA);
   offsets->chat_message_recipients = reinterpret_cast<byte*>(0x0057F1DA);
   offsets->chat_message_type = reinterpret_cast<byte*>(0x0068C144);
   offsets->victory_state = reinterpret_cast<PlayerVictoryState*>(0x0058D700);
@@ -449,17 +450,10 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.GetMapsList = reinterpret_cast<Functions::GetMapsListFunc>(0x004A73C0);
   offsets->functions.SelectMapOrDirectory =
       reinterpret_cast<Functions::SelectMapOrDirectoryFunc>(0x004A8050);
-  offsets->functions.AddComputer = reinterpret_cast<Functions::AddComputerFunc>(0x00452720);
-  offsets->functions.StartGameCountdown =
-      reinterpret_cast<Functions::StartGameCountdownFunc>(0x00452460);
-  offsets->functions.ProcessLobbyTurn =
-      reinterpret_cast<Functions::ProcessLobbyTurnFunc>(0x004D4340);
   offsets->functions.JoinGame =
       reinterpret_cast<Functions::JoinGameFunc>(0x004D3B50);
-  offsets->functions.ShowLobbyChatMessage =
-      reinterpret_cast<Functions::ShowLobbyChatMessageFunc>(0x004B91C0);
-  offsets->functions.LobbySendRaceChange =
-      reinterpret_cast<Functions::LobbySendRaceChangeFunc>(0x00452370);
+  offsets->functions.OnLobbyGameInit =
+      reinterpret_cast<Functions::OnLobbyGameInitFunc>(0x0047211D);
   offsets->functions.SendMultiplayerChatMessage =
       reinterpret_cast<Functions::SendMultiplayerChatMessageFunc>(0x004F3280);
   offsets->functions.CheckForMultiplayerChatCommand =
@@ -468,36 +462,31 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.CleanUpForExit =
       reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
   offsets->functions.PollInput = reinterpret_cast<Functions::PollInputFunc>(0x0047F0E0);
+  offsets->functions.InitNetworkPlayerInfo =
+      reinterpret_cast<Functions::InitNetworkPlayerInfoFunc>(0x00470D10);
+  offsets->functions.InitMapFromPath =
+      reinterpret_cast<Functions::InitMapFromPathFunc>(0x004BF5D0);
+  offsets->functions.OnSNetPlayerJoined =
+      reinterpret_cast<Functions::OnSNetPlayerJoinedFunc>(0x004C4980);
+  offsets->functions.MaybeReceiveTurns =
+      reinterpret_cast<Functions::MaybeReceiveTurnsFunc>(0x00486580);
   offsets->functions.InitializeSnpList =
       reinterpret_cast<Functions::InitializeSnpListFunc>(storm_base + 0x0003DE90);
   offsets->functions.UnloadSnp =
       reinterpret_cast<Functions::UnloadSnpFunc>(storm_base + 0x000380A0);
   offsets->functions.SErrGetLastError = reinterpret_cast<Functions::SErrGetLastErrorFunc>(
       GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(463)));
+  offsets->functions.SNetReceiveMessage = reinterpret_cast<Functions::SNetReceiveMessageFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(121)));
+  offsets->functions.SNetReceiveTurn = reinterpret_cast<Functions::SNetReceiveTurnFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(122)));
+  offsets->functions.SNetSendMessage = reinterpret_cast<Functions::SNetSendMessageFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(127)));
+  offsets->functions.SNetSendTurn = reinterpret_cast<Functions::SNetSendTurnFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(128)));
+  offsets->functions.SNetGetPlayerNames = reinterpret_cast<Functions::SNetGetPlayerNamesFunc>(
+      GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(144)));
 
-  offsets->detours.OnLobbyDownloadStatus = new Detour(Detour::Builder()
-      .At(0x004860BD).To(BroodWar::OnLobbyDownloadStatus)
-      .WithArgument(RegisterArgument::Ecx).WithArgument(RegisterArgument::Eax)
-      .RunningOriginalCodeBefore());
-  offsets->detours.OnLobbySlotChange = new Detour(Detour::Builder()
-      .At(0x0047148B).To(BroodWar::OnLobbySlotChange)
-      .WithArgument(RegisterArgument::Esi)
-      .RunningOriginalCodeAfter());
-  offsets->detours.OnLobbyStartCountdown = new Detour(Detour::Builder()
-      .At(0x0047208E).To(BroodWar::OnLobbyStartCountdown)
-      .RunningOriginalCodeAfter());
-  offsets->detours.OnLobbyGameInit = new Detour(Detour::Builder()
-      .At(0x0047211D).To(BroodWar::OnLobbyGameInit)
-      .WithArgument(RegisterArgument::Edx)
-      .RunningOriginalCodeAfter());
-  offsets->detours.OnLobbyMissionBriefing = new Detour(Detour::Builder()
-      .At(0x00486462).To(BroodWar::OnLobbyMissionBriefing)
-      .WithArgument(RegisterArgument::Eax)
-      .RunningOriginalCodeBefore());
-  offsets->detours.OnMenuErrorDialog = new Detour(Detour::Builder()
-      .At(0x004BB0FF).To(BroodWar::OnMenuErrorDialog)
-      .WithArgument(RegisterArgument::Edx)
-      .RunningOriginalCodeAfter());
   // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
   offsets->detours.RenderDuringInitSpritesOne = new Detour(Detour::Builder()
       .At(0x0047AEB1).To(BroodWar::NoOp)
@@ -510,8 +499,6 @@ Offsets* GetOffsets<Version::v1161>() {
       // The function call we're overwriting is a no-op (just a ret), so we can skip it
       .NotRunningOriginalCode());
 
-  offsets->func_hooks.LobbyChatShowMessage = new FuncHook<Functions::ShowLobbyChatMessageFunc>(
-      offsets->functions.ShowLobbyChatMessage, BroodWar::ShowLobbyChatHook);
   offsets->func_hooks.CheckForMultiplayerChatCommand =
       new FuncHook<Functions::CheckForMultiplayerChatCommandFunc>(
       offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
@@ -521,9 +508,10 @@ Offsets* GetOffsets<Version::v1161>() {
       offsets->functions.InitializeSnpList, BroodWar::InitializeSnpListHook);
   offsets->func_hooks.UnloadSnp = new FuncHook<Functions::UnloadSnpFunc>(
       offsets->functions.UnloadSnp, BroodWar::UnloadSnpHook);
+  offsets->func_hooks.OnSNetPlayerJoined = new FuncHook<Functions::OnSNetPlayerJoinedFunc>(
+    offsets->functions.OnSNetPlayerJoined, BroodWar::OnSNetPlayerJoinedHook);
 
   offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
-  offsets->game_countdown_delay_patch = reinterpret_cast<uint32*>(0x004720C5);
 
   return offsets;
 }

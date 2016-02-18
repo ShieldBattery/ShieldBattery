@@ -58,54 +58,6 @@ void BroodWar::set_event_handlers(const EventHandlers& handlers) {
 #define HAVE_HANDLER_FOR(handler) \
     (instance_ != nullptr && instance_->event_handlers_ != nullptr && \
     instance_->event_handlers_->##handler != nullptr)
-void __stdcall BroodWar::ShowLobbyChatHook(char* message) {
-  uint32 slot;
-  __asm {
-    mov slot, eax;
-  }
-
-  if (HAVE_HANDLER_FOR(OnLobbyChatMessage)) {
-    instance_->event_handlers_->OnLobbyChatMessage(static_cast<byte>(slot), message);
-  }
-}
-
-void __stdcall BroodWar::OnLobbyDownloadStatus(uint32 slot, uint32 download_percent) {
-  if (HAVE_HANDLER_FOR(OnLobbyDownloadStatus)) {
-    instance_->event_handlers_->OnLobbyDownloadStatus(static_cast<byte>(slot), download_percent);
-  }
-}
-
-void __stdcall BroodWar::OnLobbySlotChange(byte data[6]) {
-  // 3E <b Slot> <b StormId> <b Type> <b Race> <b Team>
-  if (HAVE_HANDLER_FOR(OnLobbySlotChange)) {
-    instance_->event_handlers_->OnLobbySlotChange(data[1], data[2], data[3], data[4], data[5]);
-  }
-}
-
-void __stdcall BroodWar::OnLobbyStartCountdown() {
-  if (HAVE_HANDLER_FOR(OnLobbyStartCountdown)) {
-    instance_->event_handlers_->OnLobbyStartCountdown();
-  }
-}
-
-void __stdcall BroodWar::OnLobbyGameInit(LobbyGameInitData* data) {
-  if (HAVE_HANDLER_FOR(OnLobbyGameInit)) {
-    instance_->event_handlers_->OnLobbyGameInit(data->random_seed, data->player_bytes);
-  }
-}
-
-void __stdcall BroodWar::OnLobbyMissionBriefing(uint32 slot) {
-  if (HAVE_HANDLER_FOR(OnLobbyMissionBriefing)) {
-    instance_->event_handlers_->OnLobbyMissionBriefing(static_cast<byte>(slot));
-  }
-}
-
-void __stdcall BroodWar::OnMenuErrorDialog(char* message) {
-  if (HAVE_HANDLER_FOR(OnMenuErrorDialog)) {
-    instance_->event_handlers_->OnMenuErrorDialog(message);
-  }
-}
-
 void __stdcall BroodWar::OnGameLoopIteration() {
   if (HAVE_HANDLER_FOR(OnGameLoopIteration)) {
     instance_->event_handlers_->OnGameLoopIteration();
@@ -124,6 +76,12 @@ uint32 __stdcall BroodWar::CheckForChatCommandHook(char* message) {
   }
 
   return FALSE;
+}
+
+void __stdcall BroodWar::OnSNetPlayerJoinedHook(SEvent* evt) {
+  if (HAVE_HANDLER_FOR(OnNetPlayerJoin)) {
+    instance_->event_handlers_->OnNetPlayerJoin(evt->storm_id);
+  }
 }
 #undef HAVE_HANDLER_FOR
 
@@ -172,21 +130,15 @@ BOOL __stdcall BroodWar::UnloadSnpHook(BOOL clear_list) {
 }
 
 void BroodWar::InjectDetours() {
-  offsets_->detours.OnLobbyDownloadStatus->Inject();
-  offsets_->detours.OnLobbySlotChange->Inject();
-  offsets_->detours.OnLobbyStartCountdown->Inject();
-  offsets_->detours.OnLobbyGameInit->Inject();
-  offsets_->detours.OnLobbyMissionBriefing->Inject();
-  offsets_->detours.OnMenuErrorDialog->Inject();
   offsets_->detours.RenderDuringInitSpritesOne->Inject();
   offsets_->detours.RenderDuringInitSpritesTwo->Inject();
   offsets_->detours.GameLoop->Inject();
 
-  offsets_->func_hooks.LobbyChatShowMessage->Inject();
   offsets_->func_hooks.CheckForMultiplayerChatCommand->Inject();
   offsets_->func_hooks.PollInput->Inject();
   offsets_->func_hooks.InitializeSnpList->Inject();
   offsets_->func_hooks.UnloadSnp->Inject();
+  offsets_->func_hooks.OnSNetPlayerJoined->Inject();
 }
 
 void BroodWar::ApplyPatches() {
@@ -196,13 +148,6 @@ void BroodWar::ApplyPatches() {
   if (!glue_protect.has_errors()) {
     // 9x NOP
     memset(offsets_->start_from_any_glue_patch, 0x90, 9);
-  }
-
-  // Avoid doing a long countdown, and skip dialog-specific countdown code (that will crash)
-  ScopedVirtualProtect countdown_protect(offsets_->game_countdown_delay_patch, 4,
-      PAGE_EXECUTE_READWRITE);
-  if (!countdown_protect.has_errors()) {
-    *offsets_->game_countdown_delay_patch = 0x05;  // 5 ticks! for justice! (this is the minimum)
   }
 }
 
@@ -235,8 +180,7 @@ std::string BroodWar::local_player_name() const {
 }
 
 void BroodWar::set_local_player_name(const std::string& name) {
-  assert(name.length() <= 25);
-  strcpy_s(offsets_->local_player_name, 25, name.c_str());
+  strncpy_s(offsets_->local_player_name, 25, name.c_str(), _TRUNCATE);
 }
 
 GameSpeed BroodWar::current_game_speed() const {
@@ -287,6 +231,14 @@ void BroodWar::set_game_state(GameState state) {
   *offsets_->game_state = static_cast<uint16>(state);
 }
 
+uint32 BroodWar::lobby_state() const {
+  return *offsets_->lobby_state;
+}
+
+void BroodWar::set_lobby_state(uint32 state) {
+  *offsets_->lobby_state = state;
+}
+
 void BroodWar::InitSprites() {
   offsets_->functions.InitSprites();
 }
@@ -316,39 +268,51 @@ void BroodWar::InitGameNetwork() {
   offsets_->functions.InitGameNetwork();
 }
 
-bool BroodWar::AddComputer(uint32 slot_num) {
-  return offsets_->functions.AddComputer(slot_num) == 1;
+void BroodWar::TickleLobbyNetwork() {
+  // Trigger Storm to deal with connecting clients and other such packets, but since we don't
+  // actually use messages/turns for lobby initialization, ignore whatever it returns
+  offsets_->functions.MaybeReceiveTurns();
 }
 
-bool BroodWar::SetRace(uint32 slot_num, uint32 race) {
-  auto set_race = offsets_->functions.LobbySendRaceChange;
-  int result;
-  _asm {
-    push eax;
-    push ecx;
-    mov ecx, race;
-    push ecx;
-    mov ecx, set_race;
-    mov eax, slot_num;
-    call ecx;
-    mov result, eax;
-    pop ecx;
-    pop eax;
+bool BroodWar::NetSendMessage(uint32 storm_id, const byte* data, size_t data_len) {
+  return offsets_->functions.SNetSendMessage(storm_id, data, data_len) == TRUE;
+}
+
+bool BroodWar::NetSendTurn(const byte* data, size_t data_len) {
+  return offsets_->functions.SNetSendTurn(data, data_len) == TRUE;
+}
+
+bool BroodWar::NetGetPlayerNames(std::array<char*, 8>& names) {
+  return offsets_->functions.SNetGetPlayerNames(&names[0]) == TRUE;
+}
+
+void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_bytes) {
+  for (int i = 0; i < 8; i++) {
+    if (players()[i].storm_id < 8) {
+      offsets_->functions.InitNetworkPlayerInfo(static_cast<byte>(players()[i].storm_id), 0, 1, 5);
+    }
   }
 
-  return result == 1;
-}
+  set_lobby_state(8);
+  LobbyGameInitData data;
+  data.game_init_command = 0x48;
+  data.random_seed = seed;
+  std::copy(std::begin(player_bytes), std::end(player_bytes), std::begin(data.player_bytes));
+  const LobbyGameInitData* data_ptr = &data;
 
-// Returns a value indicating the data message that was processed, if any.
-// Particularly useful ones (that the game itself uses) are: 0x4B (Force Name Transfer) and
-// 0x53 (Entered Briefing Room). You should probably also check the was_booted variable to ensure
-// you haven't been kicked from the game.
-uint32 BroodWar::ProcessLobbyTurn() {
-  return offsets_->functions.ProcessLobbyTurn(nullptr);
-}
-
-bool BroodWar::StartGameCountdown() {
-  return offsets_->functions.StartGameCountdown() == 1;
+  auto func = offsets_->functions.OnLobbyGameInit;
+  _asm {
+    push eax;
+    push edx;
+    push ecx;
+    xor eax, eax; // storm_id
+    mov edx, data_ptr; // data
+    mov ecx, func;
+    call ecx;
+    pop ecx;
+    pop edx;
+    pop eax;
+  }
 }
 
 void BroodWar::RunGameLoop() {
@@ -407,8 +371,7 @@ MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, uint32 ga
   return result;
 }
 
-MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& map_path,
-      const uint32 game_type, const GameSpeed game_speed) {
+MapListEntry* BroodWar::FindMapWithPath(const std::string& map_path) {  
   std::string map_dir;
   std::string map_file;
 
@@ -436,15 +399,21 @@ MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& 
     current_map = current_map->next;
   }
 
-  if (current_map == NULL) {
+  return current_map;
+}
+
+MapResult BroodWar::CreateGame(const std::string& game_name, const std::string& map_path,
+      const uint32 game_type, const GameSpeed game_speed) {
+  MapListEntry* map = FindMapWithPath(map_path);
+  if (map == nullptr) {
     // map could not be found, unable to create game
     return MapResult::MapNotFound;
   }
 
-  return SelectMapOrDirectory(game_name, game_type, game_speed, current_map);
+  return SelectMapOrDirectory(game_name, game_type, game_speed, map);
 }
 
-bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
+bool BroodWar::JoinGame(const JoinableGameInfo& game_info, const std::string& map_path) {
   auto join = offsets_->functions.JoinGame;
   const JoinableGameInfo* arg = &game_info;
   uint32 result;
@@ -455,7 +424,12 @@ bool BroodWar::JoinGame(const JoinableGameInfo& game_info) {
     mov result, eax;
   }
 
-  return result == 1;
+  if (result != 1) {
+    return false;
+  }
+
+  DWORD map_data[8];
+  return offsets_->functions.InitMapFromPath(map_path.c_str(), map_data, FALSE) == TRUE;
 }
 
 void BroodWar::SendMultiplayerChatMessage(const std::string& message, byte recipients,

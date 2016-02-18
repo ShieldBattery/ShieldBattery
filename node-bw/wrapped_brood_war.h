@@ -50,19 +50,30 @@ private:
   static Nan::Persistent<v8::Function> constructor;
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
-  // getters
   static void GetPlayerId(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetPlayerId(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
   static void GetStormId(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetStormId(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
   static void GetType(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetType(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
   static void GetRace(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetRace(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
   static void GetTeam(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetTeam(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
   static void GetName(v8::Local<v8::String> property,
       const Nan::PropertyCallbackInfo<v8::Value>& info);
+  static void SetName(v8::Local<v8::String> property, v8::Local<v8::Value> value,
+      const Nan::PropertyCallbackInfo<void>& info);
 
   template <class T>
   static PlayerInfo* Unwrap(const T &t) {
@@ -177,10 +188,9 @@ private:
   static void SpoofGame(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void JoinGame(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void InitGameNetwork(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void AddComputer(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void SetRace(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void ProcessLobbyTurn(const Nan::FunctionCallbackInfo<v8::Value>& info);
-  static void StartGameCountdown(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void TickleLobbyNetwork(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void GetStormPlayerNames(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void DoLobbyGameInit(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void RunGameLoop(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void SendMultiplayerChatMessage(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void DisplayIngameMessage(const Nan::FunctionCallbackInfo<v8::Value>& info);
@@ -193,17 +203,10 @@ private:
     return wrapped_bw->brood_war_;
   }
 
-  // Event handlers for BroodWar
-  static void OnLobbyDownloadStatus(byte slot, byte download_percent);
-  static void OnLobbySlotChange(byte slot, byte storm_id, byte type, byte race, byte team);
-  static void OnLobbyStartCountdown();
-  static void OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]);
-  static void OnLobbyMissionBriefing(byte slot);
-  static void OnLobbyChatMessage(byte slot, const std::string& message);
-  static void OnMenuErrorDialog(const std::string& message);
   static void OnGameLoopIteration();
   static void OnCheckForChatCommand(const std::string& message, ChatMessageType message_type,
       byte recipients);
+  static void OnNetPlayerJoin(uint32 storm_id);
   
   // Functions for logging
   static void Log(void* arg, LogLevel level, const char* msg);

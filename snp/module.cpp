@@ -6,6 +6,7 @@
 #include <list>
 #include <memory>
 
+#include "logger/logger.h"
 #include "snp/snp.h"
 
 using Nan::FunctionCallbackInfo;
@@ -47,10 +48,6 @@ void QueueCommand(unique_ptr<Command> command) {
 
 void OnCommandsQueued(uv_async_t* handle) {
   uv_mutex_lock(&command_mutex);
-  if (js_commands.empty()) {
-    uv_mutex_unlock(&command_mutex);
-    return;
-  }
 
   while (!js_commands.empty()) {
     list<unique_ptr<Command>> processing;
@@ -58,10 +55,12 @@ void OnCommandsQueued(uv_async_t* handle) {
     uv_mutex_unlock(&command_mutex);
 
     for (const auto& command : processing) {
+      DWORD tickCount = GetTickCount();
       command->Execute();
     }
     uv_mutex_lock(&command_mutex);
   }
+  
   uv_mutex_unlock(&command_mutex);
 }
 
@@ -82,7 +81,7 @@ void OnMessageReceived(const FunctionCallbackInfo<Value>& info) {
   message->from.sin_port = htons(6112);
 
   uv_mutex_lock(&message_mutex);
-  messages.push_back(std::move(message));
+  messages.push_back(message);
   SetEvent(receive_event);
   uv_mutex_unlock(&message_mutex);
 }

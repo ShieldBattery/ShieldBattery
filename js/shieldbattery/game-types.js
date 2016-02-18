@@ -22,5 +22,4 @@ export const oneVOne = () => gameType(ONE_V_ONE)
 export const ums = () => gameType(UMS)
 export const teamMelee = numTeams => gameType(TEAM_MELEE, numTeams - 1)
 export const teamFfa = numTeams => gameType(TEAM_FFA, numTeams - 1)
-// TODO(tec27): is it the number on top, or the number on bottom?
 export const topVBottom = numOnTop => gameType(TOP_V_BOTTOM, numOnTop)

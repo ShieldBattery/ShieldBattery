@@ -31,15 +31,79 @@ function buildMappings(lobby, setup) {
   return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
 }
 
-async function waitForPlayers(bwLobby, lobbyConfig) {
+function getBwRace(lobbyRace) {
+  switch (lobbyRace) {
+    case 'z': return 'zerg'
+    case 't': return 'terran'
+    case 'p': return 'protoss'
+    default: return 'random'
+  }
+}
+
+function setupSlots(lobbyConfig) {
+  for (let i = 0; i < bw.slots.length; i++) {
+    const slot = bw.slots[i]
+    slot.playerId = i
+    slot.stormId = 255
+    slot.type = 'open'
+    slot.race = 'random'
+    slot.team = '0'
+  }
+
+  for (const id of Object.keys(lobbyConfig.players)) {
+    const player = lobbyConfig.players[id]
+    const slot = bw.slots[player.slot]
+
+    if (!player.isComputer) {
+      slot.name = player.name
+      slot.type = 'human'
+      slot.stormId = 27 // signals that they're not here yet, will fill in when connected
+    } else {
+    // for humans, stormId will be set when Storm tells us they've connected
+      slot.stormId = 0xFF
+      slot.type = 'lobbycomputer'
+    }
+
+    slot.playerId = player.slot
+    slot.race = getBwRace(player.race)
+    // TODO(tec27): teams? nations?
+  }
+
+  // TODO(tec27): set storm ID of our own slot
+}
+
+function updateSlots() {
+  const stormNames = bw.getStormPlayerNames()
+  const playerSlots = bw.slots.filter(s => s.type === 'human').reduce((r, s) => {
+    r[s.name] = s
+    return r
+  }, {})
+
+  for (let stormId = 0; stormId < stormNames.length; stormId++) {
+    if (!stormNames[stormId]) continue
+
+    const slot = playerSlots[stormNames[stormId]]
+    if (!slot) {
+      throw new Error(`Unexpected player name: ${stormNames[stormId]}`)
+    }
+    if (slot.stormId < 8 && slot.stormId !== stormId) {
+      throw new Error(`Unexpected stormId change for ${slot.name}`)
+    }
+
+    slot.stormId = stormId
+    log.verbose(`Player ${slot.name} received storm ID ${stormId}`)
+  }
+}
+
+async function waitForPlayers(lobbyConfig) {
   const players = Immutable.fromJS(lobbyConfig.players).valueSeq()
     .filterNot(p => p.get('isComputer'))
     .map(p => p.get('name'))
     .toList()
 
   const hasAllPlayers = () => {
-    const playerSlots = bwLobby.slots.filter(s => s.type === 'human')
-    const waitingFor = players.filter(p => !playerSlots.find(s => s.name === p))
+    const playerSlots = bw.slots.filter(s => s.type === 'human')
+    const waitingFor = players.filter(p => !playerSlots.find(s => s.name === p && s.stormId < 8))
     if (!waitingFor.size) {
       return true
     } else {
@@ -48,74 +112,40 @@ async function waitForPlayers(bwLobby, lobbyConfig) {
   }
 
   return new Promise(resolve => {
+    updateSlots()
     if (hasAllPlayers()) {
       resolve()
       return
     }
 
-    const onDownloadStatus = (slot, percent) => {
-      if (percent !== 100) {
-        return
-      }
-      // TODO(tec27): seems like a race here, where a slot could be joined but not at 100 yet when
-      // another slot hits 100, and then we'd think the lobby was ready and try to start it.
-      // Probably need to track that better
+    const onPlayerJoin = () => {
+      updateSlots()
       if (hasAllPlayers()) {
+        bw.removeListener('netPlayerJoin', onPlayerJoin)
         resolve()
-        bwLobby.removeListener('downloadStatus', onDownloadStatus)
       }
     }
-    bwLobby.on('downloadStatus', onDownloadStatus)
+    bw.on('netPlayerJoin', onPlayerJoin)
   })
 }
 
 const CREATION_TIMEOUT = 10000
-const ADD_COMPUTER_TIMEOUT = 3000
 async function createLobby(lobby, localUser) {
   const params = {
     mapPath: lobby.map,
     gameType: melee(),
   }
-  const bwLobby = await timeoutPromise(CREATION_TIMEOUT, bw.createLobby(params),
-      'Creating lobby timed out')
-  const computers = Immutable.fromJS(lobby.players)
-    .valueSeq()
-    .filter(p => p.get('isComputer'))
-    .toList()
-  if (computers.size) {
-    let c = computers.size
-    while (c > 0) {
-      // TODO(tec27): our lobby impl should real deal with the command queue for us
-      let foundSlot = false
-      for (let i = 0; i < bwLobby.slots.length && !foundSlot; i++) {
-        if (bwLobby.slots[i].type === 'open') {
-          await timeoutPromise(
-              ADD_COMPUTER_TIMEOUT, bwLobby.addComputer(i), 'Adding computer timed out')
-          c--
-          foundSlot = true
-          break
-        }
-      }
-      if (!foundSlot) break
-    }
-
-    if (c > 0) {
-      throw new Error('Not enough empty slots for computers')
-    }
-  }
-
-  await waitForPlayers(bwLobby, lobby)
-  await bwLobby.startGame()
-  return bwLobby
+  await timeoutPromise(CREATION_TIMEOUT, bw.createLobby(params), 'Creating lobby timed out')
 }
 
 const JOIN_TIMEOUT = 10000
-async function joinLobby(localUser) {
-  let bwLobby
-  while (!bwLobby) {
+async function joinLobby(lobby, localUser) {
+  let succeeded = false
+  while (!succeeded) {
     try {
-      bwLobby = await timeoutPromise(JOIN_TIMEOUT,
-          bw.joinLobby('10.27.27.0', 6112), 'Joining lobby timed out')
+      await timeoutPromise(JOIN_TIMEOUT,
+          bw.joinLobby(lobby.map, '10.27.27.0', 6112), 'Joining lobby timed out')
+      succeeded = true
     } catch (err) {
       log.error(`Error joining lobby: ${err}, retrying...`)
       // Give some time for I/O to happen, since promises are essentially process.nextTick timing
@@ -123,9 +153,8 @@ async function joinLobby(localUser) {
     }
   }
 
-  await bwLobby.waitForInit()
-
-  return bwLobby
+  bw.tickleLobbyNetwork() // Run through a turn once, so that we ensure Storm has init'd its names
+  log.verbose(`storm player names at join: ${JSON.stringify(bw.getStormPlayerNames())}`)
 }
 
 export default async function initGame({ lobby, settings, setup, localUser }) {
@@ -152,10 +181,28 @@ export default async function initGame({ lobby, settings, setup, localUser }) {
   bw.initNetwork()
 
   const isHost = lobby.players[lobby.hostId].name === myName
-  const bwLobby = isHost ? await createLobby(lobby, localUser) : await joinLobby(localUser)
+  if (isHost) {
+    await createLobby(lobby, localUser)
+  } else {
+    await joinLobby(lobby, localUser)
+  }
+
+  log.verbose('in lobby, setting up slots')
+
+  const tickleInterval = setInterval(() => bw.tickleLobbyNetwork(), 100)
+  try {
+    setupSlots(lobby)
+    await waitForPlayers(lobby)
+  } finally {
+    clearInterval(tickleInterval)
+  }
+
+  log.verbose('setting game seed')
+  // TODO(tec27): a proper implementation of this
+  bw.doLobbyGameInit(4 /* chosen by a fair dice roll */, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
 
   forge.endWndProc()
-  const { results, time } = await bwLobby.runGameLoop()
+  const { results, time } = await bw.runGameLoop()
   log.verbose('gameResults: ' + JSON.stringify(results))
   log.verbose('gameTime: ' + time)
   // TODO(tec27): report these?

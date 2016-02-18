@@ -93,13 +93,12 @@ void BwPlayerSlot::Init() {
   tpl->SetClassName(Nan::New("BwPlayerSlot").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-  // functions
-  SetProtoAccessor(tpl, "playerId", GetPlayerId);
-  SetProtoAccessor(tpl, "stormId", GetStormId);
-  SetProtoAccessor(tpl, "type", GetType);
-  SetProtoAccessor(tpl, "race", GetRace);
-  SetProtoAccessor(tpl, "team", GetTeam);
-  SetProtoAccessor(tpl, "name", GetName);
+  SetProtoAccessor(tpl, "playerId", GetPlayerId, SetPlayerId);
+  SetProtoAccessor(tpl, "stormId", GetStormId, SetStormId);
+  SetProtoAccessor(tpl, "type", GetType, SetType);
+  SetProtoAccessor(tpl, "race", GetRace, SetRace);
+  SetProtoAccessor(tpl, "team", GetTeam, SetTeam);
+  SetProtoAccessor(tpl, "name", GetName, SetName);
 
   constructor.Reset(tpl->GetFunction());
 }
@@ -127,9 +126,25 @@ void BwPlayerSlot::GetPlayerId(Local<String> property, const PropertyCallbackInf
   info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->player_id)));
 }
 
+void BwPlayerSlot::SetPlayerId(
+    Local<String> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  player_info->player_id = value->Uint32Value();
+}
+
 void BwPlayerSlot::GetStormId(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->storm_id)));
+}
+
+void BwPlayerSlot::SetStormId(
+    Local<String> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  player_info->storm_id = value->Uint32Value();
+  if (player_info->storm_id == 0xFF) {
+    // 0xFF is often easier to deal with in JS, due to sign extension, so we allow this shorthand
+    player_info->storm_id = 0xFFFFFFFF;
+  }
 }
 
 void BwPlayerSlot::GetType(Local<String> property, const PropertyCallbackInfo<Value>& info) {
@@ -137,9 +152,21 @@ void BwPlayerSlot::GetType(Local<String> property, const PropertyCallbackInfo<Va
   info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->type)));
 }
 
+void BwPlayerSlot::SetType(
+    Local<String> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  player_info->type = static_cast<byte>(value->Uint32Value());
+}
+
 void BwPlayerSlot::GetRace(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->race)));
+}
+
+void BwPlayerSlot::SetRace(
+    Local<String> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  player_info->race = static_cast<byte>(value->Uint32Value());
 }
 
 void BwPlayerSlot::GetTeam(Local<String> property, const PropertyCallbackInfo<Value>& info) {
@@ -147,9 +174,24 @@ void BwPlayerSlot::GetTeam(Local<String> property, const PropertyCallbackInfo<Va
   info.GetReturnValue().Set(Nan::New(static_cast<uint32>(player_info->team)));
 }
 
+void BwPlayerSlot::SetTeam(
+    Local<String> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  player_info->team = static_cast<byte>(value->Uint32Value());
+}
+
 void BwPlayerSlot::GetName(Local<String> property, const PropertyCallbackInfo<Value>& info) {
   PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
   info.GetReturnValue().Set(Nan::New(player_info->name).ToLocalChecked());
+}
+
+void BwPlayerSlot::SetName(Local<String> property, Local<Value> value,
+    const PropertyCallbackInfo<void>& info) {
+  PlayerInfo* player_info = BwPlayerSlot::Unwrap(info);
+  Utf8String ascii_value(value);
+  const char* c_str = *ascii_value;
+ 
+  strncpy_s(player_info->name, c_str, _TRUNCATE);
 }
 
 WrappedBroodWar::WrappedBroodWar()
@@ -176,15 +218,9 @@ void WrappedBroodWar::Init() {
   game_loop_queue_ = new GameLoopQueue();
 
   EventHandlers handlers;
-  handlers.OnLobbyDownloadStatus = OnLobbyDownloadStatus;
-  handlers.OnLobbySlotChange = OnLobbySlotChange;
-  handlers.OnLobbyStartCountdown = OnLobbyStartCountdown;
-  handlers.OnLobbyGameInit = OnLobbyGameInit;
-  handlers.OnLobbyMissionBriefing = OnLobbyMissionBriefing;
-  handlers.OnLobbyChatMessage = OnLobbyChatMessage;
-  handlers.OnMenuErrorDialog = OnMenuErrorDialog;
   handlers.OnGameLoopIteration = OnGameLoopIteration;
   handlers.OnCheckForChatCommand = OnCheckForChatCommand;
+  handlers.OnNetPlayerJoin = OnNetPlayerJoin;
   bw->set_event_handlers(handlers);
 
   Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
@@ -207,13 +243,7 @@ void WrappedBroodWar::Init() {
   SetProtoAccessor(tpl, "lobbyDirtyFlag", GetLobbyDirtyFlag, SetLobbyDirtyFlag);
 
 #define EVENT_HANDLER(name) SetProtoAccessor(tpl, (##name), GetEventHandler, SetEventHandler);
-  EVENT_HANDLER("onLobbyDownloadStatus");
-  EVENT_HANDLER("onLobbySlotChange");
-  EVENT_HANDLER("onLobbyStartCountdown");
-  EVENT_HANDLER("onLobbyGameInit");
-  EVENT_HANDLER("onLobbyMissionBriefing");
-  EVENT_HANDLER("onLobbyChatMessage");
-  EVENT_HANDLER("onMenuErrorDialog");
+  EVENT_HANDLER("onNetPlayerJoin");
   EVENT_HANDLER("onCheckForChatCommand");
 #undef EVENT_HANDLER
 
@@ -227,10 +257,9 @@ void WrappedBroodWar::Init() {
   SetPrototypeMethod(tpl, "spoofGame", SpoofGame);
   SetPrototypeMethod(tpl, "joinGame", JoinGame);
   SetPrototypeMethod(tpl, "initGameNetwork", InitGameNetwork);
-  SetPrototypeMethod(tpl, "addComputer", AddComputer);
-  SetPrototypeMethod(tpl, "setRace", SetRace);
-  SetPrototypeMethod(tpl, "processLobbyTurn", ProcessLobbyTurn);
-  SetPrototypeMethod(tpl, "startGameCountdown", StartGameCountdown);
+  SetPrototypeMethod(tpl, "tickleLobbyNetwork", TickleLobbyNetwork);
+  SetPrototypeMethod(tpl, "getStormPlayerNames", GetStormPlayerNames);
+  SetPrototypeMethod(tpl, "doLobbyGameInit", DoLobbyGameInit);
   SetPrototypeMethod(tpl, "runGameLoop", RunGameLoop);
   SetPrototypeMethod(tpl, "sendMultiplayerChatMessage", SendMultiplayerChatMessage);
   SetPrototypeMethod(tpl, "displayIngameMessage", DisplayIngameMessage);
@@ -412,8 +441,6 @@ void WrappedBroodWar::GetEventHandler(Local<String> property,
   if (i != event_handlers_[wrapped_bw].end()) {
     info.GetReturnValue().Set(i->second->callback());
   }
-
-  return;
 }
 
 void WrappedBroodWar::SetEventHandler(Local<String> property, Local<Value> value,
@@ -500,7 +527,6 @@ void WrappedBroodWar::SetSettings(const FunctionCallbackInfo<Value>& info) {
   }
 
   sbat::SetSettings(result);
-  return;
 }
 
 struct InitProcessContext {
@@ -531,8 +557,6 @@ void WrappedBroodWar::InitProcess(const FunctionCallbackInfo<Value>& info) {
   context->callback.reset(new Callback(info[0].As<Function>()));
 
   sbat::InitializeProcess(context, InitProcessAfter);
-
-  return;
 }
 
 struct InitSpritesContext {
@@ -562,15 +586,11 @@ void WrappedBroodWar::InitSprites(const FunctionCallbackInfo<Value>& info) {
   context->bw = WrappedBroodWar::Unwrap(info);
 
   sbat::QueueWorkForUiThread(context, InitSpritesWork, InitSpritesAfter);
-
-  return;
 }
 
 void WrappedBroodWar::InitPlayerInfo(const FunctionCallbackInfo<Value>& info) {
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   bw->InitPlayerInfo();
-
-  return;
 }
 
 void WrappedBroodWar::ChooseNetworkProvider(const FunctionCallbackInfo<Value>& info) {
@@ -663,11 +683,10 @@ void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
   struct sockaddr_in addr;
   uv_ip4_addr(*address, port, &addr);
   sbat::snp::SpoofGame(game_name, addr, is_replay);
-
-  return;
 }
 
 struct JoinGameContext {
+  unique_ptr<std::string> map_path;
   unique_ptr<Callback> cb;
   BroodWar* bw;
   bool success;
@@ -695,7 +714,7 @@ void JoinGameWork(uv_work_t* req) {
   strcpy_s(game_info.game_creator, "fakename");
   strcpy_s(game_info.map_name, "fakemap");
 
-  bool result = bw->JoinGame(game_info);
+  bool result = bw->JoinGame(game_info, *context->map_path);
   if (!result) {
     uint32 stormError = bw->GetLastStormError();
     Logger::Logf(LogLevel::Error, "Storm error when joining lobby: 0x%08x", stormError);
@@ -716,7 +735,15 @@ void JoinGameAfter(uv_work_t* req, int status) {
 }
 
 void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() >= 1);
+  assert(info.Length() >= 2);
+
+  Local<Value> map_path_value = info[0];
+  if (!map_path_value->IsString() && !map_path_value->IsStringObject()) {
+    ThrowTypeError("mapPath must be a String");
+    return;
+  }
+  Utf8String map_path_ascii(map_path_value);
+  char* map_path = *map_path_ascii;
 
   // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
   // 5 seconds). Since we're on the JS thread, and our network code is on the JS thread, obviously
@@ -727,7 +754,8 @@ void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   uv_work_t* req = new uv_work_t();
   JoinGameContext* context = new JoinGameContext();
-  context->cb.reset(new Callback(info[0].As<Function>()));
+  context->map_path.reset(new std::string(map_path));
+  context->cb.reset(new Callback(info[1].As<Function>()));
   context->bw = WrappedBroodWar::Unwrap(info);
   req->data = context;
   uv_queue_work(uv_default_loop(), req, JoinGameWork, JoinGameAfter);
@@ -736,45 +764,42 @@ void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
 void WrappedBroodWar::InitGameNetwork(const FunctionCallbackInfo<Value>& info) {
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   bw->InitGameNetwork();
-
-  return;
 }
 
-void WrappedBroodWar::AddComputer(const FunctionCallbackInfo<Value>& info) {
-  if (info.Length() < 1) {
-    ThrowError("Incorrect number of arguments");
-    return;
-  } else if (!info[0]->IsNumber() && !info[0]->IsNumberObject() && !info[0]->IsUint32() &&
-      !info[0]->IsInt32()) {
-    ThrowTypeError("slotNumber must be a Number");
-    return;
+void WrappedBroodWar::TickleLobbyNetwork(const FunctionCallbackInfo<Value>& info) {
+  BroodWar* bw = WrappedBroodWar::Unwrap(info);
+  bw->TickleLobbyNetwork();
+}
+
+void WrappedBroodWar::GetStormPlayerNames(const FunctionCallbackInfo<Value>& info) {
+  BroodWar* bw = WrappedBroodWar::Unwrap(info);
+  std::array<char*, 8> names{};
+  bw->NetGetPlayerNames(names);
+
+  Local<Array> result = Nan::New<Array>();
+  for (uint32 i = 0; i < names.size(); i++) {
+    if (names[i] != nullptr) {
+      Nan::Set(result, i, Nan::New(names[i]).ToLocalChecked());
+    } else {
+      Nan::Set(result, i, Null());
+    }
   }
 
-  BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  bool result = bw->AddComputer(info[0]->ToUint32()->Uint32Value());
-  info.GetReturnValue().Set(Nan::New(result));
+  info.GetReturnValue().Set(result);
 }
 
-void WrappedBroodWar::SetRace(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() == 2);
+void WrappedBroodWar::DoLobbyGameInit(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() >= 2);
 
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  bool result = bw->SetRace(info[0]->Uint32Value(), info[1]->Uint32Value());
-  info.GetReturnValue().Set(Nan::New(result));
-}
+  uint32 seed = info[0]->Uint32Value();
+  Local<Array> bytesArg = info[1].As<Array>();
+  std::array<byte, 8> player_bytes;
+  for (int i = 0; i < 8; i++) {
+    player_bytes[i] = static_cast<byte>(bytesArg->Get(i)->Uint32Value());
+  }
 
-void WrappedBroodWar::ProcessLobbyTurn(const FunctionCallbackInfo<Value>& info) {
-  BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  uint32 result = bw->ProcessLobbyTurn();
-
-  info.GetReturnValue().Set(Nan::New(result));
-}
-
-void WrappedBroodWar::StartGameCountdown(const FunctionCallbackInfo<Value>& info) {
-  BroodWar* bw = WrappedBroodWar::Unwrap(info);
-  bool result = bw->StartGameCountdown();
-
-  info.GetReturnValue().Set(Nan::New(result));
+  bw->DoLobbyGameInit(seed, player_bytes);
 }
 
 struct GameLoopContext {
@@ -835,8 +860,6 @@ void WrappedBroodWar::RunGameLoop(const FunctionCallbackInfo<Value>& info) {
   context->bw = WrappedBroodWar::Unwrap(info);
 
   sbat::QueueWorkForUiThread(context, RunGameLoopWork, RunGameLoopAfter);
-
-  return;
 }
 
 struct SendMultiplayerChatMessageContext {
@@ -868,8 +891,6 @@ void WrappedBroodWar::SendMultiplayerChatMessage(const FunctionCallbackInfo<Valu
     context->bw->SendMultiplayerChatMessage(context->message, context->recipients, context->type);
     delete context;
   });
-
-  return;
 }
 
 struct DisplayIngameMessageContext {
@@ -896,8 +917,6 @@ void WrappedBroodWar::DisplayIngameMessage(const FunctionCallbackInfo<Value>& in
     context->bw->DisplayMessage(context->message, context->timeout);
     delete context;
   });
-
-  return;
 }
 
 struct CleanUpForExitContext {
@@ -931,8 +950,6 @@ void WrappedBroodWar::CleanUpForExit(const FunctionCallbackInfo<Value>& info) {
   context->bw = WrappedBroodWar::Unwrap(info);
 
   sbat::QueueWorkForUiThread(context, CleanUpForExitWork, CleanUpForExitAfter);
-
-  return;
 }
 
 struct EventHandlerCallbackInfo {
@@ -968,85 +985,7 @@ void EventHandlerImmediate(void* arg) {
 }
 
 // I don't think we want to assume these will always be running on the same thread, so I use
-// immediate here to trigger the callbacks ASAPly on the node thread. It just so happens that
-// currently all the lobby events DO happen on the node thread, but this will be more useful for
-// things like ingame hooks.
-void WrappedBroodWar::OnLobbyDownloadStatus(byte slot, byte download_percent) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbyDownloadStatus");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
-  info->args->push_back(shared_ptr<ScopelessInteger>(
-      ScopelessInteger::NewFromUnsigned(download_percent)));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnLobbySlotChange(byte slot, byte storm_id, byte type, byte race, byte team) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbySlotChange");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(storm_id)));
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(type)));
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(race)));
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(team)));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnLobbyStartCountdown() {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbyStartCountdown");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnLobbyGameInit(uint32 random_seed, byte player_bytes[8]) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbyGameInit");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessInteger>(
-      ScopelessInteger::NewFromUnsigned(random_seed)));
-  ScopelessArray* player_array = ScopelessArray::New(8);
-  for (int i = 0; i < 8; i++) {
-    player_array->Set(i, shared_ptr<ScopelessInteger>(
-        ScopelessInteger::NewFromUnsigned(player_bytes[i])));
-  }
-  info->args->push_back(shared_ptr<ScopelessArray>(player_array));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnLobbyMissionBriefing(byte slot) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbyMissionBriefing");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnLobbyChatMessage(byte slot, const std::string& message) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onLobbyChatMessage");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(slot)));
-  info->args->push_back(shared_ptr<ScopelessString>(ScopelessString::New(message)));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
-void WrappedBroodWar::OnMenuErrorDialog(const std::string& message) {
-  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
-  info->method_name = new std::string("onMenuErrorDialog");
-  info->args = new vector<shared_ptr<ScopelessValue>>;
-  info->args->push_back(shared_ptr<ScopelessString>(ScopelessString::New(message.c_str())));
-
-  AddImmediateCallback(EventHandlerImmediate, info);
-}
-
+// immediate here to trigger the callbacks ASAPly on the node thread
 void WrappedBroodWar::OnCheckForChatCommand(const std::string& message,
     ChatMessageType message_type, byte recipients) {
   EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
@@ -1063,6 +1002,15 @@ void WrappedBroodWar::OnCheckForChatCommand(const std::string& message,
 
 void WrappedBroodWar::OnGameLoopIteration() {
   game_loop_queue_->ExecuteItems();
+}
+
+void WrappedBroodWar::OnNetPlayerJoin(uint32 storm_id) {
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onNetPlayerJoin");
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(storm_id)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
 }
 
 GameLoopQueue::GameLoopQueue() 
