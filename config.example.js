@@ -25,12 +25,14 @@ config.logLevels = {
   console: 'debug'
 }
 
+
+// Uncommenting this block will enable HTTPS, which requires generating server certs & keys 
+// It's advisable to leave commented if you're doing local development
+/*
 config.https = {
   ca: [],
   key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8'),
   cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
 }
-// If you want to turn https off (e.g. for local development), you can also do:
-// config.https = false
-
+*/
 export default config
