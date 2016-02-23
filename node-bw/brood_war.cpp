@@ -315,6 +315,7 @@ void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_by
   }
 
   set_lobby_state(9);
+  set_game_state(GameState::Initializing);
 }
 
 void BroodWar::RunGameLoop() {
