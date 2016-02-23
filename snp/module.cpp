@@ -3,8 +3,10 @@
 #include <node.h>
 #include <nan.h>
 #include <uv.h>
+#include <time.h>
 #include <list>
 #include <memory>
+#include <queue>
 
 #include "logger/logger.h"
 #include "snp/snp.h"
@@ -13,6 +15,7 @@ using Nan::FunctionCallbackInfo;
 using Nan::HandleScope;
 using Nan::Persistent;
 using std::list;
+using std::queue;
 using std::unique_ptr;
 using v8::Array;
 using v8::Function;
@@ -28,12 +31,16 @@ namespace snp{
 
 class Command;
 
+static const uint32 STORM_ERROR_NO_MESSAGES_WAITING = 0x8510006b;
+typedef void (__stdcall *SErrSetLastErrorFunc)(DWORD errorCode);
+static SErrSetLastErrorFunc SErrSetLastError;
+
 static uv_mutex_t command_mutex;
 static list<unique_ptr<Command>> js_commands;
 static uv_async_t command_async;
 
 static uv_mutex_t message_mutex;
-static list<ReceivedMessage*> messages;
+static queue<ReceivedMessage*> messages;
 
 // The following static members should only be accessed on the JS thread
 static Persistent<Object> module_exports;
@@ -81,9 +88,9 @@ void OnMessageReceived(const FunctionCallbackInfo<Value>& info) {
   message->from.sin_port = htons(6112);
 
   uv_mutex_lock(&message_mutex);
-  messages.push_back(message);
+  messages.push(message);
   SetEvent(receive_event);
-  uv_mutex_unlock(&message_mutex);
+  uv_mutex_unlock(&message_mutex);  
 }
 
 Command::~Command() {}
@@ -111,6 +118,13 @@ void CreateNetworkHandlerCommand::Execute() {
 }
 
 void CreateNetworkHandler(HANDLE receive_event) {
+  if (SErrSetLastError == nullptr) {
+    HMODULE storm = GetModuleHandle("storm.dll");
+    assert(storm != nullptr);
+    SErrSetLastError = reinterpret_cast<SErrSetLastErrorFunc>(
+        GetProcAddress(storm, MAKEINTRESOURCE(465)));
+  }
+
   QueueCommand(std::make_unique<CreateNetworkHandlerCommand>(receive_event));
 }
 
@@ -189,11 +203,12 @@ void DestroyNetworkHandler() {
 bool RetrieveMessage(sockaddr_in** from_ptr, char** data_ptr, uint32* data_len_ptr) {
   uv_mutex_lock(&message_mutex);
   if (messages.empty()) {
+    SErrSetLastError(STORM_ERROR_NO_MESSAGES_WAITING);
     uv_mutex_unlock(&message_mutex);
     return false;
   }
   auto message = messages.front();
-  messages.pop_front();
+  messages.pop();
   uv_mutex_unlock(&message_mutex);
 
   *from_ptr = &message->from;
@@ -208,6 +223,7 @@ void FreeMessage(sockaddr_in* from, char* packet, uint32 data_len) {
 }
   
 void InitModule(Local<Object> exports, Local<Value> unused) {
+  SErrSetLastError = nullptr;
   uv_mutex_init(&message_mutex);
 
   uv_mutex_init(&command_mutex);

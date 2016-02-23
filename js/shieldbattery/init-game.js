@@ -184,6 +184,10 @@ export default async function initGame({ lobby, settings, setup, localUser }) {
   if (isHost) {
     await createLobby(lobby, localUser)
   } else {
+    // Give the host a bit more time to create, in the hopes that we hit a join on the first request
+    // TODO(tec27): we could probably let the host have the config a bit earlier (and start creating
+    // the game then) to better facilitate this
+    await new Promise(resolve => setTimeout(resolve, 150))
     await joinLobby(lobby, localUser)
   }
 
