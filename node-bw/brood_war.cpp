@@ -313,6 +313,8 @@ void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_by
     pop edx;
     pop eax;
   }
+
+  set_lobby_state(9);
 }
 
 void BroodWar::RunGameLoop() {
