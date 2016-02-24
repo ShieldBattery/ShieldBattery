@@ -202,13 +202,13 @@ export default async function initGame({ lobby, settings, setup, localUser }) {
   }
 
   log.verbose('setting game seed')
-  // TODO(tec27): a proper implementation of this
-  bw.doLobbyGameInit(4 /* chosen by a fair dice roll */, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
+  // TODO(tec27): deal with player bytes if we ever allow save games
+  bw.doLobbyGameInit(setup.seed | 0, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
 
   forge.endWndProc()
   const { results, time } = await bw.runGameLoop()
+  // TODO(tec27): report these?
   log.verbose('gameResults: ' + JSON.stringify(results))
   log.verbose('gameTime: ' + time)
-  // TODO(tec27): report these?
   bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
 }
