@@ -144,12 +144,17 @@ const NetworkInfo = new Record({
 // Data collected in preparation for actually starting a game
 const Prep = new Record({
   networkInfo: new Map(),
+  seed: 0,
 })
 
 export const Preps = {
   isComplete(prep, lobby) {
     return lobby.players.every((p, id) => p.isComputer || prep.networkInfo.has(id))
   }
+}
+
+function generateSeed() {
+  return (Math.random() * 0xFFFFFFFF) | 0
 }
 
 const slotNum = s => s >= 0 && s <= 7
@@ -359,7 +364,7 @@ export class LobbyApi {
     const timer = setTimeout(() => this._completeCountdown(lobbyName), 5000)
     const countdown = new Countdown({ timer })
     this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, countdown)
-    this.lobbyPreps = this.lobbyPreps.set(lobbyName, new Prep())
+    this.lobbyPreps = this.lobbyPreps.set(lobbyName, new Prep({ seed: generateSeed() }))
 
     this._publishTo(lobby, {
       type: 'startCountdown',
@@ -385,7 +390,7 @@ export class LobbyApi {
 
     this._publishTo(lobby, {
       type: 'setupGame',
-      setup: preps
+      setup: preps,
     })
   }
 
