@@ -9,6 +9,7 @@ import {
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
+  LOBBY_UPDATE_LOADING_START,
 } from '../actions'
 
 export const Player = new Record({
@@ -26,6 +27,7 @@ export const Lobby = new Record({
   hostId: null,
   isCountingDown: false,
   countdownTimer: -1,
+  isLoading: false,
 })
 
 const playersObjToMap = obj => {
@@ -78,6 +80,10 @@ const handlers = {
 
   [LOBBY_UPDATE_COUNTDOWN_CANCELED](state, action) {
     return state.set('isCountingDown', false).set('countdownTimer', -1)
+  },
+
+  [LOBBY_UPDATE_LOADING_START](state, action) {
+    return state.set('isLoading', true)
   },
 }
 

@@ -1,4 +1,4 @@
-import { List, Map, OrderedMap, Record } from 'immutable'
+import { List, Map, OrderedMap, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
@@ -157,6 +157,10 @@ function generateSeed() {
   return (Math.random() * 0xFFFFFFFF) | 0
 }
 
+const LoadingData = new Record({
+  resultTokens: new Map(),
+})
+
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
@@ -174,6 +178,7 @@ export class LobbyApi {
     this.lobbyLocks = new Map()
     this.lobbyCountdowns = new Map()
     this.lobbyPreps = new Map()
+    this.loadingLobbies = new Map()
   }
 
   @Api('/create',
@@ -211,9 +216,7 @@ export class LobbyApi {
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
     }
-    if (this.lobbyCountdowns.has(name)) {
-      throw new errors.Conflict('lobby is counting down')
-    }
+    this._syncEnsureLobbyNotTransient(name)
 
     let lobby = this.lobbies.get(name)
     const slot = Lobbies.findEmptySlot(lobby)
@@ -250,14 +253,11 @@ export class LobbyApi {
     'getUser',
     'acquireLobby',
     'getPlayer',
-    'ensureIsLobbyHost')
+    'ensureIsLobbyHost',
+    'ensureLobbyNotTransient')
   async addComputer(data, next) {
     const { slotNum } = data.get('body')
     let lobby = data.get('lobby')
-
-    if (this.lobbyCountdowns.has(lobby.name)) {
-      throw new errors.Conflict('lobby is counting down')
-    }
 
     if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
       throw new errors.Conflict('slot already occupied')
@@ -280,7 +280,8 @@ export class LobbyApi {
     }),
     'getUser',
     'acquireLobby',
-    'getPlayer')
+    'getPlayer',
+    'ensureLobbyNotLoading')
   async setRace(data, next) {
     const { id, race } = data.get('body')
     const lobby = data.get('lobby')
@@ -343,20 +344,19 @@ export class LobbyApi {
       id,
     })
     user.unsubscribe(LobbyApi._getPath(lobby))
-    this._maybeCancelCountdown(lobby.name)
+    this._maybeCancelCountdown(lobby)
+    this._maybeCancelLoading(lobby)
   }
 
   @Api('/startCountdown',
     'getUser',
     'acquireLobby',
     'getPlayer',
-    'ensureIsLobbyHost')
+    'ensureIsLobbyHost',
+    'ensureLobbyNotTransient')
   async startCountdown(data, next) {
     const lobby = data.get('lobby')
     const lobbyName = lobby.name
-    if (this.lobbyCountdowns.has(lobbyName)) {
-      throw new errors.Conflict('countdown already started')
-    }
     if (lobby.players.size < 2) {
       throw new errors.BadRequest('must have at least 2 players')
     }
@@ -375,7 +375,7 @@ export class LobbyApi {
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
     const lobby = this.lobbies.get(lobbyName)
     const preps = this.lobbyPreps.get(lobbyName)
-    this.lobbyPreps.delete(lobbyName)
+    this.lobbyPreps = this.lobbyPreps.delete(lobbyName)
 
     // TODO(tec27): This basically gives everyone a 5 second time to submit network info, and if
     // they don't arrive in time, we cancel the thing. Is that enough time?
@@ -388,6 +388,7 @@ export class LobbyApi {
       return
     }
 
+    this.loadingLobbies = this.loadingLobbies.set(lobbyName, new LoadingData())
     this._publishTo(lobby, {
       type: 'setupGame',
       setup: preps,
@@ -395,17 +396,29 @@ export class LobbyApi {
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobbyName) {
-    if (!this.lobbyCountdowns.has(lobbyName)) {
+  _maybeCancelCountdown(lobby) {
+    if (!this.lobbyCountdowns.has(lobby.name)) {
       return
     }
 
-    const countdown = this.lobbyCountdowns.get(lobbyName)
+    const countdown = this.lobbyCountdowns.get(lobby.name)
     clearTimeout(countdown.timer)
-    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-    this.lobbyPreps = this.lobbyPreps.delete(lobbyName)
-    this._publishTo(this.lobbies.get(lobbyName), {
+    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
+    this.lobbyPreps = this.lobbyPreps.delete(lobby.name)
+    this._publishTo(lobby, {
       type: 'cancelCountdown',
+    })
+  }
+
+  // Cancels the loading state if the lobby was in it (no-op if it was not)
+  _maybeCancelLoading(lobby) {
+    if (!this.loadingLobbies.has(lobby.name)) {
+      return
+    }
+
+    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    this._publishTo(lobby, {
+      type: 'cancelLoading',
     })
   }
 
@@ -432,6 +445,27 @@ export class LobbyApi {
     })
     const { id } = data.get('player')
     this.lobbyPreps = this.lobbyPreps.setIn([lobbyName, 'networkInfo', id], networkInfo)
+  }
+
+  @Api('/gameLoaded',
+    validateBody({
+      resultToken: nonEmptyString,
+    }),
+    'getUser',
+    'acquireLobby',
+    'getPlayer',
+    'ensureLobbyLoading')
+  async gameLoaded(data, next) {
+    // TODO(tec27): implement
+  }
+
+  @Api('/loadFailed',
+    'getUser',
+    'acquireLobby',
+    'getPlayer',
+    'ensureLobbyLoading')
+  async loadFailed(data, next) {
+    // TODO(tec27): implement
   }
 
   async getUser(data, next) {
@@ -501,6 +535,43 @@ export class LobbyApi {
     }
 
     return await next(data)
+  }
+
+  async ensureLobbyNotLoading(data, next) {
+    const lobby = data.get('lobby')
+    if (this.loadingLobbies.has(lobby.name)) {
+      throw new errors.Conflict('lobby has already started')
+    }
+
+    return await next(data)
+  }
+
+  async ensureLobbyLoading(data, next) {
+    const lobby = data.get('lobby')
+    if (!this.loadingLobbies.has(lobby.name)) {
+      throw new errors.Conflict('lobby must be loading')
+    }
+
+    return await next(data)
+  }
+
+  // Ensures that the lobby is not in a 'transient' state, that is, a state between being a lobby
+  // and being an active game (counting down, loading, etc.). Transient states can be rolled back
+  // (bringing the lobby back to a non-transient state)
+  async ensureLobbyNotTransient(data, next) {
+    const lobby = data.get('lobby')
+    this._syncEnsureLobbyNotTransient(lobby.name)
+
+    return await next(data)
+  }
+
+  _syncEnsureLobbyNotTransient(lobbyName) {
+    if (this.lobbyCountdowns.has(lobbyName)) {
+      throw new errors.Conflict('lobby is counting down')
+    }
+    if (this.loadingLobbies.has(lobbyName)) {
+      throw new errors.Conflict('lobby has already started')
+    }
   }
 
   _publishTo(lobby, data) {

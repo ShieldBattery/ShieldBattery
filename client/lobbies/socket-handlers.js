@@ -7,6 +7,7 @@ import {
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
+  LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_RACE_CHANGE,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
@@ -95,6 +96,7 @@ const eventToAction = {
 
   setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
     const { lobby: { map, numSlots, players, hostId }, settings, auth: { user } } = getState()
+    dispatch({ type: LOBBY_UPDATE_LOADING_START })
     psiSocket.invoke('/site/setGameConfig', {
       lobby: {
         map,
