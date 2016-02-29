@@ -56,6 +56,16 @@ const Track = ({ showTicks, value, min, max, step }) => {
   </div>)
 }
 
+function getInitialValue({ min, max, step, defaultValue }) {
+  if (defaultValue !== undefined) {
+    return defaultValue
+  }
+
+  const range = (max - min) / step
+  const midPoint = Math.floor(range / 2)
+  return midPoint * step + min
+}
+
 class Slider extends React.Component {
   static propTypes = {
     min: PropTypes.number.isRequired,
@@ -86,7 +96,7 @@ class Slider extends React.Component {
       isFocused: false,
       isClicked: false,
       // if defaultValue was not supplied through props, center the slider
-      value: props.defaultValue === undefined ? (props.max - props.min) / 2 : props.defaultValue
+      value: getInitialValue(props)
     }
 
     this._onMouseMove = ::this.onMouseMove
