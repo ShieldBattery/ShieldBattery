@@ -107,16 +107,16 @@ functions for process creation and DLL injection.
 - **v8-helpers**: V8-related utility functionality for use in our linked Node
 C++ modules.
 
-## Running Shieldbattery
-After building the project, due to some race condition stuff, you will need to
-start the psi service manually (you can do so in `services.msc`). That's pretty
-much it for the shieldbattery side of things. If you'd actually like to play a
-game through ShieldBattery, you'll need to have a
+## Running ShieldBattery
+To use ShieldBattery, you'll need the `psi` service running. This will be
+automatically started after a successful build, but you can manage its status
+via `services.msc`. If you'd actually like to play a game through ShieldBattery,
+you'll need to have a
 [manner-pylon](https://github.com/tec27/manner-pylon) server running, either
 locally or you can use the [online dev version](https://dev.shieldbattery.net/)
 (currently unupdated).
 
-Note: If you're running manner-pylon locally (or on any other non-official
+**Note**: If you're running manner-pylon locally (or on any other non-official
 host), you will need to add those extra hosts to the allowed hosts list. You do
 this by creating a file called `dev.json` in the `SHIELDBATTERY_PATH` and
 entering something like this:

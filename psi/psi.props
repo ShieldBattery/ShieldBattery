@@ -6,7 +6,7 @@
   <ItemDefinitionGroup>
     <PostBuildEvent>
       <Command>xcopy "$(TargetPath)" "$(SHIELDBATTERY_PATH)" /y /f /c
-sc create Psi binpath= "$(SHIELDBATTERY_PATH)psi.exe" type= own start= auto</Command>
+sc create Psi binpath= "$(SHIELDBATTERY_PATH)psi.exe" type= own start= auto &amp;&amp; sc start Psi</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
