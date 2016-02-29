@@ -1,58 +1,132 @@
-#shieldbattery
-The client-side parts of the shieldbattery project, including an injector service, an injected game management DLL, a game network provider, a windowed mode for StarCraft:Brood War and various other utilities.
+# shieldbattery
+The client-side parts of the shieldbattery project, including an injector
+service, an injected game management DLL, a game network provider, a windowed
+mode for StarCraft:Brood War and various other utilities.
 
-##IRC
-The shieldbattery developers frequent `#shieldbattery-dev` on QuakeNet, feel free to stop in with questions, comments, or just to hang out!
+## IRC
+The shieldbattery developers frequent `#shieldbattery-dev` on QuakeNet, feel
+free to stop in with questions, comments, or just to hang out!
 
-##Developer Setup
-Shieldbattery is a combination of C++ and JavaScript, and thus developing for it involves two different workflows. A script is included to setup both areas, `vcbuild.bat`. This will both generate C++ project files as well as build the native Node modules and link them into your environment.
+## Developer setup
+ShieldBattery is a combination of C++ and JavaScript, and thus developing for it
+involves two different workflows.
 
-Developing for shieldbattery will require an install of Visual Studio 2012 or greater. I believe the [Express Edition](http://www.microsoft.com/visualstudio/eng/products/visual-studio-express-products) should work, but I have not tested this personally. It also requires [iojs](http://iojs.org) or [node.js](http://nodejs.org/) to be installed, any version >= 0.12.x should work fine (if you also want to run manner-pylon, install iojs).
+### Repository setup
+We use a git submodule for the node dependency, which needs to be
+initialized after a fresh repository clone. Run `git submodule init` followed by
+`git submodule update` to make this happen. Whenever the node dependency has
+been updated, you'll then need to re-run `git submodule update` to get the new
+changes.
 
-####Environment Setup
-Building shieldbattery properly requires some environment variables to be set so that it can properly move things around after building. Set your environment variables as follows:
+### General environment Setup
+Building shieldbattery properly requires some environment variables to be set so
+that it can properly move things around after building. Set your environment
+variables as follows:
+
 ```
 SHIELDBATTERY_PATH=<path to your desired shieldbattery test install>
 ```
+
 For me, this is:
+
 ```
 SHIELDBATTERY_PATH=C:\shieldbattery\
 ```
 
-Note that this should *not* be the same place that you cloned the repo. Setting your test install directory to the same directory as your repo will not work correctly, and is not at all a desired way of doing things.
-####Getting Project Files
-Visual Studio project files are generated using [gyp](https://code.google.com/p/gyp/). This is the canonical source for project files, so they will not be checked into git. You'll need a copy of [Python 2.7.x](http://www.python.org/download/) installed to use gyp.
+Note that this should *not* be the same place that you cloned the repo. Setting
+your test install directory to the same directory as your repo will not work
+correctly, and is not at all a desired way of doing things.
 
-Generating the project files should be straightforward, simply run `vcbuild.bat` in the base directory. This will generate the solution and project files for you to open in Visual Studio (namely, `shieldbattery.sln`). If you encounter any problems utilizing these generated projects, please report them here or submit a fix to the gyp file, don't just fix them in Visual Studio!
+Shieldbattery uses [gyp](https://code.google.com/p/gyp/) for generating
+project files, which requires a working
+[Python 2.7.x](http://www.python.org/download/) install. Install this before
+attempting to follow further steps.
 
+### JavaScript
+All of the JS for the project is under the `js` directory. You can edit this
+however you wish, and no build step is necessary, but you install the
+dependencies you'll need to install a version of node.js. Any version of node
+>= 5 should be fine, generally you'll just want to install the latest stable
+version from [nodejs.org](https://nodejs.org/).
+
+### C++
+Building the C++ code requires Visual Studio 2015 or higher. The
+easiest/cheapest way to get this is through the
+[Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
+.
+
+Once Visual Studio is installed, you can generated project files by running the
+`vcbuild.bat` script in the root of this repository. If you plan on building
+inside of Visual Studio, you can run this with the `nobuild` flag to speed
+things up. Note that this script will also install JS dependencies and link up
+the JS directory to your `SHIELDBATTERY_PATH`, so complete the previous setup
+steps first.
+
+`vcbuild.bat` will generate `shieldbattery.sln` in the root of the repo; open
+this with Visual Studio to be able to edit and build the C++ code. Note that
+Debug builds add significant startup time to the applications, while Release
+builds add significant compile time. Pick your poison based on your needs at the
+time.
+
+If you should ever need to add or remove files to the projects, make the changes
+in `shieldbattery.gyp` and then re-run the build script to regenerate projects.
+This will ensure everyone can get to the same project state as you once your
+changes are merged.
+
+## Project structure
 The various project files/folders are:
-- bundler: a script that bundles up all the binaries and scripts.
-- common: utility classes that are used almost everywhere.
-- forge: windowed mode and general rendering wrapper for ShieldBattery.
-- installer: WiX installer project used for installing ShieldBattery.
-- logger: logging class for pushing log lines from C++->JS (so they can be put in the same log file in the same format)
-- js: All the javascript for the various projects, including linked in node-psi and node-bw.
-- psi: background service that handles launching and injecting Starcraft (also embedded Node).
-- psi-emitter: an executable which detects the desktop resolution.
-- scout: multiplexing injectee DLL. I use this with InfectInject, but this method is deprecated now that psi is working.
-- shieldbattery: Node embedded in a dll that loads a specific JS file on startup.
-- snp: Storm Network Provider dll (generic interface dll that Starcraft uses to e.g. send packets and retrieve game lists).
-- node-bw: native V8/Node bindings for Starcraft (and to a slight extent, shieldbattery).
-- node-psi: native V8/Node bindings for psi
-- v8-helpers: V8-related utility functionality for use in our Node C++ modules (node-bw and node-psi)
+- **bundler**: a script that bundles up all the binaries and scripts so they can
+be included in the installer
+- **common**: utility classes that are used almost everywhere.
+- **forge**: windowed mode and general rendering wrapper for ShieldBattery.
+- **installer**: WiX installer project used for generating a releasable
+Windows installer.
+- **logger**: logging class for pushing log lines from C++ to JS (so they can be
+put in the same log file in the same format)
+- **js**: All the JavaScript for the various projects, including code that
+interfaces with the various native modules we've created.
+- **psi**: Node-embedded background service that handles launching and injecting
+Starcraft.
+- **psi-emitter**: an executable which detects the desktop resolution, for use
+by **psi** (since it cannot detect such information while running as a service).
+- **scout**: multiplexing injectee DLL. Usable with InfectInject should you need
+to get DLLs injected for debugging purposes, but this is generally a very
+special purpose need and not something we release with ShieldBattery.
+- **shieldbattery**: Node-embedded DLL that gets injected into Starcraft by
+**psi** and links in **forge**, **node-bw**, and **snp**.
+- **snp**: Storm Network Provider linked into **shieldbattery** (generic
+interface dll that Starcraft uses to e.g. send packets and retrieve game lists).
+Most of the network code is implemented in JavaScript.
+- **node-bw**: native V8/Node bindings for Starcraft, linked into
+**shieldbattery**.
+- **node-psi**: native V8/Node bindings for **psi**, providing things like JS
+functions for process creation and DLL injection.
+- **v8-helpers**: V8-related utility functionality for use in our linked Node
+C++ modules.
 
-The generated `shieldbattery.sln` will contain all of these projects, and is what you should use if you desire to edit the code with an IDE.
+## Running Shieldbattery
+After building the project, due to some race condition stuff, you will need to
+start the psi service manually (you can do so in `services.msc`). That's pretty
+much it for the shieldbattery side of things. If you'd actually like to play a
+game through ShieldBattery, you'll need to have a
+[manner-pylon](https://github.com/tec27/manner-pylon) server running, either
+locally or you can use the [online dev version](https://dev.shieldbattery.net/)
+(currently unupdated).
 
-####Running Shieldbattery
-After building the project, due to some race condition stuff, you will need to start the psi service manually (you can do so in services.msc). That's pretty much it for the shieldbattery side of things. If you'd actually like to play a game over ShieldBattery, you'll need to have a [manner-pylon](https://github.com/tec27/manner-pylon) server running, either locally or you can use [online dev version](https://dev.shieldbattery.net/) (currently unupdated).
+Note: If you're running manner-pylon locally (or on any other non-official
+host), you will need to add those extra hosts to the allowed hosts list. You do
+this by creating a file called `dev.json` in the `SHIELDBATTERY_PATH` and
+entering something like this:
 
-Note: If you're running manner-pylon locally (or on any other non-official host), you will need to add those extra hosts to the allowed hosts list. You do this by creating a file called `dev.json` in the `SHIELDBATTERY_PATH` and entering something like this:
 ```
 {
   "extraAllowedHosts": [
     "http://localhost",
     "https://localhost",
-    "https://mycooldomain.com"
+    "https://example.com"
   ]
 }
 ```
+
+Scheme (http or https) and port must match the host you'll be connecting from to
+be allowed through.
