@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
+import CreateLobbyOverlay from '../lobbies/create.jsx'
 import Settings from '../settings/settings.jsx'
 import { closeDialog } from './dialog-action-creator'
 
@@ -13,6 +14,9 @@ class ConnectedDialogOverlay extends React.Component {
     let dialogComponent
     if (dialog.isDialogOpened) {
       switch (dialog.dialogType) {
+        case 'createLobbyOverlay':
+          dialogComponent = <CreateLobbyOverlay />
+          break
         case 'settings':
           dialogComponent = <Settings />
           break
