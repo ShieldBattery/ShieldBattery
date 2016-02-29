@@ -29,11 +29,13 @@ class ValidatedForm extends React.Component {
       })
     })
 
+    const titleClassName = classnames(styles.title, this.props.titleClassName)
     const fieldsClassName = classnames(styles.fields, this.props.fieldsClassName)
     const errorsClassName = classnames(styles.errors, this.props.errorsClassName)
     const buttonsClassName = classnames(styles.buttons, this.props.buttonsClassName)
 
-    const title = this.props.formTitle ? (<h3>{this.props.formTitle}</h3>) : undefined
+    const title = this.props.formTitle ?
+        (<h3 className={titleClassName}>{this.props.formTitle}</h3>) : undefined
     const errorText = this.props.errorText ?
         (<span className={errorsClassName}>{this.props.errorText}</span>) : undefined
     const buttons = this.props.buttons ?
@@ -121,6 +123,11 @@ ValidatedForm.propTypes = {
   errorText: React.PropTypes.string,
   buttons: React.PropTypes.node,
   onSubmitted: React.PropTypes.func,
+  titleClassName: React.PropTypes.oneOfType([
+    React.PropTypes.string,
+    React.PropTypes.array,
+    React.PropTypes.object,
+  ]),
   errorsClassName: React.PropTypes.oneOfType([
     React.PropTypes.string,
     React.PropTypes.array,
