@@ -1,7 +1,10 @@
 # shieldbattery
 The client-side parts of the shieldbattery project, including an injector
 service, an injected game management DLL, a game network provider, a windowed
-mode for StarCraft:Brood War and various other utilities.
+mode for StarCraft: Brood War and various other utilities.
+
+For the server-side parts, see
+[manner-pylon](https://github.com/tec27/manner-pylon).
 
 ## IRC
 The shieldbattery developers frequent `#shieldbattery-dev` on QuakeNet, feel
