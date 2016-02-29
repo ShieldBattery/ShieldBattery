@@ -18,6 +18,7 @@ using Nan::Null;
 using Nan::Persistent;
 using Nan::SetPrototypeMethod;
 using Nan::To;
+using Nan::Undefined;
 using Nan::Utf8String;
 using std::string;
 using std::unique_ptr;
@@ -60,6 +61,7 @@ void WrappedProcess::Init() {
   // functions
   SetPrototypeMethod(tpl, "injectDll", InjectDll);
   SetPrototypeMethod(tpl, "resume", Resume);
+  SetPrototypeMethod(tpl, "waitForExit", WaitForExit);
   
   constructor.Reset(tpl->GetFunction());
 }
@@ -140,6 +142,59 @@ void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
     info.GetReturnValue().Set(Exception::Error(Nan::New(
         reinterpret_cast<const uint16_t*>(error.message().c_str())).ToLocalChecked()));
   }
+}
+
+struct WaitForExitContext {
+  uv_work_t req;
+  unique_ptr<Callback> callback;
+  Persistent<Object> self;
+  Process* process;
+
+  unique_ptr<WindowsError> error;
+  uint32 exit_code;
+};
+
+void WaitForExitWork(uv_work_t* req) {
+  WaitForExitContext* context = reinterpret_cast<WaitForExitContext*>(req->data);
+
+  context->error.reset(new WindowsError(context->process->WaitForExit()));
+  if (context->error->is_error()) {
+    return;
+  }
+
+  context->error.reset(new WindowsError(context->process->GetExitCode(&context->exit_code)));
+}
+
+void WaitForExitAfter(uv_work_t* req, int status) {
+  HandleScope scope;
+  WaitForExitContext* context = reinterpret_cast<WaitForExitContext*>(req->data);
+
+  Local<Value> err = Null();
+  Local<Value> code = Undefined();
+  if (context->error->is_error()) {
+    err = Exception::Error(Nan::New(
+      reinterpret_cast<const uint16_t*>(context->error->message().c_str())).ToLocalChecked());
+  } else {
+    code = Nan::New(context->exit_code);
+  }
+
+  Local<Value> argv[] = { err, code };
+  context->callback->Call(Nan::New<Object>(context->self), 2, argv);
+
+  context->self.Reset();
+  delete context;
+}
+
+void WrappedProcess::WaitForExit(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() == 1);
+  assert(info[0]->IsFunction());
+
+  WaitForExitContext* context = new WaitForExitContext;
+  context->callback.reset(new Callback(info[0].As<Function>()));
+  context->self.Reset(info.This());
+  context->process = WrappedProcess::Unwrap(info);
+  context->req.data = context;
+  uv_queue_work(uv_default_loop(), &context->req, WaitForExitWork, WaitForExitAfter);
 }
 
 }  // namespace psi

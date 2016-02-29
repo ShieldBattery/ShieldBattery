@@ -64,13 +64,15 @@ public:
   WindowsError WaitForExit(uint32 max_wait_ms = INFINITE, bool* timed_out = nullptr);
   WindowsError GetExitCode(uint32* exit_code);
 private:
+  // Disable copying
+  Process(const Process&) = delete;
+  Process& operator=(const Process&) = delete;
+
   bool EnableSeDebug();
 
   static bool se_debug_enabled_;
   PROCESS_INFORMATION process_info_;
   WindowsError* error_;
-
-  DISALLOW_COPY_AND_ASSIGN(Process);
 };
 
 // Used to pass messages between processes about the current monitor resolution
