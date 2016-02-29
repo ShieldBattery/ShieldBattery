@@ -46,7 +46,7 @@ attempting to follow further steps.
 All of the JS for the project is under the `js` directory. You can edit this
 however you wish, and no build step is necessary, but you install the
 dependencies you'll need to install a version of node.js. Any version of node
->= 5 should be fine, generally you'll just want to install the latest stable
+&gt;= 5 should be fine, generally you'll just want to install the latest stable
 version from [nodejs.org](https://nodejs.org/).
 
 ### C++
