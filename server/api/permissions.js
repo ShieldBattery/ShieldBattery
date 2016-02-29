@@ -19,13 +19,8 @@ function* getPermissions(next) {
 }
 
 function* updatePermissions(next) {
-  const b = this.request.body
+  const { permissions: perms } = this.request.body
   const userId = this.params.userId
-  const perms = {
-    editPermissions: b.editPermissions,
-    debug: b.debug,
-    acceptInvites: b.acceptInvites,
-  }
 
   try {
     this.body = yield* permissions.update(userId, perms)

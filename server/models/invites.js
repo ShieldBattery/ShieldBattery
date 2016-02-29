@@ -71,15 +71,15 @@ function* _getInvites(condition) {
 }
 
 function* getAllInvites() {
-  yield* _getInvites(null)
+  return yield* _getInvites(null)
 }
 
 function* getUnacceptedInvites() {
-  yield* _getInvites('WHERE token IS NULL')
+  return yield* _getInvites('WHERE token IS NULL')
 }
 
 function* getAcceptedInvites() {
-  yield* _getInvites('WHERE token IS NOT NULL')
+  return yield* _getInvites('WHERE token IS NOT NULL')
 }
 
 function* acceptInvite(email, token) {

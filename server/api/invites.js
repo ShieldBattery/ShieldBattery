@@ -12,15 +12,8 @@ export default function(router) {
 }
 
 function* createInvite(next) {
-  const b = this.request.body
-  const invite = {
-    email: b.email,
-    teamliquidName: b.teamliquidName,
-    os: b.os,
-    browser: b.browser,
-    graphics: b.graphics,
-    canHost: b.canHost,
-  }
+  const { invite } = this.request.body
+
   if (!invite.email || !constants.isValidEmail(invite.email)) {
     throw new httpErrors.BadRequest('Invalid email')
   }
