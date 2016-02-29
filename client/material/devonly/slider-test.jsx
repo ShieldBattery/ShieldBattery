@@ -33,9 +33,7 @@ export default class SliderTest extends React.Component {
 
         <TextField floatingLabel={true} label='Label 2' errorText='hi' />
 
-        <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no default value */}
-
-        <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no min */}
+        <Slider min={0} max={7} step={1} /> {/* TODO: no default value */}
 
         <Select defaultValue={2} label='First'>
           <Option value={1} text='Menu option 1' />
@@ -48,11 +46,10 @@ export default class SliderTest extends React.Component {
           <Option value={8} text='Menu option 8' />
         </Select>
 
-        <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no max */}
 
-        <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no step */}
+        <Slider min={0} max={4} defaultValue={2} />
 
-        <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: no label */}
+        <Slider min={0} max={4} defaultValue={2} step={1} />
       </Card>
     </div>)
   }

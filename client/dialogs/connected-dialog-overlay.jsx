@@ -4,7 +4,7 @@ import Dialog from '../material/dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import { closeDialog } from './dialog-action-creator'
 
-@connect(state => ({ dialog: state.dialog }))
+@connect(state => ({ dialog: state.dialog, settings: state.settings }))
 class ConnectedDialogOverlay extends React.Component {
   render() {
     const { dialog } = this.props

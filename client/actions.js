@@ -52,7 +52,16 @@ export const LOBBY_UPDATE_LOADING_START = 'LOBBY_UPDATE_LOADING_START'
 // A user has changed the race in a lobby we're in
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 
+// We are starting the process of saving the settings
+export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'
+// The server has responded with success/failure to our settings saving
+export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
+
+// We are starting the process of getting the resolution
+export const RESOLUTION_GET_BEGIN = 'RESOLUTION_GET_BEGIN'
+// The server has responded with success/failure to our resolution getting
+export const RESOLUTION_GET = 'RESOLUTION_GET'
 
 export const SERVER_STATUS = 'SERVER_STATUS'
