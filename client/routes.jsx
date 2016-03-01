@@ -3,15 +3,18 @@ import { IndexRoute, Route } from 'react-router'
 import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
+import ConditionalRedirect from './navigation/conditional-redirect.jsx'
 import MainLayout from './main-layout.jsx'
 import LobbyList from './lobbies/list.jsx'
 import LobbyView from './lobbies/view.jsx'
-import LoginRequired from './auth/login-required.jsx'
 import LoginLayout from './auth/login-layout.jsx'
 import Login from './auth/login.jsx'
 import Signup from './auth/signup.jsx'
 import WhisperIndex from './whispers/index.jsx'
 import WhisperView from './whispers/view.jsx'
+
+import { isLoggedIn } from './auth/auth-utils'
+import { redirectAfterLogin } from './navigation/action-creators'
 
 let devRoutes
 if (process.env.NODE_ENV !== 'production') {
@@ -25,7 +28,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const routes = <Route>
-  <Route component={LoginRequired}>
+  <Route component={ConditionalRedirect} conditionFn={(auth) => isLoggedIn(auth)}
+      actionFn={(props) => redirectAfterLogin(props)}>
     <Route component={MainLayout}>
       <Route path='/' />
       <Route path='/chat'>
