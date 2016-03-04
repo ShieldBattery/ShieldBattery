@@ -26,3 +26,9 @@ export function redirectAfterLogin(props, transitionFn = routeActions.push) {
     dispatch(transitionFn({ pathname: '/login', query }))
   }
 }
+
+export function goToAdminPanel(transitionFn = routeActions.push) {
+  return (dispatch) => {
+    dispatch(transitionFn('/admin'))
+  }
+}

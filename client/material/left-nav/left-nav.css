@@ -34,6 +34,7 @@
 }
 
 .footer {
+  composes: row justifySpaceBetween itemsCenter from '../../styles/flex.css';
   composes: border;
   padding: 0 16px;
 }

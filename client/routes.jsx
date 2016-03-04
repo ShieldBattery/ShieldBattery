@@ -1,5 +1,9 @@
 import React from 'react'
 import { IndexRoute, Route } from 'react-router'
+import { routeActions } from 'redux-simple-router'
+import AdminBetaInvites from './admin/invites.jsx'
+import AdminPanel from './admin/panel.jsx'
+import AdminPermissions from './admin/permissions.jsx'
 import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
@@ -13,8 +17,9 @@ import Signup from './auth/signup.jsx'
 import WhisperIndex from './whispers/index.jsx'
 import WhisperView from './whispers/view.jsx'
 
+import { isAdmin, checkPermissions } from './admin/admin-utils'
 import { isLoggedIn } from './auth/auth-utils'
-import { redirectAfterLogin } from './navigation/action-creators'
+import { redirectAfterLogin, goToIndex, goToAdminPanel } from './navigation/action-creators'
 
 let devRoutes
 if (process.env.NODE_ENV !== 'production') {
@@ -32,6 +37,23 @@ const routes = <Route>
       actionFn={(props) => redirectAfterLogin(props)}>
     <Route component={MainLayout}>
       <Route path='/' />
+      <Route component={ConditionalRedirect} conditionFn={(auth) => isAdmin(auth)}
+          actionFn={() => goToIndex(routeActions.replace)}>
+        <Route path='/admin'>
+          <IndexRoute component={AdminPanel} title='Admin panel'/>
+          <Route component={ConditionalRedirect}
+              conditionFn={(auth) => checkPermissions(auth, 'editPermissions')}
+              actionFn={() => goToAdminPanel(routeActions.replace)}>
+            <Route path='/admin/permissions' component={AdminPermissions} />
+            <Route path='/admin/permissions/:username' component={AdminPermissions} />
+          </Route>
+          <Route component={ConditionalRedirect}
+              conditionFn={(auth) => checkPermissions(auth, 'acceptInvites')}
+              actionFn={() => goToAdminPanel(routeActions.replace)}>
+            <Route path='/admin/invites' component={AdminBetaInvites} />
+          </Route>
+        </Route>
+      </Route>
       <Route path='/chat'>
         <IndexRoute component={ChatList} title='Chat channels'/>
         <Route path=':channel' component={ChatChannel} />

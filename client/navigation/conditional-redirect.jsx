@@ -3,16 +3,9 @@ import { connect } from 'react-redux'
 
 @connect(state => ({ auth: state.auth }))
 class ConditionalRedirect extends React.Component {
-  constructor(props) {
-    super(props)
-
-    this._conditionFn = this.props.route.conditionFn
-    this._actionFn = this.props.route.actionFn
-  }
-
   _ensureCondition(props) {
-    if (!this._conditionFn(props.auth)) {
-      props.dispatch(this._actionFn(props))
+    if (!props.route.conditionFn(props.auth)) {
+      props.dispatch(props.route.actionFn(props))
     }
   }
 
@@ -25,7 +18,7 @@ class ConditionalRedirect extends React.Component {
   }
 
   render() {
-    if (this._conditionFn(this.props.auth)) {
+    if (this.props.route.conditionFn(this.props.auth)) {
       const children = this.props.children
       return !Array.isArray(children) ? children : <div>children</div>
     } else {

@@ -1,0 +1,52 @@
+@value colorTextSecondary from '../styles/colors.css';
+
+.permissions {
+  padding: 0 20px;
+}
+
+.findForm {
+  composes: row itemsCenter from '../styles/flex.css';
+}
+
+.findTitle {
+  padding-right: 20px;
+}
+
+.findFields {
+  padding-right: 20px;
+}
+
+.saveForm {
+  width: 200px;
+}
+
+.invites {
+  padding: 20px;
+}
+
+.filterInvites {
+  padding-bottom: 20px;
+}
+
+.filterInvites > a {
+  padding-right: 20px;
+}
+
+.invitesTable {
+  text-align: left;
+}
+
+.invitesTable th, td {
+  width: 100px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 5px solid transparent;
+  padding: 5px;
+}
+
+.invitesTable th {
+  color: colorTextSecondary;
+  font-weight: 500;
+}
