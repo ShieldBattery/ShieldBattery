@@ -2,6 +2,9 @@ import React from 'react'
 import { IndexRoute, Route } from 'react-router'
 
 import ActiveGame from './active-game/view.jsx'
+import AdminBetaInvites from './admin/invites.jsx'
+import AdminPanel from './admin/panel.jsx'
+import { PermissionsFind, PermissionsResults } from './admin/permissions.jsx'
 import AppNotFound from './app-not-found.jsx'
 import BetaSignup from './beta/signup.jsx'
 import ChatChannel from './chat/channel.jsx'
@@ -18,6 +21,12 @@ import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 import WhisperIndex from './whispers/index.jsx'
 import WhisperView from './whispers/view.jsx'
+
+import {
+  CanAcceptBetaInvitesFilter,
+  CanEditPermissionsFilter,
+  IsAdminFilter
+} from './admin/admin-route-filters.jsx'
 
 let devRoutes
 if (process.env.NODE_ENV !== 'production') {
@@ -40,6 +49,19 @@ const routes = <Route>
           <Route component={MainLayout}>
             <Route path='/' />
             <Route path='/active-game' component={ActiveGame} />
+            <Route component={IsAdminFilter}>
+              <Route path='/admin'>
+                <IndexRoute component={AdminPanel} title='Admin panel'/>
+                <Route component={CanEditPermissionsFilter}>
+                  <Route path='/admin/permissions' component={PermissionsFind}>
+                    <Route path=':username' component={PermissionsResults} />
+                  </Route>
+                </Route>
+                <Route component={CanAcceptBetaInvitesFilter}>
+                  <Route path='/admin/invites' component={AdminBetaInvites} />
+                </Route>
+              </Route>
+            </Route>
             <Route path='/chat'>
               <IndexRoute component={ChatList} title='Chat channels'/>
               <Route path=':channel' component={ChatChannel} />

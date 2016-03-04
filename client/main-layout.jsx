@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { Link } from 'react-router'
 import { routeActions } from 'redux-simple-router'
 import { goToIndex } from './navigation/action-creators'
 import styles from './main-layout.css'
@@ -22,6 +23,7 @@ import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import auther from './auth/auther'
+import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
@@ -79,9 +81,13 @@ class MainLayout extends React.Component {
         channel => <ChatNavEntry key={channel} channel={channel} />)
     const whispers = this.props.whispers.map(
         whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
+    const footer = isAdmin(this.props.auth) ? [
+      <ActiveUserCount key='userCount' className={styles.userCount}/>,
+      <p key='adminPanel'><Link to='/admin'>Admin</Link></p>
+    ] : <ActiveUserCount className={styles.userCount}/>
 
     return (<ConnectedDialogOverlay className={styles.layout}>
-      <LeftNav footer={<ActiveUserCount className={styles.userCount}/>}>
+      <LeftNav footer={footer}>
         {this.renderActiveGameNav()}
         {this.renderLobbyNav()}
         <Subheader>Chat channels</Subheader>
