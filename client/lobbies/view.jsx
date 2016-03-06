@@ -3,7 +3,14 @@ import { connect } from 'react-redux'
 import { routeActions } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
-import { addComputer, leaveLobby, setRace, startCountdown, sendChat } from './action-creators'
+import {
+  addComputer,
+  leaveLobby,
+  setRace,
+  startCountdown,
+  sendChat,
+  getLobbyState
+} from './action-creators'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -12,6 +19,7 @@ import LoadingScreen from './loading.jsx'
 const mapStateToProps = state => {
   return {
     user: state.auth.user,
+    lobbyState: state.lobbyState,
     lobby: state.lobby,
     gameClient: state.gameClient,
     hasActiveGame: state.activeGame.isActive,
@@ -39,9 +47,23 @@ export default class LobbyView extends React.Component {
     this._handleSendChatMessage = ::this.onSendChatMessage
   }
 
+  componentDidMount() {
+    if (!this.props.lobby.inLobby) {
+      const routeLobby = this.props.routeParams.lobby
+      this.props.dispatch(getLobbyState(routeLobby))
+    }
+  }
+
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
       this.props.dispatch(routeActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
+      return
+    }
+
+    const routeLobby = this.props.routeParams.lobby
+    const nextRouteLobby = nextProps.routeParams.lobby
+    if (!this.props.lobby.inLobby && routeLobby !== nextRouteLobby) {
+      this.props.dispatch(getLobbyState(nextRouteLobby))
     }
   }
 
@@ -52,7 +74,7 @@ export default class LobbyView extends React.Component {
     let content
     let actions
     if (!lobby.inLobby) {
-      content = this.renderJoin()
+      content = this.renderLobbyState()
     } else if (lobby.info.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else if (lobby.info.isLoading) {
@@ -72,8 +94,46 @@ export default class LobbyView extends React.Component {
     </ContentLayout>)
   }
 
-  renderJoin() {
-    return <p className={styles.contentArea}>Wanna join this lobby?</p>
+  // TODO(tec27): refactor out into its own component
+  renderLobbyStateContent(state) {
+    switch (state) {
+      case 'nonexistent':
+        return <p>Lobby doesn't exist. Create it?</p>
+      case 'exists':
+        return <p>Lobby already exists. Join it?</p>
+      case 'countingDown':
+      case 'hasStarted':
+        return <p>Lobby already started.</p>
+      default:
+        throw new Error('Unknown lobby state: ' + state)
+    }
+  }
+
+  renderLobbyState() {
+    const routeLobby = this.props.routeParams.lobby
+    const { lobbyState } = this.props
+    if (!lobbyState.has(routeLobby)) {
+      return null
+    }
+
+    const lobby = lobbyState.get(routeLobby)
+    if (!lobby.state && !lobby.error) {
+      if (lobby.isRequesting) {
+        return <span className={styles.contentArea}>Loading&hellip;</span>
+      } else {
+        return <span className={styles.contentArea}>There was a problem loading this lobby</span>
+      }
+    } else if (lobby.state) {
+      return (<div className={styles.contentArea}>
+        { lobby.isRequesting ? <p>Updating&hellip;</p> : null }
+        { this.renderLobbyStateContent(lobby.state) }
+      </div>)
+    } else if (lobby.error) {
+      return (<div className={styles.contentArea}>
+        { lobby.isRequesting ? <p>Updating&hellip;</p> : null }
+        <p>There was a problem loading this lobby</p>
+      </div>)
+    }
   }
 
   renderLeaveAndJoin() {

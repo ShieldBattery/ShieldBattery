@@ -522,6 +522,29 @@ export class LobbyApi {
     this._maybeCancelLoading()
   }
 
+  @Api('/getLobbyState',
+    validateBody({
+      lobbyName: nonEmptyString,
+    }),
+    'getUser')
+  async getLobbyState(data, next) {
+    const { lobbyName } = data.get('body')
+
+    let lobbyState
+    if (!this.lobbies.has(lobbyName)) {
+      lobbyState = 'nonexistent'
+    } else {
+      lobbyState = 'exists'
+      if (this.lobbyCountdowns.has(lobbyName)) {
+        lobbyState = 'countingDown'
+      } else if (this.loadingLobbies.has(lobbyName)) {
+        lobbyState = 'hasStarted'
+      }
+    }
+
+    return { lobbyName, lobbyState }
+  }
+
   async getUser(data, next) {
     const user = this.userSockets.getBySocket(data.get('client'))
     if (!user) throw new errors.Unauthorized('authorization required')

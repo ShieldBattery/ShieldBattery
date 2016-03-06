@@ -2,7 +2,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { routeActions } from 'redux-simple-router'
 import { goToIndex } from './navigation/action-creators'
-import siteSocket from './network/site-socket'
 import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'

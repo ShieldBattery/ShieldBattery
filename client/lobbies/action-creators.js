@@ -1,5 +1,7 @@
 import siteSocket from '../network/site-socket'
 import {
+  LOBBIES_GET_STATE_BEGIN,
+  LOBBIES_GET_STATE,
   LOBBY_ADD_COMPUTER_BEGIN,
   LOBBY_ADD_COMPUTER,
   LOBBY_CREATE_BEGIN,
@@ -122,6 +124,28 @@ export function sendChat(text) {
       type: LOBBY_SEND_CHAT,
       meta: params,
       payload: siteSocket.invoke('/lobbies/sendChat', params)
+    })
+  }
+}
+
+const STATE_CACHE_TIMEOUT = 1 * 60 * 1000
+export function getLobbyState(lobbyName) {
+  return (dispatch, getState) => {
+    const { lobbyState } = getState()
+    const requestTime = Date.now()
+    if (lobbyState.has(lobbyName) &&
+        (requestTime - lobbyState.get(lobbyName).time) < STATE_CACHE_TIMEOUT) {
+      return
+    }
+
+    dispatch({
+      type: LOBBIES_GET_STATE_BEGIN,
+      payload: { lobbyName },
+    })
+    dispatch({
+      type: LOBBIES_GET_STATE,
+      payload: siteSocket.invoke('/lobbies/getLobbyState', { lobbyName }),
+      meta: { lobbyName, requestTime }
     })
   }
 }
