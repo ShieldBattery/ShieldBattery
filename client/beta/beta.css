@@ -1,0 +1,11 @@
+.splash {
+  composes: col itemsCenter justifyCenter from '../styles/flex.css';
+}
+
+.signup {
+  composes: col itemsCenter justifyCenter from '../styles/flex.css';
+}
+
+.signupCard {
+  width: 640px;
+}

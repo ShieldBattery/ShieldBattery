@@ -7,6 +7,9 @@ export const AUTH_LOG_IN = 'AUTH_LOG_IN'
 export const AUTH_LOG_OUT = 'AUTH_LOG_OUT'
 export const AUTH_SIGN_UP = 'AUTH_SIGN_UP'
 
+export const BETA_CREATE_INVITE_BEGIN = 'BETA_CREATE_INVITE_BEGIN'
+export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
+
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 
