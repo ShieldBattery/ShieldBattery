@@ -32,3 +32,9 @@ export function goToAdminPanel(transitionFn = routeActions.push) {
     dispatch(transitionFn('/admin'))
   }
 }
+
+export function goToSplash(transitionFn = routeActions.push) {
+  return (dispatch) => {
+    dispatch(transitionFn('/splash'))
+  }
+}
