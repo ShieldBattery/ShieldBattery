@@ -13,6 +13,7 @@ import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
+import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 
 import ActiveGameNavEntry from './active-game/nav-entry.jsx'
@@ -23,6 +24,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { createLobby, joinLobby } from './lobbies/action-creators'
+import { openSnackbar } from './snackbars/action-creators'
 
 function stateToProps(state) {
   return {
@@ -102,13 +104,14 @@ class MainLayout extends React.Component {
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={'Log out'}
           onAvatarClick={::this.onLogOutClicked}>
-        <ActivityButton icon='cake' label='Find match' />
+        <ActivityButton icon='cake' label='Find match' onClick={::this.onFindMatchClick} />
         <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
         <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
-        <ActivityButton icon='movie' label='Replays' onClick={::this.onJoinLobbyClick} />
+        <ActivityButton icon='movie' label='Replays' onClick={::this.onReplaysClick} />
         <ActivitySpacer />
         <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
       </ActivityBar>
+      <ConnectedSnackbar />
     </ConnectedDialogOverlay>)
   }
 
@@ -120,6 +123,12 @@ class MainLayout extends React.Component {
     this.props.dispatch(auther.logOut().action)
   }
 
+  onFindMatchClick() {
+    this.props.dispatch(openSnackbar({
+      message: 'Not implemented yet. Coming soon!',
+    }))
+  }
+
   onCreateLobbyClick() {
     this.props.dispatch(createLobby('Lobby 2: Electric Boogaloo',
         'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3'))
@@ -127,6 +136,12 @@ class MainLayout extends React.Component {
 
   onJoinLobbyClick() {
     this.props.dispatch(joinLobby('Lobby 2: Electric Boogaloo'))
+  }
+
+  onReplaysClick() {
+    this.props.dispatch(openSnackbar({
+      message: 'Not implemented yet. Coming soon!',
+    }))
   }
 }
 
