@@ -27,6 +27,18 @@ class Process {
     const err = this._cProcess.resume()
     if (err) throw err
   }
+
+  async waitForExit() {
+    return new Promise((resolve, reject) => {
+      this._cProcess.waitForExit((err, code) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(code)
+        }
+      })
+    })
+  }
 }
 
 const $launchProcess = thenify(psi.launchProcess)

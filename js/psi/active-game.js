@@ -9,6 +9,7 @@ export default class ActiveGameManager {
   constructor(nydus) {
     this.nydus = nydus
     this.activeGameId = null
+    this.activeGamePromise = null
     this.config = null
     this.status = null
   }
@@ -31,6 +32,7 @@ export default class ActiveGameManager {
       sendCommand(this.nydus, this.activeGameId, 'quit')
     }
     if (!config) {
+      this.activeGamePromise = null
       this._setStatus(null)
       return
     }
@@ -39,7 +41,10 @@ export default class ActiveGameManager {
     this.activeGameId = cuid()
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
     this._setStatus('launching')
-    doLaunch(this.activeGameId)
+    this.activeGamePromise = doLaunch(this.activeGameId)
+
+    this.activeGamePromise.then(code => this.handleGameExit(this.activeGameId, code),
+        err => this.handleGameExitWaitErr(this.activeGameId, err))
   }
 
   handleGameConnected(id) {
@@ -81,6 +86,21 @@ export default class ActiveGameManager {
     this._setStatus('done')
   }
 
+  handleGameExit(id, exitCode) {
+    if (id !== this.activeGameId) {
+      return
+    }
+
+    // TODO(tec27): if we aren't playing yet, we need to report a crash to revert the lobby load
+    // state. If we are playing, but haven't reported results yet, we need to report a disc for this
+    // player
+    log.verbose(`Game ${id} exited with code ${exitCode}`)
+  }
+
+  handleGameExitWaitErr(id, err) {
+    log.verbose(`Error while waiting for game ${id} to exit: ${err}`)
+  }
+
   _setStatus(status) {
     this.status = status
     this.nydus.publish('/game/status', status)
@@ -105,9 +125,11 @@ async function doLaunch(gameId) {
     currentDir: installPath,
   })
   log.verbose('Process launched')
+  const endPromise = proc.waitForExit()
   const shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
   await proc.injectDll(shieldbatteryDll, 'OnInject')
   log.verbose('Dll injected. Attempting to resume process...')
   proc.resume()
   log.verbose('Process resumed')
+  return endPromise
 }
