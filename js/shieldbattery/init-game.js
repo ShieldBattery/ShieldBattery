@@ -5,6 +5,10 @@ import forge from './natives/forge'
 import { setSettings as setSnpSettings, setMappings } from './natives/snp'
 import { melee } from './game-types'
 import timeoutPromise from './timeout-promise'
+import {
+  GAME_STATUS_AWAITING_PLAYERS,
+  GAME_STATUS_STARTING,
+} from '../common/game-status'
 
 forge.on('startWndProc', () => log.verbose('forge\'s wndproc pump started'))
   .on('endWndProc', () => log.verbose('forge\'s wndproc pump finished'))
@@ -95,7 +99,7 @@ function updateSlots() {
   }
 }
 
-async function waitForPlayers(lobbyConfig) {
+async function waitForPlayers(socket, lobbyConfig) {
   const players = Immutable.fromJS(lobbyConfig.players).valueSeq()
     .filterNot(p => p.get('isComputer'))
     .map(p => p.get('name'))
@@ -107,7 +111,9 @@ async function waitForPlayers(lobbyConfig) {
     if (!waitingFor.size) {
       return true
     } else {
-      log.debug(`Waiting for players: ${waitingFor.toArray().join(', ')}`)
+      const waitingArray = waitingFor.toArray()
+      notifyProgress(socket, GAME_STATUS_AWAITING_PLAYERS, waitingArray)
+      log.debug(`Waiting for players: ${waitingArray.join(', ')}`)
     }
   }
 
@@ -157,7 +163,11 @@ async function joinLobby(lobby, localUser) {
   log.verbose(`storm player names at join: ${JSON.stringify(bw.getStormPlayerNames())}`)
 }
 
-export default async function initGame({ lobby, settings, setup, localUser }) {
+function notifyProgress(socket, state, extra = null) {
+  socket.invoke('/game/setupProgress', { status: { state, extra } })
+}
+
+export default async function initGame(socket, { lobby, settings, setup, localUser }) {
   // TODO(tec27): handle global settings?
   setSnpSettings(settings.local)
   bw.setSettings(settings.local)
@@ -191,24 +201,28 @@ export default async function initGame({ lobby, settings, setup, localUser }) {
     await joinLobby(lobby, localUser)
   }
 
+  notifyProgress(socket, GAME_STATUS_AWAITING_PLAYERS)
   log.verbose('in lobby, setting up slots')
 
   const tickleInterval = setInterval(() => bw.tickleLobbyNetwork(), 100)
   try {
     setupSlots(lobby)
-    await waitForPlayers(lobby)
+    await waitForPlayers(socket, lobby)
   } finally {
     clearInterval(tickleInterval)
   }
 
+  notifyProgress(socket, GAME_STATUS_STARTING)
   log.verbose('setting game seed')
   // TODO(tec27): deal with player bytes if we ever allow save games
   bw.doLobbyGameInit(setup.seed | 0, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
-
   forge.endWndProc()
+
+  socket.invoke('/game/start')
   const { results, time } = await bw.runGameLoop()
-  // TODO(tec27): report these?
   log.verbose('gameResults: ' + JSON.stringify(results))
   log.verbose('gameTime: ' + time)
+  await socket.invoke('/game/end', { results, time })
+
   bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
 }

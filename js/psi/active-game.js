@@ -4,6 +4,14 @@ import deepEqual from 'deep-equal'
 import * as psi from './natives/index'
 import log from './logger'
 import { sendCommand } from './game-command'
+import {
+  GAME_STATUS_UNKNOWN,
+  GAME_STATUS_LAUNCHING,
+  GAME_STATUS_CONFIGURING,
+  GAME_STATUS_PLAYING,
+  GAME_STATUS_FINISHED,
+  statusToString
+} from '../common/game-status'
 
 export default class ActiveGameManager {
   constructor(nydus) {
@@ -11,40 +19,46 @@ export default class ActiveGameManager {
     this.activeGameId = null
     this.activeGamePromise = null
     this.config = null
-    this.status = null
+    this.status = { state: GAME_STATUS_UNKNOWN, extra: null }
   }
 
   get id() {
     return this.activeGameId
   }
 
-  getStatus() {
-    return this.status
+  getStatusForSite() {
+    return {
+      id: this.activeGameId,
+      state: statusToString(this.status.state),
+      extra: this.status.extra
+    }
   }
 
   setGameConfig(config) {
     if (deepEqual(config, this.config)) {
       // Same config as before, no operation necessary
-      return
+      return this.activeGameId
     }
     if (this.activeGameId) {
       // Quit the currently active game so we can replace it
       sendCommand(this.nydus, this.activeGameId, 'quit')
     }
     if (!config) {
+      this.activeGameId = null
       this.activeGamePromise = null
-      this._setStatus(null)
-      return
+      this._setStatus(GAME_STATUS_UNKNOWN)
+      return this.activeGameId
     }
 
     this.config = config
     this.activeGameId = cuid()
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
-    this._setStatus('launching')
+    this._setStatus(GAME_STATUS_LAUNCHING)
     this.activeGamePromise = doLaunch(this.activeGameId)
 
     this.activeGamePromise.then(code => this.handleGameExit(this.activeGameId, code),
         err => this.handleGameExitWaitErr(this.activeGameId, err))
+    return this.activeGameId
   }
 
   handleGameConnected(id) {
@@ -55,35 +69,26 @@ export default class ActiveGameManager {
       return
     }
 
-    this._setStatus('configuring')
+    this._setStatus(GAME_STATUS_CONFIGURING)
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
     sendCommand(this.nydus, id, 'setConfig', this.config)
   }
 
-  handleGameDisconnected(id) {
-    if (id !== this.activeGameId) {
-      // Who cares, shut up
-      return
-    }
-
-    this._setStatus(null)
-    this.activeGameId = null
-    this.config = null
-  }
-
-  handleSetupProgress(gameId, status) {
-    this._setStatus(status)
+  handleSetupProgress(gameId, info) {
+    this._setStatus(info.state, info.extra)
   }
 
   handleGameStart(gameId) {
-    this._setStatus('playing')
+    this._setStatus(GAME_STATUS_PLAYING)
   }
 
   handleGameEnd(gameId, results, time) {
+    // TODO(tec27): this needs to be handled differently (psi should really be reporting these
+    // directly to the server)
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
     this.nydus.publish('/game/results', { results, time })
-    this._setStatus('done')
+    this._setStatus(GAME_STATUS_FINISHED)
   }
 
   handleGameExit(id, exitCode) {
@@ -91,20 +96,31 @@ export default class ActiveGameManager {
       return
     }
 
-    // TODO(tec27): if we aren't playing yet, we need to report a crash to revert the lobby load
-    // state. If we are playing, but haven't reported results yet, we need to report a disc for this
-    // player
     log.verbose(`Game ${id} exited with code ${exitCode}`)
+
+    if (this.status.state < GAME_STATUS_FINISHED) {
+      if (this.status.state >= GAME_STATUS_PLAYING) {
+        // TODO(tec27): report a disc to the server
+      } else {
+        // TODO(tec27): report this exit back to the site so it can cancel the lobby load
+      }
+    }
+
+    this.activeGameId = null
+    this.config = null
+    this._setStatus(GAME_STATUS_UNKNOWN)
   }
 
   handleGameExitWaitErr(id, err) {
     log.verbose(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
-  _setStatus(status) {
-    this.status = status
-    this.nydus.publish('/game/status', status)
-    log.verbose(`Game status updated to '${status}'`)
+  _setStatus(state, extra = null) {
+    this.status = { state, extra }
+    if (this.activeGameId) {
+      this.nydus.publish('/game/status', this.getStatusForSite())
+    }
+    log.verbose(`Game status updated to '${statusToString(state)}'`)
   }
 }
 

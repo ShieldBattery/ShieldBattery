@@ -98,9 +98,5 @@ nydusServer.on('connection', function(socket) {
 
   socket.on('disconnect', function() {
     log.verbose('websocket (' + clientType + ') disconnected.')
-    if (clientType === 'game') {
-      const id = socket.conn.request.headers['x-game-id']
-      activeGameManager.handleGameDisconnected(id)
-    }
   })
 })

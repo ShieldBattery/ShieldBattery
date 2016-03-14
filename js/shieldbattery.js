@@ -69,7 +69,7 @@ socket.registerRoute('/game/:id', (route, event) => {
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
     // TODO(tec27): handle failures
-    initGame(event.payload)
+    initGame(socket, event.payload)
   } else {
     log.verbose(`TODO: ${JSON.stringify(event)}`)
   }

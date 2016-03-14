@@ -8,7 +8,7 @@ export function register(nydus, localSettings, activeGameManager) {
 
   async function setGameConfig(data, next) {
     const config = data.get('body')
-    activeGameManager.setGameConfig(config)
+    return activeGameManager.setGameConfig(config)
   }
 
   nydus.registerRoute('/site/getResolution', getResolution)
@@ -19,7 +19,7 @@ export function register(nydus, localSettings, activeGameManager) {
 }
 
 export function subscribe(nydus, client, activeGameManager, localSettings) {
-  nydus.subscribeClient(client, '/game/status', activeGameManager.getStatus())
+  nydus.subscribeClient(client, '/game/status', activeGameManager.getStatusForSite())
   nydus.subscribeClient(client, '/game/results')
   nydus.subscribeClient(client, '/settings', localSettings.settings)
 }
