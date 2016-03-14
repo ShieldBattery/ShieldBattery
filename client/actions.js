@@ -55,4 +55,9 @@ export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
+// The success/failure of launching a game with psi
+export const PSI_GAME_LAUNCH = 'PSI_LOBBY_LAUNCH'
+// An updated status (e.g. "launching", "configuring") for a particular local game client
+export const PSI_GAME_STATUS = 'PSI_GAME_STATUS'
+
 export const SERVER_STATUS = 'SERVER_STATUS'

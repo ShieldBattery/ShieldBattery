@@ -9,6 +9,8 @@ import {
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_RACE_CHANGE,
+  PSI_GAME_LAUNCH,
+  PSI_GAME_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 
@@ -97,7 +99,7 @@ const eventToAction = {
   setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
     const { lobby: { map, numSlots, players, hostId }, settings, auth: { user } } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
-    psiSocket.invoke('/site/setGameConfig', {
+    const promise = psiSocket.invoke('/site/setGameConfig', {
       lobby: {
         map,
         numSlots,
@@ -108,6 +110,8 @@ const eventToAction = {
       setup: event.setup,
       localUser: user,
     })
+
+    dispatch({ type: PSI_GAME_LAUNCH, payload: promise })
   },
 }
 
@@ -117,5 +121,9 @@ export default function registerModule({ siteSocket, psiSocket }) {
 
     const action = eventToAction[event.type](route.params.lobby, event, { siteSocket, psiSocket })
     if (action) dispatch(action)
+  })
+
+  psiSocket.registerRoute('/game/status', (route, event) => {
+    dispatch({ type: PSI_GAME_STATUS, payload: event })
   })
 }
