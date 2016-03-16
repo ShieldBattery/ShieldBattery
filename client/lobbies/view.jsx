@@ -7,11 +7,13 @@ import { addComputer, leaveLobby, setRace, startCountdown } from './action-creat
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
+import LoadingScreen from './loading.jsx'
 
 const mapStateToProps = state => {
   return {
     user: state.auth.user,
     lobby: state.lobby.name ? state.lobby : undefined,
+    gameClient: state.gameClient,
   }
 }
 
@@ -35,7 +37,7 @@ export default class LobbyView extends React.Component {
 
   render() {
     const routeLobby = this.props.routeParams.lobby
-    const { lobby, user } = this.props
+    const { lobby, user, gameClient } = this.props
 
     let content
     let actions
@@ -44,7 +46,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else if (lobby.isLoading) {
-      content = <p>Loading, please wait...</p>
+      content = <LoadingScreen lobby={lobby} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby} user={user} onAddComputer={::this.onAddComputer}
           onSetRace={::this.onSetRace} onStartGame={::this.onStartGame} />

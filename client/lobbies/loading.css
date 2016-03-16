@@ -3,6 +3,8 @@
 
 .content {
   composes: col itemsCenter from '../styles/flex.css';
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .gameType {
