@@ -124,6 +124,11 @@ export default function registerModule({ siteSocket, psiSocket }) {
   })
 
   psiSocket.registerRoute('/game/status', (route, event) => {
-    dispatch({ type: PSI_GAME_STATUS, payload: event })
+    dispatch((dispatch, getState) => {
+      const { gameClient } = getState()
+      if (gameClient.gameId === event.id) {
+        dispatch({ type: PSI_GAME_STATUS, payload: event })
+      }
+    })
   })
 }

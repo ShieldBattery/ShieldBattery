@@ -1,0 +1,68 @@
+@value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
+@value alphaDisabled from '../styles/colors.css';
+
+.content {
+  composes: col itemsCenter from '../styles/flex.css';
+}
+
+.gameType {
+  composes: display1 from '../styles/typography.css';
+}
+
+.gameTypeMapBridge {
+  composes: display1 from '../styles/typography.css';
+  color: colorTextSecondary;
+}
+
+.mapName {
+  composes: display1 from '../styles/typography.css';
+}
+
+.mapThumbnail {
+  composes: shadow1dp from '../material/shadows.css';
+  width: 256px;
+  border-radius: 2px;
+  margin-top: 16px;
+}
+
+.players {
+  composes: row itemsCenter wrap justifyCenter from '../styles/flex.css';
+  margin-top: 8px;
+}
+
+.player {
+  composes: exact row itemsCenter from '../styles/flex.css';
+  width: 256px;
+  margin: 8px;
+  overflow: hidden;
+  color: colorTextFaint;
+}
+
+.readyPlayer {
+  composes: player;
+  color: colorTextPrimary;
+}
+
+.playerAvatar {
+  composes: fastOutSlowInShort from '../material/curves.css';
+  margin-right: 16px;
+  opacity: alphaDisabled;
+}
+
+.readyPlayer .playerAvatar {
+  opacity: 1;
+}
+
+.playerName {
+  composes: grow from '../styles/flex.css';
+  composes: subhead singleLine from '../styles/typography.css';
+  composes: fastOutSlowInShort from '../material/curves.css';
+  color: inherit;
+  margin-right: 16px;
+}
+
+.loadingMessage {
+  composes: title from '../styles/typography.css';
+  color: colorTextSecondary;
+  margin-top: 24px;
+}

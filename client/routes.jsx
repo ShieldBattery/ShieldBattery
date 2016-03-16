@@ -15,11 +15,11 @@ import WhisperView from './whispers/view.jsx'
 
 let devRoutes
 if (process.env.NODE_ENV !== 'production') {
-  const DevLobbies = require('./lobbies/devonly/lobby-test.jsx').default
+  const devLobbies = require('./lobbies/devonly/routes.jsx').default
   const devMaterial = require('./material/devonly/routes.jsx').default
 
   devRoutes = <Route>
-    <Route path='/devlobbies' component={DevLobbies} />
+    { devLobbies }
     { devMaterial }
   </Route>
 }

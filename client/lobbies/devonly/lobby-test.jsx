@@ -22,7 +22,6 @@ const LOBBIES = Range(2, 9).map(numSlots => {
     numSlots,
     players: PLAYERS.take(numSlots).toMap(),
     hostId: 'a',
-    myId: 'a',
   })
 })
 
