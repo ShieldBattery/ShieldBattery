@@ -128,6 +128,12 @@ export default function registerModule({ siteSocket, psiSocket }) {
       const { gameClient } = getState()
       if (gameClient.gameId === event.id) {
         dispatch({ type: PSI_GAME_STATUS, payload: event })
+
+        if (event.state === 'playing') {
+          siteSocket.invoke('/lobbies/gameLoaded')
+        } else if (event.state === 'error') {
+          siteSocket.invoke('/lobbies/loadFailed')
+        }
       }
     })
   })

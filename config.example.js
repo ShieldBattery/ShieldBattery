@@ -26,7 +26,7 @@ config.logLevels = {
 }
 
 
-// Uncommenting this block will enable HTTPS, which requires generating server certs & keys 
+// Uncommenting this block will enable HTTPS, which requires generating server certs & keys
 // It's advisable to leave commented if you're doing local development
 /*
 config.https = {

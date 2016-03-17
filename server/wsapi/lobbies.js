@@ -158,8 +158,14 @@ function generateSeed() {
 }
 
 const LoadingData = new Record({
-  resultTokens: new Map(),
+  finishedUsers: new Set(),
 })
+
+export const LoadingDatas = {
+  isAllFinished(loadingData, lobby) {
+    return lobby.players.every((p, id) => p.isComputer || loadingData.finishedUsers.has(id))
+  }
+}
 
 const slotNum = s => s >= 0 && s <= 7
 const slotNumInRange = s => s >= 2 && s <= 8
@@ -448,15 +454,21 @@ export class LobbyApi {
   }
 
   @Api('/gameLoaded',
-    validateBody({
-      resultToken: nonEmptyString,
-    }),
     'getUser',
     'acquireLobby',
     'getPlayer',
     'ensureLobbyLoading')
   async gameLoaded(data, next) {
-    // TODO(tec27): implement
+    const lobby = data.get('lobby')
+    const { id } = data.get('player')
+    let loadingData = this.loadingLobbies.get(lobby.name)
+    loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(id))
+    this.loadingLobbies.set(lobby.name, loadingData)
+
+    if (LoadingDatas.isAllFinished(loadingData, lobby)) {
+      // TODO(tec27): move to another service/clean up lobby data
+      console.log('PARTY LIKE ITS 1998 WOOHOO')
+    }
   }
 
   @Api('/loadFailed',
@@ -465,7 +477,7 @@ export class LobbyApi {
     'getPlayer',
     'ensureLobbyLoading')
   async loadFailed(data, next) {
-    // TODO(tec27): implement
+    this._maybeCancelLoading()
   }
 
   async getUser(data, next) {
