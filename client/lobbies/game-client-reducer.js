@@ -10,7 +10,7 @@ export const GameStatus = new Record({
 })
 export const GameClient = new Record({
   gameId: null,
-  status: null,
+  status: new GameStatus(),
 })
 
 const handlers = {
