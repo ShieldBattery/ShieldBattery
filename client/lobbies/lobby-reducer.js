@@ -10,6 +10,7 @@ import {
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_LOADING_START,
+  LOBBY_UPDATE_LOADING_CANCELED,
 } from '../actions'
 
 export const Player = new Record({
@@ -83,7 +84,11 @@ const handlers = {
   },
 
   [LOBBY_UPDATE_LOADING_START](state, action) {
-    return state.set('isLoading', true)
+    return state.set('isLoading', true).set('isCountingDown', false)
+  },
+
+  [LOBBY_UPDATE_LOADING_CANCELED](state, action) {
+    return state.set('isLoading', false)
   },
 }
 

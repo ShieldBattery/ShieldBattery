@@ -8,6 +8,7 @@ import {
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_LOADING_START,
+  LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_RACE_CHANGE,
   PSI_GAME_LAUNCH,
   PSI_GAME_STATUS,
@@ -75,8 +76,6 @@ const eventToAction = {
       payload: tick,
     })
 
-    // TODO(tec27): deal with cancellations
-
     countdownTimer = setInterval(() => {
       tick -= 1
       dispatch({
@@ -97,6 +96,7 @@ const eventToAction = {
   },
 
   setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
+    clearCountdownTimer()
     const { lobby: { map, numSlots, players, hostId }, settings, auth: { user } } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     const promise = psiSocket.invoke('/site/setGameConfig', {
@@ -113,6 +113,14 @@ const eventToAction = {
 
     dispatch({ type: PSI_GAME_LAUNCH, payload: promise })
   },
+
+  cancelLoading: (name, event, { psiSocket }) => dispatch => {
+    dispatch({
+      type: PSI_GAME_LAUNCH,
+      payload: psiSocket.invoke('/site/setGameConfig', null)
+    })
+    dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
+  }
 }
 
 export default function registerModule({ siteSocket, psiSocket }) {

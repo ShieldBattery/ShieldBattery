@@ -49,6 +49,8 @@ export const LOBBY_UPDATE_LEAVE = 'LOBBY_UPDATE_LEAVE'
 export const LOBBY_UPDATE_LEAVE_SELF = 'LOBBY_UPDATE_LEAVE_SELF'
 // The lobby has entered the game setup phase (and we are loading the game)
 export const LOBBY_UPDATE_LOADING_START = 'LOBBY_UPDATE_LOADING_START'
+// The lobby has canceled out of the loading phase (because of timeout or load failure)
+export const LOBBY_UPDATE_LOADING_CANCELED = 'LOBBY_UPDATE_LOADING_CANCELED'
 // A user has changed the race in a lobby we're in
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 
