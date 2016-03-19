@@ -3,6 +3,7 @@ import {
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
+  LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
@@ -120,7 +121,11 @@ const eventToAction = {
       payload: psiSocket.invoke('/site/setGameConfig', null)
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
-  }
+  },
+
+  gameStarted: (name, event) => ({
+    type: LOBBY_UPDATE_GAME_STARTED,
+  }),
 }
 
 export default function registerModule({ siteSocket, psiSocket }) {

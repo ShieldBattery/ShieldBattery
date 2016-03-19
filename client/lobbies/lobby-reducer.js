@@ -1,6 +1,7 @@
 import { Map, Record } from 'immutable'
 import {
   LOBBY_INIT_DATA,
+  LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
@@ -89,6 +90,10 @@ const handlers = {
 
   [LOBBY_UPDATE_LOADING_CANCELED](state, action) {
     return state.set('isLoading', false)
+  },
+
+  [LOBBY_UPDATE_GAME_STARTED](state, action) {
+    return new Lobby()
   },
 }
 

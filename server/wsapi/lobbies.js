@@ -466,8 +466,17 @@ export class LobbyApi {
     this.loadingLobbies.set(lobby.name, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData, lobby)) {
-      // TODO(tec27): move to another service/clean up lobby data
-      console.log('PARTY LIKE ITS 1998 WOOHOO')
+      // TODO(tec27): register this game in the DB for accepting results in another service
+      this._publishTo(lobby, { type: 'gameStarted' })
+
+      lobby.players.filter(p => !p.isComputer)
+        .map(p => this.userSockets.getByName(p.name))
+        .forEach(user => {
+          user.unsubscribe(LobbyApi._getPath(lobby))
+          this.lobbyUsers = this.lobbyUsers.delete(user)
+        })
+      this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+      this.lobbies = this.lobbies.delete(lobby.name)
     }
   }
 
