@@ -91,10 +91,9 @@ function createSettingsFileSync(filepath) {
   fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8' })
 }
 
-const PORT_RANGE_START = 49152
-const PORT_RANGE_END = 65535
 function genRandomPort() {
-  return Math.round(Math.random() * (PORT_RANGE_END - PORT_RANGE_START)) + PORT_RANGE_START
+  // TODO(tec27): re-enable random code once we have UPNP/holepunching
+  return 6112
 }
 
 function jsonify(settings) {

@@ -19,6 +19,7 @@ process.on('uncaughtException', function(err) {
 
 import path from 'path'
 import fs from 'fs'
+import mkdirp from 'mkdirp'
 import nydus from 'nydus'
 import psi from './psi/natives/index'
 import createHttpServer from './psi/http-server'
@@ -31,7 +32,12 @@ import ActiveGameManager from './psi/active-game'
 const httpServer = createHttpServer(33198, '127.0.0.1')
 const nydusServer = nydus(httpServer, { allowRequest: authorize })
 const shieldbatteryRoot = path.dirname(process.execPath)
-const localSettings = createLocalSettings(path.join(shieldbatteryRoot, 'settings.json'))
+const settingsPath = process.env.ProgramData ?
+    path.join(process.env.ProgramData, 'shieldbattery') : shieldbatteryRoot
+if (process.env.ProgramData) {
+  mkdirp.sync(settingsPath)
+}
+const localSettings = createLocalSettings(path.join(settingsPath, 'settings.json'))
 const socketTypes = new WeakMap()
 const activeGameManager = new ActiveGameManager(nydusServer)
 
