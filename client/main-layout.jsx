@@ -15,6 +15,7 @@ import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 
+import ActiveGameNavEntry from './active-game/nav-entry.jsx'
 import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
@@ -25,6 +26,7 @@ import { createLobby, joinLobby } from './lobbies/action-creators'
 
 function stateToProps(state) {
   return {
+    activeGame: state.activeGame,
     auth: state.auth,
     lobbyName: state.lobby.name,
     chatChannels: state.chatChannels,
@@ -54,19 +56,29 @@ class MainLayout extends React.Component {
     siteSocket.disconnect()
   }
 
-  render() {
-    let lobbyElems
-    if (this.props.lobbyName) {
-      const lobbyName = this.props.lobbyName
-      lobbyElems = [
-        <Subheader key='lobby-header'>Lobby</Subheader>,
-        <Section key='lobby-section'>
-          <LobbyNavEntry key='lobby' lobby={lobbyName} />
-        </Section>,
-        <Divider key='lobby-divider'/>
-      ]
-    }
+  renderLobbyNav() {
+    if (!this.props.lobbyName) return null
 
+    const lobbyName = this.props.lobbyName
+    return [
+      <Subheader key='lobby-header'>Lobby</Subheader>,
+      <Section key='lobby-section'>
+        <LobbyNavEntry key='lobby' lobby={lobbyName} />
+      </Section>,
+      <Divider key='lobby-divider'/>
+    ]
+  }
+
+  renderActiveGameNav() {
+    if (!this.props.activeGame.isActive) return null
+
+    return [
+      <Section key='active-game-section'><ActiveGameNavEntry key='active-game' /></Section>,
+      <Divider key='active-game-divider' />,
+    ]
+  }
+
+  render() {
     const channels = this.props.chatChannels.map(
         channel => <ChatNavEntry key={channel.name} channel={channel.name} />)
     const whispers = this.props.whispers.map(
@@ -74,7 +86,8 @@ class MainLayout extends React.Component {
 
     return (<ConnectedDialogOverlay className={styles.layout}>
       <LeftNav footer={<ActiveUserCount className={styles.userCount}/>}>
-        {lobbyElems}
+        {this.renderActiveGameNav()}
+        {this.renderLobbyNav()}
         <Subheader>Chat channels</Subheader>
         <Section>
           {channels}

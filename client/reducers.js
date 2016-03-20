@@ -1,3 +1,4 @@
+export { default as activeGame } from './active-game/active-game-reducer'
 export { default as auth } from './auth/auth-reducer'
 export { default as chatChannels } from './chat/chat-channel-reducer'
 export { default as dialog } from './dialogs/dialog-reducer'

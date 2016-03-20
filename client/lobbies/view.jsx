@@ -14,6 +14,7 @@ const mapStateToProps = state => {
     user: state.auth.user,
     lobby: state.lobby.name ? state.lobby : undefined,
     gameClient: state.gameClient,
+    hasActiveGame: state.activeGame.isActive,
   }
 }
 
@@ -31,7 +32,7 @@ function isLeavingLobby(oldProps, newProps) {
 export default class LobbyView extends React.Component {
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routeActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
     }
   }
 

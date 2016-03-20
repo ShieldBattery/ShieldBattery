@@ -1,5 +1,7 @@
 import React from 'react'
 import { IndexRoute, Route } from 'react-router'
+
+import ActiveGame from './active-game/view.jsx'
 import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
@@ -28,6 +30,7 @@ const routes = <Route>
   <Route component={LoginRequired}>
     <Route component={MainLayout}>
       <Route path='/' />
+      <Route path='/active-game' component={ActiveGame} />
       <Route path='/chat'>
         <IndexRoute component={ChatList} title='Chat channels'/>
         <Route path=':channel' component={ChatChannel} />
