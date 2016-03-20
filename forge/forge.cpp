@@ -466,7 +466,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     }
 
     instance_->is_started_ = true;
-    break;
+    return 0;
   case WM_HOTKEY:
   case WM_TIMER:
     if (wparam == FOREGROUND_HOTKEY_ID) {

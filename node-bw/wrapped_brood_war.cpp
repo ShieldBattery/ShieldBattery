@@ -820,6 +820,8 @@ void RunGameLoopWork(void* arg) {
   context->bw->set_game_state(GameState::Ingame);
   context->bw->RunGameLoop();
   context->bw->ConvertGameResults();
+
+  ShowWindow(hwnd, SW_HIDE);
 }
 
 void RunGameLoopAfter(void* arg) {
