@@ -25,8 +25,14 @@ function clearCountdownTimer() {
 }
 
 const eventToAction = {
-  init: (name, event) => {
+  init: (name, event, { psiSocket }) => {
     clearCountdownTimer()
+    // TODO(tec27): handle errors on this?
+    psiSocket.invoke('/site/activateMap', {
+      hash: event.lobby.map.hash,
+      format: event.lobby.map.format,
+    })
+
     return {
       type: LOBBY_INIT_DATA,
       payload: event,
