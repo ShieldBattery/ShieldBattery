@@ -3,6 +3,9 @@ import cuid from 'cuid'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 
+import MAPS from '../maps/maps.json'
+const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
+
 function validateBody(bodyValidators) {
   return async function(data, next) {
     const body = data.get('body')
@@ -203,7 +206,12 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const lobby = Lobbies.create(name, map, numSlots, user.name)
+    if (!MAPS_BY_HASH.has(map)) {
+      throw new errors.BadRequest('invalid map')
+    }
+    const mapData = MAPS_BY_HASH.get(map)
+
+    const lobby = Lobbies.create(name, mapData, numSlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)

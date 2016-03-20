@@ -21,6 +21,16 @@ export const Player = new Record({
   isComputer: false,
   slot: -1
 })
+export const LobbyMap = new Record({
+  name: null,
+  hash: null,
+  tileset: null,
+  width: -1,
+  height: -1,
+  description: null,
+  format: null,
+  thumbFormat: null,
+})
 export const Lobby = new Record({
   name: null,
   map: null,
@@ -47,6 +57,7 @@ const handlers = {
     return new Lobby({
       ...lobby,
       players: playersObjToMap(lobby.players),
+      map: new LobbyMap(lobby.map),
     })
   },
 

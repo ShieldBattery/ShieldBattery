@@ -2,7 +2,7 @@ import React from 'react'
 import { Map } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
-import { Lobby, Player } from '../lobby-reducer'
+import { Lobby, LobbyMap, Player } from '../lobby-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 
@@ -44,7 +44,16 @@ export default class LoadingTest extends React.Component {
   render() {
     const lobby = new Lobby({
       name: 'This is just a test',
-      map: 'Fighting Spirit',
+      map: new LobbyMap({
+        name: 'Fighting Spirit',
+        hash: 'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3',
+        format: 'scx',
+        thumbFormat: 'jpg',
+        width: 128,
+        height: 128,
+        tileset: 'jungle',
+        description: 'sup',
+      }),
       numSlots: 4,
       players: new Map({
         a: new Player({ name: 'tec27', id: 'a', race: 'p', slot: 0 }),

@@ -120,11 +120,12 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick() {
-    this.props.dispatch(createLobby('baby\'s first lobby', 'c:\\lt.scm', 4))
+    this.props.dispatch(createLobby('Lobby 2: Electric Boogaloo',
+        'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3', 4))
   }
 
   onJoinLobbyClick() {
-    this.props.dispatch(joinLobby('baby\'s first lobby'))
+    this.props.dispatch(joinLobby('Lobby 2: Electric Boogaloo'))
   }
 }
 

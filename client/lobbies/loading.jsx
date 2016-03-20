@@ -1,6 +1,7 @@
 import React from 'react'
 import styles from './loading.css'
 
+import MapThumbnail from './map-thumbnail.jsx'
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
 
@@ -165,10 +166,10 @@ export default class LoadingScreen extends React.Component {
       <div className={styles.typeAndMap}>
         <span className={styles.gameType}>Melee</span>
         <span className={styles.gameTypeMapBridge}> on </span>
-        <span className={styles.mapName}>{lobby.map}</span>
+        <span className={styles.mapName}>{lobby.map.name}</span>
       </div>
       <div>
-        <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
+        <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
       </div>
       <div className={styles.players}>{playerElems}</div>
       <LoadingMessage/>

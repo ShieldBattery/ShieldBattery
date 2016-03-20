@@ -6,6 +6,7 @@ import RaisedButton from '../material/raised-button.jsx'
 import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
+import MapThumbnail from './map-thumbnail.jsx'
 import ChatMessage from '../chat/message.jsx'
 
 export default class Lobby extends React.Component {
@@ -55,8 +56,8 @@ export default class Lobby extends React.Component {
         </div>
 
         <div className={styles.info}>
-          <h3 className={styles.mapName}>{lobby.map}</h3>
-          <img className={styles.mapThumbnail} src='/images/map-placeholder.jpg' />
+          <h3 className={styles.mapName}>{lobby.map.name}</h3>
+          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Game type</span>
             <span className={styles.infoValue}>Melee</span>

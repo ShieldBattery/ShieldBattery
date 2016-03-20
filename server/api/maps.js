@@ -1,5 +1,5 @@
-import MAPS from '../maps/maps.json'
 import httpErrors from 'http-errors'
+import MAPS from '../maps/maps.json'
 
 export default function(router) {
   router.get('/', ensureLoggedIn, list)
