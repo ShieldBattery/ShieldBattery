@@ -14,8 +14,9 @@ import {
 } from '../common/game-status'
 
 export default class ActiveGameManager {
-  constructor(nydus) {
+  constructor(nydus, mapStore) {
     this.nydus = nydus
+    this.mapStore = mapStore
     this.activeGameId = null
     this.activeGamePromise = null
     this.config = null
@@ -72,7 +73,11 @@ export default class ActiveGameManager {
     this._setStatus(GAME_STATUS_CONFIGURING)
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
-    sendCommand(this.nydus, id, 'setConfig', this.config)
+    const { map } = this.config.lobby
+    sendCommand(this.nydus, id, 'setConfig', {
+      ...this.config,
+      localMap: this.mapStore.getPath(map.hash, map.format)
+    })
   }
 
   handleSetupProgress(gameId, info) {

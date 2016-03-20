@@ -16,6 +16,21 @@ export default class MapStore {
     this._activeDownloads = new Map()
   }
 
+  getPath(mapHash, mapFormat) {
+    const b64 = new Buffer(mapHash, 'hex').toString('base64')
+    // Goal of dirs is twofold:
+    // - Avoid a huge number of files in a single directory
+    // - Get the resulting filename under 32 characters (necessary because BW checks this =/)
+    const firstDir = mapHash.substr(0, 2)
+    const secondDir = b64
+    return path.join(
+      this.basePath,
+      firstDir,
+      secondDir,
+      `map.${mapFormat}`
+    )
+  }
+
   async downloadMap(server, mapHash, mapFormat) {
     if (!this._activeDownloads.has(mapHash)) {
       this._activeDownloads = this._activeDownloads.set(
@@ -26,14 +41,7 @@ export default class MapStore {
   }
 
   async _checkAndDownloadMap(server, mapHash, mapFormat) {
-    const firstByte = mapHash.substr(0, 2)
-    const secondByte = mapHash.substr(2, 2)
-    const mapPath = path.join(
-      this.basePath,
-      firstByte,
-      secondByte,
-      `${mapHash}.${mapFormat}`
-    )
+    const mapPath = this.getPath(mapHash, mapFormat)
 
     let exists = false
     try {
@@ -49,6 +57,8 @@ export default class MapStore {
       }
 
       await asyncMkdirp(path.dirname(mapPath), 0o777)
+      const firstByte = mapHash.substr(0, 2)
+      const secondByte = mapHash.substr(2, 2)
       const url = `${server}/maps/${firstByte}/${secondByte}/${mapHash}.${mapFormat}`
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)

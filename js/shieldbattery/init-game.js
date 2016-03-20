@@ -136,21 +136,21 @@ async function waitForPlayers(socket, lobbyConfig) {
 }
 
 const CREATION_TIMEOUT = 10000
-async function createLobby(lobby, localUser) {
+async function createLobby(lobby, localMap, localUser) {
   const params = {
-    mapPath: lobby.map,
+    mapPath: localMap,
     gameType: melee(),
   }
   await timeoutPromise(CREATION_TIMEOUT, bw.createLobby(params), 'Creating lobby timed out')
 }
 
 const JOIN_TIMEOUT = 10000
-async function joinLobby(lobby, localUser) {
+async function joinLobby(lobby, localMap, localUser) {
   let succeeded = false
   while (!succeeded) {
     try {
       await timeoutPromise(JOIN_TIMEOUT,
-          bw.joinLobby(lobby.map, '10.27.27.0', 6112), 'Joining lobby timed out')
+          bw.joinLobby(localMap, '10.27.27.0', 6112), 'Joining lobby timed out')
       succeeded = true
     } catch (err) {
       log.error(`Error joining lobby: ${err}, retrying...`)
@@ -167,7 +167,7 @@ function notifyProgress(socket, state, extra = null) {
   socket.invoke('/game/setupProgress', { status: { state, extra } })
 }
 
-export default async function initGame(socket, { lobby, settings, setup, localUser }) {
+export default async function initGame(socket, { lobby, settings, setup, localUser, localMap }) {
   // TODO(tec27): handle global settings?
   setSnpSettings(settings.local)
   bw.setSettings(settings.local)
@@ -191,14 +191,15 @@ export default async function initGame(socket, { lobby, settings, setup, localUs
   bw.initNetwork()
 
   const isHost = lobby.players[lobby.hostId].name === myName
+  log.verbose('creating lobby for map: ' + localMap)
   if (isHost) {
-    await createLobby(lobby, localUser)
+    await createLobby(lobby, localMap, localUser)
   } else {
     // Give the host a bit more time to create, in the hopes that we hit a join on the first request
     // TODO(tec27): we could probably let the host have the config a bit earlier (and start creating
     // the game then) to better facilitate this
     await new Promise(resolve => setTimeout(resolve, 150))
-    await joinLobby(lobby, localUser)
+    await joinLobby(lobby, localMap, localUser)
   }
 
   notifyProgress(socket, GAME_STATUS_AWAITING_PLAYERS)

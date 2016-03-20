@@ -43,7 +43,7 @@ const mapDirPath = process.env.ProgramData ?
 const mapStore = new MapStore(mapDirPath)
 
 const socketTypes = new WeakMap()
-const activeGameManager = new ActiveGameManager(nydusServer)
+const activeGameManager = new ActiveGameManager(nydusServer, mapStore)
 
 const environment = {
   allowedHosts: [
