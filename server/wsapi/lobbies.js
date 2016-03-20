@@ -171,7 +171,6 @@ export const LoadingDatas = {
 }
 
 const slotNum = s => s >= 0 && s <= 7
-const slotNumInRange = s => s >= 2 && s <= 8
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 const validPortNumber = p => p > 0 && p <= 65535
 
@@ -194,12 +193,11 @@ export class LobbyApi {
       validateBody({
         name: nonEmptyString,
         map: nonEmptyString,
-        numSlots: slotNumInRange,
       }),
       'getUser',
       'ensureNotInLobby')
   async create(data, next) {
-    const { name, map, numSlots } = data.get('body')
+    const { name, map } = data.get('body')
     const user = data.get('user')
 
     if (this.lobbies.has(name)) {
@@ -211,7 +209,7 @@ export class LobbyApi {
     }
     const mapData = MAPS_BY_HASH.get(map)
 
-    const lobby = Lobbies.create(name, mapData, numSlots, user.name)
+    const lobby = Lobbies.create(name, mapData, mapData.slots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)
@@ -273,6 +271,9 @@ export class LobbyApi {
     const { slotNum } = data.get('body')
     let lobby = data.get('lobby')
 
+    if (slotNum >= lobby.numSlots) {
+      throw new errors.BadRequest('invalid slot number')
+    }
     if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
       throw new errors.Conflict('slot already occupied')
     }

@@ -5,6 +5,8 @@
     "tileset": "twilight",
     "width": 128,
     "height": 96,
+    "slots": 2,
+    "umsSlots": 2,
     "description": "Hold Your Breath !!!\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -15,6 +17,8 @@
     "tileset": "platform",
     "width": 128,
     "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
     "description": "Author: Earthattack\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -25,6 +29,8 @@
     "tileset": "jungle",
     "width": 128,
     "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
     "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -35,6 +41,8 @@
     "tileset": "platform",
     "width": 112,
     "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
     "description": "PpP\r\n[www.iccup.com] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -45,6 +53,8 @@
     "tileset": "platform",
     "width": 128,
     "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
     "description": "[www.iccup.com] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -55,6 +65,8 @@
     "tileset": "twilight",
     "width": 128,
     "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
     "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -65,6 +77,8 @@
     "tileset": "twilight",
     "width": 128,
     "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
     "description": "Author: Str18-02\r\nVersion: 2.2\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -75,6 +89,8 @@
     "tileset": "twilight",
     "width": 112,
     "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
     "description": "Author: -NegativeZero-\r\nEditor: Freakling\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -85,6 +101,8 @@
     "tileset": "jungle",
     "width": 128,
     "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
     "description": "Created by Terrance\r\nModified by Forgotten_\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -95,6 +113,8 @@
     "tileset": "ice",
     "width": 128,
     "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
     "description": "Author: Rose.of.Dream.\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
@@ -105,6 +125,8 @@
     "tileset": "platform",
     "width": 96,
     "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
     "description": "Suggested Player : 2\r\nThe Venom Road.\r\nCreated by Noah2nd\r\nhttp://wemsm.ivyro.net/",
     "format": "scm",
     "thumbFormat": "jpg"

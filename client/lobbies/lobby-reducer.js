@@ -30,6 +30,8 @@ export const LobbyMap = new Record({
   description: null,
   format: null,
   thumbFormat: null,
+  slots: -1,
+  umsSlots: -1,
 })
 export const Lobby = new Record({
   name: null,

@@ -14,8 +14,8 @@ import {
   LOBBY_START_COUNTDOWN,
 } from '../actions'
 
-export function createLobby(name, map, numSlots) {
-  const params = { name, map, numSlots }
+export function createLobby(name, map) {
+  const params = { name, map }
 
   return dispatch => {
     dispatch({
