@@ -10,9 +10,9 @@ import checkPermissions from '../permissions/check-permissions'
 export default function(router) {
   router.post('/', createUser)
     .get('/:searchTerm', checkPermissions(['editPermissions']), find)
-    .put('/:id', function(req, res, next) {
+    .put('/:id', function* (next) {
       // TODO(tec27): update a user
-      next(new httpErrors.ImATeapot())
+      throw new httpErrors.ImATeapot()
     })
 }
 
