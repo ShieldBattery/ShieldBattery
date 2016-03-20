@@ -30,7 +30,7 @@ function Logger(baseFilename, actualOptions) {
 
   this._options.logLevels.push('system')
 
-  mkdirp.sync(path.dirname(this._filename))
+  mkdirp.sync(path.dirname(this._filename), 0x0777)
 
   let stats
   try {
