@@ -4,7 +4,7 @@ const mkdirp = require('mkdirp')
 if (process.env.ProgramData) {
   // We use our ProgramData folder for lots of stuff, so ensure its created before anything else
   // runs
-  mkdirp.sync(path.join(process.env.ProgramData, 'shieldbattery'), 0x0777)
+  mkdirp.sync(path.join(process.env.ProgramData, 'shieldbattery'), 0o777)
 }
 
 // $ <executable> <script> <moduleName> ...

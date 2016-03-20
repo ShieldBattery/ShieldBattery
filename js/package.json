@@ -21,6 +21,7 @@
     "nydus": "^0.3.4",
     "nydus-client": "^0.3.1",
     "pretty-bytes": "^3.0.0",
+    "request": "^2.69.0",
     "thenify": "^3.1.1"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { detectResolution } from './natives/index'
 
-export function register(nydus, localSettings, activeGameManager) {
+export function register(nydus, localSettings, activeGameManager, mapStore) {
   async function setSettings(data, next) {
     // Will cause a publish via the settings change handler below
     localSettings.settings = data.get('body').settings
@@ -11,9 +11,16 @@ export function register(nydus, localSettings, activeGameManager) {
     return activeGameManager.setGameConfig(config)
   }
 
+  async function activateMap(data, next) {
+    const { origin } = data.get('client').conn.request.headers
+    const { hash, format } = data.get('body')
+    return mapStore.downloadMap(origin, hash, format)
+  }
+
   nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
+  nydus.registerRoute('/site/activateMap', activateMap)
 
   localSettings.on('change', () => nydus.publish('/settings', localSettings.settings))
 }

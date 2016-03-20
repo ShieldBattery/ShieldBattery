@@ -27,13 +27,21 @@ import { register as registerGameRoutes } from './psi/game-routes'
 import { register as registerSiteRoutes, subscribe as subscribeSiteClient } from './psi/site-routes'
 import { subscribeToCommands } from './psi/game-command'
 import ActiveGameManager from './psi/active-game'
+import MapStore from './psi/map-store'
 
 const httpServer = createHttpServer(33198, '127.0.0.1')
 const nydusServer = nydus(httpServer, { allowRequest: authorize })
 const shieldbatteryRoot = path.dirname(process.execPath)
+
 const settingsPath = process.env.ProgramData ?
     path.join(process.env.ProgramData, 'shieldbattery') : shieldbatteryRoot
 const localSettings = createLocalSettings(path.join(settingsPath, 'settings.json'))
+
+const mapDirPath = process.env.ProgramData ?
+    path.join(process.env.ProgramData, 'shieldbattery', 'maps') :
+    path.join(shieldbatteryRoot, 'maps')
+const mapStore = new MapStore(mapDirPath)
+
 const socketTypes = new WeakMap()
 const activeGameManager = new ActiveGameManager(nydusServer)
 
@@ -84,7 +92,7 @@ psi.on('shutdown', function() {
   log.verbose('localSettings stopped watching')
 })
 
-registerSiteRoutes(nydusServer, localSettings, activeGameManager)
+registerSiteRoutes(nydusServer, localSettings, activeGameManager, mapStore)
 registerGameRoutes(nydusServer, activeGameManager)
 
 nydusServer.on('connection', function(socket) {
