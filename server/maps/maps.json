@@ -5,7 +5,9 @@
     "tileset": "twilight",
     "width": 128,
     "height": 96,
-    "description": "Hold Your Breath !!!\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification"
+    "description": "Hold Your Breath !!!\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Circuit Breaker 1.0",
@@ -13,7 +15,9 @@
     "tileset": "platform",
     "width": 128,
     "height": 128,
-    "description": "Author: Earthattack\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification"
+    "description": "Author: Earthattack\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Fighting Spirit 1.3",
@@ -21,7 +25,9 @@
     "tileset": "jungle",
     "width": 128,
     "height": 128,
-    "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification"
+    "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Match Point 1.3",
@@ -29,7 +35,9 @@
     "tileset": "platform",
     "width": 112,
     "height": 128,
-    "description": "PpP\r\n[www.iccup.com] modification"
+    "description": "PpP\r\n[www.iccup.com] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Electric Circuit 2.1",
@@ -37,7 +45,9 @@
     "tileset": "platform",
     "width": 128,
     "height": 128,
-    "description": "[www.iccup.com] modification"
+    "description": "[www.iccup.com] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Jade 2.1",
@@ -45,7 +55,9 @@
     "tileset": "twilight",
     "width": 128,
     "height": 128,
-    "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification"
+    "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Medusa 2.2",
@@ -53,7 +65,9 @@
     "tileset": "twilight",
     "width": 128,
     "height": 128,
-    "description": "Author: Str18-02\r\nVersion: 2.2\r\nPresented by iCCup\r\n[ www.iccup.com ] modification"
+    "description": "Author: Str18-02\r\nVersion: 2.2\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Overwatch 2.1",
@@ -61,7 +75,9 @@
     "tileset": "twilight",
     "width": 112,
     "height": 128,
-    "description": "Author: -NegativeZero-\r\nEditor: Freakling\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification"
+    "description": "Author: -NegativeZero-\r\nEditor: Freakling\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Python 1.3",
@@ -69,7 +85,9 @@
     "tileset": "jungle",
     "width": 128,
     "height": 128,
-    "description": "Created by Terrance\r\nModified by Forgotten_\r\n[ www.iccup.com ] modification"
+    "description": "Created by Terrance\r\nModified by Forgotten_\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Tau Cross 1.0",
@@ -77,7 +95,9 @@
     "tileset": "ice",
     "width": 128,
     "height": 128,
-    "description": "Author: Rose.of.Dream.\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification"
+    "description": "Author: Rose.of.Dream.\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
   },
   {
     "name": "Venom Road",
@@ -85,6 +105,8 @@
     "tileset": "platform",
     "width": 96,
     "height": 128,
-    "description": "Suggested Player : 2\r\nThe Venom Road.\r\nCreated by Noah2nd\r\nhttp://wemsm.ivyro.net/"
+    "description": "Suggested Player : 2\r\nThe Venom Road.\r\nCreated by Noah2nd\r\nhttp://wemsm.ivyro.net/",
+    "format": "scm",
+    "thumbFormat": "jpg"
   }
 ]
