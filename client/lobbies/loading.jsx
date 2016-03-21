@@ -4,6 +4,7 @@ import styles from './loading.css'
 import MapThumbnail from './map-thumbnail.jsx'
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
+import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RaceIcon from './race-icon.jsx'
 
 const LOADING_MESSAGES = [
@@ -131,10 +132,14 @@ class LoadingPlayer extends React.Component {
 
   render() {
     const { player, isReady } = this.props
+    const avatar = player.isComputer ?
+        <ComputerAvatar className={styles.playerAvatar} /> :
+        <Avatar user={player.name} className={styles.playerAvatar} />
+    const displayName = player.isComputer ? 'Computer' : player.name
 
     return (<Card className={isReady ? styles.readyPlayer : styles.player}>
-      <Avatar user={player.name} className={styles.playerAvatar} />
-      <span className={styles.playerName}>{player.name}</span>
+      { avatar }
+      <span className={styles.playerName}>{displayName}</span>
       <RaceIcon className={styles.slotRace} race={player.race} />
     </Card>)
   }

@@ -39,6 +39,10 @@
   height: 56px;
 }
 
+.computerSlot {
+  composes: slot;
+}
+
 .slotsDense .slot {
   height: 48px;
 }
@@ -54,11 +58,6 @@
 }
 
 .slotRace {
-  margin-right: 16px;
-}
-
-.slotType {
-  margin-left: 16px;
 }
 
 .slotEmptyAvatar {
