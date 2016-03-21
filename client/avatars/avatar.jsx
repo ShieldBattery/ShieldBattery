@@ -1,6 +1,7 @@
 import React, { PropTypes } from 'react'
 import classnames from 'classnames'
 import styles from './avatar.css'
+import { randomColorForString } from './colors'
 
 import PlaceholderIcon from './avatar-placeholder.svg'
 
@@ -16,6 +17,10 @@ export default class Avatar extends React.Component {
       return <img {...this.props} className={classes} src={this.props.image} />
     }
 
-    return <i {...this.props} className={classes}><PlaceholderIcon /></i>
+    const iconStyle = {
+      color: randomColorForString(this.props.user),
+    }
+
+    return <i {...this.props} className={classes} style={iconStyle}><PlaceholderIcon /></i>
   }
 }
