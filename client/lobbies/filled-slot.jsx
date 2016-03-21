@@ -2,6 +2,7 @@ import React, { PropTypes } from 'react'
 import Avatar from '../avatars/avatar.jsx'
 import styles from './view.css'
 import FlatButton from '../material/flat-button.jsx'
+import RaceIcon from './race-icon.jsx'
 
 export default class FilledSlot extends React.Component {
   static propTypes = {
@@ -19,7 +20,7 @@ export default class FilledSlot extends React.Component {
       <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
       <span className={styles.slotName}>{name}</span>
       <FlatButton color='normal' label='Set race' onClick={this.props.onSetRace} />
-      <span className={styles.slotRace}>{race}</span>
+      <RaceIcon className={styles.slotRace} race={race} />
       <span className={styles.slotType}>{isComputer ? 'Computer' : 'Human'}</span>
     </div>)
   }

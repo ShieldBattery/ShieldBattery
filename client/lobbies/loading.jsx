@@ -4,6 +4,7 @@ import styles from './loading.css'
 import MapThumbnail from './map-thumbnail.jsx'
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
+import RaceIcon from './race-icon.jsx'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',
@@ -134,7 +135,7 @@ class LoadingPlayer extends React.Component {
     return (<Card className={isReady ? styles.readyPlayer : styles.player}>
       <Avatar user={player.name} className={styles.playerAvatar} />
       <span className={styles.playerName}>{player.name}</span>
-      <span className={styles.slotRace}>{player.race}</span>
+      <RaceIcon className={styles.slotRace} race={player.race} />
     </Card>)
   }
 }
