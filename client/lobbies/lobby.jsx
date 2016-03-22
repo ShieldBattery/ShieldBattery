@@ -35,8 +35,12 @@ export default class Lobby extends React.Component {
             controllable={controllable}
             onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />
       } else {
-        slots[i] = <EmptySlot key={i}
-            onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
+        if (isHost) {
+          slots[i] = <EmptySlot key={i} controllable={true}
+              onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
+        } else {
+          slots[i] = <EmptySlot key={i} controllable={false} />
+        }
       }
     }
 

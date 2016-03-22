@@ -1,4 +1,4 @@
-@value colorTextSecondary, colorDividers from '../styles/colors.css';
+@value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
 
 .contentArea {
   composes: col from '../styles/flex.css';
@@ -71,7 +71,7 @@
 
 .slotEmptyName {
   composes: slotName;
-  color: colorTextSecondary;
+  color: colorTextFaint;
 }
 
 .chat {

@@ -1,6 +1,6 @@
 
 // These are the Material palette colors with our brand colors and the 50 and 900 swatches removed
-// (to avoid  confusion/clashing, and to avoid really dark shades that won't read well)
+// as well as some other colors that simply don't work well on dark backgrounds
 const COLORS = [
   // Red
   '#ffcdd2', '#ef9a9a', '#e57373', '#ef5350',
@@ -12,7 +12,7 @@ const COLORS = [
 
   // Deep Purple
   '#d1c4e9', '#b39ddb', '#9575cd', '#7e57c2',
-  '#673ab7', '#5e35b1', '#512da8', '#4527a0',
+  '#673ab7', '#5e35b1',
 
   // Indigo
   '#c5cae9', '#9fa8da', '#7986cb', '#5c6bc0',
@@ -52,11 +52,11 @@ const COLORS = [
 
   // Brown
   '#d7ccc8', '#bcaaa4', '#a1887f', '#8d6e63',
-  '#795548', '#6d4c41', '#5d4037', '#4e342e',
+  '#795548', '#6d4c41',
 
   // Blue Grey
   '#cfd8dc', '#b0bec5', '#90a4ae', '#78909c',
-  '#607d8b', '#546e7a', '#455a64', '#37474f',
+  '#607d8b',
 ]
 
 function hashStr(str) {
