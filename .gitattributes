@@ -5,3 +5,5 @@
 *.png binary
 *.jpg binary
 *.ai binary
+*.scm binary
+*.scx binary
