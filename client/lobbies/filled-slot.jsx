@@ -3,8 +3,8 @@ import styles from './view.css'
 
 import Avatar from '../avatars/avatar.jsx'
 import ComputerAvatar from '../avatars/computer-avatar.jsx'
-import FlatButton from '../material/flat-button.jsx'
-import RaceIcon from './race-icon.jsx'
+import RacePicker from './race-picker.jsx'
+import SelectedRace from './selected-race.jsx'
 
 export default class FilledSlot extends React.Component {
   static propTypes = {
@@ -13,20 +13,25 @@ export default class FilledSlot extends React.Component {
     isComputer: PropTypes.bool,
     avatarImage: PropTypes.string,
     onSetRace: PropTypes.func,
+    // Whether or not this slot can be modified (e.g. changing race)
+    controllable: PropTypes.bool,
   };
 
   render() {
-    const { name, race, isComputer, avatarImage } = this.props
+    const { name, race, isComputer, avatarImage, controllable, onSetRace } = this.props
     const avatar = isComputer ?
         <ComputerAvatar className={styles.slotAvatar} /> :
         <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
     const displayName = isComputer ? 'Computer' : name
 
+    const raceElem = controllable ?
+        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
+        <SelectedRace className={styles.slotRace} race={race} />
+
     return (<div className={isComputer ? styles.computerSlot : styles.slot}>
       {avatar}
       <span className={styles.slotName}>{displayName}</span>
-      <FlatButton color='normal' label='Set race' onClick={this.props.onSetRace} />
-      <RaceIcon className={styles.slotRace} race={race} />
+      {raceElem}
     </div>)
   }
 }

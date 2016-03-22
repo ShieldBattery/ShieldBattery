@@ -30,6 +30,14 @@ function isLeavingLobby(oldProps, newProps) {
 
 @connect(mapStateToProps)
 export default class LobbyView extends React.Component {
+  constructor(props) {
+    super(props)
+    this._handleAddComputer = ::this.onAddComputer
+    this._handleSetRace = ::this.onSetRace
+    this._handleStartGame = ::this.onStartGame
+    this._handleLeaveLobbyClick = ::this.onLeaveLobbyClick
+  }
+
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
       this.props.dispatch(routeActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
@@ -49,11 +57,11 @@ export default class LobbyView extends React.Component {
     } else if (lobby.isLoading) {
       content = <LoadingScreen lobby={lobby} gameStatus={gameClient.status} user={user} />
     } else {
-      content = <Lobby lobby={lobby} user={user} onAddComputer={::this.onAddComputer}
-          onSetRace={::this.onSetRace} onStartGame={::this.onStartGame} />
+      content = <Lobby lobby={lobby} user={user} onAddComputer={this._handleAddComputer}
+          onSetRace={this._handleSetRace} onStartGame={this._handleStartGame} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'
-            onClick={::this.onLeaveLobbyClick} />
+            onClick={this._handleLeaveLobbyClick} />
       ]
     }
 

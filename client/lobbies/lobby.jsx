@@ -18,18 +18,22 @@ export default class Lobby extends React.Component {
   };
 
   render() {
-    const { lobby, onSetRace, onAddComputer } = this.props
+    const { lobby, onSetRace, onAddComputer, user } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
     }, new Array(lobby.numSlots))
 
+    const isHost = lobby.players.get(lobby.hostId).name === user.name
+
     const slots = new Array(lobby.numSlots)
     for (let i = 0; i < lobby.numSlots; i++) {
       if (playersBySlot[i]) {
         const { id, name, race, isComputer } = playersBySlot[i]
+        const controllable = (isComputer && isHost) || (!isComputer && name === user.name)
         slots[i] = <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
-            onSetRace={onSetRace ? () => onSetRace(id, 'p') : undefined} />
+            controllable={controllable}
+            onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />
       } else {
         slots[i] = <EmptySlot key={i}
             onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />

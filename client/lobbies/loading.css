@@ -63,6 +63,22 @@
   margin-right: 16px;
 }
 
+.playerRace {
+  composes: fastOutSlowInShort from '../material/curves.css';
+  width: 32px;
+  height: 32px;
+  opacity: alphaDisabled;
+}
+
+.readyPlayer .playerRace {
+  opacity: 1;
+}
+
+.playerRace svg {
+  width: 32px;
+  height: 32px;
+}
+
 .loadingMessage {
   composes: title from '../styles/typography.css';
   color: colorTextSecondary;

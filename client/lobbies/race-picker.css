@@ -1,0 +1,81 @@
+@value colorTextFaint from '../styles/colors.css';
+@value fastOutSlowIn from '../material/curves.css';
+
+.picker {
+}
+
+.dimensions {
+  display: inline-block;
+  vertical-align: middle;
+  width: 36px;
+  height: 36px;
+  min-height: 32px;
+  padding: 2px;
+}
+
+.button {
+  composes: iconButton from '../material/button.css';
+  composes: dimensions;
+}
+
+/* TODO(tec27): better, more composable button stuff, get rid of dumb precedence hacks here */
+.button:hover, .button:active {
+  background-color: transparent !important;
+}
+
+.deselected {
+  composes: dimensions;
+}
+
+.race {
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  margin: auto;
+  overflow: hidden;
+  transition: color 150ms fastOutSlowIn;
+}
+
+.race.race {
+  color: colorTextFaint;
+}
+
+.race svg {
+  width: 32px;
+  height: 32px;
+}
+
+.z {
+  composes: race;
+}
+
+.p {
+  composes: race;
+}
+
+.t {
+  composes: race;
+}
+
+.r {
+  composes: race;
+}
+
+.active {
+}
+
+.z.active, .z:hover, .z:active {
+  color: #FF1744;
+}
+
+.p.active, .p:hover, .p:active {
+  color: #00E676;
+}
+
+.t.active, .t:hover, .t:active {
+  color: #2979FF;
+}
+
+.r.active, .r:hover, .r:active {
+  color: #FF9100;
+}

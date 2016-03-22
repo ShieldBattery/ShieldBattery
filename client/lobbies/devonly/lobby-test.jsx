@@ -3,6 +3,7 @@ import { Map, Range } from 'immutable'
 import Lobby from '../lobby.jsx'
 
 import { Lobby as LobbyRecord, LobbyMap, Player } from '../lobby-reducer.js'
+import { User } from '../../auth/auth-records'
 
 const PLAYERS = new Map({
   a: new Player({ name: 'tec27', id: 'a', race: 'p', slot: 0 }),
@@ -34,6 +35,8 @@ const LOBBIES = Range(2, 9).map(numSlots => {
   })
 })
 
+const USER = new User({ id: 27, name: 'tec27' })
+
 export default class LobbyTest extends React.Component {
   renderLobby(lobby) {
     const containerStyle = {
@@ -51,7 +54,7 @@ export default class LobbyTest extends React.Component {
     }
     return (<div key={lobby.name} style={containerStyle}>
       <div key={lobby.name} style={scaledStyle}>
-        <Lobby lobby={lobby} />
+        <Lobby lobby={lobby} user={USER} />
       </div>
     </div>)
   }

@@ -206,7 +206,7 @@ class LoadingPlayer extends React.Component {
     return (<Card className={isReady ? styles.readyPlayer : styles.player}>
       { avatar }
       <span className={styles.playerName}>{displayName}</span>
-      <RaceIcon className={styles.slotRace} race={player.race} />
+      <RaceIcon className={styles.playerRace} race={player.race} />
     </Card>)
   }
 }

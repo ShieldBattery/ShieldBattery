@@ -1,4 +1,6 @@
 import React, { PropTypes } from 'react'
+import classnames from 'classnames'
+import styles from './race-icon.css'
 
 import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
 import ProtossIcon from '../icons/starcraft/zealot_24px.svg'
@@ -14,14 +16,14 @@ const ICONS = {
 
 export default class RaceIcon extends React.Component {
   static propTypes = {
-    race: PropTypes.string.isRequired,
+    race: PropTypes.oneOf([ 'r', 'p', 't', 'z' ]).isRequired,
     className: PropTypes.string,
     style: PropTypes.string,
   };
 
   render() {
-    const race = this.props.race.toLowerCase()
-    const icon = ICONS.hasOwnProperty(race) ? ICONS[race] : null
-    return <i className={this.props.className} style={this.props.style}>{icon}</i>
+    const classes = classnames(styles[this.props.race], this.props.className)
+    const icon = ICONS[this.props.race]
+    return <i className={classes} style={this.props.style}>{icon}</i>
   }
 }

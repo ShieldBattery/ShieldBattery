@@ -3,8 +3,9 @@
 .contentArea {
   composes: col from '../styles/flex.css';
   padding: 0 16px 16px;
-  margin: 0;
+  margin: 0 auto;
   height: 100%;
+  max-width: 1140px;
 }
 
 .top {
