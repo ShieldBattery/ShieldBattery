@@ -42,4 +42,6 @@
 .text {
   composes: body1 from '../styles/typography.css';
   margin-top: 4px;
+  word-wrap: break-word;
+  word-break: break-all;
 }

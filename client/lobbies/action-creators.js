@@ -8,6 +8,8 @@ import {
   LOBBY_JOIN,
   LOBBY_LEAVE_BEGIN,
   LOBBY_LEAVE,
+  LOBBY_SEND_CHAT_BEGIN,
+  LOBBY_SEND_CHAT,
   LOBBY_SET_RACE_BEGIN,
   LOBBY_SET_RACE,
   LOBBY_START_COUNTDOWN_BEGIN,
@@ -104,6 +106,22 @@ export function startCountdown() {
     dispatch({
       type: LOBBY_START_COUNTDOWN,
       payload: siteSocket.invoke('/lobbies/startCountdown')
+    })
+  }
+}
+
+export function sendChat(text) {
+  return dispatch => {
+    const params = { text }
+    dispatch({
+      type: LOBBY_SEND_CHAT_BEGIN,
+      meta: params,
+    })
+
+    dispatch({
+      type: LOBBY_SEND_CHAT,
+      meta: params,
+      payload: siteSocket.invoke('/lobbies/sendChat', params)
     })
   }
 }

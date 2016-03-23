@@ -28,7 +28,8 @@ function stateToProps(state) {
   return {
     activeGame: state.activeGame,
     auth: state.auth,
-    lobbyName: state.lobby.name,
+    inLobby: state.lobby.inLobby,
+    lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
     chatChannels: state.chatChannels,
     whispers: state.whispers,
   }
@@ -57,7 +58,7 @@ class MainLayout extends React.Component {
   }
 
   renderLobbyNav() {
-    if (!this.props.lobbyName) return null
+    if (!this.props.inLobby) return null
 
     const lobbyName = this.props.lobbyName
     return [

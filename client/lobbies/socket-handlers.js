@@ -1,5 +1,6 @@
 import {
   LOBBY_INIT_DATA,
+  LOBBY_UPDATE_CHAT_MESSAGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
@@ -50,9 +51,9 @@ const eventToAction = {
   }),
 
   leave: (name, event) => (dispatch, getState) => {
-    const { auth, lobby } = getState()
+    const { auth, lobby: { info: lobbyInfo } } = getState()
     const user = auth.user.name
-    const player = lobby.players.get(event.id).name
+    const player = lobbyInfo.players.get(event.id).name
     if (user === player) {
       // The leaver was me all along!!!
       clearCountdownTimer()
@@ -104,7 +105,13 @@ const eventToAction = {
 
   setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
     clearCountdownTimer()
-    const { lobby: { map, numSlots, players, hostId }, settings, auth: { user } } = getState()
+    const {
+      lobby: {
+        info: { map, numSlots, players, hostId },
+      },
+      settings,
+      auth: { user },
+    } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     const promise = psiSocket.invoke('/site/setGameConfig', {
       lobby: {
@@ -132,6 +139,11 @@ const eventToAction = {
   gameStarted: (name, event) => ({
     type: LOBBY_UPDATE_GAME_STARTED,
   }),
+
+  chat: (name, event) => ({
+    type: LOBBY_UPDATE_CHAT_MESSAGE,
+    payload: event,
+  })
 }
 
 export default function registerModule({ siteSocket, psiSocket }) {

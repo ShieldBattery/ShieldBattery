@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { routeActions } from 'redux-simple-router'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
-import { addComputer, leaveLobby, setRace, startCountdown } from './action-creators'
+import { addComputer, leaveLobby, setRace, startCountdown, sendChat } from './action-creators'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -12,7 +12,7 @@ import LoadingScreen from './loading.jsx'
 const mapStateToProps = state => {
   return {
     user: state.auth.user,
-    lobby: state.lobby.name ? state.lobby : undefined,
+    lobby: state.lobby,
     gameClient: state.gameClient,
     hasActiveGame: state.activeGame.isActive,
   }
@@ -22,9 +22,9 @@ const mapStateToProps = state => {
 function isLeavingLobby(oldProps, newProps) {
   return (
     oldProps.routeParams === newProps.routeParams && /* rule out a route change */
-    oldProps.lobby &&
-    oldProps.lobby.name === oldProps.routeParams.lobby && /* we were in this lobby */
-    !newProps.lobby /* now we're not */
+    oldProps.lobby.inLobby &&
+    oldProps.lobby.info.name === oldProps.routeParams.lobby && /* we were in this lobby */
+    !newProps.lobby.inLobby /* now we're not */
   )
 }
 
@@ -36,6 +36,7 @@ export default class LobbyView extends React.Component {
     this._handleSetRace = ::this.onSetRace
     this._handleStartGame = ::this.onStartGame
     this._handleLeaveLobbyClick = ::this.onLeaveLobbyClick
+    this._handleSendChatMessage = ::this.onSendChatMessage
   }
 
   componentWillReceiveProps(nextProps) {
@@ -50,15 +51,16 @@ export default class LobbyView extends React.Component {
 
     let content
     let actions
-    if (!lobby) {
+    if (!lobby.inLobby) {
       content = this.renderJoin()
-    } else if (lobby.name !== routeLobby) {
+    } else if (lobby.info.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
-    } else if (lobby.isLoading) {
+    } else if (lobby.info.isLoading) {
       content = <LoadingScreen lobby={lobby} gameStatus={gameClient.status} user={user} />
     } else {
-      content = <Lobby lobby={lobby} user={user} onAddComputer={this._handleAddComputer}
-          onSetRace={this._handleSetRace} onStartGame={this._handleStartGame} />
+      content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
+          onAddComputer={this._handleAddComputer} onSetRace={this._handleSetRace}
+          onStartGame={this._handleStartGame} onSendChatMessage={this._handleSendChatMessage} />
       actions = [
         <IconButton key='leave' icon='close' title='Leave lobby'
             onClick={this._handleLeaveLobbyClick} />
@@ -88,6 +90,10 @@ export default class LobbyView extends React.Component {
 
   onSetRace(id, race) {
     this.props.dispatch(setRace(id, race))
+  }
+
+  onSendChatMessage(message) {
+    this.props.dispatch(sendChat(message))
   }
 
   onStartGame() {

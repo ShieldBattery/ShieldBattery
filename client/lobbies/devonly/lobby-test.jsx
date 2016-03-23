@@ -1,8 +1,8 @@
 import React from 'react'
-import { Map, Range } from 'immutable'
+import { Map, Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
-import { Lobby as LobbyRecord, LobbyMap, Player } from '../lobby-reducer.js'
+import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer.js'
 import { User } from '../../auth/auth-records'
 
 const PLAYERS = new Map({
@@ -17,7 +17,7 @@ const PLAYERS = new Map({
 })
 
 const LOBBIES = Range(2, 9).map(numSlots => {
-  return new LobbyRecord({
+  return new LobbyInfo({
     name: `My ${numSlots}-slot Lobby`,
     map: new LobbyMap({
       name: 'Fighting Spirit',
@@ -54,7 +54,7 @@ export default class LobbyTest extends React.Component {
     }
     return (<div key={lobby.name} style={containerStyle}>
       <div key={lobby.name} style={scaledStyle}>
-        <Lobby lobby={lobby} user={USER} />
+        <Lobby lobby={lobby} user={USER} chat={new List()} />
       </div>
     </div>)
   }

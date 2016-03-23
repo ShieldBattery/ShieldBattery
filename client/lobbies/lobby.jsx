@@ -12,10 +12,26 @@ import ChatMessage from '../chat/message.jsx'
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: React.PropTypes.object.isRequired,
+    chat: React.PropTypes.object.isRequired,
     user: React.PropTypes.object,
     onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
+    onSendChatMessage: React.PropTypes.func,
   };
+
+  constructor(props) {
+    super(props)
+    this._handleChatEnter = ::this.onChatEnter
+  }
+
+  renderChat() {
+    return (<div className={styles.chat}>
+      {
+        this.props.chat.map(msg =>
+            <ChatMessage user={msg.from} time={msg.time} text={msg.text} />)
+      }
+    </div>)
+  }
 
   render() {
     const { lobby, onSetRace, onAddComputer, user } = this.props
@@ -45,34 +61,25 @@ export default class Lobby extends React.Component {
     }
 
     return (<div className={styles.contentArea}>
-      <div className={styles.top}>
-        <div className={styles.left}>
-          <Card className={lobby.numSlots > 5 ? styles.slotsDense : styles.slotsSparse}>
-            <div className={styles.slotColumn}>{slots}</div>
-          </Card>
-          <div className={styles.chat}>
-            <ChatMessage user='tec27' timestamp='1:37 PM' text='gl hf' />
-            <ChatMessage user='tec27' timestamp='1:38 PM' text='1a2a3a' />
-            <ChatMessage user='dronebabo' timestamp='1:40 PM'
-                text='i hope this goes better than last time' />
-            <ChatMessage user='pachi' timestamp='1:41 PM'
-                text={'What if we wrote a much longer message that had to wrap and stuff because' +
-                    ' it was so long. How would that look, exactly? Would it look cool?'}/>
-          </div>
-          <TextField className={styles.chatInput} label='Send a message' floatingLabel={false}
-              allowErrors={false}/>
-        </div>
+      <div className={styles.left}>
+        <Card className={lobby.numSlots > 5 ? styles.slotsDense : styles.slotsSparse}>
+          <div className={styles.slotColumn}>{slots}</div>
+        </Card>
+        { this.renderChat() }
+        <TextField ref='chatEntry' className={styles.chatInput} label='Send a message'
+            maxlength={500} floatingLabel={false} allowErrors={false}
+            onEnterKeyDown={this._handleChatEnter}/>
+      </div>
 
-        <div className={styles.info}>
-          <h3 className={styles.mapName}>{lobby.map.name}</h3>
-          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Game type</span>
-            <span className={styles.infoValue}>Melee</span>
-          </div>
-          { this.renderCountdown() }
-          { this.renderStartButton() }
+      <div className={styles.info}>
+        <h3 className={styles.mapName}>{lobby.map.name}</h3>
+        <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
+        <div className={styles.infoItem}>
+          <span className={styles.infoLabel}>Game type</span>
+          <span className={styles.infoValue}>Melee</span>
         </div>
+        { this.renderCountdown() }
+        { this.renderStartButton() }
       </div>
     </div>)
   }
@@ -96,5 +103,12 @@ export default class Lobby extends React.Component {
     const isDisabled = lobby.isCountingDown || lobby.players.size < 2
     return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
         disabled={isDisabled} onClick={onStartGame}/>)
+  }
+
+  onChatEnter() {
+    if (this.props.onSendChatMessage) {
+      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
+    }
+    this.refs.chatEntry.clearValue()
   }
 }

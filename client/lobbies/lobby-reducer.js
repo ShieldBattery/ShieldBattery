@@ -1,4 +1,4 @@
-import { Map, Record } from 'immutable'
+import { Map, Record, List } from 'immutable'
 import {
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_GAME_STARTED,
@@ -12,6 +12,7 @@ import {
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
+  LOBBY_UPDATE_CHAT_MESSAGE,
 } from '../actions'
 
 export const Player = new Record({
@@ -33,7 +34,7 @@ export const LobbyMap = new Record({
   slots: -1,
   umsSlots: -1,
 })
-export const Lobby = new Record({
+export const LobbyInfo = new Record({
   name: null,
   map: null,
   numSlots: 0,
@@ -44,6 +45,16 @@ export const Lobby = new Record({
   isLoading: false,
 })
 
+const BaseLobbyRecord = new Record({
+  info: new LobbyInfo(),
+  chat: new List(),
+})
+export class LobbyRecord extends BaseLobbyRecord {
+  get inLobby() {
+    return !!(this.info && this.info.name)
+  }
+}
+
 const playersObjToMap = obj => {
   const records = Object.keys(obj).reduce((result, key) => {
     result[key] = new Player(obj[key])
@@ -53,10 +64,10 @@ const playersObjToMap = obj => {
   return new Map(records)
 }
 
-const handlers = {
+const infoHandlers = {
   [LOBBY_INIT_DATA](state, action) {
     const { lobby } = action.payload
-    return new Lobby({
+    return new LobbyInfo({
       ...lobby,
       players: playersObjToMap(lobby.players),
       map: new LobbyMap(lobby.map),
@@ -78,7 +89,7 @@ const handlers = {
   },
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
-    return new Lobby()
+    return new LobbyInfo()
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
@@ -106,10 +117,48 @@ const handlers = {
   },
 
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
-    return new Lobby()
+    return new LobbyInfo()
   },
 }
 
-export default function lobbyReducer(state = new Lobby(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
+function infoReducer(state, action) {
+  return infoHandlers.hasOwnProperty(action.type) ? infoHandlers[action.type](state, action) : state
+}
+
+// TODO(tec27): This definitely doesn't account for all the different message types we want to
+// display (e.g. system messages with different emphasis and such)
+export const ChatMessage = Record({
+  type: null,
+  time: 0,
+  from: null,
+  text: null,
+})
+
+function prune(chatList) {
+  return chatList.size > 200 ? chatList.shift() : chatList
+}
+
+const chatHandlers = {
+  [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, state, action) {
+    const event = action.payload
+    const message = new ChatMessage({
+      type: 'message',
+      time: event.time,
+      from: event.from,
+      text: event.text,
+    })
+    return prune(state.push(message))
+  }
+}
+
+function chatReducer(lobbyInfo, state, action) {
+  return chatHandlers.hasOwnProperty(action.type) ?
+      chatHandlers[action.type](lobbyInfo, state, action) :
+      state
+}
+
+export default function lobbyReducer(state = new LobbyRecord(), action) {
+  const nextInfo = infoReducer(state.info, action)
+  const nextChat = chatReducer(nextInfo, state.chat, action)
+  return state.set('info', nextInfo).set('chat', nextChat)
 }

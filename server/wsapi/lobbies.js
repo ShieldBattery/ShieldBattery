@@ -258,6 +258,30 @@ export class LobbyApi {
     }, user => this._removeUserFromLobby(this.lobbies.get(lobbyName), user))
   }
 
+  @Api('/sendChat',
+    validateBody({
+      text: nonEmptyString,
+    }),
+    'getUser',
+    'acquireLobby',
+  )
+  async sendChat(data, next) {
+    const time = Date.now()
+    const name = data.get('user').name
+    let { text } = data.get('body')
+
+    if (text.length > 500) {
+      text = text.slice(0, 500)
+    }
+
+    this._publishTo(data.get('lobby'), {
+      type: 'chat',
+      time,
+      from: name,
+      text,
+    })
+  }
+
   @Api('/addComputer',
     validateBody({
       slotNum

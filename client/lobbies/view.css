@@ -1,24 +1,19 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
 
 .contentArea {
-  composes: col from '../styles/flex.css';
-  padding: 0 16px 16px;
+  composes: row justifySpaceBetween from '../styles/flex.css';
+  padding: 0 16px;
   margin: 0 auto;
-  height: 100%;
+  height: calc(100vh - 64px);
   max-width: 1140px;
-}
-
-.top {
-  composes: row justifySpaceBetween itemsStart contentStart from '../styles/flex.css';
-  width: 100%;
-  height: 100%;
 }
 
 .left {
   composes: col grow from '../styles/flex.css';
   padding-top: 16px;
   min-width: 320px;
-  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
 }
 
 .slots {
@@ -76,13 +71,13 @@
 
 .chat {
   composes: grow shrink from '../styles/flex.css';
-  padding: 16px;
+  padding: 16px 16px 0px;
   overflow-y: auto;
 }
 
 .chatInput {
   composes: exact from '../styles/flex.css';
-  margin: 0 16px;
+  margin: 0 16px 0 60px;
 }
 
 .info {

@@ -25,6 +25,10 @@ export const LOBBY_JOIN = 'LOBBY_JOIN'
 export const LOBBY_LEAVE_BEGIN = 'LOBBY_LEAVE_BEGIN'
 // The server has responded with success/failure to our lobby leaving
 export const LOBBY_LEAVE = 'LOBBY_LEAVE'
+// We are sending a chat message to the server
+export const LOBBY_SEND_CHAT_BEGIN = 'LOBBY_SEND_CHAT_BEGIN'
+// The server has replied with success/failure to our sent chat message
+export const LOBBY_SEND_CHAT = 'LOBBY_SEND_CHAT'
 // We are starting the process of setting the race of a player
 export const LOBBY_SET_RACE_BEGIN = 'LOBBY_SET_RACE_BEGIN'
 // The server has responded with success/failure to our race setting
@@ -33,6 +37,8 @@ export const LOBBY_SET_RACE = 'LOBBY_SET_RACE'
 export const LOBBY_START_COUNTDOWN_BEGIN = 'LOBBY_START_COUNTDOWN_BEGIN'
 // The server has responded with success/failure for starting the game countdown
 export const LOBBY_START_COUNTDOWN = 'LOBBY_START_COUNTDOWN'
+// A new chat message has been received
+export const LOBBY_UPDATE_CHAT_MESSAGE = 'LOBBY_UPDATE_CHAT_MESSAGE'
 // The countdown for the lobby we're in has been canceled
 export const LOBBY_UPDATE_COUNTDOWN_CANCELED = 'LOBBY_UPDATE_COUNTDOWN_CANCELED'
 // A lobby we're in is starting the game countdown

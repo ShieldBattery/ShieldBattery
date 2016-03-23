@@ -2,7 +2,7 @@ import React from 'react'
 import { Map } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
-import { Lobby, LobbyMap, Player } from '../lobby-reducer'
+import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 
@@ -42,7 +42,7 @@ export default class LoadingTest extends React.Component {
   }
 
   render() {
-    const lobby = new Lobby({
+    const lobby = new LobbyInfo({
       name: 'This is just a test',
       map: new LobbyMap({
         name: 'Fighting Spirit',
