@@ -56,7 +56,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.info.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else if (lobby.info.isLoading) {
-      content = <LoadingScreen lobby={lobby} gameStatus={gameClient.status} user={user} />
+      content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
           onAddComputer={this._handleAddComputer} onSetRace={this._handleSetRace}
