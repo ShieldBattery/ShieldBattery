@@ -1,4 +1,5 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
+@value colorTextPrimary from '../styles/colors.css';
 
 .contentArea {
   composes: row justifySpaceBetween from '../styles/flex.css';
@@ -119,4 +120,22 @@
   margin-right: 24px;
   margin-top: 12px;
   width: calc(100% - 24px - 24px);
+}
+
+.chatJoinMessage {
+  /* TODO(tec27): extract a better chat message base so this is mostly unnecessary */
+  composes: row justifySpaceBetween from '../styles/flex.css';
+  composes: body1 from '../styles/typography.css';
+  margin-bottom: 12px;
+  color: colorTextSecondary;
+}
+
+.chatJoinContent {
+  line-height: 1;
+}
+
+.chatJoinName {
+  composes: body2 from '../styles/typography.css';
+  line-height: 1;
+  color: colorTextPrimary;
 }

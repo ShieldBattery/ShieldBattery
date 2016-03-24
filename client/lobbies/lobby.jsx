@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -8,6 +8,23 @@ import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import ChatMessage from '../chat/message.jsx'
+import Timestamp from '../chat/timestamp.jsx'
+
+class JoinMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<div className={styles.chatJoinMessage}>
+      <div className={styles.chatJoinContent}>
+        &gt;&gt; <span className={styles.chatJoinName}>{this.props.name}</span> has joined the lobby
+      </div>
+      <Timestamp time={this.props.time} />
+    </div>)
+  }
+}
 
 export default class Lobby extends React.Component {
   static propTypes = {
@@ -24,12 +41,18 @@ export default class Lobby extends React.Component {
     this._handleChatEnter = ::this.onChatEnter
   }
 
+  renderChatMessage(msg) {
+    const { id, type, time } = msg
+    switch (type) {
+      case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
+      case 'join': return <JoinMessage time={time} name={msg.name} />
+      default: return null
+    }
+  }
+
   renderChat() {
     return (<div className={styles.chat}>
-      {
-        this.props.chat.map(msg =>
-            <ChatMessage key={msg.id} user={msg.from} time={msg.time} text={msg.text} />)
-      }
+      { this.props.chat.map(msg => this.renderChatMessage(msg)) }
     </div>)
   }
 

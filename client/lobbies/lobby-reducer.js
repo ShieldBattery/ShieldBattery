@@ -126,14 +126,19 @@ function infoReducer(state, action) {
   return infoHandlers.hasOwnProperty(action.type) ? infoHandlers[action.type](state, action) : state
 }
 
-// TODO(tec27): This definitely doesn't account for all the different message types we want to
-// display (e.g. system messages with different emphasis and such)
+// id, type, and time need to be present for ALL message types
 export const ChatMessage = Record({
   id: null,
   type: null,
   time: 0,
   from: null,
   text: null,
+})
+export const JoinMessage = Record({
+  id: null,
+  type: null,
+  time: 0,
+  name: null,
 })
 
 function prune(chatList) {
@@ -151,7 +156,21 @@ const chatHandlers = {
       text: event.text,
     })
     return prune(state.push(message))
-  }
+  },
+
+  [LOBBY_UPDATE_JOIN](lobbyInfo, state, action) {
+    const player = action.payload
+    if (!player.isComputer) {
+      return prune(state.push(new JoinMessage({
+        id: cuid(),
+        type: 'join',
+        time: Date.now(),
+        name: player.name
+      })))
+    }
+
+    return state
+  },
 }
 
 const EMPTY_CHAT = new List()
