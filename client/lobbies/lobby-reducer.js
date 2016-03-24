@@ -1,4 +1,5 @@
 import { Map, Record, List } from 'immutable'
+import cuid from 'cuid'
 import {
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_GAME_STARTED,
@@ -128,6 +129,7 @@ function infoReducer(state, action) {
 // TODO(tec27): This definitely doesn't account for all the different message types we want to
 // display (e.g. system messages with different emphasis and such)
 export const ChatMessage = Record({
+  id: null,
   type: null,
   time: 0,
   from: null,
@@ -142,6 +144,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, state, action) {
     const event = action.payload
     const message = new ChatMessage({
+      id: cuid(),
       type: 'message',
       time: event.time,
       from: event.from,
@@ -151,7 +154,11 @@ const chatHandlers = {
   }
 }
 
+const EMPTY_CHAT = new List()
 function chatReducer(lobbyInfo, state, action) {
+  if (!lobbyInfo.name) {
+    return EMPTY_CHAT
+  }
   return chatHandlers.hasOwnProperty(action.type) ?
       chatHandlers[action.type](lobbyInfo, state, action) :
       state

@@ -28,7 +28,7 @@ export default class Lobby extends React.Component {
     return (<div className={styles.chat}>
       {
         this.props.chat.map(msg =>
-            <ChatMessage user={msg.from} time={msg.time} text={msg.text} />)
+            <ChatMessage key={msg.id} user={msg.from} time={msg.time} text={msg.text} />)
       }
     </div>)
   }
@@ -67,7 +67,7 @@ export default class Lobby extends React.Component {
         </Card>
         { this.renderChat() }
         <TextField ref='chatEntry' className={styles.chatInput} label='Send a message'
-            maxlength={500} floatingLabel={false} allowErrors={false}
+            maxLength={500} floatingLabel={false} allowErrors={false}
             onEnterKeyDown={this._handleChatEnter}/>
       </div>
 
