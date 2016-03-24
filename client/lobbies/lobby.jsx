@@ -1,4 +1,5 @@
 import React, { PropTypes } from 'react'
+import ReactDom from 'react-dom'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -26,6 +27,48 @@ class JoinMessage extends React.Component {
   }
 }
 
+class ChatList extends React.Component {
+  static propTypes = {
+    messages: PropTypes.object.isRequired,
+  };
+
+  constructor(props) {
+    super(props)
+    this._shouldAutoScroll = true
+  }
+
+  shouldComponentUpdate(nextProps) {
+    return nextProps.messages !== this.props.messages
+  }
+
+  componentWillUpdate() {
+    const node = ReactDom.findDOMNode(this)
+    this._shouldAutoScroll = (node.scrollTop + node.offsetHeight) >= node.scrollHeight
+  }
+
+  componentDidUpdate() {
+    if (this._shouldAutoScroll) {
+      const node = ReactDom.findDOMNode(this)
+      node.scrollTop = node.scrollHeight
+    }
+  }
+
+  renderMessage(msg) {
+    const { id, type, time } = msg
+    switch (type) {
+      case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
+      case 'join': return <JoinMessage time={time} name={msg.name} />
+      default: return null
+    }
+  }
+
+  render() {
+    return (<div className={styles.chat}>
+      { this.props.messages.map(msg => this.renderMessage(msg)) }
+    </div>)
+  }
+}
+
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: React.PropTypes.object.isRequired,
@@ -39,21 +82,6 @@ export default class Lobby extends React.Component {
   constructor(props) {
     super(props)
     this._handleChatEnter = ::this.onChatEnter
-  }
-
-  renderChatMessage(msg) {
-    const { id, type, time } = msg
-    switch (type) {
-      case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
-      case 'join': return <JoinMessage time={time} name={msg.name} />
-      default: return null
-    }
-  }
-
-  renderChat() {
-    return (<div className={styles.chat}>
-      { this.props.chat.map(msg => this.renderChatMessage(msg)) }
-    </div>)
   }
 
   render() {
@@ -88,7 +116,7 @@ export default class Lobby extends React.Component {
         <Card className={lobby.numSlots > 5 ? styles.slotsDense : styles.slotsSparse}>
           <div className={styles.slotColumn}>{slots}</div>
         </Card>
-        { this.renderChat() }
+        <ChatList messages={this.props.chat} />
         <TextField ref='chatEntry' className={styles.chatInput} label='Send a message'
             maxLength={500} floatingLabel={false} allowErrors={false}
             onEnterKeyDown={this._handleChatEnter}/>
