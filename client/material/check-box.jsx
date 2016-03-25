@@ -24,7 +24,14 @@ class CheckBox extends React.Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (nextProps.hasOwnProperty('checked')) {
+    const hasNewDefault = nextProps.hasOwnProperty('defaultChecked') &&
+        nextProps.defaultChecked !== this.props.defaultChecked
+
+    if (hasNewDefault) {
+      this.setState({ checked: nextProps.defaultChecked })
+    }
+
+    if (nextProps.hasOwnProperty('checked') && nextProps.checked !== this.props.checked) {
       this.setState({ checked: nextProps.checked })
     }
   }
