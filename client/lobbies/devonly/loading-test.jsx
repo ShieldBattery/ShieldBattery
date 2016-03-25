@@ -53,13 +53,16 @@ export default class LoadingTest extends React.Component {
         height: 128,
         tileset: 'jungle',
         description: 'sup',
+        slots: 5,
+        umsSlots: 5,
       }),
-      numSlots: 4,
+      numSlots: 5,
       players: new Map({
         a: new Player({ name: 'tec27', id: 'a', race: 'p', slot: 0 }),
         b: new Player({ name: 'dronebabo', id: 'b', race: 'r', slot: 1 }),
         c: new Player({ name: 'grnp', id: 'c', race: 'z', slot: 2 }),
         d: new Player({ name: 'Heyoka', id: 'd', race: 't', slot: 3 }),
+        e: new Player({ name: 'robit', id: 'e', race: 'r', slot: 4, isComputer: true }),
       }),
       hostId: 'a',
     })
