@@ -14,6 +14,7 @@ import {
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_CHAT_MESSAGE,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 
 export const Player = new Record({
@@ -120,6 +121,10 @@ const infoHandlers = {
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
     return new LobbyInfo()
   },
+
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new LobbyInfo()
+  }
 }
 
 function infoReducer(state, action) {
