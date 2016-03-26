@@ -134,16 +134,28 @@ function infoReducer(state, action) {
 // id, type, and time need to be present for ALL message types
 export const ChatMessage = Record({
   id: null,
-  type: null,
+  type: 'message',
   time: 0,
   from: null,
   text: null,
 })
 export const JoinMessage = Record({
   id: null,
-  type: null,
+  type: 'join',
   time: 0,
   name: null,
+})
+export const LeaveMessage = Record({
+  id: null,
+  type: 'leave',
+  time: 0,
+  name: null,
+})
+export const SelfJoinMessage = Record({
+  id: null,
+  type: 'selfjoin',
+  time: 0,
+  lobby: null,
 })
 
 function prune(chatList) {
@@ -151,11 +163,10 @@ function prune(chatList) {
 }
 
 const chatHandlers = {
-  [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, state, action) {
+  [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
     const event = action.payload
     const message = new ChatMessage({
       id: cuid(),
-      type: 'message',
       time: event.time,
       from: event.from,
       text: event.text,
@@ -163,12 +174,11 @@ const chatHandlers = {
     return prune(state.push(message))
   },
 
-  [LOBBY_UPDATE_JOIN](lobbyInfo, state, action) {
+  [LOBBY_UPDATE_JOIN](lobbyInfo, lastLobbyInfo, state, action) {
     const player = action.payload
     if (!player.isComputer) {
       return prune(state.push(new JoinMessage({
         id: cuid(),
-        type: 'join',
         time: Date.now(),
         name: player.name
       })))
@@ -176,20 +186,41 @@ const chatHandlers = {
 
     return state
   },
+
+  [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
+    const player = lastLobbyInfo.players.get(action.payload)
+    if (!player.isComputer) {
+      return prune(state.push(new LeaveMessage({
+        id: cuid(),
+        time: Date.now(),
+        name: player.name
+      })))
+    }
+
+    return state
+  },
+
+  [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {
+    return prune(state.push(new SelfJoinMessage({
+      id: cuid(),
+      time: Date.now(),
+      lobby: lobbyInfo.name,
+    })))
+  }
 }
 
 const EMPTY_CHAT = new List()
-function chatReducer(lobbyInfo, state, action) {
+function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
   if (!lobbyInfo.name) {
     return EMPTY_CHAT
   }
   return chatHandlers.hasOwnProperty(action.type) ?
-      chatHandlers[action.type](lobbyInfo, state, action) :
+      chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action) :
       state
 }
 
 export default function lobbyReducer(state = new LobbyRecord(), action) {
   const nextInfo = infoReducer(state.info, action)
-  const nextChat = chatReducer(nextInfo, state.chat, action)
+  const nextChat = chatReducer(nextInfo, state.info, state.chat, action)
   return state.set('info', nextInfo).set('chat', nextChat)
 }

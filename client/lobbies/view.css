@@ -78,10 +78,11 @@
 
 .chatInput {
   composes: exact from '../styles/flex.css';
-  margin: 0 16px 0 60px;
+  margin: 0 16px 0 16px;
 }
 
 .info {
+  composes: exact from '../styles/flex.css';
   margin: 16px 0 16px 24px;
   width: 256px;
 }
@@ -122,20 +123,19 @@
   width: calc(100% - 24px - 24px);
 }
 
-.chatJoinMessage {
-  /* TODO(tec27): extract a better chat message base so this is mostly unnecessary */
-  composes: row justifySpaceBetween from '../styles/flex.css';
-  composes: body1 from '../styles/typography.css';
-  margin-bottom: 12px;
+.chatSystemMessage {
   color: colorTextSecondary;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
-.chatJoinContent {
-  line-height: 1;
+.chatSystemMessage + .chatSystemMessage {
+  margin-top: -8px;
+  padding-top: 0px;
 }
 
-.chatJoinName {
+.chatImportant {
   composes: body2 from '../styles/typography.css';
-  line-height: 1;
+  line-height: inherit;
   color: colorTextPrimary;
 }

@@ -1,29 +1,64 @@
 import React, { PropTypes } from 'react'
+import classnames from 'classnames'
 import styles from './message.css'
 
-import Avatar from '../avatars/avatar.jsx'
-import Timestamp from './timestamp.jsx'
+const localeTimeSupported = !!Date.prototype.toLocaleTimeString
+function getLocalTime(date) {
+  if (localeTimeSupported) {
+    return date.toLocaleTimeString(navigator.language, { hour: 'numeric', minute: '2-digit' })
+  }
 
-export default class ChatMessage extends React.Component {
+  // Internationalization isn't supported, so we'll just format to American time. DEAL WITH IT.
+  let hour = date.getHours()
+  const isPm = hour >= 12
+  hour = isPm ? (hour - 12) : hour
+  if (hour === 0) {
+    hour = 12
+  }
+  let minute = '' + date.getMinutes()
+  if (minute.length === 1) {
+    minute = '0' + minute
+  }
+  return hour + ':' + minute + ' ' + (isPm ? 'PM' : 'AM')
+}
+
+export const ChatTimestamp =
+    props => <span className={styles.timestamp}>{getLocalTime(new Date(props.time))}</span>
+ChatTimestamp.propTypes = {
+  time: React.PropTypes.number.isRequired,
+}
+
+export const ChatMessageLayout = props => {
+  const classes = classnames(styles.message, props.className)
+  return (<div className={classes}>
+    <ChatTimestamp time={props.time}/>
+    {props.children}
+  </div>)
+}
+ChatMessageLayout.propTypes = {
+  time: React.PropTypes.number.isRequired,
+  className: React.PropTypes.string,
+}
+
+export class ChatMessage extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     time: PropTypes.number.isRequired,
     text: PropTypes.string.isRequired,
-    avatarImage: PropTypes.string,
   };
 
-  render() {
-    const { user, time, text, avatarImage } = this.props
+  shouldComponentUpdate(nextProps) {
+    return (nextProps.user !== this.props.user ||
+      nextProps.time !== this.props.time ||
+      nextProps.text !== this.props.text)
+  }
 
-    return (<div className={styles.message}>
-      <Avatar className={styles.avatar} user={user} image={avatarImage} />
-      <div className={styles.content}>
-        <div className={styles.metadata}>
-          <span className={styles.username}>{user}</span>
-          <Timestamp time={time} />
-        </div>
-        <span className={styles.text}>{text}</span>
-      </div>
-    </div>)
+  render() {
+    const { user, time, text } = this.props
+
+    return (<ChatMessageLayout time={time}>
+      <span className={styles.username}>{user}</span>
+      <span className={styles.text}>{text}</span>
+    </ChatMessageLayout>)
   }
 }

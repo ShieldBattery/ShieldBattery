@@ -8,8 +8,7 @@ import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
-import ChatMessage from '../chat/message.jsx'
-import Timestamp from '../chat/timestamp.jsx'
+import { ChatMessageLayout, ChatMessage } from '../chat/message.jsx'
 
 class JoinMessage extends React.Component {
   static propTypes = {
@@ -18,12 +17,43 @@ class JoinMessage extends React.Component {
   };
 
   render() {
-    return (<div className={styles.chatJoinMessage}>
-      <div className={styles.chatJoinContent}>
-        &gt;&gt; <span className={styles.chatJoinName}>{this.props.name}</span> has joined the lobby
-      </div>
-      <Timestamp time={this.props.time} />
-    </div>)
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <span>
+        &gt;&gt; <span className={styles.chatImportant}>{this.props.name}</span> has joined the
+        lobby
+      </span>
+    </ChatMessageLayout>)
+  }
+}
+
+class LeaveMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <span>
+        &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has left the
+        lobby
+      </span>
+    </ChatMessageLayout>)
+  }
+}
+
+class SelfJoinMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    lobby: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>
+          You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>
+        </span>
+    </ChatMessageLayout>)
   }
 }
 
@@ -58,6 +88,8 @@ class ChatList extends React.Component {
     switch (type) {
       case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
       case 'join': return <JoinMessage time={time} name={msg.name} />
+      case 'leave': return <LeaveMessage time={time} name={msg.name} />
+      case 'selfjoin': return <SelfJoinMessage time={time} lobby={msg.lobby} />
       default: return null
     }
   }

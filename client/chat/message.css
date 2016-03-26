@@ -1,47 +1,33 @@
-@value colorTextSecondary from '../styles/colors.css';
+@value colorTextSecondary, colorTextFaint from '../styles/colors.css';
 
 .message {
   composes: row itemsStart from '../styles/flex.css';
-  min-height: 40px;
-  margin-bottom: 8px;
-}
-
-.avatar {
-  composes: exact from '../styles/flex.css';
-  width: 24px;
-  height: 24px;
-  margin-left: 8px;
-}
-
-.avatar > svg, .avatar > img {
-  width: 100%;
-  height: 100%;
-}
-
-.content {
-  composes: col grow from '../styles/flex.css';
-  margin-left: 16px;
-}
-
-.metadata {
-  composes: row justifySpaceBetween from '../styles/flex.css'
-}
-
-.username {
-  composes: body2 from '../styles/typography.css';
-  color: colorTextSecondary;
-  line-height: 1;
+  composes: body1 from '../styles/typography.css';
+  line-height: 20px;
+  min-height: 20px;
+  margin-bottom: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
 }
 
 .timestamp {
+  composes: exact from '../styles/flex.css';
   composes: caption from '../styles/typography.css';
+  color: colorTextFaint;
+  line-height: inherit;
+  margin-right: 8px;
+}
+
+.username {
+  composes: exact from '../styles/flex.css';
+  composes: body2 from '../styles/typography.css';
   color: colorTextSecondary;
-  line-height: 14px;
+  line-height: inherit;
 }
 
 .text {
-  composes: body1 from '../styles/typography.css';
-  margin-top: 4px;
-  word-wrap: break-word;
-  word-break: break-all;
+  composes: grow shrink from '../styles/flex.css';
+  line-height: inherit;
+  margin-left: 16px;
 }
