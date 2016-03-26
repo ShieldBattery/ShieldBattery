@@ -31,5 +31,4 @@
   composes: grow shrink from '../styles/flex.css';
   line-height: inherit;
   padding-left: 8px;
-  border-left: 1px solid colorDividers;
 }

@@ -139,6 +139,22 @@ export const ChatMessage = Record({
   from: null,
   text: null,
 })
+export const CountdownCanceledMessage = Record({
+  id: null,
+  type: 'countdownCanceled',
+  time: 0,
+})
+export const CountdownStartedMessage = Record({
+  id: null,
+  type: 'countdownStarted',
+  time: 0,
+})
+export const CountdownTickMessage = Record({
+  id: null,
+  type: 'countdownTick',
+  time: 0,
+  timeLeft: 0,
+})
 export const HostChangeMessage = Record({
   id: null,
   type: 'hostChange',
@@ -220,6 +236,32 @@ const chatHandlers = {
       id: cuid(),
       time: Date.now(),
       name: lobbyInfo.players.get(lobbyInfo.hostId).name,
+    }))
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_START](lobbyInfo, lastLobbyInfo, state, action) {
+    return state.push(new CountdownStartedMessage({
+      id: cuid(),
+      time: Date.now(),
+    })).push(new CountdownTickMessage({
+      id: cuid(),
+      time: Date.now(),
+      timeLeft: lobbyInfo.countdownTimer,
+    }))
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action) {
+    return state.push(new CountdownTickMessage({
+      id: cuid(),
+      time: Date.now(),
+      timeLeft: lobbyInfo.countdownTimer,
+    }))
+  },
+
+  [LOBBY_UPDATE_COUNTDOWN_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
+    return state.push(new CountdownCanceledMessage({
+      id: cuid(),
+      time: Date.now(),
     }))
   },
 }

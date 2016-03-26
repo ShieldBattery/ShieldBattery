@@ -74,6 +74,43 @@ class HostChangeMessage extends React.Component {
   }
 }
 
+class CountdownStartedMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>The game countdown has begun</span>
+    </ChatMessageLayout>)
+  }
+}
+
+class CountdownTickMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    timeLeft: PropTypes.number.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>{this.props.timeLeft}&hellip;</span>
+    </ChatMessageLayout>)
+  }
+}
+
+class CountdownCanceledMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>The game countdown has been canceled</span>
+    </ChatMessageLayout>)
+  }
+}
+
 class ChatList extends React.Component {
   static propTypes = {
     messages: PropTypes.object.isRequired,
@@ -108,6 +145,9 @@ class ChatList extends React.Component {
       case 'leave': return <LeaveMessage time={time} name={msg.name} />
       case 'selfJoin': return <SelfJoinMessage time={time} lobby={msg.lobby} host={msg.host} />
       case 'hostChange': return <HostChangeMessage time={time} name={msg.name} />
+      case 'countdownStarted': return <CountdownStartedMessage time={time} />
+      case 'countdownTick': return <CountdownTickMessage time={time} timeLeft={msg.timeLeft} />
+      case 'countdownCanceled': return <CountdownCanceledMessage time={time} />
       default: return null
     }
   }
