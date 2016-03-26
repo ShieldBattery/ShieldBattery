@@ -18,25 +18,6 @@
   text-align: center;
 }
 
-.logoTextCommon {
-  display: inline-block;
-  margin-top: 0;
-}
-
-.logoTextLight {
-  composes: display4 from '../styles/typography.css';
-  composes: logoTextCommon;
-  font-weight: 300;
-  color: blue400;
-}
-
-.logoTextMedium {
-  composes: display4 from '../styles/typography.css';
-  composes: logoTextCommon;
-  font-weight: 400;
-  color: amberA400;
-}
-
 .content {
   width: 448px;
   margin: auto;
