@@ -176,6 +176,10 @@ export default class Lobby extends React.Component {
     this._handleChatEnter = ::this.onChatEnter
   }
 
+  componentDidMount() {
+    this.refs.chatEntry.focus()
+  }
+
   render() {
     const { lobby, onSetRace, onAddComputer, user } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
