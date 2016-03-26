@@ -1,5 +1,5 @@
-import conditionalRedirect from '../navigation/conditional-redirect.jsx'
+import redirectFn from '../navigation/conditional-redirect.jsx'
 import { isLoggedIn } from './auth-utils'
-import { redirectAfterLogin } from '../navigation/action-creators'
+import { redirectToLogin } from './auth-utils'
 
-export default conditionalRedirect(isLoggedIn, redirectAfterLogin)
+export default redirectFn(isLoggedIn, redirectToLogin)
