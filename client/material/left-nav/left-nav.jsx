@@ -1,13 +1,12 @@
 import React from 'react'
 import styles from './left-nav.css'
 
+import LogoText from '../../logos/logotext-188x30.svg'
+
 export default function LeftNav(props) {
   const footer = props.footer ? <div className={styles.footer}>{props.footer}</div> : undefined
   return (<nav className={styles.leftNav}>
-    <div className={styles.logo}>
-      <h3 className={styles.logoTextLight}>Shield</h3>
-      <h3 className={styles.logoTextMedium}>Battery</h3>
-    </div>
+    <div className={styles.logo}><LogoText /></div>
     <div className={styles.sections}>
       {props.children}
     </div>

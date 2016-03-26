@@ -38,25 +38,6 @@
   padding: 0 16px;
 }
 
-.logoText {
-  composes: headline from '../../styles/typography.css';
-  display: inline-block;
-  margin: 0;
-  font-size: 30px;
-}
-
-.logoTextLight {
-  composes: logoText;
-  font-weight: 300;
-  color: blue400;
-}
-
-.logoTextMedium {
-  composes: logoText;
-  font-weight: 400;
-  color: amberA400;
-}
-
 .divider {
   border: none;
   border-top: 1px solid colorDividers;
