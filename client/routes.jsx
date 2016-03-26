@@ -8,7 +8,7 @@ import ChatList from './chat/list.jsx'
 import MainLayout from './main-layout.jsx'
 import LobbyList from './lobbies/list.jsx'
 import LobbyView from './lobbies/view.jsx'
-import LoginRequired from './auth/login-required.jsx'
+import LoggedInFilter from './auth/logged-in-filter'
 import LoginLayout from './auth/login-layout.jsx'
 import Login from './auth/login.jsx'
 import Signup from './auth/signup.jsx'
@@ -28,7 +28,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const routes = <Route>
-  <Route component={LoginRequired}>
+  <Route component={LoggedInFilter}>
     <Route component={SiteConnectedFilter}>
       <Route component={MainLayout}>
         <Route path='/' />

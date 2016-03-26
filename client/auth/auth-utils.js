@@ -15,3 +15,13 @@ export function redirectIfLoggedIn({ auth, location, dispatch }) {
 
   return false
 }
+
+export function redirectToLogin(props, transitionFn = routeActions.push) {
+  return (dispatch, getState) => {
+    const { history, location: loc } = props
+    const query = {
+      nextPath: history.createPath(loc.pathname, loc.query)
+    }
+    dispatch(transitionFn({ pathname: '/login', query }))
+  }
+}
