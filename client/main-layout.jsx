@@ -51,13 +51,6 @@ class MainLayout extends React.Component {
     }
   }
 
-  componentDidMount() {
-    siteSocket.connect()
-  }
-
-  componentWillUnmount() {
-    siteSocket.disconnect()
-  }
 
   renderLobbyNav() {
     if (!this.props.inLobby) return null

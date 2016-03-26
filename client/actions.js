@@ -69,6 +69,11 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
+export const NETWORK_PSI_CONNECTED = 'NETWORK_PSI_CONNECTED'
+export const NETWORK_PSI_DISCONNECTED = 'NETWORK_PSI_DISCONNECTED'
+export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
+export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
+
 // The success/failure of launching a game with psi
 export const PSI_GAME_LAUNCH = 'PSI_LOBBY_LAUNCH'
 // An updated status (e.g. "launching", "configuring") for a particular local game client

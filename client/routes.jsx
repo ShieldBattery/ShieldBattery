@@ -12,6 +12,7 @@ import LoginRequired from './auth/login-required.jsx'
 import LoginLayout from './auth/login-layout.jsx'
 import Login from './auth/login.jsx'
 import Signup from './auth/signup.jsx'
+import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import WhisperIndex from './whispers/index.jsx'
 import WhisperView from './whispers/view.jsx'
 
@@ -28,20 +29,22 @@ if (process.env.NODE_ENV !== 'production') {
 
 const routes = <Route>
   <Route component={LoginRequired}>
-    <Route component={MainLayout}>
-      <Route path='/' />
-      <Route path='/active-game' component={ActiveGame} />
-      <Route path='/chat'>
-        <IndexRoute component={ChatList} title='Chat channels'/>
-        <Route path=':channel' component={ChatChannel} />
-      </Route>
-      <Route path='/lobbies'>
-        <IndexRoute component={LobbyList} />
-        <Route path=':lobby' component={LobbyView} />
-      </Route>
-      <Route path='/whispers'>
-        <IndexRoute component={WhisperIndex} />
-        <Route path=':user' component={WhisperView} />
+    <Route component={SiteConnectedFilter}>
+      <Route component={MainLayout}>
+        <Route path='/' />
+        <Route path='/active-game' component={ActiveGame} />
+        <Route path='/chat'>
+          <IndexRoute component={ChatList} title='Chat channels'/>
+          <Route path=':channel' component={ChatChannel} />
+        </Route>
+        <Route path='/lobbies'>
+          <IndexRoute component={LobbyList} />
+          <Route path=':lobby' component={LobbyView} />
+        </Route>
+        <Route path='/whispers'>
+          <IndexRoute component={WhisperIndex} />
+          <Route path=':user' component={WhisperView} />
+        </Route>
       </Route>
     </Route>
   </Route>
