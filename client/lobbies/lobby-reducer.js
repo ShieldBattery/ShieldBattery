@@ -139,6 +139,12 @@ export const ChatMessage = Record({
   from: null,
   text: null,
 })
+export const HostChangeMessage = Record({
+  id: null,
+  type: 'hostChange',
+  time: 0,
+  name: null,
+})
 export const JoinMessage = Record({
   id: null,
   type: 'join',
@@ -153,9 +159,10 @@ export const LeaveMessage = Record({
 })
 export const SelfJoinMessage = Record({
   id: null,
-  type: 'selfjoin',
+  type: 'selfJoin',
   time: 0,
   lobby: null,
+  host: null,
 })
 
 function prune(chatList) {
@@ -165,23 +172,22 @@ function prune(chatList) {
 const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
     const event = action.payload
-    const message = new ChatMessage({
+    return state.push(new ChatMessage({
       id: cuid(),
       time: event.time,
       from: event.from,
       text: event.text,
-    })
-    return prune(state.push(message))
+    }))
   },
 
   [LOBBY_UPDATE_JOIN](lobbyInfo, lastLobbyInfo, state, action) {
     const player = action.payload
     if (!player.isComputer) {
-      return prune(state.push(new JoinMessage({
+      return state.push(new JoinMessage({
         id: cuid(),
         time: Date.now(),
         name: player.name
-      })))
+      }))
     }
 
     return state
@@ -190,23 +196,32 @@ const chatHandlers = {
   [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
     const player = lastLobbyInfo.players.get(action.payload)
     if (!player.isComputer) {
-      return prune(state.push(new LeaveMessage({
+      return state.push(new LeaveMessage({
         id: cuid(),
         time: Date.now(),
         name: player.name
-      })))
+      }))
     }
 
     return state
   },
 
   [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {
-    return prune(state.push(new SelfJoinMessage({
+    return state.push(new SelfJoinMessage({
       id: cuid(),
       time: Date.now(),
       lobby: lobbyInfo.name,
-    })))
-  }
+      host: lobbyInfo.players.get(lobbyInfo.hostId).name,
+    }))
+  },
+
+  [LOBBY_UPDATE_HOST_CHANGE](lobbyInfo, lastLobbyInfo, state, action) {
+    return state.push(new HostChangeMessage({
+      id: cuid(),
+      time: Date.now(),
+      name: lobbyInfo.players.get(lobbyInfo.hostId).name,
+    }))
+  },
 }
 
 const EMPTY_CHAT = new List()
@@ -215,7 +230,7 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
     return EMPTY_CHAT
   }
   return chatHandlers.hasOwnProperty(action.type) ?
-      chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action) :
+      prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action)) :
       state
 }
 

@@ -46,12 +46,29 @@ class SelfJoinMessage extends React.Component {
   static propTypes = {
     time: PropTypes.number.isRequired,
     lobby: PropTypes.string.isRequired,
+    host: PropTypes.string.isRequired,
   };
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
         <span>
-          You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>
+          You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>. The host
+          is <span className={styles.chatImportant}>{this.props.host}</span>.
+        </span>
+    </ChatMessageLayout>)
+  }
+}
+
+class HostChangeMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>
+          <span className={styles.chatImportant}>{this.props.name}</span> is now the host
         </span>
     </ChatMessageLayout>)
   }
@@ -89,7 +106,8 @@ class ChatList extends React.Component {
       case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
       case 'join': return <JoinMessage time={time} name={msg.name} />
       case 'leave': return <LeaveMessage time={time} name={msg.name} />
-      case 'selfjoin': return <SelfJoinMessage time={time} lobby={msg.lobby} />
+      case 'selfJoin': return <SelfJoinMessage time={time} lobby={msg.lobby} host={msg.host} />
+      case 'hostChange': return <HostChangeMessage time={time} name={msg.name} />
       default: return null
     }
   }

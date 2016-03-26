@@ -1,5 +1,5 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
-@value colorTextPrimary from '../styles/colors.css';
+@value colorTextPrimary, blue100, blue200 from '../styles/colors.css';
 
 .contentArea {
   composes: row justifySpaceBetween from '../styles/flex.css';
@@ -124,18 +124,11 @@
 }
 
 .chatSystemMessage {
-  color: colorTextSecondary;
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-
-.chatSystemMessage + .chatSystemMessage {
-  margin-top: -8px;
-  padding-top: 0px;
+  color: blue100;
 }
 
 .chatImportant {
   composes: body2 from '../styles/typography.css';
   line-height: inherit;
-  color: colorTextPrimary;
+  color: blue200;
 }

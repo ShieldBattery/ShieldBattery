@@ -1,11 +1,11 @@
-@value colorTextSecondary, colorTextFaint from '../styles/colors.css';
+@value colorTextSecondary, colorTextFaint, colorDividers, amberA100 from '../styles/colors.css';
 
 .message {
   composes: row itemsStart from '../styles/flex.css';
   composes: body1 from '../styles/typography.css';
   line-height: 20px;
   min-height: 20px;
-  margin-bottom: 4px;
+  padding-bottom: 4px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   overflow: hidden;
@@ -22,12 +22,14 @@
 .username {
   composes: exact from '../styles/flex.css';
   composes: body2 from '../styles/typography.css';
-  color: colorTextSecondary;
+  color: amberA100;
   line-height: inherit;
+  padding-right: 8px;
 }
 
 .text {
   composes: grow shrink from '../styles/flex.css';
   line-height: inherit;
-  margin-left: 16px;
+  padding-left: 8px;
+  border-left: 1px solid colorDividers;
 }
