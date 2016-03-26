@@ -141,13 +141,15 @@ class ChatList extends React.Component {
     const { id, type, time } = msg
     switch (type) {
       case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
-      case 'join': return <JoinMessage time={time} name={msg.name} />
-      case 'leave': return <LeaveMessage time={time} name={msg.name} />
-      case 'selfJoin': return <SelfJoinMessage time={time} lobby={msg.lobby} host={msg.host} />
-      case 'hostChange': return <HostChangeMessage time={time} name={msg.name} />
-      case 'countdownStarted': return <CountdownStartedMessage time={time} />
-      case 'countdownTick': return <CountdownTickMessage time={time} timeLeft={msg.timeLeft} />
-      case 'countdownCanceled': return <CountdownCanceledMessage time={time} />
+      case 'join': return <JoinMessage key={id} time={time} name={msg.name} />
+      case 'leave': return <LeaveMessage key={id} time={time} name={msg.name} />
+      case 'selfJoin':
+        return <SelfJoinMessage key={id} time={time} lobby={msg.lobby} host={msg.host} />
+      case 'hostChange': return <HostChangeMessage key={id} time={time} name={msg.name} />
+      case 'countdownStarted': return <CountdownStartedMessage key={id} time={time} />
+      case 'countdownTick':
+        return <CountdownTickMessage key={id} time={time} timeLeft={msg.timeLeft} />
+      case 'countdownCanceled': return <CountdownCanceledMessage key={id} time={time} />
       default: return null
     }
   }
