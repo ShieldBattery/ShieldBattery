@@ -34,10 +34,6 @@ const compareResolutions = (a, b) => a.width === b.width && a.height === b.heigh
 
 @connect(state => ({ settings: state.settings, userEnvironment: state.userEnvironment }))
 class Settings extends React.Component {
-  static contextTypes = {
-    store: React.PropTypes.object.isRequired,
-  };
-
   constructor(props) {
     super(props)
     this.state = {
@@ -52,7 +48,7 @@ class Settings extends React.Component {
   }
 
   componentDidMount() {
-    this.context.store.dispatch(getResolution())
+    this.props.dispatch(getResolution())
     this._focusTimeout = setTimeout(() => {
       this.refs.save.focus()
       this._focusTimeout = null
@@ -160,7 +156,7 @@ class Settings extends React.Component {
   }
 
   handleSettingsCanceled() {
-    this.context.store.dispatch(closeDialog())
+    this.props.dispatch(closeDialog())
   }
 
   handleDisplayModeChange(value) {
@@ -178,8 +174,8 @@ class Settings extends React.Component {
       maintainAspectRatio: values.get('aspectRatio'),
       renderer: values.get('renderer'),
     }
-    this.context.store.dispatch(setLocalSettings(newSettings))
-    this.context.store.dispatch(closeDialog())
+    this.props.dispatch(setLocalSettings(newSettings))
+    this.props.dispatch(closeDialog())
   }
 }
 

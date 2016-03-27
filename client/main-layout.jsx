@@ -23,7 +23,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
-import { createLobby, joinLobby } from './lobbies/action-creators'
+import { joinLobby } from './lobbies/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 

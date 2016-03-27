@@ -1,5 +1,6 @@
 import { Map, Record, List } from 'immutable'
 import cuid from 'cuid'
+import { MapRecord } from './maps-reducer'
 import {
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_GAME_STARTED,
@@ -23,18 +24,6 @@ export const Player = new Record({
   race: 'r',
   isComputer: false,
   slot: -1
-})
-export const LobbyMap = new Record({
-  name: null,
-  hash: null,
-  tileset: null,
-  width: -1,
-  height: -1,
-  description: null,
-  format: null,
-  thumbFormat: null,
-  slots: -1,
-  umsSlots: -1,
 })
 export const LobbyInfo = new Record({
   name: null,
@@ -72,7 +61,7 @@ const infoHandlers = {
     return new LobbyInfo({
       ...lobby,
       players: playersObjToMap(lobby.players),
-      map: new LobbyMap(lobby.map),
+      map: new MapRecord(lobby.map),
     })
   },
 

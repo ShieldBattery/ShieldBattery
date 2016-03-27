@@ -77,6 +77,11 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
+// We are beginning to retrieve the list of maps from the server
+export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
+// We have received a respond to our map list retrieval (error or the list of maps)
+export const MAPS_LIST_GET = 'MAPS_LIST_GET'
+
 export const NETWORK_PSI_CONNECTED = 'NETWORK_PSI_CONNECTED'
 export const NETWORK_PSI_DISCONNECTED = 'NETWORK_PSI_DISCONNECTED'
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
