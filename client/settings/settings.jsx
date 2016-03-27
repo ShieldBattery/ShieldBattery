@@ -8,7 +8,7 @@ import ValidatedSelect from '../forms/validated-select.jsx'
 import ValidatedSlider from '../forms/validated-slider.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
 import numberRangeValidator from '../forms/number-range-validator'
-import constants from '../../shared/constants'
+import { PORT_MIN_NUMBER, PORT_MAX_NUMBER } from '../../shared/constants'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { setLocalSettings } from './action-creators'
 import { getResolution } from '../user-environment/action-creators'
@@ -28,7 +28,7 @@ const SUPPORTED_WINDOW_SIZES = [
   { width: 6400, height: 4800 },
 ]
 
-const portValidator = numberRangeValidator(constants.PORT_MIN_NUMBER, constants.PORT_MAX_NUMBER,
+const portValidator = numberRangeValidator(PORT_MIN_NUMBER, PORT_MAX_NUMBER,
     'Network port must be a number between 0 and 65535')
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 

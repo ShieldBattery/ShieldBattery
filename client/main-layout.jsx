@@ -6,6 +6,7 @@ import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
+import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
@@ -24,6 +25,7 @@ import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { createLobby, joinLobby } from './lobbies/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
+import { openOverlay } from './activities/action-creators'
 
 function stateToProps(state) {
   return {
@@ -103,6 +105,7 @@ class MainLayout extends React.Component {
         <ActivitySpacer />
         <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
       </ActivityBar>
+      <ActivityOverlay />
       <ConnectedSnackbar />
     </ConnectedDialogOverlay>)
   }
@@ -122,8 +125,7 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick() {
-    this.props.dispatch(createLobby('Lobby 2: Electric Boogaloo',
-        'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3'))
+    this.props.dispatch(openOverlay('createLobby'))
   }
 
   onJoinLobbyClick() {

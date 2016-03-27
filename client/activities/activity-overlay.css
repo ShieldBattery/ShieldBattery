@@ -1,0 +1,80 @@
+@value grey800, dialogScrim from '../styles/colors.css';
+@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../material/curves.css';
+@value zIndexSideNav, zIndexBackdrop from '../material/zindex.css';
+
+.overlay {
+  composes: global(cardLayer);
+  composes: shadow8dp from '../material/shadows.css';
+  z-index: zIndexSideNav;
+
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 60%;
+  min-width: 448px;
+  max-width: 768px;
+  height: 100%;
+
+  padding: 16px;
+}
+
+.scrim {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.42;
+  background-color: dialogScrim;
+  z-index: zIndexBackdrop;
+  will-change: opacity;
+}
+
+.enter {
+}
+
+.enter .overlay {
+  transform: translate3d(100%, 0, 0);
+  transition: transform 350ms linearOutSlowIn;
+}
+
+.enter .scrim {
+  opacity: 0;
+  transition: opacity 250ms fastOutSlowIn;
+}
+
+.enterActive {
+}
+
+.enterActive .overlay {
+  transform: translate3d(0, 0, 0);
+}
+
+.enterActive .scrim {
+  opacity: 0.42;
+}
+
+.leave {
+  pointer-events: none;
+}
+
+.leave .overlay {
+  transform: translate3d(0, 0, 0);
+  transition: transform 250ms fastOutLinearIn;
+}
+
+.leave .scrim {
+  opacity: 0.42;
+  transition: opacity 200ms fastOutSlowIn;
+}
+
+.leaveActive {
+}
+
+.leaveActive .overlay {
+  transform: translate3d(100%, 0, 0);
+}
+
+.leaveActive .scrim {
+  opacity: 0;
+}

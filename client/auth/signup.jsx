@@ -12,7 +12,15 @@ import minLengthValidator from '../forms/min-length-validator'
 import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
 import matchOtherValidator from '../forms/match-other-validator'
-import constants from '../../shared/constants'
+import {
+  USERNAME_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_PATTERN,
+  EMAIL_MINLENGTH,
+  EMAIL_MAXLENGTH,
+  EMAIL_PATTERN,
+  PASSWORD_MINLENGTH,
+} from '../../shared/constants'
 import auther from './auther'
 import styles from './login.css'
 
@@ -43,23 +51,23 @@ class Signup extends React.Component {
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
     const usernameValidator = composeValidators(
-      minLengthValidator(constants.USERNAME_MINLENGTH,
-          `Use at least ${constants.USERNAME_MINLENGTH} characters`),
-      maxLengthValidator(constants.USERNAME_MAXLENGTH,
-          `Use at most ${constants.USERNAME_MAXLENGTH} characters`),
-      regexValidator(constants.USERNAME_PATTERN,
+      minLengthValidator(USERNAME_MINLENGTH,
+          `Use at least ${USERNAME_MINLENGTH} characters`),
+      maxLengthValidator(USERNAME_MAXLENGTH,
+          `Use at most ${USERNAME_MAXLENGTH} characters`),
+      regexValidator(USERNAME_PATTERN,
           `Username contains invalid characters`)
     )
     const emailValidator = composeValidators(
-      minLengthValidator(constants.EMAIL_MINLENGTH,
-          `Use at least ${constants.EMAIL_MINLENGTH} characters`),
-      maxLengthValidator(constants.EMAIL_MAXLENGTH,
-          `Use at most ${constants.EMAIL_MAXLENGTH} characters`),
-      regexValidator(constants.EMAIL_PATTERN,
+      minLengthValidator(EMAIL_MINLENGTH,
+          `Use at least ${EMAIL_MINLENGTH} characters`),
+      maxLengthValidator(EMAIL_MAXLENGTH,
+          `Use at most ${EMAIL_MAXLENGTH} characters`),
+      regexValidator(EMAIL_PATTERN,
           `Enter a valid email address`)
     )
-    const passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
-        `Use at least ${constants.PASSWORD_MINLENGTH} characters`)
+    const passwordValidator = minLengthValidator(PASSWORD_MINLENGTH,
+        `Use at least ${PASSWORD_MINLENGTH} characters`)
     const confirmPasswordValidator = matchOtherValidator('password',
         `Passwords do not match`)
 

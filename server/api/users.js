@@ -1,4 +1,3 @@
-import constants from '../../shared/constants'
 import bcrypt from 'bcrypt'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
@@ -6,6 +5,7 @@ import users from '../models/users'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
+import { isValidUsername, isValidEmail, isValidPassword } from '../../shared/constants'
 
 export default function(router) {
   router.post('/', createUser)
@@ -32,9 +32,9 @@ const bcryptHash = thenify(bcrypt.hash)
 function* createUser(next) {
   const { username, email, password } = this.request.body
 
-  if (!constants.isValidUsername(username) ||
-      !constants.isValidEmail(email) ||
-      !constants.isValidPassword(password)) {
+  if (!isValidUsername(username) ||
+      !isValidEmail(email) ||
+      !isValidPassword(password)) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 

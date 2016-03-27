@@ -2,6 +2,8 @@ import { List, Map, OrderedMap, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
+import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
+
 
 import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
@@ -21,6 +23,7 @@ function validateBody(bodyValidators) {
 }
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
+const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
 
 const Player = new Record({ name: null, id: null, race: 'r', isComputer: false, slot: -1 })
 
@@ -191,7 +194,7 @@ export class LobbyApi {
 
   @Api('/create',
       validateBody({
-        name: nonEmptyString,
+        name: validLobbyName,
         map: nonEmptyString,
       }),
       'getUser',
@@ -217,7 +220,7 @@ export class LobbyApi {
 
   @Api('/join',
     validateBody({
-      name: nonEmptyString,
+      name: validLobbyName,
     }),
     'getUser',
     'ensureNotInLobby')

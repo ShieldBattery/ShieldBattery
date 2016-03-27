@@ -1,8 +1,8 @@
-import constants from '../../shared/constants'
-import invites from '../models/invites'
-import checkPermissions from '../permissions/check-permissions'
 import httpErrors from 'http-errors'
 import cuid from 'cuid'
+import invites from '../models/invites'
+import checkPermissions from '../permissions/check-permissions'
+import { isValidEmail } from '../../shared/constants'
 
 export default function(router) {
   router
@@ -21,7 +21,7 @@ function* createInvite(next) {
     graphics: b.graphics,
     canHost: b.canHost,
   }
-  if (!invite.email || !constants.isValidEmail(invite.email)) {
+  if (!invite.email || !isValidEmail(invite.email)) {
     throw new httpErrors.BadRequest('Invalid email')
   }
 
@@ -53,7 +53,7 @@ function* listInvites(next) {
 }
 
 function* acceptInvite(next) {
-  if (!constants.isValidEmail(this.params.email)) {
+  if (!isValidEmail(this.params.email)) {
     throw new httpErrors.BadRequest('Invalid email')
   }
   if (!this.request.body.isAccepted) {

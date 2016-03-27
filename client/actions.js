@@ -1,4 +1,7 @@
 // Every possible dispatched action in the app should be included here, sorted semi-alphabetically
+export const ACTIVITY_OVERLAY_OPEN = 'ACTIVITY_OVERLAY_OPEN'
+export const ACTIVITY_OVERLAY_CLOSE = 'ACTIVITY_OVERLAY_CLOSE'
+
 export const AUTH_CHANGE_BEGIN = 'AUTH_CHANGE_BEGIN'
 export const AUTH_LOG_IN = 'AUTH_LOG_IN'
 export const AUTH_LOG_OUT = 'AUTH_LOG_OUT'

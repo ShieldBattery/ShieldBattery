@@ -13,8 +13,13 @@ import composeValidators from '../forms/compose-validators'
 import minLengthValidator from '../forms/min-length-validator'
 import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
-import constants from '../../shared/constants'
 import styles from './login.css'
+import {
+  USERNAME_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_PATTERN,
+  PASSWORD_MINLENGTH,
+} from '../../shared/constants'
 
 @connect(state => ({ auth: state.auth }))
 class Login extends React.Component {
@@ -52,15 +57,15 @@ class Login extends React.Component {
       ]
 
       const usernameValidator = composeValidators(
-        minLengthValidator(constants.USERNAME_MINLENGTH,
-            `Enter at least ${constants.USERNAME_MINLENGTH} characters`),
-        maxLengthValidator(constants.USERNAME_MAXLENGTH,
-            `Enter at most ${constants.USERNAME_MAXLENGTH} characters`),
-        regexValidator(constants.USERNAME_PATTERN,
+        minLengthValidator(USERNAME_MINLENGTH,
+            `Enter at least ${USERNAME_MINLENGTH} characters`),
+        maxLengthValidator(USERNAME_MAXLENGTH,
+            `Enter at most ${USERNAME_MAXLENGTH} characters`),
+        regexValidator(USERNAME_PATTERN,
             `Username contains invalid characters`)
       )
-      const passwordValidator = minLengthValidator(constants.PASSWORD_MINLENGTH,
-          `Enter at least ${constants.PASSWORD_MINLENGTH} characters`)
+      const passwordValidator = minLengthValidator(PASSWORD_MINLENGTH,
+          `Enter at least ${PASSWORD_MINLENGTH} characters`)
 
       cardContents = (
         <ValidatedForm ref='form'

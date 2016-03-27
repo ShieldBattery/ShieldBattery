@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
-import constants from '../../shared/constants'
 import users from '../models/users'
+import { isValidUsername } from '../../shared/constants'
 
 export default function(router) {
   router
@@ -9,7 +9,7 @@ export default function(router) {
 
 function* checkAvailability(next) {
   const username = this.params.username
-  if (!constants.isValidUsername(username)) {
+  if (!isValidUsername(username)) {
     throw new httpErrors.BadRequest('Invalid username')
   }
 
