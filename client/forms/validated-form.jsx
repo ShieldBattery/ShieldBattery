@@ -15,6 +15,10 @@ class ValidatedForm extends React.Component {
     }
   }
 
+  getInputRef(name) {
+    return this.refs[name]
+  }
+
   render() {
     const children = React.Children.map(this.props.children, child => {
       if (!child.props.name) {

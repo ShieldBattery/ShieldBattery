@@ -19,6 +19,24 @@ export default class CreateLobby extends React.Component {
     super(props)
     this._handleCreateClicked = ::this.onCreateClicked
     this._handleSubmitted = ::this.onSubmitted
+
+    this._autoFocusTimer = null
+  }
+
+  componentDidMount() {
+    this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
+  }
+
+  componentWillUnmount() {
+    if (this._autoFocusTimer) {
+      clearTimeout(this._autoFocusTimer)
+      this._autoFocusTimer = null
+    }
+  }
+
+  _doAutoFocus() {
+    this._autoFocusTimer = null
+    this.refs.form.getInputRef('name').focus()
   }
 
   render() {
