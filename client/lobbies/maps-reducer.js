@@ -34,8 +34,8 @@ const handlers = {
     }
 
     // TODO(tec27): handle pagination
+    const list = new List(action.payload.maps.map(m => m.hash))
     const byHash = new Map(action.payload.maps.map(m => [ m.hash, new MapRecord(m) ]))
-    const list = byHash.keySeq().toList()
     return (state.set('isFetching', false)
       .set('byHash', byHash)
       .set('list', list)

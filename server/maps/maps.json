@@ -1,5 +1,17 @@
 [
   {
+    "name": "Big Game Hunters",
+    "hash": "2984c350c950815ad5b84c7b951191f016d1ad9fedb5a0b194ee12fbafc82302",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 8,
+    "umsSlots": 8,
+    "description": "Suggested Players: 2-8\r\n\r\nBy popular demand....",
+    "format": "scm",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Blue Storm 1.2",
     "hash": "7f621b14fcee1d5f15817a03e9618128dcca581f6469302c1a81073f7a72039a",
     "tileset": "twilight",
@@ -24,30 +36,6 @@
     "thumbFormat": "jpg"
   },
   {
-    "name": "Fighting Spirit 1.3",
-    "hash": "e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
-  },
-  {
-    "name": "Match Point 1.3",
-    "hash": "1faf909458eb0db8051563d63b412370fc343236c7d3adaed469d16f650b0587",
-    "tileset": "platform",
-    "width": 112,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "PpP\r\n[www.iccup.com] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
-  },
-  {
     "name": "Electric Circuit 2.1",
     "hash": "1ccb04e25934ff4216c34adef5783cd17798abfc82c336d86f5d152a84b91f29",
     "tileset": "platform",
@@ -60,6 +48,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Fighting Spirit 1.3",
+    "hash": "e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Jade 2.1",
     "hash": "68a558020eccb51dd080c47cbdcdba2f730cd2ec813a0668a2d7b488ab80d1d5",
     "tileset": "twilight",
@@ -68,6 +68,18 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Match Point 1.3",
+    "hash": "1faf909458eb0db8051563d63b412370fc343236c7d3adaed469d16f650b0587",
+    "tileset": "platform",
+    "width": 112,
+    "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "PpP\r\n[www.iccup.com] modification",
     "format": "scx",
     "thumbFormat": "jpg"
   },
