@@ -1,8 +1,11 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
 @value colorTextPrimary, blue100, blue200 from '../styles/colors.css';
+@value row, col, grow, shrink, exact, justifySpaceBetween, itemsCenter from '../styles/flex.css';
+@value subhead, headline, body2 from '../styles/typography.css';
+@value shadow1dp from '../material/shadows.css';
 
 .contentArea {
-  composes: row justifySpaceBetween from '../styles/flex.css';
+  composes: row justifySpaceBetween;
   padding: 0 16px;
   margin: 0 auto;
   height: calc(100vh - 64px);
@@ -10,7 +13,7 @@
 }
 
 .left {
-  composes: col grow from '../styles/flex.css';
+  composes: col grow;
   padding-top: 16px;
   min-width: 320px;
   min-height: 100%;
@@ -18,7 +21,7 @@
 }
 
 .slots {
-  composes: exact from '../styles/flex.css';
+  composes: exact;
 }
 
 .slotsSparse {
@@ -32,7 +35,7 @@
 }
 
 .slot {
-  composes: row itemsCenter from '../styles/flex.css';
+  composes: row itemsCenter;
   height: 56px;
 }
 
@@ -49,8 +52,8 @@
 }
 
 .slotName {
-  composes: grow from '../styles/flex.css';
-  composes: subhead from '../styles/typography.css';
+  composes: grow;
+  composes: subhead;
   margin-right: 16px;
 }
 
@@ -71,31 +74,31 @@
 }
 
 .chat {
-  composes: grow shrink from '../styles/flex.css';
+  composes: grow shrink;
   padding: 16px 16px 0px;
   overflow-y: auto;
 }
 
 .chatInput {
-  composes: exact from '../styles/flex.css';
+  composes: exact;
   margin: 0 16px 0 16px;
 }
 
 .info {
-  composes: exact from '../styles/flex.css';
+  composes: exact;
   margin: 16px 0 16px 24px;
   width: 256px;
 }
 
 .mapName {
-  composes: headline from '../styles/typography.css';
+  composes: headline;
   margin-top: 0;
   margin-left: 24px;
   margin-right: 24px;
 }
 
 .mapThumbnail {
-  composes: shadow1dp from '../material/shadows.css';
+  composes: shadow1dp;
   width: 256px;
   border-radius: 2px;
 }
@@ -107,12 +110,12 @@
 }
 
 .infoLabel {
-  composes: body2 from '../styles/typography.css';
+  composes: body2;
   color: colorTextSecondary;
 }
 
 .infoValue {
-  composes: subhead from '../styles/typography.css';
+  composes: subhead;
   margin-left: 24px;
 }
 
@@ -128,7 +131,7 @@
 }
 
 .chatImportant {
-  composes: body2 from '../styles/typography.css';
+  composes: body2;
   line-height: inherit;
   color: blue200;
 }

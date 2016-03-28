@@ -1,9 +1,11 @@
 @value grey700 from '../../styles/colors.css';
+@value row, itemsCenter from '../../styles/flex.css';
+@value singleLine, subhead from '../../styles/typography.css';
 @value zIndexMenuBackdrop from '../zindex.css';
 
 .item {
-  composes: row itemsCenter from '../../styles/flex.css';
-  composes: singleLine subhead from '../../styles/typography.css';
+  composes: row itemsCenter;
+  composes: singleLine subhead;
   cursor: pointer;
   position: relative;
   width: auto;

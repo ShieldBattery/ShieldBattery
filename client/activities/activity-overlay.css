@@ -1,10 +1,11 @@
 @value grey800, dialogScrim from '../styles/colors.css';
-@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../material/curves.css';
+@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../material/curve-constants.css';
+@value shadow8dp from '../material/shadows.css';
 @value zIndexSideNav, zIndexBackdrop from '../material/zindex.css';
 
 .overlay {
   composes: global(cardLayer);
-  composes: shadow8dp from '../material/shadows.css';
+  composes: shadow8dp;
   z-index: zIndexSideNav;
 
   position: fixed;

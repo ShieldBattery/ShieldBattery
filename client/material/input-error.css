@@ -1,5 +1,5 @@
 @value colorError from '../styles/colors.css';
-@value linearOutSlowIn, fastOutLinearIn from './curves.css';
+@value linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 
 .container {
   pointer-events: none;

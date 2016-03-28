@@ -1,27 +1,17 @@
 @value colorTextPrimary, colorTextFaint, colorTextSecondary from '../styles/colors.css';
 @value blue400, blue500, blue600, blue700 from '../styles/colors.css';
 @value amberA400 from '../styles/colors.css';
-@value shadowDef8dp from './shadows.css';
+@value button as buttonText from '../styles/typography.css';
+@value reset from './button-reset.css';
+@value fastOutSlowInShort from './curves.css';
+@value shadowDef8dp from './shadow-constants.css';
+@value shadow2dp from './shadows.css';
 
 .label {
-  composes: button from '../styles/typography.css';
+  composes: buttonText;
   color: colorTextPrimary;
   line-height: 36px;
   white-space: nowrap;
-}
-
-.reset {
-  user-select: none;
-  position: relative;
-  outline: 0;
-  border: none;
-  font-style: inherit;
-  font-variant: inherit;
-  font-family: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  overflow: hidden;
-  background-color: transparent;
 }
 
 .hover {
@@ -39,7 +29,7 @@
 }
 
 .common {
-  composes: fastOutSlowInShort from './curves.css';
+  composes: fastOutSlowInShort;
   composes: reset;
   composes: hover;
   display: inline-table;
@@ -51,7 +41,6 @@
 
 .button {
   composes: common;
-  composes: hover;
   padding: 0 8px;
   margin: 6px 0;
   min-width: 88px;
@@ -92,7 +81,7 @@
 }
 
 .raised {
-  composes: shadow2dp from './shadows.css';
+  composes: shadow2dp;
   composes: button;
 
   @nest &:active {
@@ -141,7 +130,6 @@
 
 .iconButton {
   composes: common;
-  composes: hover;
   composes: flatActive;
   border-radius: 50%;
   vertical-align: middle;

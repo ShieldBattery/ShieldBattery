@@ -1,8 +1,9 @@
 @value colorTextFaint, colorTextPrimary, colorDividers, colorError from '../styles/colors.css';
 @value amberA400 from '../styles/colors.css';
+@value col, itemsStart, grow from '../styles/flex.css';
 
 .textField {
-  composes: col itemsStart from '../styles/flex.css';
+  composes: col itemsStart;
   font-size: 16px;
   line-height: 32px;
   position: relative;
@@ -29,7 +30,7 @@
 }
 
 .input {
-  composes: grow from '../styles/flex.css';
+  composes: grow;
   order: 2;
   display: block;
   border: none;

@@ -1,10 +1,13 @@
 @value blue800 from '../styles/colors.css';
+@value row, itemsCenter, grow from '../styles/flex.css';
+@value title, singleLine from '../styles/typography.css';
+@value shadow4dp from './shadows.css';
 @value standardIncrement from './units.css';
 @value zIndexAppBar from './zindex.css';
 
 .appBar {
-  composes: row itemsCenter from '../styles/flex.css';
-  composes: shadow4dp from './shadows.css';
+  composes: row itemsCenter;
+  composes: shadow4dp;
   width: 100%;
   height: standardIncrement;
   margin: 0;
@@ -15,9 +18,8 @@
 }
 
 .title {
-  composes: grow from '../styles/flex.css';
-  composes: title from '../styles/typography.css';
-  composes: singleLine from '../styles/typography.css';
+  composes: grow;
+  composes: title singleLine;
   line-height: standardIncrement;
   margin: 0;
 }

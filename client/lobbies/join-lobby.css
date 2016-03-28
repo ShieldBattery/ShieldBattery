@@ -1,7 +1,9 @@
 @value colorDividers from '../styles/colors.css';
+@value row, col, grow, itemsCenter, exact from '../styles/flex.css';
+@value title, subhead, headline, body2, body1 from '../styles/typography.css';
 
 .title {
-  composes: title from '../styles/typography.css';
+  composes: title;
   margin-top: 8px;
 }
 
@@ -9,11 +11,11 @@
 }
 
 .emptyText {
-  composes: subhead from '../styles/typography.css';
+  composes: subhead;
 }
 
 .listEntry {
-  composes: row itemsCenter from '../styles/flex.css';
+  composes: row itemsCenter;
   width: 100%;
   padding-left: 16px;
   padding-right: 16px;
@@ -39,29 +41,29 @@
 }
 
 .info {
-  composes: col grow from '../styles/flex.css';
+  composes: col grow;
 }
 
 .name {
-  composes: headline from '../styles/typography.css';
+  composes: headline;
 }
 
 .hostName {
-  composes: subhead from '../styles/typography.css';
+  composes: subhead;
 }
 
 .openSlots {
-  composes: body2 from '../styles/typography.css';
+  composes: body2;
 }
 
 .map {
-  composes: col exact from '../styles/flex.css';
+  composes: col exact;
   height: 128px;
   position: relative;
 }
 
 .mapName {
-  composes: body1 from '../styles/typography.css';
+  composes: body1;
   position: absolute;
   bottom: 0px;
 }

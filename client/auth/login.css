@@ -1,4 +1,5 @@
 @value blue400, amberA400 from '../styles/colors.css';
+@value take100, row, wrap, take33, justifyCenter from '../styles/flex.css';
 
 :global(#app) .wrapper {
   width: calc(640px + (16px * 2));
@@ -28,23 +29,23 @@
 }
 
 .errors {
-  composes: take100 from '../styles/flex.css';
+  composes: take100;
 }
 
 .fields {
-  composes: row wrap from '../styles/flex.css';
+  composes: row wrap;
 }
 
 .textFields {
-  composes: take100 from '../styles/flex.css';
+  composes: take100;
 }
 
 .checkboxes {
-  composes: take33 from '../styles/flex.css';
+  composes: take33;
 }
 
 .bottomAction {
-  composes: row justifyCenter from '../styles/flex.css';
+  composes: row justifyCenter;
 }
 
 .bottomAction > p {

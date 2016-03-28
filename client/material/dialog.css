@@ -1,5 +1,7 @@
 @value grey800, dialogScrim from '../styles/colors.css';
-@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curves.css';
+@value col, itemsCenter, justifyCenter from '../styles/flex.css';
+@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
+@value shadow8dp from './shadows.css';
 @value zIndexDialog, zIndexDialogScrim from './zindex.css';
 
 .fullSizeFixed {
@@ -11,14 +13,14 @@
 }
 
 .container {
-  composes: col itemsCenter justifyCenter from '../styles/flex.css';
+  composes: col itemsCenter justifyCenter;
   composes: fullSizeFixed;
   z-index: zIndexDialog;
 }
 
 .contents {
   composes: global(cardLayer);
-  composes: shadow8dp from './shadows.css';
+  composes: shadow8dp;
   z-index: zIndexDialog;
   width: 80%;
   max-width: 768px;

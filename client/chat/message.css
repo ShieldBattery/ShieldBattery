@@ -1,8 +1,10 @@
 @value colorTextSecondary, colorTextFaint, colorDividers, amberA100 from '../styles/colors.css';
+@value row, itemsStart, exact, grow, shrink from '../styles/flex.css';
+@value body1, caption, body2 from '../styles/typography.css';
 
 .message {
-  composes: row itemsStart from '../styles/flex.css';
-  composes: body1 from '../styles/typography.css';
+  composes: row itemsStart;
+  composes: body1;
   line-height: 20px;
   min-height: 20px;
   padding-bottom: 4px;
@@ -12,23 +14,23 @@
 }
 
 .timestamp {
-  composes: exact from '../styles/flex.css';
-  composes: caption from '../styles/typography.css';
+  composes: exact;
+  composes: caption;
   color: colorTextFaint;
   line-height: inherit;
   margin-right: 8px;
 }
 
 .username {
-  composes: exact from '../styles/flex.css';
-  composes: body2 from '../styles/typography.css';
+  composes: exact;
+  composes: body2;
   color: amberA100;
   line-height: inherit;
   padding-right: 8px;
 }
 
 .text {
-  composes: grow shrink from '../styles/flex.css';
+  composes: grow shrink;
   line-height: inherit;
   padding-left: 8px;
 }

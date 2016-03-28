@@ -1,12 +1,14 @@
 @value colorTextSecondary, colorDividers, alphaDividers from '../styles/colors.css';
 @value amberA400, colorBackground, colorTextFaint from '../styles/colors.css';
-@value fastOutSlowIn from './curves.css';
+@value flex, itemsCenter from '../styles/flex.css';
+@value fastOutSlowIn from './curve-constants.css';
+@value fastOutSlowInShort from './curves.css';
 
 @value boxWidth: 18px;
 @value boxHeight: 18px;
 
 .checkBox {
-  composes: flex itemsCenter from '../styles/flex.css';
+  composes: flex itemsCenter;
   position: relative;
   cursor: pointer;
   overflow: visible;
@@ -82,7 +84,7 @@
 }
 
 .icon {
-  composes: fastOutSlowInShort from './curves.css';
+  composes: fastOutSlowInShort;
   position: absolute;
   top: 0;
   left: 0;

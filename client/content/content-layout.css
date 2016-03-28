@@ -1,4 +1,6 @@
+@value grow, shrink from '../styles/flex.css';
+
 .content {
-  composes: grow shrink from '../styles/flex.css';
+  composes: grow shrink;
   overflow-x: hidden;
 }

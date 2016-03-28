@@ -1,5 +1,6 @@
 @value colorTextFaint, colorTextPrimary, amberA400, grey700 from '../styles/colors.css';
-@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curves.css';
+@value body1, caption from '../styles/typography.css';
+@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 
 @value thumbWidth: 12px;
 @value thumbHeight: 12px;
@@ -16,7 +17,7 @@
 }
 
 .label {
-  composes: body1 from '../styles/typography.css';
+  composes: body1;
   color: colorTextFaint;
   pointer-events: none;
   position: absolute;
@@ -169,7 +170,7 @@
 }
 
 .balloonText {
-  composes: caption from '../styles/typography.css';
+  composes: caption;
   font-weight: 500;
   line-height: balloonHeight;
   z-index: 2;

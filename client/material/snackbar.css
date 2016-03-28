@@ -1,5 +1,7 @@
 @value grey900 from '../styles/colors.css';
-@value linearOutSlowIn, fastOutLinearIn, fastOutSlowIn from './curves.css';
+@value row, justifySpaceBetween, itemsCenter from '../styles/flex.css';
+@value linearOutSlowIn, fastOutLinearIn, fastOutSlowIn from './curve-constants.css';
+@value shadow6dp from './shadows.css';
 @value zIndexSnackbar from './zindex.css';
 
 .container {
@@ -11,8 +13,8 @@
 }
 
 .snackbar {
-  composes: row justifySpaceBetween itemsCenter from '../styles/flex.css';
-  composes: shadow6dp from './shadows.css';
+  composes: row justifySpaceBetween itemsCenter;
+  composes: shadow6dp;
 
   display: inline-flex;
   overflow: hidden;

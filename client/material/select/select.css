@@ -1,10 +1,13 @@
 @value colorTextFaint, grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
-@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curves.css';
+@value col, row, grow, itemsStart from '../../styles/flex.css';
+@value singleLine, subhead from '../../styles/typography.css';
+@value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curve-constants.css';
+@value shadowDef8dp from '../shadow-constants.css';
+@value shadow8dp from '../shadows.css';
 @value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
-@value shadowDef8dp from '../shadows.css';
 
 .select {
-  composes: col itemsStart from '../../styles/flex.css';
+  composes: col itemsStart;
   position: relative;
   line-height: 32px;
   font-size: 16px;
@@ -19,7 +22,7 @@
 }
 
 .valueContainer {
-  composes: row from '../../styles/flex.css';
+  composes: row;
   min-width: 64px;
   width: 100%;
 }
@@ -29,8 +32,8 @@
 }
 
 .value {
-  composes: grow from '../../styles/flex.css';
-  composes: singleLine subhead from '../../styles/typography.css';
+  composes: grow;
+  composes: singleLine subhead;
   line-height: inherit;
   padding-left: 2px;
   padding-top: 2px;
@@ -45,7 +48,7 @@
 }
 
 .overlay {
-  composes: shadow8dp from '../shadows.css';
+  composes: shadow8dp;
   background-color: grey800;
   position: fixed;
   z-index: zIndexMenu;

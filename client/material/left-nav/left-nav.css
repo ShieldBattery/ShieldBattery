@@ -1,10 +1,12 @@
 @value blue400, blue800, amberA200, amberA400, grey800 from '../../styles/colors.css';
 @value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
+@value col, grow, exact, row, itemsCenter from '../../styles/flex.css';
+@value body2, singleLine from '../../styles/typography.css';
 @value standardIncrement from '../units.css';
 @value zIndexLeftNav from '../zindex.css';
 
 .leftNav {
-  composes: col exact from '../../styles/flex.css';
+  composes: col exact;
   width: calc(standardIncrement * 3.5);
   height: 100%;
   background-color: grey800;
@@ -12,7 +14,7 @@
 }
 
 .logo {
-  composes: row itemsCenter exact from '../../styles/flex.css';
+  composes: row itemsCenter exact;
   width: 100%;
   height: standardIncrement;
   padding-left: 16px;
@@ -28,7 +30,7 @@
 }
 
 .sections {
-  composes: grow from '../../styles/flex.css';
+  composes: grow;
   composes: border;
   padding: 8px 0 0;
 }
@@ -51,7 +53,7 @@
 }
 
 .subheader {
-  composes: body2 singleLine from '../../styles/typography.css';
+  composes: body2 singleLine;
   composes: entryCommon;
   color: colorTextSecondary;
   margin: 0 16px;
@@ -64,15 +66,15 @@
 }
 
 .entry {
-  composes: row from '../../styles/flex.css';
+  composes: row;
   composes: entryCommon;
   margin: 0;
   padding: 0;
 }
 
 .entryLink {
-  composes: grow from '../../styles/flex.css';
-  composes: singleLine from '../../styles/typography.css';
+  composes: grow;
+  composes: singleLine;
   height: 100%;
   padding: 0 16px;
 }

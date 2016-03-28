@@ -1,18 +1,15 @@
-@value shadowKeyUmbraOpacity, shadowKeyPenumbraOpacity from './shadow-constants.css';
-@value shadowAmbientOpacity from './shadow-constants.css';
+@value shadowKeyUmbraOpacity: .2;
+@value shadowKeyPenumbraOpacity: .14;
+@value shadowAmbientOpacity: .12;
 
 @define-mixin shadow $depth, $uOff, $uBlur, $uSpread,
     $pOff, $pBlur, $pSpread, $aOff, $aBlur, $aSpread {
 
-  .shadow$(depth)dp {
-    box-shadow: 0px $uOff $uBlur $uSpread rgba(0, 0, 0, shadowKeyUmbraOpacity),
-      0px $pOff $pBlur $pSpread rgba(0, 0, 0, shadowKeyPenumbraOpacity),
-      0px $aOff $aBlur $aSpread rgba(0, 0, 0, shadowAmbientOpacity);
-    z-index: $depth;
-  }
+  @value shadowDef$(depth)dp: 0px $uOff $uBlur $uSpread rgba(0, 0, 0, shadowKeyUmbraOpacity), 0px $pOff $pBlur $pSpread rgba(0, 0, 0, shadowKeyPenumbraOpacity), 0px $aOff $aBlur $aSpread rgba(0, 0, 0, shadowAmbientOpacity);
 }
 
-/* generates shadow classes for 1-24dp, in the form of e.g. .shadow4dp */
+
+/* generates shadow values for 1-24dp, in the form of e.g. shadowDef4dp */
 @mixin shadow 1, 2px, 1px, -1px, 1px, 1px, 0px, 1px, 3px, 0px {}
 @mixin shadow 2, 3px, 3px, -2px, 2px, 2px, 0px, 1px, 5px, 0px {}
 @mixin shadow 3, 3px, 3px, -2px, 3px, 4px, 0px, 1px, 8px, 0px {}

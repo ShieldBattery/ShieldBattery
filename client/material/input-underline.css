@@ -1,4 +1,5 @@
 @value colorTextFaint, colorDividers, colorError, amberA400 from '../styles/colors.css';
+@value fastOutSlowInShort from './curves.css';
 
 .container {
   order: 3;
@@ -19,7 +20,7 @@
 }
 
 .focusUnderline {
-  composes: fastOutSlowInShort from './curves.css';
+  composes: fastOutSlowInShort;
   composes: underline;
   width: 100%;
   margin-top: 0px;

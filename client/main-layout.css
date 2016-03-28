@@ -1,7 +1,8 @@
 @value colorTextSecondary from './styles/colors.css';
+@value row from './styles/flex.css';
 
 .layout {
-  composes: row from './styles/flex.css';
+  composes: row;
   height: 100%;
 }
 

@@ -1,5 +1,6 @@
 @value colorTextFaint from '../styles/colors.css';
-@value fastOutSlowIn from '../material/curves.css';
+@value iconButton from '../material/button.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
 
 .picker {
 }
@@ -14,7 +15,7 @@
 }
 
 .button {
-  composes: iconButton from '../material/button.css';
+  composes: iconButton;
   composes: dimensions;
 }
 

@@ -1,39 +1,43 @@
 @value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
 @value alphaDisabled from '../styles/colors.css';
+@value col, row, exact, wrap, justifyCenter, itemsCenter, grow from '../styles/flex.css';
+@value display1, subhead, singleLine, title from '../styles/typography.css';
+@value fastOutSlowInShort from '../material/curves.css';
+@value shadow1dp from '../material/shadows.css';
 
 .content {
-  composes: col itemsCenter from '../styles/flex.css';
+  composes: col itemsCenter;
   margin-top: 16px;
   margin-bottom: 16px;
 }
 
 .gameType {
-  composes: display1 from '../styles/typography.css';
+  composes: display1;
 }
 
 .gameTypeMapBridge {
-  composes: display1 from '../styles/typography.css';
+  composes: display1;
   color: colorTextSecondary;
 }
 
 .mapName {
-  composes: display1 from '../styles/typography.css';
+  composes: display1;
 }
 
 .mapThumbnail {
-  composes: shadow1dp from '../material/shadows.css';
+  composes: shadow1dp;
   width: 256px;
   border-radius: 2px;
   margin-top: 16px;
 }
 
 .players {
-  composes: row itemsCenter wrap justifyCenter from '../styles/flex.css';
+  composes: row itemsCenter wrap justifyCenter;
   margin-top: 8px;
 }
 
 .player {
-  composes: exact row itemsCenter from '../styles/flex.css';
+  composes: exact row itemsCenter;
   width: 256px;
   margin: 8px;
   overflow: hidden;
@@ -46,7 +50,7 @@
 }
 
 .playerAvatar {
-  composes: fastOutSlowInShort from '../material/curves.css';
+  composes: fastOutSlowInShort;
   margin-right: 16px;
   opacity: alphaDisabled;
 }
@@ -56,15 +60,15 @@
 }
 
 .playerName {
-  composes: grow from '../styles/flex.css';
-  composes: subhead singleLine from '../styles/typography.css';
-  composes: fastOutSlowInShort from '../material/curves.css';
+  composes: grow;
+  composes: subhead singleLine;
+  composes: fastOutSlowInShort;
   color: inherit;
   margin-right: 16px;
 }
 
 .playerRace {
-  composes: fastOutSlowInShort from '../material/curves.css';
+  composes: fastOutSlowInShort;
   width: 32px;
   height: 32px;
   opacity: alphaDisabled;
@@ -80,7 +84,7 @@
 }
 
 .loadingMessage {
-  composes: title from '../styles/typography.css';
+  composes: title;
   color: colorTextSecondary;
   margin-top: 24px;
 }

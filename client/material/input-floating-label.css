@@ -1,7 +1,8 @@
 @value colorTextFaint, colorError, amberA400 from '../styles/colors.css';
+@value fastOutSlowInShort from './curves.css';
 
 .label {
-  composes: fastOutSlowInShort from './curves.css';
+  composes: fastOutSlowInShort;
   position: relative;
   color: colorTextFaint;
   pointer-events: none;

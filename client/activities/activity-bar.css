@@ -1,11 +1,14 @@
 @value grey900, colorTextPrimary, colorTextSecondary from '../styles/colors.css';
-/* Ensure these styles come after the modules they override */
-@import '../avatars/avatar.css';
-@import '../material/button.css';
+@value col, grow, exact, justifyStart, justifyCenter, itemsCenter from '../styles/flex.css';
+@value button as buttonText from '../styles/typography.css';
+@value reset from '../material/button-reset.css';
+@value iconButton from '../material/button.css';
+@value shadow3dp from '../material/shadows.css';
+@value avatarImage from '../avatars/avatar.css';
 
 .activityBar {
-  composes: col exact justifyStart itemsCenter from '../styles/flex.css';
-  composes: shadow3dp from '../material/shadows.css';
+  composes: col exact justifyStart itemsCenter;
+  composes: shadow3dp;
   width: 96px;
   height: 100%;
   background-color: grey900;
@@ -13,6 +16,7 @@
 }
 
 .avatar {
+  composes: avatarImage;
   width: 40px;
   height: 40px;
 }
@@ -28,8 +32,9 @@
 }
 
 .button {
-  composes: col justifyCenter itemsCenter from '../styles/flex.css';
-  composes: reset from '../material/button.css';
+  composes: col justifyCenter itemsCenter;
+  composes: reset;
+  composes: iconButton;
   width: 100%;
   min-height: 96px;
   padding: 8px;
@@ -48,7 +53,7 @@
 }
 
 .buttonLabel {
-  composes: button from '../styles/typography.css';
+  composes: buttonText;
   font-size: 11px;
   margin-top: 8px;
 }
@@ -57,5 +62,5 @@
 }
 
 .spacer {
-  composes: grow from '../styles/flex.css';
+  composes: grow;
 }
