@@ -35,6 +35,8 @@
   composes: col justifyCenter itemsCenter;
   composes: reset;
   composes: iconButton;
+  display: flex;
+  border-radius: 0px;
   width: 100%;
   min-height: 96px;
   padding: 8px;
@@ -43,12 +45,12 @@
   color: colorTextSecondary;
 }
 
-.button:hover {
+.button:hover:not([disabled]) {
   color: colorTextPrimary;
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-.button:active {
+.button:active:not([disabled]) {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
