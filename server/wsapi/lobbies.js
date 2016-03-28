@@ -62,13 +62,13 @@ export const Lobbies = {
   // Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the
   // open lobbies.
   toSummaryJson(lobby) {
-    return JSON.stringify({
+    return {
       name: lobby.name,
       map: lobby.map,
       numSlots: lobby.numSlots,
       host: { name: lobby.getIn(['players', lobby.hostId, 'name']), id: lobby.hostId },
       filledSlots: lobby.players.size,
-    })
+    }
   },
 
   // Finds the next empty slot in the lobby. Returns -1 if there are no available slots.
@@ -173,6 +173,11 @@ export const LoadingDatas = {
   }
 }
 
+const ListSubscription = new Record({
+  onUnsubscribe: null,
+  count: 0,
+})
+
 const slotNum = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 const validPortNumber = p => p > 0 && p <= 65535
@@ -190,6 +195,46 @@ export class LobbyApi {
     this.lobbyCountdowns = new Map()
     this.lobbyPreps = new Map()
     this.loadingLobbies = new Map()
+    this.subscribedSockets = new Map()
+  }
+
+  @Api('/subscribe')
+  async subscribe(data, next) {
+    const socket = data.get('client')
+    if (this.subscribedSockets.has(socket.id)) {
+      this.subscribedSockets = this.subscribedSockets.updateIn([socket.id, 'count'], c => c + 1)
+      return
+    }
+
+    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
+    this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
+
+    const onClose = () => {
+      this.nydus.unsubscribeClient(socket, MOUNT_BASE)
+      this.subscribedSockets = this.subscribedSockets.delete(socket.id)
+    }
+    const subscription = new ListSubscription({
+      onUnsubscribe: () => socket.removeEventListener(onClose),
+      count: 1,
+    })
+    this.subscribedSockets = this.subscribedSockets.set(socket.id, subscription)
+  }
+
+  @Api('/unsubscribe')
+  async unsubscribe(data, next) {
+    const socket = data.get('client')
+    if (!this.subscribedSockets.has(socket.id)) {
+      throw new errors.Conflict('not subscribed')
+    }
+
+    const subscription = this.subscribedSockets.get(socket.id)
+    if (subscription.count === 1) {
+      this.nydus.unsubscribeClient(socket, MOUNT_BASE)
+      this.subscribedSockets = this.subscribedSockets.delete(socket.id)
+      subscription.onUnsubscribe()
+    } else {
+      this.subscribedSockets = this.subscribedSockets.updateIn([socket.id, 'count'], c => c - 1)
+    }
   }
 
   @Api('/create',
@@ -216,6 +261,8 @@ export class LobbyApi {
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)
+
+    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
   }
 
   @Api('/join',
@@ -248,6 +295,7 @@ export class LobbyApi {
       player,
     })
     this._subscribeUserToLobby(lobby, user)
+    this._publishListChange('update', Lobbies.toSummaryJson(lobby))
   }
 
   _subscribeUserToLobby(lobby, user) {
@@ -313,6 +361,7 @@ export class LobbyApi {
       type: 'join',
       player: computer,
     })
+    this._publishListChange('update', Lobbies.toSummaryJson(lobby))
   }
 
   @Api('/setRace',
@@ -369,6 +418,7 @@ export class LobbyApi {
 
     if (!updatedLobby) {
       this.lobbies = this.lobbies.delete(lobby.name)
+      this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
     }
@@ -388,6 +438,9 @@ export class LobbyApi {
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
+    if (updatedLobby) {
+      this._publishListChange('update', Lobbies.toSummaryJson(updatedLobby))
+    }
   }
 
   @Api('/startCountdown',
@@ -411,6 +464,7 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'startCountdown',
     })
+    this._publishListChange('delete', lobby.name)
   }
 
   _completeCountdown(lobbyName) {
@@ -450,6 +504,7 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'cancelCountdown',
     })
+    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
   }
 
   // Cancels the loading state if the lobby was in it (no-op if it was not)
@@ -462,6 +517,7 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'cancelLoading',
     })
+    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
   }
 
   @Api('/setNetworkInfo',
@@ -499,7 +555,7 @@ export class LobbyApi {
     const { id } = data.get('player')
     let loadingData = this.loadingLobbies.get(lobby.name)
     loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(id))
-    this.loadingLobbies.set(lobby.name, loadingData)
+    this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData, lobby)) {
       // TODO(tec27): register this game in the DB for accepting results in another service
@@ -652,6 +708,10 @@ export class LobbyApi {
     if (this.loadingLobbies.has(lobbyName)) {
       throw new errors.Conflict('lobby has already started')
     }
+  }
+
+  _publishListChange(action, summary) {
+    this.nydus.publish(MOUNT_BASE, { action, payload: summary })
   }
 
   _publishTo(lobby, data) {

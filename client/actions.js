@@ -14,6 +14,8 @@ export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 export const LOBBIES_GET_STATE_BEGIN = 'LOBBIES_GET_STATE_BEGIN'
 // The server has responded with success/failure to our request of lobby state
 export const LOBBIES_GET_STATE = 'LOBBIES_GET_STATE'
+// The server has sent us an update to the lobby list (used for joining lobbies)
+export const LOBBIES_LIST_UPDATE = 'LOBBIES_LIST_UPDATE'
 
 // We are starting the process of adding a computer to a lobby
 export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
@@ -88,7 +90,7 @@ export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 
 // The success/failure of launching a game with psi
-export const PSI_GAME_LAUNCH = 'PSI_LOBBY_LAUNCH'
+export const PSI_GAME_LAUNCH = 'PSI_GAME_LAUNCH'
 // An updated status (e.g. "launching", "configuring") for a particular local game client
 export const PSI_GAME_STATUS = 'PSI_GAME_STATUS'
 

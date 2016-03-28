@@ -20,7 +20,8 @@ describe('Lobbies', () => {
   })
 
   it('should support summarized JSON serialization', () => {
-    const json = Lobbies.toSummaryJson(BOXER_LOBBY)
+    // stringifying and then parsing ensures that the structure has no circular references
+    const json = JSON.stringify(Lobbies.toSummaryJson(BOXER_LOBBY))
     const parsed = JSON.parse(json)
 
     const id = BOXER_LOBBY.hostId

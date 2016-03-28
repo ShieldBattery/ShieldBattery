@@ -1,11 +1,10 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { createLobby, getMapsList } from './action-creators'
+import { createLobby, getMapsList, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import maxLengthValidator from '../forms/max-length-validator'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
-import styles from './create-lobby.css'
 
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -92,6 +91,7 @@ export default class CreateLobby extends React.Component {
 
   onSubmitted(values) {
     this.props.dispatch(createLobby(values.get('name'), values.get('map')))
+    this.props.dispatch(navigateToLobby(values.get('name')))
     this.props.dispatch(closeOverlay())
   }
 }

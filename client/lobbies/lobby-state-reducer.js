@@ -15,7 +15,7 @@ const handlers = {
   [LOBBIES_GET_STATE_BEGIN](state, action) {
     const { lobbyName } = action.payload
     if (state.has(lobbyName)) {
-      return state.setIn([ lobbyName, 'isRequesting', true ])
+      return state.setIn([ lobbyName, 'isRequesting' ], true)
     } else {
       return state.set(lobbyName, new LobbyState({
         isRequesting: true,

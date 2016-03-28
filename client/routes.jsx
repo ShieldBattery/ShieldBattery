@@ -6,7 +6,6 @@ import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import MainLayout from './main-layout.jsx'
-import LobbyList from './lobbies/list.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
 import LoginLayout from './auth/login-layout.jsx'
@@ -37,10 +36,7 @@ const routes = <Route>
           <IndexRoute component={ChatList} title='Chat channels'/>
           <Route path=':channel' component={ChatChannel} />
         </Route>
-        <Route path='/lobbies'>
-          <IndexRoute component={LobbyList} />
-          <Route path=':lobby' component={LobbyView} />
-        </Route>
+        <Route path='/lobbies/:lobby' component={LobbyView} />
         <Route path='/whispers'>
           <IndexRoute component={WhisperIndex} />
           <Route path=':user' component={WhisperView} />

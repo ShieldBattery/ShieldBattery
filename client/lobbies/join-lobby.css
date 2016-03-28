@@ -1,0 +1,72 @@
+@value colorDividers from '../styles/colors.css';
+
+.title {
+  composes: title from '../styles/typography.css';
+  margin-top: 8px;
+}
+
+.list {
+}
+
+.emptyText {
+  composes: subhead from '../styles/typography.css';
+}
+
+.listEntry {
+  composes: row itemsCenter from '../styles/flex.css';
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 7px;
+}
+
+.listEntry:hover {
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.listEntry:first-child {
+  padding-top: 8px;
+}
+
+.listEntry:last-child {
+  padding-bottom: 8px;
+}
+
+.listEntry + .listEntry {
+  border-top: 1px solid colorDividers;
+  padding-top: 8px;
+}
+
+.info {
+  composes: col grow from '../styles/flex.css';
+}
+
+.name {
+  composes: headline from '../styles/typography.css';
+}
+
+.hostName {
+  composes: subhead from '../styles/typography.css';
+}
+
+.openSlots {
+  composes: body2 from '../styles/typography.css';
+}
+
+.map {
+  composes: col exact from '../styles/flex.css';
+  height: 128px;
+  position: relative;
+}
+
+.mapName {
+  composes: body1 from '../styles/typography.css';
+  position: absolute;
+  bottom: 0px;
+}
+
+.mapThumbnail {
+  width: auto;
+  height: 100%;
+}

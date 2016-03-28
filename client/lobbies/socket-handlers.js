@@ -1,4 +1,5 @@
 import {
+  LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_CHAT_MESSAGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
@@ -152,6 +153,17 @@ export default function registerModule({ siteSocket, psiSocket }) {
 
     const action = eventToAction[event.type](route.params.lobby, event, { siteSocket, psiSocket })
     if (action) dispatch(action)
+  })
+
+  siteSocket.registerRoute('/lobbies', (route, event) => {
+    const { action, payload } = event
+    dispatch({
+      type: LOBBIES_LIST_UPDATE,
+      payload: {
+        message: action,
+        data: payload,
+      }
+    })
   })
 
   psiSocket.registerRoute('/game/status', (route, event) => {

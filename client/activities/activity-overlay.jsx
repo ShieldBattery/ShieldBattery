@@ -5,6 +5,7 @@ import { closeOverlay } from './action-creators'
 import styles from './activity-overlay.css'
 
 import CreateLobby from '../lobbies/create-lobby.jsx'
+import JoinLobby from '../lobbies/join-lobby.jsx'
 
 const transitionNames = {
   enter: styles.enter,
@@ -23,6 +24,7 @@ export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
       case 'createLobby': return <CreateLobby />
+      case 'joinLobby': return <JoinLobby />
       default: return <span/>
     }
   }

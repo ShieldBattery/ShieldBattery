@@ -23,7 +23,6 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import auther from './auth/auther'
 import { openDialog } from './dialogs/dialog-action-creator'
-import { joinLobby } from './lobbies/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 
@@ -129,7 +128,7 @@ class MainLayout extends React.Component {
   }
 
   onJoinLobbyClick() {
-    this.props.dispatch(joinLobby('Lobby 2: Electric Boogaloo'))
+    this.props.dispatch(openOverlay('joinLobby'))
   }
 
   onReplaysClick() {
