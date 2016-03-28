@@ -139,6 +139,7 @@ async function doLaunch(gameId) {
       (installPath.charAt(installPath.length - 1) === '\\' ? '' : '\\') +
       'Starcraft.exe'
 
+  log.debug('Attempting to launch ' + appPath)
   const proc = await psi.launchProcess({
     appPath,
     args: gameId,
