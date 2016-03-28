@@ -43,7 +43,7 @@ function Logger(baseFilename, actualOptions) {
     rollover(baseFilename, this._options.maxRollovers)
   }
 
-  this._out = fs.createWriteStream(this._filename, { flags: 'a', encoding: 'utf8' })
+  this._out = fs.createWriteStream(this._filename, { flags: 'a', encoding: 'utf8', mode: 0o777 })
   this._buffer = []
   this._opened = false
   this._draining = false

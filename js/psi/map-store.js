@@ -61,7 +61,7 @@ export default class MapStore {
       const secondByte = mapHash.substr(2, 2)
       const url = `${server}/maps/${firstByte}/${secondByte}/${mapHash}.${mapFormat}`
       await new Promise((resolve, reject) => {
-        const outStream = fs.createWriteStream(mapPath)
+        const outStream = fs.createWriteStream(mapPath, { mode: 0o777 })
         outStream.on('error', reject)
           .on('finish', resolve)
         request.get(url)

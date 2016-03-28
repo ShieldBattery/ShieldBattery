@@ -66,7 +66,8 @@ class LocalSettings extends EventEmitter {
     }
 
     this._settings = newSettings
-    fs.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' }, err => {
+    const opts = { encoding: 'utf8', mode: 0o777 }
+    fs.writeFile(this._filepath, jsonify(this._settings), opts, err => {
       if (err) {
         log.error('Error writing to settings file: ' + err)
       }
@@ -88,7 +89,7 @@ function createSettingsFileSync(filepath) {
   const settings = {
     bwPort: genRandomPort()
   }
-  fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8' })
+  fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8', mode: 0o777 })
 }
 
 function genRandomPort() {
