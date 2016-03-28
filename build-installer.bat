@@ -5,10 +5,19 @@ call "%~dp0\vcbuild.bat"
 if errorlevel 1 goto binary-build-failed
 echo "Done!"
 
+echo Bundling JS and building update manifest...
+cd "%~dp0\bundler"
+cmd.exe /c npm start
+cd "%~dp0"
+
 echo Building Release Installer...
-if not defined VS110COMNTOOLS goto msbuild-not-found
-if not exist "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
-call "%VS110COMNTOOLS%\..\..\vc\vcvarsall.bat"
+if not defined VS140COMNTOOLS goto msbuild-not-found
+if not exist "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat" goto msbuild-not-found
+echo Found Visual Studio 2015
+if "%VCVARS_VER%" NEQ "140" (
+  call "%VS140COMNTOOLS%\..\..\vc\vcvarsall.bat"
+  SET VCVARS_VER=140
+)
 if not defined VCINSTALLDIR goto msbuild-not-found
 
 msbuild installer\installer.sln /m /t:Build /p:Configuration=Release /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo

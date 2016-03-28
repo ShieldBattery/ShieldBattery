@@ -16,7 +16,9 @@ const cachePath = process.env.ProgramData ?
 // use two files for babel caching to avoid weirdness with two processes writing to the same file
 process.env.BABEL_CACHE_PATH = path.join(cachePath, `.${modName}.babel.json`)
 
-require('babel-register')
+if (!WEBPACK_BUILD) { // eslint-disable-line no-undef
+  require('babel-register')
+}
 require('babel-polyfill')
 
 // requiring files explicitly so that browserify picks up on them easily

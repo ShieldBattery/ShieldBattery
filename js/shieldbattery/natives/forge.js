@@ -3,20 +3,43 @@ import { EventEmitter } from 'events'
 
 const forge = process._linkedBinding('shieldbattery_forge').instance
 
-const dxVertShaders = {
-  depalettizing: fs.readFileSync(__dirname + '/shaders/directx/vs_depalettizing.hlsl'),
-}
-const dxPixelShaders = {
-  depalettizing: fs.readFileSync(__dirname + '/shaders/directx/ps_depalettizing.hlsl'),
-  scaling: fs.readFileSync(__dirname + '/shaders/directx/ps_scaling.hlsl')
-}
-const glVertShaders = {
-  depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/vs_depalettizing.glsl'),
-  scaling: fs.readFileSync(__dirname + '/shaders/opengl/vs_scaling.glsl')
-}
-const glFragShaders = {
-  depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/fs_depalettizing.glsl'),
-  scaling: fs.readFileSync(__dirname + '/shaders/opengl/fs_scaling.glsl')
+let dxVertShaders
+let dxPixelShaders
+let glVertShaders
+let glFragShaders
+
+if (WEBPACK_BUILD) { // eslint-disable-line no-undef
+  dxVertShaders = {
+    depalettizing: require('./shaders/directx/vs_depalettizing.hlsl'),
+  }
+  dxPixelShaders = {
+    depalettizing: require('./shaders/directx/ps_depalettizing.hlsl'),
+    scaling: require('./shaders/directx/ps_scaling.hlsl')
+  }
+  glVertShaders = {
+    depalettizing: require('./shaders/opengl/vs_depalettizing.glsl'),
+    scaling: require('./shaders/opengl/vs_scaling.glsl')
+  }
+  glFragShaders = {
+    depalettizing: require('./shaders/opengl/fs_depalettizing.glsl'),
+    scaling: require('./shaders/opengl/fs_scaling.glsl')
+  }
+} else {
+  dxVertShaders = {
+    depalettizing: fs.readFileSync(__dirname + '/shaders/directx/vs_depalettizing.hlsl'),
+  }
+  dxPixelShaders = {
+    depalettizing: fs.readFileSync(__dirname + '/shaders/directx/ps_depalettizing.hlsl'),
+    scaling: fs.readFileSync(__dirname + '/shaders/directx/ps_scaling.hlsl')
+  }
+  glVertShaders = {
+    depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/vs_depalettizing.glsl'),
+    scaling: fs.readFileSync(__dirname + '/shaders/opengl/vs_scaling.glsl')
+  }
+  glFragShaders = {
+    depalettizing: fs.readFileSync(__dirname + '/shaders/opengl/fs_depalettizing.glsl'),
+    scaling: fs.readFileSync(__dirname + '/shaders/opengl/fs_scaling.glsl')
+  }
 }
 
 forge.setShaders(dxVertShaders, dxPixelShaders, glVertShaders, glFragShaders)

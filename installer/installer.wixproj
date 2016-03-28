@@ -31,9 +31,7 @@
   </ItemGroup>
   <Import Project="$(WixTargetsPath)" />
   <PropertyGroup>
-    <PreBuildEvent>cd $(ProjectDir)\..\bundler\
-node index.js
-cd $(ProjectDir)</PreBuildEvent>
+    <PreBuildEvent />
   </PropertyGroup>
   <!--
 	To modify your build process, add your task inside one of the targets below and uncomment it.

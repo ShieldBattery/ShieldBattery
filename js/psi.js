@@ -55,7 +55,7 @@ const environment = {
   autoUpdate: true,
 }
 if (fs.existsSync(path.join(shieldbatteryRoot, 'dev.json'))) {
-  const devEnv = require(path.join(shieldbatteryRoot, 'dev.json'))
+  const devEnv = JSON.parse(fs.readFileSync(path.join(shieldbatteryRoot, 'dev.json')))
   environment.allowedHosts = environment.allowedHosts.concat(devEnv.extraAllowedHosts || [])
   environment.updateUrl = devEnv.updateUrl || environment.updateUrl
   if (devEnv.autoUpdate !== undefined) {

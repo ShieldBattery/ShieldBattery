@@ -2,8 +2,9 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <?define RegistryKeyPath = "SOFTWARE\ShieldBattery" ?>
   <?define BundleDir="$(var.ProjectDir)..\bundler\bundle\" ?>
+  <?define D3DRedistDir="$(env.ProgramFiles(x86))\Windows Kits\8.1\Redist\D3D\x86\" ?>
   
-	<Product Id="*" Name="ShieldBattery" Language="1033" Version="0.0.3" Manufacturer="ShieldBattery" UpgradeCode="{64DF999F-FC7D-41B9-8972-27D18C085769}">
+	<Product Id="*" Name="ShieldBattery" Language="1033" Version="0.0.4" Manufacturer="ShieldBattery" UpgradeCode="{64DF999F-FC7D-41B9-8972-27D18C085769}">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
 		<MajorUpgrade AllowDowngrades="yes" />
@@ -24,11 +25,8 @@
       <ComponentRef Id="ShieldBatteryDll"/>
       <ComponentRef Id="PsiExecutable"/>
       <ComponentRef Id="PsiEmitterExecutable"/>
-      <ComponentRef Id="Snp"/>
+      <ComponentRef Id="D3DRedistDll"/>
       <ComponentRef Id="JSBundle"/>
-      <ComponentRef Id="BwNode"/>
-      <ComponentRef Id="ForgeNode"/>
-      <ComponentRef Id="PsiNode"/>
       <ComponentRef Id="RegistryEntries"/>
 		</Feature>
 
@@ -66,25 +64,13 @@
         <File Id="psi_emitter.exe" KeyPath="yes" Source="$(var.BundleDir)\psi-emitter.exe" />
       </Component>
 
-      <Component Id="Snp">
-        <File Id="shieldbat.snp" KeyPath="yes" Source="$(var.BundleDir)\shieldbat.snp" />
+      <Component Id="D3DRedistDll">
+        <File Id="d3dcompiler_47.dll" KeyPath="yes" Source="$(var.D3DRedistDir)\d3dcompiler_47.dll" />
       </Component>
     </DirectoryRef>
 
     <DirectoryRef Id="INSTALLDIR">
       <Directory Id="JSFolder" Name="js">
-        <Directory Id="JSBinFolder" Name="build">
-          <Component Id="BwNode">
-            <File Id="bw.node" KeyPath="yes" Source="$(var.BundleDir)\js\build\bw.node" />
-          </Component>
-          <Component Id="ForgeNode">
-            <File Id="forge.node" KeyPath="yes" Source="$(var.BundleDir)\js\build\forge.node" />
-          </Component>
-          <Component Id="PsiNode">
-            <File Id="psi.node" KeyPath="yes" Source="$(var.BundleDir)\js\build\psi.node" />
-          </Component>
-        </Directory>
-
         <Component Id="JSBundle">
           <File Id="index.js" KeyPath="yes" Source="$(var.BundleDir)\js\index.js" />
         </Component>
