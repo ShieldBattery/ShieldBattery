@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import co from 'co'
 import uid from 'cuid'
+import getAddress from './server/websockets/get-address'
 import createUserSockets from './server/websockets/user-sockets'
 import log from './server/logging/logger'
 
@@ -66,7 +67,7 @@ class WebsocketServer {
         sessionId: ctx.sessionId,
         userId: ctx.session.userId,
         userName: ctx.session.userName,
-        address: req.connection.remoteAddress,
+        address: getAddress(req),
       }
       this.sessionLookup.set(req, handshakeData)
       cb(null, true)

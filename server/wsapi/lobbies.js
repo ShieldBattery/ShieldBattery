@@ -1,6 +1,7 @@
 import { List, Map, OrderedMap, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
+import getSocketAddress from '../websockets/get-address'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
 
@@ -534,11 +535,11 @@ export class LobbyApi {
       throw new errors.BadRequest('countdown must be started')
     }
 
-    const { conn: { request: req } } = data.get('client')
+    const socket = data.get('client')
     const { port } = data.get('body')
     const networkInfo = new NetworkInfo({
       // TODO(tec27): We'll definitely need more addresses than this
-      addresses: new List([req.connection.remoteAddress]),
+      addresses: new List([getSocketAddress(socket.conn.request)]),
       port,
     })
     const { id } = data.get('player')
