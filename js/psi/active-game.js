@@ -57,8 +57,9 @@ export default class ActiveGameManager {
     this._setStatus(GAME_STATUS_LAUNCHING)
     this.activeGamePromise = doLaunch(this.activeGameId)
 
-    this.activeGamePromise.then(code => this.handleGameExit(this.activeGameId, code),
-        err => this.handleGameExitWaitErr(this.activeGameId, err))
+    const backupId = this.activeGameId
+    this.activeGamePromise.then(code => this.handleGameExit(backupId, code),
+        err => this.handleGameExitWaitErr(backupId, err))
     return this.activeGameId
   }
 
