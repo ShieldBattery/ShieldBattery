@@ -4,7 +4,7 @@
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curve-constants.css';
 @value shadowDef8dp from '../shadow-constants.css';
 @value shadow8dp from '../shadows.css';
-@value zIndexMenu, zIndexMenuBackdrop from '../zindex.css';
+@value zIndexMenu from '../zindex.css';
 
 .select {
   composes: col itemsStart;
