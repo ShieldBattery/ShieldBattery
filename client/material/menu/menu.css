@@ -23,7 +23,7 @@
 
 .backdrop {
   z-index: zIndexMenuBackdrop;
-  position: absolute;
+  position: fixed;
   background-color: transparent;
   top: 0;
   right: 0;
