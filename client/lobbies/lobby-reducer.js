@@ -162,6 +162,11 @@ export const LeaveMessage = Record({
   time: 0,
   name: null,
 })
+export const LoadingCanceledMessage = Record({
+  id: null,
+  type: 'loadingCanceled',
+  time: 0,
+})
 export const SelfJoinMessage = Record({
   id: null,
   type: 'selfJoin',
@@ -249,6 +254,13 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_COUNTDOWN_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(new CountdownCanceledMessage({
+      id: cuid(),
+      time: Date.now(),
+    }))
+  },
+
+  [LOBBY_UPDATE_LOADING_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
+    return state.push(new LoadingCanceledMessage({
       id: cuid(),
       time: Date.now(),
     }))

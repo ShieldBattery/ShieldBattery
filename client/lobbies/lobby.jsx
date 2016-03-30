@@ -111,6 +111,19 @@ class CountdownCanceledMessage extends React.Component {
   }
 }
 
+class LoadingCanceledMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+  };
+
+  // TODO(tec27): We really need to pass a reason back here
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+        <span>Game initialization has been canceled</span>
+    </ChatMessageLayout>)
+  }
+}
+
 class ChatList extends React.Component {
   static propTypes = {
     messages: PropTypes.object.isRequired,
@@ -150,6 +163,7 @@ class ChatList extends React.Component {
       case 'countdownTick':
         return <CountdownTickMessage key={id} time={time} timeLeft={msg.timeLeft} />
       case 'countdownCanceled': return <CountdownCanceledMessage key={id} time={time} />
+      case 'loadingCanceled': return <LoadingCanceledMessage key={id} time={time} />
       default: return null
     }
   }

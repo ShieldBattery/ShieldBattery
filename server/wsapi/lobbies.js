@@ -579,7 +579,7 @@ export class LobbyApi {
     'getPlayer',
     'ensureLobbyLoading')
   async loadFailed(data, next) {
-    this._maybeCancelLoading()
+    this._maybeCancelLoading(data.get('lobby'))
   }
 
   @Api('/getLobbyState',
