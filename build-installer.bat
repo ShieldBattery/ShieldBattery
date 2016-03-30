@@ -1,7 +1,7 @@
 echo Building installer...
 
 echo Building Release shieldbattery binaries...
-call "%~dp0\vcbuild.bat"
+call "%~dp0\vcbuild.bat" %*
 if errorlevel 1 goto binary-build-failed
 echo "Done!"
 
