@@ -61,6 +61,7 @@ void WrappedProcess::Init() {
   // functions
   SetPrototypeMethod(tpl, "injectDll", InjectDll);
   SetPrototypeMethod(tpl, "resume", Resume);
+  SetPrototypeMethod(tpl, "terminate", Terminate);
   SetPrototypeMethod(tpl, "waitForExit", WaitForExit);
   
   constructor.Reset(tpl->GetFunction());
@@ -92,14 +93,13 @@ struct InjectDllContext {
   Persistent<Object> self;
   Process* process;
 
-  unique_ptr<WindowsError> error;
+  WindowsError error;
 };
 
 void InjectDllWork(uv_work_t* req) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  context->error.reset(
-      new WindowsError(context->process->InjectDll(*context->dll_path, *context->inject_func)));
+  context->error = context->process->InjectDll(*context->dll_path, *context->inject_func);
 }
 
 void InjectDllAfter(uv_work_t* req, int status) {
@@ -107,9 +107,8 @@ void InjectDllAfter(uv_work_t* req, int status) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
   Local<Value> err = Null();
-  if (context->error->is_error()) {
-    err = Exception::Error(Nan::New(
-        reinterpret_cast<const uint16_t*>(context->error->message().c_str())).ToLocalChecked());
+  if (context->error.is_error()) {
+    err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
   }
 
   Local<Value> argv[] = { err };
@@ -137,10 +136,20 @@ void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
 void WrappedProcess::Resume(const FunctionCallbackInfo<Value>& info) {
   Process* process = WrappedProcess::Unwrap(info);
 
-  WindowsError error = WindowsError(process->Resume());
+  WindowsError error = process->Resume();
   if (error.is_error()) {
-    info.GetReturnValue().Set(Exception::Error(Nan::New(
-        reinterpret_cast<const uint16_t*>(error.message().c_str())).ToLocalChecked()));
+    info.GetReturnValue().Set(
+        Exception::Error(Nan::New(error.message().c_str()).ToLocalChecked()));
+  }
+}
+
+void WrappedProcess::Terminate(const FunctionCallbackInfo<Value>& info) {
+  Process* process = WrappedProcess::Unwrap(info);
+
+  WindowsError error = process->Terminate();
+  if (error.is_error()) {
+    info.GetReturnValue().Set(
+      Exception::Error(Nan::New(error.message().c_str()).ToLocalChecked()));
   }
 }
 

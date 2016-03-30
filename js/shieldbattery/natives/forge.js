@@ -8,7 +8,7 @@ let dxPixelShaders
 let glVertShaders
 let glFragShaders
 
-if (WEBPACK_BUILD) { // eslint-disable-line no-undef
+if (typeof WEBPACK_BUILD !== 'undefined') { // eslint-disable-line no-undef
   dxVertShaders = {
     depalettizing: require('./shaders/directx/vs_depalettizing.hlsl'),
   }

@@ -30,6 +30,18 @@ bool ScopedVirtualProtect::has_errors() const {
   return has_errors_;
 }
 
+ScopedVirtualAlloc::ScopedVirtualAlloc(HANDLE process_handle, void* address, size_t size,
+  uint32 allocation_type, uint32 protection)
+    : process_handle_(process_handle),
+      alloc_(VirtualAllocEx(process_handle, address, size, allocation_type, protection)) {
+}
+
+ScopedVirtualAlloc::~ScopedVirtualAlloc() {
+  if (alloc_ != nullptr) {
+    VirtualFreeEx(process_handle_, alloc_, 0, MEM_FREE);
+  }
+}
+
 WinHdc::WinHdc(HWND window)
   : window_(window),
     hdc_(GetDC(window)) {
@@ -39,34 +51,26 @@ WinHdc::~WinHdc() {
   ReleaseDC(window_, hdc_);
 }
 
-WindowsError::WindowsError()
-    : code_(0),
-      message_() {
+WinHandle::WinHandle(HANDLE handle)
+   : handle_(handle) {
 }
 
-WindowsError::WindowsError(uint32 error_code)
-    : code_(error_code),
-      message_() {
-  if (code_ == 0) {
-    return;
+WinHandle::~WinHandle() {
+  if (handle_ != NULL && handle_ != INVALID_HANDLE_VALUE) {
+    CloseHandle(handle_);
   }
+}
 
-  wchar_t* message_buffer;
-  FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-      FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, error_code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      reinterpret_cast<wchar_t*>(&message_buffer), 0, nullptr);
-  if (message_buffer != nullptr) {
-    message_ = message_buffer;
-#pragma warning(suppress: 6280)
-    LocalFree(message_buffer);
-  } else {
-    // In some cases, the code we have is not actually a system code. For these, we will simply
-    // print the error code to a string
-    message_buffer = new wchar_t[11];
-    swprintf_s(message_buffer, 11, L"0x%08x", error_code);
-    message_ = message_buffer;
-    delete[] message_buffer;
+void WinHandle::Reset(HANDLE handle) {
+  if (handle_ != NULL && handle_ != INVALID_HANDLE_VALUE) {
+    CloseHandle(handle_);
   }
+  handle_ = handle;
+}
+
+WindowsError::WindowsError(string location, uint32 error_code)
+    : code_(error_code),
+      location_(std::move(location)) {
 }
 
 bool WindowsError::is_error() const {
@@ -77,8 +81,39 @@ uint32 WindowsError::code() const {
   return code_;
 }
 
-wstring WindowsError::message() const {
-  return message_;
+string WindowsError::location() const {
+  return location_;
+}
+
+string WindowsError::message() const {
+  if (code_ == 0) {
+    return "No error";
+  }
+
+  char* message_buffer;
+  uint32 buffer_len = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, code_, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    reinterpret_cast<char*>(&message_buffer), 0, nullptr);
+  if (message_buffer != nullptr) {
+    size_t total_len = buffer_len + location_.size() + 3 + 1;
+    char* out_buffer = new char[total_len];
+    _snprintf_s(out_buffer, total_len, _TRUNCATE, "[%s] %s", location_.c_str(), message_buffer);
+    string result(out_buffer);
+    #pragma warning(suppress: 6280)
+    LocalFree(message_buffer);
+    delete[] out_buffer;
+
+    return result;
+  } else {
+    // In some cases, the code we have is not actually a system code. For these, we will simply
+    // print the error code to a string
+    size_t total_len = 10 + location_.size() + 3 + 1;
+    message_buffer = new char[total_len];
+    _snprintf_s(message_buffer, total_len, _TRUNCATE, "[%s] 0x%08x", location_.c_str(), code_);
+    string result(message_buffer);
+    delete[] message_buffer;
+    return message_buffer;
+  }
 }
 
 struct InjectContext {
@@ -137,51 +172,54 @@ bool Process::se_debug_enabled_ = false;
 
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
     const wstring& current_dir)
-    : process_info_(),
-      error_(nullptr) {
+    : process_handle_(),
+      thread_handle_(),
+      error_() {
   if (!se_debug_enabled_) {
-    if (!EnableSeDebug()) {
+    error_ = EnableSeDebug();
+    if (error_.is_error()) {
       return;
     }
   }
 
   HANDLE token;
+  int token_num = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
+  if (token_num == 0) {
+    error_ = WindowsError("Process -> WTSQueryUserToken", GetLastError());
+    return;
+  }
+  WinHandle managed_token(token);
+
   STARTUPINFOW startup_info = { 0 };
   // CreateProcessW claims to sometimes modify arguments, no fucking clue why
   vector<wchar_t> arguments_writable(arguments.length() + 1);
-  int token_num = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
-  if (!CreateProcessAsUserW(token, app_path.c_str(), &arguments_writable[0], nullptr, nullptr,
-      false, launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(), &startup_info,
-      &process_info_)) {
-    error_ = new WindowsError(GetLastError());
+
+  PROCESS_INFORMATION process_info;
+  if (!CreateProcessAsUserW(managed_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
+      nullptr, false, launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(),
+      &startup_info, &process_info)) {
+    error_ = WindowsError("Process -> CreateProcessAsUserW", GetLastError());
     return;
   }
-  CloseHandle(token);
+
+  process_handle_.Reset(process_info.hProcess);
+  thread_handle_.Reset(process_info.hThread);
 }
 
 Process::~Process() {
-  if (error_ != nullptr) {
-    delete error_;
-    error_ = nullptr;
-  } else {
-    CloseHandle(process_info_.hProcess);
-    CloseHandle(process_info_.hThread);
-  }
 }
 
-bool Process::EnableSeDebug() {
+WindowsError Process::EnableSeDebug() {
   HANDLE token;
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
-    error_ = new WindowsError(GetLastError());
-    return false;
+    return WindowsError("EnableSeDebug -> OpenProcessToken", GetLastError());
   }
+  WinHandle managed_token(token);
 
   TOKEN_PRIVILEGES privs;
-  if (!LookupPrivilegeValue(nullptr, SE_DEBUG_NAME, &privs.Privileges[0].Luid)) {
-    error_ = new WindowsError(GetLastError());
-    CloseHandle(token);
-    return false;
+  if (!LookupPrivilegeValueA(nullptr, SE_DEBUG_NAME, &privs.Privileges[0].Luid)) {
+    return WindowsError("EnableSeDebug -> LookupPrivilegeValue", GetLastError());
   }
 
   privs.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
@@ -189,22 +227,19 @@ bool Process::EnableSeDebug() {
 
   if (!AdjustTokenPrivileges(token, FALSE, &privs, 0, nullptr, nullptr) ||
       GetLastError() != ERROR_SUCCESS) {
-    error_ = new WindowsError(GetLastError());
-    CloseHandle(token);
-    return false;
+    return WindowsError("EnableSeDebug -> AdjustTokenPrivileges", GetLastError());
   }
 
   se_debug_enabled_ = true;
-  CloseHandle(token);
-  return true;
+  return WindowsError();
 }
 
 bool Process::has_errors() const {
-  return error_ != nullptr && error_->is_error();
+  return error_.is_error();
 }
 
 WindowsError Process::error() const {
-  return *error_;
+  return error_;
 }
 
 WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name) {
@@ -220,45 +255,46 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   context.GetLastError = GetLastError;
 
   SIZE_T alloc_size = sizeof(context) + sizeof(inject_proc);
-  void* remote_context = VirtualAllocEx(process_info_.hProcess, nullptr, alloc_size, MEM_COMMIT,
+  ScopedVirtualAlloc remote_context(process_handle_.get(), nullptr, alloc_size, MEM_COMMIT,
       PAGE_EXECUTE_READWRITE);
-  if (remote_context == nullptr) {
-    return WindowsError(GetLastError());
+  if (remote_context.has_errors()) {
+    return WindowsError("InjectDll -> VirtualAllocEx", GetLastError());
   }
 
   SIZE_T bytes_written;
-  BOOL success = WriteProcessMemory(process_info_.hProcess, remote_context, &context,
+  BOOL success = WriteProcessMemory(process_handle_.get(), remote_context.get(), &context,
       sizeof(context), &bytes_written);
   if (!success || bytes_written != sizeof(context)) {
-    uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
-    return WindowsError(error);
+    return WindowsError("InjectDll -> WriteProcessMemory(InjectContext)", GetLastError());
   }
 
-  void* remote_proc = reinterpret_cast<byte*>(remote_context) + sizeof(context);
-  success = WriteProcessMemory(process_info_.hProcess, remote_proc, inject_proc,
+  void* remote_proc = reinterpret_cast<byte*>(remote_context.get()) + sizeof(context);
+  success = WriteProcessMemory(process_handle_.get(), remote_proc, inject_proc,
       sizeof(inject_proc), &bytes_written);
   if (!success || bytes_written != sizeof(inject_proc)) {
-    uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
-    return WindowsError(error);
+    return WindowsError("InjectDll -> WriteProcessMemory(Proc)", GetLastError());
   }
 
-  HANDLE thread_handle = CreateRemoteThread(process_info_.hProcess, NULL, 0,
-      reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc), remote_context, 0,  nullptr);
-  if (thread_handle == nullptr) {
-    uint32 error = GetLastError();
-    VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
-    return WindowsError(error);
+  WinHandle thread_handle(CreateRemoteThread(process_handle_.get(), NULL, 0,
+      reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc), remote_context.get(), 0,  nullptr));
+  if (thread_handle.get() == nullptr) {
+    return WindowsError("InjectDll -> CreateRemoteThread", GetLastError());
   }
 
-  WaitForSingleObject(thread_handle, 5000);
+  uint32 wait_result = WaitForSingleObject(thread_handle.get(), 3000);
+  if (wait_result == WAIT_TIMEOUT) {
+    return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
+  } else if (wait_result == WAIT_FAILED) {
+    return WindowsError("InjectDll -> WaitForSingleObject", GetLastError());
+  }
+
   DWORD exit_code;
-  GetExitCodeThread(thread_handle, &exit_code);
+  uint32 exit_result = GetExitCodeThread(thread_handle.get(), &exit_code);
+  if (exit_result == 0) {
+    return WindowsError("InjectDll -> GetExitCodeThread", GetLastError());
+  }
 
-  VirtualFreeEx(process_info_.hProcess, remote_context, 0, MEM_RELEASE);
-
-  return WindowsError(exit_code);
+  return WindowsError("InjectDll -> injection proc exit code", exit_code);
 }
 
 WindowsError Process::Resume() {
@@ -266,8 +302,20 @@ WindowsError Process::Resume() {
     return error();
   }
 
-  if (ResumeThread(process_info_.hThread) == -1) {
-    return WindowsError(GetLastError());
+  if (ResumeThread(thread_handle_.get()) == -1) {
+    return WindowsError("Process Resume -> ResumeThread", GetLastError());
+  }
+
+  return WindowsError();
+}
+
+WindowsError Process::Terminate() {
+  if (has_errors()) {
+    return error();
+  }
+
+  if (TerminateThread(process_handle_.get(), 0) == 0) {
+    return WindowsError("Process Terminate -> TerminateThread", GetLastError());
   }
 
   return WindowsError();
@@ -282,11 +330,12 @@ WindowsError Process::WaitForExit(uint32 max_wait_ms, bool* timed_out) {
     *timed_out = false;
   }
 
-  DWORD result = WaitForSingleObject(process_info_.hProcess, max_wait_ms);
+  DWORD result = WaitForSingleObject(process_handle_.get(), max_wait_ms);
   if (result == WAIT_TIMEOUT && timed_out != nullptr) {
     *timed_out = true;
+    return WindowsError("WaitForExit -> WaitForSingleObject", WAIT_TIMEOUT);
   } else if (result == WAIT_FAILED) {
-    return WindowsError(GetLastError());
+    return WindowsError("WaitForExit -> WaitForSingleObject", GetLastError());
   }
 
   return WindowsError();
@@ -297,9 +346,9 @@ WindowsError Process::GetExitCode(uint32* exit_code) {
     return error();
   }
 
-  BOOL result = GetExitCodeProcess(process_info_.hProcess, reinterpret_cast<LPDWORD>(exit_code));
+  BOOL result = GetExitCodeProcess(process_handle_.get(), reinterpret_cast<LPDWORD>(exit_code));
   if (result == FALSE) {
-    return WindowsError(GetLastError());
+    return WindowsError("GetExitCode -> GetExitCodeProcess", GetLastError());
   }
 
   return WindowsError();

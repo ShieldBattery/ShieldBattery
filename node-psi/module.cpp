@@ -18,7 +18,6 @@ using Nan::Callback;
 using Nan::FunctionCallbackInfo;
 using Nan::GetCurrentContext;
 using Nan::HandleScope;
-using Nan::New;
 using Nan::Null;
 using Nan::To;
 using std::unique_ptr;
@@ -61,8 +60,7 @@ void LaunchAfter(uv_work_t* req, int status) {
   Local<Value> proc = Null();
 
   if (context->process->has_errors()) {
-    err = Exception::Error(New(reinterpret_cast<const uint16_t*>(
-        context->process->error().message().c_str())).ToLocalChecked());
+    err = Exception::Error(Nan::New(context->process->error().message().c_str()).ToLocalChecked());
   } else {
     proc = WrappedProcess::NewInstance(context->process);
   }
@@ -122,17 +120,16 @@ void DetectResolutionWork(uv_work_t* req) {
   SetSecurityDescriptorDacl(&sd, true, NULL, false);
   sa.lpSecurityDescriptor = &sd;
 
-  HANDLE slot_handle = CreateMailslotW(slot_name, sizeof(ResolutionMessage), 5000, &sa);
-  if (slot_handle == INVALID_HANDLE_VALUE) {
+  WinHandle slot_handle(CreateMailslotW(slot_name, sizeof(ResolutionMessage), 5000, &sa));
+  if (slot_handle.get() == INVALID_HANDLE_VALUE) {
     context->exit_code = 101;
-    context->error = WindowsError(GetLastError());
+    context->error = WindowsError("DetectResolutionWork -> CreateMailslot", GetLastError());
     return;
   }
 
   wstring args = L"\"" + emitter_path + L"\" \"" + slot_name + L"\"";
   Process process(emitter_path, args, false, dir);
   if (process.has_errors()) {
-    CloseHandle(slot_handle);
     context->exit_code = 101;
     context->error = process.error();
     return;
@@ -141,43 +138,35 @@ void DetectResolutionWork(uv_work_t* req) {
   bool timed_out;
   WindowsError result = process.WaitForExit(5000, &timed_out);
   if (result.is_error()) {
-    CloseHandle(slot_handle);
     context->exit_code = 101;
     context->error = result;
     return;
   } else if (timed_out) {
-    CloseHandle(slot_handle);
     context->exit_code = 102;
     return;
   }
 
   result = process.GetExitCode(&context->exit_code);
   if (result.is_error()) {
-    CloseHandle(slot_handle);
     context->exit_code = 101;
     context->error = result;
     return;
   } else if (context->exit_code != 0) {
-    CloseHandle(slot_handle);
     return;
   }
 
   // process exited properly, so it must have written to the mailslot. Read it!
   DWORD bytes_read;
-  bool success = ReadFile(slot_handle, &context->message, sizeof(context->message), &bytes_read,
-      nullptr) == TRUE;
+  bool success = ReadFile(slot_handle.get(), &context->message, sizeof(context->message),
+      &bytes_read, nullptr) == TRUE;
   if (!success) {
-    CloseHandle(slot_handle);
     context->exit_code = 101;
-    context->error = WindowsError(GetLastError());
+    context->error = WindowsError("DetectResolutionWork -> ReadFile", GetLastError());
     return;
   } else if (bytes_read != sizeof(context->message)) {
-    CloseHandle(slot_handle);
     context->exit_code = 103;
     return;
   }
-
-  CloseHandle(slot_handle);
 }
 
 void DetectResolutionAfter(uv_work_t* req, int status) {
@@ -188,17 +177,16 @@ void DetectResolutionAfter(uv_work_t* req, int status) {
   Local<Value> resolution = Null();
 
   if (context->exit_code == 101) {
-    err = Exception::Error(New(
-        reinterpret_cast<const uint16_t*>(context->error.message().c_str())).ToLocalChecked());
+    err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
   } else if (context->exit_code != 0) {
     char msg[100];
-    _snprintf(msg, sizeof(msg), "Non-zero exit code: %d", context->exit_code);
-    err = Exception::Error(New(msg).ToLocalChecked());
+    _snprintf_s(msg, sizeof(msg), "Non-zero exit code: %d", context->exit_code);
+    err = Exception::Error(Nan::New(msg).ToLocalChecked());
   } else {
-    resolution = New<Object>();
+    resolution = Nan::New<Object>();
     Local<Object> obj = resolution.As<Object>();
-    obj->Set(New("width").ToLocalChecked(), New(context->message.width));
-    obj->Set(New("height").ToLocalChecked(), New(context->message.height));
+    obj->Set(Nan::New("width").ToLocalChecked(), Nan::New(context->message.width));
+    obj->Set(Nan::New("height").ToLocalChecked(), Nan::New(context->message.height));
   }
 
   Local<Value> argv[] = { err, resolution };
@@ -244,13 +232,13 @@ void Initialize(Local<Object> exports, Local<Value> unused) {
   shutdown_callback = unique_ptr<Callback>();
   PsiService::SetShutdownCallback(EmitShutdown);
 
-  exports->Set(New("launchProcess").ToLocalChecked(),
-    New<FunctionTemplate>(LaunchProcess)->GetFunction());
-  exports->Set(New("detectResolution").ToLocalChecked(),
-    New<FunctionTemplate>(DetectResolution)->GetFunction());
-  exports->Set(New("registerShutdownHandler").ToLocalChecked(),
-    New<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
-  exports->Set(New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());
+  exports->Set(Nan::New("launchProcess").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(LaunchProcess)->GetFunction());
+  exports->Set(Nan::New("detectResolution").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(DetectResolution)->GetFunction());
+  exports->Set(Nan::New("registerShutdownHandler").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
+  exports->Set(Nan::New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());
 }
 
 }  // namespace psi

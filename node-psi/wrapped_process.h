@@ -24,6 +24,7 @@ private:
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void InjectDll(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void Resume(const Nan::FunctionCallbackInfo<v8::Value>& info);
+  static void Terminate(const Nan::FunctionCallbackInfo<v8::Value>& info);
   static void WaitForExit(const Nan::FunctionCallbackInfo<v8::Value>& info);
 
   static Nan::Persistent<v8::Function> constructor;

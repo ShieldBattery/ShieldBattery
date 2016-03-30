@@ -29,6 +29,10 @@ using v8::Value;
 namespace sbat {
 namespace psi {
 
+WrappedRegistry::WrappedRegistry() {}
+
+WrappedRegistry::~WrappedRegistry() {}
+
 Persistent<Function> WrappedRegistry::constructor;
 
 void WrappedRegistry::Init() {
@@ -77,22 +81,20 @@ void WrappedRegistry::ReadString(const FunctionCallbackInfo<Value>& info) {
   }
 
   HKEY key;
-  WindowsError result = WindowsError(RegOpenKeyW(root_key, sub_key->c_str(), &key));
+  WindowsError result("ReadString -> RegOpenKey", RegOpenKeyW(root_key, sub_key->c_str(), &key));
   if (result.is_error()) {
-    ThrowError(Exception::Error(Nan::New(
-        reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
+    ThrowError(Exception::Error(Nan::New(result.message().c_str()).ToLocalChecked()));
     return;
   }
 
   wchar_t value[MAX_PATH];
   DWORD value_size = sizeof(value);
-  result = WindowsError(RegQueryValueExW(key, value_name->c_str(), NULL, NULL,
-    reinterpret_cast<LPBYTE>(value), &value_size));
+  result = WindowsError("ReadString -> RegQueryValueEx", RegQueryValueExW(key, value_name->c_str(),
+      NULL, NULL, reinterpret_cast<LPBYTE>(value), &value_size));
   RegCloseKey(key);
 
   if (result.is_error()) {
-    ThrowError(Exception::Error(Nan::New(
-        reinterpret_cast<const uint16_t*>(result.message().c_str())).ToLocalChecked()));
+    ThrowError(Exception::Error(Nan::New(result.message().c_str()).ToLocalChecked()));
     return;
   } else {
     if (value_size == 0) {

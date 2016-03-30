@@ -16,7 +16,7 @@ const cachePath = process.env.ProgramData ?
 // use two files for babel caching to avoid weirdness with two processes writing to the same file
 process.env.BABEL_CACHE_PATH = path.join(cachePath, `.${modName}.babel.json`)
 
-if (!WEBPACK_BUILD) { // eslint-disable-line no-undef
+if (typeof WEBPACK_BUILD === 'undefined') { // eslint-disable-line no-undef
   require('babel-register')
 }
 require('babel-polyfill')

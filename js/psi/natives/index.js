@@ -28,6 +28,11 @@ class Process {
     if (err) throw err
   }
 
+  terminate() {
+    const err = this._cProcess.terminate()
+    if (err) throw err
+  }
+
   async waitForExit() {
     return new Promise((resolve, reject) => {
       this._cProcess.waitForExit((err, code) => {
