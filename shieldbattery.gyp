@@ -206,13 +206,11 @@
       'sources': [
         'common/func_hook.cpp',
         'common/win_helpers.cpp',
-        'common/win_thread.cpp',
         # headers
         'common/func_hook.h',
         'common/macros.h',
         'common/types.h',
         'common/win_helpers.h',
-        'common/win_thread.h',
       ],
       'direct_dependent_settings': {
         'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib' ],
