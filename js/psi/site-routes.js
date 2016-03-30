@@ -1,4 +1,5 @@
 import { detectResolution } from './natives/index'
+import log from './logger'
 
 export function register(nydus, localSettings, activeGameManager, mapStore) {
   async function setSettings(data, next) {
@@ -32,5 +33,13 @@ export function subscribe(nydus, client, activeGameManager, localSettings) {
 }
 
 async function getResolution(data, next) {
-  return await detectResolution()
+  log.verbose('Detecting resolution')
+  try {
+    const res = await detectResolution()
+    log.verbose(`Got resolution ${JSON.stringify(res)}`)
+    return res
+  } catch (err) {
+    log.error('Error detecting resolution: ' + err)
+    throw err
+  }
 }
