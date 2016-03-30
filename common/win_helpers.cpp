@@ -314,7 +314,7 @@ WindowsError Process::Terminate() {
     return error();
   }
 
-  if (TerminateThread(process_handle_.get(), 0) == 0) {
+  if (TerminateProcess(process_handle_.get(), 0) == 0) {
     return WindowsError("Process Terminate -> TerminateThread", GetLastError());
   }
 

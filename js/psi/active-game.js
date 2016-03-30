@@ -10,6 +10,7 @@ import {
   GAME_STATUS_CONFIGURING,
   GAME_STATUS_PLAYING,
   GAME_STATUS_FINISHED,
+  GAME_STATUS_ERROR,
   statusToString
 } from '../common/game-status'
 
@@ -52,14 +53,16 @@ export default class ActiveGameManager {
     }
 
     this.config = config
-    this.activeGameId = cuid()
+    const backupId = this.activeGameId = cuid()
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
     this._setStatus(GAME_STATUS_LAUNCHING)
-    this.activeGamePromise = doLaunch(this.activeGameId)
+    this.activeGamePromise = doLaunch(this.activeGameId).then(async proc => {
+      const code = await proc.waitForExit()
+      this.handleGameExit(backupId, code)
+    }, err => {
+      this.handleGameLaunchError(backupId, err)
+    }).catch(err => this.handleGameExitWaitError(backupId, err))
 
-    const backupId = this.activeGameId
-    this.activeGamePromise.then(code => this.handleGameExit(backupId, code),
-        err => this.handleGameExitWaitErr(backupId, err))
     return this.activeGameId
   }
 
@@ -79,6 +82,17 @@ export default class ActiveGameManager {
       ...this.config,
       localMap: this.mapStore.getPath(map.hash, map.format)
     })
+  }
+
+  handleGameLaunchError(id, err) {
+    log.error(`Error while launching game ${id}: ${err}`)
+    if (id === this.activeGameId) {
+      this._setStatus(GAME_STATUS_ERROR, err)
+
+      this.activeGameId = null
+      this.config = null
+      this._setStatus(GAME_STATUS_UNKNOWN)
+    }
   }
 
   handleSetupProgress(gameId, info) {
@@ -117,8 +131,8 @@ export default class ActiveGameManager {
     this._setStatus(GAME_STATUS_UNKNOWN)
   }
 
-  handleGameExitWaitErr(id, err) {
-    log.verbose(`Error while waiting for game ${id} to exit: ${err}`)
+  handleGameExitWaitError(id, err) {
+    log.error(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
   _setStatus(state, extra = null) {
@@ -127,6 +141,14 @@ export default class ActiveGameManager {
       this.nydus.publish('/game/status', this.getStatusForSite())
     }
     log.verbose(`Game status updated to '${statusToString(state)}'`)
+  }
+}
+
+function silentTerminate(proc) {
+  try {
+    proc.terminate()
+  } catch (err) {
+    log.warning('Error terminating process: ' + err)
   }
 }
 
@@ -148,11 +170,22 @@ async function doLaunch(gameId) {
     currentDir: installPath,
   })
   log.verbose('Process launched')
-  const endPromise = proc.waitForExit()
   const shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
-  await proc.injectDll(shieldbatteryDll, 'OnInject')
+  try {
+    await proc.injectDll(shieldbatteryDll, 'OnInject')
+  } catch (err) {
+    silentTerminate(proc)
+    throw err
+  }
+
   log.verbose('Dll injected. Attempting to resume process...')
-  proc.resume()
+  try {
+    proc.resume()
+  } catch (err) {
+    silentTerminate(proc)
+    throw err
+  }
+
   log.verbose('Process resumed')
-  return endPromise
+  return proc
 }
