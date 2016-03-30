@@ -56,13 +56,10 @@ export default class ActiveGameManager {
     const backupId = this.activeGameId = cuid()
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
     this._setStatus(GAME_STATUS_LAUNCHING)
-    this.activeGamePromise = doLaunch(this.activeGameId).then(async proc => {
-      const code = await proc.waitForExit()
-      this.handleGameExit(backupId, code)
-    }, err => {
-      this.handleGameLaunchError(backupId, err)
-    }).catch(err => this.handleGameExitWaitError(backupId, err))
-
+    this.activeGamePromise = doLaunch(this.activeGameId)
+      .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(backupId, err))
+      .then(code => this.handleGameExit(backupId, code),
+          err => this.handleGameExitWaitError(backupId, err))
     return this.activeGameId
   }
 
