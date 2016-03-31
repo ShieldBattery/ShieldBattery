@@ -97,6 +97,13 @@ Forge::Forge()
       process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook);
   hooks_.ShowWindow = new ImportHook<ImportHooks::ShowWindowFunc>(
     process, "user32.dll", "ShowWindow", ShowWindowHook);
+
+  HMODULE storm = GetModuleHandleA("storm.dll");
+  assert(storm != nullptr);
+  hooks_.StormIsIconic = new ImportHook<ImportHooks::StormIsIconicFunc>(
+    storm, "user32.dll", "IsIconic", IsIconicHook);
+  hooks_.StormIsWindowVisible = new ImportHook<ImportHooks::StormIsWindowVisibleFunc>(
+    storm, "user32.dll", "IsWindowVisible", IsWindowVisibleHook);
 }
 
 Forge::~Forge() {
@@ -233,6 +240,8 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.SetCapture->Inject();
   result &= instance_->hooks_.ReleaseCapture->Inject();
   result &= instance_->hooks_.ShowWindow->Inject();
+  result &= instance_->hooks_.StormIsIconic->Inject();
+  result &= instance_->hooks_.StormIsWindowVisible->Inject();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -254,6 +263,8 @@ void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.SetCapture->Restore();
   result &= instance_->hooks_.ReleaseCapture->Restore();
   result &= instance_->hooks_.ShowWindow->Restore();
+  result &= instance_->hooks_.StormIsIconic->Restore();
+  result &= instance_->hooks_.StormIsWindowVisible->Restore();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -635,6 +646,15 @@ BOOL __stdcall Forge::IsIconicHook(HWND hWnd) {
     return instance_->hooks_.IsIconic->original()(hWnd);
   }
 }
+
+BOOL __stdcall Forge::IsWindowVisibleHook(HWND hWnd) {
+  if (hWnd == instance_->window_handle_) {
+    return TRUE;
+  } else {
+    return instance_->hooks_.StormIsWindowVisible->original()(hWnd);
+  }
+}
+
 
 BOOL __stdcall Forge::ClientToScreenHook(HWND hWnd, LPPOINT lpPoint) {
   if (hWnd != instance_->window_handle_) {

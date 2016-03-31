@@ -25,6 +25,7 @@ const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
       ImportHook<##Name##Func>* Name;
 struct ImportHooks {
+  // Starcraft import hooks
   HOOKABLE(HWND, CreateWindowExA, DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName,
       DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu,
       HINSTANCE hInstance, LPVOID lpParam);
@@ -41,6 +42,10 @@ struct ImportHooks {
   HOOKABLE(HWND, SetCapture, HWND hWnd);
   HOOKABLE(BOOL, ReleaseCapture);
   HOOKABLE(BOOL, ShowWindow, HWND hwnd, int nCmdShow);
+  // Storm import hooks
+  HOOKABLE(BOOL, StormIsIconic, HWND hWnd);
+  HOOKABLE(BOOL, StormIsWindowVisible, HWND hWnd);
+
 };
 #undef HOOKABLE
 
@@ -87,6 +92,7 @@ private:
   static int __stdcall GetSystemMetricsHook(int nIndex);
   static FARPROC __stdcall GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName);
   static BOOL __stdcall IsIconicHook(HWND hWnd);
+  static BOOL __stdcall IsWindowVisibleHook(HWND hWnd);
   static BOOL __stdcall ClientToScreenHook(HWND hWnd, LPPOINT lpPoint);
   static BOOL __stdcall ScreenToClientHook(HWND hWnd, LPPOINT lpPoint);
   static BOOL __stdcall GetClientRectHook(HWND hWnd, LPRECT lpRect);
