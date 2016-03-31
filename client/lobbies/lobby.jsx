@@ -134,6 +134,17 @@ class ChatList extends React.Component {
     this._shouldAutoScroll = true
   }
 
+  maybeScrollToBottom() {
+    if (this._shouldAutoScroll) {
+      const node = ReactDom.findDOMNode(this)
+      node.scrollTop = node.scrollHeight
+    }
+  }
+
+  componentDidMount() {
+    this.maybeScrollToBottom()
+  }
+
   shouldComponentUpdate(nextProps) {
     return nextProps.messages !== this.props.messages
   }
@@ -144,10 +155,7 @@ class ChatList extends React.Component {
   }
 
   componentDidUpdate() {
-    if (this._shouldAutoScroll) {
-      const node = ReactDom.findDOMNode(this)
-      node.scrollTop = node.scrollHeight
-    }
+    this.maybeScrollToBottom()
   }
 
   renderMessage(msg) {
