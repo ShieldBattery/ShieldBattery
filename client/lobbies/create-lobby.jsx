@@ -74,8 +74,8 @@ export default class CreateLobby extends React.Component {
     return (<ValidatedForm ref='form' formTitle={'Create lobby'} buttons={buttons}
         onSubmitted={this._handleSubmitted}>
       <ValidatedText label='Lobby name' floatingLabel={true} name='name' autoCapitalize='off'
-          autoCorrect='off' spellCheck={false} required={true} requiredMessage='Enter a lobby name'
-          validator={lobbyNameValidator} tabIndex={0}
+          autoComplete='off' autoCorrect='off' spellCheck={false} required={true}
+          requiredMessage='Enter a lobby name' validator={lobbyNameValidator} tabIndex={0}
           onEnterKeyDown={this._handleCreateClicked}/>
       <ValidatedSelect label='Map' name='map' tabIndex={0} defaultValue={this.state.defaultMap}
           disabled={!maps.list.size}>
