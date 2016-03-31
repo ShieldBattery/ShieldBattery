@@ -183,12 +183,22 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   }
 
   HANDLE token;
-  int token_num = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
-  if (token_num == 0) {
+  uint32 result = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
+  if (result == 0) {
     error_ = WindowsError("Process -> WTSQueryUserToken", GetLastError());
     return;
   }
-  WinHandle managed_token(token);
+  WinHandle active_session_token(token);
+
+  result = DuplicateTokenEx(active_session_token.get(), TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE |
+      TOKEN_QUERY | TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID, nullptr,
+      SecurityImpersonation, TokenPrimary, &token);
+  if (result == 0) {
+    error_ = WindowsError("Process -> DuplicateTokenEx", GetLastError());
+    return;
+  }
+  WinHandle priv_token(token);
+  
 
   STARTUPINFOW startup_info = { 0 };
   // CreateProcessW claims to sometimes modify arguments, no fucking clue why
@@ -196,7 +206,7 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
 
   PROCESS_INFORMATION process_info;
-  if (!CreateProcessAsUserW(managed_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
+  if (!CreateProcessAsUserW(priv_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
       nullptr, false, launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(),
       &startup_info, &process_info)) {
     error_ = WindowsError("Process -> CreateProcessAsUserW", GetLastError());
