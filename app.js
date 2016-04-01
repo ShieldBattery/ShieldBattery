@@ -39,7 +39,7 @@ app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
   .use(koaCompress())
-  .use(views(path.join(__dirname, 'views'), { default: 'jade' }))
+  .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)
   .use(csrfCookie())
