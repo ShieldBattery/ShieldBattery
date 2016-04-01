@@ -84,6 +84,8 @@ export const Lobbies = {
         return s
       }
     }
+
+    throw new Error('Invalid state: not at max players but failed to find empty slot')
   },
 
   // Adds a player to the lobby, returning the updated lobby. The player should already have the

@@ -7,7 +7,10 @@ exports.up = function(db, callback) {
       }, fillExisting)
 
   function fillExisting(err) {
-    if (err) return callback(err)
+    if (err) {
+      callback(err)
+      return
+    }
     const sql = 'INSERT INTO permissions (user_id) SELECT id FROM users'
     db.runSql(sql, [], callback)
   }

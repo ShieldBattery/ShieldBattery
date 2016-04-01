@@ -37,15 +37,14 @@ class CheckBox extends React.Component {
   }
 
   render() {
-    const classes = classnames(styles.checkBox, this.props.className, {
+    const { className, label, ...restProps } = this.props
+    const classes = classnames(styles.checkBox, className, {
       [styles.checked]: this.state.checked,
       [styles.disabled]: this.props.disabled,
       [styles.focused]: this.state.isKeyboardFocused,
     })
 
-    const labelElem = this.props.label ?
-        <label htmlFor={this.id}>{this.props.label}</label> : null
-
+    const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
     const iconElem = <div className={styles.icon}></div>
 
     const inputProps = {
@@ -59,7 +58,6 @@ class CheckBox extends React.Component {
       onMouseOut: e => this._handleMouseOut(e),
       onChange: e => this._handleChange(e),
     }
-    const { className, label, ...restProps } = this.props
     const inputElem = <input {...restProps} {...inputProps} />
 
     return (<div className={classes}>

@@ -9,10 +9,8 @@ class Permissions {
 }
 
 function* createPermissions(dbClient, userId) {
-  let query
-    , params
-  query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
-  params = [ userId ]
+  const query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
+  const params = [ userId ]
 
   const result = yield dbClient.queryPromise(query, params)
   if (result.rows.length < 1) throw new Error('No rows returned')
@@ -20,11 +18,9 @@ function* createPermissions(dbClient, userId) {
 }
 
 function* getPermissions(userId) {
-  let query
-    , params
-  query = 'SELECT user_id, edit_permissions, debug, accept_invites ' +
-      'FROM permissions WHERE user_id = $1'
-  params = [ userId ]
+  const query =
+      'SELECT user_id, edit_permissions, debug, accept_invites FROM permissions WHERE user_id = $1'
+  const params = [ userId ]
 
   const { client, done } = yield db()
   try {
@@ -36,11 +32,9 @@ function* getPermissions(userId) {
 }
 
 function* updatePermissions(userId, perms) {
-  let query
-    , params
-  query = 'UPDATE permissions SET edit_permissions = $1, debug = $2, accept_invites = $3 ' +
+  const query = 'UPDATE permissions SET edit_permissions = $1, debug = $2, accept_invites = $3 ' +
       'WHERE user_id = $4 RETURNING *'
-  params = [ !!perms.editPermissions, !!perms.debug, !!perms.acceptInvites, userId ]
+  const params = [ !!perms.editPermissions, !!perms.debug, !!perms.acceptInvites, userId ]
 
   const { client, done } = yield db()
   try {

@@ -83,10 +83,8 @@ function* getAcceptedInvites() {
 }
 
 function* acceptInvite(email, token) {
-  let query
-    , params
-  query = 'UPDATE invites SET token = $1 WHERE email = $2 AND token IS NULL RETURNING *'
-  params = [ token, email ]
+  const query = 'UPDATE invites SET token = $1 WHERE email = $2 AND token IS NULL RETURNING *'
+  const params = [ token, email ]
 
   const { client, done } = yield db()
   try {

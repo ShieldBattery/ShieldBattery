@@ -52,8 +52,8 @@ class TransitionSnackbar extends React.Component {
 
   render() {
     const {
-      dispatch,
-      onLeft,
+      dispatch, // eslint-disable-line no-unused-vars
+      onLeft, // eslint-disable-line no-unused-vars
       ...pass
     } = this.props
 

@@ -134,6 +134,8 @@ export default class LobbyView extends React.Component {
         <p>There was a problem loading this lobby</p>
       </div>)
     }
+
+    return null
   }
 
   renderLeaveAndJoin() {

@@ -16,7 +16,10 @@ import './network/psi-socket'
 
 new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
-  if (elem) return resolve(elem)
+  if (elem) {
+    resolve(elem)
+    return
+  }
 
   document.addEventListener('DOMContentLoaded', e => {
     const elem = document.getElementById('app')

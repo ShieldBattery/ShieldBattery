@@ -26,6 +26,7 @@ function* transact(next) {
   } catch (err) {
     yield* rollbackFor(err, client, done)
   }
+  return undefined
 }
 
 function* rollbackFor(err, client, done) {
@@ -65,11 +66,9 @@ class User {
   }
 
   * _insert() {
-    let query
-      , params
-    query = 'INSERT INTO users (name, email, password, created) ' +
+    const query = 'INSERT INTO users (name, email, password, created) ' +
         'VALUES ($1, $2, $3, $4) RETURNING id'
-    params = [ this.name, this.email, this.password, this.created ]
+    const params = [ this.name, this.email, this.password, this.created ]
 
     const self = this
     return yield* transact(function*(client) {
@@ -86,11 +85,10 @@ class User {
   }
 
   * _update() {
-    let query
-      , params
     if (!this.id) throw new Error('Incomplete data')
-    query = 'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
-    params = [ this.name, this.email, this.password. this.created, this.id ]
+    const query =
+        'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
+    const params = [ this.name, this.email, this.password. this.created, this.id ]
 
     const { client, done } = yield db()
     try {

@@ -50,7 +50,8 @@ class WebsocketServer {
     logger.info({ req }, 'websocket authorizing')
     if (!req.headers.cookie) {
       logger.error({ err: new Error('request had no cookies') }, 'websocket error')
-      return cb(null, false)
+      cb(null, false)
+      return
     }
 
     const koaContext = this.koa.createContext(req, dummyRes)

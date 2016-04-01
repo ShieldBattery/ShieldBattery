@@ -62,7 +62,7 @@ class Login extends React.Component {
         maxLengthValidator(USERNAME_MAXLENGTH,
             `Enter at most ${USERNAME_MAXLENGTH} characters`),
         regexValidator(USERNAME_PATTERN,
-            `Username contains invalid characters`)
+            'Username contains invalid characters')
       )
       const passwordValidator = minLengthValidator(PASSWORD_MINLENGTH,
           `Enter at least ${PASSWORD_MINLENGTH} characters`)

@@ -104,6 +104,8 @@ class ValidatedForm extends React.Component {
         return [ ref.props.name, ref.getValue() ]
       })))
     }
+
+    return undefined
   }
 
   _handleInputChange(elem) {

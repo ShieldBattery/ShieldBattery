@@ -56,7 +56,7 @@ class Signup extends React.Component {
       maxLengthValidator(USERNAME_MAXLENGTH,
           `Use at most ${USERNAME_MAXLENGTH} characters`),
       regexValidator(USERNAME_PATTERN,
-          `Username contains invalid characters`)
+          'Username contains invalid characters')
     )
     const emailValidator = composeValidators(
       minLengthValidator(EMAIL_MINLENGTH,
@@ -64,12 +64,12 @@ class Signup extends React.Component {
       maxLengthValidator(EMAIL_MAXLENGTH,
           `Use at most ${EMAIL_MAXLENGTH} characters`),
       regexValidator(EMAIL_PATTERN,
-          `Enter a valid email address`)
+          'Enter a valid email address')
     )
     const passwordValidator = minLengthValidator(PASSWORD_MINLENGTH,
         `Use at least ${PASSWORD_MINLENGTH} characters`)
     const confirmPasswordValidator = matchOtherValidator('password',
-        `Passwords do not match`)
+        'Passwords do not match')
 
     let errContents
     const failure = auth.lastFailure
