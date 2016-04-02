@@ -67,6 +67,8 @@ function* startNewSession(next) {
   try {
     yield this.regenerateSession()
     const perms = yield* permissions.get(user.id)
+    // preserve the capitalization of the name that the user entered when logging in
+    user.name = username
     initSession(this, user, perms)
     setReturningCookie(this)
 
