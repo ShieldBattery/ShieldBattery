@@ -13,6 +13,7 @@ export const LocalSettings = new Record({
   mouseSensitivity: 1,
   maintainAspectRatio: true,
   renderer: 0,
+  starcraftPath: null,
 })
 
 export const Settings = new Record({
