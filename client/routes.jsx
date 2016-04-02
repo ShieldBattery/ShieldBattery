@@ -6,7 +6,6 @@ import AppNotFound from './app-not-found.jsx'
 import BetaSignup from './beta/signup.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
-import MainLayout from './main-layout.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
@@ -51,10 +50,10 @@ const routes = <Route>
         </Route>
       </Route>
     </Route>
-    <Route component={LoginLayout}>
-      <Route path='/login' component={Login} />
-      <Route path='/signup' component={Signup} />
-    </Route>
+  </Route>
+  <Route component={LoginLayout}>
+    <Route path='/login' component={Login} />
+    <Route path='/signup' component={Signup} />
   </Route>
   { devRoutes }
   <Route path='*' component={AppNotFound} />

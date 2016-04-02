@@ -81,7 +81,7 @@ class Login extends React.Component {
               required={true} requiredMessage='Enter a username'
               validator={usernameValidator}
               onEnterKeyDown={e => this.onLogInClicked()}/>
-            <ValidatedText className={styles.textFields} label='Password' floatingLabel={true}
+          <ValidatedText className={styles.textFields} label='Password' floatingLabel={true}
               name='password' tabIndex={1} type='password'
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               required={true} requiredMessage='Enter a password'

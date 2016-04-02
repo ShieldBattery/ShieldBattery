@@ -1,9 +1,11 @@
+@value col, itemsCenter, justifyCenter from '../styles/flex.css';
+
 .splash {
-  composes: col itemsCenter justifyCenter from '../styles/flex.css';
+  composes: col itemsCenter justifyCenter;
 }
 
 .signup {
-  composes: col itemsCenter justifyCenter from '../styles/flex.css';
+  composes: col itemsCenter justifyCenter;
 }
 
 .signupCard {

@@ -9,7 +9,11 @@ import composeValidators from '../forms/compose-validators'
 import minLengthValidator from '../forms/min-length-validator'
 import maxLengthValidator from '../forms/max-length-validator'
 import regexValidator from '../forms/regex-validator'
-import constants from '../../shared/constants'
+import {
+  EMAIL_MINLENGTH,
+  EMAIL_MAXLENGTH,
+  EMAIL_PATTERN,
+} from '../../shared/constants'
 
 import { createInvite } from './action-creator'
 
@@ -36,16 +40,16 @@ class BetaSignup extends React.Component {
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
     const emailValidator = composeValidators(
-      minLengthValidator(constants.EMAIL_MINLENGTH,
-          `Use at least ${constants.EMAIL_MINLENGTH} characters`),
-      maxLengthValidator(constants.EMAIL_MAXLENGTH,
-          `Use at most ${constants.EMAIL_MAXLENGTH} characters`),
-      regexValidator(constants.EMAIL_PATTERN,
-          `Enter a valid email address`)
+      minLengthValidator(EMAIL_MINLENGTH,
+          `Use at least ${EMAIL_MINLENGTH} characters`),
+      maxLengthValidator(EMAIL_MAXLENGTH,
+          `Use at most ${EMAIL_MAXLENGTH} characters`),
+      regexValidator(EMAIL_PATTERN,
+          'Enter a valid email address')
     )
 
     const signupForm = <ValidatedForm ref='form' formTitle='Sign up' buttons={button}
-          onSubmitted={values => this.onSubmitted(values)}>
+        onSubmitted={values => this.onSubmitted(values)}>
       <h5>Required</h5>
       <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}
@@ -98,7 +102,7 @@ class BetaSignup extends React.Component {
     this.setState({ formSubmitted: true })
 
     let canHost = values.get('canHost')
-    if (canHost === 'Yes' || canHost === 'yes' || canHost === 'y') {
+    if (canHost.toLowerCase() === 'yes') {
       canHost = true
     }
 
