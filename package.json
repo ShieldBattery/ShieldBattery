@@ -6,6 +6,7 @@
   "scripts": {
     "autotest": "mocha --watch -R spec --compilers js:babel-register --recursive test/",
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
+    "migrate-create": "db-migrate create",
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
     "posttest": "npm run lint",
