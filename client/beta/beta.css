@@ -1,0 +1,13 @@
+@value col, itemsCenter, justifyCenter from '../styles/flex.css';
+
+.splash {
+  composes: col itemsCenter justifyCenter;
+}
+
+.signup {
+  composes: col itemsCenter justifyCenter;
+}
+
+.signupCard {
+  width: 640px;
+}
