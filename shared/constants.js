@@ -12,7 +12,7 @@ export const PORT_MIN_NUMBER = 0
 export const PORT_MAX_NUMBER = 65535
 
 export const USERNAME_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/
-export const USERNAME_MINLENGTH = 3
+export const USERNAME_MINLENGTH = 1
 export const USERNAME_MAXLENGTH = 16
 
 export function isValidUsername(username) {
