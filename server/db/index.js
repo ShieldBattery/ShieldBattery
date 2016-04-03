@@ -2,6 +2,10 @@ import pg from 'pg'
 import thenify from 'thenify'
 import config from '../../config.js'
 
+// Our DATETIME columns are all in UTC, so we mark the strings postgres returns this way so the
+// parsed dates are correct
+pg.types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+0000')))
+
 const connString = config.db.connString
 if (!connString) throw new Error('db.connString must be set in config.js')
 
@@ -12,7 +16,7 @@ export default function() {
   return new Promise((resolve, reject) => {
     pg.connect(connString, (err, client, done) => {
       if (err) reject(err)
-      else resolve({ client, done})
+      else resolve({ client, done })
     })
   })
 }

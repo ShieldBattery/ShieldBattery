@@ -8,6 +8,7 @@ import {
   NETWORK_SITE_DISCONNECTED,
 } from '../actions'
 
+import chat from '../chat/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import settingsPsi from '../settings/psi-handlers'
@@ -28,6 +29,7 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 }
 
 const handlers = [
+  chat,
   lobbies,
   networkStatusHandler,
   serverStatus,

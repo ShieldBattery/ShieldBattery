@@ -1,6 +1,8 @@
 // User model, corresponding to a user account on the site (with a login, password, etc.)
 import db from '../db'
+import transact from '../db/transaction'
 import permissions from './permissions'
+import { addUserToChannel } from './chat-channels'
 
 function defPrivate(o, name, value) {
   Object.defineProperty(o, name, {
@@ -8,37 +10,6 @@ function defPrivate(o, name, value) {
     writable: true,
     value,
   })
-}
-
-function* transact(next) {
-  const { client, done } = yield db()
-  try {
-    yield client.queryPromise('BEGIN')
-  } catch (err) {
-    yield* rollbackFor(err, client, done)
-  }
-
-  try {
-    const result = yield* next(client)
-    yield client.queryPromise('COMMIT')
-    done()
-    return result
-  } catch (err) {
-    yield* rollbackFor(err, client, done)
-  }
-  return undefined
-}
-
-function* rollbackFor(err, client, done) {
-  try {
-    yield client.queryPromise('ROLLBACK')
-  } catch (err) {
-    done(err)
-    throw err
-  }
-
-  done()
-  throw err
 }
 
 class User {
@@ -70,16 +41,18 @@ class User {
         'VALUES ($1, $2, $3, $4) RETURNING id'
     const params = [ this.name, this.email, this.password, this.created ]
 
+    // async arrow functions cause problems with `this` in babel atm
     const self = this
-    return yield* transact(function*(client) {
-      const result = yield client.queryPromise(query, params)
+    return yield transact(async function(client) {
+      const result = await client.queryPromise(query, params)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')
       }
 
       self.id = result.rows[0].id
       self._fromDb = true
-      const userPermissions = yield* permissions.create(client, self.id)
+      const userPermissions = await permissions.create(client, self.id)
+      await addUserToChannel(self.id, 'ShieldBattery')
       return { user: self, permissions: userPermissions }
     })
   }

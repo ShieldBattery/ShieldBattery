@@ -32,7 +32,7 @@ function stateToProps(state) {
     auth: state.auth,
     inLobby: state.lobby.inLobby,
     lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
-    chatChannels: state.chatChannels,
+    chatChannels: state.chat.channels,
     whispers: state.whispers,
   }
 }
@@ -76,7 +76,7 @@ class MainLayout extends React.Component {
 
   render() {
     const channels = this.props.chatChannels.map(
-        channel => <ChatNavEntry key={channel.name} channel={channel.name} />)
+        channel => <ChatNavEntry key={channel} channel={channel} />)
     const whispers = this.props.whispers.map(
         whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
 

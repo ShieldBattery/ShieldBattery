@@ -10,6 +10,21 @@ export const AUTH_SIGN_UP = 'AUTH_SIGN_UP'
 export const BETA_CREATE_INVITE_BEGIN = 'BETA_CREATE_INVITE_BEGIN'
 export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
 
+// A chat channel that we're in has some initial data we should use to initialize it in the store
+export const CHAT_INIT_CHANNEL = 'CHAT_INIT_CHANNEL'
+export const CHAT_LOAD_CHANNEL_HISTORY_BEGIN = 'CHAT_LOAD_CHANNEL_HISTORY_BEGIN'
+export const CHAT_LOAD_CHANNEL_HISTORY = 'CHAT_LOAD_CHANNEL_HISTORY'
+export const CHAT_SEND_MESSAGE_BEGIN = 'CHAT_SEND_MESSAGE_BEGIN'
+export const CHAT_SEND_MESSAGE = 'CHAT_SEND_MESSAGE'
+// We've received a message from a user in one of our joined channels
+export const CHAT_UPDATE_MESSAGE = 'CHAT_UPDATE_MESSAGE'
+// A user in one of our chat channels has become active (non-idle and online)
+export const CHAT_UPDATE_USER_ACTIVE = 'CHAT_UPDATE_USER_ACTIVE'
+// A user in one of our chat channels has become idle (still online, but not active)
+export const CHAT_UPDATE_USER_IDLE = 'CHAT_UPDATE_USER_IDLE'
+// A user in one of our chat channels has gone offline
+export const CHAT_UPDATE_USER_OFFLINE = 'CHAT_UPDATE_USER_OFFLINE'
+
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 

@@ -1,0 +1,77 @@
+@value colorTextSecondary, blue100, blue200 from '../styles/colors.css';
+@value row, col, grow, shrink, exact, justifyEnd from '../styles/flex.css';
+@value body2, singleLine from '../styles/typography.css';
+
+.container {
+  composes: row;
+  padding: 0 16px;
+  margin: 0 auto;
+  height: calc(100vh - 64px);
+  max-width: 1140px;
+}
+
+.messagesAndInput {
+  composes: col grow justifyEnd;
+  min-width: 320px;
+  min-height: 100%;
+  max-height: 100%;
+}
+
+.messages {
+  composes: shrink;
+  padding-top: 16px;
+  padding-right: 16px;
+  overflow-y: auto;
+}
+
+.systemMessage {
+  color: blue100;
+}
+
+.important {
+  composes: body2;
+  line-height: inherit;
+  color: blue200;
+}
+
+.chatInput {
+  composes: exact;
+  margin: 0;
+  padding: 0;
+}
+
+.userList {
+  composes: exact;
+  padding: 16px 0 16px 24px;
+  width: 256px;
+}
+
+.userListSection {
+}
+
+.userListSection + .userListSection {
+  margin-top: 16px;
+}
+
+.userListRow {
+  height: 28px;
+  line-height: 28px;
+  margin: 0;
+  padding: 0;
+}
+
+.userSubheader {
+  composes: body2 singleLine;
+  composes: userListRow;
+  color: colorTextSecondary;
+}
+
+.userSublist {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.userListEntry {
+  composes: userListRow;
+}

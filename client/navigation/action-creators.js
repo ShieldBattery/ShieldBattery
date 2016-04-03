@@ -4,11 +4,11 @@ import { routeActions } from 'redux-simple-router'
 // don't really have a root content page
 export function goToIndex(transitionFn = routeActions.push) {
   return (dispatch, getState) => {
-    const { lobby, whispers, chatChannels } = getState()
+    const { lobby, whispers, chat: { channels } } = getState()
     if (lobby.inLobby) {
       dispatch(transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
-    } else if (chatChannels.size) {
-      dispatch(transitionFn(`/chat/${encodeURIComponent(chatChannels.get(0).name)}`))
+    } else if (channels.size) {
+      dispatch(transitionFn(`/chat/${encodeURIComponent(channels.get(0))}`))
     } else if (whispers.size) {
       dispatch(transitionFn(`/whispers/${encodeURIComponent(whispers.get(0).from)}`))
     } else {

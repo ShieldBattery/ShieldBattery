@@ -4,10 +4,11 @@ import { EventEmitter } from 'events'
 function defaultDataGetter() {}
 
 export class UserSocketGroup extends EventEmitter {
-  constructor(nydus, name, initSocket) {
+  constructor(nydus, session, initSocket) {
     super()
     this.nydus = nydus
-    this.name = name
+    this.name = session.userName
+    this.session = session
     this.sockets = new Set()
     this.subscriptions = new Map()
 
@@ -57,6 +58,9 @@ export class UserSocketGroup extends EventEmitter {
     for (const [path, { getter }] of this.subscriptions.entries()) {
       this.nydus.subscribeClient(socket, path, getter(this, socket))
     }
+
+    // Give the client a message so they know we're done subscribing them to things
+    this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribed' })
   }
 
   _applyCleanups() {
@@ -73,6 +77,10 @@ export class UserSocketGroup extends EventEmitter {
       this.nydus.unsubscribeClient(socket, path)
     }
     this.subscriptions = updated
+  }
+
+  getUserPath() {
+    return `/users/${this.session.userId}`
   }
 }
 
@@ -93,7 +101,7 @@ export class UserManager extends EventEmitter {
       const session = this.sessionLookup.get(socket.conn.request)
       const userName = session.userName
       if (!this.users.has(userName)) {
-        const user = new UserSocketGroup(this.nydus, userName, socket)
+        const user = new UserSocketGroup(this.nydus, session, socket)
         this.users = this.users.set(userName, user)
         this.emit('newUser', user)
         user.once('close', () => this._removeUser(userName))

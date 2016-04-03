@@ -8,11 +8,11 @@ class Permissions {
   }
 }
 
-function* createPermissions(dbClient, userId) {
+async function createPermissions(dbClient, userId) {
   const query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
   const params = [ userId ]
 
-  const result = yield dbClient.queryPromise(query, params)
+  const result = await dbClient.queryPromise(query, params)
   if (result.rows.length < 1) throw new Error('No rows returned')
   return new Permissions(result.rows[0])
 }

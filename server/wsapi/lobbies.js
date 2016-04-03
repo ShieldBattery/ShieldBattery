@@ -3,25 +3,12 @@ import cuid from 'cuid'
 import errors from 'http-errors'
 import getSocketAddress from '../websockets/get-address'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
+import validateBody from '../websockets/validate-body'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
 
 
 import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
-
-function validateBody(bodyValidators) {
-  return async function(data, next) {
-    const body = data.get('body')
-    if (!body) throw new errors.BadRequest('invalid body')
-    for (const key of Object.keys(bodyValidators)) {
-      if (!bodyValidators[key](body[key])) {
-        throw new errors.BadRequest(`Invalid ${key}`)
-      }
-    }
-
-    return await next(data)
-  }
-}
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
