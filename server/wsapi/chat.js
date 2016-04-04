@@ -87,7 +87,7 @@ export class ChatApi {
       throw new errors.Forbidden('must be in a channel to retrieve message history')
     }
 
-    const messages = await getMessagesForChannel(channel, 50, beforeTime)
+    const messages = await getMessagesForChannel(channel, user.session.userId, 50, beforeTime)
     return messages.map(m => ({
       id: m.msgId,
       user: m.userName,

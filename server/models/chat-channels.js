@@ -80,22 +80,25 @@ export async function addMessageToChannel(userId, channelName, messageData) {
   }
 }
 
-export async function getMessagesForChannel(channelName, limit = 50, beforeDate = -1) {
+export async function getMessagesForChannel(channelName, userId, limit = 50, beforeDate = -1) {
   const { client, done } = await db()
-  const whereClause = 'WHERE m.channel_name = $1' +
-      (beforeDate > -1 ? 'AND m.sent < $3' : '')
-  const params = [ channelName, limit ]
+  const whereClause = 'WHERE m.channel_name = $1 AND m.sent >= joined.join_date' +
+      (beforeDate > -1 ? ' AND m.sent < $4' : '')
+  const params = [ channelName, userId, limit ]
   if (beforeDate > -1) {
     params.push(new Date(beforeDate))
   }
-  const sql = `WITH messages AS (
-    SELECT m.id, u.name, m.channel_name, m.sent, m.data
-    FROM channel_messages as m INNER JOIN users as u
-    ON m.user_id = u.id
-    ${whereClause}
-    ORDER BY m.sent DESC
-    LIMIT $2
-  ) SELECT * FROM messages ORDER BY sent ASC`
+  const sql = `WITH joined AS (
+        SELECT join_date
+        FROM joined_channels
+        WHERE user_id = $2 AND channel_name = $1
+      ), messages AS (
+        SELECT m.id, u.name, m.channel_name, m.sent, m.data
+        FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id, joined
+        ${whereClause}
+        ORDER BY m.sent DESC
+        LIMIT $3
+      ) SELECT * FROM messages ORDER BY sent ASC`
 
   try {
     const result = await client.queryPromise(sql, params)
