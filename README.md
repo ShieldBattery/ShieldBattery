@@ -5,7 +5,7 @@ The official server for [shieldbattery](https://github.com/tec27/shieldbattery).
 The shieldbattery developers (and by extension, manner-pylon) frequent `#shieldbattery-dev` on QuakeNet, feel free to stop in with questions, comments, or just to hang out!
 
 ## Dependencies
-manner-pylon requires [Node.js](http://nodejs.org), [postgres](http://postgresql.org), and [redis](http://redis.io) in order to run.
+manner-pylon requires [Node.js](http://nodejs.org), [postgres v9.4+](http://postgresql.org), and [redis](http://redis.io) in order to run.
 
 ### Installing dependencies on Linux/Mac
 The easiest path to installing is to use the normal installer for node (from the [Nodejs website](http://nodejs.org), and your OS' package manager (or [brew](http://brew.sh/) for Mac) to install postgres and redis.
