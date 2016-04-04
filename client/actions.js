@@ -12,6 +12,8 @@ export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
 
 // A chat channel that we're in has some initial data we should use to initialize it in the store
 export const CHAT_INIT_CHANNEL = 'CHAT_INIT_CHANNEL'
+// The server has finished giving us our initial chat data (e.g what channels we are in) on connect
+export const CHAT_LOADING_COMPLETE = 'CHAT_LOADING_COMPLETE'
 export const CHAT_LOAD_CHANNEL_HISTORY_BEGIN = 'CHAT_LOAD_CHANNEL_HISTORY_BEGIN'
 export const CHAT_LOAD_CHANNEL_HISTORY = 'CHAT_LOAD_CHANNEL_HISTORY'
 export const CHAT_SEND_MESSAGE_BEGIN = 'CHAT_SEND_MESSAGE_BEGIN'
@@ -121,3 +123,7 @@ export const SERVER_STATUS = 'SERVER_STATUS'
 
 export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'
 export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
+
+// The server has finished subscribing us to the things we need to be (e.g. lobbies) and giving us
+// initial data
+export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'

@@ -9,6 +9,7 @@ import {
 } from '../actions'
 
 import chat from '../chat/socket-handlers'
+import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import settingsPsi from '../settings/psi-handlers'
@@ -30,6 +31,7 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 
 const handlers = [
   chat,
+  loading,
   lobbies,
   networkStatusHandler,
   serverStatus,

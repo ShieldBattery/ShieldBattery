@@ -7,6 +7,7 @@ import BetaSignup from './beta/signup.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
+import LoadingFilter from './loading/loading-filter.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
 import LoginLayout from './auth/login-layout.jsx'
@@ -35,17 +36,19 @@ const routes = <Route>
   <Route component={HasBetaFilter}>
     <Route component={LoggedInFilter}>
       <Route component={SiteConnectedFilter}>
-        <Route component={MainLayout}>
-          <Route path='/' />
-          <Route path='/active-game' component={ActiveGame} />
-          <Route path='/chat'>
-            <IndexRoute component={ChatList} title='Chat channels'/>
-            <Route path=':channel' component={ChatChannel} />
-          </Route>
-          <Route path='/lobbies/:lobby' component={LobbyView} />
-          <Route path='/whispers'>
-            <IndexRoute component={WhisperIndex} />
-            <Route path=':user' component={WhisperView} />
+        <Route component={LoadingFilter}>
+          <Route component={MainLayout}>
+            <Route path='/' />
+            <Route path='/active-game' component={ActiveGame} />
+            <Route path='/chat'>
+              <IndexRoute component={ChatList} title='Chat channels'/>
+              <Route path=':channel' component={ChatChannel} />
+            </Route>
+            <Route path='/lobbies/:lobby' component={LobbyView} />
+            <Route path='/whispers'>
+              <IndexRoute component={WhisperIndex} />
+              <Route path=':user' component={WhisperView} />
+            </Route>
           </Route>
         </Route>
       </Route>

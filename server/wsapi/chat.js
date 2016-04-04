@@ -134,7 +134,7 @@ export class ChatApi {
       this._publishTo(chan, { action: 'userActive', user: user.name })
       this._subscribeUserToChannel(user, chan)
     }
-    this.nydus.publish(user.getUserPath(), { action: 'chatReady' })
+    user.subscribe(`${user.getUserPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
   async _handleUserQuit(userName) {

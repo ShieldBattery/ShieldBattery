@@ -8,7 +8,7 @@ export function goToIndex(transitionFn = routeActions.push) {
     if (lobby.inLobby) {
       dispatch(transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
     } else if (channels.size) {
-      dispatch(transitionFn(`/chat/${encodeURIComponent(channels.get(0))}`))
+      dispatch(transitionFn(`/chat/${encodeURIComponent(channels.first())}`))
     } else if (whispers.size) {
       dispatch(transitionFn(`/whispers/${encodeURIComponent(whispers.get(0).from)}`))
     } else {
