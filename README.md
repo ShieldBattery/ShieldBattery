@@ -11,7 +11,7 @@ manner-pylon requires [Node.js](http://nodejs.org), [postgres](http://postgresql
 The easiest path to installing is to use the normal installer for node (from the [Nodejs website](http://nodejs.org), and your OS' package manager (or [brew](http://brew.sh/) for Mac) to install postgres and redis.
 
 ### Installing dependencies on Windows
-Use the normal installer for node (from the [nodejs website](http://nodejs.org)). Use the Windows installer from postgres as well (available [here](http://www.postgresql.org/download/windows/)). For Redis, use the installers provided by MSOpenTech; they can be found [here](https://github.com/MSOpenTech/redis/releases). Note that only 64-bit installers are provided. 
+Use the normal installer for node (from the [nodejs website](http://nodejs.org)). Use the Windows installer from postgres as well (available [here](http://www.postgresql.org/download/windows/)). For Redis, use the installers provided by MSOpenTech; they can be found [here](https://github.com/MSOpenTech/redis/releases). Note that only 64-bit installers are provided.
 
 You will also need the [OpenSSL development libraries](http://slproweb.com/products/Win32OpenSSL.html) for building one of the binary dependencies (bcrypt). Download and install the Win32 or Win64 (matching your node install's affinity) OpenSSL package (*not* the Light version), making sure to put it in the default location.
 
@@ -52,6 +52,13 @@ Detailed guides can be found at
 [the postgres wiki](https://wiki.postgresql.org/wiki/Detailed_installation_guides). A simpler guide
 can also be found
 [here](http://www.thegeekstuff.com/2009/04/linux-postgresql-install-and-configure-from-source/).
+
+You will need some extensions set up for our schema to work properly, run the following commands
+as your database super-user (generally, `postgres`):
+```sql
+CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+```
 
 ### Configure manner-pylon
 

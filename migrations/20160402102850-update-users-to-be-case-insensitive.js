@@ -4,17 +4,7 @@ exports.up = function(db, callback) {
     'WHERE 1 = (SELECT 1 FROM users as u2 WHERE LOWER(u1.name) = LOWER(u2.name) ' +
     'AND u1.id > u2.id GROUP BY LOWER(u1.name)))'
 
-  db.runSql(sql, maybeInstallCitextExtension)
-
-  function maybeInstallCitextExtension(err) {
-    if (err) {
-      callback(err)
-      return
-    }
-
-    const sql = 'CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public'
-    db.runSql(sql, updateUsernames)
-  }
+  db.runSql(sql, updateUsernames)
 
   function updateUsernames(err) {
     if (err) {

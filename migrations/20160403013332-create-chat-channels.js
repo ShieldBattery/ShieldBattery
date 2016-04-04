@@ -29,17 +29,7 @@ exports.up = function(db, cb) {
     // on that to ensure it will be a faster lookup
     // See: http://dba.stackexchange.com/questions/6115/working-of-indexes-in-postgresql
     db.addIndex('joined_channels', 'joined_channels_name_index', ['channel_name'],
-        false /* unique */, createUuidExtension)
-  }
-
-  function createUuidExtension(err) {
-    if (err) {
-      cb(err)
-      return
-    }
-
-    const sql = 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public'
-    db.runSql(sql, createChannelMessages)
+        false /* unique */, createChannelMessages)
   }
 
   function createChannelMessages(err) {
