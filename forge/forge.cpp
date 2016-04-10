@@ -379,9 +379,10 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_SYSCOMMAND:
     if (wparam == SC_KEYMENU || wparam == SC_MOUSEMENU) {
       return 0;
-    } else {
+    } else if (wparam != SC_CLOSE) {
       return DefWindowProc(window_handle, msg, wparam, lparam);
     }
+    break;
   case WM_MOVE:
     instance_->client_x_ = GetX(lparam);
     instance_->client_y_ = GetY(lparam);
