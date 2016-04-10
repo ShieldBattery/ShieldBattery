@@ -60,9 +60,7 @@ public:
   static std::unique_ptr<Renderer> CreateRenderer(
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
-  static void RegisterIndirectDraw(IndirectDraw* indirect_draw) {
-    instance_->indirect_draw_ = indirect_draw;
-  }
+  static void RegisterIndirectDraw(IndirectDraw* indirect_draw);
 
 private:
   Forge();

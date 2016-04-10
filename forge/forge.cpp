@@ -65,7 +65,8 @@ Forge::Forge()
       is_started_(false),
       should_clip_cursor_(false),
       captured_window_(NULL),
-      stored_cursor_rect_(nullptr) {
+      stored_cursor_rect_(nullptr),
+      indirect_draw_(nullptr) {
   assert(instance_ == nullptr);
   instance_ = this;
 
@@ -120,6 +121,10 @@ Forge::~Forge() {
     if (dsound != NULL) {
       FreeLibrary(dsound);
     }
+  }
+
+  if (indirect_draw_) {
+    indirect_draw_->Release();
   }
 
   instance_ = nullptr;
@@ -197,6 +202,15 @@ unique_ptr<Renderer> Forge::CreateRenderer(HWND window, uint32 ddraw_width, uint
     return unique_ptr<Renderer>(std::move(direct_x));
   }
   }
+}
+
+void Forge::RegisterIndirectDraw(IndirectDraw* indirect_draw) {
+  if (instance_->indirect_draw_) {
+    instance_->indirect_draw_->Release();
+  }
+
+  instance_->indirect_draw_ = indirect_draw;
+  indirect_draw->AddRef();
 }
 
 void Forge::New(const FunctionCallbackInfo<Value>& info) {
