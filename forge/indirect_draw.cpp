@@ -35,6 +35,9 @@ IndirectDraw::IndirectDraw()
 }
 
 IndirectDraw::~IndirectDraw() {
+  if (dirty_ && primary_surface_) {
+    primary_surface_->Release();
+  }
 }
 
 HRESULT WINAPI IndirectDraw::QueryInterface(REFIID riid, void** obj_out) {
