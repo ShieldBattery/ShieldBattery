@@ -381,13 +381,18 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
   ddraw_viewport_.TopLeftX = 0;
   ddraw_viewport_.TopLeftY = 0;
 
+  DEVMODE devmode;
+  EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
+  bool use_default_refresh = devmode.dmDisplayFrequency <= 1;
+
   DXGI_SWAP_CHAIN_DESC swap_chain_desc = DXGI_SWAP_CHAIN_DESC();
   swap_chain_desc.BufferCount = 1;
   swap_chain_desc.BufferDesc.Width = width;
   swap_chain_desc.BufferDesc.Height = height;
   swap_chain_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-  swap_chain_desc.BufferDesc.RefreshRate.Numerator = 60;
-  swap_chain_desc.BufferDesc.RefreshRate.Denominator = 1;
+  swap_chain_desc.BufferDesc.RefreshRate.Numerator =
+      use_default_refresh ? 0 : devmode.dmDisplayFrequency;
+  swap_chain_desc.BufferDesc.RefreshRate.Denominator = use_default_refresh ? 0 : 1;
   swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
   swap_chain_desc.OutputWindow = window_;
   swap_chain_desc.Windowed = true;
