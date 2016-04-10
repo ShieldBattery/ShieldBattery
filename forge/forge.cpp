@@ -499,6 +499,15 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       instance_->PerformScaledClipCursor(&clip_rect);
       // Move the cursor to the middle of the window
       SetCursorPosHook(320, 240);
+      ShowCursor(TRUE);
+    }
+    break;
+  case WM_SETCURSOR:
+    if ((lparam & 0xffff) != HTCLIENT) {
+      return DefWindowProc(window_handle, msg, wparam, lparam);
+    } else {
+      SetCursor(NULL);
+      return 0;
     }
     break;
   }
