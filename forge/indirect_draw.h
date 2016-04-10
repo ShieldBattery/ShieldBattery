@@ -21,6 +21,7 @@ namespace forge {
 HRESULT WINAPI IndirectDrawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out, IUnknown* unused);
 
 class IndirectDrawPalette;
+class IndirectDrawSurface;
 
 class IndirectDraw : public IDirectDraw7 {
 public:
@@ -73,7 +74,8 @@ public:
   inline DWORD display_height() const { return display_height_; }
   inline DWORD display_bpp() const { return display_bpp_; }
   inline HWND window() const { return window_; }
-  void Render(const std::vector<byte>& surface_data);
+  void MarkDirty();
+  void Render();
   void UpdatePalette(const IndirectDrawPalette& palette);
 
 private:
@@ -85,6 +87,8 @@ private:
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;
+  IndirectDrawSurface* primary_surface_;
+  bool dirty_;
 };
 
 
@@ -179,6 +183,9 @@ public:
   // custom functions
   inline bool is_primary_surface() const {
     return (surface_desc_.ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE) != 0;
+  }
+  inline const std::vector<byte>& latest_surface_data() const {
+    return surface_data_;
   }
 
 private:

@@ -23,7 +23,7 @@ const DWORD BORDERLESS_WINDOW_NOSWAP = WS_POPUP | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
 #define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
-      ImportHook<##Name##Func>* Name;
+      std::unique_ptr<ImportHook<##Name##Func>> Name;
 struct ImportHooks {
   // Starcraft import hooks
   HOOKABLE(HWND, CreateWindowExA, DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName,
@@ -51,6 +51,7 @@ struct ImportHooks {
 
 typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
+typedef void(__stdcall *RenderScreenFunc)();
 
 class Forge : public Nan::ObjectWrap {
 public:
@@ -58,6 +59,10 @@ public:
   static v8::Local<v8::Value> NewInstance();
   static std::unique_ptr<Renderer> CreateRenderer(
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
+
+  static void RegisterIndirectDraw(IndirectDraw* indirect_draw) {
+    instance_->indirect_draw_ = indirect_draw;
+  }
 
 private:
   Forge();
@@ -106,6 +111,7 @@ private:
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
   static BOOL __stdcall ShowWindowHook(HWND hwnd, int nCmdShow);
+  static void __stdcall RenderScreenHook();
 
   // callable from JS
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info);
@@ -120,6 +126,7 @@ private:
 
   ImportHooks hooks_;
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
+  std::unique_ptr<FuncHook<RenderScreenFunc>> render_screen_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
   std::map<std::string, std::pair<std::string, std::string>> dx_shaders;
@@ -138,6 +145,7 @@ private:
   bool should_clip_cursor_;
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
+  IndirectDraw* indirect_draw_;
 };
 
 }  // namespace forge

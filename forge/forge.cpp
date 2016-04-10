@@ -48,6 +48,7 @@ Forge* Forge::instance_ = nullptr;
 Forge::Forge()
     : hooks_(),
       create_sound_buffer_hook_(nullptr),
+      render_screen_hook_(),
       window_handle_(NULL),
       original_wndproc_(nullptr),
       dx_shaders(),
@@ -69,57 +70,48 @@ Forge::Forge()
   instance_ = this;
 
   HMODULE process = GetModuleHandle(NULL);
-  hooks_.CreateWindowExA = new ImportHook<ImportHooks::CreateWindowExAFunc>(
-      process, "user32.dll", "CreateWindowExA", CreateWindowExAHook);
-  hooks_.RegisterClassExA = new ImportHook<ImportHooks::RegisterClassExAFunc>(
-      process, "user32.dll", "RegisterClassExA", RegisterClassExAHook);
-  hooks_.GetSystemMetrics = new ImportHook<ImportHooks::GetSystemMetricsFunc>(
-      process, "user32.dll", "GetSystemMetrics", GetSystemMetricsHook);
-  hooks_.GetProcAddress = new ImportHook<ImportHooks::GetProcAddressFunc>(
-      process, "kernel32.dll", "GetProcAddress", GetProcAddressHook);
-  hooks_.IsIconic = new ImportHook<ImportHooks::IsIconicFunc>(
-      process, "user32.dll", "IsIconic", IsIconicHook);
-  hooks_.ClientToScreen = new ImportHook<ImportHooks::ClientToScreenFunc>(
-      process, "user32.dll", "ClientToScreen", ClientToScreenHook);
-  hooks_.ScreenToClient = new ImportHook<ImportHooks::ScreenToClientFunc>(
-      process, "user32.dll", "ScreenToClient", ScreenToClientHook);
-  hooks_.GetClientRect = new ImportHook<ImportHooks::GetClientRectFunc>(
-      process, "user32.dll", "GetClientRect", GetClientRectHook);
-  hooks_.GetCursorPos = new ImportHook<ImportHooks::GetCursorPosFunc>(
-      process, "user32.dll", "GetCursorPos", GetCursorPosHook);
-  hooks_.SetCursorPos = new ImportHook<ImportHooks::SetCursorPosFunc>(
-      process, "user32.dll", "SetCursorPos", SetCursorPosHook);
-  hooks_.ClipCursor = new ImportHook<ImportHooks::ClipCursorFunc>(
-      process, "user32.dll", "ClipCursor", ClipCursorHook);
-  hooks_.SetCapture = new ImportHook<ImportHooks::SetCaptureFunc>(
-      process, "user32.dll", "SetCapture", SetCaptureHook);
-  hooks_.ReleaseCapture = new ImportHook<ImportHooks::ReleaseCaptureFunc>(
-      process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook);
-  hooks_.ShowWindow = new ImportHook<ImportHooks::ShowWindowFunc>(
-    process, "user32.dll", "ShowWindow", ShowWindowHook);
+  hooks_.CreateWindowExA.reset(new ImportHook<ImportHooks::CreateWindowExAFunc>(
+      process, "user32.dll", "CreateWindowExA", CreateWindowExAHook));
+  hooks_.RegisterClassExA.reset(new ImportHook<ImportHooks::RegisterClassExAFunc>(
+      process, "user32.dll", "RegisterClassExA", RegisterClassExAHook));
+  hooks_.GetSystemMetrics.reset(new ImportHook<ImportHooks::GetSystemMetricsFunc>(
+      process, "user32.dll", "GetSystemMetrics", GetSystemMetricsHook));
+  hooks_.GetProcAddress.reset(new ImportHook<ImportHooks::GetProcAddressFunc>(
+      process, "kernel32.dll", "GetProcAddress", GetProcAddressHook));
+  hooks_.IsIconic.reset(new ImportHook<ImportHooks::IsIconicFunc>(
+      process, "user32.dll", "IsIconic", IsIconicHook));
+  hooks_.ClientToScreen.reset(new ImportHook<ImportHooks::ClientToScreenFunc>(
+      process, "user32.dll", "ClientToScreen", ClientToScreenHook));
+  hooks_.ScreenToClient.reset(new ImportHook<ImportHooks::ScreenToClientFunc>(
+      process, "user32.dll", "ScreenToClient", ScreenToClientHook));
+  hooks_.GetClientRect.reset(new ImportHook<ImportHooks::GetClientRectFunc>(
+      process, "user32.dll", "GetClientRect", GetClientRectHook));
+  hooks_.GetCursorPos.reset(new ImportHook<ImportHooks::GetCursorPosFunc>(
+      process, "user32.dll", "GetCursorPos", GetCursorPosHook));
+  hooks_.SetCursorPos.reset(new ImportHook<ImportHooks::SetCursorPosFunc>(
+      process, "user32.dll", "SetCursorPos", SetCursorPosHook));
+  hooks_.ClipCursor.reset(new ImportHook<ImportHooks::ClipCursorFunc>(
+      process, "user32.dll", "ClipCursor", ClipCursorHook));
+  hooks_.SetCapture.reset(new ImportHook<ImportHooks::SetCaptureFunc>(
+      process, "user32.dll", "SetCapture", SetCaptureHook));
+  hooks_.ReleaseCapture.reset(new ImportHook<ImportHooks::ReleaseCaptureFunc>(
+      process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook));
+  hooks_.ShowWindow.reset(new ImportHook<ImportHooks::ShowWindowFunc>(
+    process, "user32.dll", "ShowWindow", ShowWindowHook));
 
   HMODULE storm = GetModuleHandleA("storm.dll");
   assert(storm != nullptr);
-  hooks_.StormIsIconic = new ImportHook<ImportHooks::StormIsIconicFunc>(
-    storm, "user32.dll", "IsIconic", IsIconicHook);
-  hooks_.StormIsWindowVisible = new ImportHook<ImportHooks::StormIsWindowVisibleFunc>(
-    storm, "user32.dll", "IsWindowVisible", IsWindowVisibleHook);
+  hooks_.StormIsIconic.reset(new ImportHook<ImportHooks::StormIsIconicFunc>(
+    storm, "user32.dll", "IsIconic", IsIconicHook));
+  hooks_.StormIsWindowVisible.reset(new ImportHook<ImportHooks::StormIsWindowVisibleFunc>(
+    storm, "user32.dll", "IsWindowVisible", IsWindowVisibleHook));
+
+  // TODO(tec27): move this hook into brood_war?
+  render_screen_hook_.reset(new FuncHook<RenderScreenFunc>(
+      reinterpret_cast<RenderScreenFunc>(0x41E280), RenderScreenHook));
 }
 
 Forge::~Forge() {
-  delete hooks_.CreateWindowExA;
-  delete hooks_.GetSystemMetrics;
-  delete hooks_.GetProcAddress;
-  delete hooks_.IsIconic;
-  delete hooks_.ClientToScreen;
-  delete hooks_.ScreenToClient;
-  delete hooks_.GetClientRect;
-  delete hooks_.GetCursorPos;
-  delete hooks_.SetCursorPos;
-  delete hooks_.ClipCursor;
-  delete hooks_.SetCapture;
-  delete hooks_.ReleaseCapture;
-
   if (create_sound_buffer_hook_) {
     delete create_sound_buffer_hook_;
     // we use LoadLibrary in DirectSoundCreateHook, so we need to free the library here if its still
@@ -242,6 +234,7 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.ShowWindow->Inject();
   result &= instance_->hooks_.StormIsIconic->Inject();
   result &= instance_->hooks_.StormIsWindowVisible->Inject();
+  result &= instance_->render_screen_hook_->Inject();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -265,6 +258,7 @@ void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.ShowWindow->Restore();
   result &= instance_->hooks_.StormIsIconic->Restore();
   result &= instance_->hooks_.StormIsWindowVisible->Restore();
+  result &= instance_->render_screen_hook_->Restore();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -838,6 +832,17 @@ BOOL __stdcall Forge::ReleaseCaptureHook() {
   instance_->captured_window_ = NULL;
 
   return TRUE;
+}
+
+void __stdcall Forge::RenderScreenHook() {
+  auto& hook = *instance_->render_screen_hook_;
+  hook.Restore();
+  hook.callable()();
+  hook.Inject();
+
+  if (instance_->is_started_ && instance_->indirect_draw_) {
+    instance_->indirect_draw_->Render();
+  }
 }
 
 BOOL __stdcall Forge::ShowWindowHook(HWND hwnd, int nCmdShow) {

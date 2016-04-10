@@ -16,7 +16,10 @@ HRESULT WINAPI IndirectDrawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out
   }
 
   // You want a DirectDraw? Here, have a IndirectDraw. You'll never know the difference!
-  *direct_draw_out = new IndirectDraw();
+  auto ddraw = new IndirectDraw();
+  *direct_draw_out = ddraw;
+  Forge::RegisterIndirectDraw(ddraw);
+
   return DD_OK;
 }
 
@@ -26,7 +29,9 @@ IndirectDraw::IndirectDraw()
     renderer_(),
     display_width_(0),
     display_height_(0),
-    display_bpp_(0) {
+    display_bpp_(0),
+    primary_surface_(nullptr),
+    dirty_(false) {
 }
 
 IndirectDraw::~IndirectDraw() {
@@ -103,7 +108,13 @@ HRESULT WINAPI IndirectDraw::CreateSurface(DDSURFACEDESC2* surface_desc,
         surface_desc->ddsCaps.dwCaps2);
   }
 
-  *surface_out = new IndirectDrawSurface(this, surface_desc);
+  auto surface = new IndirectDrawSurface(this, surface_desc);
+  *surface_out = surface;
+  if (surface->is_primary_surface()) {
+    // To avoid a ref loop, we *don't* add a ref here, but we do when the surface is marked dirty
+    // (and we plan to access it)
+    primary_surface_ = surface;
+  }
   return DD_OK;
 }
 
@@ -316,9 +327,22 @@ void IndirectDraw::MaybeInitializeRenderer() {
   }
 }
 
-void IndirectDraw::Render(const std::vector<byte>& surface_data) {
-  if (renderer_) {
-    renderer_->Render(surface_data);
+void IndirectDraw::MarkDirty() {
+  if (!dirty_) {
+    assert(primary_surface_ != nullptr);
+    primary_surface_->AddRef();
+    dirty_ = true;
+  }
+}
+
+void IndirectDraw::Render() {
+  if (dirty_ && renderer_ && primary_surface_) {
+    // This function will only ever be called outside of Lock calls, so this is safe to do without
+    // synchronization
+    renderer_->Render(primary_surface_->latest_surface_data());
+    dirty_ = false;
+    primary_surface_->Release();
+    
   }
 }
 

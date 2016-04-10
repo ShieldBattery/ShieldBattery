@@ -22,6 +22,11 @@ RenderSkipper::RenderSkipper(HWND window)
   } else {
     min_millis_per_frame_ = 1000 / devmode.dmDisplayFrequency;
   }
+  // We allow updates 4x as fast, as BW makes no attempt to sync to vblank. This means that if
+  // we hit a two or more frames in the same vblank range, one at the beginning and one at the end,
+  // we would skip the second one and be stuck waiting until BW comes back around and calls us
+  // (which might be longer than the *next* vblank window, thus skipping a frame).
+  min_millis_per_frame_ /= 4;
   Logger::Logf(LogLevel::Verbose, "RenderSkipper selected min delay per frame: %dms",
       min_millis_per_frame_);
 }
@@ -31,9 +36,7 @@ bool RenderSkipper::ShouldSkipRender() {
   // iteration loop during data intialization when there's nothing to actually render) and this
   // causes issues when the graphics card decides it doesn't want to queue commands any more. To
   // avoid these issues, we attempt to kill vsync, but also try to help BW out by not actually
-  // making rendering calls this fast. The monitor's refresh rate seems reasonable (and by
-  // reasonable, I mean unlikely to cause weird issues), even though BW will generally never update
-  // any state that fast.
+  // making rendering calls this fast.
   LARGE_INTEGER frame_time;
   QueryPerformanceCounter(&frame_time);
   if (((frame_time.QuadPart - last_frame_time_.QuadPart) / counter_frequency_.QuadPart) <

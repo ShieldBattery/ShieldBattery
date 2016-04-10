@@ -364,7 +364,7 @@ HRESULT WINAPI IndirectDrawSurface::Unlock(RECT* locked_rect) {
   }
 
   if (is_primary_surface()) {
-    owner_->Render(surface_data_);
+    owner_->MarkDirty();
   }
 
   // we don't actually lock anything, so we can just say this was fine

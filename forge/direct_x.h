@@ -282,6 +282,11 @@ public:
     device_->PSSetShaderResources(start_slot, 1, views);
     return *this;
   }
+  DxDevice& ClearPixelShaderResource(uint32 start_slot) {
+    ID3D10ShaderResourceView* views[] = { nullptr };
+    device_->PSSetShaderResources(start_slot, 1, views);
+    return *this;
+  }
   DxDevice& SetPixelShaderSampler(const DxSamplerState& sampler) {
     ID3D10SamplerState* samplers[] =  { sampler.get() };
     device_->PSSetSamplers(0, 1, samplers);
