@@ -108,9 +108,6 @@ private:
   Process(const Process&) = delete;
   Process& operator=(const Process&) = delete;
 
-  WindowsError EnableSeDebug();
-
-  static bool se_debug_enabled_;
   WinHandle process_handle_;
   WinHandle thread_handle_;
   WindowsError error_;

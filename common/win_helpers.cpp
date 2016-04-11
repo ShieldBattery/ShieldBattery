@@ -168,19 +168,11 @@ const byte inject_proc[] = {
   0xC2, 0x04, 0x00                      // RETN 4
 };
 
-bool Process::se_debug_enabled_ = false;
-
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
     const wstring& current_dir)
     : process_handle_(),
       thread_handle_(),
       error_() {
-  if (!se_debug_enabled_) {
-    error_ = EnableSeDebug();
-    if (error_.is_error()) {
-      return;
-    }
-  }
 
   HANDLE token;
   uint32 result = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
@@ -218,30 +210,6 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
 }
 
 Process::~Process() {
-}
-
-WindowsError Process::EnableSeDebug() {
-  HANDLE token;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
-    return WindowsError("EnableSeDebug -> OpenProcessToken", GetLastError());
-  }
-  WinHandle managed_token(token);
-
-  TOKEN_PRIVILEGES privs;
-  if (!LookupPrivilegeValueA(nullptr, SE_DEBUG_NAME, &privs.Privileges[0].Luid)) {
-    return WindowsError("EnableSeDebug -> LookupPrivilegeValue", GetLastError());
-  }
-
-  privs.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-  privs.PrivilegeCount = 1;
-
-  if (!AdjustTokenPrivileges(token, FALSE, &privs, 0, nullptr, nullptr) ||
-      GetLastError() != ERROR_SUCCESS) {
-    return WindowsError("EnableSeDebug -> AdjustTokenPrivileges", GetLastError());
-  }
-
-  se_debug_enabled_ = true;
-  return WindowsError();
 }
 
 bool Process::has_errors() const {
