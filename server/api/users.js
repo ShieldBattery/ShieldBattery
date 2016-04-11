@@ -38,6 +38,17 @@ function* createUser(next) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
+  let existingUser
+  try {
+    existingUser = yield* users.find(username)
+  } catch (err) {
+    this.log.error({ err }, 'error finding user')
+    throw err
+  }
+  if (existingUser) {
+    throw new httpErrors.Unauthorized('User already exists with that name')
+  }
+
   let hashed
   try {
     hashed = yield bcryptHash(password, 10)
