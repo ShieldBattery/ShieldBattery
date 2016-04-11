@@ -64,6 +64,7 @@ Forge::Forge()
       mouse_resolution_height_(0),
       is_started_(false),
       should_clip_cursor_(false),
+      window_active_(false),
       captured_window_(NULL),
       stored_cursor_rect_(nullptr),
       indirect_draw_(nullptr) {
@@ -99,6 +100,8 @@ Forge::Forge()
       process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook));
   hooks_.ShowWindow.reset(new ImportHook<ImportHooks::ShowWindowFunc>(
     process, "user32.dll", "ShowWindow", ShowWindowHook));
+  hooks_.GetKeyState.reset(new ImportHook<ImportHooks::GetKeyStateFunc>(
+    process, "user32.dll", "GetKeyState", GetKeyStateHook));
 
   HMODULE storm = GetModuleHandleA("storm.dll");
   assert(storm != nullptr);
@@ -246,6 +249,7 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.SetCapture->Inject();
   result &= instance_->hooks_.ReleaseCapture->Inject();
   result &= instance_->hooks_.ShowWindow->Inject();
+  result &= instance_->hooks_.GetKeyState->Inject();
   result &= instance_->hooks_.StormIsIconic->Inject();
   result &= instance_->hooks_.StormIsWindowVisible->Inject();
   result &= instance_->render_screen_hook_->Inject();
@@ -270,6 +274,7 @@ void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   result &= instance_->hooks_.SetCapture->Restore();
   result &= instance_->hooks_.ReleaseCapture->Restore();
   result &= instance_->hooks_.ShowWindow->Restore();
+  result &= instance_->hooks_.GetKeyState->Restore();
   result &= instance_->hooks_.StormIsIconic->Restore();
   result &= instance_->hooks_.StormIsWindowVisible->Restore();
   result &= instance_->render_screen_hook_->Restore();
@@ -360,6 +365,27 @@ void Forge::SetShaders(const FunctionCallbackInfo<Value>& info) {
   return;
 }
 
+void Forge::ReleaseHeldKey(HWND window, int key) {
+  LPARAM mouse_lparam = MakePositionParam(ScreenToGameX(cursor_x_), ScreenToGameY(cursor_y_));
+  if (original_wndproc_ != nullptr && GetAsyncKeyState(key) & 0x8000) {
+    switch (key) {
+    case VK_LBUTTON:
+      original_wndproc_(window, WM_LBUTTONUP, 0, mouse_lparam);
+      break;
+    case VK_RBUTTON:
+      original_wndproc_(window, WM_RBUTTONUP, 0, mouse_lparam);
+      break;
+    case VK_MBUTTON:
+      original_wndproc_(window, WM_MBUTTONUP, 0, mouse_lparam);
+      break;
+    default:
+      // lparam could be better, but bw shouldn't even look at it..
+      original_wndproc_(window, WM_KEYUP, key, 0xc0000001);
+      break;
+    }
+  }
+}
+
 const int FOREGROUND_HOTKEY_ID = 1337;
 const int FOREGROUND_HOTKEY_TIMEOUT = 1000;
 LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -422,8 +448,8 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->cursor_x_ = GetX(lparam);
     instance_->cursor_y_ = GetY(lparam);
     lparam = MakePositionParam(
-        static_cast<int>((GetX(lparam) * (640.0 / instance_->mouse_resolution_width_)) + 0.5),
-        static_cast<int>((GetY(lparam) * (480.0 / instance_->mouse_resolution_height_)) + 0.5));
+        instance_->ScreenToGameX(GetX(lparam)),
+        instance_->ScreenToGameY(GetY(lparam)));
 
     if (instance_->should_clip_cursor_) {
       // Window is active and the cursor is over the BW window, clip the cursor
@@ -458,6 +484,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
         0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 
+    instance_->window_active_ = wparam;
     if (wparam) {
       // Window is now active
       instance_->should_clip_cursor_ = true;
@@ -465,8 +492,16 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       // Window is now inactive, unclip the mouse (and disable input)
       instance_->should_clip_cursor_ = false;
       instance_->PerformScaledClipCursor(nullptr);
-    }
 
+      // As we don't give the activation messages to bw, send some key release
+      // messages to prevent them from staying down once the window is activated again.
+      instance_->ReleaseHeldKey(window_handle, VK_MENU);
+      instance_->ReleaseHeldKey(window_handle, VK_CONTROL);
+      instance_->ReleaseHeldKey(window_handle, VK_SHIFT);
+      instance_->ReleaseHeldKey(window_handle, VK_LBUTTON);
+      instance_->ReleaseHeldKey(window_handle, VK_MBUTTON);
+      instance_->ReleaseHeldKey(window_handle, VK_RBUTTON);
+    }
     return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_GAME_STARTED:
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
@@ -723,10 +758,8 @@ BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
 
 BOOL __stdcall Forge::GetCursorPosHook(LPPOINT lpPoint) {
   // BW thinks its running full screen in 640x480, so we give it our mouse_resolution-scaled coords
-  lpPoint->x = static_cast<int>(
-      (instance_->cursor_x_ * (640.0 / instance_->mouse_resolution_width_)) + 0.5);
-  lpPoint->y = static_cast<int>(
-      (instance_->cursor_y_ * (480.0 / instance_->mouse_resolution_height_)) + 0.5);
+  lpPoint->x = instance_->ScreenToGameX(instance_->cursor_x_);
+  lpPoint->y = instance_->ScreenToGameY(instance_->cursor_y_);
   return TRUE;
 }
 
@@ -865,6 +898,18 @@ BOOL __stdcall Forge::ShowWindowHook(HWND hwnd, int nCmdShow) {
     return TRUE;
   } else {
     return instance_->hooks_.ShowWindow->original()(hwnd, nCmdShow);
+  }
+}
+
+SHORT __stdcall Forge::GetKeyStateHook(int nVirtKey) {
+  if (instance_->window_active_) {
+    return instance_->hooks_.GetKeyState->original()(nVirtKey);
+  } else {
+    // This will get run at least from WM_NCACTIVATE handler's key
+    // releasing code, as bw checks the state of modifier keys.
+    // If bw checks key state for some other reason while the window
+    // is not active, it shouldn't be acting on it anyways.
+    return 0;
   }
 }
 
