@@ -807,13 +807,35 @@ struct GameLoopContext {
   BroodWar* bw;
 };
 
+struct EnumWindowsContext {
+  HWND hwnd_out;
+};
+
 #define WM_GAME_STARTED (WM_USER + 7)
+
+// Find the window for our process, then send it the game started message
+BOOL __stdcall WindowEnumProc(HWND hwnd, LPARAM lparam) {
+  DWORD process_id;
+  GetWindowThreadProcessId(hwnd, &process_id);
+  if (process_id == GetCurrentProcessId()) {
+    char class_name[12];
+    GetClassNameA(hwnd, class_name, sizeof(class_name));
+    if (strncmp("SWarClass", class_name, sizeof(class_name)) == 0) {
+      reinterpret_cast<EnumWindowsContext*>(lparam)->hwnd_out = hwnd;
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
 
 void RunGameLoopWork(void* arg) {
   GameLoopContext* context = reinterpret_cast<GameLoopContext*>(arg);
   assert(context->bw->game_state() == GameState::Initializing);
 
-  HWND hwnd = FindWindowA("SWarClass", NULL);
+  EnumWindowsContext enum_context = EnumWindowsContext();
+  EnumWindows(WindowEnumProc, reinterpret_cast<LPARAM>(&enum_context));
+  HWND hwnd = enum_context.hwnd_out;
   assert(hwnd != NULL);
   PostMessage(hwnd, WM_GAME_STARTED, NULL, NULL);
 

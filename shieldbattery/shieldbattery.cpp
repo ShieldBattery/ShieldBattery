@@ -296,6 +296,18 @@ void HOOK_GameInit() {
   entry_point_hook = nullptr;
 }
 
+typedef DWORD (__stdcall *CheckForOtherInstancesFunc)(char* wnd_class_name);
+sbat::FuncHook<CheckForOtherInstancesFunc>* check_other_instances_hook = nullptr;
+DWORD __stdcall HOOK_CheckForOtherInstances(char* wnd_class_name) {
+  // We handle killing old SC processes ourselves, so no need to let this check for itself (and
+  // cause problems because its code calls Sleep).
+  check_other_instances_hook->Restore();
+  delete check_other_instances_hook;
+  check_other_instances_hook = nullptr;
+
+  return 0;
+}
+
 struct InitializeProcessContext {
   void* arg;
   WorkRequestAfterFunc callback;
@@ -345,6 +357,10 @@ extern "C" __declspec(dllexport) void OnInject() {
   game_init_hook = new sbat::FuncHook<GameInitFunc>(reinterpret_cast<GameInitFunc>(0x004E08A5),
       HOOK_GameInit);
   game_init_hook->Inject();
+
+  check_other_instances_hook = new sbat::FuncHook<CheckForOtherInstancesFunc>(
+      reinterpret_cast<CheckForOtherInstancesFunc>(0x004E0380), HOOK_CheckForOtherInstances);
+  check_other_instances_hook->Inject();
 }
 
 }  // namespace sbat
