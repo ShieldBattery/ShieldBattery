@@ -961,7 +961,7 @@ bool Forge::IsCursorInWindow() {
   POINT cursor_position;
   GetCursorPos(&cursor_position);
 
-  return PtInRect(&client_rect, cursor_position) != FALSE;
+  return window_active_ && PtInRect(&client_rect, cursor_position) != FALSE;
 }
 
 }  // namespace forge
