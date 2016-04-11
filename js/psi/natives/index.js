@@ -83,6 +83,6 @@ export async function detectResolution() {
   }
 
   cachedRes = await $detectResolution()
-  setTimeout(() => cachedRes = null, RES_CACHE_TIME)
+  setTimeout(() => { cachedRes = null }, RES_CACHE_TIME)
   return cachedRes
 }

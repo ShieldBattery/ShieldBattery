@@ -114,6 +114,7 @@ async function waitForPlayers(socket, lobbyConfig) {
       const waitingArray = waitingFor.toArray()
       notifyProgress(socket, GAME_STATUS_AWAITING_PLAYERS, waitingArray)
       log.debug(`Waiting for players: ${waitingArray.join(', ')}`)
+      return false
     }
   }
 

@@ -76,7 +76,8 @@ function authorize(req, cb) {
         lastLog = Date.now()
         log.warning('Blocked a connection from an untrusted origin: ' + origin)
       }
-      return cb(null, false)
+      cb(null, false)
+      return
     }
   }
   socketTypes.set(req, clientType)
