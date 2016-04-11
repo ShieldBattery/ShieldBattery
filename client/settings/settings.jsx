@@ -145,6 +145,10 @@ class Settings extends React.Component {
             </ValidatedSelect>
             <ValidatedSlider label='Mouse sensitivity' name='sensitivity' tabIndex={0}
                 min={0} max={4} defaultValue={local.mouseSensitivity} step={1} />
+            <ValidatedText label='Starcraft folder path' floatingLabel={true} name='path'
+                tabIndex={0} defaultValue={local.starcraftPath} autoCapitalize='off'
+                autoCorrect='off' spellCheck={false} required={false}
+                onEnterKeyDown={e => this.handleSettingsSaved()}/>
           </ValidatedForm>
         </div>
       </div>
@@ -173,6 +177,7 @@ class Settings extends React.Component {
       mouseSensitivity: values.get('sensitivity'),
       maintainAspectRatio: values.get('aspectRatio'),
       renderer: values.get('renderer'),
+      starcraftPath: values.get('path'),
     }
     this.props.dispatch(setLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
