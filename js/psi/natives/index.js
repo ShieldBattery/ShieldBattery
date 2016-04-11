@@ -57,21 +57,51 @@ export { launchProcess }
 export function getInstallPathFromRegistry() {
   const regPath = 'SOFTWARE\\Blizzard Entertainment\\Starcraft'
   const regValueName = 'InstallPath'
-  let result
 
   try {
-    result = psi.registry.readString('hkcu', regPath, regValueName)
-  } catch (err) {
-    // Intentionally empty
-  }
-  if (result) return result
-  try {
-    result = psi.registry.readString('hklm', regPath, regValueName)
+    const result = psi.registry.readString('hkcu', regPath, regValueName)
+    if (result) {
+      return result
+    }
   } catch (err) {
     // Intentionally empty
   }
 
-  return result
+  try {
+    const result = psi.registry.readString('hklm', regPath, regValueName)
+    if (result) {
+      return result
+    }
+  } catch (err) {
+    // Intentionally empty
+  }
+
+  let recentMaps
+  try {
+    recentMaps = psi.registry.readMultiString('hkcu', regPath, 'Recent Maps')
+  } catch (err) {
+    // Intentionally empty
+  }
+  if (!recentMaps) {
+    return undefined
+  }
+
+  // Filter out paths from 'Recent Maps' value saved in registry, until we get the one we can be
+  // reasonably certain is a Starcraft install path. Assumption we make is that Starcraft's install
+  // path must have the 'maps' folder.
+  const paths = recentMaps.filter(p => {
+    const path = p.toLowerCase()
+    return path.includes('\\maps\\') && !path.includes('\\programdata\\shieldbattery')
+  })
+  if (!paths.length) {
+    return undefined
+  }
+
+  // We make a reasonable guess that the remaining paths are all inside Starcraft folder. For now
+  // we're not taking into account multiple different install paths, so just pick the first one.
+  const path = paths[0]
+  const mapsIndex = path.toLowerCase().lastIndexOf('\\maps\\')
+  return path.slice(0, mapsIndex)
 }
 
 const $detectResolution = thenify(psi.detectResolution)

@@ -2,6 +2,7 @@ import fs from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
 import log from './logger'
+import { getInstallPathFromRegistry } from './natives/index'
 
 class LocalSettings extends EventEmitter {
   constructor(filepath) {
@@ -15,6 +16,8 @@ class LocalSettings extends EventEmitter {
     if (!this._settings) {
       throw new Error('Could not read settings file')
     }
+
+    this.migrateOldSettings()
 
     this._watcher = this._createWatcher(filepath)
   }
@@ -56,6 +59,18 @@ class LocalSettings extends EventEmitter {
     }
   }
 
+  migrateOldSettings() {
+    let newSettings
+    if (!this._settings.starcraftPath) {
+      log.verbose('Migrating old settings, finding starcraft path')
+      newSettings = { ...this._settings, starcraftPath: findStarcraftPath() }
+    }
+
+    if (newSettings) {
+      this.settings = newSettings
+    }
+  }
+
   get settings() {
     return this._settings
   }
@@ -87,7 +102,8 @@ export default function(filepath) {
 function createSettingsFileSync(filepath) {
   // create an object with any "generated defaults" (e.g. a randomized port)
   const settings = {
-    bwPort: genRandomPort()
+    bwPort: genRandomPort(),
+    starcraftPath: findStarcraftPath()
   }
   fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8', mode: 0o777 })
 }
@@ -95,6 +111,18 @@ function createSettingsFileSync(filepath) {
 function genRandomPort() {
   // TODO(tec27): re-enable random code once we have UPNP/holepunching
   return 6112
+}
+
+export function findStarcraftPath() {
+  let starcraftPath = getInstallPathFromRegistry()
+  if (!starcraftPath) {
+    log.warning('No Starcraft path found in registry, defaulting to standard install location')
+    starcraftPath = process.env['ProgramFiles(x86)'] ?
+        `${process.env['ProgramFiles(x86)']}\\Starcraft` :
+        `${process.env.ProgramFiles}\\Starcraft`
+  }
+
+  return starcraftPath
 }
 
 function jsonify(settings) {

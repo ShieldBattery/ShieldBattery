@@ -1,6 +1,8 @@
 import path from 'path'
+import fs from 'fs'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
+import thenify from 'thenify'
 import * as psi from './natives/index'
 import log from './logger'
 import { sendCommand } from './game-command'
@@ -56,7 +58,7 @@ export default class ActiveGameManager {
     const backupId = this.activeGameId = cuid()
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
     this._setStatus(GAME_STATUS_LAUNCHING)
-    this.activeGamePromise = doLaunch(this.activeGameId)
+    this.activeGamePromise = doLaunch(this.activeGameId, config.settings)
       .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(backupId, err))
       .then(code => this.handleGameExit(backupId, code),
           err => this.handleGameExitWaitError(backupId, err))
@@ -149,25 +151,37 @@ function silentTerminate(proc) {
   }
 }
 
+const accessAsync = thenify(fs.access)
 const shieldbatteryRoot = path.dirname(process.execPath)
-async function doLaunch(gameId) {
-  // TODO(tec27): we should also try to guess the install path as %ProgramFiles(x86)%/Starcraft and
-  // %ProgramFiles%/Starcraft, and allow this to be set through the web interface as well
-  let installPath = psi.getInstallPathFromRegistry()
-  installPath = installPath || 'C:\\Program Files (x86)\\Starcraft'
-  const appPath = installPath +
-      (installPath.charAt(installPath.length - 1) === '\\' ? '' : '\\') +
-      'Starcraft.exe'
+async function doLaunch(gameId, settings) {
+  const { starcraftPath } = settings.local
+  if (!starcraftPath) {
+    throw new Error('No Starcraft path set')
+  }
+  const appPath = starcraftPath + (starcraftPath.endsWith('\\') ? '' : '\\') + 'Starcraft.exe'
+  try {
+    await accessAsync(appPath)
+  } catch (err) {
+    throw new Error(`Could not access/find Starcraft executable at ${appPath}`)
+  }
 
   log.debug('Attempting to launch ' + appPath)
   const proc = await psi.launchProcess({
     appPath,
     args: gameId,
     launchSuspended: true,
-    currentDir: installPath,
+    currentDir: starcraftPath,
   })
   log.verbose('Process launched')
+
   const shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
+  try {
+    await accessAsync(shieldbatteryDll)
+  } catch (err) {
+    throw new Error(`Could not access/find shieldbattery dll at ${shieldbatteryDll}`)
+  }
+
+  log.debug(`Injecting ${shieldbatteryDll} into the process...`)
   try {
     await proc.injectDll(shieldbatteryDll, 'OnInject')
   } catch (err) {
