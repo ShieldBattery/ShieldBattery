@@ -280,8 +280,6 @@ struct Offsets {
   Functions functions;
   Detours detours;
   FuncHooks func_hooks;
-
-  byte* start_from_any_glue_patch;
 };
 
 enum class Version {
@@ -386,7 +384,6 @@ public:
 private:
   BroodWar();
   explicit BroodWar(Offsets* broodWarOffsets);
-  void ApplyPatches();
   void InjectDetours();
   void GetMapsList(const MapListEntryCallback callback);
   MapResult SelectMapOrDirectory(const std::string& game_name, uint32 game_type,
@@ -510,8 +507,6 @@ Offsets* GetOffsets<Version::v1161>() {
       offsets->functions.UnloadSnp, BroodWar::UnloadSnpHook);
   offsets->func_hooks.OnSNetPlayerJoined = new FuncHook<Functions::OnSNetPlayerJoinedFunc>(
     offsets->functions.OnSNetPlayerJoined, BroodWar::OnSNetPlayerJoinedHook);
-
-  offsets->start_from_any_glue_patch = reinterpret_cast<byte*>(0x00487076);
 
   return offsets;
 }

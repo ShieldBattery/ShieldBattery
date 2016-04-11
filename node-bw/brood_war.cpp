@@ -26,18 +26,13 @@ BroodWar* BroodWar::Get() {
   return instance_;
 }
 
-BroodWar::BroodWar()
-    : offsets_(GetOffsets<CURRENT_BROOD_WAR_VERSION>()),
-      event_handlers_(nullptr),
-      game_results_() {
-  ApplyPatches();
-  InjectDetours();
+BroodWar::BroodWar(): BroodWar(GetOffsets<CURRENT_BROOD_WAR_VERSION>()) {
 }
 
 BroodWar::BroodWar(Offsets* broodWarOffsets)
     : offsets_(broodWarOffsets),
-      event_handlers_(nullptr) {
-  ApplyPatches();
+      event_handlers_(nullptr),
+      game_results_() {
   InjectDetours();
 }
 
@@ -139,16 +134,6 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.InitializeSnpList->Inject();
   offsets_->func_hooks.UnloadSnp->Inject();
   offsets_->func_hooks.OnSNetPlayerJoined->Inject();
-}
-
-void BroodWar::ApplyPatches() {
-  // TODO(tec27): yeah... write a better way to do patches
-  // Avoid restrictions that only let games start from certain menus
-  ScopedVirtualProtect glue_protect(offsets_->start_from_any_glue_patch, 9, PAGE_EXECUTE_READWRITE);
-  if (!glue_protect.has_errors()) {
-    // 9x NOP
-    memset(offsets_->start_from_any_glue_patch, 0x90, 9);
-  }
 }
 
 PlayerInfo* BroodWar::players() const {
