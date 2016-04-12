@@ -42,6 +42,7 @@ struct ImportHooks {
   HOOKABLE(HWND, SetCapture, HWND hWnd);
   HOOKABLE(BOOL, ReleaseCapture);
   HOOKABLE(BOOL, ShowWindow, HWND hwnd, int nCmdShow);
+  HOOKABLE(SHORT, GetKeyState, int nVirtKey);
   // Storm import hooks
   HOOKABLE(BOOL, StormIsIconic, HWND hWnd);
   HOOKABLE(BOOL, StormIsWindowVisible, HWND hWnd);
@@ -77,6 +78,7 @@ private:
   void CalculateMouseResolution(uint32 width, uint32 height);
 
   static LRESULT WINAPI WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARAM lparam);
+  void ReleaseHeldKey(HWND window_handle, int key);
   static inline int GetX(LPARAM lparam) {
     return static_cast<int32>(static_cast<int16>(LOWORD(lparam)));
   }
@@ -85,6 +87,12 @@ private:
   }
   static inline LPARAM MakePositionParam(int x, int y) {
     return static_cast<LPARAM>(static_cast<int32>(static_cast<int16>(x)) | (y << 16));
+  }
+  int ScreenToGameX(int val) {
+    return static_cast<int>((val * (640.0 / mouse_resolution_width_)) + 0.5);
+  }
+  int ScreenToGameY(int val) {
+    return static_cast<int>((val * (480.0 / mouse_resolution_height_)) + 0.5);
   }
 
   // hooks
@@ -109,6 +117,7 @@ private:
   static HWND __stdcall SetCaptureHook(HWND hWnd);
   static BOOL __stdcall ReleaseCaptureHook();
   static BOOL __stdcall ShowWindowHook(HWND hwnd, int nCmdShow);
+  static SHORT __stdcall GetKeyStateHook(int nVirtKey);
   static void __stdcall RenderScreenHook();
 
   // callable from JS
@@ -141,6 +150,7 @@ private:
   int mouse_resolution_height_;
   bool is_started_;
   bool should_clip_cursor_;
+  bool window_active_;
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
   IndirectDraw* indirect_draw_;
