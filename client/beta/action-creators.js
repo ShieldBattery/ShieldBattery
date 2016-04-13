@@ -14,9 +14,7 @@ export function createInvite(invite) {
       type: BETA_CREATE_INVITE,
       payload: fetch('/api/1/invites', {
         method: 'post',
-        body: JSON.stringify({
-          invite
-        })
+        body: JSON.stringify(invite)
       })
     })
   }

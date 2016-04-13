@@ -15,7 +15,7 @@ import {
   EMAIL_PATTERN,
 } from '../../shared/constants'
 
-import { createInvite } from './action-creator'
+import { createInvite } from './action-creators'
 
 class BetaSignup extends React.Component {
   static contextTypes = {

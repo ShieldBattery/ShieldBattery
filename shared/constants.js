@@ -16,20 +16,20 @@ export const USERNAME_MINLENGTH = 1
 export const USERNAME_MAXLENGTH = 16
 
 export function isValidUsername(username) {
-  return username &&
+  return (username &&
     username.length >= USERNAME_MINLENGTH &&
     username.length <= USERNAME_MAXLENGTH &&
-    USERNAME_PATTERN.test(username)
+    USERNAME_PATTERN.test(username))
 }
 
 export function isValidEmail(email) {
-  return email &&
+  return (email &&
     email.length >= EMAIL_MINLENGTH &&
     email.length <= EMAIL_MAXLENGTH &&
-    EMAIL_PATTERN.test(email)
+    EMAIL_PATTERN.test(email))
 }
 
 export function isValidPassword(password) {
-  return password &&
-      password.length >= PASSWORD_MINLENGTH
+  return (password &&
+      password.length >= PASSWORD_MINLENGTH)
 }
