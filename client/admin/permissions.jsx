@@ -30,7 +30,7 @@ export class PermissionsResults extends React.Component {
 
   componentDidMount() {
     const { username } = this.props.routeParams
-    const action = getPermissionsIfNeeded(decodeURIComponent(username))
+    const action = getPermissionsIfNeeded(username)
     if (action) this.props.dispatch(action)
   }
 
@@ -39,37 +39,38 @@ export class PermissionsResults extends React.Component {
     const { username: newUsername } = nextProps.routeParams
 
     if (oldUsername !== newUsername) {
-      const action = getPermissionsIfNeeded(decodeURIComponent(newUsername))
-      if (action) this.props.dispatch(action)
+      this.props.dispatch(getPermissionsIfNeeded(newUsername))
     }
   }
 
   render() {
-    const { permissions } = this.props
-    if (permissions.requestingPermissions) {
+    const {
+      permissions: { users },
+      routeParams: { username },
+    } = this.props
+    const user = users.get(username)
+    if (!user || user.isRequesting) {
       return <p>Please wait...</p>
     }
 
-    const { username } = this.props.routeParams
-    if (!permissions.users.has(username)) {
-      return <p>No results</p>
+    if (user.lastError) {
+      return <p>{user.lastError.message}</p>
     }
 
-    const perms = permissions.users.get(username)
     const saveButton = <FlatButton label='Save' color='accent' tabIndex={0}
         onClick={this._savePermissionsHandler} />
 
     return (
-      <ValidatedForm ref='saveForm' formTitle={'Set permissions'}
+      <ValidatedForm ref='saveForm' formTitle={`Set permissions for ${username}`}
           className={styles.saveForm} buttons={saveButton}
           onSubmitted={values => this.onSaveSubmitted(values)}>
         <ValidatedCheckbox label='Edit permissions' name='editPermissions' tabIndex={0}
             disabled={username === this.props.auth.user.name}
-            defaultChecked={perms.editPermissions} />
+            defaultChecked={user.editPermissions} />
         <ValidatedCheckbox label='Debug' name='debug' tabIndex={0}
-            defaultChecked={perms.debug} />
+            defaultChecked={user.debug} />
         <ValidatedCheckbox label='Accept beta invites' name='acceptInvites' tabIndex={0}
-            defaultChecked={perms.acceptInvites} />
+            defaultChecked={user.acceptInvites} />
       </ValidatedForm>
     )
   }
