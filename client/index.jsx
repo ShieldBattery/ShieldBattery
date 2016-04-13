@@ -10,6 +10,7 @@ import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
+import RedirectProvider from './navigation/redirect-provider.jsx'
 
 // initialize socket
 import './network/psi-socket'
@@ -42,5 +43,10 @@ new Promise((resolve, reject) => {
 
   return { elem, store, history }
 }).then(({elem, store, history}) => {
-  render(<Provider store={store}><App history={history}/></Provider>, elem)
+  render(
+    <Provider store={store}>
+      <RedirectProvider>
+        <App history={history}/>
+      </RedirectProvider>
+    </Provider>, elem)
 })

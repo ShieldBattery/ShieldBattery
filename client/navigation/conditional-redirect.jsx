@@ -10,16 +10,17 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
     static displayName = name;
     static contextTypes = {
       store: React.PropTypes.object.isRequired,
+      redirectChecker: React.PropTypes.object.isRequired,
     };
 
-    constructor(props) {
-      super(props)
+    constructor(props, context) {
+      super(props, context)
       this._unsubscriber = null
     }
 
     _subscribe() {
       if (!this._unsubscriber) {
-        this._unsubscriber = this.context.store.subscribe(() => this._handleChange())
+        this._unsubscriber = this.context.redirectChecker.subscribe(() => this._handleChange())
       }
     }
 
@@ -35,7 +36,9 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
       if (shouldRedirect(getState())) {
         this._unsubscribe()
         dispatch(createRedirectAction(getState(), this.props.history))
+        return true
       }
+      return false
     }
 
     componentDidMount() {
