@@ -17,19 +17,19 @@ export const USERNAME_MAXLENGTH = 16
 
 export function isValidUsername(username) {
   return username &&
-    username.length >= module.exports.USERNAME_MINLENGTH &&
-    username.length <= module.exports.USERNAME_MAXLENGTH &&
-    module.exports.USERNAME_PATTERN.test(username)
+    username.length >= USERNAME_MINLENGTH &&
+    username.length <= USERNAME_MAXLENGTH &&
+    USERNAME_PATTERN.test(username)
 }
 
 export function isValidEmail(email) {
   return email &&
-    email.length >= module.exports.EMAIL_MINLENGTH &&
-    email.length <= module.exports.EMAIL_MAXLENGTH &&
-    module.exports.EMAIL_PATTERN.test(email)
+    email.length >= EMAIL_MINLENGTH &&
+    email.length <= EMAIL_MAXLENGTH &&
+    EMAIL_PATTERN.test(email)
 }
 
 export function isValidPassword(password) {
   return password &&
-      password.length >= module.exports.PASSWORD_MINLENGTH
+      password.length >= PASSWORD_MINLENGTH
 }
