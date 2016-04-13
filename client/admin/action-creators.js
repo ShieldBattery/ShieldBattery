@@ -4,80 +4,63 @@ import {
   ADMIN_GET_INVITES,
   ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_GET_PERMISSIONS,
-  ADMIN_GET_PERMISSIONS_ERROR,
   ADMIN_ACCEPT_USER_BEGIN,
   ADMIN_ACCEPT_USER,
   ADMIN_SET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
 
+const PERMISSIONS_STALE_TIME = 60 * 1000
 function shouldGetPermissions(state, username) {
-  const lastUpdated = state.permissions.lastUpdated.get(username)
-
-  if (!lastUpdated) {
+  const { permissions: { users } } = state
+  if (!users.has(username)) {
     return true
   }
+  const user = users.get(username)
+  return !user.isRequesting && (Date.now() - user.lastUpdated) > PERMISSIONS_STALE_TIME
+}
 
-  if ((Date.now() - lastUpdated.time) > 60000) {
-    return true
+function fetchUserId(username) {
+  return (fetch('/api/1/users/' + encodeURIComponent(username))
+    .then(value => {
+      if (!value.length) throw new Error('No user found with that name')
+      else return value[0].id
+    }))
+}
+
+function getPermissions(username) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_GET_PERMISSIONS_BEGIN,
+      payload: { username }
+    })
+    dispatch({
+      type: ADMIN_GET_PERMISSIONS,
+      payload: fetchUserId(username).then(id => fetch('/api/1/permissions/' + id)),
+      meta: { username }
+    })
   }
-
-  return false
 }
 
 export function getPermissionsIfNeeded(username) {
   return (dispatch, getState) => {
     if (shouldGetPermissions(getState(), username)) {
-      return dispatch(getPermissions(username))
+      dispatch(getPermissions(username))
     }
-    return null
-  }
-}
-
-export function getPermissions(username) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_GET_PERMISSIONS_BEGIN
-    })
-
-    fetch('/api/1/users/' + username, {
-      method: 'get'
-    }).then(value => {
-      if (value.length) {
-        dispatch({
-          type: ADMIN_GET_PERMISSIONS,
-          payload: fetch('/api/1/permissions/' + value[0].id, {
-            method: 'get'
-          }),
-          meta: { username }
-        })
-      } else {
-        dispatch({
-          type: ADMIN_GET_PERMISSIONS_ERROR
-        })
-      }
-    })
   }
 }
 
 export function setPermissions(username, permissions) {
   return dispatch => {
     dispatch({
-      type: ADMIN_SET_PERMISSIONS_BEGIN
+      type: ADMIN_SET_PERMISSIONS_BEGIN,
+      meta: { username, permissions }
     })
-
-    fetch('/api/1/users/' + username, {
-      method: 'get'
-    }).then(value => {
-      if (value.length) {
-        dispatch({
-          type: ADMIN_SET_PERMISSIONS,
-          payload: fetch('/api/1/permissions/' + value[0].id, {
-            method: 'post',
-            body: JSON.stringify(permissions)
-          })
-        })
-      }
+    const params = { method: 'post', body: JSON.stringify(permissions) }
+    dispatch({
+      type: ADMIN_SET_PERMISSIONS,
+      payload: fetchUserId(username).then(id => fetch('/api/1/permissions/' + id, params)),
+      meta: { username, permissions },
     })
   }
 }
@@ -85,7 +68,8 @@ export function setPermissions(username, permissions) {
 export function getInvites(inviteeType) {
   return dispatch => {
     dispatch({
-      type: ADMIN_GET_INVITES_BEGIN
+      type: ADMIN_GET_INVITES_BEGIN,
+      meta: { inviteeType },
     })
 
     let reqUrl = '/api/1/invites'
@@ -97,9 +81,8 @@ export function getInvites(inviteeType) {
 
     dispatch({
       type: ADMIN_GET_INVITES,
-      payload: fetch(reqUrl, {
-        method: 'get'
-      })
+      payload: fetch(reqUrl),
+      meta: { inviteeType },
     })
   }
 }
@@ -107,17 +90,17 @@ export function getInvites(inviteeType) {
 export function acceptUser(email) {
   return dispatch => {
     dispatch({
-      type: ADMIN_ACCEPT_USER_BEGIN
+      type: ADMIN_ACCEPT_USER_BEGIN,
+      meta: { email }
     })
 
     dispatch({
       type: ADMIN_ACCEPT_USER,
-      payload: fetch('/api/1/invites/' + email, {
+      payload: fetch('/api/1/invites/' + encodeURIComponent(email), {
         method: 'put',
-        body: JSON.stringify({
-          isAccepted: true
-        })
-      })
+        body: JSON.stringify({ isAccepted: true })
+      }),
+      meta: { email }
     })
   }
 }
