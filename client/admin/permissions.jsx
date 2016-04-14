@@ -30,13 +30,12 @@ export class PermissionsResults extends React.Component {
 
   componentDidMount() {
     const { username } = this.props.routeParams
-    const action = getPermissionsIfNeeded(username)
-    if (action) this.props.dispatch(action)
+    this.props.dispatch(getPermissionsIfNeeded(username))
   }
 
-  componentWillReceiveProps(nextProps) {
-    const { username: oldUsername } = this.props.routeParams
-    const { username: newUsername } = nextProps.routeParams
+  componentDidUpdate(prevProps) {
+    const { username: oldUsername } = prevProps.routeParams
+    const { username: newUsername } = this.props.routeParams
 
     if (oldUsername !== newUsername) {
       this.props.dispatch(getPermissionsIfNeeded(newUsername))

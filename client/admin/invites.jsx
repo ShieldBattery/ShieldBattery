@@ -9,18 +9,34 @@ import { getInvites, acceptUser } from './action-creators'
 
 @connect(state => ({ invites: state.invites }))
 export default class Invites extends React.Component {
-  constructor(props) {
-    super(props)
+  _retrieveData() {
+    const { location: { query: { accepted } } } = this.props
+    let type
+    if (accepted === 'true') {
+      type = 'accepted'
+    } else if (accepted === 'false') {
+      type = 'unaccepted'
+    }
 
-    this._allHandler = ::this.onAllClicked
-    this._acceptedHandler = ::this.onAcceptedClicked
-    this._unacceptedHandler = ::this.onUnacceptedClicked
+    this.props.dispatch(getInvites(type))
   }
 
-  getInviteeRow(invitee) {
-    const acceptLink = <Link to='/admin/invites'
-        onClick={() => this.onAcceptUserClicked(invitee.email)}>Accept</Link>
+  componentDidMount() {
+    this._retrieveData()
+  }
 
+  componentDidUpdate(prevProps) {
+    if (prevProps.location.query.accepted !== this.props.location.query.accepted) {
+      this._retrieveData()
+    }
+  }
+
+  renderAcceptLink(invitee) {
+    return (<Link to='/admin/invites'
+        onClick={() => this.onAcceptUserClicked(invitee.email)}>Accept</Link>)
+  }
+
+  renderInviteeRow(invitee) {
     return (
       <tr key={invitee.email}>
         <td>{invitee.email}</td>
@@ -29,20 +45,16 @@ export default class Invites extends React.Component {
         <td>{invitee.browser}</td>
         <td>{invitee.graphics}</td>
         <td>{invitee.canHost ? <span>Yes</span> : <span>No</span>}</td>
-        <td>{invitee.isAccepted ? <span>Yes</span> : <span>{acceptLink}</span>}</td>
+        <td>
+          {invitee.isAccepted ? <span>Yes</span> : <span>{this.renderAcceptLink(invitee)}</span>}
+        </td>
       </tr>
     )
   }
 
   renderInvites() {
-    const { signups } = this.props.invites
+    const { signups, byEmail } = this.props.invites
     if (signups.size === 0) return null
-
-    const emails = signups.keySeq().toArray()
-    const inviteeRows = []
-    for (let i = 0; i < signups.size; i++) {
-      inviteeRows.push(this.getInviteeRow(signups.get(emails[i])))
-    }
 
     return (
       <table className={styles.invitesTable}>
@@ -58,39 +70,33 @@ export default class Invites extends React.Component {
           </tr>
         </thead>
         <tbody>
-          {inviteeRows}
+          { signups.map(e => this.renderInviteeRow(byEmail.get(e))) }
         </tbody>
       </table>
     )
+  }
+
+  renderError() {
+    const { lastError } = this.props.invites
+    if (!lastError) return null
+
+    return <div className={styles.invitesError}>{lastError.message}</div>
   }
 
   render() {
     return (
       <ContentLayout title={'Invites'}>
         <div className={styles.invites}>
+          { this.renderError() }
           <div className={styles.filterInvites}>
-            <Link to='/admin/invites' onClick={this._allHandler}>All</Link>
-            <Link to='/admin/invites?accepted=true' onClick={this._acceptedHandler}>Accepted</Link>
-            <Link to='/admin/invites?accepted=false' onClick={this._unacceptedHandler}>
-              Unaccepted
-            </Link>
+            <Link to='/admin/invites'>All</Link>
+            <Link to='/admin/invites?accepted=true'>Accepted</Link>
+            <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
           </div>
           { this.renderInvites() }
         </div>
       </ContentLayout>
     )
-  }
-
-  onAllClicked() {
-    this.props.dispatch(getInvites())
-  }
-
-  onAcceptedClicked() {
-    this.props.dispatch(getInvites('accepted'))
-  }
-
-  onUnacceptedClicked() {
-    this.props.dispatch(getInvites('unaccepted'))
   }
 
   onAcceptUserClicked(email) {
