@@ -259,7 +259,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
     return WindowsError("InjectDll -> CreateRemoteThread", GetLastError());
   }
 
-  uint32 wait_result = WaitForSingleObject(thread_handle.get(), 3000);
+  uint32 wait_result = WaitForSingleObject(thread_handle.get(), 15000);
   if (wait_result == WAIT_TIMEOUT) {
     return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
   } else if (wait_result == WAIT_FAILED) {
