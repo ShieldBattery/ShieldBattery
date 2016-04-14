@@ -32,8 +32,7 @@ export default class Invites extends React.Component {
   }
 
   renderAcceptLink(invitee) {
-    return (<Link to='/admin/invites'
-        onClick={() => this.onAcceptUserClicked(invitee.email)}>Accept</Link>)
+    return <a href='#' onClick={event => this.onAcceptUserClicked(event, invitee.email)}>Accept</a>
   }
 
   renderInviteeRow(invitee) {
@@ -99,7 +98,8 @@ export default class Invites extends React.Component {
     )
   }
 
-  onAcceptUserClicked(email) {
+  onAcceptUserClicked(event, email) {
+    event.preventDefault()
     this.props.dispatch(acceptUser(email))
   }
 }
