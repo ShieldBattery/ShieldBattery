@@ -51,10 +51,16 @@ const handlers = {
 
   [ADMIN_SET_PERMISSIONS](state, action) {
     if (action.error) {
-      // TODO(2Pac): handle error
-      return state
+      const data = {
+        lastUpdated: Date.now(),
+        lastError: action.payload,
+        isRequesting: false,
+      }
+      return state.updateIn([ 'users', action.meta.username ],
+          new Permissions(),
+          p => p.merge(data))
     }
-    // TODO(2Pac): display confirmation/error message, preferably in a snackbar/toast
+
     const data = {
       ...action.payload,
       lastUpdated: Date.now(),

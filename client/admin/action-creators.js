@@ -1,4 +1,5 @@
 import fetch from '../network/fetch'
+import { openSnackbar } from '../snackbars/action-creators'
 import {
   ADMIN_GET_INVITES_BEGIN,
   ADMIN_GET_INVITES,
@@ -59,7 +60,14 @@ export function setPermissions(username, permissions) {
     const params = { method: 'post', body: JSON.stringify(permissions) }
     dispatch({
       type: ADMIN_SET_PERMISSIONS,
-      payload: fetchUserId(username).then(id => fetch('/api/1/permissions/' + id, params)),
+      payload: fetchUserId(username)
+          .then(id => fetch('/api/1/permissions/' + id, params))
+          .then(permissions => {
+            dispatch(openSnackbar({ message: 'Saved!' }))
+            return permissions
+          }, error => {
+            throw new Error('Error while setting the permissions: ' + error)
+          }),
       meta: { username, permissions },
     })
   }
