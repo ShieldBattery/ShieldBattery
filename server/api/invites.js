@@ -36,15 +36,16 @@ function* createInvite(next) {
 }
 
 function* listInvites(next) {
+  const { limit, page: pageNumber } = this.query
   try {
     if (this.query.accepted) {
       if (this.query.accepted === 'true') {
-        this.body = yield* invites.getAccepted()
+        this.body = yield* invites.getAccepted(limit, pageNumber)
       } else {
-        this.body = yield* invites.getUnaccepted()
+        this.body = yield* invites.getUnaccepted(limit, pageNumber)
       }
     } else {
-      this.body = yield* invites.getAll()
+      this.body = yield* invites.getAll(limit, pageNumber)
     }
   } catch (err) {
     this.log.error({ err }, 'error getting invites')

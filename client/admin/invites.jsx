@@ -7,10 +7,12 @@ import ContentLayout from '../content/content-layout.jsx'
 
 import { getInvites, acceptUser } from './action-creators'
 
+const LIMIT = 25
+
 @connect(state => ({ invites: state.invites }))
 export default class Invites extends React.Component {
   _retrieveData() {
-    const { location: { query: { accepted } } } = this.props
+    const { location: { query: { accepted, page } } } = this.props
     let type
     if (accepted === 'true') {
       type = 'accepted'
@@ -18,7 +20,7 @@ export default class Invites extends React.Component {
       type = 'unaccepted'
     }
 
-    this.props.dispatch(getInvites(type))
+    this.props.dispatch(getInvites(type, LIMIT, page ? page : 1))
   }
 
   componentDidMount() {
@@ -26,7 +28,8 @@ export default class Invites extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.location.query.accepted !== this.props.location.query.accepted) {
+    if (prevProps.location.query.accepted !== this.props.location.query.accepted ||
+        prevProps.location.query.page !== this.props.location.query.page) {
       this._retrieveData()
     }
   }
@@ -82,6 +85,34 @@ export default class Invites extends React.Component {
     return <div className={styles.invitesError}>{lastError.message}</div>
   }
 
+  renderPaging() {
+    const { location: { query: { accepted, page } } } = this.props
+    const { total } = this.props.invites
+    const numOfPages = Math.ceil(total / LIMIT)
+
+    let search
+    if (accepted === 'true' || accepted === 'false') {
+      search = '?accepted=' + accepted + '&page='
+    } else {
+      search = '?page='
+    }
+
+    const pagesLinks = []
+    for (let i = 1; i <= numOfPages; i++) {
+      if (i === parseInt(page, 10)) {
+        pagesLinks.push(<span key={i}>{i} </span>)
+        continue
+      }
+      pagesLinks.push(<Link to={'/admin/invites' + search + i} key={i}>{i} </Link>)
+    }
+
+    if (!page) {
+      pagesLinks[0] = <span key={1}>1 </span>
+    }
+
+    return pagesLinks
+  }
+
   render() {
     return (
       <ContentLayout title={'Invites'}>
@@ -93,6 +124,7 @@ export default class Invites extends React.Component {
             <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
           </div>
           { this.renderInvites() }
+          { this.renderPaging() }
         </div>
       </ContentLayout>
     )

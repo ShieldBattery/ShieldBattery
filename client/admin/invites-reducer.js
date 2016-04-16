@@ -17,6 +17,7 @@ export const Signup = new Record({
 export const InviteState = new Record({
   signups: new List(),
   byEmail: new Map(),
+  total: 0,
   lastError: null,
   lastType: null,
 })
@@ -27,11 +28,12 @@ const handlers = {
       return state.set('lastError', action.payload).set('lastType', action.meta.inviteeType)
     }
 
-    const signups = new List(action.payload.map(s => s.email))
-    const byEmail = new Map(action.payload.map(s => [ s.email, new Signup(s) ]))
+    const signups = new List(action.payload.invites.map(s => s.email))
+    const byEmail = new Map(action.payload.invites.map(s => [ s.email, new Signup(s) ]))
     const data = {
       signups,
       byEmail,
+      total: action.payload.total,
       lastError: null,
       lastType: action.meta.inviteeType,
     }
