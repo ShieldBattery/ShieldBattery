@@ -1,4 +1,10 @@
-import { AUTH_CHANGE_BEGIN, AUTH_LOG_IN, AUTH_LOG_OUT, AUTH_SIGN_UP } from '../actions'
+import {
+  AUTH_CHANGE_BEGIN,
+  AUTH_LOG_IN,
+  AUTH_LOG_OUT,
+  AUTH_SIGN_UP,
+  ADMIN_SET_PERMISSIONS
+} from '../actions'
 import { Auth, Permissions, User } from './auth-records'
 
 const initialState = new Auth()
@@ -30,11 +36,21 @@ function handleError(state, action) {
 }
 
 const logInSplitter = (state, action) => (!action.error ? logInSuccess : handleError)(state, action)
+
+function updatePermissions(state, action) {
+  if (action.error) {
+    return state
+  }
+
+  return state.set('permissions', new Permissions(action.payload))
+}
+
 const handlers = {
   [AUTH_CHANGE_BEGIN]: begin,
   [AUTH_LOG_IN]: logInSplitter,
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),
   [AUTH_SIGN_UP]: logInSplitter,
+  [ADMIN_SET_PERMISSIONS]: updatePermissions,
 }
 
 export default function authReducer(state = initialState, action) {
