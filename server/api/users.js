@@ -6,6 +6,7 @@ import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../shared/constants'
+import { UNIQUE_VIOLATION } from '../models/pg-error-codes'
 
 export default function(router) {
   router.post('/', createUser)
@@ -51,8 +52,7 @@ function* createUser(next) {
     const user = users.create(username, email, hashed)
     result = yield* user.save()
   } catch (err) {
-    if (err.code && err.code === 23505) {
-      // TODO(tec27): this is a nasty check, we should find a better way of dealing with this
+    if (err.code && err.code === UNIQUE_VIOLATION) {
       throw new httpErrors.Conflict('A user with that name already exists')
     }
     this.log.error({ err }, 'error saving user')
