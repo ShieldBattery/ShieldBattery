@@ -24,7 +24,6 @@ export const InviteState = new Record({
 const handlers = {
   [ADMIN_GET_INVITES](state, action) {
     if (action.error) {
-      // TODO(2Pac): handle error
       return state.set('lastError', action.payload).set('lastType', action.meta.inviteeType)
     }
 
@@ -42,8 +41,7 @@ const handlers = {
 
   [ADMIN_ACCEPT_USER](state, action) {
     if (action.error) {
-      // TODO(2Pac): handle error
-      return state
+      return state.set('lastError', action.payload)
     }
 
     const acceptedUser = action.payload
