@@ -29,7 +29,6 @@ const handlers = {
   [ADMIN_GET_PERMISSIONS](state, action) {
     if (action.error) {
       const data = {
-        lastUpdated: Date.now(),
         lastError: action.payload,
         isRequesting: false,
       }
@@ -52,7 +51,6 @@ const handlers = {
   [ADMIN_SET_PERMISSIONS](state, action) {
     if (action.error) {
       const data = {
-        lastUpdated: Date.now(),
         lastError: action.payload,
         isRequesting: false,
       }

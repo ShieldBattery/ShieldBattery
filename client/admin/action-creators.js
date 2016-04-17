@@ -65,8 +65,6 @@ export function setPermissions(username, permissions) {
           .then(permissions => {
             dispatch(openSnackbar({ message: 'Saved!' }))
             return permissions
-          }, error => {
-            throw new Error('Error while setting the permissions: ' + error)
           }),
       meta: { username, permissions },
     })
