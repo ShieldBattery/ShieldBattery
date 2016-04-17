@@ -37,6 +37,13 @@ function* createInvite(next) {
 
 function* listInvites(next) {
   const { limit, page: pageNumber } = this.query
+  if (!limit || limit < 0 || limit > 100) {
+    limit = 25
+  }
+  if (!pageNumber || pageNumber < 0) {
+    pageNumber = 0
+  }
+
   try {
     if (this.query.accepted) {
       if (this.query.accepted === 'true') {

@@ -78,10 +78,10 @@ function* _getInvites(condition, limit, pageNumber) {
     query += ' ' + condition
   }
 
-  query += ' ' + 'ORDER BY email LIMIT $1 OFFSET $2'
+  query += ' ORDER BY email LIMIT $1 OFFSET $2'
   params = [
     limit,
-    (pageNumber - 1) * limit
+    pageNumber * limit
   ]
 
   const total = yield* _getInvitesCount(condition)

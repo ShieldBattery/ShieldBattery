@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
+import { Range } from 'immutable'
 import styles from './admin.css'
 
 import ContentLayout from '../content/content-layout.jsx'
@@ -20,7 +21,7 @@ export default class Invites extends React.Component {
       type = 'unaccepted'
     }
 
-    this.props.dispatch(getInvites(type, LIMIT, page ? page : 1))
+    this.props.dispatch(getInvites(type, LIMIT, page ? page - 1 : 0))
   }
 
   componentDidMount() {
@@ -90,21 +91,16 @@ export default class Invites extends React.Component {
     const { total } = this.props.invites
     const numOfPages = Math.ceil(total / LIMIT)
 
-    let search
-    if (accepted === 'true' || accepted === 'false') {
-      search = '?accepted=' + accepted + '&page='
-    } else {
-      search = '?page='
-    }
+    const search = (accepted === 'true' || accepted === 'false') ?
+        '?accepted=' + accepted + '&page=' : '?page='
 
-    const pagesLinks = []
-    for (let i = 1; i <= numOfPages; i++) {
-      if (i === parseInt(page, 10)) {
-        pagesLinks.push(<span key={i}>{i} </span>)
-        continue
-      }
-      pagesLinks.push(<Link to={'/admin/invites' + search + i} key={i}>{i} </Link>)
-    }
+    const pagesLinks = Range(1, numOfPages + 1)
+      .map(pageNum => {
+        if (pageNum === parseInt(page, 10)) {
+          return <span key={pageNum}>{pageNum} </span>
+        }
+        return <Link to={'/admin/invites' + search + pageNum} key={pageNum}>{pageNum} </Link>
+      }).toArray()
 
     if (!page) {
       pagesLinks[0] = <span key={1}>1 </span>
