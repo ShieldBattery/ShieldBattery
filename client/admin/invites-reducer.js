@@ -12,6 +12,7 @@ export const Signup = new Record({
   graphics: null,
   canHost: false,
   isAccepted: false,
+  token: null,
 })
 
 export const InviteState = new Record({

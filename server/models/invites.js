@@ -9,6 +9,7 @@ class Invite {
     this.graphics = props.graphics
     this.canHost = props.can_host
     this.isAccepted = !!props.token
+    this.token = props.token
   }
 }
 

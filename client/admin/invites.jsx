@@ -47,6 +47,7 @@ export default class Invites extends React.Component {
         <td>
           {invitee.isAccepted ? <span>Yes</span> : <span>{this.renderAcceptLink(invitee)}</span>}
         </td>
+        {invitee.isAccepted ? <td><a href={'/signup?token=' + invitee.token}>Link</a></td> : null}
       </tr>
     )
   }
@@ -66,6 +67,7 @@ export default class Invites extends React.Component {
             <th>Graphics</th>
             <th>Can Host</th>
             <th>Accepted</th>
+            {this.props.location.query.accepted === 'true' ? <th>Signup Link</th> : null}
           </tr>
         </thead>
         <tbody>
