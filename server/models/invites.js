@@ -96,6 +96,35 @@ function* acceptInvite(email, token) {
   }
 }
 
+export function* getTokenByEmail(email) {
+  const query = 'SELECT token FROM invites WHERE email = $1'
+  const params = [ email ]
+
+  const { client, done } = yield db()
+  try {
+    const result = yield client.queryPromise(query, params)
+    if (result.rows.length < 1) {
+      throw new Error('No such email signed up for beta')
+    } else {
+      return result.rows[0].token
+    }
+  } finally {
+    done()
+  }
+}
+
+export async function deleteInvite(email) {
+  const { client, done } = await db()
+  try {
+    const result = await client.queryPromise('DELETE FROM invites WHERE email = $1', [ email ])
+    if (result.rowCount < 1) {
+      throw new Error('No rows deleted')
+    }
+  } finally {
+    done()
+  }
+}
+
 export default {
   create: createInvite,
   getAll: getAllInvites,

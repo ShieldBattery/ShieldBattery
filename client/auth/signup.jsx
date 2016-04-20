@@ -125,8 +125,9 @@ class Signup extends React.Component {
   }
 
   onSubmitted(values) {
+    const { location: { query: { token } } } = this.props
     const { id, action } =
-        auther.signUp(values.get('username'), values.get('email'), values.get('password'))
+        auther.signUp(values.get('username'), values.get('email'), values.get('password'), token)
     this.setState({
       reqId: id
     })

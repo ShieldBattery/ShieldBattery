@@ -5,6 +5,7 @@ import users from '../models/users'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
+import { getTokenByEmail } from '../models/invites'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../shared/constants'
 import { UNIQUE_VIOLATION } from '../models/pg-error-codes'
 
@@ -32,11 +33,21 @@ function* find(next) {
 const bcryptHash = thenify(bcrypt.hash)
 function* createUser(next) {
   const { username, email, password } = this.request.body
+  const { token } = this.query
+
+  if (!token) {
+    throw new httpErrors.BadRequest('Beta access is required to register')
+  }
 
   if (!isValidUsername(username) ||
       !isValidEmail(email) ||
       !isValidPassword(password)) {
     throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const tokenFromDb = yield* getTokenByEmail(email)
+  if (token !== tokenFromDb) {
+    throw new httpErrors.BadRequest('Invalid token')
   }
 
   let hashed
