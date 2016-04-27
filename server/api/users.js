@@ -36,7 +36,7 @@ function* createUser(next) {
   const { token } = this.query
 
   if (!token) {
-    throw new httpErrors.BadRequest('Beta access is required to register')
+    throw new httpErrors.BadRequest('Token must be specified')
   }
 
   if (!isValidUsername(username) ||
@@ -45,9 +45,17 @@ function* createUser(next) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
-  const tokenFromDb = yield* getTokenByEmail(email)
-  if (token !== tokenFromDb) {
-    throw new httpErrors.BadRequest('Invalid token')
+  try {
+    const tokenFromDb = yield* getTokenByEmail(email)
+    if (token !== tokenFromDb) {
+      throw new httpErrors.BadRequest('Invalid token')
+    }
+  } catch (err) {
+    if (err.name === 'NonexistentEmail') {
+      throw new httpErrors.BadRequest('Invalid email')
+    }
+    this.log.error({ err }, 'error getting email by token')
+    throw err
   }
 
   let hashed

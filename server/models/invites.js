@@ -104,7 +104,9 @@ export function* getTokenByEmail(email) {
   try {
     const result = yield client.queryPromise(query, params)
     if (result.rows.length < 1) {
-      throw new Error('No such email signed up for beta')
+      const error = new Error('No such email signed up for beta')
+      error.name = 'NonexistentEmail'
+      throw error
     } else {
       return result.rows[0].token
     }

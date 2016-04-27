@@ -104,6 +104,11 @@ class Signup extends React.Component {
               required={true} requiredMessage='Confirm your password'
               validator={confirmPasswordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
+          <ValidatedText label='Token' floatingLabel={true} name='token'
+              tabIndex={1} autoCapitalize='off' autoCorrect='off' spellCheck={false}
+              defaultValue={location.query.token}
+              required={true} requiredMessage='Enter your token'
+              onEnterKeyDown={e => this.onSignUpClicked()}/>
         </ValidatedForm>
       </Card>
       <div className={styles.bottomAction}>
@@ -125,9 +130,8 @@ class Signup extends React.Component {
   }
 
   onSubmitted(values) {
-    const { location: { query: { token } } } = this.props
-    const { id, action } =
-        auther.signUp(values.get('username'), values.get('email'), values.get('password'), token)
+    const { id, action } = auther.signUp(values.get('username'), values.get('email'),
+        values.get('password'), values.get('token'))
     this.setState({
       reqId: id
     })
