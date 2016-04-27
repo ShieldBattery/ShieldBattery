@@ -94,17 +94,14 @@ export default class Invites extends React.Component {
     const search = (accepted === 'true' || accepted === 'false') ?
         '?accepted=' + accepted + '&page=' : '?page='
 
+    const parsedPage = parseInt(page, 10)
     const pagesLinks = Range(1, numOfPages + 1)
       .map(pageNum => {
-        if (pageNum === parseInt(page, 10)) {
+        if (!page && pageNum === 1 || pageNum === parsedPage) {
           return <span key={pageNum}>{pageNum} </span>
         }
         return <Link to={'/admin/invites' + search + pageNum} key={pageNum}>{pageNum} </Link>
-      }).toArray()
-
-    if (!page) {
-      pagesLinks[0] = <span key={1}>1 </span>
-    }
+      })
 
     return pagesLinks
   }

@@ -36,11 +36,15 @@ function* createInvite(next) {
 }
 
 function* listInvites(next) {
-  const { limit, page: pageNumber } = this.query
-  if (!limit || limit < 0 || limit > 100) {
+  let { limit, page: pageNumber } = this.query
+
+  limit = parseInt(limit, 10)
+  if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
     limit = 25
   }
-  if (!pageNumber || pageNumber < 0) {
+
+  pageNumber = parseInt(pageNumber, 10)
+  if (!pageNumber || isNaN(pageNumber) || pageNumber < 0) {
     pageNumber = 0
   }
 
