@@ -46,7 +46,9 @@ function* createInvite(invite) {
       // handling the case that this next query fails better
       yield client.queryPromise(query, params)
     } else {
-      // Intentionally empty; silently swallow the error to prevent leaking already signed up emails
+      const error = new Error('That email has already been used')
+      error.name = 'DuplicateEmail'
+      throw error
     }
   } finally {
     done()

@@ -28,6 +28,11 @@ function* createInvite(next) {
   try {
     yield* invites.create(invite)
   } catch (err) {
+    if (err.name === 'DuplicateEmail') {
+      // Swallow the error to prevent leaking already signed up emails
+      this.status = 201
+      return
+    }
     this.log.error({ err }, 'error creating invite')
     throw err
   }
