@@ -51,12 +51,30 @@ function* listInvites(next) {
   try {
     if (this.query.accepted) {
       if (this.query.accepted === 'true') {
-        this.body = yield* invites.getAccepted(limit, pageNumber)
+        const { total, invites: invs } = yield* invites.getAccepted(limit, pageNumber)
+        this.body = {
+          total,
+          invites: invs,
+          limit,
+          pageNumber
+        }
       } else {
-        this.body = yield* invites.getUnaccepted(limit, pageNumber)
+        const { total, invites: invs } = yield* invites.getUnaccepted(limit, pageNumber)
+        this.body = {
+          total,
+          invites: invs,
+          limit,
+          pageNumber
+        }
       }
     } else {
-      this.body = yield* invites.getAll(limit, pageNumber)
+      const { total, invites: invs } = yield* invites.getAll(limit, pageNumber)
+      this.body = {
+        total,
+        invites: invs,
+        limit,
+        pageNumber
+      }
     }
   } catch (err) {
     this.log.error({ err }, 'error getting invites')
