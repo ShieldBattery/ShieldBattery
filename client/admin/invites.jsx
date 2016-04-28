@@ -45,7 +45,8 @@ export default class Invites extends React.Component {
         <td>{invitee.graphics}</td>
         <td>{invitee.canHost ? <span>Yes</span> : <span>No</span>}</td>
         <td>
-          {invitee.isAccepted ? <span>Yes</span> : <span>{this.renderAcceptLink(invitee)}</span>}
+          {invitee.isAccepted ? <a href={'/signup?token=' + invitee.token}>Signup Link</a> :
+              <span>{this.renderAcceptLink(invitee)}</span>}
         </td>
       </tr>
     )
