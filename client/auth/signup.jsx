@@ -104,7 +104,7 @@ class Signup extends React.Component {
               required={true} requiredMessage='Confirm your password'
               validator={confirmPasswordValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
-          <ValidatedText label='Token' floatingLabel={true} name='token'
+          <ValidatedText label='Invite code' floatingLabel={true} name='token'
               tabIndex={1} autoCapitalize='off' autoCorrect='off' spellCheck={false}
               defaultValue={location.query.token}
               required={true} requiredMessage='Enter your token'

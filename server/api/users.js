@@ -52,7 +52,8 @@ function* createUser(next) {
     }
   } catch (err) {
     if (err.name === 'NonexistentEmail') {
-      throw new httpErrors.BadRequest('Invalid email')
+      // Return same error as when token is invalid so we don't leak emails
+      throw new httpErrors.BadRequest('Invalid token')
     }
     this.log.error({ err }, 'error getting email by token')
     throw err
