@@ -46,7 +46,9 @@ function* createInvite(invite) {
       // handling the case that this next query fails better
       yield client.queryPromise(query, params)
     } else {
-      throw new Error('That email has already been used')
+      const error = new Error('That email has already been used')
+      error.name = 'DuplicateEmail'
+      throw error
     }
   } finally {
     done()
