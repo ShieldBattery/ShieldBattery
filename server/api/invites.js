@@ -41,15 +41,45 @@ function* createInvite(next) {
 }
 
 function* listInvites(next) {
+  let { limit, page: pageNumber } = this.query
+
+  limit = parseInt(limit, 10)
+  if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
+    limit = 25
+  }
+
+  pageNumber = parseInt(pageNumber, 10)
+  if (!pageNumber || isNaN(pageNumber) || pageNumber < 0) {
+    pageNumber = 0
+  }
+
   try {
     if (this.query.accepted) {
       if (this.query.accepted === 'true') {
-        this.body = yield* invites.getAccepted()
+        const { total, invites: invs } = yield* invites.getAccepted(limit, pageNumber)
+        this.body = {
+          total,
+          invites: invs,
+          limit,
+          pageNumber
+        }
       } else {
-        this.body = yield* invites.getUnaccepted()
+        const { total, invites: invs } = yield* invites.getUnaccepted(limit, pageNumber)
+        this.body = {
+          total,
+          invites: invs,
+          limit,
+          pageNumber
+        }
       }
     } else {
-      this.body = yield* invites.getAll()
+      const { total, invites: invs } = yield* invites.getAll(limit, pageNumber)
+      this.body = {
+        total,
+        invites: invs,
+        limit,
+        pageNumber
+      }
     }
   } catch (err) {
     this.log.error({ err }, 'error getting invites')

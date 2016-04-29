@@ -104,6 +104,8 @@ class BetaSignup extends React.Component {
     let canHost = values.get('canHost')
     if (canHost.toLowerCase() === 'yes') {
       canHost = true
+    } else {
+      canHost = false
     }
 
     this.context.store.dispatch(createInvite({

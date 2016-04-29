@@ -56,8 +56,8 @@ function* createInvite(invite) {
   }
 }
 
-function* _getInvites(condition) {
-  let query = 'SELECT * FROM invites'
+function* _getInvitesCount(condition) {
+  let query = 'SELECT COUNT(*) FROM invites'
   const params = []
 
   if (condition) {
@@ -67,22 +67,47 @@ function* _getInvites(condition) {
   const { client, done } = yield db()
   try {
     const result = yield client.queryPromise(query, params)
-    return result.rows.map(row => new Invite(row))
+    return result.rows[0]
   } finally {
     done()
   }
 }
 
-function* getAllInvites() {
-  return yield* _getInvites(null)
+function* _getInvites(condition, limit, pageNumber) {
+  let query = 'SELECT * FROM invites'
+  let params = []
+
+  if (condition) {
+    query += ' ' + condition
+  }
+
+  query += ' ORDER BY email LIMIT $1 OFFSET $2'
+  params = [
+    limit,
+    pageNumber * limit
+  ]
+
+  const total = yield* _getInvitesCount(condition)
+
+  const { client, done } = yield db()
+  try {
+    const result = yield client.queryPromise(query, params)
+    return { total: parseInt(total.count, 10), invites: result.rows.map(row => new Invite(row)) }
+  } finally {
+    done()
+  }
 }
 
-function* getUnacceptedInvites() {
-  return yield* _getInvites('WHERE token IS NULL')
+function* getAllInvites(limit, pageNumber) {
+  return yield* _getInvites(null, limit, pageNumber)
 }
 
-function* getAcceptedInvites() {
-  return yield* _getInvites('WHERE token IS NOT NULL')
+function* getUnacceptedInvites(limit, pageNumber) {
+  return yield* _getInvites('WHERE token IS NULL', limit, pageNumber)
+}
+
+function* getAcceptedInvites(limit, pageNumber) {
+  return yield* _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
 }
 
 function* acceptInvite(email, token) {

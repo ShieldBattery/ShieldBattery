@@ -71,18 +71,18 @@ export function setPermissions(username, permissions) {
   }
 }
 
-export function getInvites(inviteeType) {
+export function getInvites(inviteeType, limit, pageNumber) {
   return dispatch => {
     dispatch({
       type: ADMIN_GET_INVITES_BEGIN,
       meta: { inviteeType },
     })
 
-    let reqUrl = '/api/1/invites'
+    let reqUrl = `/api/1/invites?limit=${limit}&page=${pageNumber}`
     if (inviteeType === 'accepted') {
-      reqUrl += '?accepted=true'
+      reqUrl += '&accepted=true'
     } else if (inviteeType === 'unaccepted') {
-      reqUrl += '?accepted=false'
+      reqUrl += '&accepted=false'
     }
 
     dispatch({
