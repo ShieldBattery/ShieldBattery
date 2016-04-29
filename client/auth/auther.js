@@ -42,8 +42,9 @@ const auther = {
     }))
   },
 
-  signUp(username, email, password) {
-    return idRequest(AUTH_SIGN_UP, () => fetch('/api/1/users', {
+  signUp(username, email, password, token) {
+    const reqUrl = '/api/1/users?token=' + token
+    return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
       method: 'post',
       body: JSON.stringify({ username, email, password })
     }))
