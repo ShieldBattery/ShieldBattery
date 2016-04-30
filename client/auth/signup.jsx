@@ -47,7 +47,7 @@ class Signup extends React.Component {
       return <Card><span>Please wait...</span></Card>
     }
 
-    const button = (<RaisedButton type='button' label='Sign up'
+    const button = (<RaisedButton type='button' label='Create account'
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
     const usernameValidator = composeValidators(
@@ -80,8 +80,9 @@ class Signup extends React.Component {
 
     return (<div className={styles.content}>
       <Card zDepth={1}>
-        <ValidatedForm formTitle='Sign up' errorText={errContents} errorClassName={styles.errors}
-            ref='form' buttons={button} onSubmitted={values => this.onSubmitted(values)}>
+        <ValidatedForm formTitle='Create account' errorText={errContents}
+            errorClassName={styles.errors} ref='form' buttons={button}
+            onSubmitted={values => this.onSubmitted(values)}>
           <ValidatedText label='Username' floatingLabel={true} name='username' tabIndex={1}
               defaultValue={location.query.username}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
