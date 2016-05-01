@@ -1,5 +1,6 @@
 import { detectResolution } from './natives/index'
 import log from './logger'
+import packageJson from '../package.json'
 
 export function register(nydus, localSettings, activeGameManager, mapStore) {
   async function setSettings(data, next) {
@@ -18,10 +19,15 @@ export function register(nydus, localSettings, activeGameManager, mapStore) {
     return mapStore.downloadMap(origin, hash, format)
   }
 
+  async function getVersion(data, next) {
+    return packageJson.version
+  }
+
   nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
   nydus.registerRoute('/site/activateMap', activateMap)
+  nydus.registerRoute('/site/getVersion', getVersion)
 
   localSettings.on('change', () => nydus.publish('/settings', localSettings.settings))
 }

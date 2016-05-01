@@ -1,6 +1,6 @@
 {
   "name": "shieldbattery-js",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "JS files for ShieldBattery",
   "main": "index.js",
   "scripts": {
