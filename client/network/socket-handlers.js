@@ -6,6 +6,7 @@ import {
   NETWORK_PSI_DISCONNECTED,
   NETWORK_SITE_CONNECTED,
   NETWORK_SITE_DISCONNECTED,
+  PSI_VERSION,
 } from '../actions'
 
 import chat from '../chat/socket-handlers'
@@ -24,6 +25,10 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 
   psiSocket.on('connect', () => {
     dispatch({ type: NETWORK_PSI_CONNECTED })
+    dispatch({
+      type: PSI_VERSION,
+      payload: psiSocket.invoke('/site/getVersion'),
+    })
   }).on('disconnect', () => {
     dispatch({ type: NETWORK_PSI_DISCONNECTED })
   })
