@@ -97,12 +97,21 @@ class Login extends React.Component {
       <Card>{cardContents}</Card>
       <div className={styles.bottomAction}>
         <p>Don't have an account?</p>
-        <FlatButton label='Sign up' onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
+        <span>
+          <FlatButton label='Sign up for beta' onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
+          or
+          <FlatButton label='Create account' onClick={e => this.onCreateAccountClicked(e)}
+              tabIndex={2}/>
+        </span>
       </div>
     </div>)
   }
 
   onSignUpClicked() {
+    this.props.dispatch(routeActions.push({ pathname: '/splash' }))
+  }
+
+  onCreateAccountClicked() {
     const query = {
       ...this.props.location.query,
       username: this.refs.form.getValueOf('username'),
