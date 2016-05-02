@@ -1,8 +1,5 @@
 export function isAdmin(authState) {
-  for (const perm of Object.keys(authState.permissions)) {
-    if (authState.permissions[perm]) return true
-  }
-  return false
+  return authState.permissions.valueSeq().some(perm => perm)
 }
 
 export function checkPermissions(authState, ...permissionsToCheck) {
