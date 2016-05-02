@@ -27,7 +27,7 @@ import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
-import { needsUpgrade } from './network/needs-upgrade'
+import { isPsiHealthy } from './network/is-psi-healthy'
 
 function stateToProps(state) {
   return {
@@ -133,16 +133,16 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick() {
-    if (needsUpgrade(this.props)) {
-      this.props.dispatch(openDialog('upgrade'))
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
     }
   }
 
   onJoinLobbyClick() {
-    if (needsUpgrade(this.props)) {
-      this.props.dispatch(openDialog('upgrade'))
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
     }

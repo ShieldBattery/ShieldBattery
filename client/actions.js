@@ -122,6 +122,9 @@ export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 export const PSI_GAME_LAUNCH = 'PSI_GAME_LAUNCH'
 // An updated status (e.g. "launching", "configuring") for a particular local game client
 export const PSI_GAME_STATUS = 'PSI_GAME_STATUS'
+// An updated StarCraft path validity status, stating whether or not the current path setting
+// contains an accessible starcraft.exe
+export const PSI_STARCRAFT_PATH_VALIDITY = 'PSI_STARCRAFT_PATH_VALIDITY'
 // The version of the local psi server has been returned
 export const PSI_VERSION = 'PSI_VERSION'
 

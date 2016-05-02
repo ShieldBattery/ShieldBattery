@@ -4,6 +4,7 @@ import {
   NETWORK_PSI_DISCONNECTED,
   NETWORK_SITE_CONNECTED,
   NETWORK_SITE_DISCONNECTED,
+  PSI_STARCRAFT_PATH_VALIDITY,
   PSI_VERSION,
 } from '../actions'
 import { parseVersion } from './needs-upgrade'
@@ -40,6 +41,8 @@ function psiReducer(state, action) {
   if (action.type === PSI_VERSION) {
     const version = action.error ? '0.0.0' : action.payload
     return newState.setIn(['psi', 'version'], parseVersion(version))
+  } else if (action.type === PSI_STARCRAFT_PATH_VALIDITY) {
+    return newState.setIn(['psi', 'hasValidStarcraftPath'], action.payload)
   }
 
   return newState
