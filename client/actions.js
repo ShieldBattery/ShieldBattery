@@ -138,3 +138,7 @@ export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
 // The server has finished subscribing us to the things we need to be (e.g. lobbies) and giving us
 // initial data
 export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'
+
+// We got new info about the minimum Psi version allowed on this server, along with things like an
+// installer URL for the latest version
+export const UPGRADE_PSI_INFO = 'UPGRADE_PSI_INFO'

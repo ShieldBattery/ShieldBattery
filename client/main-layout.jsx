@@ -27,6 +27,7 @@ import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
+import { needsUpgrade } from './network/needs-upgrade'
 
 function stateToProps(state) {
   return {
@@ -36,6 +37,8 @@ function stateToProps(state) {
     lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
     chatChannels: state.chat.channels,
     whispers: state.whispers,
+    network: state.network,
+    upgrade: state.upgrade,
   }
 }
 
@@ -130,11 +133,19 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick() {
-    this.props.dispatch(openOverlay('createLobby'))
+    if (needsUpgrade(this.props)) {
+      this.props.dispatch(openDialog('upgrade'))
+    } else {
+      this.props.dispatch(openOverlay('createLobby'))
+    }
   }
 
   onJoinLobbyClick() {
-    this.props.dispatch(openOverlay('joinLobby'))
+    if (needsUpgrade(this.props)) {
+      this.props.dispatch(openDialog('upgrade'))
+    } else {
+      this.props.dispatch(openOverlay('joinLobby'))
+    }
   }
 
   onReplaysClick() {

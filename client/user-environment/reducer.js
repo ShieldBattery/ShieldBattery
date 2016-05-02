@@ -12,7 +12,7 @@ export const UserEnvironment = new Record({
   resolution: new Resolution(),
 })
 
-export function resolutionReducer(state = null, action) {
+export function resolutionReducer(state, action) {
   if (action.type === RESOLUTION_GET) {
     if (!action.error) {
       return new Resolution(action.payload)

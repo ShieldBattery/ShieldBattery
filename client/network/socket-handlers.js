@@ -14,6 +14,7 @@ import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import settingsPsi from '../settings/psi-handlers'
+import upgrade from './upgrade-handlers'
 
 function networkStatusHandler({ siteSocket, psiSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
@@ -40,7 +41,8 @@ const handlers = [
   lobbies,
   networkStatusHandler,
   serverStatus,
-  settingsPsi
+  settingsPsi,
+  upgrade
 ]
 
 export default function register() {

@@ -6,6 +6,7 @@ import uid from 'cuid'
 import getAddress from './server/websockets/get-address'
 import createUserSockets from './server/websockets/user-sockets'
 import log from './server/logging/logger'
+import config from './config'
 
 const apiHandlers =
   fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
@@ -37,8 +38,11 @@ class WebsocketServer {
       .on('newUser', () => this.connectedUsers++)
       .on('userQuit', () => this.connectedUsers--)
 
+    const minVersion = config.minPsiVersion || '0.0.0'
+    const installerUrl = config.installerUrl
     this.nydus.on('connection', socket => {
       this.nydus.subscribeClient(socket, '/status', { users: this.connectedUsers })
+      this.nydus.subscribeClient(socket, '/psiVersion', { minVersion, installerUrl })
     })
 
     // TODO(tec27): this timer can be longer (like 5 minutes) but is shorter for demo purposes

@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import Settings from '../settings/settings.jsx'
+import UpgradeDialog from '../network/upgrade.jsx'
 import { closeDialog } from './dialog-action-creator'
 
 @connect(state => ({ dialog: state.dialog }))
@@ -15,6 +16,9 @@ class ConnectedDialogOverlay extends React.Component {
       switch (dialog.dialogType) {
         case 'settings':
           dialogComponent = <Settings />
+          break
+        case 'upgrade':
+          dialogComponent = <UpgradeDialog />
           break
         default:
           throw new Error('Unknown dialog type: ' + dialog.dialogType)

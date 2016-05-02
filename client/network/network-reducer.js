@@ -6,6 +6,7 @@ import {
   NETWORK_SITE_DISCONNECTED,
   PSI_VERSION,
 } from '../actions'
+import { parseVersion } from './needs-upgrade'
 
 export const PsiSocketStatus = new Record({
   isConnected: false,
@@ -29,15 +30,6 @@ function makeNetReducer(name, connected, disconnected) {
     }
 
     return state
-  }
-}
-
-function parseVersion(versionStr) {
-  const parts = versionStr.split('.', 3).map(str => parseInt(str, 10))
-  return {
-    major: parts[0],
-    minor: parts[1],
-    patch: parts[2],
   }
 }
 

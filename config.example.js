@@ -25,6 +25,13 @@ config.logLevels = {
   console: 'debug'
 }
 
+// Set a minimum required Psi version
+// If the version is not specified, it defaults to no minimum version
+config.minPsiVersion = '0.0.0'
+// Uncomment to specify an installer URL, which will be given to clients if their Psi is detected
+// to be out of date. If none is specified, no link will be given to clients.
+// config.installerUrl = 'https://localhost/installer.msi'
+
 
 // Uncommenting this block will enable HTTPS, which requires generating server certs & keys
 // It's advisable to leave commented if you're doing local development
