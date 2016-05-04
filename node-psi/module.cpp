@@ -100,14 +100,11 @@ void DetectResolutionWork(uv_work_t* req) {
 
   wchar_t path[MAX_PATH];
   GetModuleFileNameW(NULL, path, sizeof(path));
-
-  wchar_t dir[_MAX_DIR];  //NOLINT
-  _wsplitpath_s(path,
-      nullptr, 0,
-      dir, _MAX_DIR,
-      nullptr, 0,
-      nullptr, 0);
-  wstring emitter_path = wstring(dir) + L"\\psi-emitter.exe";
+ 
+  wstring path_str = path;
+  size_t last_slash = path_str.find_last_of(L"/\\");
+  wstring dir = path_str.substr(0, last_slash);
+  wstring emitter_path = dir + L"\\psi-emitter.exe";
 
   wchar_t* slot_name = new wchar_t[100];
   int size = _snwprintf(slot_name, 100, L"\\\\.\\mailslot\\psi-detectres-%d", GetTickCount());
