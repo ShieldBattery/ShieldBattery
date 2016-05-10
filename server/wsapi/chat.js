@@ -28,7 +28,11 @@ export class ChatApi {
     this.nydus = nydus
     this.userSockets = userSockets
     this.state = new ChatState()
+    this._doConstructorArrowFunctions()
+  }
 
+  // Works around a bug in babel with arrow functions in constructors
+  _doConstructorArrowFunctions() {
     this.userSockets.on('newUser', user => this._handleNewUser(user))
       .on('userQuit', name => this._handleUserQuit(name))
   }

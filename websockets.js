@@ -26,9 +26,16 @@ class WebsocketServer {
     this.sessionWare = sessionMiddleware
     this.sessionLookup = new WeakMap()
 
-    this.nydus = nydus(server, { allowRequest: (info, cb) => this.onAuthorization(info, cb) })
-    this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
     this.connectedUsers = 0
+    this._doConstructorArrowFunctions()
+  }
+
+  // Works around an issue with babel and arrow functions in constructors
+  _doConstructorArrowFunctions() {
+    this.nydus = nydus(this.httpServer, {
+      allowRequest: (info, cb) => this.onAuthorization(info, cb)
+    })
+    this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
       handler(this.nydus, this.userSockets)
