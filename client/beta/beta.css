@@ -1,10 +1,17 @@
-@value colorTextSecondary, grey900, grey850 from '../styles/colors.css';
+@value colorTextSecondary, colorTextFaint, grey900, grey850 from '../styles/colors.css';
+@value blue400, amberA400, colorDividers from '../styles/colors.css';
 @value col, row, itemsCenter, justifySpaceBetween, grow, shrink from '../styles/flex.css';
-@value display1, subhead from '../styles/typography.css';
+@value body1, display1, display2, subhead from '../styles/typography.css';
 @value shadow4dp from '../material/shadows.css';
+
+.pageWidth {
+  max-width: 940px;
+  margin: 0px auto;
+}
 
 .splash {
   background-color: grey900;
+  overflow: auto;
 }
 
 .intro {
@@ -14,8 +21,7 @@
 
 .introContent {
   composes: row justifySpaceBetween itemsCenter;
-  max-width: 940px;
-  margin: 0px auto;
+  composes: pageWidth;
 }
 
 .introText {
@@ -43,4 +49,41 @@
 
 .signupCard {
   width: 100%;
+}
+
+.trademarkInfo {
+  composes: body1;
+  composes: pageWidth;
+  color: colorTextFaint;
+  margin-top: 16px;
+}
+
+.feature {
+  composes: pageWidth;
+  padding-top: 64px;
+  padding-bottom: 63px;
+  border-bottom: 1px solid colorDividers;
+}
+
+.featureTitle {
+  composes: display1;
+  margin: 0;
+}
+
+.titleBlue {
+  composes: featureTitle;
+  color: blue400;
+}
+
+.titleAmber {
+  composes: featureTitle;
+  color: amberA400;
+}
+
+.featureBody {
+  composes: subhead;
+  color: colorTextSecondary;
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 32px 0 0;
 }
