@@ -6,7 +6,6 @@ import AdminBetaInvites from './admin/invites.jsx'
 import AdminPanel from './admin/panel.jsx'
 import { PermissionsFind, PermissionsResults } from './admin/permissions.jsx'
 import AppNotFound from './app-not-found.jsx'
-import BetaSignup from './beta/signup.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
@@ -41,7 +40,6 @@ if (process.env.NODE_ENV !== 'production') {
 
 const routes = <Route>
   <Route path='/splash' component={Splash} />
-  <Route path='/beta/signup' component={BetaSignup} />
   <Route component={HasBetaFilter}>
     <Route component={LoggedInFilter}>
       <Route component={SiteConnectedFilter}>

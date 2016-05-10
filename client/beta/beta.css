@@ -1,13 +1,46 @@
-@value col, itemsCenter, justifyCenter from '../styles/flex.css';
+@value colorTextSecondary, grey900, grey850 from '../styles/colors.css';
+@value col, row, itemsCenter, justifySpaceBetween, grow, shrink from '../styles/flex.css';
+@value display1, subhead from '../styles/typography.css';
+@value shadow4dp from '../material/shadows.css';
 
 .splash {
-  composes: col itemsCenter justifyCenter;
+  background-color: grey900;
+}
+
+.intro {
+  composes: shadow4dp;
+  background-color: grey850;
+}
+
+.introContent {
+  composes: row justifySpaceBetween itemsCenter;
+  max-width: 940px;
+  margin: 0px auto;
+}
+
+.introText {
+  composes: grow shrink;
+  max-width: 424px;
+  margin-right: 16px;
+}
+
+.introHeadline {
+  composes: display1;
+  font-weight: 300;
+}
+
+.introBody {
+  composes: subhead;
+  color: colorTextSecondary;
+  margin-top: 32px;
 }
 
 .signup {
-  composes: col itemsCenter justifyCenter;
+  composes: grow shrink;
+  max-width: 464px;
+  margin: 64px 0 64px 16px;
 }
 
 .signupCard {
-  width: 640px;
+  width: 100%;
 }
