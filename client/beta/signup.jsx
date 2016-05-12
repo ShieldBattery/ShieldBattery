@@ -50,13 +50,11 @@ class BetaSignup extends React.Component {
 
     const signupForm = <ValidatedForm ref='form' formTitle='Sign up' buttons={button}
         onSubmitted={values => this.onSubmitted(values)}>
-      <h5>Required</h5>
       <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}
           required={true} requiredMessage='Enter an email address'
           validator={emailValidator}
           onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <h5>Optional</h5>
       <ValidatedText label='TeamLiquid.net username' floatingLabel={true} name='teamliquidName'
           tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
           onEnterKeyDown={e => this.onSignUpClicked()}/>

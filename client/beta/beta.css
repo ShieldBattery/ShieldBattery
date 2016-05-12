@@ -5,7 +5,7 @@
 @value shadow4dp from '../material/shadows.css';
 
 .pageWidth {
-  max-width: 940px;
+  width: 940px;
   margin: 0px auto;
 }
 
@@ -14,9 +14,26 @@
   overflow: auto;
 }
 
+.logoContainer {
+  composes: pageWidth;
+  position: absolute;
+  left: calc(50% - 940px / 2);
+}
+
+.logo {
+  float: left;
+}
+
+.logotext {
+  width: 464px;
+  float: right;
+  margin-top: 80px;
+}
+
 .intro {
   composes: shadow4dp;
   background-color: grey850;
+  margin-top: 180px;
 }
 
 .introContent {
@@ -44,7 +61,7 @@
 .signup {
   composes: grow shrink;
   max-width: 464px;
-  margin: 64px 0 64px 16px;
+  margin: 48px 0 48px 16px;
 }
 
 .signupCard {
@@ -56,6 +73,8 @@
   composes: pageWidth;
   color: colorTextFaint;
   margin-top: 16px;
+  padding: 0 96px;
+  font-size: 12px;
 }
 
 .feature {

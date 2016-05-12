@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import styles from './beta.css'
 
 import BetaSignup from './signup.jsx'
+import LogoText from '../logos/logotext-640x100.svg'
 
 const FeatureSection = ({ title, titleStyle, body }) => {
   return (<div className={styles.feature}>
@@ -65,6 +66,10 @@ export default class Splash extends React.Component {
     return (
       <div className={styles.splash}>
         <div>Already have access? <Link to='/login'>Log in.</Link></div>
+        <div className={styles.logoContainer}>
+          <img className={styles.logo} src='/images/splash-logo.png' />
+          <LogoText className={styles.logotext} />
+        </div>
         <div className={styles.intro}>
           <div className={styles.introContent}>
             <div className={styles.introText}>
@@ -83,8 +88,8 @@ export default class Splash extends React.Component {
         </div>
 
         <p className={styles.trademarkInfo}>
-          StarCraft and StarCraft: Brood War are registered trademarks of Blizzard Entertainment.
-          ShieldBattery is a community-driven project with no support or endorsement by
+          StarCraft and Brood War are registered trademarks of Blizzard Entertainment.
+          ShieldBattery is a community-driven project with no official support or endorsement by
           Blizzard Entertainment.
         </p>
 
