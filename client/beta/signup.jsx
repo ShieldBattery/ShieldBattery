@@ -1,5 +1,7 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import styles from './beta.css'
+import loginStyles from '../auth/login.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -17,6 +19,7 @@ import {
 
 import { createInvite } from './action-creators'
 
+@connect(state => ({ beta: state.beta }))
 class BetaSignup extends React.Component {
   static contextTypes = {
     store: React.PropTypes.object.isRequired,
@@ -37,8 +40,8 @@ class BetaSignup extends React.Component {
         </p>
 
         <p className={styles.signupDoneParagraph}>
-          In the meantime, follow our <a href="https://twitter.com/shieldbatterybw"
-          target="_blank">Twitter account</a> for updates, <a
+          In the meantime, follow our <a href='https://twitter.com/shieldbatterybw'
+          target='_blank'>Twitter account</a> for updates, <a
           href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
           rel='nofollow noreferrer'>buy or download</a> Brood War, and ensure you're on the <a
           href='http://ftp.blizzard.com/pub/broodwar/patches/PC/BW-1161.exe' target='_blank'
@@ -48,6 +51,8 @@ class BetaSignup extends React.Component {
   }
 
   renderSignupForm() {
+    const { beta } = this.props
+
     const button = (<RaisedButton type='button' label='Sign up'
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
@@ -60,7 +65,13 @@ class BetaSignup extends React.Component {
           'Enter a valid email address')
     )
 
+    let errContents
+    if (beta.lastError) {
+      errContents = `Error: ${beta.lastError.message}`
+    }
+
     const signupForm = <ValidatedForm ref='form' formTitle='Sign up for beta' buttons={button}
+        errorText={errContents} errorClassName={loginStyles.errors}
         onSubmitted={values => this.onSubmitted(values)} titleClassName={styles.signupTitle}>
       <ValidatedText label='Email address (required)' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}
