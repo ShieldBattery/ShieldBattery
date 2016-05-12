@@ -1,6 +1,7 @@
 @value colorTextSecondary, colorTextFaint, grey900, grey850 from '../styles/colors.css';
 @value blue400, amberA400, colorDividers from '../styles/colors.css';
 @value col, row, itemsCenter, justifySpaceBetween, grow, shrink from '../styles/flex.css';
+@value take85, take15 from '../styles/flex.css';
 @value body1, display1, display2, subhead from '../styles/typography.css';
 @value shadow4dp from '../material/shadows.css';
 
@@ -78,10 +79,24 @@
 }
 
 .feature {
+  composes: row itemsCenter;
   composes: pageWidth;
   padding-top: 64px;
   padding-bottom: 63px;
   border-bottom: 1px solid colorDividers;
+}
+
+.featureImage {
+  composes: take15;
+}
+
+.featureImage svg {
+  width: 100%;
+}
+
+.featureText {
+  composes: take85;
+  padding-right: 48px;
 }
 
 .featureTitle {

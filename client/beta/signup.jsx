@@ -48,7 +48,7 @@ class BetaSignup extends React.Component {
           'Enter a valid email address')
     )
 
-    const signupForm = <ValidatedForm ref='form' formTitle='Sign up' buttons={button}
+    const signupForm = <ValidatedForm ref='form' formTitle='Sign up for beta' buttons={button}
         onSubmitted={values => this.onSubmitted(values)}>
       <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}

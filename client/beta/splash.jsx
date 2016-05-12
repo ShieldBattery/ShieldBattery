@@ -5,10 +5,21 @@ import styles from './beta.css'
 import BetaSignup from './signup.jsx'
 import LogoText from '../logos/logotext-640x100.svg'
 
-const FeatureSection = ({ title, titleStyle, body }) => {
+import ChatImage from './chat.svg'
+import NetworkImage from './network.svg'
+import PrizeImage from './prize.svg'
+import ResolutionImage from './resolution.svg'
+import WindowsImage from './windows.svg'
+
+const FeatureSection = ({ title, titleStyle, body, image }) => {
   return (<div className={styles.feature}>
-    <h3 className={titleStyle}>{title}</h3>
-    <p className={styles.featureBody}>{body}</p>
+    <div className={styles.featureText}>
+      <h3 className={titleStyle}>{title}</h3>
+      <p className={styles.featureBody}>{body}</p>
+    </div>
+    <div className={styles.featureImage}>
+      { image }
+    </div>
   </div>)
 }
 
@@ -22,17 +33,19 @@ export default class Splash extends React.Component {
           of compatibility problems that have only gotten worse with each new Windows version.
           Struggle no longer&mdash;ShieldBattery offers full support for all Windows versions Vista
           and above: no batch files, registry tweaks, or command line arguments required.
-        </span>
+        </span>,
+        image: <WindowsImage/>,
       },
       {
-        title: 'Brand new windowed mode and graphics options',
+        title: 'Brand new windowed mode',
         body: <span>
           Brood War's forced 640x480, full screen graphics mode might have made sense in 1998, but
           who wants to play like that today? ShieldBattery offers a completely new graphics backend
           supporting both DirectX and OpenGL, borderless and bordered windows, and fast, smooth
           scaling to tons of different resolutions. Smart mouse sensitivity is included, too, so you
           can get things just right for your muta micro.
-        </span>
+        </span>,
+        image: <ResolutionImage/>,
       },
       {
         title: 'Improved networking',
@@ -41,7 +54,8 @@ export default class Splash extends React.Component {
           were too, which is why ShieldBattery includes a brand new network stack that removes the
           need for port forwarding completing, and brings LAN latency settings by default, no
           plugin needed.
-        </span>
+        </span>,
+        image: <NetworkImage/>,
       },
       {
         title: 'Auto-matchmaking and ladder',
@@ -50,7 +64,8 @@ export default class Splash extends React.Component {
           that doesn't require you to spam a chat channel to find opponents. ShieldBattery provides
           a fast, easy laddering experience and can automatically match you to similarly skilled
           opponents on a fresh, rotating map pool.
-        </span>
+        </span>,
+        image: <PrizeImage/>,
       },
       {
         title: 'Completely revamped multiplayer experience',
@@ -59,7 +74,8 @@ export default class Splash extends React.Component {
           of channels simultaneously, chat with your friends and enemies, all from our simple web
           interface that you can connect to from anywhere. And when you're ready for a game, you can
           do that there, too, all without leaving chat.
-        </span>
+        </span>,
+        image: <ChatImage/>,
       }
     ]
 
@@ -94,7 +110,8 @@ export default class Splash extends React.Component {
         </p>
 
         {
-          features.map((f, i) => <FeatureSection title={f.title} body={f.body} key={`feature-${i}`}
+          features.map((f, i) => <FeatureSection title={f.title} body={f.body} image={f.image}
+              key={`feature-${i}`}
               titleStyle={i % 2 === 0 ? styles.titleBlue : styles.titleAmber}/>)
         }
       </div>
