@@ -1,6 +1,6 @@
 @value colorTextSecondary, colorTextFaint, grey900, grey850 from '../styles/colors.css';
 @value blue400, amberA400, colorDividers from '../styles/colors.css';
-@value col, row, itemsCenter, itemsStart, justifySpaceBetween from '../styles/flex.css';
+@value take100, col, row, itemsCenter, itemsStart, justifySpaceBetween from '../styles/flex.css';
 @value grow, shrink, take85, take15 from '../styles/flex.css';
 @value body1, display1, display2, subhead from '../styles/typography.css';
 @value shadow4dp from '../material/shadows.css';
@@ -101,6 +101,10 @@
 
 .signupDoneParagraph {
   composes: subhead;
+}
+
+.signupErrors {
+  composes: take100;
 }
 
 .trademarkInfo {

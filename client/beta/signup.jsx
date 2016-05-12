@@ -1,7 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styles from './beta.css'
-import loginStyles from '../auth/login.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -50,9 +49,7 @@ class BetaSignup extends React.Component {
     </div>)
   }
 
-  renderSignupForm() {
-    const { beta } = this.props
-
+  renderSignupForm(errContents) {
     const button = (<RaisedButton type='button' label='Sign up'
         onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
 
@@ -65,13 +62,8 @@ class BetaSignup extends React.Component {
           'Enter a valid email address')
     )
 
-    let errContents
-    if (beta.lastError) {
-      errContents = `Error: ${beta.lastError.message}`
-    }
-
     const signupForm = <ValidatedForm ref='form' formTitle='Sign up for beta' buttons={button}
-        errorText={errContents} errorClassName={loginStyles.errors}
+        errorText={errContents} errorClassName={styles.errors}
         onSubmitted={values => this.onSubmitted(values)} titleClassName={styles.signupTitle}>
       <ValidatedText label='Email address (required)' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}
@@ -100,10 +92,17 @@ class BetaSignup extends React.Component {
   }
 
   renderCardContents() {
+    const { beta } = this.props
+
+    let errContents
+    if (beta.lastError) {
+      errContents = `Error: ${beta.lastError.message}`
+    }
+
     if (this.state.formSubmitted) {
       return this.renderDoneMessage()
     } else {
-      return this.renderSignupForm()
+      return this.renderSignupForm(errContents)
     }
   }
 
