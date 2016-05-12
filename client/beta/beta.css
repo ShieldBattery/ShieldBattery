@@ -15,6 +15,23 @@
   overflow: auto;
 }
 
+.topLinks {
+  composes: pageWidth;
+  position: absolute;
+  top: 8px;
+  right: 0;
+  list-style: none;
+  width: auto;
+}
+
+.topLinks > li {
+  display: inline;
+}
+
+.topLinks > li + li {
+  margin-left: 32px;
+}
+
 .logoContainer {
   composes: pageWidth;
   position: absolute;
@@ -62,11 +79,15 @@
 .signup {
   composes: grow shrink;
   max-width: 464px;
-  margin: 48px 0 48px 16px;
+  margin: 32px 0 32px 16px;
 }
 
 .signupCard {
   width: 100%;
+}
+
+.signupTitle {
+  margin: 8px 0 0;
 }
 
 .trademarkInfo {

@@ -49,8 +49,8 @@ class BetaSignup extends React.Component {
     )
 
     const signupForm = <ValidatedForm ref='form' formTitle='Sign up for beta' buttons={button}
-        onSubmitted={values => this.onSubmitted(values)}>
-      <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
+        onSubmitted={values => this.onSubmitted(values)} titleClassName={styles.signupTitle}>
+      <ValidatedText label='Email address (required)' floatingLabel={true} name='email' tabIndex={1}
           autoCapitalize='off' autoCorrect='off' spellCheck={false}
           required={true} requiredMessage='Enter an email address'
           validator={emailValidator}
@@ -68,9 +68,9 @@ class BetaSignup extends React.Component {
           required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
           onEnterKeyDown={e => this.onSignUpClicked()}/>
       {/* TODO(2Pac): Make a radio component */}
-      <ValidatedText label='Able to host games so far in BW?' floatingLabel={true} name='canHost'
-          tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
+      <ValidatedText label='Are you able to host games so far in BW?' floatingLabel={true}
+          name='canHost' tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off'
+          spellCheck={false} onEnterKeyDown={e => this.onSignUpClicked()}/>
     </ValidatedForm>
 
     return signupForm

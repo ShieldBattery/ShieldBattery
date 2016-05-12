@@ -81,8 +81,15 @@ export default class Splash extends React.Component {
 
     return (
       <div className={styles.splash}>
-        <div>Already have access? <Link to='/login'>Log in.</Link></div>
         <div className={styles.logoContainer}>
+          <ul className={styles.topLinks}>
+            <li>
+              <a href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
+                  rel='nofollow noreferrer'>Buy Brood War</a>
+            </li>
+            <li><Link to='/faqs'>FAQs</Link></li>
+            <li><Link to='/login'>Log in</Link></li>
+          </ul>
           <img className={styles.logo} src='/images/splash-logo.png' />
           <LogoText className={styles.logotext} />
         </div>
