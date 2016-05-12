@@ -25,6 +25,9 @@ config.logLevels = {
   console: 'debug'
 }
 
+// Uncomment and set your Google Analytics ID to enable analytics reporting
+// config.analyticsId = 'UA-000000-01'
+
 // Set a minimum required Psi version
 // If the version is not specified, it defaults to no minimum version
 config.minPsiVersion = '0.0.0'

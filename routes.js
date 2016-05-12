@@ -4,6 +4,7 @@ import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
 import isDev from './server/env/is-dev'
+import config from './config'
 
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
@@ -53,7 +54,7 @@ function applyRoutes(app) {
         permissions: this.session.permissions,
       }
     }
-    yield this.render('index', { initData })
+    yield this.render('index', { initData, analyticsId: config.analyticsId })
   })
 }
 

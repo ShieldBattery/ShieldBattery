@@ -4,6 +4,9 @@ block headScripts
   if initData
     script(type='text/javascript').
       window._sbInitData=!{JSON.stringify(initData)}
+  if analyticsId
+    script(type='text/javascript').
+      window._sbAnalyticsId=!{JSON.stringify(analyticsId)}
 
 block content
   div#app

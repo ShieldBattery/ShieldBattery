@@ -78,6 +78,7 @@
     "react": "^0.14.0-rc1",
     "react-addons-css-transition-group": "^0.14.0-rc1",
     "react-dom": "^0.14.0-rc1",
+    "react-ga": "^1.4.1",
     "react-redux": "^4.0.0",
     "react-router": "^1.0.0-rc1",
     "redis": "^2.6.0-0",
