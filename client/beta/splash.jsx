@@ -54,7 +54,7 @@ export default class Splash extends React.Component {
         body: <span>
           Tired of doing battle with your router before you can play with your friends online? We
           were too, which is why ShieldBattery includes a brand new network stack that removes the
-          need for port forwarding completing, and brings LAN latency settings by default, no
+          need for port forwarding completely, and brings LAN latency settings by default, no
           plugin needed.
         </span>,
         image: <NetworkImage/>,

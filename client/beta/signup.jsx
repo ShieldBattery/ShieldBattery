@@ -70,7 +70,7 @@ class BetaSignup extends React.Component {
       <ValidatedText label='TeamLiquid.net username' floatingLabel={true} name='teamliquidName'
           tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
           onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <ValidatedText label='Main operating system' floatingLabel={true} name='os' tabIndex={1}
+      <ValidatedText label='Operating system version' floatingLabel={true} name='os' tabIndex={1}
           required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
           onEnterKeyDown={e => this.onSignUpClicked()}/>
       <ValidatedText label='Main browser' floatingLabel={true} name='browser' tabIndex={1}
