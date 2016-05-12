@@ -36,18 +36,19 @@
   composes: pageWidth;
   position: absolute;
   left: calc(50% - 940px / 2);
-  pointer-events: none;
 }
 
 .logo {
   float: left;
   margin-top: 8px;
+  pointer-events: none;
 }
 
 .logotext {
   width: 464px;
   float: right;
   margin-top: 80px;
+  pointer-events: none;
 }
 
 .intro {
