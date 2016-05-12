@@ -30,9 +30,21 @@ class BetaSignup extends React.Component {
   }
 
   renderDoneMessage() {
-    return (<span>
-        Thank you for signing up. You will be notified by email when you receive beta access.
-    </span>)
+    return (<div className={styles.signupDone}>
+        <p className={styles.signupDoneParagraph}>
+          Thank you for signing up for the ShieldBattery beta! You will be notified by email or
+          TeamLiquid PM when you receive a beta invite.
+        </p>
+
+        <p className={styles.signupDoneParagraph}>
+          In the meantime, follow our <a href="https://twitter.com/shieldbatterybw"
+          target="_blank">Twitter account</a> for updates, <a
+          href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
+          rel='nofollow noreferrer'>buy or download</a> Brood War, and ensure you're on the <a
+          href='http://ftp.blizzard.com/pub/broodwar/patches/PC/BW-1161.exe' target='_blank'
+          rel='nofollow noreferrer'>latest patch</a>.
+        </p>
+    </div>)
   }
 
   renderSignupForm() {
@@ -100,7 +112,7 @@ class BetaSignup extends React.Component {
     this.setState({ formSubmitted: true })
 
     let canHost = values.get('canHost')
-    if (canHost.toLowerCase() === 'yes') {
+    if (canHost.toLowerCase()[0] === 'y') {
       canHost = true
     } else {
       canHost = false
