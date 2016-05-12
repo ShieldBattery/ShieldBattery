@@ -43,7 +43,9 @@ export default class Splash extends React.Component {
           who wants to play like that today? ShieldBattery offers a completely new graphics backend
           supporting both DirectX and OpenGL, borderless and bordered windows, and fast, smooth
           scaling to tons of different resolutions. Smart mouse sensitivity is included, too, so you
-          can get things just right for your muta micro.
+          can get things just right for your muta micro. Should you want to broadcast your matches
+          to all of your adoring fans, ShieldBattery's windowed mode also works great with streaming
+          programs out of the box.
         </span>,
         image: <ResolutionImage/>,
       },
