@@ -55,7 +55,8 @@ export default class Splash extends React.Component {
           Tired of doing battle with your router before you can play with your friends online? We
           were too, which is why ShieldBattery includes a brand new network stack that removes the
           need for port forwarding completely, and brings LAN latency settings by default, no
-          plugin needed.
+          plugin needed. Support for forthcoming network technologies like IPv6 is included too, so
+          Brood War is ready for the next decade of internet changes.
         </span>,
         image: <NetworkImage/>,
       },
@@ -65,7 +66,9 @@ export default class Splash extends React.Component {
           No modern multiplayer experience would be complete without a streamlined ladder system
           that doesn't require you to spam a chat channel to find opponents. ShieldBattery provides
           a fast, easy laddering experience and can automatically match you to similarly skilled
-          opponents on a fresh, rotating map pool.
+          opponents on a fresh, rotating map pool. Searching for matches is just a click away, and
+          continues in the background so you can focus on more important things, like learning that
+          awesome 10/15 build from Liquipedia.
         </span>,
         image: <PrizeImage/>,
       },
@@ -89,7 +92,6 @@ export default class Splash extends React.Component {
               <a href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
                   rel='nofollow noreferrer'>Buy Brood War</a>
             </li>
-            <li><Link to='/faqs'>FAQs</Link></li>
             <li><Link to='/login'>Log in</Link></li>
           </ul>
           <img className={styles.logo} src='/images/splash-logo.png' />
