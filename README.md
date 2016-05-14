@@ -47,7 +47,7 @@ attempting to follow further steps.
 
 ### JavaScript
 All of the JS for the project is under the `js` directory. You can edit this
-however you wish, and no build step is necessary, but you install the
+however you wish, and no build step is necessary, but to install the
 dependencies you'll need to install a version of node.js. Any version of node
 &gt;= 5 should be fine, generally you'll just want to install the latest stable
 version from [nodejs.org](https://nodejs.org/).
@@ -55,10 +55,9 @@ version from [nodejs.org](https://nodejs.org/).
 ### C++
 Building the C++ code requires Visual Studio 2015 or higher. The
 easiest/cheapest way to get this is through the
-[Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
-.
+[Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
-Once Visual Studio is installed, you can generated project files by running the
+Once Visual Studio is installed, you can generate project files by running the
 `vcbuild.bat` script in the root of this repository. If you plan on building
 inside of Visual Studio, you can run this with the `nobuild` flag to speed
 things up. Note that this script will also install JS dependencies and link up
@@ -73,13 +72,13 @@ time.
 
 If you should ever need to add or remove files to the projects, make the changes
 in `shieldbattery.gyp` and then re-run the build script to regenerate projects.
-This will ensure everyone can get to the same project state as you once your
+This will ensure everyone can get to the same project state as you, once your
 changes are merged.
 
 ## Project structure
 The various project files/folders are:
 - **bundler**: a script that bundles up all the binaries and scripts so they can
-be included in the installer
+be included in the installer.
 - **common**: utility classes that are used almost everywhere.
 - **forge**: windowed mode and general rendering wrapper for ShieldBattery.
 - **installer**: WiX installer project used for generating a releasable
@@ -113,8 +112,7 @@ automatically started after a successful build, but you can manage its status
 via `services.msc`. If you'd actually like to play a game through ShieldBattery,
 you'll need to have a
 [manner-pylon](https://github.com/tec27/manner-pylon) server running, either
-locally or you can use the [online dev version](https://dev.shieldbattery.net/)
-(currently unupdated).
+locally or you can use the [online dev version](https://dev.shieldbattery.net/).
 
 **Note**: If you're running manner-pylon locally (or on any other non-official
 host), you will need to add those extra hosts to the allowed hosts list. You do
