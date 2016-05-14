@@ -1,5 +1,5 @@
 @value colorTextFaint, colorTextPrimary, colorDividers, colorError from '../styles/colors.css';
-@value amberA400 from '../styles/colors.css';
+@value amberA400, grey800 from '../styles/colors.css';
 @value col, itemsStart, grow from '../styles/flex.css';
 
 .textField {
@@ -26,6 +26,11 @@
       & input[type="color"] {
     -moz-appearance: none;
     -webkit-appearance: none;
+  }
+
+  @nest & input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0px 1000px grey800 inset;
+    -webkit-text-fill-color: colorTextPrimary !important;
   }
 }
 
