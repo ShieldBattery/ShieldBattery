@@ -190,8 +190,12 @@ async function doLaunch(gameId, settings) {
   }
 
   log.debug(`Injecting ${shieldbatteryDll} into the process...`)
+  const dataRoot = process.env.ProgramData ?
+      path.join(process.env.ProgramData, 'shieldbattery') :
+      path.dirname(path.resolve(process.argv[0]))
+  const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
   try {
-    await proc.injectDll(shieldbatteryDll, 'OnInject')
+    await proc.injectDll(shieldbatteryDll, 'OnInject', errorDumpPath)
   } catch (err) {
     silentTerminate(proc)
     throw err
