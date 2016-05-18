@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import mkdirp from 'mkdirp'
+import packageJson from '../package.json'
 
 // the rolloverSize is only looked at when opening the file for logging, it is not an absolute
 // guarantee that the log file will never be above that size
@@ -61,6 +62,7 @@ function Logger(baseFilename, actualOptions) {
   })
 
   this._system('Logging started')
+  this._system('Version: ' + packageJson.version)
 }
 
 Logger.prototype.log = function(level, msg) {
