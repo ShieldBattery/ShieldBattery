@@ -37,8 +37,8 @@ class BetaSignup extends React.Component {
         </p>
 
         <p className={styles.signupDoneParagraph}>
-          In the meantime, follow our <a href="https://twitter.com/shieldbatterybw"
-          target="_blank">Twitter account</a> for updates, <a
+          In the meantime, follow our <a href='https://twitter.com/shieldbatterybw'
+          target='_blank'>Twitter account</a> for updates, <a
           href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
           rel='nofollow noreferrer'>buy or download</a> Brood War, and ensure you're on the <a
           href='http://ftp.blizzard.com/pub/broodwar/patches/PC/BW-1161.exe' target='_blank'
