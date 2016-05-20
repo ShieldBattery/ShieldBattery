@@ -68,6 +68,7 @@ respectively. Edit these files as you see fit to match your local configuration.
 ### Initialize the database structure
 
 **NOTE**: postgres must be properly configured beforehand for the db-migrate scripts to work.
+
 **NOTE**: an existing `DATABASE_URL` environment variable will take precedence over `database.json` and should be removed or updated to match your desired database configuration. 
 
 Migrate the database template into the postgres server with
