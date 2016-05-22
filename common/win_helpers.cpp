@@ -1,5 +1,6 @@
 #include "common/win_helpers.h"
 
+#include <dbghelp.h>
 #include <Windows.h>
 #include <UserEnv.h>
 #include <algorithm>
@@ -116,6 +117,22 @@ string WindowsError::message() const {
     delete[] message_buffer;
     return message_buffer;
   }
+}
+
+static WindowsError CreateMiniDump(HANDLE process, const string& path) {
+  HANDLE handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+      FILE_ATTRIBUTE_NORMAL, NULL);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return WindowsError("CreateMiniDump -> CreateFile", GetLastError());
+  }
+  WinHandle file(handle);
+
+  BOOL success = MiniDumpWriteDump(process, GetProcessId(process), file.get(),
+      MiniDumpNormal, NULL, NULL, NULL);
+  if (!success) {
+    return WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
+  }
+  return WindowsError();
 }
 
 struct InjectContext {
@@ -253,7 +270,8 @@ WindowsError Process::error() const {
   return error_;
 }
 
-WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name) {
+WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name,
+    const string& error_dump_path) {
   if (has_errors()) {
     return error();
   }
@@ -294,6 +312,10 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
 
   uint32 wait_result = WaitForSingleObject(thread_handle.get(), 15000);
   if (wait_result == WAIT_TIMEOUT) {
+    auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
+    if (err.is_error()) {
+      return err;
+    }
     return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
   } else if (wait_result == WAIT_FAILED) {
     return WindowsError("InjectDll -> WaitForSingleObject", GetLastError());

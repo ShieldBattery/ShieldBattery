@@ -14,9 +14,9 @@ class Process {
     this._cProcess = cProcess
   }
 
-  async injectDll(dllPath, injectFuncName) {
+  async injectDll(dllPath, injectFuncName, errorDumpPath) {
     return new Promise((resolve, reject) => {
-      this._cProcess.injectDll(dllPath, injectFuncName, err => {
+      this._cProcess.injectDll(dllPath, injectFuncName, errorDumpPath, err => {
         if (err) reject(err)
         else resolve()
       })

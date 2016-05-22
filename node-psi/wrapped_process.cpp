@@ -89,6 +89,7 @@ struct InjectDllContext {
   uv_work_t req;
   unique_ptr<wstring> dll_path;
   unique_ptr<string> inject_func;
+  unique_ptr<string> error_dump_file;
   unique_ptr<Callback> callback;
   Persistent<Object> self;
   Process* process;
@@ -99,7 +100,8 @@ struct InjectDllContext {
 void InjectDllWork(uv_work_t* req) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  context->error = context->process->InjectDll(*context->dll_path, *context->inject_func);
+  context->error = context->process->InjectDll(*context->dll_path, *context->inject_func,
+      *context->error_dump_file);
 }
 
 void InjectDllAfter(uv_work_t* req, int status) {
@@ -119,14 +121,16 @@ void InjectDllAfter(uv_work_t* req, int status) {
 }
 
 void WrappedProcess::InjectDll(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() == 3);
-  assert(info[2]->IsFunction());
+  assert(info.Length() == 4);
+  assert(info[3]->IsFunction());
 
   InjectDllContext* context = new InjectDllContext;
   context->dll_path = ToWstring(To<String>(info[0]).ToLocalChecked());
   context->inject_func.reset(
       new string(*Utf8String(To<String>(info[1]).ToLocalChecked())));
-  context->callback.reset(new Callback(info[2].As<Function>()));
+  context->error_dump_file.reset(
+      new string(*Utf8String(To<String>(info[2]).ToLocalChecked())));
+  context->callback.reset(new Callback(info[3].As<Function>()));
   context->self.Reset(info.This());
   context->process = WrappedProcess::Unwrap(info);
   context->req.data = context;
