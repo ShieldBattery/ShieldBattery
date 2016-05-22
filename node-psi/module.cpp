@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
@@ -21,7 +22,9 @@ using Nan::HandleScope;
 using Nan::Null;
 using Nan::To;
 using std::unique_ptr;
+using std::vector;
 using std::wstring;
+using v8::Array;
 using v8::Boolean;
 using v8::Exception;
 using v8::Function;
@@ -40,6 +43,7 @@ struct LaunchContext {
   unique_ptr<wstring> arguments;
   bool launch_suspended;
   unique_ptr<wstring> current_dir;
+  unique_ptr<vector<wstring>> environment;
   unique_ptr<Callback> callback;
 
   Process* process;
@@ -49,7 +53,7 @@ void LaunchWork(uv_work_t* req) {
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
 
   context->process = new Process(*context->app_path, *context->arguments, context->launch_suspended,
-      *context->current_dir);
+      *context->current_dir, *context->environment);
 }
 
 void LaunchAfter(uv_work_t* req, int status) {
@@ -71,15 +75,22 @@ void LaunchAfter(uv_work_t* req, int status) {
 }
 
 void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() == 5);
-  assert(info[4]->IsFunction());
+  assert(info.Length() == 6);
+  assert(info[5]->IsFunction());
 
   LaunchContext* context = new LaunchContext;
   context->app_path = ToWstring(To<String>(info[0]).ToLocalChecked());
   context->arguments = ToWstring(To<String>(info[1]).ToLocalChecked());
   context->launch_suspended = To<Boolean>(info[2]).ToLocalChecked()->BooleanValue();
   context->current_dir = ToWstring(To<String>(info[3]).ToLocalChecked());
-  context->callback.reset(new Callback(info[4].As<Function>()));
+
+  Local<Array> js_env = info[4].As<Array>();
+  context->environment.reset(new vector<wstring>());
+  for (uint32 i = 0; i < js_env->Length(); i++) {
+    context->environment->push_back(*ToWstring(To<String>(js_env->Get(i)).ToLocalChecked()));
+  }
+
+  context->callback.reset(new Callback(info[5].As<Function>()));
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);
 
@@ -125,7 +136,8 @@ void DetectResolutionWork(uv_work_t* req) {
   }
 
   wstring args = L"\"" + emitter_path + L"\" \"" + slot_name + L"\"";
-  Process process(emitter_path, args, false, dir);
+  vector<wstring> environment;
+  Process process(emitter_path, args, false, dir, environment);
   if (process.has_errors()) {
     context->exit_code = 101;
     context->error = process.error();

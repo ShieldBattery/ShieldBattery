@@ -1,7 +1,9 @@
 #include "common/win_helpers.h"
 
 #include <Windows.h>
+#include <UserEnv.h>
 #include <algorithm>
+#include <iterator>
 #include <string>
 #include <vector>
 #include "common/types.h"
@@ -169,7 +171,7 @@ const byte inject_proc[] = {
 };
 
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
-    const wstring& current_dir)
+    const wstring& current_dir, const vector<wstring>& environment)
     : process_handle_(),
       thread_handle_(),
       error_() {
@@ -191,6 +193,35 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   }
   WinHandle priv_token(token);
   
+  wchar_t* env_block;
+  CreateEnvironmentBlock(reinterpret_cast<void**>(&env_block), active_session_token.get(), false);
+  size_t block_length = 0;
+  bool was_null = false;
+  for (size_t i = 0;; i++) {
+    if (env_block[i] == NULL) {
+      if (was_null) {
+        break;
+      }
+      was_null = true;
+    } else {
+      was_null = false;
+    }
+    block_length++;
+  }
+
+  size_t env_length = 0;
+  for (auto e : environment) {
+    env_length += e.length() + 1;
+  }
+  vector<wchar_t> env_param;
+  env_param.reserve(block_length + env_length + 1);
+  std::copy(env_block, env_block + block_length, std::back_inserter(env_param));
+  for (auto e : environment) {
+    std::copy(e.begin(), e.end(), std::back_inserter(env_param));
+    env_param.push_back(L'\0');
+  }
+  env_param.push_back(L'\0');
+  DestroyEnvironmentBlock(env_block);
 
   STARTUPINFOW startup_info = { 0 };
   // CreateProcessW claims to sometimes modify arguments, no fucking clue why
@@ -199,7 +230,9 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
 
   PROCESS_INFORMATION process_info;
   if (!CreateProcessAsUserW(priv_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
-      nullptr, false, launch_suspended ? CREATE_SUSPENDED : 0, nullptr, current_dir.c_str(),
+      nullptr, false,
+      launch_suspended ? CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT : CREATE_UNICODE_ENVIRONMENT,
+      &env_param[0], current_dir.c_str(),
       &startup_info, &process_info)) {
     error_ = WindowsError("Process -> CreateProcessAsUserW", GetLastError());
     return;

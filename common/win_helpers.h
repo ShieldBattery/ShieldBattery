@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <Wtsapi32.h>
 #include <string>
+#include <vector>
 #include "common/macros.h"
 #include "common/types.h"
 
@@ -93,7 +94,7 @@ private:
 class Process {
 public:
   Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,
-    const std::wstring& current_dir);
+      const std::wstring& current_dir, const std::vector<std::wstring>& environment);
   ~Process();
   bool has_errors() const;
   WindowsError error() const;

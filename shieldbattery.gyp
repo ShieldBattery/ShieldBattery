@@ -213,7 +213,7 @@
         'common/win_helpers.h',
       ],
       'direct_dependent_settings': {
-        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib' ],
+        'libraries': [ '-ladvapi32.lib', '-lWtsapi32.lib', '-luser32.lib', '-lUserenv.lib' ],
       },
       'dependencies': [
         'deps/udis86/udis86.gyp:libudis86'

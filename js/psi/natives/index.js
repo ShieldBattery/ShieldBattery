@@ -47,9 +47,11 @@ class Process {
 }
 
 const $launchProcess = thenify(psi.launchProcess)
-async function launchProcess({ appPath, args = [], launchSuspended = true, currentDir = '' }) {
+async function launchProcess({
+    appPath, args = [], launchSuspended = true, currentDir = '', environment = [] }) {
   const joinedArgs = typeof args === 'string' ? args : args.join(' ')
-  const cProcess = await $launchProcess(appPath, joinedArgs, launchSuspended, currentDir)
+  const cProcess =
+      await $launchProcess(appPath, joinedArgs, launchSuspended, currentDir, environment)
   return new Process(cProcess)
 }
 export { launchProcess }

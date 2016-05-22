@@ -115,13 +115,14 @@ export default class ActiveGameManager {
       return
     }
 
-    log.verbose(`Game ${id} exited with code ${exitCode}`)
+    log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
 
     if (this.status.state < GAME_STATUS_FINISHED) {
       if (this.status.state >= GAME_STATUS_PLAYING) {
         // TODO(tec27): report a disc to the server
       } else {
-        // TODO(tec27): report this exit back to the site so it can cancel the lobby load
+        this._setStatus(GAME_STATUS_ERROR,
+            new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
       }
     }
 
@@ -158,7 +159,7 @@ async function doLaunch(gameId, settings) {
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }
-  const appPath = starcraftPath + (starcraftPath.endsWith('\\') ? '' : '\\') + 'Starcraft.exe'
+  const appPath = path.join(starcraftPath, 'Starcraft.exe')
   try {
     await accessAsync(appPath)
   } catch (err) {
@@ -171,6 +172,13 @@ async function doLaunch(gameId, settings) {
     args: gameId,
     launchSuspended: true,
     currentDir: starcraftPath,
+    environment: [
+      // Prevent Windows Game Explorer from trying to make a network connection on process launch,
+      // which, if it fails, will be retried ~forever (wat). Also turn off some compatibility
+      // settings that people typically enabled for pre-ShieldBattery BW, but cause problems with
+      // forge.
+      '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
+    ]
   })
   log.verbose('Process launched')
 
