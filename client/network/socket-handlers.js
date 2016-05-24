@@ -50,6 +50,7 @@ const envSpecificHandlers = process.webpackEnv.SB_ENV === 'electron' ? [
   require('../active-game/socket-handlers').default,
   require('../download/ipc-handlers').default,
   require('../lobbies/socket-handlers').default,
+  require('../matchmaking/socket-handlers').default,
   require('../settings/ipc-handlers').default,
   require('../window-controls/ipc-handlers').default,
 ] : []

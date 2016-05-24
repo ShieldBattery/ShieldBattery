@@ -40,6 +40,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
+import { findMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
@@ -263,9 +264,7 @@ class MainLayout extends React.Component {
   };
 
   onFindMatchClick = () => {
-    this.props.dispatch(openSnackbar({
-      message: 'Not implemented yet. Coming soon!',
-    }))
+    this.props.dispatch(findMatch('1v1ladder'))
   };
 
   onCreateLobbyClick = () => {
