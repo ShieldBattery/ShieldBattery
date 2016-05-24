@@ -36,17 +36,17 @@ export class UserSocketGroup extends EventEmitter {
   }
 
   // Adds a subscription to all sockets for this user, including any sockets that may connect
-  // after this. `initialDataGetter` should either be null/undefined, or a function(user, socket)
+  // after this. `initialDataGetter` should either be undefined, or a function(user, socket)
   // that returns the initialData to use for a subscribe call. `cleanup` should either be
   // null/undefined, or a function(user) that will be called when the user has disconnected
   // completely.
-  subscribe(path, initialDataGetter, cleanup) {
+  subscribe(path, initialDataGetter = defaultDataGetter, cleanup) {
     if (this.subscriptions.has(path)) {
       throw new Error('duplicate persistent subscription: ' + path)
     }
 
     this.subscriptions = this.subscriptions.set(path, {
-      getter: initialDataGetter || defaultDataGetter,
+      getter: initialDataGetter,
       cleanup,
     })
     for (const socket of this.sockets) {
