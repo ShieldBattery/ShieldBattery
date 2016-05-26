@@ -92,6 +92,7 @@ export default class Splash extends React.Component {
               <a href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
                   rel='nofollow noreferrer'>Buy Brood War</a>
             </li>
+            <li><Link to='/faq'>FAQ</Link></li>
             <li><Link to='/login'>Log in</Link></li>
           </ul>
           <img className={styles.logo} src='/images/splash-logo.png' />

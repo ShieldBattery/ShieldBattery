@@ -158,3 +158,42 @@
   line-height: 1.5;
   margin: 32px 0 0;
 }
+
+.faqHeader {
+  padding: 100px 0px;
+  margin-right: 30%;
+  text-align: right;
+  font-weight: 300;
+}
+
+.faqText {
+  padding-right: 48px;
+}
+
+.faqFeature {
+  composes: row itemsCenter;
+  composes: pageWidth;
+  padding: 48px 0;
+  border-bottom: 1px solid colorDividers;
+}
+
+.faqQuestion {
+  color: blue400;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.faqAnswer {
+  composes: subhead;
+  color: colorTextSecondary;
+  font-size: 18px;
+  line-height: 1.5;
+  margin: 24px 0 0;
+}
+
+.faqQuestionIcon {
+  color: blue400;
+  display: inline-block;
+  margin-right: 20px;
+  vertical-align: middle;
+}
