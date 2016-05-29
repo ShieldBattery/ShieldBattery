@@ -191,6 +191,10 @@
   margin: 24px 0 0;
 }
 
+.faqAnswer > p {
+  line-height: 1.5;
+}
+
 .faqQuestionIcon {
   color: blue400;
   display: inline-block;
