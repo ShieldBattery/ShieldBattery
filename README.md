@@ -1,5 +1,5 @@
 # manner-pylon
-The official server for [shieldbattery](https://github.com/tec28/shieldbattery).
+The official server for [shieldbattery](https://github.com/tec27/shieldbattery).
 
 ## IRC
 The shieldbattery developers (and by extension, manner-pylon) frequent `#shieldbattery-dev` on
