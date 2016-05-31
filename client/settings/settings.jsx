@@ -169,6 +169,10 @@ class Settings extends React.Component {
 
   handleFormSubmission(values) {
     const windowSize = values.get('windowSize')
+    let starcraftPath = values.get('path')
+    if (starcraftPath.endsWith('.exe')) {
+      starcraftPath = starcraftPath.slice(0, starcraftPath.lastIndexOf('\\'))
+    }
     const newSettings = {
       bwPort: parseInt(values.get('port'), 10),
       width: windowSize.width,
@@ -177,7 +181,7 @@ class Settings extends React.Component {
       mouseSensitivity: values.get('sensitivity'),
       maintainAspectRatio: values.get('aspectRatio'),
       renderer: values.get('renderer'),
-      starcraftPath: values.get('path'),
+      starcraftPath,
     }
     this.props.dispatch(setLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
