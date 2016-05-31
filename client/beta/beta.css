@@ -17,6 +17,7 @@
 
 .topLinks {
   composes: pageWidth;
+  pointer-events: all;
   position: absolute;
   top: 8px;
   right: 0;
@@ -34,6 +35,7 @@
 
 .logoContainer {
   composes: pageWidth;
+  pointer-events: none;
   position: absolute;
   left: calc(50% - 940px / 2);
 }
