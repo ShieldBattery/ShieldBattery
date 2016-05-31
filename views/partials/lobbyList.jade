@@ -1,7 +1,0 @@
-p(data-ng-pluralize, data-count='lobbies.length', data-when-0='No lobbies running',
-  data-when-1='1 lobby running', data-when-other='{} lobbies running')
-a(href='/lobbies/new') Create new lobby
-h2 Lobbies
-ul
-  li(data-ng-repeat='lobby in lobbies')
-    a(data-ng-href='/lobbies/{{ lobby.name | encodeUriComponent }}') {{ lobby.name }}
