@@ -78,6 +78,7 @@
     "postcss-for": "^2.0.1",
     "postcss-loader": "^0.8.0",
     "postcss-mixins": "^4.0.1",
+    "rally-point-server": "^1.0.0",
     "react": "^0.14.0-rc1",
     "react-addons-css-transition-group": "^0.14.0-rc1",
     "react-dom": "^0.14.0-rc1",

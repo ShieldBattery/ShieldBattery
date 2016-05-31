@@ -2,8 +2,10 @@ import config from './config'
 import webpack from 'webpack'
 import webpackConfig from './webpack.config.js'
 
+import childProcess from 'child_process'
 import http from 'http'
 import https from 'https'
+import net from 'net'
 
 import canonicalHost from 'canonical-host'
 import isDev from './server/env/is-dev'
@@ -22,6 +24,28 @@ import secureHeaders from './server/security/headers'
 import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
 import views from 'koa-views'
+
+if (!config.rallyPoint ||
+    !config.rallyPoint.secret ||
+    !(config.rallyPoint.local || config.rallyPoint.remote)) {
+  throw new Error('Configuration must contain rally-point settings')
+}
+if (config.rallyPoint.local) {
+  if (!net.isIPv6(config.rallyPoint.local.address)) {
+    throw new Error('local rally-point address must be IPv6-formatted')
+  }
+
+  console.log('Creating local rally-point process')
+  const rallyPoint = childProcess.fork(path.join(__dirname, 'server', 'rally-point', 'index.js'))
+  rallyPoint.on('error', err => {
+    console.error('rally-point process error: ' + err)
+    process.exit(1)
+  }).on('exit', (code, signal) => {
+    console.error('rally-point process exited unexpectedly with code: ' + code +
+        ', signal: ' + signal)
+    process.exit(1)
+  })
+}
 
 const app = koa()
 const port = config.https ? config.httpsPort : config.httpPort
@@ -92,12 +116,7 @@ compilePromise.then(stats => {
     log.info(`Webpack stats:\n${statStr}`)
   }
 
-  // TODO(tec27): We can't reasonably support ipv6 without doing STUN and other NAT negotiation,
-  // since not all of our clients may be ipv6. To support both v4 and v6, we need to collect all the
-  // addresses that refer to a client (v4, v6, lan, wan) and pass them out, then let the clients
-  // figure out how to best use them. Until that occurs, we'll force a bind to an ipv4 interface, so
-  // that we only receive those sorts of addresses
-  mainServer.listen(port, '0.0.0.0', function() {
+  mainServer.listen(port, '::1', function() {
     log.info('Server listening on port ' + port)
   })
 }).catch(err => {

@@ -35,6 +35,24 @@ config.minPsiVersion = '0.0.0'
 // to be out of date. If none is specified, no link will be given to clients.
 // config.installerUrl = 'https://localhost/installer.msi'
 
+// Settings for rally-point (forwarding servers for use by game players). Two possible options:
+// - Use a local server (spun up as a child process), typical for dev
+// - Use a set of remote servers, typical for production
+config.rallyPoint = {
+  secret: 'reallySecretString', // used for both local and remote options
+  // Local server option
+  local: {
+    address: '::ffff:127.0.0.1', // Address that players will connect to, needs to be ipv6 formatted
+    port: 14098,
+  },
+  // Remote servers option
+  /*
+  remote: [
+    { address: 'rp1.shieldbattery.net', port: 14098 },
+    { address: 'rp2.shieldbattery.net', port: 14098 },
+  ],
+  */
+}
 
 // Uncommenting this block will enable HTTPS, which requires generating server certs & keys
 // It's advisable to leave commented if you're doing local development
