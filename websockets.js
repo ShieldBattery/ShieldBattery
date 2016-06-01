@@ -27,11 +27,6 @@ class WebsocketServer {
     this.sessionLookup = new WeakMap()
 
     this.connectedUsers = 0
-    this._doConstructorArrowFunctions()
-  }
-
-  // Works around an issue with babel and arrow functions in constructors
-  _doConstructorArrowFunctions() {
     this.nydus = nydus(this.httpServer, {
       allowRequest: (info, cb) => this.onAuthorization(info, cb)
     })

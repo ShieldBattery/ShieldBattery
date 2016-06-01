@@ -3,6 +3,7 @@ import webpack from 'webpack'
 import webpackConfig from './webpack.config.js'
 
 import childProcess from 'child_process'
+import dns from 'dns'
 import http from 'http'
 import https from 'https'
 import net from 'net'
@@ -25,6 +26,8 @@ import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
 import views from 'koa-views'
 
+import RallyPointServerBroadcaster from './server/rally-point/broadcaster'
+
 if (!config.rallyPoint ||
     !config.rallyPoint.secret ||
     !(config.rallyPoint.local || config.rallyPoint.remote)) {
@@ -35,17 +38,54 @@ if (config.rallyPoint.local) {
     throw new Error('local rally-point address must be IPv6-formatted')
   }
 
-  console.log('Creating local rally-point process')
-  const rallyPoint = childProcess.fork(path.join(__dirname, 'server', 'rally-point', 'index.js'))
+  log.info('Creating local rally-point process')
+  const rallyPoint =
+      childProcess.fork(path.join(__dirname, 'server', 'rally-point', 'run-local-server.js'))
   rallyPoint.on('error', err => {
-    console.error('rally-point process error: ' + err)
+    log.error('rally-point process error: ' + err)
     process.exit(1)
   }).on('exit', (code, signal) => {
-    console.error('rally-point process exited unexpectedly with code: ' + code +
+    log.error('rally-point process exited unexpectedly with code: ' + code +
         ', signal: ' + signal)
     process.exit(1)
   })
 }
+
+const asyncLookup = thenify(dns.lookup)
+const rallyPointServers = config.rallyPoint.local ?
+    [ config.rallyPoint.local ] :
+    config.rallyPoint.remote
+const resolvedRallyPointServers = Promise.all(rallyPointServers.map(async s => {
+  let v6
+  try {
+    v6 = await asyncLookup(s.address, { family: 6 })
+  } catch (err) {
+    log.warn('Warning: error looking up ' + s.address + ' for ipv6: ' + err)
+  }
+
+  let v4
+  try {
+    v4 = await asyncLookup(s.address, { family: 4 })
+  } catch (err) {
+    log.warn('Warning: error looking up ' + s.address + ' for ipv4: ' + err)
+  }
+  if (v4 && v4[1] === 6 && v6 && v6[0].startsWith('::ffff:')) {
+    // v6 is an ipv6-mapped ipv4 address, so swap things around
+    v4[0] = v6[0].slice('::ffff:'.length)
+    v4[1] = 4
+    v6[0] = undefined
+  }
+
+  if (!v4 && !v6) {
+    throw new Error('Could not resolve ' + s.address)
+  }
+
+  return ({
+    address4: v4 && v4[1] === 4 ? `::ffff:${v4[0]}` : undefined,
+    address6: v6 && v6[1] === 6 ? v6[0] : undefined,
+    port: s.port
+  })
+}))
 
 const app = koa()
 const port = config.https ? config.httpsPort : config.httpPort
@@ -98,7 +138,7 @@ if (config.https) {
 }
 
 import setupWebsockets from './websockets'
-setupWebsockets(mainServer, app, sessionMiddleware)
+const websocketServer = setupWebsockets(mainServer, app, sessionMiddleware)
 
 compiler.run = thenify(compiler.run)
 const compilePromise = isDev ? Promise.resolve() : compiler.run()
@@ -106,7 +146,12 @@ if (!isDev) {
   log.info('In production mode, building assets...')
 }
 
-compilePromise.then(stats => {
+resolvedRallyPointServers.then(servers => {
+  const broadcaster = new RallyPointServerBroadcaster(servers)
+  broadcaster.applyTo(websocketServer.nydus)
+
+  return compilePromise
+}).then(stats => {
   if (stats) {
     if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
       throw new Error(stats.toString())
@@ -116,7 +161,7 @@ compilePromise.then(stats => {
     log.info(`Webpack stats:\n${statStr}`)
   }
 
-  mainServer.listen(port, '::1', function() {
+  mainServer.listen(port, function() {
     log.info('Server listening on port ' + port)
   })
 }).catch(err => {
