@@ -1,4 +1,4 @@
 {
-  "presets": ["node5", "stage-0"],
-  "plugins": ["transform-es2015-arrow-functions", "transform-decorators-legacy"],
+  "presets": ["node6", "stage-0"],
+  "plugins": ["transform-decorators-legacy"],
 }
