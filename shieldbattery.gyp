@@ -8,6 +8,7 @@
       '__register_async_wrap_',
       '__register_buffer_',
       '__register_cares_wrap_',
+      '__register_config_',
       '__register_contextify_',
       '__register_crypto_',
       '__register_fs_',

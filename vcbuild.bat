@@ -41,6 +41,7 @@ goto next-arg
 @rem Install all the node module dependencies
 cd "%scriptroot%\nan"
 call npm install
+call npm update
 if errorlevel 1 goto install-failed
 cd "%scriptroot%\bundler"
 call npm install
@@ -77,7 +78,7 @@ SETLOCAL
   call "%scriptroot%\deps\node\vcbuild.bat" ia32 noetw noperfctr nobuild nosign
   if not exist "%scriptroot%\deps\node\config.gypi" goto create-msvs-files-failed
   cd "%scriptroot%"
-  call "%scriptroot%\deps\node\tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Ioverrides.gypi shieldbattery.gyp
+  call "%scriptroot%\deps\node\tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Ideps\node\common.gypi -Ideps\node\config.gypi -Ideps\node\icu_config.gypi -Ioverrides.gypi shieldbattery.gyp
   if errorlevel 1 goto create-msvs-files-failed
   if not exist shieldbattery.sln goto create-msvs-files-failed
   echo Shieldbattery project files generated.

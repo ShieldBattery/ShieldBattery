@@ -1,5 +1,6 @@
 {
   "name": "shieldbattery-nan",
+  "private": true,
   "version": "0.0.1",
   "description": "Nan holder for shieldbattery",
   "scripts": {
