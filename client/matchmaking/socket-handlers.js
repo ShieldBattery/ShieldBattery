@@ -6,8 +6,9 @@ import { openSnackbar } from '../snackbars/action-creators'
 
 const eventToAction = {
   matchFound: (name, event) => {
+    const { opponent } = event
     dispatch(openSnackbar({
-      message: 'Your opponent is: ' + event.opponent.name,
+      message: `Your opponent is: ${opponent.name} (${opponent.race})`,
     }, 3000))
 
     return {

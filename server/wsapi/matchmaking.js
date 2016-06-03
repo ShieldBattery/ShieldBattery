@@ -17,7 +17,8 @@ const Interval = new Record({
 const Player = new Record({
   name: null,
   rating: 0,
-  interval: new Interval()
+  interval: new Interval(),
+  race: 'r'
 })
 
 const MatchSettings = new Record({
@@ -56,14 +57,14 @@ class Matchmaker {
   }
 
   // Adds a player to the tree and to the queue that's ordered by the start of search time
-  addToTree(player) {
+  addToQueue(player) {
     if (this._isRunning()) {
       if (this.players.has(player.name)) {
         return false
       }
-      this.tree.insert(player.interval.low, player.interval.high, player)
-      this.players = this.players.set(player.name, player)
-      return true
+      const isAdded = this.tree.insert(player.interval.low, player.interval.high, player)
+      if (isAdded) this.players = this.players.set(player.name, player)
+      return isAdded
     }
     return false
   }
@@ -161,9 +162,24 @@ class Matchmaker {
       }
     }
   }
+
+  // Removes a player from the tree and from the queue
+  removeFromQueue(playerName) {
+    if (this._isRunning()) {
+      if (!this.players.has(playerName)) {
+        return false
+      }
+      const player = this.players.get(playerName)
+      const isRemoved = this.tree.remove(player.interval.low, player.interval.high, player)
+      if (isRemoved) this.players = this.players.delete(player.name)
+      return isRemoved
+    }
+    return false
+  }
 }
 
 const validateType = type => MATCHMAKING_TYPES.includes(type)
+const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
 const MOUNT_BASE = '/matchmaking'
 
@@ -183,10 +199,11 @@ export class MatchmakingApi {
   @Api('/find',
     validateBody({
       type: validateType,
+      race: validRace,
     }),
     'getUser')
   async find(data, next) {
-    const { type } = data.get('body')
+    const { type, race } = data.get('body')
     const user = data.get('user')
 
     // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
@@ -200,14 +217,15 @@ export class MatchmakingApi {
     const player = new Player({
       name: user.name,
       rating,
-      interval
+      interval,
+      race
     })
 
     const matchSettings = new MatchSettings({
       type
     })
 
-    const isAdded = this.matchmakers.get(matchSettings.type).addToTree(player)
+    const isAdded = this.matchmakers.get(matchSettings.type).addToQueue(player)
     if (!isAdded) {
       throw new errors.Conflict('already searching for the game')
     }
@@ -217,9 +235,21 @@ export class MatchmakingApi {
     })
   }
 
-  @Api('/cancel')
+  @Api('/cancel',
+    validateBody({
+      type: validateType,
+    }),
+    'getUser')
   async cancel(data, next) {
-    throw new errors.NotImplemented()
+    const { type } = data.get('body')
+    const user = data.get('user')
+
+    const isRemoved = this.matchmakers.get(type).removeFromQueue(user.name)
+    if (!isRemoved) {
+      throw new errors.Conflict('not searching for the game')
+    }
+
+    user.unsubscribe(MatchmakingApi._getPath(user))
   }
 
   async getUser(data, next) {

@@ -202,6 +202,10 @@ export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
 
+// We are starting the process of canceling the match finding
+export const MATCHMAKING_CANCEL_BEGIN = 'MATCHMAKING_CANCEL_BEGIN'
+// The server has responded with success/failure to us canceling the match finding
+export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
 // We are starting the matchmaking process to find game
 export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
 // The server has responded with success/failure to us starting to find game

@@ -8,8 +8,9 @@ import styles from './activity-overlay.css'
 import KeyListener from '../keyboard/key-listener.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
 
-const { CreateLobby, WatchReplay, BrowseMaps } =
+const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } =
     process.webpackEnv.SB_ENV === 'electron' ? {
+      FindMatch: require('../matchmaking/find-match.jsx').default,
       CreateLobby: require('../lobbies/create-lobby.jsx').default,
       WatchReplay: require('../replays/watch-replay.jsx').default,
       BrowseMaps: require('../maps/browse-maps.jsx').default,
@@ -28,6 +29,7 @@ const transitionNames = {
 export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
+      case 'findMatch': return <FindMatch />
       case 'createLobby': return <CreateLobby />
       case 'joinLobby': return <JoinLobby />
       case 'watchReplay': return <WatchReplay />

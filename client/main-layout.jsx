@@ -23,6 +23,7 @@ import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overla
 import WindowControls from './window-controls/window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
+import CancelMatchIcon from './icons/material/ic_cancel_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
@@ -41,6 +42,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
 import { findMatch } from './matchmaking/action-creators'
+import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
@@ -74,6 +76,7 @@ function stateToProps(state) {
     })),
     starcraft: state.starcraft,
     routing: state.routing,
+    matchmaking: state.matchmaking,
   }
 }
 
@@ -176,9 +179,13 @@ class MainLayout extends React.Component {
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
     ]
+    const findMatchButton = !this.props.matchmaking.isFinding ?
+        <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
+            onClick={this.onFindMatchClick} /> :
+        <ActivityButton key='cancel-match' icon={<CancelMatchIcon />} label='Cancel'
+            onClick={this.onCancelFindMatchClick} />
     const activityButtons = process.webpackEnv.SB_ENV === 'electron' ? [
-      <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
-          onClick={this.onFindMatchClick} />,
+      findMatchButton,
       <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
           onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
           altKey={true} />,
@@ -264,7 +271,15 @@ class MainLayout extends React.Component {
   };
 
   onFindMatchClick = () => {
-    this.props.dispatch(findMatch('1v1ladder'))
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
+    } else {
+      this.props.dispatch(openOverlay('findMatch'))
+    }
+  };
+
+  onCancelFindMatchClick = () => {
+    this.props.dispatch(cancelFindMatch(this.props.matchmaking.type))
   };
 
   onCreateLobbyClick = () => {
