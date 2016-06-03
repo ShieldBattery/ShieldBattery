@@ -1,4 +1,4 @@
-import { Map, Record, Set } from 'immutable'
+import { Map, OrderedMap, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import IntervalTree from 'node-interval-tree'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
@@ -7,7 +7,7 @@ import validateBody from '../websockets/validate-body'
 const MATCHMAKING_TYPES = [
   '1v1ladder'
 ]
-const MATCHMAKING_INTERVAL = 20000
+const MATCHMAKING_INTERVAL = 10000
 
 const Interval = new Record({
   low: 0,
@@ -30,10 +30,9 @@ class Matchmaker {
     this.nydus = nydus
     this.type = type
     this.tree = new IntervalTree()
-    this.intervalId = null
-    this.unmatchedPlayers = new Map()
+    this.players = new OrderedMap()
     this.matchedPlayers = new Set()
-    this.isMatchPlayersRunning = false
+    this.intervalId = null
 
     this.start()
   }
@@ -42,11 +41,9 @@ class Matchmaker {
     return !!this.intervalId
   }
 
-  // Starts the matchmaker service, and runs the matchPlayers function every 20 seconds
+  // Starts the matchmaker service, and runs the matchPlayers function every 10 seconds
   start() {
-    if (this._isRunning()) {
-      throw new Error('This matchmaking service is already running')
-    } else {
+    if (!this._isRunning()) {
       this.intervalId = setInterval(() => this.matchPlayers(), MATCHMAKING_INTERVAL)
     }
   }
@@ -55,19 +52,20 @@ class Matchmaker {
   stop() {
     if (this._isRunning()) {
       clearInterval(this.iIntervalId)
-    } else {
-      throw new Error('This matchmaking service is already stopped')
     }
   }
 
-  // Adds a player to the tree
-  // TODO(2Pac): Figure out what happens if a player is added while matchPlayers is running
+  // Adds a player to the tree and to the queue that's ordered by the start of search time
   addToTree(player) {
     if (this._isRunning()) {
+      if (this.players.has(player.name)) {
+        return false
+      }
       this.tree.insert(player.interval.low, player.interval.high, player)
-    } else {
-      throw new Error('This matchmaking service is stopped')
+      this.players = this.players.set(player.name, player)
+      return true
     }
+    return false
   }
 
   _findClosestElementInArray(rating, overlappingPlayers) {
@@ -85,21 +83,15 @@ class Matchmaker {
     return current
   }
 
-  // Finds the best match for each player and removes them from a tree. If a match is not found, the
-  // player stays in the tree, with his interval increased
+  // Finds the best match for each player and removes them from a queue. If a match is not found,
+  // the player stays in the queue, with his interval increased
   matchPlayers() {
-    if (this.isMatchPlayersRunning) {
-      return
-    }
-    this.isMatchPlayersRunning = true
-
     if (this.tree.count < 2) {
       // There are less than two players currently searching :(
-      this.isMatchPlayersRunning = false
       return
     }
 
-    for (const player of this.tree.inOrder(this.tree.root)) {
+    for (let player of this.players.values()) {
       if (this.matchedPlayers.has(player)) {
         // We already matched this player with someone else; skip him
         this.matchedPlayers = this.matchedPlayers.delete(player)
@@ -111,25 +103,27 @@ class Matchmaker {
       const results = this.tree.search(player.interval.low, player.interval.high)
 
       if (!results || results.length === 0) {
-        // No matches for this player; Add him to the unmatched players map so he can be re-added
-        // after the for loop
-        this.unmatchedPlayers = this.unmatchedPlayers.set(player.name, player)
-      } else {
-        // The best match would be the one with the closest rating to the searching player, while
-        // taking into consideration other variables, eg. their search interval, uncertainty
-        // variable about their rating (TrueSkill?), region etc. We could also introduce some kind
-        // of randomness to make sure that two players don't end up playing each other repeatedly,
-        // although this shouldn't be a problem, since their ratings and search interval will change
-        // after each game
+        // No matches for this player; increase their search interval and re-add them to the tree
+        // and to the queue
 
-        // TODO(2Pac): Do a more sophisticated algorithm to find the best match
+        // TODO(2Pac): Replace this with the logic of our ranking system
+        const newLow = player.interval.low - 10 > 0 ? player.interval.low - 10 : 0
+        const newHigh = player.interval.high + 10
+        const newInterval = new Interval({ low: newLow, high: newHigh })
+        player = player.set('interval', newInterval)
+
+        this.tree.insert(player.interval.low, player.interval.high, player)
+        this.players = this.players.set(player.name, player)
+      } else {
+        // The best match should be evaluated by taking into consideration various variables, eg.
+        // the rating difference, time spent queueing, region, etc.
+        // For now, we're iterating over the players in order they joined the queue, plus finding
+        // the player with lowest rating difference; in future we should also take player's region
+        // into consideration and anything else that might be relevant
+
+        // TODO(2Pac): Check player's region and prefer the ones that are closer to each other
         const opponentRating = this._findClosestElementInArray(player.rating, results)
-        const opponents = []
-        for (let i = 0; i < results.length; i++) {
-          if (opponentRating === results[i].rating) {
-            opponents.push(results[i])
-          }
-        }
+        const opponents = results.filter(player => opponentRating === player.rating)
 
         let opponent = null
         if (opponents.length === 1) {
@@ -140,6 +134,18 @@ class Matchmaker {
           // rating. Randomly choose one
           opponent = opponents[Math.floor(Math.random() * opponents.length)]
         }
+
+        // Remove the matched player from the tree
+        this.tree.remove(opponent.interval.low, opponent.interval.high, opponent)
+
+        // Remove the matched players from the queue we use for iteration
+        this.players = this.players.delete(player.name)
+        this.players = this.players.delete(opponent.name)
+
+        // Since our iteration method returns the whole queue at once, the opponent will still be
+        // iterated over, even though we removed him from the queue; To stop that from happening,
+        // mark the opponent as 'matched' so it can be skipped later on in the iteration
+        this.matchedPlayers = this.matchedPlayers.add(opponent)
 
         // Notify both players that the match is found and who is their opponent
         this.nydus.publish('/matchmaking/' + player.name, {
@@ -152,30 +158,8 @@ class Matchmaker {
           opponent: player,
           matchmakingType: this.type
         })
-
-        // Remove the matched player from the tree
-        this.tree.remove(opponent.interval.low, opponent.interval.high, opponent)
-        this.matchedPlayers = this.matchedPlayers.add(opponent)
-
-        if (this.unmatchedPlayers.has(player.name)) {
-          this.unmatchedPlayers = this.unmatchedPlayers.delete(player.name)
-        }
       }
     }
-
-    // Iterate through all of the unmatched players, increase their search interval and re-add them
-    // to the tree
-    this.unmatchedPlayers.forEach(p => {
-      // TODO(2Pac): Replace this with the logic of our ranking system
-      const newLow = p.interval.low - 10 > 0 ? p.interval.low - 10 : 0
-      const newHigh = p.interval.high + 10
-      const newInterval = new Interval({ low: newLow, high: newHigh })
-      p = p.set('interval', newInterval)
-
-      this.tree.insert(p.interval.low, p.interval.high, p)
-    })
-
-    this.isMatchPlayersRunning = false
   }
 }
 
@@ -188,14 +172,8 @@ export class MatchmakingApi {
   constructor(nydus, userSockets) {
     this.nydus = nydus
     this.userSockets = userSockets
-    this.userMatches = new Map()
     this.matchmakers = new Map()
 
-    this._doConstructorMatchmakers()
-  }
-
-  // Works around a bug in babel with arrow functions in constructors
-  _doConstructorMatchmakers() {
     // Construct a new matchmaker for each matchmaking type we have
     MATCHMAKING_TYPES.forEach(type => {
       this.matchmakers = this.matchmakers.set(type, new Matchmaker(this.nydus, type))
@@ -210,10 +188,6 @@ export class MatchmakingApi {
   async find(data, next) {
     const { type } = data.get('body')
     const user = data.get('user')
-
-    if (this.userMatches.has(user.name)) {
-      throw new errors.Conflict('already searching for the game')
-    }
 
     // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
     // Until we devise a ranking system, make the search interval same for all players
@@ -233,15 +207,12 @@ export class MatchmakingApi {
       type
     })
 
-    // TODO(2Pac): Delete the match for this user when his match is found and started; or if the
-    // matchmaking is canceled for any reason
-    this.userMatches = this.userMatches.set(user.name, matchSettings)
-    this.matchmakers.get(matchSettings.type).addToTree(player)
+    const isAdded = this.matchmakers.get(matchSettings.type).addToTree(player)
+    if (!isAdded) {
+      throw new errors.Conflict('already searching for the game')
+    }
 
-    user.subscribe(MatchmakingApi._getPath(user), () => {}, user => {
-      if (this.userMatches.has(user.name)) {
-        this.userMatches = this.userMatches.delete(user.name)
-      }
+    user.subscribe(MatchmakingApi._getPath(user), undefined, user => {
       user.unsubscribe(MatchmakingApi._getPath(user))
     })
   }
