@@ -2,6 +2,7 @@ import { Record } from 'immutable'
 import {
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND,
+  MATCHMAKING_RESTART_STATE,
   MATCHMAKING_UPDATE_MATCH_FOUND,
 } from '../actions'
 
@@ -44,6 +45,10 @@ const handlers = {
         .set('type', type)
         .set('race', race)
     ))
+  },
+
+  [MATCHMAKING_RESTART_STATE](state, action) {
+    return new MatchmakingState()
   },
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {

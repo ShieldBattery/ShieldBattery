@@ -3,7 +3,8 @@ import {
   MATCHMAKING_CANCEL_BEGIN,
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND_BEGIN,
-  MATCHMAKING_FIND
+  MATCHMAKING_FIND,
+  MATCHMAKING_RESTART_STATE
 } from '../actions'
 
 export function findMatch(type, race) {
@@ -33,5 +34,11 @@ export function cancelFindMatch(type) {
       payload: siteSocket.invoke('/matchmaking/cancel', params),
       meta: params,
     })
+  }
+}
+
+export function resetMatchmakingState() {
+  return {
+    type: MATCHMAKING_RESTART_STATE
   }
 }

@@ -210,6 +210,7 @@ export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
 export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
 // The server has responded with success/failure to us starting to find game
 export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
+export const MATCHMAKING_RESTART_STATE = 'MATCHMAKING_RESTART_STATE'
 // The server has responded with a found match
 export const MATCHMAKING_UPDATE_MATCH_FOUND = 'MATCHMAKING_UPDATE_MATCH_FOUND'
 

@@ -2,14 +2,11 @@ import {
   MATCHMAKING_UPDATE_MATCH_FOUND,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
-import { openSnackbar } from '../snackbars/action-creators'
+import { openDialog } from '../dialogs/dialog-action-creator'
 
 const eventToAction = {
   matchFound: (name, event) => {
-    const { opponent } = event
-    dispatch(openSnackbar({
-      message: `Your opponent is: ${opponent.name} (${opponent.race})`,
-    }, 3000))
+    dispatch(openDialog('acceptMatch'))
 
     return {
       type: MATCHMAKING_UPDATE_MATCH_FOUND,

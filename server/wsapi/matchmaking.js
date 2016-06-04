@@ -183,29 +183,8 @@ export class MatchmakingApi {
     // Construct a new matchmaker for each matchmaking type we have
     MATCHMAKING_TYPES.forEach(type => {
       this.matchmakers = this.matchmakers.set(type, new Matchmaker(type,
-          (player, opponent) => this.onMatchFound(player, opponent, type)))
+          (player, opponent) => this._onMatchFound(player, opponent, type)))
     })
-  }
-
-  onMatchFound(player, opponent, type) {
-    // Notify both players that the match is found and who is their opponent
-    this.nydus.publish('/matchmaking/' + player.name, {
-      type: 'matchFound',
-      opponent,
-      matchmakingType: type
-    })
-    this.nydus.publish('/matchmaking/' + opponent.name, {
-      type: 'matchFound',
-      opponent: player,
-      matchmakingType: type
-    })
-
-    const playerSocket = this.userSockets.getByName(player.name)
-    const opponentSocket = this.userSockets.getByName(opponent.name)
-    if (playerSocket && opponentSocket) {
-      playerSocket.unsubscribe(MatchmakingApi._getPath(player))
-      opponentSocket.unsubscribe(MatchmakingApi._getPath(opponent))
-    }
   }
 
   @Api('/find',
@@ -270,6 +249,27 @@ export class MatchmakingApi {
     const newData = data.set('user', user)
 
     return await next(newData)
+  }
+
+  _onMatchFound(player, opponent, type) {
+    // Notify both players that the match is found and who is their opponent
+    this.nydus.publish('/matchmaking/' + player.name, {
+      type: 'matchFound',
+      opponent,
+      matchmakingType: type
+    })
+    this.nydus.publish('/matchmaking/' + opponent.name, {
+      type: 'matchFound',
+      opponent: player,
+      matchmakingType: type
+    })
+
+    const playerSockets = this.userSockets.getByName(player.name)
+    const opponentSockets = this.userSockets.getByName(opponent.name)
+    if (playerSockets && opponentSockets) {
+      playerSockets.unsubscribe(MatchmakingApi._getPath(player))
+      opponentSockets.unsubscribe(MatchmakingApi._getPath(opponent))
+    }
   }
 
   static _getPath(user) {
