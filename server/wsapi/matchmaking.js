@@ -27,9 +27,9 @@ const MatchSettings = new Record({
 
 // TODO(2Pac): Move this to its own folder/file?
 class Matchmaker {
-  constructor(nydus, type) {
-    this.nydus = nydus
+  constructor(type, onMatchFound) {
     this.type = type
+    this.onMatchFound = onMatchFound
     this.tree = new IntervalTree()
     this.players = new OrderedMap()
     this.matchedPlayers = new Set()
@@ -148,17 +148,7 @@ class Matchmaker {
         // mark the opponent as 'matched' so it can be skipped later on in the iteration
         this.matchedPlayers = this.matchedPlayers.add(opponent)
 
-        // Notify both players that the match is found and who is their opponent
-        this.nydus.publish('/matchmaking/' + player.name, {
-          type: 'matchFound',
-          opponent,
-          matchmakingType: this.type
-        })
-        this.nydus.publish('/matchmaking/' + opponent.name, {
-          type: 'matchFound',
-          opponent: player,
-          matchmakingType: this.type
-        })
+        if (this.onMatchFound) this.onMatchFound(player, opponent)
       }
     }
   }
@@ -192,8 +182,30 @@ export class MatchmakingApi {
 
     // Construct a new matchmaker for each matchmaking type we have
     MATCHMAKING_TYPES.forEach(type => {
-      this.matchmakers = this.matchmakers.set(type, new Matchmaker(this.nydus, type))
+      this.matchmakers = this.matchmakers.set(type, new Matchmaker(type,
+          (player, opponent) => this.onMatchFound(player, opponent, type)))
     })
+  }
+
+  onMatchFound(player, opponent, type) {
+    // Notify both players that the match is found and who is their opponent
+    this.nydus.publish('/matchmaking/' + player.name, {
+      type: 'matchFound',
+      opponent,
+      matchmakingType: type
+    })
+    this.nydus.publish('/matchmaking/' + opponent.name, {
+      type: 'matchFound',
+      opponent: player,
+      matchmakingType: type
+    })
+
+    const playerSocket = this.userSockets.getByName(player.name)
+    const opponentSocket = this.userSockets.getByName(opponent.name)
+    if (playerSocket && opponentSocket) {
+      playerSocket.unsubscribe(MatchmakingApi._getPath(player))
+      opponentSocket.unsubscribe(MatchmakingApi._getPath(opponent))
+    }
   }
 
   @Api('/find',
