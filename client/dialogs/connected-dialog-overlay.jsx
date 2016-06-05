@@ -12,13 +12,16 @@ class ConnectedDialogOverlay extends React.Component {
     // Dialog content implementations should focus *something* when mounted, so that our focus traps
     // have the proper effect of keeping focus in the dialog
     let dialogComponent
+      , modal
     if (dialog.isDialogOpened) {
       switch (dialog.dialogType) {
         case 'settings':
           dialogComponent = <Settings />
+          modal = false
           break
         case 'psiHealth':
           dialogComponent = <PsiHealthCheckupDialog />
+          modal = false
           break
         default:
           throw new Error('Unknown dialog type: ' + dialog.dialogType)
@@ -33,7 +36,7 @@ class ConnectedDialogOverlay extends React.Component {
       </div>
       <span tabIndex={0} onFocus={::this.onFocusTrap}/>
       <span ref='focusable' tabIndex={-1}>
-        <Dialog onCancel={::this.onCancel}>
+        <Dialog modal={modal} onCancel={::this.onCancel}>
           { dialogComponent }
         </Dialog>
       </span>

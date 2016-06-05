@@ -14,6 +14,7 @@ const transitionNames = {
 
 class Dialog extends React.Component {
   static propTypes = {
+    modal: React.PropTypes.bool,
     onCancel: React.PropTypes.func,
   };
 
@@ -48,7 +49,7 @@ class Dialog extends React.Component {
   }
 
   onCancel() {
-    if (this.props.onCancel) {
+    if (!this.props.modal && this.props.onCancel) {
       this.props.onCancel()
     }
   }
@@ -56,7 +57,7 @@ class Dialog extends React.Component {
   onKeyDown(event) {
     if (!this.props.children) return
 
-    if (event.keyCode === ESCAPE) {
+    if (!this.props.modal && event.keyCode === ESCAPE) {
       this.onCancel()
     }
   }
