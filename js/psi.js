@@ -28,6 +28,7 @@ import { register as registerSiteRoutes, subscribe as subscribeSiteClient } from
 import { subscribeToCommands } from './psi/game-command'
 import ActiveGameManager from './psi/active-game'
 import MapStore from './psi/map-store'
+import RallyPointManager from './psi/rally-point-manager'
 
 const httpServer = createHttpServer(33198, '127.0.0.1')
 const nydusServer = nydus(httpServer, { allowRequest: authorize })
@@ -41,6 +42,7 @@ const mapDirPath = process.env.ProgramData ?
     path.join(process.env.ProgramData, 'shieldbattery', 'maps') :
     path.join(shieldbatteryRoot, 'maps')
 const mapStore = new MapStore(mapDirPath)
+const rallyPointManager = new RallyPointManager()
 
 const socketTypes = new WeakMap()
 const activeGameManager = new ActiveGameManager(nydusServer, mapStore)
@@ -91,9 +93,11 @@ psi.on('shutdown', function() {
   log.verbose('httpServer closed')
   localSettings.stopWatching()
   log.verbose('localSettings stopped watching')
+  rallyPointManager.close()
+  log.verbose('rallyPointManager closed')
 })
 
-registerSiteRoutes(nydusServer, localSettings, activeGameManager, mapStore)
+registerSiteRoutes(nydusServer, localSettings, activeGameManager, mapStore, rallyPointManager)
 registerGameRoutes(nydusServer, activeGameManager)
 
 nydusServer.on('connection', function(socket) {
@@ -104,10 +108,16 @@ nydusServer.on('connection', function(socket) {
     subscribeToCommands(nydusServer, socket, id)
     activeGameManager.handleGameConnected(id, socket)
   } else {
+    const origin = socket.conn.request.headers.origin
+    rallyPointManager.registerOrigin(origin)
     subscribeSiteClient(nydusServer, socket, activeGameManager, localSettings)
   }
 
   socket.on('disconnect', function() {
+    if (clientType === 'site') {
+      const origin = socket.conn.request.headers.origin
+      rallyPointManager.unregisterOrigin(origin)
+    }
     log.verbose('websocket (' + clientType + ') disconnected.')
   })
 })
