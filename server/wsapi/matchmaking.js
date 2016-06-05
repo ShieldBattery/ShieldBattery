@@ -21,10 +21,6 @@ const Player = new Record({
   race: 'r'
 })
 
-const MatchSettings = new Record({
-  type: null
-})
-
 // TODO(2Pac): Move this to its own folder/file?
 class Matchmaker {
   constructor(type, onMatchFound) {
@@ -33,40 +29,18 @@ class Matchmaker {
     this.tree = new IntervalTree()
     this.players = new OrderedMap()
     this.matchedPlayers = new Set()
-    this.intervalId = null
-
-    this.start()
-  }
-
-  _isRunning() {
-    return !!this.intervalId
-  }
-
-  // Starts the matchmaker service, and runs the matchPlayers function every 10 seconds
-  start() {
-    if (!this._isRunning()) {
-      this.intervalId = setInterval(() => this.matchPlayers(), MATCHMAKING_INTERVAL)
-    }
-  }
-
-  // Stops the matchmaker service, for whatever reason
-  stop() {
-    if (this._isRunning()) {
-      clearInterval(this.iIntervalId)
-    }
   }
 
   // Adds a player to the tree and to the queue that's ordered by the start of search time
   addToQueue(player) {
-    if (this._isRunning()) {
-      if (this.players.has(player.name)) {
-        return false
-      }
-      const isAdded = this.tree.insert(player.interval.low, player.interval.high, player)
-      if (isAdded) this.players = this.players.set(player.name, player)
-      return isAdded
+    if (this.players.has(player.name)) {
+      return false
     }
-    return false
+    const isAdded = this.tree.insert(player.interval.low, player.interval.high, player)
+    if (isAdded) {
+      this.players = this.players.set(player.name, player)
+    }
+    return isAdded
   }
 
   _findClosestElementInArray(rating, overlappingPlayers) {
@@ -179,12 +153,41 @@ export class MatchmakingApi {
     this.nydus = nydus
     this.userSockets = userSockets
     this.matchmakers = new Map()
+    this.matchmakerTimers = new Map()
 
     // Construct a new matchmaker for each matchmaking type we have
     MATCHMAKING_TYPES.forEach(type => {
-      this.matchmakers = this.matchmakers.set(type, new Matchmaker(type,
-          (player, opponent) => this._onMatchFound(player, opponent, type)))
+      const matchmaker = new Matchmaker(type,
+          (player, opponent) => this._onMatchFound(player, opponent, type))
+      this.matchmakers = this.matchmakers.set(type, matchmaker)
+
+      this.start(type)
     })
+  }
+
+  _isRunning(type) {
+    const mmTimer = this.matchmakerTimers.get(type)
+    return !!mmTimer
+  }
+
+  // Starts the matchmaker service, and runs the matchPlayers function every 10 seconds
+  start(type) {
+    if (!this._isRunning(type)) {
+      const mm = this.matchmakers.get(type)
+      const intervalId = setInterval(() => mm.matchPlayers(), MATCHMAKING_INTERVAL)
+      this.matchmakerTimers = this.matchmakerTimers.set(type, intervalId)
+    }
+  }
+
+  // Stops the matchmaker service, for whatever reason
+  stop(type) {
+    if (this._isRunning(type)) {
+      const mmTimer = this.matchmakerTimers.get(type)
+      if (mmTimer) {
+        clearInterval(mmTimer)
+        this.matchmakerTimers = this.matchmakerTimers.set(type, null)
+      }
+    }
   }
 
   @Api('/find',
@@ -196,6 +199,10 @@ export class MatchmakingApi {
   async find(data, next) {
     const { type, race } = data.get('body')
     const user = data.get('user')
+
+    if (!this._isRunning(type)) {
+      throw new errors.Conflict('matchmaker service is stopped')
+    }
 
     // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
     // Until we devise a ranking system, make the search interval same for all players
@@ -212,11 +219,7 @@ export class MatchmakingApi {
       race
     })
 
-    const matchSettings = new MatchSettings({
-      type
-    })
-
-    const isAdded = this.matchmakers.get(matchSettings.type).addToQueue(player)
+    const isAdded = this.matchmakers.get(type).addToQueue(player)
     if (!isAdded) {
       throw new errors.Conflict('already searching for the game')
     }
