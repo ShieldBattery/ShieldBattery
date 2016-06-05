@@ -42,12 +42,30 @@ function psiPathValidityHandler({ psiSocket }) {
   })
 }
 
+let lastRallyPointServers = null
+function rallyPointHandler({ siteSocket, psiSocket }) {
+  siteSocket.registerRoute('/rallyPoint/servers', (route, event) => {
+    lastRallyPointServers = event
+    psiSocket.invoke('/site/rallyPoint/setServers', { servers: event })
+  })
+  psiSocket.on('connect', () => {
+    if (lastRallyPointServers) {
+      psiSocket.invoke('/site/rallyPoint/setServers', { servers: lastRallyPointServers })
+    }
+  })
+  psiSocket.registerRoute('/rallyPoint/ping/:origin', (route, event) => {
+    siteSocket.invoke('/rallyPoint/pingResult',
+        { serverIndex: event.serverIndex, ping: event.ping })
+  })
+}
+
 const handlers = [
   chat,
   loading,
   lobbies,
   networkStatusHandler,
   psiPathValidityHandler,
+  rallyPointHandler,
   serverStatus,
   settingsPsi,
   upgrade

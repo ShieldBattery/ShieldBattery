@@ -91,12 +91,6 @@ export class UserManager extends EventEmitter {
     this.sessionLookup = sessionLookup
     this.users = new Map()
     this.newUserListeners = new List()
-    this.registerConnectionHandler()
-  }
-
-  registerConnectionHandler() {
-    // Moved this out of the constructor to avoid a bug with the arrow function transform putting a
-    // variable declaration before the call to super
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)
       const userName = session.userName

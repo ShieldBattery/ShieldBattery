@@ -26,7 +26,7 @@ import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
 import views from 'koa-views'
 
-import RallyPointServerBroadcaster from './server/rally-point/broadcaster'
+import pingRegistry from './server/rally-point/ping-registry'
 
 if (!config.rallyPoint ||
     !config.rallyPoint.secret ||
@@ -34,6 +34,10 @@ if (!config.rallyPoint ||
   throw new Error('Configuration must contain rally-point settings')
 }
 if (config.rallyPoint.local) {
+  if (!isDev) {
+    throw new Error('local rally-point is only available in development mode')
+  }
+
   if (!net.isIPv6(config.rallyPoint.local.address)) {
     throw new Error('local rally-point address must be IPv6-formatted')
   }
@@ -99,6 +103,17 @@ app.on('error', err => {
   log.error({ err }, 'server error')
 })
 
+process.on('unhandledRejection', function(err) {
+  log.error({ err }, 'unhandled rejection')
+  if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+    // These types are very unlikely to be handle-able properly, exit
+    setTimeout(function() {
+      process.exit(13)
+    }, 100)
+  }
+  // Other promise rejections are likely less severe, leave the process up but log it
+})
+
 app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
@@ -138,7 +153,7 @@ if (config.https) {
 }
 
 import setupWebsockets from './websockets'
-const websocketServer = setupWebsockets(mainServer, app, sessionMiddleware)
+setupWebsockets(mainServer, app, sessionMiddleware)
 
 compiler.run = thenify(compiler.run)
 const compilePromise = isDev ? Promise.resolve() : compiler.run()
@@ -147,9 +162,7 @@ if (!isDev) {
 }
 
 resolvedRallyPointServers.then(servers => {
-  const broadcaster = new RallyPointServerBroadcaster(servers)
-  broadcaster.applyTo(websocketServer.nydus)
-
+  pingRegistry.setServers(servers)
   return compilePromise
 }).then(stats => {
   if (stats) {
