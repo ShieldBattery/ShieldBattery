@@ -7,6 +7,9 @@ block headScripts
   if analyticsId
     script(type='text/javascript').
       window._sbAnalyticsId=!{JSON.stringify(analyticsId)}
+  if feedbackUrl
+    script(type='text/javascript').
+      window._sbFeedbackUrl=!{JSON.stringify(feedbackUrl)}
 
 block content
   div#app

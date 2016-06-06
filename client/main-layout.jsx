@@ -111,6 +111,9 @@ class MainLayout extends React.Component {
         <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
         <ActivityButton icon='movie' label='Replays' onClick={::this.onReplaysClick} />
         <ActivitySpacer />
+        { window._sbFeedbackUrl ?
+          <ActivityButton icon='feedback' label='Feedback' onClick={::this.onFeedbackClicked} /> :
+          null }
         <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
       </ActivityBar>
       <ActivityOverlay />
@@ -152,6 +155,10 @@ class MainLayout extends React.Component {
     this.props.dispatch(openSnackbar({
       message: 'Not implemented yet. Coming soon!',
     }))
+  }
+
+  onFeedbackClicked() {
+    window.open(window._sbFeedbackUrl, '_blank')
   }
 }
 

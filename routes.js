@@ -54,7 +54,8 @@ function applyRoutes(app) {
         permissions: this.session.permissions,
       }
     }
-    yield this.render('index', { initData, analyticsId: config.analyticsId })
+    yield this.render('index',
+        { initData, analyticsId: config.analyticsId, feedbackUrl: config.feedbackUrl })
   })
 }
 
