@@ -33,7 +33,7 @@ class PingRegistry {
   }
 
   getPings(userName) {
-    return this.pings.get(userName) || []
+    return this.pings.get(userName) || new Array(this.servers.length)
   }
 
   // Waits until the registry has at least one ping result for the user

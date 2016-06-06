@@ -52,6 +52,15 @@ config.rallyPoint = {
     { address: 'rp2.shieldbattery.net', port: 14098 },
   ],
   */
+
+  // Optional, change where the routeCreator binds to (defaults to binding on everything on a
+  // random port)
+  /*
+  routeCreator: {
+    host: '::',
+    port: 14099,
+  }
+  */
 }
 
 // Uncommenting this block will enable HTTPS, which requires generating server certs & keys

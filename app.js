@@ -27,6 +27,7 @@ import sessionMiddleware from './server/session/middleware'
 import views from 'koa-views'
 
 import pingRegistry from './server/rally-point/ping-registry'
+import routeCreator from './server/rally-point/route-creator'
 
 if (!config.rallyPoint ||
     !config.rallyPoint.secret ||
@@ -91,6 +92,10 @@ const resolvedRallyPointServers = Promise.all(rallyPointServers.map(async s => {
   })
 }))
 
+const routeCreatorConfig = config.rallyPoint.routeCreator || {}
+const initRouteCreatorPromise = routeCreator.initialize(routeCreatorConfig.host || '::',
+    routeCreatorConfig.port || 0, config.rallyPoint.secret)
+
 const app = koa()
 const port = config.https ? config.httpsPort : config.httpPort
 const compiler = webpack(webpackConfig)
@@ -103,13 +108,11 @@ app.on('error', err => {
   log.error({ err }, 'server error')
 })
 
-process.on('unhandledRejection', function(err) {
+process.on('unhandledRejection', err => {
   log.error({ err }, 'unhandled rejection')
   if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
     // These types are very unlikely to be handle-able properly, exit
-    setTimeout(function() {
-      process.exit(13)
-    }, 100)
+    throw err
   }
   // Other promise rejections are likely less severe, leave the process up but log it
 })
@@ -163,8 +166,8 @@ if (!isDev) {
 
 resolvedRallyPointServers.then(servers => {
   pingRegistry.setServers(servers)
-  return compilePromise
-}).then(stats => {
+  return initRouteCreatorPromise
+}).then(() => compilePromise).then(stats => {
   if (stats) {
     if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
       throw new Error(stats.toString())

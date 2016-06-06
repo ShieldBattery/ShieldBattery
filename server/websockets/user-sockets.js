@@ -64,7 +64,7 @@ export class UserSocketGroup extends EventEmitter {
   }
 
   _applyCleanups() {
-    for (const [/* path */, { cleanup }] of this.subscriptions.entries()) {
+    for (const { cleanup } of this.subscriptions.values()) {
       if (cleanup) cleanup(this)
     }
   }

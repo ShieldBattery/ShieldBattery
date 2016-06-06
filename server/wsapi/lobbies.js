@@ -1,9 +1,11 @@
-import { Map, OrderedMap, Record, Set } from 'immutable'
+import { List, Map, OrderedMap, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
+import pickServer from '../rally-point/pick-server'
 import pingRegistry from '../rally-point/ping-registry'
+import routeCreator from '../rally-point/route-creator'
 import CancelToken from '../../shared/async/cancel-token'
 import createDeferred from '../../shared/async/deferred'
 import rejectOnTimeout from '../../shared/async/reject-on-timeout'
@@ -286,6 +288,7 @@ export class LobbyApi {
         lobby,
       }
     }, user => this._removeUserFromLobby(this.lobbies.get(lobbyName), user))
+    user.subscribe(LobbyApi._getPlayerPath(lobby, user.name))
   }
 
   @Api('/sendChat',
@@ -414,6 +417,7 @@ export class LobbyApi {
       type: 'leave',
       id,
     })
+    user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
@@ -437,7 +441,7 @@ export class LobbyApi {
 
     const cancelToken = new CancelToken()
     const gameStart = this._doGameStart(lobbyName, cancelToken)
-    rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT).catch(() => {
+    rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT + 5000).catch(() => {
       cancelToken.cancel()
       if (!this.lobbies.has(lobbyName)) {
         return
@@ -486,7 +490,8 @@ export class LobbyApi {
       },
     })
 
-    const hasMultipleHumans = lobby.players.filter(p => !p.isComputer).size > 1
+    const humanPlayers = lobby.players.filter(p => !p.isComputer).valueSeq().toList()
+    const hasMultipleHumans = humanPlayers.size > 1
     const pingPromise = !hasMultipleHumans ?
         Promise.resolve() :
         Promise.all(lobby.players.filter(p => !p.isComputer)
@@ -495,10 +500,66 @@ export class LobbyApi {
     await pingPromise
     cancelToken.throwIfCancelling()
 
+    let routeCreations
+    // TODO(tec27): pull this code out somewhere that its easily testable
     if (hasMultipleHumans) {
       // pick best routes and create them
+
+      // Generate all the pairings of human players to figure out the routes we need
+      const matchGen = []
+      let rest = humanPlayers
+      while (!rest.isEmpty()) {
+        const first = rest.first()
+        rest = rest.rest()
+        if (!rest.isEmpty()) {
+          matchGen.push([first, rest])
+        }
+      }
+      const needRoutes = matchGen.reduce((result, [ p1, players ]) => {
+        players.forEach(p2 => result.push([p1, p2]))
+        return result
+      }, [])
+      const pingsByPlayer = new Map(
+        humanPlayers.map(player => [ player, pingRegistry.getPings(player.name)]))
+
+      const routesToCreate = needRoutes.map(([p1, p2]) => ({
+        p1,
+        p2,
+        server: pickServer(pingsByPlayer.get(p1), pingsByPlayer.get(p2))
+      }))
+
+      routeCreations = routesToCreate.map(({ p1, p2, server }) => server === -1 ?
+          Promise.reject(new Error('No server match found')) :
+          routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
+            p1,
+            p2,
+            server: pingRegistry.servers[server],
+            result,
+          })))
+    } else {
+      routeCreations = []
     }
-    // broadcast routes to each player
+
+    const routes = await Promise.all(routeCreations)
+    cancelToken.throwIfCancelling()
+
+    // get a list of routes + player IDs per player, broadcast that to each player
+    const routesByPlayer = routes.reduce((result, route) => {
+      const { p1, p2, server, result: { routeId, p1Id, p2Id } } = route
+      return (
+        result
+          .update(p1, new List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
+          .update(p2, new List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))
+      )
+    }, new Map())
+
+    for (const [ player, routes ] of routesByPlayer.entries()) {
+      this._publishToPlayer(lobby, player.name, {
+        type: 'setRoutes',
+        routes,
+      })
+    }
+    lobby = null
 
     cancelToken.throwIfCancelling()
     await gameLoaded
@@ -511,7 +572,7 @@ export class LobbyApi {
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.name)
-    countdown.timer.reject()
+    countdown.timer.reject(new Error('Countdown cancelled'))
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
     this.lobbyPreps = this.lobbyPreps.delete(lobby.name)
     this._publishTo(lobby, {
@@ -529,7 +590,7 @@ export class LobbyApi {
     const loadingData = this.loadingLobbies.get(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
     loadingData.cancelToken.cancel()
-    loadingData.deferred.reject()
+    loadingData.deferred.reject(new Error('Game loading cancelled'))
     this._publishTo(lobby, {
       type: 'cancelLoading',
     })
@@ -710,8 +771,16 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getPath(lobby), data)
   }
 
+  _publishToPlayer(lobby, playerName, data) {
+    this.nydus.publish(LobbyApi._getPlayerPath(lobby, playerName), data)
+  }
+
   static _getPath(lobby) {
     return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}`
+  }
+
+  static _getPlayerPath(lobby, playerName) {
+    return `${MOUNT_BASE}/${encodeURIComponent(lobby.name)}/${encodeURIComponent(playerName)}`
   }
 }
 
