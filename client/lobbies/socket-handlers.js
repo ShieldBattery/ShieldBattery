@@ -75,9 +75,6 @@ const eventToAction = {
   }),
 
   startCountdown: (name, event, { siteSocket }) => (dispatch, getState) => {
-    const { bwPort: port } = getState().settings.local
-    siteSocket.invoke('/lobbies/setNetworkInfo', { port })
-
     clearCountdownTimer()
     let tick = 5
     dispatch({

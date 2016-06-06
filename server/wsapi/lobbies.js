@@ -1,14 +1,18 @@
-import { List, Map, OrderedMap, Record, Set } from 'immutable'
+import { Map, OrderedMap, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import errors from 'http-errors'
-import getSocketAddress from '../websockets/get-address'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
+import pingRegistry from '../rally-point/ping-registry'
+import CancelToken from '../../shared/async/cancel-token'
+import createDeferred from '../../shared/async/deferred'
+import rejectOnTimeout from '../../shared/async/reject-on-timeout'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
-
 
 import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
+
+const LOBBY_START_TIMEOUT = 30 * 1000
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
@@ -133,28 +137,14 @@ const Countdown = new Record({
   timer: null,
 })
 
-const NetworkInfo = new Record({
-  addresses: new List(),
-  port: -1
-})
-// Data collected in preparation for actually starting a game
-const Prep = new Record({
-  networkInfo: new Map(),
-  seed: 0,
-})
-
-export const Preps = {
-  isComplete(prep, lobby) {
-    return lobby.players.every((p, id) => p.isComputer || prep.networkInfo.has(id))
-  }
-}
-
 function generateSeed() {
   return (Math.random() * 0xFFFFFFFF) | 0
 }
 
 const LoadingData = new Record({
   finishedUsers: new Set(),
+  cancelToken: null,
+  deferred: null,
 })
 
 export const LoadingDatas = {
@@ -170,7 +160,6 @@ const ListSubscription = new Record({
 
 const slotNum = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
-const validPortNumber = p => p > 0 && p <= 65535
 
 const MOUNT_BASE = '/lobbies'
 
@@ -183,7 +172,7 @@ export class LobbyApi {
     this.lobbyUsers = new Map()
     this.lobbyLocks = new Map()
     this.lobbyCountdowns = new Map()
-    this.lobbyPreps = new Map()
+    this.pingPromises = new Map()
     this.loadingLobbies = new Map()
     this.subscribedSockets = new Map()
   }
@@ -446,39 +435,73 @@ export class LobbyApi {
       throw new errors.BadRequest('must have at least 2 players')
     }
 
-    const timer = setTimeout(() => this._completeCountdown(lobbyName), 5000)
+    const cancelToken = new CancelToken()
+    const gameStart = this._doGameStart(lobbyName, cancelToken)
+    rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT).catch(() => {
+      cancelToken.cancel()
+      if (!this.lobbies.has(lobbyName)) {
+        return
+      }
+
+      const lobby = this.lobbies.get(lobbyName)
+      this._maybeCancelCountdown(lobby)
+      this._maybeCancelLoading(lobby)
+    })
+  }
+
+  async _doGameStart(lobbyName, cancelToken) {
+    const timer = createDeferred()
+    let timerId = setTimeout(() => timer.resolve(), 5000)
     const countdown = new Countdown({ timer })
     this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, countdown)
-    this.lobbyPreps = this.lobbyPreps.set(lobbyName, new Prep({ seed: generateSeed() }))
 
+    let lobby = this.lobbies.get(lobbyName)
     this._publishTo(lobby, {
       type: 'startCountdown',
     })
     this._publishListChange('delete', lobby.name)
-  }
+    lobby = null
 
-  _completeCountdown(lobbyName) {
-    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-    const lobby = this.lobbies.get(lobbyName)
-    const preps = this.lobbyPreps.get(lobbyName)
-    this.lobbyPreps = this.lobbyPreps.delete(lobbyName)
-
-    // TODO(tec27): This basically gives everyone a 5 second time to submit network info, and if
-    // they don't arrive in time, we cancel the thing. Is that enough time?
-    if (!Preps.isComplete(preps, lobby)) {
-      // TODO(tec27): Give a more specific reason? (e.g. players that weren't ready)
-      this._publishTo(lobby, {
-        type: 'cancelCountdown',
-        reason: 'incomplete setup data',
-      })
-      return
+    try {
+      await timer
+      timerId = null
+      cancelToken.throwIfCancelling()
+    } finally {
+      if (timerId) {
+        clearTimeout(timerId)
+      }
     }
 
-    this.loadingLobbies = this.loadingLobbies.set(lobbyName, new LoadingData())
+    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+    lobby = this.lobbies.get(lobbyName)
+    const gameLoaded = createDeferred()
+    this.loadingLobbies = this.loadingLobbies.set(lobbyName, new LoadingData({
+      cancelToken,
+      deferred: gameLoaded,
+    }))
     this._publishTo(lobby, {
       type: 'setupGame',
-      setup: preps,
+      setup: {
+        seed: generateSeed()
+      },
     })
+
+    const hasMultipleHumans = lobby.players.filter(p => !p.isComputer).size > 1
+    const pingPromise = !hasMultipleHumans ?
+        Promise.resolve() :
+        Promise.all(lobby.players.filter(p => !p.isComputer)
+            .map(p => pingRegistry.waitForPingResult(p.name)))
+
+    await pingPromise
+    cancelToken.throwIfCancelling()
+
+    if (hasMultipleHumans) {
+      // pick best routes and create them
+    }
+    // broadcast routes to each player
+
+    cancelToken.throwIfCancelling()
+    await gameLoaded
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
@@ -488,7 +511,7 @@ export class LobbyApi {
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.name)
-    clearTimeout(countdown.timer)
+    countdown.timer.reject()
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
     this.lobbyPreps = this.lobbyPreps.delete(lobby.name)
     this._publishTo(lobby, {
@@ -503,36 +526,14 @@ export class LobbyApi {
       return
     }
 
+    const loadingData = this.loadingLobbies.get(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    loadingData.cancelToken.cancel()
+    loadingData.deferred.reject()
     this._publishTo(lobby, {
       type: 'cancelLoading',
     })
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
-  }
-
-  @Api('/setNetworkInfo',
-    validateBody({
-      port: validPortNumber,
-    }),
-    'getUser',
-    'acquireLobby',
-    'getPlayer')
-  async setNetworkInfo(data, next) {
-    const lobby = data.get('lobby')
-    const lobbyName = lobby.name
-    if (!this.lobbyCountdowns.has(lobbyName)) {
-      throw new errors.BadRequest('countdown must be started')
-    }
-
-    const socket = data.get('client')
-    const { port } = data.get('body')
-    const networkInfo = new NetworkInfo({
-      // TODO(tec27): We'll definitely need more addresses than this
-      addresses: new List([getSocketAddress(socket.conn.request)]),
-      port,
-    })
-    const { id } = data.get('player')
-    this.lobbyPreps = this.lobbyPreps.setIn([lobbyName, 'networkInfo', id], networkInfo)
   }
 
   @Api('/gameLoaded',
@@ -559,6 +560,7 @@ export class LobbyApi {
         })
       this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
       this.lobbies = this.lobbies.delete(lobby.name)
+      loadingData.deferred.resolve()
     }
   }
 
