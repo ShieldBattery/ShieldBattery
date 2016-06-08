@@ -26,6 +26,8 @@ function clearCountdownTimer() {
   }
 }
 
+let gameSetupPromise = null
+
 const eventToAction = {
   init: (name, event, { psiSocket }) => {
     clearCountdownTimer()
@@ -123,7 +125,25 @@ const eventToAction = {
       localUser: user,
     })
 
+    gameSetupPromise = promise
+
     dispatch({ type: PSI_GAME_LAUNCH, payload: promise })
+  },
+
+  setRoutes: (name, event, { psiSocket }) => async (dispatch, getState) => {
+    if (!gameSetupPromise) return
+    try {
+      await gameSetupPromise
+    } catch (err) {
+      return
+    }
+
+    const { routes } = event
+    const { gameClient: { gameId } } = getState()
+    psiSocket.invoke('/site/setGameRoutes', {
+      gameId,
+      routes,
+    })
   },
 
   cancelLoading: (name, event, { psiSocket }) => dispatch => {
@@ -145,12 +165,14 @@ const eventToAction = {
 }
 
 export default function registerModule({ siteSocket, psiSocket }) {
-  siteSocket.registerRoute('/lobbies/:lobby', (route, event) => {
+  const lobbyHandler = (route, event) => {
     if (!eventToAction[event.type]) return
 
     const action = eventToAction[event.type](route.params.lobby, event, { siteSocket, psiSocket })
     if (action) dispatch(action)
-  })
+  }
+  siteSocket.registerRoute('/lobbies/:lobby', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobby/:playerName', lobbyHandler)
 
   siteSocket.registerRoute('/lobbies', (route, event) => {
     const { action, payload } = event

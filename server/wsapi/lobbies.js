@@ -503,8 +503,6 @@ export class LobbyApi {
     let routeCreations
     // TODO(tec27): pull this code out somewhere that its easily testable
     if (hasMultipleHumans) {
-      // pick best routes and create them
-
       // Generate all the pairings of human players to figure out the routes we need
       const matchGen = []
       let rest = humanPlayers
@@ -553,10 +551,17 @@ export class LobbyApi {
       )
     }, new Map())
 
+
     for (const [ player, routes ] of routesByPlayer.entries()) {
       this._publishToPlayer(lobby, player.name, {
         type: 'setRoutes',
         routes,
+      })
+    }
+    if (!hasMultipleHumans) {
+      this._publishToPlayer(lobby, humanPlayers.first().name, {
+        type: 'setRoutes',
+        routes: []
       })
     }
     lobby = null
@@ -617,6 +622,7 @@ export class LobbyApi {
         .map(p => this.userSockets.getByName(p.name))
         .forEach(user => {
           user.unsubscribe(LobbyApi._getPath(lobby))
+          user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))
           this.lobbyUsers = this.lobbyUsers.delete(user)
         })
       this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
