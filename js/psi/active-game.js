@@ -22,6 +22,7 @@ export default class ActiveGameManager {
     this.mapStore = mapStore
     this.activeGameId = null
     this.activeGamePromise = null
+    this.activeGameRoutes = null
     this.config = null
     this.status = { state: GAME_STATUS_UNKNOWN, extra: null }
   }
@@ -50,12 +51,14 @@ export default class ActiveGameManager {
     if (!config) {
       this.activeGameId = null
       this.activeGamePromise = null
+      this.activeGameRoutes = null
       this._setStatus(GAME_STATUS_UNKNOWN)
       return this.activeGameId
     }
 
     this.config = config
     const backupId = this.activeGameId = cuid()
+    this.activeGameRoutes = null
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
     this._setStatus(GAME_STATUS_LAUNCHING)
     this.activeGamePromise = doLaunch(this.activeGameId, config.settings)
@@ -63,6 +66,15 @@ export default class ActiveGameManager {
       .then(code => this.handleGameExit(backupId, code),
           err => this.handleGameExitWaitError(backupId, err))
     return this.activeGameId
+  }
+
+  setGameRoutes(gameId, routes) {
+    if (this.activeGameId !== gameId) {
+      return
+    }
+
+    this.activeGameRoutes = routes
+    sendCommand(this.nydus, this.activeGameId, 'setRoutes', routes)
   }
 
   handleGameConnected(id) {
@@ -81,6 +93,10 @@ export default class ActiveGameManager {
       ...this.config,
       localMap: this.mapStore.getPath(map.hash, map.format)
     })
+
+    if (this.activeGameRoutes) {
+      sendCommand(this.nydus, this.activeGameId, 'setRoutes', this.activeGameRoutes)
+    }
   }
 
   handleGameLaunchError(id, err) {
@@ -89,6 +105,7 @@ export default class ActiveGameManager {
       this._setStatus(GAME_STATUS_ERROR, err)
 
       this.activeGameId = null
+      this.activeGameRoutes = null
       this.config = null
       this._setStatus(GAME_STATUS_UNKNOWN)
     }
@@ -127,6 +144,7 @@ export default class ActiveGameManager {
     }
 
     this.activeGameId = null
+    this.activeGameRoutes = null
     this.config = null
     this._setStatus(GAME_STATUS_UNKNOWN)
   }

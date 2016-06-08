@@ -5,8 +5,8 @@
 
 namespace sbat {
 namespace snp {
-// min-MTU - (max-IP-header-size + udp-header-size)
-const size_t SNP_PACKET_SIZE = 576 - (60 + 8);
+// min-MTU - (rally-point-overhead) - (max-IP-header-size + udp-header-size)
+const size_t SNP_PACKET_SIZE = 576 - 13 - (60 + 8);
 
 struct SnpCapabilities {
   uint32 size;

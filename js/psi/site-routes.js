@@ -38,6 +38,11 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
     return activeGameManager.setGameConfig(config)
   }
 
+  async function setGameRoutes(data, next) {
+    const { gameId, routes } = data.get('body')
+    activeGameManager.setGameRoutes(gameId, routes)
+  }
+
   async function activateMap(data, next) {
     const { origin } = data.get('client').conn.request.headers
     const { hash, format } = data.get('body')
@@ -60,6 +65,7 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
+  nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
   nydus.registerRoute('/site/getVersion', getVersion)
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)

@@ -62,6 +62,7 @@ socket.on('connect', function() {
   }, 100)
 })
 
+let gameInitializer
 socket.registerRoute('/game/:id', (route, event) => {
   if (event.command === 'quit') {
     log.verbose('Received quit command')
@@ -69,7 +70,9 @@ socket.registerRoute('/game/:id', (route, event) => {
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
     // TODO(tec27): handle failures
-    initGame(socket, event.payload)
+    gameInitializer = initGame(socket, event.payload)
+  } else if (event.command === 'setRoutes') {
+    gameInitializer.setRoutes(event.payload)
   } else {
     log.verbose(`TODO: ${JSON.stringify(event)}`)
   }
