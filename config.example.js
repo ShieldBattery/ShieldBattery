@@ -28,6 +28,9 @@ config.logLevels = {
 // Uncomment and set your Google Analytics ID to enable analytics reporting
 // config.analyticsId = 'UA-000000-01'
 
+// Uncomment and set a url to the feedback page that is shown on the main site
+// config.feedbackUrl = 'http://goo.gl/forms/yaV3pAlCdzWEikTL2'
+
 // Set a minimum required Psi version
 // If the version is not specified, it defaults to no minimum version
 config.minPsiVersion = '0.0.0'
