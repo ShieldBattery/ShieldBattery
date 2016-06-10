@@ -8,6 +8,7 @@ import { PermissionsFind, PermissionsResults } from './admin/permissions.jsx'
 import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
+import Faq from './beta/faq.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
 import LoadingFilter from './loading/loading-filter.jsx'
 import LobbyView from './lobbies/view.jsx'
@@ -40,6 +41,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const routes = <Route>
   <Route path='/splash' component={Splash} />
+  <Route path ='/faq' component={Faq} />
   <Route component={HasBetaFilter}>
     <Route component={LoggedInFilter}>
       <Route component={SiteConnectedFilter}>
