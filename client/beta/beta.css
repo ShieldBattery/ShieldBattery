@@ -190,7 +190,7 @@
   color: colorTextSecondary;
   font-size: 20px;
   line-height: 1.5;
-  margin: 8px 80px 0;
+  margin: 8px 0 0 80px;
 }
 
 .faqAnswer > p {
