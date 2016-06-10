@@ -72,6 +72,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Fa§te§t Po§§ible Map Space",
+    "hash": "908f8df42174f3309cfda5689f0f594b9be7a2203ab9f69abf89ddea1d475f05",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 8,
+    "umsSlots": 4,
+    "description": "\u0006Fa§\u0007te§t Po§§ible \u0002on space terrain.\r\nStacked minerals:\r\nLined up vaspenes:\r\nPlenty of room:\r\n\u0004Channel: \u0007Clan S)5\r\n\u0004Created by: \u0003Goku.SS)5",
+    "format": "scm",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Fighting Spirit 1.3",
     "hash": "e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3",
     "tileset": "jungle",
