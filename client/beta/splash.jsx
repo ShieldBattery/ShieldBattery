@@ -1,7 +1,7 @@
 import React from 'react'
-import { Link } from 'react-router'
 import styles from './beta.css'
 
+import TopLinks from './top-links.jsx'
 import BetaSignup from './signup.jsx'
 import LogoText from '../logos/logotext-640x100.svg'
 
@@ -87,14 +87,7 @@ export default class Splash extends React.Component {
     return (
       <div className={styles.splash}>
         <div className={styles.logoContainer}>
-          <ul className={styles.topLinks}>
-            <li>
-              <a href='https://us.battle.net/shop/en/product/starcraft' target='_blank'
-                  rel='nofollow noreferrer'>Buy Brood War</a>
-            </li>
-            <li><Link to='/faq'>FAQ</Link></li>
-            <li><Link to='/login'>Log in</Link></li>
-          </ul>
+          <TopLinks />
           <img className={styles.logo} src='/images/splash-logo.png' />
           <LogoText className={styles.logotext} />
         </div>

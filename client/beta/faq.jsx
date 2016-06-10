@@ -2,6 +2,8 @@ import React from 'react'
 import { Link } from 'react-router'
 import styles from './beta.css'
 
+import TopLinks from './top-links.jsx'
+
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 
@@ -107,9 +109,7 @@ export default class Faq extends React.Component {
     return (
       <div className={styles.splash}>
         <div className={styles.logoContainer}>
-          <ul className={styles.topLinks}>
-            <li><Link to='/splash'>Back to splash page</Link></li>
-          </ul>
+          <TopLinks />
           <img className={styles.logo} src='/images/splash-logo.png' />
           <LogoText className={styles.logotext} />
         </div>
