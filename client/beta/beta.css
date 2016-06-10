@@ -2,7 +2,7 @@
 @value blue400, amberA400, colorDividers from '../styles/colors.css';
 @value col, row, itemsCenter, itemsStart, justifySpaceBetween from '../styles/flex.css';
 @value grow, shrink, take85, take15 from '../styles/flex.css';
-@value body1, display1, display2, subhead from '../styles/typography.css';
+@value body1, display1, display2, display4, subhead, headline from '../styles/typography.css';
 @value shadow4dp from '../material/shadows.css';
 
 .pageWidth {
@@ -160,10 +160,9 @@
 }
 
 .faqHeader {
-  padding: 100px 0px;
-  margin-right: 30%;
-  text-align: right;
-  font-weight: 300;
+  composes: display4;
+  composes: pageWidth;
+  padding: 64px 0 64px 472px;
 }
 
 .faqText {
@@ -178,26 +177,43 @@
 }
 
 .faqQuestion {
+  composes: headline;
   color: blue400;
   display: inline-block;
   vertical-align: middle;
+  line-height: 48px;
+  margin: 0;
 }
 
 .faqAnswer {
   composes: subhead;
   color: colorTextSecondary;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.5;
-  margin: 24px 0 0;
+  margin: 8px 80px 0;
 }
 
 .faqAnswer > p {
-  line-height: 1.5;
+  line-height: inherit;
+}
+
+.faqAnswer > p:first-child {
+  margin-top: 0;
+}
+
+.faqAnswer ul {
+  margin: 0;
+  padding: 0;
+}
+
+.faqAnswer li {
+  margin-left: 1em;
 }
 
 .faqQuestionIcon {
   color: blue400;
   display: inline-block;
-  margin-right: 20px;
+  margin-left: 16px;
+  margin-right: 16px;
   vertical-align: middle;
 }
