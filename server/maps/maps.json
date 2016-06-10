@@ -1,5 +1,17 @@
 [
   {
+    "name": "Andromeda 1.0",
+    "hash": "cedc0c55396e0ab43d15295539ebb3f2a0a86acb8485b7547461470e469623b1",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "You can easily send away your opponent to Andromeda.\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Big Game Hunters",
     "hash": "2984c350c950815ad5b84c7b951191f016d1ad9fedb5a0b194ee12fbafc82302",
     "tileset": "jungle",
@@ -36,6 +48,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Destination 1.1",
+    "hash": "0ff56c07ea95eb99b2ff6c2f5a84204d743dc82ad6ad18276565193123a380b0",
+    "tileset": "badlands",
+    "width": 96,
+    "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "Created by ESK\r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Electric Circuit 2.1",
     "hash": "1ccb04e25934ff4216c34adef5783cd17798abfc82c336d86f5d152a84b91f29",
     "tileset": "platform",
@@ -60,6 +84,30 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Heartbreak Ridge 2.1",
+    "hash": "be0006a307e6e7a08ce666bd68208f10cab3f3d4c3dde3bc9ff262a0c01dd734",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 96,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "VildaMalin <3\r\nCreated by [Ragnarok]Valkyrie\r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Hunters KeSPA 1.0",
+    "hash": "3567b34edc3cef2981fa2c30a022e0cb423496cefe2fa20171db4d0df0ff6b40",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 8,
+    "umsSlots": 8,
+    "description": "Suggested Players: 2-8\r\n\t\r\nEight-player cutthroat.\r\n\r\nObs Trigger by Forgotten_\r\nModified by [Ragnarok]Valkyrie      Presented by KeSPA",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Jade 2.1",
     "hash": "68a558020eccb51dd080c47cbdcdba2f730cd2ec813a0668a2d7b488ab80d1d5",
     "tileset": "twilight",
@@ -68,6 +116,30 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Longinus 2.0",
+    "hash": "a36b78d18eee3437a1ba59ed7767aeb071e2c47e27ecb74dcd7ed6c5dc8f25cd",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "Author: KuKulZa\r\nEditors: Berserk.E, Sir_Lupin, i_terran\r\nVersion: 2.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Luna 2.1",
+    "hash": "cbe02e52ca5db139b36297bf4cd3356090ed538003169ecffbb2ccfe94334bbe",
+    "tileset": "twilight",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Author: i_terran (draft by DrunkenBird)\r\nEditor: skb9728_CyGnus\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
   },
@@ -116,6 +188,18 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "Created by Terrance\r\nModified by Forgotten_\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Rush Hour 3.1",
+    "hash": "9d32a9081e59f084b253c8748949b9d6be432289a60228af02f39b3438362da2",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 0,
+    "description": "Created by skb9728_CyGnus\r\nModified by skb9728_CyGnus.\r\ni_terran. Berserk_E\r\nPresented by MBCgame\r\n[ www.iccup.com ] modification",
     "format": "scx",
     "thumbFormat": "jpg"
   },
