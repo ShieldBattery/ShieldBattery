@@ -195,6 +195,7 @@ struct Functions {
       int game_speed, char* map_folder_path);
   FUNCDEF(uint32, JoinGame);
   FUNCDEF(void, OnLobbyGameInit);
+  FUNCDEF(uint8, UpdateNationAndHumanIds);
   FUNCDEF(void, SendMultiplayerChatMessage);
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
@@ -389,6 +390,7 @@ private:
   MapResult SelectMapOrDirectory(const std::string& game_name, uint32 game_type,
       GameSpeed game_speed, MapListEntry* map_data);
   MapListEntry* FindMapWithPath(const std::string& map_path);
+  void DoUpdateNationAndHumanIds();
 
   Offsets* offsets_;
   EventHandlers* event_handlers_;
@@ -451,6 +453,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::JoinGameFunc>(0x004D3B50);
   offsets->functions.OnLobbyGameInit =
       reinterpret_cast<Functions::OnLobbyGameInitFunc>(0x0047211D);
+  offsets->functions.UpdateNationAndHumanIds =
+      reinterpret_cast<Functions::UpdateNationAndHumanIdsFunc>(0x004A8D40);
   offsets->functions.SendMultiplayerChatMessage =
       reinterpret_cast<Functions::SendMultiplayerChatMessageFunc>(0x004F3280);
   offsets->functions.CheckForMultiplayerChatCommand =

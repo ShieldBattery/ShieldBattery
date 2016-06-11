@@ -278,6 +278,8 @@ void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_by
     }
   }
 
+  DoUpdateNationAndHumanIds();
+
   set_lobby_state(8);
   LobbyGameInitData data;
   data.game_init_command = 0x48;
@@ -301,6 +303,20 @@ void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_by
 
   set_lobby_state(9);
   set_game_state(GameState::Initializing);
+}
+
+void BroodWar::DoUpdateNationAndHumanIds() {
+  auto func = offsets_->functions.UpdateNationAndHumanIds;
+  uint32 storm_id = *offsets_->local_storm_id;
+  _asm {
+    push esi;
+    push ecx;
+    mov esi, storm_id;
+    mov ecx, func;
+    call ecx;
+    pop ecx;
+    pop esi;
+  }
 }
 
 void BroodWar::RunGameLoop() {
