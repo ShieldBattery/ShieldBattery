@@ -1,31 +1,38 @@
-import { Record } from 'immutable'
+import { Map, Record } from 'immutable'
 import {
+  MATCHMAKING_ACCEPT,
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND,
+  MATCHMAKING_REJECT,
   MATCHMAKING_RESTART_STATE,
+  MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
+  MATCHMAKING_UPDATE_MATCH_READY,
 } from '../actions'
 
-const Interval = new Record({
-  low: 0,
-  high: 0
-})
-
-const Opponent = new Record({
-  name: null,
-  interval: new Interval(),
-  rating: 0,
-  race: null
+const Match = new Record({
+  id: null,
+  type: null,
+  players: new Map(),
+  acceptedPlayers: 0
 })
 
 export const MatchmakingState = new Record({
   isFinding: false,
-  type: null,
+  hasAccepted: false,
   race: 'r',
-  opponent: null
+  match: new Match(),
 })
 
 const handlers = {
+  [MATCHMAKING_ACCEPT](state, action) {
+    if (action.error) {
+      return new MatchmakingState()
+    }
+
+    return state.set('hasAccepted', true)
+  },
+
   [MATCHMAKING_CANCEL](state, action) {
     if (action.error) {
       return new MatchmakingState()
@@ -42,9 +49,18 @@ const handlers = {
     const { type, race } = action.meta
     return (state.withMutations(s =>
       s.set('isFinding', true)
-        .set('type', type)
+        .set('hasAccepted', false)
         .set('race', race)
+        .setIn(['match', 'type'], type)
     ))
+  },
+
+  [MATCHMAKING_REJECT](state, action) {
+    if (action.error) {
+      return new MatchmakingState()
+    }
+
+    return state.set('hasAccepted', false)
   },
 
   [MATCHMAKING_RESTART_STATE](state, action) {
@@ -54,9 +70,17 @@ const handlers = {
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
     return (state.withMutations(s =>
       s.set('isFinding', false)
-        .set('type', action.payload.matchmakingType)
-        .set('opponent', new Opponent(action.payload.opponent))
+        .setIn(['match', 'id'], action.payload.matchId)
+        .setIn(['match', 'acceptedPlayers'], 0)
     ))
+  },
+
+  [MATCHMAKING_UPDATE_MATCH_ACCEPTED](state, action) {
+    return state.setIn(['match', 'acceptedPlayers'], state.match.acceptedPlayers + 1)
+  },
+
+  [MATCHMAKING_UPDATE_MATCH_READY](state, action) {
+    return state.setIn(['match', 'players'], action.payload.players)
   },
 }
 

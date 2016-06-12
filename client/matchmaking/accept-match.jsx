@@ -1,38 +1,52 @@
 import React from 'react'
+import { connect } from 'react-redux'
+import Dialog from '../material/dialog.jsx'
 import { closeDialog } from '../dialogs/dialog-action-creator'
-import { resetMatchmakingState } from './action-creators'
-import styles from '../material/dialog.css'
+import { acceptMatch, findMatch, rejectMatch, resetMatchmakingState } from './action-creators'
 
 import RaisedButton from '../material/raised-button.jsx'
 
+@connect(state => ({ matchmaking: state.matchmaking }))
 export default class AcceptMatch extends React.Component {
-  static contextTypes = {
-    store: React.PropTypes.object.isRequired,
-  };
-
-  constructor(props) {
-    super(props)
-    this.state = {
-      acceptTime: 10
-    }
-    this.acceptTimer = null
+  state = {
+    acceptTime: 10,
   }
 
-  _clearAcceptTimer() {
-    if (this.acceptTimer) {
-      clearInterval(this.acceptTimer)
-      this.acceptTimer = null
+  _acceptTimer = null
+  _clearAcceptTimer = () => {
+    if (this._acceptTimer) {
+      clearInterval(this._acceptTimer)
+      this._acceptTimer = null
     }
   }
 
   componentDidMount() {
-    this.acceptTimer = setInterval(() => {
+    this._acceptTimer = setInterval(() => {
       this.setState({ acceptTime: this.state.acceptTime - 1 })
+      const { matchmaking: {
+        hasAccepted,
+        race,
+        match: {
+          id: matchId,
+          type
+        }
+      }} = this.props
 
       if (this.state.acceptTime <= 0) {
         this._clearAcceptTimer()
-        this.context.store.dispatch(resetMatchmakingState())
-        this.context.store.dispatch(closeDialog())
+        if (hasAccepted) {
+          // Return to the matchmaking
+          // TODO(2Pac): with higher priority?
+          setTimeout(() => {
+            this.props.dispatch(resetMatchmakingState())
+            this.props.dispatch(findMatch(type, race))
+            this.props.dispatch(closeDialog())
+          }, 5000)
+        } else {
+          // TODO(2Pac): give a penalty for failing to accept the match?
+          this.props.dispatch(resetMatchmakingState())
+          this.props.dispatch(rejectMatch(matchId))
+        }
       }
     }, 1000)
   }
@@ -41,19 +55,34 @@ export default class AcceptMatch extends React.Component {
     this._clearAcceptTimer()
   }
 
-  render() {
-    return (<div role='dialog' className={styles.contents}>
-      <h3 className={styles.title}>Accept match</h3>
-      <div className={styles.body}>
-        <RaisedButton label='Accept' key='accept' onClick={::this.onAcceptClicked} />
+  renderDialogContents() {
+    const { matchmaking: { hasAccepted, match: { acceptedPlayers } }} = this.props
+
+    if (hasAccepted && this.state.acceptTime <= 0) {
+      return <p>Some of the players failed to accept the match. Returning to the matchmaking...</p>
+    } else if (!hasAccepted && this.state.acceptTime <= 0) {
+      return (<div>
+        <p>You have failed to accept the match.</p>
+        <RaisedButton label='Ok' key='close' onClick={() => this.props.dispatch(closeDialog())} />
+      </div>)
+    } else {
+      return (<div>
+        { !hasAccepted ?
+            <RaisedButton label='Accept' key='accept' onClick={::this.onAcceptClicked} /> : null }
         <h3>{ this.state.acceptTime }</h3>
-      </div>
-    </div>)
+        <h4>{ acceptedPlayers + ' / 2'}</h4>
+      </div>)
+    }
+  }
+
+  render() {
+    return (<Dialog title='Accept match' modal={true} showCloseButton={false}>
+      { this.renderDialogContents() }
+    </Dialog>)
   }
 
   onAcceptClicked() {
-    // TODO(2Pac): Show a loading screen which displays players, whether they're ready (accepted
-    // the match), their race, map that was chosen etc.
-    this.context.store.dispatch(closeDialog())
+    const { matchmaking: { match: { id: matchId } } } = this.props
+    this.props.dispatch(acceptMatch(matchId))
   }
 }

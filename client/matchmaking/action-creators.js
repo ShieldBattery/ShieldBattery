@@ -1,41 +1,28 @@
-import siteSocket from '../network/site-socket'
+import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import {
+  MATCHMAKING_ACCEPT_BEGIN,
+  MATCHMAKING_ACCEPT,
   MATCHMAKING_CANCEL_BEGIN,
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND_BEGIN,
   MATCHMAKING_FIND,
+  MATCHMAKING_REJECT_BEGIN,
+  MATCHMAKING_REJECT,
   MATCHMAKING_RESTART_STATE
 } from '../actions'
 
-export function findMatch(type, race) {
-  return dispatch => {
-    const params = { type, race }
-    dispatch({
-      type: MATCHMAKING_FIND_BEGIN,
-      payload: params,
-    })
-    dispatch({
-      type: MATCHMAKING_FIND,
-      payload: siteSocket.invoke('/matchmaking/find', params),
-      meta: params,
-    })
-  }
-}
 
-export function cancelFindMatch(type) {
-  return dispatch => {
-    const params = { type }
-    dispatch({
-      type: MATCHMAKING_CANCEL_BEGIN,
-      payload: params,
-    })
-    dispatch({
-      type: MATCHMAKING_CANCEL,
-      payload: siteSocket.invoke('/matchmaking/cancel', params),
-      meta: params,
-    })
-  }
-}
+export const findMatch = (type, race) => createSiteSocketAction(MATCHMAKING_FIND_BEGIN,
+    MATCHMAKING_FIND, '/matchmaking/find', { type, race })
+
+export const cancelFindMatch = type => createSiteSocketAction(MATCHMAKING_CANCEL_BEGIN,
+    MATCHMAKING_CANCEL, '/matchmaking/cancel', { type })
+
+export const acceptMatch = matchId => createSiteSocketAction(MATCHMAKING_ACCEPT_BEGIN,
+    MATCHMAKING_ACCEPT, '/matchmaking/accept', { matchId })
+
+export const rejectMatch = matchId => createSiteSocketAction(MATCHMAKING_REJECT_BEGIN,
+    MATCHMAKING_REJECT, '/matchmaking/reject', { matchId })
 
 export function resetMatchmakingState() {
   return {

@@ -1,8 +1,10 @@
 import {
+  MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
+  MATCHMAKING_UPDATE_MATCH_READY,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
-import { openDialog } from '../dialogs/dialog-action-creator'
+import { openDialog, closeDialog } from '../dialogs/dialog-action-creator'
 
 const eventToAction = {
   matchFound: (name, event) => {
@@ -10,6 +12,23 @@ const eventToAction = {
 
     return {
       type: MATCHMAKING_UPDATE_MATCH_FOUND,
+      payload: event,
+    }
+  },
+
+  accepted: (name, event) => {
+    return {
+      type: MATCHMAKING_UPDATE_MATCH_ACCEPTED,
+      payload: event,
+    }
+  },
+
+  ready: (name, event) => {
+    dispatch(closeDialog('acceptMatch'))
+
+    // All players are ready; feel free to move to the loading screen and start the game
+    return {
+      type: MATCHMAKING_UPDATE_MATCH_READY,
       payload: event,
     }
   }

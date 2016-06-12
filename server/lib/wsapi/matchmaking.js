@@ -1,6 +1,7 @@
 import { Map, OrderedMap, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import IntervalTree from 'node-interval-tree'
+import cuid from 'cuid'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 
@@ -19,6 +20,13 @@ const Player = new Record({
   rating: 0,
   interval: new Interval(),
   race: 'r'
+})
+
+const Match = new Record({
+  id: null,
+  type: null,
+  players: new Map(),
+  acceptedPlayers: new Set()
 })
 
 // TODO(2Pac): Move this to its own folder/file?
@@ -43,6 +51,19 @@ class Matchmaker {
     return isAdded
   }
 
+  // Removes a player from the tree and from the queue
+  removeFromQueue(playerName) {
+    if (!this.players.has(playerName)) {
+      return false
+    }
+    const player = this.players.get(playerName)
+    const isRemoved = this.tree.remove(player.interval.low, player.interval.high, player)
+    if (isRemoved) {
+      this.players = this.players.delete(player.name)
+    }
+    return isRemoved
+  }
+
   _findClosestElementInArray(rating, overlappingPlayers) {
     let current = overlappingPlayers[0].rating
     let diff = Math.abs(rating - current)
@@ -59,7 +80,7 @@ class Matchmaker {
   }
 
   // Finds the best match for each player and removes them from a queue. If a match is not found,
-  // the player stays in the queue, with his interval increased
+  // the player stays in the queue, with their interval increased
   matchPlayers() {
     if (this.tree.count < 2) {
       // There are less than two players currently searching :(
@@ -68,12 +89,13 @@ class Matchmaker {
 
     for (let player of this.players.values()) {
       if (this.matchedPlayers.has(player)) {
-        // We already matched this player with someone else; skip him
+        // We already matched this player with someone else; skip them
         this.matchedPlayers = this.matchedPlayers.delete(player)
         continue
       }
 
-      // Before searching, remove the player searching from the tree so he's not included in results
+      // Before searching, remove the player searching from the tree so they're not included in
+      // results
       this.tree.remove(player.interval.low, player.interval.high, player)
       const results = this.tree.search(player.interval.low, player.interval.high)
 
@@ -118,27 +140,15 @@ class Matchmaker {
         this.players = this.players.delete(opponent.name)
 
         // Since our iteration method returns the whole queue at once, the opponent will still be
-        // iterated over, even though we removed him from the queue; To stop that from happening,
+        // iterated over, even though we removed them from the queue; To stop that from happening,
         // mark the opponent as 'matched' so it can be skipped later on in the iteration
         this.matchedPlayers = this.matchedPlayers.add(opponent)
 
-        if (this.onMatchFound) this.onMatchFound(player, opponent)
+        if (this.onMatchFound) {
+          this.onMatchFound(player, opponent)
+        }
       }
     }
-  }
-
-  // Removes a player from the tree and from the queue
-  removeFromQueue(playerName) {
-    if (this._isRunning()) {
-      if (!this.players.has(playerName)) {
-        return false
-      }
-      const player = this.players.get(playerName)
-      const isRemoved = this.tree.remove(player.interval.low, player.interval.high, player)
-      if (isRemoved) this.players = this.players.delete(player.name)
-      return isRemoved
-    }
-    return false
   }
 }
 
@@ -154,6 +164,7 @@ export class MatchmakingApi {
     this.userSockets = userSockets
     this.matchmakers = new Map()
     this.matchmakerTimers = new Map()
+    this.matches = new Map()
 
     // Construct a new matchmaker for each matchmaking type we have
     MATCHMAKING_TYPES.forEach(type => {
@@ -238,12 +249,74 @@ export class MatchmakingApi {
     const { type } = data.get('body')
     const user = data.get('user')
 
+    if (!this._isRunning(type)) {
+      throw new errors.Conflict('matchmaker service is stopped')
+    }
+
     const isRemoved = this.matchmakers.get(type).removeFromQueue(user.name)
     if (!isRemoved) {
       throw new errors.Conflict('not searching for the game')
     }
 
     user.unsubscribe(MatchmakingApi._getPath(user))
+  }
+
+  @Api('/accept',
+    'getUser')
+  async accept(data, next) {
+    const { matchId } = data.get('body')
+    const user = data.get('user')
+
+    let match = this.matches.get(matchId)
+    if (match.acceptedPlayers.has(user.name)) {
+      throw new errors.Conflict('already accepted the game')
+    }
+    match = match.set('acceptedPlayers', match.acceptedPlayers.add(user.name))
+    this.matches = this.matches.set(matchId, match)
+
+    // TODO(2Pac): Make this work for all matchmaking types
+    if (match.acceptedPlayers.size === 2) {
+      // All the players have accepted the match; notify them that they can start the match
+      match.players.forEach(player => {
+        this.nydus.publish(MatchmakingApi._getPath(player), {
+          type: 'accepted'
+        })
+
+        this.nydus.publish(MatchmakingApi._getPath(player), {
+          type: 'ready',
+          players: match.players
+        })
+
+        const playerSockets = this.userSockets.getByName(player.name)
+        if (playerSockets) {
+          playerSockets.unsubscribe(MatchmakingApi._getPath(player))
+        }
+      })
+    } else {
+      // A player has accepted the match; notify all others
+      match.players.forEach(player => {
+        this.nydus.publish(MatchmakingApi._getPath(player), {
+          type: 'accepted'
+        })
+      })
+    }
+  }
+
+  @Api('/reject')
+  async reject(data, next) {
+    const { matchId } = data.get('body')
+
+    if (this.matches.has(matchId)) {
+      const match = this.matches.get(matchId)
+      match.players.forEach(player => {
+        const playerSockets = this.userSockets.getByName(player.name)
+        if (playerSockets) {
+          playerSockets.unsubscribe(MatchmakingApi._getPath(player))
+        }
+      })
+
+      this.matches = this.matches.delete(matchId)
+    }
   }
 
   async getUser(data, next) {
@@ -255,24 +328,24 @@ export class MatchmakingApi {
   }
 
   _onMatchFound(player, opponent, type) {
-    // Notify both players that the match is found and who is their opponent
-    this.nydus.publish('/matchmaking/' + player.name, {
-      type: 'matchFound',
-      opponent,
-      matchmakingType: type
+    const matchId = cuid()
+    let match = new Match({
+      id: matchId,
+      type,
+      players: new Map({ [player.name]: player }),
     })
-    this.nydus.publish('/matchmaking/' + opponent.name, {
-      type: 'matchFound',
-      opponent: player,
-      matchmakingType: type
-    })
+    match = match.setIn(['players', opponent.name], opponent)
+    this.matches = this.matches.set(matchId, match)
 
-    const playerSockets = this.userSockets.getByName(player.name)
-    const opponentSockets = this.userSockets.getByName(opponent.name)
-    if (playerSockets && opponentSockets) {
-      playerSockets.unsubscribe(MatchmakingApi._getPath(player))
-      opponentSockets.unsubscribe(MatchmakingApi._getPath(opponent))
-    }
+    // Notify both players that the match is found and who is their opponent
+    this.nydus.publish(MatchmakingApi._getPath(player), {
+      type: 'matchFound',
+      matchId
+    })
+    this.nydus.publish(MatchmakingApi._getPath(opponent), {
+      type: 'matchFound',
+      matchId
+    })
   }
 
   static _getPath(user) {
