@@ -113,7 +113,7 @@ nydusServer.on('connection', function(socket) {
     subscribeSiteClient(nydusServer, socket, activeGameManager, localSettings)
   }
 
-  socket.on('disconnect', function() {
+  socket.on('close', function() {
     if (clientType === 'site') {
       const origin = socket.conn.request.headers.origin
       rallyPointManager.unregisterOrigin(origin)
