@@ -4,7 +4,7 @@
 import fs from 'fs'
 
 const config = {}
-config.canonicalHost = 'https://localhost' // main HTTPS url for the site
+config.canonicalHost = 'https://localhost' // main url for the site
 config.httpsPort = 443
 config.httpPort = 80
 
@@ -65,6 +65,15 @@ config.rallyPoint = {
   }
   */
 }
+
+// Uncomment if you want to utilize emails (requires a mailgun account)
+/*
+config.mailgun = {
+  apiKey: 'key-DEADBEEF',
+  domain: 'mg.mydomain.com',
+  from: 'ShieldBattery <shieldbattery@mydomain.com>',
+}
+*/
 
 // Uncommenting this block will enable HTTPS, which requires generating server certs & keys
 // It's advisable to leave commented if you're doing local development

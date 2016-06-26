@@ -29,6 +29,9 @@ import views from 'koa-views'
 import pingRegistry from './server/rally-point/ping-registry'
 import routeCreator from './server/rally-point/route-creator'
 
+if (!config.canonicalHost) {
+  throw new Error('Configuration must contain canonicalHost')
+}
 if (!config.rallyPoint ||
     !config.rallyPoint.secret ||
     !(config.rallyPoint.local || config.rallyPoint.remote)) {

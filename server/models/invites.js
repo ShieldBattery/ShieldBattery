@@ -110,18 +110,13 @@ function* getAcceptedInvites(limit, pageNumber) {
   return yield* _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
 }
 
-function* acceptInvite(email, token) {
+async function acceptInvite(client, email, token) {
   const query = 'UPDATE invites SET token = $1 WHERE email = $2 AND token IS NULL RETURNING *'
   const params = [ token, email ]
 
-  const { client, done } = yield db()
-  try {
-    const result = yield client.queryPromise(query, params)
-    if (!result.rows.length) throw new Error('No such uninvited email')
-    return new Invite(result.rows[0])
-  } finally {
-    done()
-  }
+  const result = await client.queryPromise(query, params)
+  if (!result.rows.length) throw new Error('No such uninvited email')
+  return new Invite(result.rows[0])
 }
 
 export function* getTokenByEmail(email) {

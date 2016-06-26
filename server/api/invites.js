@@ -3,6 +3,8 @@ import cuid from 'cuid'
 import invites from '../models/invites'
 import checkPermissions from '../permissions/check-permissions'
 import { isValidEmail } from '../../shared/constants'
+import transact from '../db/transaction'
+import sendMail from '../mail/mailer'
 
 export default function(router) {
   router
@@ -28,13 +30,10 @@ function* createInvite(next) {
   try {
     yield* invites.create(invite)
   } catch (err) {
-    if (err.name === 'DuplicateEmail') {
-      // Swallow the error to prevent leaking already signed up emails
-      this.status = 201
-      return
+    // Swallow dupe email error to prevent leaking already signed up emails
+    if (err.name !== 'DuplicateEmail') {
+      throw err
     }
-    this.log.error({ err }, 'error creating invite')
-    throw err
   }
 
   this.status = 201
@@ -53,27 +52,17 @@ function* listInvites(next) {
     pageNumber = 0
   }
 
-  try {
-    if (this.query.accepted) {
-      if (this.query.accepted === 'true') {
-        const { total, invites: invs } = yield* invites.getAccepted(limit, pageNumber)
-        this.body = {
-          total,
-          invites: invs,
-          limit,
-          pageNumber
-        }
-      } else {
-        const { total, invites: invs } = yield* invites.getUnaccepted(limit, pageNumber)
-        this.body = {
-          total,
-          invites: invs,
-          limit,
-          pageNumber
-        }
+  if (this.query.accepted) {
+    if (this.query.accepted === 'true') {
+      const { total, invites: invs } = yield* invites.getAccepted(limit, pageNumber)
+      this.body = {
+        total,
+        invites: invs,
+        limit,
+        pageNumber
       }
     } else {
-      const { total, invites: invs } = yield* invites.getAll(limit, pageNumber)
+      const { total, invites: invs } = yield* invites.getUnaccepted(limit, pageNumber)
       this.body = {
         total,
         invites: invs,
@@ -81,9 +70,14 @@ function* listInvites(next) {
         pageNumber
       }
     }
-  } catch (err) {
-    this.log.error({ err }, 'error getting invites')
-    throw err
+  } else {
+    const { total, invites: invs } = yield* invites.getAll(limit, pageNumber)
+    this.body = {
+      total,
+      invites: invs,
+      limit,
+      pageNumber
+    }
   }
 }
 
@@ -96,10 +90,19 @@ function* acceptInvite(next) {
   }
 
   const token = cuid()
-  try {
-    this.body = yield* invites.accept(this.params.email, token)
-  } catch (err) {
-    this.log.error({ err }, 'error accepting invite')
-    throw err
-  }
+
+  yield transact(async client => {
+    const invite = await invites.accept(client, this.params.email, token)
+    await sendMail({
+      to: invite.email,
+      subject: 'Welcome to ShieldBattery',
+      templateName: 'invite',
+      templateData: {
+        email: invite.email,
+        token: invite.token,
+      }
+    })
+
+    this.body = invite
+  })
 }

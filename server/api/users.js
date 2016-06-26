@@ -7,7 +7,7 @@ import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
 import { getTokenByEmail } from '../models/invites'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../shared/constants'
-import { UNIQUE_VIOLATION } from '../models/pg-error-codes'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 
 export default function(router) {
   router.post('/', createUser)
