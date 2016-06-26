@@ -5,6 +5,7 @@ import checkPermissions from '../permissions/check-permissions'
 import { isValidEmail } from '../../shared/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
+import config from '../../config.js'
 
 export default function(router) {
   router
@@ -99,7 +100,10 @@ function* acceptInvite(next) {
       templateName: 'invite',
       templateData: {
         email: invite.email,
+        escapedEmail: encodeURIComponent(invite.email),
         token: invite.token,
+        feedbackUrl: config.feedbackUrl,
+        installerUrl: config.installerUrl,
       }
     })
 

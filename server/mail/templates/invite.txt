@@ -1,1 +1,64 @@
-This is a test from {{{HOST}}} for {{{email}}} with token {{{token}}}
+*************************
+ShieldBattery Closed Beta
+*************************
+
+Congratulations! You've been selected to
+participate in the ShieldBattery
+closed beta.
+
+You'll have an opportunity to test and give
+feedback on ShieldBattery before
+it is available to a wider audience.
+Features and updates will be added as the
+beta continues; please remember that this
+is a beta, and not all functionality
+is final.
+
+{{#if feedbackUrl}}
+As you use the site, please leave
+feedback and report bugs at our
+feedback form ( {{{feedbackUrl}}} ).
+{{/if}}
+
+We look forward to your feedback, and hope
+you enjoy the experience!
+
+---------------
+Getting started
+---------------
+
+Below is your unique signup link. Follow it
+and submit the form to create an
+account on the site. The email address must
+match the one you used to
+sign up for an invite, but you may use any
+username you wish.
+
+{{{HOST}}}/signup?token={{{token}}}&email={{{escapedEmail}}}
+
+
+Next, install our software in order to play
+games.
+
+{{#if installerUrl}}
+Download installer: {{{installerUrl}}}
+{{/if}}
+
+Note that Windows may warn you about the
+installer; it is safe, and we will
+resolve that warning later on in the beta.
+
+After installing, you will utilize the
+website for all functionality (chat,
+creating and joining games, etc.). There is
+no need to run anything from the
+installation folder.
+
+Thank you for helping us with the development
+of ShieldBattery!
+
+gl hf gogogo
+
+— The ShieldBattery team
+
+Follow @ShieldBatteryBW ( http://twitter.com/ShieldBatteryBW ) on Twitter.
