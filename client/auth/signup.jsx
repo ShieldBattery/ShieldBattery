@@ -91,6 +91,7 @@ class Signup extends React.Component {
               onEnterKeyDown={e => this.onSignUpClicked()}/>
           <ValidatedText label='Email address' floatingLabel={true} name='email' tabIndex={1}
               required={true} requiredMessage='Enter an email address'
+              defaultValue={location.query.email}
               autoCapitalize='off' autoCorrect='off' spellCheck={false}
               validator={emailValidator}
               onEnterKeyDown={e => this.onSignUpClicked()}/>
