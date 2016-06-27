@@ -36,6 +36,7 @@ const eventToAction = {
       hash: event.lobby.map.hash,
       format: event.lobby.map.format,
     })
+    psiSocket.invoke('/site/rallyPoint/refreshPings')
 
     return {
       type: LOBBY_INIT_DATA,

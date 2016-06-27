@@ -45,14 +45,15 @@ config.rallyPoint = {
   secret: 'reallySecretString', // used for both local and remote options
   // Local server option
   local: {
+    desc: 'Local',
     address: '::ffff:127.0.0.1', // Address that players will connect to, needs to be ipv6 formatted
     port: 14098,
   },
   // Remote servers option
   /*
   remote: [
-    { address: 'rp1.shieldbattery.net', port: 14098 },
-    { address: 'rp2.shieldbattery.net', port: 14098 },
+    { desc: 'Server One', address: 'rp1.shieldbattery.net', port: 14098 },
+    { desc: 'Server Two', address: 'rp2.shieldbattery.net', port: 14098 },
   ],
   */
 

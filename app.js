@@ -91,7 +91,8 @@ const resolvedRallyPointServers = Promise.all(rallyPointServers.map(async s => {
   return ({
     address4: v4 && v4[1] === 4 ? `::ffff:${v4[0]}` : undefined,
     address6: v6 && v6[1] === 6 ? v6[0] : undefined,
-    port: s.port
+    port: s.port,
+    desc: s.desc,
   })
 }))
 
