@@ -62,6 +62,11 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
     return rallyPointManager.setServers(origin, servers)
   }
 
+  async function refreshRallyPointPings(data, next) {
+    const { origin } = data.get('client').conn.request.headers
+    rallyPointManager.refreshPingsForOrigin(origin)
+  }
+
   nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
@@ -69,6 +74,7 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   nydus.registerRoute('/site/activateMap', activateMap)
   nydus.registerRoute('/site/getVersion', getVersion)
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)
+  nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)
 
   localSettings.on('change', async function() {
     const validPath = await hasValidPath(localSettings.settings)
@@ -76,8 +82,9 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
     nydus.publish('/starcraftPathValidity', validPath)
   })
 
-  rallyPointManager.on('ping', (origin, serverIndex, ping) => {
-    log.verbose(`Got rally-point ping for origin ${origin}, server ${serverIndex}: ${ping}`)
+  rallyPointManager.on('ping', (origin, serverIndex, desc, ping) => {
+    log.verbose(
+        `Got rally-point ping for origin ${origin}, server #${serverIndex} [${desc}]: ${ping}`)
     nydus.publish(`/rallyPoint/ping/${encodeURIComponent(origin)}`, { serverIndex, ping })
   })
 }

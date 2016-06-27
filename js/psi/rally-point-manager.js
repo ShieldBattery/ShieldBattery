@@ -1,44 +1,49 @@
 import { EventEmitter } from 'events'
 import RallyPointPlayer from 'rally-point-player'
 
-// Refresh interval has a random component to spread out server traffic if the server is  down
-// for more than the normal interval and everyone reconnects at the same time
-const REFRESH_INTERVAL = 20 * 60 * 1000 + (Math.random() * 5 * 60 * 1000)
+// Time until pings are considered "old" and re-calculated when requested
+const OUTDATED_PING_TIME = 2 * 60 * 1000
+const PING_RETRIES = 3
 class ServerEntry extends EventEmitter {
-  constructor(rallyPoint, origin, { address6, address4, port }) {
+  constructor(rallyPoint, origin, { desc, address6, address4, port }) {
     super()
     this.rallyPoint = rallyPoint
+    this.desc = desc
     this.origin = origin
     this.address6 = address6
     this.address4 = address4
     this.port = port
-    this.refreshInterval = null
+    this.lastPingDate = -1
     this.lastPing = -1
   }
 
-  refreshPing(forceRefresh = false) {
-    if (forceRefresh || this.refreshInterval === null) {
-      if (this.refreshInterval === null) {
-        this.refreshInterval = setInterval(() => this.refreshPing(true), REFRESH_INTERVAL)
+  refreshPing() {
+    const curDate = Date.now()
+    // curDate < lastPingDate handles the case that clock has been set backwards since we last
+    // checked
+    if (curDate < this.lastPingDate || curDate - this.lastPingDate > OUTDATED_PING_TIME) {
+      this.lastPingDate = curDate
+      let tries = PING_RETRIES
+      const doTry = () => {
+        tries--
+        const promises = [ this.address6, this.address4 ]
+          .filter(addr => !!addr) // remove undefined addresses
+          .map(addr => this.rallyPoint.pingServers([{ address: addr, port: this.port }]))
+
+        Promise.race(promises).then(([{ server, time }]) => {
+          if (time === Number.MAX_VALUE && tries > 0) {
+            doTry()
+            return
+          }
+
+          this.lastPing = time
+          this.emit('ping', this, time)
+        })
       }
 
-      const promises = [ this.address6, this.address4 ]
-        .filter(addr => !!addr) // remove undefined addresses
-        .map(addr => this.rallyPoint.pingServers([{ address: addr, port: this.port }]))
-
-      Promise.race(promises).then(([{ server, time }]) => {
-        this.lastPing = time
-        this.emit('ping', this, time)
-      })
+      doTry()
     } else if (this.lastPing > -1) {
       Promise.resolve().then(() => this.emit('ping', this, this.lastPing))
-    }
-  }
-
-  close() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval)
-      this.refreshInterval = null
     }
   }
 }
@@ -62,7 +67,7 @@ export default class RallyPointManager extends EventEmitter {
 
   close() {
     for (const servers of this.servers.values()) {
-      this._clearListenersAndClose(servers)
+      this._clearListeners(servers)
     }
     this.registrations.clear()
     this.servers.clear()
@@ -85,7 +90,7 @@ export default class RallyPointManager extends EventEmitter {
       const servers = this.servers.get(origin)
       this.servers.delete(origin)
       this.registrations.delete(origin)
-      this._clearListenersAndClose(servers)
+      this._clearListeners(servers)
     } else {
       this.registrations.set(origin, count - 1)
     }
@@ -103,7 +108,7 @@ export default class RallyPointManager extends EventEmitter {
       }
     }
 
-    this._clearListenersAndClose(originServers)
+    this._clearListeners(originServers)
 
     for (let i = 0; i < servers.length; i++) {
       if (!matched[i]) {
@@ -118,10 +123,16 @@ export default class RallyPointManager extends EventEmitter {
     }
   }
 
-  _clearListenersAndClose(servers) {
+  refreshPingsForOrigin(origin) {
+    const originServers = this.servers.get(origin)
+    for (const server of originServers) {
+      server.refreshPing()
+    }
+  }
+
+  _clearListeners(servers) {
     for (const server of servers) {
       server.removeListener('ping', this._handlePing)
-      server.close()
     }
   }
 
@@ -132,7 +143,7 @@ export default class RallyPointManager extends EventEmitter {
     const index = servers.findIndex(matchServer(server))
 
     if (index !== -1) {
-      this.emit('ping', server.origin, index, ping)
+      this.emit('ping', server.origin, index, servers[index].desc, ping)
     }
   }
 }
