@@ -9,3 +9,13 @@
 .userCount {
   color: colorTextSecondary;
 }
+
+.subheaderButton {
+  min-height: 36px;
+  width: 36px;
+}
+
+/* TODO(tec27): need to fix buttons to be more stylable so this sort of thing isn't necessary */
+.subheaderButton > span {
+  color: colorTextSecondary !important;
+}

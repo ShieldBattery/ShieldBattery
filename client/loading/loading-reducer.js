@@ -2,12 +2,13 @@ import { Record } from 'immutable'
 import {
   CHAT_LOADING_COMPLETE,
   SUBSCRIPTIONS_LOADING_COMPLETE,
+  WHISPERS_LOADING_COMPLETE,
 } from '../actions'
 
 export const LoadingState = new Record({
   chat: true,
   lobbies: true,
-  whispers: false, // TODO(tec27): make this true once whispers are implemented
+  whispers: true,
 })
 
 const handlers = {
@@ -17,6 +18,10 @@ const handlers = {
 
   [SUBSCRIPTIONS_LOADING_COMPLETE](state, action) {
     return state.set('lobbies', false)
+  },
+
+  [WHISPERS_LOADING_COMPLETE](state, action) {
+    return state.set('whispers', false)
   },
 }
 

@@ -2,6 +2,7 @@ import { dispatch } from '../dispatch-registry'
 import {
   CHAT_LOADING_COMPLETE,
   SUBSCRIPTIONS_LOADING_COMPLETE,
+  WHISPERS_LOADING_COMPLETE,
 } from '../actions'
 
 const eventToAction = {
@@ -14,6 +15,12 @@ const eventToAction = {
   subscribed() {
     return {
       type: SUBSCRIPTIONS_LOADING_COMPLETE,
+    }
+  },
+
+  whispersReady() {
+    return {
+      type: WHISPERS_LOADING_COMPLETE,
     }
   },
 }

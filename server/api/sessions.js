@@ -19,7 +19,7 @@ function* getCurrentSession(next) {
 
   let user
   try {
-    user = yield* users.find(userId)
+    user = yield users.find(userId)
   } catch (err) {
     this.log.error({ err }, 'error finding user')
     throw err
@@ -44,7 +44,7 @@ function* startNewSession(next) {
 
   let user
   try {
-    user = yield* users.find(username)
+    user = yield users.find(username)
   } catch (err) {
     this.log.error({ err }, 'error finding user')
     throw err

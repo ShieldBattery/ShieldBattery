@@ -157,3 +157,44 @@ export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'
 // We got new info about the minimum Psi version allowed on this server, along with things like an
 // installer URL for the latest version
 export const UPGRADE_PSI_INFO = 'UPGRADE_PSI_INFO'
+
+// We are starting the process of closing a whisper session (read comment for
+// WHISPERS_START_SESSION_BEGIN action to see what a 'session' represents) with a particular user.
+// Ie., pressing an 'x' in the whispers nav entry next to the user's name
+export const WHISPERS_CLOSE_SESSION_BEGIN = 'WHISPERS_CLOSE_SESSION_BEGIN'
+// The server has responded with success/failure of our closing the whisper session
+export const WHISPERS_CLOSE_SESSION = 'WHISPERS_CLOSE_SESSION'
+// The server has finished giving us our initial whispers data (eg. the list of users we had the
+// whisper window opened with when we last used the site) upon connecting
+export const WHISPERS_LOADING_COMPLETE = 'WHISPERS_LOADING_COMPLETE'
+// We are starting the process of loading some older whisper messages with a particular user
+export const WHISPERS_LOAD_SESSION_HISTORY_BEGIN = 'WHISPERS_LOAD_SESSION_HISTORY_BEGIN'
+// The server has responded with success/failure to our request of loading some older whisper
+// messages (with message, or an error)
+export const WHISPERS_LOAD_SESSION_HISTORY = 'WHISPERS_LOAD_SESSION_HISTORY'
+// We are starting the process of sending a whisper message to another user
+export const WHISPERS_SEND_MESSAGE_BEGIN = 'WHISPERS_SEND_MESSAGE_BEGIN'
+// The server has responded with success/failure of our whisper message sending
+export const WHISPERS_SEND_MESSAGE = 'WHISPERS_SEND_MESSAGE'
+// We are starting the process of initiating a whisper session with another user. Whisper session
+// represents a dedicated window where messages between us and another user are displayed. It's
+// impossible to send a whisper message to another user without having a session opened with them
+// first. The session can either be opened manually, by clicking a button in the LeftNav and
+// entering a user's name, or by sending a whisper message using chat commands in any of our
+// chat-related components, in which case a session with that user will be opened automatically
+// prior to sending a message
+export const WHISPERS_START_SESSION_BEGIN = 'WHISPERS_START_SESSION_BEGIN'
+// The server has responded with success/failure of our initiation of whisper session
+export const WHISPERS_START_SESSION = 'WHISPERS_START_SESSION'
+// We have closed a whisper session with a particular user
+export const WHISPERS_UPDATE_CLOSE_SESSION = 'WHISPERS_UPDATE_CLOSE_SESSION'
+// We have started a new whisper session with a particular user
+export const WHISPERS_UPDATE_INIT_SESSION = 'WHISPERS_UPDATE_INIT_SESSION'
+// We have received a message from a user in one of our whisper sessions
+export const WHISPERS_UPDATE_MESSAGE = 'WHISPERS_UPDATE_MESSAGE'
+// A user in one of our whisper sessions has become active (non-idle and online)
+export const WHISPERS_UPDATE_USER_ACTIVE = 'WHISPERS_UPDATE_USER_ACTIVE'
+// A user in one of our whisper sessions has become idle (still online, but not active)
+export const WHISPERS_UPDATE_USER_IDLE = 'WHISPERS_UPDATE_USER_IDLE'
+// A user in one of our whisper sessions has gone offline
+export const WHISPERS_UPDATE_USER_OFFLINE = 'WHISPERS_UPDATE_USER_OFFLINE'

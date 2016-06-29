@@ -19,8 +19,7 @@ import MainLayout from './main-layout.jsx'
 import Signup from './auth/signup.jsx'
 import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
-import WhisperIndex from './whispers/index.jsx'
-import WhisperView from './whispers/view.jsx'
+import Whisper from './whispers/whisper.jsx'
 
 import {
   CanAcceptBetaInvitesFilter,
@@ -51,7 +50,7 @@ const routes = <Route>
             <Route path='/active-game' component={ActiveGame} />
             <Route component={IsAdminFilter}>
               <Route path='/admin'>
-                <IndexRoute component={AdminPanel} title='Admin panel'/>
+                <IndexRoute component={AdminPanel}/>
                 <Route component={CanEditPermissionsFilter}>
                   <Route path='/admin/permissions' component={PermissionsFind}>
                     <Route path=':username' component={PermissionsResults} />
@@ -63,13 +62,12 @@ const routes = <Route>
               </Route>
             </Route>
             <Route path='/chat'>
-              <IndexRoute component={ChatList} title='Chat channels'/>
+              <IndexRoute component={ChatList}/>
               <Route path=':channel' component={ChatChannel} />
             </Route>
             <Route path='/lobbies/:lobby' component={LobbyView} />
             <Route path='/whispers'>
-              <IndexRoute component={WhisperIndex} />
-              <Route path=':user' component={WhisperView} />
+              <Route path=':target' component={Whisper} />
             </Route>
           </Route>
         </Route>

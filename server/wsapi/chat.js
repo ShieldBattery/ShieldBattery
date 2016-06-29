@@ -2,6 +2,7 @@ import { Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
+import filterChatMessage from '../messaging/filter-chat-message'
 import {
   addMessageToChannel,
   getChannelsForUser,
@@ -57,8 +58,7 @@ export class ChatApi {
       throw new errors.Forbidden('must be in a channel to send a message to it')
     }
 
-    const text = message.length > 500 ? message.slice(0, 500) : message
-
+    const text = filterChatMessage(message)
     const result = await addMessageToChannel(user.session.userId, channel, {
       type: 'message',
       text,

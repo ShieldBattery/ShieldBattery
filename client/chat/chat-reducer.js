@@ -13,6 +13,11 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
+import {
+  ChatMessage,
+  UserOnlineMessage,
+  UserOfflineMessage,
+} from '../messaging/message-records'
 
 // TODO(tec27): need to track what channels are *active* as well, so we can discard single message
 // updates for a channel
@@ -53,27 +58,6 @@ export const Channel = new Record({
 export const ChatState = new Record({
   channels: new OrderedSet(),
   byName: new Map(),
-})
-
-// id, type, and time need to be present for ALL message types
-export const ChatMessage = new Record({
-  id: null,
-  type: 'message',
-  time: 0,
-  from: null,
-  text: null,
-})
-export const UserOnlineMessage = new Record({
-  id: null,
-  type: 'userOnline',
-  time: 0,
-  user: null,
-})
-export const UserOfflineMessage = new Record({
-  id: null,
-  type: 'userOffline',
-  time: 0,
-  user: null,
 })
 
 function updateUserState(user, addTo, removeFirst, removeSecond) {

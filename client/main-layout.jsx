@@ -10,6 +10,7 @@ import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
 import Divider from './material/left-nav/divider.jsx'
+import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
@@ -36,7 +37,7 @@ function stateToProps(state) {
     inLobby: state.lobby.inLobby,
     lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
     chatChannels: state.chat.channels,
-    whispers: state.whispers,
+    whispers: state.whispers.sessions,
     network: state.network,
     upgrade: state.upgrade,
   }
@@ -83,7 +84,9 @@ class MainLayout extends React.Component {
     const channels = this.props.chatChannels.map(
         channel => <ChatNavEntry key={channel} channel={channel} />)
     const whispers = this.props.whispers.map(
-        whisper => <WhisperNavEntry key={whisper.from} user={whisper.from} />)
+        whisper => <WhisperNavEntry key={whisper} user={whisper} />)
+    const addWhisperButton = <IconButton icon='add' title='Start a conversation'
+        className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
     const footer = isAdmin(this.props.auth) ? [
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       <p key='adminPanel'><Link to='/admin'>Admin</Link></p>
@@ -98,7 +101,7 @@ class MainLayout extends React.Component {
           {channels}
         </Section>
         <Divider/>
-        <Subheader>Whispers</Subheader>
+        <Subheader button={addWhisperButton}>Whispers</Subheader>
         <Section>
           {whispers}
         </Section>
@@ -119,6 +122,10 @@ class MainLayout extends React.Component {
       <ActivityOverlay />
       <ConnectedSnackbar />
     </ConnectedDialogOverlay>)
+  }
+
+  onAddWhisperClicked() {
+    this.props.dispatch(openDialog('whispers'))
   }
 
   onSettingsClicked() {

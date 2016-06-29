@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
+import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import { closeDialog } from './dialog-action-creator'
 
 @connect(state => ({ dialog: state.dialog }))
@@ -21,6 +22,10 @@ class ConnectedDialogOverlay extends React.Component {
           break
         case 'psiHealth':
           dialogComponent = <PsiHealthCheckupDialog />
+          modal = false
+          break
+        case 'whispers':
+          dialogComponent = <CreateWhisperSessionDialog />
           modal = false
           break
         default:

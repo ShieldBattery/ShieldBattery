@@ -17,6 +17,7 @@ import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import settingsPsi from '../settings/psi-handlers'
 import upgrade from './upgrade-handlers'
+import whispers from '../whispers/socket-handlers'
 
 function networkStatusHandler({ siteSocket, psiSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
@@ -72,7 +73,8 @@ const handlers = [
   rallyPointHandler,
   serverStatus,
   settingsPsi,
-  upgrade
+  upgrade,
+  whispers,
 ]
 
 export default function register() {

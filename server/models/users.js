@@ -84,7 +84,7 @@ function createUser(name, email, hashedPassword, createdDate) {
   })
 }
 
-function* findUser(criteria) {
+async function findUser(criteria) {
   let query = 'SELECT id, name, email, password, created FROM users WHERE '
     , params
   if (typeof criteria != 'number') {
@@ -97,9 +97,9 @@ function* findUser(criteria) {
     params = [ criteria ]
   }
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     return result.rows.length < 1 ? null : new User(result.rows[0], true)
   } finally {
     done()

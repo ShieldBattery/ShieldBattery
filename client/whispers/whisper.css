@@ -1,0 +1,44 @@
+@value colorDividers from '../styles/colors.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
+@value row, grow from '../styles/flex.css';
+
+.container {
+  composes: row;
+  padding: 0;
+  margin: 0 auto;
+  height: calc(100vh - 64px);
+  max-width: 884px;
+}
+
+.appBarContent {
+  max-width: 884px;
+  margin: 0 auto;
+}
+
+.messagesAndInput {
+  composes: grow;
+  min-width: 320px;
+  height: 100%;
+}
+
+.messages {
+  height: calc(100% - 44px);
+}
+
+.chatInput {
+  margin: -1px 0 0 0;
+  padding: 0 16px;
+  /* Without this, Chrome flashes a frame+ of a pure white border when added */
+  border-top: 1px solid rgba(0, 0, 0, 0);
+  transition: border 250ms fastOutSlowIn;
+}
+
+.chatInputScrollBorder {
+  composes: chatInput;
+  border-top: 1px solid colorDividers;
+}
+
+.navCloseButton {
+  min-height: 36px;
+  width: 36px;
+}
