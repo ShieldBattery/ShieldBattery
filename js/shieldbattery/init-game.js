@@ -69,6 +69,7 @@ class GameInitializer {
     // For each route, ping the IPv4 and IPv6 endpoints. Whichever ping comes back first, send the
     // join request to that address. (We expect both to take about the same amount of time, but this
     // will remove any addresses we can't talk to, e.g. IPv6 when we only have an IPv4 address).
+    const players = this.lobbyConfig.players
     const joinPromises = this.routes.map(async route => {
       const port = route.server.port
       let chosenAddress
@@ -95,7 +96,7 @@ class GameInitializer {
 
       const joined = await rallyPoint.joinRoute(
           { address: chosenAddress, port }, route.routeId, route.playerId)
-      const destPlayer = this.lobbyConfig.players[route.for]
+      const destPlayer = players[route.for]
       log.verbose(
           `Connected to ${route.server.desc} for player ${destPlayer.name} [${route.routeId}]`)
       return { route: joined, forId: route.for }

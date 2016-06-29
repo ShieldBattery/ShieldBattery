@@ -5,14 +5,14 @@ process.on('uncaughtException', function(err) {
   log.error(err.stack)
   // give the log time to write out
   setTimeout(function() {
-    process.exit(13)
+    process.exit(0x27272727)
   }, 100)
 }).on('unhandledRejection', function(err) {
-  log.error(err.stack)
+  log.error('Unhandled rejection:\n' + err.stack)
   if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
     // These types are very unlikely to be handle-able properly, exit
     setTimeout(function() {
-      process.exit(13)
+      process.exit(0x27272727)
     }, 100)
   }
   // Other promise rejections are likely less severe, leave the process up but log it
