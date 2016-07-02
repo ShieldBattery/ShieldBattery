@@ -685,34 +685,48 @@ void WrappedBroodWar::SpoofGame(const FunctionCallbackInfo<Value>& info) {
   sbat::snp::SpoofGame(game_name, addr, is_replay);
 }
 
+struct BwGameInfo {
+  int game_type;
+  int game_subtype;
+  int max_players;
+  int active_players;
+  std::string game_name;
+  std::string map_name;
+  int tileset;
+  int map_width;
+  int map_height;
+};
+
 struct JoinGameContext {
   unique_ptr<std::string> map_path;
   unique_ptr<Callback> cb;
   BroodWar* bw;
+  BwGameInfo game_info;
   bool success;
 };
 
 void JoinGameWork(uv_work_t* req) {
   JoinGameContext* context = reinterpret_cast<JoinGameContext*>(req->data);
   BroodWar* bw = context->bw;
+  const BwGameInfo& input_info = context->game_info;
 
-  // Basically none of this info actually matters, although BW likes to check it for some reason.
-  // The actual game info will be distributed upon joining. The thing that *does* matter is the
-  // index, make sure it matches the index you're spoofing at.
+  // This info isn't used ingame (with exception of game_type?),
+  // but it is written in the header of replays/saves.
   JoinableGameInfo game_info = JoinableGameInfo();
   game_info.index = 1;
-  strcpy_s(game_info.game_name, "shieldbattery");
-  game_info.map_width = 256;
-  game_info.map_height = 256;
-  game_info.active_player_count = 0;
-  game_info.max_player_count = 0;
+  strcpy_s(game_info.game_name, input_info.game_name.c_str());
+  game_info.map_width = input_info.map_width;
+  game_info.map_height = input_info.map_height;
+  game_info.active_player_count = input_info.active_players;
+  game_info.max_player_count = input_info.max_players;
   game_info.game_speed = static_cast<byte>(GameSpeed::Fastest);
-  game_info.game_type = 2;           // Melee
-  game_info.game_subtype = 1;        // First subtype
+  game_info.game_type = input_info.game_type;
+  game_info.game_subtype = input_info.game_subtype;
   game_info.cdkey_checksum = 'SHIE'; // Doesn't need to be valid (and shouldn't be).
-  game_info.tileset = 0x01;          // Space Platform
+  game_info.tileset = input_info.tileset;
+  game_info.is_replay = 0;
   strcpy_s(game_info.game_creator, "fakename");
-  strcpy_s(game_info.map_name, "fakemap");
+  strcpy_s(game_info.map_name, input_info.map_name.c_str());
 
   bool result = bw->JoinGame(game_info, *context->map_path);
   if (!result) {
@@ -735,7 +749,7 @@ void JoinGameAfter(uv_work_t* req, int status) {
 }
 
 void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() >= 2);
+  assert(info.Length() >= 3);
 
   Local<Value> map_path_value = info[0];
   if (!map_path_value->IsString() && !map_path_value->IsStringObject()) {
@@ -755,8 +769,25 @@ void WrappedBroodWar::JoinGame(const FunctionCallbackInfo<Value>& info) {
   uv_work_t* req = new uv_work_t();
   JoinGameContext* context = new JoinGameContext();
   context->map_path.reset(new std::string(map_path));
-  context->cb.reset(new Callback(info[1].As<Function>()));
+  context->cb.reset(new Callback(info[2].As<Function>()));
   context->bw = WrappedBroodWar::Unwrap(info);
+
+  Local<Object> game_info = To<Object>(info[1]).ToLocalChecked();
+  auto IntProp = [&](const char *name) {
+    return game_info->Get(Nan::New(name).ToLocalChecked())->Int32Value();
+  };
+  context->game_info.game_type = IntProp("gameType");
+  context->game_info.game_subtype = IntProp("gameSubtype");
+  context->game_info.max_players = IntProp("numSlots");
+  context->game_info.active_players = IntProp("numPlayers");
+  context->game_info.tileset = IntProp("mapTileset");
+  context->game_info.map_width = IntProp("mapWidth");
+  context->game_info.map_height = IntProp("mapHeight");
+  Utf8String map_name(game_info->Get(Nan::New("mapName").ToLocalChecked()));
+  context->game_info.map_name = *map_name;
+  Utf8String game_name(game_info->Get(Nan::New("gameName").ToLocalChecked()));
+  context->game_info.game_name = *game_name;
+
   req->data = context;
   uv_queue_work(uv_default_loop(), req, JoinGameWork, JoinGameAfter);
 }

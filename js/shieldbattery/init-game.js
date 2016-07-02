@@ -204,9 +204,30 @@ class GameInitializer {
 
   async joinLobby() {
     let succeeded = false
+    const tilesetNameToId = {
+      badlands: 0,
+      platform: 1,
+      installation: 2,
+      ashworld: 3,
+      jungle: 4,
+      desert: 5,
+      ice: 6,
+      twilight: 7,
+    }
+    const bwGameInfo = {
+      gameName: this.lobbyConfig.name,
+      numSlots: this.lobbyConfig.numSlots,
+      numPlayers: this.lobbyConfig.players.size,
+      mapName: this.lobbyConfig.map.name,
+      mapTileset: tilesetNameToId[this.lobbyConfig.map.tileset],
+      mapWidth: this.lobbyConfig.map.width,
+      mapHeight: this.lobbyConfig.map.height,
+      gameType: 2, // Melee
+      gameSubtype: 1,
+    }
     while (!succeeded) {
       try {
-        await rejectOnTimeout(bw.joinLobby(this.localMap, '10.27.27.0', 6112),
+        await rejectOnTimeout(bw.joinLobby(this.localMap, '10.27.27.0', 6112, bwGameInfo),
             JOIN_TIMEOUT, 'Joining lobby timed out')
         succeeded = true
       } catch (err) {

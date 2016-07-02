@@ -173,7 +173,7 @@ class BroodWar extends EventEmitter {
     inLobby = true
   }
 
-  async joinLobby(mapPath, host, port) {
+  async joinLobby(mapPath, host, port, bwGameInfo) {
     if (!processInitialized) {
       throw new Error('Process must be initialized first')
     }
@@ -184,7 +184,9 @@ class BroodWar extends EventEmitter {
     this._log('verbose', 'Attempting to join lobby')
 
     this.bindings.spoofGame('shieldbattery', false, host, port)
-    const isJoined = await new Promise(resolve => this.bindings.joinGame(mapPath, resolve))
+    const isJoined = await new Promise(resolve => {
+      this.bindings.joinGame(mapPath, bwGameInfo, resolve)
+    })
     if (!isJoined) {
       throw new Error('Could not join game')
     }
