@@ -177,11 +177,11 @@ async function doLaunch(gameId, settings) {
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }
-  const appPath = path.join(starcraftPath, 'Starcraft.exe')
+  const appPath = path.join(starcraftPath, 'starcraft.exe')
   try {
-    await accessAsync(appPath)
+    await psi.checkStarcraftPath(appPath)
   } catch (err) {
-    throw new Error(`Could not access/find Starcraft executable at ${appPath}`)
+    throw new Error(`Could not access/find Starcraft executable at ${appPath}: ${err}`)
   }
 
   log.debug('Attempting to launch ' + appPath)
