@@ -135,7 +135,7 @@ void DetectResolutionWork(uv_work_t* req) {
     return;
   }
 
-  wstring args = L"\"" + emitter_path + L"\" \"" + slot_name + L"\"";
+  wstring args = L"\"" + emitter_path + L"\" detectResolution \"" + slot_name + L"\"";
   vector<wstring> environment;
   Process process(emitter_path, args, false, dir, environment);
   if (process.has_errors()) {
@@ -189,7 +189,7 @@ void DetectResolutionAfter(uv_work_t* req, int status) {
     err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
   } else if (context->exit_code != 0) {
     char msg[100];
-    _snprintf_s(msg, sizeof(msg), "Non-zero exit code: %d", context->exit_code);
+    _snprintf_s(msg, sizeof(msg), "Non-zero exit code: 0x%08x", context->exit_code);
     err = Exception::Error(Nan::New(msg).ToLocalChecked());
   } else {
     resolution = Nan::New<Object>();
@@ -211,6 +211,91 @@ void DetectResolution(const FunctionCallbackInfo<Value>& info) {
   context->req.data = context;
   context->callback.reset(new Callback(info[0].As<Function>()));
   uv_queue_work(uv_default_loop(), &context->req, DetectResolutionWork, DetectResolutionAfter);
+
+  return;
+}
+
+struct PathCheckContext {
+  uv_work_t req;
+  unique_ptr<wstring> path;
+  unique_ptr<Callback> callback;
+
+  uint32 exit_code;
+  WindowsError error;
+};
+
+void CheckPathWork(uv_work_t* req) {
+  PathCheckContext* context = reinterpret_cast<PathCheckContext*>(req->data);
+
+  wchar_t path[MAX_PATH];
+  GetModuleFileNameW(NULL, path, sizeof(path));
+
+  wstring path_str = path;
+  size_t last_slash = path_str.find_last_of(L"/\\");
+  wstring dir = path_str.substr(0, last_slash);
+  wstring emitter_path = dir + L"\\psi-emitter.exe";
+
+  wstring args = L"\"" + emitter_path + L"\" checkPath \"" + *context->path + L"\"";
+  vector<wstring> environment;
+  Process process(emitter_path, args, false, dir, environment);
+  if (process.has_errors()) {
+    context->exit_code = 101;
+    context->error = process.error();
+    return;
+  }
+
+  bool timed_out;
+  WindowsError result = process.WaitForExit(5000, &timed_out);
+  if (result.is_error()) {
+    context->exit_code = 101;
+    context->error = result;
+    return;
+  } else if (timed_out) {
+    context->exit_code = 102;
+    return;
+  }
+
+  result = process.GetExitCode(&context->exit_code);
+  if (result.is_error()) {
+    context->exit_code = 101;
+    context->error = result;
+    return;
+  }
+}
+
+void CheckPathAfter(uv_work_t* req, int status) {
+  HandleScope scope;
+  PathCheckContext* context = reinterpret_cast<PathCheckContext*>(req->data);
+
+  Local<Value> err = Null();
+
+  if (context->exit_code == 101) {
+    err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
+  } else if (context->exit_code != 0) {
+    char msg[100];
+    _snprintf_s(msg, sizeof(msg), "Non-zero exit code: 0x%08x", context->exit_code);
+    err = Exception::Error(Nan::New(msg).ToLocalChecked());
+    if (context->exit_code == ERROR_PRODUCT_VERSION) {
+      err->ToObject()->Set(Nan::New("name").ToLocalChecked(),
+          Nan::New("ProductVersionError").ToLocalChecked());
+    }
+  }
+
+  Local<Value> argv[] = {err};
+  context->callback->Call(GetCurrentContext()->Global(), 1, argv);
+  delete context;
+}
+
+void CheckStarcraftPath(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() == 2);
+  assert(info[0]->IsString());
+  assert(info[1]->IsFunction());
+
+  PathCheckContext* context = new PathCheckContext();
+  context->req.data = context;
+  context->path = ToWstring(To<String>(info[0]).ToLocalChecked());
+  context->callback.reset(new Callback(info[1].As<Function>()));
+  uv_queue_work(uv_default_loop(), &context->req, CheckPathWork, CheckPathAfter);
 
   return;
 }
@@ -245,6 +330,8 @@ void Initialize(Local<Object> exports, Local<Value> unused) {
       Nan::New<FunctionTemplate>(LaunchProcess)->GetFunction());
   exports->Set(Nan::New("detectResolution").ToLocalChecked(),
       Nan::New<FunctionTemplate>(DetectResolution)->GetFunction());
+  exports->Set(Nan::New("checkStarcraftPath").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(CheckStarcraftPath)->GetFunction());
   exports->Set(Nan::New("registerShutdownHandler").ToLocalChecked(),
       Nan::New<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
   exports->Set(Nan::New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());

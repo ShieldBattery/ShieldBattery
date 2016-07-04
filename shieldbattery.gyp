@@ -346,7 +346,7 @@
       'dependencies': [
         'common',
       ],
-      'libraries': [ '-luser32.lib', '-lshell32.lib' ],
+      'libraries': [ '-luser32.lib', '-lshell32.lib', '-lversion.lib' ],
     },
   ],
 }

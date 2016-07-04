@@ -106,6 +106,11 @@ export function getInstallPathFromRegistry() {
   return path.slice(0, mapsIndex)
 }
 
+const $checkStarcraftPath = thenify(psi.checkStarcraftPath)
+export async function checkStarcraftPath(path) {
+  return await $checkStarcraftPath(path)
+}
+
 const $detectResolution = thenify(psi.detectResolution)
 let cachedRes = null
 const RES_CACHE_TIME = 10000
