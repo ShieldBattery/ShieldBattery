@@ -1,4 +1,4 @@
-@value colorTextSecondary, colorTextFaint, colorDividers, amberA100 from '../styles/colors.css';
+@value colorTextFaint, amberA100, blue100, blue200 from '../styles/colors.css';
 @value row, itemsStart, exact, grow, shrink from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
 
@@ -33,4 +33,21 @@
   composes: grow shrink;
   line-height: inherit;
   padding-left: 8px;
+}
+
+.messages {
+  composes: shrink;
+  padding-top: 16px;
+  padding-right: 16px;
+  overflow-y: auto;
+}
+
+.systemMessage {
+  color: blue100;
+}
+
+.important {
+  composes: body2;
+  line-height: inherit;
+  color: blue200;
 }
