@@ -1,6 +1,6 @@
 @value blue400, blue800, amberA200, amberA400, grey800 from '../../styles/colors.css';
 @value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
-@value col, grow, exact, row, itemsCenter from '../../styles/flex.css';
+@value col, grow, exact, row, itemsCenter, justifySpaceBetween from '../../styles/flex.css';
 @value body2, singleLine from '../../styles/typography.css';
 @value standardIncrement from '../units.css';
 @value zIndexLeftNav from '../zindex.css';
@@ -36,7 +36,7 @@
 }
 
 .footer {
-  composes: row justifySpaceBetween itemsCenter from '../../styles/flex.css';
+  composes: row justifySpaceBetween itemsCenter;
   composes: border;
   padding: 0 16px;
 }
@@ -54,6 +54,10 @@
 }
 
 .subheader {
+  composes: row justifySpaceBetween itemsCenter;
+}
+
+.subheaderTitle {
   composes: body2 singleLine;
   composes: entryCommon;
   color: colorTextSecondary;
@@ -67,7 +71,7 @@
 }
 
 .entry {
-  composes: row;
+  composes: row justifySpaceBetween itemsCenter;
   composes: entryCommon;
   margin: 0;
   padding: 0;
@@ -88,6 +92,14 @@
 
 .entry:hover {
   background-color: rgba(255, 255, 255, 0.12);
+}
+
+.entryButton {
+  visibility: hidden;
+}
+
+.entry:hover .entryButton {
+  visibility: visible;
 }
 
 @custom-selector :--any-link :link, :visited, :hover, :active;
