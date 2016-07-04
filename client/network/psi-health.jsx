@@ -7,6 +7,7 @@ import {
   isPsiConnected,
   isPsiUpToDate,
   hasValidStarcraftPath,
+  hasValidStarcraftVersion,
 } from './is-psi-healthy'
 
 import styles from '../material/dialog.css'
@@ -70,6 +71,22 @@ export default class PsiHealthCheckupDialog extends React.Component {
     </li>)
   }
 
+  renderStarcraftVersionInfo() {
+    if (!isPsiConnected(this.props) || !hasValidStarcraftPath(this.props) ||
+        hasValidStarcraftVersion(this.props)) {
+      return null
+    }
+
+    return (<li>
+      <span>
+        Your StarCraft installation is out of date. ShieldBattery requires all players to have
+        version 1.16.1. Please install the <span>
+        <a href='http://ftp.blizzard.com/pub/broodwar/patches/PC/BW-1161.exe' target='_blank'>latest
+        patch</a></span> and restart your computer.
+      </span>
+    </li>)
+  }
+
   render() {
     return (<div role='dialog' className={styles.contents}>
       <h3 className={styles.title}>Installation problems detected</h3>
@@ -80,6 +97,7 @@ export default class PsiHealthCheckupDialog extends React.Component {
           { this.renderPsiConnectionInfo() }
           { this.renderPsiVersionInfo() }
           { this.renderInstallPathInfo() }
+          { this.renderStarcraftVersionInfo() }
         </ul>
       </div>
     </div>)

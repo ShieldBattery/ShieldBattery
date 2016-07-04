@@ -7,6 +7,7 @@ import {
   NETWORK_SITE_CONNECTED,
   NETWORK_SITE_DISCONNECTED,
   PSI_STARCRAFT_PATH_VALIDITY,
+  PSI_STARCRAFT_VERSION_VALIDITY,
   PSI_VERSION,
 } from '../actions'
 
@@ -39,6 +40,9 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 function psiPathValidityHandler({ psiSocket }) {
   psiSocket.registerRoute('/starcraftPathValidity', (route, event) => {
     dispatch({ type: PSI_STARCRAFT_PATH_VALIDITY, payload: event })
+  })
+  psiSocket.registerRoute('/starcraftCorrectVersion', (route, event) => {
+    dispatch({ type: PSI_STARCRAFT_VERSION_VALIDITY, payload: event })
   })
 }
 

@@ -125,6 +125,9 @@ export const PSI_GAME_STATUS = 'PSI_GAME_STATUS'
 // An updated StarCraft path validity status, stating whether or not the current path setting
 // contains an accessible starcraft.exe
 export const PSI_STARCRAFT_PATH_VALIDITY = 'PSI_STARCRAFT_PATH_VALIDITY'
+// An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
+// current path is a version we are compatible with
+export const PSI_STARCRAFT_VERSION_VALIDITY = 'PSI_STARCRAFT_VERSION_VALIDITY'
 // The version of the local psi server has been returned
 export const PSI_VERSION = 'PSI_VERSION'
 
