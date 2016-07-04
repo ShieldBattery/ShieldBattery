@@ -245,6 +245,7 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   vector<wchar_t> arguments_writable(arguments.length() + 1);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
 
+  ImpersonateLoggedOnUser(priv_token.get());
   PROCESS_INFORMATION process_info;
   if (!CreateProcessAsUserW(priv_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
       nullptr, false,
@@ -252,8 +253,10 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
       &env_param[0], current_dir.c_str(),
       &startup_info, &process_info)) {
     error_ = WindowsError("Process -> CreateProcessAsUserW", GetLastError());
+    RevertToSelf();
     return;
   }
+  RevertToSelf();
 
   process_handle_.Reset(process_info.hProcess);
   thread_handle_.Reset(process_info.hThread);
