@@ -79,21 +79,21 @@ const handlers = {
 
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
     const { channel, user } = action.payload
-    let wasOffline = false
+    let wasIdle = false
     let updated = state.updateIn([ 'byName', channel, 'users' ], users => {
       const active = users.active.push(user)
 
       const idleIndex = users.idle.findIndex(u => u === user)
-      const idle = idleIndex !== -1 ? users.idle.remove(idleIndex) : users.idle
+      wasIdle = idleIndex !== -1
+      const idle = wasIdle ? users.idle.remove(idleIndex) : users.idle
 
       const offlineIndex = users.offline.findIndex(u => u === user)
-      wasOffline = offlineIndex !== -1
-      const offline = wasOffline ? users.offline.remove(offlineIndex) : users.offline
+      const offline = offlineIndex !== -1 ? users.offline.remove(offlineIndex) : users.offline
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
 
-    if (wasOffline) {
+    if (!wasIdle) {
       updated = updated.updateIn([ 'byName', channel, 'messages' ], m => {
         return m.push(new UserOnlineMessage({
           id: cuid(),
