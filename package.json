@@ -84,6 +84,7 @@
     "rally-point-server": "^1.0.0",
     "react": "^0.14.0-rc1",
     "react-addons-css-transition-group": "^0.14.0-rc1",
+    "react-custom-scrollbars": "^4.0.0-beta.2",
     "react-dom": "^0.14.0-rc1",
     "react-ga": "^1.4.1",
     "react-redux": "^4.0.0",

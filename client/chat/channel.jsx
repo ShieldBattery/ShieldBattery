@@ -58,15 +58,21 @@ class Channel extends React.Component {
 
   constructor(props) {
     super(props)
+    this.state = {
+      isScrolledUp: false
+    }
     this._handleChatEnter = ::this.onChatEnter
+    this._handleScrollUpdate = ::this.onScrollUpdate
   }
 
   render() {
     const { channel } = this.props
+    const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
     return (<div className={styles.container}>
       <div className={styles.messagesAndInput}>
-        <MessageList loading={channel.loadingHistory} messages={channel.messages} />
-        <TextField ref='chatEntry' className={styles.chatInput} label='Send a message'
+        <MessageList loading={channel.loadingHistory} messages={channel.messages}
+            onScrollUpdate={this._handleScrollUpdate}/>
+        <TextField ref='chatEntry' className={inputClass} label='Send a message'
             maxLength={500} floatingLabel={false} allowErrors={false} autoComplete='off'
             onEnterKeyDown={this._handleChatEnter}/>
       </div>
@@ -79,6 +85,13 @@ class Channel extends React.Component {
       this.props.onSendChatMessage(this.refs.chatEntry.getValue())
     }
     this.refs.chatEntry.clearValue()
+  }
+
+  onScrollUpdate(values) {
+    const { scrollTop, scrollHeight, clientHeight } = values
+    this.setState({
+      isScrolledUp: scrollTop + clientHeight < scrollHeight,
+    })
   }
 }
 

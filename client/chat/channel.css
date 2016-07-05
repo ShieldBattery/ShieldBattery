@@ -1,10 +1,11 @@
-@value colorTextSecondary from '../styles/colors.css';
+@value colorTextSecondary, colorDividers from '../styles/colors.css';
 @value row, col, grow, exact, justifyEnd from '../styles/flex.css';
 @value body2, singleLine from '../styles/typography.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
 
 .container {
   composes: row;
-  padding: 0 16px;
+  padding: 0;
   margin: 0 auto;
   height: calc(100vh - 64px);
   max-width: 1140px;
@@ -20,12 +21,20 @@
 .chatInput {
   composes: exact;
   margin: 0;
-  padding: 0;
+  padding: 0 16px;
+  /* Without this, Chrome flashes a frame+ of a pure white border when added */
+  border-top: 1px solid rgba(0, 0, 0, 0);
+  transition: border 250ms fastOutSlowIn;
+}
+
+.chatInputScrollBorder {
+  composes: chatInput;
+  border-top: 1px solid colorDividers;
 }
 
 .userList {
   composes: exact;
-  padding: 16px 0 16px 24px;
+  padding: 16px 0 16px 16px;
   width: 256px;
   overflow-y: auto;
 }

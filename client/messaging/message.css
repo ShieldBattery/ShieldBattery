@@ -1,5 +1,5 @@
 @value colorTextFaint, amberA100, blue100, blue200 from '../styles/colors.css';
-@value row, itemsStart, exact, grow, shrink from '../styles/flex.css';
+@value row, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
 
 .message {
@@ -7,10 +7,7 @@
   composes: body1;
   line-height: 20px;
   min-height: 20px;
-  padding-bottom: 4px;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  overflow: hidden;
+  padding: 0 8px 4px 8px;
 }
 
 .timestamp {
@@ -33,13 +30,23 @@
   composes: grow shrink;
   line-height: inherit;
   padding-left: 8px;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+}
+
+.messagesScrollable {
+  composes: shrink justifyEnd;
+}
+
+.messagesScrollableView {
+  composes: shrink justifyEnd;
 }
 
 .messages {
   composes: shrink;
-  padding-top: 16px;
-  padding-right: 16px;
-  overflow-y: auto;
+  padding: 16px 16px 0px 8px;
 }
 
 .systemMessage {

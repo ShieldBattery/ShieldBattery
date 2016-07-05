@@ -1,0 +1,47 @@
+@value grey800, grey900 from '../styles/colors.css';
+
+.track {
+  background-color: grey800;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.trackHorizontal {
+  composes: track;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  min-height: 12px;
+}
+
+.trackVertical {
+  composes: track;
+  top: 0px;
+  bottom: 0px;
+  right: 0px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  min-width: 12px;
+}
+
+.thumb {
+  cursor: pointer;
+  border-radius: inherit;
+  background-color: grey900;
+}
+
+.thumbHorizontal {
+  composes: thumb;
+  min-height: 8px;
+  max-height: calc(100% - 4px);
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+.thumbVertical {
+  composes: thumb;
+  min-width: 8px;
+  max-width: calc(100% - 4px);
+  margin-left: auto;
+  margin-right: auto;
+}

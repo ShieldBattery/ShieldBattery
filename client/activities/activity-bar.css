@@ -13,6 +13,7 @@
   height: 100%;
   background-color: grey900;
   padding-bottom: 8px;
+  overflow: hidden;
 }
 
 .avatar {
