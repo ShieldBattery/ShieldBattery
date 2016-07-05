@@ -153,7 +153,7 @@ export default class ChatChannelView extends React.Component {
     const routeChannel = this.props.routeParams.channel
     const title = `#${routeChannel}`
 
-    return (<ContentLayout title={title}>
+    return (<ContentLayout title={title} appBarContentClassName={styles.appBarContent}>
       { this._isInChannel() ? this.renderChannel() : this.renderJoinChannel() }
     </ContentLayout>)
   }

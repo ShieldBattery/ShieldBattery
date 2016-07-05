@@ -11,6 +11,11 @@
   max-width: 1140px;
 }
 
+.appBarContent {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
 .messagesAndInput {
   composes: col grow justifyEnd;
   min-width: 320px;

@@ -45,9 +45,6 @@ export class ScrollableContent extends React.Component {
     this._scrollBars = null
     this._setScrollBarsRef = elem => { this._scrollBars = elem }
     this._shouldAutoScroll = true
-
-    this._handleMouseEnter = ::this.onMouseEnter
-    this._handleMouseLeave = ::this.onMouseLeave
   }
 
   componentWillUpdate() {
