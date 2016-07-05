@@ -1,0 +1,46 @@
+.progress {
+  color: rgba(255, 255, 255, 0.5);
+  padding: 4px 8px;
+  height: 24px;
+}
+
+.dot {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  background-color: currentColor;
+  border-radius: 50%;
+  animation: bounce 1.6s infinite cubic-bezier(0.7, 0, 0.3, 1);
+}
+
+.dot1 {
+  composes: dot;
+  animation-delay: -0.45s;
+}
+
+.dot2 {
+  composes: dot;
+  animation-delay: -0.3s;
+}
+
+.dot3 {
+  composes: dot;
+  animation-delay: -0.15s;
+}
+
+.dot4 {
+  composes: dot;
+  margin-right: 0px;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  30%, 50% {
+    transform: scale(1.0);
+    opacity: 1;
+  }
+}

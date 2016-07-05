@@ -1,6 +1,23 @@
 @value colorTextFaint, amberA100, blue100, blue200 from '../styles/colors.css';
-@value row, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
+@value row, col, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
+@value itemsEnd, itemsCenter, justifyCenter from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
+
+.messagesScrollable {
+}
+
+.messagesScrollableView {
+  padding: 8px 16px 0px 8px;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
+  height: 32px;
+}
+
+.messages {
+  padding: 8px 0 0;
+}
 
 .message {
   composes: row itemsStart;
@@ -34,19 +51,6 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   overflow: hidden;
-}
-
-.messagesScrollable {
-  composes: shrink justifyEnd;
-}
-
-.messagesScrollableView {
-  composes: shrink justifyEnd;
-}
-
-.messages {
-  composes: shrink;
-  padding: 16px 16px 0px 8px;
 }
 
 .systemMessage {

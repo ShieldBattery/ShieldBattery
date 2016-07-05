@@ -45,26 +45,54 @@ export class ScrollableContent extends React.Component {
     this._scrollBars = null
     this._setScrollBarsRef = elem => { this._scrollBars = elem }
     this._shouldAutoScroll = true
+
+    this._insertingAtTop = false
+    this._lastScrollHeight = 0
   }
 
   componentWillUpdate() {
     const node = this._scrollBars
-    this._shouldAutoScroll =
-      (node.getScrollTop() + node.getClientHeight()) >= node.getScrollHeight()
+    this._lastScrollHeight = node.getScrollHeight()
+    this._shouldAutoScroll = !this._insertingAtTop &&
+      (node.getScrollTop() + node.getClientHeight()) >= this._lastScrollHeight
   }
 
   componentDidMount() {
-    this.maybeScrollToBottom()
+    this.maybeAutoScroll()
   }
 
   componentDidUpdate() {
-    this.maybeScrollToBottom()
+    this.maybeAutoScroll()
+    this.maybeMaintainScrollPos()
   }
 
-  maybeScrollToBottom() {
+  maybeAutoScroll() {
     if (this._shouldAutoScroll && this.props.autoScroll) {
       this._scrollBars.scrollToBottom()
     }
+  }
+
+  maybeMaintainScrollPos() {
+    if (!this._insertingAtTop) {
+      return
+    }
+
+    const scrollHeight = this._scrollBars.getScrollHeight()
+    if (scrollHeight === this._lastScrollHeight) {
+      return
+    }
+
+    // adjust scrollTop by the difference between old scroll height and new scroll height, to
+    // maintain the same top element
+    this._scrollBars.scrollTop(
+        this._scrollBars.getScrollTop() + (scrollHeight - this._lastScrollHeight))
+  }
+
+  // Set a flag that indicates whether or not we are inserting content at the top of the scrollable
+  // content. This allows us to better decide how to adjust scroll position (e.g. to try and keep
+  // the same top element visible or not)
+  setInsertingAtTop(insertingAtTop) {
+    this._insertingAtTop = insertingAtTop
   }
 
   render() {

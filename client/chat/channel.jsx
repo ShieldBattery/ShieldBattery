@@ -1,13 +1,20 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import { routeActions } from 'redux-simple-router'
-import { sendMessage, retrieveInitialMessageHistory } from './action-creators'
+import {
+  sendMessage,
+  retrieveInitialMessageHistory,
+  retrieveNextMessageHistory,
+} from './action-creators'
 import styles from './channel.css'
 
 import ContentLayout from '../content/content-layout.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
+
+// Height to the bottom of the loading area (the top of the messages)
+const LOADING_AREA_BOTTOM = 32 + 8
 
 class UserListEntry extends React.Component {
   static propTypes = {
@@ -57,6 +64,7 @@ class Channel extends React.Component {
   static propTypes = {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
+    onRequestMoreHistory: PropTypes.func,
   };
 
   constructor(props) {
@@ -64,8 +72,20 @@ class Channel extends React.Component {
     this.state = {
       isScrolledUp: false
     }
+
+    this.messageList = null
+    this._setMessageListRef = elem => { this.messageList = elem }
+
     this._handleChatEnter = ::this.onChatEnter
     this._handleScrollUpdate = ::this.onScrollUpdate
+  }
+
+  componentWillUpdate(nextProps, nextState) {
+    const insertingAtTop = nextProps.channel !== this.props.channel &&
+        this.props.channel.messages.size > 0 &&
+        nextProps.channel.messages.size > this.props.channel.messages.size &&
+        nextProps.channel.messages.get(0) !== this.props.channel.messages.get(0)
+    this.messageList.setInsertingAtTop(insertingAtTop)
   }
 
   render() {
@@ -73,8 +93,14 @@ class Channel extends React.Component {
     const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
     return (<div className={styles.container}>
       <div className={styles.messagesAndInput}>
-        <MessageList loading={channel.loadingHistory} messages={channel.messages}
-            onScrollUpdate={this._handleScrollUpdate}/>
+        <div className={styles.messages}>
+          <MessageList
+              ref={this._setMessageListRef}
+              loading={channel.loadingHistory}
+              hasMoreHistory={channel.hasHistory}
+              messages={channel.messages}
+              onScrollUpdate={this._handleScrollUpdate}/>
+        </div>
         <TextField ref='chatEntry' className={inputClass} label='Send a message'
             maxLength={500} floatingLabel={false} allowErrors={false} autoComplete='off'
             onEnterKeyDown={this._handleChatEnter}/>
@@ -92,9 +118,17 @@ class Channel extends React.Component {
 
   onScrollUpdate(values) {
     const { scrollTop, scrollHeight, clientHeight } = values
-    this.setState({
-      isScrolledUp: scrollTop + clientHeight < scrollHeight,
-    })
+
+    const isScrolledUp = scrollTop + clientHeight < scrollHeight
+    if (isScrolledUp !== this.state.isScrolledUp) {
+      this.setState({ isScrolledUp })
+    }
+
+    if (this.props.onRequestMoreHistory &&
+        this.props.channel.hasHistory && !this.props.channel.loadingHistory &&
+        scrollTop < LOADING_AREA_BOTTOM) {
+      this.props.onRequestMoreHistory()
+    }
   }
 }
 
@@ -118,6 +152,7 @@ export default class ChatChannelView extends React.Component {
   constructor(props) {
     super(props)
     this._handleSendChatMessage = ::this.onSendChatMessage
+    this._handleRequestMoreHistory = ::this.onRequestMoreHistory
   }
 
   componentWillReceiveProps(nextProps) {
@@ -145,8 +180,10 @@ export default class ChatChannelView extends React.Component {
   }
 
   renderChannel() {
-    return (<Channel channel={this.props.chat.byName.get(this.props.routeParams.channel)}
-        onSendChatMessage={this._handleSendChatMessage}/>)
+    return (<Channel
+        channel={this.props.chat.byName.get(this.props.routeParams.channel)}
+        onSendChatMessage={this._handleSendChatMessage}
+        onRequestMoreHistory={this._handleRequestMoreHistory}/>)
   }
 
   render() {
@@ -160,6 +197,10 @@ export default class ChatChannelView extends React.Component {
 
   onSendChatMessage(msg) {
     this.props.dispatch(sendMessage(this.props.routeParams.channel, msg))
+  }
+
+  onRequestMoreHistory() {
+    this.props.dispatch(retrieveNextMessageHistory(this.props.routeParams.channel))
   }
 
   _isInChannel() {
