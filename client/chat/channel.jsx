@@ -6,6 +6,7 @@ import styles from './channel.css'
 
 import ContentLayout from '../content/content-layout.jsx'
 import MessageList from '../messaging/message-list.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
 class UserListEntry extends React.Component {
@@ -43,9 +44,11 @@ class UserList extends React.Component {
   render() {
     const { active, idle, offline } = this.props.users
     return (<div className={styles.userList}>
-      { this.renderSection('Active', active) }
-      { this.renderSection('Idle', idle) }
-      { this.renderSection('Offline', offline) }
+      <ScrollableContent>
+        { this.renderSection('Active', active) }
+        { this.renderSection('Idle', idle) }
+        { this.renderSection('Offline', offline) }
+      </ScrollableContent>
     </div>)
   }
 }

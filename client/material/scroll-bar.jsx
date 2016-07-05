@@ -23,6 +23,15 @@ export class ScrollableContent extends React.Component {
     className: PropTypes.string,
     viewClassName: PropTypes.string,
     onUpdate: PropTypes.func,
+    autoHeight: PropTypes.bool,
+    autoHeightMin: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+    ]),
+    autoHeightMax: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+    ]),
     // Whether the element should keep the scroll position at the bottom if it's at the bottom and
     // more content is added
     autoScroll: PropTypes.bool,
@@ -36,6 +45,9 @@ export class ScrollableContent extends React.Component {
     this._scrollBars = null
     this._setScrollBarsRef = elem => { this._scrollBars = elem }
     this._shouldAutoScroll = true
+
+    this._handleMouseEnter = ::this.onMouseEnter
+    this._handleMouseLeave = ::this.onMouseLeave
   }
 
   componentWillUpdate() {
@@ -69,10 +81,12 @@ export class ScrollableContent extends React.Component {
           renderThumbHorizontal={renderThumbHorizontal}
           renderThumbVertical={renderThumbVertical}
           hideTracksWhenNotNeeded={true}
-          autoHeight={true}
-          autoHeightMin={0}
-          autoHeightMax={'100%'}
-          onUpdate={this.props.onUpdate}>
+          autoHeight={this.props.autoHeight}
+          autoHeightMin={this.props.autoHeightMin}
+          autoHeightMax={this.props.autoHeightMax}
+          onUpdate={this.props.onUpdate}
+          onMouseEnter={this._handleMouseEnter}
+          onMouseLeave={this._handleMouseLeave}>
         {this.props.children}
       </Scrollbars>
     )

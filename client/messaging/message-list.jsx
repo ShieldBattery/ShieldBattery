@@ -31,6 +31,9 @@ export default class MessageList extends React.Component {
     return (<ScrollableContent
         autoScroll={true}
         onUpdate={this.props.onScrollUpdate}
+        autoHeight={true}
+        autoHeightMin={0}
+        autoHeightMax={'100%'}
         className={styles.messagesScrollable}
         viewClassName={styles.messagesScrollableView}>
       <div className={styles.messages}>

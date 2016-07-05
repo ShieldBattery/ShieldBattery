@@ -34,12 +34,19 @@
 
 .userList {
   composes: exact;
-  padding: 16px 0 16px 16px;
   width: 256px;
-  overflow-y: auto;
 }
 
 .userListSection {
+  padding-left: 16px;
+}
+
+.userListSection:first-child {
+  padding-top: 16px;
+}
+
+.userListSection:last-child {
+  padding-bottom: 16px;
 }
 
 .userListSection + .userListSection {
