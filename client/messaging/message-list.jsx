@@ -80,6 +80,9 @@ export default class MessageList extends React.Component {
     </ScrollableContent>)
   }
 
+  // Set a flag that indicates whether or not we are inserting content at the top of the scrollable
+  // list. This allows us to better decide how to adjust scroll position (e.g. to try and keep the
+  // same top element visible or not)
   setInsertingAtTop(insertingAtTop) {
     this.scrollable.setInsertingAtTop(insertingAtTop)
   }
