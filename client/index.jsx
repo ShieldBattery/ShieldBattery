@@ -1,5 +1,6 @@
 import './styles/reset.css'
 import './styles/global.css'
+import 'babel-polyfill'
 
 import React from 'react'
 import { render } from 'react-dom'
