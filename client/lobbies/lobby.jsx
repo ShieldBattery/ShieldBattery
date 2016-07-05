@@ -8,7 +8,7 @@ import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
-import { ChatMessageLayout, ChatMessage } from '../chat/message.jsx'
+import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 
 class JoinMessage extends React.Component {
   static propTypes = {
