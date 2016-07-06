@@ -6,6 +6,7 @@ export default class Entry extends React.Component {
   static propTypes = {
     link: PropTypes.string.isRequired,
     title: PropTypes.string,
+    button: PropTypes.element,
   };
 
   // NOTE(tec27): In the next version of react-router, this will be `router`. I've intentionally
@@ -16,7 +17,7 @@ export default class Entry extends React.Component {
   };
 
   render() {
-    const { link, title, children } = this.props
+    const { link, title, button, children } = this.props
     const { history } = this.context
 
     const isActive = history.isActive(link)
@@ -25,6 +26,7 @@ export default class Entry extends React.Component {
     // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
     return (<li className={classes}>
       <Link className={styles.entryLink} to={link} title={title}>{children}</Link>
+      <div className={styles.entryButton}>{ button }</div>
     </li>)
   }
 }
