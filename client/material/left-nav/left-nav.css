@@ -2,6 +2,7 @@
 @value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
 @value col, grow, exact, row, itemsCenter, justifySpaceBetween from '../../styles/flex.css';
 @value body2, singleLine from '../../styles/typography.css';
+@value fastOutSlowIn from '../curve-constants.css';
 @value standardIncrement from '../units.css';
 @value zIndexLeftNav from '../zindex.css';
 
@@ -95,11 +96,12 @@
 }
 
 .entryButton {
-  visibility: hidden;
+  opacity: 0;
+  transition: opacity 200ms fastOutSlowIn;
 }
 
 .entry:hover .entryButton {
-  visibility: visible;
+  opacity: 1;
 }
 
 @custom-selector :--any-link :link, :visited, :hover, :active;
