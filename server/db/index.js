@@ -6,6 +6,10 @@ import config from '../../config.js'
 // parsed dates are correct
 pg.types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+0000')))
 
+// Similar to above, we must also parse input dates as UTC so the servers running on different time
+// zones work correctly
+pg.defaults.parseInputDatesAsUTC = true
+
 const connString = config.db.connString
 if (!connString) throw new Error('db.connString must be set in config.js')
 
