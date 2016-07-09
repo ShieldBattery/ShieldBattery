@@ -8,6 +8,7 @@ import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
+import handleCommand from '../messaging/command-handler'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 
 class JoinMessage extends React.Component {
@@ -275,8 +276,14 @@ export default class Lobby extends React.Component {
   }
 
   onChatEnter() {
+    const msg = this.refs.chatEntry.getValue()
+    if (msg[0] === '/') {
+      handleCommand('lobby', this.props.lobby.name, msg.slice(1, msg.length))
+      this.refs.chatEntry.clearValue()
+      return
+    }
     if (this.props.onSendChatMessage) {
-      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
+      this.props.onSendChatMessage(msg)
     }
     this.refs.chatEntry.clearValue()
   }
