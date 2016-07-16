@@ -189,15 +189,15 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   entry_point_hook->Restore();
 
   // open a temp file so that node can write errors out to it
-  char temp_path[MAX_PATH];
-  int ret = GetTempPathA(MAX_PATH, temp_path);
+  wchar_t temp_path[MAX_PATH];
+  int ret = GetTempPathW(MAX_PATH, temp_path);
   assert(ret != 0);
-  char temp_file[MAX_PATH];
-  ret = GetTempFileNameA(temp_path, "shieldbattery", 0, temp_file);
+  wchar_t temp_file[MAX_PATH];
+  ret = GetTempFileNameW(temp_path, L"shieldbattery", 0, temp_file);
   assert(ret != 0);
 
   int fh;
-  ret = _sopen_s(&fh, temp_file, _O_TRUNC | _O_CREAT | _O_WRONLY | _O_TEXT, _SH_DENYNO,
+  ret = _wsopen_s(&fh, temp_file, _O_TRUNC | _O_CREAT | _O_WRONLY | _O_TEXT, _SH_DENYNO,
     _S_IREAD | _S_IWRITE);
   assert(ret == 0);
   ret = _dup2(fh, 1 /* stdout */);
@@ -209,21 +209,21 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   // so use freopen to allocate a handle for them and then _dup2 it
   // (The freopened file gets closed once _dup2 is called)
 
-  ret = GetTempFileNameA(temp_path, "shieldbattery", 0, temp_file);
+  ret = GetTempFileNameW(temp_path, L"shieldbattery", 0, temp_file);
   assert(ret != 0);
 
   FILE* fp;
-  ret = freopen_s(&fp, temp_file, "w", stdout);
+  ret = _wfreopen_s(&fp, temp_file, L"w", stdout);
   assert(ret == 0);
   ret = _dup2(fh, _fileno(stdout));
   assert(ret == 0);
-  ret = freopen_s(&fp, temp_file, "w", stderr);
+  ret = _wfreopen_s(&fp, temp_file, L"w", stderr);
   assert(ret == 0);
   ret = _dup2(fh, _fileno(stderr));
   assert(ret == 0);
 
   // Node uses GetStdHandle for printing fatal v8 failures, so we set that as well
-  HANDLE handle = CreateFileA(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+  HANDLE handle = CreateFileW(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
       CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   assert(handle != INVALID_HANDLE_VALUE);
   SetStdHandle(STD_OUTPUT_HANDLE, handle);
