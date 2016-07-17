@@ -2,6 +2,7 @@ import { expect } from 'chai'
 
 import {
   create,
+  findIndex,
   insert,
 } from '../../shared/sorted-list'
 
@@ -20,6 +21,50 @@ describe('sorted-list', () => {
       expect(result.get(0)).to.eql('a')
       expect(result.get(1)).to.eql('b')
       expect(result.get(2)).to.eql('z')
+    })
+  })
+
+  describe('findIndex', () => {
+    it('should find nothing in an empty list', () => {
+      const result = findIndex(alphaSort, create(alphaSort), 'a')
+      expect(result).to.eql(-1)
+    })
+
+    it('should find a single item in a one item list', () => {
+      const result = findIndex(alphaSort, create(alphaSort, ['a']), 'a')
+      expect(result).to.eql(0)
+    })
+
+    it('should not find a single item in a non-equal one item list', () => {
+      const result = findIndex(alphaSort, create(alphaSort, ['b']), 'a')
+      expect(result).to.eql(-1)
+    })
+
+    it('should find a single item in a three item list, early item', () => {
+      const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'a')
+      expect(result).to.eql(0)
+    })
+
+    it('should find a single item in a three item list, middle item', () => {
+      const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'b')
+      expect(result).to.eql(1)
+    })
+
+    it('should find a single item in a three item list, late item', () => {
+      const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'c')
+      expect(result).to.eql(2)
+    })
+
+    it('should find a single item in a large list', () => {
+      const result = findIndex(alphaSort, create(alphaSort,
+          ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']), 'c')
+      expect(result).to.eql(4)
+    })
+
+    it('should not find a single item in a large list, no equal item present', () => {
+      const result = findIndex(alphaSort, create(alphaSort,
+          ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']), 'g')
+      expect(result).to.eql(-1)
     })
   })
 
