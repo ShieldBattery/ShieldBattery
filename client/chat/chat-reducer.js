@@ -1,5 +1,6 @@
 import { List, Map, OrderedSet, Record } from 'immutable'
 import cuid from 'cuid'
+import * as SortedList from '../../shared/sorted-list'
 import {
   CHAT_INIT_CHANNEL,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
@@ -9,6 +10,17 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
+
+const sortUsers = (a, b) => a.localeCompare(b)
+
+// Create partial evaluations all the SortedList functions with our sort function pre-applied
+const SortedUsers =
+    Object.keys(SortedList)
+      .map(fnName => [fnName, (...args) => SortedList[fnName](sortUsers, ...args)])
+      .reduce((prev, cur) => {
+        prev[cur[0]] = cur[1]
+        return prev
+      }, {})
 
 export const Users = new Record({
   active: new List(),
@@ -52,13 +64,26 @@ export const UserOfflineMessage = new Record({
   user: null,
 })
 
+function updateUserState(user, addTo, removeFirst, removeSecond) {
+  const addToUpdated = SortedUsers.insert(addTo, user)
+
+  const firstIndex = SortedUsers.findIndex(removeFirst, user)
+  const removeFirstUpdated = firstIndex > -1 ? removeFirst.remove(firstIndex) : removeFirst
+
+  const secondIndex = SortedUsers.findIndex(removeSecond, user)
+  const removeSecondUpdated = secondIndex !== -1 ? removeSecond.remove(secondIndex) : removeSecond
+
+  return [ addToUpdated, removeFirstUpdated, removeSecondUpdated ]
+}
+
 const handlers = {
   [CHAT_INIT_CHANNEL](state, action) {
     const { channel, activeUsers } = action.payload
+    const sortedActiveUsers = SortedUsers.create(activeUsers)
     const record = new Channel({
       name: channel,
       users: new Users({
-        active: new List(activeUsers),
+        active: sortedActiveUsers,
       })
     })
     return (state.update('channels', c => c.add(channel))
@@ -81,14 +106,9 @@ const handlers = {
     const { channel, user } = action.payload
     let wasIdle = false
     let updated = state.updateIn([ 'byName', channel, 'users' ], users => {
-      const active = users.active.push(user)
-
-      const idleIndex = users.idle.findIndex(u => u === user)
-      wasIdle = idleIndex !== -1
-      const idle = wasIdle ? users.idle.remove(idleIndex) : users.idle
-
-      const offlineIndex = users.offline.findIndex(u => u === user)
-      const offline = offlineIndex !== -1 ? users.offline.remove(offlineIndex) : users.offline
+      const [ active, idle, offline ] =
+          updateUserState(user, users.active, users.idle, users.offline)
+      wasIdle = idle !== users.idle
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
@@ -109,13 +129,8 @@ const handlers = {
   [CHAT_UPDATE_USER_IDLE](state, action) {
     const { channel, user } = action.payload
     return state.updateIn([ 'byName', channel, 'users' ], users => {
-      const idle = users.idle.push(user)
-
-      const activeIndex = users.active.findIndex(u => u === user)
-      const active = activeIndex !== -1 ? users.active.remove(activeIndex) : users.active
-
-      const offlineIndex = users.offline.findIndex(u => u === user)
-      const offline = offlineIndex !== -1 ? users.offline.remove(offlineIndex) : users.offline
+      const [ idle, active, offline ] =
+          updateUserState(user, users.idle, users.active, users.offline)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
@@ -124,13 +139,8 @@ const handlers = {
   [CHAT_UPDATE_USER_OFFLINE](state, action) {
     const { channel, user } = action.payload
     return state.updateIn([ 'byName', channel, 'users' ], users => {
-      const offline = users.offline.push(user)
-
-      const activeIndex = users.active.findIndex(u => u === user)
-      const active = activeIndex !== -1 ? users.active.remove(activeIndex) : users.active
-
-      const idleIndex = users.idle.findIndex(u => u === user)
-      const idle = idleIndex !== -1 ? users.idle.remove(idleIndex) : users.idle
+      const [ offline, active, idle ] =
+          updateUserState(user, users.offline, users.active, users.idle)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     }).updateIn([ 'byName', channel, 'messages' ], m => {
