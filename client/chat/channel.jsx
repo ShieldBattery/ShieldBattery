@@ -5,6 +5,7 @@ import {
   sendMessage,
   retrieveInitialMessageHistory,
   retrieveNextMessageHistory,
+  retrieveUserList,
 } from './action-creators'
 import styles from './channel.css'
 
@@ -164,6 +165,7 @@ export default class ChatChannelView extends React.Component {
   componentDidMount() {
     if (this._isInChannel()) {
       const routeChannel = this.props.routeParams.channel
+      this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
     }
   }
@@ -171,6 +173,7 @@ export default class ChatChannelView extends React.Component {
   componentDidUpdate(prevProps) {
     if (this._isInChannel()) {
       const routeChannel = this.props.routeParams.channel
+      this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
     }
   }

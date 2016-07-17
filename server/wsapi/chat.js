@@ -6,6 +6,7 @@ import {
   addMessageToChannel,
   getChannelsForUser,
   getMessagesForChannel,
+  getUsersForChannel,
 } from '../models/chat-channels'
 
 const ChatState = new Record({
@@ -93,6 +94,23 @@ export class ChatApi {
       sent: +m.sent,
       data: m.data,
     }))
+  }
+
+  @Api('/getUsers',
+    validateBody({
+      channel: nonEmptyString,
+    }),
+    'getUser'
+  )
+  async getUsers(data, next) {
+    const { channel } = data.get('body')
+    const user = data.get('user')
+    if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
+      throw new errors.Forbidden('must be in a channel to retrieve user list')
+    }
+
+    const users = await getUsersForChannel(channel)
+    return users.map(u => u.userName)
   }
 
   async getUser(data, next) {

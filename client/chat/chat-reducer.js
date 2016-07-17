@@ -1,10 +1,12 @@
-import { List, Map, OrderedSet, Record } from 'immutable'
+import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import * as SortedList from '../../shared/sorted-list'
 import {
   CHAT_INIT_CHANNEL,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
+  CHAT_LOAD_USER_LIST_BEGIN,
+  CHAT_LOAD_USER_LIST,
   CHAT_UPDATE_MESSAGE,
   CHAT_UPDATE_USER_ACTIVE,
   CHAT_UPDATE_USER_IDLE,
@@ -36,6 +38,9 @@ export const Channel = new Record({
   hasLoadedHistory: false,
   loadingHistory: false,
   hasHistory: true,
+
+  hasLoadedUserList: false,
+  loadingUserList: false,
 })
 
 export const ChatState = new Record({
@@ -87,14 +92,14 @@ const handlers = {
       })
     })
     return (state.update('channels', c => c.add(channel))
-      .setIn([ 'byName', channel ], record))
+      .setIn(['byName', channel], record))
   },
 
   [CHAT_UPDATE_MESSAGE](state, action) {
-    const { channel, time, user, message } = action.payload
-    return state.updateIn([ 'byName', channel, 'messages' ], m => {
+    const { id, channel, time, user, message } = action.payload
+    return state.updateIn(['byName', channel, 'messages'], m => {
       return m.push(new ChatMessage({
-        id: cuid(),
+        id,
         time,
         from: user,
         text: message,
@@ -105,7 +110,7 @@ const handlers = {
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
     const { channel, user } = action.payload
     let wasIdle = false
-    let updated = state.updateIn([ 'byName', channel, 'users' ], users => {
+    let updated = state.updateIn(['byName', channel, 'users'], users => {
       const [ active, idle, offline ] =
           updateUserState(user, users.active, users.idle, users.offline)
       wasIdle = idle !== users.idle
@@ -114,7 +119,7 @@ const handlers = {
     })
 
     if (!wasIdle) {
-      updated = updated.updateIn([ 'byName', channel, 'messages' ], m => {
+      updated = updated.updateIn(['byName', channel, 'messages'], m => {
         return m.push(new UserOnlineMessage({
           id: cuid(),
           time: Date.now(),
@@ -128,7 +133,7 @@ const handlers = {
 
   [CHAT_UPDATE_USER_IDLE](state, action) {
     const { channel, user } = action.payload
-    return state.updateIn([ 'byName', channel, 'users' ], users => {
+    return state.updateIn(['byName', channel, 'users'], users => {
       const [ idle, active, offline ] =
           updateUserState(user, users.idle, users.active, users.offline)
 
@@ -138,12 +143,12 @@ const handlers = {
 
   [CHAT_UPDATE_USER_OFFLINE](state, action) {
     const { channel, user } = action.payload
-    return state.updateIn([ 'byName', channel, 'users' ], users => {
+    return state.updateIn(['byName', channel, 'users'], users => {
       const [ offline, active, idle ] =
           updateUserState(user, users.offline, users.active, users.idle)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
-    }).updateIn([ 'byName', channel, 'messages' ], m => {
+    }).updateIn(['byName', channel, 'messages'], m => {
       return m.push(new UserOfflineMessage({
         id: cuid(),
         time: Date.now(),
@@ -154,21 +159,20 @@ const handlers = {
 
   [CHAT_LOAD_CHANNEL_HISTORY_BEGIN](state, action) {
     const { channel } = action.payload
-    return (state.setIn([ 'byName', channel, 'hasLoadedHistory' ], true)
-      .setIn([ 'byName', channel, 'loadingHistory' ], true))
+    return (state.setIn(['byName', channel, 'hasLoadedHistory'], true)
+      .setIn(['byName', channel, 'loadingHistory'], true))
   },
 
   [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
     const { channel } = action.meta
     const newMessages = action.payload
-    const updated = state.setIn([ 'byName', channel, 'loadingHistory' ], false)
+    const updated = state.setIn(['byName', channel, 'loadingHistory'], false)
     if (!newMessages.length) {
-      return updated.setIn([ 'byName', channel, 'hasHistory'], false)
+      return updated.setIn(['byName', channel, 'hasHistory'], false)
     }
 
-    // TODO(tec27): need to deal with all the different message types *somewhere* (here or in the
-    // socket handler)
-    return updated.updateIn([ 'byName', channel, 'messages'], messages => {
+    // TODO(tec27): remove dupes when doing the message merge
+    return updated.updateIn(['byName', channel, 'messages'], messages => {
       return new List(newMessages.map(msg => new ChatMessage({
         id: msg.id,
         time: msg.sent,
@@ -176,7 +180,24 @@ const handlers = {
         text: msg.data.text,
       }))).concat(messages)
     })
-  }
+  },
+
+  [CHAT_LOAD_USER_LIST_BEGIN](state, action) {
+    const { channel } = action.payload
+    return (state.setIn(['byName', channel, 'hasLoadedUserList'], true)
+      .setIn(['byName', channel, 'loadingUserList'], true))
+  },
+
+  [CHAT_LOAD_USER_LIST](state, action) {
+    const { channel } = action.meta
+    const userList = action.payload
+    return (state.setIn(['byName', channel, 'loadingUserList'], false)
+      .updateIn(['byName', channel, 'users'], users => {
+        const offline =
+            SortedUsers.create(new Set(userList).subtract(users.active).subtract(users.idle))
+        return users.set('offline', offline)
+      }))
+  },
 }
 
 export default function(state = new ChatState(), action) {

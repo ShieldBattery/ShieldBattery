@@ -23,8 +23,14 @@ export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
 export const CHAT_INIT_CHANNEL = 'CHAT_INIT_CHANNEL'
 // The server has finished giving us our initial chat data (e.g what channels we are in) on connect
 export const CHAT_LOADING_COMPLETE = 'CHAT_LOADING_COMPLETE'
+// We're requesting some older chat messages from a channel
 export const CHAT_LOAD_CHANNEL_HISTORY_BEGIN = 'CHAT_LOAD_CHANNEL_HISTORY_BEGIN'
+// The server has responded to our request for older chat messages (with message, or an error)
 export const CHAT_LOAD_CHANNEL_HISTORY = 'CHAT_LOAD_CHANNEL_HISTORY'
+// We're requesting the full user list for a channel
+export const CHAT_LOAD_USER_LIST_BEGIN = 'CHAT_LOAD_USER_LIST_BEGIN'
+// The server has responded to our request for the full user list
+export const CHAT_LOAD_USER_LIST = 'CHAT_LOAD_USER_LIST'
 export const CHAT_SEND_MESSAGE_BEGIN = 'CHAT_SEND_MESSAGE_BEGIN'
 export const CHAT_SEND_MESSAGE = 'CHAT_SEND_MESSAGE'
 // We've received a message from a user in one of our joined channels

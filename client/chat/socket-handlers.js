@@ -24,6 +24,7 @@ const eventToAction = {
       type: CHAT_UPDATE_MESSAGE,
       payload: {
         channel,
+        id: event.id,
         time: event.sent,
         user: event.user,
         message: event.data.text,
