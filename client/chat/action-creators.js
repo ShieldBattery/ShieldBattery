@@ -1,5 +1,6 @@
 import siteSocket from '../network/site-socket'
 import {
+  CHAT_CHANNEL_NONVISIBLE,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
   CHAT_LOAD_USER_LIST_BEGIN,
@@ -99,5 +100,12 @@ export function retrieveUserList(channel) {
       payload: siteSocket.invoke('/chat/getUsers', params),
       meta: params
     })
+  }
+}
+
+export function channelNonvisible(channel) {
+  return {
+    type: CHAT_CHANNEL_NONVISIBLE,
+    payload: { channel },
   }
 }

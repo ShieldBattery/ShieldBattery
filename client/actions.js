@@ -19,6 +19,9 @@ export const AUTH_SIGN_UP = 'AUTH_SIGN_UP'
 export const BETA_CREATE_INVITE_BEGIN = 'BETA_CREATE_INVITE_BEGIN'
 export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
 
+// Notifies that a chat channel is no longer visible to the user, and can be cleaned up as
+// appropriate (trimming its messsage list to a minimal amount, for instance)
+export const CHAT_CHANNEL_NONVISIBLE = 'CHAT_CHANNEL_NONVISIBLE'
 // A chat channel that we're in has some initial data we should use to initialize it in the store
 export const CHAT_INIT_CHANNEL = 'CHAT_INIT_CHANNEL'
 // The server has finished giving us our initial chat data (e.g what channels we are in) on connect

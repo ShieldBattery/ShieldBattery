@@ -2,6 +2,7 @@ import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import * as SortedList from '../../shared/sorted-list'
 import {
+  CHAT_CHANNEL_NONVISIBLE,
   CHAT_INIT_CHANNEL,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
@@ -12,6 +13,12 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
+
+// TODO(tec27): need to track what channels are *active* as well, so we can discard single message
+// updates for a channel
+
+// How many messages should be kept for inactive channels
+const INACTIVE_CHANNEL_MAX_HISTORY = 250
 
 const sortUsers = (a, b) => a.localeCompare(b)
 
@@ -198,6 +205,18 @@ const handlers = {
         return users.set('offline', offline)
       }))
   },
+
+  [CHAT_CHANNEL_NONVISIBLE](state, action) {
+    const { channel } = action.payload
+    if (state.byName.get(channel).messages.length < INACTIVE_CHANNEL_MAX_HISTORY) {
+      return state
+    }
+
+    return state.updateIn(['byName', channel], c => {
+      return (c.set('messages', c.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
+        .set('hasHistory', true))
+    })
+  }
 }
 
 export default function(state = new ChatState(), action) {
