@@ -23,6 +23,12 @@ Redis, use the installers provided by MSOpenTech; they can be found
 ## Running the server
 ### Initialize node modules
 
+**NOTE**: if you don't have a proper C/C++ compiler on your system (for Windows users, this is very
+likely if you don't have Visual Studio installed), you will need to go through some additional steps
+to make `node-gyp` work, which is used to build native modules. Follow the
+[instructions here](https://github.com/nodejs/node-gyp#installation) to make sure `node-gyp` is
+setup properly.
+
 After downloading the server files, or after pulling new commits, you should update/install the npm
 modules using
 
