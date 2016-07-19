@@ -208,7 +208,7 @@ const handlers = {
 
   [CHAT_CHANNEL_NONVISIBLE](state, action) {
     const { channel } = action.payload
-    if (state.byName.get(channel).messages.length < INACTIVE_CHANNEL_MAX_HISTORY) {
+    if (state.byName.get(channel).messages.size < INACTIVE_CHANNEL_MAX_HISTORY) {
       return state
     }
 
