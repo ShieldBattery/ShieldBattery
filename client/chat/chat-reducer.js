@@ -21,7 +21,7 @@ import {
 } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
-const INACTIVE_CHANNEL_MAX_HISTORY = 250
+const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
 const sortUsers = (a, b) => a.localeCompare(b)
 
@@ -77,9 +77,13 @@ function updateUserState(user, addTo, removeFirst, removeSecond) {
 // updateFn is m => messages, and should perform the update operation on the messages field
 function updateMessages(state, channelName, updateFn) {
   return state.updateIn(['byName', channelName], c => {
-    const updated = updateFn(c.messages)
+    let updated = updateFn(c.messages)
     if (updated === c.messages) {
       return c
+    }
+
+    if (!c.activated) {
+      updated = updated.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     }
 
     return c.set('messages', updated).set('hasUnread', c.hasUnread || !c.activated)
