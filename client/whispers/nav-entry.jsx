@@ -14,7 +14,7 @@ export default class WhisperNavEntry extends React.Component {
   render() {
     const { user } = this.props
     const button = <IconButton className={styles.navCloseButton} icon='close' title='Close'
-        onClick={this._handleButtonClicked} />
+        onClick={this._handleClose} />
 
     return <Entry link={`/whispers/${encodeURIComponent(user)}`} button={button}>{user}</Entry>
   }
