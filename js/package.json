@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "babel-eslint": "^6.0.2",
-    "eslint": "^2.7.0",
+    "eslint": "^3.1.1",
     "eslint-plugin-babel": "^3.0.0"
   },
   "repository": {
