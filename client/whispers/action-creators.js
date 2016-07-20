@@ -7,6 +7,8 @@ import {
   WHISPERS_LOAD_SESSION_HISTORY,
   WHISPERS_SEND_MESSAGE_BEGIN,
   WHISPERS_SEND_MESSAGE,
+  WHISPERS_SESSION_ACTIVATE,
+  WHISPERS_SESSION_DEACTIVATE,
   WHISPERS_START_SESSION_BEGIN,
   WHISPERS_START_SESSION,
 } from '../actions'
@@ -107,6 +109,20 @@ export function retrieveNextMessageHistory(target) {
       payload: siteSocket.invoke('/whispers/getHistory', params),
       meta: params
     })
+  }
+}
+
+export function activateWhisperSession(target) {
+  return {
+    type: WHISPERS_SESSION_ACTIVATE,
+    payload: { target },
+  }
+}
+
+export function deactivateWhisperSession(target) {
+  return {
+    type: WHISPERS_SESSION_DEACTIVATE,
+    payload: { target },
   }
 }
 
