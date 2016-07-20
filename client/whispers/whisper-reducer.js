@@ -18,15 +18,23 @@ import {
   UserOfflineMessage,
 } from '../messaging/message-records'
 
-export const Session = new Record({
+const SessionBase = new Record({
   target: null,
   status: null,
   messages: new List(),
 
-  hasLoadedHistory: false,
   loadingHistory: false,
   hasHistory: true,
 })
+
+export class Session extends SessionBase {
+  get hasLoadedHistory() {
+    return (this.loadingHistory ||
+      this.messages.size > 0 ||
+      (this.messages.size === 0 && !this.hasHistory)
+    )
+  }
+}
 
 export const WhisperState = new Record({
   sessions: new OrderedSet(),
@@ -69,11 +77,6 @@ const handlers = {
   [WHISPERS_UPDATE_MESSAGE](state, action) {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
-    // TODO(2Pac): replace this hack-ish way of fixing duplicate messages between this action and
-    // WHISPERS_LOAD_SESSION_HISTORY with the right way (two separate lists?)
-    if (!state.byName.get(target).hasLoadedHistory || state.byName.get(target).loadingHistory) {
-      return state
-    }
 
     return state.updateIn(['byName', target, 'messages'], m => {
       return m.push(new ChatMessage({
@@ -93,14 +96,20 @@ const handlers = {
       return state
     }
 
-    return state.setIn(['byName', user, 'status'], 'active')
-      .updateIn(['byName', user, 'messages'], m => {
-        return m.push(new UserOnlineMessage({
-          id: cuid(),
-          time: Date.now(),
-          user,
-        }))
-      })
+    const updated = state.setIn(['byName', user, 'status'], 'active')
+
+    if (!updated.byName.get(user).hasLoadedHistory) {
+      // TODO(tec27): remove this check once #139 is fixed
+      return updated
+    }
+
+    return updated.updateIn(['byName', user, 'messages'], m => {
+      return m.push(new UserOnlineMessage({
+        id: cuid(),
+        time: Date.now(),
+        user,
+      }))
+    })
   },
 
   [WHISPERS_UPDATE_USER_IDLE](state, action) {
@@ -112,21 +121,26 @@ const handlers = {
   [WHISPERS_UPDATE_USER_OFFLINE](state, action) {
     const { user } = action.payload
 
-    return state.setIn(['byName', user, 'status'], 'offline')
-      .updateIn(['byName', user, 'messages'], m => {
-        return m.push(new UserOfflineMessage({
-          id: cuid(),
-          time: Date.now(),
-          user,
-        }))
-      })
+    const updated = state.setIn(['byName', user, 'status'], 'offline')
+
+    if (!updated.byName.get(user).hasLoadedHistory) {
+      // TODO(tec27): remove this check once #139 is fixed
+      return updated
+    }
+
+    return updated.updateIn(['byName', user, 'messages'], m => {
+      return m.push(new UserOfflineMessage({
+        id: cuid(),
+        time: Date.now(),
+        user,
+      }))
+    })
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {
     const { target } = action.payload
 
-    return (state.setIn(['byName', target, 'hasLoadedHistory'], true)
-      .setIn(['byName', target, 'loadingHistory'], true))
+    return state.setIn(['byName', target, 'loadingHistory'], true)
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
