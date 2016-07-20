@@ -144,6 +144,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Lost Temple 2.4",
+    "hash": "7d7fe9c3ca55ff22a3b62152d1d0241e176e7330a513a4197a4e59737f28410a",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Suggested players : 2 - 4\r\n\r\n\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Luna 2.1",
     "hash": "cbe02e52ca5db139b36297bf4cd3356090ed538003169ecffbb2ccfe94334bbe",
     "tileset": "twilight",
