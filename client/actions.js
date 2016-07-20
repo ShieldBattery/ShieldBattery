@@ -179,6 +179,12 @@ export const WHISPERS_LOAD_SESSION_HISTORY = 'WHISPERS_LOAD_SESSION_HISTORY'
 export const WHISPERS_SEND_MESSAGE_BEGIN = 'WHISPERS_SEND_MESSAGE_BEGIN'
 // The server has responded with success/failure of our whisper message sending
 export const WHISPERS_SEND_MESSAGE = 'WHISPERS_SEND_MESSAGE'
+// Notifies that a user has brought a whisper window into a visible state (and things like last read
+// message should be updated)
+export const WHISPERS_SESSION_ACTIVATE = 'WHISPERS_SESSION_ACTIVATE'
+// Notifies that a whisper window is no longer visible to the user, and can be cleaned up as
+// appropriate (trimming its messsage list to a minimal amount, for instance)
+export const WHISPERS_SESSION_DEACTIVATE = 'WHISPERS_SESSION_DEACTIVATE'
 // We are starting the process of initiating a whisper session with another user. Whisper session
 // represents a dedicated window where messages between us and another user are displayed. It's
 // impossible to send a whisper message to another user without having a session opened with them

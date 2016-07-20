@@ -7,16 +7,19 @@ export default class WhisperNavEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
+    hasUnread: PropTypes.bool,
   };
 
   _handleClose = ::this.onClose;
 
   render() {
-    const { user } = this.props
+    const { user, hasUnread } = this.props
     const button = <IconButton className={styles.navCloseButton} icon='close' title='Close'
         onClick={this._handleClose} />
 
-    return <Entry link={`/whispers/${encodeURIComponent(user)}`} button={button}>{user}</Entry>
+    return (<Entry link={`/whispers/${encodeURIComponent(user)}`} button={button}>
+      {hasUnread ? '* ' : ''}{user}
+    </Entry>)
   }
 
   onClose() {

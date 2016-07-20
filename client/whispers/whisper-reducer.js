@@ -3,6 +3,8 @@ import cuid from 'cuid'
 import {
   WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
   WHISPERS_LOAD_SESSION_HISTORY,
+  WHISPERS_SESSION_ACTIVATE,
+  WHISPERS_SESSION_DEACTIVATE,
   WHISPERS_START_SESSION_BEGIN,
   WHISPERS_START_SESSION,
   WHISPERS_UPDATE_INIT_SESSION,
@@ -18,6 +20,9 @@ import {
   UserOfflineMessage,
 } from '../messaging/message-records'
 
+// How many messages should be kept for inactive whisper sessions
+const INACTIVE_WHISPER_SESSION_MAX_HISTORY = 150
+
 const SessionBase = new Record({
   target: null,
   status: null,
@@ -25,6 +30,9 @@ const SessionBase = new Record({
 
   loadingHistory: false,
   hasHistory: true,
+
+  activated: false,
+  hasUnread: false,
 })
 
 export class Session extends SessionBase {
@@ -41,6 +49,27 @@ export const WhisperState = new Record({
   byName: new Map(),
   errorsByName: new Map(),
 })
+
+// Update the messages field for a whisper session, keeping the hasUnread flag in proper sync.
+// updateFn is m => messages, and should perform the update operation on the messages field
+function updateMessages(state, target, updateFn) {
+  return state.updateIn(['byName', target], t => {
+    let updated = updateFn(t.messages)
+    if (updated === t.messages) {
+      return t
+    }
+
+    let sliced = false
+    if (!t.activated && updated.length > INACTIVE_WHISPER_SESSION_MAX_HISTORY) {
+      updated = updated.slice(-INACTIVE_WHISPER_SESSION_MAX_HISTORY)
+      sliced = true
+    }
+
+    return (t.set('messages', updated)
+      .set('hasUnread', t.hasUnread || !t.activated)
+      .set('hasHistory', t.hasHistory || sliced))
+  })
+}
 
 const handlers = {
   [WHISPERS_UPDATE_INIT_SESSION](state, action) {
@@ -78,7 +107,7 @@ const handlers = {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
 
-    return state.updateIn(['byName', target, 'messages'], m => {
+    return updateMessages(state, target, m => {
       return m.push(new ChatMessage({
         id,
         time,
@@ -103,7 +132,7 @@ const handlers = {
       return updated
     }
 
-    return updated.updateIn(['byName', user, 'messages'], m => {
+    return updateMessages(updated, user, m => {
       return m.push(new UserOnlineMessage({
         id: cuid(),
         time: Date.now(),
@@ -128,7 +157,7 @@ const handlers = {
       return updated
     }
 
-    return updated.updateIn(['byName', user, 'messages'], m => {
+    return updateMessages(updated, user, m => {
       return m.push(new UserOfflineMessage({
         id: cuid(),
         time: Date.now(),
@@ -151,7 +180,7 @@ const handlers = {
       return updated.setIn(['byName', target, 'hasHistory'], false)
     }
 
-    return updated.updateIn(['byName', target, 'messages'], messages => {
+    return updateMessages(updated, target, messages => {
       return new List(newMessages.map(msg => new ChatMessage({
         id: msg.id,
         time: msg.sent,
@@ -159,7 +188,25 @@ const handlers = {
         text: msg.data.text,
       }))).concat(messages)
     })
-  }
+  },
+
+  [WHISPERS_SESSION_ACTIVATE](state, action) {
+    const { target } = action.payload
+    return state.updateIn(['byName', target], t => {
+      return t.set('hasUnread', false).set('activated', true)
+    })
+  },
+
+  [WHISPERS_SESSION_DEACTIVATE](state, action) {
+    const { target } = action.payload
+    const hasHistory = state.byName.get(target).messages.size > INACTIVE_WHISPER_SESSION_MAX_HISTORY
+
+    return state.updateIn(['byName', target], t => {
+      return (t.set('messages', t.messages.slice(-INACTIVE_WHISPER_SESSION_MAX_HISTORY))
+        .set('hasHistory', t.hasHistory || hasHistory)
+        .set('activated', false))
+    })
+  },
 }
 
 export default function whispersReducer(state = new WhisperState(), action) {
