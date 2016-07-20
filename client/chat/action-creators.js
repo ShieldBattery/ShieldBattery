@@ -1,6 +1,7 @@
 import siteSocket from '../network/site-socket'
 import {
-  CHAT_CHANNEL_NONVISIBLE,
+  CHAT_CHANNEL_ACTIVATE,
+  CHAT_CHANNEL_DEACTIVATE,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
   CHAT_LOAD_USER_LIST_BEGIN,
@@ -103,9 +104,16 @@ export function retrieveUserList(channel) {
   }
 }
 
-export function channelNonvisible(channel) {
+export function activateChannel(channel) {
   return {
-    type: CHAT_CHANNEL_NONVISIBLE,
+    type: CHAT_CHANNEL_ACTIVATE,
+    payload: { channel },
+  }
+}
+
+export function deactivateChannel(channel) {
+  return {
+    type: CHAT_CHANNEL_DEACTIVATE,
     payload: { channel },
   }
 }

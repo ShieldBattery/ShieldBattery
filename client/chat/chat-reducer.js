@@ -2,7 +2,8 @@ import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import * as SortedList from '../../shared/sorted-list'
 import {
-  CHAT_CHANNEL_NONVISIBLE,
+  CHAT_CHANNEL_ACTIVATE,
+  CHAT_CHANNEL_DEACTIVATE,
   CHAT_INIT_CHANNEL,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
@@ -18,9 +19,6 @@ import {
   UserOnlineMessage,
   UserOfflineMessage,
 } from '../messaging/message-records'
-
-// TODO(tec27): need to track what channels are *active* as well, so we can discard single message
-// updates for a channel
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 250
@@ -53,6 +51,9 @@ export const Channel = new Record({
 
   hasLoadedUserList: false,
   loadingUserList: false,
+
+  activated: false,
+  hasUnread: false,
 })
 
 export const ChatState = new Record({
@@ -72,6 +73,19 @@ function updateUserState(user, addTo, removeFirst, removeSecond) {
   return [ addToUpdated, removeFirstUpdated, removeSecondUpdated ]
 }
 
+// Update the messages field for a channel, keeping the hasUnread flag in proper sync.
+// updateFn is m => messages, and should perform the update operation on the messages field
+function updateMessages(state, channelName, updateFn) {
+  return state.updateIn(['byName', channelName], c => {
+    const updated = updateFn(c.messages)
+    if (updated === c.messages) {
+      return c
+    }
+
+    return c.set('messages', updated).set('hasUnread', c.hasUnread || !c.activated)
+  })
+}
+
 const handlers = {
   [CHAT_INIT_CHANNEL](state, action) {
     const { channel, activeUsers } = action.payload
@@ -88,7 +102,7 @@ const handlers = {
 
   [CHAT_UPDATE_MESSAGE](state, action) {
     const { id, channel, time, user, message } = action.payload
-    return state.updateIn(['byName', channel, 'messages'], m => {
+    return updateMessages(state, channel, m => {
       return m.push(new ChatMessage({
         id,
         time,
@@ -110,7 +124,7 @@ const handlers = {
     })
 
     if (!wasIdle) {
-      updated = updated.updateIn(['byName', channel, 'messages'], m => {
+      updated = updateMessages(updated, channel, m => {
         return m.push(new UserOnlineMessage({
           id: cuid(),
           time: Date.now(),
@@ -134,12 +148,14 @@ const handlers = {
 
   [CHAT_UPDATE_USER_OFFLINE](state, action) {
     const { channel, user } = action.payload
-    return state.updateIn(['byName', channel, 'users'], users => {
+    const updated = state.updateIn(['byName', channel, 'users'], users => {
       const [ offline, active, idle ] =
           updateUserState(user, users.offline, users.active, users.idle)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
-    }).updateIn(['byName', channel, 'messages'], m => {
+    })
+
+    return updateMessages(updated, channel, m => {
       return m.push(new UserOfflineMessage({
         id: cuid(),
         time: Date.now(),
@@ -162,8 +178,7 @@ const handlers = {
       return updated.setIn(['byName', channel, 'hasHistory'], false)
     }
 
-    // TODO(tec27): remove dupes when doing the message merge
-    return updated.updateIn(['byName', channel, 'messages'], messages => {
+    return updateMessages(updated, channel, messages => {
       return new List(newMessages.map(msg => new ChatMessage({
         id: msg.id,
         time: msg.sent,
@@ -190,17 +205,23 @@ const handlers = {
       }))
   },
 
-  [CHAT_CHANNEL_NONVISIBLE](state, action) {
+  [CHAT_CHANNEL_ACTIVATE](state, action) {
     const { channel } = action.payload
-    if (state.byName.get(channel).messages.size < INACTIVE_CHANNEL_MAX_HISTORY) {
-      return state
-    }
+    return state.updateIn(['byName', channel], c => {
+      return c.set('hasUnread', false).set('activated', true)
+    })
+  },
+
+  [CHAT_CHANNEL_DEACTIVATE](state, action) {
+    const { channel } = action.payload
+    const hasHistory = state.byName.get(channel).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
     return state.updateIn(['byName', channel], c => {
       return (c.set('messages', c.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
-        .set('hasHistory', true))
+        .set('hasHistory', hasHistory)
+        .set('activated', false))
     })
-  }
+  },
 }
 
 export default function(state = new ChatState(), action) {

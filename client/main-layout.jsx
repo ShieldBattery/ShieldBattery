@@ -28,6 +28,7 @@ import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
+import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 
 function stateToProps(state) {
@@ -36,7 +37,10 @@ function stateToProps(state) {
     auth: state.auth,
     inLobby: state.lobby.inLobby,
     lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
-    chatChannels: state.chat.channels,
+    chatChannels: state.chat.channels.map(c => ({
+      name: c,
+      hasUnread: state.chat.byName.get(c).hasUnread,
+    })),
     whispers: state.whispers.sessions,
     network: state.network,
     upgrade: state.upgrade,
@@ -45,6 +49,8 @@ function stateToProps(state) {
 
 @connect(stateToProps)
 class MainLayout extends React.Component {
+  _handleWhisperClose = ::this.onWhisperClose;
+
   componentWillMount() {
     if (!this.props.children) {
       this.props.dispatch(goToIndex(routeActions.replace))
@@ -82,9 +88,9 @@ class MainLayout extends React.Component {
 
   render() {
     const channels = this.props.chatChannels.map(
-        channel => <ChatNavEntry key={channel} channel={channel} />)
-    const whispers = this.props.whispers.map(
-        whisper => <WhisperNavEntry key={whisper} user={whisper} />)
+        c => <ChatNavEntry key={c.name} channel={c.name} hasUnread={c.hasUnread}/>)
+    const whispers = this.props.whispers.map(whisper =>
+        <WhisperNavEntry key={whisper} user={whisper} onClose={this._handleWhisperClose}/>)
     const addWhisperButton = <IconButton icon='add' title='Start a conversation'
         className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
     const footer = isAdmin(this.props.auth) ? [
@@ -126,6 +132,10 @@ class MainLayout extends React.Component {
 
   onAddWhisperClicked() {
     this.props.dispatch(openDialog('whispers'))
+  }
+
+  onWhisperClose(user) {
+    this.props.dispatch(closeWhisperSession(user))
   }
 
   onSettingsClicked() {

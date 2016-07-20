@@ -6,7 +6,8 @@ import {
   retrieveInitialMessageHistory,
   retrieveNextMessageHistory,
   retrieveUserList,
-  channelNonvisible,
+  activateChannel,
+  deactivateChannel,
 } from './action-creators'
 import styles from './channel.css'
 
@@ -168,23 +169,25 @@ export default class ChatChannelView extends React.Component {
       const routeChannel = this.props.routeParams.channel
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
+      this.props.dispatch(activateChannel(routeChannel))
     }
   }
 
   componentDidUpdate(prevProps) {
+    const routeChannel = this.props.routeParams.channel
     if (this._isInChannel()) {
-      const routeChannel = this.props.routeParams.channel
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
+      this.props.dispatch(activateChannel(routeChannel))
     }
     if (prevProps.routeParams.channel &&
-        prevProps.routeParams.channel !== this.props.routeParams.channel) {
-      this.props.dispatch(channelNonvisible(prevProps.routeParams.channel))
+        prevProps.routeParams.channel !== routeChannel) {
+      this.props.dispatch(deactivateChannel(prevProps.routeParams.channel))
     }
   }
 
   componentWillUnmount() {
-    this.props.dispatch(channelNonvisible(this.props.routeParams.channel))
+    this.props.dispatch(deactivateChannel(this.props.routeParams.channel))
   }
 
   renderJoinChannel() {

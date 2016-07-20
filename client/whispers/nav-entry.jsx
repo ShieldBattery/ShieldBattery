@@ -1,20 +1,15 @@
-import React from 'react'
-import { connect } from 'react-redux'
+import React, { PropTypes } from 'react'
 import Entry from '../material/left-nav/entry.jsx'
 import IconButton from '../material/icon-button.jsx'
-import { closeWhisperSession } from './action-creators'
 import styles from './whisper.css'
 
-@connect()
-class WhisperNavEntry extends React.Component {
+export default class WhisperNavEntry extends React.Component {
   static propTypes = {
-    user: React.PropTypes.string.isRequired,
+    user: PropTypes.string.isRequired,
+    onClose: PropTypes.func.isRequired,
   };
 
-  constructor(props) {
-    super(props)
-    this._handleButtonClicked = ::this.onButtonClicked
-  }
+  _handleClose = ::this.onClose;
 
   render() {
     const { user } = this.props
@@ -24,9 +19,7 @@ class WhisperNavEntry extends React.Component {
     return <Entry link={`/whispers/${encodeURIComponent(user)}`} button={button}>{user}</Entry>
   }
 
-  onButtonClicked() {
-    this.props.dispatch(closeWhisperSession(this.props.user))
+  onClose() {
+    this.props.onClose(this.props.user)
   }
 }
-
-export default WhisperNavEntry
