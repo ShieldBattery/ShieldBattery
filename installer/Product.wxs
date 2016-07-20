@@ -4,7 +4,7 @@
   <?define BundleDir="$(var.ProjectDir)..\bundler\bundle\" ?>
   <?define D3DRedistDir="$(env.ProgramFiles(x86))\Windows Kits\8.1\Redist\D3D\x86\" ?>
   
-	<Product Id="*" Name="ShieldBattery" Language="1033" Version="2.0.4" Manufacturer="ShieldBattery" UpgradeCode="{64DF999F-FC7D-41B9-8972-27D18C085769}">
+	<Product Id="*" Name="ShieldBattery" Language="1033" Version="2.1.0" Manufacturer="ShieldBattery" UpgradeCode="{64DF999F-FC7D-41B9-8972-27D18C085769}">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
 		<MajorUpgrade AllowDowngrades="yes" />
