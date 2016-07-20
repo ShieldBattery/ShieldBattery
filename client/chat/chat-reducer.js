@@ -139,6 +139,11 @@ const handlers = {
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
 
+    if (!updated.byName.get(channel).hasLoadedHistory) {
+      // TODO(tec27): remove this check once #139 is fixed
+      return updated
+    }
+
     if (!wasIdle) {
       updated = updateMessages(updated, channel, m => {
         return m.push(new UserOnlineMessage({
@@ -170,6 +175,11 @@ const handlers = {
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
+
+    if (!updated.byName.get(channel).hasLoadedHistory) {
+      // TODO(tec27): remove this check once #139 is fixed
+      return updated
+    }
 
     return updateMessages(updated, channel, m => {
       return m.push(new UserOfflineMessage({
