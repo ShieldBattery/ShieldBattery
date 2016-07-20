@@ -40,12 +40,11 @@ export const Users = new Record({
   offline: new List(),
 })
 
-export const Channel = new Record({
+const ChannelBase = new Record({
   name: null,
   messages: new List(),
   users: new Users(),
 
-  hasLoadedHistory: false,
   loadingHistory: false,
   hasHistory: true,
 
@@ -55,6 +54,15 @@ export const Channel = new Record({
   activated: false,
   hasUnread: false,
 })
+
+class Channel extends ChannelBase {
+  get hasLoadedHistory() {
+    return (this.loadingHistory ||
+      this.messages.size > 0 ||
+      (this.messages.size === 0 && !this.hasHistory)
+    )
+  }
+}
 
 export const ChatState = new Record({
   channels: new OrderedSet(),
@@ -82,11 +90,15 @@ function updateMessages(state, channelName, updateFn) {
       return c
     }
 
-    if (!c.activated) {
+    let sliced = false
+    if (!c.activated && updated.length > INACTIVE_CHANNEL_MAX_HISTORY) {
       updated = updated.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+      sliced = true
     }
 
-    return c.set('messages', updated).set('hasUnread', c.hasUnread || !c.activated)
+    return (c.set('messages', updated)
+      .set('hasUnread', c.hasUnread || !c.activated)
+      .set('hasHistory', c.hasHistory || sliced))
   })
 }
 
@@ -170,8 +182,7 @@ const handlers = {
 
   [CHAT_LOAD_CHANNEL_HISTORY_BEGIN](state, action) {
     const { channel } = action.payload
-    return (state.setIn(['byName', channel, 'hasLoadedHistory'], true)
-      .setIn(['byName', channel, 'loadingHistory'], true))
+    return state.setIn(['byName', channel, 'loadingHistory'], true)
   },
 
   [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
@@ -222,7 +233,7 @@ const handlers = {
 
     return state.updateIn(['byName', channel], c => {
       return (c.set('messages', c.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
-        .set('hasHistory', hasHistory)
+        .set('hasHistory', c.hasHistory || hasHistory)
         .set('activated', false))
     })
   },
