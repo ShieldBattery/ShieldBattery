@@ -1,6 +1,6 @@
 @value colorDividers from '../styles/colors.css';
-@value fastOutSlowIn from '../material/curve-constants.css';
 @value row, grow from '../styles/flex.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
 
 .container {
   composes: row;
