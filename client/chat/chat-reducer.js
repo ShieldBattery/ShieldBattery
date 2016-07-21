@@ -55,7 +55,7 @@ const ChannelBase = new Record({
   hasUnread: false,
 })
 
-class Channel extends ChannelBase {
+export class Channel extends ChannelBase {
   get hasLoadedHistory() {
     return (this.loadingHistory ||
       this.messages.size > 0 ||
