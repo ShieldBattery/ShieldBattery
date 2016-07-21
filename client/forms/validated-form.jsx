@@ -20,6 +20,7 @@ class ValidatedForm extends React.Component {
   }
 
   render() {
+    const { className } = this.props
     const children = React.Children.map(this.props.children, child => {
       if (!child.props.name) {
         // Children without names just won't be validated
@@ -47,7 +48,7 @@ class ValidatedForm extends React.Component {
 
 
     return (
-      <form {...this.props} noValidate={true}>
+      <form className={className} noValidate={true}>
         {title}
         <div className={fieldsClassName}>
           {errorText}

@@ -49,7 +49,7 @@ class TextField extends React.Component {
     return (
       <div className={classes}>
         {this.renderLabel()}
-        <input {...this.props} {...inputProps} />
+        <input {...inputProps} />
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
             disabled={this.props.disabled} />
         {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}

@@ -21,14 +21,16 @@ class Button extends React.Component {
       [styles.focused]: this.state.isKeyboardFocused,
     })
 
-    const buttonProps = {
+    const buttonProps = Object.assign({}, otherProps, {
       className: classes,
       onBlur: e => this._handleBlur(e),
       onFocus: e => this._handleFocus(e),
       onClick: e => this._handleClick(e),
       onMouseDown: e => this._handleMouseDown(e),
-    }
-    return (<button ref='button' {...otherProps} {...buttonProps}>
+    })
+    delete buttonProps.avatarClassName
+
+    return (<button ref='button' {...buttonProps}>
       <span className={styles.label}>{label}</span>
     </button>)
   }

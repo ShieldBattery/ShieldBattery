@@ -47,7 +47,7 @@ class CheckBox extends React.Component {
     const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
     const iconElem = <div className={styles.icon}></div>
 
-    const inputProps = {
+    const inputProps = Object.assign({}, restProps, {
       ref: 'input',
       type: 'checkbox',
       id: this.id,
@@ -57,8 +57,9 @@ class CheckBox extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
       onMouseOut: e => this._handleMouseOut(e),
       onChange: e => this._handleChange(e),
-    }
-    const inputElem = <input {...restProps} {...inputProps} />
+    })
+    delete inputProps.validationError
+    const inputElem = <input {...inputProps} />
 
     return (<div className={classes}>
       {inputElem}
