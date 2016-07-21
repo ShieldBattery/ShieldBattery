@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import {
   sendMessage,
   startWhisperSession,
@@ -94,11 +94,11 @@ class Whisper extends React.Component {
 function isClosingCurrentWhisperSession(oldProps, newProps) {
   return (
     // Rule out a route change
-    oldProps.routeParams === newProps.routeParams &&
+    oldProps.params === newProps.params &&
     // We had a whisper session with this user
-    oldProps.whispers.sessions.has(oldProps.routeParams.target) &&
+    oldProps.whispers.sessions.has(oldProps.params.target) &&
     // Now we don't
-    !newProps.whispers.sessions.has(newProps.routeParams.target)
+    !newProps.whispers.sessions.has(newProps.params.target)
   )
 }
 
@@ -111,7 +111,7 @@ export default class WhisperView extends React.Component {
   }
 
   componentDidMount() {
-    const target = this.props.routeParams.target
+    const target = this.props.params.target
     if (this.props.user.name === target) {
       this.props.dispatch(routeActions.push('/'))
       this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
@@ -131,7 +131,7 @@ export default class WhisperView extends React.Component {
       return
     }
 
-    const target = nextProps.routeParams.target
+    const target = nextProps.params.target
     // TODO(tec27): this really only handles one type of error (session creation failure), it needs
     // to handle (or ignore) other stuff too, like sending errors
     const error = nextProps.whispers.errorsByName.get(target)
@@ -149,7 +149,7 @@ export default class WhisperView extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    const target = this.props.routeParams.target
+    const target = this.props.params.target
     if (this._hasWhisperSession(target)) {
       this.props.dispatch(retrieveInitialMessageHistory(target))
     } else if (!prevProps.whispers.sessions.has(target)) {
@@ -158,7 +158,7 @@ export default class WhisperView extends React.Component {
   }
 
   render() {
-    const target = this.props.routeParams.target
+    const target = this.props.params.target
     const session = this.props.whispers.byName.get(target)
 
     return (
@@ -170,11 +170,11 @@ export default class WhisperView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    this.props.dispatch(sendMessage(this.props.routeParams.target, msg))
+    this.props.dispatch(sendMessage(this.props.params.target, msg))
   }
 
   onRequestMoreHistory() {
-    this.props.dispatch(retrieveNextMessageHistory(this.props.routeParams.target))
+    this.props.dispatch(retrieveNextMessageHistory(this.props.params.target))
   }
 
   _hasWhisperSession(target) {

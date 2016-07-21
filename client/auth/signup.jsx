@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'

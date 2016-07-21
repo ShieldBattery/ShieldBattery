@@ -5,7 +5,9 @@ import 'babel-polyfill'
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
-import { createHistory, useQueries } from 'history'
+import { useRouterHistory } from 'react-router'
+import { syncHistoryWithStore } from 'react-router-redux'
+import { createHistory } from 'history'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
@@ -37,8 +39,10 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  const history = useQueries(createHistory)()
+  // useRouterHistory already pre-enhances history factory with the useQueries enhancer
+  let history = useRouterHistory(createHistory)()
   const store = createStore(initData, history)
+  history = syncHistoryWithStore(history, store)
   registerDispatch(store.dispatch)
   registerSocketHandlers()
 

@@ -1,4 +1,4 @@
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 
 // Pick a location to direct the user to given data from the store, used as an "index" page since we
 // don't really have a root content page

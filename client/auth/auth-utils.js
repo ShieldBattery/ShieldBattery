@@ -1,4 +1,4 @@
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 
 export function isLoggedIn(authState) {
   return authState.user && authState.user.name

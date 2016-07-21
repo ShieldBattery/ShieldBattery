@@ -1,6 +1,6 @@
 import siteSocket from '../network/site-socket'
 import fetch from '../network/fetch'
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,

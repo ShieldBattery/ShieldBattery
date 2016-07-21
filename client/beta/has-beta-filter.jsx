@@ -1,4 +1,4 @@
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
 import isReturningUser from './is-returning-user'
 

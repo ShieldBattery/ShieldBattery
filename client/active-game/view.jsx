@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import ContentLayout from '../content/content-layout.jsx'
 
 @connect(state => ({ activeGame: state.activeGame }))

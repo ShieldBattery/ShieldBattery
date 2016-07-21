@@ -1,5 +1,5 @@
 import siteSocket from '../network/site-socket'
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import {
   WHISPERS_CLOSE_SESSION_BEGIN,
   WHISPERS_CLOSE_SESSION,

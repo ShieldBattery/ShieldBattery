@@ -1,4 +1,4 @@
-import { routeActions } from 'redux-simple-router'
+import { routerActions as routeActions } from 'react-router-redux'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
 import { isAdmin, checkPermissions } from './admin-utils'
 import { goToIndex } from '../navigation/action-creators'
