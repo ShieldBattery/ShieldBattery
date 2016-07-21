@@ -32,16 +32,18 @@
 
 .thumbHorizontal {
   composes: thumb;
-  min-height: 8px;
-  max-height: calc(100% - 4px);
-  margin-top: auto;
-  margin-bottom: auto;
+  height: 100%;
+  /* leaves space around the edges but still allows those edges to be draggable */
+  border-top: 2px solid grey800;
+  border-bottom: 2px solid grey800;
 }
 
 .thumbVertical {
   composes: thumb;
-  min-width: 8px;
-  max-width: calc(100% - 4px);
+  width: 100%;
+  /* leaves space around the edges but still allows those edges to be draggable */
+  border-left: 2px solid grey800;
+  border-right: 2px solid grey800;
   margin-left: auto;
   margin-right: auto;
 }
