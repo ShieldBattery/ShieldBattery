@@ -42,7 +42,9 @@ new Promise((resolve, reject) => {
   // useRouterHistory already pre-enhances history factory with the useQueries enhancer
   let history = useRouterHistory(createHistory)()
   const store = createStore(initData, history)
-  history = syncHistoryWithStore(history, store)
+  history = syncHistoryWithStore(history, store, {
+    selectLocationState: ({ routing }) => ({ locationBeforeTransitions: routing.location })
+  })
   registerDispatch(store.dispatch)
   registerSocketHandlers()
 
