@@ -1,4 +1,5 @@
 import { List, Map, Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   ADMIN_GET_INVITES,
   ADMIN_ACCEPT_USER,
@@ -23,7 +24,7 @@ export const InviteState = new Record({
   lastType: null,
 })
 
-const handlers = {
+export default keyedReducer(new InviteState(), {
   [ADMIN_GET_INVITES](state, action) {
     if (action.error) {
       return state.set('lastError', action.payload).set('lastType', action.meta.inviteeType)
@@ -54,8 +55,4 @@ const handlers = {
       return state
     }
   },
-}
-
-export default function invitesReducer(state = new InviteState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

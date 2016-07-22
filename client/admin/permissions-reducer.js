@@ -1,4 +1,5 @@
 import { Map, Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_GET_PERMISSIONS,
@@ -19,7 +20,7 @@ export const PermissionState = new Record({
   users: new Map(),
 })
 
-const handlers = {
+export default keyedReducer(new PermissionState(), {
   [ADMIN_GET_PERMISSIONS_BEGIN](state, action) {
     return state.updateIn([ 'users', action.payload.username ],
         new Permissions(),
@@ -69,8 +70,4 @@ const handlers = {
         new Permissions(),
         p => p.merge(data))
   },
-}
-
-export default function permissionsReducer(state = new PermissionState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

@@ -1,4 +1,5 @@
 import { List, Map, Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
@@ -23,7 +24,7 @@ export const Maps = new Record({
   lastError: null,
 })
 
-const handlers = {
+export default keyedReducer(new Maps(), {
   [MAPS_LIST_GET_BEGIN](state, action) {
     return state.set('isFetching', true)
   },
@@ -41,8 +42,4 @@ const handlers = {
       .set('list', list)
       .set('lastError', null))
   }
-}
-
-export default function mapsReducer(state = new Maps(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

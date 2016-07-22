@@ -1,5 +1,6 @@
 import { Map, Record, List } from 'immutable'
 import cuid from 'cuid'
+import keyedReducer from '../reducers/keyed-reducer'
 import { MapRecord } from './maps-reducer'
 import {
   LOBBY_INIT_DATA,
@@ -55,7 +56,7 @@ const playersObjToMap = obj => {
   return new Map(records)
 }
 
-const infoHandlers = {
+const infoReducer = keyedReducer(undefined, {
   [LOBBY_INIT_DATA](state, action) {
     const { lobby } = action.payload
     return new LobbyInfo({
@@ -114,11 +115,7 @@ const infoHandlers = {
   [NETWORK_SITE_CONNECTED](state, action) {
     return new LobbyInfo()
   }
-}
-
-function infoReducer(state, action) {
-  return infoHandlers.hasOwnProperty(action.type) ? infoHandlers[action.type](state, action) : state
-}
+})
 
 // id, type, and time need to be present for ALL message types
 export const ChatMessage = Record({

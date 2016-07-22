@@ -1,4 +1,5 @@
 import { Map, Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,
@@ -11,7 +12,7 @@ export const LobbyState = new Record({
   isRequesting: false,
 })
 
-const handlers = {
+export default keyedReducer(new Map(), {
   [LOBBIES_GET_STATE_BEGIN](state, action) {
     const { lobbyName } = action.payload
     if (state.has(lobbyName)) {
@@ -31,8 +32,4 @@ const handlers = {
       isRequesting: false,
     }))
   },
-}
-
-export default function lobbyReducer(state = new Map(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

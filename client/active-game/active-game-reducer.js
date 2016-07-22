@@ -1,4 +1,5 @@
 import { Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   LOBBY_UPDATE_GAME_STARTED,
   PSI_GAME_STATUS,
@@ -8,7 +9,7 @@ export const ActiveGame = new Record({
   isActive: false,
 })
 
-const handlers = {
+export default keyedReducer(new ActiveGame(), {
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
     return state.set('isActive', true)
   },
@@ -20,8 +21,4 @@ const handlers = {
 
     return state
   }
-}
-
-export default function activeGameReducer(state = new ActiveGame(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

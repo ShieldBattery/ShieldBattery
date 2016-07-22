@@ -1,5 +1,6 @@
 import { List, Map, OrderedSet, Record } from 'immutable'
 import cuid from 'cuid'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
   WHISPERS_LOAD_SESSION_HISTORY,
@@ -42,7 +43,7 @@ export const WhisperState = new Record({
   errorsByName: new Map(),
 })
 
-const handlers = {
+export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_INIT_SESSION](state, action) {
     const { target, targetStatus: status } = action.payload
     const session = new Session({ target, status })
@@ -160,8 +161,4 @@ const handlers = {
       }))).concat(messages)
     })
   }
-}
-
-export default function whispersReducer(state = new WhisperState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

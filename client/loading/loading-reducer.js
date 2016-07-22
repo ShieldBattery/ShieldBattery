@@ -1,4 +1,5 @@
 import { Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   CHAT_LOADING_COMPLETE,
   SUBSCRIPTIONS_LOADING_COMPLETE,
@@ -11,7 +12,7 @@ export const LoadingState = new Record({
   whispers: true,
 })
 
-const handlers = {
+export default keyedReducer(new LoadingState(), {
   [CHAT_LOADING_COMPLETE](state, action) {
     return state.set('chat', false)
   },
@@ -23,8 +24,4 @@ const handlers = {
   [WHISPERS_LOADING_COMPLETE](state, action) {
     return state.set('whispers', false)
   },
-}
-
-export default function(state = new LoadingState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})

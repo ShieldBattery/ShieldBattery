@@ -1,5 +1,6 @@
 import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
+import keyedReducer from '../reducers/keyed-reducer'
 import * as SortedList from '../../shared/sorted-list'
 import {
   CHAT_CHANNEL_ACTIVATE,
@@ -102,7 +103,7 @@ function updateMessages(state, channelName, updateFn) {
   })
 }
 
-const handlers = {
+export default keyedReducer(new ChatState(), {
   [CHAT_INIT_CHANNEL](state, action) {
     const { channel, activeUsers } = action.payload
     const sortedActiveUsers = SortedUsers.create(activeUsers)
@@ -247,8 +248,4 @@ const handlers = {
         .set('activated', false))
     })
   },
-}
-
-export default function(state = new ChatState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+})
