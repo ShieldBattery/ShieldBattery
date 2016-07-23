@@ -25,7 +25,7 @@ function getLocalTime(date) {
 export const ChatTimestamp =
     props => <span className={styles.timestamp}>{getLocalTime(new Date(props.time))}</span>
 ChatTimestamp.propTypes = {
-  time: React.PropTypes.number.isRequired,
+  time: PropTypes.number.isRequired,
 }
 
 export const ChatMessageLayout = props => {
@@ -36,29 +36,6 @@ export const ChatMessageLayout = props => {
   </div>)
 }
 ChatMessageLayout.propTypes = {
-  time: React.PropTypes.number.isRequired,
-  className: React.PropTypes.string,
-}
-
-export class ChatMessage extends React.Component {
-  static propTypes = {
-    user: PropTypes.string.isRequired,
-    time: PropTypes.number.isRequired,
-    text: PropTypes.string.isRequired,
-  };
-
-  shouldComponentUpdate(nextProps) {
-    return (nextProps.user !== this.props.user ||
-      nextProps.time !== this.props.time ||
-      nextProps.text !== this.props.text)
-  }
-
-  render() {
-    const { user, time, text } = this.props
-
-    return (<ChatMessageLayout time={time}>
-      <span className={styles.username}>{user}</span>
-      <span className={styles.text}>{text}</span>
-    </ChatMessageLayout>)
-  }
+  time: PropTypes.number.isRequired,
+  className: PropTypes.string,
 }

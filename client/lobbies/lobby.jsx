@@ -8,121 +8,17 @@ import TextField from '../material/text-field.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
-import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
-
-class JoinMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-      <span>
-        &gt;&gt; <span className={styles.chatImportant}>{this.props.name}</span> has joined the
-        lobby
-      </span>
-    </ChatMessageLayout>)
-  }
-}
-
-class LeaveMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-      <span>
-        &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has left the
-        lobby
-      </span>
-    </ChatMessageLayout>)
-  }
-}
-
-class SelfJoinMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    lobby: PropTypes.string.isRequired,
-    host: PropTypes.string.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>
-          You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>. The host
-          is <span className={styles.chatImportant}>{this.props.host}</span>.
-        </span>
-    </ChatMessageLayout>)
-  }
-}
-
-class HostChangeMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>
-          <span className={styles.chatImportant}>{this.props.name}</span> is now the host
-        </span>
-    </ChatMessageLayout>)
-  }
-}
-
-class CountdownStartedMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>The game countdown has begun</span>
-    </ChatMessageLayout>)
-  }
-}
-
-class CountdownTickMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    timeLeft: PropTypes.number.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>{this.props.timeLeft}&hellip;</span>
-    </ChatMessageLayout>)
-  }
-}
-
-class CountdownCanceledMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  };
-
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>The game countdown has been canceled</span>
-    </ChatMessageLayout>)
-  }
-}
-
-class LoadingCanceledMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  };
-
-  // TODO(tec27): We really need to pass a reason back here
-  render() {
-    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>Game initialization has been canceled</span>
-    </ChatMessageLayout>)
-  }
-}
+import {
+  ChatMessage,
+  JoinMessage,
+  LeaveMessage,
+  SelfJoinMessage,
+  HostChangeMessage,
+  CountdownStartedMessage,
+  CountdownTickMessage,
+  CountdownCanceledMessage,
+  LoadingCanceledMessage,
+} from '../messaging/message-types.jsx'
 
 class ChatList extends React.Component {
   static propTypes = {

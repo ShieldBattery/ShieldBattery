@@ -1,10 +1,13 @@
 import React, { PropTypes } from 'react'
 import styles from './message.css'
 
-import { ChatMessage } from './message.jsx'
-import { UserOnlineMessage, UserOfflineMessage } from './message-types.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import {
+  ChatMessage,
+  UserOnlineMessage,
+  UserOfflineMessage,
+} from './message-types.jsx'
 
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list

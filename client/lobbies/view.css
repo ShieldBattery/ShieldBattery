@@ -125,13 +125,3 @@
   margin-top: 12px;
   width: calc(100% - 24px - 24px);
 }
-
-.chatSystemMessage {
-  color: blue100;
-}
-
-.chatImportant {
-  composes: body2;
-  line-height: inherit;
-  color: blue200;
-}
