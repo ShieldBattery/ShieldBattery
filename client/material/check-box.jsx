@@ -37,7 +37,12 @@ class CheckBox extends React.Component {
   }
 
   render() {
-    const { className, label, ...restProps } = this.props
+    const {
+      className,
+      label,
+      validationError, // eslint-disable-line no-unused-vars
+      ...restProps,
+    } = this.props
     const classes = classnames(styles.checkBox, className, {
       [styles.checked]: this.state.checked,
       [styles.disabled]: this.props.disabled,
@@ -47,7 +52,7 @@ class CheckBox extends React.Component {
     const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
     const iconElem = <div className={styles.icon}></div>
 
-    const inputProps = Object.assign({}, restProps, {
+    const inputProps = {
       ref: 'input',
       type: 'checkbox',
       id: this.id,
@@ -57,9 +62,8 @@ class CheckBox extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
       onMouseOut: e => this._handleMouseOut(e),
       onChange: e => this._handleChange(e),
-    })
-    delete inputProps.validationError
-    const inputElem = <input {...inputProps} />
+    }
+    const inputElem = <input {...restProps} {...inputProps} />
 
     return (<div className={classes}>
       {inputElem}

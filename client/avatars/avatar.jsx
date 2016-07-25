@@ -12,8 +12,8 @@ export default class Avatar extends React.Component {
   };
 
   render() {
-    const { image, user, ...otherProps } = this.props
-    const classes = classnames(styles.avatarImage, this.props.className)
+    const { className, image, user, ...otherProps } = this.props
+    const classes = classnames(styles.avatarImage, className)
     if (image) {
       return <img {...otherProps} className={classes} src={image} />
     }

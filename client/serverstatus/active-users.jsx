@@ -4,10 +4,14 @@ import { connect } from 'react-redux'
 @connect(state => ({ activeUsers: state.serverStatus.get('activeUsers') }))
 class ActiveUsersCount extends React.Component {
   render() {
-    const { activeUsers, className } = this.props
+    const {
+      activeUsers,
+      dispatch, // eslint-disable-line no-unused-vars
+      ...otherProps,
+    } = this.props
     const pluralized = activeUsers !== 1 ? 'users' : 'user'
     const activeUsersStr = activeUsers === null ? '' : `${activeUsers} ${pluralized} online`
-    return <p className={className}>{activeUsersStr}</p>
+    return <p {...otherProps}>{activeUsersStr}</p>
   }
 }
 

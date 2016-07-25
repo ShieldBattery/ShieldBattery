@@ -20,7 +20,17 @@ class ValidatedForm extends React.Component {
   }
 
   render() {
-    const { className } = this.props
+    const {
+      formTitle,
+      errorText,
+      buttons,
+      onSubmitted, // eslint-disable-line no-unused-vars
+      titleClassName,
+      errorsClassName,
+      fieldsClassName,
+      buttonsClassName,
+      ...otherProps,
+    } = this.props
     const children = React.Children.map(this.props.children, child => {
       if (!child.props.name) {
         // Children without names just won't be validated
@@ -34,27 +44,24 @@ class ValidatedForm extends React.Component {
       })
     })
 
-    const titleClassName = classnames(styles.title, this.props.titleClassName)
-    const fieldsClassName = classnames(styles.fields, this.props.fieldsClassName)
-    const errorsClassName = classnames(styles.errors, this.props.errorsClassName)
-    const buttonsClassName = classnames(styles.buttons, this.props.buttonsClassName)
+    const titleClass = classnames(styles.title, titleClassName)
+    const fieldsClass = classnames(styles.fields, fieldsClassName)
+    const errorsClass = classnames(styles.errors, errorsClassName)
+    const buttonsClass = classnames(styles.buttons, buttonsClassName)
 
-    const title = this.props.formTitle ?
-        (<h3 className={titleClassName}>{this.props.formTitle}</h3>) : undefined
-    const errorText = this.props.errorText ?
-        (<span className={errorsClassName}>{this.props.errorText}</span>) : undefined
-    const buttons = this.props.buttons ?
-        (<div className={buttonsClassName}>{this.props.buttons}</div>) : undefined
+    const title = formTitle ? (<h3 className={titleClass}>{formTitle}</h3>) : undefined
+    const error = errorText ? (<span className={errorsClass}>{errorText}</span>) : undefined
+    const formButtons = buttons ? (<div className={buttonsClass}>{buttons}</div>) : undefined
 
 
     return (
-      <form className={className} noValidate={true}>
+      <form {...otherProps} noValidate={true}>
         {title}
-        <div className={fieldsClassName}>
-          {errorText}
+        <div className={fieldsClass}>
+          {error}
           {children}
         </div>
-        {buttons}
+        {formButtons}
       </form>
     )
   }
