@@ -2,7 +2,8 @@ import React, { PropTypes } from 'react'
 import { Link, withRouter } from 'react-router'
 import styles from './left-nav.css'
 
-class Entry extends React.Component {
+@withRouter
+export default class Entry extends React.Component {
   static propTypes = {
     link: PropTypes.string.isRequired,
     title: PropTypes.string,
@@ -22,5 +23,3 @@ class Entry extends React.Component {
     </li>)
   }
 }
-
-export default withRouter(Entry)

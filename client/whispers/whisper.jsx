@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import {
   sendMessage,
   startWhisperSession,
@@ -113,7 +113,7 @@ export default class WhisperView extends React.Component {
   componentDidMount() {
     const target = this.props.params.target
     if (this.props.user.name === target) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routerActions.push('/'))
       this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
       return
     }
@@ -127,7 +127,7 @@ export default class WhisperView extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (isClosingCurrentWhisperSession(this.props, nextProps)) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routerActions.push('/'))
       return
     }
 
@@ -136,13 +136,13 @@ export default class WhisperView extends React.Component {
     // to handle (or ignore) other stuff too, like sending errors
     const error = nextProps.whispers.errorsByName.get(target)
     if (error) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routerActions.push('/'))
       this.props.dispatch(openSnackbar({ message: error, time: TIMING_LONG }))
       return
     }
 
     if (nextProps.user.name === target) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routerActions.push('/'))
       this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
       return
     }

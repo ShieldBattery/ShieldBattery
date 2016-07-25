@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
 import {
@@ -56,7 +56,7 @@ export default class LobbyView extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(routeActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
+      this.props.dispatch(routerActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
       return
     }
 

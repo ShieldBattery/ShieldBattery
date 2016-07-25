@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
 import ContentLayout from '../content/content-layout.jsx'
@@ -134,6 +134,6 @@ export class PermissionsFind extends React.Component {
   onFindSubmitted(values) {
     const username = values.get('username')
     this.context.store.dispatch(
-        routeActions.push(`/admin/permissions/${encodeURIComponent(username)}`))
+        routerActions.push(`/admin/permissions/${encodeURIComponent(username)}`))
   }
 }

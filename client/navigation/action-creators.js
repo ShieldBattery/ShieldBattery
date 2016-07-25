@@ -1,8 +1,8 @@
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 
 // Pick a location to direct the user to given data from the store, used as an "index" page since we
 // don't really have a root content page
-export function goToIndex(transitionFn = routeActions.push) {
+export function goToIndex(transitionFn = routerActions.push) {
   return (dispatch, getState) => {
     const { lobby, whispers, chat: { channels } } = getState()
     if (lobby.inLobby) {

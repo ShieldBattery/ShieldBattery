@@ -4,7 +4,7 @@ import React from 'react'
 // *must* result in this component being unmounted.
 //
 // shouldRedirect is function(currentState) => void
-// createRedirectAction is function(location, router) => action
+// createRedirectAction is function(currentState, router) => action
 export default function createConditionalRedirect(name, shouldRedirect, createRedirectAction) {
   return class ConditionalRedirect extends React.Component {
     static displayName = name;
@@ -34,10 +34,9 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
 
     _handleChange() {
       const { router, store: { dispatch, getState } } = this.context
-      const { location } = this.props
       if (shouldRedirect(getState())) {
         this._unsubscribe()
-        dispatch(createRedirectAction(location, router))
+        dispatch(createRedirectAction(getState(), router))
         return true
       }
       return false

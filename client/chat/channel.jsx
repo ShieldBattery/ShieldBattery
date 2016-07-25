@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import {
   sendMessage,
   retrieveInitialMessageHistory,
@@ -160,7 +160,7 @@ export default class ChatChannelView extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (isLeavingChannel(this.props, nextProps)) {
-      this.props.dispatch(routeActions.push('/'))
+      this.props.dispatch(routerActions.push('/'))
     }
   }
 

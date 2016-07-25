@@ -39,7 +39,9 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  // useRouterHistory already pre-enhances history factory with the useQueries enhancer
+  // We're using `useQueries` enhancer function from the `history` lib to parse and serialize URL
+  // queries. useRouterHistory already pre-enhances history factory with the useQueries enhancer so
+  // we don't have to specify it manually.
   let history = useRouterHistory(createHistory)()
   const store = createStore(initData, history)
   history = syncHistoryWithStore(history, store, {

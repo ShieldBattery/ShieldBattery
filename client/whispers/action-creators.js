@@ -1,5 +1,5 @@
 import siteSocket from '../network/site-socket'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import {
   WHISPERS_CLOSE_SESSION_BEGIN,
   WHISPERS_CLOSE_SESSION,
@@ -111,5 +111,5 @@ export function retrieveNextMessageHistory(target) {
 }
 
 export function navigateToWhisper(target) {
-  return routeActions.push(`/whispers/${encodeURIComponent(target)}`)
+  return routerActions.push(`/whispers/${encodeURIComponent(target)}`)
 }

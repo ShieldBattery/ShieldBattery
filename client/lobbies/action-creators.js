@@ -1,6 +1,6 @@
 import siteSocket from '../network/site-socket'
 import fetch from '../network/fetch'
-import { routerActions as routeActions } from 'react-router-redux'
+import { routerActions } from 'react-router-redux'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,
@@ -168,5 +168,5 @@ export function getMapsList() {
 }
 
 export function navigateToLobby(lobbyName) {
-  return routeActions.push(`/lobbies/${encodeURIComponent(lobbyName)}`)
+  return routerActions.push(`/lobbies/${encodeURIComponent(lobbyName)}`)
 }
