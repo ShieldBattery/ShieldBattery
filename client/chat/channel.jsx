@@ -180,14 +180,17 @@ export default class ChatChannelView extends React.Component {
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
       this.props.dispatch(activateChannel(routeChannel))
     }
-    if (prevProps.routeParams.channel &&
+    if (this.props.chat.byName.has(prevProps.routeParams.channel) &&
+        prevProps.routeParams.channel &&
         prevProps.routeParams.channel !== routeChannel) {
       this.props.dispatch(deactivateChannel(prevProps.routeParams.channel))
     }
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(this.props.routeParams.channel))
+    if (this._isInChannel()) {
+      this.props.dispatch(deactivateChannel(this.props.routeParams.channel))
+    }
   }
 
   renderJoinChannel() {
