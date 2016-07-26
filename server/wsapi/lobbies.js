@@ -579,7 +579,6 @@ export class LobbyApi {
     const countdown = this.lobbyCountdowns.get(lobby.name)
     countdown.timer.reject(new Error('Countdown cancelled'))
     this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
-    this.lobbyPreps = this.lobbyPreps.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelCountdown',
     })
