@@ -1,41 +1,15 @@
-import path from 'path'
-import { detectResolution, checkStarcraftPath } from './natives/index'
+import { detectResolution } from './natives/index'
 import log from './logger'
 import packageJson from '../package.json'
+import PathValidator from './path-validator'
 
-let lastHadValidPath = false
-let lastHadValidVersion = false
-async function hasValidPath(settings) {
-  if (!settings.starcraftPath) {
-    lastHadValidPath = false
-    lastHadValidVersion = false
-    log.debug('StarCraft path invalid because no path is set')
-  } else {
-    try {
-      await checkStarcraftPath(path.join(settings.starcraftPath, 'starcraft.exe'))
-      lastHadValidPath = true
-      lastHadValidVersion = true
-      log.debug('StarCraft path is valid')
-    } catch (e) {
-      if (e.name === 'ProductVersionError') {
-        lastHadValidPath = true
-        lastHadValidVersion = false
-        log.debug('StarCraft path is valid, but the version is incorrect')
-      } else {
-        lastHadValidPath = false
-        lastHadValidVersion = false
-        log.debug('StarCraft path is invalid, error was: ' + e)
-      }
-    }
-  }
-
-  return { path: lastHadValidPath, version: lastHadValidVersion }
-}
-
+let pathValidator
 
 export function register(nydus, localSettings, activeGameManager, mapStore, rallyPointManager) {
-  // init our cache
-  hasValidPath(localSettings.settings)
+  pathValidator = new PathValidator(({ path, version }) => {
+    nydus.publish('/starcraftPathValidity', path)
+    nydus.publish('/starcraftCorrectVersion', version)
+  })
 
   async function setSettings(data, next) {
     // Will cause a publish via the settings change handler below
@@ -86,10 +60,8 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)
 
   localSettings.on('change', async function() {
-    const { path, version } = await hasValidPath(localSettings.settings)
     nydus.publish('/settings', localSettings.settings)
-    nydus.publish('/starcraftPathValidity', path)
-    nydus.publish('/starcraftCorrectVersion', version)
+    pathValidator.getPathValidity(localSettings.settings)
   })
 
   rallyPointManager.on('ping', (origin, serverIndex, desc, ping) => {
@@ -102,11 +74,14 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
 export function subscribe(nydus, client, activeGameManager, localSettings) {
   const { origin } = client.conn.request.headers
 
+  const { path: pathValid, version: versionValid } =
+      pathValidator.getPathValidity(localSettings.settings)
+
   nydus.subscribeClient(client, '/game/status', activeGameManager.getStatusForSite())
   nydus.subscribeClient(client, '/game/results')
   nydus.subscribeClient(client, '/settings', localSettings.settings)
-  nydus.subscribeClient(client, '/starcraftPathValidity', lastHadValidPath)
-  nydus.subscribeClient(client, '/starcraftCorrectVersion', lastHadValidVersion)
+  nydus.subscribeClient(client, '/starcraftPathValidity', pathValid)
+  nydus.subscribeClient(client, '/starcraftCorrectVersion', versionValid)
   nydus.subscribeClient(client, `/rallyPoint/ping/${encodeURIComponent(origin)}`)
 }
 
