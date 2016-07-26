@@ -12,6 +12,7 @@ import {
   WHISPERS_UPDATE_USER_ACTIVE,
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 import {
   ChatMessage,
@@ -160,5 +161,9 @@ export default keyedReducer(new WhisperState(), {
         text: msg.data.text,
       }))).concat(messages)
     })
-  }
+  },
+
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new WhisperState()
+  },
 })

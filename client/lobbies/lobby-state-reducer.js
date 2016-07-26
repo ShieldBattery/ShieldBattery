@@ -3,6 +3,7 @@ import keyedReducer from '../reducers/keyed-reducer'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 
 export const LobbyState = new Record({
@@ -31,5 +32,9 @@ export default keyedReducer(new Map(), {
       error: action.error ? action.payload : null,
       isRequesting: false,
     }))
+  },
+
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new LobbyState()
   },
 })
