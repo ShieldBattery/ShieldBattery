@@ -240,6 +240,9 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_CHANNEL_DEACTIVATE](state, action) {
     const { channel } = action.payload
+    if (!state.byName.has(channel)) {
+      return state
+    }
     const hasHistory = state.byName.get(channel).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
     return state.updateIn(['byName', channel], c => {
