@@ -30,99 +30,73 @@
       '__register_uv_',
       '__register_v8_',
       '__register_zlib_',
-    ]
-  },
-
-  'target_defaults': {
-    'default_configuration': 'Debug',
-    'configurations': {
-      'Debug': {
-        'defines': [ 'DEBUG', '_DEBUG' ],
-        'msvs_settings': {
-          'VCCLCompilerTool': {
-            'RuntimeLibrary': 1, # static debug
-            'Optimization': 0, # /Od, no optimization
-            'MinimalRebuild': 'false',
-            'OmitFramePointers': 'false',
-            'BasicRuntimeChecks': 3, # /RTC1
-          },
-          'VCLinkerTool': {
-            'LinkIncremental': 2, # enable incremental linking
-          },
-        },
-      },
-      'Release': {
-        'defines': [ 'NDEBUG' ],
-        'msvs_settings': {
-          'VCCLCompilerTool': {
-            'RuntimeLibrary': 0, # static release
-            'Optimization': 3, # /Ox, full optimization
-            'FavorSizeOrSpeed': 1, # /Ot, favour speed over size
-            'InlineFunctionExpansion': 2, # /Ob2, inline anything eligible
-            'WholeProgramOptimization': 'true', # /GL, whole program optimization, needed for LTCG
-            'OmitFramePointers': 'true',
-            'EnableFunctionLevelLinking': 'true',
-            'EnableIntrinsicFunctions': 'true',
-          },
-          'VCLibrarianTool': {
-            'AdditionalOptions': [
-              '/LTCG', # link time code generation
-            ],
-          },
-          'VCLinkerTool': {
-            'LinkTimeCodeGeneration': 1, # link-time code generation
-            'OptimizeReferences': 2, # /OPT:REF
-            'EnableCOMDATFolding': 2, # /OPT:ICF
-            'LinkIncremental': 1, # disable incremental linking
-          },
-        },
-      },
-    },
-    'msvs_settings': {
-      'VCCLCompilerTool': {
-        'StringPooling': 'true', # pool string literals
-        'DebugInformationFormat': 3, # Generate a PDB
-        'WarningLevel': 3,
-        'BufferSecurityCheck': 'true',
-        'ExceptionHandling': 1, # /EHsc
-        'SuppressStartupBanner': 'true',
-        'WarnAsError': 'false',
-        'AdditionalOptions': [
-          '/MP', # compile across multiple CPUs
-        ],
-        # Prevent VS from overwriting .obj files if two files in different dirs have the same name
-        'ObjectFile': '$(IntDir)%(RelativeDir)',
-      },
-      'VCLibrarianTool': {
-        'TargetMachine': 1, # X86
-      },
-      'VCLinkerTool': {
-        'LinkIncremental': 2, # enable incremental linking
-        'GenerateDebugInformation': 'true',
-        'RandomizedBaseAddress': 2, # enable ASLR
-        'DataExecutionPrevention': 2, # enable DEP
-        'AllowIsolation': 'true',
-        'SuppressStartupBanner': 'true',
-      },
-    },
-    'msvs_disabled_warnings': [ 4221, 4068 ],
-    'defines': [
-      'WIN32',
-      '_WIN32_WINNT=0x0600', # match libuv
     ],
   },
 
+  'target_defaults': {
+    'msvs_settings': {
+      'VCLinkerTool': {
+        'AdditionalLibraryDirectories': [
+          'deps/node/$(Configuration)/lib/', # node + libuv
+          'deps/node/build/$(Configuration)/lib/', # v8
+        ],
+      },
+    },
+  },
+
   'targets': [
+    # All things that generate a node binary output (exe, dll) should depend on this to pull in
+    # the proper libraries, include dirs, and defines.
+    {
+      'target_name': 'node-binary',
+      'type': 'static_library',
+      'direct_dependent_settings': {
+        'include_dirs': [
+          '.',
+          'deps/node/src',
+          'deps/node/deps/uv/include',
+          'deps/node/deps/v8/include',
+          'nan/<!(cd nan && node -e "require(\'nan\')")',
+        ],
+        'defines': [
+          'BUILDING_UV_SHARED=1',
+          'BUILDING_V8_SHARED=1',
+        ],
+        'libraries': [
+          '-lnode.lib',
+          '-lv8_base_0.lib',
+          '-lv8_base_1.lib',
+          '-lv8_base_2.lib',
+          '-lv8_base_3.lib',
+          '-lv8_libbase.lib',
+          '-licui18n.lib',
+          '-licuucx.lib',
+          '-licudata.lib',
+          '-licustubdata.lib',
+          '-lv8_snapshot.lib',
+          '-lv8_libplatform.lib',
+          '-lopenssl.lib',
+          '-lzlib.lib',
+          '-lhttp_parser.lib',
+          '-lcares.lib',
+          '-llibuv.lib',
+          '-lwinmm.lib',
+          '-lws2_32.lib',
+          '-lpsapi.lib',
+          '-lgdi32.lib',
+          '-liphlpapi.lib',
+        ],
+      },
+      # VS won't generate a lib file unless we provide sources (which will then cause a build
+      # failure if anything depends on this), so we provide an empty file to satisfy it.
+      'sources': [
+        'nan/node_binary.cpp',
+      ],
+    },
+
     {
       'target_name': 'shieldbattery',
       'type': 'shared_library',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-        'nan/<!(cd nan && node -e "require(\'nan\')")',
-      ],
       'sources': [
         'forge/indirect_draw.cpp',
         'forge/indirect_draw_palette.cpp',
@@ -176,8 +150,8 @@
       'dependencies': [
         'common',
         'logger',
+        'node-binary',
         'v8-helpers',
-        'deps/node/node.gyp:node',
         'deps/glew/glew.gyp:glew',
       ],
       'link_settings': {
@@ -186,7 +160,7 @@
           '-lgdi32.lib',
           '-lD3D10.lib',
           '-ld3dcompiler.lib',
-          '-lws2_32.lib',
+          '-lshell32.lib',
         ],
       },
       'msvs_disabled_warnings': [ 4506, 4251, 4530, 4838, 4996 ],
@@ -281,13 +255,6 @@
     {
       'target_name': 'psi',
       'type': 'executable',
-      'include_dirs': [
-        '.',
-        'deps/node/src',
-        'deps/node/deps/uv/include',
-        'deps/node/deps/v8/include',
-        'nan/<!(cd nan && node -e "require(\'nan\')")',
-      ],
       'sources': [
         'node-psi/module.cpp',
         'node-psi/wrapped_process.cpp',
@@ -307,8 +274,8 @@
       ],
       'dependencies': [
         'common',
+        'node-binary',
         'v8-helpers',
-        'deps/node/node.gyp:node',
       ],
       'msvs_disabled_warnings': [ 4506, 4251, 4530 ],
       'msvs_settings': {
