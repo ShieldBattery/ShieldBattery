@@ -472,6 +472,9 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       instance_->PerformScaledClipCursor(nullptr);
     }
     break;
+  // WM_KEYUP is sent for alt if the user pressed another key while holding alt,
+  // while WM_SYSKEYUP is sent if alt was just pressed by itself.
+  case WM_KEYUP:
   case WM_SYSKEYUP:
     if (wparam == VK_MENU) {
       instance_->should_clip_cursor_ = true;
