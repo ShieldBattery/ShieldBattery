@@ -65,6 +65,7 @@ Forge::Forge()
       is_started_(false),
       should_clip_cursor_(false),
       window_active_(false),
+      bw_window_active_(false),
       captured_window_(NULL),
       stored_cursor_rect_(nullptr),
       indirect_draw_(nullptr) {
@@ -400,7 +401,6 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_NCMOUSEMOVE:
   case WM_NCPAINT:
   case WM_ACTIVATE:
-  case WM_ACTIVATEAPP:
   case WM_CAPTURECHANGED:
   case WM_KILLFOCUS:
   case WM_PAINT:
@@ -410,6 +410,13 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_WINDOWPOSCHANGED:
   case WM_WINDOWPOSCHANGING:
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_ACTIVATEAPP:
+    // BW needs to receive the initial WM_ACTIVATEAPP to function properly.
+    if (instance_->bw_window_active_) {
+      return DefWindowProc(window_handle, msg, wparam, lparam);
+    }
+    instance_->bw_window_active_ = true;
+    break;
   case WM_SYSCOMMAND:
     if (wparam == SC_KEYMENU || wparam == SC_MOUSEMENU) {
       return 0;
@@ -627,9 +634,6 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       lpClassName, lpWindowName, style, window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top, hWndParent, hMenu,
       hInstance, lpParam);
-  instance_->original_wndproc_ = reinterpret_cast<WNDPROC>(
-      GetWindowLong(instance_->window_handle_, GWL_WNDPROC));
-  SetWindowLong(instance_->window_handle_, GWL_WNDPROC, reinterpret_cast<LONG>(Forge::WndProc));
   // In some cases, Windows seems to not give us a window of the size we requested, so we also
   // re-apply the size and position here just in case
   SetWindowPos(instance_->window_handle_, HWND_BOTTOM,
@@ -664,8 +668,10 @@ ATOM __stdcall Forge::RegisterClassExAHook(const WNDCLASSEX* lpwcx) {
     return instance_->hooks_.RegisterClassExA->original()(lpwcx);
   }
 
+  instance_->original_wndproc_ = lpwcx->lpfnWndProc;
   WNDCLASSEX rewritten = *lpwcx;
   rewritten.style |= CS_OWNDC;
+  rewritten.lpfnWndProc = Forge::WndProc;
   Logger::Log(LogLevel::Verbose, "Rewrote SWarClass to have CS_OWNDC");
   return instance_->hooks_.RegisterClassExA->original()(&rewritten);
 }

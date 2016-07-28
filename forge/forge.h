@@ -151,6 +151,7 @@ private:
   bool is_started_;
   bool should_clip_cursor_;
   bool window_active_;
+  bool bw_window_active_;
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
   IndirectDraw* indirect_draw_;
