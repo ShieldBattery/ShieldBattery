@@ -48,7 +48,7 @@ export class Session extends SessionBase {
 
 export const WhisperState = new Record({
   sessions: new OrderedSet(),
-  // Note that the keys for this map area always lower-case
+  // Note that the keys for this map are always lower-case
   byName: new Map(),
   errorsByName: new Map(),
 })

@@ -9,4 +9,7 @@ const DEV = () => process.env.NODE_ENV !== 'production'
 const ON = () => process.env.NODE_ENV === 'production'
 /* eslint-enable no-unused-vars */
 
+// Show the "dev mode" indicator on the site (don't move this past dev mode)
 export const DEV_INDICATOR = DEV()
+// Allow users to join multiple channels (and leave channels)
+export const MULTI_CHANNEL = DEV()

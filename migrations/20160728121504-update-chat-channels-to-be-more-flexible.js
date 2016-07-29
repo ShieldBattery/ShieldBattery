@@ -16,17 +16,7 @@ exports.up = function(db, cb) {
 
     const sql = `ALTER TABLE channels ADD CONSTRAINT
         channel_name_length_check CHECK (length(name) <= 64);`
-    db.runSql(sql, createChannelNameIndex)
-  }
-
-  function createChannelNameIndex(err) {
-    if (err) {
-      cb(err)
-      return
-    }
-
-    db.addIndex('channels', 'channels_name_index', ['name'],
-        false /* unique */, insertShieldBatteryChannel)
+    db.runSql(sql, insertShieldBatteryChannel)
   }
 
   function insertShieldBatteryChannel(err) {
@@ -34,7 +24,7 @@ exports.up = function(db, cb) {
       cb(err)
       return
     }
-    const sql = 'INSERT INTO channels (name) VALUES (\'ShieldBattery\');'
+    const sql = 'INSERT INTO channels (name, high_traffic) VALUES (\'ShieldBattery\', true);'
     db.runSql(sql, addPermissionsToJoinedChannels)
   }
 

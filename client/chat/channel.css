@@ -1,5 +1,5 @@
 @value colorTextSecondary, colorDividers from '../styles/colors.css';
-@value row, col, grow, exact, justifyEnd from '../styles/flex.css';
+@value row, col, grow, exact, justifyEnd, itemsCenter, justifyCenter from '../styles/flex.css';
 @value body2, singleLine from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
@@ -14,6 +14,11 @@
 .appBarContent {
   max-width: 1140px;
   margin: 0 auto;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
+  padding-top: 16px;
 }
 
 .messagesAndInput {
@@ -81,4 +86,16 @@
 
 .userListEntry {
   composes: userListRow;
+}
+
+.navLeaveButton {
+  min-height: 32px !important;
+  width: 32px !important;
+  padding: 0 !important;
+  line-height: 32px !important;
+  margin-right: 4px !important;
+}
+
+.navLeaveButton > span {
+  line-height: 32px !important;
 }

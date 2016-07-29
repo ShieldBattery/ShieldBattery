@@ -1,7 +1,12 @@
 import siteSocket from '../network/site-socket'
+import { routerActions } from 'react-router-redux'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,
+  CHAT_JOIN_CHANNEL_BEGIN,
+  CHAT_JOIN_CHANNEL,
+  CHAT_LEAVE_CHANNEL_BEGIN,
+  CHAT_LEAVE_CHANNEL,
   CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
   CHAT_LOAD_USER_LIST_BEGIN,
@@ -9,6 +14,36 @@ import {
   CHAT_SEND_MESSAGE_BEGIN,
   CHAT_SEND_MESSAGE
 } from '../actions'
+
+export function joinChannel(channel) {
+  return dispatch => {
+    const params = { channel }
+    dispatch({
+      type: CHAT_JOIN_CHANNEL_BEGIN,
+      payload: params,
+    })
+    dispatch({
+      type: CHAT_JOIN_CHANNEL,
+      payload: siteSocket.invoke('/chat/join', params),
+      meta: params,
+    })
+  }
+}
+
+export function leaveChannel(channel) {
+  return dispatch => {
+    const params = { channel }
+    dispatch({
+      type: CHAT_LEAVE_CHANNEL_BEGIN,
+      payload: params,
+    })
+    dispatch({
+      type: CHAT_LEAVE_CHANNEL,
+      payload: siteSocket.invoke('/chat/leave', params),
+      meta: params,
+    })
+  }
+}
 
 export function sendMessage(channel, message) {
   return dispatch => {
@@ -31,11 +66,12 @@ export function sendMessage(channel, message) {
 export function retrieveInitialMessageHistory(channel) {
   return (dispatch, getStore) => {
     const { chat: { byName } } = getStore()
-    if (!byName.has(channel)) {
+    const lowerCaseChannel = channel.toLowerCase()
+    if (!byName.has(lowerCaseChannel)) {
       return
     }
 
-    const chanData = byName.get(channel)
+    const chanData = byName.get(lowerCaseChannel)
     if (chanData.hasLoadedHistory || chanData.loadingHistory || !chanData.hasHistory) {
       return
     }
@@ -56,11 +92,12 @@ export function retrieveInitialMessageHistory(channel) {
 export function retrieveNextMessageHistory(channel) {
   return (dispatch, getStore) => {
     const { chat: { byName } } = getStore()
-    if (!byName.has(channel)) {
+    const lowerCaseChannel = channel.toLowerCase()
+    if (!byName.has(lowerCaseChannel)) {
       return
     }
 
-    const chanData = byName.get(channel)
+    const chanData = byName.get(lowerCaseChannel)
     if (chanData.loadingHistory || !chanData.hasHistory) {
       return
     }
@@ -82,11 +119,12 @@ export function retrieveNextMessageHistory(channel) {
 export function retrieveUserList(channel) {
   return (dispatch, getStore) => {
     const { chat: { byName } } = getStore()
-    if (!byName.has(channel)) {
+    const lowerCaseChannel = channel.toLowerCase()
+    if (!byName.has(lowerCaseChannel)) {
       return
     }
 
-    const chanData = byName.get(channel)
+    const chanData = byName.get(lowerCaseChannel)
     if (chanData.hasLoadedUserList || chanData.loadingUserList) {
       return
     }
@@ -116,4 +154,8 @@ export function deactivateChannel(channel) {
     type: CHAT_CHANNEL_DEACTIVATE,
     payload: { channel },
   }
+}
+
+export function navigateToChannel(channel) {
+  return routerActions.push(`/chat/${encodeURIComponent(channel)}`)
 }

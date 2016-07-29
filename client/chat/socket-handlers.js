@@ -1,6 +1,9 @@
 import { dispatch } from '../dispatch-registry'
 import {
   CHAT_INIT_CHANNEL,
+  CHAT_UPDATE_JOIN,
+  CHAT_UPDATE_LEAVE,
+  CHAT_UPDATE_LEAVE_SELF,
   CHAT_UPDATE_MESSAGE,
   CHAT_UPDATE_USER_ACTIVE,
   CHAT_UPDATE_USER_IDLE,
@@ -15,6 +18,39 @@ const eventToAction = {
         channel,
         activeUsers: event.activeUsers,
       }
+    }
+  },
+
+  join(channel, event) {
+    return {
+      type: CHAT_UPDATE_JOIN,
+      payload: {
+        channel,
+        user: event.user,
+      }
+    }
+  },
+
+  leave: (channel, event) => (dispatch, getState) => {
+    const { auth } = getState()
+    const user = auth.user.name
+    if (user === event.user) {
+      // It was us who left the channel
+      dispatch({
+        type: CHAT_UPDATE_LEAVE_SELF,
+        payload: {
+          channel,
+        }
+      })
+    } else {
+      dispatch({
+        type: CHAT_UPDATE_LEAVE,
+        payload: {
+          channel,
+          user: event.user,
+          newOwner: event.newOwner,
+        }
+      })
     }
   },
 

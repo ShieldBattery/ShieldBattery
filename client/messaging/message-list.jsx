@@ -2,7 +2,13 @@ import React, { PropTypes } from 'react'
 import styles from './message.css'
 
 import { ChatMessage } from './message.jsx'
-import { UserOnlineMessage, UserOfflineMessage } from './message-types.jsx'
+import {
+  JoinChannelMessage,
+  LeaveChannelMessage,
+  NewChannelOwnerMessage,
+  UserOnlineMessage,
+  UserOfflineMessage
+} from './message-types.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 
@@ -16,8 +22,11 @@ class PureMessageList extends React.Component {
   renderMessage(msg) {
     const { id, type } = msg
     switch (type) {
+      case 'joinChannel': return <JoinChannelMessage key={id} record={msg} />
+      case 'leaveChannel': return <LeaveChannelMessage key={id} record={msg} />
       case 'message':
         return <ChatMessage key={id} user={msg.from} time={msg.time} text={msg.text} />
+      case 'newOwner': return <NewChannelOwnerMessage key={id} record={msg} />
       case 'userOnline': return <UserOnlineMessage key={id} record={msg} />
       case 'userOffline': return <UserOfflineMessage key={id} record={msg} />
       default: return null
