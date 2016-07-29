@@ -69,6 +69,7 @@
           '-lv8_base_2.lib',
           '-lv8_base_3.lib',
           '-lv8_libbase.lib',
+          '-lv8_inspector_stl.lib',
           '-licui18n.lib',
           '-licuucx.lib',
           '-licudata.lib',
