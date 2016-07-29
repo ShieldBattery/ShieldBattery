@@ -4,6 +4,8 @@
 #include <nan.h>
 #include <v8.h>
 #include <Windows.h>
+#include <ShellScalingAPI.h>
+#include <VersionHelpers.h>
 #include <assert.h>
 #include <map>
 #include <memory>
@@ -576,6 +578,8 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   }
 }
 
+typedef void(__stdcall *SetProcessDpiAwarenessFunc)(PROCESS_DPI_AWARENESS);
+
 HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     LPCSTR lpWindowName, DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent,
     HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
@@ -586,6 +590,18 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
         dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
   }
   assert(instance_->window_handle_ == NULL);
+
+  // Mark this process as DPI-aware, since we just render to the resolution that was set (and don't
+  // want Windows scaling our rendering)
+  if (IsWindows8Point1OrGreater()) {
+    HMODULE shcore = LoadLibrary("shcore.dll");
+    auto SetProcessDpiAwareness = reinterpret_cast<SetProcessDpiAwarenessFunc>(
+        GetProcAddress(shcore, "SetProcessDpiAwareness"));
+    SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    FreeLibrary(shcore);
+  } else {
+    SetProcessDPIAware();
+  }
 
   // Modify the passed parameters so that they create a properly sized window instead of trying to
   // be full-screen

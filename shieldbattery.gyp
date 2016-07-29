@@ -283,6 +283,11 @@
         'VCLinkerTool': {
           'ForceSymbolReferences': [ '<@(forced_references)' ],
         },
+        'VCManifestTool': {
+          'AdditionalManifestFiles': [
+            'dpi-aware.manifest',
+          ],
+        },
       },
       'libraries': [ '-luser32.lib' ],
     },
@@ -300,6 +305,11 @@
             ['_type=="executable"', {
               'AdditionalOptions=': [ '/SubSystem:Windows' ],
             }],
+          ],
+        },
+        'VCManifestTool': {
+          'AdditionalManifestFiles': [
+            'dpi-aware.manifest',
           ],
         },
       },
