@@ -39,12 +39,11 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  // We're using `useQueries` enhancer function from the `history` lib to parse and serialize URL
-  // queries. useRouterHistory already pre-enhances history factory with the useQueries enhancer so
-  // we don't have to specify it manually.
   let history = useRouterHistory(createHistory)()
   const store = createStore(initData, history)
   history = syncHistoryWithStore(history, store, {
+    // Since we're using a custom reducer, we have to adjust the state to be shaped like
+    // react-router-redux expects
     selectLocationState: ({ routing }) => ({ locationBeforeTransitions: routing.location })
   })
   registerDispatch(store.dispatch)
