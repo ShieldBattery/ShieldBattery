@@ -35,6 +35,6 @@ export default keyedReducer(new Map(), {
   },
 
   [NETWORK_SITE_CONNECTED](state, action) {
-    return new LobbyState()
+    return new Map()
   },
 })
