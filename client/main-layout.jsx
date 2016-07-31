@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import { goToIndex } from './navigation/action-creators'
 import styles from './main-layout.css'
 
@@ -53,13 +53,13 @@ class MainLayout extends React.Component {
 
   componentWillMount() {
     if (!this.props.children) {
-      this.props.dispatch(goToIndex(routeActions.replace))
+      this.props.dispatch(goToIndex(routerActions.replace))
     }
   }
 
   componentWillReceiveProps(nextProps) {
     if (!nextProps.children) {
-      nextProps.dispatch(goToIndex(routeActions.replace))
+      nextProps.dispatch(goToIndex(routerActions.replace))
     }
   }
 

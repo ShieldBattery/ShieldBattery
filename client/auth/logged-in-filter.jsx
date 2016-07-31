@@ -1,16 +1,16 @@
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
 import { isLoggedIn } from './auth-utils'
 
 const LoggedInFilter = createConditionalRedirect(
   'LoggedInFilter',
   state => !isLoggedIn(state.auth),
-  (state, history) => {
-    const { router: { location } } = state
+  (state, router) => {
+    const { routing: { location } } = state
     const query = {
-      nextPath: history.createPath(location.pathname, location.query)
+      nextPath: router.createPath({ pathname: location.pathname, query: location.query })
     }
-    return routeActions.push({ pathname: '/login', query })
+    return routerActions.push({ pathname: '/login', query })
   }
 )
 

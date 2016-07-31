@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
 import ContentLayout from '../content/content-layout.jsx'
@@ -29,13 +29,13 @@ export class PermissionsResults extends React.Component {
   }
 
   componentDidMount() {
-    const { username } = this.props.routeParams
+    const { username } = this.props.params
     this.props.dispatch(getPermissionsIfNeeded(username))
   }
 
   componentDidUpdate(prevProps) {
-    const { username: oldUsername } = prevProps.routeParams
-    const { username: newUsername } = this.props.routeParams
+    const { username: oldUsername } = prevProps.params
+    const { username: newUsername } = this.props.params
 
     if (oldUsername !== newUsername) {
       this.props.dispatch(getPermissionsIfNeeded(newUsername))
@@ -45,7 +45,7 @@ export class PermissionsResults extends React.Component {
   render() {
     const {
       permissions: { users },
-      routeParams: { username },
+      params: { username },
     } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
@@ -79,7 +79,7 @@ export class PermissionsResults extends React.Component {
   }
 
   onSaveSubmitted(values) {
-    const { username } = this.props.routeParams
+    const { username } = this.props.params
     this.props.dispatch(setPermissions(username, {
       editPermissions: values.get('editPermissions'),
       debug: values.get('debug'),
@@ -134,6 +134,6 @@ export class PermissionsFind extends React.Component {
   onFindSubmitted(values) {
     const username = values.get('username')
     this.context.store.dispatch(
-        routeActions.push(`/admin/permissions/${encodeURIComponent(username)}`))
+        routerActions.push(`/admin/permissions/${encodeURIComponent(username)}`))
   }
 }

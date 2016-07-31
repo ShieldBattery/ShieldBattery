@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
 import {
@@ -29,9 +29,9 @@ const mapStateToProps = state => {
 // Returns true if the lobby store state shows that we have left the current lobby
 function isLeavingLobby(oldProps, newProps) {
   return (
-    oldProps.routeParams === newProps.routeParams && /* rule out a route change */
+    oldProps.params === newProps.params && /* rule out a route change */
     oldProps.lobby.inLobby &&
-    oldProps.lobby.info.name === oldProps.routeParams.lobby && /* we were in this lobby */
+    oldProps.lobby.info.name === oldProps.params.lobby && /* we were in this lobby */
     !newProps.lobby.inLobby /* now we're not */
   )
 }
@@ -49,26 +49,26 @@ export default class LobbyView extends React.Component {
 
   componentDidMount() {
     if (!this.props.lobby.inLobby) {
-      const routeLobby = this.props.routeParams.lobby
+      const routeLobby = this.props.params.lobby
       this.props.dispatch(getLobbyState(routeLobby))
     }
   }
 
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(routeActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
+      this.props.dispatch(routerActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
       return
     }
 
-    const routeLobby = this.props.routeParams.lobby
-    const nextRouteLobby = nextProps.routeParams.lobby
+    const routeLobby = this.props.params.lobby
+    const nextRouteLobby = nextProps.params.lobby
     if (!this.props.lobby.inLobby && routeLobby !== nextRouteLobby) {
       this.props.dispatch(getLobbyState(nextRouteLobby))
     }
   }
 
   render() {
-    const routeLobby = this.props.routeParams.lobby
+    const routeLobby = this.props.params.lobby
     const { lobby, user, gameClient } = this.props
 
     let content
@@ -89,7 +89,7 @@ export default class LobbyView extends React.Component {
       ]
     }
 
-    return (<ContentLayout title={this.props.routeParams.lobby} actions={actions}>
+    return (<ContentLayout title={this.props.params.lobby} actions={actions}>
       { content }
     </ContentLayout>)
   }
@@ -110,7 +110,7 @@ export default class LobbyView extends React.Component {
   }
 
   renderLobbyState() {
-    const routeLobby = this.props.routeParams.lobby
+    const routeLobby = this.props.params.lobby
     const { lobbyState } = this.props
     if (!lobbyState.has(routeLobby)) {
       return null

@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -108,7 +108,7 @@ class Login extends React.Component {
   }
 
   onSignUpClicked() {
-    this.props.dispatch(routeActions.push({ pathname: '/splash' }))
+    this.props.dispatch(routerActions.push({ pathname: '/splash' }))
   }
 
   onCreateAccountClicked() {
@@ -116,7 +116,7 @@ class Login extends React.Component {
       ...this.props.location.query,
       username: this.refs.form.getValueOf('username'),
     }
-    this.props.dispatch(routeActions.push({ pathname: '/signup', query }))
+    this.props.dispatch(routerActions.push({ pathname: '/signup', query }))
   }
 
   onLogInClicked() {

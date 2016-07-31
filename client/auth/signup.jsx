@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routeActions } from 'redux-simple-router'
+import { routerActions } from 'react-router-redux'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -128,7 +128,7 @@ class Signup extends React.Component {
     const query = {
       ...this.props.location.query,
     }
-    this.props.dispatch(routeActions.push({ pathname: '/login', query }))
+    this.props.dispatch(routerActions.push({ pathname: '/login', query }))
   }
 
   onSubmitted(values) {
