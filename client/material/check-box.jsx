@@ -37,7 +37,12 @@ class CheckBox extends React.Component {
   }
 
   render() {
-    const { className, label, ...restProps } = this.props
+    const {
+      className,
+      label,
+      validationError, // eslint-disable-line no-unused-vars
+      ...restProps,
+    } = this.props
     const classes = classnames(styles.checkBox, className, {
       [styles.checked]: this.state.checked,
       [styles.disabled]: this.props.disabled,

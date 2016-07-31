@@ -15,7 +15,11 @@ class Button extends React.Component {
   }
 
   render() {
-    const { label, ...otherProps } = this.props
+    const {
+      label,
+      avatarClassName, // eslint-disable-line no-unused-vars
+      ...otherProps,
+    } = this.props
 
     const classes = classnames(this.props.className, {
       [styles.focused]: this.state.isKeyboardFocused,
@@ -28,6 +32,7 @@ class Button extends React.Component {
       onClick: e => this._handleClick(e),
       onMouseDown: e => this._handleMouseDown(e),
     }
+
     return (<button ref='button' {...otherProps} {...buttonProps}>
       <span className={styles.label}>{label}</span>
     </button>)

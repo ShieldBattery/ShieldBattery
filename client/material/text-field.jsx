@@ -31,6 +31,18 @@ class TextField extends React.Component {
   }
 
   render() {
+    const {
+      /*eslint-disable no-unused-vars*/
+      floatingLabel,
+      onEnterKeyDown,
+      requiredMessage,
+      validator,
+      validationError,
+      /* eslint-enable no-unused-vars */
+      allowErrors,
+      errorText,
+      ...otherProps,
+    } = this.props
     const classes = classnames(styles.textField, this.props.className, {
       [styles.disabled]: this.props.disabled,
     })
@@ -49,10 +61,10 @@ class TextField extends React.Component {
     return (
       <div className={classes}>
         {this.renderLabel()}
-        <input {...this.props} {...inputProps} />
-        <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
+        <input {...otherProps} {...inputProps} />
+        <InputUnderline focused={this.state.isFocused} error={!!errorText}
             disabled={this.props.disabled} />
-        {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
+        {allowErrors ? <InputError error={errorText} /> : null}
       </div>
     )
   }

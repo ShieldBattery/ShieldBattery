@@ -12,15 +12,16 @@ export default class Avatar extends React.Component {
   };
 
   render() {
-    const classes = classnames(styles.avatarImage, this.props.className)
-    if (this.props.image) {
-      return <img {...this.props} className={classes} src={this.props.image} />
+    const { className, image, user, ...otherProps } = this.props
+    const classes = classnames(styles.avatarImage, className)
+    if (image) {
+      return <img {...otherProps} className={classes} src={image} />
     }
 
     const iconStyle = {
-      color: randomColorForString(this.props.user),
+      color: randomColorForString(user),
     }
 
-    return <i {...this.props} className={classes} style={iconStyle}><PlaceholderIcon /></i>
+    return <i {...otherProps} className={classes} style={iconStyle}><PlaceholderIcon /></i>
   }
 }
