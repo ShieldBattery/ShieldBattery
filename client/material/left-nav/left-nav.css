@@ -74,6 +74,7 @@
 .entry {
   composes: row justifySpaceBetween itemsCenter;
   composes: entryCommon;
+  position: relative;
   margin: 0;
   padding: 0;
 }
@@ -109,4 +110,15 @@
 .entry a:--any-link {
   color: currentColor;
   text-decoration: none;
+}
+
+.attentionIndicator {
+  width: 8px;
+  height: 8px;
+  position: absolute;
+  left: 4px;
+  top: calc(50% - 4px);
+
+  border-radius: 50%;
+  background-color: amberA200;
 }
