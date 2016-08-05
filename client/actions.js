@@ -58,6 +58,12 @@ export const LOBBIES_GET_STATE = 'LOBBIES_GET_STATE'
 // The server has sent us an update to the lobby list (used for joining lobbies)
 export const LOBBIES_LIST_UPDATE = 'LOBBIES_LIST_UPDATE'
 
+// Notifies that a user has brought a lobby into a visible state (and things like last read
+// message should be updated)
+export const LOBBY_ACTIVATE = 'LOBBY_ACTIVATE'
+// Notifies that a lobby is no longer visible to the user, and can be cleaned up as
+// appropriate (trimming its messsage list to a minimal amount, for instance)
+export const LOBBY_DEACTIVATE = 'LOBBY_DEACTIVATE'
 // We are starting the process of adding a computer to a lobby
 export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
 // The server has responded with success/failure to our addition of computer in lobby
@@ -179,6 +185,12 @@ export const WHISPERS_LOAD_SESSION_HISTORY = 'WHISPERS_LOAD_SESSION_HISTORY'
 export const WHISPERS_SEND_MESSAGE_BEGIN = 'WHISPERS_SEND_MESSAGE_BEGIN'
 // The server has responded with success/failure of our whisper message sending
 export const WHISPERS_SEND_MESSAGE = 'WHISPERS_SEND_MESSAGE'
+// Notifies that a user has brought a whisper into a visible state (and things like last read
+// message should be updated)
+export const WHISPERS_SESSION_ACTIVATE = 'WHISPERS_SESSION_ACTIVATE'
+// Notifies that a whisper is no longer visible to the user, and can be cleaned up as
+// appropriate (trimming its messsage list to a minimal amount, for instance)
+export const WHISPERS_SESSION_DEACTIVATE = 'WHISPERS_SESSION_DEACTIVATE'
 // We are starting the process of initiating a whisper session with another user. Whisper session
 // represents a dedicated window where messages between us and another user are displayed. It's
 // impossible to send a whisper message to another user without having a session opened with them

@@ -4,6 +4,8 @@ import { routerActions } from 'react-router-redux'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,
+  LOBBY_ACTIVATE,
+  LOBBY_DEACTIVATE,
   LOBBY_ADD_COMPUTER_BEGIN,
   LOBBY_ADD_COMPUTER,
   LOBBY_CREATE_BEGIN,
@@ -164,6 +166,18 @@ export function getMapsList() {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
     const payload = fetch('/api/1/maps')
     dispatch({ type: MAPS_LIST_GET, payload })
+  }
+}
+
+export function activateLobby() {
+  return {
+    type: LOBBY_ACTIVATE,
+  }
+}
+
+export function deactivateLobby() {
+  return {
+    type: LOBBY_DEACTIVATE,
   }
 }
 

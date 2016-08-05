@@ -1,11 +1,12 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import Entry from '../material/left-nav/entry.jsx'
 
-const LobbyNavEntry =
-    ({lobby}) => <Entry link={`/lobbies/${encodeURIComponent(lobby)}`}>{lobby}</Entry>
+const LobbyNavEntry = ({ lobby, hasUnread }) =>
+    <Entry link={`/lobbies/${encodeURIComponent(lobby)}`} needsAttention={hasUnread}>{lobby}</Entry>
 
 LobbyNavEntry.propTypes = {
-  lobby: React.PropTypes.string.isRequired,
+  lobby: PropTypes.string.isRequired,
+  hasUnread: PropTypes.bool,
 }
 
 export default LobbyNavEntry

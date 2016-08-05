@@ -4,6 +4,8 @@ import keyedReducer from '../reducers/keyed-reducer'
 import {
   WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
   WHISPERS_LOAD_SESSION_HISTORY,
+  WHISPERS_SESSION_ACTIVATE,
+  WHISPERS_SESSION_DEACTIVATE,
   WHISPERS_START_SESSION_BEGIN,
   WHISPERS_START_SESSION,
   WHISPERS_UPDATE_INIT_SESSION,
@@ -20,6 +22,9 @@ import {
   UserOfflineMessage,
 } from '../messaging/message-records'
 
+// How many messages should be kept for inactive channels
+const INACTIVE_CHANNEL_MAX_HISTORY = 150
+
 const SessionBase = new Record({
   target: null,
   status: null,
@@ -27,6 +32,9 @@ const SessionBase = new Record({
 
   loadingHistory: false,
   hasHistory: true,
+
+  activated: false,
+  hasUnread: false,
 })
 
 export class Session extends SessionBase {
@@ -44,6 +52,28 @@ export const WhisperState = new Record({
   byName: new Map(),
   errorsByName: new Map(),
 })
+
+// TODO(tec27): undo this copy-paste
+// Update the messages field for a whisper, keeping the hasUnread flag in proper sync.
+// updateFn is m => messages, and should perform the update operation on the messages field
+function updateMessages(state, targetName, updateFn) {
+  return state.updateIn(['byName', targetName], c => {
+    let updated = updateFn(c.messages)
+    if (updated === c.messages) {
+      return c
+    }
+
+    let sliced = false
+    if (!c.activated && updated.length > INACTIVE_CHANNEL_MAX_HISTORY) {
+      updated = updated.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+      sliced = true
+    }
+
+    return (c.set('messages', updated)
+      .set('hasUnread', c.hasUnread || !c.activated)
+      .set('hasHistory', c.hasHistory || sliced))
+  })
+}
 
 export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_INIT_SESSION](state, action) {
@@ -81,7 +111,7 @@ export default keyedReducer(new WhisperState(), {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
 
-    return state.updateIn(['byName', target.toLowerCase(), 'messages'], m => {
+    return updateMessages(state, target.toLowerCase(), m => {
       return m.push(new ChatMessage({
         id,
         time,
@@ -107,7 +137,7 @@ export default keyedReducer(new WhisperState(), {
       return updated
     }
 
-    return updated.updateIn(['byName', name, 'messages'], m => {
+    return updateMessages(updated, name, m => {
       return m.push(new UserOnlineMessage({
         id: cuid(),
         time: Date.now(),
@@ -133,7 +163,7 @@ export default keyedReducer(new WhisperState(), {
       return updated
     }
 
-    return updated.updateIn(['byName', name, 'messages'], m => {
+    return updateMessages(updated, name, m => {
       return m.push(new UserOfflineMessage({
         id: cuid(),
         time: Date.now(),
@@ -157,13 +187,39 @@ export default keyedReducer(new WhisperState(), {
       return updated.setIn(['byName', name, 'hasHistory'], false)
     }
 
-    return updated.updateIn(['byName', name, 'messages'], messages => {
+    return updateMessages(updated, name, messages => {
       return new List(newMessages.map(msg => new ChatMessage({
         id: msg.id,
         time: msg.sent,
         from: msg.from,
         text: msg.data.text,
       }))).concat(messages)
+    })
+  },
+
+  [WHISPERS_SESSION_ACTIVATE](state, action) {
+    const { target } = action.payload
+    const name = target.toLowerCase()
+    if (!state.byName.has(name)) {
+      return state
+    }
+    return state.updateIn(['byName', name], s => {
+      return s.set('hasUnread', false).set('activated', true)
+    })
+  },
+
+  [WHISPERS_SESSION_DEACTIVATE](state, action) {
+    const { target } = action.payload
+    const name = target.toLowerCase()
+    if (!state.byName.has(name)) {
+      return state
+    }
+    const hasHistory = state.byName.get(name).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
+
+    return state.updateIn(['byName', name], s => {
+      return (s.set('messages', s.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
+        .set('hasHistory', s.hasHistory || hasHistory)
+        .set('activated', false))
     })
   },
 

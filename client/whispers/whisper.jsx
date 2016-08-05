@@ -6,6 +6,8 @@ import {
   startWhisperSession,
   retrieveInitialMessageHistory,
   retrieveNextMessageHistory,
+  activateWhisperSession,
+  deactivateWhisperSession,
 } from './action-creators'
 import styles from './whisper.css'
 
@@ -120,6 +122,7 @@ export default class WhisperView extends React.Component {
 
     if (this._hasWhisperSession(target)) {
       this.props.dispatch(retrieveInitialMessageHistory(target))
+      this.props.dispatch(activateWhisperSession(target))
     } else {
       this.props.dispatch(startWhisperSession(target))
     }
@@ -152,9 +155,18 @@ export default class WhisperView extends React.Component {
     const target = this.props.params.target.toLowerCase()
     if (this._hasWhisperSession(target)) {
       this.props.dispatch(retrieveInitialMessageHistory(target))
+      this.props.dispatch(activateWhisperSession(target))
     } else if (!prevProps.whispers.byName.has(target)) {
       this.props.dispatch(startWhisperSession(target))
     }
+    if (prevProps.params.target &&
+        prevProps.params.target.toLowerCase() !== target) {
+      this.props.dispatch(deactivateWhisperSession(prevProps.params.target.toLowerCase()))
+    }
+  }
+
+  componentWillUnmount() {
+    this.props.dispatch(deactivateWhisperSession(this.props.params.target.toLowerCase()))
   }
 
   render() {

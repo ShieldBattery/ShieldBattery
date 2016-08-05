@@ -36,12 +36,16 @@ function stateToProps(state) {
     activeGame: state.activeGame,
     auth: state.auth,
     inLobby: state.lobby.inLobby,
-    lobbyName: state.lobby.inLobby ? state.lobby.info.name : null,
+    lobby: state.lobby.inLobby ?
+        { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
       hasUnread: state.chat.byName.get(c).hasUnread,
     })),
-    whispers: state.whispers.sessions,
+    whispers: state.whispers.sessions.map(s => ({
+      name: s,
+      hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
+    })),
     network: state.network,
     upgrade: state.upgrade,
   }
@@ -67,11 +71,11 @@ class MainLayout extends React.Component {
   renderLobbyNav() {
     if (!this.props.inLobby) return null
 
-    const lobbyName = this.props.lobbyName
+    const { lobby: { name, hasUnread } } = this.props
     return [
       <Subheader key='lobby-header'>Lobby</Subheader>,
       <Section key='lobby-section'>
-        <LobbyNavEntry key='lobby' lobby={lobbyName} />
+        <LobbyNavEntry key='lobby' lobby={name} hasUnread={hasUnread} />
       </Section>,
       <Divider key='lobby-divider'/>
     ]
@@ -89,8 +93,8 @@ class MainLayout extends React.Component {
   render() {
     const channels = this.props.chatChannels.map(
         c => <ChatNavEntry key={c.name} channel={c.name} hasUnread={c.hasUnread}/>)
-    const whispers = this.props.whispers.map(whisper =>
-        <WhisperNavEntry key={whisper} user={whisper} onClose={this._handleWhisperClose}/>)
+    const whispers = this.props.whispers.map(w => <WhisperNavEntry key={w.name}
+        user={w.name} hasUnread={w.hasUnread} onClose={this._handleWhisperClose}/>)
     const addWhisperButton = <IconButton icon='add' title='Start a conversation'
         className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
     const footer = isAdmin(this.props.auth) ? [

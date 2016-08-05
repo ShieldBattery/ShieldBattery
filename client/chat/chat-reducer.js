@@ -14,6 +14,7 @@ import {
   CHAT_UPDATE_USER_ACTIVE,
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 import {
   ChatMessage,
@@ -233,6 +234,9 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_CHANNEL_ACTIVATE](state, action) {
     const { channel } = action.payload
+    if (!state.byName.has(channel)) {
+      return state
+    }
     return state.updateIn(['byName', channel], c => {
       return c.set('hasUnread', false).set('activated', true)
     })
@@ -250,5 +254,9 @@ export default keyedReducer(new ChatState(), {
         .set('hasHistory', c.hasHistory || hasHistory)
         .set('activated', false))
     })
+  },
+
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new ChatState()
   },
 })

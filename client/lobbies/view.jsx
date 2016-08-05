@@ -9,7 +9,9 @@ import {
   setRace,
   startCountdown,
   sendChat,
-  getLobbyState
+  getLobbyState,
+  activateLobby,
+  deactivateLobby,
 } from './action-creators'
 import styles from './view.css'
 
@@ -51,7 +53,19 @@ export default class LobbyView extends React.Component {
     if (!this.props.lobby.inLobby) {
       const routeLobby = this.props.params.lobby
       this.props.dispatch(getLobbyState(routeLobby))
+    } else {
+      this.props.dispatch(activateLobby())
     }
+  }
+
+  componentDidUpdate() {
+    if (this.props.lobby.inLobby) {
+      this.props.dispatch(activateLobby())
+    }
+  }
+
+  componentWillUnmount() {
+    this.props.dispatch(deactivateLobby())
   }
 
   componentWillReceiveProps(nextProps) {

@@ -3,6 +3,8 @@ import cuid from 'cuid'
 import keyedReducer from '../reducers/keyed-reducer'
 import { MapRecord } from './maps-reducer'
 import {
+  LOBBY_ACTIVATE,
+  LOBBY_DEACTIVATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
@@ -40,6 +42,9 @@ export const LobbyInfo = new Record({
 const BaseLobbyRecord = new Record({
   info: new LobbyInfo(),
   chat: new List(),
+
+  activated: false,
+  hasUnread: false,
 })
 export class LobbyRecord extends BaseLobbyRecord {
   get inLobby() {
@@ -277,5 +282,17 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
 export default function lobbyReducer(state = new LobbyRecord(), action) {
   const nextInfo = infoReducer(state.info, action)
   const nextChat = chatReducer(nextInfo, state.info, state.chat, action)
-  return state.set('info', nextInfo).set('chat', nextChat)
+  let updated = state
+  if (!nextInfo.name) {
+    updated = updated.set('hasUnread', false).set('activated', false)
+  } else {
+    if (action.type === LOBBY_ACTIVATE) {
+      updated = updated.set('hasUnread', false).set('activated', true)
+    } else if (action.type === LOBBY_DEACTIVATE) {
+      updated = updated.set('activated', false)
+    }
+  }
+  return (updated.set('info', nextInfo)
+    .set('chat', nextChat)
+    .set('hasUnread', updated.hasUnread || (!updated.activated && nextChat !== state.chat)))
 }
