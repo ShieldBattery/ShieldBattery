@@ -40,6 +40,7 @@ export class Session extends SessionBase {
 
 export const WhisperState = new Record({
   sessions: new OrderedSet(),
+  // Note that the keys for this map area always lower-case
   byName: new Map(),
   errorsByName: new Map(),
 })
@@ -50,12 +51,12 @@ export default keyedReducer(new WhisperState(), {
     const session = new Session({ target, status })
 
     return (state.update('sessions', s => s.add(target))
-      .setIn(['byName', target], session))
+      .setIn(['byName', target.toLowerCase()], session))
   },
 
   [WHISPERS_START_SESSION_BEGIN](state, action) {
     const { target } = action.payload
-    return state.deleteIn(['errorsByName', target])
+    return state.deleteIn(['errorsByName', target.toLowerCase()])
   },
 
   [WHISPERS_START_SESSION](state, action) {
@@ -63,7 +64,7 @@ export default keyedReducer(new WhisperState(), {
       const { target } = action.meta
       const message = 'Something went wrong. Please try again and make sure you\'ve entered a' +
           ' correct username.'
-      return state.setIn(['errorsByName', target], message)
+      return state.setIn(['errorsByName', target.toLowerCase()], message)
     }
 
     return state
@@ -73,14 +74,14 @@ export default keyedReducer(new WhisperState(), {
     const { target } = action.payload
 
     return (state.update('sessions', s => s.delete(target))
-      .deleteIn(['byName', target]))
+      .deleteIn(['byName', target.toLowerCase()]))
   },
 
   [WHISPERS_UPDATE_MESSAGE](state, action) {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
 
-    return state.updateIn(['byName', target, 'messages'], m => {
+    return state.updateIn(['byName', target.toLowerCase(), 'messages'], m => {
       return m.push(new ChatMessage({
         id,
         time,
@@ -92,20 +93,21 @@ export default keyedReducer(new WhisperState(), {
 
   [WHISPERS_UPDATE_USER_ACTIVE](state, action) {
     const { user } = action.payload
-    const wasIdle = state.byName.get(user).status === 'idle'
+    const name = user.toLowerCase()
+    const wasIdle = state.byName.get(name).status === 'idle'
     if (wasIdle) {
       // Don't show online message if the user went from idle -> active
       return state
     }
 
-    const updated = state.setIn(['byName', user, 'status'], 'active')
+    const updated = state.setIn(['byName', name, 'status'], 'active')
 
-    if (!updated.byName.get(user).hasLoadedHistory) {
+    if (!updated.byName.get(name).hasLoadedHistory) {
       // TODO(tec27): remove this check once #139 is fixed
       return updated
     }
 
-    return updated.updateIn(['byName', user, 'messages'], m => {
+    return updated.updateIn(['byName', name, 'messages'], m => {
       return m.push(new UserOnlineMessage({
         id: cuid(),
         time: Date.now(),
@@ -117,20 +119,21 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_USER_IDLE](state, action) {
     const { user } = action.payload
 
-    return state.setIn(['byName', user, 'status'], 'idle')
+    return state.setIn(['byName', user.toLowerCase(), 'status'], 'idle')
   },
 
   [WHISPERS_UPDATE_USER_OFFLINE](state, action) {
     const { user } = action.payload
+    const name = user.toLowerCase()
 
-    const updated = state.setIn(['byName', user, 'status'], 'offline')
+    const updated = state.setIn(['byName', name, 'status'], 'offline')
 
-    if (!updated.byName.get(user).hasLoadedHistory) {
+    if (!updated.byName.get(name).hasLoadedHistory) {
       // TODO(tec27): remove this check once #139 is fixed
       return updated
     }
 
-    return updated.updateIn(['byName', user, 'messages'], m => {
+    return updated.updateIn(['byName', name, 'messages'], m => {
       return m.push(new UserOfflineMessage({
         id: cuid(),
         time: Date.now(),
@@ -142,18 +145,19 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {
     const { target } = action.payload
 
-    return state.setIn(['byName', target, 'loadingHistory'], true)
+    return state.setIn(['byName', target.toLowerCase(), 'loadingHistory'], true)
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
     const { target } = action.meta
+    const name = target.toLowerCase()
     const newMessages = action.payload
-    const updated = state.setIn(['byName', target, 'loadingHistory'], false)
+    const updated = state.setIn(['byName', name, 'loadingHistory'], false)
     if (!newMessages.length) {
-      return updated.setIn(['byName', target, 'hasHistory'], false)
+      return updated.setIn(['byName', name, 'hasHistory'], false)
     }
 
-    return updated.updateIn(['byName', target, 'messages'], messages => {
+    return updated.updateIn(['byName', name, 'messages'], messages => {
       return new List(newMessages.map(msg => new ChatMessage({
         id: msg.id,
         time: msg.sent,

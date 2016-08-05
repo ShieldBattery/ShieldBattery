@@ -96,9 +96,9 @@ function isClosingCurrentWhisperSession(oldProps, newProps) {
     // Rule out a route change
     oldProps.params === newProps.params &&
     // We had a whisper session with this user
-    oldProps.whispers.sessions.has(oldProps.params.target) &&
+    oldProps.whispers.byName.has(oldProps.params.target.toLowerCase()) &&
     // Now we don't
-    !newProps.whispers.sessions.has(newProps.params.target)
+    !newProps.whispers.byName.has(newProps.params.target.toLowerCase())
   )
 }
 
@@ -111,8 +111,8 @@ export default class WhisperView extends React.Component {
   }
 
   componentDidMount() {
-    const target = this.props.params.target
-    if (this.props.user.name === target) {
+    const target = this.props.params.target.toLowerCase()
+    if (this.props.user.name.toLowerCase() === target) {
       this.props.dispatch(routerActions.push('/'))
       this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
       return
@@ -131,7 +131,7 @@ export default class WhisperView extends React.Component {
       return
     }
 
-    const target = nextProps.params.target
+    const target = nextProps.params.target.toLowerCase()
     // TODO(tec27): this really only handles one type of error (session creation failure), it needs
     // to handle (or ignore) other stuff too, like sending errors
     const error = nextProps.whispers.errorsByName.get(target)
@@ -141,7 +141,7 @@ export default class WhisperView extends React.Component {
       return
     }
 
-    if (nextProps.user.name === target) {
+    if (nextProps.user.name.toLowerCase() === target) {
       this.props.dispatch(routerActions.push('/'))
       this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
       return
@@ -149,20 +149,21 @@ export default class WhisperView extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    const target = this.props.params.target
+    const target = this.props.params.target.toLowerCase()
     if (this._hasWhisperSession(target)) {
       this.props.dispatch(retrieveInitialMessageHistory(target))
-    } else if (!prevProps.whispers.sessions.has(target)) {
+    } else if (!prevProps.whispers.byName.has(target)) {
       this.props.dispatch(startWhisperSession(target))
     }
   }
 
   render() {
     const target = this.props.params.target
-    const session = this.props.whispers.byName.get(target)
+    const session = this.props.whispers.byName.get(target.toLowerCase())
 
     return (
-      <ContentLayout title={`Whisper with ${target}`} appBarContentClassName={styles.appBarContent}>
+      <ContentLayout title={`Whisper with ${session ? session.target : target}`}
+          appBarContentClassName={styles.appBarContent}>
         { session ? <Whisper session={session} onSendChatMessage={this._handleSendChatMessage}
             onRequestMoreHistory={this._handleRequestMoreHistory} /> : <LoadingIndicator /> }
       </ContentLayout>
@@ -178,6 +179,6 @@ export default class WhisperView extends React.Component {
   }
 
   _hasWhisperSession(target) {
-    return this.props.whispers.sessions.has(target)
+    return this.props.whispers.byName.has(target)
   }
 }

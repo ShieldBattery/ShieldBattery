@@ -40,20 +40,13 @@ export class WhispersApi {
     validateBody({
       target: isValidUsername,
     }),
-    'getUser')
+    'getUser',
+    'noSelfMessaging',
+    'getTarget')
   async start(data, next) {
-    const { target } = data.get('body')
     const user = data.get('user')
-    if (user.name === target) {
-      throw new errors.BadRequest('can\'t start a whisper session with yourself')
-    }
-
-    const targetExists = await users.find(target)
-    if (!targetExists) {
-      throw new errors.NotFound('target user not found')
-    }
-
-    await this._ensureWhisperSession(user.name, target)
+    const target = data.get('target')
+    await this._ensureWhisperSession(user.name, target.name)
   }
 
   @Api('/send',
@@ -61,31 +54,26 @@ export class WhispersApi {
       target: isValidUsername,
       message: nonEmptyString,
     }),
-    'getUser')
+    'getUser',
+    'noSelfMessaging',
+    'getTarget')
   async send(data, next) {
-    const { target, message } = data.get('body')
+    const { message } = data.get('body')
     const user = data.get('user')
-    if (user.name === target) {
-      throw new errors.BadRequest('can\'t send a message to yourself')
-    }
-
-    const targetExists = await users.find(target)
-    if (!targetExists) {
-      throw new errors.NotFound('target user not found')
-    }
+    const target = data.get('target')
 
     const text = filterChatMessage(message)
-    const result = await addMessageToWhisper(user.session.userId, target, {
+    const result = await addMessageToWhisper(user.session.userId, target.name, {
       type: 'message',
       text,
     })
 
     await Promise.all([
-      this._ensureWhisperSession(user.name, target),
-      this._ensureWhisperSession(target, user.name),
+      this._ensureWhisperSession(user.name, target.name),
+      this._ensureWhisperSession(target.name, user.name),
     ])
 
-    this._publishTo(user.name, target, {
+    this._publishTo(user.name, target.name, {
       id: result.msgId,
       action: 'message',
       from: result.from,
@@ -100,16 +88,19 @@ export class WhispersApi {
       target: isValidUsername,
       beforeTime,
     }),
-    'getUser')
+    'getUser',
+    'getTarget')
   async getHistory(data, next) {
-    const { target, beforeTime } = data.get('body')
+    const { beforeTime } = data.get('body')
     const user = data.get('user')
-    if (!this.userSessions.get(user.name).has(target)) {
+    const target = data.get('target')
+
+    if (!this.userSessions.get(user.name).has(target.name)) {
       throw new errors.Forbidden(
-          'must have a whisper session with this user to retrieve its message history')
+          'must have a whisper session with this user to retrieve message history')
     }
 
-    const messages = await getMessagesForWhisperSession(user.name, target, 50, beforeTime)
+    const messages = await getMessagesForWhisperSession(user.name, target.name, 50, beforeTime)
     return messages.map(m => ({
       id: m.msgId,
       from: m.from,
@@ -123,26 +114,27 @@ export class WhispersApi {
     validateBody({
       target: isValidUsername,
     }),
-    'getUser')
+    'getUser',
+    'getTarget')
   async close(data, next) {
-    const { target } = data.get('body')
     const user = data.get('user')
-    if (!this.userSessions.get(user.name).has(target)) {
+    const target = data.get('target')
+    if (!this.userSessions.get(user.name).has(target.name)) {
       throw new errors.NotFound('no whisper session with this user')
     }
 
-    await closeWhisperSession(user.session.userId, target)
-    this.userSessions = this.userSessions.update(user.name, s => s.delete(target))
+    await closeWhisperSession(user.session.userId, target.name)
+    this.userSessions = this.userSessions.update(user.name, s => s.delete(target.name))
 
     const updated = this.sessionUsers.get(target).delete(user.name)
-    this.sessionUsers =
-        updated.size ? this.sessionUsers.set(target, updated) : this.sessionUsers.delete(target)
+    this.sessionUsers = updated.size ?
+        this.sessionUsers.set(target.name, updated) : this.sessionUsers.delete(target.name)
 
-    this._publishTo(user.name, target, {
+    this._publishTo(user.name, target.name, {
       action: 'closeSession',
-      target
+      target: target.name,
     })
-    this._unsubscribeUserFromWhisperSession(user, target)
+    this._unsubscribeUserFromWhisperSession(user, target.name)
   }
 
   async getUser(data, next) {
@@ -150,6 +142,27 @@ export class WhispersApi {
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
+    return await next(newData)
+  }
+
+  async noSelfMessaging(data, next) {
+    const user = data.get('user')
+    const { target } = data.get('body')
+    if (user.name.toLowerCase() === target.toLowerCase()) {
+      throw new errors.BadRequest('can\'t whisper with yourself')
+    }
+
+    return await next(data)
+  }
+
+  async getTarget(data, next) {
+    const { target } = data.get('body')
+    const foundUser = await users.find(target)
+    if (!foundUser) {
+      throw new errors.NotFound('target user not found')
+    }
+
+    const newData = data.set('target', foundUser)
     return await next(newData)
   }
 
@@ -212,7 +225,7 @@ export class WhispersApi {
 
     this.userSessions = this.userSessions.set(user.name, new OrderedSet(whisperSessions))
     for (const target of whisperSessions) {
-      // Add the new user to all of the sessions he has opened
+      // Add the new user to all of the sessions they have opened
       this.sessionUsers = this.sessionUsers.update(target, new Set(), s => s.add(user.name))
       this._subscribeUserToWhisperSession(user, target)
     }
@@ -233,7 +246,7 @@ export class WhispersApi {
       return
     }
 
-    // Delete the user that quit from all of the sessions he had opened, if any
+    // Delete the user that quit from all of the sessions they had opened, if any
     for (const target of this.userSessions.get(userName).values()) {
       const updated = this.sessionUsers.get(target).delete(userName)
       this.sessionUsers =
