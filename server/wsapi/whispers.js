@@ -126,7 +126,7 @@ export class WhispersApi {
     await closeWhisperSession(user.session.userId, target.name)
     this.userSessions = this.userSessions.update(user.name, s => s.delete(target.name))
 
-    const updated = this.sessionUsers.get(target).delete(user.name)
+    const updated = this.sessionUsers.get(target.name).delete(user.name)
     this.sessionUsers = updated.size ?
         this.sessionUsers.set(target.name, updated) : this.sessionUsers.delete(target.name)
 
