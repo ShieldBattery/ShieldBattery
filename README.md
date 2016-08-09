@@ -49,8 +49,19 @@ attempting to follow further steps.
 All of the JS for the project is under the `js` directory. You can edit this
 however you wish, and no build step is necessary, but to install the
 dependencies you'll need to install a version of node.js. Any version of node
-&gt;= 5 should be fine, generally you'll just want to install the latest stable
+&gt;= 6 should be fine, generally you'll just want to install the latest stable
 version from [nodejs.org](https://nodejs.org/).
+
+When making JS changes, the bundle file used at runtime needs to be rebuilt. We
+have an NPM run script to handle rebuilding the bundle whenever any files
+change. To use it, navigatee to the `js/` subdirectory and then do:
+
+```
+npm run autobuild
+```
+
+**This must be run at least once, even if no JS changes have been made, or the
+locally built binaries will not work.**
 
 ### C++
 Building the C++ code requires Visual Studio 2015 or higher. The
@@ -83,10 +94,10 @@ be included in the installer.
 - **forge**: windowed mode and general rendering wrapper for ShieldBattery.
 - **installer**: WiX installer project used for generating a releasable
 Windows installer.
-- **logger**: logging class for pushing log lines from C++ to JS (so they can be
-put in the same log file in the same format)
 - **js**: All the JavaScript for the various projects, including code that
 interfaces with the various native modules we've created.
+- **logger**: logging class for pushing log lines from C++ to JS (so they can be
+put in the same log file in the same format)
 - **psi**: Node-embedded background service that handles launching and injecting
 Starcraft.
 - **psi-emitter**: an executable which detects the desktop resolution, for use
