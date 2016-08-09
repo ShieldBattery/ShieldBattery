@@ -4,7 +4,7 @@ import StringReplacePlugin from 'string-replace-webpack-plugin'
 
 const bundleDir = path.join(__dirname, 'bundle')
 const bundleJsDir = path.join(bundleDir, 'js')
-const entry = path.resolve(__dirname, '../js/index.js')
+const entry = path.resolve(__dirname, '../js/app.js')
 
 const options = {
   entry,
@@ -51,11 +51,11 @@ const options = {
     root: path.join(__dirname, 'node_modules'),
   },
   plugins: [
+    new webpack.NormalModuleReplacementPlugin(
+        /[\\/]any-promise[\\/]/, require.resolve('./promise.js')),
+    new webpack.IgnorePlugin(/README\.md|LICENSE$/),
     new webpack.optimize.OccurenceOrderPlugin(),
     new StringReplacePlugin(),
-    new webpack.DefinePlugin({
-      WEBPACK_BUILD: true,
-    }),
     new webpack.optimize.DedupePlugin(),
     new webpack.NoErrorsPlugin(),
   ]
