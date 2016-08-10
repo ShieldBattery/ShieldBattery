@@ -15,6 +15,7 @@ import ContentLayout from '../content/content-layout.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import TextField from '../material/text-field.jsx'
+import handleCommand from '../messaging/command-handler'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 
 // Height to the bottom of the loading area (the top of the messages)
@@ -69,8 +70,14 @@ class Whisper extends React.Component {
   }
 
   onChatEnter() {
+    const msg = this.refs.chatEntry.getValue()
+    if (msg[0] === '/') {
+      handleCommand('whispers', this.props.session.target, msg.slice(1, msg.length))
+      this.refs.chatEntry.clearValue()
+      return
+    }
     if (this.props.onSendChatMessage) {
-      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
+      this.props.onSendChatMessage(msg)
     }
     this.refs.chatEntry.clearValue()
   }

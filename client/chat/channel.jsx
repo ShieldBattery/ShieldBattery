@@ -15,6 +15,7 @@ import ContentLayout from '../content/content-layout.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
+import handleCommand from '../messaging/command-handler'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -113,8 +114,14 @@ class Channel extends React.Component {
   }
 
   onChatEnter() {
+    const msg = this.refs.chatEntry.getValue()
+    if (msg[0] === '/') {
+      handleCommand('chat', this.props.channel.name, msg.slice(1, msg.length))
+      this.refs.chatEntry.clearValue()
+      return
+    }
     if (this.props.onSendChatMessage) {
-      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
+      this.props.onSendChatMessage(msg)
     }
     this.refs.chatEntry.clearValue()
   }

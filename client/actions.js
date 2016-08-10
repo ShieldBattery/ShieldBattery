@@ -48,6 +48,11 @@ export const CHAT_UPDATE_USER_IDLE = 'CHAT_UPDATE_USER_IDLE'
 // A user in one of our chat channels has gone offline
 export const CHAT_UPDATE_USER_OFFLINE = 'CHAT_UPDATE_USER_OFFLINE'
 
+// A user has entered a valid command with the wrong arguments
+export const COMMAND_INVALID_ARGS = 'COMMAND_INVALID_ARGS'
+// A user has entered an unknown command
+export const COMMAND_UNKNOWN = 'COMMAND_UNKNOWN'
+
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 
