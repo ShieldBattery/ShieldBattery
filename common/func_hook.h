@@ -175,31 +175,39 @@ private:
   bool injected_;
 };
 
-// Hook type that rewrites the import table of a module (IAT hook)
-template<typename F>
-class ImportHook {
-public:
-  ImportHook(HMODULE module_handle, const std::string import_module_name,
-      const std::string import_func_name, F hook_func)
-      : original_func_(nullptr),
-        hook_func_(hook_func),
-        import_entry_(nullptr),
-        injected_(false) {
-    import_entry_ = GetImportEntry(module_handle, import_module_name, import_func_name);
-  }
 
-  ~ImportHook() {
+
+// Hook type that rewrites the import table of a module (IAT hook), construct using HookedModule
+class ImportHookBase {
+public:
+  virtual ~ImportHookBase() {}
+  virtual bool Inject() = 0;
+  virtual bool Restore() = 0;
+};
+
+class HookedModule;
+
+template<typename Signature>
+class ImportHook;
+
+template<typename Ret, typename... Args>
+class ImportHook<Ret(Args...)> : public ImportHookBase {
+  friend class HookedModule;
+  using FuncType = Ret (__stdcall *)(Args...);
+
+public:
+  virtual ~ImportHook() {
     if (injected_) {
       Restore();
     }
   }
 
-  bool Inject() {
+  virtual bool Inject() {
     if (injected_ || import_entry_ == nullptr) {
       return false;
     }
 
-    ScopedVirtualProtect protect(import_entry_, sizeof(F), PAGE_EXECUTE_READWRITE);
+    ScopedVirtualProtect protect(import_entry_, sizeof(FuncType), PAGE_EXECUTE_READWRITE);
     if (protect.has_errors()) {
       return false;
     }
@@ -210,13 +218,13 @@ public:
     return true;
   }
 
-  bool Restore() {
+  virtual bool Restore() {
     if (!injected_ || import_entry_ == nullptr) {
       return false;
     }
     assert(*import_entry_ == hook_func_);
 
-    ScopedVirtualProtect protect(import_entry_, sizeof(F), PAGE_EXECUTE_READWRITE);
+    ScopedVirtualProtect protect(import_entry_, sizeof(FuncType), PAGE_EXECUTE_READWRITE);
     if (protect.has_errors()) {
       return false;
     }
@@ -227,19 +235,27 @@ public:
     return true;
   }
 
-  F original() {
-    assert(import_entry_ != nullptr);
-    if (injected_) {
-      return original_func_;
-    } else {
-      return *import_entry_;
-    }
+private:
+  ImportHook(HMODULE module_handle, const std::string import_module_name,
+    const std::string import_func_name, FuncType hook_func)
+    : original_func_(nullptr),
+    hook_func_(hook_func),
+    import_entry_(nullptr),
+    injected_(false) {
+    import_entry_ = GetImportEntry(module_handle, import_module_name, import_func_name);
   }
 
-private:
+  ImportHook(ImportHook<Ret(Args...)>&& other)
+    : original_func_(other.original_func_),
+      hook_func_(other.hook_func_),
+      import_entry_(other.import_entry_),
+      injected_(other.injected_) {
+    other.injected_ = false;
+  }
+
   // disallow copying
-  ImportHook(const ImportHook&) = delete;
-  ImportHook& operator=(const ImportHook&) = delete;
+  ImportHook(const ImportHook<Ret(Args...)>&) = delete;
+  ImportHook& operator=(const ImportHook<Ret(Args...)>&) = delete;
 
   PIMAGE_NT_HEADERS GetNtHeaders(HMODULE module_handle) {
     assert(module_handle != nullptr);
@@ -259,7 +275,7 @@ private:
     return nt_header;
   }
 
-  F* GetImportEntry(HMODULE module_handle, const std::string import_module_name,
+  FuncType* GetImportEntry(HMODULE module_handle, const std::string import_module_name,
       const std::string import_func_name) {
     PIMAGE_NT_HEADERS header = GetNtHeaders(module_handle);
     if (header == nullptr) {
@@ -290,7 +306,7 @@ private:
             if (lstrcmpiA(reinterpret_cast<char*>(import_by_name->Name),
                 import_func_name.c_str()) == 0) {
               // we found the correct function entry, return it
-              return reinterpret_cast<F*>(&import_first->u1.Function);
+              return reinterpret_cast<FuncType*>(&import_first->u1.Function);
             }
           }
 
@@ -306,10 +322,38 @@ private:
     return nullptr;
   }
 
-  F original_func_;
-  F hook_func_;
-  F* import_entry_;
+  FuncType original_func_;
+  FuncType hook_func_;
+  FuncType* import_entry_;
   bool injected_;
+};
+
+class HookedModule {
+public:
+  explicit HookedModule(HMODULE module_handle);
+  ~HookedModule();
+
+  template<typename Ret, typename... Args>
+  void AddHook(
+      std::string import_module, std::string func_name, Ret(__stdcall *hook_func)(Args...)) {
+    std::unique_ptr<ImportHookBase> hook(
+        new ImportHook<Ret(Args...)>(module_handle_, import_module, func_name, hook_func));
+    if (injected_) {
+      hook->Inject();
+    }
+    hooks_.push_back(std::move(hook));
+  }
+
+  bool Inject();
+  bool Restore();
+private:
+  // disallow copying
+  HookedModule(const HookedModule&) = delete;
+  HookedModule& operator=(const HookedModule&) = delete;
+
+  HMODULE module_handle_;
+  bool injected_;
+  std::vector<std::unique_ptr<ImportHookBase>> hooks_;
 };
 
 }  // namespace sbat

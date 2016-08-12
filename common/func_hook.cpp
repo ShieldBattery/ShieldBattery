@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "common/types.h"
@@ -12,6 +13,7 @@
 
 namespace sbat {
 using std::shared_ptr;
+using std::string;
 using std::vector;
 
 Detour::Builder::Builder()
@@ -375,6 +377,33 @@ bool Detour::Restore() {
   memcpy_s(hook_location_, hook_size_, original_.get(), hook_size_);
   injected_ = false;
   return true;
+}
+
+HookedModule::HookedModule(HMODULE module_handle)
+  : module_handle_(module_handle),
+    injected_(false),
+    hooks_() {
+}
+
+HookedModule::~HookedModule() {
+}
+
+bool HookedModule::Inject() {
+  bool result = true;
+  for (const auto& hook : hooks_) {
+    result &= hook->Inject();
+  }
+  injected_ = true;
+  return result;
+}
+
+bool HookedModule::Restore() {
+  bool result = true;
+  for (const auto& hook : hooks_) {
+    result &= hook->Restore();
+  }
+  injected_ = false;
+  return result;
 }
 
 }  // namespace sbat

@@ -48,7 +48,8 @@ Persistent<Function> Forge::constructor;
 Forge* Forge::instance_ = nullptr;
 
 Forge::Forge()
-    : hooks_(),
+    : process_hooks_(GetModuleHandle(NULL)),
+      storm_hooks_(GetModuleHandle("storm.dll")),
       create_sound_buffer_hook_(nullptr),
       render_screen_hook_(),
       window_handle_(NULL),
@@ -74,44 +75,24 @@ Forge::Forge()
   assert(instance_ == nullptr);
   instance_ = this;
 
-  HMODULE process = GetModuleHandle(NULL);
-  hooks_.CreateWindowExA.reset(new ImportHook<ImportHooks::CreateWindowExAFunc>(
-      process, "user32.dll", "CreateWindowExA", CreateWindowExAHook));
-  hooks_.RegisterClassExA.reset(new ImportHook<ImportHooks::RegisterClassExAFunc>(
-      process, "user32.dll", "RegisterClassExA", RegisterClassExAHook));
-  hooks_.GetSystemMetrics.reset(new ImportHook<ImportHooks::GetSystemMetricsFunc>(
-      process, "user32.dll", "GetSystemMetrics", GetSystemMetricsHook));
-  hooks_.GetProcAddress.reset(new ImportHook<ImportHooks::GetProcAddressFunc>(
-      process, "kernel32.dll", "GetProcAddress", GetProcAddressHook));
-  hooks_.IsIconic.reset(new ImportHook<ImportHooks::IsIconicFunc>(
-      process, "user32.dll", "IsIconic", IsIconicHook));
-  hooks_.ClientToScreen.reset(new ImportHook<ImportHooks::ClientToScreenFunc>(
-      process, "user32.dll", "ClientToScreen", ClientToScreenHook));
-  hooks_.ScreenToClient.reset(new ImportHook<ImportHooks::ScreenToClientFunc>(
-      process, "user32.dll", "ScreenToClient", ScreenToClientHook));
-  hooks_.GetClientRect.reset(new ImportHook<ImportHooks::GetClientRectFunc>(
-      process, "user32.dll", "GetClientRect", GetClientRectHook));
-  hooks_.GetCursorPos.reset(new ImportHook<ImportHooks::GetCursorPosFunc>(
-      process, "user32.dll", "GetCursorPos", GetCursorPosHook));
-  hooks_.SetCursorPos.reset(new ImportHook<ImportHooks::SetCursorPosFunc>(
-      process, "user32.dll", "SetCursorPos", SetCursorPosHook));
-  hooks_.ClipCursor.reset(new ImportHook<ImportHooks::ClipCursorFunc>(
-      process, "user32.dll", "ClipCursor", ClipCursorHook));
-  hooks_.SetCapture.reset(new ImportHook<ImportHooks::SetCaptureFunc>(
-      process, "user32.dll", "SetCapture", SetCaptureHook));
-  hooks_.ReleaseCapture.reset(new ImportHook<ImportHooks::ReleaseCaptureFunc>(
-      process, "user32.dll", "ReleaseCapture", ReleaseCaptureHook));
-  hooks_.ShowWindow.reset(new ImportHook<ImportHooks::ShowWindowFunc>(
-    process, "user32.dll", "ShowWindow", ShowWindowHook));
-  hooks_.GetKeyState.reset(new ImportHook<ImportHooks::GetKeyStateFunc>(
-    process, "user32.dll", "GetKeyState", GetKeyStateHook));
+  process_hooks_.AddHook("user32.dll", "CreateWindowExA", &CreateWindowExAHook);
+  process_hooks_.AddHook("user32.dll", "RegisterClassExA", RegisterClassExAHook);
+  process_hooks_.AddHook("user32.dll", "GetSystemMetrics", GetSystemMetricsHook);
+  process_hooks_.AddHook("kernel32.dll", "GetProcAddress", GetProcAddressHook);
+  process_hooks_.AddHook("user32.dll", "IsIconic", IsIconicHook);
+  process_hooks_.AddHook("user32.dll", "ClientToScreen", ClientToScreenHook);
+  process_hooks_.AddHook("user32.dll", "ScreenToClient", ScreenToClientHook);
+  process_hooks_.AddHook("user32.dll", "GetClientRect", GetClientRectHook);
+  process_hooks_.AddHook("user32.dll", "GetCursorPos", GetCursorPosHook);
+  process_hooks_.AddHook("user32.dll", "SetCursorPos", SetCursorPosHook);
+  process_hooks_.AddHook("user32.dll", "ClipCursor", ClipCursorHook);
+  process_hooks_.AddHook("user32.dll", "SetCapture", SetCaptureHook);
+  process_hooks_.AddHook("user32.dll", "ReleaseCapture", ReleaseCaptureHook);
+  process_hooks_.AddHook("user32.dll", "ShowWindow", ShowWindowHook);
+  process_hooks_.AddHook("user32.dll", "GetKeyState", GetKeyStateHook);
 
-  HMODULE storm = GetModuleHandleA("storm.dll");
-  assert(storm != nullptr);
-  hooks_.StormIsIconic.reset(new ImportHook<ImportHooks::StormIsIconicFunc>(
-    storm, "user32.dll", "IsIconic", IsIconicHook));
-  hooks_.StormIsWindowVisible.reset(new ImportHook<ImportHooks::StormIsWindowVisibleFunc>(
-    storm, "user32.dll", "IsWindowVisible", IsWindowVisibleHook));
+  storm_hooks_.AddHook("user32.dll", "IsIconic", IsIconicHook);
+  storm_hooks_.AddHook("user32.dll", "IsWindowVisible", IsWindowVisible);
 
   // TODO(tec27): move this hook into brood_war?
   render_screen_hook_.reset(new FuncHook<RenderScreenFunc>(
@@ -238,23 +219,8 @@ Local<Value> Forge::NewInstance() {
 void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
   bool result = true;
 
-  result &= instance_->hooks_.CreateWindowExA->Inject();
-  result &= instance_->hooks_.RegisterClassExA->Inject();
-  result &= instance_->hooks_.GetSystemMetrics->Inject();
-  result &= instance_->hooks_.GetProcAddress->Inject();
-  result &= instance_->hooks_.IsIconic->Inject();
-  result &= instance_->hooks_.ClientToScreen->Inject();
-  result &= instance_->hooks_.ScreenToClient->Inject();
-  result &= instance_->hooks_.GetClientRect->Inject();
-  result &= instance_->hooks_.GetCursorPos->Inject();
-  result &= instance_->hooks_.SetCursorPos->Inject();
-  result &= instance_->hooks_.ClipCursor->Inject();
-  result &= instance_->hooks_.SetCapture->Inject();
-  result &= instance_->hooks_.ReleaseCapture->Inject();
-  result &= instance_->hooks_.ShowWindow->Inject();
-  result &= instance_->hooks_.GetKeyState->Inject();
-  result &= instance_->hooks_.StormIsIconic->Inject();
-  result &= instance_->hooks_.StormIsWindowVisible->Inject();
+  result &= instance_->process_hooks_.Inject();
+  result &= instance_->storm_hooks_.Inject();
   result &= instance_->render_screen_hook_->Inject();
 
   info.GetReturnValue().Set(Nan::New(result));
@@ -263,23 +229,8 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
 void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
   bool result = true;
 
-  result &= instance_->hooks_.CreateWindowExA->Restore();
-  result &= instance_->hooks_.RegisterClassExA->Restore();
-  result &= instance_->hooks_.GetSystemMetrics->Restore();
-  result &= instance_->hooks_.GetProcAddress->Restore();
-  result &= instance_->hooks_.IsIconic->Restore();
-  result &= instance_->hooks_.ClientToScreen->Restore();
-  result &= instance_->hooks_.ScreenToClient->Restore();
-  result &= instance_->hooks_.GetClientRect->Restore();
-  result &= instance_->hooks_.GetCursorPos->Restore();
-  result &= instance_->hooks_.SetCursorPos->Restore();
-  result &= instance_->hooks_.ClipCursor->Restore();
-  result &= instance_->hooks_.SetCapture->Restore();
-  result &= instance_->hooks_.ReleaseCapture->Restore();
-  result &= instance_->hooks_.ShowWindow->Restore();
-  result &= instance_->hooks_.GetKeyState->Restore();
-  result &= instance_->hooks_.StormIsIconic->Restore();
-  result &= instance_->hooks_.StormIsWindowVisible->Restore();
+  result &= instance_->process_hooks_.Restore();
+  result &= instance_->storm_hooks_.Restore();
   result &= instance_->render_screen_hook_->Restore();
 
   info.GetReturnValue().Set(Nan::New(result));
@@ -586,8 +537,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   Logger::Logf(LogLevel::Verbose, "CreateWindowExA called for class %s (%d,%d), %dx%d",
       lpClassName, x, y, nWidth, nHeight);
   if (strcmp(lpClassName, "SWarClass") != 0) {
-    return instance_->hooks_.CreateWindowExA->original()(dwExStyle, lpClassName, lpWindowName,
-        dwStyle, x, y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
+    return CreateWindowExA(dwExStyle, lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight,
+        hWndParent, hMenu, hInstance, lpParam);
   }
   assert(instance_->window_handle_ == NULL);
 
@@ -646,10 +597,10 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   Logger::Logf(LogLevel::Verbose, "Rewriting CreateWindowExA call to (%d, %d), %dx%d)",
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top);
-  instance_->window_handle_ = instance_->hooks_.CreateWindowExA->original()(dwExStyle,
-      lpClassName, lpWindowName, style, window_rect.left, window_rect.top,
-      window_rect.right - window_rect.left, window_rect.bottom - window_rect.top, hWndParent, hMenu,
-      hInstance, lpParam);
+  instance_->window_handle_ = CreateWindowExA(dwExStyle, lpClassName, lpWindowName, style,
+      window_rect.left, window_rect.top,
+      window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
+      hWndParent, hMenu, hInstance, lpParam);
   // In some cases, Windows seems to not give us a window of the size we requested, so we also
   // re-apply the size and position here just in case
   SetWindowPos(instance_->window_handle_, HWND_BOTTOM,
@@ -681,7 +632,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
 
 ATOM __stdcall Forge::RegisterClassExAHook(const WNDCLASSEX* lpwcx) {
   if (strcmp(lpwcx->lpszClassName, "SWarClass") != 0) {
-    return instance_->hooks_.RegisterClassExA->original()(lpwcx);
+    return RegisterClassExA(lpwcx);
   }
 
   instance_->original_wndproc_ = lpwcx->lpfnWndProc;
@@ -689,7 +640,7 @@ ATOM __stdcall Forge::RegisterClassExAHook(const WNDCLASSEX* lpwcx) {
   rewritten.style |= CS_OWNDC;
   rewritten.lpfnWndProc = Forge::WndProc;
   Logger::Log(LogLevel::Verbose, "Rewrote SWarClass to have CS_OWNDC");
-  return instance_->hooks_.RegisterClassExA->original()(&rewritten);
+  return RegisterClassExA(&rewritten);
 }
 
 int __stdcall Forge::GetSystemMetricsHook(int nIndex) {
@@ -701,7 +652,7 @@ int __stdcall Forge::GetSystemMetricsHook(int nIndex) {
   // heights
   case SM_CYSCREEN:
   case SM_CYFULLSCREEN: return 480;
-  default: return instance_->hooks_.GetSystemMetrics->original()(nIndex);
+  default: return GetSystemMetrics(nIndex);
   }
 }
 
@@ -713,7 +664,7 @@ FARPROC __stdcall Forge::GetProcAddressHook(HMODULE hModule, LPCSTR lpProcName) 
     Logger::Log(LogLevel::Verbose, "Injecting custom DirectSoundCreate8");
     return reinterpret_cast<FARPROC>(DirectSoundCreate8Hook);
   } else {
-    return instance_->hooks_.GetProcAddress->original()(hModule, lpProcName);
+    return GetProcAddress(hModule, lpProcName);
   }
 }
 
@@ -721,7 +672,7 @@ BOOL __stdcall Forge::IsIconicHook(HWND hWnd) {
   if (hWnd == instance_->window_handle_) {
     return FALSE;
   } else {
-    return instance_->hooks_.IsIconic->original()(hWnd);
+    return IsIconic(hWnd);
   }
 }
 
@@ -729,14 +680,14 @@ BOOL __stdcall Forge::IsWindowVisibleHook(HWND hWnd) {
   if (hWnd == instance_->window_handle_) {
     return TRUE;
   } else {
-    return instance_->hooks_.StormIsWindowVisible->original()(hWnd);
+    return IsWindowVisible(hWnd);
   }
 }
 
 
 BOOL __stdcall Forge::ClientToScreenHook(HWND hWnd, LPPOINT lpPoint) {
   if (hWnd != instance_->window_handle_) {
-    return  instance_->hooks_.ClientToScreen->original()(hWnd, lpPoint);
+    return  ClientToScreen(hWnd, lpPoint);
   }
 
   // We want BW to think its full screen, and therefore any coordinates it wants in screenspace
@@ -746,7 +697,7 @@ BOOL __stdcall Forge::ClientToScreenHook(HWND hWnd, LPPOINT lpPoint) {
 
 BOOL __stdcall Forge::ScreenToClientHook(HWND hWnd, LPPOINT lpPoint) {
   if (hWnd != instance_->window_handle_) {
-    return instance_->hooks_.ScreenToClient->original()(hWnd, lpPoint);
+    return ScreenToClient(hWnd, lpPoint);
   }
 
   // TODO(tec27): I don't think BW even actually uses this, and this implementation is wrong given
@@ -764,14 +715,14 @@ BOOL __stdcall Forge::ScreenToClientHook(HWND hWnd, LPPOINT lpPoint) {
   assert((window_rect.bottom - window_rect.top) ==
       (client_rect.bottom + border_size_y + border_size_x));
 
-  BOOL result = instance_->hooks_.ScreenToClient->original()(hWnd, lpPoint);
+  BOOL result = ScreenToClient(hWnd, lpPoint);
   Logger::Logf(LogLevel::Verbose, "=> (%d, %d)", lpPoint->x, lpPoint->y);
   return result;
 }
 
 BOOL __stdcall Forge::GetClientRectHook(HWND hWnd, LPRECT lpRect) {
   if (hWnd != instance_->window_handle_) {
-    return instance_->hooks_.GetClientRect->original()(hWnd, lpRect);
+    return GetClientRect(hWnd, lpRect);
   }
 
   lpRect->left = 0;
@@ -799,14 +750,14 @@ BOOL __stdcall Forge::SetCursorPosHook(int x, int y) {
       instance_->client_x_;
   y = static_cast<int>(((y * (instance_->mouse_resolution_height_ / 480.0)) + 0.5)) +
       instance_->client_y_;
-  return instance_->hooks_.SetCursorPos->original()(x, y);
+  return SetCursorPos(x, y);
 }
 
-BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
+BOOL Forge::PerformScaledClipCursor(const RECT* lpRect) {
   if (lpRect == NULL) {
     sbat::bw::SetBroodWarInputDisabled(true);
     // if they're clearing the clip, we just call through because there's nothing to adjust
-    return hooks_.ClipCursor->original()(lpRect);
+    return ClipCursor(lpRect);
   }
 
   sbat::bw::SetBroodWarInputDisabled(false);
@@ -825,10 +776,10 @@ BOOL Forge::PerformScaledClipCursor(const LPRECT lpRect) {
   actual_rect.right = static_cast<int>(lpRect->right * x_scale + 0.5) + client_x_;
   actual_rect.bottom = static_cast<int>(lpRect->bottom * y_scale + 0.5) + client_y_;
 
-  return hooks_.ClipCursor->original()(&actual_rect);
+  return ClipCursor(&actual_rect);
 }
 
-BOOL __stdcall Forge::ClipCursorHook(const LPRECT lpRect) {
+BOOL __stdcall Forge::ClipCursorHook(const RECT* lpRect) {
   if (lpRect == NULL) {
     instance_->stored_cursor_rect_ = nullptr;
     return instance_->PerformScaledClipCursor(lpRect);
@@ -922,13 +873,13 @@ BOOL __stdcall Forge::ShowWindowHook(HWND hwnd, int nCmdShow) {
   if (hwnd == instance_->window_handle_) {
     return TRUE;
   } else {
-    return instance_->hooks_.ShowWindow->original()(hwnd, nCmdShow);
+    return ShowWindow(hwnd, nCmdShow);
   }
 }
 
 SHORT __stdcall Forge::GetKeyStateHook(int nVirtKey) {
   if (instance_->window_active_) {
-    return instance_->hooks_.GetKeyState->original()(nVirtKey);
+    return GetKeyState(nVirtKey);
   } else {
     // This will get run at least from WM_NCACTIVATE handler's key
     // releasing code, as bw checks the state of modifier keys.

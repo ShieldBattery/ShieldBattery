@@ -22,34 +22,6 @@ const DWORD BORDERLESS_WINDOW_SWAP = WS_CAPTION | WS_VISIBLE;
 const DWORD BORDERLESS_WINDOW_NOSWAP = WS_POPUP | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
-#define HOOKABLE(RetType, Name, ...) typedef RetType (__stdcall *##Name##Func)(__VA_ARGS__); \
-      std::unique_ptr<ImportHook<##Name##Func>> Name;
-struct ImportHooks {
-  // Starcraft import hooks
-  HOOKABLE(HWND, CreateWindowExA, DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName,
-      DWORD dwStyle, int x, int y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu,
-      HINSTANCE hInstance, LPVOID lpParam);
-  HOOKABLE(ATOM, RegisterClassExA, const WNDCLASSEX* lpwcx);
-  HOOKABLE(int, GetSystemMetrics, int nIndex);
-  HOOKABLE(FARPROC, GetProcAddress, HMODULE hModule, LPCSTR lpProcName);
-  HOOKABLE(BOOL, IsIconic, HWND hWnd);
-  HOOKABLE(BOOL, ClientToScreen, HWND hWnd, LPPOINT lpPoint);
-  HOOKABLE(BOOL, ScreenToClient, HWND hWnd, LPPOINT lpPoint);
-  HOOKABLE(BOOL, GetClientRect, HWND hWnd, LPRECT lpRect);
-  HOOKABLE(BOOL, GetCursorPos, LPPOINT lpPoint);
-  HOOKABLE(BOOL, SetCursorPos, int x, int y);
-  HOOKABLE(BOOL, ClipCursor, const LPRECT lpRect);
-  HOOKABLE(HWND, SetCapture, HWND hWnd);
-  HOOKABLE(BOOL, ReleaseCapture);
-  HOOKABLE(BOOL, ShowWindow, HWND hwnd, int nCmdShow);
-  HOOKABLE(SHORT, GetKeyState, int nVirtKey);
-  // Storm import hooks
-  HOOKABLE(BOOL, StormIsIconic, HWND hWnd);
-  HOOKABLE(BOOL, StormIsWindowVisible, HWND hWnd);
-
-};
-#undef HOOKABLE
-
 typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
 typedef void(__stdcall *RenderScreenFunc)();
@@ -71,7 +43,7 @@ private:
   Forge(const Forge&) = delete;
   Forge& operator=(const Forge&) = delete;
 
-  BOOL PerformScaledClipCursor(LPRECT lpRect);
+  BOOL PerformScaledClipCursor(const RECT* lpRect);
   void HandleAltRelease();
   bool IsCursorInWindow();
   void ClientRectToScreenRect(const LPRECT client_rect);
@@ -109,7 +81,7 @@ private:
   static BOOL __stdcall GetClientRectHook(HWND hWnd, LPRECT lpRect);
   static BOOL __stdcall GetCursorPosHook(LPPOINT lpPoint);
   static BOOL __stdcall SetCursorPosHook(int x, int y);
-  static BOOL __stdcall ClipCursorHook(const LPRECT lpRect);
+  static BOOL __stdcall ClipCursorHook(const RECT* lpRect);
   static HRESULT __stdcall DirectSoundCreate8Hook(
       const GUID* device, IDirectSound8** direct_sound_out, IUnknown* unused);
   static HRESULT __stdcall CreateSoundBufferHook(IDirectSound8* this_ptr,
@@ -131,7 +103,8 @@ private:
   static Nan::Persistent<v8::Function> constructor;
   static Forge* instance_;
 
-  ImportHooks hooks_;
+  HookedModule process_hooks_;
+  HookedModule storm_hooks_;
   FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
   std::unique_ptr<FuncHook<RenderScreenFunc>> render_screen_hook_;
   HWND window_handle_;
