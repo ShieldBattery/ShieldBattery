@@ -48,6 +48,10 @@ export const CHAT_UPDATE_USER_IDLE = 'CHAT_UPDATE_USER_IDLE'
 // A user in one of our chat channels has gone offline
 export const CHAT_UPDATE_USER_OFFLINE = 'CHAT_UPDATE_USER_OFFLINE'
 
+// User has entered a command and is getting a local response. This means that the command has been
+// parsed and the user can decide what to do with its payload (which could contain an error)
+export const COMMAND_LOCAL_RESPONSE = 'COMMAND_LOCAL_RESPONSE'
+
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 
