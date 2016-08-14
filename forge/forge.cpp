@@ -92,7 +92,7 @@ Forge::Forge()
   process_hooks_.AddHook("user32.dll", "GetKeyState", GetKeyStateHook);
 
   storm_hooks_.AddHook("user32.dll", "IsIconic", IsIconicHook);
-  storm_hooks_.AddHook("user32.dll", "IsWindowVisible", IsWindowVisible);
+  storm_hooks_.AddHook("user32.dll", "IsWindowVisible", IsWindowVisibleHook);
 
   // TODO(tec27): move this hook into brood_war?
   render_screen_hook_.reset(new FuncHook<RenderScreenFunc>(
