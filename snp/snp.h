@@ -14,7 +14,7 @@ struct SnpCapabilities {
   uint32 max_packet_size;
   uint32 unknown3;
   uint32 displayed_player_count;
-  uint32 unknown4;
+  uint32 unknown5;
   uint32 player_latency;
   uint32 max_player_count;
   uint32 turn_delay;

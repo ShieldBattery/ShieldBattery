@@ -56,14 +56,25 @@ void InitSnpStructs() {
   snp_list_entry.description[0] = '\0';
   snp_list_entry.capabilities = {
     sizeof(SnpCapabilities),
-    0x0,  // unknown1
+    // As far as I can see, only the 1 bit matters here, and seems to affect how storm allocates
+    // for packet data. Only UDP LAN sets it. Doesn't look particularly useful to us. All of the
+    // network modes set at least 0x20000000 though, so we'll set it as well.
+    0x20000000,  // unknown1
     SNP_PACKET_SIZE - 16,  // max_packet_size, minus 16 because Storm normally does that (overhead?)
-    0x10,  // unknown3
-    0x100,  // displayed_player_count
-    0x05DC,  // unknown 4
-    0x100,  // player_latency
-    0x08,  //  max_player_count
-    0x02  //  turn_delay
+    16,  // unknown3
+    256,  // displayed_player_count
+    // This value is related to timeouts in some way (it's always used alongside GetTickCount, and
+    // always as the divisor). The value here matches the one used by UDP LAN and new
+    // (post-lan-lat-changes) BNet.
+    100000,  // unknown 5
+    // This value is seemingly related to timeouts as well (and does not affect action latency under
+    // normal conditions). The value chosen here sits between UDP LAN (50, minimum) and BNet (500).
+    384,  // player_latency
+    // This is not really an accurate naming, it's more related to the rate at which packets will be
+    // sent. This value matches UDP LAN and new (post-lan-lat-changes) BNet.
+    8,  //  max_player_count
+    // Matches UDP LAN
+    2  //  turn_delay
   };
 }
 
