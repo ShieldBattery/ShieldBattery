@@ -1,5 +1,4 @@
 import React, { PropTypes } from 'react'
-import ReactDom from 'react-dom'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -129,15 +128,13 @@ class ChatList extends React.Component {
     messages: PropTypes.object.isRequired,
   };
 
-  constructor(props) {
-    super(props)
-    this._shouldAutoScroll = true
-  }
+  _shouldAutoScroll = true;
+  _elem = null;
+  _setElem = elem => { this._elem = elem };
 
   maybeScrollToBottom() {
     if (this._shouldAutoScroll) {
-      const node = ReactDom.findDOMNode(this)
-      node.scrollTop = node.scrollHeight
+      this._elem.scrollTop = this._elem.scrollHeight
     }
   }
 
@@ -150,7 +147,7 @@ class ChatList extends React.Component {
   }
 
   componentWillUpdate() {
-    const node = ReactDom.findDOMNode(this)
+    const node = this._elem
     this._shouldAutoScroll = (node.scrollTop + node.offsetHeight) >= node.scrollHeight
   }
 
@@ -177,7 +174,7 @@ class ChatList extends React.Component {
   }
 
   render() {
-    return (<div className={styles.chat}>
+    return (<div ref={this._setElem} className={styles.chat}>
       { this.props.messages.map(msg => this.renderMessage(msg)) }
     </div>)
   }

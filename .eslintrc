@@ -5,6 +5,12 @@
     "react"
   ],
 
+  "settings": {
+    "react": {
+      "version": "15.3.0"
+    }
+  },
+
   "ecmaFeatures": {
     "modules": true,
     "jsx": true
@@ -201,20 +207,26 @@
 
     "react/display-name": 0,
     "react/jsx-boolean-value": [2, "always"],
+    "react/jsx-no-duplicate-props": 2,
     "react/jsx-no-undef": 2,
     "react/jsx-sort-prop-types": 0,
     "react/jsx-sort-props": 0,
     "react/jsx-uses-react": 2,
     "react/jsx-uses-vars": 2,
-    "react/no-did-mount-set-state": [2, "allow-in-func"],
-    "react/no-did-update-set-state": 2,
+    "react/jsx-wrap-multilines": [2, { "declaration": false, "assignment": false, "return": true }],
+    "react/no-deprecated": 2,
+    "react/no-did-mount-set-state": 0,
+    "react/no-did-update-set-state": 0,
+    "react/no-direct-mutation-state": 2,
+    "react/no-find-dom-node": 2,
+    "react/no-is-mounted": 2,
     "react/no-multi-comp": 0,
     "react/no-unknown-property": 2,
     "react/prop-types": 0,
     "react/react-in-jsx-scope": 2,
     "react/require-extension": 0,
+    "react/require-render-return": 2,
     "react/self-closing-comp": 0,
-    "react/sort-comp": 0,
-    "react/wrap-multilines": [2, { "declaration": false, "assignment": false, "return": true }]
+    "react/sort-comp": 0
   }
 }
