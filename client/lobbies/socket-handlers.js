@@ -147,10 +147,13 @@ const eventToAction = {
     })
   },
 
-  cancelLoading: (name, event, { psiSocket }) => dispatch => {
+  cancelLoading: (name, event, { psiSocket }) => (dispatch, getState) => {
+    const { auth: { user } } = getState()
     dispatch({
       type: PSI_GAME_LAUNCH,
-      payload: psiSocket.invoke('/site/setGameConfig', null)
+      payload: psiSocket.invoke('/site/setGameConfig', {
+        localUser: user,
+      })
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },
