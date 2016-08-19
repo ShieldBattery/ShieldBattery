@@ -1,6 +1,7 @@
 .avatarImage {
   width: 40px;
   height: 40px;
+  display: inline-block;
 }
 
 .avatarImage > svg {

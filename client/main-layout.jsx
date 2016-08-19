@@ -9,6 +9,7 @@ import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
+import FontIcon from './material/font-icon.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
@@ -17,6 +18,7 @@ import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
+import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
 
 import ActiveGameNavEntry from './active-game/nav-entry.jsx'
 import ChatNavEntry from './chat/nav-entry.jsx'
@@ -53,6 +55,9 @@ function stateToProps(state) {
 
 @connect(stateToProps)
 class MainLayout extends React.Component {
+  state = {
+    avatarOverlayOpened: false,
+  };
   _handleWhisperClose = ::this.onWhisperClose;
 
   componentWillMount() {
@@ -66,7 +71,6 @@ class MainLayout extends React.Component {
       nextProps.dispatch(goToIndex(routerActions.replace))
     }
   }
-
 
   renderLobbyNav() {
     if (!this.props.inLobby) return null
@@ -88,6 +92,19 @@ class MainLayout extends React.Component {
       <Section key='active-game-section'><ActiveGameNavEntry key='active-game' /></Section>,
       <Divider key='active-game-divider' />,
     ]
+  }
+
+  renderAvatarOverlay() {
+    if (!this.state.avatarOverlayOpened) return null
+
+    return ([
+      <div key='scrim' className={styles.invisibleScrim} onClick={this.onCloseProfileOverlay} />,
+      <SelfProfileOverlay key='overlay' className={styles.profileOverlay}
+          user={this.props.auth.user.name}>
+        <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
+            onClick={this.onLogOutClicked} />
+      </SelfProfileOverlay>,
+    ])
   }
 
   render() {
@@ -117,8 +134,8 @@ class MainLayout extends React.Component {
         </Section>
       </LeftNav>
       { this.props.children }
-      <ActivityBar user={this.props.auth.user.name} avatarTitle={'Log out'}
-          onAvatarClick={::this.onLogOutClicked}>
+      <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
+          onAvatarClick={this.onAvatarClick}>
         <ActivityButton icon='cake' label='Find match' onClick={::this.onFindMatchClick} />
         <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
         <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
@@ -129,10 +146,23 @@ class MainLayout extends React.Component {
           null }
         <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
       </ActivityBar>
+      { this.renderAvatarOverlay() }
       <ActivityOverlay />
       <ConnectedSnackbar />
     </ConnectedDialogOverlay>)
   }
+
+  onAvatarClick = () => {
+    this.setState({
+      avatarOverlayOpened: true
+    })
+  };
+
+  onCloseProfileOverlay = () => {
+    this.setState({
+      avatarOverlayOpened: false
+    })
+  };
 
   onAddWhisperClicked() {
     this.props.dispatch(openDialog('whispers'))
@@ -146,9 +176,9 @@ class MainLayout extends React.Component {
     this.props.dispatch(openDialog('settings'))
   }
 
-  onLogOutClicked() {
+  onLogOutClicked = () => {
     this.props.dispatch(auther.logOut().action)
-  }
+  };
 
   onFindMatchClick() {
     this.props.dispatch(openSnackbar({

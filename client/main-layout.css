@@ -1,5 +1,6 @@
 @value colorTextSecondary from './styles/colors.css';
 @value row from './styles/flex.css';
+@value zIndexMenuBackdrop from './material/zindex.css';
 
 .layout {
   composes: row;
@@ -18,4 +19,19 @@
 /* TODO(tec27): need to fix buttons to be more stylable so this sort of thing isn't necessary */
 .subheaderButton > span {
   color: colorTextSecondary !important;
+}
+
+.profileOverlay {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+}
+
+.invisibleScrim {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: zIndexMenuBackdrop;
 }
