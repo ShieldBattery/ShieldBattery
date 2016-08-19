@@ -20,13 +20,16 @@ export default keyedReducer(new GameClient(), {
       return new GameClient()
     }
 
-    return new GameClient({ gameId: action.payload })
+    return state
   },
 
   [PSI_GAME_STATUS](state, action) {
-    return state.set('status', new GameStatus({
-      state: action.payload.state,
-      extra: action.payload.extra ? Immutable.fromJS(action.payload.extra) : null,
-    }))
+    return new GameClient({
+      gameId: action.payload.id,
+      status: new GameStatus({
+        state: action.payload.state,
+        extra: action.payload.extra ? Immutable.fromJS(action.payload.extra) : null,
+      })
+    })
   },
 })

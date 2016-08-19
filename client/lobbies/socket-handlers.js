@@ -189,15 +189,16 @@ export default function registerModule({ siteSocket, psiSocket }) {
     })
   })
 
-  psiSocket.registerRoute('/game/status', (route, event) => {
+  psiSocket.registerRoute('/game/status/:origin', (route, event) => {
     dispatch((dispatch, getState) => {
-      const { gameClient } = getState()
-      if (gameClient.gameId === event.id) {
-        dispatch({ type: PSI_GAME_STATUS, payload: event })
+      const { auth: { user } } = getState()
 
-        if (event.state === 'playing') {
+      for (const status of event.filter(x => x.user === user.name)) {
+        dispatch({ type: PSI_GAME_STATUS, payload: status })
+
+        if (status.state === 'playing') {
           siteSocket.invoke('/lobbies/gameLoaded')
-        } else if (event.state === 'error') {
+        } else if (status.state === 'error') {
           siteSocket.invoke('/lobbies/loadFailed')
         }
       }
