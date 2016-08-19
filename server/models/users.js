@@ -24,50 +24,48 @@ class User {
     this.created = props.created || new Date()
   }
 
-  * save() {
+  async save() {
     if (!this.name || !this.email || !this.password || !this.created) {
       throw new Error('Incomplete data')
     }
     // TODO(tec27): it's very strange that the return value changes here depending on whether its
     // an insert or an update, find a way to reconcile those
     if (!this._fromDb) {
-      return yield* this._insert()
+      return await this._insert()
     } else {
-      return yield* this._update()
+      return await this._update()
     }
   }
 
-  * _insert() {
+  async _insert() {
     const query = 'INSERT INTO users (name, email, password, created) ' +
         'VALUES ($1, $2, $3, $4) RETURNING id'
     const params = [ this.name, this.email, this.password, this.created ]
 
-    // async arrow functions cause problems with `this` in babel atm
-    const self = this
-    return yield transact(async function(client) {
+    return await transact(async client => {
       const result = await client.queryPromise(query, params)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')
       }
 
-      self.id = result.rows[0].id
-      self._fromDb = true
-      await deleteInvite(client, self.email)
-      const userPermissions = await permissions.create(client, self.id)
-      await addUserToChannel(self.id, 'ShieldBattery', client)
-      return { user: self, permissions: userPermissions }
+      this.id = result.rows[0].id
+      this._fromDb = true
+      await deleteInvite(client, this.email)
+      const userPermissions = await permissions.create(client, this.id)
+      await addUserToChannel(this.id, 'ShieldBattery', client)
+      return { user: this, permissions: userPermissions }
     })
   }
 
-  * _update() {
+  async _update() {
     if (!this.id) throw new Error('Incomplete data')
     const query =
         'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
     const params = [ this.name, this.email, this.password. this.created, this.id ]
 
-    const { client, done } = yield db()
+    const { client, done } = await db()
     try {
-      yield client.queryPromise(query, params)
+      await client.queryPromise(query, params)
       return this
     } finally {
       done()

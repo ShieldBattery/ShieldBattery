@@ -22,15 +22,15 @@ class Invite {
 //   canHost
 // }
 // isAccepted or token cannot be specified during creation
-function* createInvite(invite) {
+async function createInvite(invite) {
   let query
     , params
   query = 'SELECT 1 FROM invites WHERE email = $1'
   params = [ invite.email ]
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     if (result.rows.length < 1) {
       query = 'INSERT INTO invites (email, teamliquid_name, os, browser, graphics, can_host) ' +
           'VALUES ($1, $2, $3, $4, $5, $6)'
@@ -45,7 +45,7 @@ function* createInvite(invite) {
 
       // TODO(tec27): this is a race condition, we should be doing this in a transaction or at least
       // handling the case that this next query fails better
-      yield client.queryPromise(query, params)
+      await client.queryPromise(query, params)
     } else {
       const error = new Error('That email has already been used')
       error.name = 'DuplicateEmail'
@@ -56,7 +56,7 @@ function* createInvite(invite) {
   }
 }
 
-function* _getInvitesCount(condition) {
+async function _getInvitesCount(condition) {
   let query = 'SELECT COUNT(*) FROM invites'
   const params = []
 
@@ -64,16 +64,16 @@ function* _getInvitesCount(condition) {
     query += ' ' + condition
   }
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     return result.rows[0]
   } finally {
     done()
   }
 }
 
-function* _getInvites(condition, limit, pageNumber) {
+async function _getInvites(condition, limit, pageNumber) {
   let query = 'SELECT * FROM invites'
   let params = []
 
@@ -87,27 +87,27 @@ function* _getInvites(condition, limit, pageNumber) {
     pageNumber * limit
   ]
 
-  const total = yield* _getInvitesCount(condition)
+  const total = await _getInvitesCount(condition)
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     return { total: parseInt(total.count, 10), invites: result.rows.map(row => new Invite(row)) }
   } finally {
     done()
   }
 }
 
-function* getAllInvites(limit, pageNumber) {
-  return yield* _getInvites(null, limit, pageNumber)
+async function getAllInvites(limit, pageNumber) {
+  return await _getInvites(null, limit, pageNumber)
 }
 
-function* getUnacceptedInvites(limit, pageNumber) {
-  return yield* _getInvites('WHERE token IS NULL', limit, pageNumber)
+async function getUnacceptedInvites(limit, pageNumber) {
+  return await _getInvites('WHERE token IS NULL', limit, pageNumber)
 }
 
-function* getAcceptedInvites(limit, pageNumber) {
-  return yield* _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
+async function getAcceptedInvites(limit, pageNumber) {
+  return await _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
 }
 
 async function acceptInvite(client, email, token) {
@@ -119,13 +119,13 @@ async function acceptInvite(client, email, token) {
   return new Invite(result.rows[0])
 }
 
-export function* getTokenByEmail(email) {
+export async function getTokenByEmail(email) {
   const query = 'SELECT token FROM invites WHERE email = $1'
   const params = [ email ]
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     if (result.rows.length < 1) {
       const error = new Error('No such email signed up for beta')
       error.name = 'NonexistentEmail'

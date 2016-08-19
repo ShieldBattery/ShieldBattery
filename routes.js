@@ -1,3 +1,4 @@
+import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
 import KoaRouter from 'koa-router'
 import httpErrors from 'http-errors'
@@ -9,7 +10,7 @@ import config from './config'
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
 
-function* send404(next) {
+function send404(ctx, next) {
   throw new httpErrors.NotFound()
 }
 
@@ -38,25 +39,27 @@ function applyRoutes(app) {
 
   if (isDev) {
     // We expect the styles to be included in the development JS (so they can be hot reloaded)
-    router.get('/styles/site.css', function*() {
-      this.body = ''
-      this.type = 'text/css'
+    router.get('/styles/site.css', function(ctx, next) {
+      ctx.body = ''
+      ctx.type = 'text/css'
     })
   }
 
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
-  router.get('/:param*', koaStatic(path.join(__dirname, 'public')), function*(next) {
-    const initData = {}
-    if (this.session.userId) {
-      initData.auth = {
-        user: { id: this.session.userId, name: this.session.userName },
-        permissions: this.session.permissions,
+  router.get(
+    '/:param*', koaConvert(koaStatic(path.join(__dirname, 'public'))), async function(ctx, next) {
+      const initData = {}
+      if (ctx.session.userId) {
+        initData.auth = {
+          user: { id: ctx.session.userId, name: ctx.session.userName },
+          permissions: ctx.session.permissions,
+        }
       }
+      await ctx.render('index',
+          { initData, analyticsId: config.analyticsId, feedbackUrl: config.feedbackUrl })
     }
-    yield this.render('index',
-        { initData, analyticsId: config.analyticsId, feedbackUrl: config.feedbackUrl })
-  })
+  )
 }
 
 export default applyRoutes

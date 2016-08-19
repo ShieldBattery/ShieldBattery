@@ -1,12 +1,12 @@
 // middleware to add some more secure headers to our responses
-module.exports = function() {
-  return function* secureHeaders(next) {
-    yield next
+export default function() {
+  return async function secureHeaders(ctx, next) {
+    await next()
     // prevent framing of our page off our domain
-    this.response.set('X-Frame-Options', 'SAMEORIGIN')
+    ctx.response.set('X-Frame-Options', 'SAMEORIGIN')
     // prevent content type sniffing
-    this.response.set('X-Content-Type-Options', 'nosniff')
+    ctx.response.set('X-Content-Type-Options', 'nosniff')
     // turn on xss protection in IE
-    this.response.set('X-XSS-Protection', '1; mode=block')
+    ctx.response.set('X-XSS-Protection', '1; mode=block')
   }
 }

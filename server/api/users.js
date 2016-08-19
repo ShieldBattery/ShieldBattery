@@ -18,23 +18,23 @@ export default function(router) {
     })
 }
 
-function* find(next) {
-  const searchTerm = this.params.searchTerm
+async function find(ctx, next) {
+  const searchTerm = ctx.params.searchTerm
 
   try {
-    const user = yield users.find(searchTerm)
-    this.body = user ? [ user ] : []
+    const user = await users.find(searchTerm)
+    ctx.body = user ? [ user ] : []
   } catch (err) {
-    this.log.error({ err }, 'error finding user by name')
+    ctx.log.error({ err }, 'error finding user by name')
     throw err
   }
 }
 
 const bcryptHash = thenify(bcrypt.hash)
-function* createUser(next) {
-  const { username, password } = this.request.body
-  const email = this.request.body.email.trim()
-  const { token } = this.query
+async function createUser(ctx, next) {
+  const { username, password } = ctx.request.body
+  const email = ctx.request.body.email.trim()
+  const { token } = ctx.query
 
   if (!token) {
     throw new httpErrors.BadRequest('Token must be specified')
@@ -47,7 +47,7 @@ function* createUser(next) {
   }
 
   try {
-    const tokenFromDb = yield* getTokenByEmail(email)
+    const tokenFromDb = await getTokenByEmail(email)
     if (token !== tokenFromDb) {
       throw new httpErrors.BadRequest('Invalid token')
     }
@@ -56,34 +56,34 @@ function* createUser(next) {
       // Return same error as when token is invalid so we don't leak emails
       throw new httpErrors.BadRequest('Invalid token')
     }
-    this.log.error({ err }, 'error getting email by token')
+    ctx.log.error({ err }, 'error getting email by token')
     throw err
   }
 
   let hashed
   try {
-    hashed = yield bcryptHash(password, 10)
+    hashed = await bcryptHash(password, 10)
   } catch (err) {
-    this.log.error({ err }, 'error hashing password')
+    ctx.log.error({ err }, 'error hashing password')
     throw err
   }
 
   let result
   try {
     const user = users.create(username, email, hashed)
-    result = yield* user.save()
+    result = await user.save()
   } catch (err) {
     if (err.code && err.code === UNIQUE_VIOLATION) {
       throw new httpErrors.Conflict('A user with that name already exists')
     }
-    this.log.error({ err }, 'error saving user')
+    ctx.log.error({ err }, 'error saving user')
     throw err
   }
 
   // regenerate the session to ensure that logged in sessions and anonymous sessions don't
   // share a session ID
-  yield this.regenerateSession()
-  initSession(this, result.user, result.permissions)
-  setReturningCookie(this)
-  this.body = result
+  await ctx.regenerateSession()
+  initSession(ctx, result.user, result.permissions)
+  setReturningCookie(ctx)
+  ctx.body = result
 }

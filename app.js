@@ -10,15 +10,16 @@ import net from 'net'
 
 import canonicalHost from 'canonical-host'
 import isDev from './server/env/is-dev'
-import koa from 'koa'
+import Koa from 'koa'
 import log from './server/logging/logger'
 import path from 'path'
 import thenify from 'thenify'
 
-import csrf from 'koa-csrf'
+import CSRF from 'koa-csrf'
 import csrfCookie from './server/security/csrf-cookie'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
+import koaConvert from 'koa-convert'
 import koaError from 'koa-error'
 import logMiddleware from './server/logging/log-middleware'
 import secureHeaders from './server/security/headers'
@@ -100,7 +101,7 @@ const routeCreatorConfig = config.rallyPoint.routeCreator || {}
 const initRouteCreatorPromise = routeCreator.initialize(routeCreatorConfig.host || '::',
     routeCreatorConfig.port || 0, config.rallyPoint.secret)
 
-const app = koa()
+const app = new Koa()
 const port = config.https ? config.httpsPort : config.httpPort
 const compiler = webpack(webpackConfig)
 
@@ -123,24 +124,23 @@ process.on('unhandledRejection', err => {
 
 app
   .use(logMiddleware())
-  .use(koaError()) // TODO(tec27): Customize error view
+  .use(koaConvert(koaError())) // TODO(tec27): Customize error view
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
-  .use(sessionMiddleware)
+  .use(koaConvert(sessionMiddleware))
   .use(csrfCookie())
-  .use(csrf())
+  .use(new CSRF())
   .use(secureHeaders())
   .use(secureJson())
 
 if (isDev) {
-  app.use(require('koa-webpack-dev-middleware')(compiler, {
+  app.use(koaConvert(require('koa-webpack-dev-middleware')(compiler, {
     noInfo: true,
     publicPath: webpackConfig.output.publicPath
-  }))
-  app.use(require('koa-webpack-hot-middleware')(compiler))
+  })))
+  app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
 }
-
 import createRoutes from './routes'
 createRoutes(app)
 

@@ -18,21 +18,21 @@ async function createPermissions(dbClient, userId) {
   return new Permissions(result.rows[0])
 }
 
-function* getPermissions(userId) {
+async function getPermissions(userId) {
   const query = `SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels
       FROM permissions WHERE user_id = $1`
   const params = [ userId ]
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     return new Permissions(result.rows[0])
   } finally {
     done()
   }
 }
 
-function* updatePermissions(userId, perms) {
+async function updatePermissions(userId, perms) {
   const query = `UPDATE permissions SET edit_permissions = $1, debug = $2, accept_invites = $3,
       edit_all_channels = $4 WHERE user_id = $5 RETURNING *`
   const params = [
@@ -43,9 +43,9 @@ function* updatePermissions(userId, perms) {
     userId
   ]
 
-  const { client, done } = yield db()
+  const { client, done } = await db()
   try {
-    const result = yield client.queryPromise(query, params)
+    const result = await client.queryPromise(query, params)
     return new Permissions(result.rows[0])
   } finally {
     done()

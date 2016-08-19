@@ -7,23 +7,23 @@ export default function(router) {
     .get('/:username', checkAvailability)
 }
 
-function* checkAvailability(next) {
-  const username = this.params.username
+async function checkAvailability(ctx, next) {
+  const username = ctx.params.username
   if (!isValidUsername(username)) {
     throw new httpErrors.BadRequest('Invalid username')
   }
 
   let user
   try {
-    user = yield users.find(username)
+    user = await users.find(username)
   } catch (err) {
-    this.log.error({ err }, 'error finding user')
+    ctx.log.error({ err }, 'error finding user')
     throw err
   }
 
   if (user) {
     throw new httpErrors.NotFound('Username not available')
   } else {
-    this.body = { username, available: true }
+    ctx.body = { username, available: true }
   }
 }

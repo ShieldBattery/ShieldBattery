@@ -14,8 +14,8 @@ export default function(router) {
     .put('/:email', checkPermissions(['acceptInvites']), acceptInvite)
 }
 
-function* createInvite(next) {
-  const b = this.request.body
+async function createInvite(ctx, next) {
+  const b = ctx.request.body
   const invite = {
     email: b.email.trim(),
     teamliquidName: b.teamliquidName,
@@ -29,7 +29,7 @@ function* createInvite(next) {
   }
 
   try {
-    yield* invites.create(invite)
+    await invites.create(invite)
   } catch (err) {
     // Swallow dupe email error to prevent leaking already signed up emails
     if (err.name !== 'DuplicateEmail') {
@@ -37,11 +37,11 @@ function* createInvite(next) {
     }
   }
 
-  this.status = 201
+  ctx.status = 201
 }
 
-function* listInvites(next) {
-  let { limit, page: pageNumber } = this.query
+async function listInvites(ctx, next) {
+  let { limit, page: pageNumber } = ctx.query
 
   limit = parseInt(limit, 10)
   if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
@@ -53,18 +53,18 @@ function* listInvites(next) {
     pageNumber = 0
   }
 
-  if (this.query.accepted) {
-    if (this.query.accepted === 'true') {
-      const { total, invites: invs } = yield* invites.getAccepted(limit, pageNumber)
-      this.body = {
+  if (ctx.query.accepted) {
+    if (ctx.query.accepted === 'true') {
+      const { total, invites: invs } = await invites.getAccepted(limit, pageNumber)
+      ctx.body = {
         total,
         invites: invs,
         limit,
         pageNumber
       }
     } else {
-      const { total, invites: invs } = yield* invites.getUnaccepted(limit, pageNumber)
-      this.body = {
+      const { total, invites: invs } = await invites.getUnaccepted(limit, pageNumber)
+      ctx.body = {
         total,
         invites: invs,
         limit,
@@ -72,8 +72,8 @@ function* listInvites(next) {
       }
     }
   } else {
-    const { total, invites: invs } = yield* invites.getAll(limit, pageNumber)
-    this.body = {
+    const { total, invites: invs } = await invites.getAll(limit, pageNumber)
+    ctx.body = {
       total,
       invites: invs,
       limit,
@@ -82,18 +82,18 @@ function* listInvites(next) {
   }
 }
 
-function* acceptInvite(next) {
-  if (!isValidEmail(this.params.email)) {
+async function acceptInvite(ctx, next) {
+  if (!isValidEmail(ctx.params.email)) {
     throw new httpErrors.BadRequest('Invalid email')
   }
-  if (!this.request.body.isAccepted) {
+  if (!ctx.request.body.isAccepted) {
     throw new httpErrors.NotImplemented('Not implemented')
   }
 
   const token = cuid()
 
-  yield transact(async client => {
-    const invite = await invites.accept(client, this.params.email, token)
+  await transact(async client => {
+    const invite = await invites.accept(client, ctx.params.email, token)
     await sendMail({
       to: invite.email,
       subject: 'Welcome to ShieldBattery',
@@ -107,6 +107,6 @@ function* acceptInvite(next) {
       }
     })
 
-    this.body = invite
+    ctx.body = invite
   })
 }
