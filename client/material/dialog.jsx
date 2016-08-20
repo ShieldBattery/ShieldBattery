@@ -1,6 +1,7 @@
 import React from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
 import keycode from 'keycode'
+import KeyListener from '../keyboard/key-listener.jsx'
 import styles from './dialog.css'
 
 const ESCAPE = keycode('esc')
@@ -24,14 +25,6 @@ class Dialog extends React.Component {
     this._handleCancel = ::this.onCancel
   }
 
-  componentDidMount() {
-    window.addEventListener('keydown', this._handleKeyDown)
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('keydown', this._handleKeyDown)
-  }
-
   render() {
     let child
     if (this.props.children) {
@@ -40,12 +33,12 @@ class Dialog extends React.Component {
           { this.props.children }
       </div>
     }
-    return (
+    return (<KeyListener onKeyDown={this.onKeyDown}>
       <TransitionGroup transitionName={transitionNames}
           transitionEnterTimeout={350} transitionLeaveTimeout={250}>
         {child}
       </TransitionGroup>
-    )
+    </KeyListener>)
   }
 
   onCancel() {
@@ -54,13 +47,14 @@ class Dialog extends React.Component {
     }
   }
 
-  onKeyDown(event) {
-    if (!this.props.children) return
-
-    if (!this.props.modal && event.keyCode === ESCAPE) {
+  onKeyDown = (event) => {
+    if (this.props.children && !this.props.modal && event.keyCode === ESCAPE) {
       this.onCancel()
+      return true
     }
-  }
+
+    return false
+  };
 }
 
 export default Dialog
