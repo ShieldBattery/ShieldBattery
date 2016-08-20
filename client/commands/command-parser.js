@@ -1,5 +1,4 @@
-import { aliasCommandMap } from './command-handlers'
-import { COMMAND_LOCAL_RESPONSE } from '../actions'
+import { aliasCommandMap as commands } from './command-register'
 
 export default function parseCommand(msg) {
   if (msg[0] !== '/') {
@@ -7,24 +6,20 @@ export default function parseCommand(msg) {
     return null
   }
 
-  // Split the first two words from the string (first being the command name and second being the
-  // first word of the rest of the string)
-  const msgArray = msg.split(' ', 2)
-  // Remove the first character (forward slash) from the command name
-  const cmd = msg.slice(1, msgArray[0].length)
-  const str = msg.lastIndexOf(msgArray[1]) !== -1 ? msg.slice(msg.lastIndexOf(msgArray[1])) : ''
+  // Extract the command string from the message; check if the command has a space after it or not
+  const cmd = msg.slice(1, msg.indexOf(' ') !== -1 ? msg.indexOf(' ') : msg.length)
+  // Extract the rest of the string after command and remove any whitespace from the beginning of it
+  const str = msg.slice(cmd.length + 1).trimLeft()
 
-  if (!aliasCommandMap.has(cmd)) {
+  if (!commands.has(cmd)) {
     return {
-      type: COMMAND_LOCAL_RESPONSE,
+      type: 'unknownCommand',
       payload: {
         commandName: cmd,
         errorText: 'Unknown command',
-        // TODO(2Pac): Return the list of available commands?
       },
-      error: true,
     }
   }
 
-  return aliasCommandMap.get(cmd).handler(str)
+  return commands.get(cmd).parser(str)
 }

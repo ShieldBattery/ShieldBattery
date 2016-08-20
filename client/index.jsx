@@ -11,7 +11,6 @@ import { createHistory } from 'history'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
-import registerCommandHandlers from './commands/command-handlers'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
@@ -48,7 +47,6 @@ new Promise((resolve, reject) => {
     selectLocationState: ({ routing }) => ({ locationBeforeTransitions: routing.location })
   })
   registerDispatch(store.dispatch)
-  registerCommandHandlers()
   registerSocketHandlers()
 
   return { elem, store, history }

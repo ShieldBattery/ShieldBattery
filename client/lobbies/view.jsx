@@ -17,6 +17,8 @@ import styles from './view.css'
 
 import Lobby from './lobby.jsx'
 import LoadingScreen from './loading.jsx'
+import parseCommand from '../commands/command-parser'
+import { actionHandlersMap as handlers } from '../commands/command-register'
 
 const mapStateToProps = state => {
   return {
@@ -169,7 +171,15 @@ export default class LobbyView extends React.Component {
   }
 
   onSendChatMessage(message) {
-    this.props.dispatch(sendChat(message))
+    const command = parseCommand(message)
+    if (command) {
+      if (handlers.has(command.type)) {
+        const handler = handlers.get(command.type)
+        handler('lobby', this.props.params.target, command.payload, this.props.dispatch)
+      }
+    } else {
+      this.props.dispatch(sendChat(message))
+    }
   }
 
   onStartGame() {

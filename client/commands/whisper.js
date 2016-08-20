@@ -1,59 +1,57 @@
-import { COMMAND_LOCAL_RESPONSE } from '../actions'
+import { sendMessage } from '../whispers/action-creators'
 
-const whisper = {
+export const whisper = {
   aliases: ['whisper', 'w', 'message', 'msg', 'm'],
   usage: '/whisper USERNAME MESSAGE (aliases: /w /message /msg /m)',
   infoText: 'Sends a private MESSAGE to USERNAME',
   example: '/whisper Pachi How are you doing?',
-  handler: whisperHandler,
+  parser: whisperParser,
 }
 
-function whisperHandler(str) {
+function whisperParser(str) {
   if (!str) {
     return {
-      type: COMMAND_LOCAL_RESPONSE,
+      type: 'invalidArguments',
       payload: {
         commandName: 'whisper',
         errorText: 'No username entered',
         usage: whisper.usage,
       },
-      error: true,
     }
   }
 
-  // Split the first two words from the string (first being the target and second being the first
-  // word of an actual message)
-  const strArray = str.split(' ', 2)
-  const target = strArray[0]
+  // Extract the target from the message; check if the target has a space after it or not
+  const target = str.slice(0, str.indexOf(' ') !== -1 ? str.indexOf(' ') : str.length)
+  // Extract the message after target and remove any whitespace at the end of it (preserves it at
+  // the beginning)
+  const message = str.slice(target.length + 1).trimRight()
 
-  if (!strArray[1]) {
+  if (!message) {
     return {
-      type: COMMAND_LOCAL_RESPONSE,
+      type: 'invalidArguments',
       payload: {
         commandName: 'whisper',
         errorText: 'No message entered',
         usage: whisper.usage,
       },
-      error: true,
     }
   }
-  const text = str.slice(str.lastIndexOf(strArray[1]))
 
   return {
-    type: COMMAND_LOCAL_RESPONSE,
+    type: 'whisper',
     payload: {
-      commandName: 'whisper',
       target,
-      text,
+      message,
     },
   }
 }
 
-export default function registerHandler(aliasCommandMap) {
-  for (const alias of whisper.aliases) {
-    if (aliasCommandMap.has(alias)) {
-      throw new Error('Two commands can\'t have same alias')
-    }
-    aliasCommandMap.set(alias, whisper)
-  }
+export const whisperActions = {
+  whisper: whisperHandler,
+}
+
+function whisperHandler(sourceType, source, payload, dispatch) {
+  // TODO(2Pac): thread `sourceType` and `source` through the server so we can display whisper
+  // message in the place it originated from
+  dispatch(sendMessage(payload.target, payload.message))
 }
