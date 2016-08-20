@@ -1,0 +1,17 @@
+@value dialogScrim from '../styles/colors.css';
+@value zIndexDialogScrim from './zindex.css';
+
+.portal {
+  position: relative;
+}
+
+.scrim {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: zIndexDialogScrim;
+
+  background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
+}
