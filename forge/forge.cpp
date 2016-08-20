@@ -544,13 +544,18 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
 
   // Mark this process as DPI-aware, since we just render to the resolution that was set (and don't
   // want Windows scaling our rendering)
+  bool dpiAwareSet = false;
   if (IsWindows8Point1OrGreater()) {
     HMODULE shcore = LoadLibrary("shcore.dll");
-    auto SetProcessDpiAwareness = reinterpret_cast<SetProcessDpiAwarenessFunc>(
+    if (shcore != NULL) {
+      auto SetProcessDpiAwareness = reinterpret_cast<SetProcessDpiAwarenessFunc>(
         GetProcAddress(shcore, "SetProcessDpiAwareness"));
-    SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-    FreeLibrary(shcore);
-  } else {
+      SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+      dpiAwareSet = true;
+      FreeLibrary(shcore);
+    }
+  }
+  if (!dpiAwareSet) {
     SetProcessDPIAware();
   }
 
@@ -570,6 +575,7 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
     style = UsesSwapBuffers(settings.renderer) ? BORDERLESS_WINDOW_SWAP : BORDERLESS_WINDOW_NOSWAP;
     break;
   case DisplayMode::Window:
+  default:
     instance_->width_ = settings.width;
     instance_->height_ = settings.height;
     style = WINDOW;
@@ -613,8 +619,8 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
       (GetSettings().display_mode == DisplayMode::FullScreen ||
       GetSettings().display_mode == DisplayMode::BorderlessWindow)) {
     // Remove the border
-    int left = instance_->client_x_ - window_rect.left;
-    int top = instance_->client_y_ - window_rect.top;
+    left = instance_->client_x_ - window_rect.left;
+    top = instance_->client_y_ - window_rect.top;
     Logger::Logf(LogLevel::Verbose, "Setting window region to: %d,%d - %d,%d",
         left, top, left + instance_->width_, top + instance_->height_);
 

@@ -211,7 +211,12 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   WinHandle priv_token(token);
   
   wchar_t* env_block;
-  CreateEnvironmentBlock(reinterpret_cast<void**>(&env_block), active_session_token.get(), false);
+  result = CreateEnvironmentBlock(
+      reinterpret_cast<void**>(&env_block), active_session_token.get(), false);
+  if (result == 0) {
+    error_ = WindowsError("Process -> CreateEnvironmentBlock", GetLastError());
+    return;
+  }
   size_t block_length = 0;
   bool was_null = false;
   for (size_t i = 0;; i++) {
@@ -245,7 +250,12 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   vector<wchar_t> arguments_writable(arguments.length() + 1);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
 
-  ImpersonateLoggedOnUser(priv_token.get());
+  result = ImpersonateLoggedOnUser(priv_token.get());
+  if (result == 0) {
+    error_ = WindowsError("Process -> ImpersonateLoggedOnUser", GetLastError());
+    return;
+  }
+
   PROCESS_INFORMATION process_info;
   if (!CreateProcessAsUserW(priv_token.get(), app_path.c_str(), &arguments_writable[0], nullptr,
       nullptr, false,
@@ -280,7 +290,10 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   }
 
   InjectContext context;
-  lstrcpynW(context.dll_path, dll_path.c_str(), MAX_PATH);
+  wchar_t* buf = lstrcpynW(context.dll_path, dll_path.c_str(), MAX_PATH);
+  if (buf == nullptr) {
+    return WindowsError("InjectDll -> lstrcpynW", ERROR_NOT_ENOUGH_MEMORY);
+  }
   strcpy_s(context.inject_proc_name, inject_function_name.c_str());
   context.LoadLibraryW = LoadLibraryW;
   context.GetProcAddress = GetProcAddress;

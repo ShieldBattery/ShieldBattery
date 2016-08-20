@@ -13,7 +13,8 @@ RenderSkipper::RenderSkipper(HWND window)
   QueryPerformanceFrequency(&counter_frequency_);
   counter_frequency_.QuadPart /= 1000LL;  // convert to ticks per millisecond
 
-  DEVMODE devmode;
+  DEVMODE devmode = DEVMODE();
+  devmode.dmSize = sizeof(devmode);
   EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
   if (devmode.dmDisplayFrequency <= 1) {
     // "Default" setting for the device. I don't know what that means, but the docs say this can

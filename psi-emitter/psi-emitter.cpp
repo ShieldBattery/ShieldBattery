@@ -15,7 +15,8 @@ using std::wstring;
 const wstring CMD_DETECT_RESOLUTION = L"detectResolution";
 const wstring CMD_CHECK_STARCRAFT_PATH = L"checkPath";
 
-int WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR cmd_line, int cmd_show) {
+int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev_instance, _In_ LPSTR cmd_line,
+    _In_ int cmd_show) {
   int argc;
   wchar_t** argv;
   argv = CommandLineToArgvW(GetCommandLineW(), &argc);

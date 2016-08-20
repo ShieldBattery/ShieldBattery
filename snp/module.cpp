@@ -62,7 +62,6 @@ void OnCommandsQueued(uv_async_t* handle) {
     uv_mutex_unlock(&command_mutex);
 
     for (const auto& command : processing) {
-      DWORD tickCount = GetTickCount();
       command->Execute();
     }
     uv_mutex_lock(&command_mutex);

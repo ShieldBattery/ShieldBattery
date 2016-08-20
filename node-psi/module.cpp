@@ -110,7 +110,7 @@ void DetectResolutionWork(uv_work_t* req) {
   ResContext* context = reinterpret_cast<ResContext*>(req->data);
 
   wchar_t path[MAX_PATH];
-  GetModuleFileNameW(NULL, path, sizeof(path));
+  GetModuleFileNameW(NULL, path, sizeof(path) / sizeof(wchar_t));
  
   wstring path_str = path;
   size_t last_slash = path_str.find_last_of(L"/\\");
@@ -118,7 +118,8 @@ void DetectResolutionWork(uv_work_t* req) {
   wstring emitter_path = dir + L"\\psi-emitter.exe";
 
   wchar_t* slot_name = new wchar_t[100];
-  int size = _snwprintf(slot_name, 100, L"\\\\.\\mailslot\\psi-detectres-%d", GetTickCount());
+  int size = _snwprintf_s(
+      slot_name, 100, _TRUNCATE, L"\\\\.\\mailslot\\psi-detectres-%zu", GetTickCount64());
 
   SECURITY_ATTRIBUTES sa = SECURITY_ATTRIBUTES();
   sa.nLength = sizeof(sa);
@@ -228,7 +229,7 @@ void CheckPathWork(uv_work_t* req) {
   PathCheckContext* context = reinterpret_cast<PathCheckContext*>(req->data);
 
   wchar_t path[MAX_PATH];
-  GetModuleFileNameW(NULL, path, sizeof(path));
+  GetModuleFileNameW(NULL, path, sizeof(path) / sizeof(wchar_t));
 
   wstring path_str = path;
   size_t last_slash = path_str.find_last_of(L"/\\");
