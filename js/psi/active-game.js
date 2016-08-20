@@ -20,145 +20,176 @@ export default class ActiveGameManager {
   constructor(nydus, mapStore) {
     this.nydus = nydus
     this.mapStore = mapStore
-    this.activeGameId = null
-    this.activeGamePromise = null
-    this.activeGameRoutes = null
-    this.config = null
-    this.status = { state: GAME_STATUS_UNKNOWN, extra: null }
+    // Maps [username, origin] -> game info
+    this.activeGames = new Map()
   }
 
-  get id() {
-    return this.activeGameId
+  _findGameById(id) {
+    for (const entry of this.activeGames) {
+      if (entry[1].id === id) {
+        return entry
+      }
+    }
+    log.verbose(`Game ${id} not found`)
+    return [null, null]
   }
 
-  getStatusForSite() {
-    return {
-      id: this.activeGameId,
-      state: statusToString(this.status.state),
-      extra: this.status.extra
+  getStatusForSite(user) {
+    const game = this.activeGames.get(user)
+    if (game) {
+      return [{
+        user: user[0],
+        id: game.id,
+        state: statusToString(game.status.state),
+        extra: game.status.extra
+      }]
+    } else {
+      return []
     }
   }
 
-  setGameConfig(config) {
-    if (deepEqual(config, this.config)) {
-      // Same config as before, no operation necessary
-      return this.activeGameId
-    }
-    if (this.activeGameId) {
+  // Returns a list containing statuses of every active game
+  getInitialStatus(origin) {
+    return Array.from(this.activeGames.keys())
+      .filter(u => u[1] === origin)
+      .reduce((list, u) => list.concat(this.getStatusForSite(u)), [])
+  }
+
+  setGameConfig(user, config) {
+    const current = this.activeGames.get(user)
+    if (current) {
+      if (deepEqual(config, current.config)) {
+        // Same config as before, no operation necessary
+        return current.activeGameId
+      }
       // Quit the currently active game so we can replace it
-      sendCommand(this.nydus, this.activeGameId, 'quit')
+      sendCommand(this.nydus, current.activeGameId, 'quit')
     }
-    if (!config) {
-      this.activeGameId = null
-      this.activeGamePromise = null
-      this.activeGameRoutes = null
-      this._setStatus(GAME_STATUS_UNKNOWN)
-      return this.activeGameId
+    if (!config.lobby) {
+      this.activeGames.delete(user)
+      return null
     }
 
-    this.config = config
-    const backupId = this.activeGameId = cuid()
-    this.activeGameRoutes = null
+    const gameId = cuid()
+    const activeGamePromise = doLaunch(gameId, config.settings)
+      .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
+      .then(code => this.handleGameExit(gameId, code),
+          err => this.handleGameExitWaitError(gameId, err))
+    this.activeGames.set(user, {
+      id: gameId,
+      promise: activeGamePromise,
+      routes: null,
+      config,
+      status: { state: GAME_STATUS_UNKNOWN, extra: null },
+    })
+    log.verbose(`Creating new game ${gameId} for user ${user}`)
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
-    this._setStatus(GAME_STATUS_LAUNCHING)
-    this.activeGamePromise = doLaunch(this.activeGameId, config.settings)
-      .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(backupId, err))
-      .then(code => this.handleGameExit(backupId, code),
-          err => this.handleGameExitWaitError(backupId, err))
-    return this.activeGameId
+    this._setStatus(user, GAME_STATUS_LAUNCHING)
+    return gameId
   }
 
   setGameRoutes(gameId, routes) {
-    if (this.activeGameId !== gameId) {
+    const [, game] = this._findGameById(gameId)
+    if (!game) {
       return
     }
 
-    this.activeGameRoutes = routes
-    sendCommand(this.nydus, this.activeGameId, 'setRoutes', routes)
+    game.routes = routes
+    sendCommand(this.nydus, game.id, 'setRoutes', routes)
   }
 
   handleGameConnected(id) {
-    if (id !== this.activeGameId) {
+    const [user, game] = this._findGameById(id)
+    if (!game) {
       // Not our active game, must be one we started before and abandoned
       sendCommand(this.nydus, id, 'quit')
-      log.verbose(`Game ${id} is not our active game [${this.activeGameId}], sending quit command`)
+      log.verbose(`Game ${id} is not any of our active games, sending quit command`)
       return
     }
 
-    this._setStatus(GAME_STATUS_CONFIGURING)
+    this._setStatus(user, GAME_STATUS_CONFIGURING)
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
-    const { map } = this.config.lobby
+    const { map } = game.config.lobby
     sendCommand(this.nydus, id, 'setConfig', {
-      ...this.config,
+      ...game.config,
       localMap: this.mapStore.getPath(map.hash, map.format)
     })
 
-    if (this.activeGameRoutes) {
-      sendCommand(this.nydus, this.activeGameId, 'setRoutes', this.activeGameRoutes)
+    if (game.routes) {
+      sendCommand(this.nydus, game.id, 'setRoutes', game.routes)
     }
   }
 
   handleGameLaunchError(id, err) {
     log.error(`Error while launching game ${id}: ${err}`)
-    if (id === this.activeGameId) {
-      this._setStatus(GAME_STATUS_ERROR, err)
-
-      this.activeGameId = null
-      this.activeGameRoutes = null
-      this.config = null
-      this._setStatus(GAME_STATUS_UNKNOWN)
+    const [user, game] = this._findGameById(id)
+    if (game) {
+      this._setStatus(user, GAME_STATUS_ERROR, err)
+      this.activeGames.delete(user)
     }
   }
 
   handleSetupProgress(gameId, info) {
-    this._setStatus(info.state, info.extra)
+    const [user, game] = this._findGameById(gameId)
+    if (!game) {
+      return
+    }
+    this._setStatus(user, info.state, info.extra)
   }
 
   handleGameStart(gameId) {
-    this._setStatus(GAME_STATUS_PLAYING)
+    const [user, game] = this._findGameById(gameId)
+    if (!game) {
+      return
+    }
+    this._setStatus(user, GAME_STATUS_PLAYING)
   }
 
   handleGameEnd(gameId, results, time) {
+    const [user, game] = this._findGameById(gameId)
+    if (!game) {
+      return
+    }
     // TODO(tec27): this needs to be handled differently (psi should really be reporting these
     // directly to the server)
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
-    this.nydus.publish('/game/results', { results, time })
-    this._setStatus(GAME_STATUS_FINISHED)
+    this.nydus.publish(`/game/results/${encodeURIComponent(user[1])}`, { results, time })
+    this._setStatus(user, GAME_STATUS_FINISHED)
   }
 
   handleGameExit(id, exitCode) {
-    if (id !== this.activeGameId) {
+    const [user, game] = this._findGameById(id)
+    if (!game) {
       return
     }
 
     log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
 
-    if (this.status.state < GAME_STATUS_FINISHED) {
-      if (this.status.state >= GAME_STATUS_PLAYING) {
+    if (game.status.state < GAME_STATUS_FINISHED) {
+      if (game.status.state >= GAME_STATUS_PLAYING) {
         // TODO(tec27): report a disc to the server
       } else {
-        this._setStatus(GAME_STATUS_ERROR,
+        this._setStatus(user, GAME_STATUS_ERROR,
             new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
       }
     }
 
-    this.activeGameId = null
-    this.activeGameRoutes = null
-    this.config = null
-    this._setStatus(GAME_STATUS_UNKNOWN)
+    this.activeGames.delete(user)
   }
 
   handleGameExitWaitError(id, err) {
     log.error(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
-  _setStatus(state, extra = null) {
-    this.status = { state, extra }
-    if (this.activeGameId) {
-      this.nydus.publish('/game/status', this.getStatusForSite())
+  _setStatus(user, state, extra = null) {
+    const game = this.activeGames.get(user)
+    if (game) {
+      game.status = { state, extra }
+      const encodedOrigin = encodeURIComponent(user[1])
+      this.nydus.publish(`/game/status/${encodedOrigin}`, this.getStatusForSite(user))
+      log.verbose(`Game status for '${user}' updated to '${statusToString(state)}'`)
     }
-    log.verbose(`Game status updated to '${statusToString(state)}'`)
   }
 }
 

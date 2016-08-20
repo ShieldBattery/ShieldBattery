@@ -17,8 +17,10 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   }
 
   async function setGameConfig(data, next) {
+    const { origin } = data.get('client').conn.request.headers
     const config = data.get('body')
-    return activeGameManager.setGameConfig(config)
+    const user = [config.localUser.name, origin]
+    return activeGameManager.setGameConfig(user, config)
   }
 
   async function setGameRoutes(data, next) {
@@ -77,8 +79,9 @@ export function subscribe(nydus, client, activeGameManager, localSettings) {
   const { path: pathValid, version: versionValid } =
       pathValidator.getPathValidity(localSettings.settings)
 
-  nydus.subscribeClient(client, '/game/status', activeGameManager.getStatusForSite())
-  nydus.subscribeClient(client, '/game/results')
+  const statuses = activeGameManager.getInitialStatus(origin)
+  nydus.subscribeClient(client, `/game/status/${encodeURIComponent(origin)}`, statuses)
+  nydus.subscribeClient(client, `/game/results/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, '/settings', localSettings.settings)
   nydus.subscribeClient(client, '/starcraftPathValidity', pathValid)
   nydus.subscribeClient(client, '/starcraftCorrectVersion', versionValid)
