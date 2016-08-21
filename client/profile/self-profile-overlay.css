@@ -96,16 +96,18 @@
 
 .enter .header {
   opacity: 0;
-  transition: opacity 150ms fastOutSlowIn 150ms;
+  transform: translateY(-16px);
+  transition: all 175ms fastOutSlowIn 125ms;
 }
 
 .enterActive .header {
   opacity: 1;
+  transform: translateY(0px);
 }
 
 .leave .header {
   opacity: 1;
-  transition: opacity 100ms fastOutSlowIn;
+  transition: all 100ms fastOutSlowIn;
 }
 
 .leaveActive .header {
@@ -132,11 +134,13 @@
 
 .enter .actions {
   opacity: 0;
-  transition: opacity 100ms fastOutSlowIn 200ms;
+  transform: translateY(-16px);
+  transition: all 125ms fastOutSlowIn 175ms;
 }
 
 .enterActive .actions {
   opacity: 1;
+  transform: translateY(0);
 }
 
 .leave .actions {
