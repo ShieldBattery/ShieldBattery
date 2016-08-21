@@ -19,7 +19,6 @@ import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
-import Portal from './material/portal.jsx'
 
 import ActiveGameNavEntry from './active-game/nav-entry.jsx'
 import ChatNavEntry from './chat/nav-entry.jsx'
@@ -96,15 +95,13 @@ class MainLayout extends React.Component {
   }
 
   renderAvatarOverlay() {
-    return (<Portal onDismiss={this.onCloseProfileOverlay} open={this.state.avatarOverlayOpened}>
-      {
-        () => <SelfProfileOverlay key='overlay' className={styles.profileOverlay}
-            user={this.props.auth.user.name}>
-          <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-              onClick={this.onLogOutClicked} />
-        </SelfProfileOverlay>
-      }
-    </Portal>)
+    return (<SelfProfileOverlay className={styles.profileOverlay}
+        open={this.state.avatarOverlayOpened}
+        onDismiss={this.onCloseProfileOverlay}
+        user={this.props.auth.user.name}>
+      <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
+          onClick={this.onLogOutClicked} />
+    </SelfProfileOverlay>)
   }
 
   render() {

@@ -88,8 +88,8 @@ export default class Portal extends React.Component {
       this.unregisterWindowClick()
     }
 
-    const contents = <div ref={this._setRootElem}>
-      <TransitionGroup className={styles.noPointer}
+    const contents = <div>
+      <TransitionGroup
           transitionName={transitionNames} transitionAppear={true}
           transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
         {

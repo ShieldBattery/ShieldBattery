@@ -21,7 +21,7 @@
 
 .enter.scrim {
   background-color: rgba(33, 33, 33, 0);
-  transition: background-color 200ms fastOutSlowIn;
+  transition: background-color 250ms fastOutSlowIn;
 }
 
 .enterActive.scrim {
@@ -29,7 +29,7 @@
 }
 
 .leave.scrim {
-  transition: background-color 150ms fastOutSlowIn;
+  transition: background-color 200ms fastOutSlowIn;
 }
 
 .leaveActive.scrim {
