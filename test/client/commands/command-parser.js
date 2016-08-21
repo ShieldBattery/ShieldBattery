@@ -1,12 +1,34 @@
 import { expect } from 'chai'
 
 import parseCommand from '../../../client/commands/command-parser'
-import commands from './command-registry'
-import {
-  INVALID_ARGUMENTS,
-  UNKNOWN_COMMAND,
-  WHISPER,
-} from '../../../client/commands/action-types'
+
+const command = {
+  name: 'command',
+  parser,
+}
+
+function parser(str) {
+  if (str === 'invalidArgs') {
+    return {
+      type: 'invalidArguments',
+      payload: {
+        commandName: 'command',
+        errorText: 'Invalid arguments',
+      },
+    }
+  } else {
+    return {
+      type: 'validCommand',
+      payload: {
+        commandName: 'command',
+        arg: str,
+      },
+    }
+  }
+}
+
+const commands = new Map()
+commands.set(command.name, command)
 
 describe('commands', () => {
   it('should return null if not a command', () => {
@@ -16,60 +38,22 @@ describe('commands', () => {
 
   it('should return error if unknown command', () => {
     const command = parseCommand(commands, '/unknownCommand')
-    expect(command.type).to.equal(UNKNOWN_COMMAND)
+    expect(command.type).to.equal('unknownCommand')
     expect(command.payload.commandName).to.equal('unknownCommand')
     expect(command.payload.errorText).to.equal('Unknown command')
   })
 
-  describe('whisper', () => {
-    it('should return error if username not entered', () => {
-      const command = parseCommand(commands, '/whisper')
-      expect(command.type).to.equal(INVALID_ARGUMENTS)
-      expect(command.payload.commandName).to.equal('whisper')
-      expect(command.payload.errorText).to.equal('No username entered')
-    })
+  it('should return error if invalid arguments', () => {
+    const command = parseCommand(commands, '/command invalidArgs')
+    expect(command.type).to.equal('invalidArguments')
+    expect(command.payload.commandName).to.equal('command')
+    expect(command.payload.errorText).to.equal('Invalid arguments')
+  })
 
-    it('should return error if username not entered with spaces after command name', () => {
-      const command = parseCommand(commands, '/whisper    ')
-      expect(command.type).to.equal(INVALID_ARGUMENTS)
-      expect(command.payload.commandName).to.equal('whisper')
-      expect(command.payload.errorText).to.equal('No username entered')
-    })
-
-    it('should return error if message not entered', () => {
-      const command = parseCommand(commands, '/whisper pachi')
-      expect(command.type).to.equal(INVALID_ARGUMENTS)
-      expect(command.payload.commandName).to.equal('whisper')
-      expect(command.payload.errorText).to.equal('No message entered')
-    })
-
-    it('should return error if message not entered with spaces after target name', () => {
-      const command = parseCommand(commands, '/whisper pachi    ')
-      expect(command.type).to.equal(INVALID_ARGUMENTS)
-      expect(command.payload.commandName).to.equal('whisper')
-      expect(command.payload.errorText).to.equal('No message entered')
-    })
-
-    // Note that this doesn't test if the message was successfully sent
-    it('should return correct target and message if entered', () => {
-      const command = parseCommand(commands, '/whisper pachi how you doin?')
-      expect(command.type).to.equal(WHISPER)
-      expect(command.payload.target).to.equal('pachi')
-      expect(command.payload.message).to.equal('how you doin?')
-    })
-
-    it('should return correct target and message if there are spaces after target name', () => {
-      const command = parseCommand(commands, '/whisper pachi    how you doin?')
-      expect(command.type).to.equal(WHISPER)
-      expect(command.payload.target).to.equal('pachi')
-      expect(command.payload.message).to.equal('   how you doin?')
-    })
-
-    it('should trim whitespace from the right end of a message', () => {
-      const command = parseCommand(commands, '/whisper pachi how you doin?    ')
-      expect(command.type).to.equal(WHISPER)
-      expect(command.payload.target).to.equal('pachi')
-      expect(command.payload.message).to.equal('how you doin?')
-    })
+  it('should return correctly if a valid command', () => {
+    const command = parseCommand(commands, '/command validArgument')
+    expect(command.type).to.equal('validCommand')
+    expect(command.payload.commandName).to.equal('command')
+    expect(command.payload.arg).to.equal('validArgument')
   })
 })

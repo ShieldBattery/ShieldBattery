@@ -1,18 +1,18 @@
 import unknownCommand from './unknown-command'
 import invalidArguments from './invalid-arguments'
 import { whisper, whisperActions } from './whisper'
-const commands = [
+const commandsArray = [
   whisper,
 ]
 // Maps each command alias to the command descriptor object
-export const aliasCommands = new Map()
+export const commands = new Map()
 
-for (const command of commands) {
+for (const command of commandsArray) {
   for (const alias of command.aliases) {
-    if (aliasCommands.has(alias)) {
+    if (commands.has(alias)) {
       throw new Error('Two commands can\'t have same alias')
     }
-    aliasCommands.set(alias, command)
+    commands.set(alias, command)
   }
 }
 
@@ -24,13 +24,13 @@ const actionTypes = [
   whisperActions,
 ]
 // Maps each command action type (stuff that command parsers return) to a handler function
-export const actionHandlers = new Map()
+export const handlers = new Map()
 
 for (const actions of actionTypes) {
   for (const action of Object.keys(actions)) {
-    if (actionHandlers.has(action)) {
+    if (handlers.has(action)) {
       throw new Error('Two handlers can\'t handle same action')
     }
-    actionHandlers.set(action, actions[action])
+    handlers.set(action, actions[action])
   }
 }

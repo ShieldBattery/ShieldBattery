@@ -15,7 +15,7 @@ import ContentLayout from '../content/content-layout.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
-import handleChatMessage from '../messaging/message-handler'
+import submitMessage from '../messaging/submit-message'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -212,7 +212,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    handleChatMessage(msg, 'chat', this.props.params.channel, sendMessage, this.props.dispatch)
+    this.props.dispatch(submitMessage(msg, 'chat', this.props.params.channel, sendMessage))
   }
 
   onRequestMoreHistory() {
