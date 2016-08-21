@@ -15,8 +15,7 @@ import ContentLayout from '../content/content-layout.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
-import parseCommand from '../commands/command-parser'
-import { actionHandlersMap as handlers } from '../commands/command-register'
+import handleChatMessage from '../messaging/message-handler'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -213,15 +212,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    const command = parseCommand(msg)
-    if (command) {
-      if (handlers.has(command.type)) {
-        const handler = handlers.get(command.type)
-        handler('chat', this.props.params.channel, command.payload, this.props.dispatch)
-      }
-    } else {
-      this.props.dispatch(sendMessage(this.props.params.channel, msg))
-    }
+    handleChatMessage(msg, 'chat', this.props.params.channel, sendMessage, this.props.dispatch)
   }
 
   onRequestMoreHistory() {

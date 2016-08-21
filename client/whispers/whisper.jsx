@@ -16,8 +16,7 @@ import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import TextField from '../material/text-field.jsx'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import parseCommand from '../commands/command-parser'
-import { actionHandlersMap as handlers } from '../commands/command-register'
+import handleChatMessage from '../messaging/message-handler'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -185,15 +184,7 @@ export default class WhisperView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    const command = parseCommand(msg)
-    if (command) {
-      if (handlers.has(command.type)) {
-        const handler = handlers.get(command.type)
-        handler('whisper', this.props.params.target, command.payload, this.props.dispatch)
-      }
-    } else {
-      this.props.dispatch(sendMessage(this.props.params.target, msg))
-    }
+    handleChatMessage(msg, 'whisper', this.props.params.target, sendMessage, this.props.dispatch)
   }
 
   onRequestMoreHistory() {

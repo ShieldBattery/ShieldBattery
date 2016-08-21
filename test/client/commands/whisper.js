@@ -1,7 +1,6 @@
-import { sendMessage } from '../whispers/action-creators'
-import { INVALID_ARGUMENTS, WHISPER } from './action-types'
+import { INVALID_ARGUMENTS, WHISPER } from '../../../client/commands/action-types'
 
-export const whisper = {
+const whisper = {
   aliases: ['whisper', 'w', 'message', 'msg', 'm'],
   usage: '/whisper USERNAME MESSAGE (aliases: /w /message /msg /m)',
   infoText: 'Sends a private MESSAGE to USERNAME',
@@ -47,10 +46,4 @@ function whisperParser(str) {
   }
 }
 
-export const whisperActions = {
-  whisper: whisperHandler,
-}
-
-function whisperHandler(sourceType, source, payload, dispatch) {
-  dispatch(sendMessage(payload.target, payload.message))
-}
+export default whisper

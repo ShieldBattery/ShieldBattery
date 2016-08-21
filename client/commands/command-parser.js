@@ -1,6 +1,6 @@
-import { aliasCommandMap as commands } from './command-register'
+import { UNKNOWN_COMMAND } from './action-types'
 
-export default function parseCommand(msg) {
+export default function parseCommand(commands, msg) {
   if (msg[0] !== '/') {
     // It's not a command
     return null
@@ -13,7 +13,7 @@ export default function parseCommand(msg) {
 
   if (!commands.has(cmd)) {
     return {
-      type: 'unknownCommand',
+      type: UNKNOWN_COMMAND,
       payload: {
         commandName: cmd,
         errorText: 'Unknown command',
