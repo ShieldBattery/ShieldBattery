@@ -3,7 +3,17 @@ import {
   unstable_renderSubtreeIntoContainer as renderSubtreeIntoContainer,
   unmountComponentAtNode
 } from 'react-dom'
+import TransitionGroup from 'react-addons-css-transition-group'
 import styles from './portal.css'
+
+const transitionNames = {
+  appear: styles.enter,
+  appearActive: styles.enterActive,
+  enter: styles.enter,
+  enterActive: styles.enterActive,
+  leave: styles.leave,
+  leaveActive: styles.leaveActive,
+}
 
 // A component for rendering component trees into 'portals', that is, roots that exist outside of
 // the React root. This is useful for things like modal dialogs, popovers, etc. Contains
@@ -12,13 +22,13 @@ import styles from './portal.css'
 // behind it.
 export default class Portal extends React.Component {
   static propTypes = {
+    children: PropTypes.func.isRequired,
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func,
     scrim: PropTypes.bool,
   };
 
   portal = null;
-  _registeredSelfClick = false;
   _registeredWindowClick = false;
 
   componentDidMount() {
@@ -36,26 +46,10 @@ export default class Portal extends React.Component {
   onClickAway = event => {
     if (!this.props.onDismiss || !this.props.open) return
 
-    const elem = this.portal
-    if (event.currentTarget === window || event.target === elem ||
-        (document.documentElement.contains(event.target) && !elem.contains(elem))) {
+    if (event.currentTarget === window || this.props.scrim) {
       this.props.onDismiss()
     }
   };
-
-  registerSelfClick() {
-    if (this._registeredSelfClick) return
-
-    this.portal.addEventListener('click', this.onClickAway)
-    this._registeredSelfClick = true
-  }
-
-  unregisterSelfClick() {
-    if (!this._registeredSelfClick) return
-
-    this.portal.removeEventListener('click', this.onClickAway)
-    this._registeredSelfClick = false
-  }
 
   registerWindowClick() {
     if (this._registeredWindowClick) return
@@ -78,33 +72,39 @@ export default class Portal extends React.Component {
   renderPortal() {
     const { open, scrim, children } = this.props
 
-    // TODO(tec27): animate scrim?
+    if (!this.portal) {
+      this.portal = document.createElement('div')
+      this.portal.classList.add(styles.portal)
+      document.body.appendChild(this.portal)
+    }
+
     if (open) {
-      if (!this.portal) {
-        this.portal = document.createElement('div')
-        this.portal.classList.add(styles.portal)
-        document.body.appendChild(this.portal)
-      }
       if (scrim) {
         this.unregisterWindowClick()
-        this.registerSelfClick()
-        this.portal.classList.add(styles.scrim)
       } else {
-        this.unregisterSelfClick()
         this.registerWindowClick()
-        this.portal.classList.remove(styles.scrim)
       }
-
-      renderSubtreeIntoContainer(this, React.Children.only(children), this.portal)
     } else {
-      this.removePortal()
+      this.unregisterWindowClick()
     }
+
+    const contents = <div ref={this._setRootElem}>
+      <TransitionGroup className={styles.noPointer}
+          transitionName={transitionNames} transitionAppear={true}
+          transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
+        {
+          open && scrim ?
+              <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway}/> : null
+        }
+      </TransitionGroup>
+      { open ? children() : null }
+    </div>
+    renderSubtreeIntoContainer(this, contents, this.portal)
   }
 
   removePortal() {
     if (!this.portal) return
 
-    this.unregisterSelfClick()
     this.unregisterWindowClick()
     unmountComponentAtNode(this.portal)
     document.body.removeChild(this.portal)

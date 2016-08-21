@@ -96,14 +96,14 @@ class MainLayout extends React.Component {
   }
 
   renderAvatarOverlay() {
-    if (!this.state.avatarOverlayOpened) return null
-
-    return (<Portal onDismiss={this.onCloseProfileOverlay} open={true}>
-      <SelfProfileOverlay key='overlay' className={styles.profileOverlay}
-          user={this.props.auth.user.name}>
-        <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-            onClick={this.onLogOutClicked} />
-      </SelfProfileOverlay>
+    return (<Portal onDismiss={this.onCloseProfileOverlay} open={this.state.avatarOverlayOpened}>
+      {
+        () => <SelfProfileOverlay key='overlay' className={styles.profileOverlay}
+            user={this.props.auth.user.name}>
+          <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
+              onClick={this.onLogOutClicked} />
+        </SelfProfileOverlay>
+      }
     </Portal>)
   }
 

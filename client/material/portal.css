@@ -1,11 +1,14 @@
 @value dialogScrim from '../styles/colors.css';
+@value fastOutSlowIn from './curve-constants.css';
 @value zIndexDialogScrim from './zindex.css';
 
 .portal {
+  contain: layout style;
   position: relative;
 }
 
 .scrim {
+  contain: strict;
   position: fixed;
   left: 0;
   top: 0;
@@ -14,4 +17,21 @@
   z-index: zIndexDialogScrim;
 
   background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
+}
+
+.enter.scrim {
+  background-color: rgba(33, 33, 33, 0);
+  transition: background-color 200ms fastOutSlowIn;
+}
+
+.enterActive.scrim {
+  background-color: rgba(33, 33, 33, 0.42);
+}
+
+.leave.scrim {
+  transition: background-color 150ms fastOutSlowIn;
+}
+
+.leaveActive.scrim {
+  background-color: rgba(33, 33, 33, 0);
 }
