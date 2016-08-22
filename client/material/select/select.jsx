@@ -6,12 +6,14 @@ import styles from './select.css'
 
 import FloatingLabel from '../input-floating-label.jsx'
 import FontIcon from '../font-icon.jsx'
-import MenuBackdrop from '../menu/backdrop.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
+import Portal from '../portal.jsx'
 import WindowListener from '../../dom/window-listener.jsx'
 
 const transitionNames = {
+  appear: styles.enter,
+  appearActive: styles.enterActive,
   enter: styles.enter,
   enterActive: styles.enterActive,
   leave: styles.leave,
@@ -23,6 +25,8 @@ const ENTER = keycode('enter')
 const ESCAPE = keycode('escape')
 const UP = keycode('up')
 const DOWN = keycode('down')
+
+const CLOSE_TIME = 200
 
 const VERT_PADDING = 8
 const OPTION_HEIGHT = 48
@@ -43,30 +47,29 @@ class Select extends React.Component {
     compareValues: (a, b) => a === b
   };
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      isFocused: false,
-      isOpened: false,
-      value: props.defaultValue,
-      overlayPosition: null,
-      activeIndex: -1,
-    }
-    this._optionChangeHandler = ::this.onOptionChanged
-    this._handleRecalc = ::this.recalcOverlayPosition
-    this._handleMouseMove = ::this.onMouseMove
-
-    this._overlayTop = 0
-    this._lastMouseY = -1
-  }
+  state = {
+    isFocused: false,
+    isOpened: false,
+    isClosing: false,
+    value: this.props.defaultValue,
+    overlayPosition: null,
+    activeIndex: -1,
+  };
+  _overlayTop = 0;
+  _lastMouseY = -1;
+  _closeTimer = null;
+  _root = null;
+  _setRoot = elem => { this._root = elem };
+  _overlay = null;
+  _setOverlay = elem => { this._overlay = elem };
 
   componentDidUpdate(prevProps, prevState) {
-    if (!prevState.isOpened && this.refs.overlay) {
+    if (!prevState.isOpened && this._overlay) {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
           valueIndex, React.Children.count(this.props.children))
-      this.refs.overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
+      this._overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
     }
   }
@@ -79,8 +82,12 @@ class Select extends React.Component {
     }
   }
 
+  componentWillUnmount() {
+    clearTimeout(this._closeTimer)
+  }
+
   calculateOverlayPosition() {
-    const rect = this.refs.root.getBoundingClientRect()
+    const rect = this._root.getBoundingClientRect()
     const overlayPosition = {
       top: rect.top,
       left: rect.left,
@@ -99,13 +106,10 @@ class Select extends React.Component {
   }
 
   render() {
-    return (
-      <TransitionGroup transitionName={transitionNames} className={this.props.className}
-          transitionEnterTimeout={200} transitionLeaveTimeout={200}>
-        { this.renderSelect() }
-        { this.renderOverlay() }
-      </TransitionGroup>
-    )
+    return (<span className={this.props.className}>
+      { this.renderSelect() }
+      { this.renderOverlay() }
+    </span>)
   }
 
   renderSelect() {
@@ -131,13 +135,13 @@ class Select extends React.Component {
     })
 
     return (
-      <div className={classes} onClick={::this.onOpen} onKeyPress={::this.onKeyPress}
-          onKeyDown={::this.onKeyDown}>
+      <div className={classes} onClick={this.onOpen} onKeyPress={this.onKeyPress}
+          onKeyDown={this.onKeyDown}>
         {this.renderLabel()}
-        <span ref='root' className={styles.valueContainer}
+        <span ref={this._setRoot} className={styles.valueContainer}
             tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
-            onFocus={::this.onFocus} onBlur={::this.onBlur}>
-          <span className={styles.value} ref='value'>{displayValue}</span>
+            onFocus={this.onFocus} onBlur={this.onBlur}>
+          <span className={styles.value}>{displayValue}</span>
           <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
         </span>
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
@@ -160,39 +164,50 @@ class Select extends React.Component {
   }
 
   renderOverlay() {
-    if (!this.state.isOpened) return null
+    const { isOpened, isClosing, overlayPosition: pos } = this.state
+    const renderContents = () => {
+      if (!isOpened && !isClosing) return null
 
-    const pos = this.state.overlayPosition
-    const valueIndex = this._getValueIndex()
-    const firstDisplayed = this._getFirstDisplayedOptionIndex(
-        valueIndex, React.Children.count(this.props.children))
-    const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
+      const valueIndex = this._getValueIndex()
+      const firstDisplayed = this._getFirstDisplayedOptionIndex(
+          valueIndex, React.Children.count(this.props.children))
+      const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
 
-    const overlayStyle = {
-      // Subtract the padding so the select-option perfectly overlaps with select-value
-      top: pos.top - 14 - valueOffset,
-      left: pos.left - 16 + 2,
-      minWidth: pos.width + 32,
-      transformOrigin: `0 ${valueOffset + 24}px`,
-    }
-    this._overlayTop = overlayStyle.top
+      const overlayStyle = {
+        // Subtract the padding so the select-option perfectly overlaps with select-value
+        top: pos.top - 14 - valueOffset,
+        left: pos.left - 16 + 2,
+        minWidth: pos.width + 32,
+        transformOrigin: `0 ${valueOffset + 24}px`,
+      }
+      this._overlayTop = overlayStyle.top
 
-    const options = React.Children.map(this.props.children, (child, i) => {
-      return React.cloneElement(child, {
-        active: i === this.state.activeIndex,
-        onOptionSelected: this._optionChangeHandler,
+      const options = React.Children.map(this.props.children, (child, i) => {
+        return React.cloneElement(child, {
+          active: i === this.state.activeIndex,
+          onOptionSelected: this.onOptionChanged,
+        })
       })
-    })
 
-    return [
-      <WindowListener key='listenerResize' event='resize' listener={this._handleRecalc} />,
-      <WindowListener key='listenerScroll' event='scroll' listener={this._handleRecalc} />,
-      <MenuBackdrop key='backdrop' onClick={::this.onClose} />,
-      <div key='overlay' ref='overlay' className={styles.overlay} style={overlayStyle}
-          onMouseMove={this._handleMouseMove}>
-        {options}
-      </div>
-    ]
+      return (<span>
+        <WindowListener event='resize' listener={this.recalcOverlayPosition} />
+        <WindowListener event='scroll' listener={this.recalcOverlayPosition} />
+        <TransitionGroup transitionName={transitionNames} transitionAppear={true}
+            transitionAppearTimeout={200} transitionEnterTimeout={200}
+            transitionLeaveTimeout={CLOSE_TIME}>
+          {
+            isOpened && !isClosing ?
+                <div key='overlay' ref={this._setOverlay} className={styles.overlay}
+                    style={overlayStyle} onMouseMove={this.onMouseMove}>
+                  { options }
+                </div> :
+                null
+          }
+        </TransitionGroup>
+      </span>)
+    }
+
+    return <Portal onDismiss={this.onClose} open={isOpened}>{ renderContents }</Portal>
   }
 
   _getValueIndex() {
@@ -220,20 +235,20 @@ class Select extends React.Component {
   }
 
   focus() {
-    this.refs.root.focus()
+    this._root.focus()
   }
 
   blur() {
-    this.refs.root.blur()
+    this._root.blur()
   }
 
-  recalcOverlayPosition() {
+  recalcOverlayPosition = () => {
     this.setState({
       overlayPosition: this.calculateOverlayPosition(),
     })
-  }
+  };
 
-  onMouseMove(event) {
+  onMouseMove = event => {
     if (event.clientY === this._lastMouseY) {
       // mouse move must have been caused by a scroll (but the mouse didn't actually move),
       // ignore it
@@ -242,7 +257,7 @@ class Select extends React.Component {
 
     this._lastMouseY = event.clientY
     let localY = event.clientY - (this._overlayTop + VERT_PADDING)
-    localY += this.refs.overlay.scrollTop
+    localY += this._overlay.scrollTop
     const numOptions = React.Children.count(this.props.children)
     const itemIndex = Math.min(numOptions - 1, Math.max(0, Math.floor(localY / OPTION_HEIGHT)))
     if (itemIndex !== this.state.activeIndex) {
@@ -250,7 +265,7 @@ class Select extends React.Component {
         activeIndex: itemIndex,
       })
     }
-  }
+  };
 
   _moveActiveIndexBy(delta) {
     let newIndex = this.state.activeIndex
@@ -273,21 +288,21 @@ class Select extends React.Component {
 
     // Adjust scroll position to keep the item in view
     const curTopIndex =
-        Math.ceil(Math.max(0, (this.refs.overlay.scrollTop - VERT_PADDING)) / OPTION_HEIGHT)
+        Math.ceil(Math.max(0, (this._overlay.scrollTop - VERT_PADDING)) / OPTION_HEIGHT)
     const curBottomIndex = curTopIndex + OPTIONS_SHOWN - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
       // New index is in view, no need to adjust scroll position
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this.refs.overlay.scrollTop = VERT_PADDING + (OPTION_HEIGHT * newIndex)
+      this._overlay.scrollTop = VERT_PADDING + (OPTION_HEIGHT * newIndex)
     } else {
       // Make the new index the bottom item
-      this.refs.overlay.scrollTop = (OPTION_HEIGHT * ((newIndex + 1) - OPTIONS_SHOWN))
+      this._overlay.scrollTop = (OPTION_HEIGHT * ((newIndex + 1) - OPTIONS_SHOWN))
     }
   }
 
-  onKeyPress(event) {
+  onKeyPress = event => {
     let handled = false
     if (!this.state.isOpened) {
       if (event.which === SPACE || event.which === ENTER) {
@@ -307,9 +322,9 @@ class Select extends React.Component {
       event.preventDefault()
       event.stopPropagation()
     }
-  }
+  };
 
-  onKeyDown(event) {
+  onKeyDown = event => {
     // Only handle things that can't be handled with keypress
     let handled = false
     if (this.state.isOpened) {
@@ -329,43 +344,47 @@ class Select extends React.Component {
       event.preventDefault()
       event.stopPropagation()
     }
-  }
+  };
 
-  onOpen() {
+  onOpen = () => {
+    clearTimeout(this._closeTimer)
+    this._closeTimer = null
     if (!this.props.disabled) {
       this.setState({
         isOpened: true,
+        isClosing: false,
         overlayPosition: this.calculateOverlayPosition(),
         activeIndex: this.hasValue() ? this._getValueIndex() : -1,
       })
     }
-  }
+  };
 
-  onClose() {
-    this.setState({ isOpened: false, isFocused: true })
+  onClose = () => {
+    this.setState({ isClosing: true, isFocused: true })
+    this._closeTimer = setTimeout(() => this.setState({ isOpened: false }), CLOSE_TIME)
     this.focus()
-  }
+  };
 
-  onFocus() {
+  onFocus = () => {
     if (!this.props.disabled) {
       this.setState({ isFocused: true })
     }
-  }
+  };
 
-  onBlur() {
+  onBlur = () => {
     if (!this.state.isOpened) {
       // If we're opened, leave isFocused since we'll be reassigning focus on close
       this.setState({ isFocused: false })
     }
-  }
+  };
 
-  onOptionChanged(value) {
+  onOptionChanged = value => {
     if (this.props.onValueChanged) {
       this.props.onValueChanged(value)
     }
-    this.setState({ value, isOpened: false, isFocused: true })
-    this.focus()
-  }
+    this.setState({ value })
+    this.onClose()
+  };
 }
 
 export default Select

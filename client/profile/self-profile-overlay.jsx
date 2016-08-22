@@ -6,6 +6,7 @@ import Avatar from '../avatars/avatar.jsx'
 import styles from './self-profile-overlay.css'
 
 import KeyListener from '../keyboard/key-listener.jsx'
+import MenuItem from '../material/menu/item.jsx'
 import Portal from '../material/portal.jsx'
 
 const ESCAPE = keycode('esc')
@@ -122,17 +123,35 @@ export class SelfProfileContents extends React.Component {
 
 export class ProfileAction extends React.Component {
   static propTypes = {
-    icon: PropTypes.node.isRequired,
     text: PropTypes.string.isRequired,
-    onClick: PropTypes.func.isRequired,
+    icon: PropTypes.node.isRequired,
+    onClick: PropTypes.func,
+  };
+
+  state = {
+    active: false,
+  };
+
+  onMouseEnter = () => {
+    this.setState({ active: true })
+  };
+
+  onMouseLeave = () => {
+    this.setState({ active: false })
   };
 
   render() {
-    const { icon, text, onClick } = this.props
+    const { text, icon, onClick } = this.props
+    const { active } = this.state
 
-    return (<div className={styles.action} onClick={onClick}>
-      <span className={styles.actionIcon}>{icon}</span>
-      <div className={styles.actionText}>{text}</div>
-    </div>)
+    return (
+      <MenuItem
+        text={text}
+        icon={icon}
+        onClick={onClick}
+        active={active}
+        onMouseEnter={this.onMouseEnter}
+        onMouseLeave={this.onMouseLeave}/>
+    )
   }
 }

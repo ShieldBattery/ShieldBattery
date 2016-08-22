@@ -1,5 +1,5 @@
 @value grey700 from '../../styles/colors.css';
-@value row, itemsCenter from '../../styles/flex.css';
+@value row, itemsCenter, grow, exact from '../../styles/flex.css';
 @value singleLine, subhead from '../../styles/typography.css';
 @value zIndexMenuBackdrop from '../zindex.css';
 
@@ -19,14 +19,12 @@
 }
 
 .itemText {
+  composes: grow;
 }
 
-.backdrop {
-  z-index: zIndexMenuBackdrop;
-  position: fixed;
-  background-color: transparent;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+.itemIcon {
+  composes: exact;
+  width: 24px;
+  overflow: hidden;
+  margin-right: 16px;
 }
