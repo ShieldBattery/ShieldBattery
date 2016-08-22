@@ -60,10 +60,10 @@ export default class ActiveGameManager {
     if (current) {
       if (deepEqual(config, current.config)) {
         // Same config as before, no operation necessary
-        return current.activeGameId
+        return current.id
       }
       // Quit the currently active game so we can replace it
-      sendCommand(this.nydus, current.activeGameId, 'quit')
+      sendCommand(this.nydus, current.id, 'quit')
     }
     if (!config.lobby) {
       this.activeGames.delete(user)
