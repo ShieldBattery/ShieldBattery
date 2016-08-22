@@ -29,6 +29,8 @@ export default class Portal extends React.Component {
   };
 
   portal = null;
+  content = null;
+  setContent = elem => { this.content = elem };
   _registeredWindowClick = false;
 
   componentDidMount() {
@@ -46,7 +48,8 @@ export default class Portal extends React.Component {
   onClickAway = event => {
     if (!this.props.onDismiss || !this.props.open) return
 
-    if (event.currentTarget === window || this.props.scrim) {
+    if (this.props.scrim ||
+        (event.currentTarget === window && !this.content.contains(event.target))) {
       this.props.onDismiss()
     }
   };
@@ -88,7 +91,7 @@ export default class Portal extends React.Component {
       this.unregisterWindowClick()
     }
 
-    const contents = <div>
+    const contents = <div ref={this.setContent}>
       <TransitionGroup
           transitionName={transitionNames} transitionAppear={true}
           transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
@@ -109,6 +112,7 @@ export default class Portal extends React.Component {
     unmountComponentAtNode(this.portal)
     document.body.removeChild(this.portal)
     this.portal = null
+    this.content = null
   }
 
   render() {
