@@ -8,6 +8,7 @@ import FloatingLabel from '../input-floating-label.jsx'
 import FontIcon from '../font-icon.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
+import KeyListener from '../../keyboard/key-listener.jsx'
 import Portal from '../portal.jsx'
 import WindowListener from '../../dom/window-listener.jsx'
 
@@ -22,6 +23,7 @@ const transitionNames = {
 
 const SPACE = keycode('space')
 const ENTER = keycode('enter')
+const TAB = keycode('tab')
 const ESCAPE = keycode('escape')
 const UP = keycode('up')
 const DOWN = keycode('down')
@@ -107,6 +109,7 @@ class Select extends React.Component {
 
   render() {
     return (<span className={this.props.className}>
+      <KeyListener onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} />
       { this.renderSelect() }
       { this.renderOverlay() }
     </span>)
@@ -135,8 +138,7 @@ class Select extends React.Component {
     })
 
     return (
-      <div className={classes} onClick={this.onOpen} onKeyPress={this.onKeyPress}
-          onKeyDown={this.onKeyDown}>
+      <div className={classes} onClick={this.onOpen}>
         {this.renderLabel()}
         <span ref={this._setRoot} className={styles.valueContainer}
             tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
@@ -303,47 +305,46 @@ class Select extends React.Component {
   }
 
   onKeyPress = event => {
-    let handled = false
-    if (!this.state.isOpened) {
-      if (event.which === SPACE || event.which === ENTER) {
-        handled = true
+    if (!this.state.isOpened && this.state.isFocused) {
+      if (!this.state.isClosing && (event.which === SPACE || event.which === ENTER)) {
         this.onOpen()
+        return true
       }
     } else {
       if (event.which === ENTER) {
         if (this.state.activeIndex >= 0) {
           const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
           this.onOptionChanged(activeChild.props.value)
+          return true
         }
       }
     }
 
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
+    return false
   };
 
   onKeyDown = event => {
     // Only handle things that can't be handled with keypress
-    let handled = false
     if (this.state.isOpened) {
       if (event.which === ESCAPE) {
-        handled = true
         this.onClose()
+        return true
       } else if (event.which === UP) {
-        handled = true
         this._moveActiveIndexBy(-1)
+        return true
       } else if (event.which === DOWN) {
-        handled = true
         this._moveActiveIndexBy(1)
+        return true
+      } else if (event.which === TAB) {
+        if (this.state.activeIndex >= 0) {
+          const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
+          this.onOptionChanged(activeChild.props.value)
+          return true
+        }
       }
     }
 
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
+    return false
   };
 
   onOpen = () => {
@@ -361,7 +362,8 @@ class Select extends React.Component {
 
   onClose = () => {
     this.setState({ isClosing: true, isFocused: true })
-    this._closeTimer = setTimeout(() => this.setState({ isOpened: false }), CLOSE_TIME)
+    this._closeTimer =
+        setTimeout(() => this.setState({ isOpened: false, isClosing: false }), CLOSE_TIME)
     this.focus()
   };
 
@@ -372,7 +374,7 @@ class Select extends React.Component {
   };
 
   onBlur = () => {
-    if (!this.state.isOpened) {
+    if (!this.state.isOpened || this.state.isClosing) {
       // If we're opened, leave isFocused since we'll be reassigning focus on close
       this.setState({ isFocused: false })
     }
@@ -382,7 +384,10 @@ class Select extends React.Component {
     if (this.props.onValueChanged) {
       this.props.onValueChanged(value)
     }
-    this.setState({ value })
+    // NOTE(tec27): the isClosing is necessary here to ensure React doesn't re-render the component
+    // with a different value set prior to rendering the component as removed (thus resulting in
+    // the overlay jumping around)
+    this.setState({ value, isClosing: true })
     this.onClose()
   };
 }

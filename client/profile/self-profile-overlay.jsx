@@ -57,7 +57,8 @@ export default class SelfProfileOverlay extends React.Component {
       } else {
         this.setState({ closing: true })
         clearTimeout(this.closeTimer)
-        this.closeTimer = setTimeout(() => this.setState({ open: false }), CLOSE_TIME)
+        this.closeTimer =
+            setTimeout(() => this.setState({ open: false, closing: false }), CLOSE_TIME)
       }
     }
   }

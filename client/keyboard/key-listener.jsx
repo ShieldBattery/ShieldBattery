@@ -5,24 +5,39 @@ const mounted = []
 function onKeyDown(event) {
   if (event.defaultPrevented) return
 
-  for (let i = mounted.length - 1; i >= 0; i--) {
-    if (mounted[i]._handleKeyDown(event)) break
+  let handled = false
+  for (let i = mounted.length - 1; !handled && i >= 0; i--) {
+    handled = mounted[i]._handleKeyDown(event)
+  }
+
+  if (handled) {
+    event.preventDefault()
   }
 }
 
 function onKeyUp(event) {
   if (event.defaultPrevented) return
 
-  for (let i = mounted.length - 1; i >= 0; i--) {
-    if (mounted[i]._handleKeyUp(event)) break
+  let handled = false
+  for (let i = mounted.length - 1; !handled && i >= 0; i--) {
+    handled = mounted[i]._handleKeyUp(event)
+  }
+
+  if (handled) {
+    event.preventDefault()
   }
 }
 
 function onKeyPress(event) {
   if (event.defaultPrevented) return
 
-  for (let i = mounted.length - 1; i >= 0; i--) {
-    if (mounted[i]._handleKeyPress(event)) break
+  let handled = false
+  for (let i = mounted.length - 1; !handled && i >= 0; i--) {
+    handled = mounted[i]._handleKeyPress(event)
+  }
+
+  if (handled) {
+    event.preventDefault()
   }
 }
 
