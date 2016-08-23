@@ -32,7 +32,8 @@ function* find(next) {
 
 const bcryptHash = thenify(bcrypt.hash)
 function* createUser(next) {
-  const { username, email, password } = this.request.body
+  const { username, password } = this.request.body
+  const email = this.request.body.email.trim()
   const { token } = this.query
 
   if (!token) {
