@@ -6,6 +6,7 @@ import styles from './whisper.css'
 export default class WhisperNavEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
+    currentPath: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
     hasUnread: PropTypes.bool,
   };
@@ -13,11 +14,11 @@ export default class WhisperNavEntry extends React.Component {
   _handleClose = ::this.onClose;
 
   render() {
-    const { user, hasUnread } = this.props
+    const { user, currentPath, hasUnread } = this.props
     const button = <IconButton className={styles.navCloseButton} icon='close' title='Close'
         onClick={this._handleClose} />
 
-    return (<Entry link={`/whispers/${encodeURIComponent(user)}`}
+    return (<Entry link={`/whispers/${encodeURIComponent(user)}`} currentPath={currentPath}
         button={button} needsAttention={hasUnread}>{user}</Entry>)
   }
 

@@ -1,7 +1,11 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import Entry from '../material/left-nav/entry.jsx'
 
 const ActiveGameNavEntry =
-    () => <Entry link={'/active-game'}>Active game</Entry>
+    ({ currentPath }) => <Entry link={'/active-game'} currentPath={currentPath}>Active game</Entry>
+
+ActiveGameNavEntry.propTypes = {
+  currentPath: PropTypes.string.isRequired,
+}
 
 export default ActiveGameNavEntry
