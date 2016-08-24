@@ -1,22 +1,22 @@
 import React, { PropTypes } from 'react'
-import { Link, withRouter } from 'react-router'
+import { Link } from 'react-router'
 import styles from './left-nav.css'
 
 import AttentionIndicator from './attention-indicator.jsx'
 
-@withRouter
 export default class Entry extends React.Component {
   static propTypes = {
     link: PropTypes.string.isRequired,
+    currentPath: PropTypes.string.isRequired,
     title: PropTypes.string,
     button: PropTypes.element,
     needsAttention: PropTypes.bool,
   };
 
   render() {
-    const { link, title, button, needsAttention, children, router } = this.props
+    const { link, currentPath, title, button, needsAttention, children } = this.props
 
-    const isActive = router.isActive({ pathname: link })
+    const isActive = link.toLowerCase() === currentPath.toLowerCase()
     const classes = isActive ? styles.active : styles.entry
 
     // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?

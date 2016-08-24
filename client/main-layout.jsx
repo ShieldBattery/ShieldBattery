@@ -50,6 +50,7 @@ function stateToProps(state) {
     })),
     network: state.network,
     upgrade: state.upgrade,
+    routing: state.routing,
   }
 }
 
@@ -75,11 +76,14 @@ class MainLayout extends React.Component {
   renderLobbyNav() {
     if (!this.props.inLobby) return null
 
-    const { lobby: { name, hasUnread } } = this.props
+    const {
+      lobby: { name, hasUnread },
+      routing: { location: { pathname: currentPath } }
+    } = this.props
     return [
       <Subheader key='lobby-header'>Lobby</Subheader>,
       <Section key='lobby-section'>
-        <LobbyNavEntry key='lobby' lobby={name} hasUnread={hasUnread} />
+        <LobbyNavEntry key='lobby' lobby={name} currentPath={currentPath} hasUnread={hasUnread} />
       </Section>,
       <Divider key='lobby-divider'/>
     ]
@@ -89,7 +93,9 @@ class MainLayout extends React.Component {
     if (!this.props.activeGame.isActive) return null
 
     return [
-      <Section key='active-game-section'><ActiveGameNavEntry key='active-game' /></Section>,
+      <Section key='active-game-section'>
+        <ActiveGameNavEntry key='active-game' currentPath={this.props.routing.location.pathname} />
+      </Section>,
       <Divider key='active-game-divider' />,
     ]
   }
@@ -105,10 +111,18 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const channels = this.props.chatChannels.map(
-        c => <ChatNavEntry key={c.name} channel={c.name} hasUnread={c.hasUnread}/>)
-    const whispers = this.props.whispers.map(w => <WhisperNavEntry key={w.name}
-        user={w.name} hasUnread={w.hasUnread} onClose={this._handleWhisperClose}/>)
+    const { chatChannels, whispers, routing: { location: { pathname } } } = this.props
+    const channelNav = chatChannels.map(c =>
+        <ChatNavEntry key={c.name}
+            channel={c.name}
+            currentPath={pathname}
+            hasUnread={c.hasUnread}/>)
+    const whisperNav = whispers.map(w =>
+        <WhisperNavEntry key={w.name}
+            user={w.name}
+            currentPath={pathname}
+            hasUnread={w.hasUnread}
+            onClose={this._handleWhisperClose}/>)
     const addWhisperButton = <IconButton icon='add' title='Start a conversation'
         className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
     const footer = isAdmin(this.props.auth) ? [
@@ -122,12 +136,12 @@ class MainLayout extends React.Component {
         {this.renderLobbyNav()}
         <Subheader>Chat channels</Subheader>
         <Section>
-          {channels}
+          {channelNav}
         </Section>
         <Divider/>
         <Subheader button={addWhisperButton}>Whispers</Subheader>
         <Section>
-          {whispers}
+          {whisperNav}
         </Section>
       </LeftNav>
       { this.props.children }
