@@ -9,6 +9,7 @@ import createDeferred from '../common/async/deferred'
 import rejectOnTimeout from './reject-on-timeout'
 import {
   GAME_STATUS_AWAITING_PLAYERS,
+  GAME_STATUS_ERROR,
   GAME_STATUS_STARTING,
 } from '../common/game-status'
 
@@ -334,6 +335,8 @@ class GameInitializer {
 
 export default function initGame(socket, setupData) {
   const initializer = new GameInitializer(socket, setupData)
-  initializer.run()
+  initializer.run().catch(err => {
+    initializer.notifyProgress(GAME_STATUS_ERROR, { err: err.message })
+  })
   return initializer
 }
