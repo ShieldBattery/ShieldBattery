@@ -73,6 +73,7 @@ export default class ActiveGameManager {
       sendCommand(this.nydus, current.id, 'quit')
     }
     if (!config.lobby) {
+      this._setStatus(siteUser, GAME_STATUS_UNKNOWN)
       this.activeGames = this.activeGames.delete(siteUser)
       return null
     }
@@ -176,7 +177,7 @@ export default class ActiveGameManager {
     if (game.status.state < GAME_STATUS_FINISHED) {
       if (game.status.state >= GAME_STATUS_PLAYING) {
         // TODO(tec27): report a disc to the server
-        // FIXME FIXME FIXME
+        this._setStatus(siteUser, GAME_STATUS_UNKNOWN)
       } else {
         this._setStatus(siteUser, GAME_STATUS_ERROR,
             new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
