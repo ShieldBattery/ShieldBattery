@@ -106,7 +106,7 @@ nydusServer.on('connection', function(socket) {
   if (clientType === 'game') {
     const id = socket.conn.request.headers['x-game-id']
     subscribeToCommands(nydusServer, socket, id)
-    activeGameManager.handleGameConnected(id, socket)
+    activeGameManager.handleGameConnected(id)
   } else {
     const origin = socket.conn.request.headers.origin
     rallyPointManager.registerOrigin(origin)

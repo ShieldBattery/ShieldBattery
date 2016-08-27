@@ -3,6 +3,7 @@ import fs from 'fs'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
+import { Map, Record } from 'immutable'
 import * as psi from './natives/index'
 import log from './logger'
 import { sendCommand } from './game-command'
@@ -16,29 +17,34 @@ import {
   statusToString
 } from '../common/game-status'
 
+const SiteUser = new Record({
+  username: null,
+  origin: null,
+})
+
 export default class ActiveGameManager {
   constructor(nydus, mapStore) {
     this.nydus = nydus
     this.mapStore = mapStore
-    // Maps [username, origin] -> game info
+    // Maps SiteUser -> game info
     this.activeGames = new Map()
   }
 
   _findGameById(id) {
-    for (const entry of this.activeGames) {
-      if (entry[1].id === id) {
-        return entry
+    for (const [ siteUser, config ] of this.activeGames.entries()) {
+      if (config.id === id) {
+        return [ siteUser, config ]
       }
     }
     log.verbose(`Game ${id} not found`)
     return [null, null]
   }
 
-  getStatusForSite(user) {
-    const game = this.activeGames.get(user)
+  getStatusForSite(siteUser) {
+    const game = this.activeGames.get(siteUser)
     if (game) {
       return [{
-        user: user[0],
+        user: siteUser.username,
         id: game.id,
         state: statusToString(game.status.state),
         extra: game.status.extra
@@ -50,13 +56,14 @@ export default class ActiveGameManager {
 
   // Returns a list containing statuses of every active game
   getInitialStatus(origin) {
-    return Array.from(this.activeGames.keys())
-      .filter(u => u[1] === origin)
+    return this.activeGames.keySeq()
+      .filter(u => u.origin === origin)
       .reduce((list, u) => list.concat(this.getStatusForSite(u)), [])
   }
 
-  setGameConfig(user, config) {
-    const current = this.activeGames.get(user)
+  setGameConfig([ username, origin ], config) {
+    const siteUser = new SiteUser({ username, origin })
+    const current = this.activeGames.get(siteUser)
     if (current) {
       if (deepEqual(config, current.config)) {
         // Same config as before, no operation necessary
@@ -66,7 +73,7 @@ export default class ActiveGameManager {
       sendCommand(this.nydus, current.id, 'quit')
     }
     if (!config.lobby) {
-      this.activeGames.delete(user)
+      this.activeGames = this.activeGames.delete(siteUser)
       return null
     }
 
@@ -75,16 +82,16 @@ export default class ActiveGameManager {
       .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
       .then(code => this.handleGameExit(gameId, code),
           err => this.handleGameExitWaitError(gameId, err))
-    this.activeGames.set(user, {
+    this.activeGames = this.activeGames.set(siteUser, {
       id: gameId,
       promise: activeGamePromise,
       routes: null,
       config,
       status: { state: GAME_STATUS_UNKNOWN, extra: null },
     })
-    log.verbose(`Creating new game ${gameId} for user ${user}`)
+    log.verbose(`Creating new game ${gameId} for user ${siteUser}`)
     // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
-    this._setStatus(user, GAME_STATUS_LAUNCHING)
+    this._setStatus(siteUser, GAME_STATUS_LAUNCHING)
     return gameId
   }
 
@@ -99,7 +106,7 @@ export default class ActiveGameManager {
   }
 
   handleGameConnected(id) {
-    const [user, game] = this._findGameById(id)
+    const [siteUser, game] = this._findGameById(id)
     if (!game) {
       // Not our active game, must be one we started before and abandoned
       sendCommand(this.nydus, id, 'quit')
@@ -107,7 +114,7 @@ export default class ActiveGameManager {
       return
     }
 
-    this._setStatus(user, GAME_STATUS_CONFIGURING)
+    this._setStatus(siteUser, GAME_STATUS_CONFIGURING)
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
     const { map } = game.config.lobby
@@ -123,43 +130,43 @@ export default class ActiveGameManager {
 
   handleGameLaunchError(id, err) {
     log.error(`Error while launching game ${id}: ${err}`)
-    const [user, game] = this._findGameById(id)
+    const [siteUser, game] = this._findGameById(id)
     if (game) {
-      this._setStatus(user, GAME_STATUS_ERROR, err)
-      this.activeGames.delete(user)
+      this._setStatus(siteUser, GAME_STATUS_ERROR, err)
+      this.activeGames = this.activeGames.delete(siteUser)
     }
   }
 
   handleSetupProgress(gameId, info) {
-    const [user, game] = this._findGameById(gameId)
+    const [siteUser, game] = this._findGameById(gameId)
     if (!game) {
       return
     }
-    this._setStatus(user, info.state, info.extra)
+    this._setStatus(siteUser, info.state, info.extra)
   }
 
   handleGameStart(gameId) {
-    const [user, game] = this._findGameById(gameId)
+    const [siteUser, game] = this._findGameById(gameId)
     if (!game) {
       return
     }
-    this._setStatus(user, GAME_STATUS_PLAYING)
+    this._setStatus(siteUser, GAME_STATUS_PLAYING)
   }
 
   handleGameEnd(gameId, results, time) {
-    const [user, game] = this._findGameById(gameId)
+    const [siteUser, game] = this._findGameById(gameId)
     if (!game) {
       return
     }
     // TODO(tec27): this needs to be handled differently (psi should really be reporting these
     // directly to the server)
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
-    this.nydus.publish(`/game/results/${encodeURIComponent(user[1])}`, { results, time })
-    this._setStatus(user, GAME_STATUS_FINISHED)
+    this.nydus.publish(`/game/results/${encodeURIComponent(siteUser.origin)}`, { results, time })
+    this._setStatus(siteUser, GAME_STATUS_FINISHED)
   }
 
   handleGameExit(id, exitCode) {
-    const [user, game] = this._findGameById(id)
+    const [siteUser, game] = this._findGameById(id)
     if (!game) {
       return
     }
@@ -169,26 +176,27 @@ export default class ActiveGameManager {
     if (game.status.state < GAME_STATUS_FINISHED) {
       if (game.status.state >= GAME_STATUS_PLAYING) {
         // TODO(tec27): report a disc to the server
+        // FIXME FIXME FIXME
       } else {
-        this._setStatus(user, GAME_STATUS_ERROR,
+        this._setStatus(siteUser, GAME_STATUS_ERROR,
             new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
       }
     }
 
-    this.activeGames.delete(user)
+    this.activeGames = this.activeGames.delete(siteUser)
   }
 
   handleGameExitWaitError(id, err) {
     log.error(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
-  _setStatus(user, state, extra = null) {
-    const game = this.activeGames.get(user)
+  _setStatus(siteUser, state, extra = null) {
+    const game = this.activeGames.get(siteUser)
     if (game) {
       game.status = { state, extra }
-      const encodedOrigin = encodeURIComponent(user[1])
-      this.nydus.publish(`/game/status/${encodedOrigin}`, this.getStatusForSite(user))
-      log.verbose(`Game status for '${user}' updated to '${statusToString(state)}'`)
+      const encodedOrigin = encodeURIComponent(siteUser.origin)
+      this.nydus.publish(`/game/status/${encodedOrigin}`, this.getStatusForSite(siteUser))
+      log.verbose(`Game status for '${siteUser}' updated to '${statusToString(state)}'`)
     }
   }
 }
