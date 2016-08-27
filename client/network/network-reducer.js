@@ -12,7 +12,7 @@ import { parseVersion } from './needs-upgrade'
 
 export const PsiSocketStatus = new Record({
   isConnected: false,
-  version: null,
+  version: { major: -1, minor: -1, patch: -1 },
   hasValidStarcraftPath: false,
   hasValidStarcraftVersion: false,
 })
@@ -24,19 +24,20 @@ export const NetworkStatus = new Record({
   site: new SiteSocketStatus(),
 })
 
-function makeNetReducer(name, connected, disconnected) {
+function makeNetReducer(name, Constructor, connected, disconnected) {
   return (state, action) => {
     if (action.type === connected) {
-      return state.setIn([name, 'isConnected'], true)
+      return state.set(name, new Constructor({ isConnected: true }))
     } else if (action.type === disconnected) {
-      return state.setIn([name, 'isConnected'], false)
+      return state.set(name, new Constructor({ isConnected: false }))
     }
 
     return state
   }
 }
 
-const PSI_NET_REDUCER = makeNetReducer('psi', NETWORK_PSI_CONNECTED, NETWORK_PSI_DISCONNECTED)
+const PSI_NET_REDUCER =
+    makeNetReducer('psi', PsiSocketStatus, NETWORK_PSI_CONNECTED, NETWORK_PSI_DISCONNECTED)
 function psiReducer(state, action) {
   const newState = PSI_NET_REDUCER(state, action)
 
@@ -54,7 +55,7 @@ function psiReducer(state, action) {
 
 const reducers = [
   psiReducer,
-  makeNetReducer('site', NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED),
+  makeNetReducer('site', SiteSocketStatus, NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED),
 ]
 
 export default function networkStatusReducer(state = new NetworkStatus(), action) {

@@ -15,7 +15,8 @@ export default keyedReducer(new ActiveGame(), {
   },
 
   [PSI_GAME_STATUS](state, action) {
-    if (action.payload.state === 'unknown' || action.payload.state === 'finished') {
+    const { state: status } = action.payload
+    if (status === 'unknown' || status === 'finished' || status === 'error') {
       return state.set('isActive', false)
     } else {
       return state.set('isActive', true)
