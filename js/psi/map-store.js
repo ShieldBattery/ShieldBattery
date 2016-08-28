@@ -1,12 +1,33 @@
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
+import { Transform } from 'stream'
 import mkdirp from 'mkdirp'
 import thenify from 'thenify'
 import { Map } from 'immutable'
 import request from 'request'
+import log from './logger'
 
 const asyncStat = thenify(fs.stat)
 const asyncMkdirp = thenify(mkdirp)
+
+class HashThrough extends Transform {
+  constructor(opts) {
+    super(opts)
+    this.hasher = crypto.createHash('sha256')
+    this.hashPromise = new Promise((resolve, reject) => {
+      this.on('finish', () => resolve(this.hasher.digest('hex')))
+        .on('error', err => reject(err))
+    })
+  }
+
+  _transform(chunk, enc, cb) {
+    this.hasher.update(chunk)
+
+    this.push(chunk)
+    cb()
+  }
+}
 
 export default class MapStore {
   constructor(basePath) {
@@ -53,7 +74,19 @@ export default class MapStore {
 
     try {
       if (exists) {
-        return true
+        const hasher = new HashThrough()
+        fs.createReadStream(mapPath).pipe(hasher)
+        hasher.resume()
+        try {
+          const hash = await hasher.hashPromise
+          if (hash === mapHash) {
+            return true
+          }
+
+          log.verbose(`Expected map to have hash '${mapHash}' but found '${hash}', redownloading`)
+        } catch (ignored) {
+          // If there was an error reading the file, then re-download it
+        }
       }
 
       await asyncMkdirp(path.dirname(mapPath), 0o777)
