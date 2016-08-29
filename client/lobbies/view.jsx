@@ -17,6 +17,7 @@ import styles from './view.css'
 
 import Lobby from './lobby.jsx'
 import LoadingScreen from './loading.jsx'
+import submitMessage from '../messaging/submit-message'
 
 const mapStateToProps = state => {
   return {
@@ -169,7 +170,7 @@ export default class LobbyView extends React.Component {
   }
 
   onSendChatMessage(message) {
-    this.props.dispatch(sendChat(message))
+    this.props.dispatch(submitMessage(message, 'lobby', this.props.params.lobby, sendChat))
   }
 
   onStartGame() {

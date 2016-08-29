@@ -15,7 +15,7 @@ describe('sorted-list', () => {
       expect(result.size).to.eql(0)
     })
 
-    it('should create an filled list', () => {
+    it('should create a filled list', () => {
       const result = create(alphaSort, [ 'z', 'a', 'b' ])
       expect(result.size).to.eql(3)
       expect(result.get(0)).to.eql('a')

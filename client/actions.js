@@ -25,6 +25,10 @@ export const CHAT_CHANNEL_ACTIVATE = 'CHAT_CHANNEL_ACTIVATE'
 // Notifies that a chat channel is no longer visible to the user, and can be cleaned up as
 // appropriate (trimming its messsage list to a minimal amount, for instance)
 export const CHAT_CHANNEL_DEACTIVATE = 'CHAT_CHANNEL_DEACTIVATE'
+// A user has entered a valid command with the wrong arguments in the chat channel
+export const CHAT_COMMAND_INVALID_ARGS = 'CHAT_COMMAND_INVALID_ARGS'
+// A user has entered an unknown command in the chat channel
+export const CHAT_COMMAND_UNKNOWN = 'CHAT_COMMAND_UNKNOWN'
 // A chat channel that we're in has some initial data we should use to initialize it in the store
 export const CHAT_INIT_CHANNEL = 'CHAT_INIT_CHANNEL'
 // The server has finished giving us our initial chat data (e.g what channels we are in) on connect
@@ -68,6 +72,10 @@ export const LOBBY_DEACTIVATE = 'LOBBY_DEACTIVATE'
 export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
 // The server has responded with success/failure to our addition of computer in lobby
 export const LOBBY_ADD_COMPUTER = 'LOBBY_ADD_COMPUTER'
+// A user has entered a valid command with the wrong arguments in the lobby chat
+export const LOBBY_COMMAND_INVALID_ARGS = 'LOBBY_COMMAND_INVALID_ARGS'
+// A user has entered an unknown command in the lobby chat
+export const LOBBY_COMMAND_UNKNOWN = 'LOBBY_COMMAND_UNKNOWN'
 // We are starting the process to create a lobby
 export const LOBBY_CREATE_BEGIN = 'LOBBY_CREATE_BEGIN'
 // The server has responded with success/failure to our lobby creation
@@ -173,6 +181,10 @@ export const UPGRADE_PSI_INFO = 'UPGRADE_PSI_INFO'
 export const WHISPERS_CLOSE_SESSION_BEGIN = 'WHISPERS_CLOSE_SESSION_BEGIN'
 // The server has responded with success/failure of our closing the whisper session
 export const WHISPERS_CLOSE_SESSION = 'WHISPERS_CLOSE_SESSION'
+// A user has entered a valid command with the wrong arguments in the whisper session
+export const WHISPER_COMMAND_INVALID_ARGS = 'WHISPER_COMMAND_INVALID_ARGS'
+// A user has entered an unknown command in the whisper session
+export const WHISPER_COMMAND_UNKNOWN = 'WHISPER_COMMAND_UNKNOWN'
 // The server has finished giving us our initial whispers data (eg. the list of users we had the
 // whisper window opened with when we last used the site) upon connecting
 export const WHISPERS_LOADING_COMPLETE = 'WHISPERS_LOADING_COMPLETE'
