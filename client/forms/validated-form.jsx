@@ -53,7 +53,6 @@ class ValidatedForm extends React.Component {
     const error = errorText ? (<span className={errorsClass}>{errorText}</span>) : undefined
     const formButtons = buttons ? (<div className={buttonsClass}>{buttons}</div>) : undefined
 
-
     return (
       <form {...otherProps} noValidate={true}>
         {title}

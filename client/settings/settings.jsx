@@ -7,8 +7,6 @@ import ValidatedCheckbox from '../forms/validated-checkbox.jsx'
 import ValidatedSelect from '../forms/validated-select.jsx'
 import ValidatedSlider from '../forms/validated-slider.jsx'
 import ValidatedText from '../forms/validated-text-input.jsx'
-import numberRangeValidator from '../forms/number-range-validator'
-import { PORT_MIN_NUMBER, PORT_MAX_NUMBER } from '../../shared/constants'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { setLocalSettings } from './action-creators'
 import { getResolution } from '../user-environment/action-creators'
@@ -28,8 +26,6 @@ const SUPPORTED_WINDOW_SIZES = [
   { width: 6400, height: 4800 },
 ]
 
-const portValidator = numberRangeValidator(PORT_MIN_NUMBER, PORT_MAX_NUMBER,
-    'Network port must be a number between 0 and 65535')
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 
 @connect(state => ({ settings: state.settings, userEnvironment: state.userEnvironment }))
@@ -40,11 +36,6 @@ class Settings extends React.Component {
       displayModeValue: props.settings.local.displayMode,
     }
     this._focusTimeout = null
-
-    this._onSettingsSavedClicked = ::this.handleSettingsSaved
-    this._onSettingsCanceledClicked = ::this.handleSettingsCanceled
-    this._onDisplayModeChanged = ::this.handleDisplayModeChange
-    this._onSubmitted = ::this.handleFormSubmission
   }
 
   componentDidMount() {
@@ -104,29 +95,14 @@ class Settings extends React.Component {
     const { local } = this.props.settings
     const { resolution } = this.props.userEnvironment
 
-    // TODO(2Pac): Add button for 'Reset to default settings' option
-    const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent'
-          onClick={this._onSettingsCanceledClicked} />,
-      <FlatButton ref='save' label='Save' key='save' color='accent'
-          onClick={this._onSettingsSavedClicked} />
-    ]
-
-
     const defaultWindowSizeValue = this.getDefaultWindowSizeValue(local, resolution)
     return (
       <div role='dialog' className={styles.contents}>
+        <h3 className={styles.title}>Settings</h3>
         <div className={styles.body}>
-          <ValidatedForm formTitle='Settings' ref='form' buttons={buttons}
-              titleClassName={styles.title} buttonsClassName={styles.actions}
-              onSubmitted={this._onSubmitted}>
-            <ValidatedText label='Network port' floatingLabel={true} name='port' tabIndex={0}
-                defaultValue={local.bwPort} autoCapitalize='off' autoCorrect='off'
-                spellCheck={false} required={true} requiredMessage='Enter a port number'
-                validator={portValidator}
-                onEnterKeyDown={e => this.handleSettingsSaved()}/>
+          <ValidatedForm ref='form' onSubmitted={this.onFormSubmission}>
             <ValidatedSelect label='Display mode' name='displayMode' tabIndex={0}
-                defaultValue={local.displayMode} onValueChanged={this._onDisplayModeChanged}>
+                defaultValue={local.displayMode} onValueChanged={this.onDisplayModeChanged}>
               <Option value={0} text='Fullscreen' />
               <Option value={1} text='Borderless Window' />
               <Option value={2} text='Windowed' />
@@ -151,30 +127,35 @@ class Settings extends React.Component {
                 onEnterKeyDown={e => this.handleSettingsSaved()}/>
           </ValidatedForm>
         </div>
+        <div className={styles.actions}>
+          <FlatButton label='Cancel' key='cancel' color='accent'
+              onClick={this.onSettingsCanceled} />
+          <FlatButton ref='save' label='Save' key='save' color='accent'
+              onClick={this.onSettingsSaved} />
+        </div>
       </div>
     )
   }
 
-  handleSettingsSaved() {
+  onSettingsSaved = () => {
     this.refs.form.trySubmit()
-  }
+  };
 
-  handleSettingsCanceled() {
+  onSettingsCanceled = () => {
     this.props.dispatch(closeDialog())
-  }
+  };
 
-  handleDisplayModeChange(value) {
+  onDisplayModeChanged = value => {
     this.setState({ displayModeValue: value })
-  }
+  };
 
-  handleFormSubmission(values) {
+  onFormSubmission = values => {
     const windowSize = values.get('windowSize')
     let starcraftPath = values.get('path')
     if (starcraftPath.endsWith('.exe')) {
       starcraftPath = starcraftPath.slice(0, starcraftPath.lastIndexOf('\\'))
     }
     const newSettings = {
-      bwPort: parseInt(values.get('port'), 10),
       width: windowSize.width,
       height: windowSize.height,
       displayMode: values.get('displayMode'),
@@ -185,7 +166,7 @@ class Settings extends React.Component {
     }
     this.props.dispatch(setLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
-  }
+  };
 }
 
 export default Settings
