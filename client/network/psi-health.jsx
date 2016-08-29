@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import Dialog from '../material/dialog.jsx'
 import { openDialog, closeDialog } from '../dialogs/dialog-action-creator'
 import { openSnackbar } from '../snackbars/action-creators'
 import {
@@ -9,8 +10,6 @@ import {
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
 } from './is-psi-healthy'
-
-import styles from '../material/dialog.css'
 
 @connect(state => ({ network: state.network, upgrade: state.upgrade }))
 export default class PsiHealthCheckupDialog extends React.Component {
@@ -88,19 +87,16 @@ export default class PsiHealthCheckupDialog extends React.Component {
   }
 
   render() {
-    return (<div role='dialog' className={styles.contents}>
-      <h3 className={styles.title}>Installation problems detected</h3>
-      <div className={styles.body}>
-        <p>The following problems need to be corrected before you can play games on
-            ShieldBattery:</p>
-        <ul>
-          { this.renderPsiConnectionInfo() }
-          { this.renderPsiVersionInfo() }
-          { this.renderInstallPathInfo() }
-          { this.renderStarcraftVersionInfo() }
-        </ul>
-      </div>
-    </div>)
+    return (<Dialog title={'Installation problems detected'} onCancel={this.props.onCancel}>
+      <p>The following problems need to be corrected before you can play games on
+          ShieldBattery:</p>
+      <ul>
+        { this.renderPsiConnectionInfo() }
+        { this.renderPsiVersionInfo() }
+        { this.renderInstallPathInfo() }
+        { this.renderStarcraftVersionInfo() }
+      </ul>
+    </Dialog>)
   }
 
   onSettingsClicked(e) {

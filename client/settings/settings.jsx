@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import Option from '../material/select/option.jsx'
 import ValidatedForm from '../forms/validated-form.jsx'
@@ -10,7 +11,6 @@ import ValidatedText from '../forms/validated-text-input.jsx'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { setLocalSettings } from './action-creators'
 import { getResolution } from '../user-environment/action-creators'
-import styles from '../material/dialog.css'
 
 const SUPPORTED_WINDOW_SIZES = [
   { width: 640, height: 480 },
@@ -92,49 +92,46 @@ class Settings extends React.Component {
   }
 
   render() {
+    const { onCancel } = this.props
     const { local } = this.props.settings
     const { resolution } = this.props.userEnvironment
 
+    const buttons = [
+      <FlatButton label='Cancel' key='cancel' color='accent'
+          onClick={this.onSettingsCanceled} />,
+      <FlatButton ref='save' label='Save' key='save' color='accent'
+          onClick={this.onSettingsSaved} />
+    ]
+
     const defaultWindowSizeValue = this.getDefaultWindowSizeValue(local, resolution)
-    return (
-      <div role='dialog' className={styles.contents}>
-        <h3 className={styles.title}>Settings</h3>
-        <div className={styles.body}>
-          <ValidatedForm ref='form' onSubmitted={this.onFormSubmission}>
-            <ValidatedSelect label='Display mode' name='displayMode' tabIndex={0}
-                defaultValue={local.displayMode} onValueChanged={this.onDisplayModeChanged}>
-              <Option value={0} text='Fullscreen' />
-              <Option value={1} text='Borderless Window' />
-              <Option value={2} text='Windowed' />
-            </ValidatedSelect>
-            <ValidatedSelect label='Window size' name='windowSize' tabIndex={0}
-                defaultValue={defaultWindowSizeValue} disabled={this.isFullscreen()}
-                compareValues={compareResolutions}>
-              { this.renderWindowSizeOptions(resolution) }
-            </ValidatedSelect>
-            <ValidatedCheckbox label='Maintain aspect ratio' name='aspectRatio' tabIndex={0}
-                defaultChecked={local.maintainAspectRatio} disabled={!this.isFullscreen()} />
-            <ValidatedSelect label='Renderer' name='renderer' tabIndex={0}
-                defaultValue={local.renderer}>
-              <Option value={0} text='DirectX' />
-              <Option value={1} text='OpenGL' />
-            </ValidatedSelect>
-            <ValidatedSlider label='Mouse sensitivity' name='sensitivity' tabIndex={0}
-                min={0} max={4} defaultValue={local.mouseSensitivity} step={1} />
-            <ValidatedText label='Starcraft folder path' floatingLabel={true} name='path'
-                tabIndex={0} defaultValue={local.starcraftPath} autoCapitalize='off'
-                autoCorrect='off' spellCheck={false} required={false}
-                onEnterKeyDown={e => this.handleSettingsSaved()}/>
-          </ValidatedForm>
-        </div>
-        <div className={styles.actions}>
-          <FlatButton label='Cancel' key='cancel' color='accent'
-              onClick={this.onSettingsCanceled} />
-          <FlatButton ref='save' label='Save' key='save' color='accent'
-              onClick={this.onSettingsSaved} />
-        </div>
-      </div>
-    )
+    return (<Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
+      <ValidatedForm ref='form' onSubmitted={this.onFormSubmission}>
+        <ValidatedSelect label='Display mode' name='displayMode' tabIndex={0}
+            defaultValue={local.displayMode} onValueChanged={this.onDisplayModeChanged}>
+          <Option value={0} text='Fullscreen' />
+          <Option value={1} text='Borderless Window' />
+          <Option value={2} text='Windowed' />
+        </ValidatedSelect>
+        <ValidatedSelect label='Window size' name='windowSize' tabIndex={0}
+            defaultValue={defaultWindowSizeValue} disabled={this.isFullscreen()}
+            compareValues={compareResolutions}>
+          { this.renderWindowSizeOptions(resolution) }
+        </ValidatedSelect>
+        <ValidatedCheckbox label='Maintain aspect ratio' name='aspectRatio' tabIndex={0}
+            defaultChecked={local.maintainAspectRatio} disabled={!this.isFullscreen()} />
+        <ValidatedSelect label='Renderer' name='renderer' tabIndex={0}
+            defaultValue={local.renderer}>
+          <Option value={0} text='DirectX' />
+          <Option value={1} text='OpenGL' />
+        </ValidatedSelect>
+        <ValidatedSlider label='Mouse sensitivity' name='sensitivity' tabIndex={0}
+            min={0} max={4} defaultValue={local.mouseSensitivity} step={1} />
+        <ValidatedText label='Starcraft folder path' floatingLabel={true} name='path'
+            tabIndex={0} defaultValue={local.starcraftPath} autoCapitalize='off'
+            autoCorrect='off' spellCheck={false} required={false}
+            onEnterKeyDown={e => this.handleSettingsSaved()}/>
+        </ValidatedForm>
+    </Dialog>)
   }
 
   onSettingsSaved = () => {
