@@ -1,4 +1,4 @@
-@value grey800, dialogScrim from '../styles/colors.css';
+@value grey800, dialogScrim, colorDividers from '../styles/colors.css';
 @value col, itemsCenter, justifyCenter from '../styles/flex.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 @value shadow8dp from './shadows.css';
@@ -21,6 +21,7 @@
 .contents {
   composes: global(cardLayer);
   composes: shadow8dp;
+  position: relative;
   z-index: zIndexDialog;
   width: 80%;
   max-width: 768px;
@@ -29,16 +30,25 @@
   border-radius: 2px;
 }
 
+.scrollDivider {
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  background-color: colorDividers;
+}
+
 .title {
   margin: 0;
-  padding: 24px 24px 0;
+  padding: 24px 24px 20px;
+}
+
+.titleDivider {
+  composes: scrollDivider;
+  margin-top: -1px;
 }
 
 .body {
   padding: 0 24px 24px;
-  margin-top: 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .actions {
@@ -46,6 +56,11 @@
   margin-bottom: 2px;
   width: 100%;
   text-align: right;
+}
+
+.actionsDivider {
+  composes: scrollDivider;
+  margin-bottom: -1px;
 }
 
 .scrim {
