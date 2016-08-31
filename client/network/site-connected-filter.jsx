@@ -1,6 +1,9 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import siteSocket from './site-socket'
+import styles from './site-connected-filter.css'
+
+import LoadingIndicator from '../progress/dots.jsx'
 
 @connect(state => ({ siteNetwork: state.network.site }))
 export default class SiteConnectedFilter extends React.Component {
@@ -18,7 +21,7 @@ export default class SiteConnectedFilter extends React.Component {
     if (this.props.siteNetwork.isConnected) {
       return React.Children.only(this.props.children)
     } else {
-      return <div>Connecting&hellip;</div>
+      return <div className={styles.loadingArea}><LoadingIndicator /></div>
     }
   }
 }

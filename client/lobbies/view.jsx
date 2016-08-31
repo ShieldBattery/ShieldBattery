@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
 import ContentLayout from '../content/content-layout.jsx'
 import IconButton from '../material/icon-button.jsx'
+import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
   leaveLobby,
@@ -133,18 +134,18 @@ export default class LobbyView extends React.Component {
     const lobby = lobbyState.get(routeLobby)
     if (!lobby.state && !lobby.error) {
       if (lobby.isRequesting) {
-        return <span className={styles.contentArea}>Loading&hellip;</span>
+        return <span className={styles.contentArea}><LoadingIndicator /></span>
       } else {
         return <span className={styles.contentArea}>There was a problem loading this lobby</span>
       }
     } else if (lobby.state) {
       return (<div className={styles.contentArea}>
-        { lobby.isRequesting ? <p>Updating&hellip;</p> : null }
+        { lobby.isRequesting ? <LoadingIndicator /> : null }
         { this.renderLobbyStateContent(lobby.state) }
       </div>)
     } else if (lobby.error) {
       return (<div className={styles.contentArea}>
-        { lobby.isRequesting ? <p>Updating&hellip;</p> : null }
+        { lobby.isRequesting ? <LoadingIndicator /> : null }
         <p>There was a problem loading this lobby</p>
       </div>)
     }

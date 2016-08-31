@@ -5,6 +5,7 @@ import styles from './admin.css'
 
 import ContentLayout from '../content/content-layout.jsx'
 import FlatButton from '../material/flat-button.jsx'
+import LoadingIndicator from '../progress/dots.jsx'
 import form from '../forms/form.jsx'
 import CheckBox from '../material/check-box.jsx'
 import TextField from '../material/text-field.jsx'
@@ -67,7 +68,7 @@ export class PermissionsResults extends React.Component {
     } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
-      return <p>Please wait...</p>
+      return <LoadingIndicator />
     }
 
     if (user.lastError) {
