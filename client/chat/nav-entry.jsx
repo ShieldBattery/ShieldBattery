@@ -15,5 +15,3 @@ export default class ChatNavEntry extends React.Component {
         needsAttention={hasUnread}>#{channel}</Entry>)
   }
 }
-
-export default ChatNavEntry
