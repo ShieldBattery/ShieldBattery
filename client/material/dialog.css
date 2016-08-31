@@ -66,8 +66,7 @@
 .scrim {
   composes: fullSizeFixed;
   z-index: zIndexDialogScrim;
-  opacity: 0.42;
-  background-color: dialogScrim;
+  background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
 }
 
 /*
@@ -75,8 +74,8 @@
   some more work to calculate and apply through JS
 */
 .enter .scrim {
-  opacity: 0;
-  transition: all 250ms fastOutSlowIn;
+  background-color: rgba(33, 33, 33, 0);
+  transition: background-color 250ms fastOutSlowIn;
 }
 
 .enter .contents {
@@ -86,7 +85,7 @@
 }
 
 .enterActive .scrim {
-  opacity: 0.42;
+  background-color: rgba(33, 33, 33, 0.42);
 }
 
 .enterActive .contents {
@@ -99,8 +98,7 @@
 }
 
 .leave .scrim {
-  opacity: 0.42;
-  transition: all 200ms fastOutSlowIn;
+  transition: background-color 200ms fastOutSlowIn;
 }
 
 .leave .contents {
@@ -110,7 +108,7 @@
 }
 
 .leaveActive .scrim {
-  opacity: 0;
+  background-color: rgba(33, 33, 33, 0);
 }
 
 .leaveActive .contents {
