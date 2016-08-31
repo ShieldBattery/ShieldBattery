@@ -84,5 +84,8 @@ config.https = {
   key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8'),
   cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
 }
+// Uncomment if this server is behind a reverse proxy that strips SSL, but is nonetheless served
+// over SSL
+config.httpsReverseProxy = true
 */
 export default config

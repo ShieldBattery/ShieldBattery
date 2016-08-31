@@ -8,7 +8,7 @@ export default session({
   key: 's',
   store: redisStore({ client: redis }),
   cookie: {
-    secure: !!config.https,
+    secure: !!config.https || config.httpsReverseProxy,
     maxAge: config.sessionTtl * 1000,
   },
   rolling: true,
