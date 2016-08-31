@@ -1,4 +1,5 @@
 import React, { PropTypes } from 'react'
+import { gameTypeToString } from './game-type'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -242,7 +243,7 @@ export default class Lobby extends React.Component {
         <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
         <div className={styles.infoItem}>
           <span className={styles.infoLabel}>Game type</span>
-          <span className={styles.infoValue}>Melee</span>
+          <span className={styles.infoValue}>{gameTypeToString(lobby.gameType)}</span>
         </div>
         { this.renderCountdown() }
         { this.renderStartButton() }

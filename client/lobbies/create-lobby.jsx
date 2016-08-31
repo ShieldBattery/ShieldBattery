@@ -35,6 +35,10 @@ class CreateLobbyForm extends React.Component {
           { maps.list.map(hash =>
                 <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />) }
       </Select>
+      <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
+        <Option key={'melee'} value={'melee'} text={'Melee'} />
+        <Option key={'ffa'} value={'ffa'} text={'Free for all'} />
+      </Select>
     </form>)
   }
 }
@@ -89,7 +93,8 @@ export default class CreateLobby extends React.Component {
     const { maps } = this.props
 
     const model = {
-      map: this.state.defaultMap
+      map: this.state.defaultMap,
+      gameType: 'melee',
     }
 
     return (<div>
@@ -106,7 +111,7 @@ export default class CreateLobby extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    this.props.dispatch(createLobby(values.name, values.map))
+    this.props.dispatch(createLobby(values.name, values.map, values.gameType))
     this.props.dispatch(navigateToLobby(values.name))
     this.props.dispatch(closeOverlay())
   };

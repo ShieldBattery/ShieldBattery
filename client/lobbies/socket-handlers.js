@@ -108,7 +108,7 @@ const eventToAction = {
     clearCountdownTimer()
     const {
       lobby: {
-        info: { map, numSlots, players, hostId },
+        info: { map, gameType, numSlots, players, hostId },
       },
       settings,
       auth: { user },
@@ -117,6 +117,7 @@ const eventToAction = {
     const promise = psiSocket.invoke('/site/setGameConfig', {
       lobby: {
         map,
+        gameType,
         numSlots,
         players,
         hostId,

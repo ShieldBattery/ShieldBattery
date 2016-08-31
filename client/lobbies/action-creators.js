@@ -24,8 +24,8 @@ import {
   MAPS_LIST_GET,
 } from '../actions'
 
-export function createLobby(name, map) {
-  const params = { name, map }
+export function createLobby(name, map, gameType) {
+  const params = { name, map, gameType }
 
   return dispatch => {
     dispatch({

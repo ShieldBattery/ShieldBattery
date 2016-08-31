@@ -31,6 +31,7 @@ export const Player = new Record({
 export const LobbyInfo = new Record({
   name: null,
   map: null,
+  gameType: null,
   numSlots: 0,
   players: new Map(),
   hostId: null,

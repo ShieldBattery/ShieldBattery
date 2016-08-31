@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import siteSocket from '../network/site-socket'
+import { gameTypeToString } from './game-type'
 import { joinLobby, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import styles from './join-lobby.css'
@@ -24,6 +25,7 @@ class ListEntry extends React.Component {
       <div className={styles.info}>
         <span className={styles.name}>{lobby.name}</span>
         <span className={styles.hostName}>{lobby.host.name}</span>
+        <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
         <span className={styles.openSlots}>{lobby.numSlots - lobby.filledSlots} slots open</span>
       </div>
       <div className={styles.map}>

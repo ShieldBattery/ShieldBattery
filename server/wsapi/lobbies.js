@@ -15,9 +15,14 @@ import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
 
 const LOBBY_START_TIMEOUT = 30 * 1000
+const GAME_TYPES = new Set([
+  'melee',
+  'ffa',
+])
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
+const validGameType = str => nonEmptyString(str) && GAME_TYPES.has(str)
 
 const Player = new Record({ name: null, id: null, race: 'r', isComputer: false, slot: -1 })
 
@@ -37,16 +42,17 @@ const Lobby = new Record({
   numSlots: 0,
   players: new OrderedMap(),
   hostId: null,
+  gameType: 'melee',
 })
-
 
 export const Lobbies = {
   // Creates a new lobby, and an initial host player in the first slot.
-  create(name, map, numSlots, hostName, hostRace = 'r') {
+  create(name, map, gameType, numSlots, hostName, hostRace = 'r') {
     const host = Players.createHuman(hostName, hostRace, 0)
     return new Lobby({
       name,
       map,
+      gameType,
       numSlots,
       players: new OrderedMap({ [host.id]: host }),
       hostId: host.id
@@ -59,6 +65,7 @@ export const Lobbies = {
     return {
       name: lobby.name,
       map: lobby.map,
+      gameType: lobby.gameType,
       numSlots: lobby.numSlots,
       host: { name: lobby.getIn(['players', lobby.hostId, 'name']), id: lobby.hostId },
       filledSlots: lobby.players.size,
@@ -140,7 +147,9 @@ const Countdown = new Record({
 })
 
 function generateSeed() {
-  return (Math.random() * 0xFFFFFFFF) | 0
+  // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
+  // played, so we match BW's random seed method (time()) here
+  return (Date.now() / 1000) | 0
 }
 
 const LoadingData = new Record({
@@ -195,6 +204,8 @@ export class LobbyApi {
       this.subscribedSockets = this.subscribedSockets.delete(socket.id)
     }
     const subscription = new ListSubscription({
+      // TODO(tec27): this is a likely bug, removeEventListener isn't a thing on here, and we never
+      // utilize onClose?
       onUnsubscribe: () => socket.removeEventListener(onClose),
       count: 1,
     })
@@ -222,11 +233,12 @@ export class LobbyApi {
       validateBody({
         name: validLobbyName,
         map: nonEmptyString,
+        gameType: validGameType,
       }),
       'getUser',
       'ensureNotInLobby')
   async create(data, next) {
-    const { name, map } = data.get('body')
+    const { name, map, gameType } = data.get('body')
     const user = data.get('user')
 
     if (this.lobbies.has(name)) {
@@ -238,7 +250,7 @@ export class LobbyApi {
     }
     const mapData = MAPS_BY_HASH.get(map)
 
-    const lobby = Lobbies.create(name, mapData, mapData.slots, user.name)
+    const lobby = Lobbies.create(name, mapData, gameType, mapData.slots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)

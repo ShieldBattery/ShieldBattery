@@ -9,6 +9,7 @@ export const HostRecord = new Record({
 export const LobbySummary = new Record({
   name: null,
   map: null,
+  gameType: null,
   numSlots: -1,
   host: null,
   filledSlots: -1,
