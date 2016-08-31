@@ -3,7 +3,7 @@ import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 import styles from './check-box.css'
 
-class CheckBox extends React.Component {
+export default class CheckBox extends React.Component {
   static propTypes = {
     name: React.PropTypes.string,
     checked: React.PropTypes.bool,
@@ -30,6 +30,7 @@ class CheckBox extends React.Component {
       className,
       label,
       checked,
+      name,
       value,
       onChange,
       disabled,
@@ -48,6 +49,7 @@ class CheckBox extends React.Component {
       type: 'checkbox',
       id: this.id,
       checked,
+      name,
       value,
       disabled,
       onBlur: this.onBlur,
@@ -89,6 +91,3 @@ class CheckBox extends React.Component {
     this.mouseActive = true
   };
 }
-
-
-export default CheckBox
