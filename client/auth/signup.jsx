@@ -4,6 +4,7 @@ import { routerActions } from 'react-router-redux'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
+import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
@@ -96,7 +97,7 @@ export default class Signup extends React.Component {
   render() {
     const { auth, location } = this.props
     if (auth.authChangeInProgress) {
-      return <Card><span>Please wait...</span></Card>
+      return <Card><LoadingIndicator /></Card>
     }
 
     let errContents
