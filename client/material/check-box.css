@@ -1,4 +1,5 @@
-@value colorTextSecondary, colorDividers, alphaDividers from '../styles/colors.css';
+@value colorTextPrimary, colorTextSecondary, colorDividers from '../styles/colors.css';
+@value alphaDividers, alphaDisabled from '../styles/colors.css';
 @value amberA400, colorBackground, colorTextFaint from '../styles/colors.css';
 @value flex, itemsCenter from '../styles/flex.css';
 @value fastOutSlowIn from './curve-constants.css';
@@ -133,7 +134,8 @@
 }
 
 .disabled .icon {
-  border-color: colorTextFaint;
+  border-color: colorTextPrimary;
+  opacity: alphaDisabled;
 }
 
 .disabled label {
@@ -145,5 +147,6 @@
 }
 
 .checked.disabled .icon {
-  background-color: colorTextFaint;
+  background-color: colorTextPrimary;
+  opacity: alphaDisabled;
 }

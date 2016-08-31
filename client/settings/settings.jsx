@@ -3,11 +3,12 @@ import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import Option from '../material/select/option.jsx'
-import ValidatedForm from '../forms/validated-form.jsx'
-import ValidatedCheckbox from '../forms/validated-checkbox.jsx'
-import ValidatedSelect from '../forms/validated-select.jsx'
-import ValidatedSlider from '../forms/validated-slider.jsx'
-import ValidatedText from '../forms/validated-text-input.jsx'
+import form from '../forms/form.jsx'
+import CheckBox from '../material/check-box.jsx'
+import Select from '../material/select/select.jsx'
+import Slider from '../material/slider.jsx'
+import TextField from '../material/text-field.jsx'
+import { minLength } from '../forms/validators'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { setLocalSettings } from './action-creators'
 import { getResolution } from '../user-environment/action-creators'
@@ -26,17 +27,82 @@ const SUPPORTED_WINDOW_SIZES = [
   { width: 6400, height: 4800 },
 ]
 
+function filterWindowSizes(width, height) {
+  return SUPPORTED_WINDOW_SIZES.filter(r => r.width <= width && r.height <= height)
+}
+
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 
-@connect(state => ({ settings: state.settings, userEnvironment: state.userEnvironment }))
-class Settings extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      displayModeValue: props.settings.local.displayMode,
-    }
-    this._focusTimeout = null
+@form({
+  path: minLength(1, 'StarCraft path is required'),
+})
+class SettingsForm extends React.Component {
+  isFullscreen() {
+    return this.props.getInputValue('displayMode') === 0
   }
+
+  renderWindowSizeOptions(resolution) {
+    const { width, height } = resolution
+    if (this.isFullscreen()) {
+      return <Option value={{width, height}} text={`${width}x${height}`} />
+    }
+
+    return filterWindowSizes(width, height).map((size, i) => {
+      return (<Option key={i} value={{ width: size.width, height: size.height }}
+          text={`${size.width}x${size.height}`}/>)
+    })
+  }
+
+  render() {
+    const {
+      resolution,
+      bindCheckable,
+      bindCustom,
+      bindInput,
+      onSubmit,
+    } = this.props
+
+    const windowSizeProps = this.isFullscreen() ? {
+      value: { width: resolution.width, height: resolution.height },
+      disabled: true,
+    } : {
+      ...bindCustom('windowSize'),
+    }
+
+    return (<form noValidate={true} onSubmit={onSubmit}>
+      <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
+        <Option value={0} text='Fullscreen' />
+        <Option value={1} text='Borderless Window' />
+        <Option value={2} text='Windowed' />
+      </Select>
+      <Select {...windowSizeProps} label='Window size' tabIndex={0}
+          compareValues={compareResolutions}>
+        { this.renderWindowSizeOptions(resolution) }
+      </Select>
+      <CheckBox {...bindCheckable('maintainAspectRatio')} label='Maintain aspect ratio' tabIndex={0}
+          disabled={!this.isFullscreen()} />
+      <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
+        <Option value={0} text='DirectX' />
+        <Option value={1} text='OpenGL' />
+      </Select>
+      <Slider {...bindCustom('sensitivity')} label='Mouse sensitivity' tabIndex={0}
+          min={0} max={4} step={1} />
+      <TextField {...bindInput('path')} label='StarCraft folder path' floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false
+          }}/>
+    </form>)
+  }
+}
+
+@connect(state => ({ settings: state.settings, userEnvironment: state.userEnvironment }))
+export default class Settings extends React.Component {
+  _focusTimeout = null;
+  _form = null;
+  _setForm = elem => { this._form = elem };
 
   componentDidMount() {
     this.props.dispatch(getResolution())
@@ -52,33 +118,12 @@ class Settings extends React.Component {
     }
   }
 
-  isFullscreen() {
-    return this.state.displayModeValue === 0
-  }
-
-  filterWindowSizes(width, height) {
-    return SUPPORTED_WINDOW_SIZES.filter(r => r.width <= width && r.height <= height)
-  }
-
-  renderWindowSizeOptions(resolution) {
-    const { width, height } = resolution
-    if (this.isFullscreen()) {
-      return <Option value={{width, height}} text={`${width}x${height}`} />
-    }
-
-    return this.filterWindowSizes(width, height).map((size, i) => {
-      return (<Option key={i} value={{ width: size.width, height: size.height }}
-          text={`${size.width}x${size.height}`}/>)
-    })
-  }
-
   getDefaultWindowSizeValue(localSettings, resolution) {
     const { width, height } = resolution
     // Happens in initial render when width and height have default values (-1x-1)
     if (width === -1 || height === -1) return null
-    if (this.isFullscreen()) return { width, height }
 
-    const filteredSizes = this.filterWindowSizes(width, height)
+    const filteredSizes = filterWindowSizes(width, height)
     for (const size of filteredSizes) {
       if (size.width === localSettings.width && size.height === localSettings.height) {
         return { width: size.width, height: size.height }
@@ -96,74 +141,60 @@ class Settings extends React.Component {
     const { local } = this.props.settings
     const { resolution } = this.props.userEnvironment
 
+    const formModel = {
+      displayMode: local.displayMode,
+      maintainAspectRatio: local.maintainAspectRatio,
+      path: local.starcraftPath,
+      renderer: local.renderer,
+      sensitivity: local.mouseSensitivity,
+      windowSize: this.getDefaultWindowSizeValue(local, resolution)
+    }
+
     const buttons = [
       <FlatButton label='Cancel' key='cancel' color='accent'
-          onClick={this.onSettingsCanceled} />,
+          onClick={this.onSettingsCancel} />,
       <FlatButton ref='save' label='Save' key='save' color='accent'
-          onClick={this.onSettingsSaved} />
+          onClick={this.onSettingsSave} />
     ]
 
-    const defaultWindowSizeValue = this.getDefaultWindowSizeValue(local, resolution)
+    const defaultWindowSize = this.getDefaultWindowSizeValue(local, resolution)
     return (<Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
-      <ValidatedForm ref='form' onSubmitted={this.onFormSubmission}>
-        <ValidatedSelect label='Display mode' name='displayMode' tabIndex={0}
-            defaultValue={local.displayMode} onValueChanged={this.onDisplayModeChanged}>
-          <Option value={0} text='Fullscreen' />
-          <Option value={1} text='Borderless Window' />
-          <Option value={2} text='Windowed' />
-        </ValidatedSelect>
-        <ValidatedSelect label='Window size' name='windowSize' tabIndex={0}
-            defaultValue={defaultWindowSizeValue} disabled={this.isFullscreen()}
-            compareValues={compareResolutions}>
-          { this.renderWindowSizeOptions(resolution) }
-        </ValidatedSelect>
-        <ValidatedCheckbox label='Maintain aspect ratio' name='aspectRatio' tabIndex={0}
-            defaultChecked={local.maintainAspectRatio} disabled={!this.isFullscreen()} />
-        <ValidatedSelect label='Renderer' name='renderer' tabIndex={0}
-            defaultValue={local.renderer}>
-          <Option value={0} text='DirectX' />
-          <Option value={1} text='OpenGL' />
-        </ValidatedSelect>
-        <ValidatedSlider label='Mouse sensitivity' name='sensitivity' tabIndex={0}
-            min={0} max={4} defaultValue={local.mouseSensitivity} step={1} />
-        <ValidatedText label='Starcraft folder path' floatingLabel={true} name='path'
-            tabIndex={0} defaultValue={local.starcraftPath} autoCapitalize='off'
-            autoCorrect='off' spellCheck={false} required={false}
-            onEnterKeyDown={e => this.handleSettingsSaved()}/>
-        </ValidatedForm>
+      <SettingsForm
+          ref={this._setForm}
+          resolution={resolution}
+          defaultWindowSize={defaultWindowSize}
+          model={formModel}
+          onSubmit={this.onSubmit}/>
     </Dialog>)
   }
 
-  onSettingsSaved = () => {
-    this.refs.form.trySubmit()
+  onSettingsSave = () => {
+    this._form.submit()
   };
 
-  onSettingsCanceled = () => {
+  onSettingsCancel = () => {
     this.props.dispatch(closeDialog())
   };
 
-  onDisplayModeChanged = value => {
-    this.setState({ displayModeValue: value })
-  };
-
-  onFormSubmission = values => {
-    const windowSize = values.get('windowSize')
-    let starcraftPath = values.get('path')
+  onSubmit = () => {
+    const values = this._form.getModel()
+    const windowSize = values.windowSize || {}
+    let starcraftPath = values.path
     if (starcraftPath.endsWith('.exe')) {
       starcraftPath = starcraftPath.slice(0, starcraftPath.lastIndexOf('\\'))
     }
     const newSettings = {
       width: windowSize.width,
       height: windowSize.height,
-      displayMode: values.get('displayMode'),
-      mouseSensitivity: values.get('sensitivity'),
-      maintainAspectRatio: values.get('aspectRatio'),
-      renderer: values.get('renderer'),
+      displayMode: values.displayMode,
+      mouseSensitivity: values.sensitivity,
+      maintainAspectRatio: values.maintainAspectRatio,
+      renderer: values.renderer,
       starcraftPath,
     }
     this.props.dispatch(setLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
   };
-}
 
-export default Settings
+
+}

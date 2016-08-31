@@ -6,13 +6,16 @@ import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import auther from './auther'
-import ValidatedForm from '../forms/validated-form.jsx'
-import ValidatedText from '../forms/validated-text-input.jsx'
-import ValidatedCheckbox from '../forms/validated-checkbox.jsx'
-import composeValidators from '../forms/compose-validators'
-import minLengthValidator from '../forms/min-length-validator'
-import maxLengthValidator from '../forms/max-length-validator'
-import regexValidator from '../forms/regex-validator'
+import form from '../forms/form.jsx'
+import TextField from '../material/text-field.jsx'
+import CheckBox from '../material/check-box.jsx'
+import {
+  composeValidators,
+  minLength,
+  maxLength,
+  regex,
+  required,
+} from '../forms/validators'
 import styles from './login.css'
 import {
   USERNAME_MINLENGTH,
@@ -21,14 +24,56 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../shared/constants'
 
-@connect(state => ({ auth: state.auth }))
-class Login extends React.Component {
-  constructor(props, context) {
-    super(props, context)
-    this.state = {
-      reqId: null,
-    }
+const usernameValidator = composeValidators(
+    required('Enter a username'),
+    minLength(USERNAME_MINLENGTH,
+        `Enter at least ${USERNAME_MINLENGTH} characters`),
+    maxLength(USERNAME_MAXLENGTH,
+        `Enter at most ${USERNAME_MAXLENGTH} characters`),
+    regex(USERNAME_PATTERN,
+        'Username contains invalid characters'))
+const passwordValidator = composeValidators(
+    required('Enter a password'),
+    minLength(PASSWORD_MINLENGTH,
+        `Enter at least ${PASSWORD_MINLENGTH} characters`))
+
+@form({
+  username: usernameValidator,
+  password: passwordValidator,
+})
+class LoginForm extends React.Component {
+  render() {
+    const { onSubmit, bindInput, bindCheckable } = this.props
+    return (<form noValidate={true} onSubmit={onSubmit}>
+      <TextField {...bindInput('username')} className={styles.textFields}
+          label='Username' floatingLabel={true}
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
+      <TextField {...bindInput('password')} className={styles.textFields}
+          label='Password' floatingLabel={true} type='password'
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
+      <CheckBox {...bindCheckable('remember')} className={styles.checkboxes} label='Remember me'
+          tabIndex={1} />
+    </form>)
   }
+}
+
+@connect(state => ({ auth: state.auth }))
+export default class Login extends React.Component {
+  state = {
+    reqId: null,
+  };
+  _form = null;
+  _setForm = elem => { this._form = elem };
 
   componentDidMount() {
     redirectIfLoggedIn(this.props)
@@ -48,49 +93,15 @@ class Login extends React.Component {
       const failure = auth.lastFailure
       const reqId = this.state.reqId
       if (reqId && failure && failure.reqId === reqId) {
-        errContents = `Error: ${failure.err}`
+        errContents = <div className={styles.errors}>Error: {failure.err}</div>
       }
 
-      const buttons = [
-        <RaisedButton label='Log in' key='login-btn'
-            onClick={e => this.onLogInClicked(e)} tabIndex={1}/>,
-      ]
-
-      const usernameValidator = composeValidators(
-        minLengthValidator(USERNAME_MINLENGTH,
-            `Enter at least ${USERNAME_MINLENGTH} characters`),
-        maxLengthValidator(USERNAME_MAXLENGTH,
-            `Enter at most ${USERNAME_MAXLENGTH} characters`),
-        regexValidator(USERNAME_PATTERN,
-            'Username contains invalid characters')
-      )
-      const passwordValidator = minLengthValidator(PASSWORD_MINLENGTH,
-          `Enter at least ${PASSWORD_MINLENGTH} characters`)
-
-      cardContents = (
-        <ValidatedForm ref='form'
-            formTitle={'Log in'}
-            errorText={errContents}
-            errorsClassName={styles.errors}
-            fieldsClassName={styles.fields}
-            buttons={buttons}
-            onSubmitted={values => this.onSubmitted(values)}>
-          <ValidatedText className={styles.textFields} label='Username' floatingLabel={true}
-              name='username' tabIndex={1}
-              autoCapitalize='off' autoCorrect='off' spellCheck={false}
-              required={true} requiredMessage='Enter a username'
-              validator={usernameValidator}
-              onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedText className={styles.textFields} label='Password' floatingLabel={true}
-              name='password' tabIndex={1} type='password'
-              autoCapitalize='off' autoCorrect='off' spellCheck={false}
-              required={true} requiredMessage='Enter a password'
-              validator={passwordValidator}
-              onEnterKeyDown={e => this.onLogInClicked()}/>
-          <ValidatedCheckbox className={styles.checkboxes} label='Remember me'
-              name='remember' tabIndex={1} />
-        </ValidatedForm>
-      )
+      cardContents = <div>
+        <h3>Log in</h3>
+        { errContents }
+        <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}/>
+        <RaisedButton label='Log in' onClick={this.onLogInClick} tabIndex={1}/>
+      </div>
     }
 
     return (<div className={styles.content}>
@@ -98,39 +109,38 @@ class Login extends React.Component {
       <div className={styles.bottomAction}>
         <p>Don't have an account?</p>
         <span>
-          <FlatButton label='Sign up for beta' onClick={e => this.onSignUpClicked(e)} tabIndex={2}/>
+          <FlatButton label='Sign up for beta' onClick={this.onSignUpClick} tabIndex={1}/>
           or
-          <FlatButton label='Create account' onClick={e => this.onCreateAccountClicked(e)}
-              tabIndex={2}/>
+          <FlatButton label='Create account' onClick={this.onCreateAccountClick}
+              tabIndex={1}/>
         </span>
       </div>
     </div>)
   }
 
-  onSignUpClicked() {
+  onSignUpClick = () => {
     this.props.dispatch(routerActions.push({ pathname: '/splash' }))
-  }
+  };
 
-  onCreateAccountClicked() {
+  onCreateAccountClick = () => {
     const query = {
       ...this.props.location.query,
-      username: this.refs.form.getValueOf('username'),
+      username: this._form.getModel().username,
     }
     this.props.dispatch(routerActions.push({ pathname: '/signup', query }))
-  }
+  };
 
-  onLogInClicked() {
-    this.refs.form.trySubmit()
-  }
+  onLogInClick = () => {
+    this._form.submit()
+  };
 
-  onSubmitted(values) {
+  onSubmit = () => {
+    const values = this._form.getModel()
     const { id, action } =
-        auther.logIn(values.get('username'), values.get('password'), values.get('remember'))
+        auther.logIn(values.username, values.password, values.remember)
     this.setState({
       reqId: id
     })
     this.props.dispatch(action)
-  }
+  };
 }
-
-export default Login

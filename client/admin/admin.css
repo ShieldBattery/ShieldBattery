@@ -1,20 +1,7 @@
 @value colorTextSecondary from '../styles/colors.css';
-@value row, itemsCenter from '../styles/flex.css';
 
 .permissions {
   padding: 0 20px;
-}
-
-.findForm {
-  composes: row itemsCenter;
-}
-
-.findTitle {
-  padding-right: 20px;
-}
-
-.findFields {
-  padding-right: 20px;
 }
 
 .saveForm {

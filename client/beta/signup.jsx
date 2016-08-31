@@ -1,14 +1,18 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import styles from './beta.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import ValidatedForm from '../forms/validated-form.jsx'
-import ValidatedText from '../forms/validated-text-input.jsx'
-import composeValidators from '../forms/compose-validators'
-import minLengthValidator from '../forms/min-length-validator'
-import maxLengthValidator from '../forms/max-length-validator'
-import regexValidator from '../forms/regex-validator'
+import form from '../forms/form.jsx'
+import TextField from '../material/text-field.jsx'
+import {
+  composeValidators,
+  minLength,
+  maxLength,
+  regex,
+  required,
+} from '../forms/validators'
 import {
   EMAIL_MINLENGTH,
   EMAIL_MAXLENGTH,
@@ -17,23 +21,58 @@ import {
 
 import { createInvite } from './action-creators'
 
-class BetaSignup extends React.Component {
-  static contextTypes = {
-    store: React.PropTypes.object.isRequired,
-  };
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      formSubmitted: false
+const emailValidator = composeValidators(
+    required('Enter an email address'),
+    minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
+    maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
+    regex(EMAIL_PATTERN, 'Enter a valid email address')
+)
+
+@form({
+  email: emailValidator,
+})
+class BetaSignupForm extends React.Component {
+  render() {
+    const { onSubmit, bindInput } = this.props
+    const textInputProps = {
+      autoCapitalize: 'off',
+      autoCorrect: 'off',
+      spellCheck: false,
+      tabIndex: 1,
     }
+
+    return (<form noValidate={true} onSubmit={onSubmit}>
+      <TextField {...bindInput('email')} inputProps={textInputProps}
+          label='Email address (required)' floatingLabel={true}/>
+      <TextField {...bindInput('teamliquidName')} inputProps={textInputProps}
+          label='TeamLiquid.net username' floatingLabel={true}/>
+      <TextField {...bindInput('os')} inputProps={textInputProps} label='Operating system version'
+          floatingLabel={true}/>
+      <TextField {...bindInput('browser')} inputProps={textInputProps} label='Main browser'
+          floatingLabel={true}/>
+      <TextField {...bindInput('graphics')} inputProps={textInputProps} label='Graphics card'
+          floatingLabel={true}/>
+      {/* TODO(2Pac): Make a radio component */}
+      <TextField {...bindInput('canHost')} inputProps={textInputProps}
+          label='Are you able to host games so far in BW?' floatingLabel={true}/>
+    </form>)
   }
+}
+
+@connect()
+export default class BetaSignup extends React.Component {
+  state = {
+    formSubmitted: false
+  };
+  _form = null;
+  _setForm = elem => { this._form = elem };
 
   renderDoneMessage() {
     return (<div className={styles.signupDone}>
         <p className={styles.signupDoneParagraph}>
-          Thank you for signing up for the ShieldBattery beta! You will be notified by email or
-          TeamLiquid PM when you receive a beta invite.
+          Thank you for signing up for the ShieldBattery beta! You will be notified by email
+          when you receive a beta invite.
         </p>
 
         <p className={styles.signupDoneParagraph}>
@@ -48,44 +87,11 @@ class BetaSignup extends React.Component {
   }
 
   renderSignupForm() {
-    const button = (<RaisedButton type='button' label='Sign up'
-        onClick={e => this.onSignUpClicked(e)} tabIndex={1}/>)
-
-    const emailValidator = composeValidators(
-      minLengthValidator(EMAIL_MINLENGTH,
-          `Use at least ${EMAIL_MINLENGTH} characters`),
-      maxLengthValidator(EMAIL_MAXLENGTH,
-          `Use at most ${EMAIL_MAXLENGTH} characters`),
-      regexValidator(EMAIL_PATTERN,
-          'Enter a valid email address')
-    )
-
-    const signupForm = <ValidatedForm ref='form' formTitle='Sign up for beta' buttons={button}
-        onSubmitted={values => this.onSubmitted(values)} titleClassName={styles.signupTitle}>
-      <ValidatedText label='Email address (required)' floatingLabel={true} name='email' tabIndex={1}
-          autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          required={true} requiredMessage='Enter an email address'
-          validator={emailValidator}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <ValidatedText label='TeamLiquid.net username' floatingLabel={true} name='teamliquidName'
-          tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <ValidatedText label='Operating system version' floatingLabel={true} name='os' tabIndex={1}
-          required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <ValidatedText label='Main browser' floatingLabel={true} name='browser' tabIndex={1}
-          required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
-      <ValidatedText label='Graphics card' floatingLabel={true} name='graphics' tabIndex={1}
-          required={false} autoCapitalize='off' autoCorrect='off' spellCheck={false}
-          onEnterKeyDown={e => this.onSignUpClicked()}/>
-      {/* TODO(2Pac): Make a radio component */}
-      <ValidatedText label='Are you able to host games so far in BW?' floatingLabel={true}
-          name='canHost' tabIndex={1} required={false} autoCapitalize='off' autoCorrect='off'
-          spellCheck={false} onEnterKeyDown={e => this.onSignUpClicked()}/>
-    </ValidatedForm>
-
-    return signupForm
+    return (<div>
+      <h3>Sign up for beta</h3>
+      <BetaSignupForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}/>
+      <RaisedButton label='Sign up' onClick={this.onSignUpClick} tabIndex={1}/>
+    </div>)
   }
 
   renderCardContents() {
@@ -104,29 +110,23 @@ class BetaSignup extends React.Component {
     )
   }
 
-  onSignUpClicked() {
-    this.refs.form.trySubmit()
-  }
+  onSignUpClick = () => {
+    this._form.submit()
+  };
 
-  onSubmitted(values) {
+  onSubmit = () => {
     this.setState({ formSubmitted: true })
 
-    let canHost = values.get('canHost')
-    if (canHost.toLowerCase()[0] === 'y') {
-      canHost = true
-    } else {
-      canHost = false
-    }
+    const values = this._form.getModel()
+    const canHost = !!values.canHost && values.canHost.toLowerCase()[0] === 'y'
 
-    this.context.store.dispatch(createInvite({
-      email: values.get('email'),
-      teamliquidName: values.get('teamliquidName'),
-      os: values.get('os'),
-      browser: values.get('browser'),
-      graphics: values.get('graphics'),
+    this.props.dispatch(createInvite({
+      email: values.email,
+      teamliquidName: values.teamliquidName,
+      os: values.os,
+      browser: values.browser,
+      graphics: values.graphics,
       canHost,
     }))
-  }
+  };
 }
-
-export default BetaSignup

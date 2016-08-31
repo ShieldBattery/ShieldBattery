@@ -2,12 +2,15 @@ import React from 'react'
 import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
-import ValidatedForm from '../forms/validated-form.jsx'
-import ValidatedText from '../forms/validated-text-input.jsx'
-import composeValidators from '../forms/compose-validators'
-import minLengthValidator from '../forms/min-length-validator'
-import maxLengthValidator from '../forms/max-length-validator'
-import regexValidator from '../forms/regex-validator'
+import form from '../forms/form.jsx'
+import TextField from '../material/text-field.jsx'
+import {
+  composeValidators,
+  minLength,
+  maxLength,
+  regex,
+  required
+} from '../forms/validators'
 
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { navigateToWhisper } from './action-creators'
@@ -17,9 +20,37 @@ import {
   USERNAME_PATTERN,
 } from '../../shared/constants'
 
+const usernameValidator = composeValidators(
+    required('Enter a username'),
+    minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
+    maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
+    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+
+@form({
+  target: usernameValidator,
+})
+class CreateWhisperForm extends React.Component {
+  render() {
+    const { onSubmit, bindInput, inputRef } = this.props
+    return (<form noValidate={true} onSubmit={onSubmit}>
+      <TextField {...bindInput('target')} label='Username' floatingLabel={true} ref={inputRef}
+          inputProps={{
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: 'off',
+            tabIndex: 0,
+          }}/>
+    </form>)
+  }
+}
+
 @connect()
 export default class CreateWhisper extends React.Component {
   _autoFocusTimer = null;
+  _form = null;
+  _setForm = elem => { this._form = elem };
+  _input = null;
+  _setInput = elem => { this._input = elem };
 
   componentDidMount() {
     this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
@@ -34,7 +65,7 @@ export default class CreateWhisper extends React.Component {
 
   _doAutoFocus() {
     this._autoFocusTimer = null
-    this.refs.form.getInputRef('target').focus()
+    this._input.focus()
   }
 
   render() {
@@ -45,35 +76,22 @@ export default class CreateWhisper extends React.Component {
           onClick={this.onSendMessage} />
     ]
 
-    const usernameValidator = composeValidators(
-      minLengthValidator(USERNAME_MINLENGTH,
-          `Enter at least ${USERNAME_MINLENGTH} characters`),
-      maxLengthValidator(USERNAME_MAXLENGTH,
-          `Enter at most ${USERNAME_MAXLENGTH} characters`),
-      regexValidator(USERNAME_PATTERN,
-          'Username contains invalid characters')
-    )
-
     return (<Dialog title={'Send a message'} buttons={buttons} onCancel={this.props.onCancel}>
-      <ValidatedForm ref='form' onSubmitted={this.onFormSubmission}>
-        <ValidatedText label='Username' floatingLabel={true} name='target' tabIndex={0}
-            autoCapitalize='off' autoCorrect='off' spellCheck={false} required={true}
-            requiredMessage='Enter a username' validator={usernameValidator}
-            onEnterKeyDown={e => this.handleSendMessage()}/>
-      </ValidatedForm>
+      <CreateWhisperForm ref={this._setForm} inputRef={this._setInput} model={{}}
+          onSubmit={this.onSubmit}/>
     </Dialog>)
   }
 
   onSendMessage = () => {
-    this.refs.form.trySubmit()
+    this._form.submit()
   };
 
   onCancel = () => {
     this.props.dispatch(closeDialog())
   };
 
-  onFormSubmission = values => {
-    const target = values.get('target')
+  onSubmit = () => {
+    const target = this._form.getModel().target
     this.props.dispatch(closeDialog())
     this.props.dispatch(navigateToWhisper(target))
   };

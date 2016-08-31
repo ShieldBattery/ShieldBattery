@@ -39,7 +39,8 @@ class Select extends React.Component {
     allowErrors: PropTypes.bool,
     errorText: PropTypes.string,
     label: PropTypes.string,
-    onValueChanged: PropTypes.func,
+    value: PropTypes.any,
+    onChange: PropTypes.func,
     // function used to compare values for equality, will never be called with null/undefined
     compareValues: PropTypes.func,
   };
@@ -53,7 +54,6 @@ class Select extends React.Component {
     isFocused: false,
     isOpened: false,
     isClosing: false,
-    value: this.props.defaultValue,
     overlayPosition: null,
     activeIndex: -1,
   };
@@ -76,14 +76,6 @@ class Select extends React.Component {
     }
   }
 
-  componentWillReceiveProps(nextProps) {
-    const hasNewDefault = nextProps.defaultValue !== this.props.defaultValue
-
-    if (hasNewDefault) {
-      this.setState({ value: nextProps.defaultValue })
-    }
-  }
-
   componentWillUnmount() {
     clearTimeout(this._closeTimer)
   }
@@ -100,11 +92,7 @@ class Select extends React.Component {
   }
 
   hasValue() {
-    return this.state.value !== undefined
-  }
-
-  getValue() {
-    return this.hasValue() ? this.state.value : undefined
+    return this.props.value !== undefined
   }
 
   render() {
@@ -119,11 +107,11 @@ class Select extends React.Component {
     let displayValue
     if (this.hasValue()) {
       React.Children.forEach(this.props.children, child => {
-        if (this.state.value != null && child.props.value != null) {
-          if (this.props.compareValues(this.state.value, child.props.value)) {
+        if (this.props.value != null && child.props.value != null) {
+          if (this.props.compareValues(this.props.value, child.props.value)) {
             displayValue = child.props.text
           }
-        } else if (this.state.value === child.props.value) { // if both are undefined/null
+        } else if (this.props.value === child.props.value) { // if both are undefined/null
           displayValue = child.props.text
         }
       })
@@ -216,11 +204,11 @@ class Select extends React.Component {
     let valueIndex = 0
     if (this.hasValue()) {
       React.Children.forEach(this.props.children, (child, i) => {
-        if (this.state.value != null && child.props.value != null) {
-          if (this.props.compareValues(this.state.value, child.props.value)) {
+        if (this.props.value != null && child.props.value != null) {
+          if (this.props.compareValues(this.props.value, child.props.value)) {
             valueIndex = i
           }
-        } else if (this.state.value === child.props.value) { // if both are undefined/null
+        } else if (this.props.value === child.props.value) { // if both are undefined/null
           valueIndex = i
         }
       })
@@ -381,8 +369,8 @@ class Select extends React.Component {
   };
 
   onOptionChanged = value => {
-    if (this.props.onValueChanged) {
-      this.props.onValueChanged(value)
+    if (this.props.onChange) {
+      this.props.onChange(value)
     }
     // NOTE(tec27): the isClosing is necessary here to ensure React doesn't re-render the component
     // with a different value set prior to rendering the component as removed (thus resulting in

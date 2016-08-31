@@ -56,21 +56,11 @@ const Track = ({ showTicks, value, min, max, step }) => {
   </div>)
 }
 
-function getInitialValue({ min, max, step, defaultValue }) {
-  if (defaultValue !== undefined) {
-    return defaultValue
-  }
-
-  const range = (max - min) / step
-  const midPoint = Math.floor(range / 2)
-  return midPoint * step + min
-}
-
 class Slider extends React.Component {
   static propTypes = {
     min: PropTypes.number.isRequired,
     max: PropTypes.number.isRequired,
-    defaultValue: PropTypes.number,
+    value: PropTypes.number.isRequired,
     step: props => {
       if (typeof props.step !== 'number') {
         return new Error('`step` must be a number.')
@@ -83,6 +73,7 @@ class Slider extends React.Component {
     },
     label: PropTypes.string,
     tabIndex: PropTypes.number,
+    onChange: PropTypes.func,
   };
 
   static defaultProps = {
@@ -90,35 +81,26 @@ class Slider extends React.Component {
     tabIndex: 0,
   };
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      isFocused: false,
-      isClicked: false,
-      // if defaultValue was not supplied through props, center the slider
-      value: getInitialValue(props)
-    }
-
-    this._onMouseMove = ::this.onMouseMove
-    this._onMouseUp = ::this.onMouseUp
-
-    this._sliderDimensions = null
-    this._hasWindowListeners = false
-  }
+  state = {
+    isFocused: false,
+    isClicked: false,
+  };
+  _sliderDimensions = null;
+  _hasWindowListeners = false;
 
   _addWindowListeners() {
     if (this._hasWindowListeners) return
 
-    window.addEventListener('mousemove', this._onMouseMove)
-    window.addEventListener('mouseup', this._onMouseUp)
+    window.addEventListener('mousemove', this.onMouseMove)
+    window.addEventListener('mouseup', this.onMouseUp)
     this._hasWindowListeners = true
   }
 
   _removeWindowListeners() {
     if (!this._hasWindowListeners) return
 
-    window.removeEventListener('mousemove', this._onMouseMove)
-    window.removeEventListener('mouseup', this._onMouseUp)
+    window.removeEventListener('mousemove', this.onMouseMove)
+    window.removeEventListener('mouseup', this.onMouseUp)
     this._hasWindowListeners = false
   }
 
@@ -126,21 +108,13 @@ class Slider extends React.Component {
     this._removeWindowListeners()
   }
 
-  hasValue() {
-    return this.state.value !== undefined
-  }
-
-  getValue() {
-    return this.hasValue() ? this.state.value : this.props.defaultValue
-  }
-
   _renderBalloon(thumbPercent) {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
-    const className = this.state.value === this.props.min ? styles.balloonEmpty : styles.balloon
+    const className = this.props.value === this.props.min ? styles.balloonEmpty : styles.balloon
     return (<div className={className}>
       <div className={styles.balloonAfter} />
-      <span className={styles.balloonText}>{this.state.value}</span>
+      <span className={styles.balloonText}>{this.props.value}</span>
     </div>)
   }
 
@@ -152,23 +126,23 @@ class Slider extends React.Component {
 
     const stepPercentage = this.props.step / (this.props.max - this.props.min) * 100
 
-    const optionNum = (this.state.value - this.props.min) / this.props.step
+    const optionNum = (this.props.value - this.props.min) / this.props.step
     const thumbPosition = stepPercentage * optionNum
 
     const labelElement = this.props.label ?
         <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
 
-    const thumbClass = this.state.value === this.props.min ? styles.thumbEmpty : styles.thumb
+    const thumbClass = this.props.value === this.props.min ? styles.thumbEmpty : styles.thumb
     const thumbContainerStyle = {
       transform: `translateX(${thumbPosition}%)`,
     }
 
     return (
       <div ref='root' className={classes} tabIndex={this.props.tabIndex}
-        onFocus={::this.onFocus} onBlur={::this.onBlur} onKeyDown={::this.onKeyDown}>
+        onFocus={this.onFocus} onBlur={this.onBlur} onKeyDown={this.onKeyDown}>
         {labelElement}
         <Track min={this.props.min} max={this.props.max} step={this.props.step}
-            value={this.state.value} showTicks={this.state.isClicked} />
+            value={this.props.value} showTicks={this.state.isClicked} />
         <div className={styles.overflowClip}>
           <div className={styles.thumbContainer} style={thumbContainerStyle}>
             <div className={thumbClass} />
@@ -191,35 +165,35 @@ class Slider extends React.Component {
     this.refs.root.blur()
   }
 
-  onFocus() {
+  onFocus = () => {
     this.setState({ isFocused: true })
-  }
+  };
 
-  onBlur() {
+  onBlur = () => {
     this.setState({ isFocused: false })
-  }
+  };
 
-  onKeyDown(event) {
+  onKeyDown = event => {
     let handled = false
     if (event.keyCode === LEFT) {
       handled = true
-      if (this.state.value !== this.props.min) {
-        this.setState({ value: this.state.value - this.props.step })
+      if (this.props.value !== this.props.min) {
+        this.onChange(this.props.value - this.props.step)
       }
     } else if (event.keyCode === RIGHT) {
       handled = true
-      if (this.state.value !== this.props.max) {
-        this.setState({ value: this.state.value + this.props.step })
+      if (this.props.value !== this.props.max) {
+        this.onChange(this.props.value + this.props.step)
       }
     } else if (event.keyCode === HOME) {
       handled = true
-      if (this.state.value !== this.props.min) {
-        this.setState({ value: this.props.min })
+      if (this.props.value !== this.props.min) {
+        this.onChange(this.props.min)
       }
     } else if (event.keyCode === END) {
       handled = true
-      if (this.state.value !== this.props.max) {
-        this.setState({ value: this.props.max })
+      if (this.props.value !== this.props.max) {
+        this.onChange(this.props.max)
       }
     }
 
@@ -227,7 +201,7 @@ class Slider extends React.Component {
       event.preventDefault()
       event.stopPropagation()
     }
-  }
+  };
 
   minMaxValidator(value) {
     return Math.max(this.props.min, Math.min(this.props.max, value))
@@ -254,29 +228,43 @@ class Slider extends React.Component {
     return this.minMaxValidator(this.stepValidator(exactValue))
   }
 
-  onMouseDown(event) {
+  onMouseDown = event => {
     if (!(event.buttons & MOUSE_LEFT)) {
       return
     }
 
     this._addWindowListeners()
     this._sliderDimensions = this.refs.trackArea.getBoundingClientRect()
-    this.setState({ value: this.getClosestValue(event.clientX), isClicked: true })
-  }
+    this.setState({ isClicked: true })
+    const newValue = this.getClosestValue(event.clientX)
+    if (newValue !== this.props.value) {
+      this.onChange(newValue)
+    }
+  };
 
-  onMouseMove(event) {
+  onMouseMove = event => {
     event.preventDefault()
     const newValue = this.getClosestValue(event.clientX)
-    if (newValue !== this.state.value) {
-      this.setState({ value: this.getClosestValue(event.clientX) })
+    if (newValue !== this.props.value) {
+      this.onChange(newValue)
     }
-  }
+  };
 
-  onMouseUp(event) {
+  onMouseUp = event => {
     event.preventDefault()
     this._removeWindowListeners()
-    this.setState({ value: this.getClosestValue(event.clientX), isClicked: false })
-  }
+    this.setState({ isClicked: false })
+    const newValue = this.getClosestValue(event.clientX)
+    if (newValue !== this.props.value) {
+      this.onChange(newValue)
+    }
+  };
+
+  onChange = newValue => {
+    if (this.props.onChange) {
+      this.props.onChange(newValue)
+    }
+  };
 }
 
 export default Slider
