@@ -28,11 +28,15 @@ import { getPermissionsIfNeeded, setPermissions } from './action-creators'
 class UserPermissionsForm extends React.Component {
   render() {
     const { isSelf, onSubmit, bindCheckable } = this.props
+    const inputProps = {
+      tabIndex: 0,
+    }
     return (<form noValidate={true} onSubmit={onSubmit}>
-      <CheckBox {...bindCheckable('editPermissions')} label='Edit permissions' tabIndex={0}
-          disabled={isSelf}/>
-      <CheckBox {...bindCheckable('debug')} label='Debug' tabIndex={0}/>
-      <CheckBox {...bindCheckable('acceptInvites')} label='Accept beta invites' tabIndex={0}/>
+      <CheckBox {...bindCheckable('editPermissions')} label='Edit permissions'
+          inputProps={inputProps} disabled={isSelf}/>
+      <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps}/>
+      <CheckBox {...bindCheckable('acceptInvites')} label='Accept beta invites'
+          inputProps={inputProps}/>
     </form>)
   }
 }

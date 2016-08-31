@@ -29,25 +29,33 @@ class CheckBox extends React.Component {
     const {
       className,
       label,
-      ...restProps,
+      checked,
+      value,
+      onChange,
+      disabled,
+      inputProps,
     } = this.props
     const classes = classnames(styles.checkBox, className, {
-      [styles.checked]: this.props.checked,
-      [styles.disabled]: this.props.disabled,
+      [styles.checked]: checked,
+      [styles.disabled]: disabled,
       [styles.focused]: this.state.isKeyboardFocused,
     })
 
     const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
     const iconElem = <div className={styles.icon}></div>
 
-    const inputProps = {
+    const internalInputProps = {
       type: 'checkbox',
       id: this.id,
+      checked,
+      value,
+      disabled,
       onBlur: this.onBlur,
       onFocus: this.onFocus,
+      onChange,
       onMouseDown: this.onMouseDown,
     }
-    const inputElem = <input {...restProps} {...inputProps} />
+    const inputElem = <input {...inputProps} {...internalInputProps} />
 
     return (<div className={classes}>
       {inputElem}

@@ -62,7 +62,7 @@ class LoginForm extends React.Component {
             spellCheck: false,
           }}/>
       <CheckBox {...bindCheckable('remember')} className={styles.checkboxes} label='Remember me'
-          tabIndex={1} />
+          inputProps={{ tabIndex: 1 }} />
     </form>)
   }
 }

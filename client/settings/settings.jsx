@@ -79,8 +79,8 @@ class SettingsForm extends React.Component {
           compareValues={compareResolutions}>
         { this.renderWindowSizeOptions(resolution) }
       </Select>
-      <CheckBox {...bindCheckable('maintainAspectRatio')} label='Maintain aspect ratio' tabIndex={0}
-          disabled={!this.isFullscreen()} />
+      <CheckBox {...bindCheckable('maintainAspectRatio')} label='Maintain aspect ratio'
+          disabled={!this.isFullscreen()} inputProps={{ tabIndex: 0 }}/>
       <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
         <Option value={0} text='DirectX' />
         <Option value={1} text='OpenGL' />
