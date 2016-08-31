@@ -4,7 +4,6 @@
   position: absolute;
   color: colorTextFaint;
   pointer-events: none;
-  -webkit-font-smoothing: antialiased;
   padding: 2px;
   z-index: 1;
 }

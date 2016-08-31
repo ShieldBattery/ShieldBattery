@@ -54,7 +54,6 @@ h6,
   font-size: textSizeButton;
   font-weight: 500;
   letter-spacing: 0.020em;
-  -webkit-font-smoothing: antialiased;
   text-transform: uppercase;
 }
 
