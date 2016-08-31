@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
+import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
 import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
@@ -10,6 +11,7 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import {
   composeValidators,
+  debounce,
   minLength,
   maxLength,
   regex,
@@ -28,11 +30,25 @@ import {
 import auther from './auther'
 import styles from './login.css'
 
+async function usernameAvailable(val) {
+  try {
+    const result = await fetch(`/api/1/usernameAvailability/${encodeURIComponent(val)}`)
+    if (result.available) {
+      return null
+    }
+  } catch (ignored) {
+    // TODO(tec27): handle non-404 errors differently
+  }
+
+  return 'Username is already taken'
+}
+
 const usernameValidator = composeValidators(
     required('Enter a username'),
     minLength(USERNAME_MINLENGTH, `Use at least ${USERNAME_MINLENGTH} characters`),
     maxLength(USERNAME_MAXLENGTH, `Use at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+    regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+    debounce(usernameAvailable, 250))
 const emailValidator = composeValidators(
     required('Enter an email address'),
     minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),

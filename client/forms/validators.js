@@ -12,6 +12,26 @@ export function composeValidators(...validators) {
   }
 }
 
+export function debounce(validator, delay) {
+  let timeoutPromise
+  let lastValue
+  let lastModel
+  return (value, model) => {
+    lastValue = value
+    lastModel = model
+    if (!timeoutPromise) {
+      timeoutPromise = new Promise(resolve => setTimeout(() => {
+        resolve(validator(lastValue, lastModel))
+        timeoutPromise = null
+        lastValue = null
+        lastModel = null
+      }, delay))
+    }
+
+    return timeoutPromise
+  }
+}
+
 export function required(msg) {
   return val => val !== undefined && val !== '' ? null : msg
 }
