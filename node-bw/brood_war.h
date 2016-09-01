@@ -44,7 +44,7 @@ struct GameTemplate {
   byte use_fixed_position;
   byte restriction_flags;
   byte allies_enabled;
-  byte teams_enabled;
+  byte num_teams;
   byte cheats_enabled;
   byte tournament_mode;
   uint32 victory_condition_value;

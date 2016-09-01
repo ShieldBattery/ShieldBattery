@@ -4,7 +4,7 @@ import log from './logger'
 import bw from './natives/bw'
 import forge from './natives/forge'
 import { setRallyPoint, setNetworkRoutes } from './natives/snp'
-import { melee } from './game-types'
+import * as gameTypes from './game-types'
 import createDeferred from '../common/async/deferred'
 import rejectOnTimeout from './reject-on-timeout'
 import {
@@ -22,6 +22,19 @@ function getBwRace(lobbyRace) {
     case 't': return 'terran'
     case 'p': return 'protoss'
     default: return 'random'
+  }
+}
+
+function isTeamType(gameType) {
+  switch (gameType) {
+    case 'melee': return false
+    case 'ffa': return false
+    case 'oneVOne': return false
+    case 'ums': return false
+    case 'teamMelee': return true
+    case 'teamFfa': return true
+    case 'topVBottom': return true
+    default: throw new Error('Unknown game type: ' + gameType)
   }
 }
 
@@ -182,6 +195,11 @@ class GameInitializer {
     bw.doLobbyGameInit(this.setup.seed | 0, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
     forge.endWndProc()
 
+
+    setTimeout(() => {
+      log.verbose(`slot setup for ${isHost ? 'host' : 'non-host'}: ${JSON.stringify(bw.slots)}`)
+    }, 2000)
+
     this.socket.invoke('/game/start')
     const { results, time } = await bw.runGameLoop()
     log.verbose('gameResults: ' + JSON.stringify(results))
@@ -196,9 +214,10 @@ class GameInitializer {
   }
 
   async createLobby() {
+    const { gameType, gameSubType } = this.lobbyConfig
     const params = {
       mapPath: this.localMap,
-      gameType: melee(),
+      gameType: gameTypes[gameType](gameSubType),
     }
     await rejectOnTimeout(bw.createLobby(params), CREATION_TIMEOUT, 'Creating lobby timed out')
   }
@@ -215,6 +234,9 @@ class GameInitializer {
       ice: 6,
       twilight: 7,
     }
+
+    const { gameType, gameSubType } = this.lobbyConfig
+    const gameTypeValue = gameTypes[gameType](gameSubType)
     const bwGameInfo = {
       gameName: this.lobbyConfig.name,
       numSlots: this.lobbyConfig.numSlots,
@@ -223,9 +245,10 @@ class GameInitializer {
       mapTileset: tilesetNameToId[this.lobbyConfig.map.tileset],
       mapWidth: this.lobbyConfig.map.width,
       mapHeight: this.lobbyConfig.map.height,
-      gameType: 2, // Melee
-      gameSubtype: 1,
+      gameType: gameTypeValue & 0xFFFF,
+      gameSubtype: (gameTypeValue >> 16) & 0xFFFF,
     }
+
     while (!succeeded) {
       try {
         await rejectOnTimeout(bw.joinLobby(this.localMap, '10.27.27.0', 6112, bwGameInfo),
@@ -279,14 +302,33 @@ class GameInitializer {
     })
   }
 
+  getTeamForSlot(num) {
+    const { gameType, gameSubType, numSlots } = this.lobbyConfig
+    if (num >= numSlots) return 0
+    // TODO(tec27): handle UMS
+    if (isTeamType(gameType)) {
+      if (gameType === 'topVBottom') {
+        // gameSubType specifies number of players on the top team
+        return num >= gameSubType ? 2 : 1
+      } else {
+        // gameSubType specifies the number of teams
+        const numPerTeam = Math.ceil(numSlots / gameSubType)
+        return Math.floor(num / numPerTeam) + 1
+      }
+    } else {
+      return 0
+    }
+  }
+
   setupSlots() {
+    const { numSlots } = this.lobbyConfig
     for (let i = 0; i < bw.slots.length; i++) {
       const slot = bw.slots[i]
       slot.playerId = i
       slot.stormId = 255
-      slot.type = 'open'
+      slot.type = i >= numSlots ? 'none' : 'open'
       slot.race = 'random'
-      slot.team = '0'
+      slot.team = this.getTeamForSlot(i)
     }
 
     for (const id of Object.keys(this.lobbyConfig.players)) {
@@ -305,7 +347,6 @@ class GameInitializer {
 
       slot.playerId = player.slot
       slot.race = getBwRace(player.race)
-      // TODO(tec27): teams? nations?
     }
   }
 
