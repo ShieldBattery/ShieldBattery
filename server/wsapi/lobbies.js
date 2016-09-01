@@ -18,11 +18,15 @@ const LOBBY_START_TIMEOUT = 30 * 1000
 const GAME_TYPES = new Set([
   'melee',
   'ffa',
+  'topVBottom',
+  'teamMelee',
+  'teamFfa',
 ])
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
 const validGameType = str => nonEmptyString(str) && GAME_TYPES.has(str)
+const validGameSubType = type => !type || type >= 1 && type <= 7
 
 const Player = new Record({ name: null, id: null, race: 'r', isComputer: false, slot: -1 })
 
@@ -43,16 +47,18 @@ const Lobby = new Record({
   players: new OrderedMap(),
   hostId: null,
   gameType: 'melee',
+  gameSubType: 0,
 })
 
 export const Lobbies = {
   // Creates a new lobby, and an initial host player in the first slot.
-  create(name, map, gameType, numSlots, hostName, hostRace = 'r') {
+  create(name, map, gameType, gameSubType = 0, numSlots, hostName, hostRace = 'r') {
     const host = Players.createHuman(hostName, hostRace, 0)
     return new Lobby({
       name,
       map,
       gameType,
+      gameSubType: +gameSubType,
       numSlots,
       players: new OrderedMap({ [host.id]: host }),
       hostId: host.id
@@ -66,6 +72,7 @@ export const Lobbies = {
       name: lobby.name,
       map: lobby.map,
       gameType: lobby.gameType,
+      gameSubType: lobby.gameSubType,
       numSlots: lobby.numSlots,
       host: { name: lobby.getIn(['players', lobby.hostId, 'name']), id: lobby.hostId },
       filledSlots: lobby.players.size,
@@ -172,6 +179,18 @@ const ListSubscription = new Record({
 const slotNum = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
+function checkSubTypeValidity(gameType, gameSubType, numSlots) {
+  if (gameType === 'topVBottom') {
+    if (gameSubType < 1 || gameSubType > (numSlots - 1)) {
+      throw new errors.BadRequest('Invalid game sub-type')
+    }
+  } else if (gameType === 'teamMelee' || gameType === 'teamFfa') {
+    if (gameSubType < 2 || gameSubType > Math.min(4, numSlots)) {
+      throw new errors.BadRequest('Invalid game sub-type')
+    }
+  }
+}
+
 const MOUNT_BASE = '/lobbies'
 
 @Mount(MOUNT_BASE)
@@ -203,10 +222,9 @@ export class LobbyApi {
       this.nydus.unsubscribeClient(socket, MOUNT_BASE)
       this.subscribedSockets = this.subscribedSockets.delete(socket.id)
     }
+    socket.once('close', onClose)
     const subscription = new ListSubscription({
-      // TODO(tec27): this is a likely bug, removeEventListener isn't a thing on here, and we never
-      // utilize onClose?
-      onUnsubscribe: () => socket.removeEventListener(onClose),
+      onUnsubscribe: () => socket.removeListener('close', onClose),
       count: 1,
     })
     this.subscribedSockets = this.subscribedSockets.set(socket.id, subscription)
@@ -234,11 +252,12 @@ export class LobbyApi {
         name: validLobbyName,
         map: nonEmptyString,
         gameType: validGameType,
+        gameSubType: validGameSubType,
       }),
       'getUser',
       'ensureNotInLobby')
   async create(data, next) {
-    const { name, map, gameType } = data.get('body')
+    const { name, map, gameType, gameSubType } = data.get('body')
     const user = data.get('user')
 
     if (this.lobbies.has(name)) {
@@ -249,8 +268,12 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid map')
     }
     const mapData = MAPS_BY_HASH.get(map)
+    checkSubTypeValidity(gameType, gameSubType, mapData.slots)
 
-    const lobby = Lobbies.create(name, mapData, gameType, mapData.slots, user.name)
+    // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
+    const lobbySlots = gameType === 'teamMelee' || gameType === 'teamFfa' ? 8 : mapData.slots
+
+    const lobby = Lobbies.create(name, mapData, gameType, gameSubType, lobbySlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)

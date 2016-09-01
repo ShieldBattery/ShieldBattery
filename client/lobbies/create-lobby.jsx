@@ -1,10 +1,12 @@
 import React from 'react'
+import { Range } from 'immutable'
 import { connect } from 'react-redux'
 import { createLobby, getMapsList, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
+import { GAME_TYPES, gameTypeToString, isTeamType } from './game-type'
 
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -20,6 +22,36 @@ const lobbyNameValidator = composeValidators(
   name: lobbyNameValidator,
 })
 class CreateLobbyForm extends React.Component {
+  renderSubTypeSelection() {
+    const { bindCustom, getInputValue, maps } = this.props
+
+    const gameType = getInputValue('gameType')
+    if (!isTeamType(gameType)) {
+      return null
+    }
+    const mapHash = getInputValue('map')
+    if (!mapHash) {
+      return null
+    }
+
+    const { slots } = maps.byHash.get(mapHash)
+    if (gameType === 'topVBottom') {
+      return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
+        {
+          Range(slots - 1, 0).map(
+              top => <Option key={top} value={top} text={`${top} vs ${slots - top}`} />)
+        }
+      </Select>)
+    } else {
+      return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
+        {
+          Range(Math.min(slots, 4), 1).map(
+              numTeams => <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />)
+        }
+      </Select>)
+    }
+  }
+
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
@@ -36,9 +68,9 @@ class CreateLobbyForm extends React.Component {
                 <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />) }
       </Select>
       <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
-        <Option key={'melee'} value={'melee'} text={'Melee'} />
-        <Option key={'ffa'} value={'ffa'} text={'Free for all'} />
+        { GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)}/>) }
       </Select>
+      { this.renderSubTypeSelection() }
     </form>)
   }
 }
@@ -111,7 +143,7 @@ export default class CreateLobby extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    this.props.dispatch(createLobby(values.name, values.map, values.gameType))
+    this.props.dispatch(createLobby(values.name, values.map, values.gameType, values.gameSubType))
     this.props.dispatch(navigateToLobby(values.name))
     this.props.dispatch(closeOverlay())
   };

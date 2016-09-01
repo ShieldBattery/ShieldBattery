@@ -10,6 +10,7 @@ export const LobbySummary = new Record({
   name: null,
   map: null,
   gameType: null,
+  gameSubType: null,
   numSlots: -1,
   host: null,
   filledSlots: -1,

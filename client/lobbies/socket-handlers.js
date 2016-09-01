@@ -108,7 +108,7 @@ const eventToAction = {
     clearCountdownTimer()
     const {
       lobby: {
-        info: { map, gameType, numSlots, players, hostId },
+        info: { name: lobbyName, map, gameType, gameSubType, numSlots, players, hostId },
       },
       settings,
       auth: { user },
@@ -116,8 +116,10 @@ const eventToAction = {
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     const promise = psiSocket.invoke('/site/setGameConfig', {
       lobby: {
+        name: lobbyName,
         map,
         gameType,
+        gameSubType,
         numSlots,
         players,
         hostId,

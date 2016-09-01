@@ -32,6 +32,7 @@ export const LobbyInfo = new Record({
   name: null,
   map: null,
   gameType: null,
+  gameSubType: null,
   numSlots: 0,
   players: new Map(),
   hostId: null,
