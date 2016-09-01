@@ -206,6 +206,7 @@ struct Functions {
   FUNCDEF(BOOL, InitNetworkPlayerInfo, byte storm_id, uint16 flags, uint16 version_hi,
       uint16 version_lo);
   FUNCDEF(BOOL, InitMapFromPath, const char* map_path, DWORD* data_out, BOOL is_campaign);
+  FUNCDEF(void, InitTeamGamePlayableSlots);
   FUNCDEF(void, OnSNetPlayerJoined, SEvent* evt);
   FUNCDEF(BOOL, MaybeReceiveTurns);
 
@@ -467,6 +468,8 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::InitNetworkPlayerInfoFunc>(0x00470D10);
   offsets->functions.InitMapFromPath =
       reinterpret_cast<Functions::InitMapFromPathFunc>(0x004BF5D0);
+  offsets->functions.InitTeamGamePlayableSlots =
+      reinterpret_cast<Functions::InitTeamGamePlayableSlotsFunc>(0x00470150);
   offsets->functions.OnSNetPlayerJoined =
       reinterpret_cast<Functions::OnSNetPlayerJoinedFunc>(0x004C4980);
   offsets->functions.MaybeReceiveTurns =

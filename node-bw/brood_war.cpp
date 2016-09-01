@@ -433,7 +433,12 @@ bool BroodWar::JoinGame(const JoinableGameInfo& game_info, const std::string& ma
   }
 
   DWORD map_data[8];
-  return offsets_->functions.InitMapFromPath(map_path.c_str(), map_data, FALSE) == TRUE;
+  if (offsets_->functions.InitMapFromPath(map_path.c_str(), map_data, FALSE) != TRUE) {
+    return false;
+  }
+
+  offsets_->functions.InitTeamGamePlayableSlots();
+  return true;
 }
 
 void BroodWar::SendMultiplayerChatMessage(const std::string& message, byte recipients,
