@@ -119,7 +119,7 @@ void DetectResolutionWork(uv_work_t* req) {
 
   wchar_t* slot_name = new wchar_t[100];
   int size = _snwprintf_s(
-      slot_name, 100, _TRUNCATE, L"\\\\.\\mailslot\\psi-detectres-%zu", GetTickCount64());
+      slot_name, 100, _TRUNCATE, L"\\\\.\\mailslot\\psi-detectres-%I64u", GetTickCount64());
 
   SECURITY_ATTRIBUTES sa = SECURITY_ATTRIBUTES();
   sa.nLength = sizeof(sa);
