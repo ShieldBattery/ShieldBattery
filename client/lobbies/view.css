@@ -2,14 +2,14 @@
 @value colorTextPrimary, blue100, blue200 from '../styles/colors.css';
 @value row, col, grow, shrink, exact, justifySpaceBetween, itemsCenter from '../styles/flex.css';
 @value justifyStart from '../styles/flex.css';
-@value subhead, headline, body2, singleLine from '../styles/typography.css';
+@value subhead, headline, body1, body2, singleLine from '../styles/typography.css';
 @value shadow1dp from '../material/shadows.css';
 
 .appBarContent {
   max-width: 1140px;
   margin: 0 auto;
   padding-left: 16px;
-  padding-right: 8px;
+  padding-right: 0px;
 }
 
 .contentArea {
@@ -92,44 +92,39 @@
 
 .info {
   composes: exact;
-  margin: 16px 0 16px 24px;
+  margin: 28px 0 16px 40px;
   width: 256px;
 }
 
 .mapName {
   composes: headline;
-  margin-top: 0;
-  margin-left: 24px;
-  margin-right: 24px;
+  margin: 0;
 }
 
 .mapThumbnail {
   composes: shadow1dp;
   width: 256px;
   border-radius: 2px;
-}
-
-.infoItem {
-  margin-left: 24px;
-  margin-right: 24px;
   margin-top: 8px;
 }
 
+.infoItem {
+  composes: row itemsCenter;
+  margin: 8px 0 0;
+}
+
 .infoLabel {
-  composes: body2;
+  composes: body1;
   color: colorTextSecondary;
 }
 
 .infoValue {
-  composes: subhead;
-  margin-left: 24px;
+  composes: subhead grow;
+  margin-left: 16px;
 }
 
 .startButton {
-  margin-left: 24px;
-  margin-right: 24px;
   margin-top: 12px;
-  width: calc(100% - 24px - 24px);
 }
 
 .chatSystemMessage {
