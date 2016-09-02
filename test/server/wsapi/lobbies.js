@@ -6,7 +6,7 @@ chai.use(chaiImmutable)
 import { Lobbies, Players } from '../../../server/wsapi/lobbies.js'
 
 const BOXER_LOBBY = Lobbies.create(
-    '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 4, 'Slayers`Boxer')
+    '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
 
 describe('Lobbies', () => {
   it('should add the host in the first slot on creation', () => {
@@ -28,6 +28,8 @@ describe('Lobbies', () => {
     expect(parsed).to.eql({
       name: '5v3 Comp Stomp Pros Only',
       map: 'Big Game Hunters.scm',
+      gameType: 'melee',
+      gameSubType: 0,
       numSlots: 4,
       host: { name: 'Slayers`Boxer', id },
       filledSlots: 1,
@@ -38,7 +40,7 @@ describe('Lobbies', () => {
     let emptySlot = Lobbies.findEmptySlot(BOXER_LOBBY)
     expect(emptySlot).to.eql(1)
 
-    const fullLobby = Lobbies.create('Full', 'Lost Temple.scm', 1, 'pachi')
+    const fullLobby = Lobbies.create('Full', 'Lost Temple.scm', 'melee', 0, 1, 'pachi')
     emptySlot = Lobbies.findEmptySlot(fullLobby)
     expect(emptySlot).to.equal(-1)
   })
