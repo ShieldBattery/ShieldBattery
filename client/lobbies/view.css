@@ -1,8 +1,16 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
 @value colorTextPrimary, blue100, blue200 from '../styles/colors.css';
 @value row, col, grow, shrink, exact, justifySpaceBetween, itemsCenter from '../styles/flex.css';
-@value subhead, headline, body2 from '../styles/typography.css';
+@value justifyStart from '../styles/flex.css';
+@value subhead, headline, body2, singleLine from '../styles/typography.css';
 @value shadow1dp from '../material/shadows.css';
+
+.appBarContent {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 8px;
+}
 
 .contentArea {
   composes: row justifySpaceBetween;
@@ -22,39 +30,37 @@
 
 .slots {
   composes: exact;
-}
-
-.slotsSparse {
-  composes: slots;
-}
-
-.slotsDense {
-  composes: slots;
   padding-top: 8px;
   padding-bottom: 8px;
 }
 
 .slot {
-  composes: row itemsCenter;
-  height: 56px;
-}
-
-.computerSlot {
-  composes: slot;
-}
-
-.slotsDense .slot {
-  height: 48px;
+  composes: row itemsCenter justifyStart;
+  height: 40px;
 }
 
 .slotAvatar {
+  width: 24px !important;
+  height: 24px !important;
   margin-right: 16px;
 }
 
+.slotLeft {
+  composes: row grow itemsCenter;
+  max-width: 66.66%;
+}
+
 .slotName {
-  composes: grow;
-  composes: subhead;
-  margin-right: 16px;
+  composes: shrink grow;
+  composes: subhead singleLine;
+  margin-right: 8px;
+  max-width: 256px;
+}
+
+.slotRight {
+  composes: exact;
+  width: 33.33%;
+  min-width: 156px;
 }
 
 .slotRace {

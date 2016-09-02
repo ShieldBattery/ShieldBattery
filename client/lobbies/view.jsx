@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
 import ContentLayout from '../content/content-layout.jsx'
-import IconButton from '../material/icon-button.jsx'
+import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
@@ -99,12 +99,12 @@ export default class LobbyView extends React.Component {
           onAddComputer={this._handleAddComputer} onSetRace={this._handleSetRace}
           onStartGame={this._handleStartGame} onSendChatMessage={this._handleSendChatMessage} />
       actions = [
-        <IconButton key='leave' icon='close' title='Leave lobby'
-            onClick={this._handleLeaveLobbyClick} />
+        <FlatButton key='leave' label='Leave lobby' onClick={this._handleLeaveLobbyClick} />,
       ]
     }
 
-    return (<ContentLayout title={this.props.params.lobby} actions={actions}>
+    return (<ContentLayout title={this.props.params.lobby} actions={actions}
+          appBarContentClassName={styles.appBarContent}>
       { content }
     </ContentLayout>)
   }

@@ -14,6 +14,10 @@
   padding: 2px;
 }
 
+.dimensions + .dimensions {
+  margin-left: 4px;
+}
+
 .button {
   composes: iconButton;
   composes: dimensions;

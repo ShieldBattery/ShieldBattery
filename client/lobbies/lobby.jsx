@@ -229,7 +229,7 @@ export default class Lobby extends React.Component {
 
     return (<div className={styles.contentArea}>
       <div className={styles.left}>
-        <Card className={lobby.numSlots > 5 ? styles.slotsDense : styles.slotsSparse}>
+        <Card className={styles.slots}>
           <div className={styles.slotColumn}>{slots}</div>
         </Card>
         <ChatList messages={this.props.chat} />

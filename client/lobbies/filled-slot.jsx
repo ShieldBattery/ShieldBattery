@@ -28,10 +28,14 @@ export default class FilledSlot extends React.Component {
         <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
         <SelectedRace className={styles.slotRace} race={race} />
 
-    return (<div className={isComputer ? styles.computerSlot : styles.slot}>
-      {avatar}
-      <span className={styles.slotName}>{displayName}</span>
-      {raceElem}
+    return (<div className={styles.slot}>
+      <div className={styles.slotLeft}>
+        {avatar}
+        <span className={styles.slotName}>{displayName}</span>
+      </div>
+      <div className={styles.slotRight}>
+        {raceElem}
+      </div>
     </div>)
   }
 }
