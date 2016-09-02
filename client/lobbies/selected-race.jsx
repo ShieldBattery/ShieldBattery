@@ -20,7 +20,7 @@ export default class SelectedRace extends React.Component {
             label={<RaceIcon className={`${styles.active} ${styles[race]}`} race={race} />} />
       )
     } else {
-      return <span className={styles.deselected}></span>
+      return <span className={styles.deselected}/>
     }
   }
 

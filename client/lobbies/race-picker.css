@@ -1,4 +1,4 @@
-@value colorTextFaint from '../styles/colors.css';
+@value colorTextFaint, colorDividers from '../styles/colors.css';
 @value iconButton from '../material/button.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
@@ -26,6 +26,18 @@
 
 .deselected {
   composes: dimensions;
+  position: relative;
+}
+
+.deselected::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 6px);
+  top: calc(50% - 6px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: colorDividers;
 }
 
 .race {
