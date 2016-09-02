@@ -195,11 +195,6 @@ class GameInitializer {
     bw.doLobbyGameInit(this.setup.seed | 0, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
     forge.endWndProc()
 
-
-    setTimeout(() => {
-      log.verbose(`slot setup for ${isHost ? 'host' : 'non-host'}: ${JSON.stringify(bw.slots)}`)
-    }, 2000)
-
     this.socket.invoke('/game/start')
     const { results, time } = await bw.runGameLoop()
     log.verbose('gameResults: ' + JSON.stringify(results))
