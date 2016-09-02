@@ -34,6 +34,18 @@
   padding-bottom: 8px;
 }
 
+.teamName {
+  composes: body2 singleLine;
+  display: block;
+  color: colorTextSecondary;
+  line-height: 24px;
+  height: 24px;
+}
+
+.slot + .teamName {
+  margin-top: 8px;
+}
+
 .slot {
   composes: row itemsCenter justifyStart;
   height: 40px;

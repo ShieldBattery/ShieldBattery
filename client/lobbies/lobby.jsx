@@ -1,5 +1,6 @@
 import React, { PropTypes } from 'react'
-import { gameTypeToString } from './game-type'
+import { Range } from 'immutable'
+import { gameTypeToString, isTeamType, slotsPerTeam, numTeams, getTeamName } from './game-type'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -209,21 +210,27 @@ export default class Lobby extends React.Component {
 
     const isHost = lobby.players.get(lobby.hostId).name === user.name
 
-    const slots = new Array(lobby.numSlots)
-    for (let i = 0; i < lobby.numSlots; i++) {
+    const slots = Range(0, lobby.numSlots).map(i => {
       if (playersBySlot[i]) {
         const { id, name, race, isComputer } = playersBySlot[i]
         const controllable = (isComputer && isHost) || (!isComputer && name === user.name)
-        slots[i] = <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
+        return (<FilledSlot key={i} name={name} race={race} isComputer={isComputer}
             controllable={controllable}
-            onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />
+            onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
       } else {
-        if (isHost) {
-          slots[i] = <EmptySlot key={i} controllable={true}
-              onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />
-        } else {
-          slots[i] = <EmptySlot key={i} controllable={false} />
-        }
+        return (<EmptySlot key={i} controllable={isHost}
+            onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />)
+      }
+    }).toArray()
+
+    if (isTeamType(lobby.gameType)) {
+      const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
+      const teamCount = numTeams(lobby.gameType, lobby.gameSubType)
+      for (let i = 0; i < teamCount; i++) {
+        slots.splice(i * perTeam + i, 0,
+            <span key={'team' + i} className={styles.teamName}>
+              {getTeamName(lobby.gameType, i)}
+            </span>)
       }
     }
 
