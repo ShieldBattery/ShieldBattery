@@ -59,7 +59,6 @@ class MainLayout extends React.Component {
   state = {
     avatarOverlayOpened: false,
   };
-  _handleWhisperClose = ::this.onWhisperClose;
 
   componentWillMount() {
     if (!this.props.children) {
@@ -106,7 +105,7 @@ class MainLayout extends React.Component {
         onDismiss={this.onCloseProfileOverlay}
         user={this.props.auth.user.name}>
       <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-          onClick={this.onLogOutClicked} />
+          onClick={this.onLogOutClick} />
     </SelfProfileOverlay>)
   }
 
@@ -122,9 +121,9 @@ class MainLayout extends React.Component {
             user={w.name}
             currentPath={pathname}
             hasUnread={w.hasUnread}
-            onClose={this._handleWhisperClose}/>)
+            onClose={this.onWhisperClose}/>)
     const addWhisperButton = <IconButton icon='add' title='Start a conversation'
-        className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
+        className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
     const footer = isAdmin(this.props.auth) ? [
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       <p key='adminPanel'><Link to='/admin'>Admin</Link></p>
@@ -146,16 +145,17 @@ class MainLayout extends React.Component {
       </LeftNav>
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
-          onAvatarClick={this.onAvatarClick}>
-        <ActivityButton icon='cake' label='Find match' onClick={::this.onFindMatchClick} />
-        <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
-        <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
-        <ActivityButton icon='movie' label='Replays' onClick={::this.onReplaysClick} />
+          onAvatarClick={this.onAvatarClick} onCreateLobbyHotkey={this.onCreateLobbyClick}
+          onJoinLobbyHotkey={this.onJoinLobbyClick} onSettingsHotkey={this.onSettingsClick}>
+        <ActivityButton icon='cake' label='Find match' onClick={this.onFindMatchClick} />
+        <ActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick} />
+        <ActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick} />
+        <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
         { window._sbFeedbackUrl ?
-          <ActivityButton icon='feedback' label='Feedback' onClick={::this.onFeedbackClicked} /> :
+          <ActivityButton icon='feedback' label='Feedback' onClick={this.onFeedbackClick} /> :
           null }
-        <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
+        <ActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick} />
       </ActivityBar>
       { this.renderAvatarOverlay() }
       <ActivityOverlay />
@@ -175,53 +175,53 @@ class MainLayout extends React.Component {
     })
   };
 
-  onAddWhisperClicked() {
+  onAddWhisperClick = () => {
     this.props.dispatch(openDialog('whispers'))
-  }
+  };
 
-  onWhisperClose(user) {
+  onWhisperClose = user => {
     this.props.dispatch(closeWhisperSession(user))
-  }
+  };
 
-  onSettingsClicked() {
+  onSettingsClick = () => {
     this.props.dispatch(openDialog('settings'))
-  }
+  };
 
-  onLogOutClicked = () => {
+  onLogOutClick = () => {
     this.props.dispatch(auther.logOut().action)
   };
 
-  onFindMatchClick() {
+  onFindMatchClick = () => {
     this.props.dispatch(openSnackbar({
       message: 'Not implemented yet. Coming soon!',
     }))
-  }
+  };
 
-  onCreateLobbyClick() {
+  onCreateLobbyClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
     }
-  }
+  };
 
-  onJoinLobbyClick() {
+  onJoinLobbyClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
     }
-  }
+  };
 
-  onReplaysClick() {
+  onReplaysClick = () => {
     this.props.dispatch(openSnackbar({
       message: 'Not implemented yet. Coming soon!',
     }))
-  }
+  };
 
-  onFeedbackClicked() {
+  onFeedbackClick = () => {
     window.open(window._sbFeedbackUrl, '_blank')
-  }
+  };
 }
 
 export default MainLayout
