@@ -200,7 +200,6 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
-    this.lobbyLocks = new Map()
     this.lobbyCountdowns = new Map()
     this.pingPromises = new Map()
     this.loadingLobbies = new Map()
@@ -253,12 +252,11 @@ export class LobbyApi {
         map: nonEmptyString,
         gameType: validGameType,
         gameSubType: validGameSubType,
-      }),
-      'getUser',
-      'ensureNotInLobby')
+      }))
   async create(data, next) {
     const { name, map, gameType, gameSubType } = data.get('body')
-    const user = data.get('user')
+    const user = this.getUser(data)
+    this.ensureNotInLobby(user)
 
     if (this.lobbies.has(name)) {
       throw new errors.Conflict('already another lobby with that name')
@@ -284,19 +282,18 @@ export class LobbyApi {
   @Api('/join',
     validateBody({
       name: validLobbyName,
-    }),
-    'getUser',
-    'ensureNotInLobby')
+    }))
   async join(data, next) {
     const { name } = data.get('body')
-    const user = data.get('user')
+    const user = this.getUser(data)
+    this.ensureNotInLobby(user)
 
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
     }
-    this._syncEnsureLobbyNotTransient(name)
-
     let lobby = this.lobbies.get(name)
+    this.ensureLobbyNotTransient(lobby)
+
     const slot = Lobbies.findEmptySlot(lobby)
     if (slot < 0) {
       throw new errors.Conflict('lobby is full')
@@ -329,13 +326,11 @@ export class LobbyApi {
   @Api('/sendChat',
     validateBody({
       text: nonEmptyString,
-    }),
-    'getUser',
-    'acquireLobby',
-  )
+    }))
   async sendChat(data, next) {
+    const user = this.getUser(data)
+    this.getLobbyForUser(user)
     const time = Date.now()
-    const name = data.get('user').name
     let { text } = data.get('body')
 
     if (text.length > 500) {
@@ -345,7 +340,7 @@ export class LobbyApi {
     this._publishTo(data.get('lobby'), {
       type: 'chat',
       time,
-      from: name,
+      from: user.name,
       text,
     })
   }
@@ -353,15 +348,15 @@ export class LobbyApi {
   @Api('/addComputer',
     validateBody({
       slotNum
-    }),
-    'getUser',
-    'acquireLobby',
-    'getPlayer',
-    'ensureIsLobbyHost',
-    'ensureLobbyNotTransient')
+    }))
   async addComputer(data, next) {
+    const user = this.getUser(data)
+    let lobby = this.getLobbyForUser(user)
+    const player = Lobbies.findPlayerByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
     const { slotNum } = data.get('body')
-    let lobby = data.get('lobby')
 
     if (slotNum >= lobby.numSlots) {
       throw new errors.BadRequest('invalid slot number')
@@ -385,16 +380,14 @@ export class LobbyApi {
     validateBody({
       id: nonEmptyString,
       race: validRace,
-    }),
-    'getUser',
-    'acquireLobby',
-    'getPlayer',
-    'ensureLobbyNotLoading')
+    }))
   async setRace(data, next) {
-    const { id, race } = data.get('body')
-    const lobby = data.get('lobby')
-    const player = data.get('player')
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    this.ensureLobbyNotLoading(lobby)
+    const player = Lobbies.findPlayerByName(lobby, user.name)
 
+    const { id, race } = data.get('body')
     if (!lobby.players.has(id)) {
       throw new errors.BadRequest('invalid id')
     }
@@ -420,12 +413,10 @@ export class LobbyApi {
     })
   }
 
-  @Api('/leave',
-    'getUser',
-    'acquireLobby')
+  @Api('/leave')
   async leave(data, next) {
-    const lobby = data.get('lobby')
-    const user = data.get('user')
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
     this._removeUserFromLobby(lobby, user)
   }
 
@@ -461,19 +452,19 @@ export class LobbyApi {
     }
   }
 
-  @Api('/startCountdown',
-    'getUser',
-    'acquireLobby',
-    'getPlayer',
-    'ensureIsLobbyHost',
-    'ensureLobbyNotTransient')
+  @Api('/startCountdown')
   async startCountdown(data, next) {
-    const lobby = data.get('lobby')
-    const lobbyName = lobby.name
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
     if (lobby.players.size < 2) {
       throw new errors.BadRequest('must have at least 2 players')
     }
 
+    const player = Lobbies.findPlayerByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const lobbyName = lobby.name
     const cancelToken = new CancelToken()
     const gameStart = this._doGameStart(lobbyName, cancelToken)
     rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT + 5000).catch(() => {
@@ -636,14 +627,13 @@ export class LobbyApi {
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
   }
 
-  @Api('/gameLoaded',
-    'getUser',
-    'acquireLobby',
-    'getPlayer',
-    'ensureLobbyLoading')
+  @Api('/gameLoaded')
   async gameLoaded(data, next) {
-    const lobby = data.get('lobby')
-    const { id } = data.get('player')
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    this.ensureLobbyLoading(lobby)
+    const { id } = Lobbies.findPlayerByName(lobby, user.name)
+
     let loadingData = this.loadingLobbies.get(lobby.name)
     loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(id))
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
@@ -665,21 +655,20 @@ export class LobbyApi {
     }
   }
 
-  @Api('/loadFailed',
-    'getUser',
-    'acquireLobby',
-    'getPlayer',
-    'ensureLobbyLoading')
+  @Api('/loadFailed')
   async loadFailed(data, next) {
-    this._maybeCancelLoading(data.get('lobby'))
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    this.ensureLobbyLoading(lobby)
+    this._maybeCancelLoading(lobby)
   }
 
   @Api('/getLobbyState',
     validateBody({
       lobbyName: nonEmptyString,
-    }),
-    'getUser')
+    }))
   async getLobbyState(data, next) {
+    this.getUser(data)
     const { lobbyName } = data.get('body')
 
     let lobbyState
@@ -697,108 +686,51 @@ export class LobbyApi {
     return { lobbyName, lobbyState }
   }
 
-  async getUser(data, next) {
+  getUser(data) {
     const user = this.userSockets.getBySocket(data.get('client'))
     if (!user) throw new errors.Unauthorized('authorization required')
-    const newData = data.set('user', user)
-
-    return await next(newData)
+    return user
   }
 
-  // This method should be called whenever further methods may modify a Lobby. This essentially
-  // creates a queue per lobby, and prevents multiple mutations on the same lobby from
-  // interleaving and resulting in invalid state.
-  async acquireLobby(data, next) {
-    const user = data.get('user')
+  getLobbyForUser(user) {
     if (!this.lobbyUsers.has(user)) {
       throw new errors.BadRequest('must be in a lobby')
     }
-
-    const lobbyName = this.lobbyUsers.get(user)
-    const lock = this.lobbyLocks.get(lobbyName) || Promise.resolve()
-
-    const continuer = () => {
-      // Double check that they're still in the lobby
-      if (!this.lobbyUsers.has(user)) {
-        throw new errors.BadRequest('must be in a lobby')
-      }
-      if (this.lobbyUsers.get(user) !== lobbyName) {
-        // user has switched lobbies in the meantime, acquire that lobby instead
-        return this.acquireLobby(data, next)
-      }
-
-      // At this point the lobby is acquired, do what we want with it
-      const newData = data.set('lobby', this.lobbies.get(lobbyName))
-      return next(newData)
-    }
-
-    const newLock = lock.then(continuer, continuer)
-    this.lobbyLocks = this.lobbyLocks.set(lobbyName, newLock)
-
-    return await newLock
+    return this.lobbies.get(this.lobbyUsers.get(user))
   }
 
-  async getPlayer(data, next) {
-    const user = data.get('user')
-    const lobby = data.get('lobby')
-
-    const newData = data.set('player', Lobbies.findPlayerByName(lobby, user.name))
-
-    return await next(newData)
-  }
-
-  async ensureNotInLobby(data, next) {
-    if (this.lobbyUsers.has(data.get('user'))) {
+  ensureNotInLobby(user) {
+    if (this.lobbyUsers.has(user)) {
       throw new errors.Conflict('cannot enter multiple lobbies at once')
     }
-
-    return await next(data)
   }
 
-  async ensureIsLobbyHost(data, next) {
-    const lobby = data.get('lobby')
-    const id = data.get('player').id
-
-    if (id !== lobby.hostId) {
+  ensureIsLobbyHost(lobby, player) {
+    if (player.id !== lobby.hostId) {
       throw new errors.Unauthorized('must be a lobby host')
     }
-
-    return await next(data)
   }
 
-  async ensureLobbyNotLoading(data, next) {
-    const lobby = data.get('lobby')
+  ensureLobbyNotLoading(lobby) {
     if (this.loadingLobbies.has(lobby.name)) {
       throw new errors.Conflict('lobby has already started')
     }
-
-    return await next(data)
   }
 
-  async ensureLobbyLoading(data, next) {
-    const lobby = data.get('lobby')
+  ensureLobbyLoading(lobby) {
     if (!this.loadingLobbies.has(lobby.name)) {
       throw new errors.Conflict('lobby must be loading')
     }
-
-    return await next(data)
   }
 
   // Ensures that the lobby is not in a 'transient' state, that is, a state between being a lobby
   // and being an active game (counting down, loading, etc.). Transient states can be rolled back
   // (bringing the lobby back to a non-transient state)
-  async ensureLobbyNotTransient(data, next) {
-    const lobby = data.get('lobby')
-    this._syncEnsureLobbyNotTransient(lobby.name)
-
-    return await next(data)
-  }
-
-  _syncEnsureLobbyNotTransient(lobbyName) {
-    if (this.lobbyCountdowns.has(lobbyName)) {
+  ensureLobbyNotTransient(lobby) {
+    if (this.lobbyCountdowns.has(lobby.name)) {
       throw new errors.Conflict('lobby is counting down')
     }
-    if (this.loadingLobbies.has(lobbyName)) {
+    if (this.loadingLobbies.has(lobby.name)) {
       throw new errors.Conflict('lobby has already started')
     }
   }
