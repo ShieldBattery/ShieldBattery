@@ -12,8 +12,8 @@ import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
 import FontIcon from './material/font-icon.jsx'
 import Divider from './material/left-nav/divider.jsx'
+import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
-import KeyListener from './keyboard/key-listener.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
@@ -116,7 +116,7 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const { chatChannels, whispers, routing: { location: { pathname } } } = this.props
+    const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
             channel={c.name}
@@ -153,20 +153,17 @@ class MainLayout extends React.Component {
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
           onAvatarClick={this.onAvatarClick}>
         <ActivityButton icon='cake' label='Find match' onClick={this.onFindMatchClick} />
-        <KeyListener onKeyDown={this.onKeyDown}>
-          <ActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick} />
-        </KeyListener>
-        <KeyListener onKeyDown={this.onKeyDown}>
-          <ActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick} />
-        </KeyListener>
+        <HotkeyedActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick}
+            disabled={inLobby} keycode={KEY_C} altKey={true} />
+        <HotkeyedActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick}
+            disabled={inLobby} keycode={KEY_J} altKey={true} />
         <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
         { window._sbFeedbackUrl ?
           <ActivityButton icon='feedback' label='Feedback' onClick={this.onFeedbackClick} /> :
           null }
-        <KeyListener onKeyDown={this.onKeyDown}>
-          <ActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick} />
-        </KeyListener>
+        <HotkeyedActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick}
+            keycode={KEY_S} altKey={true} />
       </ActivityBar>
       { this.renderAvatarOverlay() }
       <ActivityOverlay />
@@ -232,21 +229,6 @@ class MainLayout extends React.Component {
 
   onFeedbackClick = () => {
     window.open(window._sbFeedbackUrl, '_blank')
-  };
-
-  onKeyDown = event => {
-    if (event.keyCode === KEY_C && event.altKey) {
-      this.onCreateLobbyClick()
-      return true
-    } else if (event.keyCode === KEY_J && event.altKey) {
-      this.onJoinLobbyClick()
-      return true
-    } else if (event.keyCode === KEY_S && event.altKey) {
-      this.onSettingsClick()
-      return true
-    }
-
-    return false
   };
 }
 
