@@ -8,6 +8,7 @@ import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import auther from './auther'
 import form from '../forms/form.jsx'
+import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
 import CheckBox from '../material/check-box.jsx'
 import {
@@ -46,10 +47,10 @@ class LoginForm extends React.Component {
   render() {
     const { onSubmit, bindInput, bindCheckable } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
+      <SubmitOnEnter/>
       <TextField {...bindInput('username')} className={styles.textFields}
           label='Username' floatingLabel={true}
           inputProps={{
-            tabIndex: 1,
             autoCapitalize: 'off',
             autoCorrect: 'off',
             spellCheck: false,
@@ -57,7 +58,6 @@ class LoginForm extends React.Component {
       <TextField {...bindInput('password')} className={styles.textFields}
           label='Password' floatingLabel={true} type='password'
           inputProps={{
-            tabIndex: 1,
             autoCapitalize: 'off',
             autoCorrect: 'off',
             spellCheck: false,

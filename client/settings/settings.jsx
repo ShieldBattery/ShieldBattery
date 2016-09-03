@@ -4,6 +4,7 @@ import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import Option from '../material/select/option.jsx'
 import form from '../forms/form.jsx'
+import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import CheckBox from '../material/check-box.jsx'
 import Select from '../material/select/select.jsx'
 import Slider from '../material/slider.jsx'
@@ -70,6 +71,7 @@ class SettingsForm extends React.Component {
     }
 
     return (<form noValidate={true} onSubmit={onSubmit}>
+      <SubmitOnEnter/>
       <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
         <Option value={0} text='Fullscreen' />
         <Option value={1} text='Borderless Window' />

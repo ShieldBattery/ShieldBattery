@@ -8,6 +8,7 @@ import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
+import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
 import {
   composeValidators,
@@ -80,6 +81,7 @@ class SignupForm extends React.Component {
     }
 
     return (<form noValidate={true} onSubmit={onSubmit}>
+      <SubmitOnEnter/>
       <TextField {...bindInput('username')} inputProps={textInputProps}
           label='Username' floatingLabel={true}/>
       <TextField {...bindInput('email')} inputProps={textInputProps}

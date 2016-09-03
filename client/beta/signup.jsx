@@ -5,6 +5,7 @@ import styles from './beta.css'
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
+import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
 import {
   composeValidators,
@@ -43,6 +44,7 @@ class BetaSignupForm extends React.Component {
     }
 
     return (<form noValidate={true} onSubmit={onSubmit}>
+      <SubmitOnEnter/>
       <TextField {...bindInput('email')} inputProps={textInputProps}
           label='Email address (required)' floatingLabel={true}/>
       <TextField {...bindInput('teamliquidName')} inputProps={textInputProps}

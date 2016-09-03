@@ -9,7 +9,7 @@ import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
 
 // A single-line Material text field, supporting with and without floating labels
-class TextField extends React.Component {
+export default class TextField extends React.Component {
   static propTypes = {
     value: PropTypes.string,
     name: PropTypes.string,
@@ -29,6 +29,12 @@ class TextField extends React.Component {
       PropTypes.object,
     ]),
     inputProps: PropTypes.object,
+  };
+
+  static defaultProps = {
+    type: 'text',
+    allowErrors: true,
+    floatingLabel: false,
   };
 
   id = uniqueId();
@@ -133,12 +139,3 @@ class TextField extends React.Component {
     }
   };
 }
-
-
-TextField.defaultProps = {
-  type: 'text',
-  allowErrors: true,
-  floatingLabel: false,
-}
-
-export default TextField

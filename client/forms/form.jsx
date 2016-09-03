@@ -49,6 +49,7 @@ export default (validations = {}) => (Wrapped) => {
     }
 
     onSubmit = event => {
+      console.log('onSubmit')
       if (!this.props.onSubmit) return
 
       // Don't actually submit the form over HTTP
