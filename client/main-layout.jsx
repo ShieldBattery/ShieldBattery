@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { routerActions } from 'react-router-redux'
 import { goToIndex } from './navigation/action-creators'
+import keycode from 'keycode'
 import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'
@@ -12,6 +13,7 @@ import ActivitySpacer from './activities/spacer.jsx'
 import FontIcon from './material/font-icon.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import IconButton from './material/icon-button.jsx'
+import KeyListener from './keyboard/key-listener.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
@@ -32,6 +34,10 @@ import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
+
+const KEY_C = keycode('c')
+const KEY_J = keycode('j')
+const KEY_S = keycode('s')
 
 function stateToProps(state) {
   return {
@@ -145,17 +151,22 @@ class MainLayout extends React.Component {
       </LeftNav>
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
-          onAvatarClick={this.onAvatarClick} onCreateLobbyHotkey={this.onCreateLobbyClick}
-          onJoinLobbyHotkey={this.onJoinLobbyClick} onSettingsHotkey={this.onSettingsClick}>
+          onAvatarClick={this.onAvatarClick}>
         <ActivityButton icon='cake' label='Find match' onClick={this.onFindMatchClick} />
-        <ActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick} />
-        <ActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick} />
+        <KeyListener onKeyDown={this.onKeyDown}>
+          <ActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick} />
+        </KeyListener>
+        <KeyListener onKeyDown={this.onKeyDown}>
+          <ActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick} />
+        </KeyListener>
         <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
         { window._sbFeedbackUrl ?
           <ActivityButton icon='feedback' label='Feedback' onClick={this.onFeedbackClick} /> :
           null }
-        <ActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick} />
+        <KeyListener onKeyDown={this.onKeyDown}>
+          <ActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick} />
+        </KeyListener>
       </ActivityBar>
       { this.renderAvatarOverlay() }
       <ActivityOverlay />
@@ -221,6 +232,21 @@ class MainLayout extends React.Component {
 
   onFeedbackClick = () => {
     window.open(window._sbFeedbackUrl, '_blank')
+  };
+
+  onKeyDown = event => {
+    if (event.keyCode === KEY_C && event.altKey) {
+      this.onCreateLobbyClick()
+      return true
+    } else if (event.keyCode === KEY_J && event.altKey) {
+      this.onJoinLobbyClick()
+      return true
+    } else if (event.keyCode === KEY_S && event.altKey) {
+      this.onSettingsClick()
+      return true
+    }
+
+    return false
   };
 }
 
