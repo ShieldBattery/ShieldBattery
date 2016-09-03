@@ -10,6 +10,7 @@ export default class ActivityButton extends React.Component {
       PropTypes.string,
       PropTypes.element,
     ]).isRequired,
+    disabled: PropTypes.bool,
     onClick: PropTypes.func,
   };
 
@@ -18,10 +19,10 @@ export default class ActivityButton extends React.Component {
   }
 
   render() {
-    const { label, icon, onClick } = this.props
+    const { label, icon, disabled, onClick } = this.props
     const iconElem = typeof icon === 'string' ? this.renderFontIcon(icon) : icon
 
-    return (<button className={styles.button} onClick={onClick}>
+    return (<button className={styles.button} disabled={disabled} onClick={onClick}>
       <div className={styles.buttonIcon}>
         {iconElem}
       </div>

@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { routerActions } from 'react-router-redux'
 import { goToIndex } from './navigation/action-creators'
+import keycode from 'keycode'
 import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'
@@ -11,6 +12,7 @@ import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
 import FontIcon from './material/font-icon.jsx'
 import Divider from './material/left-nav/divider.jsx'
+import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
@@ -32,6 +34,10 @@ import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
+
+const KEY_C = keycode('c')
+const KEY_J = keycode('j')
+const KEY_S = keycode('s')
 
 function stateToProps(state) {
   return {
@@ -59,7 +65,6 @@ class MainLayout extends React.Component {
   state = {
     avatarOverlayOpened: false,
   };
-  _handleWhisperClose = ::this.onWhisperClose;
 
   componentWillMount() {
     if (!this.props.children) {
@@ -106,12 +111,12 @@ class MainLayout extends React.Component {
         onDismiss={this.onCloseProfileOverlay}
         user={this.props.auth.user.name}>
       <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-          onClick={this.onLogOutClicked} />
+          onClick={this.onLogOutClick} />
     </SelfProfileOverlay>)
   }
 
   render() {
-    const { chatChannels, whispers, routing: { location: { pathname } } } = this.props
+    const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
             channel={c.name}
@@ -122,9 +127,9 @@ class MainLayout extends React.Component {
             user={w.name}
             currentPath={pathname}
             hasUnread={w.hasUnread}
-            onClose={this._handleWhisperClose}/>)
+            onClose={this.onWhisperClose}/>)
     const addWhisperButton = <IconButton icon='add' title='Start a conversation'
-        className={styles.subheaderButton} onClick={::this.onAddWhisperClicked} />
+        className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
     const footer = isAdmin(this.props.auth) ? [
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       <p key='adminPanel'><Link to='/admin'>Admin</Link></p>
@@ -147,15 +152,18 @@ class MainLayout extends React.Component {
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
           onAvatarClick={this.onAvatarClick}>
-        <ActivityButton icon='cake' label='Find match' onClick={::this.onFindMatchClick} />
-        <ActivityButton icon='gavel' label='Create' onClick={::this.onCreateLobbyClick} />
-        <ActivityButton icon='call_merge' label='Join' onClick={::this.onJoinLobbyClick} />
-        <ActivityButton icon='movie' label='Replays' onClick={::this.onReplaysClick} />
+        <ActivityButton icon='cake' label='Find match' onClick={this.onFindMatchClick} />
+        <HotkeyedActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick}
+            disabled={inLobby} keycode={KEY_C} altKey={true} />
+        <HotkeyedActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick}
+            disabled={inLobby} keycode={KEY_J} altKey={true} />
+        <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
         { window._sbFeedbackUrl ?
-          <ActivityButton icon='feedback' label='Feedback' onClick={::this.onFeedbackClicked} /> :
+          <ActivityButton icon='feedback' label='Feedback' onClick={this.onFeedbackClick} /> :
           null }
-        <ActivityButton icon='settings' label='Settings' onClick={::this.onSettingsClicked} />
+        <HotkeyedActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick}
+            keycode={KEY_S} altKey={true} />
       </ActivityBar>
       { this.renderAvatarOverlay() }
       <ActivityOverlay />
@@ -175,53 +183,53 @@ class MainLayout extends React.Component {
     })
   };
 
-  onAddWhisperClicked() {
+  onAddWhisperClick = () => {
     this.props.dispatch(openDialog('whispers'))
-  }
+  };
 
-  onWhisperClose(user) {
+  onWhisperClose = user => {
     this.props.dispatch(closeWhisperSession(user))
-  }
+  };
 
-  onSettingsClicked() {
+  onSettingsClick = () => {
     this.props.dispatch(openDialog('settings'))
-  }
+  };
 
-  onLogOutClicked = () => {
+  onLogOutClick = () => {
     this.props.dispatch(auther.logOut().action)
   };
 
-  onFindMatchClick() {
+  onFindMatchClick = () => {
     this.props.dispatch(openSnackbar({
       message: 'Not implemented yet. Coming soon!',
     }))
-  }
+  };
 
-  onCreateLobbyClick() {
+  onCreateLobbyClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
     }
-  }
+  };
 
-  onJoinLobbyClick() {
+  onJoinLobbyClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
     }
-  }
+  };
 
-  onReplaysClick() {
+  onReplaysClick = () => {
     this.props.dispatch(openSnackbar({
       message: 'Not implemented yet. Coming soon!',
     }))
-  }
+  };
 
-  onFeedbackClicked() {
+  onFeedbackClick = () => {
     window.open(window._sbFeedbackUrl, '_blank')
-  }
+  };
 }
 
 export default MainLayout
