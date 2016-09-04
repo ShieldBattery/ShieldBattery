@@ -1,4 +1,4 @@
-import { OrderedMap, Record, } from 'immutable'
+import { OrderedMap, Range, Record, Set } from 'immutable'
 import * as Players from './player'
 
 const Lobby = new Record({
@@ -10,6 +10,26 @@ const Lobby = new Record({
   gameType: 'melee',
   gameSubType: 0,
 })
+
+
+function isTeamType(gameType) {
+  return gameType === 'topVBottom' || gameType === 'teamMelee' || gameType === 'teamFfa'
+}
+
+function slotsPerTeam(gameType, gameSubType) {
+  if (gameType === 'topVBottom') {
+    return gameSubType
+  } else if (gameType === 'teamMelee' || gameType === 'teamFfa') {
+    switch (gameSubType) {
+      case 4: return 2
+      case 3: return 3
+      case 2:
+      default: return 4
+    }
+  } else {
+    return 0
+  }
+}
 
 // Creates a new lobby, and an initial host player in the first slot.
 export function create(name, map, gameType, gameSubType = 0, numSlots, hostName, hostRace = 'r') {
@@ -46,9 +66,39 @@ export function findEmptySlot(lobby) {
   }
 
   const slots = lobby.players.map(p => p.slot).toSet()
-  for (let s = 0; s < lobby.numSlots; s++) {
-    if (!slots.has(s)) {
-      return s
+  if (!isTeamType(lobby.gameType)) {
+    for (let s = 0; s < lobby.numSlots; s++) {
+      if (!slots.has(s)) {
+        return s
+      }
+    }
+  } else {
+    const teamCount = lobby.gameType === 'topVBottom' ? 2 : lobby.gameSubType
+    const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
+    // Group slots by the team they belong to
+    const teamsMap = slots.groupBy(s => Math.min(Math.floor(s / perTeam), teamCount - 1))
+    // Make a list of all teams with any empty spaces filled in with an empty Set
+    const teamsList = Range(0, teamCount).map(t => teamsMap.get(t) || new Set())
+    // Count the number of players in each team, filter any teams that are full out, then sort the
+    // remaining teams by the number of players (human or computer) they have, such that the first
+    // team in the resulting list is the one with the least number of players
+    const teamCounts =
+        teamsList.map((t, index) => ({
+          size: t.size,
+          maxSize: index < teamCount - 1 ? perTeam : lobby.numSlots - (perTeam * (teamCount - 1)),
+          index,
+          slots: t,
+        })).filter(t => t.size < t.maxSize).sort((a, b) => {
+          if (a.size < b.size) return -1
+          else if (a.size > b.size) return 1
+          else return a.index - b.index
+        })
+    const targetTeam = teamCounts.get(0)
+    const start = targetTeam.index * perTeam
+    for (let s = start; s < start + targetTeam.maxSize; s++) {
+      if (!targetTeam.slots.has(s)) {
+        return s
+      }
     }
   }
 

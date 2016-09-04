@@ -59,7 +59,7 @@ const ListSubscription = new Record({
 const slotNum = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
-function checkSubTypeValidity(gameType, gameSubType, numSlots) {
+function checkSubTypeValidity(gameType, gameSubType = 0, numSlots) {
   if (gameType === 'topVBottom') {
     if (gameSubType < 1 || gameSubType > (numSlots - 1)) {
       throw new errors.BadRequest('Invalid game sub-type')

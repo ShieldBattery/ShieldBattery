@@ -9,7 +9,7 @@ import * as Players from '../../../server/lobbies/player'
 const BOXER_LOBBY = Lobbies.create(
     '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
 
-describe('Lobbies', () => {
+describe('Lobbies - melee', () => {
   it('should add the host in the first slot on creation', () => {
     const l = BOXER_LOBBY
     expect(l.players).to.have.size(1)
@@ -145,5 +145,37 @@ describe('Lobbies', () => {
     lobby = Lobbies.removePlayerById(lobby, lobby.hostId)
 
     expect(lobby.hostId).to.equal(babo.id)
+  })
+})
+
+const TEAM_LOBBY = Lobbies.create(
+    '2v6 BGH', 'Big Game Hunters.scm', 'topVBottom', 2, 8, 'Slayers`Boxer')
+
+describe('Lobbies - Top vs bottom', () => {
+  it('should add the host in the first slot on creation', () => {
+    const l = TEAM_LOBBY
+    expect(l.players).to.have.size(1)
+    const player = l.players.get(l.hostId)
+    expect(player).to.have.keys('name', 'race', 'id', 'isComputer', 'slot')
+    expect(player.name).to.equal('Slayers`Boxer')
+    expect(player.id).to.equal(l.hostId)
+    expect(player.slot).to.equal(0)
+  })
+
+  it('should balance teams when adding new players', () => {
+    let emptySlot = Lobbies.findEmptySlot(TEAM_LOBBY)
+    expect(emptySlot).to.equal(2)
+
+    const babo = Players.createHuman('dronebabo', 'z', 2)
+    let l = Lobbies.addPlayer(TEAM_LOBBY, babo)
+    emptySlot = Lobbies.findEmptySlot(l)
+    expect(emptySlot).to.equal(1)
+
+    const pachi = Players.createHuman('pachi', 't', 1)
+    l = Lobbies.addPlayer(l, pachi)
+    const computer = Players.createComputer('p', 3)
+    l = Lobbies.addPlayer(l, computer)
+    emptySlot = Lobbies.findEmptySlot(l)
+    expect(emptySlot).to.equal(4)
   })
 })
