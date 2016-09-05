@@ -12,6 +12,7 @@ import {
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
+  LOBBY_UPDATE_CONTROLLER_CHANGE,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
@@ -98,6 +99,11 @@ const infoReducer = keyedReducer(undefined, {
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
     return new LobbyInfo()
+  },
+
+  [LOBBY_UPDATE_CONTROLLER_CHANGE](state, action) {
+    const { id, newController } = action.payload
+    return state.setIn(['players', id, 'controlledBy'], newController)
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {

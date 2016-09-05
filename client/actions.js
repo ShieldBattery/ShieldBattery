@@ -96,6 +96,8 @@ export const LOBBY_START_COUNTDOWN_BEGIN = 'LOBBY_START_COUNTDOWN_BEGIN'
 export const LOBBY_START_COUNTDOWN = 'LOBBY_START_COUNTDOWN'
 // A new chat message has been received
 export const LOBBY_UPDATE_CHAT_MESSAGE = 'LOBBY_UPDATE_CHAT_MESSAGE'
+// A controlled open slot in the lobby we're in is now controlled by a different player
+export const LOBBY_UPDATE_CONTROLLER_CHANGE = 'LOBBY_UPDATE_CONTROLLER_CHANGE'
 // The countdown for the lobby we're in has been canceled
 export const LOBBY_UPDATE_COUNTDOWN_CANCELED = 'LOBBY_UPDATE_COUNTDOWN_CANCELED'
 // A lobby we're in is starting the game countdown

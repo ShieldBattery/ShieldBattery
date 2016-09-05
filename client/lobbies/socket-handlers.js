@@ -2,6 +2,7 @@ import {
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_CHAT_MESSAGE,
+  LOBBY_UPDATE_CONTROLLER_CHANGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
@@ -82,6 +83,11 @@ const eventToAction = {
   hostChange: (name, event) => ({
     type: LOBBY_UPDATE_HOST_CHANGE,
     payload: event.newId,
+  }),
+
+  controllerChange: (name, event) => ({
+    type: LOBBY_UPDATE_CONTROLLER_CHANGE,
+    payload: event,
   }),
 
   startCountdown: (name, event, { siteSocket }) => (dispatch, getState) => {

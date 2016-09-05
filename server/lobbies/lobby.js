@@ -202,7 +202,7 @@ export function removePlayerById(lobby, id) {
           lobby.players.skipUntil(p => !p.controlledBy && sameTeam(p) && p.id !== id).first()
       updated = lobby.update('players', players => players.mapEntries(entry => {
         const [, p] = entry
-        if (p.id === id || p.controlledBy === id) {
+        if (p.id === id) {
           const open = Players.createControlledOpen(oldestInTeam.id, p.race, p.slot)
           return [open.id, open]
         } else if (p.controlledBy === id) {
