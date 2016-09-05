@@ -26,6 +26,7 @@ export const Player = new Record({
   id: null,
   race: 'r',
   isComputer: false,
+  controlledBy: null,
   slot: -1
 })
 export const LobbyInfo = new Record({
@@ -34,6 +35,7 @@ export const LobbyInfo = new Record({
   gameType: null,
   gameSubType: null,
   numSlots: 0,
+  filledSlots: 0,
   players: new Map(),
   hostId: null,
   isCountingDown: false,
@@ -75,7 +77,10 @@ const infoReducer = keyedReducer(undefined, {
 
   [LOBBY_UPDATE_JOIN](state, action) {
     const player = new Player(action.payload)
-    return state.set('players', state.players.set(player.id, player))
+    return (
+      state.set('players', state.players.set(player.id, player))
+        .set('filledSlots', state.filledSlots + (player.controlledBy ? 0 : 1))
+    )
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
@@ -84,7 +89,11 @@ const infoReducer = keyedReducer(undefined, {
   },
 
   [LOBBY_UPDATE_LEAVE](state, action) {
-    return state.deleteIn(['players', action.payload])
+    return (
+      state.deleteIn(['players', action.payload])
+        .set('filledSlots', state.filledSlots -
+            (state.players.get(action.payload).controlledBy ? 0 : 1))
+    )
   },
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
@@ -196,7 +205,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_JOIN](lobbyInfo, lastLobbyInfo, state, action) {
     const player = action.payload
-    if (!player.isComputer) {
+    if (!player.isComputer && !player.controlledBy) {
       return state.push(new JoinMessage({
         id: cuid(),
         time: Date.now(),
@@ -209,7 +218,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
     const player = lastLobbyInfo.players.get(action.payload)
-    if (!player.isComputer) {
+    if (!player.isComputer && !player.controlledBy) {
       return state.push(new LeaveMessage({
         id: cuid(),
         time: Date.now(),

@@ -262,6 +262,7 @@ export default class LoadingScreen extends React.Component {
 
     const playerElems =
         lobby.players.valueSeq()
+          .filterNot(p => !!p.controlledBy)
           .sort((a, b) => a.slot - b.slot)
           .map(p => <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
 

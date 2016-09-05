@@ -47,7 +47,8 @@ const LoadingData = new Record({
 
 export const LoadingDatas = {
   isAllFinished(loadingData, lobby) {
-    return lobby.players.every((p, id) => p.isComputer || loadingData.finishedUsers.has(id))
+    return lobby.players.every((p, id) =>
+        p.isComputer || p.controlledBy || loadingData.finishedUsers.has(id))
   }
 }
 
@@ -171,7 +172,7 @@ export class LobbyApi {
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
     }
-    let lobby = this.lobbies.get(name)
+    const lobby = this.lobbies.get(name)
     this.ensureLobbyNotTransient(lobby)
 
     const slot = Lobbies.findEmptySlot(lobby)
@@ -179,16 +180,12 @@ export class LobbyApi {
       throw new errors.Conflict('lobby is full')
     }
     const player = Players.createHuman(user.name, 'r', slot)
-    lobby = Lobbies.addPlayer(lobby, player)
-    this.lobbies = this.lobbies.set(name, lobby)
+    const updated = Lobbies.addPlayer(lobby, player)
+    this.lobbies = this.lobbies.set(name, updated)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
-    this._publishTo(lobby, {
-      type: 'join',
-      player,
-    })
+    this._publishLobbyDiff(lobby, updated)
     this._subscribeUserToLobby(lobby, user)
-    this._publishListChange('update', Lobbies.toSummaryJson(lobby))
   }
 
   _subscribeUserToLobby(lobby, user) {
@@ -231,7 +228,7 @@ export class LobbyApi {
     }))
   async addComputer(data, next) {
     const user = this.getUser(data)
-    let lobby = this.getLobbyForUser(user)
+    const lobby = this.getLobbyForUser(user)
     const player = Lobbies.findPlayerByName(lobby, user.name)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
@@ -246,14 +243,15 @@ export class LobbyApi {
     }
 
     const computer = Players.createComputer('r', slotNum)
-    lobby = Lobbies.addPlayer(lobby, computer)
-    this.lobbies = this.lobbies.set(lobby.name, lobby)
+    let updated
+    try {
+      updated = Lobbies.addPlayer(lobby, computer)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
 
-    this._publishTo(lobby, {
-      type: 'join',
-      player: computer,
-    })
-    this._publishListChange('update', Lobbies.toSummaryJson(lobby))
+    this._publishLobbyDiff(lobby, updated)
   }
 
   @Api('/setRace',
@@ -273,24 +271,19 @@ export class LobbyApi {
     }
 
     const playerToSetRace = lobby.players.get(id)
-    if (!playerToSetRace.isComputer && player.id !== playerToSetRace.id) {
+    if (playerToSetRace.isComputer) {
+      this.ensureIsLobbyHost(lobby, player)
+    } else if (playerToSetRace.controlledBy) {
+      if (playerToSetRace.controlledBy !== player.id) {
+        throw new errors.Forbidden('must control a slot to set its race')
+      }
+    } else if (playerToSetRace.id !== player.id) {
       throw new errors.Forbidden('cannot set other user\'s races')
-    } else if (playerToSetRace.isComputer) {
-      await this.ensureIsLobbyHost(data, () => Promise.resolve())
     }
 
     const updatedLobby = Lobbies.setRace(lobby, id, race)
-    if (lobby === updatedLobby) {
-      // same race as before
-      return
-    }
     this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
-
-    this._publishTo(lobby, {
-      type: 'raceChange',
-      id,
-      newRace: race,
-    })
+    this._publishLobbyDiff(lobby, updatedLobby)
   }
 
   @Api('/leave')
@@ -305,39 +298,31 @@ export class LobbyApi {
     const updatedLobby = Lobbies.removePlayerById(lobby, id)
 
     if (!updatedLobby) {
+      // Ensure the user's local state gets updated to confirm the leave
+      this._publishTo(lobby, {
+        type: 'leave',
+        id,
+      })
       this.lobbies = this.lobbies.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+      this._publishLobbyDiff(lobby, updatedLobby)
     }
     this.lobbyUsers = this.lobbyUsers.delete(user)
 
-    if (updatedLobby && updatedLobby.hostId !== lobby.hostId) {
-      this._publishTo(lobby, {
-        type: 'hostChange',
-        newId: updatedLobby.hostId,
-      })
-    }
-
-    this._publishTo(lobby, {
-      type: 'leave',
-      id,
-    })
     user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
-    if (updatedLobby) {
-      this._publishListChange('update', Lobbies.toSummaryJson(updatedLobby))
-    }
   }
 
   @Api('/startCountdown')
   async startCountdown(data, next) {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
-    if (lobby.players.size < 2) {
-      throw new errors.BadRequest('must have at least 2 players')
+    if (!Lobbies.hasOpposingSides(lobby)) {
+      throw new errors.BadRequest('must have at least 2 opposing sides')
     }
 
     const player = Lobbies.findPlayerByName(lobby, user.name)
@@ -347,6 +332,9 @@ export class LobbyApi {
     const lobbyName = lobby.name
     const cancelToken = new CancelToken()
     const gameStart = this._doGameStart(lobbyName, cancelToken)
+    // Swallow any errors from gameStart, they're all things we know about (and are handled by the
+    // combined catch below properly, so no point in getting unhandled rejection logs from them)
+    gameStart.catch(() => {})
     rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT + 5000).catch(() => {
       cancelToken.cancel()
       if (!this.lobbies.has(lobbyName)) {
@@ -396,12 +384,12 @@ export class LobbyApi {
       },
     })
 
-    const humanPlayers = lobby.players.filter(p => !p.isComputer).valueSeq().toList()
+    const humanPlayers =
+        lobby.players.filter(p => !p.isComputer && !p.controlledBy).valueSeq().toList()
     const hasMultipleHumans = humanPlayers.size > 1
     const pingPromise = !hasMultipleHumans ?
         Promise.resolve() :
-        Promise.all(lobby.players.filter(p => !p.isComputer)
-            .map(p => pingRegistry.waitForPingResult(p.name)))
+        Promise.all(humanPlayers.map(p => pingRegistry.waitForPingResult(p.name)))
 
     await pingPromise
     cancelToken.throwIfCancelling()
@@ -522,7 +510,7 @@ export class LobbyApi {
       // TODO(tec27): register this game in the DB for accepting results in another service
       this._publishTo(lobby, { type: 'gameStarted' })
 
-      lobby.players.filter(p => !p.isComputer)
+      lobby.players.filter(p => !p.isComputer && !p.controlledBy)
         .map(p => this.userSockets.getByName(p.name))
         .forEach(user => {
           user.unsubscribe(LobbyApi._getPath(lobby))
@@ -625,6 +613,64 @@ export class LobbyApi {
 
   _publishToPlayer(lobby, playerName, data) {
     this.nydus.publish(LobbyApi._getPlayerPath(lobby, playerName), data)
+  }
+
+  _publishLobbyDiff(oldLobby, newLobby) {
+    if (oldLobby === newLobby) return
+
+    if (newLobby.hostId !== oldLobby.hostId) {
+      this._publishTo(newLobby, {
+        type: 'hostChange',
+        newId: newLobby.hostId
+      })
+    }
+
+    const oldPlayers = Set.fromKeys(oldLobby.players)
+    const newPlayers = Set.fromKeys(newLobby.players)
+    const same = oldPlayers.intersect(newPlayers)
+    const left = oldPlayers.subtract(same)
+    const joined = newPlayers.subtract(same)
+
+    for (const id of left.values()) {
+      this._publishTo(newLobby, {
+        type: 'leave',
+        id,
+      })
+    }
+    for (const id of joined.values()) {
+      this._publishTo(newLobby, {
+        type: 'join',
+        player: newLobby.players.get(id),
+      })
+    }
+    for (const id of same.values()) {
+      const oldPlayer = oldLobby.players.get(id)
+      const newPlayer = newLobby.players.get(id)
+      if (oldPlayer === newPlayer) continue
+
+      if (newPlayer.slot !== oldPlayer.slot) {
+        this._publishTo(newLobby, {
+          type: 'slotChange',
+          id,
+          newSlot: newPlayer.slot,
+        })
+      }
+      if (newPlayer.race !== oldPlayer.race) {
+        this._publishTo(newLobby, {
+          type: 'raceChange',
+          id,
+          newRace: newPlayer.race,
+        })
+      }
+      if (newPlayer.controlledBy !== oldPlayer.controlledBy) {
+        this._publishTo(newLobby, {
+          type: 'controllerChange',
+          id,
+          newController: newPlayer.controlledBy,
+        })
+      }
+    }
+    this._publishListChange('update', Lobbies.toSummaryJson(newLobby))
   }
 
   static _getPath(lobby) {

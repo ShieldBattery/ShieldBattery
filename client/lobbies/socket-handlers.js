@@ -55,9 +55,16 @@ const eventToAction = {
   }),
 
   leave: (name, event) => (dispatch, getState) => {
-    const { auth, lobby: { info: lobbyInfo } } = getState()
+    const { auth, lobby } = getState()
+    if (!lobby.inLobby) {
+      // This can occur if our leave causes other slots to leave (such as controlled open slots in
+      // team games), where those leaves occur after our own (which clears the lobby state). In
+      // this cases, just ignore the event, as its irrelevant
+      return
+    }
+
     const user = auth.user.name
-    const player = lobbyInfo.players.get(event.id).name
+    const player = lobby.info.players.get(event.id).name
     if (user === player) {
       // The leaver was me all along!!!
       clearCountdownTimer()

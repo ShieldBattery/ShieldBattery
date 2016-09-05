@@ -208,18 +208,24 @@ export default class Lobby extends React.Component {
       return result
     }, new Array(lobby.numSlots))
 
-    const isHost = lobby.players.get(lobby.hostId).name === user.name
+    const myId =
+        lobby.players.find(p => !p.isComputer && !p.controlledBy && p.name === user.name).id
+    const isHost = lobby.hostId === myId
 
     const slots = Range(0, lobby.numSlots).map(i => {
       if (playersBySlot[i]) {
-        const { id, name, race, isComputer } = playersBySlot[i]
-        const controllable = (isComputer && isHost) || (!isComputer && name === user.name)
-        return (<FilledSlot key={i} name={name} race={race} isComputer={isComputer}
-            controllable={controllable}
-            onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
+        const { id, name, race, isComputer, controlledBy } = playersBySlot[i]
+        const controllable = (isComputer && isHost) || (id === myId) || (controlledBy === myId)
+        return (controlledBy ?
+            <EmptySlot key={i} race={race} controllable={controllable} teamEmpty={true}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}/> :
+            <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
+                controllable={controllable}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}/>)
       } else {
         return (<EmptySlot key={i} controllable={isHost}
-            onAddComputer={onAddComputer ? () => this.props.onAddComputer(i) : undefined} />)
+            onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}/>)
       }
     }).toArray()
 
@@ -274,7 +280,18 @@ export default class Lobby extends React.Component {
       return null
     }
 
-    const isDisabled = lobby.isCountingDown || lobby.players.size < 2
+    let hasOpposingSides
+    if (!isTeamType(lobby.gameType)) {
+      hasOpposingSides = lobby.filledSlots > 1
+    } else {
+      const slots = lobby.players.filter(p => !p.controlledBy).map(p => p.slot).toSet()
+      const teamCount = numTeams(lobby.gameType, lobby.gameSubType)
+      const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
+      const teamsMap = slots.groupBy(s => Math.min(Math.floor(s / perTeam), teamCount - 1))
+      hasOpposingSides = teamsMap.size > 1
+    }
+
+    const isDisabled = lobby.isCountingDown || !hasOpposingSides
     return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
         disabled={isDisabled} onClick={onStartGame}/>)
   }
