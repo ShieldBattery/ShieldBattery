@@ -22,6 +22,52 @@ const lobbyNameValidator = composeValidators(
   name: lobbyNameValidator,
 })
 class CreateLobbyForm extends React.Component {
+  _lastMapHash = null;
+  _lastGameType = null;
+  _lastGameSubType = null;
+
+  _updateLastValues() {
+    const { getInputValue } = this.props
+    this._lastMapHash = getInputValue('map')
+    this._lastGameType = getInputValue('gameType')
+    this._lastGameSubType = getInputValue('gameSubType')
+  }
+
+  componentDidMount() {
+    this._updateLastValues()
+  }
+
+  componentDidUpdate() {
+    this._updateLastValues()
+  }
+
+  componentWillUpdate(nextProps) {
+    const { getInputValue, setInputValue, maps } = nextProps
+    const nextGameType = getInputValue('gameType')
+    const nextGameSubType = getInputValue('gameSubType')
+    const nextMapHash = getInputValue('map')
+
+    if (!nextMapHash) return
+
+    if (nextGameType !== this._lastGameType || nextMapHash !== this._lastMapHash) {
+      if (!isTeamType(nextGameType)) return
+
+      // Ensure gameSubType is always set, and always within a valid range for the current map
+      const { slots } = maps.byHash.get(nextMapHash)
+      if (nextGameType === 'topVBottom') {
+        if (nextGameType !== this._lastGameType ||
+            !nextGameSubType || nextGameSubType < 1 || nextGameSubType >= slots) {
+          setInputValue('gameSubType', Math.ceil(slots / 2))
+        }
+      } else {
+        if (nextGameType !== this._lastGameType ||
+            !nextGameSubType || nextGameSubType < 2 || nextGameSubType > Math.min(slots, 4)) {
+          setInputValue('gameSubType', 2)
+        }
+      }
+    }
+  }
+
   renderSubTypeSelection() {
     const { bindCustom, getInputValue, maps } = this.props
 
@@ -45,7 +91,7 @@ class CreateLobbyForm extends React.Component {
     } else {
       return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
         {
-          Range(Math.min(slots, 4), 1).map(
+          Range(2, Math.min(slots, 4) + 1).map(
               numTeams => <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />)
         }
       </Select>)
@@ -143,7 +189,8 @@ export default class CreateLobby extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    this.props.dispatch(createLobby(values.name, values.map, values.gameType, values.gameSubType))
+    this.props.dispatch(createLobby(values.name, values.map, values.gameType,
+        isTeamType(values.gameType) ? values.gameSubType : undefined))
     this.props.dispatch(navigateToLobby(values.name))
     this.props.dispatch(closeOverlay())
   };
