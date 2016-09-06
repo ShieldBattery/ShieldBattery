@@ -8,3 +8,7 @@ export function openChangelogIfNecessary() {
     }
   }
 }
+
+export function openChangelog() {
+  return openDialog('changelog')
+}

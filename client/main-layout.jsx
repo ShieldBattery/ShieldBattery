@@ -34,7 +34,7 @@ import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
-import { openChangelogIfNecessary } from './changelog/action-creators'
+import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 
 const KEY_C = keycode('c')
 const KEY_J = keycode('j')
@@ -118,11 +118,13 @@ class MainLayout extends React.Component {
       {
         window._sbFeedbackUrl ?
             <ProfileAction icon={<FontIcon>feedback</FontIcon>}
-                text='Send feedback' onClick={this.onFeedbackClick} /> :
+                text='Send feedback' onClick={this.onFeedbackClick}/> :
             null
       }
+      <ProfileAction icon={<FontIcon>new_releases</FontIcon>} text='View changelog'
+          onClick={this.onChangelogClick}/>
       <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-          onClick={this.onLogOutClick} />
+          onClick={this.onLogOutClick}/>
     </SelfProfileOverlay>)
   }
 
@@ -204,6 +206,7 @@ class MainLayout extends React.Component {
   };
 
   onLogOutClick = () => {
+    this.onCloseProfileOverlay()
     this.props.dispatch(auther.logOut().action)
   };
 
@@ -236,7 +239,13 @@ class MainLayout extends React.Component {
   };
 
   onFeedbackClick = () => {
+    this.onCloseProfileOverlay()
     window.open(window._sbFeedbackUrl, '_blank')
+  };
+
+  onChangelogClick = () => {
+    this.onCloseProfileOverlay()
+    this.props.dispatch(openChangelog())
   };
 }
 
