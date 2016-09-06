@@ -1,5 +1,5 @@
 @value grey800, dialogScrim, colorDividers from '../styles/colors.css';
-@value col, itemsCenter, justifyCenter from '../styles/flex.css';
+@value col, row, itemsCenter, justifyCenter, grow, exact from '../styles/flex.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 @value shadow8dp from './shadows.css';
 @value zIndexDialog, zIndexDialogScrim from './zindex.css';
@@ -37,9 +37,19 @@
   background-color: colorDividers;
 }
 
+.titleBar {
+  composes: row itemsCenter;
+}
+
 .title {
+  composes: grow;
   margin: 0;
   padding: 24px 24px 20px;
+}
+
+.closeButton {
+  composes: exact;
+  margin-right: 12px;
 }
 
 .titleDivider {

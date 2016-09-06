@@ -1,6 +1,7 @@
 import React, { PropTypes } from 'react'
 import keycode from 'keycode'
 import KeyListener from '../keyboard/key-listener.jsx'
+import IconButton from '../material/icon-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import styles from './dialog.css'
 
@@ -23,12 +24,20 @@ class Dialog extends React.Component {
   render() {
     const { title, showCloseButton, buttons } = this.props
     const { scrolledUp, scrolledDown } = this.state
+
+    const closeButton = showCloseButton ?
+      <IconButton className={styles.closeButton} icon='close' title='Close dialog'
+          onClick={this.onCloseButtonClick}/> :
+      null
+
     return (<KeyListener onKeyDown={this.onKeyDown}>
       <div key='dialog' className={styles.container}>
         <div className={styles.scrim} onClick={this.onCancel} />
           <div role='dialog' className={styles.contents}>
-            <h3 className={styles.title}>{title}</h3>
-            { showCloseButton ? <span>X</span> : null }
+            <div className={styles.titleBar}>
+              <h3 className={styles.title}>{title}</h3>
+              { closeButton }
+            </div>
             { scrolledDown ? <div className={styles.titleDivider} /> : null }
             <ScrollableContent autoHeight={true} autoHeightMin={'100px'}
                 autoHeightMax={'calc(80vh - 132px)'} onUpdate={this.onScrollUpdate}>
@@ -47,6 +56,12 @@ class Dialog extends React.Component {
 
   onCancel = () => {
     if (!this.props.modal && this.props.onCancel) {
+      this.props.onCancel()
+    }
+  };
+
+  onCloseButtonClick = () => {
+    if (this.props.onCancel) {
       this.props.onCancel()
     }
   };

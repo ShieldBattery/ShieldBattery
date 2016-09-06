@@ -1,0 +1,32 @@
+@value colorTextPrimary, colorTextSecondary from '../styles/colors.css';
+
+.changelog {
+}
+
+.changelog > *:first-child {
+  margin-top: 0px;
+  padding-top: 0px;
+}
+
+.changelog > *:last-child {
+  margin-bottom: 0px;
+  padding-bottom: 0px;
+}
+
+.changelog ul {
+  padding-left: 20px;
+}
+
+.changelog li {
+  margin-top: 8px;
+  color: colorTextSecondary;
+}
+
+.changelog strong {
+  color: colorTextPrimary;
+  font-weight: 500;
+}
+
+.changelog code {
+  font-size: inherit;
+}

@@ -34,6 +34,7 @@ import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
+import { openChangelogIfNecessary } from './changelog/action-creators'
 
 const KEY_C = keycode('c')
 const KEY_J = keycode('j')
@@ -76,6 +77,10 @@ class MainLayout extends React.Component {
     if (!nextProps.children) {
       nextProps.dispatch(goToIndex(routerActions.replace))
     }
+  }
+
+  componentDidMount() {
+    this.props.dispatch(openChangelogIfNecessary())
   }
 
   renderLobbyNav() {

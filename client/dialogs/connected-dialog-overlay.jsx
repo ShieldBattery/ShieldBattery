@@ -4,6 +4,7 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
 import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
+import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import { closeDialog } from './dialog-action-creator'
 import styles from '../material/dialog.css'
 
@@ -32,11 +33,14 @@ class ConnectedDialogOverlay extends React.Component {
         onCancel: this.onCancel,
       }
       switch (dialog.dialogType) {
-        case 'settings':
-          dialogComponent = <Settings {...childProps}/>
+        case 'changelog':
+          dialogComponent = <ChangelogDialog {...childProps}/>
           break
         case 'psiHealth':
           dialogComponent = <PsiHealthCheckupDialog {...childProps}/>
+          break
+        case 'settings':
+          dialogComponent = <Settings {...childProps}/>
           break
         case 'whispers':
           dialogComponent = <CreateWhisperSessionDialog {...childProps}/>

@@ -4,6 +4,9 @@ import ExtractTextPlugin from 'extract-text-webpack-plugin'
 import cssNext from 'postcss-cssnext'
 import cssFor from 'postcss-for'
 import cssMixins from 'postcss-mixins'
+import packageJson from './package.json'
+
+const VERSION = packageJson.version
 
 const isDev = 'production' !== process.env.NODE_ENV
 
@@ -59,6 +62,11 @@ const webpackOptions = {
         exclude: /node_modules/,
         loader: `babel?${JSON.stringify(babelQuery)}!svg-react`,
       },
+      {
+        test: /\.md$/,
+        exclude: /README.md$/,
+        loader: 'html!markdown'
+      },
       styleLoader
     ],
   },
@@ -69,6 +77,11 @@ const webpackOptions = {
     new webpack.PrefetchPlugin('react'),
     new webpack.PrefetchPlugin('react/lib/ReactComponentBrowserEnvironment'),
     new webpack.optimize.OccurenceOrderPlugin(),
+    new webpack.DefinePlugin({
+      'process.env': {
+        VERSION: `"${VERSION}"`
+      },
+    }),
   ],
   postcss: [
     cssMixins,
