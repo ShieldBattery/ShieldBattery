@@ -5,7 +5,7 @@ import styles from './view.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import TextField from '../material/text-field.jsx'
+import MessageInput from '../messaging/message-input.jsx'
 import EmptySlot from './empty-slot.jsx'
 import FilledSlot from './filled-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
@@ -192,17 +192,8 @@ export default class Lobby extends React.Component {
     onSendChatMessage: React.PropTypes.func,
   };
 
-  constructor(props) {
-    super(props)
-    this._handleChatEnter = ::this.onChatEnter
-  }
-
-  componentDidMount() {
-    this.refs.chatEntry.focus()
-  }
-
   render() {
-    const { lobby, onSetRace, onAddComputer, user } = this.props
+    const { lobby, onSetRace, onAddComputer, user, onSendChatMessage } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
@@ -246,9 +237,7 @@ export default class Lobby extends React.Component {
           <div className={styles.slotColumn}>{slots}</div>
         </Card>
         <ChatList messages={this.props.chat} />
-        <TextField ref='chatEntry' className={styles.chatInput} label='Send a message'
-            maxLength={500} floatingLabel={false} allowErrors={false}
-            onEnterKeyDown={this._handleChatEnter}/>
+        <MessageInput className={styles.chatInput} onSend={onSendChatMessage}/>
       </div>
 
       <div className={styles.info}>
@@ -294,12 +283,5 @@ export default class Lobby extends React.Component {
     const isDisabled = lobby.isCountingDown || !hasOpposingSides
     return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
         disabled={isDisabled} onClick={onStartGame}/>)
-  }
-
-  onChatEnter() {
-    if (this.props.onSendChatMessage) {
-      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
-    }
-    this.refs.chatEntry.clearValue()
   }
 }

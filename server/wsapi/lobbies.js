@@ -206,7 +206,7 @@ export class LobbyApi {
     }))
   async sendChat(data, next) {
     const user = this.getUser(data)
-    this.getLobbyForUser(user)
+    const lobby = this.getLobbyForUser(user)
     const time = Date.now()
     let { text } = data.get('body')
 
@@ -214,7 +214,7 @@ export class LobbyApi {
       text = text.slice(0, 500)
     }
 
-    this._publishTo(data.get('lobby'), {
+    this._publishTo(lobby, {
       type: 'chat',
       time,
       from: user.name,

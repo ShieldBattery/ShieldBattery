@@ -41,15 +41,6 @@ function isLeavingLobby(oldProps, newProps) {
 
 @connect(mapStateToProps)
 export default class LobbyView extends React.Component {
-  constructor(props) {
-    super(props)
-    this._handleAddComputer = ::this.onAddComputer
-    this._handleSetRace = ::this.onSetRace
-    this._handleStartGame = ::this.onStartGame
-    this._handleLeaveLobbyClick = ::this.onLeaveLobbyClick
-    this._handleSendChatMessage = ::this.onSendChatMessage
-  }
-
   componentDidMount() {
     if (!this.props.lobby.inLobby) {
       const routeLobby = this.props.params.lobby
@@ -96,10 +87,10 @@ export default class LobbyView extends React.Component {
       content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
-          onAddComputer={this._handleAddComputer} onSetRace={this._handleSetRace}
-          onStartGame={this._handleStartGame} onSendChatMessage={this._handleSendChatMessage} />
+          onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
+          onStartGame={this.onStartGame} onSendChatMessage={this.onSendChatMessage} />
       actions = [
-        <FlatButton key='leave' label='Leave lobby' onClick={this._handleLeaveLobbyClick} />,
+        <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
       ]
     }
 
@@ -157,23 +148,23 @@ export default class LobbyView extends React.Component {
     return <p className={styles.contentArea}>You're already in another lobby.</p>
   }
 
-  onLeaveLobbyClick() {
+  onLeaveLobbyClick = () => {
     this.props.dispatch(leaveLobby())
-  }
+  };
 
-  onAddComputer(slotNum) {
+  onAddComputer = slotNum => {
     this.props.dispatch(addComputer(slotNum))
-  }
+  };
 
-  onSetRace(id, race) {
+  onSetRace = (id, race) => {
     this.props.dispatch(setRace(id, race))
-  }
+  };
 
-  onSendChatMessage(message) {
+  onSendChatMessage = message => {
     this.props.dispatch(sendChat(message))
-  }
+  };
 
-  onStartGame() {
+  onStartGame = () => {
     this.props.dispatch(startCountdown())
-  }
+  };
 }

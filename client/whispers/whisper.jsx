@@ -13,8 +13,8 @@ import styles from './whisper.css'
 
 import ContentLayout from '../content/content-layout.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import MessageInput from '../messaging/message-input.jsx'
 import MessageList from '../messaging/message-list.jsx'
-import TextField from '../material/text-field.jsx'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 
 // Height to the bottom of the loading area (the top of the messages)
@@ -27,18 +27,11 @@ class Whisper extends React.Component {
     onRequestMoreHistory: PropTypes.func,
   };
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      isScrolledUp: false
-    }
-
-    this.messageList = null
-    this._setMessageListRef = elem => { this.messageList = elem }
-
-    this._handleChatEnter = ::this.onChatEnter
-    this._handleScrollUpdate = ::this.onScrollUpdate
-  }
+  messageList = null;
+  _setMessageListRef = elem => { this.messageList = elem };
+  state = {
+    isScrolledUp: false,
+  };
 
   componentWillUpdate(nextProps, nextState) {
     const insertingAtTop = nextProps.session !== this.props.session &&
@@ -49,7 +42,7 @@ class Whisper extends React.Component {
   }
 
   render() {
-    const { session } = this.props
+    const { session, onSendChatMessage } = this.props
     const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
     return (<div className={styles.container}>
       <div className={styles.messagesAndInput}>
@@ -59,23 +52,14 @@ class Whisper extends React.Component {
               loading={session.loadingHistory}
               hasMoreHistory={session.hasHistory}
               messages={session.messages}
-              onScrollUpdate={this._handleScrollUpdate}/>
+              onScrollUpdate={this.onScrollUpdate}/>
         </div>
-        <TextField ref='chatEntry' className={inputClass} label='Send a message'
-            maxLength={500} floatingLabel={false} allowErrors={false} autoComplete='off'
-            onEnterKeyDown={this._handleChatEnter}/>
+        <MessageInput className={inputClass} onSend={onSendChatMessage} />
       </div>
     </div>)
   }
 
-  onChatEnter() {
-    if (this.props.onSendChatMessage) {
-      this.props.onSendChatMessage(this.refs.chatEntry.getValue())
-    }
-    this.refs.chatEntry.clearValue()
-  }
-
-  onScrollUpdate(values) {
+  onScrollUpdate = values => {
     const { scrollTop, scrollHeight, clientHeight } = values
 
     const isScrolledUp = scrollTop + clientHeight < scrollHeight
@@ -88,7 +72,7 @@ class Whisper extends React.Component {
         scrollTop < LOADING_AREA_BOTTOM) {
       this.props.onRequestMoreHistory()
     }
-  }
+  };
 }
 
 // Returns true if the whispers store state shows that we have closed the whisper session while
