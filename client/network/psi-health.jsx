@@ -87,7 +87,8 @@ export default class PsiHealthCheckupDialog extends React.Component {
   }
 
   render() {
-    return (<Dialog title={'Installation problems detected'} onCancel={this.props.onCancel}>
+    return (<Dialog title={'Installation problems detected'} onCancel={this.props.onCancel}
+        showCloseButton={true}>
       <p>The following problems need to be corrected before you can play games on
           ShieldBattery:</p>
       <ul>
