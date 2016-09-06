@@ -32,6 +32,7 @@ import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
+import { leaveLobby } from './lobbies/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
@@ -93,7 +94,8 @@ class MainLayout extends React.Component {
     return [
       <Subheader key='lobby-header'>Lobby</Subheader>,
       <Section key='lobby-section'>
-        <LobbyNavEntry key='lobby' lobby={name} currentPath={currentPath} hasUnread={hasUnread} />
+        <LobbyNavEntry key='lobby' lobby={name} currentPath={currentPath} hasUnread={hasUnread}
+            onLeaveClick={this.onLeaveLobbyClick}/>
       </Section>,
       <Divider key='lobby-divider'/>
     ]
@@ -199,6 +201,10 @@ class MainLayout extends React.Component {
 
   onWhisperClose = user => {
     this.props.dispatch(closeWhisperSession(user))
+  };
+
+  onLeaveLobbyClick = () => {
+    this.props.dispatch(leaveLobby())
   };
 
   onSettingsClick = () => {

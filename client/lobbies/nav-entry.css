@@ -1,0 +1,11 @@
+.leaveButton {
+  min-height: 32px !important;
+  width: 32px !important;
+  padding: 0 !important;
+  line-height: 32px !important;
+  margin-right: 4px !important;
+}
+
+.leaveButton > span {
+  line-height: 32px !important;
+}

@@ -12,13 +12,17 @@
 }
 
 .subheaderButton {
-  min-height: 36px;
-  width: 36px;
+  min-height: 32px !important;
+  width: 32px !important;
+  padding: 0 !important;
+  line-height: 32px !important;
+  margin-right: 4px !important;
 }
 
 /* TODO(tec27): need to fix buttons to be more stylable so this sort of thing isn't necessary */
 .subheaderButton > span {
   color: colorTextSecondary !important;
+  line-height: 32px !important;
 }
 
 .profileOverlay {
