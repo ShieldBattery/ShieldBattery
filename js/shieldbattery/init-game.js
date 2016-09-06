@@ -68,8 +68,8 @@ class GameInitializer {
     // - Keeping consistent IPs/ports between all players of the game (even though they might differ
     //   due to NAT, LAN, etc.)
     // - Allowing us to easily get references to active rally-point routes
-    const players =
-        Immutable.fromJS(this.lobbyConfig.players).valueSeq().filterNot(p => p.get('isComputer'))
+    const players = Immutable.fromJS(this.lobbyConfig.players).valueSeq()
+        .filterNot(p => p.get('isComputer') || p.get('controlledBy'))
     const hostId = this.lobbyConfig.hostId
     const ordered = players.filter(p => p.get('id') === hostId).concat(
         players.filterNot(p => p.get('id') === hostId).sortBy(p => p.get('slot')))
@@ -262,7 +262,7 @@ class GameInitializer {
 
   async waitForPlayers() {
     const players = Immutable.fromJS(this.lobbyConfig.players).valueSeq()
-      .filterNot(p => p.get('isComputer'))
+      .filterNot(p => p.get('isComputer') || p.get('controlledBy'))
       .map(p => p.get('name'))
       .toList()
 
@@ -330,14 +330,13 @@ class GameInitializer {
       const player = this.lobbyConfig.players[id]
       const slot = bw.slots[player.slot]
 
-      if (!player.isComputer) {
+      if (!player.isComputer && !player.controlledBy) {
         slot.name = player.name
         slot.type = 'human'
         slot.stormId = 27 // signals that they're not here yet, will fill in when connected
       } else {
-        // for humans, stormId will be set when Storm tells us they've connected
         slot.stormId = 0xFF
-        slot.type = 'lobbycomputer'
+        slot.type = player.controlledBy ? 'open' : 'lobbycomputer'
       }
 
       slot.playerId = player.slot
