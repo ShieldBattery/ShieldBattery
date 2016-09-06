@@ -895,7 +895,7 @@ SHORT __stdcall Forge::GetKeyStateHook(int nVirtKey) {
   }
 }
 
-const int MOUSE_SETTING_MAX = 4;
+const int MOUSE_SETTING_MAX = 10;
 void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
   const Settings& settings = GetSettings();
   double delta;

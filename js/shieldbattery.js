@@ -69,7 +69,6 @@ socket.registerRoute('/game/:id', (route, event) => {
     forge.endWndProc() // ensure that we aren't blocking the UI thread with forge's wndproc
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
-    // TODO(tec27): handle failures
     gameInitializer = initGame(socket, event.payload)
   } else if (event.command === 'setRoutes') {
     gameInitializer.setRoutes(event.payload)

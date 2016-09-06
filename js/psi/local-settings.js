@@ -4,6 +4,8 @@ import deepEqual from 'deep-equal'
 import log from './logger'
 import { getInstallPathFromRegistry } from './natives/index'
 
+const VERSION = 2
+
 class LocalSettings extends EventEmitter {
   constructor(filepath) {
     super()
@@ -60,13 +62,22 @@ class LocalSettings extends EventEmitter {
   }
 
   migrateOldSettings() {
-    let newSettings
+    const newSettings = { ...this._settings }
+    let updated = false
     if (!this._settings.starcraftPath) {
       log.verbose('Migrating old settings, finding starcraft path')
-      newSettings = { ...this._settings, starcraftPath: findStarcraftPath() }
+      newSettings.starcraftPath = findStarcraftPath()
+      updated = true
+    }
+    if (!this._settings.version || this._settings.version < 2) {
+      log.verbose('Found settings version 1, migrating to version 2')
+      newSettings.version = VERSION
+      delete newSettings.bwPort
+      newSettings.mouseSensitivity = migrateV1MouseSensitivity(this._settings.mouseSensitivity)
+      updated = true
     }
 
-    if (newSettings) {
+    if (updated) {
       this.settings = newSettings
     }
   }
@@ -75,7 +86,11 @@ class LocalSettings extends EventEmitter {
     return this._settings
   }
 
-  set settings(newSettings) {
+  set settings(toSet) {
+    const newSettings = {
+      ...toSet,
+      version: VERSION,
+    }
     if (deepEqual(newSettings, this._settings)) {
       return
     }
@@ -100,17 +115,12 @@ export default function(filepath) {
 }
 
 function createSettingsFileSync(filepath) {
-  // create an object with any "generated defaults" (e.g. a randomized port)
+  // create an object with any "generated defaults"
   const settings = {
-    bwPort: genRandomPort(),
+    version: VERSION,
     starcraftPath: findStarcraftPath()
   }
   fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8', mode: 0o777 })
-}
-
-function genRandomPort() {
-  // TODO(tec27): re-enable random code once we have UPNP/holepunching
-  return 6112
 }
 
 export function findStarcraftPath() {
@@ -127,4 +137,19 @@ export function findStarcraftPath() {
 
 function jsonify(settings) {
   return JSON.stringify(settings, null, 2)
+}
+
+function migrateV1MouseSensitivity(oldSens) {
+  if (oldSens === undefined) {
+    return undefined
+  }
+
+  switch (oldSens) {
+    case 0: return 0
+    case 1: return 3
+    case 2: return 5
+    case 3: return 8
+    case 4: return 10
+    default: return 0
+  }
 }

@@ -501,7 +501,7 @@ void WrappedBroodWar::SetSettings(const FunctionCallbackInfo<Value>& info) {
   if (settings_object->Has(Nan::New("mouseSensitivity").ToLocalChecked())) {
     result.mouse_sensitivity =
         settings_object->Get(Nan::New("mouseSensitivity").ToLocalChecked())->Int32Value();
-    if (result.mouse_sensitivity < 0 || result.mouse_sensitivity > 4) {
+    if (result.mouse_sensitivity < 0 || result.mouse_sensitivity > 10) {
       Logger::Log(LogLevel::Warning, "mouseSensitivity out of valid range, using default value");
       result.mouse_sensitivity = 0;
     }
