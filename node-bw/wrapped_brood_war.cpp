@@ -469,12 +469,6 @@ void WrappedBroodWar::SetSettings(const FunctionCallbackInfo<Value>& info) {
   Local<Object> settings_object = To<Object>(info[0]).ToLocalChecked();
   Settings result = Settings();
 
-  if (settings_object->Has(Nan::New("bwPort").ToLocalChecked())) {
-    result.bw_port = settings_object->Get(Nan::New("bwPort").ToLocalChecked())->Int32Value();
-  } else {
-    Logger::Log(LogLevel::Warning, "Using default value for setting bwPort");
-    result.bw_port = 6112;
-  }
 
   if (settings_object->Has(Nan::New("width").ToLocalChecked())) {
     result.width = settings_object->Get(Nan::New("width").ToLocalChecked())->Int32Value();

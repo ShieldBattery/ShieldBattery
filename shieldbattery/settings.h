@@ -16,7 +16,6 @@ enum class RenderMode {
 };
 
 struct Settings {
-  int bw_port;
   int width;
   int height;
   DisplayMode display_mode;
