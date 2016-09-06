@@ -125,8 +125,8 @@ export default (validations = {}) => (Wrapped) => {
     };
 
     onCheckableChange = event => {
-      const { name, checked, value } = event.target
-      this.setInputValue(name, checked ? (value || true) : false)
+      const { name, checked } = event.target
+      this.setInputValue(name, checked)
     };
 
     onCustomChange = (name, newValue) => {

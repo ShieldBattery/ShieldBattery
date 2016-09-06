@@ -4,13 +4,11 @@ import {
   LOCAL_SETTINGS_UPDATE,
 } from '../actions'
 
-// TODO(tec27): are these the right defaults?
 export const LocalSettings = new Record({
-  bwPort: 6112,
   width: -1,
   height: -1,
   displayMode: 0,
-  mouseSensitivity: 1,
+  mouseSensitivity: 0,
   maintainAspectRatio: true,
   renderer: 0,
   starcraftPath: null,

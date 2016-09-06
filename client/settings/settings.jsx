@@ -88,7 +88,7 @@ class SettingsForm extends React.Component {
         <Option value={1} text='OpenGL' />
       </Select>
       <Slider {...bindCustom('sensitivity')} label='Mouse sensitivity' tabIndex={0}
-          min={0} max={4} step={1} />
+          min={0} max={10} step={1} />
       <TextField {...bindInput('path')} label='StarCraft folder path' floatingLabel={true}
           inputProps={{
             tabIndex: 0,
