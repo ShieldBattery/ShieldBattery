@@ -190,10 +190,11 @@ export default class Lobby extends React.Component {
     onSetRace: React.PropTypes.func,
     onAddComputer: React.PropTypes.func,
     onSendChatMessage: React.PropTypes.func,
+    onSwitchSlot: React.PropTypes.func,
   };
 
   render() {
-    const { lobby, onSetRace, onAddComputer, user, onSendChatMessage } = this.props
+    const { lobby, onSetRace, onAddComputer, user, onSendChatMessage, onSwitchSlot } = this.props
     const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
       result[p.slot] = p
       return result
@@ -210,12 +211,14 @@ export default class Lobby extends React.Component {
         return (controlledBy ?
             <EmptySlot key={i} race={race} controllable={controllable} teamEmpty={true}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}/> :
+                onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}
+                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(i) : undefined}/> :
             <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
                 controllable={controllable}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}/>)
       } else {
         return (<EmptySlot key={i} controllable={isHost}
+            onSwitchClick={onSwitchSlot ? () => onSwitchSlot(i) : undefined}
             onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}/>)
       }
     }).toArray()

@@ -168,6 +168,44 @@ export function setRace(lobby, id, newRace) {
   return lobby.setIn(['players', id, 'race'], newRace)
 }
 
+function _removeInternal(lobby, toRemove) {
+  const id = toRemove.id
+  if (hasControlledOpens(lobby.gameType)) {
+    const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
+    const teamNum = Math.floor(toRemove.slot / perTeam)
+    const sameTeam = p => p.slot >= perTeam * teamNum && p.slot < perTeam * (teamNum + 1)
+
+    if (toRemove.isComputer ||
+        lobby.players.filter(p => !p.controlledBy && sameTeam(p)).size === 1) {
+      // If this player is a computer, or if they were the last non-open slot on a team, remove all
+      // the other entries for this team as well
+      const teamSize = Math.min(perTeam * (teamNum + 1), lobby.numSlots) - (perTeam * teamNum)
+      return (lobby.update('players', players => players.filterNot(sameTeam))
+        .set('filledSlots', lobby.filledSlots - (toRemove.isComputer ? teamSize : 1)))
+    } else {
+      // This is a human player, but there are other human players left in the team. Find the new
+      // oldest human player in the team and:
+      //  1) create a new controlled open with controlledBy set to their ID
+      //  2) update any controlled opens with controlledBy set to the leaver's ID to that ID
+      const oldestInTeam =
+          lobby.players.skipUntil(p => !p.controlledBy && sameTeam(p) && p.id !== id).first()
+      return (lobby.update('players', players => players.mapEntries(entry => {
+        const [, p] = entry
+        if (p.id === id) {
+          const open = Players.createControlledOpen(oldestInTeam.id, p.race, p.slot)
+          return [open.id, open]
+        } else if (p.controlledBy === id) {
+          return [p.id, p.set('controlledBy', oldestInTeam.id)]
+        } else {
+          return entry
+        }
+      })).set('filledSlots', lobby.filledSlots - 1))
+    }
+  } else {
+    return lobby.deleteIn(['players', id]).set('filledSlots', lobby.filledSlots - 1)
+  }
+}
+
 // Removes the player with specified `id` from a lobby, returning the updated lobby. If the lobby
 // is closed (e.g. because it no longer has any human players), null will be returned. Note that
 // if the host is being removed, a new, suitable host will be chosen.
@@ -180,41 +218,7 @@ export function removePlayerById(lobby, id) {
     throw new Error('invalid slot type')
   }
 
-  let updated
-  if (hasControlledOpens(lobby.gameType)) {
-    const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
-    const teamNum = Math.floor(toRemove.slot / perTeam)
-    const sameTeam = p => p.slot >= perTeam * teamNum && p.slot < perTeam * (teamNum + 1)
-
-    if (toRemove.isComputer ||
-        lobby.players.filter(p => !p.controlledBy && sameTeam(p)).size === 1) {
-      // If this player is a computer, or if they were the last non-open slot on a team, remove all
-      // the other entries for this team as well
-      const teamSize = Math.min(perTeam * (teamNum + 1), lobby.numSlots) - (perTeam * teamNum)
-      updated = lobby.update('players', players => players.filterNot(sameTeam))
-        .set('filledSlots', lobby.filledSlots - (toRemove.isComputer ? teamSize : 1))
-    } else {
-      // This is a human player, but there are other human players left in the team. Find the new
-      // oldest human player in the team and:
-      //  1) create a new controlled open with controlledBy set to their ID
-      //  2) update any controlled opens with controlledBy set to the leaver's ID to that ID
-      const oldestInTeam =
-          lobby.players.skipUntil(p => !p.controlledBy && sameTeam(p) && p.id !== id).first()
-      updated = lobby.update('players', players => players.mapEntries(entry => {
-        const [, p] = entry
-        if (p.id === id) {
-          const open = Players.createControlledOpen(oldestInTeam.id, p.race, p.slot)
-          return [open.id, open]
-        } else if (p.controlledBy === id) {
-          return [p.id, p.set('controlledBy', oldestInTeam.id)]
-        } else {
-          return entry
-        }
-      })).set('filledSlots', lobby.filledSlots - 1)
-    }
-  } else {
-    updated = lobby.deleteIn(['players', id]).set('filledSlots', lobby.filledSlots - 1)
-  }
+  const updated = _removeInternal(lobby, toRemove)
   if (!updated.filledSlots) {
     return null
   }
@@ -227,6 +231,83 @@ export function removePlayerById(lobby, id) {
   }
 
   return updated
+}
+
+// TODO(tec27): Work on pulling common code out from add/remove/move (or finding the simpler cases).
+// This code has its edges tested, and thus is unlikely to be significantly broken, but is also
+// kind of a mess =/ Doing this while preserving host order and controlled open races is tough,
+// otherwise a simple remove -> add works great and is elegant.
+export function movePlayerToSlot(lobby, playerId, slot) {
+  if (slot < 0 || slot >= lobby.numSlots) {
+    throw new Error('slot out of bounds')
+  }
+  const lastInSlot = findPlayerBySlot(lobby, slot)
+  if (lastInSlot && !lastInSlot.controlledBy) {
+    throw new Error('slot conflict')
+  }
+  const origPlayer = lobby.players.get(playerId)
+  if (!origPlayer) {
+    throw new Error('invalid player id')
+  }
+
+  if (!hasControlledOpens(lobby.gameType)) {
+    // simple case, we can just change the player's slot and we're done
+    return lobby.setIn(['players', playerId, 'slot'], slot)
+  } else {
+    const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
+    const teamNum = Math.floor(origPlayer.slot / perTeam)
+    const sameTeam = p => p.slot >= perTeam * teamNum && p.slot < perTeam * (teamNum + 1)
+    if (lastInSlot && sameTeam(lastInSlot)) {
+      // simplest team case, we just swap the two player's slots
+      return (lobby.setIn(['players', playerId, 'slot'], slot)
+        .setIn(['players', lastInSlot.id, 'slot'], origPlayer.slot))
+    }
+
+    let updated = lobby
+    if (lobby.players.filter(p => !p.controlledBy && sameTeam(p)).size === 1) {
+      // This player is the last one on their team, so moving them will require removing all the
+      // controlled opens on their previous team
+      updated = updated.update('players',
+          players => players.filter(p => p.id === playerId || !sameTeam(p)))
+    } else {
+      // Otherwise, we need to replace this player with a controlled open slot and assign it the
+      // right controller, and potentially update all the other controlled opens to point to a new
+      // controller
+      const oldestInTeam =
+          lobby.players.skipUntil(p => !p.controlledBy && sameTeam(p) && p.id !== playerId).first()
+      updated = updated.update('players', players => players.mapEntries(entry => {
+        const [, p] = entry
+        if (p.controlledBy === playerId) {
+          return [p.id, p.set('controlledBy', oldestInTeam.id)]
+        } else {
+          return entry
+        }
+      }))
+
+      // We avoid doing this in mapEntries to not disrupt the host order
+      const open = Players.createControlledOpen(oldestInTeam.id, origPlayer.race, origPlayer.slot)
+      updated = updated.setIn(['players', open.id], open)
+    }
+
+    const newTeamNum = Math.floor(slot / perTeam)
+    if (!lastInSlot) {
+      // If there was nothing in the slot previously, then this team must have been empty and we
+      // need to fill it out
+      const start = perTeam * newTeamNum
+      const end = Math.min(perTeam * (newTeamNum + 1), lobby.numSlots)
+      const players = Range(start, end).filterNot(i => i === slot).map(slot => {
+        const fill = Players.createControlledOpen(playerId, origPlayer.race, slot)
+        return [fill.id, fill]
+      })
+      updated = updated.mergeIn(['players'], players)
+    } else {
+      // If there was something in the slot, it's a controlled open and we can safely remove it
+      updated = updated.deleteIn(['players', lastInSlot.id])
+    }
+
+    // Lastly, update the target player's slot. Phew.
+    return updated.setIn(['players', playerId, 'slot'], slot)
+  }
 }
 
 // Finds the player with the specified name in the lobby. Only works for human players (computer

@@ -12,6 +12,7 @@ import {
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
+  LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_CONTROLLER_CHANGE,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
@@ -87,6 +88,11 @@ const infoReducer = keyedReducer(undefined, {
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
     const { id, newRace } = action.payload
     return state.setIn(['players', id, 'race'], newRace)
+  },
+
+  [LOBBY_UPDATE_SLOT_CHANGE](state, action) {
+    const { id, newSlot } = action.payload
+    return state.setIn(['players', id, 'slot'], newSlot)
   },
 
   [LOBBY_UPDATE_LEAVE](state, action) {

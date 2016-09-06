@@ -6,6 +6,7 @@ import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
+  changeSlot,
   leaveLobby,
   setRace,
   startCountdown,
@@ -88,7 +89,8 @@ export default class LobbyView extends React.Component {
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
           onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
-          onStartGame={this.onStartGame} onSendChatMessage={this.onSendChatMessage} />
+          onSwitchSlot={this.onSwitchSlot} onStartGame={this.onStartGame}
+          onSendChatMessage={this.onSendChatMessage} />
       actions = [
         <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
       ]
@@ -154,6 +156,10 @@ export default class LobbyView extends React.Component {
 
   onAddComputer = slotNum => {
     this.props.dispatch(addComputer(slotNum))
+  };
+
+  onSwitchSlot = slotNum => {
+    this.props.dispatch(changeSlot(slotNum))
   };
 
   onSetRace = (id, race) => {

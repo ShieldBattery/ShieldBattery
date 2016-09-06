@@ -238,9 +238,6 @@ export class LobbyApi {
     if (slotNum >= lobby.numSlots) {
       throw new errors.BadRequest('invalid slot number')
     }
-    if (Lobbies.findPlayerBySlot(lobby, slotNum)) {
-      throw new errors.Conflict('slot already occupied')
-    }
 
     const computer = Players.createComputer('r', slotNum)
     let updated
@@ -250,7 +247,34 @@ export class LobbyApi {
       throw new errors.BadRequest(err.message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
 
+  @Api('/changeSlot',
+    validateBody({
+      slotNum,
+    }))
+  async changeSlot(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const player = Lobbies.findPlayerByName(lobby, user.name)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotNum } = data.get('body')
+
+    if (slotNum >= lobby.numSlots) {
+      throw new errors.BadRequest('invalid slot number')
+    } else if (player.slot === slotNum) {
+      throw new errors.Conflict('already in that slot')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.movePlayerToSlot(lobby, player.id, slotNum)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
   }
 

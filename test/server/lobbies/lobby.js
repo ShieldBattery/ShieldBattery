@@ -152,6 +152,16 @@ describe('Lobbies - melee', () => {
 
     expect(lobby.hostId).to.equal(babo.id)
   })
+
+  it('should support moving players between slots', () => {
+    const babo = Players.createHuman('dronebabo', 'z', 2)
+    let lobby = Lobbies.addPlayer(BOXER_LOBBY, babo)
+    lobby = Lobbies.movePlayerToSlot(lobby, babo.id, 3)
+
+    expect(lobby.players).to.have.size(2)
+    expect(lobby.filledSlots).to.equal(2)
+    expect(lobby.players.get(babo.id).slot).to.equal(3)
+  })
 })
 
 const TEAM_LOBBY = Lobbies.create(
@@ -186,6 +196,16 @@ describe('Lobbies - Top vs bottom', () => {
     l = Lobbies.addPlayer(l, computer)
     emptySlot = Lobbies.findEmptySlot(l)
     expect(emptySlot).to.equal(4)
+  })
+
+  it('should support moving players between slots', () => {
+    const babo = Players.createHuman('dronebabo', 'z', 2)
+    let lobby = Lobbies.addPlayer(TEAM_LOBBY, babo)
+    lobby = Lobbies.movePlayerToSlot(lobby, babo.id, 3)
+
+    expect(lobby.players).to.have.size(2)
+    expect(lobby.filledSlots).to.equal(2)
+    expect(lobby.players.get(babo.id).slot).to.equal(3)
   })
 })
 
@@ -328,5 +348,39 @@ describe('Lobbies - Team melee', () => {
     l = Lobbies.removePlayerById(TEAM_MELEE_3, comp.id)
     expect(l.filledSlots).to.equal(1)
     expect(l.players).to.have.size(3)
+  })
+
+  it('should support moving players between slots', () => {
+    const babo = Players.createHuman('dronebabo', 'z', 2)
+    let lobby = Lobbies.addPlayer(TEAM_MELEE_3, babo)
+    lobby = Lobbies.movePlayerToSlot(lobby, babo.id, 3)
+
+    expect(lobby.players).to.have.size(6)
+    expect(lobby.filledSlots).to.equal(2)
+    expect(lobby.players.get(babo.id).slot).to.equal(3)
+    let playersBySlot = lobby.players.mapKeys((id, player) => player.slot)
+    expect(playersBySlot.get(4).controlledBy).to.equal(babo.id)
+
+    const pachi = Players.createHuman('pachi', 't', 4)
+    lobby = Lobbies.addPlayer(lobby, pachi)
+    playersBySlot = lobby.players.mapKeys((id, player) => player.slot)
+    lobby = Lobbies.setRace(lobby, playersBySlot.get(5).id, 'z')
+    lobby = Lobbies.movePlayerToSlot(lobby, babo.id, 6)
+
+    expect(lobby.players).to.have.size(8)
+    expect(lobby.filledSlots).to.equal(3)
+    expect(lobby.players.get(babo.id).slot).to.equal(6)
+    playersBySlot = lobby.players.mapKeys((id, player) => player.slot)
+    expect(playersBySlot.get(3).controlledBy).to.equal(pachi.id)
+    expect(playersBySlot.get(7).controlledBy).to.equal(babo.id)
+
+    lobby = Lobbies.removePlayerById(lobby, lobby.hostId)
+    expect(lobby.hostId).to.equal(babo.id)
+    playersBySlot = lobby.players.mapKeys((id, player) => player.slot)
+    expect(playersBySlot.get(5).race).to.equal('z')
+
+    lobby = Lobbies.movePlayerToSlot(lobby, pachi.id, 7)
+    expect(lobby.players).to.have.size(2)
+    expect(lobby.filledSlots).to.equal(2)
   })
 })

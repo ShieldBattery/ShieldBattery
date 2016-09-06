@@ -8,6 +8,8 @@ import {
   LOBBY_DEACTIVATE,
   LOBBY_ADD_COMPUTER_BEGIN,
   LOBBY_ADD_COMPUTER,
+  LOBBY_CHANGE_SLOT_BEGIN,
+  LOBBY_CHANGE_SLOT,
   LOBBY_CREATE_BEGIN,
   LOBBY_CREATE,
   LOBBY_JOIN_BEGIN,
@@ -71,6 +73,21 @@ export function addComputer(slotNum) {
       type: LOBBY_ADD_COMPUTER,
       payload: siteSocket.invoke('/lobbies/addComputer', params),
       meta: params
+    })
+  }
+}
+
+export function changeSlot(slotNum) {
+  const params = { slotNum }
+  return dispatch => {
+    dispatch({
+      type: LOBBY_CHANGE_SLOT_BEGIN,
+      payload: params
+    })
+    dispatch({
+      type: LOBBY_CHANGE_SLOT,
+      payload: siteSocket.invoke('/lobbies/changeSlot', params),
+      meta: params,
     })
   }
 }

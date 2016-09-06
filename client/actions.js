@@ -68,6 +68,10 @@ export const LOBBY_DEACTIVATE = 'LOBBY_DEACTIVATE'
 export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
 // The server has responded with success/failure to our addition of computer in lobby
 export const LOBBY_ADD_COMPUTER = 'LOBBY_ADD_COMPUTER'
+// We are starting the process of moving from one slot to another in a lobby
+export const LOBBY_CHANGE_SLOT_BEGIN = 'LOBBY_CHANGE_SLOT_BEGIN'
+// The server has responded with success/rejection to us attempting to switch lobby slots
+export const LOBBY_CHANGE_SLOT = 'LOBBY_CHANGE_SLOT'
 // We are starting the process to create a lobby
 export const LOBBY_CREATE_BEGIN = 'LOBBY_CREATE_BEGIN'
 // The server has responded with success/failure to our lobby creation
@@ -120,6 +124,8 @@ export const LOBBY_UPDATE_LOADING_START = 'LOBBY_UPDATE_LOADING_START'
 export const LOBBY_UPDATE_LOADING_CANCELED = 'LOBBY_UPDATE_LOADING_CANCELED'
 // A user has changed the race in a lobby we're in
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
+// A user has moved slots in a lobby we're in
+export const LOBBY_UPDATE_SLOT_CHANGE = 'LOBBY_UPDATE_SLOT_CHANGE'
 
 // We are starting the process of saving the settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'

@@ -14,6 +14,7 @@ import {
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_RACE_CHANGE,
+  LOBBY_UPDATE_SLOT_CHANGE,
   PSI_GAME_LAUNCH,
   PSI_GAME_STATUS,
 } from '../actions'
@@ -87,6 +88,11 @@ const eventToAction = {
 
   controllerChange: (name, event) => ({
     type: LOBBY_UPDATE_CONTROLLER_CHANGE,
+    payload: event,
+  }),
+
+  slotChange: (name, event) => ({
+    type: LOBBY_UPDATE_SLOT_CHANGE,
     payload: event,
   }),
 
