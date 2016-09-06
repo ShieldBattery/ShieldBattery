@@ -895,17 +895,23 @@ SHORT __stdcall Forge::GetKeyStateHook(int nVirtKey) {
   }
 }
 
+const int MOUSE_SETTING_MAX = 4;
 void Forge::CalculateMouseResolution(uint32 width, uint32 height) {
   const Settings& settings = GetSettings();
   double delta;
 
-  if (width > height) {
-    delta = (height - 480.0) / 4;
+  double original_ratio = 640.0 / 480.0;
+  double actual_ratio = static_cast<double>(width) / height;
+
+  if ((actual_ratio - original_ratio) >= 0.001) {
+    // Means the screen has a wider aspect ration than 4:3 (typical)
+    delta = (height - 480.0) / MOUSE_SETTING_MAX;
     mouse_resolution_height_ = static_cast<int>(
         (height - (delta * settings.mouse_sensitivity)) + 0.5);
     mouse_resolution_width_ = static_cast<int>((mouse_resolution_height_ * 4.0 / 3) + 0.5);
   } else {
-    delta = (width - 640.0) / 4;
+    // Means the screen has a narrower aspect ratio than 4:3 (usually means 1280x1024)
+    delta = (width - 640.0) / MOUSE_SETTING_MAX;
     mouse_resolution_width_ = static_cast<int>(
         (width - (delta * settings.mouse_sensitivity)) + 0.5);
     mouse_resolution_height_ = static_cast<int>((mouse_resolution_width_ * 3.0 / 4) + 0.5);
