@@ -110,6 +110,12 @@ class MainLayout extends React.Component {
         open={this.state.avatarOverlayOpened}
         onDismiss={this.onCloseProfileOverlay}
         user={this.props.auth.user.name}>
+      {
+        window._sbFeedbackUrl ?
+            <ProfileAction icon={<FontIcon>feedback</FontIcon>}
+                text='Send feedback' onClick={this.onFeedbackClick} /> :
+            null
+      }
       <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
           onClick={this.onLogOutClick} />
     </SelfProfileOverlay>)
@@ -159,9 +165,6 @@ class MainLayout extends React.Component {
             disabled={inLobby} keycode={KEY_J} altKey={true} />
         <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
-        { window._sbFeedbackUrl ?
-          <ActivityButton icon='feedback' label='Feedback' onClick={this.onFeedbackClick} /> :
-          null }
         <HotkeyedActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick}
             keycode={KEY_S} altKey={true} />
       </ActivityBar>

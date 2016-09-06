@@ -1,4 +1,4 @@
-@value grey900, colorTextPrimary, colorTextSecondary from '../styles/colors.css';
+@value grey900, colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
 @value col, grow, exact, justifyStart, justifyCenter, itemsCenter from '../styles/flex.css';
 @value button as buttonText from '../styles/typography.css';
 @value reset from '../material/button-reset.css';
@@ -53,6 +53,10 @@
 
 .button:active:not([disabled]) {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.button[disabled] {
+  color: colorTextFaint;
 }
 
 .buttonLabel {
