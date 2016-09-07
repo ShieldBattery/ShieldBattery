@@ -125,29 +125,32 @@ export default class LobbyView extends React.Component {
     }
 
     const lobby = lobbyState.get(routeLobby)
+    let preLobbyAreaContents
     if (!lobby.state && !lobby.error) {
       if (lobby.isRequesting) {
-        return <span className={styles.contentArea}><LoadingIndicator /></span>
+        preLobbyAreaContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
       } else {
-        return <span className={styles.contentArea}>There was a problem loading this lobby</span>
+        preLobbyAreaContents = <span>There was a problem loading this lobby</span>
       }
     } else if (lobby.state) {
-      return (<div className={styles.contentArea}>
-        { lobby.isRequesting ? <LoadingIndicator /> : null }
-        { this.renderLobbyStateContent(lobby.state) }
-      </div>)
+      preLobbyAreaContents = [
+        lobby.true ? <div className={styles.loadingArea}><LoadingIndicator /></div> : null,
+        this.renderLobbyStateContent(lobby.state),
+      ]
     } else if (lobby.error) {
-      return (<div className={styles.contentArea}>
-        { lobby.isRequesting ? <LoadingIndicator /> : null }
-        <p>There was a problem loading this lobby</p>
-      </div>)
+      preLobbyAreaContents = [
+        lobby.isRequesting ? <div className={styles.loadingArea}><LoadingIndicator /></div> : null,
+        <p>There was a problem loading this lobby</p>,
+      ]
     }
 
-    return null
+    return (<div className={styles.preLobbyArea}>
+      { preLobbyAreaContents }
+    </div>)
   }
 
   renderLeaveAndJoin() {
-    return <p className={styles.contentArea}>You're already in another lobby.</p>
+    return <p className={styles.preLobbyArea}>You're already in another lobby.</p>
   }
 
   onLeaveLobbyClick = () => {

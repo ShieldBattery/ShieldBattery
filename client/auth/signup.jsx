@@ -114,8 +114,9 @@ export default class Signup extends React.Component {
 
   render() {
     const { auth, location } = this.props
+    let loadingContents
     if (auth.authChangeInProgress) {
-      return <Card><LoadingIndicator /></Card>
+      loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
     }
 
     let errContents
@@ -133,6 +134,7 @@ export default class Signup extends React.Component {
 
     return (<div className={styles.content}>
       <Card zDepth={1}>
+        { loadingContents }
         <h3>Create account</h3>
         { errContents }
         <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>

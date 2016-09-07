@@ -161,7 +161,8 @@ export default class WhisperView extends React.Component {
       <ContentLayout title={`Whisper with ${session ? session.target : target}`}
           appBarContentClassName={styles.appBarContent}>
         { session ? <Whisper session={session} onSendChatMessage={this._handleSendChatMessage}
-            onRequestMoreHistory={this._handleRequestMoreHistory} /> : <LoadingIndicator /> }
+            onRequestMoreHistory={this._handleRequestMoreHistory} /> :
+            <div className={styles.loadingArea}><LoadingIndicator /></div> }
       </ContentLayout>
     )
   }

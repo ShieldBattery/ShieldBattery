@@ -1,5 +1,5 @@
 @value blue400, amberA400 from '../styles/colors.css';
-@value take100, row, wrap, take33, justifyCenter from '../styles/flex.css';
+@value take100, row, wrap, take33, itemsCenter, justifyCenter from '../styles/flex.css';
 
 :global(#app) .wrapper {
   width: calc(640px + (16px * 2));
@@ -22,6 +22,10 @@
 .content {
   width: 448px;
   margin: auto;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
 }
 
 .wrapper form > h3 {
