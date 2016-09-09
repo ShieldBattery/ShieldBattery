@@ -36,6 +36,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Byzantium 3.0",
+    "hash": "e2b49fb379546726bfd03a467cbc5a4049dd56d0a804e4f99ed53b8b71ed7526",
+    "tileset": "twilight",
+    "width": 128,
+    "height": 128,
+    "slots": 8,
+    "umsSlots": 0,
+    "description": "PpP\r\n[www.iccup.com] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Circuit Breaker 1.0",
     "hash": "9d6977cd3133bb6d727e59a350f3c9d79d0eb0464be5eb17d85e2bf1ee234fcd",
     "tileset": "platform",
@@ -44,6 +56,18 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "Author: Earthattack\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "ColosseumII2.0",
+    "hash": "f5e060a730507a1c8e96f49e09af3c09100d85f7457aaaa03acadcc828bb006d",
+    "tileset": "desert",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Created By Str18-02\r\n½ÉÀå¿¡ Àå½ÄµÈ ±Û¶óµð¿ì½º. ¹ß±æ¿¡ Ã¤ÀÌ´Â ¼ÓÀÌÂù Åõ±¸µé.\r\nÃß¾ÇÇÑ º»¼ºÀ» µå·¯³½È²Á¦. ÈïºÐÀ» ºÎ¸£Â¢´Â  °üÁßµé. \r\nÀÌ ¸ðµç °ÍÀ» ´ã´Â ±×¸©, ÄÝ·Î¼¼¿È.\r\nSpecial Thx to PgrFuroLeague\r\nPresented by KeSPA",
     "format": "scx",
     "thumbFormat": "jpg"
   },
@@ -132,6 +156,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Katrina SE2.0",
+    "hash": "1ab72a07e5454687eae9e39aec81d8325975da8f968ad5012a6501a61942fc2e",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Created By Str18-02      Presented by KeSPA\r\nÁß½É±â¾Ð 904hPa \r\nÁß½ÉÇ³¼Ó 135kt (70m/s)\r\nÇÇÇØº¹±¸¾× 1220¾ï ´Þ·¯ \r\n±×¸®°í ¾ÄÀ» ¼ö ¾ø´Â »ç¸ÁÀÚ 1339¸í.\r\nE-mail to lasina85@hanmail.net .. GoodLuck !!",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Longinus 2.0",
     "hash": "a36b78d18eee3437a1ba59ed7767aeb071e2c47e27ecb74dcd7ed6c5dc8f25cd",
     "tileset": "jungle",
@@ -192,6 +228,42 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Medusa1.0",
+    "hash": "f46a2fd0c9afbfacb387e8750fab2874bce0ddfc46e364bfbc7e53b0db911af4",
+    "tileset": "twilight",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "Created By Str18-02      Presented by KeSPA\r\n¼Ò³à¿©, ±×´ëÀÇ Àß¸øÀÌ ÀÖ´ÙÇÏ¸é ±×°ÍÀº ³ªÀÇ ºÒÂûÀÌ´Ù. ºñ·Ï ³ÊÀÇ ºñ´Ü°áÀÌ ±â¾î°¡´Â ¾ÇÀÌ µÇ°í ±× ´©±¸µµ ³Ê¸¦ ¸¶ÁÖÇÏÁö ¸øÇÏ¿©µµ ÀÌ ¹Ù´Ù´Â Ç×»ó ³Ê¸¦ ÇâÇØ ¿­·ÁÀÖÀ½À» ¾Ë¾ÆÁÖ±â¸¦ ¹Ù¶õ´Ù.",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "MoonGlaive 2.1",
+    "hash": "4a8d1fe38d56076b9f2f312caebfe8748fdd94b496a82eac807b6caafadd8e1d",
+    "tileset": "twilight",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "All you need is love.\r\n\r\nCreated By Str18-02 \r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Othello 1.1",
+    "hash": "500a302964535046e10210d38b2cdd514b05b502168a71b0fe0bb1a972e62541",
+    "tileset": "twilight",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "You are as pompous as the square of the sum of brightly charming violet and cherry blossom.\r\nFrom 'Shakespear Programming Language'\r\nCreated by Forgotten_\r\nPresented by KeSPA",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Overwatch 2.1",
     "hash": "305a82c86d279c88bc0f991ab481d88e6de5fcec6d750b44053871b11b52eec6",
     "tileset": "twilight",
@@ -225,6 +297,30 @@
     "umsSlots": 0,
     "description": "Created by skb9728_CyGnus\r\nModified by skb9728_CyGnus.\r\ni_terran. Berserk_E\r\nPresented by MBCgame\r\n[ www.iccup.com ] modification",
     "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Sin Chupung Ryeong2.1",
+    "hash": "60e420fe506676241ade868bf7eae3ad16a9e685e4b88a72d72618a7be50d470",
+    "tileset": "jungle",
+    "width": 96,
+    "height": 128,
+    "slots": 2,
+    "umsSlots": 0,
+    "description": "Created By Str18-02      \r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Sin Peaks of Baekdu",
+    "hash": "3cffa4facd974b9a8bca002a16fe1c3f9d4364505693489c187d543328cd13e9",
+    "tileset": "jungle",
+    "width": 96,
+    "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "Suggested Players: 2\r\n[¹éµÎ´ë°£]\r\nÇÑ¹Ýµµ¸¦ µ¿¤ý¼­·Î °¡¸£´Â »êÁÙ±â\r\nÇÑ¹Ýµµ ÀÚ¿¬ÀÇ »óÂ¡ÀÌÀÚ ÀÎ¹®Àû ±â¹Ý\r\nCreated by [Ragnarok]Valkyrie      Ongamenet Map Architect Team     http://www.mapdori.com",
+    "format": "scm",
     "thumbFormat": "jpg"
   },
   {
