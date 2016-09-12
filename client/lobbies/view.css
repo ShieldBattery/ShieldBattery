@@ -20,6 +20,16 @@
   max-width: 1140px;
 }
 
+.preLobbyArea {
+  composes: col;
+  padding: 0 16px;
+}
+
+.loadingArea {
+  composes: row itemsCenter;
+  height: 32px;
+}
+
 .left {
   composes: col grow;
   padding-top: 16px;

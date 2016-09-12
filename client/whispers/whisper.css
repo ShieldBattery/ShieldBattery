@@ -1,5 +1,5 @@
 @value colorDividers from '../styles/colors.css';
-@value row, grow from '../styles/flex.css';
+@value row, grow, itemsCenter, justifyCenter from '../styles/flex.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
 .container {
@@ -13,6 +13,11 @@
 .appBarContent {
   max-width: 884px;
   margin: 0 auto;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
+  height: 32px;
 }
 
 .messagesAndInput {

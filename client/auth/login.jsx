@@ -87,28 +87,27 @@ export default class Login extends React.Component {
   }
 
   render() {
-    const { auth } = this.props
-    let cardContents
-    if (auth.authChangeInProgress) {
-      cardContents = <LoadingIndicator />
-    } else {
-      let errContents
-      const failure = auth.lastFailure
-      const reqId = this.state.reqId
-      if (reqId && failure && failure.reqId === reqId) {
-        errContents = <div className={styles.errors}>Error: {failure.err}</div>
-      }
-
-      cardContents = <div>
-        <h3>Log in</h3>
-        { errContents }
-        <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}/>
-        <RaisedButton label='Log in' onClick={this.onLogInClick} tabIndex={1}/>
-      </div>
+    const { auth: { authChangeInProgress, lastFailure } } = this.props
+    let loadingContents
+    if (authChangeInProgress) {
+      loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
+    }
+    let errContents
+    const reqId = this.state.reqId
+    if (reqId && lastFailure && lastFailure.reqId === reqId) {
+      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
     }
 
     return (<div className={styles.content}>
-      <Card>{cardContents}</Card>
+      <Card className={styles.card}>
+        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
+          <h3 className={styles.cardTitle}>Log in</h3>
+          { errContents }
+          <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}/>
+          <RaisedButton label='Log in' onClick={this.onLogInClick} tabIndex={1}/>
+        </div>
+        { loadingContents }
+      </Card>
       <div className={styles.bottomAction}>
         <p>Don't have an account?</p>
         <span>

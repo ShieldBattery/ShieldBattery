@@ -1,5 +1,7 @@
 @value blue400, amberA400 from '../styles/colors.css';
-@value take100, row, wrap, take33, justifyCenter from '../styles/flex.css';
+@value take100, row, wrap, take33, itemsCenter, justifyCenter from '../styles/flex.css';
+@value headline from '../styles/typography.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
 
 :global(#app) .wrapper {
   width: calc(640px + (16px * 2));
@@ -24,8 +26,33 @@
   margin: auto;
 }
 
-.wrapper form > h3 {
+.card {
+  position: relative;
+}
+
+.cardTitle {
+  composes: headline;
   margin-top: 0;
+}
+
+.form {
+  opacity: 1;
+  transition: opacity 150ms fastOutSlowIn;
+}
+
+.formLoading {
+  composes: form;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .errors {
