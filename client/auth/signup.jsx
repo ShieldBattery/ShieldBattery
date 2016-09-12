@@ -113,17 +113,16 @@ export default class Signup extends React.Component {
   }
 
   render() {
-    const { auth, location } = this.props
+    const { auth: { authChangeInProgress, lastFailure }, location } = this.props
     let loadingContents
-    if (auth.authChangeInProgress) {
+    if (authChangeInProgress) {
       loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
     }
 
     let errContents
-    const failure = auth.lastFailure
     const reqId = this.state.reqId
-    if (reqId && failure && failure.reqId === reqId) {
-      errContents = <div className={styles.errors}>Error: {failure.err}</div>
+    if (reqId && lastFailure && lastFailure.reqId === reqId) {
+      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
     }
 
     const model = {
@@ -133,12 +132,14 @@ export default class Signup extends React.Component {
     }
 
     return (<div className={styles.content}>
-      <Card zDepth={1}>
+      <Card className={styles.card}>
+        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
+          <h3 className={styles.cardTitle}>Create account</h3>
+          { errContents }
+          <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>
+          <RaisedButton label='Create account' onClick={this.onSignUpClick} tabIndex={1}/>
+        </div>
         { loadingContents }
-        <h3>Create account</h3>
-        { errContents }
-        <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>
-        <RaisedButton label='Create account' onClick={this.onSignUpClick} tabIndex={1}/>
       </Card>
       <div className={styles.bottomAction}>
         <p>Already have an account?</p>
