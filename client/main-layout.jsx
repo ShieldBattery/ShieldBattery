@@ -10,11 +10,13 @@ import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
-import FontIcon from './material/font-icon.jsx'
+import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
+import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
+import LogoutIcon from './icons/material/ic_power_settings_new_black_24px.svg'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
@@ -119,14 +121,13 @@ class MainLayout extends React.Component {
         user={this.props.auth.user.name}>
       {
         window._sbFeedbackUrl ?
-            <ProfileAction icon={<FontIcon>feedback</FontIcon>}
+            <ProfileAction icon={<FeedbackIcon />}
                 text='Send feedback' onClick={this.onFeedbackClick}/> :
             null
       }
-      <ProfileAction icon={<FontIcon>new_releases</FontIcon>} text='View changelog'
+      <ProfileAction icon={<ChangelogIcon />} text='View changelog'
           onClick={this.onChangelogClick}/>
-      <ProfileAction icon={<FontIcon>power_settings_new</FontIcon>} text='Log out'
-          onClick={this.onLogOutClick}/>
+      <ProfileAction icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick}/>
     </SelfProfileOverlay>)
   }
 
