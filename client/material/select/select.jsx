@@ -4,8 +4,8 @@ import classnames from 'classnames'
 import keycode from 'keycode'
 import styles from './select.css'
 
+import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 import FloatingLabel from '../input-floating-label.jsx'
-import FontIcon from '../font-icon.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
 import KeyListener from '../../keyboard/key-listener.jsx'
@@ -132,7 +132,7 @@ class Select extends React.Component {
             tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
             onFocus={this.onFocus} onBlur={this.onBlur}>
           <span className={styles.value}>{displayValue}</span>
-          <span className={styles.icon}><FontIcon>arrow_drop_down</FontIcon></span>
+          <span className={styles.icon}><ArrowDropDownIcon /></span>
         </span>
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
             disabled={this.props.disabled} />
