@@ -10,20 +10,26 @@ import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
-import AddWhisperIcon from './icons/material/ic_add_black_24px.svg'
-import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
-import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
-import LogoutIcon from './icons/material/ic_power_settings_new_black_24px.svg'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
+
+import AddWhisperIcon from './icons/material/ic_add_black_24px.svg'
+import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
+import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
+import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
+import FindMatchIcon from './icons/material/ic_cake_black_36px.svg'
+import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
+import LogoutIcon from './icons/material/ic_power_settings_new_black_24px.svg'
+import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
+import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
 
 import ActiveGameNavEntry from './active-game/nav-entry.jsx'
 import ChatNavEntry from './chat/nav-entry.jsx'
@@ -169,15 +175,16 @@ class MainLayout extends React.Component {
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
           onAvatarClick={this.onAvatarClick}>
-        <ActivityButton icon='cake' label='Find match' onClick={this.onFindMatchClick} />
-        <HotkeyedActivityButton icon='gavel' label='Create' onClick={this.onCreateLobbyClick}
-            disabled={inLobby} keycode={KEY_C} altKey={true} />
-        <HotkeyedActivityButton icon='call_merge' label='Join' onClick={this.onJoinLobbyClick}
+        <ActivityButton icon={<FindMatchIcon />} label='Find match'
+            onClick={this.onFindMatchClick} />
+        <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'
+            onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />
+        <HotkeyedActivityButton icon={<JoinGameIcon />} label='Join' onClick={this.onJoinLobbyClick}
             disabled={inLobby} keycode={KEY_J} altKey={true} />
-        <ActivityButton icon='movie' label='Replays' onClick={this.onReplaysClick} />
+        <ActivityButton icon={<ReplaysIcon />} label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
-        <HotkeyedActivityButton icon='settings' label='Settings' onClick={this.onSettingsClick}
-            keycode={KEY_S} altKey={true} />
+        <HotkeyedActivityButton icon={<SettingsIcon />} label='Settings'
+            onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />
       </ActivityBar>
       { this.renderAvatarOverlay() }
       <ActivityOverlay />

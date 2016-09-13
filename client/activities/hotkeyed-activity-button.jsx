@@ -11,10 +11,7 @@ export default class HotkeyedActivityButton extends React.Component {
     shiftKey: PropTypes.bool,
     ctrlKey: PropTypes.bool,
     label: PropTypes.string.isRequired,
-    icon: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.element,
-    ]).isRequired,
+    icon: PropTypes.element.isRequired,
     onClick: PropTypes.func,
   };
 
