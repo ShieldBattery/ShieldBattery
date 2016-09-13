@@ -1,4 +1,5 @@
 import React, { PropTypes } from 'react'
+import CloseWhisperIcon from '../icons/material/ic_close_black_24px.svg'
 import Entry from '../material/left-nav/entry.jsx'
 import IconButton from '../material/icon-button.jsx'
 import styles from './whisper.css'
@@ -13,8 +14,8 @@ export default class WhisperNavEntry extends React.Component {
 
   render() {
     const { user, currentPath, hasUnread } = this.props
-    const button = <IconButton className={styles.navCloseButton} icon='close' title='Close whisper'
-        onClick={this.onClose} />
+    const button = <IconButton className={styles.navCloseButton} icon={<CloseWhisperIcon />}
+        title='Close whisper' onClick={this.onClose} />
 
     return (<Entry link={`/whispers/${encodeURIComponent(user)}`} currentPath={currentPath}
         button={button} needsAttention={hasUnread}>{user}</Entry>)

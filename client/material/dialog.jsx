@@ -1,6 +1,7 @@
 import React, { PropTypes } from 'react'
 import keycode from 'keycode'
 import KeyListener from '../keyboard/key-listener.jsx'
+import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 import IconButton from '../material/icon-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import styles from './dialog.css'
@@ -26,7 +27,7 @@ class Dialog extends React.Component {
     const { scrolledUp, scrolledDown } = this.state
 
     const closeButton = showCloseButton ?
-      <IconButton className={styles.closeButton} icon='close' title='Close dialog'
+      <IconButton className={styles.closeButton} icon={<CloseDialogIcon />} title='Close dialog'
           onClick={this.onCloseButtonClick}/> :
       null
 

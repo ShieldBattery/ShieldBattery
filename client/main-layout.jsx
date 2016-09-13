@@ -10,6 +10,7 @@ import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
+import AddWhisperIcon from './icons/material/ic_add_black_24px.svg'
 import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
@@ -144,7 +145,7 @@ class MainLayout extends React.Component {
             currentPath={pathname}
             hasUnread={w.hasUnread}
             onClose={this.onWhisperClose}/>)
-    const addWhisperButton = <IconButton icon='add' title='Start a conversation'
+    const addWhisperButton = <IconButton icon={<AddWhisperIcon />} title='Start a conversation'
         className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
     const footer = isAdmin(this.props.auth) ? [
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
