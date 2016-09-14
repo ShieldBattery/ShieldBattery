@@ -2,6 +2,7 @@ import React from 'react'
 import Card from '../card.jsx'
 
 import IconButton from '../icon-button.jsx'
+import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
 import Select from '../select/select.jsx'
 import Option from '../select/option.jsx'
 
@@ -20,7 +21,7 @@ export default class OverflowTest extends React.Component {
     return (<div style={containerStyle}>
       <Card style={cardStyle}>
         <h3>Test the menus</h3>
-        <IconButton icon='more_vert' onClick={() => this.onFirstClick()} />
+        <IconButton icon={<VertMenuIcon />} onClick={() => this.onFirstClick()} />
         <Select defaultValue={2} label='First'>
           <Option value={1} text='Menu option 1' />
           <Option value={2} text='Menu option 2' />

@@ -3,7 +3,7 @@ import styles from './view.css'
 import FlatButton from '../material/flat-button.jsx'
 import RacePicker from './race-picker.jsx'
 import SelectedRace from './selected-race.jsx'
-import FontIcon from '../material/font-icon.jsx'
+import SwapSlotsIcon from '../icons/material/ic_swap_vert_black_24px.svg'
 
 export default class EmptySlot extends React.Component {
   static propTypes = {
@@ -40,7 +40,7 @@ export default class EmptySlot extends React.Component {
         <span className={styles.slotEmptyAvatar}>
           {
             this.state.isHovered ?
-                <FontIcon>swap_vert</FontIcon> :
+                <SwapSlotsIcon /> :
                 null
           }
         </span>

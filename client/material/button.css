@@ -1,6 +1,7 @@
 @value colorTextPrimary, colorTextFaint, colorTextSecondary from '../styles/colors.css';
 @value blue400, blue500, blue600, blue700 from '../styles/colors.css';
 @value amberA400 from '../styles/colors.css';
+@value justifyCenter, itemsCenter from '../styles/flex.css';
 @value button as buttonText from '../styles/typography.css';
 @value reset from './button-reset.css';
 @value fastOutSlowInShort from './curves.css';
@@ -8,6 +9,7 @@
 @value shadow2dp from './shadows.css';
 
 .label {
+  composes: justifyCenter itemsCenter;
   composes: buttonText;
   color: colorTextPrimary;
   line-height: 36px;

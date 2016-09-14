@@ -1,11 +1,12 @@
 import React, { PropTypes } from 'react'
+import CloseLobbyIcon from '../icons/material/ic_close_black_24px.svg'
 import Entry from '../material/left-nav/entry.jsx'
 import IconButton from '../material/icon-button.jsx'
 import styles from './nav-entry.css'
 
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
   const button = <IconButton className={styles.leaveButton}
-      icon='close' title='Leave lobby' onClick={onLeaveClick}/>
+      icon={<CloseLobbyIcon />} title='Leave lobby' onClick={onLeaveClick}/>
   return (
     <Entry link={`/lobbies/${encodeURIComponent(lobby)}`}
         currentPath={currentPath}
