@@ -47,6 +47,10 @@
   line-height: inherit;
 }
 
+.icon > svg {
+  vertical-align: middle;
+}
+
 .overlay {
   composes: shadow8dp;
   background-color: grey800;
