@@ -180,7 +180,7 @@ class MainLayout extends React.Component {
         <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'
             onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />
         <HotkeyedActivityButton icon={<JoinGameIcon />} label='Join' onClick={this.onJoinLobbyClick}
-            disabled={inLobby} keycode={KEY_J} altKey={true} />
+            keycode={KEY_J} altKey={true} />
         <ActivityButton icon={<ReplaysIcon />} label='Replays' onClick={this.onReplaysClick} />
         <ActivitySpacer />
         <HotkeyedActivityButton icon={<SettingsIcon />} label='Settings'
