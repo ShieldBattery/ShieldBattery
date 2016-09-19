@@ -10,12 +10,14 @@ export default class MessageInput extends React.Component {
   state = {
     message: ''
   };
+  _ref = null;
+  _setRef = elem => { this._ref = elem };
 
   render() {
     const { className } = this.props
     const { message } = this.state
     return (<KeyListener onKeyPress={this.onKeyPress}>
-        <TextField ref='messageInput' className={className} label='Send a message' value={message}
+        <TextField ref={this._setRef} className={className} label='Send a message' value={message}
             maxLength={500} floatingLabel={false} allowErrors={false}
             inputProps={{ autoComplete: 'off' }}
             onEnterKeyDown={this.onEnterKeyDown} onChange={this.onChange}/>
@@ -37,13 +39,20 @@ export default class MessageInput extends React.Component {
   };
 
   onKeyPress = event => {
-    if (event.ctrlKey || event.altKey) {
+    if (event.target === this._ref ||
+        event.ctrlKey || event.altKey ||
+        ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) {
       return false
     }
 
     const key = event.key ? event.key : String.fromCharCode(event.charCode)
     if (key && key.length === 1) {
-      this.refs.messageInput.focus()
+      if (key === ' ' && event.target.tagName === 'BUTTON') {
+        // Space bar should click the button, rather than doing any of this
+        return false
+      }
+
+      this._ref.focus()
       this.setState({ message: this.state.message + key })
       return true
     }
