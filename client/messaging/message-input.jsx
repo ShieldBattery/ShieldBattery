@@ -37,11 +37,17 @@ export default class MessageInput extends React.Component {
   };
 
   onKeyPress = event => {
-    if (event.charCode) {
+    if (event.ctrlKey || event.altKey) {
+      return false
+    }
+
+    const key = event.key ? event.key : String.fromCharCode(event.charCode)
+    if (key && key.length === 1) {
       this.refs.messageInput.focus()
-      this.setState({ message: this.state.message + String.fromCharCode(event.charCode) })
+      this.setState({ message: this.state.message + key })
       return true
     }
+
     return false
   };
 }
