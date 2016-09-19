@@ -26,5 +26,5 @@
 }
 
 .hasValue, .focused {
-  transform: translate3d(0, 16px, 0) scale(0.75);
+  transform: translate3d(0, 12px, 0) scale(0.875);
 }

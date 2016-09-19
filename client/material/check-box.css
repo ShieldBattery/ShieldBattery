@@ -14,7 +14,7 @@
   cursor: pointer;
   overflow: visible;
   height: auto;
-  padding: 8px;
+  padding: 8px 0 8px 2px;
   line-height: calc(boxHeight + 2px);
   min-width: boxWidth;
   min-height: calc(boxHeight + 2px);

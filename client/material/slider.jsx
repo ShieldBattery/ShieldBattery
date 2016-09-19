@@ -30,10 +30,15 @@ const Ticks = ({ show, min, max, step }) => {
   if (show) {
     const numSteps = (max - min) / step + 1
     const stepPercentage = step / (max - min) * 100
-    const elems = []
-    for (let i = 0, p = 0; i < numSteps; i++, p = i * stepPercentage) {
+    const elems = [
+      // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
+      <div key={0} className={styles.valueTick} style={{ left: '-5px' }}/>,
+    ]
+    for (let i = 1, p = stepPercentage; i < numSteps - 1; i++, p = i * stepPercentage) {
       elems.push(<div key={i} className={styles.valueTick} style={{ left: `${p}%` }} />)
     }
+    elems.push(
+        <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }}/>)
 
     container = <span className={styles.tickContainer}>{elems}</span>
   }
