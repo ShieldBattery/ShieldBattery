@@ -46,10 +46,17 @@ class Dialog extends React.Component {
                 { this.props.children }
               </div>
             </ScrollableContent>
-            { scrolledUp ? <div className={styles.actionsDivider} /> : null }
-            <div className={styles.actions}>
-              {buttons}
-            </div>
+            {
+              scrolledUp && buttons && buttons.length ?
+                  <div className={styles.actionsDivider} /> :
+                  null
+            }
+            { buttons && buttons.length ?
+                  <div className={styles.actions}>
+                    {buttons}
+                  </div> :
+                  null
+            }
           </div>
       </div>
     </KeyListener>)
