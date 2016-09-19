@@ -8,6 +8,7 @@
   line-height: 32px;
   position: relative;
   padding: 0;
+  contain: layout paint style;
 
   @nest
       & input[type="text"],

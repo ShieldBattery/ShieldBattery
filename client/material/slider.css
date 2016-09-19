@@ -10,6 +10,7 @@
 .slider {
   position: relative;
   height: 64px;
+  contain: layout style;
 }
 
 .focused {

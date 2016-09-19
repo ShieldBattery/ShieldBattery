@@ -18,6 +18,7 @@
   line-height: calc(boxHeight + 2px);
   min-width: boxWidth;
   min-height: calc(boxHeight + 2px);
+  contain: layout style;
 }
 
 .checkBox input {
