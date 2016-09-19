@@ -1,5 +1,6 @@
-@value colorTextSecondary from './styles/colors.css';
+@value colorTextSecondary, colorError from './styles/colors.css';
 @value row from './styles/flex.css';
+@value body2 from './styles/typography.css';
 @value zIndexMenuBackdrop from './material/zindex.css';
 
 .layout {
@@ -9,6 +10,13 @@
 
 .userCount {
   color: colorTextSecondary;
+}
+
+.devIndicator {
+  composes: body2;
+  width: 100%;
+  color: colorError;
+  text-transform: uppercase;
 }
 
 .subheaderButton {

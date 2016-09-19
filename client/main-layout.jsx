@@ -2,8 +2,9 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router'
 import { routerActions } from 'react-router-redux'
-import { goToIndex } from './navigation/action-creators'
 import keycode from 'keycode'
+import { goToIndex } from './navigation/action-creators'
+import { DEV_INDICATOR } from '../shared/flags'
 import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'
@@ -153,10 +154,11 @@ class MainLayout extends React.Component {
             onClose={this.onWhisperClose}/>)
     const addWhisperButton = <IconButton icon={<AddWhisperIcon />} title='Start a conversation'
         className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
-    const footer = isAdmin(this.props.auth) ? [
+    const footer = [
+      DEV_INDICATOR ? <span key='dev' className={styles.devIndicator}>Dev Mode</span> : null,
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
-      <p key='adminPanel'><Link to='/admin'>Admin</Link></p>
-    ] : <ActiveUserCount className={styles.userCount}/>
+      isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
+    ]
 
     return (<ConnectedDialogOverlay className={styles.layout}>
       <LeftNav footer={footer}>
