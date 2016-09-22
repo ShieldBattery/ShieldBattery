@@ -10,10 +10,10 @@ export default class IconButton extends React.Component {
   };
 
   render() {
-    const { className, icon } = this.props
+    const { className, icon, ...otherProps } = this.props
     const classes = classnames(styles.iconButton, className)
     return (
-      <Button {...this.props} className={classes} label={icon} />
+      <Button {...otherProps} className={classes} label={icon} />
     )
   }
 }
