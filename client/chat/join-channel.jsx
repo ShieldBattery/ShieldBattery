@@ -6,34 +6,31 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import {
   composeValidators,
-  minLength,
   maxLength,
   regex,
-  required
+  required,
 } from '../forms/validators'
 
 import { closeDialog } from '../dialogs/dialog-action-creator'
-import { navigateToWhisper } from './action-creators'
+import { navigateToChannel } from './action-creators'
 import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
+  CHANNEL_MAXLENGTH,
+  CHANNEL_PATTERN,
 } from '../../shared/constants'
 
-const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+const channelValidator = composeValidators(
+  required('Enter a channel name'),
+  maxLength(CHANNEL_MAXLENGTH, `Enter at most ${CHANNEL_MAXLENGTH} characters`),
+  regex(CHANNEL_PATTERN, 'Channel name contains invalid characters'))
 
 @form({
-  target: usernameValidator,
+  channel: channelValidator,
 })
-class CreateWhisperForm extends React.Component {
+class JoinChannelForm extends React.Component {
   render() {
     const { onSubmit, bindInput, inputRef } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
-      <TextField {...bindInput('target')} label='Username' floatingLabel={true} ref={inputRef}
+      <TextField {...bindInput('channel')} label='Channel name' floatingLabel={true} ref={inputRef}
           inputProps={{
             autoCapitalize: 'off',
             autoCorrect: 'off',
@@ -45,7 +42,7 @@ class CreateWhisperForm extends React.Component {
 }
 
 @connect()
-export default class CreateWhisper extends React.Component {
+export default class JoinChannel extends React.Component {
   _autoFocusTimer = null;
   _form = null;
   _setForm = elem => { this._form = elem };
@@ -72,23 +69,23 @@ export default class CreateWhisper extends React.Component {
     const buttons = [
       <FlatButton label='Cancel' key='cancel' color='accent'
           onClick={this.props.onCancel} />,
-      <FlatButton label='Start' key='send' color='accent'
-          onClick={this.onSendMessage} />
+      <FlatButton label='Join' key='join' color='accent'
+          onClick={this.onJoinChannel} />
     ]
 
-    return (<Dialog title={'Send a message'} buttons={buttons} onCancel={this.props.onCancel}>
-      <CreateWhisperForm ref={this._setForm} inputRef={this._setInput} model={{}}
+    return (<Dialog title={'Join channel'} buttons={buttons} onCancel={this.props.onCancel}>
+      <JoinChannelForm ref={this._setForm} inputRef={this._setInput} model={{}}
           onSubmit={this.onSubmit}/>
     </Dialog>)
   }
 
-  onSendMessage = () => {
+  onJoinChannel = () => {
     this._form.submit()
   };
 
   onSubmit = () => {
-    const target = this._form.getModel().target
+    const channel = this._form.getModel().channel
     this.props.dispatch(closeDialog())
-    this.props.dispatch(navigateToWhisper(target))
+    this.props.dispatch(navigateToChannel(channel))
   };
 }

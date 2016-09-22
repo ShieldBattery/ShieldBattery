@@ -17,7 +17,7 @@
 
 .loadingArea {
   composes: row itemsCenter justifyCenter;
-  height: 32px;
+  padding-top: 16px;
 }
 
 .messagesAndInput {

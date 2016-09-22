@@ -8,13 +8,17 @@ import {
   retrieveUserList,
   activateChannel,
   deactivateChannel,
+  joinChannel,
 } from './action-creators'
 import styles from './channel.css'
 
 import ContentLayout from '../content/content-layout.jsx'
 import MessageInput from '../messaging/message-input.jsx'
+import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
+
+import { MULTI_CHANNEL } from '../../shared/flags'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -129,8 +133,8 @@ const mapStateToProps = state => {
 function isLeavingChannel(oldProps, newProps) {
   return (
     oldProps.params === newProps.params &&
-    oldProps.chat.byName.has(oldProps.params.channel) &&
-    !newProps.chat.byName.has(oldProps.params.channel)
+    oldProps.chat.byName.has(oldProps.params.channel.toLowerCase()) &&
+    !newProps.chat.byName.has(oldProps.params.channel.toLowerCase())
   )
 }
 
@@ -142,18 +146,20 @@ export default class ChatChannelView extends React.Component {
     this._handleRequestMoreHistory = ::this.onRequestMoreHistory
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (isLeavingChannel(this.props, nextProps)) {
-      this.props.dispatch(routerActions.push('/'))
-    }
-  }
-
   componentDidMount() {
+    const routeChannel = this.props.params.channel
     if (this._isInChannel()) {
-      const routeChannel = this.props.params.channel
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
       this.props.dispatch(activateChannel(routeChannel))
+    } else {
+      this.props.dispatch(joinChannel(routeChannel))
+    }
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (isLeavingChannel(this.props, nextProps)) {
+      this.props.dispatch(routerActions.push('/'))
     }
   }
 
@@ -163,9 +169,16 @@ export default class ChatChannelView extends React.Component {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
       this.props.dispatch(activateChannel(routeChannel))
+    } else if (!prevProps.chat.byName.has(routeChannel) &&
+        prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()) {
+      if (MULTI_CHANNEL) {
+        this.props.dispatch(joinChannel(routeChannel))
+      } else {
+        this.props.dispatch(routerActions.push('/'))
+      }
     }
     if (prevProps.params.channel &&
-        prevProps.params.channel !== routeChannel) {
+        prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()) {
       this.props.dispatch(deactivateChannel(prevProps.params.channel))
     }
   }
@@ -174,23 +187,24 @@ export default class ChatChannelView extends React.Component {
     this.props.dispatch(deactivateChannel(this.props.params.channel))
   }
 
-  renderJoinChannel() {
-    return <span>Not in this channel. Join it?</span>
-  }
-
   renderChannel() {
     return (<Channel
-        channel={this.props.chat.byName.get(this.props.params.channel)}
+        channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
         onSendChatMessage={this._handleSendChatMessage}
         onRequestMoreHistory={this._handleRequestMoreHistory}/>)
   }
 
   render() {
     const routeChannel = this.props.params.channel
-    const title = `#${routeChannel}`
+    const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
-    return (<ContentLayout title={title} appBarContentClassName={styles.appBarContent}>
-      { this._isInChannel() ? this.renderChannel() : this.renderJoinChannel() }
+    return (<ContentLayout title={`#${channel ? channel.name : routeChannel}`}
+        appBarContentClassName={styles.appBarContent}>
+      {
+        channel ?
+            this.renderChannel() :
+            <div className={styles.loadingArea}><LoadingIndicator /></div>
+      }
     </ContentLayout>)
   }
 
@@ -204,6 +218,6 @@ export default class ChatChannelView extends React.Component {
 
   _isInChannel() {
     const routeChannel = this.props.params.channel
-    return this.props.chat.byName.has(routeChannel)
+    return this.props.chat.byName.has(routeChannel.toLowerCase())
   }
 }

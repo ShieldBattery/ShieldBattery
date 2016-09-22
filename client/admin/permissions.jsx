@@ -38,6 +38,8 @@ class UserPermissionsForm extends React.Component {
       <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps}/>
       <CheckBox {...bindCheckable('acceptInvites')} label='Accept beta invites'
           inputProps={inputProps}/>
+      <CheckBox {...bindCheckable('editAllChannels')} label='Edit all channels'
+          inputProps={inputProps}/>
     </form>)
   }
 }
@@ -79,6 +81,7 @@ export class PermissionsResults extends React.Component {
       editPermissions: user.editPermissions,
       debug: user.debug,
       acceptInvites: user.acceptInvites,
+      editAllChannels: user.editAllChannels,
     }
 
     return (<div className={styles.saveForm}>

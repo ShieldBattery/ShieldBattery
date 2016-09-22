@@ -12,6 +12,9 @@ export const USERNAME_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/
 export const USERNAME_MINLENGTH = 1
 export const USERNAME_MAXLENGTH = 16
 
+export const CHANNEL_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}|?<>:;,'"]+$/
+export const CHANNEL_MAXLENGTH = 64
+
 export function isValidUsername(username) {
   return (username &&
     username.length >= USERNAME_MINLENGTH &&
@@ -29,4 +32,10 @@ export function isValidEmail(email) {
 export function isValidPassword(password) {
   return (password &&
       password.length >= PASSWORD_MINLENGTH)
+}
+
+export function isValidChannelName(channel) {
+  return (channel &&
+    channel.length <= CHANNEL_MAXLENGTH &&
+    CHANNEL_PATTERN.test(channel))
 }

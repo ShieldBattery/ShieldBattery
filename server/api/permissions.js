@@ -25,6 +25,7 @@ function* updatePermissions(next) {
     editPermissions: b.editPermissions,
     debug: b.debug,
     acceptInvites: b.acceptInvites,
+    editAllChannels: b.editAllChannels,
   }
 
   try {

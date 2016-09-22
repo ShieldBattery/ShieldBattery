@@ -22,7 +22,7 @@ import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
 
-import AddWhisperIcon from './icons/material/ic_add_black_24px.svg'
+import AddIcon from './icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
@@ -42,10 +42,13 @@ import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
+import { leaveChannel } from './chat/action-creators'
 import { leaveLobby } from './lobbies/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
+
+import { MULTI_CHANNEL } from '../shared/flags'
 
 const KEY_C = keycode('c')
 const KEY_J = keycode('j')
@@ -60,7 +63,7 @@ function stateToProps(state) {
         { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
-      hasUnread: state.chat.byName.get(c).hasUnread,
+      hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
     })),
     whispers: state.whispers.sessions.map(s => ({
       name: s,
@@ -145,14 +148,17 @@ class MainLayout extends React.Component {
         <ChatNavEntry key={c.name}
             channel={c.name}
             currentPath={pathname}
-            hasUnread={c.hasUnread}/>)
+            hasUnread={c.hasUnread}
+            onLeave={this.onChannelLeave}/>)
+    const joinChannelButton = <IconButton icon={<AddIcon/>} title='Join a channel'
+        className={styles.subheaderButton} onClick={this.onJoinChannelClick} />
     const whisperNav = whispers.map(w =>
         <WhisperNavEntry key={w.name}
             user={w.name}
             currentPath={pathname}
             hasUnread={w.hasUnread}
             onClose={this.onWhisperClose}/>)
-    const addWhisperButton = <IconButton icon={<AddWhisperIcon />} title='Start a conversation'
+    const addWhisperButton = <IconButton icon={<AddIcon/>} title='Start a whisper'
         className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
     const footer = [
       DEV_INDICATOR ? <span key='dev' className={styles.devIndicator}>Dev Mode</span> : null,
@@ -164,7 +170,7 @@ class MainLayout extends React.Component {
       <LeftNav footer={footer}>
         {this.renderActiveGameNav()}
         {this.renderLobbyNav()}
-        <Subheader>Chat channels</Subheader>
+        <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
         <Section>
           {channelNav}
         </Section>
@@ -204,6 +210,14 @@ class MainLayout extends React.Component {
     this.setState({
       avatarOverlayOpened: false
     })
+  };
+
+  onJoinChannelClick = () => {
+    this.props.dispatch(openDialog('channel'))
+  };
+
+  onChannelLeave = channel => {
+    this.props.dispatch(leaveChannel(channel))
   };
 
   onAddWhisperClick = () => {

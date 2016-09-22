@@ -8,6 +8,24 @@ export const ChatMessage = new Record({
   from: null,
   text: null,
 })
+export const JoinChannelMessage = new Record({
+  id: null,
+  type: 'joinChannel',
+  time: 0,
+  user: null,
+})
+export const LeaveChannelMessage = new Record({
+  id: null,
+  type: 'leaveChannel',
+  time: 0,
+  user: null,
+})
+export const NewChannelOwnerMessage = new Record({
+  id: null,
+  type: 'newOwner',
+  time: 0,
+  newOwner: null,
+})
 export const UserOnlineMessage = new Record({
   id: null,
   type: 'userOnline',

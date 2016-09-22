@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import TransitionGroup from 'react-addons-css-transition-group'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
+import JoinChannelDialog from '../chat/join-channel.jsx'
 import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import { closeDialog } from './dialog-action-creator'
@@ -21,6 +22,17 @@ class ConnectedDialogOverlay extends React.Component {
   _focusable = null;
   _setFocusable = elem => { this._focusable = elem };
 
+  getDialogComponent(dialogType) {
+    switch (dialogType) {
+      case 'changelog': return ChangelogDialog
+      case 'channel': return JoinChannelDialog
+      case 'psiHealth': return PsiHealthCheckupDialog
+      case 'settings': return Settings
+      case 'whispers': return CreateWhisperSessionDialog
+      default: throw new Error('Unknown dialog type: ' + dialogType)
+    }
+  }
+
   renderDialog() {
     const { dialog } = this.props
 
@@ -28,26 +40,8 @@ class ConnectedDialogOverlay extends React.Component {
     // have the proper effect of keeping focus in the dialog
     let dialogComponent
     if (dialog.isDialogOpened) {
-      const childProps = {
-        key: 'dialog',
-        onCancel: this.onCancel,
-      }
-      switch (dialog.dialogType) {
-        case 'changelog':
-          dialogComponent = <ChangelogDialog {...childProps}/>
-          break
-        case 'psiHealth':
-          dialogComponent = <PsiHealthCheckupDialog {...childProps}/>
-          break
-        case 'settings':
-          dialogComponent = <Settings {...childProps}/>
-          break
-        case 'whispers':
-          dialogComponent = <CreateWhisperSessionDialog {...childProps}/>
-          break
-        default:
-          throw new Error('Unknown dialog type: ' + dialog.dialogType)
-      }
+      const DialogComponent = this.getDialogComponent(dialog.dialogType)
+      dialogComponent = <DialogComponent key='dialog' onCancel={this.onCancel}/>
     }
 
     return [
