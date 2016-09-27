@@ -73,8 +73,19 @@ public:
 
   static ScopelessString* New(const std::string& value);
 private:
-  explicit ScopelessString(const std::string& value);
+  explicit ScopelessString(std::string value);
   std::string value_;
+};
+
+class ScopelessWstring : public ScopelessValue {
+public:
+  virtual ~ScopelessWstring();
+  virtual v8::Local<v8::Value> ApplyCurrentScope() const;
+
+  static ScopelessWstring* New(const std::wstring& value);
+private:
+  explicit ScopelessWstring(std::wstring value);
+  std::wstring value_;
 };
 
 }  // namespace sbat

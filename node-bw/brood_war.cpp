@@ -1,9 +1,13 @@
 #include "./brood_war.h"
 
 #include <Windows.h>
+#include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <ctime>
+#include <iomanip>
 #include <string>
+#include <Shlobj.h>
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "snp/snp.h"
@@ -12,7 +16,14 @@ namespace sbat {
 namespace bw {
 using sbat::snp::SNetSnpListEntry;
 using std::atomic;
-
+using std::localtime;
+using std::max;
+using std::string;
+using std::time;
+using std::to_wstring;
+using std::wcsftime;
+using std::wcstombs;
+using std::wstring;
 
 BroodWar* BroodWar::instance_ = nullptr;
 bool BroodWar::is_programmatic_chat_ = false;
@@ -31,9 +42,16 @@ BroodWar::BroodWar(): BroodWar(GetOffsets<CURRENT_BROOD_WAR_VERSION>()) {
 
 BroodWar::BroodWar(Offsets* broodWarOffsets)
     : offsets_(broodWarOffsets),
+      process_hooks_(GetModuleHandle(NULL)),
       event_handlers_(nullptr),
-      game_results_() {
+      game_results_(),
+      last_replay_handle_(INVALID_HANDLE_VALUE),
+      replay_path_() {
   InjectDetours();
+
+  process_hooks_.AddHook("kernel32.dll", "CloseHandle", CloseHandleHook);
+  process_hooks_.AddHook("kernel32.dll", "CreateFileA", CreateFileAHook);
+  process_hooks_.AddHook("kernel32.dll", "DeleteFileA", DeleteFileAHook);
 }
 
 BroodWar::~BroodWar() {
@@ -134,6 +152,103 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.InitializeSnpList->Inject();
   offsets_->func_hooks.UnloadSnp->Inject();
   offsets_->func_hooks.OnSNetPlayerJoined->Inject();
+
+  process_hooks_.Inject();
+}
+
+bool EndsWith(const string checked, const string suffix) {
+  if (suffix.length() > checked.length()) {
+    return false;
+  }
+
+  int index = checked.rfind(suffix);
+  return index != string::npos && (index + suffix.length() == checked.length());
+}
+
+HANDLE __stdcall BroodWar::CreateFileAHook(LPCSTR lpFileName, DWORD dwDesiredAccess,
+    DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
+    DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+  if (!EndsWith(lpFileName, "LastReplay.rep")) {
+    return CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+        dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+  }
+
+  assert(instance_->last_replay_handle_ == INVALID_HANDLE_VALUE);
+
+  wchar_t* documents_path = { 0 };
+  SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &documents_path);
+  wstring replay_folder = wstring(documents_path) + L"\\Starcraft\\maps\\replays\\Auto\\";
+  CoTaskMemFree(static_cast<void*>(documents_path));
+  // Create the replay folder if it doesn't exist
+  SHCreateDirectoryExW(NULL, replay_folder.c_str(), NULL);
+
+  int counter = 0;
+  WIN32_FIND_DATAW replay_data;
+  HANDLE replay_handle = FindFirstFileW((replay_folder + L"\\*.rep").c_str(), &replay_data);
+  if (replay_handle != INVALID_HANDLE_VALUE) {
+    do {
+      wstring file_name = replay_data.cFileName;
+      if (file_name.length() < 4) {
+        continue;
+      }
+      if (iswdigit(file_name[0]) && iswdigit(file_name[1]) &&
+          iswdigit(file_name[2]) && iswdigit(file_name[3])) {
+        int result = stoi(file_name.substr(0, 4));
+        counter = max(counter, result);
+      }
+    } while (FindNextFileW(replay_handle, &replay_data) != 0);
+  }
+  FindClose(replay_handle);
+
+  counter++;
+  wstring counter_string;
+  if (counter < 10) {
+    counter_string = L"000" + to_wstring(counter);
+  } else if (counter < 100) {
+    counter_string = L"00" + to_wstring(counter);
+  } else if (counter < 1000) {
+    counter_string = L"0" + to_wstring(counter);
+  } else {
+    counter_string = to_wstring(counter);
+  }
+
+  auto current_time = time(nullptr);
+  wchar_t formatted_date[MAX_PATH];
+  size_t size = wcsftime(formatted_date, MAX_PATH, L"%Y-%m-%d", localtime(&current_time));
+  if (size == 0) {
+    return INVALID_HANDLE_VALUE;
+  }
+  instance_->replay_path_ = replay_folder + counter_string + L"_" + formatted_date + L".rep";
+
+  instance_->last_replay_handle_ = CreateFileW(instance_->replay_path_.c_str(),
+      dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+      dwFlagsAndAttributes, hTemplateFile);
+  return instance_->last_replay_handle_;
+}
+
+BOOL __stdcall BroodWar::DeleteFileAHook(LPCSTR lpFileName) {
+  if (EndsWith(lpFileName, "LastReplay.rep")) {
+    // Before saving the last replay BW first tries to delete it, which can fail. We no-op it since
+    // we're saving the last replay ourselves.
+    return true;
+  }
+
+  return DeleteFileA(lpFileName);
+}
+
+BOOL __stdcall BroodWar::CloseHandleHook(HANDLE hObject) {
+  BOOL result = CloseHandle(hObject);
+  if (instance_->last_replay_handle_ != INVALID_HANDLE_VALUE &&
+      hObject == instance_->last_replay_handle_) {
+    if (instance_->event_handlers_ != nullptr &&
+        instance_->event_handlers_->OnReplaySave != nullptr) {
+      instance_->event_handlers_->OnReplaySave(instance_->replay_path_);
+    }
+    instance_->last_replay_handle_ = INVALID_HANDLE_VALUE;
+    instance_->replay_path_.clear();
+  }
+
+  return result;
 }
 
 PlayerInfo* BroodWar::players() const {

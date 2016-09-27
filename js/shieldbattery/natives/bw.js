@@ -106,25 +106,12 @@ class BroodWar extends EventEmitter {
   constructor(bindings) {
     super()
     this.bindings = bindings
-
-    this._initLogging()
-    this.chatHandler = handleChat(this)
-    this._initEventHandlers()
-
-    this.slots = this._mapSlots()
-  }
-
-  _initLogging() {
+    this.slots = this.bindings.slots.map(nativeSlot => new PlayerSlot(nativeSlot))
     const levels = [ 'verbose', 'debug', 'warning', 'error' ]
     this.bindings.onLog = (logLevel, msg) => this.emit('log', levels[logLevel], msg)
-  }
-
-  _initEventHandlers() {
+    this.bindings.onReplaySave = replayPath => this.emit('replaySave', replayPath)
     this.bindings.onNetPlayerJoin = stormId => this.emit('netPlayerJoin', stormId)
-  }
-
-  _mapSlots() {
-    return this.bindings.slots.map(nativeSlot => new PlayerSlot(nativeSlot))
+    this.chatHandler = handleChat(this)
   }
 
   setSettings(settings) {

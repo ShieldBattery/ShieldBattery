@@ -221,6 +221,7 @@ void WrappedBroodWar::Init() {
   handlers.OnGameLoopIteration = OnGameLoopIteration;
   handlers.OnCheckForChatCommand = OnCheckForChatCommand;
   handlers.OnNetPlayerJoin = OnNetPlayerJoin;
+  handlers.OnReplaySave = OnReplaySave;
   bw->set_event_handlers(handlers);
 
   Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
@@ -245,6 +246,7 @@ void WrappedBroodWar::Init() {
 #define EVENT_HANDLER(name) SetProtoAccessor(tpl, (##name), GetEventHandler, SetEventHandler);
   EVENT_HANDLER("onNetPlayerJoin");
   EVENT_HANDLER("onCheckForChatCommand");
+  EVENT_HANDLER("onReplaySave");
 #undef EVENT_HANDLER
 
   // functions
@@ -1058,6 +1060,15 @@ void WrappedBroodWar::OnNetPlayerJoin(uint32 storm_id) {
   info->method_name = new std::string("onNetPlayerJoin");
   info->args = new vector<shared_ptr<ScopelessValue>>;
   info->args->push_back(shared_ptr<ScopelessInteger>(ScopelessInteger::NewFromUnsigned(storm_id)));
+
+  AddImmediateCallback(EventHandlerImmediate, info);
+}
+
+void WrappedBroodWar::OnReplaySave(const wstring& replay_path) {
+  EventHandlerCallbackInfo* info = new EventHandlerCallbackInfo;
+  info->method_name = new std::string("onReplaySave");
+  info->args = new vector<shared_ptr<ScopelessValue>>;
+  info->args->push_back(shared_ptr<ScopelessWstring>(ScopelessWstring::New(replay_path)));
 
   AddImmediateCallback(EventHandlerImmediate, info);
 }

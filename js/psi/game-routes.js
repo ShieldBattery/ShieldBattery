@@ -18,7 +18,13 @@ export function register(nydus, activeGameManager) {
     activeGameManager.handleGameEnd(data.get('gameId'), body.results, body.time)
   }
 
+  async function onReplaySave(data, next) {
+    const { path } = data.get('body')
+    activeGameManager.handleReplaySave(data.get('gameId'), path)
+  }
+
   nydus.registerRoute('/game/setupProgress', getGameId, onSetupProgress)
   nydus.registerRoute('/game/start', getGameId, onStart)
   nydus.registerRoute('/game/end', getGameId, onEnd)
+  nydus.registerRoute('/game/replaySave', getGameId, onReplaySave)
 }

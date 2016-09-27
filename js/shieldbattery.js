@@ -23,26 +23,9 @@ bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
-import repl from 'repl'
 import nydusClient from 'nydus-client'
 import forge from './shieldbattery/natives/forge'
 import initGame from './shieldbattery/init-game'
-
-bw.chatHandler.on('thisisnotwarcraftinspace', function() {
-  log.debug('got repl command')
-  bw.sendChatMessage.apply(bw, arguments)
-  bw.displayIngameMessage('it\'s much more sophisticated!', 60000)
-  const chatStream = bw.chatHandler.grabExclusiveStream()
-  const remote = repl.start({ input: chatStream, output: chatStream, terminal: false })
-
-  chatStream.setMessageTimeout(60000)
-
-  remote.context.bw = bw
-  remote.on('exit', function() {
-    log.debug('repl exited')
-    chatStream.close()
-  })
-})
 
 const socket = nydusClient('wss://lifeoflively.net:33198', {
   extraHeaders: {
@@ -60,6 +43,11 @@ socket.on('connect', function() {
   setTimeout(function() {
     process.exit()
   }, 100)
+})
+
+bw.on('replaySave', replayPath => {
+  log.verbose(`Replay saved to ${replayPath}`)
+  socket.invoke('/game/replaySave', { path: replayPath })
 })
 
 let gameInitializer

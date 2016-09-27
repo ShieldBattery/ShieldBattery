@@ -207,10 +207,10 @@ private:
   static void OnCheckForChatCommand(const std::string& message, ChatMessageType message_type,
       byte recipients);
   static void OnNetPlayerJoin(uint32 storm_id);
-  
-  // Functions for logging
-  static void Log(void* arg, LogLevel level, const char* msg);
+  static void OnReplaySave(const std::wstring& replay_path);
 
+  static void Log(void* arg, LogLevel level, const char* msg);
+  
   Nan::Persistent<v8::String> log_symbol_;
   BroodWar* brood_war_;
   static GameLoopQueue* game_loop_queue_;

@@ -82,6 +82,7 @@ export function subscribe(nydus, client, activeGameManager, localSettings) {
   const statuses = activeGameManager.getInitialStatus(origin)
   nydus.subscribeClient(client, `/game/status/${encodeURIComponent(origin)}`, statuses)
   nydus.subscribeClient(client, `/game/results/${encodeURIComponent(origin)}`)
+  nydus.subscribeClient(client, `/game/replaySave/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, '/settings', localSettings.settings)
   nydus.subscribeClient(client, '/starcraftPathValidity', pathValid)
   nydus.subscribeClient(client, '/starcraftCorrectVersion', versionValid)

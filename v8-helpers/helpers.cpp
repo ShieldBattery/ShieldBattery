@@ -81,7 +81,7 @@ void ScopelessArray::Set(uint32_t index, shared_ptr<ScopelessValue> value) {
   items_[index] = value;
 }
 
-ScopelessString::ScopelessString(const string& value) : value_(value) {
+ScopelessString::ScopelessString(string value) : value_(value) {
 }
 
 ScopelessString::~ScopelessString() {
@@ -93,6 +93,20 @@ ScopelessString* ScopelessString::New(const string& value) {
 
 Local<Value> ScopelessString::ApplyCurrentScope() const {
   return Nan::New(value_.c_str()).ToLocalChecked();
+}
+
+ScopelessWstring::ScopelessWstring(wstring value) : value_(value) {
+}
+
+ScopelessWstring::~ScopelessWstring() {
+}
+
+ScopelessWstring* ScopelessWstring::New(const wstring& value) {
+  return new ScopelessWstring(value);
+}
+
+Local<Value> ScopelessWstring::ApplyCurrentScope() const {
+  return Nan::New(reinterpret_cast<const uint16_t*>(value_.c_str())).ToLocalChecked();
 }
 
 }  // namespace sbat

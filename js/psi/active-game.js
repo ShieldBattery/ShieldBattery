@@ -166,6 +166,16 @@ export default class ActiveGameManager {
     this._setStatus(siteUser, GAME_STATUS_FINISHED)
   }
 
+  handleReplaySave(gameId, path) {
+    const [siteUser, game] = this._findGameById(gameId)
+    if (!game) {
+      return
+    }
+
+    log.verbose(`Replay saved to: ${path}`)
+    this.nydus.publish(`/game/replaySave/${encodeURIComponent(siteUser.origin)}`, { path })
+  }
+
   handleGameExit(id, exitCode) {
     const [siteUser, game] = this._findGameById(id)
     if (!game) {

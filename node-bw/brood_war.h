@@ -239,6 +239,7 @@ struct EventHandlers {
   void (*OnCheckForChatCommand)(const std::string& message, ChatMessageType message_type,
       byte recipients);
   void(*OnNetPlayerJoin)(uint32 storm_id);
+  void(*OnReplaySave)(const std::wstring& replay_path);
 };
 
 struct Offsets {
@@ -301,7 +302,6 @@ public:
 
   void set_event_handlers(const EventHandlers& handlers);
 
-  
   MapResult CreateGame(const std::string& game_name, const std::string& map_path,
       const uint32 game_type, const GameSpeed game_speed);
   bool JoinGame(const JoinableGameInfo& game_info, const std::string& map_path);
@@ -393,9 +393,19 @@ private:
   MapListEntry* FindMapWithPath(const std::string& map_path);
   void DoUpdateNationAndHumanIds();
 
+  // hooks
+  static HANDLE __stdcall CreateFileAHook(LPCSTR lpFileName, DWORD dwDesiredAccess,
+      DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
+      DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+  static BOOL __stdcall CloseHandleHook(HANDLE hObject);
+  static BOOL __stdcall DeleteFileAHook(LPCSTR lpFileName);
+  
   Offsets* offsets_;
+  HookedModule process_hooks_;
   EventHandlers* event_handlers_;
   std::array<GameResult, 8> game_results_;
+  HANDLE last_replay_handle_;
+  std::wstring replay_path_;
 
   static BroodWar* instance_;
   // flag specifying whether a multiplayer chat message is triggered by us (so we know not to try
