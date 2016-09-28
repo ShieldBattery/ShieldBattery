@@ -1,7 +1,7 @@
 {
   "name": "manner-pylon",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "The official server implementation for shieldbattery.",
   "engines": {
     "node": ">= 6.0.0"

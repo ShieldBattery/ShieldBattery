@@ -1,3 +1,19 @@
+#### 4.1.0 (September 27th, 2016)
+
+- **Replay auto-saving.** No more manually renaming LastReplay.rep after every game! Oh the
+technology! Replays will be saved to `My Documents\Starcraft\maps\replays\` (on-site replay browsing
+and watching coming soon).
+- **Chat typing ez-mode.** Press any normal key on chat screens and you'll be helpfully redirected
+to the chat input. Type over there! Type over here! Just don't type with beer! (Or do; I'm a
+changelog writer, not a cop.)
+- **See the lobby list when already in a lobby.** Last update's change around this was easily the
+most unpopular one in the entire history of ShieldBattery so... I'm sorry, I'm so very sorry. 
+- **Some tiny visual things you probably won't notice.** Loading indicator positioning is better,
+dialogs without actions no longer have bottom scroll dividers (like this one!). Just trust us, stuff
+looks better.
+- **More maps.** Primeval Isles, Neo Harmony, New Sniper Ridge, and Polaris Rhapsody are now in the
+available pool.
+
 #### 4.0.0 (September 5th, 2016)
 
 - **Changelogs.** We have them now. You're reading one! Astounding! If you can't get enough of
