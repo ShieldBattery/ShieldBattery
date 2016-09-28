@@ -252,6 +252,30 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Neo Harmony",
+    "hash": "5fa3334ac650581b442eb6d80dd6217a3f8e003ebbb1d8300c10e9ab4f46835b",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "°­ÇÔ°ú ¾àÇÔ, ºü¸§°ú ´À¸²\r\nºÎµå·¯¿ò°ú ³¯Ä«·Î¿ò...\r\n±×¸®°í Çª¸£¸¥ ¹Ù¶÷°ú ¹àÀº ´Þ\r\n±× ¸ðµç °ÍÀÌ Á¶È­¸¦ ÀÌ·ç´Â °÷\r\nCreated by Rose.of.Dream.      Mapdori.com Map Architect Team     http://www.mapdori.com",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "New Sniper Ridge",
+    "hash": "a9433ce91d2d39fc293097b9bf0eb80e0b0e8b0f48c7d922c1d5035045b0d55d",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "°¡¶ûÀÙÃ³·³ ½×ÀÎ ½ÃÃ¼¸¦ ¹â°í ³Ñ¾î Á¶±¹ÀÇ ±ê¹ßÀ» µå³ôÀÌ µé°í ³»µó´ø È­¶ûÀÇ ÈÄ¿¹µéÀÌ Áö±Ý ¾Ö±¹ÀÇ ¼±ºÀÀÌ µÇ¾î ¿©±â¿¡ °íÀÌ Àáµé¾î ÀÖ´Ù.\r\n[Àú°Ý´É¼± ÀüÅõÀüÀûºñ ñé]\r\nCreated by [Ragnarok]Valkyrie      Presented by KeSPA",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Othello 1.1",
     "hash": "500a302964535046e10210d38b2cdd514b05b502168a71b0fe0bb1a972e62541",
     "tileset": "twilight",
@@ -272,6 +296,30 @@
     "slots": 2,
     "umsSlots": 2,
     "description": "Author: -NegativeZero-\r\nEditor: Freakling\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "PolarisRhapsody 1.0",
+    "hash": "d4cd2911b59c34fe2dc05d4a3fa1b436eb071974438f16bbbcf00ac883cbfcfb",
+    "tileset": "twilight",
+    "width": 112,
+    "height": 128,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "Created By Str18-02      Presented by KeSPA\r\n¼ÒÀ¯ÇÏÁö ¾ÊÀº ÀÚ°¡ ÀÌ ¼¼»óÀÇ ÁÖÀÎÀÌ´Ù.\r\n¼ÒÀ¯ÇÏ°í »ç´Â ÀÚ°¡ ÀÌ ¼¼»óÀÇ ³ë¿¹ÀÌ´Ù.",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Primeval Isles",
+    "hash": "47d5806d1467f26d1fd6dace2db5c1d4d0d1902b58b1ff35b99ff745781e3740",
+    "tileset": "desert",
+    "width": 256,
+    "height": 256,
+    "slots": 8,
+    "umsSlots": 8,
+    "description": "Suggested Players: 2-8\r\n\r\nFight well, or become extinct.",
     "format": "scx",
     "thumbFormat": "jpg"
   },
