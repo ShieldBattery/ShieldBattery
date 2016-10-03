@@ -52,9 +52,9 @@ class User {
 
       self.id = result.rows[0].id
       self._fromDb = true
-      await deleteInvite(self.email)
+      await deleteInvite(client, self.email)
       const userPermissions = await permissions.create(client, self.id)
-      await addUserToChannel(self.id, 'ShieldBattery')
+      await addUserToChannel(self.id, 'ShieldBattery', client)
       return { user: self, permissions: userPermissions }
     })
   }

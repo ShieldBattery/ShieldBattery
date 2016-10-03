@@ -138,15 +138,10 @@ export function* getTokenByEmail(email) {
   }
 }
 
-export async function deleteInvite(email) {
-  const { client, done } = await db()
-  try {
-    const result = await client.queryPromise('DELETE FROM invites WHERE email = $1', [ email ])
-    if (result.rowCount < 1) {
-      throw new Error('No rows deleted')
-    }
-  } finally {
-    done()
+export async function deleteInvite(client, email) {
+  const result = await client.queryPromise('DELETE FROM invites WHERE email = $1', [ email ])
+  if (result.rowCount < 1) {
+    throw new Error('No rows deleted')
   }
 }
 

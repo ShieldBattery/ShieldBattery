@@ -48,8 +48,8 @@ export async function getUsersForChannel(channelName) {
   }
 }
 
-export async function addUserToChannel(userId, channelName) {
-  return await transact(async function(client) {
+export async function addUserToChannel(userId, channelName, client = null) {
+  const fn = async function(client) {
     let columns
     let values
     const params = [ userId, channelName ]
@@ -95,7 +95,13 @@ export async function addUserToChannel(userId, channelName) {
       channelPermissions: new ChannelPermissions(
           {kick, ban, changeTopic, togglePrivate, editPermissions}),
     }
-  })
+  }
+
+  if (client) {
+    return await fn(client)
+  } else {
+    return await transact(fn)
+  }
 }
 
 export async function addMessageToChannel(userId, channelName, messageData) {
