@@ -4,9 +4,11 @@ import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
 import { Map, Record } from 'immutable'
+import ReplayParser from 'jssuh'
 import * as psi from './natives/index'
 import log from './logger'
 import { sendCommand } from './game-command'
+import getReplayFolder from './get-replay-folder'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -106,7 +108,18 @@ export default class ActiveGameManager {
     sendCommand(this.nydus, game.id, 'setRoutes', routes)
   }
 
-  handleGameConnected(id) {
+  async getReplayHeader(filename) {
+    const reppi = fs.createReadStream(filename)
+      .pipe(new ReplayParser())
+
+    return await new Promise((res, rej) => {
+      reppi.on('replayHeader', header => res(header))
+      reppi.resume()
+      reppi.on('error', err => rej(err))
+    })
+  }
+
+  async handleGameConnected(id) {
     const [siteUser, game] = this._findGameById(id)
     if (!game) {
       // Not our active game, must be one we started before and abandoned
@@ -119,9 +132,29 @@ export default class ActiveGameManager {
     // TODO(tec27): probably need to convert our config to something directly usable by the game
     // (e.g. with the punched addresses chosen)
     const { map } = game.config.lobby
+    let localMap
+    if (map.endsWith('.rep')) {
+      localMap = path.join(getReplayFolder(), map)
+
+      // To be able to watch the replay correctly, we need to get the `seed` value that the game was
+      // played with
+      let header
+      try {
+        header = await this.getReplayHeader(localMap)
+      } catch (err) {
+        sendCommand(this.nydus, id, 'quit')
+        log.verbose('Error parsing the replay file, sending quit command')
+        return
+      }
+      game.config.setup = {
+        seed: header.seed
+      }
+    } else {
+      localMap = this.mapStore.getPath(map.hash, map.format)
+    }
     sendCommand(this.nydus, id, 'setConfig', {
       ...game.config,
-      localMap: this.mapStore.getPath(map.hash, map.format)
+      localMap,
     })
 
     if (game.routes) {

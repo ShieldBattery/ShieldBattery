@@ -1,12 +1,15 @@
 #include "common/win_helpers.h"
 
-#include <dbghelp.h>
+// Windows.h needs to be included before dbghelp.h or bad things happen!
 #include <Windows.h>
+#include <dbghelp.h>
+#include <Shlobj.h>
 #include <UserEnv.h>
 #include <algorithm>
 #include <iterator>
 #include <string>
 #include <vector>
+
 #include "common/types.h"
 
 using std::string;
@@ -187,16 +190,13 @@ const byte inject_proc[] = {
   0xC2, 0x04, 0x00                      // RETN 4
 };
 
-Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
-    const wstring& current_dir, const vector<wstring>& environment)
-    : process_handle_(),
-      thread_handle_(),
+ActiveUserToken::ActiveUserToken()
+    : user_token_(),
       error_() {
-
   HANDLE token;
   uint32 result = WTSQueryUserToken(WTSGetActiveConsoleSessionId(), &token);
   if (result == 0) {
-    error_ = WindowsError("Process -> WTSQueryUserToken", GetLastError());
+    error_ = WindowsError("ActiveUserToken -> WTSQueryUserToken", GetLastError());
     return;
   }
   WinHandle active_session_token(token);
@@ -205,14 +205,72 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
       TOKEN_QUERY | TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID, nullptr,
       SecurityImpersonation, TokenPrimary, &token);
   if (result == 0) {
-    error_ = WindowsError("Process -> DuplicateTokenEx", GetLastError());
+    error_ = WindowsError("ActiveUserToken -> DuplicateTokenEx", GetLastError());
     return;
   }
-  WinHandle priv_token(token);
-  
+  user_token_.Reset(token);
+}
+
+ActiveUserToken::~ActiveUserToken() {
+}
+
+bool ActiveUserToken::has_errors() const {
+  return error_.is_error();
+}
+
+WindowsError ActiveUserToken::error() const {
+  return error_;
+}
+
+UserImpersonation::UserImpersonation(HANDLE token)
+    : error_() {
+  uint32 result = ImpersonateLoggedOnUser(token);
+  if (result == 0) {
+    error_ = WindowsError("UserImpersonation -> ImpersonateLoggedOnUser", GetLastError());
+    return;
+  }
+}
+
+UserImpersonation::~UserImpersonation() {
+  if (!has_errors()) {
+    RevertToSelf();
+  }
+}
+
+bool UserImpersonation::has_errors() const {
+  return error_.is_error();
+}
+
+WindowsError UserImpersonation::error() const {
+  return error_;
+}
+
+wstring GetDocumentsPath() {
+  wchar_t* path = nullptr;
+  HRESULT result = SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &path);
+  if (result != S_OK) {
+    SetLastError(result);
+    return L"";
+  }
+  wstring documents_path(path);
+  CoTaskMemFree(reinterpret_cast<void*>(path));
+  return documents_path;
+}
+
+Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
+    const wstring& current_dir, const vector<wstring>& environment)
+    : process_handle_(),
+      thread_handle_(),
+      error_() {
+  ActiveUserToken priv_token;
+  if (priv_token.has_errors()) {
+    error_ = priv_token.error();
+    return;
+  }
+
   wchar_t* env_block;
-  result = CreateEnvironmentBlock(
-      reinterpret_cast<void**>(&env_block), active_session_token.get(), false);
+  uint32 result = CreateEnvironmentBlock(
+      reinterpret_cast<void**>(&env_block), priv_token.get(), false);
   if (result == 0) {
     error_ = WindowsError("Process -> CreateEnvironmentBlock", GetLastError());
     return;
@@ -250,8 +308,8 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   vector<wchar_t> arguments_writable(arguments.length() + 1);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
 
-  result = ImpersonateLoggedOnUser(priv_token.get());
-  if (result == 0) {
+  UserImpersonation impersonate(priv_token.get());
+  if (impersonate.has_errors()) {
     error_ = WindowsError("Process -> ImpersonateLoggedOnUser", GetLastError());
     return;
   }
@@ -263,10 +321,8 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
       &env_param[0], current_dir.c_str(),
       &startup_info, &process_info)) {
     error_ = WindowsError("Process -> CreateProcessAsUserW", GetLastError());
-    RevertToSelf();
     return;
   }
-  RevertToSelf();
 
   process_handle_.Reset(process_info.hProcess);
   thread_handle_.Reset(process_info.hThread);

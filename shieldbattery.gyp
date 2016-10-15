@@ -195,6 +195,8 @@
           '-luser32.lib',
           '-lUserenv.lib',
           '-ldbghelp.lib',
+          '-lole32.lib',
+          '-lshell32.lib',
         ],
       },
       'dependencies': [

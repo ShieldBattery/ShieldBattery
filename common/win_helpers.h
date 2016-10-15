@@ -91,6 +91,42 @@ private:
   std::string location_;
 };
 
+class ActiveUserToken {
+public:
+  ActiveUserToken();
+  ~ActiveUserToken();
+
+  bool has_errors() const;
+  WindowsError error() const;
+  HANDLE get() const { return user_token_.get(); }
+
+private:
+  // Disable copying
+  ActiveUserToken(const ActiveUserToken&) = delete;
+  ActiveUserToken& operator=(const ActiveUserToken&) = delete;
+
+  WinHandle user_token_;
+  WindowsError error_;
+};
+
+class UserImpersonation {
+public:
+  UserImpersonation(HANDLE token);
+  ~UserImpersonation();
+ 
+  bool has_errors() const;
+  WindowsError error() const;
+
+private:
+  // Disable copying
+  UserImpersonation(const UserImpersonation&) = delete;
+  UserImpersonation& operator=(const UserImpersonation&) = delete;
+
+  WindowsError error_;
+};
+
+std::wstring GetDocumentsPath();
+
 class Process {
 public:
   Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,

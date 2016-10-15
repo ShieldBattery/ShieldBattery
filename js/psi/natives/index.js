@@ -123,3 +123,12 @@ export async function detectResolution() {
   setTimeout(() => { cachedRes = null }, RES_CACHE_TIME)
   return cachedRes
 }
+
+export function getDocumentsPath() {
+  return psi.getDocumentsPath()
+}
+
+const $readFolder = thenify(psi.activeUserFs.readFolder)
+export async function readFolder(path) {
+  return await $readFolder(path)
+}

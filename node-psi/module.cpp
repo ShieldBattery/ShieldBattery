@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "common/types.h"
 #include "common/win_helpers.h"
 #include "v8-helpers/helpers.h"
 #include "node-psi/wrapped_process.h"
@@ -20,7 +21,10 @@ using Nan::FunctionCallbackInfo;
 using Nan::GetCurrentContext;
 using Nan::HandleScope;
 using Nan::Null;
+using Nan::Set;
+using Nan::ThrowError;
 using Nan::To;
+using std::string;
 using std::unique_ptr;
 using std::vector;
 using std::wstring;
@@ -33,6 +37,9 @@ using v8::Local;
 using v8::Object;
 using v8::String;
 using v8::Value;
+
+const uint32 TICKS_PER_MILISECOND = 10000;
+const uint64 MILISECONDS_TO_UNIX_EPOCH = 11644473600000;
 
 namespace sbat {
 namespace psi {
@@ -321,11 +328,135 @@ void EmitShutdown() {
   shutdown_callback->Call(GetCurrentContext()->Global(), 0, nullptr);
 }
 
+struct FileObject {
+  bool is_folder;
+  wstring name;
+  wstring path;
+  double date;
+};
+
+struct FolderContext {
+  uv_work_t req;
+  unique_ptr<wstring> path;
+  unique_ptr<Callback> callback;
+
+  vector<FileObject> files;
+  WindowsError error;
+};
+
+void ReadFolderAsUserWork(uv_work_t* req) {
+  FolderContext* context = reinterpret_cast<FolderContext*>(req->data);
+  ActiveUserToken priv_token;
+  if (priv_token.has_errors()) {
+    context->error = priv_token.error();
+    return;
+  }
+
+  UserImpersonation impersonate(priv_token.get());
+  if (impersonate.has_errors()) {
+    context->error = impersonate.error();
+    return;
+  }
+
+  WIN32_FIND_DATAW file_data;
+  HANDLE file_handle = FindFirstFileW((*context->path + L"\\*").c_str(), &file_data);
+  if (file_handle != INVALID_HANDLE_VALUE) {
+    do {
+      wstring name = file_data.cFileName;
+      bool is_folder = file_data.dwFileAttributes == FILE_ATTRIBUTE_DIRECTORY;
+      wstring path = *context->path + L"\\" + name;
+      FILETIME time_created = file_data.ftCreationTime;
+      // The FILETIME structure represents the number of 100-nanosecond intervals since January 1,
+      // 1601. We convert it to the number of miliseconds since January 1, 1970, so it can be used
+      // with the Date API in JS-land
+      uint64 date = (static_cast<ULONGLONG>(time_created.dwHighDateTime) << 32) +
+          time_created.dwLowDateTime;
+      date = date / TICKS_PER_MILISECOND - MILISECONDS_TO_UNIX_EPOCH;
+
+      FileObject file{ is_folder, name, path, static_cast<double>(date) };
+      context->files.push_back(file);
+    } while (FindNextFileW(file_handle, &file_data) != 0);
+  }
+  FindClose(file_handle);
+}
+
+void ReadFolderAsUserAfter(uv_work_t* req, int status) {
+  HandleScope scope;
+  FolderContext* context = reinterpret_cast<FolderContext*>(req->data);
+
+  Local<Value> err = Null();
+  Local<Value> dir_contents = Null();
+  vector<FileObject> files = context->files;
+
+  if (context->error.is_error()) {
+    err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
+  } else {
+    dir_contents = Nan::New<Array>();
+    for (unsigned int i = 0; i < files.size(); i++) {
+      HandleScope scope;
+      Local<Object> replay_object = Nan::New<Object>();
+      replay_object->Set(Nan::New("isFolder").ToLocalChecked(), Nan::New(files[i].is_folder));
+      replay_object->Set(Nan::New("name").ToLocalChecked(),
+          ScopelessWstring::New(files[i].name)->ApplyCurrentScope());
+      replay_object->Set(Nan::New("path").ToLocalChecked(),
+          ScopelessWstring::New(files[i].path)->ApplyCurrentScope());
+      replay_object->Set(Nan::New("date").ToLocalChecked(), Nan::New<v8::Number>(files[i].date));
+      Set(dir_contents.As<Object>(), i, replay_object.As<Value>());
+    }
+  }
+
+  Local<Value> argv[] = { err, dir_contents };
+  context->callback->Call(GetCurrentContext()->Global(), 2, argv);
+  delete context;
+}
+
+void ReadFolderAsUser(const FunctionCallbackInfo<Value>& info) {
+  assert(info.Length() == 2);
+  assert(info[0]->IsString());
+  assert(info[1]->IsFunction());
+
+  FolderContext* context = new FolderContext();
+  context->req.data = context;
+  context->path = ToWstring(To<String>(info[0]).ToLocalChecked());
+  context->callback.reset(new Callback(info[1].As<Function>()));
+  uv_queue_work(uv_default_loop(), &context->req, ReadFolderAsUserWork, ReadFolderAsUserAfter);
+
+  return;
+}
+
+void GetDocumentsPathAsUser(const FunctionCallbackInfo<Value>& info) {
+  ActiveUserToken priv_token;
+  if (priv_token.has_errors()) {
+    ThrowError(Exception::Error(Nan::New(priv_token.error().message().c_str()).ToLocalChecked()));
+    return;
+  }
+
+  UserImpersonation impersonate(priv_token.get());
+  if (impersonate.has_errors()) {
+    ThrowError(Exception::Error(Nan::New(impersonate.error().message().c_str()).ToLocalChecked()));
+    return;
+  }
+
+  wstring documents_path = GetDocumentsPath();
+  if (documents_path.length() == 0) {
+    WindowsError error("Unable to retrieve path to user's documents folder", GetLastError());
+    ThrowError(Exception::Error(Nan::New(error.message().c_str()).ToLocalChecked()));
+    return;
+  }
+  info.GetReturnValue().Set(
+      Nan::New(reinterpret_cast<const uint16_t*>(documents_path.c_str())).ToLocalChecked());
+}
+
 void Initialize(Local<Object> exports, Local<Value> unused) {
+  HandleScope scope;
   WrappedProcess::Init();
   WrappedRegistry::Init();
   shutdown_callback = unique_ptr<Callback>();
   PsiService::SetShutdownCallback(EmitShutdown);
+
+  Local<Object> active_user_fs = Nan::New<Object>();
+  active_user_fs->Set(Nan::New("readFolder").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(ReadFolderAsUser)->GetFunction());
 
   exports->Set(Nan::New("launchProcess").ToLocalChecked(),
       Nan::New<FunctionTemplate>(LaunchProcess)->GetFunction());
@@ -335,6 +466,9 @@ void Initialize(Local<Object> exports, Local<Value> unused) {
       Nan::New<FunctionTemplate>(CheckStarcraftPath)->GetFunction());
   exports->Set(Nan::New("registerShutdownHandler").ToLocalChecked(),
       Nan::New<FunctionTemplate>(RegisterShutdownHandler)->GetFunction());
+  exports->Set(Nan::New("activeUserFs").ToLocalChecked(), active_user_fs);
+  exports->Set(Nan::New("getDocumentsPath").ToLocalChecked(),
+      Nan::New<FunctionTemplate>(GetDocumentsPathAsUser)->GetFunction());
   exports->Set(Nan::New("registry").ToLocalChecked(), WrappedRegistry::NewInstance());
 }
 

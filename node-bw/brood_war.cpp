@@ -8,8 +8,10 @@
 #include <iomanip>
 #include <string>
 #include <Shlobj.h>
+
 #include "common/types.h"
 #include "common/win_helpers.h"
+#include "logger/logger.h"
 #include "snp/snp.h"
 
 namespace sbat {
@@ -175,10 +177,12 @@ HANDLE __stdcall BroodWar::CreateFileAHook(LPCSTR lpFileName, DWORD dwDesiredAcc
 
   assert(instance_->last_replay_handle_ == INVALID_HANDLE_VALUE);
 
-  wchar_t* documents_path = { 0 };
-  SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &documents_path);
-  wstring replay_folder = wstring(documents_path) + L"\\Starcraft\\maps\\replays\\Auto\\";
-  CoTaskMemFree(static_cast<void*>(documents_path));
+  wstring documents_path = GetDocumentsPath();
+  if (documents_path.length() == 0) {
+    Logger::Log(LogLevel::Error, "Error retrieving path to user's documents folder");
+    return INVALID_HANDLE_VALUE;
+  }
+  wstring replay_folder = documents_path + L"\\Starcraft\\maps\\replays\\Auto\\";
   // Create the replay folder if it doesn't exist
   SHCreateDirectoryExW(NULL, replay_folder.c_str(), NULL);
 

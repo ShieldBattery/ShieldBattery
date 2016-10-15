@@ -1,4 +1,7 @@
-import { detectResolution } from './natives/index'
+import path from 'path'
+import errors from 'http-errors'
+import { detectResolution, readFolder } from './natives/index'
+import getReplayFolder from './get-replay-folder'
 import log from './logger'
 import packageJson from '../package.json'
 import PathValidator from './path-validator'
@@ -6,8 +9,8 @@ import PathValidator from './path-validator'
 let pathValidator
 
 export function register(nydus, localSettings, activeGameManager, mapStore, rallyPointManager) {
-  pathValidator = new PathValidator(({ path, version }) => {
-    nydus.publish('/starcraftPathValidity', path)
+  pathValidator = new PathValidator(({ path: pathValid, version }) => {
+    nydus.publish('/starcraftPathValidity', pathValid)
     nydus.publish('/starcraftCorrectVersion', version)
   })
 
@@ -58,6 +61,7 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
   nydus.registerRoute('/site/getVersion', getVersion)
+  nydus.registerRoute('/site/getReplays', getReplays)
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)
   nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)
 
@@ -97,6 +101,35 @@ async function getResolution(data, next) {
     return res
   } catch (err) {
     log.error('Error detecting resolution: ' + err)
+    throw err
+  }
+}
+
+async function getReplays(data, next) {
+  const { path: relativePath } = data.get('body')
+  if (path.isAbsolute(relativePath)) {
+    throw new errors.BadRequest('path can\'t be absolute')
+  }
+
+  const normalized = path.normalize(relativePath)
+  if (normalized === '..' || normalized.startsWith('../') || normalized.startsWith('..\\')) {
+    throw new errors.BadRequest('path can\'t be outside the replays folder')
+  }
+
+  try {
+    const replaysFolderPath = getReplayFolder()
+    const replays = await readFolder(path.join(replaysFolderPath, normalized))
+    return replays
+      .filter(replay => replay.name !== '.' && replay.name !== '..')
+      .map(replay => {
+        replay.path = path.relative(replaysFolderPath, replay.path)
+        if (replay.name.endsWith('.rep')) {
+          replay.name = replay.name.slice(0, replay.name.length - 4)
+        }
+        return replay
+      })
+  } catch (err) {
+    log.error('Error getting the replays: ' + err)
     throw err
   }
 }
