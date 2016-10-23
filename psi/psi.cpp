@@ -205,6 +205,7 @@ void PsiService::WorkerThread(LPVOID param) {
     assert(ret == 0);
     ret = _dup2(fh, _fileno(stderr));
     assert(ret == 0);
+    _wremove(temp_file);
   }
 
   HMODULE module_handle;

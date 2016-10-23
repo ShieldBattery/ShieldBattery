@@ -205,6 +205,13 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   ret = _dup2(fh, 2 /* stderr */);
   assert(ret == 0);
 
+  // Node uses GetStdHandle for printing fatal v8 failures, so we set that as well
+  HANDLE handle = CreateFileW(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  assert(handle != INVALID_HANDLE_VALUE);
+  SetStdHandle(STD_OUTPUT_HANDLE, handle);
+  SetStdHandle(STD_ERROR_HANDLE, handle);
+
   // Can't _dup2 stdout/err before they have a CRT handle associated with them,
   // so use freopen to allocate a handle for them and then _dup2 it
   // (The freopened file gets closed once _dup2 is called)
@@ -221,13 +228,7 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   assert(ret == 0);
   ret = _dup2(fh, _fileno(stderr));
   assert(ret == 0);
-
-  // Node uses GetStdHandle for printing fatal v8 failures, so we set that as well
-  HANDLE handle = CreateFileW(temp_file, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-  assert(handle != INVALID_HANDLE_VALUE);
-  SetStdHandle(STD_OUTPUT_HANDLE, handle);
-  SetStdHandle(STD_ERROR_HANDLE, handle);
+  _wremove(temp_file);
 
   if (AWAIT_DEBUGGER) {
     while (!IsDebuggerPresent()) {
