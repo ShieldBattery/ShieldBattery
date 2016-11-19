@@ -152,7 +152,7 @@ export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
-// We have received a respond to our map list retrieval (error or the list of maps)
+// We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
 
 export const NETWORK_PSI_CONNECTED = 'NETWORK_PSI_CONNECTED'
@@ -172,6 +172,19 @@ export const PSI_STARCRAFT_PATH_VALIDITY = 'PSI_STARCRAFT_PATH_VALIDITY'
 export const PSI_STARCRAFT_VERSION_VALIDITY = 'PSI_STARCRAFT_VERSION_VALIDITY'
 // The version of the local psi server has been returned
 export const PSI_VERSION = 'PSI_VERSION'
+
+// We are starting the process of getting the list of replays from a user's computer. The replay
+// list won't be cached and instead will be fetched whenever a Replay component gets mounted or a
+// user requests replays from some of the subfolders
+export const REPLAYS_GET_BEGIN = 'REPLAYS_GET_BEGIN'
+// We have received a response to our replays retrieval (error or the list of the replays for that
+// particular folder)
+export const REPLAYS_GET = 'REPLAYS_GET'
+// We have started the process of launching the game with the selected replay in it
+export const REPLAYS_START_REPLAY_BEGIN = 'REPLAYS_START_REPLAY_BEGIN'
+// The server has responded with an error, if any, in case the replay starting failed. Note: there
+// is no payload if the replay starting is successful
+export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 
 // We are starting the process of getting the resolution
 export const RESOLUTION_GET_BEGIN = 'RESOLUTION_GET_BEGIN'

@@ -8,6 +8,7 @@ import styles from './activity-overlay.css'
 import KeyListener from '../keyboard/key-listener.jsx'
 import CreateLobby from '../lobbies/create-lobby.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
+import WatchReplays from '../replays/watch-replays.jsx'
 
 const ESCAPE = keycode('escape')
 
@@ -24,6 +25,7 @@ export default class ActivityOverlay extends React.Component {
     switch (this.props.activityOverlay.overlayType) {
       case 'createLobby': return <CreateLobby />
       case 'joinLobby': return <JoinLobby />
+      case 'watchReplays': return <WatchReplays />
       default: return <span/>
     }
   }
