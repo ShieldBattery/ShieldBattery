@@ -118,16 +118,16 @@ async function getReplays(data, next) {
 
   try {
     const replaysFolderPath = getReplayFolder()
-    const replays = await readFolder(path.join(replaysFolderPath, normalized))
-    return replays
-      .filter(replay => replay.name !== '.' && replay.name !== '..')
-      .map(replay => {
-        replay.path = path.relative(replaysFolderPath, replay.path)
-        if (replay.name.endsWith('.rep')) {
-          replay.name = replay.name.slice(0, replay.name.length - 4)
+    const entries = await readFolder(path.join(replaysFolderPath, normalized))
+    return (entries
+      .filter(f => (f.isFolder && f.name !== '.' && f.name !== '..') || f.name.endsWith('.rep'))
+      .map(f => {
+        f.path = path.relative(replaysFolderPath, f.path)
+        if (!f.isFolder) {
+          f.name = f.name.slice(0, -4)
         }
-        return replay
-      })
+        return f
+      }))
   } catch (err) {
     log.error('Error getting the replays: ' + err)
     throw err
