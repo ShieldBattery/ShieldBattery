@@ -133,8 +133,8 @@ export default class ActiveGameManager {
     // (e.g. with the punched addresses chosen)
     const { map } = game.config.lobby
     let localMap
-    if (map.endsWith('.rep')) {
-      localMap = path.join(getReplayFolder(), map)
+    if (map.isReplay) {
+      localMap = path.join(getReplayFolder(), map.path)
 
       // To be able to watch the replay correctly, we need to get the `seed` value that the game was
       // played with
