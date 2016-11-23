@@ -32,7 +32,7 @@ function setGameConfig(replay, user, settings) {
   return (psiSocket.invoke('/site/setGameConfig', {
     lobby: {
       name: replay.name,
-      map: replay.path,
+      map: { isReplay: true, path: replay.path },
       gameType: 'melee',
       numSlots: 4,
       players,
