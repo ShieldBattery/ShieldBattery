@@ -75,7 +75,7 @@ const webpackOptions = {
   },
   plugins: [
     new webpack.PrefetchPlugin('react'),
-    new webpack.PrefetchPlugin('react/lib/ReactComponentBrowserEnvironment'),
+    new webpack.PrefetchPlugin('react-dom/lib/ReactComponentBrowserEnvironment'),
     new webpack.optimize.OccurenceOrderPlugin(),
     new webpack.DefinePlugin({
       'process.env': {
