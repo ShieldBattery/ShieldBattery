@@ -173,17 +173,14 @@ export const PSI_STARCRAFT_VERSION_VALIDITY = 'PSI_STARCRAFT_VERSION_VALIDITY'
 // The version of the local psi server has been returned
 export const PSI_VERSION = 'PSI_VERSION'
 
-// We are starting the process of getting the list of replays from a user's computer. The replay
-// list won't be cached and instead will be fetched whenever a Replay component gets mounted or a
-// user requests replays from some of the subfolders
+// We have clicked on a folder inside the replays browser
+export const REPLAYS_CHANGE_PATH = 'REPLAYS_CHANGE_PATH'
+// We are starting the process of getting the list of replays from a user's computer
 export const REPLAYS_GET_BEGIN = 'REPLAYS_GET_BEGIN'
 // We have received a response to our replays retrieval (error or the list of the replays for that
 // particular folder)
 export const REPLAYS_GET = 'REPLAYS_GET'
 // We have started the process of launching the game with the selected replay in it
-export const REPLAYS_START_REPLAY_BEGIN = 'REPLAYS_START_REPLAY_BEGIN'
-// The server has responded with an error, if any, in case the replay starting failed. Note: there
-// is no payload if the replay starting is successful
 export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 
 // We are starting the process of getting the resolution

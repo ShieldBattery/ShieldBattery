@@ -1,8 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
 import classnames from 'classnames'
-import { getReplays, startReplay } from './action-creators'
+import { changePath, getReplays, startReplay } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import styles from './watch-replays.css'
 
@@ -59,7 +58,7 @@ class FolderEntry extends React.Component {
   };
 
   shouldComponentUpdate(nextProps) {
-    return nextProps.folder !== this.props.folder
+    return nextProps.folder !== this.props.folder || nextProps.onClick !== this.props.onClick
   }
 
   render() {
@@ -81,7 +80,8 @@ class ReplayEntry extends React.Component {
   };
 
   shouldComponentUpdate(nextProps, nextState) {
-    return nextProps.replay !== this.props.replay
+    return nextProps.replay !== this.props.replay ||
+        nextProps.onStartReplay !== this.props.onStartReplay
   }
 
   render() {
@@ -97,35 +97,42 @@ class ReplayEntry extends React.Component {
   }
 }
 
-@connect(state => ({ replays: state.replays, hasActiveGame: state.activeGame.isActive }))
+@connect(state => ({ replays: state.replays }))
 export default class Replays extends React.Component {
-  state = {
-    path: ''
-  };
-
   componentDidMount() {
-    this.props.dispatch(getReplays(this.state.path))
+    this.props.dispatch(getReplays(this.props.replays.path))
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (nextProps.hasActiveGame) {
-      this.props.dispatch(routerActions.push('/active-game'))
-    }
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.path !== this.state.path) {
-      this.props.dispatch(getReplays(this.state.path))
+  componentDidUpdate(prevProps) {
+    const { path } = this.props.replays
+    if (prevProps.replays.path !== path) {
+      this.props.dispatch(getReplays(path))
     }
   }
 
   renderReplays() {
-    const { folders, replays } = this.props.replays
-    if (this.props.replays.isRequesting) {
+    const { folders, replays, path, isRequesting, lastError } = this.props.replays
+    if (isRequesting) {
       return <LoadingIndicator />
     }
 
+    if (lastError) {
+      return <p>lastError.message</p>
+    }
+
+    const isRootFolder = path === ''
+    if (isRootFolder && folders.size === 0 && replays.size === 0) {
+      return <p>No replays found. Play some games?</p>
+    }
+
     return (<div>
+      {
+        !isRootFolder ?
+            <div className={styles.entry} onClick={this.onGoBackClick}>
+              <div className={styles.name}>{'<Go back>'}</div>
+            </div> :
+            null
+      }
       { folders.map(folder =>
           <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />) }
       { replays.map(replay =>
@@ -134,17 +141,24 @@ export default class Replays extends React.Component {
   }
 
   render() {
-    const isRootFolder = this.state.path === ''
+    const { path } = this.props.replays
+    const isRootFolder = path === ''
     return (<ScrollableContent
         className={styles.replaysScrollable}
         viewClassName={styles.replaysScrollableView}>
-      <p className={styles.path}>{'Replays' + (!isRootFolder ? '\\' : '') + this.state.path}</p>
+      <p className={styles.path}>{'Replays' + (!isRootFolder ? '\\' : '') + path}</p>
       { this.renderReplays() }
     </ScrollableContent>)
   }
 
+  onGoBackClick = () => {
+    const { path } = this.props.replays
+    const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
+    this.props.dispatch(changePath(prevPath))
+  };
+
   onFolderClick = folder => {
-    this.setState({ path: folder.path })
+    this.props.dispatch(changePath(folder.path))
   };
 
   onStartReplay = replay => {

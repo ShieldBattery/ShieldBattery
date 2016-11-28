@@ -1,8 +1,10 @@
 import { List, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
+  REPLAYS_CHANGE_PATH,
   REPLAYS_GET_BEGIN,
   REPLAYS_GET,
+  REPLAYS_START_REPLAY,
 } from '../actions'
 
 export const Folder = new Record({
@@ -17,8 +19,10 @@ export const Replay = new Record({
 export const ReplaysState = new Record({
   folders: new List(),
   replays: new List(),
+  path: '',
 
   isRequesting: false,
+  lastError: null,
 })
 
 export default keyedReducer(new ReplaysState(), {
@@ -28,7 +32,7 @@ export default keyedReducer(new ReplaysState(), {
 
   [REPLAYS_GET](state, action) {
     if (action.error) {
-      return state.set('isRequesting', false)
+      return state.set('isRequesting', false).set('lastError', action.payload)
     }
 
     const folders = action.payload
@@ -38,20 +42,23 @@ export default keyedReducer(new ReplaysState(), {
     const replays = action.payload
       .filter(e => !e.isFolder)
       .map(e => new Replay(e))
-      .sort((a, b) => {
-        if (a.date < b.date) return 1
-        if (a.date > b.date) return -1
-        else return 0
-      })
+      .sort((a, b) => b.date - a.date)
 
-    const { path } = action.meta
-    const isRootFolder = path === ''
-    if (!isRootFolder) {
-      const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
-      folders.unshift(new Folder({ name: '<Go up one level>', path: prevPath }))
-    }
     return state.set('isRequesting', false)
+      .set('lastError', null)
       .set('folders', new List(folders))
       .set('replays', new List(replays))
-  }
+  },
+
+  [REPLAYS_START_REPLAY](state, action) {
+    if (action.error) {
+      return state.set('lastError', action.payload)
+    }
+
+    return state
+  },
+
+  [REPLAYS_CHANGE_PATH](state, action) {
+    return state.set('path', action.payload)
+  },
 })

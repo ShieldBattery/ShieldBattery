@@ -1,11 +1,12 @@
+import { routerActions } from 'react-router-redux'
 import { Map } from 'immutable'
 import cuid from 'cuid'
 import psiSocket from '../network/psi-socket'
 import { Player } from '../lobbies/lobby-reducer'
 import {
+  REPLAYS_CHANGE_PATH,
   REPLAYS_GET_BEGIN,
   REPLAYS_GET,
-  REPLAYS_START_REPLAY_BEGIN,
   REPLAYS_START_REPLAY,
 } from '../actions'
 
@@ -29,7 +30,7 @@ function setGameConfig(replay, user, settings) {
   let players = new Map()
   players = players.set(player.id, player)
 
-  return (psiSocket.invoke('/site/setGameConfig', {
+  return psiSocket.invoke('/site/setGameConfig', {
     lobby: {
       name: replay.name,
       map: { isReplay: true, path: replay.path },
@@ -40,10 +41,7 @@ function setGameConfig(replay, user, settings) {
     },
     settings,
     localUser: user,
-  }).then(gameId => {
-    if (!gameId) throw new Error('Error starting the replay')
-    else return gameId
-  }))
+  })
 }
 
 function setGameRoutes(gameId) {
@@ -58,14 +56,18 @@ export function startReplay(replay) {
     const { auth: { user }, settings } = getState()
 
     dispatch({
-      type: REPLAYS_START_REPLAY_BEGIN,
-      payload: { replay },
-    })
-
-    dispatch({
       type: REPLAYS_START_REPLAY,
-      payload: setGameConfig(replay, user, settings).then(gameId => setGameRoutes(gameId)),
+      payload: setGameConfig(replay, user, settings)
+        .then(setGameRoutes)
+        .then(() => dispatch(routerActions.push('/active-game'))),
       meta: { replay },
     })
+  }
+}
+
+export function changePath(path) {
+  return {
+    type: REPLAYS_CHANGE_PATH,
+    payload: path,
   }
 }
