@@ -1,10 +1,10 @@
 exports.up = function(db, callback) {
   db.createTable('permissions',
-      { user_id: { type: 'int', primaryKey: true },
-        edit_permissions: { type: 'boolean', notNull: true, defaultValue: false },
-        debug: { type: 'boolean', notNull: true, defaultValue: false },
-        accept_invites: { type: 'boolean', notNull: true, defaultValue: false }
-      }, fillExisting)
+    { user_id: { type: 'int', primaryKey: true },
+      edit_permissions: { type: 'boolean', notNull: true, defaultValue: false },
+      debug: { type: 'boolean', notNull: true, defaultValue: false },
+      accept_invites: { type: 'boolean', notNull: true, defaultValue: false }
+    }, fillExisting)
 
   function fillExisting(err) {
     if (err) {
