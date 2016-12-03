@@ -1,13 +1,13 @@
 import httpErrors from 'http-errors'
 
 export default function(permissions) {
-  return function*(next) {
+  return async function(ctx, next) {
     for (const permission of permissions) {
-      if (!this.session.permissions[permission]) {
+      if (!ctx.session.permissions[permission]) {
         throw new httpErrors.Forbidden('Not enough permissions')
       }
     }
 
-    yield next
+    await next()
   }
 }

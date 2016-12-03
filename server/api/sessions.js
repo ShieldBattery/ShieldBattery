@@ -1,3 +1,4 @@
+import co from 'co'
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
@@ -13,30 +14,30 @@ export default function(router) {
     .post('/', startNewSession)
 }
 
-function* getCurrentSession(next) {
-  if (!this.session.userId) throw new httpErrors.Gone('Session expired')
-  const userId = this.session.userId
+async function getCurrentSession(ctx, next) {
+  if (!ctx.session.userId) throw new httpErrors.Gone('Session expired')
+  const userId = ctx.session.userId
 
   let user
   try {
-    user = yield users.find(userId)
+    user = await users.find(userId)
   } catch (err) {
-    this.log.error({ err }, 'error finding user')
+    ctx.log.error({ err }, 'error finding user')
     throw err
   }
 
   if (!user) {
-    yield this.regenerateSession()
+    await co(ctx.regenerateSession())
     throw new httpErrors.Gone('Session expired')
   }
 
-  this.body = { user, permissions: this.session.permissions }
+  ctx.body = { user, permissions: ctx.session.permissions }
 }
 
 const bcryptCompare = thenify(bcrypt.compare)
-function* startNewSession(next) {
-  if (this.session.userId) throw new httpErrors.Conflict('Session already active')
-  const { username, password } = this.request.body
+async function startNewSession(ctx, next) {
+  if (ctx.session.userId) throw new httpErrors.Conflict('Session already active')
+  const { username, password } = ctx.request.body
   // TODO(tec27): Deal with 'remember' param properly
   if (!username || !password) {
     throw new httpErrors.BadRequest('Username and password required')
@@ -44,9 +45,9 @@ function* startNewSession(next) {
 
   let user
   try {
-    user = yield users.find(username)
+    user = await users.find(username)
   } catch (err) {
-    this.log.error({ err }, 'error finding user')
+    ctx.log.error({ err }, 'error finding user')
     throw err
   }
   if (!user) {
@@ -55,9 +56,9 @@ function* startNewSession(next) {
 
   let same
   try {
-    same = yield bcryptCompare(password, user.password)
+    same = await bcryptCompare(password, user.password)
   } catch (err) {
-    this.log.error({ err }, 'error comparing passwords')
+    ctx.log.error({ err }, 'error comparing passwords')
     throw err
   }
   if (!same) {
@@ -65,20 +66,20 @@ function* startNewSession(next) {
   }
 
   try {
-    yield this.regenerateSession()
-    const perms = yield* permissions.get(user.id)
-    initSession(this, user, perms)
-    setReturningCookie(this)
+    await co(ctx.regenerateSession())
+    const perms = await permissions.get(user.id)
+    initSession(ctx, user, perms)
+    setReturningCookie(ctx)
 
-    this.body = { user, permissions: perms }
+    ctx.body = { user, permissions: perms }
   } catch (err) {
-    this.log.error({ err }, 'error regenerating session')
+    ctx.log.error({ err }, 'error regenerating session')
     throw err
   }
 }
 
-function* endSession(next) {
-  if (!this.session.userId) throw new httpErrors.Conflict('No session active')
-  yield this.regenerateSession()
-  this.status = 204
+async function endSession(ctx, next) {
+  if (!ctx.session.userId) throw new httpErrors.Conflict('No session active')
+  await co(ctx.regenerateSession())
+  ctx.status = 204
 }

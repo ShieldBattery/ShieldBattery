@@ -1,6 +1,6 @@
-module.exports = function() {
-  return function* csrfCookie(next) {
-    yield next
-    this.cookies.set('XSRF-TOKEN', this.csrf, { httpOnly: false })
+export default function() {
+  return async function csrfCookie(ctx, next) {
+    await next()
+    ctx.cookies.set('XSRF-TOKEN', ctx.csrf, { httpOnly: false })
   }
 }

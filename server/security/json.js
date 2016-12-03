@@ -5,10 +5,10 @@ import isJson from 'koa-is-json'
 const jsonPrefix = ')]}\',\n'
 
 export default function() {
-  return function* secureJson(next) {
-    yield next
-    if (isJson(this.body)) {
-      this.body = jsonPrefix + JSON.stringify(this.body)
+  return async function secureJson(ctx, next) {
+    await next()
+    if (isJson(ctx.body)) {
+      ctx.body = jsonPrefix + JSON.stringify(ctx.body)
     }
   }
 }

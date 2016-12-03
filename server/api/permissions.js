@@ -7,20 +7,20 @@ export default function(router) {
     .post('/:userId', checkPermissions(['editPermissions']), updatePermissions)
 }
 
-function* getPermissions(next) {
-  const userId = this.params.userId
+async function getPermissions(ctx, next) {
+  const userId = ctx.params.userId
 
   try {
-    this.body = yield* permissions.get(userId)
+    ctx.body = await permissions.get(userId)
   } catch (err) {
-    this.log.error({ err }, 'error querying permissions')
+    ctx.log.error({ err }, 'error querying permissions')
     throw err
   }
 }
 
-function* updatePermissions(next) {
-  const b = this.request.body
-  const userId = this.params.userId
+async function updatePermissions(ctx, next) {
+  const b = ctx.request.body
+  const userId = ctx.params.userId
   const perms = {
     editPermissions: b.editPermissions,
     debug: b.debug,
@@ -29,9 +29,9 @@ function* updatePermissions(next) {
   }
 
   try {
-    this.body = yield* permissions.update(userId, perms)
+    ctx.body = await permissions.update(userId, perms)
   } catch (err) {
-    this.log.error({ err }, 'error updating permissions')
+    ctx.log.error({ err }, 'error updating permissions')
     throw err
   }
 }

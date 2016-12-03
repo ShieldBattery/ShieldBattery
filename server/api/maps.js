@@ -5,16 +5,16 @@ export default function(router) {
   router.get('/', ensureLoggedIn, list)
 }
 
-function* ensureLoggedIn(next) {
-  if (!this.session.userId) {
+async function ensureLoggedIn(ctx, next) {
+  if (!ctx.session.userId) {
     throw new httpErrors.Unauthorized()
   }
 
-  yield next
+  await next()
 }
 
-function* list(next) {
-  let { page, limit } = this.request.query
+async function list(ctx, next) {
+  let { page, limit } = ctx.request.query
   if (!page || page < 0) {
     page = 0
   }
@@ -24,7 +24,7 @@ function* list(next) {
   }
 
   const maps = MAPS.slice(page * limit, (page + 1) * limit)
-  this.body = {
+  ctx.body = {
     maps,
     page,
     limit,
