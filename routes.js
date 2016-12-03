@@ -39,7 +39,7 @@ function applyRoutes(app) {
 
   if (isDev) {
     // We expect the styles to be included in the development JS (so they can be hot reloaded)
-    router.get('/styles/site.css', function(ctx, next) {
+    router.get('/styles/site.css', (ctx, next) => {
       ctx.body = ''
       ctx.type = 'text/css'
     })
@@ -48,7 +48,7 @@ function applyRoutes(app) {
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(
-    '/:param*', koaConvert(koaStatic(path.join(__dirname, 'public'))), async function(ctx, next) {
+    '/:param*', koaConvert(koaStatic(path.join(__dirname, 'public'))), async (ctx, next) => {
       const initData = {}
       if (ctx.session.userId) {
         initData.auth = {

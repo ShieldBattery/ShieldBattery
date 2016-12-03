@@ -27,7 +27,7 @@ async function getCurrentSession(ctx, next) {
   }
 
   if (!user) {
-    await ctx.regenerateSession()
+    await co(ctx.regenerateSession())
     throw new httpErrors.Gone('Session expired')
   }
 
@@ -66,7 +66,7 @@ async function startNewSession(ctx, next) {
   }
 
   try {
-    await ctx.regenerateSession()
+    await co(ctx.regenerateSession())
     const perms = await permissions.get(user.id)
     initSession(ctx, user, perms)
     setReturningCookie(ctx)

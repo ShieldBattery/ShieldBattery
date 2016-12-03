@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt'
+import co from 'co'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
 import users from '../models/users'
@@ -82,7 +83,7 @@ async function createUser(ctx, next) {
 
   // regenerate the session to ensure that logged in sessions and anonymous sessions don't
   // share a session ID
-  await ctx.regenerateSession()
+  await co(ctx.regenerateSession())
   initSession(ctx, result.user, result.permissions)
   setReturningCookie(ctx)
   ctx.body = result

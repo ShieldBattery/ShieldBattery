@@ -15,7 +15,7 @@ import log from './server/logging/logger'
 import path from 'path'
 import thenify from 'thenify'
 
-import CSRF from 'koa-csrf'
+import Csrf from 'koa-csrf'
 import csrfCookie from './server/security/csrf-cookie'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
@@ -130,7 +130,7 @@ app
   .use(koaBody())
   .use(koaConvert(sessionMiddleware))
   .use(csrfCookie())
-  .use(new CSRF())
+  .use(new Csrf())
   .use(secureHeaders())
   .use(secureJson())
 
