@@ -267,7 +267,7 @@ class MainLayout extends React.Component {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
-      this.props.dispatch(openOverlay('watchReplays'))
+      this.props.dispatch(openOverlay('watchReplay'))
     }
   };
 

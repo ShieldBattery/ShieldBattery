@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import classnames from 'classnames'
 import { changePath, getReplays, startReplay } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
-import styles from './watch-replays.css'
+import styles from './watch-replay.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
