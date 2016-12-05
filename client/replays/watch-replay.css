@@ -27,8 +27,6 @@
   padding-left: 8px;
   padding-right: 8px;
   color: colorTextSecondary;
-  height: 32px;
-  line-height: 32px;
   cursor: pointer;
 }
 
@@ -41,7 +39,6 @@
 .breadcrumbSeparator {
   color: colorTextFaint;
   display: inline-block;
-  line-height: 32px;
 }
 
 .replaysScrollable {
