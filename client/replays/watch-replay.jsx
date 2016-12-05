@@ -117,7 +117,7 @@ export default class Replays extends React.Component {
     }
 
     if (lastError) {
-      return <p>lastError.message</p>
+      return <p>{lastError.message}</p>
     }
 
     const isRootFolder = path === ''
@@ -142,13 +142,15 @@ export default class Replays extends React.Component {
 
   render() {
     const { path } = this.props.replays
-    const isRootFolder = path === ''
-    return (<ScrollableContent
-        className={styles.replaysScrollable}
-        viewClassName={styles.replaysScrollableView}>
-      <p className={styles.path}>{'Replays' + (!isRootFolder ? '\\' : '') + path}</p>
-      { this.renderReplays() }
-    </ScrollableContent>)
+    return (<div className={styles.root}>
+      <h3 className={styles.contentTitle}>Local replays</h3>
+      <ScrollableContent
+          className={styles.replaysScrollable}
+          viewClassName={styles.replaysScrollableView}>
+        <p className={styles.path}>{'\\' + path}</p>
+        { this.renderReplays() }
+      </ScrollableContent>
+    </div>)
   }
 
   onGoBackClick = () => {
