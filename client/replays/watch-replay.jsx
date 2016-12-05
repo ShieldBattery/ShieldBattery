@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
 import classnames from 'classnames'
 import { changePath, getReplays, startReplay } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import styles from './watch-replay.css'
 
+import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
 import LoadingIndicator from '../progress/dots.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
@@ -53,8 +54,8 @@ function getLocalDate(date) {
 
 class FolderEntry extends React.Component {
   static propTypes = {
-    folder: React.PropTypes.object.isRequired,
-    onClick: React.PropTypes.func.isRequired,
+    folder: PropTypes.object.isRequired,
+    onClick: PropTypes.func.isRequired,
   };
 
   shouldComponentUpdate(nextProps) {
@@ -75,8 +76,8 @@ class FolderEntry extends React.Component {
 
 class ReplayEntry extends React.Component {
   static propTypes = {
-    replay: React.PropTypes.object.isRequired,
-    onStartReplay: React.PropTypes.func.isRequired,
+    replay: PropTypes.object.isRequired,
+    onStartReplay: PropTypes.func.isRequired,
   };
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -96,6 +97,44 @@ class ReplayEntry extends React.Component {
     </div>)
   }
 }
+
+class PathBreadcrumbs extends React.Component {
+  static propTypes = {
+    path: PropTypes.string.isRequired,
+    onNavigate: PropTypes.func.isRequired,
+    className: PropTypes.string,
+  };
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return nextProps.path !== this.props.path
+  }
+
+  render() {
+    const pieces = this.props.path.split('\\')
+    if (pieces[pieces.length - 1] === '') {
+      // Remove the last entry if it's empty (due to a trailing slash)
+      pieces.pop()
+    }
+    const { elems } = pieces.reduce((r, piece, i) => {
+      const isLast = i === pieces.length - 1
+      r.curPath += (i === 0 ? '' : '\\') + piece
+      // Save the value at the current time so the function doesn't always use the last value
+      const navPath = r.curPath
+      r.elems.push(<span
+          className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
+          onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>{piece}</span>)
+      if (!isLast) {
+        r.elems.push(<ChevronRight className={styles.breadcrumbSeparator} />)
+      }
+
+      return r
+    }, { elems: [], curPath: '' })
+
+    return <div className={this.props.className}>{elems}</div>
+  }
+}
+
+const ROOT_FOLDER_NAME = 'replays'
 
 @connect(state => ({ replays: state.replays }))
 export default class Replays extends React.Component {
@@ -142,16 +181,23 @@ export default class Replays extends React.Component {
 
   render() {
     const { path } = this.props.replays
+    const displayedPath = `${ROOT_FOLDER_NAME}\\${path}`
     return (<div className={styles.root}>
       <h3 className={styles.contentTitle}>Local replays</h3>
       <ScrollableContent
           className={styles.replaysScrollable}
           viewClassName={styles.replaysScrollableView}>
-        <p className={styles.path}>{'\\' + path}</p>
+        <PathBreadcrumbs className={styles.path}
+            path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
         { this.renderReplays() }
       </ScrollableContent>
     </div>)
   }
+
+  onBreadcrumbNavigate = path => {
+    const pathWithoutRoot = path.slice(ROOT_FOLDER_NAME.length + 1)
+    this.props.dispatch(changePath(pathWithoutRoot))
+  };
 
   onGoBackClick = () => {
     const { path } = this.props.replays
