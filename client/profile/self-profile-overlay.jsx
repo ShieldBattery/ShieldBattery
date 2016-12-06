@@ -1,15 +1,10 @@
 import React, { PropTypes } from 'react'
-import classnames from 'classnames'
-import keycode from 'keycode'
 import TransitionGroup from 'react-addons-css-transition-group'
 import Avatar from '../avatars/avatar.jsx'
 import styles from './self-profile-overlay.css'
 
-import KeyListener from '../keyboard/key-listener.jsx'
 import MenuItem from '../material/menu/item.jsx'
-import Portal from '../material/portal.jsx'
-
-const ESCAPE = keycode('esc')
+import Popover from '../material/popover.jsx'
 
 const transitionNames = {
   appear: styles.enter,
@@ -19,7 +14,6 @@ const transitionNames = {
   leave: styles.leave,
   leaveActive: styles.leaveActive,
 }
-const CLOSE_TIME = 275
 
 export default class SelfProfileOverlay extends React.Component {
   static propTypes = {
@@ -28,72 +22,29 @@ export default class SelfProfileOverlay extends React.Component {
     onDismiss: PropTypes.func.isRequired,
   };
 
-  state = {
-    open: this.props.open,
-    closing: false,
-  };
-  closeTimer = null;
-
-  onKeyDown = event => {
-    if (event.keyCode !== ESCAPE) return false
-
-    if (this.props.onDismiss && this.state.open && !this.state.closing) {
-      this.props.onDismiss()
-      return true
-    }
-
-    return false
-  };
-
-  componentWillReceiveProps(nextProps) {
-    if (nextProps.open !== this.state.open) {
-      if (nextProps.open) {
-        this.setState({
-          open: true,
-          closing: false,
-        })
-        clearTimeout(this.closeTimer)
-        this.closeTimer = null
-      } else {
-        this.setState({ closing: true })
-        clearTimeout(this.closeTimer)
-        this.closeTimer =
-            setTimeout(() => this.setState({ open: false, closing: false }), CLOSE_TIME)
-      }
-    }
-  }
-
-  componentWillUnmount() {
-    clearTimeout(this.closeTimer)
-  }
-
-
   render() {
-    const { className, user, children, onDismiss } = this.props
-    const { open, closing } = this.state
+    const { user, children, open, onDismiss } = this.props
 
-    const renderContents = () => {
-      if (!open && !closing) return null
-
-      return (<KeyListener onKeyDown={this.onKeyDown}>
-        <TransitionGroup
-            transitionName={transitionNames} transitionAppear={true}
-            transitionAppearTimeout={300} transitionEnterTimeout={300}
-            transitionLeaveTimeout={CLOSE_TIME}>
-          {
-            open && !closing ?
-                <SelfProfileContents key={'contents'} className={className} user={user}>
+    return (<Popover open={open} onDismiss={onDismiss}>
+      {
+        (state, timings) => {
+          const { opening, opened } = state
+          const { openDelay, openDuration, closeDuration } = timings
+          return (<TransitionGroup
+              transitionName={transitionNames} transitionAppear={true}
+              transitionAppearTimeout={openDelay} transitionEnterTimeout={openDuration}
+              transitionLeaveTimeout={closeDuration}>
+            {
+              opening || opened ?
+                <SelfProfileContents key={'contents'} user={user}>
                   {children}
                 </SelfProfileContents> :
                 null
-          }
-        </TransitionGroup>
-      </KeyListener>)
-    }
-
-    return (<Portal onDismiss={onDismiss} open={open}>
-      { renderContents }
-    </Portal>)
+            }
+          </TransitionGroup>)
+        }
+      }
+    </Popover>)
   }
 }
 
@@ -103,14 +54,9 @@ export class SelfProfileContents extends React.Component {
   };
 
   render() {
-    const { className, user, children } = this.props
-    const classes = classnames(styles.overlay, className)
-    return (<div className={classes}>
-      <div className={styles.scaleHorizontal}>
-        <div className={styles.scaleVertical}>
-          <div className={styles.background} />
-        </div>
-      </div>
+    const { user, children } = this.props
+
+    return (<div>
       <div className={styles.header}>
         <Avatar className={styles.avatar} user={user} />
         <h3 className={styles.username}>{user}</h3>

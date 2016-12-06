@@ -1,0 +1,34 @@
+@value fastOutSlowIn from '../material/curve-constants.css';
+@value shadow6dp from '../material/shadows.css';
+@value zIndexMenu from './zindex.css';
+
+.popover {
+  composes: global(cardLayer);
+  background-color: transparent;
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  min-width: 256px;
+  z-index: zIndexMenu;
+}
+
+.scaleHorizontal {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.scaleVertical {
+  width: 100%;
+  height: 100%;
+}
+
+.background {
+  composes: global(cardLayer);
+  composes: shadow6dp;
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+}
