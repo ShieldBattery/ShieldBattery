@@ -8,7 +8,6 @@
   position: fixed;
   top: 8px;
   right: 12px;
-  min-width: 256px;
   z-index: zIndexMenu;
 }
 

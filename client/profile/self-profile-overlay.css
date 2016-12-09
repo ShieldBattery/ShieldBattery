@@ -2,6 +2,10 @@
 @value title, subhead, singleLine from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
+.contents {
+  min-width: 256px;
+}
+
 .header {
   position: relative;
   padding-top: 24px;
@@ -11,7 +15,6 @@
 .enter .header {
   opacity: 0;
   transform: translateY(-16px);
-  transition: all 175ms fastOutSlowIn 125ms;
 }
 
 .enterActive .header {
@@ -21,7 +24,6 @@
 
 .leave .header {
   opacity: 1;
-  transition: all 100ms fastOutSlowIn;
 }
 
 .leaveActive .header {
@@ -49,7 +51,6 @@
 .enter .actions {
   opacity: 0;
   transform: translateY(-16px);
-  transition: all 125ms fastOutSlowIn 175ms;
 }
 
 .enterActive .actions {
@@ -59,7 +60,6 @@
 
 .leave .actions {
   opacity: 1;
-  transition: opacity 100ms fastOutSlowIn;
 }
 
 .leaveActive .actions {

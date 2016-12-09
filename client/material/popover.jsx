@@ -6,8 +6,9 @@ import KeyListener from '../keyboard/key-listener.jsx'
 import Portal from './portal.jsx'
 
 const ESCAPE = keycode('esc')
-const OPEN_TIME = 300
-const CLOSE_TIME = 275
+const OPEN_DELAY = 125
+const OPEN_DURATION = 175
+const CLOSE_DURATION = 100
 const FAST_OUT_SLOW_IN = 'cubic-bezier(.4, 0, .2, 1)'
 
 export default class Popover extends React.Component {
@@ -19,8 +20,6 @@ export default class Popover extends React.Component {
 
   state = {
     open: this.props.open,
-    opening: false,
-    closing: false,
     scaleHorizontalStyle: {
       transform: 'scaleX(0.3)',
       transformOrigin: 'right top',
@@ -33,13 +32,21 @@ export default class Popover extends React.Component {
       opacity: 0.1,
     },
   };
-  openTimer = null;
+  animationId = null;
   closeTimer = null;
+
+  get opening() {
+    return this.props.open
+  }
+
+  get closing() {
+    return !this.props.open
+  }
 
   onKeyDown = event => {
     if (event.keyCode !== ESCAPE) return false
 
-    if (this.props.onDismiss && this.state.open && !this.state.closing) {
+    if (this.props.onDismiss && this.state.open && !this.closing) {
       this.props.onDismiss()
       return true
     }
@@ -69,19 +76,12 @@ export default class Popover extends React.Component {
   componentWillReceiveProps(nextProps) {
     if (nextProps.open !== this.state.open) {
       if (nextProps.open) {
-        window.requestAnimationFrame(this.animateOnOpen)
-        this.setState({
-          open: true,
-          opening: true,
-          closing: false,
-        })
-        clearTimeout(this.openTimer)
-        this.openTimer = setTimeout(() => this.setState({ opening: false }), OPEN_TIME)
+        this.animationId = window.requestAnimationFrame(this.animateOnOpen)
+        this.setState({ open: true })
         clearTimeout(this.closeTimer)
         this.closeTimer = null
       } else {
         this.setState({
-          closing: true,
           scaleHorizontalStyle: {
             transform: 'scaleX(0.3)',
             transformOrigin: 'right top',
@@ -98,36 +98,36 @@ export default class Popover extends React.Component {
           },
         })
         clearTimeout(this.closeTimer)
-        this.closeTimer =
-            setTimeout(() => this.setState({ open: false, closing: false }), CLOSE_TIME)
-        clearTimeout(this.openTimer)
-        this.openTimer = null
+        this.closeTimer = setTimeout(() => this.setState({ open: false }), CLOSE_DURATION)
       }
     }
   }
 
   componentWillUnmount() {
+    window.cancelAnimationFrame(this.animationId)
     clearTimeout(this.openTimer)
     clearTimeout(this.closeTimer)
   }
 
-
   render() {
     const { onDismiss, children } = this.props
-    const { open, opening, closing } = this.state
+    const { open } = this.state
+    const opening = this.opening
+    const closing = this.closing
 
     const renderChildren = () => {
-      let state = {}
-      let timings = { openDelay: 0, openDuration: 0, closeDuration: 0 }
+      let state = null
+      const timings = {
+        openDelay: OPEN_DELAY,
+        openDuration: OPEN_DURATION,
+        closeDuration: CLOSE_DURATION,
+      }
       if (open && opening && !closing) {
-        state = { opening: true }
-        timings = { openDelay: OPEN_TIME, openDuration: OPEN_TIME, closeDuration: 0 }
+        state = 'opening'
       } else if (open && !opening && !closing) {
-        state = { opened: true }
-        timings = { openDelay: 0, openDuration: 0, closeDuration: 0 }
+        state = 'opened'
       } else if (open && !opening && closing) {
-        state = { closing: true }
-        timings = { openDelay: 0, openDuration: 0, closeDuration: CLOSE_TIME }
+        state = 'closing'
       }
 
       return children(state, timings)

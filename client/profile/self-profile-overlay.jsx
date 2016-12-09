@@ -6,6 +6,8 @@ import styles from './self-profile-overlay.css'
 import MenuItem from '../material/menu/item.jsx'
 import Popover from '../material/popover.jsx'
 
+const FAST_OUT_SLOW_IN = 'cubic-bezier(.4, 0, .2, 1)'
+
 const transitionNames = {
   appear: styles.enter,
   appearActive: styles.enterActive,
@@ -28,15 +30,14 @@ export default class SelfProfileOverlay extends React.Component {
     return (<Popover open={open} onDismiss={onDismiss}>
       {
         (state, timings) => {
-          const { opening, opened } = state
           const { openDelay, openDuration, closeDuration } = timings
           return (<TransitionGroup
               transitionName={transitionNames} transitionAppear={true}
-              transitionAppearTimeout={openDelay} transitionEnterTimeout={openDuration}
-              transitionLeaveTimeout={closeDuration}>
+              transitionAppearTimeout={openDelay + openDuration}
+              transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
             {
-              opening || opened ?
-                <SelfProfileContents key={'contents'} user={user}>
+              state === 'opening' || state === 'opened' ?
+                <SelfProfileContents key={'contents'} user={user} state={state} timings={timings}>
                   {children}
                 </SelfProfileContents> :
                 null
@@ -51,17 +52,24 @@ export default class SelfProfileOverlay extends React.Component {
 export class SelfProfileContents extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
+    timings: PropTypes.object.isRequired,
   };
 
   render() {
-    const { user, children } = this.props
+    const { user, children, timings: { openDelay, openDuration } } = this.props
+    const headerStyle = {
+      transition: `all ${openDuration}ms ${FAST_OUT_SLOW_IN} ${openDelay}ms`,
+    }
+    const actionsStyle = {
+      transition: `all ${openDuration}ms ${FAST_OUT_SLOW_IN} ${openDelay}ms`,
+    }
 
-    return (<div>
-      <div className={styles.header}>
+    return (<div className={styles.contents}>
+      <div className={styles.header} style={headerStyle}>
         <Avatar className={styles.avatar} user={user} />
         <h3 className={styles.username}>{user}</h3>
       </div>
-      <div className={styles.actions}>
+      <div className={styles.actions} style={actionsStyle}>
         { children }
       </div>
     </div>)
