@@ -126,7 +126,7 @@ class MainLayout extends React.Component {
   }
 
   renderAvatarOverlay() {
-    return (<SelfProfileOverlay className={styles.profileOverlay}
+    return (<SelfProfileOverlay
         open={this.state.avatarOverlayOpened}
         onDismiss={this.onCloseProfileOverlay}
         user={this.props.auth.user.name}>
