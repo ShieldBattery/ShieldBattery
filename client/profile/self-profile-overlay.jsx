@@ -6,8 +6,6 @@ import styles from './self-profile-overlay.css'
 import MenuItem from '../material/menu/item.jsx'
 import Popover from '../material/popover.jsx'
 
-const FAST_OUT_SLOW_IN = 'cubic-bezier(.4, 0, .2, 1)'
-
 const transitionNames = {
   appear: styles.enter,
   appearActive: styles.enterActive,
@@ -31,13 +29,25 @@ export default class SelfProfileOverlay extends React.Component {
       {
         (state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
+          let style
+          if (state === 'opening') {
+            style = {
+              transitionDuration: `${openDuration}ms`,
+              transitionDelay: `${openDelay}ms`,
+            }
+          } else if (state === 'opened') {
+            style = {
+              transitionDuration: `${closeDuration}ms`,
+            }
+          }
+
           return (<TransitionGroup
               transitionName={transitionNames} transitionAppear={true}
               transitionAppearTimeout={openDelay + openDuration}
               transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
             {
               state === 'opening' || state === 'opened' ?
-                <SelfProfileContents key={'contents'} user={user} state={state} timings={timings}>
+                <SelfProfileContents key={'contents'} user={user} style={style}>
                   {children}
                 </SelfProfileContents> :
                 null
@@ -52,24 +62,18 @@ export default class SelfProfileOverlay extends React.Component {
 export class SelfProfileContents extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
-    timings: PropTypes.object.isRequired,
+    style: PropTypes.object,
   };
 
   render() {
-    const { user, children, timings: { openDelay, openDuration } } = this.props
-    const headerStyle = {
-      transition: `all ${openDuration}ms ${FAST_OUT_SLOW_IN} ${openDelay}ms`,
-    }
-    const actionsStyle = {
-      transition: `all ${openDuration}ms ${FAST_OUT_SLOW_IN} ${openDelay}ms`,
-    }
+    const { user, children, style } = this.props
 
     return (<div className={styles.contents}>
-      <div className={styles.header} style={headerStyle}>
+      <div className={styles.header} style={style}>
         <Avatar className={styles.avatar} user={user} />
         <h3 className={styles.username}>{user}</h3>
       </div>
-      <div className={styles.actions} style={actionsStyle}>
+      <div className={styles.actions} style={style}>
         { children }
       </div>
     </div>)

@@ -4,12 +4,12 @@ import styles from './popover.css'
 
 import KeyListener from '../keyboard/key-listener.jsx'
 import Portal from './portal.jsx'
+import { fastOutSlowIn } from '../material/curve-constants.css'
 
 const ESCAPE = keycode('esc')
 const OPEN_DELAY = 125
 const OPEN_DURATION = 175
 const CLOSE_DURATION = 100
-const FAST_OUT_SLOW_IN = 'cubic-bezier(.4, 0, .2, 1)'
 
 export default class Popover extends React.Component {
   static propTypes = {
@@ -20,6 +20,7 @@ export default class Popover extends React.Component {
 
   state = {
     open: this.props.open,
+    transitioning: false,
     scaleHorizontalStyle: {
       transform: 'scaleX(0.3)',
       transformOrigin: 'right top',
@@ -33,14 +34,15 @@ export default class Popover extends React.Component {
     },
   };
   animationId = null;
+  openTimer = null;
   closeTimer = null;
 
   get opening() {
-    return this.props.open
+    return this.state.transitioning && this.props.open
   }
 
   get closing() {
-    return !this.props.open
+    return this.state.transitioning && !this.props.open
   }
 
   onKeyDown = event => {
@@ -59,16 +61,16 @@ export default class Popover extends React.Component {
       scaleHorizontalStyle: {
         transform: 'scaleX(1)',
         transformOrigin: 'right top',
-        transition: `transform 200ms ${FAST_OUT_SLOW_IN}`,
+        transition: `transform 200ms ${fastOutSlowIn}`,
       },
       scaleVerticalStyle: {
         transform: 'scaleY(1)',
         transformOrigin: 'right top',
-        transition: `transform 200ms ${FAST_OUT_SLOW_IN} 50ms`,
+        transition: `transform 200ms ${fastOutSlowIn} 50ms`,
       },
       backgroundStyle: {
         opacity: 1,
-        transition: `opacity 150ms ${FAST_OUT_SLOW_IN}`,
+        transition: `opacity 150ms ${fastOutSlowIn}`,
       },
     })
   };
@@ -77,28 +79,33 @@ export default class Popover extends React.Component {
     if (nextProps.open !== this.state.open) {
       if (nextProps.open) {
         this.animationId = window.requestAnimationFrame(this.animateOnOpen)
-        this.setState({ open: true })
+        this.setState({ open: true, transitioning: true })
+        clearTimeout(this.openTimer)
+        this.openTimer =
+            setTimeout(() => this.setState({ transitioning: false }), OPEN_DELAY + OPEN_DURATION)
         clearTimeout(this.closeTimer)
         this.closeTimer = null
       } else {
         this.setState({
+          transitioning: true,
           scaleHorizontalStyle: {
             transform: 'scaleX(0.3)',
             transformOrigin: 'right top',
-            transition: `transform 200ms ${FAST_OUT_SLOW_IN} 75ms`,
+            transition: `transform 200ms ${fastOutSlowIn} 75ms`,
           },
           scaleVerticalStyle: {
             transform: 'scaleY(0.3)',
             transformOrigin: 'right top',
-            transition: `transform 200ms ${FAST_OUT_SLOW_IN} 25ms`,
+            transition: `transform 200ms ${fastOutSlowIn} 25ms`,
           },
           backgroundStyle: {
             opacity: 0.1,
-            transition: `opacity 175ms ${FAST_OUT_SLOW_IN} 100ms`,
+            transition: `opacity 175ms ${fastOutSlowIn} 100ms`,
           },
         })
         clearTimeout(this.closeTimer)
-        this.closeTimer = setTimeout(() => this.setState({ open: false }), CLOSE_DURATION)
+        this.closeTimer =
+            setTimeout(() => this.setState({ open: false, transitioning: false }), CLOSE_DURATION)
       }
     }
   }
@@ -112,29 +119,21 @@ export default class Popover extends React.Component {
   render() {
     const { onDismiss, children } = this.props
     const { open } = this.state
-    const opening = this.opening
-    const closing = this.closing
 
-    const renderChildren = () => {
-      let state = null
+    const renderContents = () => {
+      if (!open && !this.closing) return null
+
+      let state = 'opened'
       const timings = {
         openDelay: OPEN_DELAY,
         openDuration: OPEN_DURATION,
         closeDuration: CLOSE_DURATION,
       }
-      if (open && opening && !closing) {
+      if (this.opening) {
         state = 'opening'
-      } else if (open && !opening && !closing) {
-        state = 'opened'
-      } else if (open && !opening && closing) {
+      } else if (this.closing) {
         state = 'closing'
       }
-
-      return children(state, timings)
-    }
-
-    const renderContents = () => {
-      if (!open && !closing) return null
 
       return (<KeyListener onKeyDown={this.onKeyDown}>
         {
@@ -145,7 +144,7 @@ export default class Popover extends React.Component {
                   <div className={styles.background} style={this.state.backgroundStyle} />
                 </div>
               </div>
-              { renderChildren() }
+              { children(state, timings) }
             </div> :
             null
         }
