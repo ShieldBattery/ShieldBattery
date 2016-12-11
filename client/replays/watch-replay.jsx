@@ -7,8 +7,11 @@ import styles from './watch-replay.css'
 
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
+import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import Replay from '../icons/material/ic_movie_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
+
+import IconButton from '../material/icon-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
@@ -126,11 +129,10 @@ class PathBreadcrumbs extends React.Component {
       // Save the value at the current time so the function doesn't always use the last value
       const navPath = r.curPath
       r.elems.push(<span
+          key={i}
           className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
           onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>{piece}</span>)
-      if (!isLast) {
-        r.elems.push(<ChevronRight className={styles.breadcrumbSeparator} />)
-      }
+      r.elems.push(<ChevronRight key={i + '|'} className={styles.breadcrumbSeparator} />)
 
       return r
     }, { elems: [], curPath: '' })
@@ -157,7 +159,7 @@ export default class Replays extends React.Component {
   renderReplays() {
     const { folders, replays, path, isRequesting, lastError } = this.props.replays
     if (isRequesting) {
-      return <LoadingIndicator />
+      return <div className={styles.loading}><LoadingIndicator /></div>
     }
 
     if (lastError) {
@@ -172,7 +174,7 @@ export default class Replays extends React.Component {
     return (<div className={styles.replayList}>
       {
         !isRootFolder ?
-            <div className={styles.entry} onClick={this.onGoBackClick} key={'up-one-dir'}>
+            <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
               <div className={styles.entryIcon}><UpDirectory/></div>
               <div className={styles.name}>{'Up one directory'}</div>
             </div> :
@@ -189,9 +191,14 @@ export default class Replays extends React.Component {
     const { path } = this.props.replays
     const displayedPath = `${ROOT_FOLDER_NAME}\\${path}`
     return (<div className={styles.root}>
-      <h3 className={styles.contentTitle}>Local replays</h3>
-      <PathBreadcrumbs className={styles.path}
-          path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
+      <div className={styles.topBar}>
+        <div className={styles.titleAndActions}>
+          <h3 className={styles.contentTitle}>Local replays</h3>
+          <IconButton icon={<Refresh/>} onClick={this.onRefreshClick} title={'Refresh'}/>
+        </div>
+        <PathBreadcrumbs className={styles.path}
+            path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
+      </div>
       <ScrollableContent
           className={styles.replaysScrollable}
           viewClassName={styles.replaysScrollableView}>
@@ -205,7 +212,12 @@ export default class Replays extends React.Component {
     this.props.dispatch(changePath(pathWithoutRoot))
   };
 
-  onGoBackClick = () => {
+  onRefreshClick = () => {
+    const { path } = this.props.replays
+    this.props.dispatch(getReplays(path))
+  };
+
+  onUpLevelClick = () => {
     const { path } = this.props.replays
     const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
     this.props.dispatch(changePath(prevPath))
