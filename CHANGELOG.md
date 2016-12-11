@@ -1,3 +1,15 @@
+#### 4.2.0 (December 11th, 2016)
+
+- **Replay browsing and watching.** Not only do replays save automatically, but now you can watch
+them without ever leaving ShieldBattery! Browsing is limited to
+`My Documents\Starcraft\maps\replays`, but any replays you put in there will be watchable.
+Currently this only allows for single player watching, multiplayer watching is coming soon.
+- **Signed installers and files.** All of our installers and files are now signed for extra
+assurance that you've received a legitimate copy. This should make some overzealous antiviruses and
+operating systems a bit less angry.
+- **Maps, maps, and maps, oh maps!** Athena, Outsider, La Mancha, Icarus, and Overwatch (the ASL
+version) have been added to the available pool.
+
 #### 4.1.0 (September 27th, 2016)
 
 - **Replay auto-saving.** No more manually renaming LastReplay.rep after every game! Oh the
@@ -7,7 +19,7 @@ and watching coming soon).
 to the chat input. Type over there! Type over here! Just don't type with beer! (Or do; I'm a
 changelog writer, not a cop.)
 - **See the lobby list when already in a lobby.** Last update's change around this was easily the
-most unpopular one in the entire history of ShieldBattery so... I'm sorry, I'm so very sorry. 
+most unpopular one in the entire history of ShieldBattery so... I'm sorry, I'm so very sorry.
 - **Some tiny visual things you probably won't notice.** Loading indicator positioning is better,
 dialogs without actions no longer have bottom scroll dividers (like this one!). Just trust us, stuff
 looks better.

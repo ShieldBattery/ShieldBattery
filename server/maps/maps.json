@@ -12,6 +12,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Athena 1.0",
+    "hash": "6eb301fec8eafe62b5658596c079fdfa226a7a1d854bde35eb61fbbf7933936a",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "Suggested Players: 2-3\r\nAthena is the Goddess of War. The people of the great Greek city of Athens looked upon her as their defender.\r\nÁ¦ÀÛ : ¼Û±â¹ü\r\n°¨¼ö : Áø±³ÁØ. ±èÁö¿µ",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Big Game Hunters",
     "hash": "2984c350c950815ad5b84c7b951191f016d1ad9fedb5a0b194ee12fbafc82302",
     "tileset": "jungle",
@@ -144,6 +156,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Icarus 1.0",
+    "hash": "9705aaad46ec1dc73f95d8a297ed1d6cf3c5d270d8a4ad6128818e9ec5250e28",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "³ì¾Æ¹ö¸° ³ªÀÇ ³¯°³´Â ¾îµð·Î..?\r\n³¯¾Æ¿À¸£´Â ¹ýÀÌ ±â¾ï³ªÁö ¾Ê¾Æ.\r\n¿ø·¡ ³ª´Â ³¯Áö ¸øÇß´ø °ÍÀÏ±î..?\r\nÈ¥µ· ¼Ó¿¡¼­ ¿µÈ¥Àº ºÎ¼­Á®¹ö¸®°í\r\n½ÉÀåÀº °¥±â°¥±â Âõ¾îÁö°í ¸»¾Ò¾î.\r\n\r\nCreated by Rose.of.Dream.      Presented by Kespa",
+    "format": "scm",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Jade 2.1",
     "hash": "68a558020eccb51dd080c47cbdcdba2f730cd2ec813a0668a2d7b488ab80d1d5",
     "tileset": "twilight",
@@ -164,6 +188,18 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "Created By Str18-02      Presented by KeSPA\r\nÁß½É±â¾Ð 904hPa \r\nÁß½ÉÇ³¼Ó 135kt (70m/s)\r\nÇÇÇØº¹±¸¾× 1220¾ï ´Þ·¯ \r\n±×¸®°í ¾ÄÀ» ¼ö ¾ø´Â »ç¸ÁÀÚ 1339¸í.\r\nE-mail to lasina85@hanmail.net .. GoodLuck !!",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "La Mancha 1.1",
+    "hash": "515cc6eae33663658a22b3c4cd61f585b318a57e7a12f33f22bc593ac0f1881f",
+    "tileset": "desert",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "'¶ó ¸¸Â÷'ÀÇ Ç³Â÷¸¦ ÇâÇØ¼­\r\n½ñ¾ÆÁö´Â ÆøÇ³À» °Å½½·¯ ´Þ·Á°£´Ù.\r\nÈÖ³¯¸®´Â °¥±â´Â ³¯°³°¡ µÇ°í\r\n¾Ó»óÇÑ µîÀº ¾Æ¸§´Ù¿î ÀÚÅÂ°¡ µÈ\r\n'·Î½Ã³­Å×', ³ÊÀÇ µîÀ» Å¸°í...\r\n\r\nCreated by Rose.of.Dream.      Presented by Kespa",
     "format": "scx",
     "thumbFormat": "jpg"
   },
@@ -284,6 +320,30 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "You are as pompous as the square of the sum of brightly charming violet and cherry blossom.\r\nFrom 'Shakespear Programming Language'\r\nCreated by Forgotten_\r\nPresented by KeSPA",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Outsider 1.0",
+    "hash": "edd5b56a9fcc5e8b1ba42eb173ca5918b20f312d7a292b6c9d54e034618e0f0e",
+    "tileset": "ashworld",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "Outside Minerals: 749\r\nOutside Vespene Gas: 2500\r\n\r\nCreated by ESK\r\nPresented by KeSPA",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Overwatch [ASL] 1.3",
+    "hash": "852733ac7227615d13359c11211f0db4f74a0b9a997a14c13c72a5c4748605e9",
+    "tileset": "desert",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "»õ·Î¿î ¿µ¿õÀº ¾ðÁ¦³ª È¯¿µÀÌ¾ß !\r\n\r\nAfreeca Starleague Official Map\r\n\r\nCreated by [Ragnarok]Valkyrie\r\n\r\nthx LatiAs",
     "format": "scx",
     "thumbFormat": "jpg"
   },
