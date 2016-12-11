@@ -1,8 +1,8 @@
-@value shadow4dp from '../material/shadows.css';
 @value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
 @value colorDividers, amberA400, blue700, blue800, grey700 from '../styles/colors.css';
 @value row, col, exact, grow, shrink, itemsCenter, justifyCenter from '../styles/flex.css';
 @value title, subhead, caption, headline from '../styles/typography.css';
+@value shadow4dp from '../material/shadows.css';
 
 .root {
   composes: col;
