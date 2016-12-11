@@ -1,4 +1,5 @@
 @value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
+@value amberA400, blue700, grey700 from '../styles/colors.css';
 @value row, col, exact, grow, shrink, itemsCenter from '../styles/flex.css';
 @value title, subhead, caption, headline from '../styles/typography.css';
 
@@ -10,12 +11,12 @@
 
 .contentTitle {
   composes: headline exact;
-  margin: 16px 16px 8px 16px;
+  margin: 16px 16px 4px 16px;
 }
 
 .path {
   composes: row itemsCenter;
-  margin-top: 8px;
+  margin-bottom: 8px;
   padding-left: 8px;
   padding-right: 8px;
 }
@@ -24,8 +25,8 @@
   composes: exact title;
   margin-top: 0;
   margin-bottom: 0;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding: 8px;
+  font-weight: normal;
   color: colorTextSecondary;
   cursor: pointer;
 }
@@ -48,15 +49,41 @@
 .replaysScrollableView {
 }
 
+.replayList {
+  padding-bottom: 8px;
+}
+
 .entry {
   composes: row itemsCenter;
   width: 100%;
-  padding: 8px 16px 7px 16px;
+  height: 60px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .entry:hover {
   cursor: pointer;
   background-color: rgba(255, 255, 255, 0.08);
+}
+
+.entryIcon {
+  composes: exact;
+  border-radius: 50%;
+  background: colorTextSecondary;
+  color: rgba(0, 0, 0, 0.54);
+  width: 40px;
+  height: 40px;
+  margin-right: 16px;
+  padding: 8px;
+}
+
+.replay .entryIcon {
+  background: blue700;
+  color: colorTextPrimary;
+}
+
+.folder .entryIcon {
+  background: amberA400;
 }
 
 .info {

@@ -6,6 +6,9 @@ import { closeOverlay } from '../activities/action-creators'
 import styles from './watch-replay.css'
 
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
+import Folder from '../icons/material/ic_folder_black_24px.svg'
+import Replay from '../icons/material/ic_movie_black_24px.svg'
+import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 import LoadingIndicator from '../progress/dots.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
@@ -67,6 +70,7 @@ class FolderEntry extends React.Component {
     const classes = classnames(styles.entry, styles.folder)
 
     return (<div className={classes} onClick={() => onClick(folder)}>
+      <div className={styles.entryIcon}><Folder/></div>
       <div className={styles.info}>
         <span className={styles.name}>{folder.name}</span>
       </div>
@@ -90,6 +94,7 @@ class ReplayEntry extends React.Component {
     const classes = classnames(styles.entry, styles.replay)
 
     return (<div className={classes} onClick={() => onStartReplay(replay)}>
+      <div className={styles.entryIcon}><Replay/></div>
       <div className={styles.info}>
         <span className={styles.name}>{replay.name}</span>
         <span className={styles.date}>{getLocalDate(new Date(replay.date))}</span>
@@ -164,11 +169,12 @@ export default class Replays extends React.Component {
       return <p>No replays found. Play some games?</p>
     }
 
-    return (<div>
+    return (<div className={styles.replayList}>
       {
         !isRootFolder ?
-            <div className={styles.entry} onClick={this.onGoBackClick}>
-              <div className={styles.name}>{'<Go back>'}</div>
+            <div className={styles.entry} onClick={this.onGoBackClick} key={'up-one-dir'}>
+              <div className={styles.entryIcon}><UpDirectory/></div>
+              <div className={styles.name}>{'Up one directory'}</div>
             </div> :
             null
       }
@@ -184,11 +190,11 @@ export default class Replays extends React.Component {
     const displayedPath = `${ROOT_FOLDER_NAME}\\${path}`
     return (<div className={styles.root}>
       <h3 className={styles.contentTitle}>Local replays</h3>
+      <PathBreadcrumbs className={styles.path}
+          path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
       <ScrollableContent
           className={styles.replaysScrollable}
           viewClassName={styles.replaysScrollableView}>
-        <PathBreadcrumbs className={styles.path}
-            path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
         { this.renderReplays() }
       </ScrollableContent>
     </div>)
