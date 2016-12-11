@@ -264,9 +264,11 @@ class MainLayout extends React.Component {
   };
 
   onReplaysClick = () => {
-    this.props.dispatch(openSnackbar({
-      message: 'Not implemented yet. Coming soon!',
-    }))
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
+    } else {
+      this.props.dispatch(openOverlay('watchReplay'))
+    }
   };
 
   onFeedbackClick = () => {

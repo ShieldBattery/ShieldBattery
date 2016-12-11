@@ -2,6 +2,10 @@
 @value row, col, grow, itemsCenter, exact from '../styles/flex.css';
 @value title, subhead, headline, body2, body1 from '../styles/typography.css';
 
+.root {
+  padding: 16px;
+}
+
 .title {
   composes: title;
   margin-top: 8px;

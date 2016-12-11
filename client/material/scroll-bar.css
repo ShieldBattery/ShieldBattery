@@ -1,9 +1,13 @@
-@value grey800, grey900 from '../styles/colors.css';
+@value grey700, grey800, grey900 from '../styles/colors.css';
 
 .track {
   background-color: grey800;
   border-radius: 2px;
   cursor: pointer;
+}
+
+:global(.cardLayer) .track {
+  background-color: grey700;
 }
 
 .trackHorizontal {
@@ -38,6 +42,11 @@
   border-bottom: 2px solid grey800;
 }
 
+:global(.cardLayer) .thumbHorizontal {
+  border-top-color: grey700;
+  border-bottom-color: grey700;
+}
+
 .thumbVertical {
   composes: thumb;
   width: 100%;
@@ -46,4 +55,9 @@
   border-right: 2px solid grey800;
   margin-left: auto;
   margin-right: auto;
+}
+
+:global(.cardLayer) .thumbVertical {
+  border-left-color: grey700;
+  border-right-color: grey700;
 }

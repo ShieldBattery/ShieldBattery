@@ -7,6 +7,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH } from '../../shared/constants'
 import { GAME_TYPES, gameTypeToString, isTeamType } from './game-type'
+import styles from './create-lobby.css'
 
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -175,7 +176,7 @@ export default class CreateLobby extends React.Component {
       gameType: 'melee',
     }
 
-    return (<div>
+    return (<div className={styles.root}>
       <h3>Create lobby</h3>
       <CreateLobbyForm ref={this._setForm} inputRef={this._setInput} model={model}
           onSubmit={this.onSubmit} maps={maps}/>
