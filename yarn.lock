@@ -1511,7 +1511,11 @@ concat-stream@1.5.0:
     readable-stream "~2.0.0"
     typedarray "~0.0.5"
 
+<<<<<<< HEAD
 concat-stream@^1.5.2, concat-stream@^1.6.0:
+=======
+concat-stream@^1.4.6, concat-stream@^1.6.0:
+>>>>>>> Allow uploading maps to the server
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/concat-stream/-/concat-stream-1.6.0.tgz#0aac662fd52be78964d5532f694784e70110acf7"
   dependencies:

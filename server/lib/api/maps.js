@@ -1,3 +1,4 @@
+import Chk from 'bw-chk'
 import httpErrors from 'http-errors'
 import fs from 'fs'
 import { Seq } from 'immutable'
