@@ -44,6 +44,7 @@
     "babel-polyfill": "^6.20.0",
     "babel-preset-env": "^1.1.8",
     "classnames": "^2.2.5",
+    "concat-stream": "^1.6.0",
     "core-js": "^2.4.1",
     "cross-env-test": "^0.1.1",
     "cuid": "^1.3.8",
