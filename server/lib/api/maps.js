@@ -5,12 +5,13 @@ import koaBody from 'koa-body'
 import createScmExtractor from 'scm-extractor'
 import HashThrough from '../../../app/common/hash-through'
 import MAPS from '../maps/maps.json'
-import storeMap from '../maps/store'
+import { storeMap, mapInfo } from '../maps/store'
 import { mapExists } from '../models/maps'
 
 export default function(router) {
   router.get('/', ensureLoggedIn, list)
   router.post('/upload', ensureLoggedIn, koaBody({ multipart: true }), clearMultipartFiles, upload)
+  router.get('/info/:hash', ensureLoggedIn, getInfo)
 }
 
 async function clearMultipartFiles(ctx, next) {
@@ -69,6 +70,16 @@ async function upload(ctx, next) {
   await storeMap(hash, extension, filename, await chkPromise, timestamp, path)
   ctx.status = 201
   ctx.body = {}
+}
+
+async function getInfo(ctx, next) {
+  const hash = ctx.params.hash
+  const info = await mapInfo(hash)
+  if (info) {
+    ctx.body = info
+  } else {
+    throw new httpErrors.NotFound()
+  }
 }
 
 async function list(ctx, next) {

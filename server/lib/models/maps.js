@@ -68,3 +68,45 @@ export async function mapExists(hashStr) {
     done()
   }
 }
+
+export async function mapInfo(hashStr) {
+  let hash
+  try {
+    hash = Buffer.from(hashStr, 'hex')
+  } catch (e) {
+    return null
+  }
+  const { client, done } = await db()
+  try {
+    const query = 'SELECT extension, title, description, width, height, players_melee, ' +
+        'players_ums, tileset ' +
+        'FROM maps WHERE hash = $1'
+    const result = await client.queryPromise(query, [ hash ])
+    if (result.rows.length === 0) {
+      return null
+    } else {
+      const res = result.rows[0]
+      return {
+        format: res.extension,
+        tileset: [
+          'badlands',
+          'platform',
+          'installation',
+          'ashworld',
+          'jungle',
+          'desert',
+          'ice',
+          'twilight',
+        ][res.tileset],
+        name: res.title,
+        description: res.description,
+        slots: res.players_melee,
+        umsSlots: res.players_ums,
+        width: res.width,
+        height: res.height,
+      }
+    }
+  } finally {
+    done()
+  }
+}

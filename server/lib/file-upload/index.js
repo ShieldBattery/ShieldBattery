@@ -19,3 +19,13 @@ export async function writeFile(filename, data) {
     return store.write(filename, data)
   }
 }
+
+export async function getUrl(filename) {
+  return store.url(filename)
+}
+
+export function addMiddleware(app) {
+  if (store.addMiddleware) {
+    store.addMiddleware(app)
+  }
+}

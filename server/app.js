@@ -31,7 +31,7 @@ import views from 'koa-views'
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
 
-import { setStore } from './lib/file-upload'
+import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 
 if (!config.canonicalHost) {
@@ -159,6 +159,9 @@ if (isDev) {
   })))
   app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
 }
+
+fileStoreMiddleware(app)
+
 import createRoutes from './routes'
 createRoutes(app, userSockets)
 

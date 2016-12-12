@@ -1,4 +1,8 @@
+import config from '../../config'
 import fs from 'fs'
+import koaConvert from 'koa-convert'
+import koaMount from 'koa-mount'
+import koaStatic from 'koa-static'
 import path from 'path'
 import thenify from 'thenify'
 
@@ -41,5 +45,23 @@ export default class LocalFsStore {
       stream.on('error', reject)
       out.on('error', reject)
     })
+  }
+
+  async url(filename) {
+    const normalized = path.posix.normalize(filename)
+    if (path.isAbsolute(normalized) || normalized[0] === '.') {
+      throw new Error('Invalid directory')
+    }
+    const full = path.join(this.path, normalized)
+    try {
+      await access(full)
+      return `${config.canonicalHost}/files/${normalized}`
+    } catch (_) {
+      return null
+    }
+  }
+
+  addMiddleware(app) {
+    app.use(koaMount('/files', koaConvert(koaStatic(this.path))))
   }
 }

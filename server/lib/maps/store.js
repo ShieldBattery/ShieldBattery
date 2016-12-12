@@ -2,13 +2,13 @@ import Chk from 'bw-chk'
 import fs from 'fs'
 import jpeg from 'jpeg-js'
 import config from '../../config.js'
-import { addMap } from '../models/maps'
-import { writeFile } from '../file-upload'
+import * as db from '../models/maps'
+import { writeFile, getUrl } from '../file-upload'
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export default async function storeMap(hash, extension, origFilename, map, timestamp, mapMpqPath) {
+export async function storeMap(hash, extension, origFilename, map, timestamp, mapMpqPath) {
   // Maybe this function should revert everything it had done on error?
   // Shouldn't matter that much as the maps can be reuploaded as long as the database query
   // doesn't succeed (And that's the last thing this function does), but if there's a hash
@@ -47,7 +47,21 @@ export default async function storeMap(hash, extension, origFilename, map, times
   }
 
   await writeFile(mapPath(hash, extension), fs.createReadStream(mapMpqPath))
-  await addMap(hash, extension, origFilename, map, timestamp)
+  await db.addMap(hash, extension, origFilename, map, timestamp)
+}
+
+export async function mapInfo(hash) {
+  const info = await db.mapInfo(hash)
+  if (!info) {
+    return null
+  } else {
+    return {
+      hash,
+      mapUrl: await getUrl(mapPath(hash, info.format)),
+      imageUrl: await getUrl(imagePath(hash)),
+      ...info,
+    }
+  }
 }
 
 function mapPath(hash, extension) {

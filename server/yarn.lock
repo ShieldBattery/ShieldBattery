@@ -2914,6 +2914,13 @@ koa-is-json@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/koa-is-json/-/koa-is-json-1.0.0.tgz#273c07edcdcb8df6a2c1ab7d59ee76491451ec14"
 
+koa-mount@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/koa-mount/-/koa-mount-2.0.0.tgz#728b7d01ab23e7e58dc588e52fc554d67ee981db"
+  dependencies:
+    debug "*"
+    koa-compose "^3.0.0"
+
 koa-redis@^2.1.3:
   version "2.1.3"
   resolved "https://registry.yarnpkg.com/koa-redis/-/koa-redis-2.1.3.tgz#8fb4b17235abdc0e19f3996f90f690d9b25b2ed1"
