@@ -22,6 +22,7 @@ class User {
     this.email = props.email
     defPrivate(this, 'password', props.password)
     this.created = props.created || new Date()
+    this.ipAddressAtSignup = this._fromDb ? props.ip_address_at_signup : props.ipAddressAtSignup
   }
 
   async save() {
@@ -38,9 +39,9 @@ class User {
   }
 
   async _insert() {
-    const query = 'INSERT INTO users (name, email, password, created) ' +
-        'VALUES ($1, $2, $3, $4) RETURNING id'
-    const params = [ this.name, this.email, this.password, this.created ]
+    const query = 'INSERT INTO users (name, email, password, created, ip_address_at_signup) ' +
+        'VALUES ($1, $2, $3, $4, $5) RETURNING id'
+    const params = [ this.name, this.email, this.password, this.created, this.ipAddressAtSignup ]
 
     return await transact(async client => {
       const result = await client.queryPromise(query, params)
@@ -60,8 +61,10 @@ class User {
   async _update() {
     if (!this.id) throw new Error('Incomplete data')
     const query =
-        'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
-    const params = [ this.name, this.email, this.password. this.created, this.id ]
+        `UPDATE users SET name = $1, email = $2, password = $3, created = $4,
+        ip_address_at_signup = $5 WHERE id = $6`
+    const params =
+        [ this.name, this.email, this.password, this.created, this.ipAddressAtSignup, this.id ]
 
     const { client, done } = await db()
     try {
@@ -73,12 +76,13 @@ class User {
   }
 }
 
-function createUser(name, email, hashedPassword, createdDate) {
+function createUser(name, email, hashedPassword, ipAddress, createdDate) {
   return new User({
     name,
     email,
     password: hashedPassword,
-    created: createdDate || new Date()
+    created: createdDate || new Date(),
+    ipAddressAtSignup: ipAddress,
   })
 }
 
@@ -104,7 +108,28 @@ async function findUser(criteria) {
   }
 }
 
+export async function updateUsersIpAddress(userId, ipAddress) {
+  return transact(async function(client) {
+    const result = await client.queryPromise(
+        'SELECT ip_address_at_signup FROM users WHERE id = $1',
+        [ userId ])
+
+    if (result.rows.length < 1) {
+      throw new Error('No rows returned')
+    }
+
+    const ipAddressAtSignup = result.rows[0].ip_address_at_signup
+    if (!ipAddressAtSignup) {
+      return client.queryPromise('UPDATE users SET ip_address_at_signup = $1 WHERE id = $2',
+        [ ipAddress, userId ])
+    }
+
+    return Promise.resolve()
+  })
+}
+
 export default {
   create: createUser,
   find: findUser,
+  updateIp: updateUsersIpAddress,
 }
