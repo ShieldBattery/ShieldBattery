@@ -25,6 +25,7 @@ import logMiddleware from './server/logging/log-middleware'
 import secureHeaders from './server/security/headers'
 import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
+import userIpsMiddleware from './server/user-ips/middleware'
 import views from 'koa-views'
 
 import pingRegistry from './server/rally-point/ping-registry'
@@ -133,6 +134,7 @@ app
   .use(new Csrf())
   .use(secureHeaders())
   .use(secureJson())
+  .use(userIpsMiddleware())
 
 if (isDev) {
   app.use(koaConvert(require('koa-webpack-dev-middleware')(compiler, {
