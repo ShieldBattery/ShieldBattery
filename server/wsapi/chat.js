@@ -228,9 +228,9 @@ export class ChatApi {
     for (const channel of channels.values()) {
       const updated = this.state.channels.get(channel).delete(userName)
       this.state = updated.size ? this.state.setIn(['channels', channel], updated) :
-          this.state.deleteIn('channels', channel)
+          this.state.deleteIn(['channels', channel])
     }
-    this.state = this.state.deleteIn('users', userName)
+    this.state = this.state.deleteIn(['users', userName])
 
     for (const c of channels.values()) {
       this._publishTo(c, { action: 'userOffline', user: userName })
