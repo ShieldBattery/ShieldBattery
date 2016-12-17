@@ -8,14 +8,15 @@ export default class ActivityBar extends React.Component {
     onAvatarClick: PropTypes.func.isRequired,
     avatarTitle: PropTypes.string.isRequired,
     user: PropTypes.string.isRequired,
+    avatarButtonRef: PropTypes.func,
   };
 
   render() {
-    const { user, avatarTitle, onAvatarClick } = this.props
+    const { user, avatarTitle, onAvatarClick, avatarButtonRef } = this.props
 
     return (<div className={styles.activityBar}>
       <AvatarButton className={styles.avatarButton} avatarClassName={styles.avatar} user={user}
-          title={avatarTitle} onClick={onAvatarClick} />
+          title={avatarTitle} buttonRef={avatarButtonRef} onClick={onAvatarClick} />
       {this.props.children}
     </div>)
   }
