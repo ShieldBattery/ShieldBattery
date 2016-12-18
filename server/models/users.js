@@ -22,6 +22,7 @@ class User {
     this.email = props.email
     defPrivate(this, 'password', props.password)
     this.created = props.created || new Date()
+    this.signupIpAddress = this._fromDb ? props.ip_address_at_signup : props.signupIpAddress
   }
 
   async save() {
@@ -38,9 +39,9 @@ class User {
   }
 
   async _insert() {
-    const query = 'INSERT INTO users (name, email, password, created) ' +
-        'VALUES ($1, $2, $3, $4) RETURNING id'
-    const params = [ this.name, this.email, this.password, this.created ]
+    const query = 'INSERT INTO users (name, email, password, created, signup_ip_address) ' +
+        'VALUES ($1, $2, $3, $4, $5) RETURNING id'
+    const params = [ this.name, this.email, this.password, this.created, this.signupIpAddress ]
 
     return await transact(async client => {
       const result = await client.queryPromise(query, params)
@@ -60,8 +61,10 @@ class User {
   async _update() {
     if (!this.id) throw new Error('Incomplete data')
     const query =
-        'UPDATE users SET name = $1, email = $2, password = $3, created = $4 WHERE id = $5'
-    const params = [ this.name, this.email, this.password. this.created, this.id ]
+        `UPDATE users SET name = $1, email = $2, password = $3, created = $4,
+        signup_ip_address = $5 WHERE id = $6`
+    const params =
+        [ this.name, this.email, this.password, this.created, this.signupIpAddress, this.id ]
 
     const { client, done } = await db()
     try {
@@ -73,12 +76,13 @@ class User {
   }
 }
 
-function createUser(name, email, hashedPassword, createdDate) {
+function createUser(name, email, hashedPassword, ipAddress, createdDate) {
   return new User({
     name,
     email,
     password: hashedPassword,
-    created: createdDate || new Date()
+    created: createdDate || new Date(),
+    signupIpAddress: ipAddress,
   })
 }
 
@@ -104,7 +108,19 @@ async function findUser(criteria) {
   }
 }
 
+export async function maybeUpdateIpAddress(userId, ipAddress) {
+  const { client, done } = await db()
+  try {
+    return client.queryPromise(
+        'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
+        [ ipAddress, userId ])
+  } finally {
+    done()
+  }
+}
+
 export default {
   create: createUser,
   find: findUser,
+  maybeUpdateIp: maybeUpdateIpAddress,
 }

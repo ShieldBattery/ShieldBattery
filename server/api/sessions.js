@@ -68,6 +68,7 @@ async function startNewSession(ctx, next) {
   try {
     await co(ctx.regenerateSession())
     const perms = await permissions.get(user.id)
+    await users.maybeUpdateIp(user.id, ctx.ip)
     initSession(ctx, user, perms)
     setReturningCookie(ctx)
 

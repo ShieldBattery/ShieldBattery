@@ -71,7 +71,7 @@ async function createUser(ctx, next) {
 
   let result
   try {
-    const user = users.create(username, email, hashed)
+    const user = users.create(username, email, hashed, ctx.ip)
     result = await user.save()
   } catch (err) {
     if (err.code && err.code === UNIQUE_VIOLATION) {
