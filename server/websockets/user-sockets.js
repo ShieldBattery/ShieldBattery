@@ -1,6 +1,9 @@
 import { List, Map, Set } from 'immutable'
 import { EventEmitter } from 'events'
 
+import log from '../logging/logger'
+import { updateOrInsertUserIp } from '../models/user-ips'
+
 function defaultDataGetter() {}
 
 export class UserSocketGroup extends EventEmitter {
@@ -101,6 +104,12 @@ export class UserManager extends EventEmitter {
         user.once('close', () => this._removeUser(userName))
       } else {
         this.users.get(userName).add(socket)
+      }
+
+      try {
+        updateOrInsertUserIp(session.userId, socket.conn.remoteAddress)
+      } catch (err) {
+        log.error('Error inserting user ip record: ' + { err })
       }
     })
   }
