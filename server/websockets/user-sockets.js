@@ -1,5 +1,7 @@
 import { List, Map, Set } from 'immutable'
 import { EventEmitter } from 'events'
+import { updateOrInsertUserIp } from '../models/user-ips'
+import getAddress from './get-address'
 
 function defaultDataGetter() {}
 
@@ -102,6 +104,10 @@ export class UserManager extends EventEmitter {
       } else {
         this.users.get(userName).add(socket)
       }
+
+      updateOrInsertUserIp(session.userId, getAddress(socket.conn.request)).catch(() => {
+        // Can't log without creating a context here, so we just drop these. Bleh.
+      })
     })
   }
 
