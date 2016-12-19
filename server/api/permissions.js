@@ -26,6 +26,7 @@ async function updatePermissions(ctx, next) {
     debug: b.debug,
     acceptInvites: b.acceptInvites,
     editAllChannels: b.editAllChannels,
+    banUsers: b.banUsers,
   }
 
   try {
