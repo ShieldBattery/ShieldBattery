@@ -2,6 +2,7 @@ import co from 'co'
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
+import Redis from 'ioredis'
 import users from '../models/users'
 import permissions from '../models/permissions'
 import initSession from '../session/init'
@@ -80,7 +81,12 @@ async function startNewSession(ctx, next) {
 }
 
 async function endSession(ctx, next) {
-  if (!ctx.session.userId) throw new httpErrors.Conflict('No session active')
+  if (!ctx.session.userId) {
+    throw new httpErrors.Conflict('No session active')
+  }
+
+  const redis = new Redis()
+  await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId)
   await co(ctx.regenerateSession())
   ctx.status = 204
 }
