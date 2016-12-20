@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
 import redis from '../redis'
+import bans from '../models/bans'
 import users from '../models/users'
 import permissions from '../models/permissions'
 import initSession from '../session/init'
@@ -64,6 +65,17 @@ async function startNewSession(ctx, next) {
   }
   if (!same) {
     throw new httpErrors.Unauthorized('Incorrect username or password')
+  }
+
+  let isBanned = false
+  try {
+    isBanned = await bans.isUserBanned(user.id)
+  } catch (err) {
+    ctx.log.error({ err }, 'error checking if user is banned')
+    throw err
+  }
+  if (isBanned) {
+    throw new httpErrors.Unauthorized('This account has been banned')
   }
 
   try {

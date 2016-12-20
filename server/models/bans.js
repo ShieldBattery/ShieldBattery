@@ -18,3 +18,17 @@ export async function banUser(userId, bannedBy, banLengthHours, reason) {
     done()
   }
 }
+
+export async function isUserBanned(userId) {
+  const { client, done } = await db()
+  const now = new Date()
+
+  try {
+    const result = await client.queryPromise(
+        'SELECT * FROM user_bans WHERE end_time > $1 AND start_time <= $1',
+        [ now ])
+    return !!result.rows.length
+  } finally {
+    done()
+  }
+}
