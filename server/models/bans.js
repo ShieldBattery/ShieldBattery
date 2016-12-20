@@ -1,10 +1,10 @@
 import db from '../db'
 
-export async function ban(userId, length, bannedBy, reason) {
+export async function banUser(userId, bannedBy, banLengthHours, reason) {
   const { client, done } = await db()
   const startDate = new Date()
   const endDate = new Date()
-  endDate.setHours(endDate.getHours() + length)
+  endDate.setHours(endDate.getHours() + banLengthHours)
   const params = [ userId, startDate, endDate, bannedBy ]
   if (reason) {
     params.push(reason)

@@ -1,5 +1,5 @@
 import httpErrors from 'http-errors'
-import Redis from 'ioredis'
+import redis from '../redis'
 import bans from '../models/bans'
 import checkPermissions from '../permissions/check-permissions'
 
@@ -17,20 +17,19 @@ async function banUser(ctx, next) {
   const userId = ctx.params.userId
   const b = ctx.request.body
   const banParams = {
-    length: b.length,
-    bannedBy: b.bannedBy,
+    banLengthHours: b.banLengthHours,
     reason: b.reason,
   }
 
-  if (!banParams.length || !banParams.bannedBy) {
-    throw new httpErrors.BadRequest('Invalid parameters')
+  if (!banParams.banLengthHours) {
+    // If the ban length is not supplied, we set the ban to 10 years
+    banParams.banLengthHours = 10 * 365 * 24 * 60 * 60 * 1000
   }
 
   try {
-    const redis = new Redis()
-    await bans.ban(userId, ...banParams)
+    await bans.banUser(userId, ctx.session.userId, ...banParams)
     // Clear all existing sessions for this user
-    const userSessionsKey = 'user_sessions:' + ctx.session.userId
+    const userSessionsKey = 'user_sessions:' + userId
     const userSessionIds = await redis.smembers(userSessionsKey)
     for (const sessionId of userSessionIds) {
       await redis.del('koa:sess:' + sessionId)
