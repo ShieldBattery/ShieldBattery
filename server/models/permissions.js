@@ -6,6 +6,7 @@ class Permissions {
     this.debug = props.debug
     this.acceptInvites = props.accept_invites
     this.editAllChannels = props.edit_all_channels
+    this.banUsers = props.ban_users
   }
 }
 
@@ -19,8 +20,9 @@ async function createPermissions(dbClient, userId) {
 }
 
 async function getPermissions(userId) {
-  const query = `SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels
-      FROM permissions WHERE user_id = $1`
+  const query =
+    `SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users
+    FROM permissions WHERE user_id = $1`
   const params = [ userId ]
 
   const { client, done } = await db()
@@ -33,13 +35,15 @@ async function getPermissions(userId) {
 }
 
 async function updatePermissions(userId, perms) {
-  const query = `UPDATE permissions SET edit_permissions = $1, debug = $2, accept_invites = $3,
-      edit_all_channels = $4 WHERE user_id = $5 RETURNING *`
+  const query =
+    `UPDATE permissions SET edit_permissions = $1, debug = $2, accept_invites = $3,
+    edit_all_channels = $4, ban_users = $5 WHERE user_id = $6 RETURNING *`
   const params = [
     !!perms.editPermissions,
     !!perms.debug,
     !!perms.acceptInvites,
     !!perms.editAllChannels,
+    !!perms.banUsers,
     userId
   ]
 

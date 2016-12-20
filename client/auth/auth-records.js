@@ -6,6 +6,7 @@ export const Permissions = new Record({
   debug: false,
   acceptInvites: false,
   editAllChannels: false,
+  banUsers: false,
 })
 export const Auth = new Record({
   authChangeInProgress: false,
