@@ -15,19 +15,14 @@ async function getUserBanHistory(ctx, next) {
 
 async function banUser(ctx, next) {
   const userId = ctx.params.userId
-  const b = ctx.request.body
-  const banParams = {
-    banLengthHours: b.banLengthHours,
-    reason: b.reason,
-  }
+  const { banLengthHours, reason } = ctx.request.body
 
-  if (!banParams.banLengthHours) {
-    // If the ban length is not supplied, we set the ban to 10 years
-    banParams.banLengthHours = 10 * 365 * 24 * 60 * 60 * 1000
+  if (!banLengthHours) {
+    throw new httpErrors.BadRequest('Ban length must be specified')
   }
 
   try {
-    await bans.banUser(userId, ctx.session.userId, ...banParams)
+    await bans.banUser(userId, ctx.session.userId, banLengthHours, reason)
     // Clear all existing sessions for this user
     const userSessionsKey = 'user_sessions:' + userId
     const userSessionIds = await redis.smembers(userSessionsKey)
