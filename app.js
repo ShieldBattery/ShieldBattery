@@ -107,6 +107,7 @@ const port = config.https ? config.httpsPort : config.httpPort
 const compiler = webpack(webpackConfig)
 
 app.keys = [ config.sessionSecret ]
+app.proxy = config.httpsReverseProxy
 
 app.on('error', err => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
