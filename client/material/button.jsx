@@ -51,11 +51,11 @@ class Button extends React.Component {
   }
 
   focus() {
-    this.refs._ref.focus()
+    this._ref.focus()
   }
 
   blur() {
-    this.refs._ref.blur()
+    this._ref.blur()
   }
 
   _handleBlur(e) {
