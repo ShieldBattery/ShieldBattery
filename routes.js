@@ -14,7 +14,7 @@ function send404(ctx, next) {
   throw new httpErrors.NotFound()
 }
 
-function applyRoutes(app) {
+export default function applyRoutes(app, userSockets) {
   app.use(router.routes())
     .use(router.allowedMethods())
 
@@ -24,7 +24,7 @@ function applyRoutes(app) {
   apiFiles.filter(jsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, '.js')
     const subRouter = new KoaRouter()
-    require('./server/api/' + filename).default(subRouter)
+    require('./server/api/' + filename).default(subRouter, userSockets)
     router.use(apiPath, subRouter.routes())
     console.log('mounted ' + apiPath)
   })
@@ -61,5 +61,3 @@ function applyRoutes(app) {
     }
   )
 }
-
-export default applyRoutes

@@ -10,7 +10,7 @@ export default function() {
 
     if (ctx.sessionId && ctx.session.userId) {
       const userSessionsKey = 'user_sessions:' + ctx.session.userId
-      await redis.sadd(userSessionsKey, ctx.sessionId)
+      await redis.sadd(userSessionsKey, 'koa:sess:' + ctx.sessionId)
       await redis.expire(userSessionsKey, config.sessionTtl)
     }
   }

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
 import redis from '../redis'
-import bans from '../models/bans'
+import { isUserBanned } from '../models/bans'
 import users from '../models/users'
 import permissions from '../models/permissions'
 import initSession from '../session/init'
@@ -69,7 +69,7 @@ async function startNewSession(ctx, next) {
 
   let isBanned = false
   try {
-    isBanned = await bans.isUserBanned(user.id)
+    isBanned = await isUserBanned(user.id)
   } catch (err) {
     ctx.log.error({ err }, 'error checking if user is banned')
     throw err
