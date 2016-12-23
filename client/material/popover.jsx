@@ -12,28 +12,51 @@ const OPEN_DELAY = 125
 const OPEN_DURATION = 175
 const CLOSE_DURATION = 100
 
+const TIMINGS = {
+  openDelay: OPEN_DELAY,
+  openDuration: OPEN_DURATION,
+  closeDuration: CLOSE_DURATION,
+}
+
 export default class Popover extends React.Component {
   static propTypes = {
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func.isRequired,
+    // A function that will be called to render children, parameters are:
+    //   state: 'opening', 'opened', or 'closing'
+    //   timings: { openDelay, openDuration, closeDuration } with timings for the various animations
     children: PropTypes.func.isRequired,
+    // DOM element to position the Popover around
     anchor: PropTypes.object,
-    anchorOffsetVertical: PropTypes.number,
-    anchorOffsetHorizontal: PropTypes.number,
+    // The vertical side of the `anchor` element that the Popover should animate out from
+    // ('top' or 'bottom'). Defaults to top.
     anchorOriginVertical: PropTypes.oneOf(['top', 'bottom']),
+    // The horizontal side of the `anchor` element that the Popover should animate out from
+    // ('left' or 'right'). Defaults to left.
     anchorOriginHorizontal: PropTypes.oneOf(['left', 'right']),
-    targetOriginVertical: PropTypes.oneOf(['top', 'bottom']),
-    targetOriginHorizontal: PropTypes.oneOf(['left', 'right']),
+    // An offset (in pixels) to adjust the anchorOrigin by (from the side specified by
+    // `anchorOriginVertical`). Positive values move the anchorOrigin down, negative move it up.
+    anchorOffsetVertical: PropTypes.number,
+    // An offset (in pixels) to adjust the anchorOrigin by (from the side specified by
+    // `anchorOriginHorizontal`). Positive values move the anchorOrigin right, negative move it
+    // left.
+    anchorOffsetHorizontal: PropTypes.number,
+    // The vertical side of the Popover that should sit adjacent to the anchor element ('top' or
+    // 'bottom'). Defaults to top.
+    popoverOriginVertical: PropTypes.oneOf(['top', 'bottom']),
+    // The horizontal side of the Popover that should sit adjacent to the anchor element ('left' or
+    // 'right'). Defaults to left.
+    popoverOriginHorizontal: PropTypes.oneOf(['left', 'right']),
   };
 
   static defaultProps = {
-    anchorOffsetVertical: 0,
-    anchorOffsetHorizontal: 0,
     anchorOriginVertical: 'top',
     anchorOriginHorizontal: 'left',
-    targetOriginVertical: 'top',
-    targetOriginHorizontal: 'left'
-  }
+    anchorOffsetVertical: 0,
+    anchorOffsetHorizontal: 0,
+    popoverOriginVertical: 'top',
+    popoverOriginHorizontal: 'left'
+  };
 
   state = {
     open: this.props.open,
@@ -93,19 +116,21 @@ export default class Popover extends React.Component {
     })
   };
 
-  calculatePopoverPosition() {
+  calculatePopoverPosition(props) {
+    if (!props.anchor) {
+      return null
+    }
+
     const {
       anchor,
       anchorOffsetVertical,
       anchorOffsetHorizontal,
       anchorOriginVertical,
       anchorOriginHorizontal,
-      targetOriginVertical,
-      targetOriginHorizontal,
-    } = this.props
-    if (!anchor) {
-      return null
-    }
+      popoverOriginVertical,
+      popoverOriginHorizontal,
+    } = props
+
     const clientWidth = document.body.clientWidth
     const clientHeight = document.body.clientHeight
     const anchorElement = anchor.getBoundingClientRect()
@@ -119,13 +144,13 @@ export default class Popover extends React.Component {
     }
 
     const popoverPosition = {}
-    if (targetOriginVertical === 'top') {
+    if (popoverOriginVertical === 'top') {
       if (anchorOriginVertical === 'top') {
         popoverPosition.top = rect.top
       } else if (anchorOriginVertical === 'bottom') {
         popoverPosition.top = rect.top + rect.height
       }
-    } else if (targetOriginVertical === 'bottom') {
+    } else if (popoverOriginVertical === 'bottom') {
       if (anchorOriginVertical === 'top') {
         popoverPosition.bottom = clientHeight - rect.top
       } else if (anchorOriginVertical === 'bottom') {
@@ -133,13 +158,13 @@ export default class Popover extends React.Component {
       }
     }
 
-    if (targetOriginHorizontal === 'left') {
+    if (popoverOriginHorizontal === 'left') {
       if (anchorOriginHorizontal === 'left') {
         popoverPosition.left = rect.left
       } else if (anchorOriginHorizontal === 'right') {
         popoverPosition.left = rect.left + rect.width
       }
-    } else if (targetOriginHorizontal === 'right') {
+    } else if (popoverOriginHorizontal === 'right') {
       if (anchorOriginHorizontal === 'left') {
         popoverPosition.right = clientWidth - rect.left
       } else if (anchorOriginHorizontal === 'right') {
@@ -157,7 +182,7 @@ export default class Popover extends React.Component {
         this.setState({
           open: true,
           transitioning: true,
-          popoverPosition: this.calculatePopoverPosition(),
+          popoverPosition: this.calculatePopoverPosition(nextProps),
         })
         clearTimeout(this.openTimer)
         this.openTimer =
@@ -205,11 +230,6 @@ export default class Popover extends React.Component {
       if (!open && !this.closing) return null
 
       let state = 'opened'
-      const timings = {
-        openDelay: OPEN_DELAY,
-        openDuration: OPEN_DURATION,
-        closeDuration: CLOSE_DURATION,
-      }
       if (this.opening) {
         state = 'opening'
       } else if (this.closing) {
@@ -235,7 +255,7 @@ export default class Popover extends React.Component {
                     <div className={styles.background} style={this.state.backgroundStyle} />
                   </div>
                 </div>
-                { children(state, timings) }
+                { children(state, TIMINGS) }
               </div> :
               null
           }
@@ -250,7 +270,7 @@ export default class Popover extends React.Component {
 
   recalcPopoverPosition = () => {
     this.setState({
-      popoverPosition: this.calculatePopoverPosition(),
+      popoverPosition: this.calculatePopoverPosition(this.props),
     })
   };
 }
