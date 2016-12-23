@@ -1,6 +1,5 @@
 import React from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
-import Card from '../card.jsx'
 import styles from './popover-test.css'
 
 import IconButton from '../icon-button.jsx'
@@ -37,7 +36,7 @@ export default class OverflowTest extends React.Component {
       padding: 16,
       paddingTop: 64,
     }
-    const cardStyle = {
+    const contentStyle = {
       maxWidth: 640,
       minHeight: 512,
       paddingBottom: 32,
@@ -72,7 +71,7 @@ export default class OverflowTest extends React.Component {
     const { open } = this.state
 
     return (<div style={containerStyle}>
-      <Card style={cardStyle}>
+      <div style={contentStyle}>
         <IconButton style={topLeftStyle} buttonRef={this._setTopLeft}
             icon={<VertMenuIcon />} onClick={this.onTopLeftClick} />
         <IconButton style={topRightStyle} buttonRef={this._setTopRight}
@@ -98,7 +97,7 @@ export default class OverflowTest extends React.Component {
           children={this.renderPopoverContents}
           anchorOriginVertical='bottom' anchorOriginHorizontal='right'
           popoverOriginVertical='bottom' popoverOriginHorizontal='right'/>
-      </Card>
+      </div>
     </div>)
   }
 
