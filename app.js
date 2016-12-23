@@ -26,7 +26,7 @@ import secureHeaders from './server/security/headers'
 import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
 import userIpsMiddleware from './server/network/user-ips-middleware'
-import userSessionsMiddleware from './server/network/user-sessions-middleware'
+import userSessionsMiddleware from './server/session/user-sessions-middleware'
 import views from 'koa-views'
 
 import pingRegistry from './server/rally-point/ping-registry'
