@@ -37,6 +37,12 @@ export class UserSocketGroup extends EventEmitter {
     }
   }
 
+  closeAll() {
+    for (const s of this.sockets) {
+      s.close()
+    }
+  }
+
   // Adds a subscription to all sockets for this user, including any sockets that may connect
   // after this. `initialDataGetter` should either be undefined, or a function(user, socket)
   // that returns the initialData to use for a subscribe call. `cleanup` should either be

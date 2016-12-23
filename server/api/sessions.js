@@ -2,6 +2,8 @@ import co from 'co'
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
+import redis from '../redis'
+import { isUserBanned } from '../models/bans'
 import users from '../models/users'
 import permissions from '../models/permissions'
 import initSession from '../session/init'
@@ -65,6 +67,17 @@ async function startNewSession(ctx, next) {
     throw new httpErrors.Unauthorized('Incorrect username or password')
   }
 
+  let isBanned = false
+  try {
+    isBanned = await isUserBanned(user.id)
+  } catch (err) {
+    ctx.log.error({ err }, 'error checking if user is banned')
+    throw err
+  }
+  if (isBanned) {
+    throw new httpErrors.Unauthorized('This account has been banned')
+  }
+
   try {
     await co(ctx.regenerateSession())
     const perms = await permissions.get(user.id)
@@ -80,7 +93,11 @@ async function startNewSession(ctx, next) {
 }
 
 async function endSession(ctx, next) {
-  if (!ctx.session.userId) throw new httpErrors.Conflict('No session active')
+  if (!ctx.session.userId) {
+    throw new httpErrors.Conflict('No session active')
+  }
+
+  await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId)
   await co(ctx.regenerateSession())
   ctx.status = 204
 }

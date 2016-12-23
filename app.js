@@ -26,6 +26,7 @@ import secureHeaders from './server/security/headers'
 import secureJson from './server/security/json'
 import sessionMiddleware from './server/session/middleware'
 import userIpsMiddleware from './server/network/user-ips-middleware'
+import userSessionsMiddleware from './server/session/user-sessions-middleware'
 import views from 'koa-views'
 
 import pingRegistry from './server/rally-point/ping-registry'
@@ -136,16 +137,8 @@ app
   .use(secureHeaders())
   .use(secureJson())
   .use(userIpsMiddleware())
+  .use(userSessionsMiddleware())
 
-if (isDev) {
-  app.use(koaConvert(require('koa-webpack-dev-middleware')(compiler, {
-    noInfo: true,
-    publicPath: webpackConfig.output.publicPath
-  })))
-  app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
-}
-import createRoutes from './routes'
-createRoutes(app)
 
 let mainServer
 if (config.https) {
@@ -163,7 +156,18 @@ if (config.https) {
 }
 
 import setupWebsockets from './websockets'
-setupWebsockets(mainServer, app, sessionMiddleware)
+const { userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
+
+if (isDev) {
+  app.use(koaConvert(require('koa-webpack-dev-middleware')(compiler, {
+    noInfo: true,
+    publicPath: webpackConfig.output.publicPath
+  })))
+  app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
+}
+import createRoutes from './routes'
+createRoutes(app, userSockets)
+
 
 compiler.run = thenify(compiler.run)
 const compilePromise = isDev ? Promise.resolve() : compiler.run()
