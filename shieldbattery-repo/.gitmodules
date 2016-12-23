@@ -1,0 +1,3 @@
+[submodule "deps/node"]
+	path = deps/node
+	url = https://github.com/nodejs/node

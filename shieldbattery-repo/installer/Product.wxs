@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?define RegistryKeyPath = "SOFTWARE\ShieldBattery" ?>
+  <?define BundleDir="$(var.ProjectDir)..\bundler\bundle\" ?>
+  <?define D3DRedistDir="$(env.ProgramFiles(x86))\Windows Kits\8.1\Redist\D3D\x86\" ?>
+  
+	<Product Id="*" Name="ShieldBattery" Language="1033" Version="4.2.0" Manufacturer="ShieldBattery" UpgradeCode="{64DF999F-FC7D-41B9-8972-27D18C085769}">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+		<MajorUpgrade AllowDowngrades="yes" />
+    <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+    <Property Id="ApplicationFolderName" Value="ShieldBattery" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+
+    <Property Id="INSTALLDIR">
+      <RegistrySearch Id="InstallPathRegistry" Type="raw" Root="HKCU" Key="$(var.RegistryKeyPath)" Name="InstallPath" />
+    </Property>
+
+		<Feature Id="ShieldBattery"
+             Title="ShieldBattery client"
+             Description="Client for playing on ShieldBattery"
+             Level="1"
+             Absent="disallow">
+      <ComponentRef Id="ShieldBatteryDll"/>
+      <ComponentRef Id="PsiExecutable"/>
+      <ComponentRef Id="PsiEmitterExecutable"/>
+      <ComponentRef Id="D3DRedistDll"/>
+      <ComponentRef Id="JSBundle"/>
+      <ComponentRef Id="RegistryEntries"/>
+		</Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="ShieldBattery" />
+      </Directory>
+
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLDIR" Name="ShieldBattery" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="ShieldBatteryDll">
+        <File Id="shieldbattery.dll" KeyPath="yes" Source="$(var.BundleDir)\shieldbattery.dll" />
+      </Component>
+
+      <Component Id="PsiExecutable">
+        <File Id="psi.exe" KeyPath="yes" Source="$(var.BundleDir)\psi.exe" />
+        <ServiceInstall
+          Id="PsiServiceInstall"
+          Type="ownProcess"
+          Name="Psi"
+          DisplayName="Psi"
+          Description="ShieldBattery background service"
+          Start="auto"
+          Account="[SERVICEACCOUNT]"
+          Password="[SERVICEPASSWORD]"
+          ErrorControl="normal"/>
+        <ServiceControl Id="StartPsiService" Start="install" Stop="both" Remove="uninstall" Name="Psi" Wait="yes" />
+      </Component>
+
+      <Component Id="PsiEmitterExecutable">
+        <File Id="psi_emitter.exe" KeyPath="yes" Source="$(var.BundleDir)\psi-emitter.exe" />
+      </Component>
+
+      <Component Id="D3DRedistDll">
+        <File Id="d3dcompiler_47.dll" KeyPath="yes" Source="$(var.D3DRedistDir)\d3dcompiler_47.dll" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Directory Id="JSFolder" Name="js">
+        <Component Id="JSBundle">
+          <File Id="index.js" KeyPath="yes" Source="$(var.BundleDir)\js\index.js" />
+        </Component>
+      </Directory>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="RegistryEntries">
+        <RegistryValue Root="HKCU"
+                       Key="$(var.RegistryKeyPath)"
+                       Name="InstallPath"
+                       Type="string"
+                       Value="[INSTALLDIR]"
+                       KeyPath="yes"/>
+        <RemoveFolder Id="RemoveApplicationProgramsFolder"
+                      On="uninstall"/>
+      </Component>
+    </DirectoryRef>
+
+    <UI Id="ShieldBatteryInstallUI">
+      <UIRef Id="WixUI_InstallDir" />
+
+      <!-- Skip license dialog -->
+      <Publish Dialog="WelcomeDlg"
+               Control="Next"
+               Event="NewDialog"
+               Value="InstallDirDlg"
+               Order="2">1</Publish>
+      <Publish Dialog="InstallDirDlg"
+               Control="Back"
+               Event="NewDialog"
+               Value="WelcomeDlg"
+               Order="2">1</Publish>
+    </UI>
+	</Product>
+</Wix>
