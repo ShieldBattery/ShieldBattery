@@ -16,7 +16,7 @@ import { navigateToChannel } from './action-creators'
 import {
   CHANNEL_MAXLENGTH,
   CHANNEL_PATTERN,
-} from '../../shared/constants'
+} from '../../common/constants'
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),

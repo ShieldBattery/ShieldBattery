@@ -4,7 +4,7 @@ import KoaRouter from 'koa-router'
 import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
-import isDev from './server/env/is-dev'
+import isDev from './lib/env/is-dev'
 import config from './config'
 
 const router = KoaRouter()
@@ -24,7 +24,7 @@ export default function applyRoutes(app, userSockets) {
   apiFiles.filter(jsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, '.js')
     const subRouter = new KoaRouter()
-    require('./server/api/' + filename).default(subRouter, userSockets)
+    require('./lib/api/' + filename).default(subRouter, userSockets)
     router.use(apiPath, subRouter.routes())
     console.log('mounted ' + apiPath)
   })

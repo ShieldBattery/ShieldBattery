@@ -27,7 +27,7 @@ import {
   EMAIL_MAXLENGTH,
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
-} from '../../shared/constants'
+} from '../../common/constants'
 import auther from './auther'
 import styles from './login.css'
 

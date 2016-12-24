@@ -1,7 +1,7 @@
 import React from 'react'
 import hoistNonReactStatics from 'hoist-non-react-statics'
-import shallowEquals from '../../shared/shallow-equals'
-import createDeferred from '../../shared/async/deferred'
+import shallowEquals from '../../common/shallow-equals'
+import createDeferred from '../../common/async/deferred'
 
 function getDisplayName(WrappedComponent) {
   return WrappedComponent.displayName || WrappedComponent.name || 'Component'

@@ -1,4 +1,4 @@
-import createDeferred from '../../shared/async/deferred'
+import createDeferred from '../../../common/async/deferred'
 
 class PingRegistry {
   constructor() {

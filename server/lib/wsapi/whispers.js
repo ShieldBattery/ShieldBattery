@@ -3,7 +3,7 @@ import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { isValidUsername } from '../../shared/constants'
+import { isValidUsername } from '../../../common/constants'
 import users from '../models/users'
 import {
   addMessageToWhisper,

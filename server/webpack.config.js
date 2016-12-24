@@ -43,7 +43,7 @@ const babelQuery = {
 }
 
 const webpackOptions = {
-  entry: './client/index.jsx',
+  entry: '../client/index.jsx',
   output: {
     filename: 'client.js',
     path: path.join(__dirname, 'public', 'scripts'),

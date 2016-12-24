@@ -3,15 +3,15 @@ import path from 'path'
 import fs from 'fs'
 import co from 'co'
 import uid from 'cuid'
-import getAddress from './server/websockets/get-address'
-import createUserSockets from './server/websockets/user-sockets'
-import log from './server/logging/logger'
+import getAddress from './lib/websockets/get-address'
+import createUserSockets from './lib/websockets/user-sockets'
+import log from './lib/logging/logger'
 import config from './config'
 
 const apiHandlers =
   fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
   .filter(filename => /\.js$/.test(filename))
-  .map(filename => require('./server/wsapi/' + filename).default)
+  .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {

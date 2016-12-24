@@ -4,7 +4,6 @@ import { Link } from 'react-router'
 import { routerActions } from 'react-router-redux'
 import keycode from 'keycode'
 import { goToIndex } from './navigation/action-creators'
-import { DEV_INDICATOR } from '../shared/flags'
 import styles from './main-layout.css'
 
 import ActivityBar from './activities/activity-bar.jsx'
@@ -48,7 +47,7 @@ import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 
-import { MULTI_CHANNEL } from '../shared/flags'
+import { DEV_INDICATOR, MULTI_CHANNEL } from '../common/flags'
 
 const KEY_C = keycode('c')
 const KEY_J = keycode('j')
