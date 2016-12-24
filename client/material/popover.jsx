@@ -64,11 +64,11 @@ export default class Popover extends React.Component {
     popoverPosition: null,
     scaleHorizontalStyle: {
       transform: 'scaleX(0.3)',
-      transformOrigin: 'right top',
+      transformOrigin: `${this.props.popoverOriginHorizontal} ${this.props.popoverOriginVertical}`,
     },
     scaleVerticalStyle: {
       transform: 'scaleY(0.3)',
-      transformOrigin: 'right top',
+      transformOrigin: `${this.props.popoverOriginHorizontal} ${this.props.popoverOriginVertical}`,
     },
     backgroundStyle: {
       opacity: 0.1,
@@ -97,16 +97,16 @@ export default class Popover extends React.Component {
     return false
   };
 
-  animateOnOpen = () => {
+  animateOnOpen = props => {
     this.setState({
       scaleHorizontalStyle: {
         transform: 'scaleX(1)',
-        transformOrigin: 'right top',
+        transformOrigin: `${props.popoverOriginHorizontal} ${props.popoverOriginVertical}`,
         transition: `transform 200ms ${fastOutSlowIn}`,
       },
       scaleVerticalStyle: {
         transform: 'scaleY(1)',
-        transformOrigin: 'right top',
+        transformOrigin: `${props.popoverOriginHorizontal} ${props.popoverOriginVertical}`,
         transition: `transform 200ms ${fastOutSlowIn} 50ms`,
       },
       backgroundStyle: {
@@ -177,8 +177,9 @@ export default class Popover extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (nextProps.open !== this.state.open) {
+      const { popoverOriginHorizontal, popoverOriginVertical } = nextProps
       if (nextProps.open) {
-        this.animationId = window.requestAnimationFrame(this.animateOnOpen)
+        this.animationId = window.requestAnimationFrame(() => this.animateOnOpen(nextProps))
         this.setState({
           open: true,
           transitioning: true,
@@ -194,12 +195,12 @@ export default class Popover extends React.Component {
           transitioning: true,
           scaleHorizontalStyle: {
             transform: 'scaleX(0.3)',
-            transformOrigin: 'right top',
+            transformOrigin: `${popoverOriginHorizontal} ${popoverOriginVertical}`,
             transition: `transform 200ms ${fastOutSlowIn} 75ms`,
           },
           scaleVerticalStyle: {
             transform: 'scaleY(0.3)',
-            transformOrigin: 'right top',
+            transformOrigin: `${popoverOriginHorizontal} ${popoverOriginVertical}`,
             transition: `transform 200ms ${fastOutSlowIn} 25ms`,
           },
           backgroundStyle: {
