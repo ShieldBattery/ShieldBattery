@@ -4,7 +4,7 @@ import { IndexRoute, Route } from 'react-router'
 import ActiveGame from './active-game/view.jsx'
 import AdminBetaInvites from './admin/invites.jsx'
 import AdminPanel from './admin/panel.jsx'
-import { PermissionsFind, PermissionsResults } from './admin/permissions.jsx'
+import { UserFind, UserProfile } from './admin/user-profile.jsx'
 import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
@@ -24,7 +24,7 @@ import Whisper from './whispers/whisper.jsx'
 
 import {
   CanAcceptBetaInvitesFilter,
-  CanEditPermissionsFilter,
+  CanViewUserProfileFilter,
   IsAdminFilter
 } from './admin/admin-route-filters.jsx'
 
@@ -60,9 +60,9 @@ const routes = <Route>
             <Route component={IsAdminFilter}>
               <Route path='/admin'>
                 <IndexRoute component={AdminPanel}/>
-                <Route component={CanEditPermissionsFilter}>
-                  <Route path='/admin/permissions' component={PermissionsFind}>
-                    <Route path=':username' component={PermissionsResults} />
+                <Route component={CanViewUserProfileFilter}>
+                  <Route path='/admin/users' component={UserFind}>
+                    <Route path=':username' component={UserProfile} />
                   </Route>
                 </Route>
                 <Route component={CanAcceptBetaInvitesFilter}>
