@@ -1,0 +1,6 @@
+/node_modules/
+/config.js
+/database.json
+/public/scripts/*
+/public/styles/*
+npm-debug.log

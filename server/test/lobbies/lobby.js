@@ -3,8 +3,8 @@ import chaiImmutable from 'chai-immutable'
 
 chai.use(chaiImmutable)
 
-import * as Lobbies from '../../../server/lobbies/lobby'
-import * as Players from '../../../server/lobbies/player'
+import * as Lobbies from '../../lib/lobbies/lobby'
+import * as Players from '../../lib/lobbies/player'
 
 const BOXER_LOBBY = Lobbies.create(
     '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
