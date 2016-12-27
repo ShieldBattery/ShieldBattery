@@ -4,7 +4,7 @@ import {
   create,
   findIndex,
   insert,
-} from '../../shared/sorted-list'
+} from '../../common/sorted-list'
 
 const alphaSort = (a, b) => a.localeCompare(b)
 
