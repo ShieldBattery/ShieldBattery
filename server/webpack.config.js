@@ -49,6 +49,10 @@ const webpackOptions = {
     path: path.join(__dirname, 'public', 'scripts'),
     publicPath: '/scripts/',
   },
+  resolveLoader: {
+    // Look for loaders in server's node_modules directory, instead of client's
+    root: path.join(__dirname, 'node_modules'),
+  },
   module: {
     loaders: [
       {
