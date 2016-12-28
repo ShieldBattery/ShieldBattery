@@ -19,7 +19,7 @@ export default function applyRoutes(app, userSockets) {
     .use(router.allowedMethods())
 
   // api methods (through HTTP)
-  const apiFiles = fs.readdirSync(path.join(__dirname, 'server', 'api'))
+  const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
   const baseApiPath = '/api/1/'
   apiFiles.filter(jsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, '.js')

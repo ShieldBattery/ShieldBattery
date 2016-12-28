@@ -22,8 +22,9 @@ if (!isDev) {
 
 const babelQuery = {
   cacheDirectory: true,
-  presets: ['react', 'es2015', 'stage-0'],
-  plugins: ['transform-runtime', 'transform-decorators-legacy'],
+  // Note that these need to be installed in the root package.json, not the server one
+  presets: ['react', 'es2015', 'es2016', 'es2017', 'stage-0'],
+  plugins: ['transform-decorators-legacy'],
   env: {
     development: {
       plugins: [

@@ -9,7 +9,7 @@ import log from './lib/logging/logger'
 import config from './config'
 
 const apiHandlers =
-  fs.readdirSync(path.join(__dirname, 'server', 'wsapi'))
+  fs.readdirSync(path.join(__dirname, 'lib', 'wsapi'))
   .filter(filename => /\.js$/.test(filename))
   .map(filename => require('./lib/wsapi/' + filename).default)
 

@@ -1,31 +1,17 @@
 {
   "parser": "babel-eslint",
   "plugins": [
-    "babel",
-    "react"
+    "babel"
   ],
 
-  "settings": {
-    "react": {
-      "version": "15.3.0"
-    }
-  },
-
   "ecmaFeatures": {
-    "modules": true,
-    "jsx": true
+    "modules": true
   },
 
   "env": {
     "browser": false,
     "es6": true,
     "node": true
-  },
-
-  "globals": {
-    "document": false,
-    "navigator": false,
-    "window": false
   },
 
   "rules": {
@@ -51,7 +37,7 @@
     "func-names": 0,
     "func-style": 0,
     "generator-star": 0,
-    "generator-star-spacing": 0,
+    "generator-star-spacing": [2, "after"],
     "global-strict": 0,
     "guard-for-in": 0,
     "handle-callback-err": [2, "^(err|error)$" ],
@@ -168,7 +154,7 @@
     "no-warning-comments": [2, { "terms": [ "fixme", "do not submit", "xxx" ], "location": "start" }],
     "no-with": 2,
     "object-curly-spacing": 0,
-    "object-shorthand": 0,
+    "object-shorthand": 2,
     "one-var": 0,
     "operator-assignment": 0,
     "operator-linebreak": [2, "after"],
@@ -199,34 +185,8 @@
     "yoda": 0,
 
     "babel/block-scoped-var": 0,
-    "babel/object-shorthand": 2,
     "babel/generator-star": 0,
-    "babel/generator-star-spacing": [2, "after"],
     "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
-    "babel/space-in-brackets": 0,
-
-    "react/display-name": 0,
-    "react/jsx-boolean-value": [2, "always"],
-    "react/jsx-no-duplicate-props": 2,
-    "react/jsx-no-undef": 2,
-    "react/jsx-sort-prop-types": 0,
-    "react/jsx-sort-props": 0,
-    "react/jsx-uses-react": 2,
-    "react/jsx-uses-vars": 2,
-    "react/jsx-wrap-multilines": [2, { "declaration": false, "assignment": false, "return": true }],
-    "react/no-deprecated": 2,
-    "react/no-did-mount-set-state": 0,
-    "react/no-did-update-set-state": 0,
-    "react/no-direct-mutation-state": 2,
-    "react/no-find-dom-node": 2,
-    "react/no-is-mounted": 2,
-    "react/no-multi-comp": 0,
-    "react/no-unknown-property": 2,
-    "react/prop-types": 0,
-    "react/react-in-jsx-scope": 2,
-    "react/require-extension": 0,
-    "react/require-render-return": 2,
-    "react/self-closing-comp": 0,
-    "react/sort-comp": 0
+    "babel/space-in-brackets": 0
   }
 }
