@@ -1,0 +1,27 @@
+{
+  "name": "shieldbattery",
+  "version": "4.2.0",
+  "description": "The modern way to play StarCraft: Brood War.",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tec27/shieldbattery.git"
+  },
+  "keywords": [
+    "brood war",
+    "shieldbattery",
+    "starcraft"
+  ],
+  "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tec27/shieldbattery/issues"
+  },
+  "homepage": "https://github.com/tec27/shieldbattery#readme"
+}
