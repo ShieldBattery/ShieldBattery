@@ -7,7 +7,7 @@ import { render } from 'react-dom'
 import { Provider } from 'react-redux'
 import { useRouterHistory } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
-import { createHistory } from 'history'
+import { createHistory, createHashHistory } from 'history'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
@@ -39,7 +39,7 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  let history = useRouterHistory(createHistory)()
+  let history = useRouterHistory(process.env.SB_ENV === 'web' ? createHistory : createHashHistory)()
   const store = createStore(initData, history)
   history = syncHistoryWithStore(history, store, {
     // Since we're using a custom reducer, we have to adjust the state to be shaped like

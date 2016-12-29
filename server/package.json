@@ -4,7 +4,7 @@
   "version": "4.2.0",
   "description": "The official server implementation for shieldbattery.",
   "engines": {
-    "node": ">= 6.0.0"
+    "node": ">= 7.0.0"
   },
   "main": "index.js",
   "scripts": {
@@ -17,10 +17,6 @@
     "test": "mocha -R spec --compilers js:babel-register --recursive test/",
     "start": "node index.js | bunyan"
   },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/tec27/manner-pylon"
-  },
   "keywords": [
     "starcraft",
     "bw",
@@ -29,9 +25,6 @@
   ],
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/tec27/manner-pylon/issues"
-  },
   "dependencies": {
     "babel-core": "^6.3.17",
     "babel-loader": "^6.2.0",
