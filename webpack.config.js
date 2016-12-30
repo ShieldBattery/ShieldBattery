@@ -7,12 +7,13 @@ const nodeEnv = process.env.NODE_ENV || 'development'
 const isProd = nodeEnv === 'production'
 
 const webpackOpts = {
-  target: 'electron',
+  target: 'electron-renderer',
   entry: './client/index.jsx',
   output: {
     filename: 'bundle.js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: 'http://localhost:5566/dist/',
+    libraryTarget: 'commonjs2',
   },
   devtool: isProd ? 'hidden-source-map' : 'cheap-eval-source-map',
 }

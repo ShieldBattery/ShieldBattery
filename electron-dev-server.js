@@ -10,15 +10,12 @@ import config from './webpack.config'
 const app = express()
 const compiler = webpack(config)
 
-
 const middleware = webpackDevMiddleware(compiler, {
+  noInfo: true,
   publicPath: config.output.publicPath,
-  stats: {
-    colors: true
-  }
 })
 app.use(middleware)
-app.use(webpackHotMiddleware(compiler))
+app.use(webpackHotMiddleware(compiler, { log: console.log }))
 
 const server = app.listen(PORT, 'localhost', err => {
   if (err) {
