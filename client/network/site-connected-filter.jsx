@@ -6,7 +6,7 @@ import styles from './site-connected-filter.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 
-let applyCookies = Promise.resolve
+let applyCookies = async () => {}
 if (process.env.SB_ENV === 'electron') {
   const { remote } = require('electron')
   // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the
