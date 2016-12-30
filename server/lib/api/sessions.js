@@ -39,8 +39,7 @@ async function getCurrentSession(ctx, next) {
 const bcryptCompare = thenify(bcrypt.compare)
 async function startNewSession(ctx, next) {
   if (ctx.session.userId) throw new httpErrors.Conflict('Session already active')
-  const { username, password } = ctx.request.body
-  // TODO(tec27): Deal with 'remember' param properly
+  const { username, password, remember } = ctx.request.body
   if (!username || !password) {
     throw new httpErrors.BadRequest('Username and password required')
   }
@@ -83,6 +82,11 @@ async function startNewSession(ctx, next) {
     const perms = await permissions.get(user.id)
     await users.maybeUpdateIp(user.id, ctx.ip)
     initSession(ctx, user, perms)
+    if (!remember) {
+      // Make the cookie a session-expiring cookie
+      ctx.session.cookie.maxAge = undefined
+      ctx.session.cookie.expires = undefined
+    }
     setReturningCookie(ctx)
 
     ctx.body = { user, permissions: perms }
