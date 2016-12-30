@@ -36,7 +36,7 @@ import ChatNavEntry from './chat/nav-entry.jsx'
 import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
-import auther from './auth/auther'
+import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-utils'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
@@ -237,7 +237,7 @@ class MainLayout extends React.Component {
 
   onLogOutClick = () => {
     this.onCloseProfileOverlay()
-    this.props.dispatch(auther.logOut().action)
+    this.props.dispatch(logOut().action)
   };
 
   onFindMatchClick = () => {

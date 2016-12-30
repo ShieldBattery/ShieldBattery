@@ -1,4 +1,10 @@
-import { AUTH_CHANGE_BEGIN, AUTH_LOG_IN, AUTH_LOG_OUT, AUTH_SIGN_UP } from '../actions'
+import {
+  AUTH_CHANGE_BEGIN,
+  AUTH_LOG_IN,
+  AUTH_LOG_OUT,
+  AUTH_SIGN_UP,
+  AUTH_UPDATE,
+} from '../actions'
 import { Auth, Permissions, User } from './auth-records'
 
 const initialState = new Auth()
@@ -38,6 +44,8 @@ const handlers = {
   [AUTH_LOG_IN]: logInSplitter,
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),
   [AUTH_SIGN_UP]: logInSplitter,
+  [AUTH_UPDATE]: (state, action) => (!action.error ? logInSuccess(state, action) :
+      state.set('authChangeInProgress', false)),
 }
 
 export default function authReducer(state = initialState, action) {

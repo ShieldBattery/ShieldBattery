@@ -28,7 +28,7 @@ import {
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../common/constants'
-import auther from './auther'
+import { signUp } from './auther'
 import styles from './login.css'
 
 async function usernameAvailable(val) {
@@ -161,8 +161,7 @@ export default class Signup extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    const { id, action } =
-        auther.signUp(values.username, values.email, values.password, values.token)
+    const { id, action } = signUp(values.username, values.email, values.password, values.token)
     this.setState({
       reqId: id
     })

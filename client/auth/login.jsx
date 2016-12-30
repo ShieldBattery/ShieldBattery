@@ -6,7 +6,7 @@ import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import auther from './auther'
+import { logIn } from './auther'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
@@ -138,8 +138,7 @@ export default class Login extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    const { id, action } =
-        auther.logIn(values.username, values.password, values.remember)
+    const { id, action } = logIn(values.username, values.password, values.remember)
     this.setState({
       reqId: id
     })

@@ -4,51 +4,58 @@ import {
   AUTH_LOG_IN,
   AUTH_LOG_OUT,
   AUTH_SIGN_UP,
+  AUTH_UPDATE,
 } from '../actions'
 import cuid from 'cuid'
 
 function idRequest(type, fetcher) {
   const reqId = cuid()
-  const thunk = dispatch => {
-    dispatch({
-      type: AUTH_CHANGE_BEGIN,
-      payload: {
-        reqId,
-      }
-    })
-
-    const payload = fetcher()
-    dispatch({ type, payload, meta: { reqId } })
-  }
-
-  return { id: reqId, action: thunk }
-}
-
-const auther = {
-  logIn(username, password, remember) {
-    return idRequest(AUTH_LOG_IN, () => fetch('/api/1/sessions', {
-      method: 'post',
-      body: JSON.stringify({
-        username,
-        password,
-        remember: !!remember
+  let thunk
+  const promise = new Promise((resolve, reject) => {
+    thunk = dispatch => {
+      dispatch({
+        type: AUTH_CHANGE_BEGIN,
+        payload: {
+          reqId,
+        }
       })
-    }))
-  },
 
-  logOut() {
-    return idRequest(AUTH_LOG_OUT, () => fetch('/api/1/sessions', {
-      method: 'delete'
-    }))
-  },
+      const payload = fetcher()
+      dispatch({ type, payload, meta: { reqId } })
+      payload.then(resolve, reject)
+    }
+  })
 
-  signUp(username, email, password, token) {
-    const reqUrl = '/api/1/users?token=' + token
-    return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
-      method: 'post',
-      body: JSON.stringify({ username, email, password })
-    }))
-  }
+  return { id: reqId, action: thunk, promise }
 }
 
-export default auther
+export function logIn(username, password, remember) {
+  return idRequest(AUTH_LOG_IN, () => fetch('/api/1/sessions', {
+    method: 'post',
+    body: JSON.stringify({
+      username,
+      password,
+      remember: !!remember
+    })
+  }))
+}
+
+export function logOut() {
+  return idRequest(AUTH_LOG_OUT, () => fetch('/api/1/sessions', {
+    method: 'delete'
+  }))
+}
+
+export function signUp(username, email, password, token) {
+  const reqUrl = '/api/1/users?token=' + token
+  return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
+    method: 'post',
+    body: JSON.stringify({ username, email, password })
+  }))
+}
+
+export function getCurrentSession() {
+  return idRequest(AUTH_UPDATE, () => fetch('/api/1/sessions', {
+    method: 'get'
+  }))
+}
