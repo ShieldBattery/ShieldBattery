@@ -1,17 +1,51 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import siteSocket from './site-socket'
+import { makeServerUrl } from './server-url'
 import styles from './site-connected-filter.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 
+let applyCookies = Promise.resolve
+if (process.env.SB_ENV === 'electron') {
+  const { remote } = require('electron')
+  // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the
+  // right cookies on its headers
+  applyCookies = async () => {
+    return new Promise(resolve => {
+      remote.session.defaultSession.cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
+        if (err) {
+          resolve()
+          return
+        }
+        siteSocket.opts.extraHeaders = {
+          Origin: 'http://client.shieldbattery.net',
+          'x-shield-battery-client': 'true',
+          Cookie: cookies
+            .map(c => `${encodeURIComponent(c.name)}=${encodeURIComponent(c.value)}`)
+            .join('; '),
+        }
+        resolve()
+      })
+    })
+  }
+}
+
 @connect(state => ({ siteNetwork: state.network.site }))
 export default class SiteConnectedFilter extends React.Component {
+  mounted = false;
+
   componentDidMount() {
-    siteSocket.connect()
+    this.mounted = true
+    applyCookies().then(() => {
+      if (this.mounted) {
+        siteSocket.connect()
+      }
+    })
   }
 
   componentWillUnmount() {
+    this.mounted = false
     siteSocket.disconnect()
   }
 

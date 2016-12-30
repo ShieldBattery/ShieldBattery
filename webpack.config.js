@@ -49,5 +49,9 @@ const babelOpts = {
 const cssNextOpts = { browsers: 'last 2 Chrome versions' }
 const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
-module.exports =
-    makeConfig(webpackOpts, babelOpts, cssNextOpts, hotUrl, { SB_ENV: JSON.stringify('electron') })
+module.exports = makeConfig(
+    webpackOpts,
+    babelOpts,
+    cssNextOpts,
+    hotUrl,
+    { SB_ENV: JSON.stringify('electron') })
