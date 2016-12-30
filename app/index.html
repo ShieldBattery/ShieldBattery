@@ -3,10 +3,27 @@
   <head>
     <meta charset='utf-8'>
     <title>ShieldBattery</title>
+    <script type='text/javascript'>
+      (function() {
+        if (!process.env.SB_HOT) {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = 'styles/site.css'
+          document.querySelector('head').appendChild(link)
+        }
+      })()
+    </script>
   </head>
   <body>
     <link href='https://fonts.googleapis.com/css?family=Roboto:300,400,500' rel='stylesheet' type='text/css'>
-    <div id="app"></div>
-    <script src='dist/bundle.js'></script>
+    <div id='app'></div>
+    <script type='text/javascript'>
+      (function() {
+        const script = document.createElement('script')
+        script.type='text/javascript'
+        script.src = process.env.SB_HOT ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js'
+        document.querySelector('body').appendChild(script)
+      })()
+    </script>
   </body>
 </html>

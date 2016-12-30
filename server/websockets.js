@@ -62,8 +62,8 @@ class WebsocketServer {
 
     const koaContext = this.koa.createContext(req, dummyRes)
     const sessionWare = this.sessionWare
-    co(function*() {
-      yield* sessionWare.call(koaContext, (function*() {})())
+    co(function* () {
+      yield* sessionWare.call(koaContext, (function* () {})())
       return koaContext
     }).then(ctx => {
       if (!ctx.session.userId) {

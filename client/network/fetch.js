@@ -1,4 +1,6 @@
 import 'whatwg-fetch'
+import { isWeb } from '../env.js'
+import { makeServerUrl } from './server-url'
 import readCookies from './read-cookies'
 
 const fetch = window.fetch
@@ -23,17 +25,22 @@ function parsePrefixedJson(str) {
 
 const defaults = {
   get headers() {
-    return {
+    return isWeb() ? {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN'],
+    } : {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Shield-Battery-Client': 'true',
     }
   },
   credentials: 'same-origin'
 }
 export function fetchRaw(path, opts) {
+  const serverUrl = path.startsWith('http') ? path : makeServerUrl(path)
   if (!opts) {
-    return fetch(path, defaults)
+    return fetch(serverUrl, defaults)
   }
 
   // We generally want to merge headers with our defaults, so we have to do this explicitly
@@ -42,7 +49,7 @@ export function fetchRaw(path, opts) {
     ...opts.headers,
   }
 
-  return fetch(path, {
+  return fetch(serverUrl, {
     ...defaults,
     ...opts,
     headers,

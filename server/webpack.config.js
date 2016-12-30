@@ -38,4 +38,5 @@ const babelOpts = {
 }
 const cssNextOpts = { browsers: 'last 2 versions' }
 
-export default makeConfig(webpackOpts, babelOpts, cssNextOpts, { SB_ENV: 'web' })
+export default makeConfig(webpackOpts, babelOpts, cssNextOpts, 'webpack-hot-middleware/client',
+    { SB_ENV: JSON.stringify('web') })

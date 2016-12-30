@@ -1,6 +1,17 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import path from 'path'
 import url from 'url'
+
+function applyOriginFilter() {
+  // Modify the origin for all ShieldBattery server requests
+  const filter = {
+    urls: ['https://*.shieldbattery.net/*', 'http://localhost:*/*']
+  }
+  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+    details.requestHeaders.Origin = 'http://client.shieldbattery.net'
+    callback({ cancel: false, requestHeaders: details.requestHeaders })
+  })
+}
 
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
@@ -16,7 +27,10 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
-app.on('ready', createWindow)
+app.on('ready', () => {
+  applyOriginFilter()
+  createWindow()
+})
 app.on('window-all-closed', () => {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q

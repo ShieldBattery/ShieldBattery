@@ -73,7 +73,7 @@ function authorize(req, cb) {
   const clientType = origin === 'BROODWARS' ? 'game' : 'site'
   if (clientType === 'site') {
     // ensure that this connection is coming from a site we trust
-    if (!environment.allowedHosts.includes(origin)) {
+    if (origin !== undefined && !environment.allowedHosts.includes(origin)) {
       if (Date.now() - lastLog > logThrottle) {
         lastLog = Date.now()
         log.warning('Blocked a connection from an untrusted origin: ' + origin)

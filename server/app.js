@@ -17,6 +17,7 @@ import thenify from 'thenify'
 
 import Csrf from 'koa-csrf'
 import csrfCookie from './lib/security/csrf-cookie'
+import onlyWebClients from './lib/network/only-web-clients'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
@@ -132,8 +133,8 @@ app
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(koaConvert(sessionMiddleware))
-  .use(csrfCookie())
-  .use(new Csrf())
+  .use(onlyWebClients(csrfCookie()))
+  .use(onlyWebClients(new Csrf()))
   .use(secureHeaders())
   .use(secureJson())
   .use(userIpsMiddleware())

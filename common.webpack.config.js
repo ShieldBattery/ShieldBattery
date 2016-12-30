@@ -23,7 +23,7 @@ if (isProd) {
   styleLoader.loader = ExtractTextPlugin.extract('style-loader', `${cssLoader}!postcss-loader`)
 }
 
-export default function(webpackOpts, babelOpts, cssNextOpts, envDefines = {}) {
+export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines = {}) {
   const config = {
     ...webpackOpts,
     module: {
@@ -52,6 +52,11 @@ export default function(webpackOpts, babelOpts, cssNextOpts, envDefines = {}) {
     },
     plugins: [
       new webpack.optimize.OccurenceOrderPlugin(),
+      // get rid of warnings from ws about native requires that its okay with failing
+      new webpack.NormalModuleReplacementPlugin(
+          /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
+      new webpack.NormalModuleReplacementPlugin(
+          /^utf-8-validate$/, require.resolve('ws/lib/Validation.fallback.js')),
       new webpack.DefinePlugin({
         'process.env': {
           NODE_ENV: JSON.stringify(nodeEnv),
@@ -76,7 +81,7 @@ export default function(webpackOpts, babelOpts, cssNextOpts, envDefines = {}) {
     config.debug = true
     config.devtool = 'cheap-module-eval-source-map'
     config.entry = [
-      'webpack-hot-middleware/client',
+      hotUrl,
       config.entry,
     ]
   } else {

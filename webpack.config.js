@@ -10,15 +10,22 @@ const webpackOpts = {
   target: 'electron',
   entry: './client/index.jsx',
   output: {
-    path: path.join(__dirname, 'app', 'dist'),
     filename: 'bundle.js',
+    path: path.join(__dirname, 'app', 'dist'),
+    publicPath: 'http://localhost:5566/dist/',
   },
   devtool: isProd ? 'hidden-source-map' : 'cheap-eval-source-map',
 }
 const babelOpts = {
   cacheDirectory: true,
   presets: ['react', 'node7', 'stage-0'],
-  plugins: ['transform-decorators-legacy'],
+  plugins: [
+    'transform-decorators-legacy',
+    // Need these to work around an issue in react-transform/react-hot-loader:
+    // https://github.com/gaearon/react-hot-loader/issues/313
+    'transform-class-properties',
+    'transform-es2015-classes',
+  ],
   env: {
     development: {
       plugins: [
@@ -40,5 +47,7 @@ const babelOpts = {
 // This option is probably *too* safe given that we're deploying this on Electron, but I don't think
 // it changes much, so whatever
 const cssNextOpts = { browsers: 'last 2 Chrome versions' }
+const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
-module.exports = makeConfig(webpackOpts, babelOpts, cssNextOpts, { SB_ENV: 'electron' })
+module.exports =
+    makeConfig(webpackOpts, babelOpts, cssNextOpts, hotUrl, { SB_ENV: JSON.stringify('electron') })

@@ -25,7 +25,10 @@ function logOutSuccess(state, action) {
 function handleError(state, action) {
   return (state.withMutations(s =>
     s.set('authChangeInProgress', false)
-      .set('lastFailure', { ...action.meta, err: action.payload.body.error })
+      .set('lastFailure', {
+        ...action.meta,
+        err: action.payload.body ? action.payload.body.error : 'Connection error'
+      })
   ))
 }
 

@@ -1,4 +1,5 @@
 import React from 'react'
+import { makeServerUrl } from '../network/server-url'
 import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
@@ -88,7 +89,7 @@ export default class Splash extends React.Component {
       <div className={styles.splash}>
         <div className={styles.logoContainer}>
           <TopLinks />
-          <img className={styles.logo} src='/images/splash-logo.png' />
+          <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
           <LogoText className={styles.logotext} />
         </div>
         <div className={styles.intro}>
