@@ -52,7 +52,7 @@ if (config.rallyPoint.local) {
 
   log.info('Creating local rally-point process')
   const rallyPoint =
-      childProcess.fork(path.join(__dirname, 'server', 'rally-point', 'run-local-server.js'))
+      childProcess.fork(path.join(__dirname, 'lib', 'rally-point', 'run-local-server.js'))
   rallyPoint.on('error', err => {
     log.error('rally-point process error: ' + err)
     process.exit(1)
