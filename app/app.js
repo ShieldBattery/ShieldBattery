@@ -13,6 +13,19 @@ function applyOriginFilter() {
   })
 }
 
+async function installDevExtensions() {
+  if (process.env.NODE_ENV !== 'production') {
+    const installer = require('electron-devtools-installer')
+    const extensions = [
+      'REACT_DEVELOPER_TOOLS',
+      'REDUX_DEVTOOLS',
+    ]
+    return Promise.all(extensions.map(name => installer.default(installer[name])))
+  }
+
+  return null
+}
+
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
 
@@ -27,8 +40,9 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
-app.on('ready', () => {
+app.on('ready', async () => {
   applyOriginFilter()
+  await installDevExtensions()
   createWindow()
 })
 app.on('window-all-closed', () => {
