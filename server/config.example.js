@@ -1,18 +1,17 @@
 // Example config file
 // Fill in the correct values for your environment and rename to config.js
 // NOTE: you will also need to configure your databases in database.json for db-migrate
-import fs from 'fs'
 
 const config = {}
-config.canonicalHost = 'https://localhost' // main url for the site
-config.httpsPort = 443
-config.httpPort = 80
+config.canonicalHost = 'http://localhost:5555' // main url for the site
+config.httpsPort = 5556
+config.httpPort = 5555
 
 config.sessionSecret = 'shhhhhhh'
 config.sessionTtl = 1209600 // in seconds
 
 config.db = {
-  connString: JSON.parse(fs.readFileSync('./database.json')).dev
+  connString: require('./database.json').dev
 }
 
 config.redis = {

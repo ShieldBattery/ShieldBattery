@@ -20,7 +20,8 @@
     "pack": "npm run build && build --dir && babel --no-comments --compact --minified --out-file app/dist/bundle.js app/dist/bundle.js",
     "postinstall": "install-app-deps",
     "posttest": "npm run lint",
-    "test": "mocha -R spec --compilers js:babel-register --recursive --harmony test/"
+    "test": "mocha -R spec --compilers js:babel-register --recursive --harmony test/",
+    "yarnall": "yarn && cd server && yarn && cd ../app && yarn"
   },
   "build": {
     "appId": "net.shieldbattery.client",

@@ -1,3 +1,3 @@
 {
-  "dev": "postgres://postgres:1234@localhost/shieldbattery"
+  "dev": "postgres://postgres_user:password1234@localhost/shieldbattery"
 }
