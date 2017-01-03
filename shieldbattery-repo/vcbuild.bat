@@ -1,6 +1,6 @@
 @echo off
 
-PUSHD
+SETLOCAL
 
 @rem Modified version of vcbuild.bat from Node
 if /i "%1"=="help" goto help
@@ -144,5 +144,4 @@ echo   vcbuild.bat debug          : builds debug build
 goto exit
 
 :exit
-POPD
 goto :EOF
