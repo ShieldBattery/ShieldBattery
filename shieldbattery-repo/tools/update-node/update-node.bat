@@ -1,4 +1,7 @@
 @echo off
+SETLOCAL
+
+PUSHD
 
 @rem Builds and gathers the necessary files from the Node.js repo for building into our projects.
 @rem This should be run automatically by our build script when it detects that the node submodule's
@@ -9,12 +12,10 @@ set exitcode=0
 @rem Store %~dp0 because it can change after we call things
 set scriptroot=%~dp0
 set nodepath=%scriptroot%\..\..\deps\node\
-set startdir=%CD%
 
 cd "%scriptroot%"
 for /f "delims=" %%x in ('git submodule status ../../deps/node') do set nodeversion=%%x
 set /p builtversion=<built-node-version.txt
-cd "%startdir%"
 
 echo Current node version is "%nodeversion%"
 echo Last built node version is "%builtversion%"
@@ -65,6 +66,7 @@ echo Current version of Node is already built
 goto exit
 
 :exit
-cd "%startdir%"
+POPD
+ENDLOCAL
 if exitcode==0 goto :EOF
 exit /b %exitcode%

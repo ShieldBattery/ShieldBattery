@@ -27,3 +27,6 @@
 .babelrc eol=lf
 .eslintrc eol=lf
 *.md eol=lf
+
+# Use CRLF for bat files so Windows is happy
+*.bat eol=crlf

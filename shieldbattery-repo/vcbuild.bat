@@ -1,5 +1,7 @@
 @echo off
 
+PUSHD
+
 @rem Modified version of vcbuild.bat from Node
 if /i "%1"=="help" goto help
 if /i "%1"=="--help" goto help
@@ -13,7 +15,6 @@ if /i "%1"=="/?" goto help
 @rem Ensure environment properly setup
 if not defined SHIELDBATTERY_PATH goto env-error
 
-set startdir=%CD%
 @rem Store %~dp0 because it can change after we call things
 set scriptroot=%~dp0
 
@@ -101,7 +102,6 @@ SETLOCAL
   goto install-js-deps
 ENDLOCAL
 
-
 :install-js-deps
 @rem Link up the native modules inside the js directory
 cd "%scriptroot%\js"
@@ -144,5 +144,5 @@ echo   vcbuild.bat debug          : builds debug build
 goto exit
 
 :exit
-cd "%startdir%"
+POPD
 goto :EOF
