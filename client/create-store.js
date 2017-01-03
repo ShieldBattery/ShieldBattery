@@ -8,7 +8,7 @@ import { unstable_batchedUpdates as batchedUpdates } from 'react-dom'
 /* eslint-enable camelcase */
 import rootReducer from './root-reducer'
 
-const isDev = (process.env.NODE_ENV || 'development') === 'development'
+const isDev = (process.webpackEnv.NODE_ENV || 'development') === 'development'
 
 export default function create(initialState, history) {
   const createMiddlewaredStore = compose(

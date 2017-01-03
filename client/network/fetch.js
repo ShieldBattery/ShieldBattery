@@ -24,7 +24,7 @@ function parsePrefixedJson(str) {
 
 const defaults = {
   get headers() {
-    return process.env.SB_ENV === 'web' ? {
+    return process.webpackEnv.SB_ENV === 'web' ? {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN'],

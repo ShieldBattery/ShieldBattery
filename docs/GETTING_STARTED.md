@@ -64,7 +64,7 @@ Add a check to skip variables named `lastUpdateCheck` at the start of the `for` 
 
 ```py
 for key, value in the_dict.iteritems():
-  if key == 'lastUpdateCheck':
+  if key.lower() == 'lastupdatecheck':
     continue
 ```
 
@@ -93,8 +93,8 @@ The PostgreSQL must be started and running with a user configured (remember what
 password are for this account, you'll need it when configuring the ShieldBattery server).
 
 Detailed guides can be found at
-[the postgres wiki](https://wiki.postgresql.org/wiki/Detailed_installation_guides). A simpler guide
-can also be found
+[the PostgreSQL wiki](https://wiki.postgresql.org/wiki/Detailed_installation_guides). A simpler
+guide can also be found
 [here](http://www.thegeekstuff.com/2009/04/linux-postgresql-install-and-configure-from-source/).
 
 You will need some extensions set up for our schema to work properly, run the following commands

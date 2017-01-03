@@ -23,9 +23,18 @@ if (isProd) {
   styleLoader.loader = ExtractTextPlugin.extract('style-loader', `${cssLoader}!postcss-loader`)
 }
 
-export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines = {}) {
+export default function({
+  webpack: webpackOpts,
+  babel: babelOpts,
+  cssNext: cssNextOpts,
+  hotUrl,
+  ignorePluginRegexes = [],
+  envDefines = {},
+  minify,
+}) {
   const config = {
     ...webpackOpts,
+    context: __dirname,
     module: {
       loaders: [
         {
@@ -44,6 +53,10 @@ export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines 
           exclude: /README.md$/,
           loader: 'html!markdown'
         },
+        {
+          test: /\.json$/,
+          loader: 'json',
+        },
         styleLoader
       ],
     },
@@ -57,8 +70,12 @@ export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines 
           /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
       new webpack.NormalModuleReplacementPlugin(
           /^utf-8-validate$/, require.resolve('ws/lib/Validation.fallback.js')),
+      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
+      // that just exports whatever Promise babel is using
+      new webpack.NormalModuleReplacementPlugin(
+          /[\\/]any-promise[\\/]/, require.resolve('./common/promise.js')),
       new webpack.DefinePlugin({
-        'process.env': {
+        'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),
           VERSION: `"${VERSION}"`,
           ...envDefines
@@ -72,10 +89,13 @@ export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines 
     ],
   }
 
+  for (const ignore of ignorePluginRegexes) {
+    config.plugins.push(new webpack.IgnorePlugin(ignore))
+  }
+
   if (!isProd) {
     // Allow __filename usage in our files in dev
-    config.context = __dirname
-    config.node = { __filename: true }
+    config.node = { __filename: true, __dirname: true }
 
     config.plugins.push(new webpack.HotModuleReplacementPlugin())
     config.debug = true
@@ -88,12 +108,14 @@ export default function(webpackOpts, babelOpts, cssNextOpts, hotUrl, envDefines 
     config.plugins = config.plugins.concat([
       // This path is relative to the publicPath, not this file's directory
       new ExtractTextPlugin('../styles/site.css', { allChunks: true }),
-      new webpack.optimize.UglifyJsPlugin({
-        compress: { warnings: false },
-        output: { comments: false },
-      }),
       new webpack.optimize.DedupePlugin(),
     ])
+    if (minify) {
+      config.plugins.push(new webpack.optimize.UglifyJsPlugin({
+        compress: { warnings: false },
+        output: { comments: false },
+      }))
+    }
     config.devtool = 'hidden-source-map'
   }
   config.plugins.push(new webpack.NoErrorsPlugin())

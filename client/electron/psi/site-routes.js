@@ -1,9 +1,9 @@
 import path from 'path'
 import errors from 'http-errors'
-import { detectResolution, readFolder } from './natives/index'
+import { detectResolution, readFolder } from './natives'
 import getReplayFolder from './get-replay-folder'
 import log from './logger'
-import packageJson from '../package.json'
+import packageJson from '../../../package.json'
 import PathValidator from './path-validator'
 
 let pathValidator
@@ -80,8 +80,14 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
 export function subscribe(nydus, client, activeGameManager, localSettings) {
   const { origin } = client.conn.request.headers
 
-  const { path: pathValid, version: versionValid } =
-      pathValidator.getPathValidity(localSettings.settings)
+  let pathValid = false
+  let versionValid = false
+  if (localSettings.settings) {
+    const { path: newPathValid, version: newVersionValid } =
+        pathValidator.getPathValidity(localSettings.settings)
+    pathValid = newPathValid
+    versionValid = newVersionValid
+  }
 
   const statuses = activeGameManager.getInitialStatus(origin)
   nydus.subscribeClient(client, `/game/status/${encodeURIComponent(origin)}`, statuses)

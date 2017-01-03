@@ -2,26 +2,36 @@ import fs from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
 import log from './logger'
-import { getInstallPathFromRegistry } from './natives/index'
+import { getInstallPathFromRegistry } from './natives'
 
 const VERSION = 2
 
 class LocalSettings extends EventEmitter {
-  constructor(filepath) {
+  constructor(filepath, creationPromise) {
     super()
     this._filepath = filepath
-    try {
-      this._settings = JSON.parse(fs.readFileSync(filepath, { encoding: 'utf8' }))
-    } catch (err) {
-      log.error('Error parsing settings file: ' + err)
-    }
-    if (!this._settings) {
-      throw new Error('Could not read settings file')
-    }
+    this._creationPromise = creationPromise
+    this._settings = null
+    this._watcher = null
 
-    this.migrateOldSettings()
+    this._initialized = this._creationPromise.then(async () => {
+      try {
+        this._settings = JSON.parse(fs.readFileSync(filepath, { encoding: 'utf8' }))
+      } catch (err) {
+        log.error('Error parsing settings file: ' + err)
+      }
+      if (!this._settings) {
+        throw new Error('Could not read settings file')
+      }
 
-    this._watcher = this._createWatcher(filepath)
+      await this.migrateOldSettings()
+
+      this._watcher = this._createWatcher(filepath)
+    })
+
+    this._initialized.catch(err => {
+      log.error('Error opening settings: ' + err)
+    })
   }
 
   // Pulled out due to the bug in babel arrow function transformer that screws with super() calls
@@ -61,12 +71,12 @@ class LocalSettings extends EventEmitter {
     }
   }
 
-  migrateOldSettings() {
+  async migrateOldSettings() {
     const newSettings = { ...this._settings }
     let updated = false
     if (!this._settings.starcraftPath) {
       log.verbose('Migrating old settings, finding starcraft path')
-      newSettings.starcraftPath = findStarcraftPath()
+      newSettings.starcraftPath = await findStarcraftPath()
       updated = true
     }
     if (!this._settings.version || this._settings.version < 2) {
@@ -87,44 +97,51 @@ class LocalSettings extends EventEmitter {
   }
 
   set settings(toSet) {
-    const newSettings = {
-      ...toSet,
-      version: VERSION,
-    }
-    if (deepEqual(newSettings, this._settings)) {
-      return
-    }
-
-    this._settings = newSettings
-    const opts = { encoding: 'utf8', mode: 0o777 }
-    fs.writeFile(this._filepath, jsonify(this._settings), opts, err => {
-      if (err) {
-        log.error('Error writing to settings file: ' + err)
+    this._initialized.then(() => {
+      const newSettings = {
+        ...toSet,
+        version: VERSION,
       }
+      if (deepEqual(newSettings, this._settings)) {
+        return
+      }
+
+      this._settings = newSettings
+      const opts = { encoding: 'utf8' }
+      fs.writeFile(this._filepath, jsonify(this._settings), opts, err => {
+        if (err) {
+          log.error('Error writing to settings file: ' + err)
+        }
+      })
+      this.emit('change')
     })
-    this.emit('change')
   }
 }
 
 export default function(filepath) {
-  if (!fs.existsSync(filepath)) {
-    createSettingsFileSync(filepath)
-  }
-
-  return new LocalSettings(filepath)
+  const creationPromise = fs.existsSync(filepath) ? Promise.resolve() : createSettingsFile(filepath)
+  return new LocalSettings(filepath, creationPromise)
 }
 
-function createSettingsFileSync(filepath) {
+async function createSettingsFile(filepath) {
   // create an object with any "generated defaults"
   const settings = {
     version: VERSION,
-    starcraftPath: findStarcraftPath()
+    starcraftPath: await findStarcraftPath()
   }
-  fs.writeFileSync(filepath, jsonify(settings), { encoding: 'utf8', mode: 0o777 })
+  return new Promise((resolve, reject) => {
+    fs.writeFile(filepath, jsonify(settings), { encoding: 'utf8' }, err => {
+      if (err) {
+        reject(err)
+      } else {
+        resolve()
+      }
+    })
+  })
 }
 
-export function findStarcraftPath() {
-  let starcraftPath = getInstallPathFromRegistry()
+export async function findStarcraftPath() {
+  let starcraftPath = await getInstallPathFromRegistry()
   if (!starcraftPath) {
     log.warning('No Starcraft path found in registry, defaulting to standard install location')
     starcraftPath = process.env['ProgramFiles(x86)'] ?

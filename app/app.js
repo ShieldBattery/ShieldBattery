@@ -1,6 +1,7 @@
 import { app, BrowserWindow, session } from 'electron'
 import path from 'path'
 import url from 'url'
+import isDev from 'electron-is-dev'
 
 function applyOriginFilter() {
   // Modify the origin for all ShieldBattery server requests
@@ -14,7 +15,7 @@ function applyOriginFilter() {
 }
 
 async function installDevExtensions() {
-  if (process.env.NODE_ENV !== 'production') {
+  if (isDev) {
     const installer = require('electron-devtools-installer')
     const extensions = [
       'REACT_DEVELOPER_TOOLS',

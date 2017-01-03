@@ -1,5 +1,5 @@
 import path from 'path'
-import { checkStarcraftPath } from './natives/index'
+import { checkStarcraftPath } from './natives'
 import log from './logger'
 
 const MAX_VALID_TIME = 2.5 * 60 * 1000

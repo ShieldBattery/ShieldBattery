@@ -1,4 +1,6 @@
 build/
+app/native/*/*.node
+app/styles/
 dist/
 node_modules/
 npm-debug.log

@@ -2,6 +2,10 @@ import './styles/reset.css'
 import './styles/global.css'
 import 'babel-polyfill'
 
+if (process.webpackEnv.SB_ENV === 'electron') {
+  require('./electron/psi')
+}
+
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
@@ -40,7 +44,8 @@ new Promise((resolve, reject) => {
     initData.auth = authFromJS(initData.auth)
   }
 
-  let history = useRouterHistory(process.env.SB_ENV === 'web' ? createHistory : createHashHistory)()
+  let history = useRouterHistory(process.webpackEnv.SB_ENV === 'web' ?
+      createHistory : createHashHistory)()
   const store = createStore(initData, history)
   history = syncHistoryWithStore(history, store, {
     // Since we're using a custom reducer, we have to adjust the state to be shaped like
@@ -52,7 +57,7 @@ new Promise((resolve, reject) => {
 
   return { elem, store, history }
 }).then(async ({ elem, store, history }) => {
-  if (process.env.SB_ENV !== 'web') {
+  if (process.webpackEnv.SB_ENV !== 'web') {
     const { action, promise } = getCurrentSession()
     store.dispatch(action)
     try {

@@ -14,10 +14,11 @@
     "app": "cross-env SB_HOT=1 electron app",
     "autotest": "mocha --watch -R spec --compilers js:babel-register --recursive --harmony test/",
     "build": "cross-env NODE_ENV=production webpack",
-    "dist": "npm run build && build",
+    "clean": "rm -rf app/dist && rm -rf app/styles",
+    "dist": "npm run clean && npm run build && install-app-deps && build",
     "dev": "node -r babel-register electron-dev-server.js",
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
-    "pack": "npm run build && build --dir && babel --no-comments --compact --minified --out-file app/dist/bundle.js app/dist/bundle.js",
+    "pack": "npm run clean && npm run build && install-app-deps && build --dir",
     "postinstall": "install-app-deps",
     "posttest": "npm run lint",
     "test": "mocha -R spec --compilers js:babel-register --recursive --harmony test/",
@@ -25,6 +26,9 @@
   },
   "build": {
     "appId": "net.shieldbattery.client",
+    "files": [
+      "!**/*.map"
+    ],
     "win": {
       "icon": "icon.ico"
     }
@@ -51,11 +55,15 @@
     "extract-text-webpack-plugin": "^1.0.1",
     "history": "^2.1.2",
     "immutable": "^3.8.1",
+    "jssuh": "^1.1.0",
     "keycode": "^2.1.8",
+    "mkdirp": "^0.5.1",
+    "nydus": "^0.3.5",
     "nydus-client": "^0.3.1",
     "postcss-cssnext": "^2.9.0",
     "postcss-for": "^2.1.1",
     "postcss-mixins": "^5.4.1",
+    "rally-point-player": "^1.0.0",
     "react": "^15.4.1",
     "react-addons-css-transition-group": "^15.4.1",
     "react-custom-scrollbars": "^4.0.0",
@@ -69,7 +77,9 @@
     "redux-promise": "^0.5.3",
     "redux-thunk": "^2.1.0",
     "svg-react-loader": "^0.3.7",
-    "whatwg-fetch": "^2.0.1"
+    "thenify": "^3.2.1",
+    "whatwg-fetch": "^2.0.1",
+    "winreg": "^1.2.2"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",

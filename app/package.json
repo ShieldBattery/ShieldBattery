@@ -1,5 +1,5 @@
 {
-  "name": "shieldbattery-app-client",
+  "name": "ShieldBattery",
   "private": true,
   "version": "4.2.0",
   "description": "The electron host app for ShieldBattery.",
@@ -12,6 +12,9 @@
     "babel-polyfill": "^6.20.0",
     "babel-preset-node7": "^1.4.0",
     "babel-preset-stage-0": "^6.16.0",
-    "babel-register": "^6.18.0"
+    "babel-register": "^6.18.0",
+    "electron-is-dev": "^0.1.2",
+    "nan": "^2.5.0",
+    "thenify": "^3.2.1"
   }
 }

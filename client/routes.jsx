@@ -28,7 +28,7 @@ import {
 } from './admin/admin-route-filters.jsx'
 
 let devRoutes
-if (process.env.NODE_ENV !== 'production') {
+if (process.webpackEnv.NODE_ENV !== 'production') {
   const devLobbies = require('./lobbies/devonly/routes.jsx').default
   const devMaterial = require('./material/devonly/routes.jsx').default
 

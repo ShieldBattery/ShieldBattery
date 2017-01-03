@@ -1,3 +1,4 @@
+import { remote } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import cuid from 'cuid'
@@ -5,7 +6,7 @@ import deepEqual from 'deep-equal'
 import thenify from 'thenify'
 import { Map, Record } from 'immutable'
 import ReplayParser from 'jssuh'
-import * as psi from './natives/index'
+import { checkStarcraftPath } from './natives'
 import log from './logger'
 import { sendCommand } from './game-command'
 import getReplayFolder from './get-replay-folder'
@@ -17,7 +18,9 @@ import {
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
   statusToString
-} from '../common/game-status'
+} from '../../../common/game-status'
+
+const launchProcess = remote.require('./native/process')
 
 const SiteUser = new Record({
   username: null,
@@ -253,7 +256,9 @@ function silentTerminate(proc) {
   }
 }
 
+// FIXME(tec27): make launching work, gotta find DLL
 const accessAsync = thenify(fs.access)
+console.log('Exe path: ' + remote.app.getPath('exe'))
 const shieldbatteryRoot = path.dirname(process.execPath)
 async function doLaunch(gameId, settings) {
   const { starcraftPath } = settings.local
@@ -262,13 +267,13 @@ async function doLaunch(gameId, settings) {
   }
   const appPath = path.join(starcraftPath, 'starcraft.exe')
   try {
-    await psi.checkStarcraftPath(appPath)
+    await checkStarcraftPath(appPath)
   } catch (err) {
     throw new Error(`Could not access/find Starcraft executable at ${appPath}: ${err}`)
   }
 
   log.debug('Attempting to launch ' + appPath)
-  const proc = await psi.launchProcess({
+  const proc = await launchProcess({
     appPath,
     args: gameId,
     launchSuspended: true,
@@ -291,9 +296,7 @@ async function doLaunch(gameId, settings) {
   }
 
   log.debug(`Injecting ${shieldbatteryDll} into the process...`)
-  const dataRoot = process.env.ProgramData ?
-      path.join(process.env.ProgramData, 'shieldbattery') :
-      path.dirname(path.resolve(process.argv[0]))
+  const dataRoot = remote.app.getPath('userData')
   const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
   try {
     await proc.injectDll(shieldbatteryDll, 'OnInject', errorDumpPath)

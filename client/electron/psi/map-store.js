@@ -32,7 +32,7 @@ class HashThrough extends Transform {
 export default class MapStore {
   constructor(basePath) {
     this.basePath = basePath
-    mkdirp.sync(basePath, 0o777)
+    this._dirCreated = asyncMkdirp(basePath)
 
     this._activeDownloads = new Map()
   }
@@ -62,6 +62,7 @@ export default class MapStore {
   }
 
   async _checkAndDownloadMap(server, mapHash, mapFormat) {
+    await this._dirCreated
     const mapPath = this.getPath(mapHash, mapFormat)
 
     let exists = false
@@ -89,12 +90,12 @@ export default class MapStore {
         }
       }
 
-      await asyncMkdirp(path.dirname(mapPath), 0o777)
+      await asyncMkdirp(path.dirname(mapPath))
       const firstByte = mapHash.substr(0, 2)
       const secondByte = mapHash.substr(2, 2)
       const url = `${server}/maps/${firstByte}/${secondByte}/${mapHash}.${mapFormat}`
       await new Promise((resolve, reject) => {
-        const outStream = fs.createWriteStream(mapPath, { mode: 0o777 })
+        const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject)
           .on('finish', resolve)
         request.get(url)
