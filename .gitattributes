@@ -20,3 +20,4 @@
 
 # Github Linguist attributes - https://github.com/github/linguist#overrides
 game/deps/* linguist-vendored
+game/tools/* linguist-vendored
