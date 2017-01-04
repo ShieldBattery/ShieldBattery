@@ -3,4 +3,4 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 import 'babel-polyfill'
-import './shieldbattery.js'
+import './app.js'

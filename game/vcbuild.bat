@@ -12,9 +12,6 @@ if /i "%1"=="-?" goto help
 if /i "%1"=="--?" goto help
 if /i "%1"=="/?" goto help
 
-@rem Ensure environment properly setup
-if not defined SHIELDBATTERY_PATH goto env-error
-
 @rem Store %~dp0 because it can change after we call things
 set scriptroot=%~dp0
 
@@ -43,12 +40,7 @@ goto next-arg
 
 :install-deps
 @rem Install all the node module dependencies
-cd "%scriptroot%\nan"
-call npm install
-call npm update
-if errorlevel 1 goto install-failed
-cd "%scriptroot%\bundler"
-call npm install
+call yarn
 if errorlevel 1 goto install-failed
 echo JS modules installed.
 goto find-vs-2015
@@ -82,10 +74,10 @@ if defined noprojgen goto msbuild
 @rem Generate the VS project.
 SETLOCAL
   cd "%scriptroot%"
-  call "tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Icommon.gypi shieldbattery.gyp
+  call "tools\gyp\gyp.bat" --depth=. -f msvs --generator-output=. -G msvs_version=auto -Icommon.gypi game.gyp
   if errorlevel 1 goto create-msvs-files-failed
-  if not exist shieldbattery.sln goto create-msvs-files-failed
-  echo Shieldbattery project files generated.
+  if not exist game.sln goto create-msvs-files-failed
+  echo Game project files generated.
 ENDLOCAL
 
 :msbuild
@@ -97,19 +89,8 @@ goto do-build
 @rem Build the sln with msbuild.
 SETLOCAL
   cd "%scriptroot%"
-  msbuild shieldbattery.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
-  if errorlevel 1 goto exit
-  goto install-js-deps
+  msbuild game.sln /m /t:%target% /p:Configuration=%config% /clp:NoSummary;NoItemAndPropertyList;Verbosity=minimal /nologo
 ENDLOCAL
-
-:install-js-deps
-@rem Link up the native modules inside the js directory
-cd "%scriptroot%\js"
-call npm install
-if errorlevel 1 goto install-js-deps-failed
-rmdir "%SHIELDBATTERY_PATH%\js"
-mklink /D "%SHIELDBATTERY_PATH%\js" "%scriptroot%\js"
-echo JS modules linked.
 goto exit
 
 :build-node-failed
@@ -122,10 +103,6 @@ goto exit
 
 :install-failed
 echo Installing JS modules failed, please check output and ensure node/npm are installed and setup on your PATH.
-goto exit
-
-:install-js-deps-failed
-echo Installing dependencies for JS modules failed, please check command output and ensure node/npm are installed and setup on your PATH.
 goto exit
 
 :env-error
