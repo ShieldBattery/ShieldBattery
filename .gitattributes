@@ -15,3 +15,5 @@
 *.vbproj merge=union
 *.fsproj merge=union
 *.dbproj merge=union
+
+*.bat eol=crlf

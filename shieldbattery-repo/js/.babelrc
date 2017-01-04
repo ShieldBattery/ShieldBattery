@@ -1,4 +1,0 @@
-{
-  "presets": ["node6", "stage-0"],
-  "plugins": ["transform-decorators-legacy"],
-}
