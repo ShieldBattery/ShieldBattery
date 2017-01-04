@@ -1,5 +1,5 @@
 import path from 'path'
-import logger from '../../../common/logger'
+import logger from '../../common/logger'
 const dataRoot = process.env.LocalAppData ?
     path.join(process.env.LocalAppData, 'shieldbattery') :
     path.dirname(path.dirname(path.resolve(process.argv[1])))

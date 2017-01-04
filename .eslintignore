@@ -1,2 +1,5 @@
-server/*
-shieldbattery-repo/*
+build/*
+dist/*
+game/deps/*
+game/dist/*
+game/tools/*

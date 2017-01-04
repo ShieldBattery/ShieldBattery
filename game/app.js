@@ -1,5 +1,5 @@
 // Put log and bw first to ensure we can log as much as possible in the event of a crash
-import log from './shieldbattery/logger'
+import log from './js/logger'
 process.on('uncaughtException', function(err) {
   console.error(err.stack)
   log.error(err.stack)
@@ -18,14 +18,14 @@ process.on('uncaughtException', function(err) {
   // Other promise rejections are likely less severe, leave the process up but log it
 })
 
-import bw from './shieldbattery/natives/bw'
+import bw from './js/natives/bw'
 bw.on('log', function(level, msg) {
   log.log(level, msg)
 })
 
 import nydusClient from 'nydus-client'
-import forge from './shieldbattery/natives/forge'
-import initGame from './shieldbattery/init-game'
+import forge from './js/natives/forge'
+import initGame from './js/init-game'
 
 const socket = nydusClient('wss://lifeoflively.net:33198', {
   extraHeaders: {

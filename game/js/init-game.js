@@ -5,13 +5,13 @@ import bw from './natives/bw'
 import forge from './natives/forge'
 import { setRallyPoint, setNetworkRoutes } from './natives/snp'
 import * as gameTypes from './game-types'
-import createDeferred from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import createDeferred from '../../common/async/deferred'
+import rejectOnTimeout from '../../common/async/reject-on-timeout'
 import {
   GAME_STATUS_AWAITING_PLAYERS,
   GAME_STATUS_ERROR,
   GAME_STATUS_STARTING,
-} from '../../../common/game-status'
+} from '../../common/game-status'
 
 forge.on('startWndProc', () => log.verbose('forge\'s wndproc pump started'))
   .on('endWndProc', () => log.verbose('forge\'s wndproc pump finished'))
