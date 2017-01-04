@@ -105,10 +105,6 @@ goto exit
 echo Installing JS modules failed, please check output and ensure node/npm are installed and setup on your PATH.
 goto exit
 
-:env-error
-echo Necessary environment variables not set! Please set SHIELDBATTERY_PATH and re-run this script.
-goto exit
-
 :vs-not-found
 echo Visual Studio 2015 could not be found! Please ensure its installed and setup correctly.
 goto exit
