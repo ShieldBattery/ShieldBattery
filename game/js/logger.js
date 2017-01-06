@@ -1,7 +1,7 @@
 import path from 'path'
 import logger from '../../common/logger'
-const dataRoot = process.env.LocalAppData ?
-    path.join(process.env.LocalAppData, 'shieldbattery') :
+const dataRoot = process.env.AppData ?
+    path.join(process.env.AppData, 'ShieldBattery') :
     path.dirname(path.dirname(path.resolve(process.argv[1])))
 const logFile = path.join(dataRoot, 'logs', 'shieldbattery')
 

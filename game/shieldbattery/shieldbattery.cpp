@@ -148,7 +148,7 @@ void StartNode(void* arg) {
 
   string pathString(path);
   string::size_type slashPos = string(path).find_last_of("\\/");
-  string scriptPath = pathString.substr(0, slashPos).append("\\js\\index.js");
+  string scriptPath = pathString.substr(0, slashPos).append("\\index.js");
   vector<char> scriptPathArg(scriptPath.begin(), scriptPath.end());
   scriptPathArg.push_back('\0');
 

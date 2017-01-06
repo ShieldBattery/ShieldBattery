@@ -26,6 +26,7 @@
       '__register_tls_wrap_',
       '__register_tty_wrap_',
       '__register_udp_wrap_',
+      '__register_url_',
       '__register_util_',
       '__register_uv_',
       '__register_v8_',

@@ -32,9 +32,8 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   }
 
   async function activateMap(data, next) {
-    const { origin } = data.get('client').conn.request.headers
     const { hash, format } = data.get('body')
-    return mapStore.downloadMap(origin, hash, format)
+    return mapStore.downloadMap(hash, format)
   }
 
   async function getVersion(data, next) {

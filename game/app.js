@@ -27,7 +27,7 @@ import nydusClient from 'nydus-client'
 import forge from './js/natives/forge'
 import initGame from './js/init-game'
 
-const socket = nydusClient('wss://lifeoflively.net:33198', {
+const socket = nydusClient('ws://lifeoflively.net:33198', {
   extraHeaders: {
     origin: 'BROODWARS',
     'x-game-id': process.argv[process.argv.length - 1]

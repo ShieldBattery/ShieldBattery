@@ -1,4 +1,5 @@
 import { remote } from 'electron'
+import electronIsDev from 'electron-is-dev'
 import path from 'path'
 import fs from 'fs'
 import cuid from 'cuid'
@@ -20,7 +21,7 @@ import {
   statusToString
 } from '../../../common/game-status'
 
-const launchProcess = remote.require('./native/process')
+const { launchProcess } = remote.require('./native/process')
 
 const SiteUser = new Record({
   username: null,
@@ -256,10 +257,10 @@ function silentTerminate(proc) {
   }
 }
 
-// FIXME(tec27): make launching work, gotta find DLL
+const injectPath = path.resolve(remote.app.getAppPath(),
+    electronIsDev ? '../game/dist/shieldbattery.dll' : './resources/game/dist/shieldbattery.dll')
+
 const accessAsync = thenify(fs.access)
-console.log('Exe path: ' + remote.app.getPath('exe'))
-const shieldbatteryRoot = path.dirname(process.execPath)
 async function doLaunch(gameId, settings) {
   const { starcraftPath } = settings.local
   if (!starcraftPath) {
@@ -288,18 +289,17 @@ async function doLaunch(gameId, settings) {
   })
   log.verbose('Process launched')
 
-  const shieldbatteryDll = path.join(shieldbatteryRoot, 'shieldbattery.dll')
   try {
-    await accessAsync(shieldbatteryDll)
+    await accessAsync(injectPath)
   } catch (err) {
-    throw new Error(`Could not access/find shieldbattery dll at ${shieldbatteryDll}`)
+    throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
   }
 
-  log.debug(`Injecting ${shieldbatteryDll} into the process...`)
+  log.debug(`Injecting ${injectPath} into the process...`)
   const dataRoot = remote.app.getPath('userData')
   const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
   try {
-    await proc.injectDll(shieldbatteryDll, 'OnInject', errorDumpPath)
+    await proc.injectDll(injectPath, 'OnInject', errorDumpPath)
   } catch (err) {
     silentTerminate(proc)
     throw err

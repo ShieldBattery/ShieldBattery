@@ -1,11 +1,12 @@
 {
-  "name": "shieldbattery-js",
+  "name": "shieldbattery-game",
   "private": true,
   "version": "4.2.0",
   "description": "JS files for ShieldBattery",
   "main": "index.js",
   "scripts": {
-    "autobuild": "node -r babel-register ./node_modules/webpack/bin/webpack --progress --colors --watch --config webpack.dev.config.js"
+    "build": "node -r babel-register ./node_modules/webpack/bin/webpack --progress --colors --config webpack.config.js",
+    "dev": "node -r babel-register ./node_modules/webpack/bin/webpack --progress --colors --watch --config webpack.dev.config.js"
   },
   "dependencies": {
     "babel-core": "^6.4.0",
