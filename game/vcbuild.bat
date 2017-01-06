@@ -82,7 +82,7 @@ ENDLOCAL
 
 :msbuild
 @rem Skip build if requested.
-if defined nobuild goto install-js-deps
+if defined nobuild goto exit
 goto do-build
 
 :do-build
