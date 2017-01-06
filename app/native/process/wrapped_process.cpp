@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <DbgHelp.h>
 #include <nan.h>
+#include <TlHelp32.h>
+#include <array>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -21,6 +23,7 @@ using Nan::SetPrototypeMethod;
 using Nan::To;
 using Nan::Undefined;
 using Nan::Utf8String;
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -129,13 +132,221 @@ static WindowsError CreateMiniDump(HANDLE process, const string& path) {
   return WindowsError();
 }
 
+static WindowsError GetRemoteModuleHandle(uint32_t process_id, const string& module,
+    HMODULE* handle_out) {
+  *handle_out = nullptr;
+  MODULEENTRY32 mod_entry = {};
+  WinHandle tlh(CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id));
+  uint32_t tries = 1;
+  while (tlh.get() == INVALID_HANDLE_VALUE && GetLastError() == ERROR_BAD_LENGTH && tries < 100) {
+    Sleep(10);
+    tlh.Reset(CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id));
+    tries++;
+  }
+
+  if (tlh.get() == INVALID_HANDLE_VALUE) {
+    return WindowsError("GetRemoteModuleHandle -> CreateToolhelp32Snapshot", GetLastError());
+  }
+
+  mod_entry.dwSize = sizeof(MODULEENTRY32);
+  Module32First(tlh.get(), &mod_entry);
+  do {
+    if (!_stricmp(mod_entry.szModule, module.c_str())) {
+      *handle_out = mod_entry.hModule;
+      return WindowsError();
+    }
+    mod_entry.dwSize = sizeof(MODULEENTRY32);
+  } while (Module32Next(tlh.get(), &mod_entry));
+
+  return WindowsError("GetRemoteModuleHandle -> End of search", ERROR_MOD_NOT_FOUND);
+}
+
+static WindowsError GetRemoteModuleExportDirectory(HANDLE proc_handle, HMODULE remote_module,
+    const IMAGE_DOS_HEADER& dos_header, const IMAGE_NT_HEADERS32& nt_headers,
+    IMAGE_EXPORT_DIRECTORY* export_directory_out) {
+  *export_directory_out = IMAGE_EXPORT_DIRECTORY();
+
+  uintptr_t remote_base = reinterpret_cast<uintptr_t>(remote_module);
+
+  vector<byte> pe_header(1000);
+  if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(remote_base), &pe_header[0],
+      1000, nullptr)) {
+    return WindowsError("GetRemoteModuleExportDirectory -> Read PE header", GetLastError());
+  }
+
+  IMAGE_SECTION_HEADER* image_section_header = reinterpret_cast<IMAGE_SECTION_HEADER*>(
+      &pe_header[dos_header.e_lfanew + sizeof(IMAGE_NT_HEADERS32)]);
+
+  for (uint32_t i = 0; i < nt_headers.FileHeader.NumberOfSections; i++, image_section_header++) {
+    if (!image_section_header)
+      continue;
+
+    if (_stricmp(reinterpret_cast<char*>(image_section_header->Name), ".edata") == 0) {
+      if (!ReadProcessMemory(proc_handle,
+          reinterpret_cast<void*>(static_cast<uintptr_t>(image_section_header->VirtualAddress)),
+          export_directory_out, sizeof(IMAGE_EXPORT_DIRECTORY), nullptr)) {
+        continue;
+      }
+
+      return WindowsError();
+    }
+
+  }
+
+  uintptr_t eat_address =
+      static_cast<uintptr_t>(nt_headers.OptionalHeader.DataDirectory[0].VirtualAddress);
+  if (!eat_address) {
+    return WindowsError("GetRemoteModuleExportDirectory -> Get EAT address", ERROR_MOD_NOT_FOUND);
+  }
+
+  if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(remote_base + eat_address),
+      export_directory_out, sizeof(IMAGE_EXPORT_DIRECTORY), nullptr)) {
+    return WindowsError("GetRemoteModuleExportDirectory -> Read EAT address", GetLastError());
+  }
+
+  return WindowsError();
+}
+
+// TODO(tec27): if this were split out differently (e.g. if reading the export table and such were
+// separate), this could be more efficient about how many times it reads from the remote proc for a
+// multi-function search in the same module
+static WindowsError GetRemoteFuncAddress(HANDLE proc_handle, const string& module,
+    const string& func_name, void** func_address_out) {
+  *func_address_out = nullptr;
+  uint32_t proc_id = GetProcessId(proc_handle);
+  HMODULE remote_module;
+  WindowsError result = GetRemoteModuleHandle(proc_id, module, &remote_module);
+  if (result.is_error()) {
+    return result;
+  }
+
+  uintptr_t remote_base = reinterpret_cast<uintptr_t>(remote_module);
+ 
+  IMAGE_DOS_HEADER dos_header = {};
+  if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(remote_base), &dos_header,
+      sizeof(IMAGE_DOS_HEADER), nullptr) || dos_header.e_magic != IMAGE_DOS_SIGNATURE) {
+    return WindowsError("GetRemoteFuncAddress -> Read DOS Header", GetLastError());
+  }
+
+  IMAGE_NT_HEADERS32 nt_headers = {};
+  if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(remote_base + dos_header.e_lfanew),
+      &nt_headers, sizeof(IMAGE_NT_HEADERS32), nullptr) ||
+      nt_headers.Signature != IMAGE_NT_SIGNATURE) {
+    return WindowsError("GetRemoteFuncAddress -> Read NT Headers", GetLastError());
+  }
+
+  IMAGE_EXPORT_DIRECTORY export_dir = {};
+  result = GetRemoteModuleExportDirectory(proc_handle, remote_module, dos_header,
+      nt_headers, &export_dir);
+  if (result.is_error()) {
+    return result;
+  }
+
+  vector<uint32_t> function_addresses(export_dir.NumberOfFunctions);
+  vector<uint32_t> name_addresses(export_dir.NumberOfNames);
+  vector<uint16_t> ordinals(export_dir.NumberOfNames);
+
+  if (!ReadProcessMemory(proc_handle,
+      reinterpret_cast<void*>(remote_base + export_dir.AddressOfFunctions),
+      &function_addresses[0], export_dir.NumberOfFunctions * sizeof(uint32_t), nullptr)) {
+    return WindowsError("GetRemoteFuncAddress -> Read AddressOfFunctions", GetLastError());
+  }
+
+  if (!ReadProcessMemory(proc_handle,
+      reinterpret_cast<void*>(remote_base + export_dir.AddressOfNames),
+      &name_addresses[0], export_dir.NumberOfNames * sizeof(uint32_t), nullptr)) {
+    return WindowsError("GetRemoteFuncAddress -> Read AddressOfNames", GetLastError());
+  }
+
+  if (!ReadProcessMemory(proc_handle,
+      reinterpret_cast<void*>(remote_base + export_dir.AddressOfNameOrdinals),
+      &ordinals[0], export_dir.NumberOfNames * sizeof(uint16_t), nullptr)) {
+    return WindowsError("GetRemoteFuncAddress -> Read AddressOfNameOrdinals", GetLastError());
+  }
+
+  uintptr_t export_base = remote_base +
+      nt_headers.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+  uintptr_t export_end = export_base +
+      nt_headers.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
+
+  vector<char> cur_func_name(256);
+  vector<char> cur_module_name(256);
+  vector<char> cur_func_redirect(256);
+
+  for (uint32_t i = 0; i < export_dir.NumberOfNames; i++) {
+    uintptr_t func_address = remote_base + function_addresses[i];
+    uintptr_t name_address = remote_base + name_addresses[i];
+
+    std::fill(cur_func_name.begin(), cur_func_name.end(), 0);
+
+    if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(name_address), &cur_func_name[0],
+        256, nullptr)) {
+      continue;
+    }
+
+    if (_stricmp(&cur_func_name[0], func_name.c_str()) != 0) {
+      continue;
+    }
+
+    // Check if address of function is found in another module
+    if (func_address >= export_base && func_address <= export_end) {
+      std::fill(cur_func_name.begin(), cur_func_name.end(), 0);
+
+      if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(func_address), &cur_func_name[0],
+          256, nullptr)) {
+        continue;
+      }
+
+      std::fill(cur_module_name.begin(), cur_module_name.end(), 0);
+      std::fill(cur_func_redirect.begin(), cur_func_redirect.end(), 0);
+
+      uint32_t j = 0;
+      for (; cur_func_name[j] != '.' && j < cur_func_name.size(); j++)
+        cur_module_name[j] = cur_func_name[j];
+      j++;
+      if (j >= cur_func_name.size()) {
+        continue;
+      }
+      cur_module_name[j] = '\0';
+
+      uint32_t k = 0;
+      for (; cur_func_name[j] != '\0' && j < cur_func_name.size(); j++, k++)
+        cur_func_redirect[k] = cur_func_name[j];
+      k++;
+      if (k >= cur_func_redirect.size()) {
+        continue;
+      }
+      cur_func_redirect[k] = '\0';
+
+      strcat_s(&cur_module_name[0], cur_module_name.size(), ".dll");
+
+      return GetRemoteFuncAddress(
+          proc_handle, cur_module_name.data(), cur_func_redirect.data(), func_address_out);
+    }
+
+    WORD ordinal_value = ordinals[i];
+    if (ordinal_value >= export_dir.NumberOfNames) {
+      return WindowsError("GetRemoteFuncAddress -> Ordinal lookup", ERROR_INVALID_DATA);
+    }
+
+    *func_address_out = ordinal_value == i ?
+      reinterpret_cast<void*>(func_address) :
+      reinterpret_cast<void*>(remote_base + function_addresses[ordinal_value]);
+    return WindowsError();
+  }
+
+  return WindowsError("GetRemoteFuncAddress -> End of search", ERROR_PROC_NOT_FOUND);
+}
+
 struct InjectContext {
   wchar_t dll_path[MAX_PATH];
   char inject_proc_name[256];
 
-  HMODULE(WINAPI* LoadLibraryW)(LPCWSTR lib_filename);
-  FARPROC(WINAPI* GetProcAddress)(HMODULE module_handle, LPCSTR proc_name);
-  DWORD(WINAPI* GetLastError)();
+  // Note that these are explicitly made 32-bit so they work in our 32-bit target without adjustment
+  // for the injector's 64-bit-ness
+  uint32_t LoadLibraryW;
+  uint32_t GetProcAddress;
+  uint32_t GetLastError;
 };
 
 // Thread proc function for injecting, looks like:
@@ -249,6 +460,40 @@ WindowsError Process::error() const {
   return error_;
 }
 
+// Workaround for injecting into suspended processes, where the necessary NT header structures are
+// not initialized. By creating a dummy thread that just returns, we get Windows to fill out all the
+// things we need, while not actually advancing the threads we want to keep at bay.
+WindowsError Process::NtForceLdrInitializeThunk() {
+  byte injected_code[] = {0xC3 /* RET */};
+  ScopedVirtualAlloc remote_proc(process_handle_.get(), nullptr, sizeof(injected_code), MEM_COMMIT,
+      PAGE_EXECUTE_READWRITE);
+  if (remote_proc.has_errors()) {
+    return WindowsError("NtForceLdrInitializeThunk -> VirtualAllocEx", GetLastError());
+  }
+
+  SIZE_T bytes_written;
+  BOOL success = WriteProcessMemory(process_handle_.get(), remote_proc.get(), &injected_code,
+    sizeof(injected_code), &bytes_written);
+  if (!success || bytes_written != sizeof(injected_code)) {
+    return WindowsError("NtForceLdrInitializeThunk -> WriteProcessMemory", GetLastError());
+  }
+
+  WinHandle thread_handle(CreateRemoteThread(process_handle_.get(), NULL, 0,
+    reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc.get()), nullptr, 0, nullptr));
+  if (thread_handle.get() == NULL) {
+    return WindowsError("NtForceLdrInitializeThunk -> CreateRemoteThread", GetLastError());
+  }
+
+  uint32_t wait_result = WaitForSingleObject(thread_handle.get(), 5000);
+  if (wait_result == WAIT_TIMEOUT) {
+    return WindowsError("NtForceLdrInitializeThunk -> WaitForSingleObject", WAIT_TIMEOUT);
+  } else if (wait_result == WAIT_FAILED) {
+    return WindowsError("NtForceLdrInitializeThunk -> WaitForSingleObject", GetLastError());
+  }
+
+  return WindowsError();
+}
+
 WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name,
   const string& error_dump_path) {
   if (has_errors()) {
@@ -261,9 +506,40 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
     return WindowsError("InjectDll -> lstrcpynW", ERROR_NOT_ENOUGH_MEMORY);
   }
   strcpy_s(context.inject_proc_name, inject_function_name.c_str());
-  context.LoadLibraryW = LoadLibraryW;
-  context.GetProcAddress = GetProcAddress;
-  context.GetLastError = GetLastError;
+
+  // Force Windows to init the data structures necessary to get remote function addresses
+  NtForceLdrInitializeThunk();
+
+  uintptr_t temp_ptr;
+  WindowsError result = GetRemoteFuncAddress(process_handle_.get(), "kernel32.dll", "LoadLibraryW",
+      reinterpret_cast<void**>(&temp_ptr));
+  if (result.is_error()) {
+    return result;
+  }
+  if (temp_ptr > 0xFFFFFFFFLLU) {
+    return WindowsError("InjectDll -> LoadLibraryW Address", ERROR_BAD_LENGTH);
+  }
+  context.LoadLibraryW = static_cast<uint32_t>(temp_ptr);
+
+  result = GetRemoteFuncAddress(process_handle_.get(), "kernel32.dll", "GetProcAddress",
+    reinterpret_cast<void**>(&temp_ptr));
+  if (result.is_error()) {
+    return result;
+  }
+  if (temp_ptr > 0xFFFFFFFFLLU) {
+    return WindowsError("InjectDll -> GetProcAddress Address", ERROR_BAD_LENGTH);
+  }
+  context.GetProcAddress = static_cast<uint32_t>(temp_ptr);
+
+  result = GetRemoteFuncAddress(process_handle_.get(), "kernel32.dll", "GetLastError",
+    reinterpret_cast<void**>(&temp_ptr));
+  if (result.is_error()) {
+    return result;
+  }
+  if (temp_ptr > 0xFFFFFFFFLLU) {
+    return WindowsError("InjectDll -> GetProcAddress Address", ERROR_BAD_LENGTH);
+  }
+  context.GetLastError = static_cast<uint32_t>(temp_ptr);
 
   SIZE_T alloc_size = sizeof(context) + sizeof(inject_proc);
   ScopedVirtualAlloc remote_context(process_handle_.get(), nullptr, alloc_size, MEM_COMMIT,
@@ -398,7 +674,7 @@ void WrappedProcess::Init() {
   SetPrototypeMethod(tpl, "resume", Resume);
   SetPrototypeMethod(tpl, "terminate", Terminate);
   SetPrototypeMethod(tpl, "waitForExit", WaitForExit);
-  
+
   constructor.Reset(tpl->GetFunction());
 }
 
@@ -413,7 +689,7 @@ Local<Value> WrappedProcess::NewInstance(Process* process) {
   EscapableHandleScope scope;
 
   Local<Function> cons = Nan::New<Function>(constructor);
-  Local<Object> instance = cons->NewInstance();
+  Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
   WrappedProcess* wrapped = ObjectWrap::Unwrap<WrappedProcess>(instance);
   wrapped->set_process(process);
 

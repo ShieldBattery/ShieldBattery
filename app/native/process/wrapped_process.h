@@ -70,6 +70,7 @@ public:
   WindowsError WaitForExit(uint32_t max_wait_ms = INFINITE, bool* timed_out = nullptr);
   WindowsError GetExitCode(uint32_t* exit_code);
 private:
+  WindowsError NtForceLdrInitializeThunk();
   // Disable copying
   Process(const Process&) = delete;
   Process& operator=(const Process&) = delete;
