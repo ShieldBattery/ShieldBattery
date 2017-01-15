@@ -1,6 +1,9 @@
 // This file will hold temporary stand-ins for the previously native functionality in psi
 import Registry from 'winreg'
 import electron from 'electron'
+import fs from 'fs'
+import path from 'path'
+import thenify from 'thenify'
 
 function readRegValue(hive, key, value) {
   return new Promise((resolve, reject) => {
@@ -82,12 +85,26 @@ export async function checkStarcraftPath(path) {
 }
 
 export async function detectResolution() {
-  // FIXME(tec27): just inline this where it's used (and ideally allow monitor selection?)
   const { width, height } = electron.screen.getPrimaryDisplay().size
   return { width, height }
 }
 
-export async function readFolder() {
-  // FIXME(tec27): real implementation!
-  return []
+const readdirAsync = thenify(fs.readdir)
+const statAsync = thenify(fs.stat)
+export async function readFolder(folderPath) {
+  const names = await readdirAsync(folderPath)
+  const stats = await Promise.all(names.map(async name => {
+    const targetPath = path.join(folderPath, name)
+    const stats = await statAsync(targetPath)
+    return [ name, targetPath, stats ]
+  }))
+
+  return stats.map(([name, targetPath, s]) => {
+    return {
+      isFolder: s.isDirectory(),
+      name,
+      path: targetPath,
+      date: s.mtime,
+    }
+  })
 }

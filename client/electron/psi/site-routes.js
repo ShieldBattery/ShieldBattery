@@ -125,12 +125,15 @@ async function getReplays(data, next) {
     const replaysFolderPath = getReplayFolder()
     const entries = await readFolder(path.join(replaysFolderPath, normalized))
     return (entries
-      .filter(f => (f.isFolder && f.name !== '.' && f.name !== '..') || f.name.endsWith('.rep'))
+      .filter(f => f.isFolder || f.name.endsWith('.rep'))
       .map(f => {
         f.path = path.relative(replaysFolderPath, f.path)
         if (!f.isFolder) {
           f.name = f.name.slice(0, -4)
         }
+        // TODO(tec27): once we're not doing this over a socket, we can probably leave this as a
+        // date
+        f.date = +f.date
         return f
       }))
   } catch (err) {
