@@ -4,6 +4,8 @@ import 'babel-polyfill'
 
 if (process.webpackEnv.SB_ENV === 'electron') {
   require('./electron/psi')
+  // initialize socket
+  require('./network/psi-socket')
 }
 
 import React from 'react'
@@ -20,8 +22,6 @@ import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
 
-// initialize socket
-import './network/psi-socket'
 
 new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
