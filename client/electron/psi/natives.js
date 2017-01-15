@@ -79,8 +79,17 @@ export async function getInstallPathFromRegistry() {
   return path.slice(0, mapsIndex)
 }
 
-export async function checkStarcraftPath(path) {
-  // FIXME(tec27): real implementation!
+const accessAsync = thenify(fs.access)
+export async function checkStarcraftPath(filePath) {
+  try {
+    await accessAsync(filePath, fs.constants.R_OK)
+  } catch (err) {
+    const toThrow = new Error('Path is not accessible')
+    toThrow.name = 'InvalidPathError'
+    throw toThrow
+  }
+
+  // FIXME(tec27): real implementation of version check!
   return { path: true, version: true }
 }
 
