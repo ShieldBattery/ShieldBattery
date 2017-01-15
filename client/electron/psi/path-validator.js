@@ -37,22 +37,9 @@ export default class PathValidator {
       this.lastHadValidVersion = false
       log.debug('StarCraft path invalid because no path is set')
     } else {
-      try {
-        await checkStarcraftPath(path.join(settings.starcraftPath, 'starcraft.exe'))
-        this.lastHadValidPath = true
-        this.lastHadValidVersion = true
-        log.debug('StarCraft path is valid')
-      } catch (e) {
-        if (e.name === 'ProductVersionError') {
-          this.lastHadValidPath = true
-          this.lastHadValidVersion = false
-          log.debug('StarCraft path is valid, but the version is incorrect')
-        } else {
-          this.lastHadValidPath = false
-          this.lastHadValidVersion = false
-          log.debug('StarCraft path is invalid, error was: ' + e)
-        }
-      }
+      const validity = await checkStarcraftPath(path.join(settings.starcraftPath, 'starcraft.exe'))
+      this.lastHadValidPath = validity.path
+      this.lastHadValidVersion = validity.version
     }
 
     return { path: this.lastHadValidPath, version: this.lastHadValidVersion }
