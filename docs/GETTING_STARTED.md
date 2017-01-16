@@ -15,16 +15,6 @@ get the new changes.
 
 ### General environment setup
 
-#### `SHIELDBATTERY_PATH` environment variable
-
-Building ShieldBattery requires an environment variable to be set so that it can properly move
-things around after building. Set an environment variable named `SHIELDBATTERY_PATH` to the desired
-path for your ShieldBattery test install. This should ideally be a new folder that will not collide
-with a real ShieldBattery install. For example, an okay location would be `C:\ShieldBattery\`.
-
-Note that this should *not* be the same place you cloned the repo. Setting your test install
-directory to the same directory as your repo will not work correctly.
-
 #### Python 2.7.x
 
 ShieldBattery uses [gyp](https://gyp.gsrc.io/) for generating the game client project files, which
