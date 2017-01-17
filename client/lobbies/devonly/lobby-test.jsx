@@ -1,4 +1,4 @@
-import React from 'react'
+/* import React from 'react'
 import { Map, Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
@@ -73,4 +73,4 @@ export default class LobbyTest extends React.Component {
       { LOBBIES.map(this.renderLobby) }
     </div>)
   }
-}
+}*/

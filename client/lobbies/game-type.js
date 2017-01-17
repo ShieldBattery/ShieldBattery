@@ -17,6 +17,14 @@ export function gameTypeToString(gameType) {
   }
 }
 
+// This function is probably unnecessary since we can just check if lobby.teams.size === 1, or at
+// the very least replace it with that. However, once we add support for observers, it might
+// complicate things. Because then each lobby might have an additional team for observers, but it
+// also might not if there is no space for observers (eg. 8-player map). Another awkward thing about
+// this function is that it returns false for 'ums' type, which is a problem since we use this
+// function to determine whether to display the team names in the lobby, which 'ums' obviously
+// should.
+// TODO(2Pac): revisit this function once we add observer support and ums support
 export function isTeamType(gameType) {
   switch (gameType) {
     case 'melee': return false
@@ -27,37 +35,5 @@ export function isTeamType(gameType) {
     case 'teamFfa': return true
     case 'topVBottom': return true
     default: throw new Error('Unknown game type: ' + gameType)
-  }
-}
-
-export function slotsPerTeam(gameType, gameSubType) {
-  if (!isTeamType(gameType)) {
-    return 8
-  } else if (gameType === 'topVBottom') {
-    return gameSubType
-  } else {
-    switch (gameSubType) {
-      case 4: return 2
-      case 3: return 3
-      default: return 4
-    }
-  }
-}
-
-export function numTeams(gameType, gameSubType) {
-  if (!isTeamType(gameType)) {
-    return 0
-  } else if (gameType === 'topVBottom') {
-    return 2
-  } else {
-    return gameSubType
-  }
-}
-
-export function getTeamName(gameType, teamNum) {
-  if (gameType === 'topVBottom') {
-    return teamNum === 0 ? 'Top' : 'Bottom'
-  } else {
-    return `Team ${teamNum + 1}`
   }
 }

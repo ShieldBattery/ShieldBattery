@@ -123,8 +123,6 @@ export const LOBBY_START_COUNTDOWN_BEGIN = 'LOBBY_START_COUNTDOWN_BEGIN'
 export const LOBBY_START_COUNTDOWN = 'LOBBY_START_COUNTDOWN'
 // A new chat message has been received
 export const LOBBY_UPDATE_CHAT_MESSAGE = 'LOBBY_UPDATE_CHAT_MESSAGE'
-// A controlled open slot in the lobby we're in is now controlled by a different player
-export const LOBBY_UPDATE_CONTROLLER_CHANGE = 'LOBBY_UPDATE_CONTROLLER_CHANGE'
 // The countdown for the lobby we're in has been canceled
 export const LOBBY_UPDATE_COUNTDOWN_CANCELED = 'LOBBY_UPDATE_COUNTDOWN_CANCELED'
 // A lobby we're in is starting the game countdown
@@ -135,8 +133,6 @@ export const LOBBY_UPDATE_COUNTDOWN_TICK = 'LOBBY_UPDATE_COUNTDOWN_TICK'
 export const LOBBY_UPDATE_GAME_STARTED = 'LOBBY_UPDATE_GAME_STARTED'
 // A lobby we're in now has a new host player
 export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
-// A user has joined a lobby we're in
-export const LOBBY_UPDATE_JOIN = 'LOBBY_UPDATE_JOIN'
 // A user has left a lobby we're in
 export const LOBBY_UPDATE_LEAVE = 'LOBBY_UPDATE_LEAVE'
 // We have left a lobby we're in
@@ -149,6 +145,8 @@ export const LOBBY_UPDATE_LOADING_CANCELED = 'LOBBY_UPDATE_LOADING_CANCELED'
 export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 // A user has moved slots in a lobby we're in
 export const LOBBY_UPDATE_SLOT_CHANGE = 'LOBBY_UPDATE_SLOT_CHANGE'
+// A new slot has been created in a lobby we're in (this could indicate player joining)
+export const LOBBY_UPDATE_SLOT_CREATE = 'LOBBY_UPDATE_SLOT_CREATE'
 
 // We are starting the process of saving the settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'

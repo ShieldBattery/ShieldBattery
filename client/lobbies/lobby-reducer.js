@@ -1,4 +1,4 @@
-import { Map, Record, List } from 'immutable'
+import { Record, List } from 'immutable'
 import cuid from 'cuid'
 import keyedReducer from '../reducers/keyed-reducer'
 import { MapRecord } from './maps-reducer'
@@ -8,12 +8,11 @@ import {
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
-  LOBBY_UPDATE_CONTROLLER_CHANGE,
+  LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
@@ -23,28 +22,30 @@ import {
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 
-export const Player = new Record({
+export const Slot = new Record({
+  type: null,
   name: null,
+  race: null,
   id: null,
-  race: 'r',
-  isComputer: false,
   controlledBy: null,
-  slot: -1
+})
+export const Team = new Record({
+  name: null,
+  flags: null,
+  slots: new List(),
 })
 export const LobbyInfo = new Record({
   name: null,
   map: null,
   gameType: null,
   gameSubType: null,
-  numSlots: 0,
-  filledSlots: 0,
-  players: new Map(),
-  hostId: null,
+  teams: new List(),
+  host: null,
+
   isCountingDown: false,
   countdownTimer: -1,
   isLoading: false,
 })
-
 const BaseLobbyRecord = new Record({
   info: new LobbyInfo(),
   chat: new List(),
@@ -58,62 +59,44 @@ export class LobbyRecord extends BaseLobbyRecord {
   }
 }
 
-const playersObjToMap = obj => {
-  const records = Object.keys(obj).reduce((result, key) => {
-    result[key] = new Player(obj[key])
-    return result
-  }, {})
-
-  return new Map(records)
-}
-
 const infoReducer = keyedReducer(undefined, {
   [LOBBY_INIT_DATA](state, action) {
     const { lobby } = action.payload
-    return new LobbyInfo({
-      ...lobby,
-      players: playersObjToMap(lobby.players),
-      map: new MapRecord(lobby.map),
+    const teams = lobby.teams.map(team => {
+      const slots = team.slots.map(slot => new Slot(slot))
+      return new Team({ ...team, slots: new List(slots) })
     })
+    const lobbyInfo = new LobbyInfo({
+      ...lobby,
+      map: new MapRecord(lobby.map),
+      teams: new List(teams),
+      host: new Slot(lobby.host),
+    })
+
+    return lobbyInfo
   },
 
-  [LOBBY_UPDATE_JOIN](state, action) {
-    const player = new Player(action.payload)
-    return (
-      state.set('players', state.players.set(player.id, player))
-        .set('filledSlots', state.filledSlots + (player.controlledBy ? 0 : 1))
-    )
+  [LOBBY_UPDATE_SLOT_CREATE](state, action) {
+    const { teamIndex, slotIndex, slot } = action.payload
+    return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(slot))
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
-    const { id, newRace } = action.payload
-    return state.setIn(['players', id, 'race'], newRace)
+    const { teamIndex, slotIndex, newRace } = action.payload
+    return state.setIn(['teams', teamIndex, 'slots', slotIndex, 'race'], newRace)
   },
 
   [LOBBY_UPDATE_SLOT_CHANGE](state, action) {
-    const { id, newSlot } = action.payload
-    return state.setIn(['players', id, 'slot'], newSlot)
-  },
-
-  [LOBBY_UPDATE_LEAVE](state, action) {
-    return (
-      state.deleteIn(['players', action.payload])
-        .set('filledSlots', state.filledSlots -
-            (state.players.get(action.payload).controlledBy ? 0 : 1))
-    )
+    const { teamIndex, slotIndex, player } = action.payload
+    return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(player))
   },
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
     return new LobbyInfo()
   },
 
-  [LOBBY_UPDATE_CONTROLLER_CHANGE](state, action) {
-    const { id, newController } = action.payload
-    return state.setIn(['players', id, 'controlledBy'], newController)
-  },
-
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
-    return state.set('hostId', action.payload)
+    return state.set('host', action.payload)
   },
 
   [LOBBY_UPDATE_COUNTDOWN_START](state, action) {
@@ -215,13 +198,13 @@ const chatHandlers = {
     }))
   },
 
-  [LOBBY_UPDATE_JOIN](lobbyInfo, lastLobbyInfo, state, action) {
-    const player = action.payload
-    if (!player.isComputer && !player.controlledBy) {
+  [LOBBY_UPDATE_SLOT_CREATE](lobbyInfo, lastLobbyInfo, state, action) {
+    const { slot } = action.payload
+    if (slot.type === 'human') {
       return state.push(new JoinMessage({
         id: cuid(),
         time: Date.now(),
-        name: player.name
+        name: slot.name
       }))
     }
 
@@ -229,14 +212,12 @@ const chatHandlers = {
   },
 
   [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
-    const player = lastLobbyInfo.players.get(action.payload)
-    if (!player.isComputer && !player.controlledBy) {
-      return state.push(new LeaveMessage({
-        id: cuid(),
-        time: Date.now(),
-        name: player.name
-      }))
-    }
+    const { player } = action.payload
+    return state.push(new LeaveMessage({
+      id: cuid(),
+      time: Date.now(),
+      name: player.name
+    }))
 
     return state
   },
@@ -246,7 +227,7 @@ const chatHandlers = {
       id: cuid(),
       time: Date.now(),
       lobby: lobbyInfo.name,
-      host: lobbyInfo.players.get(lobbyInfo.hostId).name,
+      host: lobbyInfo.host.name,
     }))
   },
 
@@ -254,7 +235,7 @@ const chatHandlers = {
     return state.push(new HostChangeMessage({
       id: cuid(),
       time: Date.now(),
-      name: lobbyInfo.players.get(lobbyInfo.hostId).name,
+      name: lobbyInfo.host.name,
     }))
   },
 
