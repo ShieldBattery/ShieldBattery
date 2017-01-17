@@ -1,0 +1,241 @@
+import React, { PropTypes } from 'react'
+import { connect } from 'react-redux'
+import classnames from 'classnames'
+import pathApi from 'path'
+
+import styles from './browse-files.css'
+import { changePath, getFiles } from './action-creators'
+
+import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
+import Folder from '../icons/material/ic_folder_black_24px.svg'
+import Refresh from '../icons/material/ic_refresh_black_24px.svg'
+import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
+
+import LoadingIndicator from '../progress/dots.jsx'
+import IconButton from '../material/icon-button.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
+
+const monthShortNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
+
+const localeDateSupported = !!Date.prototype.toLocaleDateString
+function getLocalDate(date) {
+  if (localeDateSupported) {
+    return date.toLocaleDateString(navigator.language, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+
+  const year = date.getFullYear()
+  const month = monthShortNames[date.getMonth()]
+  const day = date.getDate()
+  let hour = date.getHours()
+  const isPm = hour >= 12
+  hour = isPm ? (hour - 12) : hour
+  if (hour === 0) {
+    hour = 12
+  }
+  let minute = '' + date.getMinutes()
+  if (minute.length === 1) {
+    minute = '0' + minute
+  }
+  return `${month} ${day < 10 ? '0' + day : day}, ${year}, ${hour}:${minute} ${isPm ? 'PM' : 'AM'}`
+}
+
+class FolderEntry extends React.Component {
+  static propTypes = {
+    folder: PropTypes.object.isRequired,
+    onClick: PropTypes.func.isRequired,
+  };
+
+  shouldComponentUpdate(nextProps) {
+    return nextProps.folder !== this.props.folder || nextProps.onClick !== this.props.onClick
+  }
+
+  render() {
+    const { folder, onClick } = this.props
+    const classes = classnames(styles.entry, styles.folder)
+
+    return (<div className={classes} onClick={() => onClick(folder)}>
+      <div className={styles.entryIcon}><Folder/></div>
+      <div className={styles.info}>
+        <span className={styles.name}>{folder.name}</span>
+      </div>
+    </div>)
+  }
+}
+
+class FileEntry extends React.Component {
+  static propTypes = {
+    file: PropTypes.object.isRequired,
+    onClick: PropTypes.func.isRequired,
+  };
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return nextProps.file !== this.props.file ||
+        nextProps.onClick !== this.props.onClick
+  }
+
+  render() {
+    const { file, onClick, icon } = this.props
+    const classes = classnames(styles.entry, styles.file)
+
+    return (<div className={classes} onClick={() => onClick(file)}>
+      <div className={styles.entryIcon}>{icon}</div>
+      <div className={styles.info}>
+        <span className={styles.name}>{file.name}</span>
+        <span className={styles.date}>{getLocalDate(new Date(file.date))}</span>
+      </div>
+    </div>)
+  }
+}
+
+class PathBreadcrumbs extends React.Component {
+  static propTypes = {
+    path: PropTypes.string.isRequired,
+    onNavigate: PropTypes.func.isRequired,
+    className: PropTypes.string,
+  };
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return nextProps.path !== this.props.path
+  }
+
+  render() {
+    const pieces = this.props.path.split('\\')
+    if (pieces[pieces.length - 1] === '') {
+      // Remove the last entry if it's empty (due to a trailing slash)
+      pieces.pop()
+    }
+    const { elems } = pieces.reduce((r, piece, i) => {
+      const isLast = i === pieces.length - 1
+      r.curPath += (i === 0 ? '' : '\\') + piece
+      // Save the value at the current time so the function doesn't always use the last value
+      const navPath = r.curPath
+      r.elems.push(<span
+          key={i}
+          className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
+          onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>{piece}</span>)
+      r.elems.push(<ChevronRight key={i + '|'} className={styles.breadcrumbSeparator} />)
+
+      return r
+    }, { elems: [], curPath: '' })
+
+    return <div className={this.props.className}>{elems}</div>
+  }
+}
+
+@connect(state => ({ replays: state.replays }))
+export default class Files extends React.Component {
+  componentDidMount() {
+    const { browseId } = this.props
+    const { path } = this.props.replays[browseId]
+    this.props.dispatch(getFiles(browseId, path))
+  }
+
+  componentDidUpdate(prevProps) {
+    const { browseId } = this.props
+    const { path } = this.props.replays[browseId]
+    if (prevProps.replays[browseId].path !== path) {
+      this.props.dispatch(getFiles(browseId, path))
+    }
+  }
+
+  renderFiles() {
+    const {
+      isRequesting,
+      lastError,
+      path,
+      files,
+      folders,
+    } = this.props.replays[this.props.browseId]
+    if (isRequesting) {
+      return <div className={styles.loading}><LoadingIndicator /></div>
+    }
+
+    if (lastError) {
+      return <p>{lastError.message}</p>
+    }
+
+    const isRootFolder = path === ''
+
+    return (<div className={styles.fileList}>
+      {
+        !isRootFolder ?
+            <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
+              <div className={styles.entryIcon}><UpDirectory/></div>
+              <div className={styles.name}>{'Up one directory'}</div>
+            </div> :
+            null
+      }
+      { folders.map(folder =>
+        <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
+      )}
+      { files.map(file => {
+        const extension = file.path.substr(file.path.lastIndexOf('.') + 1)
+        if (this.props.fileTypes[extension]) {
+          const { onSelect, icon } = this.props.fileTypes[extension]
+          return <FileEntry file={file} onClick={onSelect} icon={icon} key={file.path} />
+        } else {
+          return null
+        }
+      })}
+    </div>)
+  }
+
+  render() {
+    const { rootFolderName, title } = this.props
+    const { path } = this.props.replays[this.props.browseId]
+    const displayedPath = `${rootFolderName}\\${path}`
+    return (<div className={styles.root}>
+      <div className={styles.topBar}>
+        <div className={styles.titleAndActions}>
+          <h3 className={styles.contentTitle}>{title}</h3>
+          <IconButton icon={<Refresh/>} onClick={this.onRefreshClick} title={'Refresh'}/>
+        </div>
+        <PathBreadcrumbs className={styles.path}
+            path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
+      </div>
+      <ScrollableContent
+          className={styles.filesScrollable}
+          viewClassName={styles.filesScrollableView}>
+        { this.renderFiles() }
+      </ScrollableContent>
+    </div>)
+  }
+
+  onBreadcrumbNavigate = path => {
+    const pathWithoutRoot = path.slice(this.props.rootFolderName.length + 1)
+    this.props.dispatch(changePath(this.props.browseId, pathWithoutRoot))
+  };
+
+  onUpLevelClick = () => {
+    const { path } = this.props.replays[this.props.browseId]
+    const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
+    this.props.dispatch(changePath(this.props.browseId, prevPath))
+  };
+
+  onFolderClick = folder => {
+    this.props.dispatch(changePath(this.props.browseId, folder.path))
+  };
+
+  onRefreshClick = () => {
+    this.props.dispatch(getFiles(this.props.browseId, this.props.replays.path))
+  };
+}
