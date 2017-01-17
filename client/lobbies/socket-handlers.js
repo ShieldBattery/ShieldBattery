@@ -3,24 +3,24 @@ import {
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_CHAT_MESSAGE,
-  LOBBY_UPDATE_CONTROLLER_CHANGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
+  LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
+import { findSlotById } from '../../common/lobbies/lobby-slots'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -43,9 +43,9 @@ const eventToAction = {
     }
   },
 
-  join: (name, event) => ({
-    type: LOBBY_UPDATE_JOIN,
-    payload: event.player,
+  slotCreate: (name, event) => ({
+    type: LOBBY_UPDATE_SLOT_CREATE,
+    payload: event,
   }),
 
   raceChange: (name, event) => ({
@@ -55,37 +55,30 @@ const eventToAction = {
 
   leave: (name, event) => (dispatch, getState) => {
     const { auth, lobby } = getState()
-    if (!lobby.inLobby) {
-      // This can occur if our leave causes other slots to leave (such as controlled open slots in
-      // team games), where those leaves occur after our own (which clears the lobby state). In
-      // this cases, just ignore the event, as its irrelevant
-      return
-    }
 
     const user = auth.user.name
-    const player = lobby.info.players.get(event.id).name
-    if (user === player) {
+    const [teamIndex, slotIndex, player] = findSlotById(lobby.info, event.id)
+    if (user === player.name) {
       // The leaver was me all along!!!
       clearCountdownTimer()
       dispatch({
-        type: LOBBY_UPDATE_LEAVE_SELF
+        type: LOBBY_UPDATE_LEAVE_SELF,
       })
     } else {
       dispatch({
         type: LOBBY_UPDATE_LEAVE,
-        payload: event.id,
+        payload: {
+          teamIndex,
+          slotIndex,
+          player,
+        },
       })
     }
   },
 
   hostChange: (name, event) => ({
     type: LOBBY_UPDATE_HOST_CHANGE,
-    payload: event.newId,
-  }),
-
-  controllerChange: (name, event) => ({
-    type: LOBBY_UPDATE_CONTROLLER_CHANGE,
-    payload: event,
+    payload: event.host,
   }),
 
   slotChange: (name, event) => ({
