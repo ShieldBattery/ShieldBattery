@@ -144,9 +144,13 @@ class PathBreadcrumbs extends React.Component {
 @connect(state => ({ replays: state.replays }))
 export default class Files extends React.Component {
   componentDidMount() {
-    const { browseId } = this.props
+    const { browseId, root } = this.props
     const { path } = this.props.replays[browseId]
-    this.props.dispatch(getFiles(browseId, path))
+    if (path === '') {
+      this.props.dispatch(changePath(browseId, root))
+    } else {
+      this.props.dispatch(getFiles(browseId, path))
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -173,7 +177,7 @@ export default class Files extends React.Component {
       return <p>{lastError.message}</p>
     }
 
-    const isRootFolder = path === ''
+    const isRootFolder = path === this.props.root
 
     return (<div className={styles.fileList}>
       {
@@ -200,9 +204,9 @@ export default class Files extends React.Component {
   }
 
   render() {
-    const { rootFolderName, title } = this.props
+    const { rootFolderName, title, root } = this.props
     const { path } = this.props.replays[this.props.browseId]
-    const displayedPath = `${rootFolderName}\\${path}`
+    const displayedPath = `${rootFolderName}\\${pathApi.relative(root, path)}`
     return (<div className={styles.root}>
       <div className={styles.topBar}>
         <div className={styles.titleAndActions}>
@@ -221,8 +225,9 @@ export default class Files extends React.Component {
   }
 
   onBreadcrumbNavigate = path => {
+    const { root } = this.props
     const pathWithoutRoot = path.slice(this.props.rootFolderName.length + 1)
-    this.props.dispatch(changePath(this.props.browseId, pathWithoutRoot))
+    this.props.dispatch(changePath(this.props.browseId, pathApi.join(root, pathWithoutRoot)))
   };
 
   onUpLevelClick = () => {

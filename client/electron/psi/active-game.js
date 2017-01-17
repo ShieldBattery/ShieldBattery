@@ -10,7 +10,6 @@ import ReplayParser from 'jssuh'
 import { checkStarcraftPath } from '../../network/check-starcraft-path'
 import log from './logger'
 import { sendCommand } from './game-command'
-import getReplayFolder from './get-replay-folder'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -138,7 +137,7 @@ export default class ActiveGameManager {
     const { map } = game.config.lobby
     let localMap
     if (map.isReplay) {
-      localMap = path.join(getReplayFolder(), map.path)
+      localMap = map.path
 
       // To be able to watch the replay correctly, we need to get the `seed` value that the game was
       // played with

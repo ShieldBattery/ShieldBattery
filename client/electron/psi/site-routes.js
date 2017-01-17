@@ -1,7 +1,3 @@
-import path from 'path'
-import errors from 'http-errors'
-import { readFolder } from './natives'
-import getReplayFolder from './get-replay-folder'
 import log from './logger'
 
 export function register(nydus, activeGameManager, mapStore, rallyPointManager) {
@@ -39,7 +35,6 @@ export function register(nydus, activeGameManager, mapStore, rallyPointManager) 
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
   nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
-  nydus.registerRoute('/site/getReplays', getReplays)
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)
   nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)
 
@@ -58,36 +53,4 @@ export function subscribe(nydus, client, activeGameManager) {
   nydus.subscribeClient(client, `/game/results/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, `/game/replaySave/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, `/rallyPoint/ping/${encodeURIComponent(origin)}`)
-}
-
-async function getReplays(data, next) {
-  const { path: relativePath } = data.get('body')
-  if (path.isAbsolute(relativePath)) {
-    throw new errors.BadRequest('path can\'t be absolute')
-  }
-
-  const normalized = path.normalize(relativePath)
-  if (normalized === '..' || normalized.startsWith('../') || normalized.startsWith('..\\')) {
-    throw new errors.BadRequest('path can\'t be outside the replays folder')
-  }
-
-  try {
-    const replaysFolderPath = getReplayFolder()
-    const entries = await readFolder(path.join(replaysFolderPath, normalized))
-    return (entries
-      .filter(f => f.isFolder || f.name.endsWith('.rep'))
-      .map(f => {
-        f.path = path.relative(replaysFolderPath, f.path)
-        if (!f.isFolder) {
-          f.name = f.name.slice(0, -4)
-        }
-        // TODO(tec27): once we're not doing this over a socket, we can probably leave this as a
-        // date
-        f.date = +f.date
-        return f
-      }))
-  } catch (err) {
-    log.error('Error getting the replays: ' + err)
-    throw err
-  }
 }
