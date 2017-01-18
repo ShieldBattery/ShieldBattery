@@ -27,7 +27,7 @@
     "postinstall": "install-app-deps",
     "posttest": "npm run lint",
     "test": "mocha -R spec --compilers js:babel-register --recursive --harmony test/",
-    "yarnall": "yarn && cd server && yarn && cd ../app && yarn && cd ../game && yarn"
+    "yarnall": "cd app && yarn && cd ../game && yarn && cd ../server && yarn && cd .. && yarn"
   },
   "build": {
     "appId": "net.shieldbattery.client",
