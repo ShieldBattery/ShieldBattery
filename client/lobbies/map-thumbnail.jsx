@@ -1,7 +1,4 @@
 import React from 'react'
-import { makeServerUrl } from '../network/server-url'
-
-const BASE_URL = '/thumbs/'
 
 export default class MapThumbnail extends React.Component {
   static propTypes = {
@@ -12,11 +9,6 @@ export default class MapThumbnail extends React.Component {
   render() {
     const { className, map } = this.props
 
-    const firstByte = map.hash.substr(0, 2)
-    const secondByte = map.hash.substr(2, 2)
-    const url =
-        makeServerUrl(`${BASE_URL}${firstByte}/${secondByte}/${map.hash}.${map.thumbFormat}`)
-
-    return <img className={className} src={url} />
+    return <img className={className} src={map.imageUrl} />
   }
 }

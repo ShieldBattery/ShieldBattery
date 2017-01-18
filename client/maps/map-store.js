@@ -6,7 +6,6 @@ import { Map } from 'immutable'
 import request from 'request'
 import HashThrough from '../../app/common/hash-through'
 import log from '../logging/logger'
-import { makeServerUrl } from '../network/server-url'
 
 const asyncStat = thenify(fs.stat)
 const asyncMkdirp = thenify(mkdirp)
@@ -34,16 +33,16 @@ export default class MapStore {
     )
   }
 
-  async downloadMap(mapHash, mapFormat) {
+  async downloadMap(mapHash, mapFormat, mapUrl) {
     if (!this._activeDownloads.has(mapHash)) {
       this._activeDownloads = this._activeDownloads.set(
-          mapHash, this._checkAndDownloadMap(mapHash, mapFormat))
+          mapHash, this._checkAndDownloadMap(mapHash, mapFormat, mapUrl))
     }
 
     return this._activeDownloads.get(mapHash)
   }
 
-  async _checkAndDownloadMap(mapHash, mapFormat) {
+  async _checkAndDownloadMap(mapHash, mapFormat, mapUrl) {
     await this._dirCreated
     const mapPath = this.getPath(mapHash, mapFormat)
 
@@ -58,6 +57,7 @@ export default class MapStore {
     try {
       if (exists) {
         const hasher = new HashThrough()
+        hasher.hasher.update(mapFormat)
         fs.createReadStream(mapPath).pipe(hasher)
         hasher.resume()
         try {
@@ -73,14 +73,11 @@ export default class MapStore {
       }
 
       await asyncMkdirp(path.dirname(mapPath))
-      const firstByte = mapHash.substr(0, 2)
-      const secondByte = mapHash.substr(2, 2)
-      const url = makeServerUrl(`/maps/${firstByte}/${secondByte}/${mapHash}.${mapFormat}`)
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject)
           .on('finish', resolve)
-        request.get(url)
+        request.get(mapUrl)
           .on('error', reject)
           .pipe(outStream)
       })

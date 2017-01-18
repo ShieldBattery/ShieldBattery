@@ -13,7 +13,7 @@ export const MapRecord = new Record({
   height: -1,
   description: null,
   format: null,
-  thumbFormat: null,
+  imageUrl: null,
   slots: -1,
   umsSlots: -1,
 })

@@ -7,6 +7,7 @@ import pingRegistry from '../rally-point/ping-registry'
 import routeCreator from '../rally-point/route-creator'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
+import { mapInfo } from '../maps/store'
 import CancelToken from '../../../app/common/async/cancel-token'
 import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
@@ -19,9 +20,6 @@ import {
   findSlotById,
   hasOpposingSides,
 } from '../../../app/common/lobbies'
-
-import MAPS from '../maps/maps.json'
-const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
 
 const LOBBY_START_TIMEOUT = 30 * 1000
 const GAME_TYPES = new Set([
@@ -150,10 +148,10 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    if (!MAPS_BY_HASH.has(map)) {
+    const mapData = await mapInfo(map)
+    if (!mapData) {
       throw new errors.BadRequest('invalid map')
     }
-    const mapData = MAPS_BY_HASH.get(map)
     checkSubTypeValidity(gameType, gameSubType, mapData.slots)
 
     // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
