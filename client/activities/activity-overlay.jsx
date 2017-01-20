@@ -6,11 +6,14 @@ import { closeOverlay } from './action-creators'
 import styles from './activity-overlay.css'
 
 import KeyListener from '../keyboard/key-listener.jsx'
-import CreateLobby from '../lobbies/create-lobby.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
 
-const WatchReplay = process.webpackEnv.SB_ENV === 'electron' ?
-    require('../replays/watch-replay.jsx').default : null
+const { CreateLobby, WatchReplay, BrowseMaps } =
+    process.webpackEnv.SB_ENV === 'electron' ? {
+      CreateLobby: require('../lobbies/create-lobby.jsx').default,
+      WatchReplay: require('../replays/watch-replay.jsx').default,
+      BrowseMaps: require('../maps/browse-maps.jsx').default,
+    } : {}
 
 const ESCAPE = keycode('escape')
 
@@ -25,9 +28,10 @@ const transitionNames = {
 export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
-      case 'createLobby': return <CreateLobby />
+      case 'createLobby': return CreateLobby ? <CreateLobby /> : null
       case 'joinLobby': return <JoinLobby />
       case 'watchReplay': return WatchReplay ? <WatchReplay /> : null
+      case 'browseMaps': return BrowseMaps ? <BrowseMaps /> : null
       default: return <span/>
     }
   }

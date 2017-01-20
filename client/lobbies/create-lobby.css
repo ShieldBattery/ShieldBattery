@@ -1,3 +1,17 @@
+@value row, itemsCenter, justifyCenter, grow from '../styles/flex.css';
 .root {
   padding: 16px;
+}
+
+.selectMap {
+  composes: row itemsCenter;
+}
+
+.mapList {
+  composes: grow;
+  margin-right: 16px;
+}
+
+.loadingArea {
+  composes: row itemsCenter justifyCenter;
 }

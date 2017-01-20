@@ -1,5 +1,7 @@
 import db from '../db'
 
+import { tilesetIdToName } from '../../../app/common/maps'
+
 function createLobbyInitData(chk) {
   const raceIdToName = {
     0: 'z',
@@ -88,16 +90,7 @@ export async function mapInfo(hashStr) {
       const res = result.rows[0]
       return {
         format: res.extension,
-        tileset: [
-          'badlands',
-          'platform',
-          'installation',
-          'ashworld',
-          'jungle',
-          'desert',
-          'ice',
-          'twilight',
-        ][res.tileset],
+        tileset: tilesetIdToName(res.tileset),
         name: res.title,
         description: res.description,
         slots: res.players_melee,

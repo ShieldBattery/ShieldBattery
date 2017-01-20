@@ -1,9 +1,7 @@
-import Chk from 'bw-chk'
 import httpErrors from 'http-errors'
 import fs from 'fs'
 import koaBody from 'koa-body'
-import createScmExtractor from 'scm-extractor'
-import HashThrough from '../../../app/common/hash-through'
+import { parseAndHashMap } from '../../../app/common/maps'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
 import { mapExists } from '../models/maps'
@@ -44,30 +42,15 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Map must have either .scm or .scx extension')
   }
 
-  const hasher = new HashThrough()
-  hasher.hasher.update(extension)
-  const chkPromise = new Promise((resolve, reject) => {
-    const stream = fs.createReadStream(path)
-    const scmExtractor = createScmExtractor()
-    stream.on('error', () => reject(new httpErrors.InternalServerError()))
-    scmExtractor.on('error', () => reject(new httpErrors.BadRequest('Invalid map')))
-    stream.pipe(hasher)
-      .pipe(scmExtractor)
-      .pipe(Chk.createStream((err, chk) => {
-        if (err) {
-          reject(new httpErrors.BadRequest('Invalid map'))
-        } else {
-          resolve(chk)
-        }
-      }))
-  })
-  const calculatedHash = await hasher.hashPromise
+  const mapPromise = parseAndHashMap(path, extension)
+      .catch(e => { throw new httpErrors.BadRequest('Invalid map') })
+  const { hash: calculatedHash, map } = await mapPromise
 
   if (hash !== calculatedHash) {
     throw new httpErrors.BadRequest("Data doesn't match the hash")
   }
 
-  await storeMap(hash, extension, filename, await chkPromise, timestamp, path)
+  await storeMap(hash, extension, filename, map, timestamp, path)
   ctx.status = 201
   ctx.body = {}
 }

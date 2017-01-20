@@ -1065,7 +1065,7 @@ binary-extensions@^1.0.0:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/binary-extensions/-/binary-extensions-1.8.0.tgz#48ec8d16df4377eae5fa5884682480af4d95c774"
 
-bl@^1.1.2:
+bl@^1.0.1, bl@^1.1.2:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/bl/-/bl-1.2.0.tgz#1397e7ec42c5f5dc387470c500e34a9f6be9ea98"
   dependencies:
@@ -1221,6 +1221,13 @@ builtin-modules@^1.0.0:
 builtin-status-codes@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/builtin-status-codes/-/builtin-status-codes-3.0.0.tgz#85982878e21b98e1c66425e03d0174788f569ee8"
+
+bw-chk@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/bw-chk/-/bw-chk-1.0.1.tgz#bc6fab39edaf61e96dc45eea28494487592b357f"
+  dependencies:
+    bl "^1.0.1"
+    iconv-lite "^0.4.13"
 
 caller-path@^0.1.0:
   version "0.1.0"
@@ -1766,7 +1773,7 @@ cuid@^1.2.5, cuid@^1.3.8:
     core-js "^1.1.1"
     node-fingerprint "0.0.2"
 
-cuint@^0.2.2:
+cuint@^0.2.0, cuint@^0.2.1, cuint@^0.2.2:
   version "0.2.2"
   resolved "https://registry.yarnpkg.com/cuint/-/cuint-0.2.2.tgz#408086d409550c2631155619e9fa7bcadc3b991b"
 
@@ -2988,7 +2995,7 @@ immutable@^3.7.4, immutable@^3.7.5, immutable@^3.8.1:
   version "3.8.1"
   resolved "https://registry.yarnpkg.com/immutable/-/immutable-3.8.1.tgz#200807f11ab0f72710ea485542de088075f68cd2"
 
-implode-decoder@^1.0.1:
+implode-decoder@^1.0.0, implode-decoder@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/implode-decoder/-/implode-decoder-1.0.1.tgz#6b10d1db3eb54e26d5b9fd95fabce603c94c18af"
   dependencies:
@@ -5312,6 +5319,15 @@ sax@~1.2.1:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/sax/-/sax-1.2.2.tgz#fd8631a23bc7826bef5d871bdb87378c95647828"
 
+scm-extractor@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/scm-extractor/-/scm-extractor-1.0.6.tgz#cb521d23454d820a6ad8a91e60d240be7259bead"
+  dependencies:
+    bl "^1.0.1"
+    cuint "^0.2.0"
+    implode-decoder "^1.0.0"
+    stream-splicer "^2.0.0"
+
 semver-diff@^2.0.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/semver-diff/-/semver-diff-2.1.0.tgz#4bbb8437c8d37e4b0cf1a68fd726ec6d645d6d36"
@@ -5506,6 +5522,13 @@ stream-http@^2.3.1:
     readable-stream "^2.1.0"
     to-arraybuffer "^1.0.0"
     xtend "^4.0.0"
+
+stream-splicer@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/stream-splicer/-/stream-splicer-2.0.0.tgz#1b63be438a133e4b671cc1935197600175910d83"
+  dependencies:
+    inherits "^2.0.1"
+    readable-stream "^2.0.2"
 
 strict-uri-encode@^1.0.0:
   version "1.1.0"

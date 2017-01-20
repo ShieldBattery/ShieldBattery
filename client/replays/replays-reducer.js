@@ -26,6 +26,7 @@ export const FileBrowseState = new Record({
 })
 export const FileStates = new Record({
   replays: new FileBrowseState(),
+  maps: new FileBrowseState(),
 })
 
 export default keyedReducer(new FileStates(), {

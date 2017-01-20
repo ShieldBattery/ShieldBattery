@@ -179,6 +179,12 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
+// We have selected a map from local pc, or an error occured
+export const MAPS_BROWSE_SELECT = 'MAPS_BROWSE_SELECT'
+// We have started to host a map from local pc, possibly uploading it
+export const MAPS_HOST_LOCAL_BEGIN = 'MAPS_HOST_LOCAL_BEGIN'
+// Local map hosting either failed or the map was succesfully uploaded
+export const MAPS_HOST_LOCAL = 'MAPS_HOST_LOCAL'
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)

@@ -169,7 +169,7 @@ export default class Files extends React.Component {
   }
 
   render() {
-    const { rootFolderName, title, root } = this.props
+    const { rootFolderName, title, root, error } = this.props
     const { path } = this.props.replays[this.props.browseId]
     const displayedPath = `${rootFolderName}\\${pathApi.relative(root, path)}`
     return (<div className={styles.root}>
@@ -181,6 +181,11 @@ export default class Files extends React.Component {
         <PathBreadcrumbs className={styles.path}
             path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
       </div>
+      { error ? (
+        <div className={styles.externalError}>
+          { error }
+        </div>) : null
+      }
       <ScrollableContent
           className={styles.filesScrollable}
           viewClassName={styles.filesScrollableView}>

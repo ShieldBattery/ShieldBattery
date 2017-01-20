@@ -2,7 +2,8 @@ import React from 'react'
 import { Range } from 'immutable'
 import { connect } from 'react-redux'
 import { createLobby, getMapsList, navigateToLobby } from './action-creators'
-import { closeOverlay } from '../activities/action-creators'
+import { hostLocalMap } from '../maps/action-creators'
+import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH } from '../../app/common/constants'
@@ -10,6 +11,7 @@ import { GAME_TYPES, gameTypeToString } from './game-type'
 import { isTeamType } from '../../app/common/lobbies'
 import styles from './create-lobby.css'
 
+import LoadingIndicator from '../progress/dots.jsx'
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
@@ -102,6 +104,15 @@ class CreateLobbyForm extends React.Component {
 
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
+    let mapListContents = maps.list.map(hash =>
+        <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
+    )
+    if (maps.localMapHash) {
+      const text = maps.byHash.get(maps.localMapHash).name
+      mapListContents = mapListContents.unshift(
+          <Option key={'localMap'} value={maps.localMapHash} text={text} />
+      )
+    }
     return (<form noValidate={true} onSubmit={onSubmit}>
       <TextField {...bindInput('name')} ref={inputRef} label='Lobby name' floatingLabel={true}
           inputProps={{
@@ -111,10 +122,13 @@ class CreateLobbyForm extends React.Component {
             spellCheck: false,
             tabIndex: 0,
           }}/>
-      <Select {...bindCustom('map')} label='Map' tabIndex={0} disabled={!maps.list.size}>
-          { maps.list.map(hash =>
-                <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />) }
-      </Select>
+      <div className={styles.selectMap}>
+        <Select className={styles.mapList} {...bindCustom('map')} label='Map' tabIndex={0}
+            disabled={!mapListContents.size}>
+            { mapListContents }
+        </Select>
+        <RaisedButton label='Browse' onClick={this.props.onMapBrowse}/>
+      </div>
       <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
         { GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)}/>) }
       </Select>
@@ -136,7 +150,9 @@ export default class CreateLobby extends React.Component {
 
   componentWillMount() {
     const { maps } = this.props
-    if (maps.list.size) {
+    if (maps.localMapHash) {
+      this.setState({ defaultMap: maps.localMapHash })
+    } else if (maps.list.size) {
       this.setState({ defaultMap: maps.list.get(0) })
     }
   }
@@ -144,9 +160,12 @@ export default class CreateLobby extends React.Component {
   componentWillReceiveProps(nextProps) {
     const { maps: curMaps } = this.props
     const { maps: nextMaps } = nextProps
-    if (!curMaps.list.size && nextMaps.list.size) {
+    if (nextMaps.localMapHash && nextMaps.localMapHash !== curMaps.localMapHash) {
+      this.setState({ defaultMap: nextMaps.localMapHash })
+    } else if (!nextMaps.localMapHash && !curMaps.list.size && nextMaps.list.size) {
       this.setState({ defaultMap: nextMaps.list.get(0) })
-    } else if (!curMaps.lastError && nextMaps.lastError) {
+    }
+    if (!curMaps.lastError && nextMaps.lastError) {
       this.props.dispatch(closeOverlay())
       this.props.dispatch(openSnackbar('There was a problem loading the maps list'))
     }
@@ -180,8 +199,10 @@ export default class CreateLobby extends React.Component {
     return (<div className={styles.root}>
       <h3>Create lobby</h3>
       <CreateLobbyForm ref={this._setForm} inputRef={this._setInput} model={model}
-          onSubmit={this.onSubmit} maps={maps}/>
+          onSubmit={this.onSubmit} onMapBrowse={this.onMapBrowse} maps={maps}/>
       <RaisedButton label='Create lobby' onClick={this.onCreateClick}/>
+      { maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null }
+      { maps.isUploading ? <div className={styles.loadingArea}><LoadingIndicator /></div> : null }
     </div>)
   }
 
@@ -189,11 +210,20 @@ export default class CreateLobby extends React.Component {
     this._form.submit()
   };
 
-  onSubmit = () => {
-    const values = this._form.getModel()
-    this.props.dispatch(createLobby(values.name, values.map, values.gameType,
-        isTeamType(values.gameType) ? values.gameSubType : undefined))
-    this.props.dispatch(navigateToLobby(values.name))
-    this.props.dispatch(closeOverlay())
+  onSubmit = async () => {
+    const { name, map, gameType, gameSubType } = this._form.getModel()
+    const { localMapHash, localMapPath } = this.props.maps
+    const subType = isTeamType(gameType) ? gameSubType : undefined
+    if (map === localMapHash) {
+      this.props.dispatch(hostLocalMap(localMapPath, name, map, gameType, subType))
+    } else {
+      this.props.dispatch(createLobby(name, map, gameType, subType))
+      this.props.dispatch(navigateToLobby(name))
+      this.props.dispatch(closeOverlay())
+    }
+  };
+
+  onMapBrowse = () => {
+    this.props.dispatch(openOverlay('browseMaps'))
   };
 }
