@@ -1,7 +1,6 @@
 import httpErrors from 'http-errors'
 import fs from 'fs'
 import koaBody from 'koa-body'
-import { parseAndHashMap } from '../../../app/common/maps'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
 import { mapExists } from '../models/maps'
@@ -42,15 +41,7 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Map must have either .scm or .scx extension')
   }
 
-  const mapPromise = parseAndHashMap(path, extension)
-      .catch(e => { throw new httpErrors.BadRequest('Invalid map') })
-  const { hash: calculatedHash, map } = await mapPromise
-
-  if (hash !== calculatedHash) {
-    throw new httpErrors.BadRequest("Data doesn't match the hash")
-  }
-
-  await storeMap(hash, extension, filename, map, timestamp, path)
+  await storeMap(hash, extension, filename, timestamp, path)
   ctx.status = 201
   ctx.body = {}
 }

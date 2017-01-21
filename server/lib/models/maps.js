@@ -2,37 +2,7 @@ import db from '../db'
 
 import { tilesetIdToName } from '../../../app/common/maps'
 
-function createLobbyInitData(chk) {
-  const raceIdToName = {
-    0: 'z',
-    1: 't',
-    2: 'p',
-    5: 'any',
-  }
-
-  return {
-    // Convert (acceptable) race ids to strings, set force's teamId and filter out empty ones.
-    forces: chk.forces
-      .map(({ name, players }, index) => ({
-        name,
-        teamId: index + 1,
-        players: players.map(({ id, race, computer }) => {
-          const raceName = raceIdToName[race]
-          if (!raceName) {
-            throw new Error(`Player ${id} has an invalid race ${race}`)
-          }
-          return {
-            id,
-            computer,
-            race: raceName,
-          }
-        }),
-      }))
-      .filter(f => f.players.length !== 0),
-  }
-}
-
-export async function addMap(hashStr, extension, filename, chk, timestamp) {
+export async function addMap(hashStr, extension, filename, mapData, timestamp) {
   const { client, done } = await db()
   try {
     const query = 'INSERT INTO maps ' +
@@ -40,15 +10,23 @@ export async function addMap(hashStr, extension, filename, chk, timestamp) {
         'players_melee, players_ums, upload_time, modified_time, lobby_init_data) ' +
         'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)'
     const hash = Buffer.from(hashStr, 'hex')
-    const lobbyInitData = createLobbyInitData(chk)
+    const {
+      title,
+      description,
+      width,
+      height,
+      tileset,
+      meleePlayers,
+      umsPlayers,
+      lobbyInitData,
+    } = mapData
     // Filename is varchar(32)
     // The filename is meant to just be potentially useful information that would be otherwise
     // lost on uploads (maybe there's a reason to search by it?), bw doesn't accept filenames
     // longer than 32 chars anyways, so just cut it silently.
     const limitedFilename = filename.slice(0, 32)
-    const params = [hash, extension, limitedFilename, chk.title, chk.description,
-      chk.size[0], chk.size[1], chk.tileset, chk.maxPlayers(false), chk.maxPlayers(true),
-      new Date(), timestamp, lobbyInitData]
+    const params = [hash, extension, limitedFilename, title, description,
+      width, height, tileset, meleePlayers, umsPlayers, new Date(), timestamp, lobbyInitData]
     await client.queryPromise(query, params)
   } finally {
     done()

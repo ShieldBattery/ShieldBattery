@@ -1,6 +1,6 @@
-import Chk from 'bw-chk'
+import childProcess from 'child_process'
 import fs from 'fs'
-import jpeg from 'jpeg-js'
+import { PassThrough } from 'stream'
 import config from '../../config.js'
 import * as db from '../models/maps'
 import { writeFile, getUrl } from '../file-upload'
@@ -8,46 +8,19 @@ import { writeFile, getUrl } from '../file-upload'
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(hash, extension, origFilename, map, timestamp, mapMpqPath) {
+export async function storeMap(hash, extension, origFilename, timestamp, mapMpqPath) {
   // Maybe this function should revert everything it had done on error?
   // Shouldn't matter that much as the maps can be reuploaded as long as the database query
   // doesn't succeed (And that's the last thing this function does), but if there's a hash
   // collision, and the colliding maps are uploaded simultaneously, the actual file might differ
   // from the metadata stored in db.
-  if (config.bwData) {
-    // TODO(neiv): This really should run somewhere where it does not block everything...
-
-    // Create 1024x1024 images, or, if the map is not a square, have the larger of the
-    // dimensions be 1024 pixels.
-    let width
-    let height
-    if (map.size[0] > map.size[1]) {
-      width = 1024
-      height = map.size[1] * Math.floor(1024 / map.size[0])
-    } else {
-      height = 1024
-      width = map.size[0] * Math.floor(1024 / map.size[1])
-    }
-
-    const mapImageRgb =
-        await map.image(Chk.fsFileAccess(config.bwData), width, height, { melee: true })
-    const rgbaBuffer = new Buffer(width * height * 4)
-    for (let i = 0; i < width * height; i++) {
-      rgbaBuffer[i * 4] = mapImageRgb[i * 3]
-      rgbaBuffer[i * 4 + 1] = mapImageRgb[i * 3 + 1]
-      rgbaBuffer[i * 4 + 2] = mapImageRgb[i * 3 + 2]
-    }
-    const { data } = jpeg.encode({
-      data: rgbaBuffer,
-      width,
-      height,
-    }, 90)
-
-    await writeFile(imagePath(hash), data)
+  const { mapData, imageStream } = await mapParseWorker(mapMpqPath, extension, hash)
+  if (imageStream) {
+    await writeFile(imagePath(hash), imageStream)
   }
 
   await writeFile(mapPath(hash, extension), fs.createReadStream(mapMpqPath))
-  await db.addMap(hash, extension, origFilename, map, timestamp)
+  await db.addMap(hash, extension, origFilename, mapData, timestamp)
 }
 
 export async function mapInfo(hash) {
@@ -74,4 +47,87 @@ function imagePath(hash) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
   return `map_images/${firstByte}/${secondByte}/${hash}.jpg`
+}
+
+async function mapParseWorker(path, extension, hash) {
+  const bwDataPath = config.bwData ? config.bwData : ''
+  const {
+    messages,
+    binaryData,
+  } = await runChildProcess('lib/maps/map-parse-worker', [path, extension, hash, bwDataPath])
+  console.assert(messages.length === 1)
+  return {
+    mapData: messages[0],
+    imageStream: config.bwData ? binaryData : null,
+  }
+}
+
+function runChildProcess(path, args) {
+  let childTimeout
+  const cleanup = () => {
+    if (childTimeout) {
+      clearTimeout(childTimeout)
+    }
+  }
+  return new Promise(async (resolve, reject) => {
+    const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
+    const child = childProcess.fork(path, args, opts)
+    let error = false
+    let inited = false
+    const messages = []
+    const resetTimeout = () => {
+      if (childTimeout) {
+        clearTimeout(childTimeout)
+      }
+      childTimeout = setTimeout(() => {
+        child.kill()
+        reject('Child process timeout')
+        error = true
+      }, 60000)
+    }
+    resetTimeout()
+    child.once('error', e => {
+      // Should we kill the process here?? Some errors seem to happen when killing doesn't
+      // make sense and others would leave
+      child.kill()
+      reject(e)
+      error = true
+    })
+    // If the child process writes image data to the pipe before we are able to handle it, it
+    // will get lost. Buffering the data with a PassThrough prevents that, without requiring
+    // the pipe consumer to send any synchronization messages themselves.
+    const binaryData = child.stdio[3].pipe(new PassThrough())
+    child.on('exit', () => resolve({ messages, binaryData }))
+    child.on('message', message => {
+      if (inited) {
+        resetTimeout()
+        messages.push(message)
+      }
+    })
+    // Even still, syncing with the child is dumb. Both sides will have any sent messages eaten
+    // if they didn't get a chance to set .on('message') event handlers up yet.
+    // The sync steps here are following:
+    // 1) Parent spawns child and both set up their event handlers.
+    // 2) Parent starts to send 'init' to the child to signal readiness, child may lose messages
+    //    if it is still initializing.
+    // 3) Child eventually receives 'init', sending a singe 'init' back to parent, to tell parent
+    //    it can stop sending 'init'.
+    // 4) Now parent process should not lose any future data that gets sent to it :l
+    //    (Child doesn't get sent anything other than fork arguments and 'init' spam atm)
+    child.once('message', msg => {
+      console.assert(msg === 'init')
+      inited = true
+    })
+    while (!inited && !error) {
+      child.send('init')
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+  })
+  .then(ok => {
+    cleanup()
+    return Promise.resolve(ok)
+  }, e => {
+    cleanup()
+    return Promise.reject(e)
+  })
 }
