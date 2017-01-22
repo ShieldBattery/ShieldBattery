@@ -1,6 +1,7 @@
 import { routerActions } from 'react-router-redux'
 import { Map } from 'immutable'
 import cuid from 'cuid'
+import readFolder from './get-files'
 import psiSocket from '../network/psi-socket'
 import { Player } from '../lobbies/lobby-reducer'
 import {
@@ -10,17 +11,23 @@ import {
   REPLAYS_START_REPLAY,
 } from '../actions'
 
-export function getReplays(path) {
+export function getFiles(browseId, path) {
   return dispatch => {
     dispatch({
       type: REPLAYS_GET_BEGIN,
-      payload: { path },
+      payload: {
+        browseId,
+        path,
+      },
     })
 
     dispatch({
       type: REPLAYS_GET,
-      payload: psiSocket.invoke('/site/getReplays', { path }),
-      meta: { path },
+      payload: readFolder(path),
+      meta: {
+        browseId,
+        path,
+      },
     })
   }
 }
@@ -65,9 +72,12 @@ export function startReplay(replay) {
   }
 }
 
-export function changePath(path) {
+export function changePath(browseId, path) {
   return {
     type: REPLAYS_CHANGE_PATH,
-    payload: path,
+    payload: {
+      browseId,
+      path,
+    },
   }
 }

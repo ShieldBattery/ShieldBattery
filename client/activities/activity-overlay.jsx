@@ -8,7 +8,9 @@ import styles from './activity-overlay.css'
 import KeyListener from '../keyboard/key-listener.jsx'
 import CreateLobby from '../lobbies/create-lobby.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
-import WatchReplay from '../replays/watch-replay.jsx'
+
+const WatchReplay = process.webpackEnv.SB_ENV === 'electron' ?
+    require('../replays/watch-replay.jsx').default : null
 
 const ESCAPE = keycode('escape')
 
@@ -25,7 +27,7 @@ export default class ActivityOverlay extends React.Component {
     switch (this.props.activityOverlay.overlayType) {
       case 'createLobby': return <CreateLobby />
       case 'joinLobby': return <JoinLobby />
-      case 'watchReplay': return <WatchReplay />
+      case 'watchReplay': return WatchReplay ? <WatchReplay /> : null
       default: return <span/>
     }
   }

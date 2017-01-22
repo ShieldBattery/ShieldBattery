@@ -16,49 +16,61 @@ export const Replay = new Record({
   path: '',
   date: null,
 })
-export const ReplaysState = new Record({
+export const FileBrowseState = new Record({
   folders: new List(),
-  replays: new List(),
+  files: new List(),
   path: '',
 
   isRequesting: false,
   lastError: null,
 })
+export const FileStates = new Record({
+  replays: new FileBrowseState(),
+})
 
-export default keyedReducer(new ReplaysState(), {
+export default keyedReducer(new FileStates(), {
   [REPLAYS_GET_BEGIN](state, action) {
-    return state.set('isRequesting', true)
+    return state.setIn([action.payload.browseId, 'isRequesting'], true)
   },
 
   [REPLAYS_GET](state, action) {
     if (action.error) {
-      return state.set('isRequesting', false).set('lastError', action.payload)
+      return state.update(action.meta.browseId, prev =>
+          prev.set('isRequesting', false).set('lastError', action.payload)
+      )
     }
 
     const folders = action.payload
       .filter(e => e.isFolder)
       .map(e => new Folder(e))
       .sort((a, b) => a.name.localeCompare(b.name))
-    const replays = action.payload
+    let files = action.payload
       .filter(e => !e.isFolder)
       .map(e => new Replay(e))
-      .sort((a, b) => b.date - a.date)
+    if (action.meta.browseId === 'replays') {
+      files = files.sort((a, b) => b.date - a.date)
+    } else {
+      files = files.sort((a, b) => a.name.localeCompare(b.name))
+    }
 
-    return state.set('isRequesting', false)
-      .set('lastError', null)
-      .set('folders', new List(folders))
-      .set('replays', new List(replays))
+    return state.update(action.meta.browseId, prev => prev
+        .set('isRequesting', false)
+        .set('lastError', null)
+        .set('folders', new List(folders))
+        .set('files', new List(files))
+    )
   },
 
   [REPLAYS_START_REPLAY](state, action) {
     if (action.error) {
-      return state.set('lastError', action.payload)
+      // This maybe shouldn't be setting the file browse error
+      return state.setIn(['replays', 'lastError'], action.payload)
     }
 
     return state
   },
 
   [REPLAYS_CHANGE_PATH](state, action) {
-    return state.set('path', action.payload)
+    return state.setIn([action.payload.browseId, 'path'], action.payload.path)
   },
 })

@@ -64,14 +64,14 @@
   display: inline-block;
 }
 
-.replaysScrollable {
+.filesScrollable {
   composes: grow shrink;
 }
 
-.replaysScrollableView {
+.filesScrollableView {
 }
 
-.replayList {
+.fileList {
   padding-top: 8px;
   padding-bottom: 8px;
 }
@@ -100,7 +100,7 @@
   padding: 8px;
 }
 
-.replay .entryIcon {
+.file .entryIcon {
   background: blue700;
   color: colorTextPrimary;
 }
