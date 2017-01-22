@@ -3,7 +3,6 @@ import errors from 'http-errors'
 import { detectResolution, readFolder } from './natives'
 import getReplayFolder from './get-replay-folder'
 import log from './logger'
-import packageJson from '../../../package.json'
 
 export function register(nydus, activeGameManager, mapStore, rallyPointManager) {
   async function setGameConfig(data, next) {
@@ -21,10 +20,6 @@ export function register(nydus, activeGameManager, mapStore, rallyPointManager) 
   async function activateMap(data, next) {
     const { hash, format } = data.get('body')
     return mapStore.downloadMap(hash, format)
-  }
-
-  async function getVersion(data, next) {
-    return packageJson.version
   }
 
   async function setRallyPointServers(data, next) {
@@ -45,7 +40,6 @@ export function register(nydus, activeGameManager, mapStore, rallyPointManager) 
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
   nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
-  nydus.registerRoute('/site/getVersion', getVersion)
   nydus.registerRoute('/site/getReplays', getReplays)
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)
   nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)

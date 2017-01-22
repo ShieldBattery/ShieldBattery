@@ -6,7 +6,6 @@ import { openSnackbar } from '../snackbars/action-creators'
 import {
   isPsiHealthy,
   isPsiConnected,
-  isPsiUpToDate,
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
 } from './is-psi-healthy'
@@ -36,21 +35,6 @@ export default class PsiHealthCheckupDialog extends React.Component {
     return (<li>
       <span>Couldn't connect to the local ShieldBattery service. { downloadLink } If this does not
           resolve the issue, try restarting your computer.</span>
-    </li>)
-  }
-
-  renderPsiVersionInfo() {
-    if (!isPsiConnected(this.props) || isPsiUpToDate(this.props)) {
-      return null
-    }
-
-    const upgradeLink = this.props.upgrade.installerUrl ?
-        <span>Please <a href={this.props.upgrade.installerUrl} target='_blank'>download</a> the
-            latest installer to continue.</span> :
-        <span>Please download the latest installer to continue.</span>
-
-    return (<li>
-      <span>Your local ShieldBattery installation is out of date. { upgradeLink }</span>
     </li>)
   }
 
@@ -93,7 +77,6 @@ export default class PsiHealthCheckupDialog extends React.Component {
           ShieldBattery:</p>
       <ul>
         { this.renderPsiConnectionInfo() }
-        { this.renderPsiVersionInfo() }
         { this.renderInstallPathInfo() }
         { this.renderStarcraftVersionInfo() }
       </ul>

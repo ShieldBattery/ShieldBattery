@@ -8,7 +8,6 @@ import {
   NETWORK_SITE_DISCONNECTED,
   PSI_STARCRAFT_PATH_VALIDITY,
   PSI_STARCRAFT_VERSION_VALIDITY,
-  PSI_VERSION,
 } from '../actions'
 import { SETTINGS_CHANGED } from '../../common/ipc-constants'
 
@@ -17,7 +16,6 @@ import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import settingsPsi from '../settings/ipc-handlers'
-import upgrade from './upgrade-handlers'
 import whispers from '../whispers/socket-handlers'
 
 const ipcRenderer =
@@ -36,10 +34,6 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 
   psiSocket.on('connect', () => {
     dispatch({ type: NETWORK_PSI_CONNECTED })
-    dispatch({
-      type: PSI_VERSION,
-      payload: psiSocket.invoke('/site/getVersion'),
-    })
   }).on('disconnect', () => {
     dispatch({ type: NETWORK_PSI_DISCONNECTED })
   })
@@ -90,7 +84,6 @@ const handlers = [
   rallyPointHandler,
   serverStatus,
   settingsPsi,
-  upgrade,
   whispers,
 ]
 
