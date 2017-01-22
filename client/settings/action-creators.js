@@ -1,10 +1,18 @@
-import psiSocket from '../network/psi-socket'
 import {
   LOCAL_SETTINGS_SET_BEGIN,
-  LOCAL_SETTINGS_SET,
 } from '../actions'
+import {
+  SETTINGS_MERGE,
+} from '../../common/ipc-constants'
 
-export function setLocalSettings(settings) {
+const ipcRenderer =
+    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+
+export function mergeLocalSettings(settings) {
+  if (!ipcRenderer) {
+    throw new Error('This function should not be called outside of an Electron environment')
+  }
+
   const params = { settings }
 
   return dispatch => {
@@ -13,10 +21,7 @@ export function setLocalSettings(settings) {
       payload: params
     })
 
-    dispatch({
-      type: LOCAL_SETTINGS_SET,
-      payload: psiSocket.invoke('/site/settings/set', params),
-      meta: params
-    })
+    // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
+    ipcRenderer.send(SETTINGS_MERGE, settings)
   }
 }

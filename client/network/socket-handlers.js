@@ -10,14 +10,21 @@ import {
   PSI_STARCRAFT_VERSION_VALIDITY,
   PSI_VERSION,
 } from '../actions'
+import { SETTINGS_CHANGED } from '../../common/ipc-constants'
 
 import chat from '../chat/socket-handlers'
 import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
-import settingsPsi from '../settings/psi-handlers'
+import settingsPsi from '../settings/ipc-handlers'
 import upgrade from './upgrade-handlers'
 import whispers from '../whispers/socket-handlers'
+
+const ipcRenderer =
+    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const checkStarcraftPath = process.webpackEnv.SB_ENV === 'electron' ?
+    require('./check-starcraft-path').checkStarcraftPath :
+    null
 
 function networkStatusHandler({ siteSocket, psiSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
@@ -38,12 +45,22 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
   })
 }
 
-function psiPathValidityHandler({ psiSocket }) {
-  psiSocket.registerRoute('/starcraftPathValidity', (route, event) => {
-    dispatch({ type: PSI_STARCRAFT_PATH_VALIDITY, payload: event })
-  })
-  psiSocket.registerRoute('/starcraftCorrectVersion', (route, event) => {
-    dispatch({ type: PSI_STARCRAFT_VERSION_VALIDITY, payload: event })
+let lastPath = ''
+function psiPathValidityHandler({ ipcRenderer }) {
+  if (!ipcRenderer) {
+    return
+  }
+
+  ipcRenderer.on(SETTINGS_CHANGED, (event, settings) => {
+    if (settings.starcraftPath === lastPath) {
+      return
+    }
+
+    lastPath = settings.starcraftPath
+    checkStarcraftPath(settings.starcraftPath).then(result => {
+      dispatch({ type: PSI_STARCRAFT_PATH_VALIDITY, payload: result.path })
+      dispatch({ type: PSI_STARCRAFT_VERSION_VALIDITY, payload: result.version })
+    })
   })
 }
 
@@ -79,6 +96,6 @@ const handlers = [
 
 export default function register() {
   for (const handler of handlers) {
-    handler({ siteSocket, psiSocket })
+    handler({ siteSocket, psiSocket, ipcRenderer })
   }
 }

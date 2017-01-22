@@ -21,10 +21,13 @@ export const Settings = new Record({
 
 export function localSettingsReducer(state = new LocalSettings(), action) {
   if (action.type === LOCAL_SETTINGS_UPDATE) {
-    return new LocalSettings(action.payload)
+    if (action.error) {
+      // TODO(tec27): deal with the error
+    } else {
+      return new LocalSettings(action.payload)
+    }
   } else if (action.type === LOCAL_SETTINGS_SET) {
-    // LOCAL_SETTINGS_UPDATE will update the settings if the settings file changes. Only handle the
-    // errors here
+    // LOCAL_SETTINGS_UPDATE will update the settings if they change. Only handle the errors here
     if (action.error) {
       // TODO(2Pac): deal with the error
     }

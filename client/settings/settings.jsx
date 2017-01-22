@@ -11,7 +11,7 @@ import Slider from '../material/slider.jsx'
 import TextField from '../material/text-field.jsx'
 import { minLength } from '../forms/validators'
 import { closeDialog } from '../dialogs/dialog-action-creator'
-import { setLocalSettings } from './action-creators'
+import { mergeLocalSettings } from './action-creators'
 import { getResolution } from '../user-environment/action-creators'
 
 const SUPPORTED_WINDOW_SIZES = [
@@ -194,7 +194,7 @@ export default class Settings extends React.Component {
       renderer: values.renderer,
       starcraftPath,
     }
-    this.props.dispatch(setLocalSettings(newSettings))
+    this.props.dispatch(mergeLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
   };
 

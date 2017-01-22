@@ -15,6 +15,7 @@
     "babel-register": "^6.18.0",
     "electron-is-dev": "^0.1.2",
     "nan": "^2.5.0",
-    "thenify": "^3.2.1"
+    "thenify": "^3.2.1",
+    "winreg": "^1.2.2"
   }
 }

@@ -21,7 +21,6 @@ import { remote } from 'electron'
 import path from 'path'
 import nydus from 'nydus'
 import createHttpServer from './psi/http-server'
-import createLocalSettings from './psi/local-settings'
 import { register as registerGameRoutes } from './psi/game-routes'
 import { register as registerSiteRoutes, subscribe as subscribeSiteClient } from './psi/site-routes'
 import { subscribeToCommands } from './psi/game-command'
@@ -31,9 +30,6 @@ import RallyPointManager from './psi/rally-point-manager'
 
 const httpServer = createHttpServer(33198, '127.0.0.1')
 const nydusServer = nydus(httpServer, { allowRequest: authorize })
-
-const settingsPath = remote.app.getPath('userData')
-const localSettings = createLocalSettings(path.join(settingsPath, 'settings.json'))
 
 const mapDirPath = path.join(remote.app.getPath('userData'), 'maps')
 const mapStore = new MapStore(mapDirPath)
@@ -62,7 +58,7 @@ function authorize(req, cb) {
   cb(null, true)
 }
 
-registerSiteRoutes(nydusServer, localSettings, activeGameManager, mapStore, rallyPointManager)
+registerSiteRoutes(nydusServer, activeGameManager, mapStore, rallyPointManager)
 registerGameRoutes(nydusServer, activeGameManager)
 
 nydusServer.on('connection', function(socket) {
@@ -78,7 +74,7 @@ nydusServer.on('connection', function(socket) {
     // talking to)
     const origin = socket.conn.request.headers.origin
     rallyPointManager.registerOrigin(origin)
-    subscribeSiteClient(nydusServer, socket, activeGameManager, localSettings)
+    subscribeSiteClient(nydusServer, socket, activeGameManager)
   }
 
   socket.on('close', function() {

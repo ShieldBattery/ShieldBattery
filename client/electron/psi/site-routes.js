@@ -4,21 +4,8 @@ import { detectResolution, readFolder } from './natives'
 import getReplayFolder from './get-replay-folder'
 import log from './logger'
 import packageJson from '../../../package.json'
-import PathValidator from './path-validator'
 
-let pathValidator
-
-export function register(nydus, localSettings, activeGameManager, mapStore, rallyPointManager) {
-  pathValidator = new PathValidator(({ path: pathValid, version }) => {
-    nydus.publish('/starcraftPathValidity', pathValid)
-    nydus.publish('/starcraftCorrectVersion', version)
-  })
-
-  async function setSettings(data, next) {
-    // Will cause a publish via the settings change handler below
-    localSettings.settings = data.get('body').settings
-  }
-
+export function register(nydus, activeGameManager, mapStore, rallyPointManager) {
   async function setGameConfig(data, next) {
     const { origin } = data.get('client').conn.request.headers
     const config = data.get('body')
@@ -55,7 +42,6 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   }
 
   nydus.registerRoute('/site/getResolution', getResolution)
-  nydus.registerRoute('/site/settings/set', setSettings)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
   nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
@@ -64,11 +50,6 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   nydus.registerRoute('/site/rallyPoint/setServers', setRallyPointServers)
   nydus.registerRoute('/site/rallyPoint/refreshPings', refreshRallyPointPings)
 
-  localSettings.on('change', async function() {
-    nydus.publish('/settings', localSettings.settings)
-    pathValidator.getPathValidity(localSettings.settings)
-  })
-
   rallyPointManager.on('ping', (origin, serverIndex, desc, ping) => {
     log.verbose(
         `Got rally-point ping for origin ${origin}, server #${serverIndex} [${desc}]: ${ping}`)
@@ -76,25 +57,13 @@ export function register(nydus, localSettings, activeGameManager, mapStore, rall
   })
 }
 
-export function subscribe(nydus, client, activeGameManager, localSettings) {
+export function subscribe(nydus, client, activeGameManager) {
   const { origin } = client.conn.request.headers
-
-  let pathValid = false
-  let versionValid = false
-  if (localSettings.settings) {
-    const { path: newPathValid, version: newVersionValid } =
-        pathValidator.getPathValidity(localSettings.settings)
-    pathValid = newPathValid
-    versionValid = newVersionValid
-  }
 
   const statuses = activeGameManager.getInitialStatus(origin)
   nydus.subscribeClient(client, `/game/status/${encodeURIComponent(origin)}`, statuses)
   nydus.subscribeClient(client, `/game/results/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, `/game/replaySave/${encodeURIComponent(origin)}`)
-  nydus.subscribeClient(client, '/settings', localSettings.settings)
-  nydus.subscribeClient(client, '/starcraftPathValidity', pathValid)
-  nydus.subscribeClient(client, '/starcraftCorrectVersion', versionValid)
   nydus.subscribeClient(client, `/rallyPoint/ping/${encodeURIComponent(origin)}`)
 }
 
