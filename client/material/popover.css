@@ -6,8 +6,6 @@
   composes: global(cardLayer);
   background-color: transparent;
   position: fixed;
-  top: 8px;
-  right: 12px;
   z-index: zIndexMenu;
 }
 

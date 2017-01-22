@@ -79,6 +79,8 @@ class MainLayout extends React.Component {
   state = {
     avatarOverlayOpened: false,
   };
+  _avatarButtonRef = null;
+  _setAvatarButtonRef = elem => { this._avatarButtonRef = elem };
 
   componentWillMount() {
     if (!this.props.children) {
@@ -128,6 +130,7 @@ class MainLayout extends React.Component {
     return (<SelfProfileOverlay
         open={this.state.avatarOverlayOpened}
         onDismiss={this.onCloseProfileOverlay}
+        anchor={this._avatarButtonRef}
         user={this.props.auth.user.name}>
       {
         window._sbFeedbackUrl ?
@@ -181,7 +184,7 @@ class MainLayout extends React.Component {
       </LeftNav>
       { this.props.children }
       <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
-          onAvatarClick={this.onAvatarClick}>
+          onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
         <ActivityButton icon={<FindMatchIcon />} label='Find match'
             onClick={this.onFindMatchClick} />
         <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'

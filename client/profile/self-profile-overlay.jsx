@@ -20,12 +20,16 @@ export default class SelfProfileOverlay extends React.Component {
     open: PropTypes.bool.isRequired,
     user: PropTypes.string.isRequired,
     onDismiss: PropTypes.func.isRequired,
+    anchor: PropTypes.object,
   };
 
   render() {
-    const { user, children, open, onDismiss } = this.props
+    const { user, children, open, onDismiss, anchor } = this.props
 
-    return (<Popover open={open} onDismiss={onDismiss}>
+    return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
+        anchorOffsetVertical={8} anchorOffsetHorizontal={4}
+        anchorOriginVertical='top' anchorOriginHorizontal='right'
+        popoverOriginVertical='top' popoverOriginHorizontal='right'>
       {
         (state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings

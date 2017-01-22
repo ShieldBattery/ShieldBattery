@@ -13,11 +13,19 @@ class Button extends React.Component {
     this.mouseActive = false
     this.clearMouseActive = null
   }
+  _ref = null;
+  _setRef = elem => {
+    this._ref = elem
+    if (this.props.buttonRef) {
+      this.props.buttonRef(elem)
+    }
+  };
 
   render() {
     const {
       label,
       avatarClassName, // eslint-disable-line no-unused-vars
+      buttonRef, // eslint-disable-line no-unused-vars
       ...otherProps,
     } = this.props
 
@@ -33,7 +41,7 @@ class Button extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
     }
 
-    return (<button ref='button' {...otherProps} {...buttonProps}>
+    return (<button ref={this._setRef} {...otherProps} {...buttonProps}>
       <span className={styles.label}>{label}</span>
     </button>)
   }
@@ -43,11 +51,11 @@ class Button extends React.Component {
   }
 
   focus() {
-    this.refs.button.focus()
+    this._ref.focus()
   }
 
   blur() {
-    this.refs.button.blur()
+    this._ref.blur()
   }
 
   _handleBlur(e) {
@@ -102,6 +110,7 @@ Button.propTypes = {
   onFocus: React.PropTypes.func,
   onClick: React.PropTypes.func,
   onMouseDown: React.PropTypes.func,
+  buttonRef: React.PropTypes.func,
 }
 
 export default Button
