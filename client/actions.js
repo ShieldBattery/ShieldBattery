@@ -182,11 +182,6 @@ export const REPLAYS_GET = 'REPLAYS_GET'
 // We have started the process of launching the game with the selected replay in it
 export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 
-// We are starting the process of getting the resolution
-export const RESOLUTION_GET_BEGIN = 'RESOLUTION_GET_BEGIN'
-// The server has responded with success/failure to our resolution getting
-export const RESOLUTION_GET = 'RESOLUTION_GET'
-
 export const SERVER_STATUS = 'SERVER_STATUS'
 
 export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'

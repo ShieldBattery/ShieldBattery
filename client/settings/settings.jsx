@@ -12,7 +12,9 @@ import TextField from '../material/text-field.jsx'
 import { minLength } from '../forms/validators'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { mergeLocalSettings } from './action-creators'
-import { getResolution } from '../user-environment/action-creators'
+
+const screen = process.webpackEnv.SB_ENV === 'electron' ? require('electron').screen : null
+const getResolution = () => screen.getPrimaryDisplay().size
 
 const SUPPORTED_WINDOW_SIZES = [
   { width: 640, height: 480 },
@@ -56,13 +58,13 @@ class SettingsForm extends React.Component {
 
   render() {
     const {
-      resolution,
       bindCheckable,
       bindCustom,
       bindInput,
       onSubmit,
     } = this.props
 
+    const resolution = getResolution()
     const windowSizeProps = this.isFullscreen() ? {
       value: { width: resolution.width, height: resolution.height },
       disabled: true,
@@ -100,14 +102,13 @@ class SettingsForm extends React.Component {
   }
 }
 
-@connect(state => ({ settings: state.settings, userEnvironment: state.userEnvironment }))
+@connect(state => ({ settings: state.settings }))
 export default class Settings extends React.Component {
   _focusTimeout = null;
   _form = null;
   _setForm = elem => { this._form = elem };
 
   componentDidMount() {
-    this.props.dispatch(getResolution())
     this._focusTimeout = setTimeout(() => {
       this.refs.save.focus()
       this._focusTimeout = null
@@ -121,10 +122,7 @@ export default class Settings extends React.Component {
   }
 
   getDefaultWindowSizeValue(localSettings, resolution) {
-    const { width, height } = resolution
-    // Happens in initial render when width and height have default values (-1x-1)
-    if (width === -1 || height === -1) return null
-
+    const { width, height } = getResolution()
     const filteredSizes = filterWindowSizes(width, height)
     for (const size of filteredSizes) {
       if (size.width === localSettings.width && size.height === localSettings.height) {
@@ -141,7 +139,7 @@ export default class Settings extends React.Component {
   render() {
     const { onCancel } = this.props
     const { local } = this.props.settings
-    const { resolution } = this.props.userEnvironment
+    const resolution = getResolution()
 
     const formModel = {
       displayMode: local.displayMode,

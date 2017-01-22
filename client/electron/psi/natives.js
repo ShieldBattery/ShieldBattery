@@ -1,13 +1,7 @@
 // This file will hold temporary stand-ins for the previously native functionality in psi
-import electron from 'electron'
 import fs from 'fs'
 import path from 'path'
 import thenify from 'thenify'
-
-export async function detectResolution() {
-  const { width, height } = electron.screen.getPrimaryDisplay().size
-  return { width, height }
-}
 
 const readdirAsync = thenify(fs.readdir)
 const statAsync = thenify(fs.stat)

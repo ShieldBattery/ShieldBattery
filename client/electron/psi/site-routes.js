@@ -1,6 +1,6 @@
 import path from 'path'
 import errors from 'http-errors'
-import { detectResolution, readFolder } from './natives'
+import { readFolder } from './natives'
 import getReplayFolder from './get-replay-folder'
 import log from './logger'
 
@@ -36,7 +36,6 @@ export function register(nydus, activeGameManager, mapStore, rallyPointManager) 
     rallyPointManager.refreshPingsForOrigin(origin)
   }
 
-  nydus.registerRoute('/site/getResolution', getResolution)
   nydus.registerRoute('/site/setGameConfig', setGameConfig)
   nydus.registerRoute('/site/setGameRoutes', setGameRoutes)
   nydus.registerRoute('/site/activateMap', activateMap)
@@ -59,18 +58,6 @@ export function subscribe(nydus, client, activeGameManager) {
   nydus.subscribeClient(client, `/game/results/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, `/game/replaySave/${encodeURIComponent(origin)}`)
   nydus.subscribeClient(client, `/rallyPoint/ping/${encodeURIComponent(origin)}`)
-}
-
-async function getResolution(data, next) {
-  log.verbose('Detecting resolution')
-  try {
-    const res = await detectResolution()
-    log.verbose(`Got resolution ${JSON.stringify(res)}`)
-    return res
-  } catch (err) {
-    log.error('Error detecting resolution: ' + err)
-    throw err
-  }
 }
 
 async function getReplays(data, next) {
