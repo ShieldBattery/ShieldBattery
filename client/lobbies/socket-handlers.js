@@ -19,6 +19,7 @@ import {
   PSI_GAME_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
+import rallyPointManager from '../network/rally-point-manager-instance'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -38,7 +39,7 @@ const eventToAction = {
       hash: event.lobby.map.hash,
       format: event.lobby.map.format,
     })
-    psiSocket.invoke('/site/rallyPoint/refreshPings')
+    rallyPointManager.refreshPings()
 
     return {
       type: LOBBY_INIT_DATA,

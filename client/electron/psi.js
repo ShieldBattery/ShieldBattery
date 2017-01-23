@@ -26,14 +26,12 @@ import { register as registerSiteRoutes, subscribe as subscribeSiteClient } from
 import { subscribeToCommands } from './psi/game-command'
 import ActiveGameManager from './psi/active-game'
 import MapStore from './psi/map-store'
-import RallyPointManager from './psi/rally-point-manager'
 
 const httpServer = createHttpServer(33198, '127.0.0.1')
 const nydusServer = nydus(httpServer, { allowRequest: authorize })
 
 const mapDirPath = path.join(remote.app.getPath('userData'), 'maps')
 const mapStore = new MapStore(mapDirPath)
-const rallyPointManager = new RallyPointManager()
 
 const socketTypes = new WeakMap()
 const activeGameManager = new ActiveGameManager(nydusServer, mapStore)
@@ -58,7 +56,7 @@ function authorize(req, cb) {
   cb(null, true)
 }
 
-registerSiteRoutes(nydusServer, activeGameManager, mapStore, rallyPointManager)
+registerSiteRoutes(nydusServer, activeGameManager, mapStore)
 registerGameRoutes(nydusServer, activeGameManager)
 
 nydusServer.on('connection', function(socket) {
@@ -69,19 +67,10 @@ nydusServer.on('connection', function(socket) {
     subscribeToCommands(nydusServer, socket, id)
     activeGameManager.handleGameConnected(id)
   } else {
-    // TODO(tec27): We need to pass an origin some other way, now that this will always be from
-    // standalone clients and the origin will never be set (and never be equal to the server it's
-    // talking to)
-    const origin = socket.conn.request.headers.origin
-    rallyPointManager.registerOrigin(origin)
     subscribeSiteClient(nydusServer, socket, activeGameManager)
   }
 
   socket.on('close', function() {
-    if (clientType === 'site') {
-      const origin = socket.conn.request.headers.origin
-      rallyPointManager.unregisterOrigin(origin)
-    }
     log.verbose('websocket (' + clientType + ') disconnected.')
   })
 })

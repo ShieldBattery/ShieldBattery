@@ -1,5 +1,6 @@
 import siteSocket from './site-socket'
 import psiSocket from './psi-socket'
+import rallyPointManager from './rally-point-manager-instance'
 import { dispatch } from '../dispatch-registry'
 import {
   NETWORK_PSI_CONNECTED,
@@ -40,7 +41,7 @@ function networkStatusHandler({ siteSocket, psiSocket }) {
 }
 
 let lastPath = ''
-function psiPathValidityHandler({ ipcRenderer }) {
+function pathValidityHandler({ ipcRenderer }) {
   if (!ipcRenderer) {
     return
   }
@@ -58,20 +59,19 @@ function psiPathValidityHandler({ ipcRenderer }) {
   })
 }
 
-let lastRallyPointServers = null
-function rallyPointHandler({ siteSocket, psiSocket }) {
+function rallyPointHandler({ siteSocket }) {
+  if (!rallyPointManager) {
+    return
+  }
+
   siteSocket.registerRoute('/rallyPoint/servers', (route, event) => {
-    lastRallyPointServers = event
-    psiSocket.invoke('/site/rallyPoint/setServers', { servers: event })
+    // TODO(tec27): log this?
+    rallyPointManager.setServers(event)
   })
-  psiSocket.on('connect', () => {
-    if (lastRallyPointServers) {
-      psiSocket.invoke('/site/rallyPoint/setServers', { servers: lastRallyPointServers })
-    }
-  })
-  psiSocket.registerRoute('/rallyPoint/ping/:origin', (route, event) => {
-    siteSocket.invoke('/rallyPoint/pingResult',
-        { serverIndex: event.serverIndex, ping: event.ping })
+
+  rallyPointManager.on('ping', (serverIndex, desc, ping) => {
+    // TODO(tec27): log this?
+    siteSocket.invoke('/rallyPoint/pingResult', { serverIndex, ping })
   })
 }
 
@@ -80,7 +80,7 @@ const handlers = [
   loading,
   lobbies,
   networkStatusHandler,
-  psiPathValidityHandler,
+  pathValidityHandler,
   rallyPointHandler,
   serverStatus,
   settingsPsi,

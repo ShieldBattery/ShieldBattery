@@ -5,11 +5,10 @@ import RallyPointPlayer from 'rally-point-player'
 const OUTDATED_PING_TIME = 2 * 60 * 1000
 const PING_RETRIES = 3
 class ServerEntry extends EventEmitter {
-  constructor(rallyPoint, origin, { desc, address6, address4, port }) {
+  constructor(rallyPoint, { desc, address6, address4, port }) {
     super()
     this.rallyPoint = rallyPoint
     this.desc = desc
-    this.origin = origin
     this.address6 = address6
     this.address4 = address4
     this.port = port
@@ -17,11 +16,12 @@ class ServerEntry extends EventEmitter {
     this.lastPing = -1
   }
 
-  refreshPing() {
+  async refreshPing() {
     const curDate = Date.now()
     // curDate < lastPingDate handles the case that clock has been set backwards since we last
     // checked
     if (curDate < this.lastPingDate || curDate - this.lastPingDate > OUTDATED_PING_TIME) {
+      await this.rallyPoint._boundPromise
       this.lastPingDate = curDate
       let tries = PING_RETRIES
       const doTry = () => {
@@ -58,74 +58,47 @@ export default class RallyPointManager extends EventEmitter {
   constructor() {
     super()
     this.rallyPoint = new RallyPointPlayer('::', 0)
-    this.rallyPoint.bind()
     this._handlePing = ::this._onPing
+    this._boundPromise = this.rallyPoint.bind()
 
-    this.registrations = new Map()
-    this.servers = new Map()
+    this.servers = []
   }
 
   close() {
-    for (const servers of this.servers.values()) {
-      this._clearListeners(servers)
-    }
-    this.registrations.clear()
-    this.servers.clear()
-
+    this._clearListeners(this.servers)
+    this.servers.length = 0
     this.rallyPoint.close()
   }
 
-  registerOrigin(origin) {
-    if (!this.registrations.has(origin)) {
-      this.registrations.set(origin, 1)
-      this.servers.set(origin, [])
-    } else {
-      this.registrations.set(origin, this.registrations.get(origin) + 1)
-    }
-  }
-
-  unregisterOrigin(origin) {
-    const count = this.registrations.get(origin)
-    if (count <= 1) {
-      const servers = this.servers.get(origin)
-      this.servers.delete(origin)
-      this.registrations.delete(origin)
-      this._clearListeners(servers)
-    } else {
-      this.registrations.set(origin, count - 1)
-    }
-  }
-
-  setServers(origin, servers) {
-    const originServers = this.servers.get(origin)
+  setServers(servers) {
     const matched = new Array(servers.length)
-    for (let i = 0; i < servers.length && originServers.length; i++) {
+    for (let i = 0; i < servers.length && this.servers.length; i++) {
       const server = servers[i]
-      const index = originServers.findIndex(matchServer(server))
+      const index = this.servers.findIndex(matchServer(server))
       if (index !== -1) {
-        matched[i] = originServers[index]
-        originServers.splice(index, 1)
+        matched[i] = this.servers[index]
+        this.servers.splice(index, 1)
       }
     }
 
-    this._clearListeners(originServers)
+    this._clearListeners(this.servers)
 
     for (let i = 0; i < servers.length; i++) {
       if (!matched[i]) {
-        matched[i] = new ServerEntry(this.rallyPoint, origin, servers[i])
+        matched[i] = new ServerEntry(this.rallyPoint, servers[i])
         matched[i].on('ping', this._handlePing)
       }
     }
 
-    originServers.splice(0, originServers.length, ...matched)
-    for (const server of originServers) {
+    this.servers.splice(0, this.servers.length, ...matched)
+    for (const server of this.servers) {
       server.refreshPing()
     }
   }
 
-  refreshPingsForOrigin(origin) {
-    const originServers = this.servers.get(origin)
-    for (const server of originServers) {
+  async refreshPings() {
+    await this._boundPromise
+    for (const server of this.servers) {
       server.refreshPing()
     }
   }
@@ -137,13 +110,10 @@ export default class RallyPointManager extends EventEmitter {
   }
 
   _onPing(server, ping) {
-    if (!this.servers.has(server.origin)) return
-
-    const servers = this.servers.get(server.origin)
-    const index = servers.findIndex(matchServer(server))
+    const index = this.servers.findIndex(matchServer(server))
 
     if (index !== -1) {
-      this.emit('ping', server.origin, index, servers[index].desc, ping)
+      this.emit('ping', index, this.servers[index].desc, ping)
     }
   }
 }
