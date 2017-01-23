@@ -28,6 +28,7 @@
   max-height: 80%;
   opacity: 1;
   border-radius: 2px;
+  overflow-y: auto;
 }
 
 .scrollDivider {
