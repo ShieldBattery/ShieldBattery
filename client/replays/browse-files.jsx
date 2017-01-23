@@ -15,48 +15,13 @@ import LoadingIndicator from '../progress/dots.jsx'
 import IconButton from '../material/icon-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
-const monthShortNames = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
-
-const localeDateSupported = !!Date.prototype.toLocaleDateString
-function getLocalDate(date) {
-  if (localeDateSupported) {
-    return date.toLocaleDateString(navigator.language, {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
-
-  const year = date.getFullYear()
-  const month = monthShortNames[date.getMonth()]
-  const day = date.getDate()
-  let hour = date.getHours()
-  const isPm = hour >= 12
-  hour = isPm ? (hour - 12) : hour
-  if (hour === 0) {
-    hour = 12
-  }
-  let minute = '' + date.getMinutes()
-  if (minute.length === 1) {
-    minute = '0' + minute
-  }
-  return `${month} ${day < 10 ? '0' + day : day}, ${year}, ${hour}:${minute} ${isPm ? 'PM' : 'AM'}`
-}
+const dateFormat = new Intl.DateTimeFormat(navigator.language, {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: 'numeric',
+  minute: '2-digit',
+})
 
 class FolderEntry extends React.Component {
   static propTypes = {
@@ -100,7 +65,7 @@ class FileEntry extends React.Component {
       <div className={styles.entryIcon}>{icon}</div>
       <div className={styles.info}>
         <span className={styles.name}>{file.name}</span>
-        <span className={styles.date}>{getLocalDate(new Date(file.date))}</span>
+        <span className={styles.date}>{dateFormat.format(file.date)}</span>
       </div>
     </div>)
   }
