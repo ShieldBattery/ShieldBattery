@@ -1,4 +1,5 @@
 import {
+  ACTIVE_GAME_LAUNCH,
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_CHAT_MESSAGE,
@@ -15,11 +16,11 @@ import {
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
-  PSI_GAME_LAUNCH,
-  PSI_GAME_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
+import mapStore from '../maps/map-store-instance'
+import activeGameManager from '../active-game/active-game-manager-instance'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -29,16 +30,11 @@ function clearCountdownTimer() {
   }
 }
 
-let gameSetupPromise = null
-
 const eventToAction = {
-  init: (name, event, { psiSocket }) => {
+  init: (name, event) => {
     clearCountdownTimer()
     // TODO(tec27): handle errors on this?
-    psiSocket.invoke('/site/activateMap', {
-      hash: event.lobby.map.hash,
-      format: event.lobby.map.format,
-    })
+    mapStore.downloadMap(event.lobby.map.hash, event.lobby.map.format)
     rallyPointManager.refreshPings()
 
     return {
@@ -124,7 +120,7 @@ const eventToAction = {
     }
   },
 
-  setupGame: (name, event, { psiSocket }) => (dispatch, getState) => {
+  setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
     const {
       lobby: {
@@ -134,7 +130,7 @@ const eventToAction = {
       auth: { user },
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
-    const promise = psiSocket.invoke('/site/setGameConfig', {
+    const config = {
       lobby: {
         name: lobbyName,
         map,
@@ -147,36 +143,21 @@ const eventToAction = {
       settings,
       setup: event.setup,
       localUser: user,
-    })
-
-    gameSetupPromise = promise
-
-    dispatch({ type: PSI_GAME_LAUNCH, payload: promise })
-  },
-
-  setRoutes: (name, event, { psiSocket }) => async (dispatch, getState) => {
-    if (!gameSetupPromise) return
-    try {
-      await gameSetupPromise
-    } catch (err) {
-      return
     }
 
-    const { routes } = event
-    const { gameClient: { gameId } } = getState()
-    psiSocket.invoke('/site/setGameRoutes', {
-      gameId,
-      routes,
-    })
+    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManager.setGameConfig(config) })
   },
 
-  cancelLoading: (name, event, { psiSocket }) => (dispatch, getState) => {
-    const { auth: { user } } = getState()
+  setRoutes: (name, event) => (dispatch, getState) => {
+    const { routes } = event
+    const { gameClient: { gameId } } = getState()
+    activeGameManager.setGameRoutes(gameId, routes)
+  },
+
+  cancelLoading: (name, event) => dispatch => {
     dispatch({
-      type: PSI_GAME_LAUNCH,
-      payload: psiSocket.invoke('/site/setGameConfig', {
-        localUser: user,
-      })
+      type: ACTIVE_GAME_LAUNCH,
+      payload: activeGameManager.setGameConfig({})
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },
@@ -191,11 +172,11 @@ const eventToAction = {
   })
 }
 
-export default function registerModule({ siteSocket, psiSocket }) {
+export default function registerModule({ siteSocket }) {
   const lobbyHandler = (route, event) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type](route.params.lobby, event, { siteSocket, psiSocket })
+    const action = eventToAction[event.type](route.params.lobby, event, { siteSocket })
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/lobbies/:lobby', lobbyHandler)
@@ -208,22 +189,6 @@ export default function registerModule({ siteSocket, psiSocket }) {
       payload: {
         message: action,
         data: payload,
-      }
-    })
-  })
-
-  psiSocket.registerRoute('/game/status/:origin', (route, event) => {
-    dispatch((dispatch, getState) => {
-      const { auth: { user } } = getState()
-
-      for (const status of event.filter(x => x.user === user.name)) {
-        dispatch({ type: PSI_GAME_STATUS, payload: status })
-
-        if (status.state === 'playing') {
-          siteSocket.invoke('/lobbies/gameLoaded')
-        } else if (status.state === 'error') {
-          siteSocket.invoke('/lobbies/loadFailed')
-        }
       }
     })
   })

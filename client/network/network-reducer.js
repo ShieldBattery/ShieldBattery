@@ -1,23 +1,13 @@
 import { Record } from 'immutable'
 import {
-  NETWORK_PSI_CONNECTED,
-  NETWORK_PSI_DISCONNECTED,
   NETWORK_SITE_CONNECTED,
   NETWORK_SITE_DISCONNECTED,
-  PSI_STARCRAFT_PATH_VALIDITY,
-  PSI_STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
-export const PsiSocketStatus = new Record({
-  isConnected: false,
-  hasValidStarcraftPath: false,
-  hasValidStarcraftVersion: false,
-})
 export const SiteSocketStatus = new Record({
   isConnected: false,
 })
 export const NetworkStatus = new Record({
-  psi: new PsiSocketStatus(),
   site: new SiteSocketStatus(),
 })
 
@@ -33,22 +23,7 @@ function makeNetReducer(name, Constructor, connected, disconnected) {
   }
 }
 
-const PSI_NET_REDUCER =
-    makeNetReducer('psi', PsiSocketStatus, NETWORK_PSI_CONNECTED, NETWORK_PSI_DISCONNECTED)
-function psiReducer(state, action) {
-  const newState = PSI_NET_REDUCER(state, action)
-
-  if (action.type === PSI_STARCRAFT_PATH_VALIDITY) {
-    return newState.setIn(['psi', 'hasValidStarcraftPath'], action.payload)
-  } else if (action.type === PSI_STARCRAFT_VERSION_VALIDITY) {
-    return newState.setIn(['psi', 'hasValidStarcraftVersion'], action.payload)
-  }
-
-  return newState
-}
-
 const reducers = [
-  psiReducer,
   makeNetReducer('site', SiteSocketStatus, NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED),
 ]
 

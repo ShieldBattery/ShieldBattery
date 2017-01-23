@@ -2,7 +2,7 @@ import { routerActions } from 'react-router-redux'
 import { Map } from 'immutable'
 import cuid from 'cuid'
 import readFolder from './get-files'
-import psiSocket from '../network/psi-socket'
+import activeGameManager from '../active-game/active-game-manager-instance'
 import { Player } from '../lobbies/lobby-reducer'
 import {
   REPLAYS_CHANGE_PATH,
@@ -37,7 +37,7 @@ function setGameConfig(replay, user, settings) {
   let players = new Map()
   players = players.set(player.id, player)
 
-  return psiSocket.invoke('/site/setGameConfig', {
+  return activeGameManager.setGameConfig({
     lobby: {
       name: replay.name,
       map: { isReplay: true, path: replay.path },
@@ -52,10 +52,7 @@ function setGameConfig(replay, user, settings) {
 }
 
 function setGameRoutes(gameId) {
-  return (psiSocket.invoke('/site/setGameRoutes', {
-    gameId,
-    routes: [],
-  }))
+  activeGameManager.setGameRoutes(gameId, [])
 }
 
 export function startReplay(replay) {
@@ -64,11 +61,12 @@ export function startReplay(replay) {
 
     dispatch({
       type: REPLAYS_START_REPLAY,
-      payload: setGameConfig(replay, user, settings)
-        .then(setGameRoutes)
-        .then(() => dispatch(routerActions.push('/active-game'))),
-      meta: { replay },
+      payload: replay,
     })
+
+    const gameId = setGameConfig(replay, user, settings)
+    setGameRoutes(gameId)
+    dispatch(routerActions.push('/active-game'))
   }
 }
 

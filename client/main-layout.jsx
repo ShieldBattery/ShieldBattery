@@ -68,8 +68,7 @@ function stateToProps(state) {
       name: s,
       hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
     })),
-    network: state.network,
-    upgrade: state.upgrade,
+    starcraft: state.starcraft,
     routing: state.routing,
   }
 }

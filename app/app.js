@@ -5,6 +5,7 @@ import isDev from 'electron-is-dev'
 import logger from './logger'
 import LocalSettings from './local-settings'
 import {
+  LOG_MESSAGE,
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
   SETTINGS_EMIT_ERROR,
@@ -46,6 +47,8 @@ async function createLocalSettings() {
 }
 
 function setupIpc(localSettings) {
+  ipcMain.on(LOG_MESSAGE, (event, level, message) => { logger.log(level, message) })
+
   ipcMain.on(SETTINGS_EMIT, (event) => {
     localSettings.get().then(settings => event.sender.send(SETTINGS_CHANGED, settings),
         err => {

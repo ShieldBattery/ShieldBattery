@@ -1,18 +1,14 @@
-export function isPsiConnected({ network }) {
-  return network.psi.isConnected
+// TODO(tec27): Rename this file and the main function
+
+export function hasValidStarcraftPath({ starcraft }) {
+  return starcraft.pathValid
 }
 
-
-export function hasValidStarcraftPath({ network }) {
-  return network.psi.hasValidStarcraftPath
+export function hasValidStarcraftVersion({ starcraft }) {
+  return starcraft.versionValid
 }
 
-export function hasValidStarcraftVersion({ network }) {
-  return network.psi.hasValidStarcraftVersion
-}
-
-export function isPsiHealthy({ network, upgrade }) {
-  return (isPsiConnected({ network }) &&
-      hasValidStarcraftPath({ network }) &&
-      hasValidStarcraftVersion({ network }))
+export function isPsiHealthy({ starcraft }) {
+  return (hasValidStarcraftPath({ starcraft }) &&
+      hasValidStarcraftVersion({ starcraft }))
 }

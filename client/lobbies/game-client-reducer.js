@@ -1,8 +1,8 @@
 import Immutable, { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
-  PSI_GAME_LAUNCH,
-  PSI_GAME_STATUS,
+  ACTIVE_GAME_LAUNCH,
+  ACTIVE_GAME_STATUS,
 } from '../actions'
 
 export const GameStatus = new Record({
@@ -15,7 +15,7 @@ export const GameClient = new Record({
 })
 
 export default keyedReducer(new GameClient(), {
-  [PSI_GAME_LAUNCH](state, action) {
+  [ACTIVE_GAME_LAUNCH](state, action) {
     if (action.error) {
       return new GameClient()
     }
@@ -23,7 +23,7 @@ export default keyedReducer(new GameClient(), {
     return state
   },
 
-  [PSI_GAME_STATUS](state, action) {
+  [ACTIVE_GAME_STATUS](state, action) {
     return new GameClient({
       gameId: action.payload.id,
       status: new GameStatus({

@@ -5,12 +5,11 @@ import { openDialog, closeDialog } from '../dialogs/dialog-action-creator'
 import { openSnackbar } from '../snackbars/action-creators'
 import {
   isPsiHealthy,
-  isPsiConnected,
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
 } from './is-psi-healthy'
 
-@connect(state => ({ network: state.network, upgrade: state.upgrade }))
+@connect(state => ({ starcraft: state.starcraft }))
 export default class PsiHealthCheckupDialog extends React.Component {
   componentDidUpdate(prevProps) {
     if (isPsiHealthy(this.props)) {
@@ -20,26 +19,8 @@ export default class PsiHealthCheckupDialog extends React.Component {
     }
   }
 
-  renderPsiConnectionInfo() {
-    if (isPsiConnected(this.props)) {
-      return null
-    }
-
-    const downloadLink = this.props.upgrade.installerUrl ?
-        <span>Ensure that you've downloaded the latest installer <span>
-            <a href={this.props.upgrade.installerUrl} target='_blank'>here</a></span> and completed
-            the installation process.</span> :
-        <span>Ensure that you've downloaded the latest installer and completed the installation
-            process.</span>
-
-    return (<li>
-      <span>Couldn't connect to the local ShieldBattery service. { downloadLink } If this does not
-          resolve the issue, try restarting your computer.</span>
-    </li>)
-  }
-
   renderInstallPathInfo() {
-    if (!isPsiConnected(this.props) || hasValidStarcraftPath(this.props)) {
+    if (hasValidStarcraftPath(this.props)) {
       return null
     }
 
@@ -55,8 +36,7 @@ export default class PsiHealthCheckupDialog extends React.Component {
   }
 
   renderStarcraftVersionInfo() {
-    if (!isPsiConnected(this.props) || !hasValidStarcraftPath(this.props) ||
-        hasValidStarcraftVersion(this.props)) {
+    if (!hasValidStarcraftPath(this.props) || hasValidStarcraftVersion(this.props)) {
       return null
     }
 
@@ -76,7 +56,6 @@ export default class PsiHealthCheckupDialog extends React.Component {
       <p>The following problems need to be corrected before you can play games on
           ShieldBattery:</p>
       <ul>
-        { this.renderPsiConnectionInfo() }
         { this.renderInstallPathInfo() }
         { this.renderStarcraftVersionInfo() }
       </ul>

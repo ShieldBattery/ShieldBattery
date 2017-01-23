@@ -6,8 +6,8 @@ import mkdirp from 'mkdirp'
 import thenify from 'thenify'
 import { Map } from 'immutable'
 import request from 'request'
-import log from './logger'
-import { makeServerUrl } from '../../network/server-url'
+import log from '../logging/logger'
+import { makeServerUrl } from '../network/server-url'
 
 const asyncStat = thenify(fs.stat)
 const asyncMkdirp = thenify(mkdirp)

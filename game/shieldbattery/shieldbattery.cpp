@@ -155,12 +155,17 @@ void StartNode(void* arg) {
   wchar_t** processArgs;
   int numProcessArgs;
   processArgs = CommandLineToArgvW(GetCommandLineW(), &numProcessArgs);
-  assert(numProcessArgs >= 1);
+  assert(numProcessArgs >= 2);
   const wchar_t* wideGameId = processArgs[0];
   size_t wideLen = wcslen(wideGameId);
   char* gameId = new char[wideLen + 1];
   size_t numConverted;
   wcstombs_s(&numConverted, gameId, wideLen + 1, wideGameId, wideLen);
+
+  const wchar_t* widePort = processArgs[1];
+  wideLen = wcslen(wideGameId);
+  char* port = new char[wideLen + 1];
+  wcstombs_s(&numConverted, port, wideLen + 1, widePort, wideLen);
 
   vector<char*> argv;
   argv.push_back(path);
@@ -170,6 +175,7 @@ void StartNode(void* arg) {
   argv.push_back(&scriptPathArg[0]);
   argv.push_back("shieldbattery");
   argv.push_back(gameId);
+  argv.push_back(port);
 
   node::Start(argv.size(), &argv[0]);
 

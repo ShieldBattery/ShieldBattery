@@ -1,11 +1,24 @@
 import './styles/reset.css'
 import './styles/global.css'
 import 'babel-polyfill'
+import log from './logging/logger'
 
 if (process.webpackEnv.SB_ENV === 'electron') {
-  require('./electron/psi')
-  // initialize socket
-  require('./network/psi-socket')
+  process.on('uncaughtException', function(err) {
+    console.error(err.stack)
+    log.error(err.stack)
+    // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
+    // dialog to user?
+  }).on('unhandledRejection', function(err) {
+    log.error(err.stack)
+    if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+      // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
+      // dialog to user?
+    }
+    // Other promise rejections are likely less severe, leave the process up but log it
+  })
+
+  require('./active-game/game-server')
 }
 
 import React from 'react'
@@ -21,7 +34,6 @@ import { getCurrentSession } from './auth/auther'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
-
 
 new Promise((resolve, reject) => {
   const elem = document.getElementById('app')

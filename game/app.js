@@ -27,12 +27,22 @@ import nydusClient from 'nydus-client'
 import forge from './js/natives/forge'
 import initGame from './js/init-game'
 
-const socket = nydusClient('ws://lifeoflively.net:33198', {
+const port = process.argv[process.argv.length - 1]
+const gameId = process.argv[process.argv.length - 2]
+log.verbose(`Connecting to game server on port ${port} with game ID ${gameId}`)
+const socket = nydusClient(`ws://localhost:${port}`, {
   extraHeaders: {
     origin: 'BROODWARS',
-    'x-game-id': process.argv[process.argv.length - 1]
+    'x-game-id': gameId
   }
 })
+
+const timeoutId = setTimeout(() => {
+  log.error('Never received a command, ending process')
+  setTimeout(function() {
+    process.exit(0x27272728)
+  }, 100)
+}, 2 * 60 * 1000)
 
 socket.on('connect', function() {
   log.verbose('Connected to psi.')
@@ -52,11 +62,13 @@ bw.on('replaySave', replayPath => {
 
 let gameInitializer
 socket.registerRoute('/game/:id', (route, event) => {
+  clearTimeout(timeoutId)
   if (event.command === 'quit') {
     log.verbose('Received quit command')
     forge.endWndProc() // ensure that we aren't blocking the UI thread with forge's wndproc
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
+    clearTimeout(timeoutId)
     gameInitializer = initGame(socket, event.payload)
   } else if (event.command === 'setRoutes') {
     gameInitializer.setRoutes(event.payload)

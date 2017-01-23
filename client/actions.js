@@ -1,4 +1,10 @@
 // Every possible dispatched action in the app should be included here, sorted semi-alphabetically
+
+// A new StarCraft game has launched
+export const ACTIVE_GAME_LAUNCH = 'ACTIVE_GAME_LAUNCH'
+// The status for a currently running StarCraft game has been updated
+export const ACTIVE_GAME_STATUS = 'ACTIVE_GAME_STATUS'
+
 export const ACTIVITY_OVERLAY_OPEN = 'ACTIVITY_OVERLAY_OPEN'
 export const ACTIVITY_OVERLAY_CLOSE = 'ACTIVITY_OVERLAY_CLOSE'
 
@@ -156,21 +162,8 @@ export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
 
-export const NETWORK_PSI_CONNECTED = 'NETWORK_PSI_CONNECTED'
-export const NETWORK_PSI_DISCONNECTED = 'NETWORK_PSI_DISCONNECTED'
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
-
-// The success/failure of launching a game with psi
-export const PSI_GAME_LAUNCH = 'PSI_GAME_LAUNCH'
-// An updated status (e.g. "launching", "configuring") for a particular local game client
-export const PSI_GAME_STATUS = 'PSI_GAME_STATUS'
-// An updated StarCraft path validity status, stating whether or not the current path setting
-// contains an accessible starcraft.exe
-export const PSI_STARCRAFT_PATH_VALIDITY = 'PSI_STARCRAFT_PATH_VALIDITY'
-// An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
-// current path is a version we are compatible with
-export const PSI_STARCRAFT_VERSION_VALIDITY = 'PSI_STARCRAFT_VERSION_VALIDITY'
 
 // We have clicked on a folder inside the replays browser
 export const REPLAYS_CHANGE_PATH = 'REPLAYS_CHANGE_PATH'
@@ -187,13 +180,16 @@ export const SERVER_STATUS = 'SERVER_STATUS'
 export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'
 export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
 
+// An updated StarCraft path validity status, stating whether or not the current path setting
+// contains an accessible starcraft.exe
+export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
+// An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
+// current path is a version we are compatible with
+export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
+
 // The server has finished subscribing us to the things we need to be (e.g. lobbies) and giving us
 // initial data
 export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'
-
-// We got new info about the minimum Psi version allowed on this server, along with things like an
-// installer URL for the latest version
-export const UPGRADE_PSI_INFO = 'UPGRADE_PSI_INFO'
 
 // We are starting the process of closing a whisper session (read comment for
 // WHISPERS_START_SESSION_BEGIN action to see what a 'session' represents) with a particular user.

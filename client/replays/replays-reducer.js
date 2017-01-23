@@ -62,11 +62,6 @@ export default keyedReducer(new FileStates(), {
   },
 
   [REPLAYS_START_REPLAY](state, action) {
-    if (action.error) {
-      // This maybe shouldn't be setting the file browse error
-      return state.setIn(['replays', 'lastError'], action.payload)
-    }
-
     return state
   },
 

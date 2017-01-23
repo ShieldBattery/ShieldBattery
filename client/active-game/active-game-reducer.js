@@ -1,8 +1,8 @@
 import { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
+  ACTIVE_GAME_STATUS,
   LOBBY_UPDATE_GAME_STARTED,
-  PSI_GAME_STATUS,
 } from '../actions'
 
 export const ActiveGame = new Record({
@@ -14,7 +14,7 @@ export default keyedReducer(new ActiveGame(), {
     return state.set('isActive', true)
   },
 
-  [PSI_GAME_STATUS](state, action) {
+  [ACTIVE_GAME_STATUS](state, action) {
     const { state: status } = action.payload
     if (status === 'unknown' || status === 'finished' || status === 'error') {
       return state.set('isActive', false)

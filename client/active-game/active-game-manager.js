@@ -2,14 +2,13 @@ import { remote } from 'electron'
 import electronIsDev from 'electron-is-dev'
 import path from 'path'
 import fs from 'fs'
+import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
-import { Map, Record } from 'immutable'
 import ReplayParser from 'jssuh'
-import { checkStarcraftPath } from '../../network/check-starcraft-path'
-import log from './logger'
-import { sendCommand } from './game-command'
+import { checkStarcraftPath } from '../settings/check-starcraft-path'
+import log from '../logging/logger'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -18,134 +17,111 @@ import {
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
   statusToString
-} from '../../../common/game-status'
+} from '../../common/game-status'
 
 const { launchProcess } = remote.require('./native/process')
 
-const SiteUser = new Record({
-  username: null,
-  origin: null,
-})
-
-export default class ActiveGameManager {
-  constructor(nydus, mapStore) {
-    this.nydus = nydus
+export default class ActiveGameManager extends EventEmitter {
+  constructor(mapStore) {
+    super()
     this.mapStore = mapStore
-    // Maps SiteUser -> game info
-    this.activeGames = new Map()
+    this.activeGame = null
+    this.serverPort = 0
   }
 
-  _findGameById(id) {
-    for (const [ siteUser, config ] of this.activeGames.entries()) {
-      if (config.id === id) {
-        return [ siteUser, config ]
-      }
-    }
-    log.verbose(`Game ${id} not found`)
-    return [null, null]
-  }
-
-  getStatusForSite(siteUser) {
-    const game = this.activeGames.get(siteUser)
+  getStatus() {
+    const game = this.activeGame
     if (game) {
-      return [{
-        user: siteUser.username,
+      return {
         id: game.id,
         state: statusToString(game.status.state),
         extra: game.status.extra
-      }]
+      }
     } else {
-      return []
+      return null
     }
   }
 
-  // Returns a list containing statuses of every active game
-  getInitialStatus(origin) {
-    return this.activeGames.keySeq()
-      .filter(u => u.origin === origin)
-      .reduce((list, u) => list.concat(this.getStatusForSite(u)), [])
+  setServerPort(port) {
+    this.serverPort = port
   }
 
-  setGameConfig([ username, origin ], config) {
-    const siteUser = new SiteUser({ username, origin })
-    const current = this.activeGames.get(siteUser)
+  setGameConfig(config) {
+    const current = this.activeGame
     if (current) {
       if (deepEqual(config, current.config)) {
         // Same config as before, no operation necessary
         return current.id
       }
       // Quit the currently active game so we can replace it
-      sendCommand(this.nydus, current.id, 'quit')
+      this.emit('gameCommand', current.id, 'quit')
     }
     if (!config.lobby) {
-      this._setStatus(siteUser, GAME_STATUS_UNKNOWN)
-      this.activeGames = this.activeGames.delete(siteUser)
+      this._setStatus(GAME_STATUS_UNKNOWN)
+      this.activeGame = null
       return null
     }
 
     const gameId = cuid()
-    const activeGamePromise = doLaunch(gameId, config.settings)
+    const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
       .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
       .then(code => this.handleGameExit(gameId, code),
           err => this.handleGameExitWaitError(gameId, err))
-    this.activeGames = this.activeGames.set(siteUser, {
+    this.activeGame = {
       id: gameId,
       promise: activeGamePromise,
       routes: null,
       config,
       status: { state: GAME_STATUS_UNKNOWN, extra: null },
-    })
-    log.verbose(`Creating new game ${gameId} for user ${siteUser}`)
-    // TODO(tec27): this should be the spot that hole-punching happens, before we launch the game
-    this._setStatus(siteUser, GAME_STATUS_LAUNCHING)
+    }
+    log.verbose(`Creating new game ${gameId}`)
+    this._setStatus(GAME_STATUS_LAUNCHING)
     return gameId
   }
 
   setGameRoutes(gameId, routes) {
-    const [, game] = this._findGameById(gameId)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    game.routes = routes
-    sendCommand(this.nydus, game.id, 'setRoutes', routes)
+    this.activeGame.routes = routes
+    this.emit('gameCommand', gameId, 'setRoutes', routes)
   }
 
-  async getReplayHeader(filename) {
-    const reppi = fs.createReadStream(filename)
-      .pipe(new ReplayParser())
-
-    return await new Promise((res, rej) => {
-      reppi.on('replayHeader', header => res(header))
+  getReplayHeader(filename) {
+    return new Promise((resolve, reject) => {
+      const reppi = fs.createReadStream(filename).pipe(new ReplayParser())
+      reppi.on('replayHeader', resolve)
+        .on('error', reject)
       reppi.resume()
-      reppi.on('error', err => rej(err))
     })
   }
 
   async handleGameConnected(id) {
-    const [siteUser, game] = this._findGameById(id)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== id) {
       // Not our active game, must be one we started before and abandoned
-      sendCommand(this.nydus, id, 'quit')
+      this.emit('gameCommand', id, 'quit')
       log.verbose(`Game ${id} is not any of our active games, sending quit command`)
       return
     }
 
-    this._setStatus(siteUser, GAME_STATUS_CONFIGURING)
-    // TODO(tec27): probably need to convert our config to something directly usable by the game
-    // (e.g. with the punched addresses chosen)
+    const game = this.activeGame
+    this._setStatus(GAME_STATUS_CONFIGURING)
     const { map } = game.config.lobby
     let localMap
     if (map.isReplay) {
       localMap = map.path
 
+      // TODO(tec27): Do this while the game is launching, no point in waiting for it to launch
+      // before kicking the process off
+      //
       // To be able to watch the replay correctly, we need to get the `seed` value that the game was
       // played with
       let header
       try {
         header = await this.getReplayHeader(localMap)
       } catch (err) {
-        sendCommand(this.nydus, id, 'quit')
+        this.emit('gameCommand', id, 'quit')
         log.verbose('Error parsing the replay file, sending quit command')
         return
       }
@@ -155,95 +131,87 @@ export default class ActiveGameManager {
     } else {
       localMap = this.mapStore.getPath(map.hash, map.format)
     }
-    sendCommand(this.nydus, id, 'setConfig', {
+    this.emit('gameCommand', id, 'setConfig', {
       ...game.config,
       localMap,
     })
 
     if (game.routes) {
-      sendCommand(this.nydus, game.id, 'setRoutes', game.routes)
+      this.emit('gameCommand', game.id, 'setRoutes', game.routes)
     }
   }
 
   handleGameLaunchError(id, err) {
     log.error(`Error while launching game ${id}: ${err}`)
-    const [siteUser, game] = this._findGameById(id)
-    if (game) {
-      this._setStatus(siteUser, GAME_STATUS_ERROR, err)
-      this.activeGames = this.activeGames.delete(siteUser)
+    if (this.activeGame && this.activeGame.id === id) {
+      this._setStatus(GAME_STATUS_ERROR, err)
+      this.activeGame = null
     }
   }
 
   handleSetupProgress(gameId, info) {
-    const [siteUser, game] = this._findGameById(gameId)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    this._setStatus(siteUser, info.state, info.extra)
+    this._setStatus(info.state, info.extra)
   }
 
   handleGameStart(gameId) {
-    const [siteUser, game] = this._findGameById(gameId)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    this._setStatus(siteUser, GAME_STATUS_PLAYING)
+    this._setStatus(GAME_STATUS_PLAYING)
   }
 
   handleGameEnd(gameId, results, time) {
-    const [siteUser, game] = this._findGameById(gameId)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
     // TODO(tec27): this needs to be handled differently (psi should really be reporting these
     // directly to the server)
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
-    this.nydus.publish(`/game/results/${encodeURIComponent(siteUser.origin)}`, { results, time })
-    this._setStatus(siteUser, GAME_STATUS_FINISHED)
+    this.emit('gameResults', { results, time })
+    this._setStatus(GAME_STATUS_FINISHED)
   }
 
   handleReplaySave(gameId, path) {
-    const [siteUser, game] = this._findGameById(gameId)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
     log.verbose(`Replay saved to: ${path}`)
-    this.nydus.publish(`/game/replaySave/${encodeURIComponent(siteUser.origin)}`, { path })
+    this.emit('replaySave', path)
   }
 
   handleGameExit(id, exitCode) {
-    const [siteUser, game] = this._findGameById(id)
-    if (!game) {
+    if (!this.activeGame || this.activeGame.id !== id) {
       return
     }
 
     log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
 
-    if (game.status.state < GAME_STATUS_FINISHED) {
-      if (game.status.state >= GAME_STATUS_PLAYING) {
+    if (this.activeGame.status.state < GAME_STATUS_FINISHED) {
+      if (this.activeGame.status.state >= GAME_STATUS_PLAYING) {
         // TODO(tec27): report a disc to the server
-        this._setStatus(siteUser, GAME_STATUS_UNKNOWN)
+        this._setStatus(GAME_STATUS_UNKNOWN)
       } else {
-        this._setStatus(siteUser, GAME_STATUS_ERROR,
+        this._setStatus(GAME_STATUS_ERROR,
             new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
       }
     }
 
-    this.activeGames = this.activeGames.delete(siteUser)
+    this.activeGame = null
   }
 
   handleGameExitWaitError(id, err) {
     log.error(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
-  _setStatus(siteUser, state, extra = null) {
-    const game = this.activeGames.get(siteUser)
-    if (game) {
-      game.status = { state, extra }
-      const encodedOrigin = encodeURIComponent(siteUser.origin)
-      this.nydus.publish(`/game/status/${encodedOrigin}`, this.getStatusForSite(siteUser))
-      log.verbose(`Game status for '${siteUser}' updated to '${statusToString(state)}'`)
+  _setStatus(state, extra = null) {
+    if (this.activeGame) {
+      this.activeGame.status = { state, extra }
+      this.emit('gameStatus', this.getStatus())
+      log.verbose(`Game status updated to '${statusToString(state)}'`)
     }
   }
 }
@@ -260,7 +228,7 @@ const injectPath = path.resolve(remote.app.getAppPath(),
     electronIsDev ? '../game/dist/shieldbattery.dll' : './resources/game/dist/shieldbattery.dll')
 
 const accessAsync = thenify(fs.access)
-async function doLaunch(gameId, settings) {
+async function doLaunch(gameId, serverPort, settings) {
   const { starcraftPath } = settings.local
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
@@ -275,7 +243,7 @@ async function doLaunch(gameId, settings) {
   log.debug('Attempting to launch ' + appPath)
   const proc = await launchProcess({
     appPath,
-    args: gameId,
+    args: `${gameId} ${serverPort}`,
     launchSuspended: true,
     currentDir: starcraftPath,
     environment: [
