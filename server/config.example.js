@@ -3,9 +3,14 @@
 // NOTE: you will also need to configure your databases in database.json for db-migrate
 
 const config = {}
-config.canonicalHost = 'http://localhost:5555' // main url for the site
-config.httpsPort = 5556
+config.canonicalHost = 'http://localhost:5555'
 config.httpPort = 5555
+
+// Uncomment if this server is behind a reverse proxy that strips SSL, but is
+// served over SSL
+/*
+config.httpsReverseProxy = true
+*/
 
 config.sessionSecret = 'shhhhhhh'
 config.sessionTtl = 1209600 // in seconds
@@ -30,9 +35,6 @@ config.logLevels = {
 // Uncomment and set a url to the feedback page that is shown on the main site
 // config.feedbackUrl = 'http://goo.gl/forms/yaV3pAlCdzWEikTL2'
 
-// Set a minimum required Psi version
-// If the version is not specified, it defaults to no minimum version
-config.minPsiVersion = '0.0.0'
 // Uncomment to specify an installer URL, which will be given to clients if their Psi is detected
 // to be out of date. If none is specified, no link will be given to clients.
 // config.installerUrl = 'https://localhost/installer.msi'
@@ -75,16 +77,4 @@ config.mailgun = {
 }
 */
 
-// Uncommenting this block will enable HTTPS, which requires generating server certs & keys
-// It's advisable to leave commented if you're doing local development
-/*
-config.https = {
-  ca: [],
-  key: fs.readFileSync(require.resolve('./certs/server.key'), 'utf8'),
-  cert: fs.readFileSync(require.resolve('./certs/server.crt'), 'utf8')
-}
-// Uncomment if this server is behind a reverse proxy that strips SSL, but is nonetheless served
-// over SSL
-config.httpsReverseProxy = true
-*/
 export default config

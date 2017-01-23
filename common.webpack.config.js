@@ -28,7 +28,6 @@ export default function({
   babel: babelOpts,
   cssNext: cssNextOpts,
   hotUrl,
-  ignorePluginRegexes = [],
   envDefines = {},
   minify,
 }) {
@@ -87,10 +86,6 @@ export default function({
       cssFor,
       cssNext(cssNextOpts),
     ],
-  }
-
-  for (const ignore of ignorePluginRegexes) {
-    config.plugins.push(new webpack.IgnorePlugin(ignore))
   }
 
   if (!isProd) {

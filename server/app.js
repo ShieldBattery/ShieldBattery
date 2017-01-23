@@ -5,10 +5,8 @@ import webpackConfig from './webpack.config.js'
 import childProcess from 'child_process'
 import dns from 'dns'
 import http from 'http'
-import https from 'https'
 import net from 'net'
 
-import canonicalHost from 'canonical-host'
 import isDev from './lib/env/is-dev'
 import Koa from 'koa'
 import log from './lib/logging/logger'
@@ -105,7 +103,7 @@ const initRouteCreatorPromise = routeCreator.initialize(routeCreatorConfig.host 
     routeCreatorConfig.port || 0, config.rallyPoint.secret)
 
 const app = new Koa()
-const port = config.https ? config.httpsPort : config.httpPort
+const port = config.httpPort
 const compiler = webpack(webpackConfig)
 
 app.keys = [ config.sessionSecret ]
@@ -141,20 +139,7 @@ app
   .use(userSessionsMiddleware())
 
 
-let mainServer
-if (config.https) {
-  mainServer = https.createServer(config.https, app.callback())
-  // create a server that simply forwards requests to https
-  const canon = canonicalHost(config.canonicalHost, 301)
-  http.createServer(function(req, res) {
-    if (canon(req, res)) return
-    // shouldn't ever get here, but if we do, just kill the connection
-    res.statusCode = 400
-    res.end('Bad request\n')
-  }).listen(config.httpPort)
-} else {
-  mainServer = http.createServer(app.callback())
-}
+const mainServer = http.createServer(app.callback())
 
 import setupWebsockets from './websockets'
 const { userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)

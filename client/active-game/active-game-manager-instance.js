@@ -1,12 +1,9 @@
-function makeActiveGameManager() {
-  if (process.webpackEnv.SB_ENV !== 'electron') {
-    return null
-  }
-
+let activeGameManager
+if (process.webpackEnv.SB_ENV === 'electron') {
   const ActiveGameManager = require('./active-game-manager').default
   const mapStore = require('../maps/map-store-instance').default
 
-  return new ActiveGameManager(mapStore)
+  activeGameManager = new ActiveGameManager(mapStore)
 }
 
-export default makeActiveGameManager()
+export default activeGameManager

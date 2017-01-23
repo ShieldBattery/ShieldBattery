@@ -43,11 +43,6 @@ export default makeConfig({
   babel: babelOpts,
   cssNext: cssNextOpts,
   hotUrl: 'webpack-hot-middleware/client',
-  ignorePluginRegexes: [
-    /.*client[\\/]native[\\/].+/,
-    /.*client[\\/]electron[\\/].+/,
-    /.+[.]node$/,
-  ],
   envDefines: { SB_ENV: JSON.stringify('web') },
   minify: true,
 })
