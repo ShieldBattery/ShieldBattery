@@ -1,8 +1,8 @@
 import React from 'react'
-import { Map } from 'immutable'
+import { List } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
-import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer'
+import { LobbyInfo, LobbyMap, Slot, Team } from '../lobby-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 
@@ -42,6 +42,7 @@ export default class LoadingTest extends React.Component {
   }
 
   render() {
+    const host = new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' })
     const lobby = new LobbyInfo({
       name: 'This is just a test',
       map: new LobbyMap({
@@ -56,15 +57,18 @@ export default class LoadingTest extends React.Component {
         slots: 5,
         umsSlots: 5,
       }),
-      numSlots: 5,
-      players: new Map({
-        a: new Player({ name: 'tec27', id: 'a', race: 'p', slot: 0 }),
-        b: new Player({ name: 'dronebabo', id: 'b', race: 'r', slot: 1 }),
-        c: new Player({ name: 'grnp', id: 'c', race: 'z', slot: 2 }),
-        d: new Player({ name: 'Heyoka', id: 'd', race: 't', slot: 3 }),
-        e: new Player({ name: 'robit', id: 'e', race: 'r', slot: 4, isComputer: true }),
-      }),
-      hostId: 'a',
+      teams: new List([
+        new Team({
+          slots: new List([
+            host,
+            new Slot({ type: 'human', name: 'dronebabo', id: 'b', race: 'r' }),
+            new Slot({ type: 'human', name: 'grnp', id: 'c', race: 'z' }),
+            new Slot({ type: 'human', name: 'Heyoka', id: 'd', race: 't' }),
+            new Slot({ type: 'computer', name: 'robit', id: 'e', race: 'r' }),
+          ]),
+        }),
+      ]),
+      host: 'a',
     })
     const gameStatus = STATUSES[this.state.statusIndex]
     const user = new User({

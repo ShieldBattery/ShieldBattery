@@ -1,20 +1,20 @@
-/* import React from 'react'
-import { Map, Range, List } from 'immutable'
+import React from 'react'
+import { Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
-import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer.js'
+import { LobbyInfo, LobbyMap, Slot, Team } from '../lobby-reducer.js'
 import { User } from '../../auth/auth-records'
 
-const PLAYERS = new Map({
-  a: new Player({ name: 'tec27', id: 'a', race: 'p', slot: 0 }),
-  b: new Player({ name: '2pacalypse', id: 'b', race: 't', slot: 1 }),
-  c: new Player({ name: 'dronebabo', id: 'c', race: 'z', slot: 2 }),
-  d: new Player({ name: 'pachi', id: 'd', race: 'r', slot: 3 }),
-  e: new Player({ name: 'Heyoka', id: 'e', race: 'r', slot: 4 }),
-  f: new Player({ name: 'Legionnaire', id: 'f', race: 'p', slot: 5 }),
-  g: new Player({ name: 'boesthius', id: 'g', race: 't', slot: 6 }),
-  h: new Player({ name: 'harem', id: 'h', race: 'z', slot: 7 }),
-})
+const SLOTS = new List([
+  new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' }),
+  new Slot({ type: 'human', name: '2Pacalypse-', id: 'b', race: 't' }),
+  new Slot({ type: 'human', name: 'dronebabo', id: 'c', race: 'z' }),
+  new Slot({ type: 'human', name: 'pachi', id: 'd', race: 'r' }),
+  new Slot({ type: 'human', name: 'Heyoka', id: 'e', race: 'r' }),
+  new Slot({ type: 'human', name: 'Legionnaire', id: 'f', race: 'p' }),
+  new Slot({ type: 'human', name: 'boesthius', id: 'g', race: 't' }),
+  new Slot({ type: 'human', name: 'harem', id: 'h', race: 'z' }),
+])
 
 const LOBBIES = Range(2, 9).map(numSlots => {
   return new LobbyInfo({
@@ -29,9 +29,12 @@ const LOBBIES = Range(2, 9).map(numSlots => {
       tileset: 'jungle',
       description: 'sup',
     }),
-    numSlots,
-    players: PLAYERS.take(numSlots).toMap(),
-    hostId: 'a',
+    teams: new List([
+      new Team({
+        slots: SLOTS.take(numSlots),
+      }),
+    ]),
+    host: SLOTS.get(0),
   })
 })
 
@@ -70,4 +73,4 @@ export default class LobbyTest extends React.Component {
       { LOBBIES.map(this.renderLobby) }
     </div>)
   }
-}*/
+}
