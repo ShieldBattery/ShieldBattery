@@ -218,8 +218,6 @@ const chatHandlers = {
       time: Date.now(),
       name: player.name
     }))
-
-    return state
   },
 
   [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {

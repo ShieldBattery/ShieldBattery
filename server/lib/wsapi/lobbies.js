@@ -64,8 +64,6 @@ const ListSubscription = new Record({
   count: 0,
 })
 
-const teamIndex = t => t >= 0 && t <= 4
-const slotIndex = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
 function checkSubTypeValidity(gameType, gameSubType = 0, numSlots) {
@@ -446,7 +444,7 @@ export class LobbyApi {
       },
     })
 
-    const humanPlayers = getHumanPlayers(lobby)
+    const humanPlayers = getHumanSlots(lobby)
     const hasMultipleHumans = humanPlayers.size > 1
     const pingPromise = !hasMultipleHumans ?
         Promise.resolve() :
