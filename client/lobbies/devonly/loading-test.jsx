@@ -3,7 +3,7 @@ import { List } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
-import { MapRecord as LobbyMap } from '../maps-reducer'
+import { MapRecord } from '../maps-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 
@@ -46,7 +46,7 @@ export default class LoadingTest extends React.Component {
     const host = new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' })
     const lobby = new LobbyInfo({
       name: 'This is just a test',
-      map: new LobbyMap({
+      map: new MapRecord({
         name: 'Fighting Spirit',
         hash: 'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3',
         format: 'scx',
@@ -58,6 +58,8 @@ export default class LoadingTest extends React.Component {
         slots: 5,
         umsSlots: 5,
       }),
+      gameType: 'melee',
+      gameSubType: 0,
       teams: new List([
         new Team({
           slots: new List([

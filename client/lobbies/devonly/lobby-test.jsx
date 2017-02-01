@@ -3,7 +3,7 @@ import { Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
-import { MapRecord as LobbyMap } from '../maps-reducer'
+import { MapRecord } from '../maps-reducer'
 import { User } from '../../auth/auth-records'
 
 const SLOTS = new List([
@@ -20,7 +20,7 @@ const SLOTS = new List([
 const LOBBIES = Range(2, 9).map(numSlots => {
   return new LobbyInfo({
     name: `My ${numSlots}-slot Lobby`,
-    map: new LobbyMap({
+    map: new MapRecord({
       name: 'Fighting Spirit',
       hash: 'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3',
       format: 'scx',
@@ -32,6 +32,8 @@ const LOBBIES = Range(2, 9).map(numSlots => {
       slots: 4,
       umsSlots: 4,
     }),
+    gameType: 'melee',
+    gameSubType: 0,
     teams: new List([
       new Team({
         slots: SLOTS.take(numSlots),
@@ -60,7 +62,7 @@ export default class LobbyTest extends React.Component {
     }
     return (<div key={lobby.name} style={containerStyle}>
       <div key={lobby.name} style={scaledStyle}>
-        <Lobby lobby={lobby} user={USER} chat={new List()} />
+        <Lobby lobby={lobby} user={USER} chat={new List()} onSendChatMessage={() => null} />
       </div>
     </div>)
   }
