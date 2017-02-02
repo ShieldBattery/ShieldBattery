@@ -1,5 +1,5 @@
 import React from 'react'
-import { getPlayerSlots } from '../../common/lobbies/lobby-slots'
+import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
 
 import MapThumbnail from './map-thumbnail.jsx'

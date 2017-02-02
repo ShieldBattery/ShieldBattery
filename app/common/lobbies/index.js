@@ -81,14 +81,25 @@ export function openSlotsCountPerLobby(lobby) {
       team.slots.count(slot => slot.type === 'open' || slot.type === 'controlledOpen'), 0)
 }
 
+// Checks if the given gameType is a "team" type. This is a BW-specific definition and doesn't mean
+// if the lobby itself has teams.
 export function isTeamType(gameType) {
-  return gameType === 'topVBottom' || gameType === 'teamMelee' || gameType === 'teamFfa'
+  switch (gameType) {
+    case 'melee': return false
+    case 'ffa': return false
+    case 'oneVOne': return false
+    case 'ums': return false
+    case 'teamMelee': return true
+    case 'teamFfa': return true
+    case 'topVBottom': return true
+    default: throw new Error('Unknown game type: ' + gameType)
+  }
 }
 
 // Returns whether or not a lobby has 2 or more opposing sides (and thus would be suitable for
 // starting a game from)
 export function hasOpposingSides(lobby) {
   return !isTeamType(lobby.gameType) ?
-      playerSlotsCountPerTeam(lobby.teams.get(0)) > 1 :
+      getPlayerSlots(lobby).size > 1 :
       lobby.teams.filter(team => playerSlotsCountPerTeam(team) > 0).size > 1
 }

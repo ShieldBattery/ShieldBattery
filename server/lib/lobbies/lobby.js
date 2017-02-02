@@ -1,17 +1,18 @@
 import { List, Range, Record } from 'immutable'
 import * as Slots from './slot'
 import {
+  isTeamType,
   getLobbySlots,
   slotsCountPerLobby,
   humanSlotsCountPerLobby,
   takenSlotsCountPerLobby,
   takenSlotsCountPerTeam,
   openSlotsCountPerLobby,
-} from '../../../common/lobbies/lobby-slots'
+} from '../../../app/common/lobbies'
 
 const Team = new Record({
   name: null,
-  flags: null,
+  teamId: null,
   // Slots that belong to a particular team
   slots: new List(),
 })
@@ -57,9 +58,6 @@ export function getSlotsPerTeam(gameType, gameSubType, numSlots) {
 }
 
 export function numTeams(gameType, gameSubType) {
-  // TODO(2Pac): Once we get OBS support, each game type (except team melee/ffa?) should have +1
-  // team for observers; also, keep in mind that this team might have 0 slots available at first
-  // (until a user makes a normal slot into an observer slot)
   switch (gameType) {
     case 'melee':
     case 'ffa': return 1
@@ -161,8 +159,17 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
     .map(teamIndex => {
       const teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
       slotIndex += slotsPerTeam[teamIndex]
+      const teamName = teamNames[teamIndex]
+      let teamId
+      if (!isUms(gameType)) {
+        teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
+      } else {
+        // TODO(2Pac): In case of a UMS map, `teamId` will be read from the forces layout
+      }
+
       return new Team({
-        name: teamNames[teamIndex],
+        name: teamName,
+        teamId,
         slots: teamSlots,
       })
     })

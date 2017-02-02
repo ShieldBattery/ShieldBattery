@@ -16,11 +16,12 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
+import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
-import { findSlotById } from '../../common/lobbies/lobby-slots'
+import { getLobbySlotsWithIndexes } from '../../app/common/lobbies'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -54,11 +55,10 @@ const eventToAction = {
   }),
 
   leave: (name, event) => (dispatch, getState) => {
-    const { auth, lobby } = getState()
+    const { auth } = getState()
 
     const user = auth.user.name
-    const [teamIndex, slotIndex, player] = findSlotById(lobby.info, event.id)
-    if (user === player.name) {
+    if (user === event.player.name) {
       // The leaver was me all along!!!
       clearCountdownTimer()
       dispatch({
@@ -67,11 +67,7 @@ const eventToAction = {
     } else {
       dispatch({
         type: LOBBY_UPDATE_LEAVE,
-        payload: {
-          teamIndex,
-          slotIndex,
-          player,
-        },
+        payload: event,
       })
     }
   },
@@ -116,22 +112,23 @@ const eventToAction = {
   setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
     const {
-      lobby: {
-        info: { name: lobbyName, map, gameType, gameSubType, numSlots, players, hostId },
-      },
+      lobby,
       settings,
       auth: { user },
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
+    // We tack on `teamId` to each slot here so we don't have to send two different things to game
+    const slots = getLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
+        new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
+    const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
       lobby: {
         name: lobbyName,
         map,
         gameType,
         gameSubType,
-        numSlots,
-        players,
-        hostId,
+        slots,
+        host,
       },
       settings,
       setup: event.setup,

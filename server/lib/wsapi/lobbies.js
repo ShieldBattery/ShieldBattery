@@ -7,17 +7,17 @@ import pingRegistry from '../rally-point/ping-registry'
 import routeCreator from '../rally-point/route-creator'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
-import CancelToken from '../../../common/async/cancel-token'
-import createDeferred from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
-import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
+import CancelToken from '../../../app/common/async/cancel-token'
+import createDeferred from '../../../app/common/async/deferred'
+import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
+import { LOBBY_NAME_MAXLENGTH } from '../../../app/common/constants'
 import {
   getLobbySlots,
   getHumanSlots,
   findSlotByName,
   findSlotById,
   hasOpposingSides,
-} from '../../../common/lobbies/lobby-slots'
+} from '../../../app/common/lobbies'
 
 import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
@@ -53,9 +53,8 @@ const LoadingData = new Record({
 })
 
 export const LoadingDatas = {
-  isAllFinished(loadingData, lobby) {
-    return lobby.players.every((p, id) =>
-        p.isComputer || p.controlledBy || loadingData.finishedUsers.has(id))
+  isAllFinished(loadingData, players) {
+    return players.every(p => loadingData.finishedUsers.has(p.id))
   }
 }
 
@@ -250,13 +249,6 @@ export class LobbyApi {
     if (!slotToAddComputer) {
       throw new errors.BadRequest('invalid id')
     }
-
-    if (teamIndex >= lobby.teams.size) {
-      throw new errors.BadRequest('invalid team index')
-    }
-    if (slotIndex >= lobby.teams.get(teamIndex).slots.size) {
-      throw new errors.BadRequest('invalid slot index')
-    }
     if (slotToAddComputer.type !== 'open') {
       throw new errors.BadRequest('invalid slot type')
     }
@@ -361,7 +353,7 @@ export class LobbyApi {
       // Ensure the user's local state gets updated to confirm the leave
       this._publishTo(lobby, {
         type: 'leave',
-        id: player.id,
+        player,
       })
       this.lobbies = this.lobbies.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
@@ -565,12 +557,12 @@ export class LobbyApi {
     loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(player.id))
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
 
-    if (LoadingDatas.isAllFinished(loadingData, lobby)) {
+    const players = getHumanSlots(lobby)
+    if (LoadingDatas.isAllFinished(loadingData, players)) {
       // TODO(tec27): register this game in the DB for accepting results in another service
       this._publishTo(lobby, { type: 'gameStarted' })
 
-      lobby.players.filter(p => !p.isComputer && !p.controlledBy)
-        .map(p => this.userSockets.getByName(p.name))
+      players.map(p => this.userSockets.getByName(p.name))
         .forEach(user => {
           user.unsubscribe(LobbyApi._getPath(lobby))
           user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))
@@ -692,20 +684,21 @@ export class LobbyApi {
     const created = newSlots.subtract(same)
 
     for (const id of left.values()) {
-      // These are the `human` slots that have left the lobby or were removed. Note that every
-      // `leave` operation also triggers a `slotCreate` operation, which means that we don't have to
-      // set slots on the client-side in response to this operation (since they'll be overriden in
-      // the `slotCreate` operation below anyways). This also means we only care about `human` slots
-      // leaving just so we can display 'player has left' message in the lobby.
+      // These are the human slots that have left the lobby or were removed. Note that every `leave`
+      // operation also triggers a `slotCreate` operation, which means that we don't have to set
+      // slots on the client-side in response to this operation (since they'll be overriden in the
+      // `slotCreate` operation below anyways). This also means we only care about `human` slots
+      // leaving just so we can display appropriate message in the lobby.
+      const [, , player] = findSlotById(oldLobby, id)
       this._publishTo(newLobby, {
         type: 'leave',
-        id,
+        player,
       })
     }
     for (const id of created.values()) {
       // These are all of the slots that were created in the new lobby compared to the old one. This
-      // includes the slots that were created as a result of players leaving the lobby, moving to an
-      // other slot, etc.
+      // includes the slots that were created as a result of players leaving the lobby, moving to a
+      // different slot, etc.
       const [teamIndex, slotIndex, slot] = findSlotById(newLobby, id)
       this._publishTo(newLobby, {
         type: 'slotCreate',

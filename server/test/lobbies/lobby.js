@@ -10,7 +10,7 @@ import {
   findSlotById,
   humanSlotsCountPerLobby,
   hasOpposingSides,
-} from '../../../common/lobbies/lobby-slots'
+} from '../../../app/common/lobbies'
 
 const BOXER_LOBBY = Lobbies.create(
     '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')

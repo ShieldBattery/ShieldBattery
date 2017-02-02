@@ -27,11 +27,13 @@ export const Slot = new Record({
   name: null,
   race: null,
   id: null,
+  joinedAt: null,
   controlledBy: null,
+  teamId: null,
 })
 export const Team = new Record({
   name: null,
-  flags: null,
+  teamId: null,
   slots: new List(),
 })
 export const LobbyInfo = new Record({

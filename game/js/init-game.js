@@ -1,4 +1,4 @@
-import Immutable from 'immutable'
+import { List } from 'immutable'
 import RallyPoint from 'rally-point-player'
 import log from './logger'
 import bw from './natives/bw'
@@ -22,19 +22,6 @@ function getBwRace(lobbyRace) {
     case 't': return 'terran'
     case 'p': return 'protoss'
     default: return 'random'
-  }
-}
-
-function isTeamType(gameType) {
-  switch (gameType) {
-    case 'melee': return false
-    case 'ffa': return false
-    case 'oneVOne': return false
-    case 'ums': return false
-    case 'teamMelee': return true
-    case 'teamFfa': return true
-    case 'topVBottom': return true
-    default: throw new Error('Unknown game type: ' + gameType)
   }
 }
 
@@ -68,13 +55,13 @@ class GameInitializer {
     // - Keeping consistent IPs/ports between all players of the game (even though they might differ
     //   due to NAT, LAN, etc.)
     // - Allowing us to easily get references to active rally-point routes
-    const players = Immutable.fromJS(this.lobbyConfig.players).valueSeq()
-        .filterNot(p => p.get('isComputer') || p.get('controlledBy'))
-    const hostId = this.lobbyConfig.hostId
-    const ordered = players.filter(p => p.get('id') === hostId).concat(
-        players.filterNot(p => p.get('id') === hostId).sortBy(p => p.get('slot')))
+    const slots = new List(this.lobbyConfig.slots)
+    const players = slots.filter(slot => slot.type === 'human')
+    const hostId = this.lobbyConfig.host.id
+    const ordered = players.filter(p => p.id === hostId)
+        .concat(players.filterNot(p => p.id === hostId))
     const routesById = new Map(rallyPointRoutes.map(r => [ r.forId, r.route ]))
-    const netInfos = ordered.map(p => routesById.get(p.get('id')))
+    const netInfos = ordered.map(p => routesById.get(p.id))
     return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
   }
 
@@ -83,7 +70,7 @@ class GameInitializer {
     // For each route, ping the IPv4 and IPv6 endpoints. Whichever ping comes back first, send the
     // join request to that address. (We expect both to take about the same amount of time, but this
     // will remove any addresses we can't talk to, e.g. IPv6 when we only have an IPv4 address).
-    const players = this.lobbyConfig.players
+    const slots = this.lobbyConfig.slots
     const joinPromises = this.routes.map(async route => {
       const port = route.server.port
       let chosenAddress
@@ -110,7 +97,7 @@ class GameInitializer {
 
       const joined = await rallyPoint.joinRoute(
           { address: chosenAddress, port }, route.routeId, route.playerId)
-      const destPlayer = players[route.for]
+      const destPlayer = slots.filter(slot => slot.id === route.for)
       log.verbose(
           `Connected to ${route.server.desc} for player ${destPlayer.name} [${route.routeId}]`)
       return { route: joined, forId: route.for }
@@ -161,7 +148,7 @@ class GameInitializer {
     setRallyPoint(this.rallyPoint)
     bw.initNetwork()
 
-    const isHost = this.lobbyConfig.players[this.lobbyConfig.hostId].name === myName
+    const isHost = this.lobbyConfig.host.name === myName
     if (isHost) {
       log.verbose('creating lobby for map: ' + this.localMap)
       await this.createLobby()
@@ -234,8 +221,8 @@ class GameInitializer {
     const gameTypeValue = gameTypes[gameType](gameSubType)
     const bwGameInfo = {
       gameName: this.lobbyConfig.name,
-      numSlots: this.lobbyConfig.numSlots,
-      numPlayers: this.lobbyConfig.players.size,
+      numSlots: this.lobbyConfig.slots.size,
+      numPlayers: this.lobbyConfig.slots.filter(slot => slot.type === 'human').size,
       mapName: this.lobbyConfig.map.name,
       mapTileset: tilesetNameToId[this.lobbyConfig.map.tileset],
       mapWidth: this.lobbyConfig.map.width,
@@ -261,10 +248,8 @@ class GameInitializer {
   }
 
   async waitForPlayers() {
-    const players = Immutable.fromJS(this.lobbyConfig.players).valueSeq()
-      .filterNot(p => p.get('isComputer') || p.get('controlledBy'))
-      .map(p => p.get('name'))
-      .toList()
+    const players = this.lobbyConfig.slots.filter(slot => slot.type === 'human')
+        .map(p => p.name)
 
     const hasAllPlayers = () => {
       const playerSlots = bw.slots.filter(s => s.type === 'human')
@@ -297,50 +282,35 @@ class GameInitializer {
     })
   }
 
-  getTeamForSlot(num) {
-    const { gameType, gameSubType, numSlots } = this.lobbyConfig
-    if (num >= numSlots) return 0
-    // TODO(tec27): handle UMS
-    if (isTeamType(gameType)) {
-      if (gameType === 'topVBottom') {
-        // gameSubType specifies number of players on the top team
-        return num >= gameSubType ? 2 : 1
-      } else {
-        // gameSubType specifies the number of teams
-        const numPerTeam = Math.ceil(numSlots / gameSubType)
-        return Math.floor(num / numPerTeam) + 1
-      }
-    } else {
-      return 0
-    }
-  }
-
   setupSlots() {
-    const { numSlots } = this.lobbyConfig
+    const { slots: lobbySlots } = this.lobbyConfig
+
     for (let i = 0; i < bw.slots.length; i++) {
       const slot = bw.slots[i]
       slot.playerId = i
-      slot.stormId = 255
-      slot.type = i >= numSlots ? 'none' : 'open'
+      slot.stormId = 0xFF
+      slot.type = i >= lobbySlots.length ? 'none' : 'open'
       slot.race = 'random'
-      slot.team = this.getTeamForSlot(i)
+      slot.team = 0
     }
 
-    for (const id of Object.keys(this.lobbyConfig.players)) {
-      const player = this.lobbyConfig.players[id]
-      const slot = bw.slots[player.slot]
+    for (let i = 0; i < lobbySlots.length; i++) {
+      const lobbySlot = lobbySlots[i]
+      const slot = bw.slots[i]
 
-      if (!player.isComputer && !player.controlledBy) {
-        slot.name = player.name
-        slot.type = 'human'
-        slot.stormId = 27 // signals that they're not here yet, will fill in when connected
-      } else {
-        slot.stormId = 0xFF
-        slot.type = player.controlledBy ? 'open' : 'lobbycomputer'
+      slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
+      slot.race = getBwRace(lobbySlot.race)
+      slot.team = lobbySlot.teamId
+      slot.name = lobbySlot.name
+      switch (lobbySlot.type) {
+        case 'human': slot.type = 'human'; break
+        case 'computer': slot.type = 'lobbycomputer'; break
+        case 'controlledOpen':
+        case 'controlledClosed':
+        case 'open':
+        case 'closed': slot.type = 'open'; break
+        default: slot.type = 'none'; break
       }
-
-      slot.playerId = player.slot
-      slot.race = getBwRace(player.race)
     }
   }
 

@@ -1,9 +1,9 @@
 import { routerActions } from 'react-router-redux'
-import { Map } from 'immutable'
+import { List } from 'immutable'
 import cuid from 'cuid'
 import readFolder from './get-files'
 import activeGameManager from '../active-game/active-game-manager-instance'
-import { Player } from '../lobbies/lobby-reducer'
+import { Slot } from '../lobbies/lobby-reducer'
 import {
   REPLAYS_CHANGE_PATH,
   REPLAYS_GET_BEGIN,
@@ -33,9 +33,8 @@ export function getFiles(browseId, path) {
 }
 
 function setGameConfig(replay, user, settings) {
-  const player = new Player({ name: user.name, id: cuid(), slot: 0 })
-  let players = new Map()
-  players = players.set(player.id, player)
+  const player = new Slot({ type: 'human', name: user.name, id: cuid(), teamId: 0 })
+  const slots = List.of(player)
 
   return activeGameManager.setGameConfig({
     lobby: {
@@ -43,8 +42,8 @@ function setGameConfig(replay, user, settings) {
       map: { isReplay: true, path: replay.path },
       gameType: 'melee',
       numSlots: 4,
-      players,
-      hostId: player.id,
+      slots,
+      host: player,
     },
     settings,
     localUser: user,
