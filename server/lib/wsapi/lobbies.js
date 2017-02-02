@@ -53,9 +53,8 @@ const LoadingData = new Record({
 })
 
 export const LoadingDatas = {
-  isAllFinished(loadingData, lobby) {
-    return lobby.players.every((p, id) =>
-        p.isComputer || p.controlledBy || loadingData.finishedUsers.has(id))
+  isAllFinished(loadingData, players) {
+    return players.every(p => loadingData.finishedUsers.has(p.id))
   }
 }
 
@@ -565,12 +564,12 @@ export class LobbyApi {
     loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(player.id))
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
 
-    if (LoadingDatas.isAllFinished(loadingData, lobby)) {
+    const players = getHumanSlots(lobby)
+    if (LoadingDatas.isAllFinished(loadingData, players)) {
       // TODO(tec27): register this game in the DB for accepting results in another service
       this._publishTo(lobby, { type: 'gameStarted' })
 
-      lobby.players.filter(p => !p.isComputer && !p.controlledBy)
-        .map(p => this.userSockets.getByName(p.name))
+      players.map(p => this.userSockets.getByName(p.name))
         .forEach(user => {
           user.unsubscribe(LobbyApi._getPath(lobby))
           user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))

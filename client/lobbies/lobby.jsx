@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react'
-import { isTeamType, gameTypeToString } from './game-type'
-import { findSlotByName, hasOpposingSides } from '../../common/lobbies/lobby-slots'
+import { gameTypeToString } from './game-type'
+import { findSlotByName, hasOpposingSides, isTeamType } from '../../common/lobbies/lobby-slots'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'

@@ -20,7 +20,7 @@ import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
-import { findSlotById } from '../../common/lobbies/lobby-slots'
+import { findSlotById, getLobbySlotsWithIndexes } from '../../common/lobbies/lobby-slots'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -116,22 +116,21 @@ const eventToAction = {
   setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
     const {
-      lobby: {
-        info: { name: lobbyName, map, gameType, gameSubType, numSlots, players, hostId },
-      },
+      lobby,
       settings,
       auth: { user },
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
+    const slots = getLobbySlotsWithIndexes(lobby.info)
+    const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
       lobby: {
         name: lobbyName,
         map,
         gameType,
         gameSubType,
-        numSlots,
-        players,
-        hostId,
+        slots,
+        host,
       },
       settings,
       setup: event.setup,
