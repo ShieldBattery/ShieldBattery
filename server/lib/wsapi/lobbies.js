@@ -100,7 +100,11 @@ export class LobbyApi {
       return
     }
 
-    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
+    const user = this.getUser(data)
+    const summary = this.lobbies.valueSeq()
+        .filterNot(l => this.lobbyBannedUsers.has(l.name) &&
+            this.lobbyBannedUsers.get(l.name).includes(user.name))
+        .map(l => Lobbies.toSummaryJson(l))
     this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
 
     const onClose = () => {
@@ -376,6 +380,7 @@ export class LobbyApi {
     if (!slotToClose) {
       throw new errors.BadRequest('invalid slot id')
     }
+
     if (slotToClose.type === 'closed' || slotToClose.type === 'controlledClosed') {
       throw new errors.BadRequest('invalid slot type')
     }
@@ -459,7 +464,7 @@ export class LobbyApi {
 
   _removeUserFromLobby(lobby, user, kickedUser, bannedUser) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
-    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
+    let updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
     if (!updatedLobby) {
       // Ensure the user's local state gets updated to confirm the leave
@@ -480,6 +485,8 @@ export class LobbyApi {
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
+    updatedLobby = this.lobbies.get(lobby.name)
+    return updatedLobby ? updatedLobby : null
   }
 
   @Api('/startCountdown')
