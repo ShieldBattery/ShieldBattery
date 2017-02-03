@@ -6,8 +6,9 @@ import styles from './view.css'
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import MessageInput from '../messaging/message-input.jsx'
-import EmptySlot from './empty-slot.jsx'
-import FilledSlot from './filled-slot.jsx'
+import OpenSlot from './open-slot.jsx'
+import ClosedSlot from './closed-slot.jsx'
+import PlayerSlot from './player-slot.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 
@@ -38,6 +39,38 @@ class LeaveMessage extends React.Component {
       <span>
         &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has left the
         lobby
+      </span>
+    </ChatMessageLayout>)
+  }
+}
+
+class KickMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <span>
+        &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has been kicked
+        from the lobby
+      </span>
+    </ChatMessageLayout>)
+  }
+}
+
+class BanMessage extends React.Component {
+  static propTypes = {
+    time: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+  };
+
+  render() {
+    return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <span>
+        &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has been banned
+        from the lobby
       </span>
     </ChatMessageLayout>)
   }
@@ -163,6 +196,8 @@ class ChatList extends React.Component {
       case 'message': return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
       case 'join': return <JoinMessage key={id} time={time} name={msg.name} />
       case 'leave': return <LeaveMessage key={id} time={time} name={msg.name} />
+      case 'kick': return <KickMessage key={id} time={time} name={msg.name} />
+      case 'ban': return <BanMessage key={id} time={time} name={msg.name} />
       case 'selfJoin':
         return <SelfJoinMessage key={id} time={time} lobby={msg.lobby} host={msg.host} />
       case 'hostChange': return <HostChangeMessage key={id} time={time} name={msg.name} />
@@ -191,10 +226,27 @@ export default class Lobby extends React.Component {
     onAddComputer: React.PropTypes.func,
     onSendChatMessage: React.PropTypes.func,
     onSwitchSlot: React.PropTypes.func,
+    onOpenSlot: React.PropTypes.func,
+    onCloseSlot: React.PropTypes.func,
+    onRemoveComputer: React.PropTypes.func,
+    onKickPlayer: React.PropTypes.func,
+    onBanPlayer: React.PropTypes.func,
   };
 
   render() {
-    const { lobby, onSetRace, onAddComputer, user, onSendChatMessage, onSwitchSlot } = this.props
+    const {
+      lobby,
+      user,
+      onSetRace,
+      onAddComputer,
+      onRemoveComputer,
+      onSendChatMessage,
+      onSwitchSlot,
+      onOpenSlot,
+      onCloseSlot,
+      onKickPlayer,
+      onBanPlayer,
+    } = this.props
 
     const slots = []
     const [, , mySlot] = findSlotByName(lobby, user.name)
@@ -212,23 +264,40 @@ export default class Lobby extends React.Component {
         const { type, name, race, id, controlledBy } = slot
         switch (type) {
           case 'open':
-            return (<EmptySlot key={id} race={race} controllable={isHost}
+            return (<OpenSlot key={id} race={race} isHost={isHost}
                 onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
-                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined} />)
+                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
+                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
+          case 'closed':
+            return (<ClosedSlot key={id} race={race} isHost={isHost}
+                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
+                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           case 'human':
-            return (<FilledSlot key={id} name={name} race={race} isComputer={false}
-                controllable={slot === mySlot}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
-          case 'computer':
-            return (<FilledSlot key={id} name={name} race={race} isComputer={true}
-                controllable={isHost}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
-          case 'controlledOpen':
-            return (<EmptySlot key={id} race={race} teamEmpty={true}
-                controllable={mySlot && controlledBy === mySlot.id}
+            return (<PlayerSlot key={id} name={name} race={race} isComputer={false}
+                canSetRace={slot === mySlot} isHost={isHost} hasSlotActions={slot !== mySlot}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
-                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}/>)
+                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
+                onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
+          case 'computer':
+            return (<PlayerSlot key={id} name={name} race={race} isComputer={true}
+                canSetRace={isHost} isHost={isHost} hasSlotActions={true}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
+                onRemoveComputer={onRemoveComputer ? () => onRemoveComputer(id) : undefined} />)
+          case 'controlledOpen':
+            return (<OpenSlot key={id} race={race} controlledOpen={true}
+                canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
+                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
+          case 'controlledClosed':
+            return (<ClosedSlot key={id} race={race} controlledClosed={true}
+                canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
+                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           default: throw new Error('Unknown slot type: ' + type)
         }
       }).toArray())

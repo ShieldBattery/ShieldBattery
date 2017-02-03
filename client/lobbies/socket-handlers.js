@@ -2,12 +2,16 @@ import {
   ACTIVE_GAME_LAUNCH,
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
+  LOBBY_UPDATE_BAN,
+  LOBBY_UPDATE_BAN_SELF,
   LOBBY_UPDATE_CHAT_MESSAGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
+  LOBBY_UPDATE_KICK,
+  LOBBY_UPDATE_KICK_SELF,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_LOADING_START,
@@ -22,6 +26,7 @@ import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
 import { getLobbySlotsWithIndexes } from '../../app/common/lobbies'
+import { openSnackbar } from '../snackbars/action-creators'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -74,6 +79,44 @@ const eventToAction = {
     } else {
       dispatch({
         type: LOBBY_UPDATE_LEAVE,
+        payload: event,
+      })
+    }
+  },
+
+  kick: (name, event) => (dispatch, getState) => {
+    const { auth } = getState()
+
+    const user = auth.user.name
+    if (user === event.player.name) {
+      // We have been kicked from a lobby
+      clearCountdownTimer()
+      dispatch(openSnackbar({ message: 'You have been kicked from the lobby.' }))
+      dispatch({
+        type: LOBBY_UPDATE_KICK_SELF,
+      })
+    } else {
+      dispatch({
+        type: LOBBY_UPDATE_KICK,
+        payload: event,
+      })
+    }
+  },
+
+  ban: (name, event) => (dispatch, getState) => {
+    const { auth } = getState()
+
+    const user = auth.user.name
+    if (user === event.player.name) {
+      // It was us who have been banned from a lobby (shame on us!)
+      clearCountdownTimer()
+      dispatch(openSnackbar({ message: 'You have been banned from the lobby.' }))
+      dispatch({
+        type: LOBBY_UPDATE_BAN_SELF,
+      })
+    } else {
+      dispatch({
+        type: LOBBY_UPDATE_BAN,
         payload: event,
       })
     }
