@@ -6,7 +6,12 @@ import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
+  removeComputer,
   changeSlot,
+  openSlot,
+  closeSlot,
+  kickPlayer,
+  banPlayer,
   leaveLobby,
   setRace,
   startCountdown,
@@ -88,9 +93,11 @@ export default class LobbyView extends React.Component {
       content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
-          onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
-          onSwitchSlot={this.onSwitchSlot} onStartGame={this.onStartGame}
-          onSendChatMessage={this.onSendChatMessage} />
+          onAddComputer={this.onAddComputer} onRemoveComputer={this.onRemoveComputer}
+          onSetRace={this.onSetRace} onSwitchSlot={this.onSwitchSlot}
+          onOpenSlot={this.onOpenSlot} onCloseSlot={this.onCloseSlot}
+          onKickPlayer={this.onKickPlayer} onBanPlayer={this.onBanPlayer}
+          onStartGame={this.onStartGame} onSendChatMessage={this.onSendChatMessage} />
       actions = [
         <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
       ]
@@ -163,12 +170,32 @@ export default class LobbyView extends React.Component {
     this.props.dispatch(addComputer(slotId))
   };
 
+  onRemoveComputer = slotId => {
+    this.props.dispatch(removeComputer(slotId))
+  };
+
   onSwitchSlot = slotId => {
     this.props.dispatch(changeSlot(slotId))
   };
 
-  onSetRace = (id, race) => {
-    this.props.dispatch(setRace(id, race))
+  onOpenSlot = slotId => {
+    this.props.dispatch(openSlot(slotId))
+  };
+
+  onCloseSlot = slotId => {
+    this.props.dispatch(closeSlot(slotId))
+  };
+
+  onKickPlayer = slotId => {
+    this.props.dispatch(kickPlayer(slotId))
+  };
+
+  onBanPlayer = slotId => {
+    this.props.dispatch(banPlayer(slotId))
+  };
+
+  onSetRace = (slotId, race) => {
+    this.props.dispatch(setRace(slotId, race))
   };
 
   onSendChatMessage = message => {

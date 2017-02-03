@@ -184,6 +184,46 @@ describe('Lobbies - melee', () => {
     expect(lobby.teams.get(0).slots.get(3)).to.equal(babo)
     expect(lobby.teams.get(t1).slots.get(s1).type).to.equal('open')
   })
+
+  it('should support closing an open slot', () => {
+    let lobby = BOXER_LOBBY
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    expect(lobby.teams.get(0).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    expect(lobby.teams.get(0).slots.get(1).type).to.equal('closed')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.closeSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.closeSlot(lobby, 0, 1)).to.throw(Error)
+  })
+
+  it('should support opening a closed slot', () => {
+    let lobby = BOXER_LOBBY
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    expect(lobby.teams.get(0).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    expect(lobby.teams.get(0).slots.get(1).type).to.equal('closed')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.openSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    expect(lobby.teams.get(0).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
+  })
 })
 
 const TEAM_LOBBY = Lobbies.create(
@@ -488,5 +528,78 @@ describe('Lobbies - Team melee', () => {
 
     evaluateControlledSlot(l.teams.get(0).slots.get(1), 'controlledOpen', 'r', l.host.id)
     evaluateControlledSlot(l.teams.get(0).slots.get(3), 'controlledOpen', l.host.race, l.host.id)
+  })
+
+  it('should support closing an open slot', () => {
+    let lobby = TEAM_MELEE_2
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot = lobby.teams.get(0).slots.get(1)
+    expect(openSlot.type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1, openSlot)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const closedSlot = lobby.teams.get(0).slots.get(1)
+    expect(closedSlot.type).to.equal('controlledClosed')
+    expect(closedSlot.race).to.equal(openSlot.race)
+    expect(closedSlot.controlledBy).to.equal(openSlot.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.closeSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.closeSlot(lobby, 0, 1)).to.throw(Error)
+  })
+
+  it('should support opening a closed slot', () => {
+    let lobby = TEAM_MELEE_2
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot1 = lobby.teams.get(0).slots.get(1)
+    expect(openSlot1.type).to.equal('controlledOpen')
+    expect(openSlot1.race).to.equal(lobby.host.race)
+    expect(openSlot1.controlledBy).to.equal(lobby.host.id)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const closedSlot = lobby.teams.get(0).slots.get(1)
+    expect(closedSlot.type).to.equal('controlledClosed')
+    expect(closedSlot.race).to.equal(openSlot1.race)
+    expect(closedSlot.controlledBy).to.equal(openSlot1.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.openSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot2 = lobby.teams.get(0).slots.get(1)
+    expect(openSlot2.type).to.equal('controlledOpen')
+    expect(openSlot2.race).to.equal(closedSlot.race)
+    expect(openSlot2.controlledBy).to.equal(closedSlot.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
   })
 })
