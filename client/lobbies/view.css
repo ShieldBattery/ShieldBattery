@@ -3,6 +3,7 @@
 @value row, col, grow, shrink, exact, justifySpaceBetween, itemsCenter from '../styles/flex.css';
 @value justifyStart from '../styles/flex.css';
 @value subhead, headline, body1, body2, singleLine from '../styles/typography.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
 @value shadow1dp from '../material/shadows.css';
 
 .appBarContent {
@@ -69,10 +70,10 @@
 
 .slotLeft {
   composes: row grow itemsCenter;
-  max-width: 66.66%;
+  max-width: 33.33%;
 }
 
-.slotLeftEmpty {
+.slotLeftOpen {
   composes: slotLeft;
   cursor: pointer;
 }
@@ -85,8 +86,8 @@
 }
 
 .slotRight {
-  composes: exact;
-  width: 33.33%;
+  composes: row exact itemsCenter justifySpaceBetween;
+  width: 66.66%;
   min-width: 156px;
 }
 
@@ -112,6 +113,36 @@
 .slotEmptyName {
   composes: slotName;
   color: colorTextFaint;
+}
+
+.slotActionsContents {
+  min-width: 160px;
+}
+
+.slotActions {
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.enter .slotActions {
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.enterActive .slotActions {
+  opacity: 1;
+}
+
+.leave .slotActions {
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.leaveActive .slotActions {
+  opacity: 0;
 }
 
 .chat {

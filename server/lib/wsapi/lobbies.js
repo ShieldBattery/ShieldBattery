@@ -86,6 +86,9 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
+    // We keep this map to distinguish between players who left the lobby and those who were kicked
+    this.lobbyKickedUsers = new Map()
+    this.lobbyBannedUsers = new Map()
     this.lobbyCountdowns = new Map()
     this.pingPromises = new Map()
     this.loadingLobbies = new Map()
@@ -100,7 +103,11 @@ export class LobbyApi {
       return
     }
 
-    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
+    const user = this.getUser(data)
+    const summary = this.lobbies.valueSeq()
+        .filterNot(l => this.lobbyBannedUsers.has(l.name) &&
+            this.lobbyBannedUsers.get(l.name).includes(user.name))
+        .map(l => Lobbies.toSummaryJson(l))
     this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
 
     const onClose = () => {
@@ -180,6 +187,11 @@ export class LobbyApi {
     const lobby = this.lobbies.get(name)
     this.ensureLobbyNotTransient(lobby)
 
+    if (this.lobbyBannedUsers.has(lobby.name) &&
+        this.lobbyBannedUsers.get(lobby.name).includes(user.name)) {
+      throw new errors.Conflict('user has been banned from this lobby')
+    }
+
     const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(lobby)
     if (teamIndex < 0 || slotIndex < 0) {
       throw new errors.Conflict('lobby is full')
@@ -249,14 +261,7 @@ export class LobbyApi {
     if (!slotToAddComputer) {
       throw new errors.BadRequest('invalid id')
     }
-
-    if (teamIndex >= lobby.teams.size) {
-      throw new errors.BadRequest('invalid team index')
-    }
-    if (slotIndex >= lobby.teams.get(teamIndex).slots.size) {
-      throw new errors.BadRequest('invalid slot index')
-    }
-    if (slotToAddComputer.type !== 'open') {
+    if (slotToAddComputer.type !== 'open' && slotToAddComputer.type !== 'closed') {
       throw new errors.BadRequest('invalid slot type')
     }
 
@@ -345,6 +350,102 @@ export class LobbyApi {
     this._publishLobbyDiff(lobby, updatedLobby)
   }
 
+  @Api('/openSlot',
+    validateBody({
+      slotId: nonEmptyString,
+    }))
+  async openSlot(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId, isBan } = data.get('body')
+    const [teamIndex, slotIndex, slotToOpen] = findSlotById(lobby, slotId)
+    if (!slotToOpen) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+
+    if (slotToOpen.type === 'open' || slotToOpen.type === 'controlledOpen') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    let updated = lobby
+    if (slotToOpen.type === 'human') {
+      // This player is being kicked or banned.
+      if (isBan) {
+        this.lobbyBannedUsers =
+            this.lobbyBannedUsers.update(lobby.name, new List(), val => val.push(slotToOpen.name))
+      } else {
+        this.lobbyKickedUsers =
+            this.lobbyKickedUsers.update(lobby.name, new List(), val => val.push(slotToOpen.name))
+      }
+      const userToRemove = this.getUserByName(slotToOpen.name)
+      updated = this._removeUserFromLobby(lobby, userToRemove)
+      if (!updated) {
+        // This was the last player who got removed. Shouldn't happen.
+        throw new errors.BadRequest('lobby doesn\'t exist')
+      }
+    } else if (slotToOpen.type === 'computer') {
+      updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, slotToOpen)
+    } else if (slotToOpen.type === 'closed' || slotToOpen.type === 'controlledClosed') {
+      try {
+        updated = Lobbies.openSlot(lobby, teamIndex, slotIndex)
+      } catch (err) {
+        throw new errors.BadRequest(err.message)
+      }
+    }
+
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
+  @Api('/closeSlot',
+    validateBody({
+      slotId: nonEmptyString,
+    }))
+  async closeSlot(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slotToClose] = findSlotById(lobby, slotId)
+    if (!slotToClose) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+
+    if (slotToClose.type === 'closed' || slotToClose.type === 'controlledClosed') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    let updated = lobby
+    if (slotToClose.type === 'human') {
+      // This player is essentially being kicked, and then their slot is closed.
+      this.lobbyKickedUsers =
+          this.lobbyKickedUsers.update(lobby.name, new List(), val => val.push(slotToClose.name))
+      const userToKick = this.getUserByName(slotToClose.name)
+      updated = this._removeUserFromLobby(lobby, userToKick)
+      if (!updated) {
+        // This was the last player who got removed. Shouldn't happen.
+        throw new errors.BadRequest('lobby doesn\'t exist')
+      }
+    } else if (slotToClose.type === 'computer') {
+      updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, slotToClose)
+    }
+
+    try {
+      updated = Lobbies.closeSlot(updated, teamIndex, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
   @Api('/leave')
   async leave(data, next) {
     const user = this.getUser(data)
@@ -354,15 +455,17 @@ export class LobbyApi {
 
   _removeUserFromLobby(lobby, user) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
-    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
+    let updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
     if (!updatedLobby) {
       // Ensure the user's local state gets updated to confirm the leave
       this._publishTo(lobby, {
         type: 'leave',
-        id: player.id,
+        player,
       })
       this.lobbies = this.lobbies.delete(lobby.name)
+      this.lobbyKickedUsers = this.lobbyKickedUsers.delete(lobby.name)
+      this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
@@ -374,6 +477,8 @@ export class LobbyApi {
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
+    updatedLobby = this.lobbies.get(lobby.name)
+    return updatedLobby ? updatedLobby : null
   }
 
   @Api('/startCountdown')
@@ -618,6 +723,12 @@ export class LobbyApi {
     return user
   }
 
+  getUserByName(name) {
+    const user = this.userSockets.getByName(name)
+    if (!user) throw new errors.BadRequest('user not online')
+    return user
+  }
+
   getLobbyForUser(user) {
     if (!this.lobbyUsers.has(user)) {
       throw new errors.BadRequest('must be in a lobby')
@@ -695,16 +806,38 @@ export class LobbyApi {
       // `leave` operation also triggers a `slotCreate` operation, which means that we don't have to
       // set slots on the client-side in response to this operation (since they'll be overriden in
       // the `slotCreate` operation below anyways). This also means we only care about `human` slots
-      // leaving just so we can display 'player has left' message in the lobby.
-      this._publishTo(newLobby, {
-        type: 'leave',
-        id,
-      })
+      // leaving just so we can display appropriate message in the lobby.
+      const [, , player] = findSlotById(oldLobby, id)
+      if (this.lobbyKickedUsers.has(oldLobby.name) &&
+          this.lobbyKickedUsers.get(oldLobby.name).includes(player.name)) {
+        // The player was kicked; delete them from the kicked users map so they have a fresh start
+        // if/when they join again
+        this.lobbyKickedUsers = this.lobbyKickedUsers.update(oldLobby.name, val => {
+          const index = val.findIndex(p => p === player.name)
+          return val.delete(index)
+        })
+        this._publishTo(newLobby, {
+          type: 'kick',
+          player,
+        })
+      } else if (this.lobbyBannedUsers.has(oldLobby.name) &&
+          this.lobbyBannedUsers.get(oldLobby.name).includes(player.name)) {
+        // The player was banned; they won't be able to rejoin the same lobby
+        this._publishTo(newLobby, {
+          type: 'ban',
+          player,
+        })
+      } else {
+        this._publishTo(newLobby, {
+          type: 'leave',
+          player,
+        })
+      }
     }
     for (const id of created.values()) {
       // These are all of the slots that were created in the new lobby compared to the old one. This
-      // includes the slots that were created as a result of players leaving the lobby, moving to an
-      // other slot, etc.
+      // includes the slots that were created as a result of players leaving the lobby, moving to a
+      // different slot, open/closing a slot, etc.
       const [teamIndex, slotIndex, slot] = findSlotById(newLobby, id)
       this._publishTo(newLobby, {
         type: 'slotCreate',

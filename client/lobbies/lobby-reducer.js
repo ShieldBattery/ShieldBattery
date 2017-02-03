@@ -10,6 +10,10 @@ import {
   LOBBY_UPDATE_HOST_CHANGE,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
+  LOBBY_UPDATE_KICK,
+  LOBBY_UPDATE_KICK_SELF,
+  LOBBY_UPDATE_BAN,
+  LOBBY_UPDATE_BAN_SELF,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
@@ -95,6 +99,14 @@ const infoReducer = keyedReducer(undefined, {
     return new LobbyInfo()
   },
 
+  [LOBBY_UPDATE_KICK_SELF](state, action) {
+    return new LobbyInfo()
+  },
+
+  [LOBBY_UPDATE_BAN_SELF](state, action) {
+    return new LobbyInfo()
+  },
+
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
     return state.set('host', action.payload)
   },
@@ -170,6 +182,18 @@ export const LeaveMessage = Record({
   time: 0,
   name: null,
 })
+export const KickMessage = Record({
+  id: null,
+  type: 'kick',
+  time: 0,
+  name: null,
+})
+export const BanMessage = Record({
+  id: null,
+  type: 'ban',
+  time: 0,
+  name: null,
+})
 export const LoadingCanceledMessage = Record({
   id: null,
   type: 'loadingCanceled',
@@ -216,7 +240,25 @@ const chatHandlers = {
     return state.push(new LeaveMessage({
       id: cuid(),
       time: Date.now(),
-      name: player.name
+      name: player.name,
+    }))
+  },
+
+  [LOBBY_UPDATE_KICK](lobbyInfo, lastLobbyInfo, state, action) {
+    const { player } = action.payload
+    return state.push(new KickMessage({
+      id: cuid(),
+      time: Date.now(),
+      name: player.name,
+    }))
+  },
+
+  [LOBBY_UPDATE_BAN](lobbyInfo, lastLobbyInfo, state, action) {
+    const { player } = action.payload
+    return state.push(new BanMessage({
+      id: cuid(),
+      time: Date.now(),
+      name: player.name,
     }))
   },
 
