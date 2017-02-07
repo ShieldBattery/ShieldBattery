@@ -1,7 +1,16 @@
-@value colorTextSecondary, colorError from './styles/colors.css';
+@value colorTextSecondary, colorError, blue900 from './styles/colors.css';
 @value row from './styles/flex.css';
 @value body2 from './styles/typography.css';
 @value zIndexMenuBackdrop from './material/zindex.css';
+
+.windowControls {
+  width: 100%;
+  background-color: blue900;
+}
+
+.content {
+  height: calc(100% - 32px);
+}
 
 .layout {
   composes: row;

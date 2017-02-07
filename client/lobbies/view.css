@@ -16,7 +16,7 @@
   composes: row justifySpaceBetween;
   padding: 0 16px;
   margin: 0 auto;
-  height: calc(100vh - 64px);
+  height: calc(100% - 64px);
   max-width: 1140px;
 }
 

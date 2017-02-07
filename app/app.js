@@ -11,6 +11,9 @@ import {
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE,
   SETTINGS_MERGE_ERROR,
+  WINDOW_CLOSE,
+  WINDOW_MAXIMIZE,
+  WINDOW_MINIMIZE,
 } from '../common/ipc-constants'
 
 // Keep a reference to the window object so that it doesn't get GC'd and closed
@@ -61,6 +64,25 @@ function setupIpc(localSettings) {
       logger.error('Error merging settings: ' + err)
       event.sender.send(SETTINGS_MERGE_ERROR, err)
     })
+  }).on(WINDOW_CLOSE, event => {
+    if (!mainWindow) {
+      return
+    }
+    mainWindow.close()
+  }).on(WINDOW_MAXIMIZE, event => {
+    if (!mainWindow) {
+      return
+    }
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  }).on(WINDOW_MINIMIZE, event => {
+    if (!mainWindow) {
+      return
+    }
+    mainWindow.minimize()
   })
 
   localSettings.on(LocalSettings.EVENT, settings => {
@@ -88,6 +110,7 @@ async function createWindow(localSettings) {
 
     acceptFirstMouse: true,
     backgroundColor: '#303030',
+    frame: false,
     show: false,
     title: 'ShieldBattery',
   })

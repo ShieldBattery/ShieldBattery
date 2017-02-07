@@ -20,6 +20,7 @@ import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
+import WindowControls from './window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
@@ -167,38 +168,41 @@ class MainLayout extends React.Component {
       isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
     ]
 
-    return (<ConnectedDialogOverlay className={styles.layout}>
-      <LeftNav footer={footer}>
-        {this.renderActiveGameNav()}
-        {this.renderLobbyNav()}
-        <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
-        <Section>
-          {channelNav}
-        </Section>
-        <Divider/>
-        <Subheader button={addWhisperButton}>Whispers</Subheader>
-        <Section>
-          {whisperNav}
-        </Section>
-      </LeftNav>
-      { this.props.children }
-      <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
-          onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
-        <ActivityButton icon={<FindMatchIcon />} label='Find match'
-            onClick={this.onFindMatchClick} />
-        <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'
-            onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />
-        <HotkeyedActivityButton icon={<JoinGameIcon />} label='Join' onClick={this.onJoinLobbyClick}
-            keycode={KEY_J} altKey={true} />
-        <ActivityButton icon={<ReplaysIcon />} label='Replays' onClick={this.onReplaysClick} />
-        <ActivitySpacer />
-        <HotkeyedActivityButton icon={<SettingsIcon />} label='Settings'
-            onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />
-      </ActivityBar>
-      { this.renderAvatarOverlay() }
-      <ActivityOverlay />
-      <ConnectedSnackbar />
-    </ConnectedDialogOverlay>)
+    return (<div>
+      <WindowControls className={styles.windowControls} />
+      <ConnectedDialogOverlay className={styles.layout} containerClassName={styles.content}>
+        <LeftNav footer={footer}>
+          {this.renderActiveGameNav()}
+          {this.renderLobbyNav()}
+          <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
+          <Section>
+            {channelNav}
+          </Section>
+          <Divider/>
+          <Subheader button={addWhisperButton}>Whispers</Subheader>
+          <Section>
+            {whisperNav}
+          </Section>
+        </LeftNav>
+        { this.props.children }
+        <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
+            onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
+          <ActivityButton icon={<FindMatchIcon />} label='Find match'
+              onClick={this.onFindMatchClick} />
+          <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'
+              onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />
+          <HotkeyedActivityButton icon={<JoinGameIcon />} label='Join'
+              onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />
+          <ActivityButton icon={<ReplaysIcon />} label='Replays' onClick={this.onReplaysClick} />
+          <ActivitySpacer />
+          <HotkeyedActivityButton icon={<SettingsIcon />} label='Settings'
+              onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />
+        </ActivityBar>
+        { this.renderAvatarOverlay() }
+        <ActivityOverlay />
+        <ConnectedSnackbar />
+      </ConnectedDialogOverlay>
+    </div>)
   }
 
   onAvatarClick = () => {

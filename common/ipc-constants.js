@@ -11,3 +11,7 @@ export const SETTINGS_EMIT_ERROR = 'SETTINGS_EMIT_ERROR'
 // Pass a new settings object from the renderer -> main process (to be merged with the existing one)
 export const SETTINGS_MERGE = 'SETTINGS_MERGE'
 export const SETTINGS_MERGE_ERROR = 'SETTINGS_MERGE_ERROR'
+
+export const WINDOW_CLOSE = 'WINDOW_CLOSE'
+export const WINDOW_MAXIMIZE = 'WINDOW_MAXIMIZE'
+export const WINDOW_MINIMIZE = 'WINDOW_MINIMIZE'
