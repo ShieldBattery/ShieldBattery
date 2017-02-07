@@ -1,11 +1,26 @@
-@value blue400, amberA400 from '../styles/colors.css';
+@value blue400, amberA400, grey850 from '../styles/colors.css';
 @value take100, row, wrap, take33, itemsCenter, justifyCenter from '../styles/flex.css';
 @value headline from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
+.background {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+}
+
+.windowControls {
+  width: 100%;
+  background-color: grey850;
+}
+
 :global(#app) .wrapper {
   width: calc(640px + (16px * 2));
   margin: 0 auto;
+}
+
+.wrapper {
+  -webkit-app-region: no-drag;
+  -webkit-user-select: initial;
 }
 
 .logo {
