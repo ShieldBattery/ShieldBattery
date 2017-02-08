@@ -83,7 +83,7 @@ new Promise((resolve, reject) => {
     try {
       const [ config, ] = await Promise.all([ configPromise, sessionPromise ])
       analyticsId = config.analyticsId
-      // TODO(tec27): handle feedbackUrl as well
+      window._sbFeedbackUrl = config.feedbackUrl
     } catch (err) {
       // Ignored, usually just means we don't have a current session
     }
