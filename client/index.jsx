@@ -2,6 +2,7 @@ import './styles/reset.css'
 import './styles/global.css'
 import 'babel-polyfill'
 import log from './logging/logger'
+import { makeServerUrl } from './network/server-url'
 
 if (process.webpackEnv.SB_ENV === 'electron') {
   process.on('uncaughtException', function(err) {
@@ -19,6 +20,10 @@ if (process.webpackEnv.SB_ENV === 'electron') {
   })
 
   require('./active-game/game-server')
+  // Necessary to make Google Analytics work, since it wants to store/read a cookie but we're on a
+  // file:// origin (so that's not possible)
+  const ElectronCookies = require('@exponent/electron-cookies')
+  ElectronCookies.enable({ origin: makeServerUrl('') })
 }
 
 import React from 'react'
@@ -34,6 +39,7 @@ import { getCurrentSession } from './auth/auther'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
+import fetch from './network/fetch'
 
 new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
@@ -69,21 +75,25 @@ new Promise((resolve, reject) => {
 
   return { elem, store, history }
 }).then(async ({ elem, store, history }) => {
+  let analyticsId = window._sbAnalyticsId
   if (process.webpackEnv.SB_ENV !== 'web') {
-    const { action, promise } = getCurrentSession()
+    const configPromise = fetch('/config', { method: 'get' })
+    const { action, promise: sessionPromise } = getCurrentSession()
     store.dispatch(action)
     try {
-      await promise
+      const [ config, ] = await Promise.all([ configPromise, sessionPromise ])
+      analyticsId = config.analyticsId
+      // TODO(tec27): handle feedbackUrl as well
     } catch (err) {
       // Ignored, usually just means we don't have a current session
     }
   }
-  return { elem, store, history }
-}).then(({elem, store, history}) => {
+  return { elem, store, history, analyticsId }
+}).then(({elem, store, history, analyticsId}) => {
   render(
     <Provider store={store}>
       <RedirectProvider>
-        <App history={history}/>
+        <App history={history} analyticsId={analyticsId}/>
       </RedirectProvider>
     </Provider>, elem)
 })

@@ -2,15 +2,34 @@ import React from 'react'
 import routes from './routes.jsx'
 import { Router } from 'react-router'
 import ga from 'react-ga'
-
-const analyticsId = window._sbAnalyticsId
-if (analyticsId) {
-  ga.initialize(analyticsId)
-}
-const onUpdate = analyticsId ? () => ga.pageview(window.location.pathname) : () => { }
+import { makeServerUrl } from './network/server-url'
 
 export default class App extends React.Component {
+  initialized = false
+  onUpdate = () => {
+    if (!this.initialized) {
+      return
+    }
+
+    if (process.webpackEnv.SB_ENV !== 'web') {
+      ga.pageview(window.location.hash.slice(1))
+    } else {
+      ga.pageview(window.location.pathname)
+    }
+  }
+
+  componentDidMount() {
+    if (this.props.analyticsId) {
+      ga.initialize(this.props.analyticsId)
+      if (process.webpackEnv.SB_ENV !== 'web') {
+        ga.set({ location: makeServerUrl('') })
+        ga.set({ checkProtocolTask: null })
+      }
+      this.initialized = true
+    }
+  }
+
   render() {
-    return <Router history={this.props.history} onUpdate={onUpdate}>{routes}</Router>
+    return <Router history={this.props.history} onUpdate={this.onUpdate}>{routes}</Router>
   }
 }

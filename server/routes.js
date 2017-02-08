@@ -45,6 +45,11 @@ export default function applyRoutes(app, userSockets) {
     })
   }
 
+  router.get('/config', async (ctx, next) => {
+    ctx.body = { analyticsId: config.analyticsId, feedbackUrl: config.feedbackUrl }
+    ctx.type = 'application/json'
+  })
+
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(

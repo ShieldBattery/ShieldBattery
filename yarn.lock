@@ -26,6 +26,13 @@
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/7zip/-/7zip-0.0.6.tgz#9cafb171af82329490353b4816f03347aa150a30"
 
+"@exponent/electron-cookies@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@exponent/electron-cookies/-/electron-cookies-2.0.0.tgz#4cf8dcf851454036cc524c40e9e482fc4e23f2d9"
+  dependencies:
+    tough-cookie "^2.2.2"
+    tough-cookie-web-storage-store "^1.0.0"
+
 abbrev@1:
   version "1.0.9"
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-1.0.9.tgz#91b4792588a7738c25f35dd6f63752a2f8776135"
@@ -5473,7 +5480,13 @@ to-space-case@^1.0.0:
   dependencies:
     to-no-case "^1.0.0"
 
-tough-cookie@~2.3.0:
+tough-cookie-web-storage-store@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/tough-cookie-web-storage-store/-/tough-cookie-web-storage-store-1.0.0.tgz#8021fce24290bf0b6151e491d7312343451d390d"
+  dependencies:
+    lodash "^4.6.1"
+
+tough-cookie@^2.2.2, tough-cookie@~2.3.0:
   version "2.3.2"
   resolved "https://registry.yarnpkg.com/tough-cookie/-/tough-cookie-2.3.2.tgz#f081f76e4c85720e6c37a5faced737150d84072a"
   dependencies:
