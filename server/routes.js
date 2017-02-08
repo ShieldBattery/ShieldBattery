@@ -50,6 +50,11 @@ export default function applyRoutes(app, userSockets) {
     ctx.type = 'application/json'
   })
 
+  router.get('/installer.msi', async (ctx, next) => {
+    ctx.set('Location', '/download')
+    ctx.status = 301
+  })
+
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(

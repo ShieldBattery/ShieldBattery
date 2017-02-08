@@ -10,6 +10,7 @@ import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import Faq from './beta/faq.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
+import DownloadPage from './download/download-page.jsx'
 import LoadingFilter from './loading/loading-filter.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
@@ -38,16 +39,24 @@ if (process.webpackEnv.NODE_ENV !== 'production') {
   </Route>
 }
 
+let activeGameRoute
+let lobbyRoute
+if (process.webpackEnv.SB_ENV === 'electron') {
+  activeGameRoute = <Route path='/active-game' component={ActiveGame} />
+  lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
+}
+
 const routes = <Route>
   <Route path='/splash' component={Splash} />
-  <Route path ='/faq' component={Faq} />
+  <Route path='/faq' component={Faq} />
+  <Route path='/download' component={DownloadPage} />
   <Route component={HasBetaFilter}>
     <Route component={LoggedInFilter}>
       <Route component={SiteConnectedFilter}>
         <Route component={LoadingFilter}>
           <Route component={MainLayout}>
             <Route path='/' />
-            <Route path='/active-game' component={ActiveGame} />
+            { activeGameRoute }
             <Route component={IsAdminFilter}>
               <Route path='/admin'>
                 <IndexRoute component={AdminPanel}/>
@@ -65,7 +74,7 @@ const routes = <Route>
               <IndexRoute component={ChatList}/>
               <Route path=':channel' component={ChatChannel} />
             </Route>
-            <Route path='/lobbies/:lobby' component={LobbyView} />
+            { lobbyRoute }
             <Route path='/whispers'>
               <Route path=':target' component={Whisper} />
             </Route>

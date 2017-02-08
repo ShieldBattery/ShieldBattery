@@ -25,6 +25,7 @@ import WindowControls from './window-controls.jsx'
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
+import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
 import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import FindMatchIcon from './icons/material/ic_cake_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
@@ -99,7 +100,7 @@ class MainLayout extends React.Component {
   }
 
   renderLobbyNav() {
-    if (!this.props.inLobby) return null
+    if (!this.props.inLobby || process.webpackEnv.SB_ENV !== 'electron') return null
 
     const {
       lobby: { name, hasUnread },
@@ -116,7 +117,7 @@ class MainLayout extends React.Component {
   }
 
   renderActiveGameNav() {
-    if (!this.props.activeGame.isActive) return null
+    if (!this.props.activeGame.isActive || process.webpackEnv.SB_ENV !== 'electron') return null
 
     return [
       <Section key='active-game-section'>
@@ -167,6 +168,22 @@ class MainLayout extends React.Component {
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
     ]
+    const activityButtons = process.webpackEnv.SB_ENV === 'electron' ? [
+      <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
+          onClick={this.onFindMatchClick} />,
+      <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
+          onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />,
+      <HotkeyedActivityButton key='join-game' icon={<JoinGameIcon />} label='Join'
+          onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />,
+      <ActivityButton key='replays' icon={<ReplaysIcon />} label='Replays'
+          onClick={this.onReplaysClick} />,
+      <ActivitySpacer key='spacer' />,
+      <HotkeyedActivityButton key='settings' icon={<SettingsIcon />} label='Settings'
+          onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />,
+    ] : [
+      <ActivityButton key='download' icon={<DownloadIcon />} label='Download'
+          onClick={this.onDownloadClick} />
+    ]
 
     return (<div>
       <WindowControls className={styles.windowControls} />
@@ -187,16 +204,7 @@ class MainLayout extends React.Component {
         { this.props.children }
         <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
             onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
-          <ActivityButton icon={<FindMatchIcon />} label='Find match'
-              onClick={this.onFindMatchClick} />
-          <HotkeyedActivityButton icon={<CreateGameIcon />} label='Create'
-              onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />
-          <HotkeyedActivityButton icon={<JoinGameIcon />} label='Join'
-              onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />
-          <ActivityButton icon={<ReplaysIcon />} label='Replays' onClick={this.onReplaysClick} />
-          <ActivitySpacer />
-          <HotkeyedActivityButton icon={<SettingsIcon />} label='Settings'
-              onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />
+          {activityButtons}
         </ActivityBar>
         { this.renderAvatarOverlay() }
         <ActivityOverlay />
@@ -274,6 +282,10 @@ class MainLayout extends React.Component {
     } else {
       this.props.dispatch(openOverlay('watchReplay'))
     }
+  };
+
+  onDownloadClick = () => {
+    this.props.dispatch(openDialog('download'))
   };
 
   onFeedbackClick = () => {

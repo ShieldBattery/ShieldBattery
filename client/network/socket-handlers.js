@@ -11,7 +11,7 @@ import chat from '../chat/socket-handlers'
 import loading from '../loading/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
-import settingsPsi from '../settings/ipc-handlers'
+import settings from '../settings/ipc-handlers'
 import whispers from '../whispers/socket-handlers'
 
 const ipcRenderer =
@@ -43,16 +43,16 @@ function rallyPointHandler({ siteSocket }) {
 }
 
 const handlers = [
-  activeGame,
   chat,
   loading,
-  lobbies,
   networkStatusHandler,
-  rallyPointHandler,
   serverStatus,
-  settingsPsi,
   whispers,
 ]
+
+if (process.webpackEnv.SB_ENV === 'electron') {
+  handlers.push(activeGame, lobbies, rallyPointHandler, settings)
+}
 
 export default function register() {
   for (const handler of handlers) {
