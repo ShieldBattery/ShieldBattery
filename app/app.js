@@ -1,9 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import path from 'path'
 import url from 'url'
 import isDev from 'electron-is-dev'
 import logger from './logger'
 import LocalSettings from './local-settings'
+import currentSession from './current-session'
 import {
   LOG_MESSAGE,
   SETTINGS_CHANGED,
@@ -173,11 +174,7 @@ async function createWindow(localSettings, curSession) {
 }
 
 app.on('ready', async () => {
-  // TODO(tec27): include server name in this as well
-  const sessionName = process.env.SB_SESSION || 'session'
-  const curSession = session.fromPartition(`persist:${sessionName}`)
-
-  applyOriginFilter(curSession)
+  applyOriginFilter(currentSession())
   const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
 
@@ -185,7 +182,7 @@ app.on('ready', async () => {
     const [, localSettings] = await Promise.all([devExtensionsPromise, localSettingsPromise])
 
     setupIpc(localSettings)
-    await createWindow(localSettings, curSession)
+    await createWindow(localSettings, currentSession())
   } catch (err) {
     logger.error('Error initializing: ' + err)
     console.error(err)

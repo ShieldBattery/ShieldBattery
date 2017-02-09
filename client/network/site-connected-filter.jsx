@@ -9,11 +9,12 @@ import LoadingIndicator from '../progress/dots.jsx'
 let applyCookies = async () => {}
 if (process.webpackEnv.SB_ENV === 'electron') {
   const { remote } = require('electron')
+  const curSession = remote.require('./current-session.js').default
   // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the
   // right cookies on its headers
   applyCookies = async () => {
     return new Promise(resolve => {
-      remote.session.defaultSession.cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
+      curSession().cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
         if (err) {
           resolve()
           return
