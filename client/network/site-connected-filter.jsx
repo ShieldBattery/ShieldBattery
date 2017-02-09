@@ -12,8 +12,12 @@ if (process.webpackEnv.SB_ENV === 'electron') {
   // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the
   // right cookies on its headers
   applyCookies = async () => {
+    // TODO(tec27): include server name in this as well
+    const sessionName = process.env.SB_SESSION || 'session'
+    const curSession = remote.session.fromPartition(`persist:${sessionName}`)
+
     return new Promise(resolve => {
-      remote.session.defaultSession.cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
+      curSession.cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
         if (err) {
           resolve()
           return
