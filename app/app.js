@@ -19,12 +19,12 @@ import {
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
 
-function applyOriginFilter() {
+function applyOriginFilter(curSession) {
   // Modify the origin for all ShieldBattery server requests
   const filter = {
     urls: ['https://*.shieldbattery.net/*', 'http://localhost:*/*']
   }
-  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+  curSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     details.requestHeaders.Origin = 'http://client.shieldbattery.net'
     callback({ cancel: false, requestHeaders: details.requestHeaders })
   })
@@ -93,7 +93,7 @@ function setupIpc(localSettings) {
 }
 
 
-async function createWindow(localSettings) {
+async function createWindow(localSettings, curSession) {
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
   const {
     winX,
@@ -113,6 +113,9 @@ async function createWindow(localSettings) {
     frame: false,
     show: false,
     title: 'ShieldBattery',
+    webPreferences: {
+      session: curSession,
+    },
   })
 
   if (winMaximized) {
@@ -170,7 +173,11 @@ async function createWindow(localSettings) {
 }
 
 app.on('ready', async () => {
-  applyOriginFilter()
+  // TODO(tec27): include server name in this as well
+  const sessionName = process.env.SB_SESSION || 'session'
+  const curSession = session.fromPartition(`persist:${sessionName}`)
+
+  applyOriginFilter(curSession)
   const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
 
@@ -178,7 +185,7 @@ app.on('ready', async () => {
     const [, localSettings] = await Promise.all([devExtensionsPromise, localSettingsPromise])
 
     setupIpc(localSettings)
-    await createWindow(localSettings)
+    await createWindow(localSettings, curSession)
   } catch (err) {
     logger.error('Error initializing: ' + err)
     console.error(err)
