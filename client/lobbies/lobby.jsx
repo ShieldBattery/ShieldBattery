@@ -1,6 +1,11 @@
 import React, { PropTypes } from 'react'
 import { gameTypeToString } from './game-type'
-import { findSlotByName, hasOpposingSides, isTeamType } from '../../common/lobbies/lobby-slots'
+import {
+  isUms,
+  findSlotByName,
+  hasOpposingSides,
+  isTeamType,
+} from '../../common/lobbies/lobby-slots'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -252,7 +257,7 @@ export default class Lobby extends React.Component {
     const isHost = mySlot && lobby.host.id === mySlot.id
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
       const currentTeam = lobby.teams.get(teamIndex)
-      if (isTeamType(lobby.gameType)) {
+      if (isTeamType(lobby.gameType) || isUms(lobby.gameType)) {
         slots.push(<span key={'team' + teamIndex} className={styles.teamName}>
           { currentTeam.name }
         </span>)
@@ -272,7 +277,8 @@ export default class Lobby extends React.Component {
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           case 'human':
             return (<PlayerSlot key={id} name={name} race={race} isComputer={false}
-                canSetRace={slot === mySlot} isHost={isHost} hasSlotActions={slot !== mySlot}
+                canSetRace={slot === mySlot && !slot.hasForcedRace} isHost={isHost}
+                hasSlotActions={slot !== mySlot}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
@@ -284,8 +290,9 @@ export default class Lobby extends React.Component {
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
-                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
                 onRemoveComputer={onRemoveComputer ? () => onRemoveComputer(id) : undefined} />)
+          case 'umsComputer':
+            return (<PlayerSlot key={id} name={name} race={race} isComputer={true} />)
           case 'controlledOpen':
             return (<OpenSlot key={id} race={race} controlledOpen={true}
                 canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}

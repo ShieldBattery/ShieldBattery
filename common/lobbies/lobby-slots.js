@@ -1,5 +1,9 @@
 import { List } from 'immutable'
 
+export function isUms(gameType) {
+  return gameType === 'ums'
+}
+
 // Since we don't keep a separate list just for the slots, this function iterates over all of the
 // teams in a lobby and accumulates the slots into a new list. Keep in mind that you lose the team
 // index and slot index, so use this function only when you care about the slots themselves, not

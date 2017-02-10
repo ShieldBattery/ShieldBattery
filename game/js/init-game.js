@@ -7,7 +7,6 @@ import { setRallyPoint, setNetworkRoutes } from './natives/snp'
 import * as gameTypes from './game-types'
 import createDeferred from '../../common/async/deferred'
 import rejectOnTimeout from '../../common/async/reject-on-timeout'
-import { isTeamType } from '../../common/lobbies/lobby-slots'
 import {
   GAME_STATUS_AWAITING_PLAYERS,
   GAME_STATUS_ERROR,
@@ -283,26 +282,8 @@ class GameInitializer {
     })
   }
 
-  getTeamForSlot(num) {
-    const { gameType, gameSubType, numSlots } = this.lobbyConfig
-    if (num >= numSlots) return 0
-    // TODO(tec27): handle UMS
-    if (isTeamType(gameType)) {
-      if (gameType === 'topVBottom') {
-        // gameSubType specifies number of players on the top team
-        return num >= gameSubType ? 2 : 1
-      } else {
-        // gameSubType specifies the number of teams
-        const numPerTeam = Math.ceil(numSlots / gameSubType)
-        return Math.floor(num / numPerTeam) + 1
-      }
-    } else {
-      return 0
-    }
-  }
-
   setupSlots() {
-    const { slots: lobbySlots } = this.lobbyConfig
+    const { teamIds, slots: lobbySlots } = this.lobbyConfig
 
     for (let i = 0; i < bw.slots.length; i++) {
       const slot = bw.slots[i]
@@ -319,7 +300,7 @@ class GameInitializer {
 
       slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
       slot.race = getBwRace(lobbySlot.race)
-      slot.team = isTeamType(this.lobbyConfig.gameType) ? teamIndex : teamIndex + 1
+      slot.team = teamIds[teamIndex]
       slot.name = lobbySlot.name
       switch (lobbySlot.type) {
         case 'human': slot.type = 'human'; break
