@@ -332,3 +332,35 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
         .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], Slots.createOpen())
   }
 }
+
+// "Opens" a particular slot. This function is only possible to use to open a `closed` and
+// `controlledClosed` slot types. If you want to open a player slot, use the `removePlayer` function
+// instead, as that operation has side-effects, unlike this one.
+export function openSlot(lobby, teamIndex, slotIndex) {
+  const slotToOpen = lobby.teams.get(teamIndex).slots.get(slotIndex)
+
+  if (slotToOpen.type === 'closed') {
+    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex], Slots.createOpen())
+  } else if (slotToOpen.type === 'controlledClosed') {
+    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex],
+        Slots.createControlledOpen(slotToOpen.race, slotToOpen.controlledBy))
+  } else {
+    throw new Error('trying to open an invalid slot type: ' + slotToOpen.type)
+  }
+}
+
+// "Closes" a particular slot. This function is only possible to use to close an `open` and
+// `controlledOpen` slot types. If you want to close a player slot, make sure to first remove the
+// player from the slot and then close their slot with this function.
+export function closeSlot(lobby, teamIndex, slotIndex) {
+  const slotToClose = lobby.teams.get(teamIndex).slots.get(slotIndex)
+
+  if (slotToClose.type === 'open') {
+    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex], Slots.createClosed())
+  } else if (slotToClose.type === 'controlledOpen') {
+    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex],
+        Slots.createControlledClosed(slotToClose.race, slotToClose.controlledBy))
+  } else {
+    throw new Error('tring to close an invalid slot type: ' + slotToClose.type)
+  }
+}
