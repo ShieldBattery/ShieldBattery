@@ -4,6 +4,7 @@ export const GAME_TYPES = [
   'topVBottom',
   'teamMelee',
   'teamFfa',
+  'ums',
 ]
 
 export function gameTypeToString(gameType) {
@@ -13,6 +14,7 @@ export function gameTypeToString(gameType) {
     case 'topVBottom': return 'Top vs bottom'
     case 'teamMelee': return 'Team melee'
     case 'teamFfa': return 'Team free for all'
+    case 'ums': return 'Use map settings'
     default: return 'Unknown'
   }
 }

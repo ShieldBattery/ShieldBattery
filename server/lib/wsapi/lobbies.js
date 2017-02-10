@@ -13,6 +13,7 @@ import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
 import { LOBBY_NAME_MAXLENGTH } from '../../../app/common/constants'
 import {
+  isUms,
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getHumanSlots,
@@ -28,6 +29,7 @@ const GAME_TYPES = new Set([
   'topVBottom',
   'teamMelee',
   'teamFfa',
+  'ums',
 ])
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
@@ -137,12 +139,12 @@ export class LobbyApi {
   }
 
   @Api('/create',
-      validateBody({
-        name: validLobbyName,
-        map: nonEmptyString,
-        gameType: validGameType,
-        gameSubType: validGameSubType,
-      }))
+    validateBody({
+      name: validLobbyName,
+      map: nonEmptyString,
+      gameType: validGameType,
+      gameSubType: validGameSubType,
+    }))
   async create(data, next) {
     const { name, map, gameType, gameSubType } = data.get('body')
     const user = this.getUser(data)
@@ -189,13 +191,20 @@ export class LobbyApi {
       throw new errors.Conflict('user has been banned from this lobby')
     }
 
-    const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(lobby)
+    const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
     if (teamIndex < 0 || slotIndex < 0) {
       throw new errors.Conflict('lobby is full')
     }
 
-    const player = Slots.createHuman(user.name)
-    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+    const player = isUms(lobby.gameType) ?
+        Slots.createHuman(user.name, availableSlot.race, true, availableSlot.playerId) :
+        Slots.createHuman(user.name)
+    let updated
+    try {
+      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
@@ -247,6 +256,10 @@ export class LobbyApi {
     const [, , player] = findSlotByName(lobby, user.name)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
+
+    if (isUms(lobby.gameType)) {
+      throw new errors.BadRequest('invalid game type: ' + lobby.gameType)
+    }
 
     const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slotToAddComputer] = findSlotById(lobby, slotId)
@@ -313,19 +326,25 @@ export class LobbyApi {
     const [, , player] = findSlotByName(lobby, user.name)
 
     const { id, race } = data.get('body')
-    const [teamIndex, slotIndex, playerToSetRace] = findSlotById(lobby, id)
-    if (!playerToSetRace) {
+    const [teamIndex, slotIndex, slotToSetRace] = findSlotById(lobby, id)
+    if (!slotToSetRace) {
       throw new errors.BadRequest('invalid id')
     }
+    if (slotToSetRace.type !== 'computer' && slotToSetRace.type !== 'human' &&
+        slotToSetRace.type !== 'controlledOpen' && slotToSetRace.type !== 'controlledClosed') {
+      throw new errors.BadRequest('invalid slot type')
+    }
 
-    if (playerToSetRace.type === 'computer') {
+    if (slotToSetRace.type === 'computer') {
       this.ensureIsLobbyHost(lobby, player)
-    } else if (playerToSetRace.controlledBy) {
-      if (playerToSetRace.controlledBy !== player.id) {
+    } else if (slotToSetRace.controlledBy) {
+      if (slotToSetRace.controlledBy !== player.id) {
         throw new errors.Forbidden('must control a slot to set its race')
       }
-    } else if (playerToSetRace.id !== player.id) {
+    } else if (slotToSetRace.id !== player.id) {
       throw new errors.Forbidden('cannot set other user\'s races')
+    } else if (slotToSetRace.hasForcedRace) {
+      throw new errors.Forbidden('this slot has a forced race and cannot be changed')
     }
 
     const updatedLobby = Lobbies.setRace(lobby, teamIndex, slotIndex, race)
@@ -349,7 +368,8 @@ export class LobbyApi {
     if (!slotToOpen) {
       throw new errors.BadRequest('invalid slot id')
     }
-    if (slotToOpen.type !== 'closed' && slotToOpen.type !== 'controlledClosed') {
+    if (slotToOpen.type === 'open' || slotToOpen.type === 'controlledOpen' ||
+        slotToOpen.type === 'umsComputer') {
       throw new errors.BadRequest('invalid slot type')
     }
 
@@ -381,7 +401,8 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot id')
     }
 
-    if (slotToClose.type === 'closed' || slotToClose.type === 'controlledClosed') {
+    if (slotToClose.type === 'closed' || slotToClose.type === 'controlledClosed' ||
+        slotToClose.type === 'umsComputer') {
       throw new errors.BadRequest('invalid slot type')
     }
 
