@@ -20,6 +20,7 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
+import { Map } from 'immutable'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
@@ -159,6 +160,7 @@ const eventToAction = {
       auth: { user },
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
+    const teamIds = new Map(lobby.info.teams.map((team, teamIndex) => [teamIndex, team.teamId]))
     const slots = getLobbySlotsWithIndexes(lobby.info)
     const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
@@ -167,6 +169,7 @@ const eventToAction = {
         map,
         gameType,
         gameSubType,
+        teamIds,
         slots,
         host,
       },
