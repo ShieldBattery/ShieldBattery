@@ -1,5 +1,9 @@
 import { List } from 'immutable'
 
+export function isUms(gameType) {
+  return gameType === 'ums'
+}
+
 // Since we don't keep a separate list just for the slots, this function iterates over all of the
 // teams in a lobby and accumulates the slots into a new list. Keep in mind that you lose the team
 // index and slot index, so use this function only when you care about the slots themselves, not
@@ -8,9 +12,11 @@ export function getLobbySlots(lobby) {
   return lobby.teams.flatMap(team => team.slots)
 }
 
-// Gets all the player slots for a lobby, which for now are: `human` and `computer` type slots.
+// Gets all the player slots for a lobby, which for now are: `human`, `computer` and `umsComputer`
+// type slots.
 export function getPlayerSlots(lobby) {
-  return getLobbySlots(lobby).filter(slot => slot.type === 'human' || slot.type === 'computer')
+  return getLobbySlots(lobby).filter(slot => slot.type === 'human' || slot.type === 'computer' ||
+      slot.type === 'umsComputer')
 }
 
 // Gets all the `human` slots for a lobby.
@@ -56,9 +62,10 @@ export function humanSlotsCountPerLobby(lobby) {
 
 // Utility function that returns the number of "player" slots for a particular team, ie. are
 // considered when determining if the game can start.
-// Player slot types for now are: `human`, `computer`
+// Player slot types for now are: `human`, `computer`, `umsComputer`
 export function playerSlotsCountPerTeam(team) {
-  return team.slots.count(slot => slot.type === 'human' || slot.type === 'computer')
+  return team.slots.count(slot => slot.type === 'human' || slot.type === 'computer' ||
+      slot.type === 'umsComputer')
 }
 
 // Utility function that returns the number of "taken" slots for a particular lobby, ie. all the
@@ -106,6 +113,6 @@ export function isTeamType(gameType) {
 // starting a game from)
 export function hasOpposingSides(lobby) {
   return !isTeamType(lobby.gameType) ?
-      playerSlotsCountPerTeam(lobby.teams.get(0)) > 1 :
+      getPlayerSlots(lobby).size > 1 :
       lobby.teams.filter(team => playerSlotsCountPerTeam(team) > 0).size > 1
 }
