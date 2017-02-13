@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'path'
 import url from 'url'
 import isDev from 'electron-is-dev'
@@ -158,6 +158,11 @@ async function createWindow(localSettings, curSession) {
       clearTimeout(debounceTimer)
     }
     debounceTimer = setTimeout(handleResizeOrMove, 100)
+  })
+
+  mainWindow.webContents.on('new-window', (event, url) => {
+    event.preventDefault()
+    shell.openExternal(url)
   })
 
   mainWindow.loadURL(url.format({
