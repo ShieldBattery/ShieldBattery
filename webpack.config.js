@@ -47,11 +47,35 @@ const babelOpts = {
 const cssNextOpts = { browsers: 'last 2 Chrome versions' }
 const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
+const SB_SERVER = (() => {
+  if (process.env.SB_SERVER) {
+    return process.env.SB_SERVER
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://shieldbattery.net'
+  }
+  try {
+    const serverConfig = require('./server/config.js').default
+    if (serverConfig.canonicalHost) {
+      return serverConfig.canonicalHost
+    }
+  } catch (err) {
+    // Intentionally empty, just means the server config isn't there/is broken for some reason
+  }
+  // Just use a "default" server address
+  return 'http://localhost:5555'
+})()
+
+console.log('Using a server of ' + SB_SERVER + ' by default')
+
 module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
   cssNext: cssNextOpts,
   hotUrl,
-  envDefines: { SB_ENV: JSON.stringify('electron') },
+  envDefines: {
+    SB_ENV: JSON.stringify('electron'),
+    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
+  },
   minify: false,
 })

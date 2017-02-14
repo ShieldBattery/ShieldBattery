@@ -1,5 +1,6 @@
 {
-  "name": "ShieldBattery",
+  "name": "shieldbattery-app",
+  "productName": "ShieldBattery",
   "private": true,
   "version": "4.2.0",
   "description": "The electron host app for ShieldBattery.",

@@ -40,8 +40,15 @@ import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
 import fetch from './network/fetch'
+import {
+  UPDATE_SERVER,
+  UPDATE_SERVER_COMPLETE
+} from '../common/ipc-constants'
 
-new Promise((resolve, reject) => {
+const ipcRenderer =
+    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+
+const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
   if (elem) {
     resolve(elem)
@@ -56,7 +63,18 @@ new Promise((resolve, reject) => {
       reject(new Error('app element could not be found'))
     }
   })
-}).then(elem => {
+})
+const updatedServerPromise = new Promise(resolve => {
+  if (!ipcRenderer) {
+    resolve()
+    return
+  }
+
+  ipcRenderer.once(UPDATE_SERVER_COMPLETE, () => resolve())
+  ipcRenderer.send(UPDATE_SERVER, makeServerUrl(''))
+})
+
+Promise.all([ rootElemPromise, updatedServerPromise ]).then(([ elem ]) => {
   const initData = window._sbInitData
   if (initData && initData.auth) {
     initData.auth = authFromJS(initData.auth)

@@ -12,6 +12,8 @@ import {
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE,
   SETTINGS_MERGE_ERROR,
+  UPDATE_SERVER,
+  UPDATE_SERVER_COMPLETE,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MINIMIZE,
@@ -20,10 +22,10 @@ import {
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
 
-function applyOriginFilter(curSession) {
+function applyOriginFilter(curSession, baseUrl) {
   // Modify the origin for all ShieldBattery server requests
   const filter = {
-    urls: ['https://*.shieldbattery.net/*', 'http://localhost:*/*']
+    urls: [`${baseUrl}/*`]
   }
   curSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     details.requestHeaders.Origin = 'http://client.shieldbattery.net'
@@ -52,6 +54,10 @@ async function createLocalSettings() {
 
 function setupIpc(localSettings) {
   ipcMain.on(LOG_MESSAGE, (event, level, message) => { logger.log(level, message) })
+  ipcMain.on(UPDATE_SERVER, (event, serverUrl) => {
+    applyOriginFilter(currentSession(), serverUrl)
+    event.sender.send(UPDATE_SERVER_COMPLETE)
+  })
 
   ipcMain.on(SETTINGS_EMIT, (event) => {
     localSettings.get().then(settings => event.sender.send(SETTINGS_CHANGED, settings),
@@ -179,7 +185,6 @@ async function createWindow(localSettings, curSession) {
 }
 
 app.on('ready', async () => {
-  applyOriginFilter(currentSession())
   const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
 
