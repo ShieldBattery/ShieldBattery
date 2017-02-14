@@ -45,7 +45,7 @@ export function getslotsPerControlledTeam(gameSubType) {
   }
 }
 
-export function getSlotsPerTeam(gameType, gameSubType, numSlots, forces) {
+export function getSlotsPerTeam(gameType, gameSubType, numSlots, umsForces) {
   switch (gameType) {
     case 'melee':
     case 'ffa':
@@ -56,13 +56,13 @@ export function getSlotsPerTeam(gameType, gameSubType, numSlots, forces) {
     case 'teamFfa':
       return getslotsPerControlledTeam(gameSubType)
     case 'ums':
-      return forces.map(f => f.players.length)
+      return umsForces.map(f => f.players.length)
     default:
       throw new Error('Unknown game type: ' + gameType)
   }
 }
 
-export function numTeams(gameType, gameSubType, forces) {
+export function numTeams(gameType, gameSubType, umsForces) {
   // TODO(2Pac): Once we get OBS support, each game type (except team melee/ffa?) should have +1
   // team for observers; also, keep in mind that this team might have 0 slots available at first
   // (until a user makes a normal slot into an observer slot)
@@ -76,13 +76,13 @@ export function numTeams(gameType, gameSubType, forces) {
     case 'teamFfa':
       return gameSubType
     case 'ums':
-      return forces.length
+      return umsForces.length
     default:
       throw new Error('Unknown game type: ' + gameType)
   }
 }
 
-export function getTeamNames(gameType, gameSubType, forces) {
+export function getTeamNames(gameType, gameSubType, umsForces) {
   switch (gameType) {
     case 'melee':
     case 'ffa':
@@ -92,12 +92,12 @@ export function getTeamNames(gameType, gameSubType, forces) {
     case 'teamMelee':
     case 'teamFfa':
       const teamNames = []
-      for (let i = 1; i <= numTeams(gameType, gameSubType, forces); i++) {
+      for (let i = 1; i <= numTeams(gameType, gameSubType, umsForces); i++) {
         teamNames.push('Team ' + i)
       }
       return teamNames
     case 'ums':
-      return forces.map(f => f.name)
+      return umsForces.map(f => f.name)
     default:
       throw new Error('Invalid game type: ' + gameType)
   }
@@ -152,7 +152,7 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
   // distribute each of the slots into their respective teams. This distribution of slots shouldn't
   // change at all during the lifetime of a lobby, except when creating/deleting observer slots,
   // which will be handled separately
-  const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.forces)
+  const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.umsForces)
   let host
   let slots
   if (!isUms(gameType)) {
@@ -164,15 +164,15 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
     // TODO(2Pac): Create (8 - numSlots) amount of `observerOpen` type slots
     slots = List.of(host).concat(controlled, open)
   } else {
-    let noHost = true
-    slots = fromJS(map.forces).flatMap(force => force.get('players').map(player => {
+    let hasHost = false
+    slots = fromJS(map.umsForces).flatMap(force => force.get('players').map(player => {
       const playerId = player.get('id')
       const playerRace = player.get('race')
       const race = playerRace !== 'any' ? playerRace : 'r'
       const hasForcedRace = playerRace !== 'any'
-      if (!player.get('computer') && noHost) {
+      if (!player.get('computer') && !hasHost) {
         host = Slots.createHuman(hostName, race, hasForcedRace, playerId)
-        noHost = false
+        hasHost = true
         return host
       }
 
@@ -182,16 +182,16 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
     }))
   }
 
-  const teamNames = getTeamNames(gameType, gameSubType, map.forces)
+  const teamNames = getTeamNames(gameType, gameSubType, map.umsForces)
   let slotIndex = 0
-  const teams = Range(0, numTeams(gameType, gameSubType, map.forces))
+  const teams = Range(0, numTeams(gameType, gameSubType, map.umsForces))
     .map(teamIndex => {
       const teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
       slotIndex += slotsPerTeam[teamIndex]
       const teamName = teamNames[teamIndex]
       let teamId
       if (isUms(gameType)) {
-        teamId = map.forces[teamIndex].teamId
+        teamId = map.umsForces[teamIndex].teamId
       } else {
         teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
       }
@@ -320,7 +320,7 @@ export function removePlayer(lobby, teamIndex, slotIndex, toRemove) {
 // "Moves" one slot to another. For now it's only possible to move a `human` type slot to `open` or
 // `controlledOpen` type slot. Once the player is moved, there can be multiple side-effects:
 // 1) in melee/ffa/tvb lobby, there are no side-effects
-// 2) in ums lobby, dest slot might have forced race, while the source race did not
+// 2) in ums lobby, dest slot might have forced race, while the source slot did not or is different
 // 3) in team melee/ffa lobby
 //  3.1) the source and dest slots are in the same team, no side-effects
 //  3.2) the source and dest slots are in different teams
@@ -335,14 +335,12 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
   let sourceSlot = lobby.teams.get(sourceTeamIndex).slots.get(sourceSlotIndex)
   const destSlot = lobby.teams.get(destTeamIndex).slots.get(destSlotIndex)
   if (!hasControlledOpens(lobby.gameType)) {
-    // 1) case - move the source slot to the destination slot and create an `open` slot at the
-    // source slot
     let openSlot
     let updated = lobby
     if (isUms(lobby.gameType)) {
       // 2) case - in UMS games, when player moves to a different slot, it's possible that the
-      // destination slot can have a forced race, while the source slot didn't. Also, `playerId` of
-      // the moving player needs to change to the value of the destination slot.
+      // destination slot has a forced race, while the source slot didn't. Also, `playerId` of the
+      // moving player needs to change to the value of the destination slot.
       const orig = sourceSlot
       sourceSlot = sourceSlot.set('playerId', destSlot.playerId)
       sourceSlot = destSlot.hasForcedRace ?
@@ -355,13 +353,16 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
         updated = lobby.set('host', sourceSlot)
       }
     } else {
+      // 1) case - move the source slot to the destination slot and create an `open` slot at the
+      // source slot
       openSlot = Slots.createOpen()
     }
     return updated.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
         .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], openSlot)
   } else {
+    // 3) case - in team melee/ffa lobbies, there can be quite a few side-effects; handle them below
     if (sourceTeamIndex === destTeamIndex) {
-      // 2.1) case - move the source slot to the destination slot and create a `controlledOpen` slot
+      // 3.1) case - move the source slot to the destination slot and create a `controlledOpen` slot
       // at the source
       return lobby.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
           .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex],
@@ -369,15 +370,15 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
     } else {
       let updated
       if (isTeamEmpty(lobby.teams.get(destTeamIndex))) {
-        // 2.2.3) case - move the source slot (player) to the destination team and fill out the rest
+        // 3.2.3) case - move the source slot (player) to the destination team and fill out the rest
         // of its slots properly
         updated = addPlayerAndControlledSlots(lobby, destTeamIndex, destSlotIndex,
             sourceSlot)
       } else {
-        // 2.2.4) case - move the source slot to the destination slot
+        // 3.2.4) case - move the source slot to the destination slot
         updated = lobby.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
       }
-      // 2.2.1) and 2.2.2) case - clean up the controlled team which the player is leaving
+      // 3.2.1) and 2.2.2) case - clean up the controlled team which the player is leaving
       return removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
     }
   }

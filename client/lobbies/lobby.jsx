@@ -5,7 +5,7 @@ import {
   findSlotByName,
   hasOpposingSides,
   isTeamType,
-} from '../../app/common/lobbies/lobby-slots'
+} from '../../app/common/lobbies'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'

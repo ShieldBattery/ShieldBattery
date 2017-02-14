@@ -102,11 +102,7 @@ export class LobbyApi {
       return
     }
 
-    const user = this.getUser(data)
-    const summary = this.lobbies.valueSeq()
-        .filterNot(l => this.lobbyBannedUsers.has(l.name) &&
-            this.lobbyBannedUsers.get(l.name).includes(user.name))
-        .map(l => Lobbies.toSummaryJson(l))
+    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
     this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
 
     const onClose = () => {
@@ -880,7 +876,7 @@ export class LobbyApi {
       const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
       if (samePlace && oldSlot === newSlot) continue
 
-      if (!samePlace && oldSlot === newSlot) {
+      if (!samePlace && oldSlot.id === newSlot.id) {
         diffEvents.push({
           type: 'slotChange',
           teamIndex: newTeamIndex,
