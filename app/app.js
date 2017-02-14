@@ -19,6 +19,8 @@ import {
   WINDOW_MINIMIZE,
 } from '../common/ipc-constants'
 
+app.setAppUserModelId('net.shieldbattery.client')
+
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
 
