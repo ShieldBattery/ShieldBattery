@@ -6,7 +6,6 @@ import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
-  removeComputer,
   changeSlot,
   openSlot,
   closeSlot,
@@ -168,10 +167,6 @@ export default class LobbyView extends React.Component {
 
   onAddComputer = slotId => {
     this.props.dispatch(addComputer(slotId))
-  };
-
-  onRemoveComputer = slotId => {
-    this.props.dispatch(removeComputer(slotId))
   };
 
   onSwitchSlot = slotId => {

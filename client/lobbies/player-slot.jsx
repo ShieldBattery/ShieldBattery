@@ -44,16 +44,15 @@ export default class PlayerSlot extends React.Component {
         <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
     const displayName = isComputer ? 'Computer' : name
 
-    // TODO(2Pac): Figure out the best ordering for these actions
     const slotActions = []
     if (isHost && hasSlotActions) {
+      slotActions.push(['Close slot', onCloseSlot])
       if (!isComputer) {
         slotActions.push(['Kick player', onKickPlayer])
         slotActions.push(['Ban player', onBanPlayer])
       } else {
         slotActions.push(['Remove computer', onKickPlayer])
       }
-      slotActions.push(['Close slot', onCloseSlot])
     }
 
     const raceElem = canSetRace ?

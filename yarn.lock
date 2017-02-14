@@ -1511,11 +1511,7 @@ concat-stream@1.5.0:
     readable-stream "~2.0.0"
     typedarray "~0.0.5"
 
-<<<<<<< HEAD
 concat-stream@^1.5.2, concat-stream@^1.6.0:
-=======
-concat-stream@^1.4.6, concat-stream@^1.6.0:
->>>>>>> Allow uploading maps to the server
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/concat-stream/-/concat-stream-1.6.0.tgz#0aac662fd52be78964d5532f694784e70110acf7"
   dependencies:
@@ -1777,11 +1773,7 @@ cuid@^1.2.5, cuid@^1.3.8:
     core-js "^1.1.1"
     node-fingerprint "0.0.2"
 
-<<<<<<< HEAD
 cuint@^0.2.0, cuint@^0.2.2:
-=======
-cuint@^0.2.0, cuint@^0.2.1, cuint@^0.2.2:
->>>>>>> Add client support for hosting any maps from local pc
   version "0.2.2"
   resolved "https://registry.yarnpkg.com/cuint/-/cuint-0.2.2.tgz#408086d409550c2631155619e9fa7bcadc3b991b"
 
