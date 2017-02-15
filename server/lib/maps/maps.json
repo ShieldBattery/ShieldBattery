@@ -24,6 +24,30 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Aztec1.1",
+    "hash": "fab4fc818b0bb3fa6bd619d373de1656cbcd0a4ccade661ac959fc9290528058",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "Created By Str18-02      Presented by KeSPA\r\nÀ§´ëÇÏ½Å ÅÂ¾ç½ÅÀÌ ³ÊÀÇ ¶ß°Å¿î ½ÉÀåÀ» ¹ÞÀ¸½Ã¾î ³»ÀÏÀÌ ¿Ã°ÍÀ» ¾à¼Ó ÇÏ½Ç °ÍÀÌ´Ù.",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Benzene1.1",
+    "hash": "45764b9baa72f83a5eb2eab49ddea46c6af21da75bc42e687e6dab93e4e4044e",
+    "tileset": "platform",
+    "width": 128,
+    "height": 112,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "Created By Str18-02      Presented by KeSPA\r\n6 Carbon, 6 Hydrogen. Kekule, who was german chemist, discovered it at 1865.",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Big Game Hunters",
     "hash": "2984c350c950815ad5b84c7b951191f016d1ad9fedb5a0b194ee12fbafc82302",
     "tileset": "jungle",
@@ -48,14 +72,14 @@
     "thumbFormat": "jpg"
   },
   {
-    "name": "Byzantium 3.0",
-    "hash": "e2b49fb379546726bfd03a467cbc5a4049dd56d0a804e4f99ed53b8b71ed7526",
+    "name": "Byzantium II 2.3",
+    "hash": "3030c47356c5d14ff438238aa86a309cd345d8f057e788ee25f6d373bb3ddd23",
     "tileset": "twilight",
     "width": 128,
     "height": 128,
-    "slots": 8,
-    "umsSlots": 0,
-    "description": "PpP\r\n[www.iccup.com] modification",
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Suggested Players: 2-4\r\nThe Byzantium Empire was the Roman Empire of the east.\r\nÁ¦ÀÛ : ¼Û±â¹ü\r\n¼öÁ¤ : ¼Û±â¹ü\r\n°¨¼ö : Áø±³ÁØ",
     "format": "scx",
     "thumbFormat": "jpg"
   },
@@ -84,6 +108,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Demian SE 2.0",
+    "hash": "fd7a929b5faa7884006287ffc7d5f56453c7ce22bd16815f456a55d9f0374b4f",
+    "tileset": "badlands",
+    "width": 128,
+    "height": 128,
+    "slots": 3,
+    "umsSlots": 3,
+    "description": "»õ´Â ¾Ë¿¡¼­ ³ª¿À·Á°í ÅõÀïÇÑ´Ù.\r\n¾ËÀº ÇÏ³ªÀÇ ¼¼°èÀÌ´Ù.\r\nÅÂ¾î³ª·Á´Â ÀÚ´Â ÇÏ³ªÀÇ ¼¼°è¸¦ ÆÄ±«ÇØ¾ß ÇÑ´Ù.\r\n - Çì¸£¸¸ Çì¼¼ ¡¸µ¥¹Ì¾È¡¹ñé\r\nCreated by LatiAs\r\nPresented by AfreecaTV",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Destination 1.1",
     "hash": "0ff56c07ea95eb99b2ff6c2f5a84204d743dc82ad6ad18276565193123a380b0",
     "tileset": "badlands",
@@ -105,18 +141,6 @@
     "umsSlots": 4,
     "description": "[www.iccup.com] modification",
     "format": "scx",
-    "thumbFormat": "jpg"
-  },
-  {
-    "name": "Fa§te§t Po§§ible Map Space",
-    "hash": "908f8df42174f3309cfda5689f0f594b9be7a2203ab9f69abf89ddea1d475f05",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 8,
-    "umsSlots": 4,
-    "description": "\u0006Fa§\u0007te§t Po§§ible \u0002on space terrain.\r\nStacked minerals:\r\nLined up vaspenes:\r\nPlenty of room:\r\n\u0004Channel: \u0007Clan S)5\r\n\u0004Created by: \u0003Goku.SS)5",
-    "format": "scm",
     "thumbFormat": "jpg"
   },
   {
@@ -288,6 +312,18 @@
     "thumbFormat": "jpg"
   },
   {
+    "name": "Neo Forbidden Zone 2.0",
+    "hash": "3d4cdad9f9894503b1d2b32ab7bb6f6d3df3f1e8bd79d01e1d8bfd60e5262f3d",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 4,
+    "umsSlots": 4,
+    "description": "Suggested Players: 2-4\r\n\r\n\u0007Don't approach to there!!!\r\n\u0006Forbidden Zone...\r\n\r\n\u0004- Made by [Ragnarok]Valkyrie -  - Version 2.0 -",
+    "format": "scm",
+    "thumbFormat": "jpg"
+  },
+  {
     "name": "Neo Harmony",
     "hash": "5fa3334ac650581b442eb6d80dd6217a3f8e003ebbb1d8300c10e9ab4f46835b",
     "tileset": "jungle",
@@ -296,6 +332,18 @@
     "slots": 4,
     "umsSlots": 4,
     "description": "°­ÇÔ°ú ¾àÇÔ, ºü¸§°ú ´À¸²\r\nºÎµå·¯¿ò°ú ³¯Ä«·Î¿ò...\r\n±×¸®°í Çª¸£¸¥ ¹Ù¶÷°ú ¹àÀº ´Þ\r\n±× ¸ðµç °ÍÀÌ Á¶È­¸¦ ÀÌ·ç´Â °÷\r\nCreated by Rose.of.Dream.      Mapdori.com Map Architect Team     http://www.mapdori.com",
+    "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "New Bloody Ridge",
+    "hash": "d8f6cdaf59cc8dd5255ff4567be0e261aecc7ee7a0941ef804ecad84610ca885",
+    "tileset": "jungle",
+    "width": 128,
+    "height": 96,
+    "slots": 2,
+    "umsSlots": 2,
+    "description": "Àü¿ì¿©! ÇÇ·Î¼­ µÇ Ã£Àº ÀÌ ¶¥\r\n´Ù½Ã´Â ´õ·´È÷Áö ¸»ÀÚ ±×¸®°í ¼ÒÁßÈ÷ °£Á÷ÇÏÀÚ\r\n¹Ù·Î Àú±â ±Ý°­»êÀÌ º¸ÀÌÁö ¾Ê´Â°¡? ÀÌ°÷ µó°í ¹éµÎ»ê±îÁö.\r\n[ÇÇÀÇ ´É¼± ÀüÅõÀüÀûºñ ñé]\r\nCreated by [Ragnarok]Valkyrie      Presented by KeSPA",
     "format": "scx",
     "thumbFormat": "jpg"
   },
@@ -441,6 +489,30 @@
     "umsSlots": 3,
     "description": "Author: Rose.of.Dream.\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
     "format": "scx",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "Theatre of War",
+    "hash": "b45260967b76d5d8366e5c8225dbb9c2f6c6f17a6ca5308f66ac1f85bfe4b80f",
+    "tileset": "jungle",
+    "width": 192,
+    "height": 192,
+    "slots": 8,
+    "umsSlots": 8,
+    "description": "Suggested Players: 2-8\r\n\r\nExplore, Destroy, Conquer.",
+    "format": "scm",
+    "thumbFormat": "jpg"
+  },
+  {
+    "name": "UGL 22 Space",
+    "hash": "ba7acf68c9a9948b8bdb49eaa2a2963b2eae4ecf17266fe3f336ff31480a3a2d",
+    "tileset": "platform",
+    "width": 128,
+    "height": 128,
+    "slots": 8,
+    "umsSlots": 8,
+    "description": "UGL Season 22 | http://unigl.net/\r\nUni Gaming League\r\n©2013-2016 UNIGL.NET",
+    "format": "scm",
     "thumbFormat": "jpg"
   },
   {

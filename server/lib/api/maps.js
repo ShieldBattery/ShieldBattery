@@ -20,7 +20,7 @@ async function list(ctx, next) {
   }
   if (!limit || limit < 0 || limit > 100) {
     /* TODO(tec27): move back to 20 after we add paginated map list support */
-    limit = 40
+    limit = 50
   }
 
   const maps = MAPS.slice(page * limit, (page + 1) * limit)
