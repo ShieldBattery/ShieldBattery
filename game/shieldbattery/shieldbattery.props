@@ -5,8 +5,11 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "$(SolutionDir)\dist\" /y /f /c
-xcopy "%ProgramFiles(x86)%\Windows Kits\8.1\Redist\D3D\x86\d3dcompiler_47.dll" "$(SolutionDir)\dist\" /y /f /c</Command>
+      <Command>signtool sign /n "Travis Collins" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /t "http://timestamp.comodoca.com/authenticode" /fd SHA256 "$(TargetPath)" > %temp%\sign.txt 2>&amp;1
+xcopy "$(TargetPath)" "$(SolutionDir)\dist\" /y /f /c
+xcopy "%ProgramFiles(x86)%\Windows Kits\8.1\Redist\D3D\x86\d3dcompiler_47.dll" "$(SolutionDir)\dist\" /y /f /c
+exit /B 0
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
