@@ -57,7 +57,7 @@ class GameInitializer {
     //   due to NAT, LAN, etc.)
     // - Allowing us to easily get references to active rally-point routes
     const slots = new List(this.lobbyConfig.slots)
-    const players = slots.filter(slot => slot.type === 'human')
+    const players = slots.filter(slot => slot.type === 'human' || slot.type === 'observer')
     const hostId = this.lobbyConfig.host.id
     const ordered = players.filter(p => p.id === hostId)
         .concat(players.filterNot(p => p.id === hostId))
@@ -98,7 +98,7 @@ class GameInitializer {
 
       const joined = await rallyPoint.joinRoute(
           { address: chosenAddress, port }, route.routeId, route.playerId)
-      const destPlayer = slots.find(slot => slot.id === route.for)
+      const destPlayer = slots.filter(slot => slot.id === route.for)
       log.verbose(
           `Connected to ${route.server.desc} for player ${destPlayer.name} [${route.routeId}]`)
       return { route: joined, forId: route.for }
@@ -223,7 +223,8 @@ class GameInitializer {
     const bwGameInfo = {
       gameName: this.lobbyConfig.name,
       numSlots: this.lobbyConfig.slots.length,
-      numPlayers: this.lobbyConfig.slots.filter(slot => slot.type === 'human').length,
+      numPlayers: this.lobbyConfig.slots
+          .filter(slot => slot.type === 'human' || slot.type === 'observer').length,
       mapName: this.lobbyConfig.map.name,
       mapTileset: tilesetNameToId[this.lobbyConfig.map.tileset],
       mapWidth: this.lobbyConfig.map.width,
@@ -249,7 +250,8 @@ class GameInitializer {
   }
 
   async waitForPlayers() {
-    const players = this.lobbyConfig.slots.filter(slot => slot.type === 'human')
+    const players = this.lobbyConfig.slots
+        .filter(slot => slot.type === 'human' || slot.type === 'observer')
         .map(p => p.name)
 
     const hasAllPlayers = () => {
@@ -315,7 +317,7 @@ class GameInitializer {
       const slot = isUms(gameType) ? bw.slots[lobbySlot.playerId] : bw.slots[i]
 
       slot.playerId = isUms(gameType) ? lobbySlot.playerId : i
-      slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
+      slot.stormId = lobbySlot.type === 'human' || lobbySlot.type === 'observer' ? 27 : 0xFF
       slot.race = getBwRace(lobbySlot.race)
       // This typeId check is completely ridiculous and doesn't make sense, but that gives
       // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft

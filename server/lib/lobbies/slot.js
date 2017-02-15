@@ -102,3 +102,14 @@ export function createUmsComputer(race, playerId, typeId) {
     typeId,
   })
 }
+
+// Creates an observer slot, which is a human in a lobby who is not playing, but rather watching
+// other people play.
+export function createObserver(name) {
+  return new Slot({
+    type: 'observer',
+    name,
+    id: cuid(),
+    joinedAt: Date.now(),
+  })
+}

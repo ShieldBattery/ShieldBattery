@@ -9,11 +9,15 @@ import {
   takenSlotCount,
   teamTakenSlotCount,
   openSlotCount,
+  hasObservers,
+  getObserverTeam,
+  isInObserverTeam,
 } from '../../../app/common/lobbies'
 
 const Team = new Record({
   name: null,
   teamId: null,
+  isObserver: false,
   // Slots that belong to a particular team
   slots: new List(),
   // UMS maps can have slots which are not shown in lobby but get initialized in game.
@@ -65,9 +69,6 @@ export function getSlotsPerTeam(gameType, gameSubType, numSlots, umsForces) {
 }
 
 export function numTeams(gameType, gameSubType, umsForces) {
-  // TODO(2Pac): Once we get OBS support, each game type (except team melee/ffa?) should have +1
-  // team for observers; also, keep in mind that this team might have 0 slots available at first
-  // (until a user makes a normal slot into an observer slot)
   switch (gameType) {
     case 'melee':
     case 'ffa':
@@ -122,14 +123,29 @@ export function toSummaryJson(lobby) {
 // the [teamIndex, slotIndex, slot] tuple of the available slot if found. If there are no available
 // slots, it returns a [-1, -1, null] tuple.
 export function findAvailableSlot(lobby) {
-  if (slotCount(lobby) <= takenSlotCount(lobby)) {
-    return [-1, -1, null]
+  const slotsCount = slotCount(lobby)
+  const takenCount = takenSlotCount(lobby)
+  if (slotsCount <= takenCount) {
+    // There are no available slots in the regular teams. Check if there is an observer team and see
+    // if there is available space there.
+    if (hasObservers(lobby)) {
+      const [teamIndex, observerTeam] = getObserverTeam(lobby)
+      // Find the first available slot in the observer team
+      const slotIndex = observerTeam.slots.findIndex(slot => slot.type === 'open')
+      return slotIndex !== undefined ?
+          [teamIndex, slotIndex, observerTeam.slots.get(slotIndex)] : [-1, -1]
+    } else {
+      // There is no available slot in the lobby
+      return [-1, -1]
+    }
   }
 
   // To choose the team of the empty slot, first filter out any teams that are full, then sort the
   // remaining teams such that first team in the resulting list is the one with the least number of
-  // players (ie. the highest number of available slots).
-  const availableTeam = lobby.teams.map((team, teamIndex) => [teamIndex, team])
+  // players (ie. the highest number of available slots). Note that we're excluding the observer
+  // team from this algorithm, because we've handled the observer team above.
+  const availableTeam = lobby.teams.filterNot(team => team.isObserver)
+      .map((team, teamIndex) => [teamIndex, team])
       .filter(([, team]) => teamTakenSlotCount(team) < team.slots.size)
       .sort(([, a], [, b]) => {
         const availableCountA = a.slots.size - teamTakenSlotCount(a)
@@ -163,7 +179,6 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
         Range(1, slotsPerTeam[0]).map(() => Slots.createControlledOpen(hostRace, host.id)) :
         new List()
     const open = Range(1 + controlled.size, numSlots).map(() => Slots.createOpen())
-    // TODO(2Pac): Create (8 - numSlots) amount of `observerOpen` type slots
     slots = List.of(host).concat(controlled, open)
   } else {
     let hasHost = false
@@ -186,7 +201,7 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
 
   const teamNames = getTeamNames(gameType, gameSubType, map.umsForces)
   let slotIndex = 0
-  const teams = Range(0, numTeams(gameType, gameSubType, map.umsForces))
+  let teams = Range(0, numTeams(gameType, gameSubType, map.umsForces))
     .map(teamIndex => {
       let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
       let hiddenSlots
@@ -211,6 +226,16 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
         hiddenSlots,
       })
     }).toList()
+
+  if (gameType === 'melee') {
+    const observerSlots = Range(slots.size, 8).map(() => Slots.createOpen()).toList()
+    const observerTeam = new Team({
+      name: 'Observers',
+      isObserver: true,
+      slots: observerSlots,
+    })
+    teams = teams.concat(List.of(observerTeam))
+  }
 
   return new Lobby({
     name,
@@ -317,7 +342,7 @@ export function removePlayer(lobby, teamIndex, slotIndex, toRemove) {
   if (lobby.host.id === toRemove.id) {
     // The player we removed was the host, find a new host (the "oldest" player in lobby)
     const newHost = getLobbySlots(updated)
-        .filter(slot => slot.type === 'human')
+        .filter(slot => slot.type === 'human' || slot.type === 'observer')
         .sortBy(p => p.joinedAt)
         .first()
     updated = updated.set('host', newHost)
@@ -366,6 +391,20 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
         updated = updated.set('host', sourceSlot)
       }
     }
+
+    const hasObs = hasObservers(updated)
+    if (hasObs && isInObserverTeam(updated, destSlot) && sourceSlot.type !== 'observer') {
+      // If the destination slot is in the observer team, and the source slot is not already an
+      // observer, update the player to an `observer` type slot
+      sourceSlot = sourceSlot.set('type', 'observer')
+    }
+
+    if (hasObs && isInObserverTeam(updated, sourceSlot) && !isInObserverTeam(updated, destSlot)) {
+      // If the source slot is in the observer team and the destination slot is not, change the
+      // observer to a `human` type slot
+      sourceSlot = sourceSlot.set('type', 'human')
+    }
+
     return updated.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
         .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], openSlot)
   } else {

@@ -21,6 +21,8 @@ import {
   findSlotByName,
   findSlotById,
   hasOpposingSides,
+  hasObservers,
+  getObserverTeam,
 } from '../../../app/common/lobbies'
 
 const LOBBY_START_TIMEOUT = 30 * 1000
@@ -200,9 +202,16 @@ export class LobbyApi {
       throw new errors.Conflict('lobby is full')
     }
 
-    const player = isUms(lobby.gameType) ?
-        Slots.createHuman(client.name, availableSlot.race, true, availableSlot.playerId) :
-        Slots.createHuman(client.name)
+    let player
+    const [, observerTeam] = getObserverTeam(lobby)
+    if (hasObservers(lobby) && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+      player = Slots.createObserver(client.name)
+    } else {
+      player = isUms(lobby.gameType) ?
+          Slots.createHuman(client.name, availableSlot.race, true, availableSlot.playerId) :
+          Slots.createHuman(client.name)
+    }
+
     const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
     if (!activityRegistry.registerActiveClient(user.name, client)) {
@@ -412,7 +421,8 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    if (slotToClose.type === 'human' || slotToClose.type === 'computer') {
+    if (slotToClose.type === 'human' || slotToClose.type === 'computer' ||
+        slotToClose.type === 'observer') {
       this._kickPlayerFromLobby(lobby, user, teamIndex, slotIndex, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.name)
@@ -441,7 +451,8 @@ export class LobbyApi {
     if (!playerToKick) {
       throw new errors.BadRequest('invalid slot id')
     }
-    if (playerToKick.type !== 'human' && playerToKick.type !== 'computer') {
+    if (playerToKick.type !== 'human' && playerToKick.type !== 'computer' &&
+        playerToKick.type !== 'observer') {
       throw new errors.BadRequest('invalid slot type')
     }
 
@@ -453,7 +464,7 @@ export class LobbyApi {
       const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)
       this.lobbies = this.lobbies.set(lobby.name, updated)
       this._publishLobbyDiff(lobby, updated)
-    } else if (playerToKick.type === 'human') {
+    } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       this._removeClientFromLobby(lobby, playerToKick.name, REMOVAL_TYPE_KICK)
     }
   }

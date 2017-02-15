@@ -15,6 +15,7 @@ export default class ClosedSlot extends React.Component {
     canSetRace: PropTypes.bool,
     isHost: PropTypes.bool,
     race: PropTypes.string,
+    isObserver: PropTypes.bool,
   };
 
   renderControls() {
@@ -29,11 +30,11 @@ export default class ClosedSlot extends React.Component {
   }
 
   render() {
-    const { isHost, controlledClosed, onAddComputer, onOpenSlot } = this.props
+    const { isHost, isObserver, controlledClosed, onAddComputer, onOpenSlot } = this.props
     const slotActions = []
     if (isHost) {
       slotActions.push(['Open slot', onOpenSlot])
-      if (!controlledClosed && onAddComputer) {
+      if (!controlledClosed && !isObserver && onAddComputer) {
         slotActions.push(['Add computer', onAddComputer])
       }
     }

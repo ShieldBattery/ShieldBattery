@@ -10,7 +10,8 @@ import {
   findSlotById,
   humanSlotCount,
   hasOpposingSides,
-} from '../../../app/common/lobbies'
+  hasObservers,
+} from '../../../common/lobbies/lobby-slots'
 
 const BOXER_LOBBY = Lobbies.create(
     '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
@@ -18,7 +19,11 @@ const BOXER_LOBBY = Lobbies.create(
 describe('Lobbies - melee', () => {
   it('should create the lobby correctly', () => {
     const l = BOXER_LOBBY
-    expect(l.teams).to.have.size(1)
+    if (hasObservers(l)) {
+      expect(l.teams).to.have.size(2)
+    } else {
+      expect(l.teams).to.have.size(1)
+    }
     const team = l.teams.get(0)
     expect(team.slots).to.have.size(4)
     expect(humanSlotCount(l)).to.equal(1)
@@ -38,14 +43,15 @@ describe('Lobbies - melee', () => {
     const json = JSON.stringify(Lobbies.toSummaryJson(BOXER_LOBBY))
     const parsed = JSON.parse(json)
 
-    const id = BOXER_LOBBY.host.id
+    const host = BOXER_LOBBY.host.toJS()
+    const openSlots = hasObservers(BOXER_LOBBY) ? 7 : 3
     expect(parsed).to.eql({
       name: '5v3 Comp Stomp Pros Only',
       map: 'Big Game Hunters.scm',
       gameType: 'melee',
       gameSubType: 0,
-      host: { name: 'Slayers`Boxer', id },
-      openSlotCount: 3,
+      host,
+      openSlots,
     })
   })
 
