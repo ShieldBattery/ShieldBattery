@@ -1,4 +1,4 @@
-import redis from '../server/redis'
+import redis from '../lib/redis'
 import config from '../config'
 
 (async () => {
