@@ -107,7 +107,7 @@ export default function({
       }),
       // This path is relative to the publicPath, not this file's directory
       new ExtractTextPlugin('../styles/site.css', { allChunks: true }),
-      new webpack.optimize.DedupePlugin(),
+      // TODO(tec27): figure out why this is broken: new webpack.optimize.DedupePlugin(),
     ])
     if (minify) {
       config.plugins.push(new webpack.optimize.UglifyJsPlugin({
