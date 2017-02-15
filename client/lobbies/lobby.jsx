@@ -257,7 +257,8 @@ export default class Lobby extends React.Component {
     const isHost = mySlot && lobby.host.id === mySlot.id
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
       const currentTeam = lobby.teams.get(teamIndex)
-      const displayTeamName =
+      const isObserver = currentTeam.isObserver
+      const displayTeamName = isObserver ||
           (isTeamType(lobby.gameType) || isLobbyUms) && currentTeam.slots.size !== 0
       if (displayTeamName) {
         slots.push(<span key={'team' + teamIndex} className={styles.teamName}>
@@ -265,22 +266,29 @@ export default class Lobby extends React.Component {
         </span>)
       }
 
-      slots.push(currentTeam.slots.map((slot, slotIndex) => {
+      slots.push(currentTeam.slots.map(slot => {
         const { type, name, race, id, controlledBy } = slot
         switch (type) {
           case 'open':
-            return (<OpenSlot key={id} race={race} isHost={isHost}
+            return (<OpenSlot key={id} race={race} isHost={isHost} isObserver={isObserver}
                 onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
                 onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
           case 'closed':
-            return (<ClosedSlot key={id} race={race} isHost={isHost}
+            return (<ClosedSlot key={id} race={race} isHost={isHost} isObserver={isObserver}
                 onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           case 'human':
-            return (<PlayerSlot key={id} name={name} race={race} isComputer={false} isHost={isHost}
+            return (<PlayerSlot key={id} name={name} race={race} isHost={isHost}
                 canSetRace={slot === mySlot && !slot.hasForcedRace} hasSlotActions={slot !== mySlot}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
+                onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
+          case 'observer':
+            return (<PlayerSlot key={id} name={name} isHost={isHost} isObserver={true}
+                hasSlotActions={slot !== mySlot}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                 onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}

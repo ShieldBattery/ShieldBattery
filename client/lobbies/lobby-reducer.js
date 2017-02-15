@@ -41,6 +41,7 @@ export const Slot = new Record({
 export const Team = new Record({
   name: null,
   teamId: null,
+  isObserver: false,
   slots: new List(),
   hiddenSlots: new List(),
 })

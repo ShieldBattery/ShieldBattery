@@ -23,18 +23,27 @@ export default class PlayerSlot extends React.Component {
     isHost: PropTypes.bool,
     // Whether or not this slot has slot actions
     hasSlotActions: PropTypes.bool,
+    isObserver: PropTypes.bool,
   };
+
+  renderControls() {
+    const { isObserver, canSetRace, race, onSetRace } = this.props
+    if (isObserver) {
+      return null
+    }
+
+    return canSetRace ?
+        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
+        <SelectedRace className={styles.slotRace} race={race} />
+  }
 
   render() {
     const {
       name,
-      race,
       isComputer,
       avatarImage,
-      canSetRace,
       isHost,
       hasSlotActions,
-      onSetRace,
       onCloseSlot,
       onKickPlayer,
       onBanPlayer,
@@ -55,10 +64,6 @@ export default class PlayerSlot extends React.Component {
       }
     }
 
-    const raceElem = canSetRace ?
-        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
-        <SelectedRace className={styles.slotRace} race={race} />
-
     return (<div className={styles.slot}>
       <div className={styles.slotLeft}>
         {avatar}
@@ -70,7 +75,7 @@ export default class PlayerSlot extends React.Component {
               <SlotActions slotActions={slotActions} /> :
               <div></div>
         }
-        {raceElem}
+        { this.renderControls() }
       </div>
     </div>)
   }
