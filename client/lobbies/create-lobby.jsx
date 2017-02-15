@@ -5,7 +5,7 @@ import { createLobby, getMapsList, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
-import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
+import { LOBBY_NAME_MAXLENGTH } from '../../app/common/constants'
 import { GAME_TYPES, gameTypeToString, isTeamType } from './game-type'
 import styles from './create-lobby.css'
 

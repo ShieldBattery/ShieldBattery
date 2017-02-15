@@ -1,0 +1,25 @@
+# The electron-builder config for the staging site (https://dev.shieldbattery.net)
+# It should generally match the other build configs (except things that need to differ for this
+# "region")
+appId: net.shieldbattery.client.dev
+extraResources:
+- game/dist/**
+- "!game/dist/**/*.map"
+files:
+- "!**/*.map"
+- "!build/**/*"
+nsis:
+  artifactName: "${productName}-setup-${version}.${ext}"
+  # There's currently a bug with Windows Defender that makes it slow things down considerably if
+  # NSIS is in unicode mode
+  unicode: false
+  # We disable oneClick for this config so that the install directory differs for this version
+  oneClick: false
+win:
+  certificateSubjectName: Travis Collins
+  icon: icon.ico
+  target: nsis
+
+# These properties differ between configs
+productName: ShieldBattery-Dev
+productFilename: ShieldBattery-Dev

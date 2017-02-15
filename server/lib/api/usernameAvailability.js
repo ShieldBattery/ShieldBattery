@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import users from '../models/users'
-import { isValidUsername } from '../../../common/constants'
+import { isValidUsername } from '../../../app/common/constants'
 
 export default function(router) {
   router

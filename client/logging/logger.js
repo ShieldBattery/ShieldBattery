@@ -3,7 +3,7 @@
 
 import {
   LOG_MESSAGE
-} from '../../common/ipc-constants'
+} from '../../app/common/ipc-constants'
 
 const ipcRenderer = process.webpackEnv.SB_ENV === 'electron' ?
     require('electron').ipcRenderer :

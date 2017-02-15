@@ -132,8 +132,8 @@ export default class LocalSettings extends EventEmitter {
     if (!deepEqual(newData, this._settings)) {
       this._settings = newData
       this._emitChange()
+      log.verbose('Got new settings from file change: ' + JSON.stringify(this._settings))
     }
-    log.verbose('Got new settings: ' + JSON.stringify(this._settings))
   }
 
   _emitChange() {

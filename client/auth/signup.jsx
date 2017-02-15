@@ -27,7 +27,7 @@ import {
   EMAIL_MAXLENGTH,
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
-} from '../../common/constants'
+} from '../../app/common/constants'
 import { signUp } from './auther'
 import styles from './login.css'
 

@@ -1,6 +1,7 @@
 {
   "name": "shieldbattery-app",
-  "productName": "ShieldBattery",
+  "productName": "ShieldBattery-Local",
+  "productFilename": "ShieldBattery-Local",
   "private": true,
   "version": "4.2.0",
   "description": "The electron host app for ShieldBattery.",
@@ -14,7 +15,9 @@
     "babel-preset-node7": "^1.4.0",
     "babel-preset-stage-0": "^6.16.0",
     "babel-register": "^6.18.0",
+    "deep-equal": "^1.0.1",
     "electron-is-dev": "^0.1.2",
+    "mkdirp": "^0.5.1",
     "nan": "^2.5.0",
     "thenify": "^3.2.1",
     "winreg": "^1.2.2"

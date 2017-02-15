@@ -3,7 +3,7 @@ import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { isValidChannelName } from '../../../common/constants'
+import { isValidChannelName } from '../../../app/common/constants'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -13,7 +13,7 @@ import {
   getUsersForChannel,
   leaveChannel,
 } from '../models/chat-channels'
-import { MULTI_CHANNEL } from '../../../common/flags'
+import { MULTI_CHANNEL } from '../../../app/common/flags'
 
 const ChatState = new Record({
   channels: new Map(),

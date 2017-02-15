@@ -3,10 +3,8 @@
   "private": true,
   "version": "4.2.0",
   "description": "The modern way to play StarCraft: Brood War.",
+  "homepage": "https://shieldbattery.net",
   "main": "index.js",
-  "directories": {
-    "test": "test"
-  },
   "engines": {
     "node": ">= 7.0.0"
   },
@@ -16,30 +14,16 @@
     "build": "cross-env NODE_ENV=production webpack",
     "buildgame": "game/vcbuild.bat && cd game && yarn run build",
     "clean": "rm -rf app/dist && rm -rf app/styles",
-    "dist": "yarn run clean && yarn run build && install-app-deps && yarn run buildgame && build",
-    "dist32": "yarn run clean && yarn run build && install-app-deps --arch ia32 && yarn run buildgame && build --win --ia32",
-    "dist64": "yarn run clean && yarn run build && install-app-deps --arch x64 && yarn run buildgame && build --win --x64",
+    "dist": "yarn run clean && yarn run build && yarn run buildgame && build --win --ia32 --x64 -c prod.yml",
+    "diststaging": "yarn run clean && cross-env SB_SERVER=https://dev.shieldbattery.net yarn run build && yarn run buildgame && build --win --ia32 --x64 -c staging.yml",
     "dev": "node -r babel-register electron-dev-server.js",
     "lint": "eslint --ext .js,.jsx ./ && echo Hooray || echo Please fix",
-    "pack": "yarn run clean && yarn run build && install-app-deps && yarn run buildgame && build --dir",
-    "pack32": "yarn run clean && yarn run build && install-app-deps --arch ia32 && yarn run buildgame && build --dir --win --ia32",
-    "pack64": "yarn run clean && yarn run build && install-app-deps --arch x64 && yarn run buildgame && build --dir --win --x64",
+    "pack": "yarn run clean && yarn run build && yarn run buildgame && build --dir --win --ia32 --x64 -c prod.yml",
+    "packstaging": "yarn run clean && cross-env SB_SERVER=https://dev.shieldbattery.net yarn run build && yarn run buildgame && build --dir --win --ia32 --x64 -c staging.yml",
     "postinstall": "install-app-deps",
     "posttest": "npm run lint",
     "test": "mocha -R spec --compilers js:babel-register --recursive --harmony test/",
     "yarnall": "cd app && yarn && cd ../game && yarn && cd ../server && yarn && cd .. && yarn"
-  },
-  "build": {
-    "appId": "net.shieldbattery.client",
-    "extraResources": [
-      "game/dist/**"
-    ],
-    "files": [
-      "!**/*.map"
-    ],
-    "win": {
-      "icon": "icon.ico"
-    }
   },
   "repository": {
     "type": "git",

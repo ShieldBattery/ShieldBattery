@@ -1,5 +1,4 @@
 import { remote } from 'electron'
-import electronIsDev from 'electron-is-dev'
 import path from 'path'
 import fs from 'fs'
 import { EventEmitter } from 'events'
@@ -17,7 +16,7 @@ import {
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
   statusToString
-} from '../../common/game-status'
+} from '../../app/common/game-status'
 
 const { launchProcess } = remote.require('./native/process')
 
@@ -224,8 +223,7 @@ function silentTerminate(proc) {
   }
 }
 
-const injectPath = path.resolve(remote.app.getAppPath(),
-    electronIsDev ? '../game/dist/shieldbattery.dll' : './resources/game/dist/shieldbattery.dll')
+const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
 
 const accessAsync = thenify(fs.access)
 async function doLaunch(gameId, serverPort, settings) {

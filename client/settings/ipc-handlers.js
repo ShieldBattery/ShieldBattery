@@ -9,7 +9,7 @@ import {
   SETTINGS_EMIT,
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE_ERROR,
-} from '../../common/ipc-constants'
+} from '../../app/common/ipc-constants'
 
 const checkStarcraftPath = process.webpackEnv.SB_ENV === 'electron' ?
     require('./check-starcraft-path').checkStarcraftPath :

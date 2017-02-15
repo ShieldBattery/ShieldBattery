@@ -43,7 +43,7 @@ import fetch from './network/fetch'
 import {
   UPDATE_SERVER,
   UPDATE_SERVER_COMPLETE
-} from '../common/ipc-constants'
+} from '../app/common/ipc-constants'
 
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null

@@ -21,7 +21,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_MAXLENGTH,
   USERNAME_PATTERN,
-} from '../../common/constants'
+} from '../../app/common/constants'
 
 import { getPermissionsIfNeeded, setPermissions } from './action-creators'
 

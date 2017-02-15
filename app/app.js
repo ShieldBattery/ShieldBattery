@@ -1,8 +1,12 @@
+import { getUserDataPath } from './user-data-path'
+getUserDataPath()
+
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'path'
-import url from 'url'
 import isDev from 'electron-is-dev'
 import logger from './logger'
+
+import url from 'url'
 import LocalSettings from './local-settings'
 import currentSession from './current-session'
 import {
@@ -17,7 +21,7 @@ import {
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MINIMIZE,
-} from '../common/ipc-constants'
+} from './common/ipc-constants'
 
 app.setAppUserModelId('net.shieldbattery.client')
 
@@ -49,7 +53,7 @@ async function installDevExtensions() {
 }
 
 async function createLocalSettings() {
-  const settings = new LocalSettings(path.join(app.getPath('userData'), 'settings.json'))
+  const settings = new LocalSettings(path.join(getUserDataPath(), 'settings.json'))
   await settings.untilInitialized()
   return settings
 }

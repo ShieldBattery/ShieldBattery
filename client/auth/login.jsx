@@ -24,7 +24,7 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_PATTERN,
   PASSWORD_MINLENGTH,
-} from '../../common/constants'
+} from '../../app/common/constants'
 
 const usernameValidator = composeValidators(
     required('Enter a username'),

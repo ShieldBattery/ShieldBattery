@@ -48,7 +48,7 @@ const options = {
   },
   plugins: [
     new webpack.NormalModuleReplacementPlugin(
-        /[\\/]any-promise[\\/]/, require.resolve('../common/promise.js')),
+        /[\\/]any-promise[\\/]/, require.resolve('../app/common/promise.js')),
     new webpack.IgnorePlugin(/README\.md|LICENSE$/),
     new webpack.optimize.OccurenceOrderPlugin(),
     new StringReplacePlugin(),

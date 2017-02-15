@@ -3,7 +3,7 @@ import {
 } from '../actions'
 import {
   SETTINGS_MERGE,
-} from '../../common/ipc-constants'
+} from '../../app/common/ipc-constants'
 
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null

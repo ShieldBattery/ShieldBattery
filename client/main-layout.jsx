@@ -49,7 +49,7 @@ import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 
-import { DEV_INDICATOR, MULTI_CHANNEL } from '../common/flags'
+import { DEV_INDICATOR, MULTI_CHANNEL } from '../app/common/flags'
 
 const KEY_C = keycode('c')
 const KEY_J = keycode('j')

@@ -18,7 +18,7 @@ import {
   EMAIL_MINLENGTH,
   EMAIL_MAXLENGTH,
   EMAIL_PATTERN,
-} from '../../common/constants'
+} from '../../app/common/constants'
 
 import { createInvite } from './action-creators'
 

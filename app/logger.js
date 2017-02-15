@@ -1,9 +1,7 @@
 import path from 'path'
-import logger from '../common/logger'
-import { app } from 'electron'
+import logger from './common/logger'
+import { getUserDataPath } from './user-data-path'
 
-// TODO(tec27): combine this log with the one in client/ (through RPCs to the electron process)
-const dataRoot = app.getPath('userData')
-const logFile = path.join(dataRoot, 'logs', 'app')
+const logFile = path.join(getUserDataPath(), 'logs', 'app')
 // TODO(tec27): configure log levels based on build type
 export default logger(logFile, { logLevels: [ 'verbose', 'debug', 'warning', 'error' ] })

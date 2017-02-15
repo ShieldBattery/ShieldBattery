@@ -39,10 +39,13 @@ goto next-arg
 :args-done
 
 :install-deps
-@rem Install all the node module dependencies
-call yarn
-if errorlevel 1 goto install-failed
-echo JS modules installed.
+SETLOCAL
+  @rem Install all the node module dependencies
+  cd "%scriptroot%"
+  call yarn
+  if errorlevel 1 goto install-failed
+  echo JS modules installed.
+ENDLOCAL
 goto find-vs-2015
 
 :find-vs-2015

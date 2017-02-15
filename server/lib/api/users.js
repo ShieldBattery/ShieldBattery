@@ -7,7 +7,7 @@ import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import checkPermissions from '../permissions/check-permissions'
 import { getTokenByEmail } from '../models/invites'
-import { isValidUsername, isValidEmail, isValidPassword } from '../../../common/constants'
+import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 
 export default function(router) {

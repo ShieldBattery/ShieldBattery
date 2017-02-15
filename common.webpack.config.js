@@ -72,7 +72,7 @@ export default function({
       // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(
-          /[\\/]any-promise[\\/]/, require.resolve('./common/promise.js')),
+          /[\\/]any-promise[\\/]/, require.resolve('./app/common/promise.js')),
       new webpack.DefinePlugin({
         'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),
@@ -101,6 +101,10 @@ export default function({
     ]
   } else {
     config.plugins = config.plugins.concat([
+      new webpack.DefinePlugin({
+        // We only define the exact field here to avoid overwriting all of process.env
+        'process.env.NODE_ENV': JSON.stringify('production')
+      }),
       // This path is relative to the publicPath, not this file's directory
       new ExtractTextPlugin('../styles/site.css', { allChunks: true }),
       new webpack.optimize.DedupePlugin(),
