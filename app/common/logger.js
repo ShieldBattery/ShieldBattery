@@ -10,7 +10,7 @@ const defaultOptions = {
   maxRollovers: 3,
   logLevels: [ 'warning', 'error' ],
 }
-const possibleLevels = [ 'verbose', 'debug', 'warning', 'error' ]
+const possibleLevels = [ 'verbose', 'info', 'debug', 'warning', 'error' ]
 
 export default function createLogger(baseFilename, options) {
   const actualOptions = {}
