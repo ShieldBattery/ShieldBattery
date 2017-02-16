@@ -24,7 +24,7 @@ export default function registerModule({ ipcRenderer }) {
   }).on(NEW_VERSION_DOWNLOAD_ERROR, () => {
     dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED, error: true })
   }).on(NEW_VERSION_DOWNLOADED, () => {
-    dispatch({ type: NEW_VERSION_DOWNLOADED })
+    dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED })
   }).on(NEW_VERSION_UP_TO_DATE, () => {
     dispatch({ type: UPDATER_UP_TO_DATE })
   })
