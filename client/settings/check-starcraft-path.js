@@ -3,55 +3,15 @@
 import fs from 'fs'
 import path from 'path'
 import thenify from 'thenify'
-import childProcess from 'child_process'
 import logger from '../logging/logger'
-
-// Returns a promise that will resolve to a string version of the specified exe file (or reject with
-// any errors that may occur)
-function getExeVersion(filePath) {
-  const command = process.env.SystemRoot ?
-      path.join(process.env.SystemRoot, 'System32', 'wbem', 'wmic.exe') :
-      'wmic.exe'
-  const wmicCommand =
-      `datafile where name="${filePath.replace(/"/g, '\\"').replace(/\\/g, '\\\\')}" get version`
-  return new Promise((resolve, reject) => {
-    let spawned
-    try {
-      spawned = childProcess.spawn(command, [])
-    } catch (err) {
-      reject(err)
-    }
-
-    let stdout = ''
-    let err
-    spawned.stdout.on('data', data => { stdout += data })
-    spawned.on('error', e => { err = err || e })
-      .on('close', (code, signal) => {
-        if (err === undefined && code !== 0) {
-          err = new Error('Non-zero exit code: ' + (signal || code))
-        }
-        if (err !== undefined) {
-          reject(err)
-          return
-        }
-
-        // Output should look like:
-        // Version
-        // 1.16.1.1
-        const lines = stdout.split(/\r?\n/g)
-        if (lines.length < 2 || !lines[0].startsWith('wmic:root\\cli>Version')) {
-          reject(new Error('Malformed wmic output'))
-          return
-        }
-
-        resolve(lines[1].trim())
-      })
-
-    spawned.stdin.end(wmicCommand)
-  })
-}
+import HashThrough from '../../app/common/hash-through'
 
 const accessAsync = thenify(fs.access)
+
+const HASHES_1161 = [
+  'ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46',
+]
+
 export async function checkStarcraftPath(dirPath) {
   const filePath = path.join(dirPath, 'starcraft.exe')
   try {
@@ -60,16 +20,24 @@ export async function checkStarcraftPath(dirPath) {
     return { path: false, version: false }
   }
 
-  let version
+  const hasher = new HashThrough()
+  fs.createReadStream(filePath).pipe(hasher)
+  hasher.resume()
+  let hash
   try {
-    version = await getExeVersion(filePath)
+    hash = await hasher.hashPromise
   } catch (err) {
-    logger.warning('Error getting exe version: ' + err)
+    logger.error('Error hashing StarCraft executable: ' + err)
     return { path: true, version: false }
+  }
+
+  const matches = HASHES_1161.includes(hash)
+  if (!matches) {
+    logger.error('StarCraft executable has non-matching hash: ' + hash)
   }
 
   return {
     path: true,
-    version: version === '1.16.1.1'
+    version: matches
   }
 }

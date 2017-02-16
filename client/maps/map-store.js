@@ -1,34 +1,15 @@
 import fs from 'fs'
 import path from 'path'
-import crypto from 'crypto'
-import { Transform } from 'stream'
 import mkdirp from 'mkdirp'
 import thenify from 'thenify'
 import { Map } from 'immutable'
 import request from 'request'
+import HashThrough from '../../app/common/hash-through'
 import log from '../logging/logger'
 import { makeServerUrl } from '../network/server-url'
 
 const asyncStat = thenify(fs.stat)
 const asyncMkdirp = thenify(mkdirp)
-
-class HashThrough extends Transform {
-  constructor(opts) {
-    super(opts)
-    this.hasher = crypto.createHash('sha256')
-    this.hashPromise = new Promise((resolve, reject) => {
-      this.on('finish', () => resolve(this.hasher.digest('hex')))
-        .on('error', err => reject(err))
-    })
-  }
-
-  _transform(chunk, enc, cb) {
-    this.hasher.update(chunk)
-
-    this.push(chunk)
-    cb()
-  }
-}
 
 export default class MapStore {
   constructor(basePath) {
