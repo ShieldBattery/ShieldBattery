@@ -2,6 +2,7 @@ import { getUserDataPath } from './user-data-path'
 getUserDataPath()
 
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import localShortcut from 'electron-localshortcut'
 import path from 'path'
 import isDev from 'electron-is-dev'
 import logger from './logger'
@@ -49,8 +50,26 @@ function applyOriginFilter(curSession, baseUrl) {
   })
 }
 
+function addDevtron() {
+  if (!isDev) {
+    return
+  }
+
+  try {
+    const devtronAlreadyAdded = BrowserWindow.getDevToolsExtensions &&
+        {}.hasOwnProperty.call(BrowserWindow.getDevToolsExtensions(), 'devtron')
+
+    if (!devtronAlreadyAdded) {
+      BrowserWindow.addDevToolsExtension(require('devtron').path)
+    }
+  } catch (err) {
+    console.error('Error adding devtron: ' + err)
+  }
+}
+
 async function installDevExtensions() {
   if (isDev) {
+    addDevtron()
     const installer = require('electron-devtools-installer')
     const extensions = [
       'REACT_DEVELOPER_TOOLS',
@@ -149,6 +168,16 @@ function setupIpc(localSettings) {
   }
 }
 
+function registerHotkeys() {
+  const isMac = process.platform === 'darwin'
+  localShortcut.register(mainWindow, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',
+      () => mainWindow.toggleDevTools())
+  localShortcut.register(mainWindow, 'F12', () => mainWindow.toggleDevTools())
+
+  localShortcut.register(mainWindow, 'CmdOrCtrl+R',
+      () => mainWindow.webContents.reloadIgnoringCache())
+  localShortcut.register(mainWindow, 'F5', () => mainWindow.webContents.reloadIgnoringCache())
+}
 
 async function createWindow(localSettings, curSession) {
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
@@ -227,9 +256,12 @@ async function createWindow(localSettings, curSession) {
     slashes: true
   }))
 
+  registerHotkeys()
+
   mainWindow.once('ready-to-show', () => { mainWindow.show() })
-  // TODO(tec27): only do this in dev mode :)
-  mainWindow.webContents.openDevTools()
+  if (isDev) {
+    mainWindow.webContents.openDevTools()
+  }
 
   mainWindow.on('closed', () => { mainWindow = null })
 }

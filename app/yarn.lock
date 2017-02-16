@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+accessibility-developer-tools@^2.11.0:
+  version "2.11.0"
+  resolved "https://registry.yarnpkg.com/accessibility-developer-tools/-/accessibility-developer-tools-2.11.0.tgz#2b669c802671672aed5c61c42a782082a2fc7d2c"
+
 ansi-regex@^2.0.0:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/ansi-regex/-/ansi-regex-2.1.1.tgz#c3b33ab5ee360d86e0e628f0468ae7ef27d654df"
@@ -457,6 +461,14 @@ detect-indent@^4.0.0:
   dependencies:
     repeating "^2.0.0"
 
+devtron@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/devtron/-/devtron-1.4.0.tgz#b5e748bd6e95bbe70bfcc68aae6fe696119441e1"
+  dependencies:
+    accessibility-developer-tools "^2.11.0"
+    highlight.js "^9.3.0"
+    humanize-plus "^1.8.1"
+
 electron-builder-http@13.6.0:
   version "13.6.0"
   resolved "https://registry.yarnpkg.com/electron-builder-http/-/electron-builder-http-13.6.0.tgz#c4b6a4c7872b02576260eb7a1ebd9b6dc13830f8"
@@ -467,6 +479,10 @@ electron-builder-http@13.6.0:
 electron-is-dev@^0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/electron-is-dev/-/electron-is-dev-0.1.2.tgz#8a1043e32b3a1da1c3f553dce28ce764246167e3"
+
+electron-localshortcut@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/electron-localshortcut/-/electron-localshortcut-1.0.0.tgz#e9c1ba267c75376e1b254af206b9ff856360a67a"
 
 electron-updater@^1.6.4:
   version "1.6.4"
@@ -519,12 +535,20 @@ has-ansi@^2.0.0:
   dependencies:
     ansi-regex "^2.0.0"
 
+highlight.js@^9.3.0:
+  version "9.9.0"
+  resolved "https://registry.yarnpkg.com/highlight.js/-/highlight.js-9.9.0.tgz#b9995dcfdc2773e307a34f0460d92b9a474782c0"
+
 home-or-tmp@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/home-or-tmp/-/home-or-tmp-2.0.0.tgz#e36c3f2d2cae7d746a857e38d18d5f32a7882db8"
   dependencies:
     os-homedir "^1.0.0"
     os-tmpdir "^1.0.1"
+
+humanize-plus@^1.8.1:
+  version "1.8.2"
+  resolved "https://registry.yarnpkg.com/humanize-plus/-/humanize-plus-1.8.2.tgz#a65b34459ad6367adbb3707a82a3c9f916167030"
 
 invariant@^2.2.0:
   version "2.2.2"
