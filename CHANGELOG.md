@@ -1,3 +1,20 @@
+#### 5.0.0 (February 15th, 2017)
+
+- **Standalone client.** We've moved to a standalone client model, instead of running everything
+through your browser. This'll mean faster file browsing, better integration for things like finding
+your StarCraft installation (coming soon!), and an easier time for us developers (which means more
+features for you!). You can (and will be able to!) continue to use the browser for chat (and for
+viewing game results and ladder standings and such once those are in), but you'll need to download
+our client to play and watch games and replays. You can go ahead and uninstall our previous
+installation as well.
+- **Automatic updating.** You won't have to click links in a dialog like a pleb any more! The client
+will automatically figure out what version you should be on and download it, prompting you to
+restart when it's done. This'll get a lot smoother in the near future, as well!
+- **Maps.** You folks like maps, right? We've added Aztec, Demian, Benzen, Bloody Ridge, Neo
+Forbidden Zone, and Theatre of War to the pool. Byzantium was also fixed, and the Fastest Map
+Possible version was replaced with one from UGL.
+
+
 #### 4.2.0 (December 11th, 2016)
 
 - **Replay browsing and watching.** Not only do replays save automatically, but now you can watch
