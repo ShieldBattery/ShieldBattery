@@ -62,9 +62,9 @@ class SettingsForm extends React.Component {
       bindCustom,
       bindInput,
       onSubmit,
+      resolution
     } = this.props
 
-    const resolution = getResolution()
     const windowSizeProps = this.isFullscreen() ? {
       value: { width: resolution.width, height: resolution.height },
       disabled: true,
@@ -104,9 +104,13 @@ class SettingsForm extends React.Component {
 
 @connect(state => ({ settings: state.settings }))
 export default class Settings extends React.Component {
-  _focusTimeout = null;
-  _form = null;
-  _setForm = elem => { this._form = elem };
+  _focusTimeout = null
+  _form = null
+  _setForm = elem => { this._form = elem }
+  // NOTE(tec27): Slight optimizaton, since getting the resolution is IPC'd. We assume it will
+  // never change while this form is up. I think this is mostly true (and at worst, you just close
+  // Settings and re-open it and you're fine)
+  _resolution = getResolution()
 
   componentDidMount() {
     this._focusTimeout = setTimeout(() => {
@@ -121,8 +125,8 @@ export default class Settings extends React.Component {
     }
   }
 
-  getDefaultWindowSizeValue(localSettings, resolution) {
-    const { width, height } = getResolution()
+  getDefaultWindowSizeValue(localSettings) {
+    const { width, height } = this._resolution
     const filteredSizes = filterWindowSizes(width, height)
     for (const size of filteredSizes) {
       if (size.width === localSettings.width && size.height === localSettings.height) {
@@ -139,7 +143,6 @@ export default class Settings extends React.Component {
   render() {
     const { onCancel } = this.props
     const { local } = this.props.settings
-    const resolution = getResolution()
 
     const formModel = {
       displayMode: local.displayMode,
@@ -147,7 +150,7 @@ export default class Settings extends React.Component {
       path: local.starcraftPath,
       renderer: local.renderer,
       sensitivity: local.mouseSensitivity,
-      windowSize: this.getDefaultWindowSizeValue(local, resolution)
+      windowSize: this.getDefaultWindowSizeValue(local)
     }
 
     const buttons = [
@@ -157,11 +160,11 @@ export default class Settings extends React.Component {
           onClick={this.onSettingsSave} />
     ]
 
-    const defaultWindowSize = this.getDefaultWindowSizeValue(local, resolution)
+    const defaultWindowSize = this.getDefaultWindowSizeValue(local)
     return (<Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
       <SettingsForm
           ref={this._setForm}
-          resolution={resolution}
+          resolution={this._resolution}
           defaultWindowSize={defaultWindowSize}
           model={formModel}
           onSubmit={this.onSubmit}/>
