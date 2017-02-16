@@ -8,6 +8,12 @@ extraResources:
 files:
 - "!**/*.map"
 - "!build/**/*"
+# Devtron and its deps bring in a *ton* of space hogging files, but aren't used in the packed app,
+# so we manually strip them out. Bleh.
+- "!node_modules/accessibility-developer-tools/**/*"
+- "!node_modules/devtron/**/*"
+- "!node_modules/highlight.js/**/*"
+- "!node_modules/humanize-plus/**/*"
 nsis:
   artifactName: "${productName}-setup-${version}.${ext}"
   # There's currently a bug with Windows Defender that makes it slow things down considerably if
