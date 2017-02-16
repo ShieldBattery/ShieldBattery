@@ -1,7 +1,7 @@
 {
   "name": "shieldbattery",
   "private": true,
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "The modern way to play StarCraft: Brood War.",
   "homepage": "https://github.com/tec27/shieldbattery#readme",
   "main": "index.js",
