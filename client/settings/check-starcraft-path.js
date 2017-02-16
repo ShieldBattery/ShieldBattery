@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import thenify from 'thenify'
 import childProcess from 'child_process'
+import logger from '../logging/logger'
 
 // Returns a promise that will resolve to a string version of the specified exe file (or reject with
 // any errors that may occur)
@@ -63,6 +64,7 @@ export async function checkStarcraftPath(dirPath) {
   try {
     version = await getExeVersion(filePath)
   } catch (err) {
+    logger.warning('Error getting exe version: ' + err)
     return { path: true, version: false }
   }
 
