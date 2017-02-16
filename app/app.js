@@ -14,6 +14,7 @@ import currentSession from './current-session'
 import { autoUpdater } from 'electron-updater'
 import {
   LOG_MESSAGE,
+  NETWORK_SITE_CONNECTED,
   NEW_VERSION_DOWNLOAD_ERROR,
   NEW_VERSION_DOWNLOADED,
   NEW_VERSION_FOUND,
@@ -140,6 +141,12 @@ function setupIpc(localSettings) {
   }).on(NEW_VERSION_GET_STATE, event => {
     event.sender.send(updateState)
   })
+
+  if (!isDev) {
+    ipcMain.on(NETWORK_SITE_CONNECTED, () => {
+      autoUpdater.checkForUpdates()
+    })
+  }
 }
 
 

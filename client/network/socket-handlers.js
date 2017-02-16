@@ -5,6 +5,9 @@ import {
   NETWORK_SITE_CONNECTED,
   NETWORK_SITE_DISCONNECTED,
 } from '../actions'
+import {
+  NETWORK_SITE_CONNECTED as IPC_NETWORK_SITE_CONNNECTED,
+} from '../../app/common/ipc-constants'
 
 import chat from '../chat/socket-handlers'
 import loading from '../loading/socket-handlers'
@@ -18,6 +21,9 @@ function networkStatusHandler({ siteSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
   siteSocket.on('connect', () => {
     dispatch({ type: NETWORK_SITE_CONNECTED })
+    if (ipcRenderer) {
+      ipcRenderer.send(IPC_NETWORK_SITE_CONNNECTED)
+    }
   }).on('disconnect', () => {
     dispatch({ type: NETWORK_SITE_DISCONNECTED })
   })
@@ -54,8 +60,6 @@ const handlers = [
   serverStatus,
   whispers,
 ].concat(envSpecificHandlers)
-
-console.dir(handlers)
 
 export default function register() {
   for (const handler of handlers) {

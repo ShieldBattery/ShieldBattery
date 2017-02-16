@@ -3,6 +3,9 @@
 // A new log message is being emitted
 export const LOG_MESSAGE = 'LOG_MESSAGE'
 
+// Tells the main process that a renderer process is now connected to the site
+export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
+
 // Tells a renderer process that a new version was found, but failed to download
 export const NEW_VERSION_DOWNLOAD_ERROR = 'NEW_VERSION_DOWNLOAD_ERROR'
 // Tells a renderer process that a new version has been downloaded (and can be installed)
