@@ -191,6 +191,14 @@ export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
 // initial data
 export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'
 
+// The auto-updater has found that a new version is available and a download is in progress
+export const UPDATER_NEW_VERSION_FOUND = 'UPDATER_NEW_VERSION_FOUND'
+// The auto-updater has terminated downloading a new version (successfully or unsuccessfully). If
+// successful, it is ready to restart and install it.
+export const UPDATER_NEW_VERSION_DOWNLOADED = 'UPDATER_NEW_VERSION_DOWNLOADED'
+// The auto-updater determined that we're using the latest version
+export const UPDATER_UP_TO_DATE = 'UPDATER_UP_TO_DATE'
+
 // We are starting the process of closing a whisper session (read comment for
 // WHISPERS_START_SESSION_BEGIN action to see what a 'session' represents) with a particular user.
 // Ie., pressing an 'x' in the whispers nav entry next to the user's name

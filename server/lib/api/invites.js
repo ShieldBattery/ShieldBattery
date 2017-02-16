@@ -103,7 +103,7 @@ async function acceptInvite(ctx, next) {
         escapedEmail: encodeURIComponent(invite.email),
         token: invite.token,
         feedbackUrl: config.feedbackUrl,
-        installerUrl: config.installerUrl,
+        installerUrl: `${config.canonicalHost}/installer.msi`,
       }
     })
 

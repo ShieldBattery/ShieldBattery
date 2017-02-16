@@ -43,13 +43,6 @@
   composes: row itemsCenter;
 }
 
-.primary {
+.installerLink {
   composes: display1;
-  order: 1;
-  margin-bottom: 8px;
-}
-
-.secondary {
-  composes: body1;
-  order: 2;
 }

@@ -17,6 +17,7 @@
     "babel-register": "^6.18.0",
     "deep-equal": "^1.0.1",
     "electron-is-dev": "^0.1.2",
+    "electron-updater": "^1.6.4",
     "mkdirp": "^0.5.1",
     "nan": "^2.5.0",
     "thenify": "^3.2.1",

@@ -1,0 +1,13 @@
+@value row, itemsCenter, justifyCenter from '../styles/flex.css';
+@value title from '../styles/typography.css';
+
+.text {
+  composes: title;
+  font-weight: 400;
+}
+
+.loading {
+  composes: row itemsCenter justifyCenter;
+  width: 100%;
+  height: 80px;
+}

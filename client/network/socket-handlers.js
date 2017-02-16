@@ -6,12 +6,9 @@ import {
   NETWORK_SITE_DISCONNECTED,
 } from '../actions'
 
-import activeGame from '../active-game/socket-handlers'
 import chat from '../chat/socket-handlers'
 import loading from '../loading/socket-handlers'
-import lobbies from '../lobbies/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
-import settings from '../settings/ipc-handlers'
 import whispers from '../whispers/socket-handlers'
 
 const ipcRenderer =
@@ -42,17 +39,23 @@ function rallyPointHandler({ siteSocket }) {
   })
 }
 
+const envSpecificHandlers = process.webpackEnv.SB_ENV === 'electron' ? [
+  rallyPointHandler,
+  require('../active-game/socket-handlers').default,
+  require('../download/ipc-handlers').default,
+  require('../lobbies/socket-handlers').default,
+  require('../settings/ipc-handlers').default,
+] : []
+
 const handlers = [
   chat,
   loading,
   networkStatusHandler,
   serverStatus,
   whispers,
-]
+].concat(envSpecificHandlers)
 
-if (process.webpackEnv.SB_ENV === 'electron') {
-  handlers.push(activeGame, lobbies, rallyPointHandler, settings)
-}
+console.dir(handlers)
 
 export default function register() {
   for (const handler of handlers) {

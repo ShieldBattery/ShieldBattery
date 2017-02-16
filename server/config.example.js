@@ -35,10 +35,6 @@ config.logLevels = {
 // Uncomment and set a url to the feedback page that is shown on the main site
 // config.feedbackUrl = 'http://goo.gl/forms/yaV3pAlCdzWEikTL2'
 
-// Uncomment to specify an installer URL, which will be given to clients if their Psi is detected
-// to be out of date. If none is specified, no link will be given to clients.
-// config.installerUrl = 'https://localhost/installer.msi'
-
 // Settings for rally-point (forwarding servers for use by game players). Two possible options:
 // - Use a local server (spun up as a child process), typical for dev
 // - Use a set of remote servers, typical for production

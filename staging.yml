@@ -18,8 +18,11 @@ nsis:
 win:
   certificateSubjectName: Travis Collins
   icon: icon.ico
-  target: nsis
+  target: nsis-web
 
 # These properties differ between configs
 productName: ShieldBattery-Dev
 productFilename: ShieldBattery-Dev
+publish:
+  provider: generic
+  url: "https://dev.shieldbattery.net/published_artifacts/${os}/"

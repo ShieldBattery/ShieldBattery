@@ -7,6 +7,7 @@ import JoinChannelDialog from '../chat/join-channel.jsx'
 import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import DownloadDialog from '../download/download-dialog.jsx'
+import UpdateDialog from '../download/update-dialog.jsx'
 import { closeDialog } from './dialog-action-creator'
 import styles from '../material/dialog.css'
 
@@ -30,6 +31,7 @@ class ConnectedDialogOverlay extends React.Component {
       case 'download': return DownloadDialog
       case 'psiHealth': return PsiHealthCheckupDialog
       case 'settings': return Settings
+      case 'updateAvailable': return UpdateDialog
       case 'whispers': return CreateWhisperSessionDialog
       default: throw new Error('Unknown dialog type: ' + dialogType)
     }

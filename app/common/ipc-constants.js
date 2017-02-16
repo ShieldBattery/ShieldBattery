@@ -3,6 +3,20 @@
 // A new log message is being emitted
 export const LOG_MESSAGE = 'LOG_MESSAGE'
 
+// Tells a renderer process that a new version was found, but failed to download
+export const NEW_VERSION_DOWNLOAD_ERROR = 'NEW_VERSION_DOWNLOAD_ERROR'
+// Tells a renderer process that a new version has been downloaded (and can be installed)
+export const NEW_VERSION_DOWNLOADED = 'NEW_VERSION_DOWNLOADED'
+// Tells a renderer process that a new version has been found (and is in the process of being
+// downloaded)
+export const NEW_VERSION_FOUND = 'NEW_VERSION_FOUND'
+// Forces the main process to give a particular renderer process the current auto-updater state
+export const NEW_VERSION_GET_STATE = 'NEW_VERSION_GET_STATE'
+// Tells the main process that it should restart and install the downloaded new version
+export const NEW_VERSION_RESTART = 'NEW_VERSION_RESTART'
+// Tells a renderer process that the current app version is up to date
+export const NEW_VERSION_UP_TO_DATE = 'NEW_VERSION_UP_TO_DATE'
+
 // The local settings have changed (includes the new settings)
 export const SETTINGS_CHANGED = 'SETTINGS_CHANGED'
 // Cause the main process to immediately emit a SETTINGS_CHANGED event

@@ -6,11 +6,20 @@ import path from 'path'
 import isDev from 'electron-is-dev'
 import logger from './logger'
 
+app.setAppUserModelId('net.shieldbattery.client')
+
 import url from 'url'
 import LocalSettings from './local-settings'
 import currentSession from './current-session'
+import { autoUpdater } from 'electron-updater'
 import {
   LOG_MESSAGE,
+  NEW_VERSION_DOWNLOAD_ERROR,
+  NEW_VERSION_DOWNLOADED,
+  NEW_VERSION_FOUND,
+  NEW_VERSION_GET_STATE,
+  NEW_VERSION_RESTART,
+  NEW_VERSION_UP_TO_DATE,
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
   SETTINGS_EMIT_ERROR,
@@ -23,7 +32,7 @@ import {
   WINDOW_MINIMIZE,
 } from './common/ipc-constants'
 
-app.setAppUserModelId('net.shieldbattery.client')
+autoUpdater.logger = logger
 
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
@@ -65,7 +74,7 @@ function setupIpc(localSettings) {
     event.sender.send(UPDATE_SERVER_COMPLETE)
   })
 
-  ipcMain.on(SETTINGS_EMIT, (event) => {
+  ipcMain.on(SETTINGS_EMIT, event => {
     localSettings.get().then(settings => event.sender.send(SETTINGS_CHANGED, settings),
         err => {
           logger.error('Error getting settings: ' + err)
@@ -102,6 +111,34 @@ function setupIpc(localSettings) {
     if (mainWindow) {
       mainWindow.webContents.send(SETTINGS_CHANGED, settings)
     }
+  })
+
+  let updateState = NEW_VERSION_UP_TO_DATE
+  const sendUpdateState = () => {
+    if (mainWindow) {
+      mainWindow.webContents.send(updateState)
+    }
+  }
+  autoUpdater.on('update-available', () => {
+    updateState = NEW_VERSION_FOUND
+    sendUpdateState()
+  }).on('update-not-available', () => {
+    updateState = NEW_VERSION_UP_TO_DATE
+    sendUpdateState()
+  }).on('update-downloaded', () => {
+    updateState = NEW_VERSION_DOWNLOADED
+    sendUpdateState()
+  }).on('error', () => {
+    if (updateState === NEW_VERSION_FOUND) {
+      updateState = NEW_VERSION_DOWNLOAD_ERROR
+      sendUpdateState()
+    }
+  })
+
+  ipcMain.on(NEW_VERSION_RESTART, () => {
+    autoUpdater.quitAndInstall()
+  }).on(NEW_VERSION_GET_STATE, event => {
+    event.sender.send(updateState)
   })
 }
 
@@ -193,6 +230,14 @@ async function createWindow(localSettings, curSession) {
 app.on('ready', async () => {
   const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
+
+  if (!isDev) {
+    setInterval(() => {
+      // TODO(tec27): trigger another update check when the websocket reconnects to the server
+      autoUpdater.checkForUpdates()
+    }, 1 * 60 * 60 * 1000)
+    autoUpdater.checkForUpdates()
+  }
 
   try {
     const [, localSettings] = await Promise.all([devExtensionsPromise, localSettingsPromise])
