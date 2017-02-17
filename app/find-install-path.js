@@ -67,7 +67,7 @@ export async function findInstallPath() {
   const paths = recentMaps.split('\\0').filter(p => {
     const path = p.toLowerCase()
     return (path.includes('\\maps\\') &&
-        !path.includes('\\programdata\\shieldbattery') &&
+        !/\\shieldbattery(|-dev|-local)\\maps\\/i.test(path) &&
         (!localAppData || !path.includes(localAppData)))
   })
   if (!paths.length) {
