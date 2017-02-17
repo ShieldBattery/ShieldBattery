@@ -23,8 +23,6 @@ win:
   certificateSubjectName: Travis Collins
   icon: icon.ico
   target: nsis-web
-  publish:
-    - generic
 
 # These properties differ between configs
 productName: ShieldBattery
