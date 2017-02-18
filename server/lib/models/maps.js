@@ -49,33 +49,36 @@ export async function mapExists(hashStr) {
   }
 }
 
-export async function mapInfo(hashStr) {
-  let hash
-  try {
-    hash = Buffer.from(hashStr, 'hex')
-  } catch (e) {
-    return null
-  }
+// Returns an array of map info objects, ordered in the same way as they were passed in.
+// An array entry is null if a map doesn't exist in the db.
+export async function mapInfo(...hashStr) {
+  const hashes = hashStr.map(s => '\\x' + s)
   const { client, done } = await db()
   try {
-    const query = 'SELECT extension, title, description, width, height, players_melee, ' +
+    const query = 'SELECT hash, extension, title, description, width, height, players_melee, ' +
         'players_ums, tileset ' +
-        'FROM maps WHERE hash = $1'
-    const result = await client.queryPromise(query, [ hash ])
+        'FROM maps WHERE hash = ANY($1)'
+    const result = await client.queryPromise(query, [ hashes ])
     if (result.rows.length === 0) {
       return null
     } else {
-      const res = result.rows[0]
-      return {
-        format: res.extension,
-        tileset: tilesetIdToName(res.tileset),
-        name: res.title,
-        description: res.description,
-        slots: res.players_melee,
-        umsSlots: res.players_ums,
-        width: res.width,
-        height: res.height,
-      }
+      return hashStr.map(hash => {
+        const info = result.rows.find(x => x.hash.toString('hex') === hash)
+        if (!info) {
+          return null
+        } else {
+          return {
+            format: info.extension,
+            tileset: tilesetIdToName(info.tileset),
+            name: info.title,
+            description: info.description,
+            slots: info.players_melee,
+            umsSlots: info.players_ums,
+            width: info.width,
+            height: info.height,
+          }
+        }
+      })
     }
   } finally {
     done()

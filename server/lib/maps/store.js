@@ -1,5 +1,6 @@
 import childProcess from 'child_process'
 import fs from 'fs'
+import { Seq } from 'immutable'
 import { PassThrough } from 'stream'
 import config from '../../config.js'
 import * as db from '../models/maps'
@@ -23,18 +24,20 @@ export async function storeMap(hash, extension, origFilename, timestamp, mapMpqP
   await db.addMap(hash, extension, origFilename, mapData, timestamp)
 }
 
-export async function mapInfo(hash) {
-  const info = await db.mapInfo(hash)
-  if (!info) {
-    return null
-  } else {
-    return {
-      hash,
-      mapUrl: await getUrl(mapPath(hash, info.format)),
-      imageUrl: await getUrl(imagePath(hash)),
-      ...info,
+export async function mapInfo(...hashes) {
+  const dbInfo = await db.mapInfo(...hashes)
+  return Promise.all(new Seq(dbInfo).zip(hashes).map(async ([info, hash]) => {
+    if (!info) {
+      return null
+    } else {
+      return {
+        hash,
+        mapUrl: await getUrl(mapPath(hash, info.format)),
+        imageUrl: await getUrl(imagePath(hash)),
+        ...info,
+      }
     }
-  }
+  }))
 }
 
 function mapPath(hash, extension) {

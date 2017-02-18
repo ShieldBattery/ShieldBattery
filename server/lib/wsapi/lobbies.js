@@ -148,7 +148,7 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapData = await mapInfo(map)
+    const mapData = (await mapInfo(map))[0]
     if (!mapData) {
       throw new errors.BadRequest('invalid map')
     }

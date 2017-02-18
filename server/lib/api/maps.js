@@ -1,5 +1,6 @@
 import httpErrors from 'http-errors'
 import fs from 'fs'
+import { Seq } from 'immutable'
 import koaBody from 'koa-body'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
@@ -48,7 +49,7 @@ async function upload(ctx, next) {
 
 async function getInfo(ctx, next) {
   const hash = ctx.params.hash
-  const info = await mapInfo(hash)
+  const info = (await mapInfo(hash))[0]
   if (info) {
     ctx.body = info
   } else {
@@ -67,8 +68,24 @@ async function list(ctx, next) {
   }
 
   const maps = MAPS.slice(page * limit, (page + 1) * limit)
+  const dbInfo = await mapInfo(...maps.map(x => x.hash))
   ctx.body = {
-    maps,
+    maps: new Seq(maps).zip(dbInfo).map(([map, info]) => {
+      if (info) {
+        return {
+          // We'll show the map name which is set in maps.json
+          // instead of what is actually stored in the map.
+          hash: map.hash,
+          name: map.name,
+          slots: info.slots,
+        }
+      } else {
+        return {
+          hash: map.hash,
+          name: `(NOT UPLOADED) ${map.name}`,
+        }
+      }
+    }),
     page,
     limit,
     total: MAPS.length,
