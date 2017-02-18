@@ -56,7 +56,7 @@ export async function mapInfo(...hashStr) {
   const { client, done } = await db()
   try {
     const query = 'SELECT hash, extension, title, description, width, height, players_melee, ' +
-        'players_ums, tileset ' +
+        'players_ums, tileset, lobby_init_data ' +
         'FROM maps WHERE hash = ANY($1)'
     const result = await client.queryPromise(query, [ hashes ])
     if (result.rows.length === 0) {
@@ -74,6 +74,7 @@ export async function mapInfo(...hashStr) {
             description: info.description,
             slots: info.players_melee,
             umsSlots: info.players_ums,
+            umsForces: info.lobby_init_data.forces,
             width: info.width,
             height: info.height,
           }
