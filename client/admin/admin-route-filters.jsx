@@ -1,6 +1,6 @@
 import { routerActions } from 'react-router-redux'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
-import { isAdmin, checkPermissions } from './admin-utils'
+import { isAdmin, hasAllPermissions, hasAnyPermission } from './admin-permissions'
 import { goToIndex } from '../navigation/action-creators'
 
 export const IsAdminFilter = createConditionalRedirect(
@@ -9,14 +9,14 @@ export const IsAdminFilter = createConditionalRedirect(
   () => goToIndex(routerActions.replace)
 )
 
-export const CanEditPermissionsFilter = createConditionalRedirect(
-  'CanEditPermissionsFilter',
-  state => !checkPermissions(state.auth, 'editPermissions'),
+export const CanViewUserProfileFilter = createConditionalRedirect(
+  'CanViewUserProfileFilter',
+  state => !hasAnyPermission(state.auth, 'editPermissions', 'banUsers'),
   () => routerActions.replace('/admin')
 )
 
 export const CanAcceptBetaInvitesFilter = createConditionalRedirect(
   'CanAcceptBetaInvitesFilter',
-  state => !checkPermissions(state.auth, 'acceptInvites'),
+  state => !hasAllPermissions(state.auth, 'acceptInvites'),
   () => routerActions.replace('/admin')
 )

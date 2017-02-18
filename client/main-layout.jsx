@@ -39,7 +39,7 @@ import LobbyNavEntry from './lobbies/nav-entry.jsx'
 import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import { logOut } from './auth/auther'
-import { isAdmin } from './admin/admin-utils'
+import { isAdmin } from './admin/admin-permissions'
 import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'

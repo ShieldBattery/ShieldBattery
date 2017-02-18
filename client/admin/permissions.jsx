@@ -1,27 +1,11 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
-import ContentLayout from '../content/content-layout.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import form from '../forms/form.jsx'
 import CheckBox from '../material/check-box.jsx'
-import TextField from '../material/text-field.jsx'
-
-import {
-  composeValidators,
-  minLength,
-  maxLength,
-  regex,
-  required,
-} from '../forms/validators'
-import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-} from '../../app/common/constants'
 
 import { getPermissionsIfNeeded, setPermissions } from './action-creators'
 
@@ -47,18 +31,18 @@ class UserPermissionsForm extends React.Component {
 }
 
 @connect(state => ({ permissions: state.permissions, auth: state.auth }))
-export class PermissionsResults extends React.Component {
+export default class PermissionsResult extends React.Component {
   _form = null;
   _setForm = elem => { this._form = elem };
 
   componentDidMount() {
-    const { username } = this.props.params
+    const { username } = this.props
     this.props.dispatch(getPermissionsIfNeeded(username))
   }
 
   componentDidUpdate(prevProps) {
-    const { username: oldUsername } = prevProps.params
-    const { username: newUsername } = this.props.params
+    const { username: oldUsername } = prevProps
+    const { username: newUsername } = this.props
 
     if (oldUsername !== newUsername) {
       this.props.dispatch(getPermissionsIfNeeded(newUsername))
@@ -68,7 +52,7 @@ export class PermissionsResults extends React.Component {
   render() {
     const {
       permissions: { users },
-      params: { username },
+      username,
     } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
@@ -103,67 +87,8 @@ export class PermissionsResults extends React.Component {
   };
 
   onSubmit = () => {
-    const { username } = this.props.params
+    const { username } = this.props
     const values = this._form.getModel()
     this.props.dispatch(setPermissions(username, values))
-  };
-}
-
-const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
-
-@form({
-  username: usernameValidator,
-})
-class SearchForm extends React.Component {
-  render() {
-    const { onSubmit, bindInput } = this.props
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <TextField {...bindInput('username')} label='Username' floatingLabel={true}
-          inputProps={{
-            tabIndex: 0,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}/>
-    </form>)
-  }
-}
-
-@connect()
-export class PermissionsFind extends React.Component {
-  _form = null;
-  _setForm = elem => { this._form = elem };
-
-  render() {
-    const model = {
-      username: this.props.params.username
-    }
-    return (
-      <ContentLayout title={'Permissions'}>
-        <div className={styles.permissions}>
-          <div>
-            <h3>Find user</h3>
-            <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-            <FlatButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
-          </div>
-          { this.props.children }
-        </div>
-      </ContentLayout>
-    )
-  }
-
-  onFindClick = () => {
-    this._form.submit()
-  };
-
-  onSubmit = () => {
-    const values = this._form.getModel()
-    const username = values.username
-    this.props.dispatch(
-        routerActions.push(`/admin/permissions/${encodeURIComponent(username)}`))
   };
 }
