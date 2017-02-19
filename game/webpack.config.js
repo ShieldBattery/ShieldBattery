@@ -12,48 +12,67 @@ const options = {
     filename: 'index.js'
   },
   module: {
-    loaders: [
+    rules: [
       // Work around an issue with json-schema doing a weird AMD check and being broken in webpack
       {
         test: /validate.js$/,
         include: /node_modules(\\|\/)json-schema/,
-        loader: StringReplacePlugin.replace({
+        use: StringReplacePlugin.replace({
           replacements: [{
             pattern: /\(\{define:typeof define!="undefined"\?define:function\(deps, factory\)\{module\.exports = factory\(\);\}\}\)\./ig, // eslint-disable-line max-len
             replacement(match, p1, offset, string) {
               return ''
             },
           }]
-        })
+        }).split('!').map(name => ({ loader: name })),
       },
       {
         test: /\.js$/,
         exclude: /node_modules/,
-        loader: 'babel',
+        use: [
+          {
+            loader: 'babel-loader',
+            options: {
+              babelrc: false,
+              cacheDirectory: true,
+              presets: [
+                [
+                  'env', {
+                    targets: { node: 7.4 },
+                    modules: false,
+                    useBuiltIns: true,
+                  },
+                ],
+                'stage-0',
+              ],
+              plugins: [
+                'transform-decorators-legacy',
+              ]
+            },
+          },
+        ],
       },
       {
         test: /shaders.+\..+sl$/,
         exclude: /node_modules/,
-        loader: 'raw',
+        use: [
+          { loader: 'raw-loader' },
+        ],
       },
-      {
-        test: /\.json$/,
-        loader: 'json',
-      }
     ]
   },
   devtool: 'hidden-source-map',
-  resolve: {
-    extensions: ['', '.js']
-  },
   plugins: [
+    // get rid of warnings from ws about native requires that its okay with failing
+    new webpack.NormalModuleReplacementPlugin(
+        /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
+    new webpack.NormalModuleReplacementPlugin(
+        /^utf-8-validate$/, require.resolve('ws/lib/Validation.fallback.js')),
     new webpack.NormalModuleReplacementPlugin(
         /[\\/]any-promise[\\/]/, require.resolve('../app/common/promise.js')),
-    new webpack.IgnorePlugin(/README\.md|LICENSE$/),
-    new webpack.optimize.OccurenceOrderPlugin(),
+    new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
     new StringReplacePlugin(),
-    new webpack.optimize.DedupePlugin(),
-    new webpack.NoErrorsPlugin(),
+    new webpack.NoEmitOnErrorsPlugin(),
   ]
 }
 

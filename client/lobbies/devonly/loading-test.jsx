@@ -2,7 +2,8 @@ import React from 'react'
 import { Map } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
-import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer'
+import { LobbyInfo, Player } from '../lobby-reducer'
+import { MapRecord as LobbyMap } from '../maps-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 

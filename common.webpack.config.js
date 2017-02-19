@@ -13,16 +13,6 @@ const VERSION = packageJson.version
 const nodeEnv = process.env.NODE_ENV || 'development'
 const isProd = nodeEnv === 'production'
 
-const cssLoader = 'css-loader?modules&importLoaders=1'
-const styleLoader = {
-  test: /\.css$/,
-  loader:
-      `style-loader!${cssLoader}&localIdentName=[name]__[local]___[hash:base64:5]!postcss-loader`,
-}
-if (isProd) {
-  styleLoader.loader = ExtractTextPlugin.extract('style-loader', `${cssLoader}!postcss-loader`)
-}
-
 export default function({
   webpack: webpackOpts,
   babel: babelOpts,
@@ -31,39 +21,90 @@ export default function({
   envDefines = {},
   minify,
 }) {
+  const postCssOptions = {
+    plugins: () => [
+      cssMixins,
+      cssFor,
+      cssNext(cssNextOpts),
+    ],
+  }
+  const styleRule = {
+    test: /\.css$/,
+    use: !isProd ? [
+      { loader: 'style-loader' },
+      {
+        loader: 'css-loader',
+        options: {
+          modules: true,
+          importLoaders: true,
+          localIdentName: '[name]__[local]__[hash:base64:5]',
+        }
+      },
+      {
+        loader: 'postcss-loader',
+        options: postCssOptions,
+      }
+    ] : ExtractTextPlugin.extract({
+      fallback: 'style-loader',
+      use: [
+        {
+          loader: 'css-loader',
+          options: {
+            modules: true,
+            importLoaders: true,
+          }
+        },
+        {
+          loader: 'postcss-loader',
+          options: postCssOptions,
+        }
+      ]
+    })
+  }
+
   const config = {
     ...webpackOpts,
     context: __dirname,
     module: {
-      loaders: [
+      rules: [
         {
           test: /\.jsx?$/,
           exclude: /node_modules/,
-          loader: 'babel',
-          query: babelOpts,
+          use: [
+            {
+              loader: 'babel-loader',
+              options: babelOpts,
+            }
+          ],
         },
         {
           test: /\.svg$/,
           exclude: /node_modules/,
-          loader: `babel?${JSON.stringify(babelOpts)}!svg-react`,
+          use: [
+            {
+              loader: 'babel-loader',
+              options: babelOpts,
+            },
+            {
+              loader: 'react-svg-loader',
+              options: {
+                jsx: true,
+              }
+            },
+          ]
         },
         {
           test: /\.md$/,
           exclude: /README.md$/,
-          loader: 'html!markdown'
+          use: [
+            { loader: 'html-loader' },
+            { loader: 'markdown-loader' },
+          ],
         },
-        {
-          test: /\.json$/,
-          loader: 'json',
-        },
-        styleLoader
+        styleRule
       ],
     },
-    resolve: {
-      extensions: ['', '.js']
-    },
     plugins: [
-      new webpack.optimize.OccurenceOrderPlugin(),
       // get rid of warnings from ws about native requires that its okay with failing
       new webpack.NormalModuleReplacementPlugin(
           /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
@@ -81,11 +122,6 @@ export default function({
         },
       }),
     ],
-    postcss: [
-      cssMixins,
-      cssFor,
-      cssNext(cssNextOpts),
-    ],
   }
 
   if (!isProd) {
@@ -93,7 +129,8 @@ export default function({
     config.node = { __filename: true, __dirname: true }
 
     config.plugins.push(new webpack.HotModuleReplacementPlugin())
-    config.debug = true
+    // TODO(tec27): can we just remove this? Are any of our loaders actually using this?
+    config.plugins.push(new webpack.LoaderOptionsPlugin({ debug: true }))
     config.devtool = 'cheap-module-eval-source-map'
     config.entry = [
       hotUrl,
@@ -105,19 +142,22 @@ export default function({
         // We only define the exact field here to avoid overwriting all of process.env
         'process.env.NODE_ENV': JSON.stringify('production')
       }),
-      // This path is relative to the publicPath, not this file's directory
-      new ExtractTextPlugin('../styles/site.css', { allChunks: true }),
-      // TODO(tec27): figure out why this is broken: new webpack.optimize.DedupePlugin(),
+      new ExtractTextPlugin({
+        // This path is relative to the publicPath, not this file's directory
+        filename: '../styles/site.css',
+        allChunks: true,
+      }),
     ])
     if (minify) {
       config.plugins.push(new webpack.optimize.UglifyJsPlugin({
         compress: { warnings: false },
         output: { comments: false },
+        sourceMap: true,
       }))
     }
     config.devtool = 'hidden-source-map'
   }
-  config.plugins.push(new webpack.NoErrorsPlugin())
+  config.plugins.push(new webpack.NoEmitOnErrorsPlugin())
 
   return config
 }

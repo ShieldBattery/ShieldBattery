@@ -15,31 +15,42 @@ const webpackOpts = {
 }
 
 const babelOpts = {
+  babelrc: false,
   cacheDirectory: true,
-  presets: ['react', 'node7', 'stage-0'],
+  presets: [
+    'react',
+    [
+      'env', {
+        /*
+          TODO(tec27): change this to the proper version (1.6 at this time) once babel-preset-env
+          updates to include that version
+        */
+        targets: { electron: 1.5 },
+        modules: false,
+        useBuiltIns: true,
+      },
+    ],
+    'stage-0',
+  ],
   plugins: [
     'transform-decorators-legacy',
+  ].concat(process.env.NODE_ENV !== 'production' ? [
     // Need these to work around an issue in react-transform/react-hot-loader:
     // https://github.com/gaearon/react-hot-loader/issues/313
     'transform-class-properties',
     'transform-es2015-classes',
-  ],
-  env: {
-    development: {
-      plugins: [
-        ['react-transform', {
-          transforms: [{
-            transform: 'react-transform-hmr',
-            imports: ['react'],
-            locals: ['module']
-          }, {
-            transform: 'react-transform-catch-errors',
-            imports: ['react', 'redbox-react']
-          }]
-        }],
-      ]
-    },
-  }
+
+    ['react-transform', {
+      transforms: [{
+        transform: 'react-transform-hmr',
+        imports: ['react'],
+        locals: ['module']
+      }, {
+        transform: 'react-transform-catch-errors',
+        imports: ['react', 'redbox-react']
+      }]
+    }],
+  ] : []),
 }
 
 // This option is probably *too* safe given that we're deploying this on Electron, but I don't think

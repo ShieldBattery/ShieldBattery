@@ -1,6 +1,8 @@
 import makeConfig from '../common.webpack.config.js'
 import path from 'path'
 
+const TARGET_BROWSERS = 'last 2 versions'
+
 const webpackOpts = {
   // Relative to the root directory
   entry: './client/index.jsx',
@@ -11,32 +13,48 @@ const webpackOpts = {
   },
   resolveLoader: {
     // Look for loaders in server's node_modules directory, instead of client's
-    root: path.join(__dirname, 'node_modules'),
+    modules: [
+      path.join(__dirname, 'node_modules'),
+      'node_modules',
+    ],
   },
 }
 const babelOpts = {
+  babelrc: false,
   cacheDirectory: true,
   // Note that these need to be installed in the root package.json, not the server one
-  presets: ['react', 'es2015', 'es2016', 'es2017', 'stage-0'],
-  plugins: ['transform-decorators-legacy'],
-  env: {
-    development: {
-      plugins: [
-        ['react-transform', {
-          transforms: [{
-            transform: 'react-transform-hmr',
-            imports: ['react'],
-            locals: ['module']
-          }, {
-            transform: 'react-transform-catch-errors',
-            imports: ['react', 'redbox-react']
-          }]
-        }],
-      ]
-    },
-  }
+  presets: [
+    'react',
+    [
+      'env', {
+        targets: { browsers: TARGET_BROWSERS },
+        modules: false,
+        useBuiltIns: true,
+      },
+    ],
+    'stage-0'
+  ],
+  plugins: [
+    'transform-decorators-legacy',
+  ].concat(process.env.NODE_ENV !== 'production' ? [
+    // Need these to work around an issue in react-transform/react-hot-loader:
+    // https://github.com/gaearon/react-hot-loader/issues/313
+    'transform-class-properties',
+    'transform-es2015-classes',
+
+    ['react-transform', {
+      transforms: [{
+        transform: 'react-transform-hmr',
+        imports: ['react'],
+        locals: ['module']
+      }, {
+        transform: 'react-transform-catch-errors',
+        imports: ['react', 'redbox-react']
+      }]
+    }],
+  ] : []),
 }
-const cssNextOpts = { browsers: 'last 2 versions' }
+const cssNextOpts = { browsers: TARGET_BROWSERS }
 
 export default makeConfig({
   webpack: webpackOpts,

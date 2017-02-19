@@ -2,7 +2,8 @@ import React from 'react'
 import { Map, Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
-import { LobbyInfo, LobbyMap, Player } from '../lobby-reducer.js'
+import { LobbyInfo, Player } from '../lobby-reducer.js'
+import { MapRecord as LobbyMap } from '../maps-reducer'
 import { User } from '../../auth/auth-records'
 
 const PLAYERS = new Map({
@@ -28,6 +29,8 @@ const LOBBIES = Range(2, 9).map(numSlots => {
       height: 128,
       tileset: 'jungle',
       description: 'sup',
+      slots: 4,
+      umsSlots: 4,
     }),
     numSlots,
     players: PLAYERS.take(numSlots).toMap(),

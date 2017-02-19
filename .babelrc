@@ -1,4 +1,24 @@
 {
-  "presets": ["node7", "stage-0"],
-  "plugins": ["transform-decorators-legacy"],
+  "env": {
+    "app": {
+      "presets": [
+        [
+          "env", {
+            "targets": { "electron": "1.5.0" }
+          }
+        ],
+      ],
+    },
+    "node": {
+      "presets": [
+        [
+          "env", {
+            "targets": { "node": "current" }
+          }
+        ],
+      ],
+    },
+  },
+  "presets": [ "stage-0" ],
+  "plugins": ["transform-decorators-legacy"]
 }
