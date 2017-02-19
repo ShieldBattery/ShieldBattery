@@ -1,10 +1,10 @@
 import permissions from '../models/permissions'
-import checkPermissions from '../permissions/check-permissions'
+import { checkAllPermissions } from '../permissions/check-permissions'
 
 export default function(router) {
   router
-    .get('/:userId', checkPermissions(['editPermissions']), getPermissions)
-    .post('/:userId', checkPermissions(['editPermissions']), updatePermissions)
+    .get('/:userId', checkAllPermissions('editPermissions'), getPermissions)
+    .post('/:userId', checkAllPermissions('editPermissions'), updatePermissions)
 }
 
 async function getPermissions(ctx, next) {

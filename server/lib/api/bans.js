@@ -2,12 +2,12 @@ import httpErrors from 'http-errors'
 import redis from '../redis'
 import { banUser as dbBanUser } from '../models/bans'
 import users from '../models/users'
-import checkPermissions from '../permissions/check-permissions'
+import { checkAllPermissions } from '../permissions/check-permissions'
 
 export default function(router, userSockets) {
   router
-    .get('/:userId', checkPermissions(['banUsers']), getUserBanHistory)
-    .post('/:userId', checkPermissions(['banUsers']),
+    .get('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
+    .post('/:userId', checkAllPermissions('banUsers'),
         (ctx, next) => banUser(ctx, next, userSockets))
 }
 

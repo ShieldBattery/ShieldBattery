@@ -2,7 +2,7 @@ import httpErrors from 'http-errors'
 import cuid from 'cuid'
 import createThrottle from '../throttle/create-throttle'
 import invites from '../models/invites'
-import checkPermissions from '../permissions/check-permissions'
+import { checkAllPermissions } from '../permissions/check-permissions'
 import { isValidEmail } from '../../../app/common/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
@@ -27,8 +27,8 @@ async function rateLimit(ctx, next) {
 export default function(router) {
   router
     .post('/', rateLimit, createInvite)
-    .get('/', checkPermissions(['acceptInvites']), listInvites)
-    .put('/:email', checkPermissions(['acceptInvites']), acceptInvite)
+    .get('/', checkAllPermissions('acceptInvites'), listInvites)
+    .put('/:email', checkAllPermissions('acceptInvites'), acceptInvite)
 }
 
 async function createInvite(ctx, next) {
