@@ -1,5 +1,6 @@
 import httpErrors from 'http-errors'
 import cuid from 'cuid'
+import createThrottle from '../throttle/create-throttle'
 import invites from '../models/invites'
 import checkPermissions from '../permissions/check-permissions'
 import { isValidEmail } from '../../../app/common/constants'
@@ -7,9 +8,25 @@ import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
 import config from '../../config.js'
 
+// The expectation is that you should *really* not be signing up for beta that often, so this rate
+// is pretty low
+const throttle = createThrottle('invitesignup', {
+  rate: 1,
+  burst: 4,
+  window: 60000,
+})
+async function rateLimit(ctx, next) {
+  const isLimited = await throttle.rateLimit(ctx.ip)
+  if (isLimited) {
+    throw new httpErrors.TooManyRequests()
+  } else {
+    await next()
+  }
+}
+
 export default function(router) {
   router
-    .post('/', createInvite)
+    .post('/', rateLimit, createInvite)
     .get('/', checkPermissions(['acceptInvites']), listInvites)
     .put('/:email', checkPermissions(['acceptInvites']), acceptInvite)
 }
