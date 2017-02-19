@@ -53,9 +53,6 @@ const babelOpts = {
   ] : []),
 }
 
-// This option is probably *too* safe given that we're deploying this on Electron, but I don't think
-// it changes much, so whatever
-const cssNextOpts = { browsers: 'last 2 Chrome versions' }
 const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
 const SB_SERVER = (() => {
@@ -82,7 +79,6 @@ console.log('Using a server of ' + SB_SERVER + ' by default')
 module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
-  cssNext: cssNextOpts,
   hotUrl,
   envDefines: {
     SB_ENV: JSON.stringify('electron'),

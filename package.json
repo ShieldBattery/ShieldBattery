@@ -11,7 +11,7 @@
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
     "autotest": "cross-env BABEL_ENV=node mocha --watch -R spec --compilers js:babel-register --recursive --harmony test/",
-    "build": "cross-env NODE_ENV=production webpack",
+    "build": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
     "buildgame": "game/vcbuild.bat && cd game && yarn run build",
     "clean": "rm -rf app/dist && rm -rf app/styles",
     "dist": "yarn run clean && yarn run build && yarn run buildgame && build --win --ia32 --x64 -p always -c prod.yml",

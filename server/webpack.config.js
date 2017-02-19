@@ -54,12 +54,10 @@ const babelOpts = {
     }],
   ] : []),
 }
-const cssNextOpts = { browsers: TARGET_BROWSERS }
 
 export default makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
-  cssNext: cssNextOpts,
   hotUrl: 'webpack-hot-middleware/client',
   envDefines: { SB_ENV: JSON.stringify('web') },
   minify: true,

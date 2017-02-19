@@ -3,9 +3,6 @@
 
 import webpack from 'webpack'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
-import cssNext from 'postcss-cssnext'
-import cssFor from 'postcss-for'
-import cssMixins from 'postcss-mixins'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version
@@ -16,18 +13,10 @@ const isProd = nodeEnv === 'production'
 export default function({
   webpack: webpackOpts,
   babel: babelOpts,
-  cssNext: cssNextOpts,
   hotUrl,
   envDefines = {},
   minify,
 }) {
-  const postCssOptions = {
-    plugins: () => [
-      cssMixins,
-      cssFor,
-      cssNext(cssNextOpts),
-    ],
-  }
   const styleRule = {
     test: /\.css$/,
     use: !isProd ? [
@@ -36,14 +25,13 @@ export default function({
         loader: 'css-loader',
         options: {
           modules: true,
-          importLoaders: true,
+          importLoaders: 1,
           localIdentName: '[name]__[local]__[hash:base64:5]',
         }
       },
-      {
-        loader: 'postcss-loader',
-        options: postCssOptions,
-      }
+      // NOTE(tec27): We have to use the string form here or css-loader screws up at importing this
+      // loader because it's a massive pile of unupdated crap
+      'postcss-loader',
     ] : ExtractTextPlugin.extract({
       fallback: 'style-loader',
       use: [
@@ -51,13 +39,12 @@ export default function({
           loader: 'css-loader',
           options: {
             modules: true,
-            importLoaders: true,
+            importLoaders: 1,
           }
         },
-        {
-          loader: 'postcss-loader',
-          options: postCssOptions,
-        }
+        // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
+        // this loader because it's a massive pile of unupdated crap
+        'postcss-loader',
       ]
     })
   }

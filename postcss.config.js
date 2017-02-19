@@ -1,2 +1,12 @@
-// We always configure postcss in our webpack configs, so we leave this empty. If we don't have this
-// PostCSS fails in production mode =/
+module.exports = function(ctx) {
+  const cssNextOpts = ctx.webpack.options.target === 'electron-renderer' ?
+      { browsers: 'last 2 Chrome versions' } :
+      { browsers: 'last 2 versions' }
+  return {
+    plugins: [
+      require('postcss-for'),
+      require('postcss-mixins'),
+      require('postcss-cssnext')(cssNextOpts)
+    ]
+  }
+}
