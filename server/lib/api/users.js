@@ -5,14 +5,14 @@ import thenify from 'thenify'
 import users from '../models/users'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
-import checkPermissions from '../permissions/check-permissions'
+import { checkAnyPermission } from '../permissions/check-permissions'
 import { getTokenByEmail } from '../models/invites'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 
 export default function(router) {
   router.post('/', createUser)
-    .get('/:searchTerm', checkPermissions(['editPermissions']), find)
+    .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
     .put('/:id', function* (next) {
       // TODO(tec27): update a user
       throw new httpErrors.ImATeapot()
