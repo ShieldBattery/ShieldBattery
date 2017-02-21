@@ -1,6 +1,7 @@
 import httpErrors from 'http-errors'
 import cuid from 'cuid'
 import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import invites from '../models/invites'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { isValidEmail } from '../../../app/common/constants'
@@ -15,18 +16,10 @@ const throttle = createThrottle('invitesignup', {
   burst: 4,
   window: 60000,
 })
-async function rateLimit(ctx, next) {
-  const isLimited = await throttle.rateLimit(ctx.ip)
-  if (isLimited) {
-    throw new httpErrors.TooManyRequests()
-  } else {
-    await next()
-  }
-}
 
 export default function(router) {
   router
-    .post('/', rateLimit, createInvite)
+    .post('/', throttleMiddleware(throttle, ctx => ctx.ip), createInvite)
     .get('/', checkAllPermissions('acceptInvites'), listInvites)
     .put('/:email', checkAllPermissions('acceptInvites'), acceptInvite)
 }

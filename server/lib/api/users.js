@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt'
 import co from 'co'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
@@ -10,8 +12,14 @@ import { getTokenByEmail } from '../models/invites'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 
+const accountCreationThrottle = createThrottle('accountcreation', {
+  rate: 1,
+  burst: 4,
+  window: 60000,
+})
+
 export default function(router) {
-  router.post('/', createUser)
+  router.post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
     .put('/:id', function* (next) {
       // TODO(tec27): update a user
