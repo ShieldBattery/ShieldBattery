@@ -2,6 +2,8 @@ import co from 'co'
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import redis from '../redis'
 import { isUserBanned } from '../models/bans'
 import users from '../models/users'
@@ -9,11 +11,19 @@ import permissions from '../models/permissions'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 
+// TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
+// when lots of people need to create sessions at once from the same place (e.g. LAN events)
+const loginThrottle = createThrottle('login', {
+  rate: 4,
+  burst: 20,
+  window: 60000,
+})
+
 export default function(router) {
   router
     .get('/', getCurrentSession)
     .delete('/', endSession)
-    .post('/', startNewSession)
+    .post('/', throttleMiddleware(loginThrottle, ctx => ctx.ip), startNewSession)
 }
 
 async function getCurrentSession(ctx, next) {
