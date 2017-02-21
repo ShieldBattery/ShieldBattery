@@ -2,6 +2,8 @@ import { Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/websocket-middleware'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { isValidChannelName } from '../../../app/common/constants'
 import {
@@ -18,6 +20,12 @@ import { MULTI_CHANNEL } from '../../../app/common/flags'
 const ChatState = new Record({
   channels: new Map(),
   users: new Map(),
+})
+
+const joinLeaveThrottle = createThrottle('chatjoinleave', {
+  rate: 3,
+  burst: 24,
+  window: 60000,
 })
 
 const featureEnabled = async (data, next) => {
@@ -49,6 +57,7 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
+    throttleMiddleware(joinLeaveThrottle, data => data.get('user')),
     'getChannel')
   async join(data, next) {
     const user = data.get('user')
@@ -71,6 +80,7 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
+    throttleMiddleware(joinLeaveThrottle, data => data.get('user')),
     'getChannel')
   async leave(data, next) {
     const user = data.get('user')
