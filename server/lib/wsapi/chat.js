@@ -27,6 +27,16 @@ const joinLeaveThrottle = createThrottle('chatjoinleave', {
   burst: 24,
   window: 60000,
 })
+const retrievalThrottle = createThrottle('chatretrieval', {
+  rate: 30,
+  burst: 120,
+  window: 60000,
+})
+const sendThrottle = createThrottle('chatsend', {
+  rate: 60,
+  burst: 100,
+  window: 60000,
+})
 
 const featureEnabled = async (data, next) => {
   if (!MULTI_CHANNEL) throw new errors.NotFound()
@@ -107,6 +117,7 @@ export class ChatApi {
       message: nonEmptyString,
     }),
     'getUser',
+    throttleMiddleware(sendThrottle, data => data.get('user')),
     'getChannel')
   async send(data, next) {
     const { message } = data.get('body')
@@ -138,6 +149,7 @@ export class ChatApi {
       beforeTime,
     }),
     'getUser',
+    throttleMiddleware(retrievalThrottle, data => data.get('user')),
     'getChannel')
   async getHistory(data, next) {
     const { beforeTime } = data.get('body')
@@ -162,6 +174,7 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
+    throttleMiddleware(retrievalThrottle, data => data.get('user')),
     'getChannel')
   async getUsers(data, next) {
     const user = data.get('user')
