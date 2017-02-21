@@ -33,8 +33,8 @@ const retrievalThrottle = createThrottle('chatretrieval', {
   window: 60000,
 })
 const sendThrottle = createThrottle('chatsend', {
-  rate: 60,
-  burst: 100,
+  rate: 30,
+  burst: 90,
   window: 60000,
 })
 
