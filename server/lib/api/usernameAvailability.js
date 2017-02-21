@@ -1,10 +1,18 @@
 import httpErrors from 'http-errors'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import { isValidUsername } from '../../../app/common/constants'
 
+const throttle = createThrottle('usernameavailability', {
+  rate: 10,
+  burst: 300,
+  window: 60000,
+})
+
 export default function(router) {
   router
-    .get('/:username', checkAvailability)
+    .get('/:username', throttleMiddleware(throttle, ctx => ctx.ip), checkAvailability)
 }
 
 async function checkAvailability(ctx, next) {
