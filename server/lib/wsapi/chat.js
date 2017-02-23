@@ -22,9 +22,9 @@ const ChatState = new Record({
   users: new Map(),
 })
 
-const joinLeaveThrottle = createThrottle('chatjoinleave', {
+const joinThrottle = createThrottle('chatjoinleave', {
   rate: 3,
-  burst: 24,
+  burst: 10,
   window: 60000,
 })
 const retrievalThrottle = createThrottle('chatretrieval', {
@@ -67,7 +67,7 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
-    throttleMiddleware(joinLeaveThrottle, data => data.get('user')),
+    throttleMiddleware(joinThrottle, data => data.get('user')),
     'getChannel')
   async join(data, next) {
     const user = data.get('user')
@@ -90,7 +90,6 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
-    throttleMiddleware(joinLeaveThrottle, data => data.get('user')),
     'getChannel')
   async leave(data, next) {
     const user = data.get('user')
