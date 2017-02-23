@@ -9,6 +9,7 @@ import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH } from '../../app/common/constants'
 import { GAME_TYPES, gameTypeToString } from './game-type'
 import { isTeamType } from '../../app/common/lobbies'
+import { MAP_UPLOADING } from '../../app/common/flags'
 import styles from './create-lobby.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
@@ -127,7 +128,10 @@ class CreateLobbyForm extends React.Component {
             disabled={!mapListContents.size}>
             { mapListContents }
         </Select>
-        <RaisedButton label='Browse' onClick={this.props.onMapBrowse}/>
+        { MAP_UPLOADING ?
+          <RaisedButton className={styles.mapBrowse} label='Browse'
+            onClick={this.props.onMapBrowse}/> :
+          null }
       </div>
       <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
         { GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)}/>) }

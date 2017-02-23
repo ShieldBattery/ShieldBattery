@@ -5,11 +5,22 @@ import koaBody from 'koa-body'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
 import { mapExists } from '../models/maps'
+import { checkAllPermissions } from '../permissions/check-permissions'
+import { MAP_UPLOADING } from '../../../app/common/flags'
 
 export default function(router) {
   router.get('/', ensureLoggedIn, list)
-  router.post('/upload', ensureLoggedIn, koaBody({ multipart: true }), clearMultipartFiles, upload)
+  router.post('/upload', ensureLoggedIn, uploadPermissionCheck(), koaBody({ multipart: true }),
+      clearMultipartFiles, upload)
   router.get('/info/:hash', ensureLoggedIn, getInfo)
+}
+
+function uploadPermissionCheck() {
+  if (!MAP_UPLOADING) {
+    return checkAllPermissions('manageMaps')
+  } else {
+    return async (ctx, next) => { await next() }
+  }
 }
 
 async function clearMultipartFiles(ctx, next) {

@@ -10,7 +10,7 @@ export default class Panel extends React.Component {
 
     const usersLink = (perms.editPermissions || perms.banUsers) ?
         <li><Link to='/admin/users'>View user's profile</Link></li> : null
-    const uploadLink = process.webpackEnv.SB_ENV === 'electron' ?
+    const uploadLink = perms.manageMaps && process.webpackEnv.SB_ENV === 'electron' ?
         <li><Link to='/admin/map-upload'>Mass map upload</Link></li> : null
     const invitesLink = perms.acceptInvites ?
         <li><Link to='/admin/invites'>View beta invites</Link></li> : null

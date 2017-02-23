@@ -9,7 +9,10 @@
 
 .mapList {
   composes: grow;
-  margin-right: 16px;
+}
+
+.mapBrowse {
+  margin-left: 16px;
 }
 
 .loadingArea {

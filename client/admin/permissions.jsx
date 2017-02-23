@@ -26,6 +26,8 @@ class UserPermissionsForm extends React.Component {
           inputProps={inputProps}/>
       <CheckBox {...bindCheckable('banUsers')} label='Ban users'
           inputProps={inputProps}/>
+      <CheckBox {...bindCheckable('manageMaps')} label='Manage maps'
+          inputProps={inputProps}/>
     </form>)
   }
 }
@@ -69,6 +71,7 @@ export default class PermissionsResult extends React.Component {
       acceptInvites: user.acceptInvites,
       editAllChannels: user.editAllChannels,
       banUsers: user.banUsers,
+      manageMaps: user.manageMaps,
     }
 
     return (<div className={styles.saveForm}>
