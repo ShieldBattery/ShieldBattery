@@ -22,7 +22,7 @@ const ChatState = new Record({
   users: new Map(),
 })
 
-const joinThrottle = createThrottle('chatjoinleave', {
+const joinThrottle = createThrottle('chatjoin', {
   rate: 3,
   burst: 10,
   window: 60000,

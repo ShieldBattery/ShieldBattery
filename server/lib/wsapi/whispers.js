@@ -2,6 +2,8 @@ import { Map, OrderedSet, Set } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/websocket-middleware'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { isValidUsername } from '../../../app/common/constants'
 import users from '../models/users'
@@ -23,6 +25,22 @@ function getPath(user, target) {
   return `${MOUNT_BASE}/${encodeURIComponent(users[0] + '|' + users[1])}`
 }
 
+const startThrottle = createThrottle('whisperstart', {
+  rate: 3,
+  burst: 10,
+  window: 60000,
+})
+const retrievalThrottle = createThrottle('whisperretrieval', {
+  rate: 30,
+  burst: 120,
+  window: 60000,
+})
+const sendThrottle = createThrottle('whispersend', {
+  rate: 30,
+  burst: 90,
+  window: 60000,
+})
+
 @Mount(MOUNT_BASE)
 export class WhispersApi {
   constructor(nydus, userSockets) {
@@ -41,6 +59,7 @@ export class WhispersApi {
       target: isValidUsername,
     }),
     'getUser',
+    throttleMiddleware(startThrottle, data => data.get('user')),
     'noSelfMessaging',
     'getTarget')
   async start(data, next) {
@@ -55,6 +74,7 @@ export class WhispersApi {
       message: nonEmptyString,
     }),
     'getUser',
+    throttleMiddleware(sendThrottle, data => data.get('user')),
     'noSelfMessaging',
     'getTarget')
   async send(data, next) {
@@ -68,6 +88,8 @@ export class WhispersApi {
       text,
     })
 
+    // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
+    // to throttle people starting tons of tons of sessions with different people
     await Promise.all([
       this._ensureWhisperSession(user.name, target.name),
       this._ensureWhisperSession(target.name, user.name),
@@ -89,6 +111,7 @@ export class WhispersApi {
       beforeTime,
     }),
     'getUser',
+    throttleMiddleware(retrievalThrottle, data => data.get('user')),
     'getTarget')
   async getHistory(data, next) {
     const { beforeTime } = data.get('body')
