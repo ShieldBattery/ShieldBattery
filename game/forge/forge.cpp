@@ -487,6 +487,11 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       UnregisterHotKey(window_handle, FOREGROUND_HOTKEY_ID);
       KillTimer(window_handle, FOREGROUND_HOTKEY_ID);
 
+      // Set the final window title for scene switchers to key off of. Note that this is different
+      // from BW's "typical" title so that people don't have to reconfigure scene switchers when
+      // moving between our service and others.
+      SetWindowText(window_handle, "Brood War - ShieldBattery");
+
       // Show the window and bring it to the front
       ShowWindow(window_handle, SW_SHOWNORMAL);
       SetForegroundWindow(window_handle);
@@ -598,7 +603,10 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
   Logger::Logf(LogLevel::Verbose, "Rewriting CreateWindowExA call to (%d, %d), %dx%d)",
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top);
-  instance_->window_handle_ = CreateWindowExA(dwExStyle, lpClassName, lpWindowName, style,
+  instance_->window_handle_ = CreateWindowExA(dwExStyle, lpClassName,
+      // We change the window name here to make scene switching at the right time easier (we set a
+      // different title just as we bring the window into the foreground)
+      "ShieldBattery initializing...", style,
       window_rect.left, window_rect.top,
       window_rect.right - window_rect.left, window_rect.bottom - window_rect.top,
       hWndParent, hMenu, hInstance, lpParam);
