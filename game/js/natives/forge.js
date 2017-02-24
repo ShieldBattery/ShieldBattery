@@ -25,6 +25,7 @@ let wndProcRunning = false
 class JsForge extends EventEmitter {
   constructor() {
     super()
+    forge.onPublishEvent = ({ type, payload }) => { this.emit(type, payload) }
   }
 
   inject() {

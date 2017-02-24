@@ -36,7 +36,9 @@ using Nan::SetPrototypeMethod;
 using Nan::Utf8String;
 using std::map;
 using std::pair;
+using std::shared_ptr;
 using std::unique_ptr;
+using std::wstring;
 using v8::Function;
 using v8::FunctionTemplate;
 using v8::Local;
@@ -71,9 +73,17 @@ Forge::Forge()
       bw_window_active_(false),
       captured_window_(NULL),
       stored_cursor_rect_(nullptr),
-      indirect_draw_(nullptr) {
+      indirect_draw_(nullptr),
+      event_publish_mutex_(), 
+      event_publish_async_(),
+      event_publish_queue_() {
   assert(instance_ == nullptr);
   instance_ = this;
+
+  uv_mutex_init(&event_publish_mutex_);
+  uv_async_init(uv_default_loop(), &event_publish_async_, [](uv_async_t* handle) {
+    Forge::instance_->PublishQueuedEvents();
+  });
 
   process_hooks_.AddHook("user32.dll", "CreateWindowExA", &CreateWindowExAHook);
   process_hooks_.AddHook("user32.dll", "RegisterClassExA", RegisterClassExAHook);
@@ -114,7 +124,47 @@ Forge::~Forge() {
     indirect_draw_->Release();
   }
 
+  uv_close(reinterpret_cast<uv_handle_t*>(&event_publish_async_), NULL);
+  uv_mutex_destroy(&event_publish_mutex_);
+
   instance_ = nullptr;
+}
+
+void Forge::SendJsEvent(const wstring& type, const shared_ptr<ScopelessValue>& payload) {
+  ScopelessObject* obj = ScopelessObject::New();
+
+  obj->Set(L"type", shared_ptr<ScopelessValue>(ScopelessWstring::New(type)));
+  obj->Set(L"payload", payload);
+
+  uv_mutex_lock(&event_publish_mutex_);
+  event_publish_queue_.push(shared_ptr<ScopelessValue>(obj));
+  uv_async_send(&event_publish_async_);
+  uv_mutex_unlock(&event_publish_mutex_);
+}
+
+void Forge::PublishQueuedEvents() {
+  HandleScope scope;
+
+  Local<Object> self = this->handle();
+  Local<String> event_prop = Nan::New("onPublishEvent").ToLocalChecked();
+  if (!(Nan::HasOwnProperty(self, event_prop).ToChecked())) {
+    Logger::Log(LogLevel::Error, "onPublishEvent not set on Forge, unable to publish events");
+    return;
+  }
+
+  Local<Function> event_func = Nan::Get(self, event_prop).ToLocalChecked().As<Function>();
+
+  uv_mutex_lock(&event_publish_mutex_);
+  while (!event_publish_queue_.empty()) {
+    auto value = event_publish_queue_.front();
+    event_publish_queue_.pop();
+    uv_mutex_unlock(&event_publish_mutex_);
+
+    Local<Value> args[] = { value->ApplyCurrentScope() };
+    event_func->Call(self, 1, args);
+    uv_mutex_lock(&event_publish_mutex_);
+  }
+  uv_mutex_unlock(&event_publish_mutex_);
 }
 
 void Forge::Init() {
@@ -363,6 +413,10 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
   case WM_WINDOWPOSCHANGED:
   case WM_WINDOWPOSCHANGING:
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_DISPLAYCHANGE:
+    // TODO(tec27): we might need to do something with this, swallowing DISPLAYCHANGE is the first
+    // attempt at fixing the "Launch fullscreen BW while in ShieldBattery game = OMFG WHY IS ALL MY
+    // RENDERING MESSED UP?" bug
   case WM_ACTIVATEAPP:
     // BW needs to receive the initial WM_ACTIVATEAPP to function properly.
     if (instance_->bw_window_active_) {
@@ -381,6 +435,14 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     instance_->client_x_ = GetX(lparam);
     instance_->client_y_ = GetY(lparam);
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  case WM_EXITSIZEMOVE:
+  {
+    ScopelessObject* coords = ScopelessObject::New();
+    coords->Set(L"x", shared_ptr<ScopelessValue>(ScopelessInteger::New(instance_->client_x_)));
+    coords->Set(L"y", shared_ptr<ScopelessValue>(ScopelessInteger::New(instance_->client_y_)));
+    instance_->SendJsEvent(L"windowMove", shared_ptr<ScopelessValue>(coords));
+    return DefWindowProc(window_handle, msg, wparam, lparam);
+  }
   case WM_GETMINMAXINFO:
     DefWindowProc(window_handle, msg, wparam, lparam);
     {

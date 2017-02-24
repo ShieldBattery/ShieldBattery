@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -64,6 +65,18 @@ public:
 private:
   explicit ScopelessArray(int length);
   std::vector<std::shared_ptr<ScopelessValue>> items_;
+};
+
+class ScopelessObject : public ScopelessValue {
+public:
+  virtual ~ScopelessObject();
+  virtual v8::Local<v8::Value> ApplyCurrentScope() const;
+  void Set(const std::wstring& key, std::shared_ptr<ScopelessValue> value);
+
+  static ScopelessObject* New();
+private:
+  ScopelessObject();
+  std::map<std::wstring, std::shared_ptr<ScopelessValue>> items_;
 };
 
 class ScopelessString : public ScopelessValue {

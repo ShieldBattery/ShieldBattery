@@ -15,6 +15,7 @@ using v8::Array;
 using v8::Local;
 using v8::Integer;
 using v8::Int32;
+using v8::Object;
 using v8::String;
 using v8::Uint32;
 using v8::Value;
@@ -79,6 +80,30 @@ Local<Value> ScopelessArray::ApplyCurrentScope() const {
 
 void ScopelessArray::Set(uint32_t index, shared_ptr<ScopelessValue> value) {
   items_[index] = value;
+}
+
+ScopelessObject::ScopelessObject() : items_() {
+}
+
+ScopelessObject::~ScopelessObject() {
+}
+
+ScopelessObject* ScopelessObject::New() {
+  return new ScopelessObject();
+}
+
+Local<Value> ScopelessObject::ApplyCurrentScope() const {
+  Local<Object> result = Nan::New<Object>();
+  for (auto it = items_.begin(); it != items_.end(); it++) {
+    Nan::Set(result,
+        Nan::New(reinterpret_cast<const uint16_t*>(it->first.c_str())).ToLocalChecked(),
+        it->second->ApplyCurrentScope());
+  }
+  return result;
+}
+
+void ScopelessObject::Set(const wstring& key, shared_ptr<ScopelessValue> value) {
+  items_[key] = value;
 }
 
 ScopelessString::ScopelessString(string value) : value_(value) {

@@ -60,6 +60,10 @@ bw.on('replaySave', replayPath => {
   socket.invoke('/game/replaySave', { path: replayPath })
 })
 
+forge.on('windowMove', ({ x, y }) => {
+  log.verbose(`Window moved: { x: ${x}, y: ${y} }`)
+})
+
 let gameInitializer
 socket.registerRoute('/game/:id', (route, event) => {
   clearTimeout(timeoutId)

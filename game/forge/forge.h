@@ -5,11 +5,13 @@
 #include <mmsystem.h>
 #include <dsound.h>
 #include <map>
+#include <queue>
 #include <string>
 
 #include "common/func_hook.h"
 #include "forge/indirect_draw.h"
 #include "forge/renderer.h"
+#include "v8-helpers/helpers.h"
 
 namespace sbat {
 namespace forge {
@@ -34,6 +36,11 @@ public:
       HWND window, uint32 ddraw_width, uint32 ddraw_height);
 
   static void RegisterIndirectDraw(IndirectDraw* indirect_draw);
+
+  // Should only be called from the JS thread
+  void PublishQueuedEvents();
+  // Can be called from any thread
+  void SendJsEvent(const std::wstring& type, const std::shared_ptr<ScopelessValue>& value);
 
 private:
   Forge();
@@ -66,6 +73,8 @@ private:
   int ScreenToGameY(int val) {
     return static_cast<int>((val * (480.0 / mouse_resolution_height_)) + 0.5);
   }
+
+  
 
   // hooks
   static HWND __stdcall CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
@@ -128,6 +137,10 @@ private:
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
   IndirectDraw* indirect_draw_;
+
+  uv_mutex_t event_publish_mutex_;
+  uv_async_t event_publish_async_;
+  std::queue<std::shared_ptr<ScopelessValue>> event_publish_queue_;
 };
 
 }  // namespace forge
