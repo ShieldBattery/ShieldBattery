@@ -442,11 +442,6 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     }
     break;
   case WM_NCACTIVATE:
-    if (instance_->is_started_ && GetSettings().display_mode != DisplayMode::FullScreen) {
-      SetWindowPos(window_handle, (wparam == TRUE ? HWND_TOPMOST : HWND_NOTOPMOST),
-        0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    }
-
     instance_->window_active_ = wparam == TRUE;
     if (wparam) {
       // Window is now active
