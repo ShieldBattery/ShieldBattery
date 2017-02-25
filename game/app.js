@@ -61,7 +61,7 @@ bw.on('replaySave', replayPath => {
 })
 
 forge.on('windowMove', ({ x, y }) => {
-  log.verbose(`Window moved: { x: ${x}, y: ${y} }`)
+  socket.invoke('/game/windowMove', { x, y })
 })
 
 let gameInitializer

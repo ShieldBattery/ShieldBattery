@@ -1,6 +1,8 @@
 import log from '../logging/logger'
 import activeGameManager from './active-game-manager-instance'
 import { sendCommand, subscribeToCommands } from './game-command'
+import { mergeLocalSettings } from '../settings/action-creators'
+import { dispatch } from '../dispatch-registry'
 
 let lastLog = -1
 const logThrottle = 30000
@@ -44,6 +46,11 @@ function registerGameRoutes(nydus) {
     activeGameManager.handleReplaySave(data.get('gameId'), path)
   }
 
+  async function onWindowMove(data, next) {
+    const { x, y } = data.get('body')
+    dispatch(mergeLocalSettings({ gameWinX: x, gameWinY: y }))
+  }
+
   nydus.on('connection', socket => {
     const id = socket.conn.request.headers['x-game-id']
     subscribeToCommands(nydus, socket, id)
@@ -54,6 +61,7 @@ function registerGameRoutes(nydus) {
   nydus.registerRoute('/game/start', getGameId, onStart)
   nydus.registerRoute('/game/end', getGameId, onEnd)
   nydus.registerRoute('/game/replaySave', getGameId, onReplaySave)
+  nydus.registerRoute('/game/windowMove', onWindowMove)
 
   activeGameManager.on('gameCommand', (id, command, payload) => {
     log.verbose(`Sending game command to ${id}: ${command}`)

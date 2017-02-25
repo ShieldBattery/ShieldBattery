@@ -22,6 +22,10 @@ struct Settings {
   int mouse_sensitivity;
   bool maintain_aspect_ratio;
   RenderMode renderer;
+
+  bool has_saved_window_pos;
+  int window_x;
+  int window_y;
 };
 
 NODE_EXTERN void SetSettings(const Settings& settings);

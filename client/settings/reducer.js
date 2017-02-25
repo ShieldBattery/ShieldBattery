@@ -12,6 +12,8 @@ export const LocalSettings = new Record({
   maintainAspectRatio: true,
   renderer: 0,
   starcraftPath: null,
+  gameWinX: null,
+  gameWinY: null,
 })
 
 export const Settings = new Record({

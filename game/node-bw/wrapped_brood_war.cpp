@@ -522,6 +522,21 @@ void WrappedBroodWar::SetSettings(const FunctionCallbackInfo<Value>& info) {
     result.renderer = RenderMode::DirectX;
   }
 
+  result.window_x = INT_MAX;
+  result.window_y = INT_MAX;
+  if (settings_object->Has(Nan::New("gameWinX").ToLocalChecked())) {
+    Local<Value> val = settings_object->Get(Nan::New("gameWinX").ToLocalChecked());
+    if (!val->IsNull()) {
+      result.window_x = val->Int32Value();
+    }
+  }
+  if (settings_object->Has(Nan::New("gameWinY").ToLocalChecked())) {
+    Local<Value> val = settings_object->Get(Nan::New("gameWinY").ToLocalChecked());
+    if (!val->IsNull()) {
+      result.window_y = val->Int32Value();
+    }
+  }
+
   sbat::SetSettings(result);
 }
 

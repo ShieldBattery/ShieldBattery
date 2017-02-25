@@ -646,9 +646,20 @@ HWND __stdcall Forge::CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
 
   instance_->CalculateMouseResolution(instance_->width_, instance_->height_);
 
-  // for now, we'll just center the window
-  int left = (GetSystemMetrics(SM_CXSCREEN) - instance_->width_) / 2;
-  int top = (GetSystemMetrics(SM_CYSCREEN) - instance_->height_) / 2;
+  RECT work_area;
+  SystemParametersInfo(SPI_GETWORKAREA, 0, &work_area, 0);
+
+  // Use the saved window coordinates (if available/applicable), or center the window otherwise
+  // TODO(tec27): Check that the saved coordinates are still visible before we apply them
+  int left = settings.display_mode == DisplayMode::FullScreen ? 0 : settings.window_x;
+  int top = settings.display_mode == DisplayMode::FullScreen ? 0 : settings.window_y;
+
+  if (left == INT_MAX) {
+    left = ((work_area.right - work_area.left) - instance_->width_) / 2;
+  }
+  if (top == INT_MAX) {
+    top = ((work_area.bottom - work_area.top) - instance_->height_) / 2;
+  }
 
   // set our initial cached client rect positions
   instance_->client_x_ = left;
