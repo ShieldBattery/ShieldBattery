@@ -282,6 +282,22 @@ class GameInitializer {
     })
   }
 
+  mapSlotTypes(slot, type) {
+    switch (type) {
+      case 'human':
+        slot.type = 'human'; break
+      case 'computer':
+        slot.type = 'lobbycomputer'; break
+      case 'controlledOpen':
+      case 'controlledClosed':
+      case 'open':
+      case 'closed':
+        slot.type = 'open'; break
+      default:
+        slot.type = 'none'; break
+    }
+  }
+
   setupSlots() {
     const { slots: lobbySlots } = this.lobbyConfig
 
@@ -302,15 +318,7 @@ class GameInitializer {
       slot.race = getBwRace(lobbySlot.race)
       slot.team = lobbySlot.teamId
       slot.name = lobbySlot.name
-      switch (lobbySlot.type) {
-        case 'human': slot.type = 'human'; break
-        case 'computer': slot.type = 'lobbycomputer'; break
-        case 'controlledOpen':
-        case 'controlledClosed':
-        case 'open':
-        case 'closed': slot.type = 'open'; break
-        default: slot.type = 'none'; break
-      }
+      this.mapSlotTypes(slot, lobbySlot.type)
     }
   }
 

@@ -262,9 +262,8 @@ export default class LoadingScreen extends React.Component {
       return gameStatus.extra ? !gameStatus.extra.includes(p.name) : true
     }
 
-    const players = getPlayerSlots(lobby)
-    const playerElems =
-        players.map(p => <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
+    const playerElems = getPlayerSlots(lobby).map(p =>
+        <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
 
     return (<div className={styles.content}>
       <div className={styles.typeAndMap}>

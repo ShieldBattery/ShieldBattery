@@ -8,7 +8,7 @@ import * as Slots from '../../lib/lobbies/slot'
 import {
   findSlotByName,
   findSlotById,
-  humanSlotsCountPerLobby,
+  humanSlotCount,
   hasOpposingSides,
 } from '../../../app/common/lobbies'
 
@@ -21,7 +21,7 @@ describe('Lobbies - melee', () => {
     expect(l.teams).to.have.size(1)
     const team = l.teams.get(0)
     expect(team.slots).to.have.size(4)
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.false
     const player = team.slots.get(0)
     expect(player.type).to.equal('human')
@@ -38,14 +38,14 @@ describe('Lobbies - melee', () => {
     const json = JSON.stringify(Lobbies.toSummaryJson(BOXER_LOBBY))
     const parsed = JSON.parse(json)
 
-    const host = BOXER_LOBBY.host.toJS()
+    const id = BOXER_LOBBY.host.id
     expect(parsed).to.eql({
       name: '5v3 Comp Stomp Pros Only',
       map: 'Big Game Hunters.scm',
       gameType: 'melee',
       gameSubType: 0,
-      host,
-      openSlots: 3,
+      host: { name: 'Slayers`Boxer', id },
+      openSlotCount: 3,
     })
   })
 
@@ -72,7 +72,7 @@ describe('Lobbies - melee', () => {
     expect(lobby).to.not.equal(orig)
     const [, , p1] = findSlotById(lobby, babo.id)
     expect(p1).to.equal(babo)
-    expect(humanSlotsCountPerLobby(lobby)).to.equal(2)
+    expect(humanSlotCount(lobby)).to.equal(2)
     expect(hasOpposingSides(lobby)).to.be.true
 
     const [t2, s2] = Lobbies.findAvailableSlot(lobby)
@@ -80,7 +80,7 @@ describe('Lobbies - melee', () => {
     expect(lobby).to.not.equal(orig)
     const [, , p2] = findSlotById(lobby, pachi.id)
     expect(p2).to.equal(pachi)
-    expect(humanSlotsCountPerLobby(lobby)).to.equal(3)
+    expect(humanSlotCount(lobby)).to.equal(3)
   })
 
   it('should support removing players', () => {
@@ -96,7 +96,7 @@ describe('Lobbies - melee', () => {
     lobby = Lobbies.removePlayer(lobby, t2, s2, babo)
 
     expect(lobby).to.not.equal(beforeRemoval)
-    expect(humanSlotsCountPerLobby(lobby)).to.equal(1)
+    expect(humanSlotCount(lobby)).to.equal(1)
     expect(lobby.teams.get(t2).slots.get(s2).type).to.equal('open')
 
     const [t3, s3, host] = findSlotByName(lobby, lobby.host.name)
@@ -180,7 +180,7 @@ describe('Lobbies - melee', () => {
     let lobby = Lobbies.addPlayer(BOXER_LOBBY, t1, s1, babo)
     lobby = Lobbies.movePlayerToSlot(lobby, t1, s1, 0, 3)
 
-    expect(humanSlotsCountPerLobby(lobby)).to.equal(2)
+    expect(humanSlotCount(lobby)).to.equal(2)
     expect(lobby.teams.get(0).slots.get(3)).to.equal(babo)
     expect(lobby.teams.get(t1).slots.get(s1).type).to.equal('open')
   })
@@ -197,7 +197,7 @@ describe('Lobbies - Top vs bottom', () => {
     expect(team1.slots).to.have.size(2)
     const team2 = l.teams.get(1)
     expect(team2.slots).to.have.size(6)
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.false
     const player = team1.slots.get(0)
     expect(player.type).to.equal('human')
@@ -269,7 +269,7 @@ describe('Lobbies - Top vs bottom', () => {
     let lobby = Lobbies.addPlayer(TEAM_LOBBY, t1, s1, babo)
     lobby = Lobbies.movePlayerToSlot(lobby, t1, s1, 1, 3)
 
-    expect(humanSlotsCountPerLobby(lobby)).to.equal(2)
+    expect(humanSlotCount(lobby)).to.equal(2)
     expect(lobby.teams.get(1).slots.get(3)).to.equal(babo)
     expect(lobby.teams.get(t1).slots.get(s1).type).to.equal('open')
   })
@@ -282,6 +282,12 @@ const TEAM_MELEE_3 = Lobbies.create(
 const TEAM_MELEE_4 = Lobbies.create(
   '2v2v2v2 Team Melee', 'Blue Storm.scx', 'teamMelee', 4, 8, 'Slayers`Boxer')
 
+const evaluateControlledSlot = (slot, type, race, controlledBy) => {
+  expect(slot.type).to.equal(type)
+  expect(slot.race).to.equal(race)
+  expect(slot.controlledBy).to.equal(controlledBy)
+}
+
 describe('Lobbies - Team melee', () => {
   it('should create the lobby correctly', () => {
     const l2 = TEAM_MELEE_2
@@ -290,25 +296,16 @@ describe('Lobbies - Team melee', () => {
     expect(team1.slots).to.have.size(4)
     let team2 = l2.teams.get(1)
     expect(team2.slots).to.have.size(4)
-    expect(humanSlotsCountPerLobby(l2)).to.equal(1)
+    expect(humanSlotCount(l2)).to.equal(1)
     expect(hasOpposingSides(l2)).to.be.false
     let player = team1.slots.get(0)
     expect(player.type).to.equal('human')
     expect(player.name).to.equal('Slayers`Boxer')
     expect(player.race).to.equal('r')
     expect(player).to.equal(l2.host)
-    let controlledOpen1 = team1.slots.get(1)
-    expect(controlledOpen1.type).to.equal('controlledOpen')
-    expect(controlledOpen1.race).to.equal(player.race)
-    expect(controlledOpen1.controlledBy).to.equal(player.id)
-    let controlledOpen2 = team1.slots.get(2)
-    expect(controlledOpen2.type).to.equal('controlledOpen')
-    expect(controlledOpen2.race).to.equal(player.race)
-    expect(controlledOpen2.controlledBy).to.equal(player.id)
-    const controlledOpen3 = team1.slots.get(3)
-    expect(controlledOpen3.type).to.equal('controlledOpen')
-    expect(controlledOpen3.race).to.equal(player.race)
-    expect(controlledOpen3.controlledBy).to.equal(player.id)
+    evaluateControlledSlot(team1.slots.get(1), 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots.get(2), 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots.get(3), 'controlledOpen', player.race, player.id)
     expect(team2.slots.get(0).type).to.equal('open')
     expect(team2.slots.get(1).type).to.equal('open')
     expect(team2.slots.get(2).type).to.equal('open')
@@ -322,21 +319,15 @@ describe('Lobbies - Team melee', () => {
     expect(team2.slots).to.have.size(3)
     let team3 = l3.teams.get(2)
     expect(team3.slots).to.have.size(2)
-    expect(humanSlotsCountPerLobby(l3)).to.equal(1)
+    expect(humanSlotCount(l3)).to.equal(1)
     expect(hasOpposingSides(l3)).to.be.false
     player = team1.slots.get(0)
     expect(player.type).to.equal('human')
     expect(player.name).to.equal('Slayers`Boxer')
     expect(player.race).to.equal('r')
     expect(player).to.equal(l3.host)
-    controlledOpen1 = team1.slots.get(1)
-    expect(controlledOpen1.type).to.equal('controlledOpen')
-    expect(controlledOpen1.race).to.equal(player.race)
-    expect(controlledOpen1.controlledBy).to.equal(player.id)
-    controlledOpen2 = team1.slots.get(2)
-    expect(controlledOpen2.type).to.equal('controlledOpen')
-    expect(controlledOpen2.race).to.equal(player.race)
-    expect(controlledOpen2.controlledBy).to.equal(player.id)
+    evaluateControlledSlot(team1.slots.get(1), 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots.get(2), 'controlledOpen', player.race, player.id)
     expect(team2.slots.get(0).type).to.equal('open')
     expect(team2.slots.get(1).type).to.equal('open')
     expect(team2.slots.get(2).type).to.equal('open')
@@ -353,17 +344,14 @@ describe('Lobbies - Team melee', () => {
     expect(team3.slots).to.have.size(2)
     const team4 = l4.teams.get(3)
     expect(team4.slots).to.have.size(2)
-    expect(humanSlotsCountPerLobby(l4)).to.equal(1)
+    expect(humanSlotCount(l4)).to.equal(1)
     expect(hasOpposingSides(l4)).to.be.false
     player = team1.slots.get(0)
     expect(player.type).to.equal('human')
     expect(player.name).to.equal('Slayers`Boxer')
     expect(player.race).to.equal('r')
     expect(player).to.equal(l4.host)
-    controlledOpen1 = team1.slots.get(1)
-    expect(controlledOpen1.type).to.equal('controlledOpen')
-    expect(controlledOpen1.race).to.equal(player.race)
-    expect(controlledOpen1.controlledBy).to.equal(player.id)
+    evaluateControlledSlot(team1.slots.get(1), 'controlledOpen', player.race, player.id)
     expect(team2.slots.get(0).type).to.equal('open')
     expect(team2.slots.get(1).type).to.equal('open')
     expect(team3.slots.get(0).type).to.equal('open')
@@ -375,20 +363,17 @@ describe('Lobbies - Team melee', () => {
   it('should fill team slots when a player is added to an empty team', () => {
     const babo = Slots.createHuman('dronebabo', 'z')
     const l = Lobbies.addPlayer(TEAM_MELEE_2, 1, 0, babo)
-    expect(humanSlotsCountPerLobby(l)).to.equal(2)
+    expect(humanSlotCount(l)).to.equal(2)
     expect(hasOpposingSides(l)).to.be.true
     expect(l.teams.get(1).slots.get(0)).to.equal(babo)
-    const controlledOpen = l.teams.get(1).slots.get(1)
-    expect(controlledOpen.type).to.equal('controlledOpen')
-    expect(controlledOpen.race).to.equal(babo.race)
-    expect(controlledOpen.controlledBy).to.equal(babo.id)
+    evaluateControlledSlot(l.teams.get(1).slots.get(1), 'controlledOpen', babo.race, babo.id)
   })
 
   it('should allow players to join slots that were previously controlled opens', () => {
     expect(TEAM_MELEE_4.teams.get(0).slots.get(1).type).to.equal('controlledOpen')
     const babo = Slots.createHuman('dronebabo', 'z')
     const l = Lobbies.addPlayer(TEAM_MELEE_4, 0, 1, babo)
-    expect(humanSlotsCountPerLobby(l)).to.equal(2)
+    expect(humanSlotCount(l)).to.equal(2)
     expect(hasOpposingSides(l)).to.be.false
     expect(l.teams.get(0).slots.get(1)).to.equal(babo)
   })
@@ -396,7 +381,7 @@ describe('Lobbies - Team melee', () => {
   it('should fill team slots with computers when a computer is added to an empty team', () => {
     const comp = Slots.createComputer('z')
     const l = Lobbies.addPlayer(TEAM_MELEE_4, 1, 0, comp)
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.true
     expect(l.teams.get(1).slots.get(0)).to.equal(comp)
     expect(l.teams.get(1).slots.get(1).type).to.equal('computer')
@@ -449,13 +434,10 @@ describe('Lobbies - Team melee', () => {
   it('should remove the controlled open slots when the last player on a team leaves', () => {
     const babo = Slots.createHuman('dronebabo', 'z')
     let l = Lobbies.addPlayer(TEAM_MELEE_4, 1, 0, babo)
-    const controlledOpen = l.teams.get(1).slots.get(1)
-    expect(controlledOpen.type).to.equal('controlledOpen')
-    expect(controlledOpen.race).to.equal(babo.race)
-    expect(controlledOpen.controlledBy).to.equal(babo.id)
+    evaluateControlledSlot(l.teams.get(1).slots.get(1), 'controlledOpen', babo.race, babo.id)
     l = Lobbies.removePlayer(l, 1, 0, babo)
 
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.false
     expect(l.teams.get(1).slots.get(0).type).to.equal('open')
     expect(l.teams.get(1).slots.get(1).type).to.equal('open')
@@ -471,7 +453,7 @@ describe('Lobbies - Team melee', () => {
     expect(comp2.race).to.equal(comp1.race)
     l = Lobbies.removePlayer(l, 1, 0, comp1)
 
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.false
     expect(l.teams.get(1).slots.get(0).type).to.equal('open')
     expect(l.teams.get(1).slots.get(1).type).to.equal('open')
@@ -484,24 +466,16 @@ describe('Lobbies - Team melee', () => {
     let l = Lobbies.addPlayer(TEAM_MELEE_2, 0, 1, babo)
     l = Lobbies.removePlayer(l, 0, 0, l.host)
 
-    expect(humanSlotsCountPerLobby(l)).to.equal(1)
+    expect(humanSlotCount(l)).to.equal(1)
     expect(hasOpposingSides(l)).to.be.false
     expect(l.host).to.equal(babo)
     expect(l.teams.get(0).slots.get(1)).to.equal(babo)
-    const controlledOpen1 = l.teams.get(0).slots.get(0)
-    expect(controlledOpen1.type).to.equal('controlledOpen')
-    expect(controlledOpen1.race).to.equal('r')
-    expect(controlledOpen1.controlledBy).to.equal(babo.id)
+    const controlledOpen = l.teams.get(0).slots.get(0)
+    evaluateControlledSlot(controlledOpen, 'controlledOpen', 'r', babo.id)
     // Ensure the player in the leaving player's slot got a new ID
-    expect(controlledOpen1.id).to.not.equal(TEAM_MELEE_2.host.id)
-    const controlledOpen2 = l.teams.get(0).slots.get(2)
-    expect(controlledOpen2.type).to.equal('controlledOpen')
-    expect(controlledOpen2.race).to.equal('r')
-    expect(controlledOpen2.controlledBy).to.equal(babo.id)
-    const controlledOpen3 = l.teams.get(0).slots.get(3)
-    expect(controlledOpen3.type).to.equal('controlledOpen')
-    expect(controlledOpen3.race).to.equal('r')
-    expect(controlledOpen3.controlledBy).to.equal(babo.id)
+    expect(controlledOpen.id).to.not.equal(TEAM_MELEE_2.host.id)
+    evaluateControlledSlot(l.teams.get(0).slots.get(2), 'controlledOpen', 'r', babo.id)
+    evaluateControlledSlot(l.teams.get(0).slots.get(3), 'controlledOpen', 'r', babo.id)
   })
 
   it('should support moving players between slots in the same team', () => {
@@ -509,16 +483,10 @@ describe('Lobbies - Team melee', () => {
     let l = Lobbies.addPlayer(TEAM_MELEE_2, 0, 1, babo)
     l = Lobbies.movePlayerToSlot(l, 0, 1, 0, 2)
 
-    expect(humanSlotsCountPerLobby(l)).to.equal(2)
+    expect(humanSlotCount(l)).to.equal(2)
     expect(hasOpposingSides(l)).to.be.false
 
-    const controlledOpen1 = l.teams.get(0).slots.get(1)
-    expect(controlledOpen1.type).to.equal('controlledOpen')
-    expect(controlledOpen1.race).to.equal('r')
-    expect(controlledOpen1.controlledBy).to.equal(l.host.id)
-    const controlledOpen2 = l.teams.get(0).slots.get(3)
-    expect(controlledOpen2.type).to.equal('controlledOpen')
-    expect(controlledOpen2.race).to.equal(l.host.race)
-    expect(controlledOpen2.controlledBy).to.equal(l.host.id)
+    evaluateControlledSlot(l.teams.get(0).slots.get(1), 'controlledOpen', 'r', l.host.id)
+    evaluateControlledSlot(l.teams.get(0).slots.get(3), 'controlledOpen', l.host.race, l.host.id)
   })
 })

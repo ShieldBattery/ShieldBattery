@@ -13,6 +13,7 @@ import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
 import { LOBBY_NAME_MAXLENGTH } from '../../../app/common/constants'
 import {
   getLobbySlots,
+  getLobbySlotsWithIndexes,
   getHumanSlots,
   findSlotByName,
   findSlotById,
@@ -186,12 +187,7 @@ export class LobbyApi {
     }
 
     const player = Slots.createHuman(user.name)
-    let updated
-    try {
-      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
-    } catch (err) {
-      throw new errors.BadRequest(err.message)
-    }
+    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
@@ -279,19 +275,10 @@ export class LobbyApi {
     if (!destSlot) {
       throw new errors.BadRequest('invalid id')
     }
-    if (destTeamIndex >= lobby.teams.size) {
-      throw new errors.BadRequest('invalid team index')
-    }
-    if (destSlotIndex >= lobby.teams.get(destTeamIndex).slots.size) {
-      throw new errors.BadRequest('invalid slot index')
-    }
     if (destSlot.type !== 'open' && destSlot.type !== 'controlledOpen') {
       throw new errors.BadRequest('invalid destination slot type')
     }
-    if (sourceSlot.type !== 'human') {
-      throw new errors.BadRequest('invalid source slot type')
-    }
-    if (sourceTeamIndex === destTeamIndex && sourceSlotIndex === destSlotIndex) {
+    if (sourceSlot === destSlot) {
       throw new errors.Conflict('already in that slot')
     }
 
@@ -669,19 +656,25 @@ export class LobbyApi {
   _publishLobbyDiff(oldLobby, newLobby) {
     if (oldLobby === newLobby) return
 
+    const diffEvents = []
     if (newLobby.host.id !== oldLobby.host.id) {
-      this._publishTo(newLobby, {
+      diffEvents.push({
         type: 'hostChange',
         host: newLobby.host,
       })
     }
 
-    const oldSlots = Set(getLobbySlots(oldLobby).map(oldSlot => oldSlot.id))
-    const newSlots = Set(getLobbySlots(newLobby).map(newSlot => newSlot.id))
-    const oldHumans = Set(getHumanSlots(oldLobby).map(oldHuman => oldHuman.id))
+    const oldSlots = new Set(getLobbySlots(oldLobby).map(oldSlot => oldSlot.id))
+    const newSlots = new Set(getLobbySlots(newLobby).map(newSlot => newSlot.id))
+    const oldHumans = new Set(getHumanSlots(oldLobby).map(oldHuman => oldHuman.id))
     const same = oldSlots.intersect(newSlots)
     const left = oldHumans.subtract(same)
     const created = newSlots.subtract(same)
+
+    const oldIdSlots = new Map(getLobbySlotsWithIndexes(oldLobby)
+        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
+    const newIdSlots = new Map(getLobbySlotsWithIndexes(newLobby)
+        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
 
     for (const id of left.values()) {
       // These are the human slots that have left the lobby or were removed. Note that every `leave`
@@ -689,8 +682,8 @@ export class LobbyApi {
       // slots on the client-side in response to this operation (since they'll be overriden in the
       // `slotCreate` operation below anyways). This also means we only care about `human` slots
       // leaving just so we can display appropriate message in the lobby.
-      const [, , player] = findSlotById(oldLobby, id)
-      this._publishTo(newLobby, {
+      const [, , player] = oldIdSlots.get(id)
+      diffEvents.push({
         type: 'leave',
         player,
       })
@@ -699,8 +692,8 @@ export class LobbyApi {
       // These are all of the slots that were created in the new lobby compared to the old one. This
       // includes the slots that were created as a result of players leaving the lobby, moving to a
       // different slot, etc.
-      const [teamIndex, slotIndex, slot] = findSlotById(newLobby, id)
-      this._publishTo(newLobby, {
+      const [teamIndex, slotIndex, slot] = newIdSlots.get(id)
+      diffEvents.push({
         type: 'slotCreate',
         teamIndex,
         slotIndex,
@@ -709,14 +702,14 @@ export class LobbyApi {
     }
 
     for (const id of same.values()) {
-      const [oldTeamIndex, oldSlotIndex, oldSlot] = findSlotById(oldLobby, id)
-      const [newTeamIndex, newSlotIndex, newSlot] = findSlotById(newLobby, id)
+      const [oldTeamIndex, oldSlotIndex, oldSlot] = oldIdSlots.get(id)
+      const [newTeamIndex, newSlotIndex, newSlot] = newIdSlots.get(id)
 
       const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
       if (samePlace && oldSlot === newSlot) continue
 
       if (!samePlace && oldSlot === newSlot) {
-        this._publishTo(newLobby, {
+        diffEvents.push({
           type: 'slotChange',
           teamIndex: newTeamIndex,
           slotIndex: newSlotIndex,
@@ -724,13 +717,20 @@ export class LobbyApi {
         })
       }
       if (samePlace && oldSlot.race !== newSlot.race) {
-        this._publishTo(newLobby, {
+        diffEvents.push({
           type: 'raceChange',
           teamIndex: newTeamIndex,
           slotIndex: newSlotIndex,
           newRace: newSlot.race,
         })
       }
+    }
+
+    if (diffEvents.length) {
+      this._publishTo(newLobby, {
+        type: 'diff',
+        diffEvents,
+      })
     }
 
     this._publishListChange('update', Lobbies.toSummaryJson(newLobby))

@@ -199,9 +199,10 @@ export default class Lobby extends React.Component {
     const slots = []
     const [, , mySlot] = findSlotByName(lobby, user.name)
     const isHost = mySlot && lobby.host.id === mySlot.id
+    const displayTeamName = isTeamType(lobby.gameType)
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
       const currentTeam = lobby.teams.get(teamIndex)
-      if (isTeamType(lobby.gameType)) {
+      if (displayTeamName) {
         slots.push(<span key={'team' + teamIndex} className={styles.teamName}>
           { currentTeam.name }
         </span>)

@@ -1,5 +1,3 @@
-import { List } from 'immutable'
-
 // Since we don't keep a separate list just for the slots, this function iterates over all of the
 // teams in a lobby and accumulates the slots into a new list. Keep in mind that you lose the team
 // index and slot index, so use this function only when you care about the slots themselves, not
@@ -23,7 +21,7 @@ export function getHumanSlots(lobby) {
 // the following form: [teamIndex, slotIndex, slot]
 export function getLobbySlotsWithIndexes(lobby) {
   return lobby.teams.flatMap((team, teamIndex) =>
-      team.slots.map((slot, slotIndex) => new List([teamIndex, slotIndex, slot])))
+      team.slots.map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
 }
 
 // Finds the slot with the specified name in the lobby. Only works for `human` type slots (other
@@ -43,13 +41,13 @@ export function findSlotById(lobby, id) {
 }
 
 // Utility function that returns the total number of slots for a particular lobby.
-export function slotsCountPerLobby(lobby) {
+export function slotCount(lobby) {
   return lobby.teams.reduce((slots, team) => slots + team.slots.size, 0)
 }
 
 // Utility function that returns the number of `human` type slots for a particular lobby. Useful for
 // determining if the lobby should be closed for example if there are no human players in it.
-export function humanSlotsCountPerLobby(lobby) {
+export function humanSlotCount(lobby) {
   return lobby.teams.reduce((humanSlots, team) => humanSlots +
       team.slots.count(slot => slot.type === 'human'), 0)
 }
@@ -57,32 +55,34 @@ export function humanSlotsCountPerLobby(lobby) {
 // Utility function that returns the number of "player" slots for a particular team, ie. are
 // considered when determining if the game can start.
 // Player slot types for now are: `human`, `computer`
-export function playerSlotsCountPerTeam(team) {
+export function teamPlayerSlotCount(team) {
   return team.slots.count(slot => slot.type === 'human' || slot.type === 'computer')
 }
 
 // Utility function that returns the number of "taken" slots for a particular lobby, ie. all the
 // slots that are not `open` or `controlledOpen`
-export function takenSlotsCountPerLobby(lobby) {
+export function takenSlotCount(lobby) {
   return lobby.teams.reduce((takenSlots, team) => takenSlots +
       team.slots.count(slot => slot.type !== 'open' && slot.type !== 'controlledOpen'), 0)
 }
 
 // Utility function that returns the number of "taken" slots for a particular team, ie. all the
 // slots that are not `open` or `controlledOpen`
-export function takenSlotsCountPerTeam(team) {
+export function teamTakenSlotCount(team) {
   return team.slots.count(slot => slot.type !== 'open' && slot.type !== 'controlledOpen')
 }
 
 // Utility function that returns the number of "open" slots for a particular lobby, ie. available
 // for someone to join in. Open slot types for now are: `open`, `controlledOpen`
-export function openSlotsCountPerLobby(lobby) {
+export function openSlotCount(lobby) {
   return lobby.teams.reduce((openSlots, team) => openSlots +
       team.slots.count(slot => slot.type === 'open' || slot.type === 'controlledOpen'), 0)
 }
 
-// Checks if the given gameType is a "team" type. This is a BW-specific definition and doesn't mean
-// if the lobby itself has teams.
+// Checks if the given `gameType` is a "team" type, meaning that a user can select the configuration
+// of the slots when creating a lobby. It's also used to determine the `teamId` property of each
+// team/slot, as well as calculating if the lobby has opposing sides ("team" types have different
+// logic to do this compared to "non-team" types).
 export function isTeamType(gameType) {
   switch (gameType) {
     case 'melee': return false
@@ -101,5 +101,5 @@ export function isTeamType(gameType) {
 export function hasOpposingSides(lobby) {
   return !isTeamType(lobby.gameType) ?
       getPlayerSlots(lobby).size > 1 :
-      lobby.teams.filter(team => playerSlotsCountPerTeam(team) > 0).size > 1
+      lobby.teams.filter(team => teamPlayerSlotCount(team) > 0).size > 1
 }

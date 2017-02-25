@@ -44,6 +44,13 @@ const eventToAction = {
     }
   },
 
+  diff: (name, event) => dispatch => {
+    for (const diffEvent of event.diffEvents) {
+      const diffAction = eventToAction[diffEvent.type](name, diffEvent)
+      if (diffAction) dispatch(diffAction)
+    }
+  },
+
   slotCreate: (name, event) => ({
     type: LOBBY_UPDATE_SLOT_CREATE,
     payload: event,
