@@ -125,7 +125,7 @@ static WindowsError CreateMiniDump(HANDLE process, const string& path) {
   WinHandle file(handle);
 
   BOOL success = MiniDumpWriteDump(process, GetProcessId(process), file.get(),
-    MiniDumpNormal, NULL, NULL, NULL);
+    MiniDumpWithFullMemory, NULL, NULL, NULL);
   if (!success) {
     return WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
   }
@@ -221,7 +221,7 @@ static WindowsError GetRemoteFuncAddress(HANDLE proc_handle, const string& modul
   }
 
   uintptr_t remote_base = reinterpret_cast<uintptr_t>(remote_module);
- 
+
   IMAGE_DOS_HEADER dos_header = {};
   if (!ReadProcessMemory(proc_handle, reinterpret_cast<void*>(remote_base), &dos_header,
       sizeof(IMAGE_DOS_HEADER), nullptr) || dos_header.e_magic != IMAGE_DOS_SIGNATURE) {
@@ -585,7 +585,14 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
     return WindowsError("InjectDll -> GetExitCodeThread", GetLastError());
   }
 
-  return WindowsError("InjectDll -> injection proc exit code", exit_code);
+  if (exit_code != 0) {
+    auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
+    if (err.is_error()) {
+      return err;
+    }
+    return WindowsError("InjectDll -> injection proc exit code (error dump saved)", exit_code);
+  }
+  return WindowsError("(No error)", 0);
 }
 
 WindowsError Process::Resume() {
