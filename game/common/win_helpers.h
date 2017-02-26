@@ -91,69 +91,6 @@ private:
   std::string location_;
 };
 
-class ActiveUserToken {
-public:
-  ActiveUserToken();
-  ~ActiveUserToken();
-
-  bool has_errors() const;
-  WindowsError error() const;
-  HANDLE get() const { return user_token_.get(); }
-
-private:
-  // Disable copying
-  ActiveUserToken(const ActiveUserToken&) = delete;
-  ActiveUserToken& operator=(const ActiveUserToken&) = delete;
-
-  WinHandle user_token_;
-  WindowsError error_;
-};
-
-class UserImpersonation {
-public:
-  UserImpersonation(HANDLE token);
-  ~UserImpersonation();
- 
-  bool has_errors() const;
-  WindowsError error() const;
-
-private:
-  // Disable copying
-  UserImpersonation(const UserImpersonation&) = delete;
-  UserImpersonation& operator=(const UserImpersonation&) = delete;
-
-  WindowsError error_;
-};
-
 std::wstring GetDocumentsPath();
 
-class Process {
-public:
-  Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,
-      const std::wstring& current_dir, const std::vector<std::wstring>& environment);
-  ~Process();
-  bool has_errors() const;
-  WindowsError error() const;
-
-  WindowsError InjectDll(const std::wstring& dll_path, const std::string& inject_function_name,
-    const std::string& error_dump_path);
-  WindowsError Resume();
-  WindowsError Terminate();
-  WindowsError WaitForExit(uint32 max_wait_ms = INFINITE, bool* timed_out = nullptr);
-  WindowsError GetExitCode(uint32* exit_code);
-private:
-  // Disable copying
-  Process(const Process&) = delete;
-  Process& operator=(const Process&) = delete;
-
-  WinHandle process_handle_;
-  WinHandle thread_handle_;
-  WindowsError error_;
-};
-
-// Used to pass messages between processes about the current monitor resolution
-struct ResolutionMessage {
-  uint32 width;
-  uint32 height;
-};
 }  // namespace sbat
