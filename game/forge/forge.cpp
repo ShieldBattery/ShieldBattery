@@ -417,6 +417,7 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     // TODO(tec27): we might need to do something with this, swallowing DISPLAYCHANGE is the first
     // attempt at fixing the "Launch fullscreen BW while in ShieldBattery game = OMFG WHY IS ALL MY
     // RENDERING MESSED UP?" bug
+    return DefWindowProc(window_handle, msg, wparam, lparam);
   case WM_ACTIVATEAPP:
     // BW needs to receive the initial WM_ACTIVATEAPP to function properly.
     if (instance_->bw_window_active_) {
@@ -504,6 +505,18 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
     }
     break;
   case WM_NCACTIVATE:
+  {
+    const auto& settings = GetSettings();
+    if (instance_->is_started_ &&
+        UsesSwapBuffers(settings.renderer) && settings.display_mode == DisplayMode::FullScreen) {
+      // Since we avoid Windows' SwapBuffer full-screen heuristics, it doesn't keep the task bar
+      // from appearing over our app, so we have to try to solve this ourselves. This is non-ideal,
+      // as it can make it hard to get out of the game (e.g. it breaks Win+D), so if we can find
+      // some other, better solution to this that would be great =/
+      SetWindowPos(window_handle, (wparam == TRUE ? HWND_TOPMOST : HWND_NOTOPMOST),
+          0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+
     instance_->window_active_ = wparam == TRUE;
     if (wparam) {
       // Window is now active
@@ -523,7 +536,9 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       instance_->ReleaseHeldKey(window_handle, VK_RBUTTON);
     }
     return DefWindowProc(window_handle, msg, wparam, lparam);
+  }
   case WM_GAME_STARTED:
+    instance_->is_started_ = true;
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground, but will
     // allow you to do so if you're handling a global hotkey. So... we register a global hotkey and
     // then press it ourselves, then bring ourselves into the foreground while handling it.
@@ -539,8 +554,6 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
       SetTimer(window_handle, FOREGROUND_HOTKEY_ID, FOREGROUND_HOTKEY_TIMEOUT, NULL);
     }
-
-    instance_->is_started_ = true;
     return 0;
   case WM_HOTKEY:
   case WM_TIMER:
@@ -557,6 +570,16 @@ LRESULT WINAPI Forge::WndProc(HWND window_handle, UINT msg, WPARAM wparam, LPARA
       // Show the window and bring it to the front
       ShowWindow(window_handle, SW_SHOWNORMAL);
       SetForegroundWindow(window_handle);
+
+      const auto& settings = GetSettings();
+      if (UsesSwapBuffers(settings.renderer) && settings.display_mode == DisplayMode::FullScreen) {
+        // Since we avoid Windows' SwapBuffer full-screen heuristics, it doesn't keep the task bar
+        // from appearing over our app, so we have to try to solve this ourselves. This is
+        // non-ideal, as it can make it hard to get out of the game (e.g. it breaks Win+D), so if
+        // we can find some other, better solution to this that would be great =/
+        SetWindowPos(window_handle, HWND_TOPMOST,
+          0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      }
 
       // Clip the cursor
       RECT clip_rect;
