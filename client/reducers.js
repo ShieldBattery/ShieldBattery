@@ -1,6 +1,7 @@
 export { default as activeGame } from './active-game/active-game-reducer'
 export { default as activityOverlay } from './activities/activity-overlay-reducer'
 export { default as auth } from './auth/auth-reducer'
+export { default as bans } from './admin/bans-reducer'
 export { default as chat } from './chat/chat-reducer'
 export { default as dialog } from './dialogs/dialog-reducer'
 export { default as gameClient } from './lobbies/game-client-reducer'

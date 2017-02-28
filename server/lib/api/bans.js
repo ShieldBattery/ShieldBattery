@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import redis from '../redis'
-import { banUser as dbBanUser } from '../models/bans'
+import { getBanHistory, banUser as dbBanUser, isUserBanned } from '../models/bans'
 import users from '../models/users'
 import { checkAllPermissions } from '../permissions/check-permissions'
 
@@ -12,7 +12,20 @@ export default function(router, userSockets) {
 }
 
 async function getUserBanHistory(ctx, next) {
-  throw new httpErrors.NotImplemented()
+  const userId = ctx.params.userId
+
+  try {
+    const banHistory = await getBanHistory(userId)
+    ctx.body = banHistory.map(b => ({
+      startTime: +b.startTime,
+      endTime: +b.endTime,
+      bannedBy: b.bannedBy,
+      reason: b.reason,
+    }))
+  } catch (err) {
+    ctx.log.error({ err }, 'error querying permissions')
+    throw err
+  }
 }
 
 async function banUser(ctx, next, userSockets) {
@@ -30,8 +43,22 @@ async function banUser(ctx, next, userSockets) {
   if (user === null) {
     throw new httpErrors.NotFound('User does not exist')
   }
+  if (userId === ctx.session.userId) {
+    throw new httpErrors.Conflict('Can\'t ban yourself')
+  }
 
-  await dbBanUser(userId, ctx.session.userId, banLengthHours, reason)
+  try {
+    const ban = await dbBanUser(userId, ctx.session.userId, banLengthHours, reason)
+    ctx.body = {
+      startTime: +ban.startTime,
+      endTime: +ban.endTime,
+      bannedBy: ban.bannedBy,
+      reason: ban.reason,
+    }
+  } catch (err) {
+    ctx.log.error({ err }, 'error banning the user')
+    throw err
+  }
   // Clear all existing sessions for this user
   const userSessionsKey = 'user_sessions:' + userId
   const userSessionIds = await redis.smembers(userSessionsKey)
