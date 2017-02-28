@@ -225,6 +225,19 @@ function silentTerminate(proc) {
 
 const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
 
+const statAsync = thenify(fs.stat)
+const unlinkAsync = thenify(fs.unlink)
+async function removeIfOld(path, maxAge) {
+  try {
+    const stat = await statAsync(path)
+    if (Date.now() - stat.mtime > maxAge) {
+      await unlinkAsync(path)
+    }
+  } catch (e) {
+    // We won't care the file doesn't exist/can't be touched
+  }
+}
+
 const accessAsync = thenify(fs.access)
 async function doLaunch(gameId, serverPort, settings) {
   const { starcraftPath } = settings.local
@@ -263,6 +276,8 @@ async function doLaunch(gameId, serverPort, settings) {
   log.debug(`Injecting ${injectPath} into the process...`)
   const dataRoot = remote.app.getPath('userData')
   const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
+  // Remove the error dump if it's older than 2 weeks, as can be really large
+  await removeIfOld(errorDumpPath, 2 * 24 * 3600 * 1000)
   try {
     await proc.injectDll(injectPath, 'OnInject', errorDumpPath)
   } catch (err) {
