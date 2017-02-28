@@ -371,6 +371,7 @@ class GameInitializer {
 export default function initGame(socket, setupData) {
   const initializer = new GameInitializer(socket, setupData)
   initializer.run().catch(err => {
+    log.error('Game init failed: ' + err.message)
     initializer.notifyProgress(GAME_STATUS_ERROR, { err: err.message })
   })
   return initializer

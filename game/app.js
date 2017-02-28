@@ -73,8 +73,10 @@ socket.registerRoute('/game/:id', (route, event) => {
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
   } else if (event.command === 'setConfig') {
     clearTimeout(timeoutId)
+    log.verbose('Received setConfig command')
     gameInitializer = initGame(socket, event.payload)
   } else if (event.command === 'setRoutes') {
+    log.verbose('Received setRoutes command')
     gameInitializer.setRoutes(event.payload)
   } else {
     log.verbose(`TODO: ${JSON.stringify(event)}`)
