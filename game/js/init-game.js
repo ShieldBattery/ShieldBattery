@@ -98,7 +98,7 @@ class GameInitializer {
 
       const joined = await rallyPoint.joinRoute(
           { address: chosenAddress, port }, route.routeId, route.playerId)
-      const destPlayer = slots.find(slot => slot.id === route.for)
+      const destPlayer = slots.filter(slot => slot.id === route.for)
       log.verbose(
           `Connected to ${route.server.desc} for player ${destPlayer.name} [${route.routeId}]`)
       return { route: joined, forId: route.for }
