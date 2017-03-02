@@ -183,6 +183,15 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.UnloadSnp.Inject();
   offsets_->func_hooks.OnSNetPlayerJoined.Inject();
 
+  offsets_->func_hooks.MinimapCtrl_InitButton.Inject();
+  offsets_->func_hooks.MinimapCtrl_ShowAllianceDialog.Inject();
+  offsets_->func_hooks.RedrawScreen.Inject();
+  offsets_->func_hooks.DrawMinimap.Inject();
+  offsets_->func_hooks.Minimap_TimerRefresh.Inject();
+  offsets_->func_hooks.AllianceDialog_EventHandler.Inject();
+  offsets_->func_hooks.GameScreenLeftClick.Inject();
+  offsets_->func_hooks.Command_Sync.Inject();
+
   process_hooks_.Inject();
 }
 

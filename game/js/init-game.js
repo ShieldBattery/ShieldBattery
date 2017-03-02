@@ -287,6 +287,7 @@ class GameInitializer {
   mapSlotTypes(type) {
     switch (type) {
       case 'human':
+      case 'observer':
         return 'human'
       case 'computer':
         return 'lobbycomputer'
@@ -314,6 +315,9 @@ class GameInitializer {
 
     for (let i = 0; i < lobbySlots.length; i++) {
       const lobbySlot = lobbySlots[i]
+      if (lobbySlot.type === 'observer') {
+        continue
+      }
       const slot = isUms(gameType) ? bw.slots[lobbySlot.playerId] : bw.slots[i]
 
       slot.playerId = isUms(gameType) ? lobbySlot.playerId : i
@@ -326,7 +330,7 @@ class GameInitializer {
         slot.team = lobbySlot.teamId
       }
       slot.name = lobbySlot.name
-      if (isUms(gameType) && lobbySlot.type !== 'human') {
+      if (isUms(gameType) && lobbySlot.type !== 'human' && lobbySlot.type !== 'observer') {
         // The type of UMS computers is set in the map file, and we have no reason to
         // worry about the various possibilities there are, so just pass the integer onwards.
         slot.typeId = lobbySlot.typeId
@@ -342,20 +346,28 @@ class GameInitializer {
       r[s.name] = s
       return r
     }, {})
+    const observers = this.lobbyConfig.slots
+      .filter(s => s.type === 'observer')
+      .map(s => s.name)
 
     for (let stormId = 0; stormId < stormNames.length; stormId++) {
-      if (!stormNames[stormId]) continue
+      const name = stormNames[stormId]
+      if (!name) continue
 
-      const slot = playerSlots[stormNames[stormId]]
-      if (!slot) {
-        throw new Error(`Unexpected player name: ${stormNames[stormId]}`)
-      }
-      if (slot.stormId < 8 && slot.stormId !== stormId) {
-        throw new Error(`Unexpected stormId change for ${slot.name}`)
-      }
+      if (observers.includes(name)) {
+        log.verbose(`Observer ${name} received storm ID ${stormId}`)
+      } else {
+        const slot = playerSlots[name]
+        if (!slot) {
+          throw new Error(`Unexpected player name: ${stormNames[stormId]}`)
+        }
+        if (slot.stormId < 8 && slot.stormId !== stormId) {
+          throw new Error(`Unexpected stormId change for ${name}`)
+        }
 
-      slot.stormId = stormId
-      log.verbose(`Player ${slot.name} received storm ID ${stormId}`)
+        slot.stormId = stormId
+        log.verbose(`Player ${name} received storm ID ${stormId}`)
+      }
     }
   }
 }
