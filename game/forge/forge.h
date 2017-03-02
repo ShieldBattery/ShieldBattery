@@ -24,9 +24,9 @@ const DWORD BORDERLESS_WINDOW_SWAP = WS_CAPTION | WS_VISIBLE;
 const DWORD BORDERLESS_WINDOW_NOSWAP = WS_POPUP | WS_VISIBLE;
 const DWORD WINDOW = WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU;
 
-typedef HRESULT (__stdcall *CreateSoundBufferFunc)(IDirectSound8* this_ptr,
+typedef HRESULT (CreateSoundBufferFunc)(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused);
-typedef void(__stdcall *RenderScreenFunc)();
+typedef void(RenderScreenFunc)();
 
 class Forge : public Nan::ObjectWrap {
 public:
@@ -118,8 +118,8 @@ private:
 
   HookedModule process_hooks_;
   HookedModule storm_hooks_;
-  FuncHook<CreateSoundBufferFunc>* create_sound_buffer_hook_;
-  std::unique_ptr<FuncHook<RenderScreenFunc>> render_screen_hook_;
+  FuncHook<CreateSoundBufferFunc> create_sound_buffer_hook_;
+  FuncHook<RenderScreenFunc> render_screen_hook_;
   HWND window_handle_;
   WNDPROC original_wndproc_;
   std::map<std::string, std::pair<std::string, std::string>> dx_shaders;
