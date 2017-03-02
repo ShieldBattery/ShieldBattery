@@ -6,6 +6,7 @@
 #include <string>
 #include "common/func_hook.h"
 #include "common/types.h"
+#include "observing_patches.h"
 
 #define CURRENT_BROOD_WAR_VERSION sbat::bw::Version::v1161
 
@@ -84,6 +85,11 @@ struct SEvent {
   uint32 storm_id;
   byte* data;
   uint32 size;
+};
+
+struct Control {
+  byte whatever[0x20];
+  uint16 id;
 };
 #pragma pack()
 
@@ -229,6 +235,13 @@ struct FuncHooks {
   FuncHook<BOOL(BOOL clear_list)> UnloadSnp;
   FuncHook<void(SEvent* evt)> OnSNetPlayerJoined;
   FuncHook<void(Control *ctrl)> MinimapCtrl_InitButton;
+  FuncHook<void()> MinimapCtrl_ShowAllianceDialog;
+  FuncHook<void()> DrawMinimap;
+  FuncHook<void()> Minimap_TimerRefresh;
+  FuncHook<void()> RedrawScreen;
+  FuncHook<void(Control *ctrl, void *event)> AllianceDialog_EventHandler;
+  FuncHook<void(void *event)> GameScreenLeftClick;
+  FuncHook<int(void *data)> Command_Sync;
 };
 
 struct EventHandlers {
@@ -259,6 +272,7 @@ struct Offsets {
   uint32* current_game_speed;
   uint8* is_brood_war;
   uint8* is_multiplayer;
+  uint32* is_replay;
   uint8* is_hosting_game;
   MapListEntry* maps_list_root;
   uint32* was_booted;
@@ -274,6 +288,7 @@ struct Offsets {
   bool* player_has_left;
   uint32* player_nation_ids;
   uint32* game_time;
+  uint32* current_command_player;
   bool* storm_snp_list_initialized;
   sbat::snp::SNetSnpListEntry* storm_snp_list;
 
@@ -290,6 +305,7 @@ template <Version version>
 Offsets* GetOffsets();
 
 class BroodWar {
+  friend struct ObservingPatches;
   typedef void (__stdcall *MapListEntryCallback)(MapListEntry* map_data, char* map_name,
       uint32 file_type);
 
@@ -396,7 +412,7 @@ private:
       DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
   static BOOL __stdcall CloseHandleHook(HANDLE hObject);
   static BOOL __stdcall DeleteFileAHook(LPCSTR lpFileName);
-  
+
   Offsets* offsets_;
   HookedModule process_hooks_;
   EventHandlers* event_handlers_;
@@ -431,6 +447,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->current_game_speed = reinterpret_cast<uint32*>(0x006CDFD4);
   offsets->is_brood_war = reinterpret_cast<uint8*>(0x0058F440);
   offsets->is_multiplayer = reinterpret_cast<uint8*>(0x0057F0B4);
+  offsets->is_replay = reinterpret_cast<uint32*>(0x006D0F14);
   offsets->is_hosting_game = reinterpret_cast<uint8*>(0x00596888);
   offsets->maps_list_root = reinterpret_cast<MapListEntry*>(0x0051A278);
   offsets->was_booted = reinterpret_cast<uint32*>(0x005999E8);
@@ -445,6 +462,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->player_has_left = reinterpret_cast<bool*>(0x00581D62);
   offsets->player_nation_ids = reinterpret_cast<uint32*>(0x0057EEC0);
   offsets->game_time = reinterpret_cast<uint32*>(0x0057F23C);
+  offsets->current_command_player = reinterpret_cast<uint32*>(0x00512678);
   offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
   offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
@@ -512,6 +530,23 @@ Offsets* GetOffsets<Version::v1161>() {
       storm_base + 0x000380A0, BroodWar::UnloadSnpHook);
   offsets->func_hooks.OnSNetPlayerJoined.InitStdcall(
       0x004C4980, BroodWar::OnSNetPlayerJoinedHook);
+
+  offsets->func_hooks.MinimapCtrl_InitButton.InitCustom<Eax>(
+      0x004A5230, ObservingPatches::MinimapCtrl_InitButtonHook);
+  offsets->func_hooks.MinimapCtrl_ShowAllianceDialog.InitStdcall(
+      0x004913D0, ObservingPatches::MinimapCtrl_ShowAllianceDialogHook);
+  offsets->func_hooks.DrawMinimap.InitStdcall(
+      0x004A5200, ObservingPatches::DrawMinimapHook);
+  offsets->func_hooks.Minimap_TimerRefresh.InitStdcall(
+      0x004A4E00, ObservingPatches::Minimap_TimerRefreshHook);
+  offsets->func_hooks.RedrawScreen.InitStdcall(
+      0x0041CA00, ObservingPatches::RedrawScreenHook);
+  offsets->func_hooks.AllianceDialog_EventHandler.InitCustom<Ecx, Edx>(
+      0x00491310 , ObservingPatches::AllianceDialog_EventHook);
+  offsets->func_hooks.GameScreenLeftClick.InitCustom<Ecx>(
+      0x0046FEA0, ObservingPatches::GameScreenLeftClickHook);
+  offsets->func_hooks.Command_Sync.InitCustom<Edi>(
+      0x0047CDD0, ObservingPatches::Command_SyncHook);
 
   return offsets;
 }

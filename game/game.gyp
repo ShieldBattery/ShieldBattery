@@ -69,6 +69,7 @@
         'node-bw/module.cpp',
         'node-bw/brood_war.cpp',
         'node-bw/immediate.cpp',
+        'node-bw/observing_patches.cpp',
         'node-bw/wrapped_brood_war.cpp',
 
         'shieldbattery/shieldbattery.cpp',

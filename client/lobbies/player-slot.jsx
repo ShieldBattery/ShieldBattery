@@ -10,7 +10,7 @@ import SlotActions from './slot-actions.jsx'
 export default class PlayerSlot extends React.Component {
   static propTypes = {
     name: PropTypes.string.isRequired,
-    race: PropTypes.string.isRequired,
+    race: PropTypes.string,
     isComputer: PropTypes.bool,
     avatarImage: PropTypes.string,
     onSetRace: PropTypes.func,
