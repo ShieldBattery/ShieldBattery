@@ -138,10 +138,8 @@ void __stdcall BroodWar::PollInputHook() {
     return;
   }
 
-  auto hook = instance_->offsets_->func_hooks.PollInput;
-  hook->Restore();
-  hook->callable()();
-  hook->Inject();
+  auto &hook = instance_->offsets_->func_hooks.PollInput;
+  hook.callable()();
 }
 
 BOOL __stdcall BroodWar::InitializeSnpListHook() {
@@ -161,10 +159,8 @@ BOOL __stdcall BroodWar::InitializeSnpListHook() {
 
 BOOL __stdcall BroodWar::UnloadSnpHook(BOOL clear_list) {
   // Never pass clear_list = true, as we initialized the list and Storm can't free the memory
-  auto hook = instance_->offsets_->func_hooks.UnloadSnp;
-  hook->Restore();
-  BOOL result = hook->callable()(FALSE);
-  hook->Inject();
+  auto &hook = instance_->offsets_->func_hooks.UnloadSnp;
+  BOOL result = hook.callable()(FALSE);
 
   if (*instance_->offsets_->storm_snp_list_initialized) {
     *instance_->offsets_->storm_snp_list_initialized = FALSE;
@@ -181,11 +177,11 @@ void BroodWar::InjectDetours() {
   offsets_->detours.RenderDuringInitSpritesTwo->Inject();
   offsets_->detours.GameLoop->Inject();
 
-  offsets_->func_hooks.CheckForMultiplayerChatCommand->Inject();
-  offsets_->func_hooks.PollInput->Inject();
-  offsets_->func_hooks.InitializeSnpList->Inject();
-  offsets_->func_hooks.UnloadSnp->Inject();
-  offsets_->func_hooks.OnSNetPlayerJoined->Inject();
+  offsets_->func_hooks.CheckForMultiplayerChatCommand.Inject();
+  offsets_->func_hooks.PollInput.Inject();
+  offsets_->func_hooks.InitializeSnpList.Inject();
+  offsets_->func_hooks.UnloadSnp.Inject();
+  offsets_->func_hooks.OnSNetPlayerJoined.Inject();
 
   process_hooks_.Inject();
 }
@@ -526,7 +522,7 @@ MapResult BroodWar::SelectMapOrDirectory(const std::string& game_name, uint32 ga
   return result;
 }
 
-MapListEntry* BroodWar::FindMapWithPath(const std::string& map_path) {  
+MapListEntry* BroodWar::FindMapWithPath(const std::string& map_path) {
   std::string map_dir;
   std::string map_file;
 

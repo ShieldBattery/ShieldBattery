@@ -52,7 +52,6 @@ Forge* Forge::instance_ = nullptr;
 Forge::Forge()
     : process_hooks_(GetModuleHandle(NULL)),
       storm_hooks_(GetModuleHandle("storm.dll")),
-      create_sound_buffer_hook_(nullptr),
       render_screen_hook_(),
       window_handle_(NULL),
       original_wndproc_(nullptr),
@@ -110,13 +109,11 @@ Forge::Forge()
   storm_hooks_.AddHook("user32.dll", "IsWindowVisible", IsWindowVisibleHook);
 
   // TODO(tec27): move this hook into brood_war?
-  render_screen_hook_.reset(new FuncHook<RenderScreenFunc>(
-      reinterpret_cast<RenderScreenFunc>(0x41E280), RenderScreenHook));
+  render_screen_hook_.InitStdcall(0x0041E280, RenderScreenHook);
 }
 
 Forge::~Forge() {
-  if (create_sound_buffer_hook_) {
-    delete create_sound_buffer_hook_;
+  if (create_sound_buffer_hook_.Initialized()) {
     // we use LoadLibrary in DirectSoundCreateHook, so we need to free the library here if its still
     // loaded
     HMODULE dsound = GetModuleHandle("dsound.dll");
@@ -276,7 +273,7 @@ void Forge::Inject(const FunctionCallbackInfo<Value>& info) {
 
   result &= instance_->process_hooks_.Inject();
   result &= instance_->storm_hooks_.Inject();
-  result &= instance_->render_screen_hook_->Inject();
+  result &= instance_->render_screen_hook_.Inject();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -286,7 +283,7 @@ void Forge::Restore(const FunctionCallbackInfo<Value>& info) {
 
   result &= instance_->process_hooks_.Restore();
   result &= instance_->storm_hooks_.Restore();
-  result &= instance_->render_screen_hook_->Restore();
+  result &= instance_->render_screen_hook_.Restore();
 
   info.GetReturnValue().Set(Nan::New(result));
 }
@@ -920,15 +917,13 @@ HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
   }
 
   Logger::Log(LogLevel::Verbose, "DirectSound created");
-  if (instance_->create_sound_buffer_hook_ == nullptr) {
+  if (!instance_->create_sound_buffer_hook_.Initialized()) {
     Logger::Log(LogLevel::Verbose, "Hooking CreateSoundBuffer");
-    // the vtable isn't really full of CreateSoundBufferFuncs, but close enough ;)
-    CreateSoundBufferFunc* vtable = *reinterpret_cast<CreateSoundBufferFunc**>(*direct_sound_out);
-    CreateSoundBufferFunc create_sound_buffer = vtable[3];  // 4th function is CSB
-    instance_->create_sound_buffer_hook_ = new FuncHook<CreateSoundBufferFunc>(
-        create_sound_buffer, Forge::CreateSoundBufferHook);
-    instance_->create_sound_buffer_hook_->Inject();
-    Logger::Logf(LogLevel::Verbose, "CreateSoundBuffer hooked.", create_sound_buffer);
+    uintptr_t* vtable = *reinterpret_cast<uintptr_t **>(*direct_sound_out);
+    // 4th function is CSB
+    instance_->create_sound_buffer_hook_.InitStdcall(vtable[3], Forge::CreateSoundBufferHook);
+    instance_->create_sound_buffer_hook_.Inject();
+    Logger::Logf(LogLevel::Verbose, "CreateSoundBuffer hooked.");
   }
 
   return result;
@@ -937,7 +932,7 @@ HRESULT __stdcall Forge::DirectSoundCreate8Hook(const GUID* device,
 HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
     const DSBUFFERDESC* buffer_desc, IDirectSoundBuffer** buffer_out, IUnknown* unused) {
   HRESULT result;
-  instance_->create_sound_buffer_hook_->Restore();
+  instance_->create_sound_buffer_hook_.Restore();
 
   if (buffer_desc->dwFlags & DSBCAPS_GLOBALFOCUS || buffer_desc->dwFlags & DSBCAPS_PRIMARYBUFFER) {
     result = this_ptr->CreateSoundBuffer(buffer_desc, buffer_out, unused);
@@ -947,7 +942,7 @@ HRESULT __stdcall Forge::CreateSoundBufferHook(IDirectSound8* this_ptr,
     result = this_ptr->CreateSoundBuffer(&rewritten_desc, buffer_out, unused);
   }
 
-  instance_->create_sound_buffer_hook_->Inject();
+  instance_->create_sound_buffer_hook_.Inject();
   return result;
 }
 
@@ -968,10 +963,8 @@ BOOL __stdcall Forge::ReleaseCaptureHook() {
 }
 
 void __stdcall Forge::RenderScreenHook() {
-  auto& hook = *instance_->render_screen_hook_;
-  hook.Restore();
+  auto& hook = instance_->render_screen_hook_;
   hook.callable()();
-  hook.Inject();
 
   if (instance_->is_started_ && instance_->indirect_draw_) {
     instance_->indirect_draw_->Render();

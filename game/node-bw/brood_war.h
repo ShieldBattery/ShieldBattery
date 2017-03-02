@@ -200,14 +200,10 @@ struct Functions {
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
   FUNCDEF(void, CleanUpForExit);
-  FUNCDEF(void, PollInput);
-  FUNCDEF(BOOL, InitializeSnpList);
-  FUNCDEF(BOOL, UnloadSnp, BOOL clear_list);
   FUNCDEF(BOOL, InitNetworkPlayerInfo, byte storm_id, uint16 flags, uint16 version_hi,
       uint16 version_lo);
   FUNCDEF(BOOL, InitMapFromPath, const char* map_path, DWORD* data_out, BOOL is_campaign);
   FUNCDEF(void, InitTeamGamePlayableSlots);
-  FUNCDEF(void, OnSNetPlayerJoined, SEvent* evt);
   FUNCDEF(BOOL, MaybeReceiveTurns);
 
   FUNCDEF(uint32, SErrGetLastError);
@@ -227,11 +223,12 @@ struct Detours {
 };
 
 struct FuncHooks {
-  FuncHook<Functions::CheckForMultiplayerChatCommandFunc>* CheckForMultiplayerChatCommand;
-  FuncHook<Functions::PollInputFunc>* PollInput;
-  FuncHook<Functions::InitializeSnpListFunc>* InitializeSnpList;
-  FuncHook<Functions::UnloadSnpFunc>* UnloadSnp;
-  FuncHook<Functions::OnSNetPlayerJoinedFunc>* OnSNetPlayerJoined;
+  FuncHook<uint32(char* message)> CheckForMultiplayerChatCommand;
+  FuncHook<void()> PollInput;
+  FuncHook<BOOL()> InitializeSnpList;
+  FuncHook<BOOL(BOOL clear_list)> UnloadSnp;
+  FuncHook<void(SEvent* evt)> OnSNetPlayerJoined;
+  FuncHook<void(Control *ctrl)> MinimapCtrl_InitButton;
 };
 
 struct EventHandlers {
@@ -417,10 +414,11 @@ private:
 
 template <> inline
 Offsets* GetOffsets<Version::v1161>() {
+  using namespace sbat::hook_registers;
   Offsets* offsets = new Offsets;
 
-  byte* storm_base = reinterpret_cast<byte*>(GetModuleHandle("storm.dll"));
-  assert(storm_base != nullptr);
+  uintptr_t storm_base = reinterpret_cast<uintptr_t>(GetModuleHandle("storm.dll"));
+  assert(storm_base != 0);
 
   offsets->players = reinterpret_cast<PlayerInfo*>(0x0057EEE0);
   offsets->current_map_path = reinterpret_cast<char*>(0x0057FD3C);
@@ -468,26 +466,17 @@ Offsets* GetOffsets<Version::v1161>() {
       reinterpret_cast<Functions::UpdateNationAndHumanIdsFunc>(0x004A8D40);
   offsets->functions.SendMultiplayerChatMessage =
       reinterpret_cast<Functions::SendMultiplayerChatMessageFunc>(0x004F3280);
-  offsets->functions.CheckForMultiplayerChatCommand =
-      reinterpret_cast<Functions::CheckForMultiplayerChatCommandFunc>(0x0047F8F0);
   offsets->functions.DisplayMessage = reinterpret_cast<Functions::DisplayMessageFunc>(0x0048D0C0);
   offsets->functions.CleanUpForExit =
       reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
-  offsets->functions.PollInput = reinterpret_cast<Functions::PollInputFunc>(0x0047F0E0);
   offsets->functions.InitNetworkPlayerInfo =
       reinterpret_cast<Functions::InitNetworkPlayerInfoFunc>(0x00470D10);
   offsets->functions.InitMapFromPath =
       reinterpret_cast<Functions::InitMapFromPathFunc>(0x004BF5D0);
   offsets->functions.InitTeamGamePlayableSlots =
       reinterpret_cast<Functions::InitTeamGamePlayableSlotsFunc>(0x00470150);
-  offsets->functions.OnSNetPlayerJoined =
-      reinterpret_cast<Functions::OnSNetPlayerJoinedFunc>(0x004C4980);
   offsets->functions.MaybeReceiveTurns =
       reinterpret_cast<Functions::MaybeReceiveTurnsFunc>(0x00486580);
-  offsets->functions.InitializeSnpList =
-      reinterpret_cast<Functions::InitializeSnpListFunc>(storm_base + 0x0003DE90);
-  offsets->functions.UnloadSnp =
-      reinterpret_cast<Functions::UnloadSnpFunc>(storm_base + 0x000380A0);
   offsets->functions.SErrGetLastError = reinterpret_cast<Functions::SErrGetLastErrorFunc>(
       GetProcAddress(reinterpret_cast<HMODULE>(storm_base), MAKEINTRESOURCE(463)));
   offsets->functions.SNetReceiveMessage = reinterpret_cast<Functions::SNetReceiveMessageFunc>(
@@ -513,17 +502,16 @@ Offsets* GetOffsets<Version::v1161>() {
       // The function call we're overwriting is a no-op (just a ret), so we can skip it
       .NotRunningOriginalCode());
 
-  offsets->func_hooks.CheckForMultiplayerChatCommand =
-      new FuncHook<Functions::CheckForMultiplayerChatCommandFunc>(
-      offsets->functions.CheckForMultiplayerChatCommand, BroodWar::CheckForChatCommandHook);
-  offsets->func_hooks.PollInput = new FuncHook<Functions::PollInputFunc>(
-      offsets->functions.PollInput, BroodWar::PollInputHook);
-  offsets->func_hooks.InitializeSnpList = new FuncHook<Functions::InitializeSnpListFunc>(
-      offsets->functions.InitializeSnpList, BroodWar::InitializeSnpListHook);
-  offsets->func_hooks.UnloadSnp = new FuncHook<Functions::UnloadSnpFunc>(
-      offsets->functions.UnloadSnp, BroodWar::UnloadSnpHook);
-  offsets->func_hooks.OnSNetPlayerJoined = new FuncHook<Functions::OnSNetPlayerJoinedFunc>(
-    offsets->functions.OnSNetPlayerJoined, BroodWar::OnSNetPlayerJoinedHook);
+  offsets->func_hooks.CheckForMultiplayerChatCommand.InitStdcall(
+      0x0047F8F0, BroodWar::CheckForChatCommandHook);
+  offsets->func_hooks.PollInput.InitStdcall(
+      0x0047F0E0, BroodWar::PollInputHook);
+  offsets->func_hooks.InitializeSnpList.InitStdcall(
+      storm_base + 0x0003DE90, BroodWar::InitializeSnpListHook);
+  offsets->func_hooks.UnloadSnp.InitStdcall(
+      storm_base + 0x000380A0, BroodWar::UnloadSnpHook);
+  offsets->func_hooks.OnSNetPlayerJoined.InitStdcall(
+      0x004C4980, BroodWar::OnSNetPlayerJoinedHook);
 
   return offsets;
 }

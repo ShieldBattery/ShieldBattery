@@ -156,14 +156,22 @@ uint32 ConstructRelativeOpcode(ud_mnemonic_code code, uint32 pc, uint32 instruct
   return new_instruction_len;
 }
 
-void ReplaceRelativeOffsets(byte* hook_location, uint32 hook_size, byte* output,
-    uint32 output_size) {
+static ud_t CreateUdis(byte* address) {
   ud_t udis;
   ud_init(&udis);
   ud_set_mode(&udis, 32);
-  ud_set_syntax(&udis, NULL);
-  ud_set_input_buffer(&udis, hook_location, 20);
-  ud_set_pc(&udis, static_cast<uint64_t>(reinterpret_cast<uint32>(hook_location)));
+  ud_set_syntax(&udis, NULL);  // we don't care about readable output!
+  // According to http://blog.onlinedisassembler.com/blog/?p=23, modern day implementations throw a
+  // general protection fault at any instructions > 15 bytes, so 20 bytes (4 byte instruction
+  // followed by at 15 byte instruction = 19 bytes) should be safe here
+  ud_set_input_buffer(&udis, address, 20);
+  ud_set_pc(&udis, reinterpret_cast<uintptr_t>(address));
+  return udis;
+}
+
+void ReplaceRelativeOffsets(byte* hook_location, uint32 hook_size, byte* output,
+    uint32 output_size) {
+  auto udis = CreateUdis(hook_location);
 
   const ud_operand_t* operand;
   uint32 i = 0;
@@ -211,10 +219,21 @@ void ReplaceRelativeOffsets(byte* hook_location, uint32 hook_size, byte* output,
   assert(pos == output_size);
 }
 
-uint32 Detour::page_size_ = 0;
-shared_ptr<Detour::AllocBlock> Detour::current_block_ = shared_ptr<Detour::AllocBlock>();
+uintptr_t ExecutableMemory::Block::page_size_ = 0;
+thread_local shared_ptr<ExecutableMemory::Block> ExecutableMemory::current_block_ =
+    shared_ptr<ExecutableMemory::Block>();
 
-Detour::AllocBlock::AllocBlock()
+ExecutableMemory ExecutableMemory::Allocate(size_t size) {
+  if (!current_block_ || current_block_->GetBytesLeft() < size) {
+    current_block_.reset(new Block());
+  }
+
+  auto pos = current_block_->pos_;
+  current_block_->pos_ += size;
+  return ExecutableMemory(current_block_, pos, size);
+}
+
+ExecutableMemory::Block::Block()
   : block_start_(nullptr),
     pos_(nullptr) {
   if (page_size_ == 0) {
@@ -222,46 +241,25 @@ Detour::AllocBlock::AllocBlock()
     GetSystemInfo(&info);
     page_size_ = info.dwPageSize;
   }
-  block_start_ = pos_ = VirtualAlloc(nullptr, page_size_, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+  void* pointer = VirtualAlloc(nullptr, page_size_, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+  block_start_ = pos_ = reinterpret_cast<byte*>(pointer);
 }
 
-Detour::AllocBlock::~AllocBlock() {
+ExecutableMemory::Block::~Block() {
   VirtualFree(block_start_, 0, MEM_RELEASE);
 }
 
-uint32 Detour::AllocBlock::GetBytesLeft() {
+uintptr_t ExecutableMemory::Block::GetBytesLeft() {
   return page_size_ - (reinterpret_cast<byte*>(pos_) - reinterpret_cast<byte*>(block_start_));
 }
 
-shared_ptr<Detour::AllocBlock> Detour::AllocSpace(size_t trampoline_size) {
-  if (!current_block_ || current_block_->GetBytesLeft() < trampoline_size) {
-    current_block_.reset(new AllocBlock());
-  }
-
-  return current_block_;
-}
-
-Detour::Detour(const Detour::Builder& builder)
-  : hook_location_(builder.hook_location_),
-    hook_size_(0),
-    trampoline_block_(nullptr),
-    original_(nullptr),
-    hooked_(nullptr),
-    injected_(false) {
-  assert(builder.hook_location_ != nullptr);
-  assert(builder.target_ != nullptr);
-
-  ud_t udis;
-  ud_init(&udis);
-  ud_set_mode(&udis, 32);
-  ud_set_syntax(&udis, NULL);  // we don't care about readable output!
-  // According to http://blog.onlinedisassembler.com/blog/?p=23, modern day implementations throw a
-  // general protection fault at any instructions > 15 bytes, so 20 bytes (4 byte instruction
-  // followed by at 15 byte instruction = 19 bytes) should be safe here
-  ud_set_input_buffer(&udis, hook_location_, 20);
-  ud_set_pc(&udis, static_cast<uint64_t>(reinterpret_cast<uint32>(hook_location_)));
-  size_t replaced_size = 0;
-
+// Counts the amount of bytes the instructions take at `position` when replacing at least
+// `min_length` bytes (hook_size), and how many bytes are required to store those instructions
+// in a faraway buffer (replaced_size) with ReplaceRelativeOffsets
+InstructionSizes CountInstructionSizes(byte* position, size_t min_length) {
+  auto udis = CreateUdis(position);
+  uintptr_t hook_size = 0;
+  uintptr_t replaced_size = 0;
   // we do 2 passes:
   // first we figure out how big the trampoline needs to be, then iterate back over the opcodes
   // we're replacing and rewrite any relative offsets. The second pass happens only if we want to
@@ -269,10 +267,25 @@ Detour::Detour(const Detour::Builder& builder)
   uint32 instruction_size;
   do {
     instruction_size = ud_disassemble(&udis);
-    hook_size_ += instruction_size;
+    hook_size += instruction_size;
     replaced_size += GetRewrittenInstructionLength(udis.mnemonic, instruction_size);
-  } while (hook_size_ < 5 && instruction_size != 0);
-  assert(hook_size_ >= 5);
+  } while (hook_size < min_length && instruction_size != 0);
+  assert(hook_size >= min_length);
+  return InstructionSizes { hook_size, replaced_size };
+}
+
+Detour::Detour(const Detour::Builder& builder)
+  : hook_location_(builder.hook_location_),
+    hook_size_(0),
+    original_(nullptr),
+    hooked_(nullptr),
+    injected_(false) {
+  assert(builder.hook_location_ != nullptr);
+  assert(builder.target_ != nullptr);
+
+  auto ins_sizes = CountInstructionSizes(hook_location_, 5);
+  hook_size_ = ins_sizes.hook_size;
+  uintptr_t replaced_size = ins_sizes.replaced_size;
 
   // Allocate our trampoline
   size_t trampoline_size = sizeof(Detour::TRAMPOLINE_PREAMBLE) +
@@ -281,9 +294,7 @@ Detour::Detour(const Detour::Builder& builder)
       1 + sizeof(int32) +  // call <target>  NOLINT
       builder.arguments_.size() +  // push for each register
       (builder.run_original_ != RunOriginalCodeType::Never ? replaced_size : 0);
-  trampoline_block_ = AllocSpace(trampoline_size);
-  byte* trampoline = reinterpret_cast<byte*>(trampoline_block_->pos_);
-  trampoline_block_->pos_ = reinterpret_cast<byte*>(trampoline_block_->pos_) + trampoline_size;
+  trampoline_ = ExecutableMemory::Allocate(trampoline_size);
 
   original_.reset(new byte[hook_size_]);
   hooked_.reset(new byte[hook_size_]);
@@ -293,49 +304,49 @@ Detour::Detour(const Detour::Builder& builder)
   }
   hooked_.get()[0] = 0xE9;  // relative jump
   *(reinterpret_cast<int32*>(&hooked_.get()[1])) =  // offset from end of command
-      reinterpret_cast<int32>(trampoline) - (reinterpret_cast<int32>(hook_location_) + 5);
+      reinterpret_cast<int32>(&trampoline_[0]) - (reinterpret_cast<int32>(hook_location_) + 5);
 
   uint32 pos = 0;
   // add the original code if we are meant to run it before
   if (builder.run_original_ == RunOriginalCodeType::Before) {
-    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline[pos], replaced_size);
+    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline_[pos], replaced_size);
     pos += replaced_size;
   }
 
   // copy in our trampoline preamble
-  memcpy_s(&trampoline[pos], trampoline_size - pos, Detour::TRAMPOLINE_PREAMBLE,
+  memcpy_s(&trampoline_[pos], trampoline_size - pos, Detour::TRAMPOLINE_PREAMBLE,
       sizeof(Detour::TRAMPOLINE_PREAMBLE));
   pos += sizeof(Detour::TRAMPOLINE_PREAMBLE);
 
   // add any necessary PUSH instructions for our arguments; handily they have values equal to their
   // PUSH opcode
   for (auto it = builder.arguments_.rbegin(); it != builder.arguments_.rend(); ++it) {
-    trampoline[pos++] = static_cast<byte>(*it);
+    trampoline_[pos++] = static_cast<byte>(*it);
   }
 
   // generate the call code
 #pragma warning(suppress: 6386)
-  trampoline[pos] = 0xE8;  // relative call
-  *(reinterpret_cast<int32*>(&trampoline[pos+1])) =  // offset from end of command
-      reinterpret_cast<int32>(builder.target_) - (reinterpret_cast<int32>(&trampoline[pos]) + 5);
+  trampoline_[pos] = 0xE8;  // relative call
+  *(reinterpret_cast<int32*>(&trampoline_[pos+1])) =  // offset from end of command
+      reinterpret_cast<int32>(builder.target_) - (reinterpret_cast<int32>(&trampoline_[pos]) + 5);
   pos += 5;
 
   // copy in our trampoline postscript
-  memcpy_s(&trampoline[pos], trampoline_size - pos, Detour::TRAMPOLINE_POSTSCRIPT,
+  memcpy_s(&trampoline_[pos], trampoline_size - pos, Detour::TRAMPOLINE_POSTSCRIPT,
       sizeof(Detour::TRAMPOLINE_POSTSCRIPT));
   pos += sizeof(Detour::TRAMPOLINE_POSTSCRIPT);
 
   // add the original code if we are meant to run it after
   if (builder.run_original_ == RunOriginalCodeType::After) {
-    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline[pos], replaced_size);
+    ReplaceRelativeOffsets(hook_location_, hook_size_, &trampoline_[pos], replaced_size);
     pos += replaced_size;
   }
 
   // jmp to after the hook spot
-  trampoline[pos] = 0xE9;  // relative jmp
-  *(reinterpret_cast<int32*>(&trampoline[pos+1])) =  // offset from end of command
+  trampoline_[pos] = 0xE9;  // relative jmp
+  *(reinterpret_cast<int32*>(&trampoline_[pos+1])) =  // offset from end of command
       (reinterpret_cast<int32>(hook_location_) + hook_size_) -
-      (reinterpret_cast<int32>(&trampoline[pos]) + 5);
+      (reinterpret_cast<int32>(&trampoline_[pos]) + 5);
   pos += 5;
 
   assert(pos == trampoline_size);

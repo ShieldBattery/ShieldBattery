@@ -208,10 +208,9 @@ void StartNode(void* arg) {
 // initializing itself, which will eventually result in GameInit being hooked, at which point our
 // custom functionality continues and our UiThreadWorker can begin.
 
-typedef int (*EntryPointFunc)(HMODULE module_handle);
-FuncHook<EntryPointFunc>* entry_point_hook;
-int HOOK_EntryPoint(HMODULE module_handle) {
-  entry_point_hook->Restore();
+sbat::FuncHook<int(HMODULE module_handle)> entry_point_hook;
+int __stdcall HOOK_EntryPoint(HMODULE module_handle) {
+  entry_point_hook.Restore();
 
   // open a temp file so that node can write errors out to it
   wchar_t temp_path[MAX_PATH];
@@ -289,16 +288,14 @@ int HOOK_EntryPoint(HMODULE module_handle) {
   uv_cond_wait(&proc_init_cond, &proc_init_mutex);
   uv_mutex_unlock(&proc_init_mutex);
 
-  return entry_point_hook->callable()(module_handle);
+  return entry_point_hook.callable()(module_handle);
 }
 
-typedef void (*GameInitFunc)();
-FuncHook<GameInitFunc>* game_init_hook;
-void HOOK_GameInit() {
+sbat::FuncHook<void()> game_init_hook;
+void __stdcall HOOK_GameInit() {
   // This essentially just serves as a stopping point for "general initialization stuff" BW does
   // after its entry point
-  delete game_init_hook;
-  game_init_hook = nullptr;
+  game_init_hook.Restore();
 
   snp::InitSnpStructs();
 
@@ -317,20 +314,13 @@ void HOOK_GameInit() {
   uv_cond_destroy(&proc_init_cond);
   uv_mutex_destroy(&proc_init_mutex);
   uv_mutex_destroy(&proc_initialized);
-
-  delete entry_point_hook;
-  entry_point_hook = nullptr;
 }
 
-typedef DWORD (__stdcall *CheckForOtherInstancesFunc)(char* wnd_class_name);
-sbat::FuncHook<CheckForOtherInstancesFunc>* check_other_instances_hook = nullptr;
+sbat::FuncHook<DWORD(char* wnd_class_name)> check_other_instances_hook;
 DWORD __stdcall HOOK_CheckForOtherInstances(char* wnd_class_name) {
   // We handle killing old SC processes ourselves, so no need to let this check for itself (and
   // cause problems because its code calls Sleep).
-  check_other_instances_hook->Restore();
-  delete check_other_instances_hook;
-  check_other_instances_hook = nullptr;
-
+  check_other_instances_hook.Restore();
   return 0;
 }
 
@@ -405,17 +395,17 @@ extern "C" __declspec(dllexport) void OnInject() {
 
   // note that this is not the exe's entry point, but rather the first point where BW starts doing
   // BW-specific things
-  entry_point_hook = new sbat::FuncHook<EntryPointFunc>(
-      reinterpret_cast<EntryPointFunc>(0x004E0AE0), HOOK_EntryPoint);
-  entry_point_hook->Inject();
+  entry_point_hook.InitStdcall(0x004E0AE0, HOOK_EntryPoint);
+  entry_point_hook.Inject();
 
-  game_init_hook = new sbat::FuncHook<GameInitFunc>(reinterpret_cast<GameInitFunc>(0x004E08A5),
-      HOOK_GameInit);
-  game_init_hook->Inject();
+  // This hooks in middle of a function, which is unusual, and I don't believe that it even allows
+  // returing without crashing. Luckily we just process.exit() from the js code when quitting,
+  // so that shouldn't be an issue.
+  game_init_hook.InitStdcall(0x004E08A5, HOOK_GameInit);
+  game_init_hook.Inject();
 
-  check_other_instances_hook = new sbat::FuncHook<CheckForOtherInstancesFunc>(
-      reinterpret_cast<CheckForOtherInstancesFunc>(0x004E0380), HOOK_CheckForOtherInstances);
-  check_other_instances_hook->Inject();
+  check_other_instances_hook.InitStdcall(0x004E0380, HOOK_CheckForOtherInstances);
+  check_other_instances_hook.Inject();
 }
 
 }  // namespace sbat
