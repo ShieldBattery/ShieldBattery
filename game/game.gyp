@@ -57,12 +57,13 @@
         '<!(node -e "require(\'nan\')")',
       ],
       'sources': [
+        'forge/direct_x.cpp',
+        'forge/fonts.cpp',
+        'forge/forge.cpp',
         'forge/indirect_draw.cpp',
         'forge/indirect_draw_palette.cpp',
         'forge/indirect_draw_surface.cpp',
-        'forge/forge.cpp',
         'forge/module.cpp',
-        'forge/direct_x.cpp',
         'forge/open_gl.cpp',
         'forge/renderer_utils.cpp',
 
@@ -78,9 +79,11 @@
         'snp/snp.cpp',
 
         # headers
-        'forge/indirect_draw.h',
-        'forge/forge.h',
+        'forge/com_utils.h',
         'forge/direct_x.h',
+        'forge/fonts.h',
+        'forge/forge.h',
+        'forge/indirect_draw.h',
         'forge/open_gl.h',
         'forge/renderer.h',
         'forge/renderer_utils.h',
@@ -119,6 +122,7 @@
           '-lcares.lib',
           '-lD3D10.lib',
           '-ld3dcompiler.lib',
+          '-ldwrite.lib',
           '-lgdi32.lib',
           '-lhttp_parser.lib',
           '-licudata.lib',

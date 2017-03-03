@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 
-
 #include "forge/indirect_draw.h"
 #include "forge/forge.h"
 #include "logger/logger.h"

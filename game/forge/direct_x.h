@@ -13,33 +13,13 @@
 #include <utility>
 #include <vector>
 
-#include "common/macros.h"
 #include "common/types.h"
+#include "forge/com_utils.h"
 #include "forge/renderer.h"
 #include "forge/renderer_utils.h"
 
 namespace sbat {
 namespace forge {
-
-template<typename ComType>
-void ReleaseCom(ComType* obj) {
-  if (obj) {
-    obj->Release();
-  }
-}
-
-struct ComDeleter {
-public:
-  template<typename T>
-  void operator()(T* obj) {
-    obj->Release();
-  }
-};
-
-template<typename ComType>
-std::unique_ptr<ComType, ComDeleter> WrapComVoid(void* output_ptr) {
-  return std::unique_ptr<ComType, ComDeleter>(reinterpret_cast<ComType*>(output_ptr));
-}
 
 struct Vertex {
   DirectX::XMFLOAT2 pos;
@@ -62,10 +42,12 @@ public:
 private:
   DxSwapChain(const DxDevice& device, DXGI_SWAP_CHAIN_DESC* swap_chain_desc);
 
+  // Disallow copying
+  DxSwapChain(const DxSwapChain&) = delete;
+  DxSwapChain& operator=(const DxSwapChain&) = delete;
+
   HRESULT result_;
   IDXGISwapChain* swap_chain_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxSwapChain);
 };
 
 class DxTexture {
@@ -80,9 +62,11 @@ public:
 private:
   explicit DxTexture(ID3D10Texture2D* texture);
 
-  ID3D10Texture2D* texture_;
+  // Disallow copying
+  DxTexture(const DxTexture&) = delete;
+  DxTexture& operator=(const DxTexture&) = delete;
 
-  DISALLOW_COPY_AND_ASSIGN(DxTexture);
+  ID3D10Texture2D* texture_;
 };
 
 class DxTextureMapper {
@@ -98,12 +82,14 @@ public:
   HRESULT error() const { return result_; }
   D3D10_MAPPED_TEXTURE2D get() const { return mapped_texture_; }
 private:
+  // Disallow copying
+  DxTextureMapper(const DxTextureMapper&) = delete;
+  DxTextureMapper& operator=(const DxTextureMapper&) = delete;
+
   HRESULT result_;
   uint32 subresource_;
   std::unique_ptr<ID3D10Texture2D, ComDeleter> texture_;
   D3D10_MAPPED_TEXTURE2D mapped_texture_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxTextureMapper);
 };
 
 class DxBlob {
@@ -118,11 +104,13 @@ public:
   bool has_error() const { return result_ != S_OK; }
   ID3D10Blob* get() const { return blob_; }
 private:
+  // Disallow copying
+  DxBlob(const DxBlob&) = delete;
+  DxBlob& operator=(const DxBlob&) = delete;
+
   ID3D10Blob* blob_;
   ID3D10Blob* error_blob_;
   HRESULT result_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxBlob);
 };
 
 
@@ -148,10 +136,12 @@ public:
 private:
   DxVertexShader(const DxDevice& device, const DxVertexBlob& vertex_blob);
 
+  // Disallow copying
+  DxVertexShader(const DxVertexShader&) = delete;
+  DxVertexShader& operator=(const DxVertexShader&) = delete;
+
   HRESULT result_;
   ID3D10VertexShader* vertex_shader_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxVertexShader);
 };
 
 class DxPixelShader {
@@ -164,10 +154,12 @@ public:
 private:
   DxPixelShader(const DxDevice& device, const DxPixelBlob& pixel_blob);
 
+  // Disallow copying
+  DxPixelShader(const DxPixelShader&) = delete;
+  DxPixelShader& operator=(const DxPixelShader&) = delete;
+
   HRESULT result_;
   ID3D10PixelShader* pixel_shader_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxPixelShader);
 };
 
 class DxInputLayout {
@@ -181,10 +173,12 @@ private:
   DxInputLayout(const DxDevice& device, const D3D10_INPUT_ELEMENT_DESC& input_layout_desc,
       uint32 desc_size, const DxVertexBlob& vertex_blob);
 
+  // Disallow copying
+  DxInputLayout(const DxInputLayout&) = delete;
+  DxInputLayout& operator=(const DxInputLayout&) = delete;
+
   HRESULT result_;
   ID3D10InputLayout* input_layout_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxInputLayout);
 };
 
 class DxSamplerState {
@@ -197,10 +191,12 @@ public:
 private:
   DxSamplerState(const DxDevice& device, const D3D10_SAMPLER_DESC& sampler_desc);
 
+  // Disallow copying
+  DxSamplerState(const DxSamplerState&) = delete;
+  DxSamplerState& operator=(const DxSamplerState&) = delete;
+
   HRESULT result_;
   ID3D10SamplerState* sampler_state_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxSamplerState);
 };
 
 class DxVertexBuffer {
@@ -216,12 +212,14 @@ private:
   DxVertexBuffer(const DxDevice& device, const D3D10_BUFFER_DESC& buffer_desc,
       const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset);
 
+  // Disallow copying
+  DxVertexBuffer(const DxVertexBuffer&) = delete;
+  DxVertexBuffer& operator=(const DxVertexBuffer&) = delete;
+
   HRESULT result_;
   ID3D10Buffer* buffer_;
   uint32 stride_;
   uint32 offset_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxVertexBuffer);
 };
 
 typedef std::unique_ptr<ID3D10RenderTargetView, ComDeleter> PtrDxRenderTargetView;
@@ -301,10 +299,12 @@ public:
   ID3D10Device* get() const { return device_; }
 
 private:
+  // Disallow copying
+  DxDevice(const DxDevice&) = delete;
+  DxDevice& operator=(const DxDevice&) = delete;
+
   ID3D10Device* device_;
   HRESULT result_;
-
-  DISALLOW_COPY_AND_ASSIGN(DxDevice);
 };
 
 class DirectXRenderer : public Renderer {
@@ -355,6 +355,10 @@ private:
     return result;
   }
 
+  // Disallow copying
+  DirectXRenderer(const DirectXRenderer&) = delete;
+  DirectXRenderer& operator=(const DirectXRenderer&) = delete;
+
   static std::string last_error_;
 
   std::string error_;
@@ -386,8 +390,6 @@ private:
   D3D10_VIEWPORT ddraw_viewport_;
   D3D10_VIEWPORT final_viewport_;
   RenderSkipper render_skipper_;
-
-  DISALLOW_COPY_AND_ASSIGN(DirectXRenderer);
 };
 
 }  // namespace forge
