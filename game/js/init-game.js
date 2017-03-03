@@ -97,7 +97,7 @@ class GameInitializer {
 
       const joined = await rallyPoint.joinRoute(
           { address: chosenAddress, port }, route.routeId, route.playerId)
-      const destPlayer = slots.filter(slot => slot.id === route.for)
+      const destPlayer = slots.find(slot => slot.id === route.for)
       log.verbose(
           `Connected to ${route.server.desc} for player ${destPlayer.name} [${route.routeId}]`)
       return { route: joined, forId: route.for }
@@ -221,8 +221,8 @@ class GameInitializer {
     const gameTypeValue = gameTypes[gameType](gameSubType)
     const bwGameInfo = {
       gameName: this.lobbyConfig.name,
-      numSlots: this.lobbyConfig.slots.size,
-      numPlayers: this.lobbyConfig.slots.filter(slot => slot.type === 'human').size,
+      numSlots: this.lobbyConfig.slots.length,
+      numPlayers: this.lobbyConfig.slots.filter(slot => slot.type === 'human').length,
       mapName: this.lobbyConfig.map.name,
       mapTileset: tilesetNameToId[this.lobbyConfig.map.tileset],
       mapWidth: this.lobbyConfig.map.width,
@@ -254,12 +254,11 @@ class GameInitializer {
     const hasAllPlayers = () => {
       const playerSlots = bw.slots.filter(s => s.type === 'human')
       const waitingFor = players.filter(p => !playerSlots.find(s => s.name === p && s.stormId < 8))
-      if (!waitingFor.size) {
+      if (!waitingFor.length) {
         return true
       } else {
-        const waitingArray = waitingFor.toArray()
-        this.notifyProgress(GAME_STATUS_AWAITING_PLAYERS, waitingArray)
-        log.debug(`Waiting for players: ${waitingArray.join(', ')}`)
+        this.notifyProgress(GAME_STATUS_AWAITING_PLAYERS, waitingFor)
+        log.debug(`Waiting for players: ${waitingFor.join(', ')}`)
         return false
       }
     }
@@ -282,23 +281,19 @@ class GameInitializer {
     })
   }
 
-  mapSlotTypes(slot, type) {
+  mapSlotTypes(type) {
     switch (type) {
       case 'human':
-        slot.type = 'human'
-        break
+        return 'human'
       case 'computer':
-        slot.type = 'lobbycomputer'
-        break
+        return 'lobbycomputer'
       case 'controlledOpen':
       case 'controlledClosed':
       case 'open':
       case 'closed':
-        slot.type = 'open'
-        break
+        return 'open'
       default:
-        slot.type = 'none'
-        break
+        return 'none'
     }
   }
 
@@ -322,7 +317,7 @@ class GameInitializer {
       slot.race = getBwRace(lobbySlot.race)
       slot.team = lobbySlot.teamId
       slot.name = lobbySlot.name
-      this.mapSlotTypes(slot, lobbySlot.type)
+      slot.type = this.mapSlotTypes(lobbySlot.type)
     }
   }
 
