@@ -159,12 +159,12 @@ export default class LobbyView extends React.Component {
     this.props.dispatch(leaveLobby())
   };
 
-  onAddComputer = slotNum => {
-    this.props.dispatch(addComputer(slotNum))
+  onAddComputer = slotId => {
+    this.props.dispatch(addComputer(slotId))
   };
 
-  onSwitchSlot = slotNum => {
-    this.props.dispatch(changeSlot(slotNum))
+  onSwitchSlot = slotId => {
+    this.props.dispatch(changeSlot(slotId))
   };
 
   onSetRace = (id, race) => {

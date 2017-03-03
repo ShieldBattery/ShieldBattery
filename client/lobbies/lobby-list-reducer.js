@@ -11,9 +11,8 @@ export const LobbySummary = new Record({
   map: null,
   gameType: null,
   gameSubType: null,
-  numSlots: -1,
   host: null,
-  filledSlots: -1,
+  openSlotCount: -1,
 })
 export const LobbyList = new Record({
   list: new List(),

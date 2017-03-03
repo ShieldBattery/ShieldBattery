@@ -1,4 +1,5 @@
 import React from 'react'
+import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
 
 import MapThumbnail from './map-thumbnail.jsx'
@@ -229,10 +230,11 @@ class LoadingPlayer extends React.Component {
 
   render() {
     const { player, isReady } = this.props
-    const avatar = player.isComputer ?
+    const isComputer = player.type === 'computer'
+    const avatar = isComputer ?
         <ComputerAvatar className={styles.playerAvatar} /> :
         <Avatar user={player.name} className={styles.playerAvatar} />
-    const displayName = player.isComputer ? 'Computer' : player.name
+    const displayName = isComputer ? 'Computer' : player.name
 
     return (<Card className={isReady ? styles.readyPlayer : styles.player}>
       { avatar }
@@ -253,18 +255,15 @@ export default class LoadingScreen extends React.Component {
     const { lobby, gameStatus, user } = this.props
 
     const isReady = p => {
-      if (p.isComputer || p.name === user.name) return true
+      if (p.type === 'computer' || p.name === user.name) return true
       if (gameStatus.state === 'starting' || gameStatus.state === 'playing') return true
       if (gameStatus.state !== 'awaitingPlayers') return false
 
       return gameStatus.extra ? !gameStatus.extra.includes(p.name) : true
     }
 
-    const playerElems =
-        lobby.players.valueSeq()
-          .filterNot(p => !!p.controlledBy)
-          .sort((a, b) => a.slot - b.slot)
-          .map(p => <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
+    const playerElems = getPlayerSlots(lobby).map(p =>
+        <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
 
     return (<div className={styles.content}>
       <div className={styles.typeAndMap}>

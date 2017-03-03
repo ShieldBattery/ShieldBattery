@@ -80,6 +80,7 @@
   "devDependencies": {
     "chai": "^3.0.0",
     "chai-immutable": "^1.5.3",
+    "cross-env": "^3.1.4",
     "koa-webpack-dev-middleware": "^1.2.2",
     "koa-webpack-hot-middleware": "^1.0.3",
     "mocha": "^3.0.2"

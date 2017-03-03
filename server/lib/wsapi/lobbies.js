@@ -6,11 +6,19 @@ import pickServer from '../rally-point/pick-server'
 import pingRegistry from '../rally-point/ping-registry'
 import routeCreator from '../rally-point/route-creator'
 import * as Lobbies from '../lobbies/lobby'
-import * as Players from '../lobbies/player'
+import * as Slots from '../lobbies/slot'
 import CancelToken from '../../../app/common/async/cancel-token'
 import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
 import { LOBBY_NAME_MAXLENGTH } from '../../../app/common/constants'
+import {
+  getLobbySlots,
+  getLobbySlotsWithIndexes,
+  getHumanSlots,
+  findSlotByName,
+  findSlotById,
+  hasOpposingSides,
+} from '../../../app/common/lobbies'
 
 import MAPS from '../maps/maps.json'
 const MAPS_BY_HASH = new Map(MAPS.map(m => [m.hash, m]))
@@ -46,9 +54,8 @@ const LoadingData = new Record({
 })
 
 export const LoadingDatas = {
-  isAllFinished(loadingData, lobby) {
-    return lobby.players.every((p, id) =>
-        p.isComputer || p.controlledBy || loadingData.finishedUsers.has(id))
+  isAllFinished(loadingData, players) {
+    return players.every(p => loadingData.finishedUsers.has(p.id))
   }
 }
 
@@ -57,7 +64,6 @@ const ListSubscription = new Record({
   count: 0,
 })
 
-const slotNum = s => s >= 0 && s <= 7
 const validRace = r => r === 'r' || r === 't' || r === 'z' || r === 'p'
 
 function checkSubTypeValidity(gameType, gameSubType = 0, numSlots) {
@@ -150,9 +156,9 @@ export class LobbyApi {
     checkSubTypeValidity(gameType, gameSubType, mapData.slots)
 
     // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
-    const lobbySlots = gameType === 'teamMelee' || gameType === 'teamFfa' ? 8 : mapData.slots
+    const numSlots = gameType === 'teamMelee' || gameType === 'teamFfa' ? 8 : mapData.slots
 
-    const lobby = Lobbies.create(name, mapData, gameType, gameSubType, lobbySlots, user.name)
+    const lobby = Lobbies.create(name, mapData, gameType, gameSubType, numSlots, user.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
     this._subscribeUserToLobby(lobby, user)
@@ -175,12 +181,13 @@ export class LobbyApi {
     const lobby = this.lobbies.get(name)
     this.ensureLobbyNotTransient(lobby)
 
-    const slot = Lobbies.findEmptySlot(lobby)
-    if (slot < 0) {
+    const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(lobby)
+    if (teamIndex < 0 || slotIndex < 0) {
       throw new errors.Conflict('lobby is full')
     }
-    const player = Players.createHuman(user.name, 'r', slot)
-    const updated = Lobbies.addPlayer(lobby, player)
+
+    const player = Slots.createHuman(user.name)
+    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
@@ -224,25 +231,28 @@ export class LobbyApi {
 
   @Api('/addComputer',
     validateBody({
-      slotNum
+      slotId: nonEmptyString,
     }))
   async addComputer(data, next) {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
-    const player = Lobbies.findPlayerByName(lobby, user.name)
+    const [, , player] = findSlotByName(lobby, user.name)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotNum } = data.get('body')
-
-    if (slotNum >= lobby.numSlots) {
-      throw new errors.BadRequest('invalid slot number')
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slotToAddComputer] = findSlotById(lobby, slotId)
+    if (!slotToAddComputer) {
+      throw new errors.BadRequest('invalid id')
+    }
+    if (slotToAddComputer.type !== 'open') {
+      throw new errors.BadRequest('invalid slot type')
     }
 
-    const computer = Players.createComputer('r', slotNum)
+    const computer = Slots.createComputer()
     let updated
     try {
-      updated = Lobbies.addPlayer(lobby, computer)
+      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, computer)
     } catch (err) {
       throw new errors.BadRequest(err.message)
     }
@@ -252,25 +262,30 @@ export class LobbyApi {
 
   @Api('/changeSlot',
     validateBody({
-      slotNum,
+      slotId: nonEmptyString,
     }))
   async changeSlot(data, next) {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
-    const player = Lobbies.findPlayerByName(lobby, user.name)
     this.ensureLobbyNotTransient(lobby)
+    const [sourceTeamIndex, sourceSlotIndex, sourceSlot] = findSlotByName(lobby, user.name)
 
-    const { slotNum } = data.get('body')
-
-    if (slotNum >= lobby.numSlots) {
-      throw new errors.BadRequest('invalid slot number')
-    } else if (player.slot === slotNum) {
+    const { slotId } = data.get('body')
+    const [destTeamIndex, destSlotIndex, destSlot] = findSlotById(lobby, slotId)
+    if (!destSlot) {
+      throw new errors.BadRequest('invalid id')
+    }
+    if (destSlot.type !== 'open' && destSlot.type !== 'controlledOpen') {
+      throw new errors.BadRequest('invalid destination slot type')
+    }
+    if (sourceSlot === destSlot) {
       throw new errors.Conflict('already in that slot')
     }
 
     let updated
     try {
-      updated = Lobbies.movePlayerToSlot(lobby, player.id, slotNum)
+      updated = Lobbies.movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTeamIndex,
+          destSlotIndex)
     } catch (err) {
       throw new errors.BadRequest(err.message)
     }
@@ -287,15 +302,15 @@ export class LobbyApi {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
     this.ensureLobbyNotLoading(lobby)
-    const player = Lobbies.findPlayerByName(lobby, user.name)
+    const [, , player] = findSlotByName(lobby, user.name)
 
     const { id, race } = data.get('body')
-    if (!lobby.players.has(id)) {
+    const [teamIndex, slotIndex, playerToSetRace] = findSlotById(lobby, id)
+    if (!playerToSetRace) {
       throw new errors.BadRequest('invalid id')
     }
 
-    const playerToSetRace = lobby.players.get(id)
-    if (playerToSetRace.isComputer) {
+    if (playerToSetRace.type === 'computer') {
       this.ensureIsLobbyHost(lobby, player)
     } else if (playerToSetRace.controlledBy) {
       if (playerToSetRace.controlledBy !== player.id) {
@@ -305,7 +320,7 @@ export class LobbyApi {
       throw new errors.Forbidden('cannot set other user\'s races')
     }
 
-    const updatedLobby = Lobbies.setRace(lobby, id, race)
+    const updatedLobby = Lobbies.setRace(lobby, teamIndex, slotIndex, race)
     this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
     this._publishLobbyDiff(lobby, updatedLobby)
   }
@@ -318,14 +333,14 @@ export class LobbyApi {
   }
 
   _removeUserFromLobby(lobby, user) {
-    const id = Lobbies.findPlayerByName(lobby, user.name).id
-    const updatedLobby = Lobbies.removePlayerById(lobby, id)
+    const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
+    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
     if (!updatedLobby) {
       // Ensure the user's local state gets updated to confirm the leave
       this._publishTo(lobby, {
         type: 'leave',
-        id,
+        player,
       })
       this.lobbies = this.lobbies.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
@@ -345,11 +360,11 @@ export class LobbyApi {
   async startCountdown(data, next) {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
-    if (!Lobbies.hasOpposingSides(lobby)) {
+    if (!hasOpposingSides(lobby)) {
       throw new errors.BadRequest('must have at least 2 opposing sides')
     }
 
-    const player = Lobbies.findPlayerByName(lobby, user.name)
+    const [, , player] = findSlotByName(lobby, user.name)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
@@ -408,8 +423,7 @@ export class LobbyApi {
       },
     })
 
-    const humanPlayers =
-        lobby.players.filter(p => !p.isComputer && !p.controlledBy).valueSeq().toList()
+    const humanPlayers = getHumanSlots(lobby)
     const hasMultipleHumans = humanPlayers.size > 1
     const pingPromise = !hasMultipleHumans ?
         Promise.resolve() :
@@ -524,18 +538,18 @@ export class LobbyApi {
     const user = this.getUser(data)
     const lobby = this.getLobbyForUser(user)
     this.ensureLobbyLoading(lobby)
-    const { id } = Lobbies.findPlayerByName(lobby, user.name)
+    const [, , player] = findSlotByName(lobby, user.name)
 
     let loadingData = this.loadingLobbies.get(lobby.name)
-    loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(id))
+    loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(player.id))
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
 
-    if (LoadingDatas.isAllFinished(loadingData, lobby)) {
+    const players = getHumanSlots(lobby)
+    if (LoadingDatas.isAllFinished(loadingData, players)) {
       // TODO(tec27): register this game in the DB for accepting results in another service
       this._publishTo(lobby, { type: 'gameStarted' })
 
-      lobby.players.filter(p => !p.isComputer && !p.controlledBy)
-        .map(p => this.userSockets.getByName(p.name))
+      players.map(p => this.userSockets.getByName(p.name))
         .forEach(user => {
           user.unsubscribe(LobbyApi._getPath(lobby))
           user.unsubscribe(LobbyApi._getPlayerPath(lobby, user.name))
@@ -598,7 +612,7 @@ export class LobbyApi {
   }
 
   ensureIsLobbyHost(lobby, player) {
-    if (player.id !== lobby.hostId) {
+    if (player.id !== lobby.host.id) {
       throw new errors.Unauthorized('must be a lobby host')
     }
   }
@@ -642,58 +656,83 @@ export class LobbyApi {
   _publishLobbyDiff(oldLobby, newLobby) {
     if (oldLobby === newLobby) return
 
-    if (newLobby.hostId !== oldLobby.hostId) {
-      this._publishTo(newLobby, {
+    const diffEvents = []
+    if (newLobby.host.id !== oldLobby.host.id) {
+      diffEvents.push({
         type: 'hostChange',
-        newId: newLobby.hostId
+        host: newLobby.host,
       })
     }
 
-    const oldPlayers = Set.fromKeys(oldLobby.players)
-    const newPlayers = Set.fromKeys(newLobby.players)
-    const same = oldPlayers.intersect(newPlayers)
-    const left = oldPlayers.subtract(same)
-    const joined = newPlayers.subtract(same)
+    const oldSlots = new Set(getLobbySlots(oldLobby).map(oldSlot => oldSlot.id))
+    const newSlots = new Set(getLobbySlots(newLobby).map(newSlot => newSlot.id))
+    const oldHumans = new Set(getHumanSlots(oldLobby).map(oldHuman => oldHuman.id))
+    const same = oldSlots.intersect(newSlots)
+    const left = oldHumans.subtract(same)
+    const created = newSlots.subtract(same)
+
+    const oldIdSlots = new Map(getLobbySlotsWithIndexes(oldLobby)
+        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
+    const newIdSlots = new Map(getLobbySlotsWithIndexes(newLobby)
+        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
 
     for (const id of left.values()) {
-      this._publishTo(newLobby, {
+      // These are the human slots that have left the lobby or were removed. Note that every `leave`
+      // operation also triggers a `slotCreate` operation, which means that we don't have to set
+      // slots on the client-side in response to this operation (since they'll be overriden in the
+      // `slotCreate` operation below anyways). This also means we only care about `human` slots
+      // leaving just so we can display appropriate message in the lobby.
+      const [, , player] = oldIdSlots.get(id)
+      diffEvents.push({
         type: 'leave',
-        id,
+        player,
       })
     }
-    for (const id of joined.values()) {
-      this._publishTo(newLobby, {
-        type: 'join',
-        player: newLobby.players.get(id),
+    for (const id of created.values()) {
+      // These are all of the slots that were created in the new lobby compared to the old one. This
+      // includes the slots that were created as a result of players leaving the lobby, moving to a
+      // different slot, etc.
+      const [teamIndex, slotIndex, slot] = newIdSlots.get(id)
+      diffEvents.push({
+        type: 'slotCreate',
+        teamIndex,
+        slotIndex,
+        slot,
       })
     }
-    for (const id of same.values()) {
-      const oldPlayer = oldLobby.players.get(id)
-      const newPlayer = newLobby.players.get(id)
-      if (oldPlayer === newPlayer) continue
 
-      if (newPlayer.slot !== oldPlayer.slot) {
-        this._publishTo(newLobby, {
+    for (const id of same.values()) {
+      const [oldTeamIndex, oldSlotIndex, oldSlot] = oldIdSlots.get(id)
+      const [newTeamIndex, newSlotIndex, newSlot] = newIdSlots.get(id)
+
+      const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
+      if (samePlace && oldSlot === newSlot) continue
+
+      if (!samePlace && oldSlot === newSlot) {
+        diffEvents.push({
           type: 'slotChange',
-          id,
-          newSlot: newPlayer.slot,
+          teamIndex: newTeamIndex,
+          slotIndex: newSlotIndex,
+          player: newSlot,
         })
       }
-      if (newPlayer.race !== oldPlayer.race) {
-        this._publishTo(newLobby, {
+      if (samePlace && oldSlot.race !== newSlot.race) {
+        diffEvents.push({
           type: 'raceChange',
-          id,
-          newRace: newPlayer.race,
-        })
-      }
-      if (newPlayer.controlledBy !== oldPlayer.controlledBy) {
-        this._publishTo(newLobby, {
-          type: 'controllerChange',
-          id,
-          newController: newPlayer.controlledBy,
+          teamIndex: newTeamIndex,
+          slotIndex: newSlotIndex,
+          newRace: newSlot.race,
         })
       }
     }
+
+    if (diffEvents.length) {
+      this._publishTo(newLobby, {
+        type: 'diff',
+        diffEvents,
+      })
+    }
+
     this._publishListChange('update', Lobbies.toSummaryJson(newLobby))
   }
 

@@ -3,24 +3,25 @@ import {
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_CHAT_MESSAGE,
-  LOBBY_UPDATE_CONTROLLER_CHANGE,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_GAME_STARTED,
   LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_JOIN,
   LOBBY_UPDATE_LEAVE,
   LOBBY_UPDATE_LEAVE_SELF,
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
+  LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
+import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
+import { getLobbySlotsWithIndexes } from '../../app/common/lobbies'
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -43,9 +44,16 @@ const eventToAction = {
     }
   },
 
-  join: (name, event) => ({
-    type: LOBBY_UPDATE_JOIN,
-    payload: event.player,
+  diff: (name, event) => dispatch => {
+    for (const diffEvent of event.diffEvents) {
+      const diffAction = eventToAction[diffEvent.type](name, diffEvent)
+      if (diffAction) dispatch(diffAction)
+    }
+  },
+
+  slotCreate: (name, event) => ({
+    type: LOBBY_UPDATE_SLOT_CREATE,
+    payload: event,
   }),
 
   raceChange: (name, event) => ({
@@ -54,38 +62,26 @@ const eventToAction = {
   }),
 
   leave: (name, event) => (dispatch, getState) => {
-    const { auth, lobby } = getState()
-    if (!lobby.inLobby) {
-      // This can occur if our leave causes other slots to leave (such as controlled open slots in
-      // team games), where those leaves occur after our own (which clears the lobby state). In
-      // this cases, just ignore the event, as its irrelevant
-      return
-    }
+    const { auth } = getState()
 
     const user = auth.user.name
-    const player = lobby.info.players.get(event.id).name
-    if (user === player) {
+    if (user === event.player.name) {
       // The leaver was me all along!!!
       clearCountdownTimer()
       dispatch({
-        type: LOBBY_UPDATE_LEAVE_SELF
+        type: LOBBY_UPDATE_LEAVE_SELF,
       })
     } else {
       dispatch({
         type: LOBBY_UPDATE_LEAVE,
-        payload: event.id,
+        payload: event,
       })
     }
   },
 
   hostChange: (name, event) => ({
     type: LOBBY_UPDATE_HOST_CHANGE,
-    payload: event.newId,
-  }),
-
-  controllerChange: (name, event) => ({
-    type: LOBBY_UPDATE_CONTROLLER_CHANGE,
-    payload: event,
+    payload: event.host,
   }),
 
   slotChange: (name, event) => ({
@@ -123,22 +119,23 @@ const eventToAction = {
   setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
     const {
-      lobby: {
-        info: { name: lobbyName, map, gameType, gameSubType, numSlots, players, hostId },
-      },
+      lobby,
       settings,
       auth: { user },
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
+    // We tack on `teamId` to each slot here so we don't have to send two different things to game
+    const slots = getLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
+        new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
+    const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
       lobby: {
         name: lobbyName,
         map,
         gameType,
         gameSubType,
-        numSlots,
-        players,
-        hostId,
+        slots,
+        host,
       },
       settings,
       setup: event.setup,

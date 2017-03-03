@@ -1,6 +1,6 @@
 import React, { PropTypes } from 'react'
-import { Range } from 'immutable'
-import { gameTypeToString, isTeamType, slotsPerTeam, numTeams, getTeamName } from './game-type'
+import { gameTypeToString } from './game-type'
+import { findSlotByName, hasOpposingSides, isTeamType } from '../../app/common/lobbies'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -195,43 +195,43 @@ export default class Lobby extends React.Component {
 
   render() {
     const { lobby, onSetRace, onAddComputer, user, onSendChatMessage, onSwitchSlot } = this.props
-    const playersBySlot = lobby.players.valueSeq().reduce((result, p) => {
-      result[p.slot] = p
-      return result
-    }, new Array(lobby.numSlots))
 
-    const myId =
-        lobby.players.find(p => !p.isComputer && !p.controlledBy && p.name === user.name).id
-    const isHost = lobby.hostId === myId
+    const slots = []
+    const [, , mySlot] = findSlotByName(lobby, user.name)
+    const isHost = mySlot && lobby.host.id === mySlot.id
+    const displayTeamName = isTeamType(lobby.gameType)
+    for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
+      const currentTeam = lobby.teams.get(teamIndex)
+      if (displayTeamName) {
+        slots.push(<span key={'team' + teamIndex} className={styles.teamName}>
+          { currentTeam.name }
+        </span>)
+      }
 
-    const slots = Range(0, lobby.numSlots).map(i => {
-      if (playersBySlot[i]) {
-        const { id, name, race, isComputer, controlledBy } = playersBySlot[i]
-        const controllable = (isComputer && isHost) || (id === myId) || (controlledBy === myId)
-        return (controlledBy ?
-            <EmptySlot key={i} race={race} controllable={controllable} teamEmpty={true}
+      slots.push(currentTeam.slots.map((slot, slotIndex) => {
+        const { type, name, race, id, controlledBy } = slot
+        switch (type) {
+          case 'open':
+            return (<EmptySlot key={id} race={race} controllable={isHost}
+                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
+                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined} />)
+          case 'human':
+            return (<FilledSlot key={id} name={name} race={race} isComputer={false}
+                controllable={slot === mySlot}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
+          case 'computer':
+            return (<FilledSlot key={id} name={name} race={race} isComputer={true}
+                controllable={isHost}
+                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined} />)
+          case 'controlledOpen':
+            return (<EmptySlot key={id} race={race} teamEmpty={true}
+                controllable={mySlot && controlledBy === mySlot.id}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}
-                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(i) : undefined}/> :
-            <FilledSlot key={i} name={name} race={race} isComputer={isComputer}
-                controllable={controllable}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}/>)
-      } else {
-        return (<EmptySlot key={i} controllable={isHost}
-            onSwitchClick={onSwitchSlot ? () => onSwitchSlot(i) : undefined}
-            onAddComputer={onAddComputer ? () => onAddComputer(i) : undefined}/>)
-      }
-    }).toArray()
-
-    if (isTeamType(lobby.gameType)) {
-      const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
-      const teamCount = numTeams(lobby.gameType, lobby.gameSubType)
-      for (let i = 0; i < teamCount; i++) {
-        slots.splice(i * perTeam + i, 0,
-            <span key={'team' + i} className={styles.teamName}>
-              {getTeamName(lobby.gameType, i)}
-            </span>)
-      }
+                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
+                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}/>)
+          default: throw new Error('Unknown slot type: ' + type)
+        }
+      }).toArray())
     }
 
     return (<div className={styles.contentArea}>
@@ -267,23 +267,11 @@ export default class Lobby extends React.Component {
 
   renderStartButton() {
     const { lobby, user, onStartGame } = this.props
-    const hostPlayer = lobby.players.get(lobby.hostId)
-    if (!user || hostPlayer.name !== user.name) {
+    if (!user || lobby.host.name !== user.name) {
       return null
     }
 
-    let hasOpposingSides
-    if (!isTeamType(lobby.gameType)) {
-      hasOpposingSides = lobby.filledSlots > 1
-    } else {
-      const slots = lobby.players.filter(p => !p.controlledBy).map(p => p.slot).toSet()
-      const teamCount = numTeams(lobby.gameType, lobby.gameSubType)
-      const perTeam = slotsPerTeam(lobby.gameType, lobby.gameSubType)
-      const teamsMap = slots.groupBy(s => Math.min(Math.floor(s / perTeam), teamCount - 1))
-      hasOpposingSides = teamsMap.size > 1
-    }
-
-    const isDisabled = lobby.isCountingDown || !hasOpposingSides
+    const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby)
     return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
         disabled={isDisabled} onClick={onStartGame}/>)
   }

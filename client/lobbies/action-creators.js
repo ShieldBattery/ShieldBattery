@@ -60,8 +60,8 @@ export function joinLobby(name) {
   }
 }
 
-export function addComputer(slotNum) {
-  const params = { slotNum }
+export function addComputer(slotId) {
+  const params = { slotId }
 
   return dispatch => {
     dispatch({
@@ -77,8 +77,8 @@ export function addComputer(slotNum) {
   }
 }
 
-export function changeSlot(slotNum) {
-  const params = { slotNum }
+export function changeSlot(slotId) {
+  const params = { slotId }
   return dispatch => {
     dispatch({
       type: LOBBY_CHANGE_SLOT_BEGIN,
