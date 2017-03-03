@@ -285,16 +285,20 @@ class GameInitializer {
   mapSlotTypes(slot, type) {
     switch (type) {
       case 'human':
-        slot.type = 'human'; break
+        slot.type = 'human'
+        break
       case 'computer':
-        slot.type = 'lobbycomputer'; break
+        slot.type = 'lobbycomputer'
+        break
       case 'controlledOpen':
       case 'controlledClosed':
       case 'open':
       case 'closed':
-        slot.type = 'open'; break
+        slot.type = 'open'
+        break
       default:
-        slot.type = 'none'; break
+        slot.type = 'none'
+        break
     }
   }
 
