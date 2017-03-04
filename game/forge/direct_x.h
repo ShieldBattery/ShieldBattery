@@ -222,6 +222,25 @@ private:
   uint32 offset_;
 };
 
+class DxVertexBufferMapper {
+public:
+  DxVertexBufferMapper(const DxVertexBuffer& buffer);
+  ~DxVertexBufferMapper();
+
+  template<typename T>
+  T GetData() const { return reinterpret_cast<T>(mapped_buffer_); }
+  bool has_error() const { return result_ != S_OK; }
+  HRESULT error() const { return result_; }
+private:
+  // Disallow copying
+  DxVertexBufferMapper(const DxVertexBufferMapper&) = delete;
+  DxVertexBufferMapper& operator=(const DxVertexBufferMapper&) = delete;
+
+  HRESULT result_;
+  std::unique_ptr<ID3D10Buffer, ComDeleter> buffer_;
+  void* mapped_buffer_;
+};
+
 typedef std::unique_ptr<ID3D10RenderTargetView, ComDeleter> PtrDxRenderTargetView;
 typedef std::unique_ptr<ID3D10ShaderResourceView, ComDeleter> PtrDxShaderResourceView;
 
@@ -246,6 +265,16 @@ public:
   DxDevice& SetRenderTarget(const PtrDxRenderTargetView& target_view) {
     ID3D10RenderTargetView* views[] = { target_view.get() };
     device_->OMSetRenderTargets(1, views, nullptr);
+    return *this;
+  }
+  DxDevice& SetBlendState(const SafeComPtr<ID3D10BlendState> blend_state) {
+    const float blend_factor[] = {1, 1, 1, 1};
+    device_->OMSetBlendState(blend_state.get(), blend_factor, 0xffffffff);
+    return *this;
+  }
+  DxDevice& ClearBlendState() {
+    const float blend_factor[] = {1, 1, 1, 1};
+    device_->OMSetBlendState(nullptr, blend_factor, 0xffffffff);
     return *this;
   }
   DxDevice& SetViewports(uint32 num_viewports, const D3D10_VIEWPORT* viewports) {
@@ -318,6 +347,7 @@ public:
 
   virtual void Render(const std::vector<byte>& surface_data);
   virtual void UpdatePalette(const IndirectDrawPalette& palette);
+  virtual void UpdateFontAtlas(const std::vector<uint32>& pixels, uint32 width, uint32 height);
 
   bool has_error() { return !error_.empty(); }
   std::string error() { return error_; }
@@ -340,15 +370,20 @@ private:
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitScalingShader(
       const std::map<std::string, std::pair<std::string, std::string>>& shaders);
+  bool InitFontShader(
+    const std::map<std::string, std::pair<std::string, std::string>>& shaders);
   bool InitTextures();
   bool InitRenderedTexture();
   bool InitBwScreenTexture();
   bool InitPaletteTexture();
+  bool InitFontAtlasTexture();
   bool InitVertices();
+  bool InitFontVertexBuffer();
 
   void CopyDdrawSurface(const std::vector<byte>& surface_data);
   void ConvertToFullColor();
   void RenderToScreen();
+  void RenderText();
 
   static inline PaletteTextureEntry ConvertToPaletteTextureEntry(const PALETTEENTRY& entry) {
     const PaletteTextureEntry result = { entry.peRed, entry.peGreen, entry.peBlue, 255 };
@@ -373,8 +408,9 @@ private:
 
   std::unique_ptr<DxVertexShader> depalettized_vertex_shader_;
   std::unique_ptr<DxPixelShader> depalettized_pixel_shader_;
-  std::unique_ptr<DxInputLayout> input_layout_;
   std::unique_ptr<DxPixelShader> scaling_pixel_shader_;
+  std::unique_ptr<DxPixelShader> font_pixel_shader_;
+  std::unique_ptr<DxInputLayout> input_layout_;
   std::unique_ptr<DxVertexBuffer> vertex_buffer_;
 
   std::unique_ptr<DxTexture> palette_texture_;
@@ -384,6 +420,11 @@ private:
   PtrDxShaderResourceView palette_view_;
   PtrDxShaderResourceView rendered_view_;
   std::unique_ptr<DxSamplerState> rendered_texture_sampler_;
+
+  std::unique_ptr<DxTexture> font_atlas_;
+  PtrDxShaderResourceView font_view_;
+  std::unique_ptr<DxVertexBuffer> font_vertex_buffer_;
+  SafeComPtr<ID3D10BlendState> font_blend_state_;
 
   uint32 ddraw_width_;
   uint32 ddraw_height_;

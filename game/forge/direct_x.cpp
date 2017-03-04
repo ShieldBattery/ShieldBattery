@@ -17,6 +17,7 @@ using std::map;
 using std::pair;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 using namespace DirectX;
 
 string DirectXRenderer::last_error_ = "";  // NOLINT
@@ -220,6 +221,28 @@ DxVertexBuffer::~DxVertexBuffer() {
   ReleaseCom(buffer_);
 }
 
+DxVertexBufferMapper::DxVertexBufferMapper(const DxVertexBuffer& buffer)
+  : result_(),
+    buffer_(),
+    mapped_buffer_() {
+  result_ = buffer.get()->Map(D3D10_MAP_WRITE_DISCARD, 0, &mapped_buffer_);
+  if (FAILED(result_)) {
+    Logger::Logf(LogLevel::Error, "Error mapping a vertex buffer: %s", GetErrorMsg(result_));
+    return;
+  }
+
+  // Store off a pointer to the buffer and AddRef it, our ComDeleter will remove that ref when
+  // the mapper is destroyed
+  buffer_.reset(buffer.get());
+  buffer_->AddRef();
+}
+
+DxVertexBufferMapper::~DxVertexBufferMapper() {
+  if (!has_error()) {
+    buffer_->Unmap();
+  }
+}
+
 DxDevice::DxDevice()
   : device_(nullptr),
     result_(NULL) {
@@ -330,28 +353,33 @@ unique_ptr<DxVertexBuffer> DxDevice::CreateVertexBuffer(const D3D10_BUFFER_DESC&
 // care of deleting any errored objects instead of returning them higher up, so no methods outside
 // of the constructor will need to check for such a state.
 DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_height,
-    RendererDisplayMode display_mode, bool maintain_aspect_ratio,
-    const map<string, pair<string, string>>& shaders)
+  RendererDisplayMode display_mode, bool maintain_aspect_ratio,
+  const map<string, pair<string, string>>& shaders)
   : error_(),
     window_(window),
     client_rect_(),
-    dx_device_(nullptr),
-    swap_chain_(nullptr),
-    back_buffer_(nullptr),
-    back_buffer_view_(nullptr),
-    depalettized_view_(nullptr),
-    depalettized_vertex_shader_(nullptr),
-    depalettized_pixel_shader_(nullptr),
-    input_layout_(nullptr),
-    scaling_pixel_shader_(nullptr),
-    vertex_buffer_(nullptr),
-    palette_texture_(nullptr),
-    bw_screen_texture_(nullptr),
-    rendered_texture_(nullptr),
-    bw_screen_view_(nullptr),
-    palette_view_(nullptr),
-    rendered_view_(nullptr),
-    rendered_texture_sampler_(nullptr),
+    dx_device_(),
+    swap_chain_(),
+    back_buffer_(),
+    back_buffer_view_(),
+    depalettized_view_(),
+    depalettized_vertex_shader_(),
+    depalettized_pixel_shader_(),
+    scaling_pixel_shader_(),
+    font_pixel_shader_(),
+    input_layout_(),
+    vertex_buffer_(),
+    palette_texture_(),
+    bw_screen_texture_(),
+    rendered_texture_(),
+    bw_screen_view_(),
+    palette_view_(),
+    rendered_view_(),
+    rendered_texture_sampler_(),
+    font_atlas_(),
+    font_view_(),
+    font_vertex_buffer_(),
+    font_blend_state_(),
     ddraw_width_(ddraw_width),
     ddraw_height_(ddraw_height),
     ddraw_viewport_(),
@@ -418,6 +446,23 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
     Logger::Log(LogLevel::Verbose, "Back buffer render target view created");
   }
 
+  D3D10_BLEND_DESC blend_desc = {0};
+  blend_desc.BlendEnable[0] = true;
+  blend_desc.SrcBlend = D3D10_BLEND_SRC_ALPHA;
+  blend_desc.DestBlend = D3D10_BLEND_INV_SRC_ALPHA;
+  blend_desc.BlendOp = D3D10_BLEND_OP_ADD;
+  blend_desc.SrcBlendAlpha = D3D10_BLEND_ZERO;
+  blend_desc.DestBlendAlpha = D3D10_BLEND_ZERO;
+  blend_desc.BlendOpAlpha = D3D10_BLEND_OP_ADD;
+  blend_desc.RenderTargetWriteMask[0] = D3D10_COLOR_WRITE_ENABLE_ALL;
+  if (!SUCCEEDED(dx_device_->get()->CreateBlendState(&blend_desc, &font_blend_state_))) {
+    error_ = "Error creating a font blend state";
+    return;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font blend state created");
+  }
+  AddComRef(font_blend_state_.get());
+
   RECT output_rect = 
       GetOutputSize(display_mode, maintain_aspect_ratio, client_rect_, ddraw_width_, ddraw_height_);
   final_viewport_.Width = output_rect.right - output_rect.left;
@@ -430,12 +475,13 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
   if (!InitShaders(shaders)) {
     return;
   }
-
   if (!InitTextures()) {
     return;
   }
-
   if (!InitVertices()) {
+    return;
+  }
+  if (!InitFontVertexBuffer()) {
     return;
   }
 }
@@ -452,12 +498,22 @@ bool DirectXRenderer::InitShaders(const map<string, pair<string, string>>& shade
     error_ = "No depalettizing shader found";
     return false;
   }
+
   if (shaders.count("scaling") != 0) {
     if (!InitScalingShader(shaders)) {
       return false;
     }
   } else {
     error_ = "No scaling shader found";
+    return false;
+  }
+
+  if (shaders.count("font") != 0) {
+    if (!InitFontShader(shaders)) {
+      return false;
+    }
+  } else {
+    error_ = "No font shader found";
     return false;
   }
 
@@ -544,16 +600,41 @@ bool DirectXRenderer::InitScalingShader(const map<string, pair<string, string>>&
   return true;
 }
 
+bool DirectXRenderer::InitFontShader(const map<string, pair<string, string>>& shaders) {
+  const pair<string, string> shader_pair = shaders.at("font");
+
+  DxPixelBlob pixel_blob(shader_pair.second);
+  if (pixel_blob.has_error()) {
+    Logger::Logf(LogLevel::Error, "Error compiling a font pixel shader: %s",
+      pixel_blob.GetErrorBufferPointer());
+    error_ = "Error compiling a font pixel shader";
+    return false;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font pixel shader compiled");
+  }
+
+  font_pixel_shader_ = dx_device_->CreatePixelShader(pixel_blob);
+  if (!font_pixel_shader_) {
+    error_ = "Error creating a font pixel shader";
+    return false;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font pixel shader created");
+  }
+
+  return true;
+}
+
 bool DirectXRenderer::InitTextures() {
   if (!InitRenderedTexture()) {
     return false;
   }
-
   if (!InitBwScreenTexture()) {
     return false;
   }
-
   if (!InitPaletteTexture()) {
+    return false;
+  }
+  if (!InitFontAtlasTexture()) {
     return false;
   }
 
@@ -692,6 +773,42 @@ bool DirectXRenderer::InitPaletteTexture() {
   return true;
 }
 
+bool DirectXRenderer::InitFontAtlasTexture() {
+  D3D10_TEXTURE2D_DESC desc = {0};
+  desc.Width = 1024;
+  desc.Height = 256;
+  desc.MipLevels = 1;
+  desc.ArraySize = 1;
+  desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+  desc.Usage = D3D10_USAGE_DYNAMIC;  // TODO(tec27): Use CopySubresourceRegion instead of doing this
+  desc.BindFlags = D3D10_BIND_SHADER_RESOURCE;
+  desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+  desc.SampleDesc.Count = 1;
+
+  font_atlas_ = DxTexture::NewTexture(*dx_device_, desc);
+  if (!font_atlas_) {
+    error_ = "Error creating font atlas texture";
+    return false;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font atlas texture created");
+  }
+
+  D3D10_SHADER_RESOURCE_VIEW_DESC srv_desc = D3D10_SHADER_RESOURCE_VIEW_DESC();
+  srv_desc.Format = desc.Format;
+  srv_desc.ViewDimension = D3D10_SRV_DIMENSION_TEXTURE2D;
+  srv_desc.Texture2D.MipLevels = desc.MipLevels;
+
+  font_view_ = dx_device_->CreateShaderResourceView(*font_atlas_, srv_desc);
+  if (!palette_view_) {
+    error_ = "Error creating font atlas resource view";
+    return false;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font atlas resource view created");
+  }
+
+  return true;
+}
+
 bool DirectXRenderer::InitVertices() {
   Vertex vertices[] = {
     { XMFLOAT2(-1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
@@ -722,6 +839,35 @@ bool DirectXRenderer::InitVertices() {
   return true;
 }
 
+bool DirectXRenderer::InitFontVertexBuffer() {
+  Vertex vertices[] = {
+    {XMFLOAT2(-1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f)},
+    {XMFLOAT2(-1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f)},
+    {XMFLOAT2(1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f)},
+    {XMFLOAT2(1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f)},
+  };
+
+  D3D10_BUFFER_DESC desc = D3D10_BUFFER_DESC();
+  desc.Usage = D3D10_USAGE_DYNAMIC;
+  desc.ByteWidth = sizeof(vertices);
+  desc.BindFlags = D3D10_BIND_VERTEX_BUFFER;
+  desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+  desc.MiscFlags = 0;
+
+  D3D10_SUBRESOURCE_DATA data = D3D10_SUBRESOURCE_DATA();
+  data.pSysMem = vertices;
+
+  font_vertex_buffer_ = dx_device_->CreateVertexBuffer(desc, data, sizeof(Vertex), 0);
+  if (!font_vertex_buffer_) {
+    error_ = "Error creating font vertex buffer";
+    return false;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font vertex buffer created");
+  }
+
+  return true;
+}
+
 void DirectXRenderer::UpdatePalette(const IndirectDrawPalette& palette) {
   DxTextureMapper mapper(*palette_texture_, 0, 0, 1);
   if (mapper.has_error()) {
@@ -736,6 +882,50 @@ void DirectXRenderer::UpdatePalette(const IndirectDrawPalette& palette) {
 
   std::transform(palette.entries().begin(), palette.entries().end(),
       mapper.GetData<PaletteTextureEntry*>(), ConvertToPaletteTextureEntry);
+}
+
+void DirectXRenderer::UpdateFontAtlas(const vector<uint32>& pixels, uint32 width, uint32 height) {
+  DxTextureMapper mapper(*font_atlas_, 0, 0, 1);
+  if (mapper.has_error()) {
+    if (DIRECTDRAWLOG) {
+      Logger::Logf(LogLevel::Error,
+        "Mapping font atlas texture failed: %s", GetErrorMsg(mapper.error()));
+    }
+    return;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font atlas texture mapped");
+  }
+
+  uint32 row_pitch = mapper.GetRowPitch() / sizeof(uint32);
+  for (uint32 y = 0; y < height; y++) {
+    auto& row_start = pixels.begin() + (y * width);
+    std::copy(row_start, row_start + width, mapper.GetData<uint32*>() + (y * row_pitch));
+  }
+
+  DxVertexBufferMapper vertex_mapper(*font_vertex_buffer_);
+  if (vertex_mapper.has_error()) {
+    if (DIRECTDRAWLOG) {
+      Logger::Logf(LogLevel::Error,
+        "Mapping font vertex buffer failed: %s", GetErrorMsg(mapper.error()));
+    }
+    return;
+  } else if (DIRECTDRAWLOG) {
+    Logger::Log(LogLevel::Verbose, "Font vertex buffer mapped");
+  }
+
+  float widthFloat = static_cast<float>(width);
+  float heightFloat = static_cast<float>(height);
+  float x = (widthFloat / final_viewport_.Width) / 2.0f;
+  float y = (heightFloat / final_viewport_.Height) / 2.0f;
+
+  Vertex vertices[] = {
+    {XMFLOAT2(-x, -y), XMFLOAT2(0.0f, heightFloat)},
+    {XMFLOAT2(-x,  y), XMFLOAT2(0.0f, 0.0f)},
+    {XMFLOAT2(x, -y), XMFLOAT2(widthFloat, heightFloat)},
+    {XMFLOAT2(x,  y), XMFLOAT2(widthFloat, 0.0f)},
+  };
+
+  std::copy(&vertices[0], &vertices[0] + 4, vertex_mapper.GetData<Vertex*>());
 }
 
 void DirectXRenderer::Render(const std::vector<byte> &surface_data) {
@@ -756,6 +946,7 @@ void DirectXRenderer::Render(const std::vector<byte> &surface_data) {
     Logger::Log(LogLevel::Verbose, "DirectX rendering - after converted to full color");
   }
   RenderToScreen();
+  RenderText();
   swap_chain_->Present(0, 0);
 
   render_skipper_.UpdateLastFrameTime();
@@ -813,6 +1004,21 @@ void DirectXRenderer::RenderToScreen() {
       .SetPixelShaderSampler(*rendered_texture_sampler_)
       .Draw(4, 0);
   dx_device_->ClearPixelShaderResource(0);
+}
+
+void DirectXRenderer::RenderText() {
+  dx_device_->SetRenderTarget(back_buffer_view_)
+    .SetViewports(1, &final_viewport_)
+    .SetInputLayout(*input_layout_)
+    .SetVertexBuffers(*font_vertex_buffer_)
+    .SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP)
+    .SetVertexShader(*depalettized_vertex_shader_)
+    .SetBlendState(font_blend_state_)
+    .SetPixelShader(*font_pixel_shader_)
+    .SetPixelShaderResource(0, font_view_)
+    .Draw(4, 0 /* TODO TODO TODO */);
+  dx_device_->ClearPixelShaderResource(0)
+    .ClearBlendState();
 }
 
 }  // namespace forge

@@ -3,19 +3,20 @@ import { EventEmitter } from 'events'
 const forge = process._linkedBinding('shieldbattery_forge').instance
 
 const dxVertShaders = {
-  depalettizing: require('./shaders/directx/vs_depalettizing.hlsl'),
+  depalettizing: require('./shaders/directx/depalettizing.vs.hlsl'),
 }
 const dxPixelShaders = {
-  depalettizing: require('./shaders/directx/ps_depalettizing.hlsl'),
-  scaling: require('./shaders/directx/ps_scaling.hlsl')
+  depalettizing: require('./shaders/directx/depalettizing.ps.hlsl'),
+  font: require('./shaders/directx/font.ps.hlsl'),
+  scaling: require('./shaders/directx/scaling.ps.hlsl'),
 }
 const glVertShaders = {
-  depalettizing: require('./shaders/opengl/vs_depalettizing.glsl'),
-  scaling: require('./shaders/opengl/vs_scaling.glsl')
+  depalettizing: require('./shaders/opengl/depalettizing.vs.glsl'),
+  scaling: require('./shaders/opengl/scaling.vs.glsl'),
 }
 const glFragShaders = {
-  depalettizing: require('./shaders/opengl/fs_depalettizing.glsl'),
-  scaling: require('./shaders/opengl/fs_scaling.glsl')
+  depalettizing: require('./shaders/opengl/depalettizing.fs.glsl'),
+  scaling: require('./shaders/opengl/scaling.fs.glsl'),
 }
 
 forge.setShaders(dxVertShaders, dxPixelShaders, glVertShaders, glFragShaders)

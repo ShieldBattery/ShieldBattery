@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "forge/fonts.h"
 #include "forge/forge.h"
 #include "logger/logger.h"
 
@@ -327,6 +328,10 @@ void IndirectDraw::MaybeInitializeRenderer() {
   if (window_ != NULL && display_width_ != 0) {
     assert(!renderer_);
     renderer_ = Forge::CreateRenderer(window_, display_width_, display_height_);
+    dwrite_manager_ = DirectWriteManager::Create();  // TODO(tec27): Handle errors
+
+    renderer_->UpdateFontAtlas(dwrite_manager_->textureData,
+        dwrite_manager_->textureWidth, dwrite_manager_->textureHeight);
   }
 }
 

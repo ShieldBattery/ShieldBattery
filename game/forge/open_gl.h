@@ -190,6 +190,7 @@ public:
 
   virtual void Render(const std::vector<byte>& surface_data);
   virtual void UpdatePalette(const IndirectDrawPalette& palette);
+  virtual void UpdateFontAtlas(const std::vector<uint32>& pixels, uint32 width, uint32 height) {}
 
   bool has_error() { return !error_.empty(); }
   std::string error() { return error_; }

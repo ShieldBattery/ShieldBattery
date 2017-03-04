@@ -13,7 +13,7 @@
 #include "renderer.h"
 
 // enables/disables in-depth logging about DirectDraw method calls
-#define DIRECTDRAWLOG false
+#define DIRECTDRAWLOG true
 
 namespace sbat {
 namespace forge {
@@ -22,6 +22,7 @@ HRESULT WINAPI IndirectDrawCreate(GUID* guid_ptr, IDirectDraw7** direct_draw_out
 
 class IndirectDrawPalette;
 class IndirectDrawSurface;
+class DirectWriteManager;
 
 class IndirectDraw : public IDirectDraw7 {
 public:
@@ -84,6 +85,7 @@ private:
   int refcount_;
   HWND window_;
   std::unique_ptr<Renderer> renderer_;
+  std::unique_ptr<DirectWriteManager> dwrite_manager_;
   DWORD display_width_;
   DWORD display_height_;
   DWORD display_bpp_;

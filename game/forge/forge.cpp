@@ -352,12 +352,17 @@ void Forge::SetShaders(const FunctionCallbackInfo<Value>& info) {
 
   Local<String> depalettizing = Nan::New("depalettizing").ToLocalChecked();
   Local<String> scaling = Nan::New("scaling").ToLocalChecked();
+  Local<String> font = Nan::New("font").ToLocalChecked();
+
   instance_->dx_shaders["depalettizing"] = std::make_pair(
       *Utf8String(dx_vert_shaders->Get(depalettizing)->ToString()),
       *Utf8String(dx_pixel_shaders->Get(depalettizing)->ToString()));
   instance_->dx_shaders["scaling"] = std::make_pair(
       *Utf8String(dx_vert_shaders->Get(depalettizing)->ToString()),
       *Utf8String(dx_pixel_shaders->Get(scaling)->ToString()));
+  instance_->dx_shaders["font"] = std::make_pair(
+    *Utf8String(dx_vert_shaders->Get(depalettizing)->ToString()),
+    *Utf8String(dx_pixel_shaders->Get(font)->ToString()));
 
   instance_->gl_shaders["depalettizing"] = std::make_pair(
       *Utf8String(gl_vert_shaders->Get(depalettizing)->ToString()),

@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <dwrite_2.h>
 #include <memory>
+#include <vector>
 
 #include "forge/com_utils.h"
 
@@ -13,6 +14,10 @@ namespace forge {
 class DirectWriteManager {
 public:
   static std::unique_ptr<DirectWriteManager> Create();
+
+  std::vector<uint32_t> textureData;
+  uint32_t textureWidth;
+  uint32_t textureHeight;
 
 private:
   explicit DirectWriteManager(IDWriteFactory* factory);
