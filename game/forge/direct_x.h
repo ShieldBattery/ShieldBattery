@@ -142,25 +142,6 @@ private:
   ID3D10PixelShader* pixel_shader_;
 };
 
-class DxInputLayout {
-  friend class DxDevice;
-public:
-  ~DxInputLayout();
-
-  HRESULT result() const { return result_; }
-  ID3D10InputLayout* get() const { return input_layout_; }
-private:
-  DxInputLayout(const DxDevice& device, const D3D10_INPUT_ELEMENT_DESC& input_layout_desc,
-      uint32 desc_size, const DxVertexBlob& vertex_blob);
-
-  // Disallow copying
-  DxInputLayout(const DxInputLayout&) = delete;
-  DxInputLayout& operator=(const DxInputLayout&) = delete;
-
-  HRESULT result_;
-  ID3D10InputLayout* input_layout_;
-};
-
 class DxVertexBuffer {
   friend class DxDevice;
 public:
@@ -213,9 +194,6 @@ public:
 
   std::unique_ptr<DxVertexShader> CreateVertexShader(const DxVertexBlob& vertex_blob);
   std::unique_ptr<DxPixelShader> CreatePixelShader(const DxPixelBlob& pixel_blob);
-  std::unique_ptr<DxInputLayout> CreateInputLayout(
-      const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
-      const DxVertexBlob& vertex_blob);
   PtrDxRenderTargetView CreateRenderTargetView(const DxTexture& texture);
   PtrDxShaderResourceView CreateShaderResourceView(const DxTexture& texture,
       const D3D10_SHADER_RESOURCE_VIEW_DESC& srv_desc);
@@ -241,8 +219,8 @@ public:
     device_->RSSetViewports(num_viewports, viewports);
     return *this;
   }
-  DxDevice& SetInputLayout(const DxInputLayout& input_layout) {
-    device_->IASetInputLayout(input_layout.get());
+  DxDevice& SetInputLayout(ID3D10InputLayout* inputLayout) {
+    device_->IASetInputLayout(inputLayout);
     return *this;
   }
   DxDevice& SetVertexBuffers(const DxVertexBuffer& vertex_buffer) {
@@ -370,7 +348,7 @@ private:
   std::unique_ptr<DxPixelShader> depalettized_pixel_shader_;
   std::unique_ptr<DxPixelShader> scaling_pixel_shader_;
   std::unique_ptr<DxPixelShader> font_pixel_shader_;
-  std::unique_ptr<DxInputLayout> input_layout_;
+  SafeComPtr<ID3D10InputLayout> inputLayout_;
   std::unique_ptr<DxVertexBuffer> vertex_buffer_;
 
   std::unique_ptr<DxTexture> palette_texture_;

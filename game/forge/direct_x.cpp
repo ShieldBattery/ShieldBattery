@@ -153,19 +153,6 @@ DxPixelShader::~DxPixelShader() {
   ReleaseCom(pixel_shader_);
 }
 
-DxInputLayout::DxInputLayout(const DxDevice& device,
-      const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
-      const DxVertexBlob& vertex_blob)
-  : result_(),
-    input_layout_(nullptr) {
-  result_ = device.get()->CreateInputLayout(&input_layout_desc, desc_size,
-      vertex_blob.GetBufferPointer(), vertex_blob.GetBufferSize(), &input_layout_);
-}
-
-DxInputLayout::~DxInputLayout() {
-  ReleaseCom(input_layout_);
-}
-
 DxVertexBuffer::DxVertexBuffer(const DxDevice& device, const D3D10_BUFFER_DESC& buffer_desc,
       const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset)
   : result_(),
@@ -234,20 +221,6 @@ unique_ptr<DxPixelShader> DxDevice::CreatePixelShader(const DxPixelBlob& pixel_b
   }
 }
 
-unique_ptr<DxInputLayout> DxDevice::CreateInputLayout(
-    const D3D10_INPUT_ELEMENT_DESC& input_layout_desc, uint32 desc_size,
-    const DxVertexBlob& vertex_blob) {
-  auto layout = unique_ptr<DxInputLayout>(
-      new DxInputLayout(*this, input_layout_desc, desc_size, vertex_blob));
-  if (FAILED(layout->result())) {
-    Logger::Logf(LogLevel::Error,
-        "Error creating an input layout: %s", GetErrorMsg(layout->result()));
-    return nullptr;
-  } else {
-    return layout;
-  }
-}
-
 PtrDxRenderTargetView DxDevice::CreateRenderTargetView(const DxTexture& texture) {
   ID3D10RenderTargetView* render_target_view;
   HRESULT result = device_->CreateRenderTargetView(texture.get(), NULL, &render_target_view);
@@ -305,7 +278,7 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
     depalettized_pixel_shader_(),
     scaling_pixel_shader_(),
     font_pixel_shader_(),
-    input_layout_(),
+    inputLayout_(),
     vertex_buffer_(),
     palette_texture_(),
     bw_screen_texture_(),
@@ -503,14 +476,15 @@ bool DirectXRenderer::InitDepalettizingShader(const map<string, pair<string, str
     Logger::Log(LogLevel::Verbose, "Palettizing vertex shader created");
   }
 
-  D3D10_INPUT_ELEMENT_DESC input_layout_desc[] = {
+  D3D10_INPUT_ELEMENT_DESC inputLayoutDesc[] = {
       { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D10_INPUT_PER_VERTEX_DATA, 0 },
       { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D10_INPUT_PER_VERTEX_DATA, 0 }
   };
-
-  input_layout_ = dx_device_->CreateInputLayout(*input_layout_desc, ARRAYSIZE(input_layout_desc),
-      vertex_blob);
-  if (!input_layout_) {
+  
+  HRESULT result = dx_device_->get()->CreateInputLayout(inputLayoutDesc, ARRAYSIZE(inputLayoutDesc),
+    vertex_blob.GetBufferPointer(), vertex_blob.GetBufferSize(), &inputLayout_);
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error creating an input layout: %s", GetErrorMsg(result));
     error_ = "Error creating an input layout";
     return false;
   } else if (DIRECTDRAWLOG) {
@@ -948,7 +922,7 @@ void DirectXRenderer::CopyDdrawSurface(const std::vector<byte>& surface_data) {
 void DirectXRenderer::ConvertToFullColor() {
   dx_device_->SetRenderTarget(depalettized_view_)
       .SetViewports(1, &ddraw_viewport_)
-      .SetInputLayout(*input_layout_)
+      .SetInputLayout(inputLayout_.get())
       .SetVertexBuffers(*vertex_buffer_)
       .SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP)
       .SetVertexShader(*depalettized_vertex_shader_)
@@ -973,7 +947,7 @@ void DirectXRenderer::RenderToScreen() {
 void DirectXRenderer::RenderText() {
   dx_device_->SetRenderTarget(back_buffer_view_)
     .SetViewports(1, &final_viewport_)
-    .SetInputLayout(*input_layout_)
+    .SetInputLayout(inputLayout_.get())
     .SetVertexBuffers(*font_vertex_buffer_)
     .SetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP)
     .SetVertexShader(*depalettized_vertex_shader_)
