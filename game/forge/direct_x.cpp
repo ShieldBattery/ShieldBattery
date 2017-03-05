@@ -94,9 +94,9 @@ unique_ptr<DxTexture> DxTexture::NewTexture(const DxDevice& device,
   }
 }
 
-unique_ptr<DxTexture> DxTexture::FromSwapChain(const DxSwapChain& swap_chain) {
+unique_ptr<DxTexture> DxTexture::FromSwapChain(IDXGISwapChain* swapChain) {
   ID3D10Texture2D* texture;
-  HRESULT result = swap_chain.get()->GetBuffer(0, __uuidof(ID3D10Texture2D),
+  HRESULT result = swapChain->GetBuffer(0, __uuidof(ID3D10Texture2D),
       reinterpret_cast<void**>(&texture));
   if (FAILED(result)) {
     Logger::Logf(LogLevel::Error, "Error getting a buffer texture: %s", GetErrorMsg(result));
@@ -104,37 +104,6 @@ unique_ptr<DxTexture> DxTexture::FromSwapChain(const DxSwapChain& swap_chain) {
   } else {
     return std::unique_ptr<DxTexture>(new DxTexture(texture));
   }
-}
-
-DxSwapChain::DxSwapChain(const DxDevice& device, DXGI_SWAP_CHAIN_DESC* swap_chain_desc)
-  : result_(),
-    swap_chain_(nullptr) {
-  void* out;
-  result_ = device.get()->QueryInterface(__uuidof(IDXGIDevice), &out);
-  if (FAILED(result_)) {
-    Logger::Logf(LogLevel::Error, "Error querying a device interface: %s", GetErrorMsg(result_));
-    return;
-  }
-  auto dxgi_device = WrapComVoid<IDXGIDevice>(out);
-
-  result_ = dxgi_device->GetParent(__uuidof(IDXGIAdapter), &out);
-  if (FAILED(result_)) {
-    Logger::Logf(LogLevel::Error, "Error getting a dxgi adapter: %s", GetErrorMsg(result_));
-  }
-  auto dxgi_adapter = WrapComVoid<IDXGIAdapter>(out);
-
-  result_ = dxgi_adapter->GetParent(__uuidof(IDXGIFactory), &out);
-  if (FAILED(result_)) {
-    Logger::Logf(LogLevel::Error, "Error getting a dxgi factory: %s", GetErrorMsg(result_));
-    return;
-  }
-  auto dxgi_factory = WrapComVoid<IDXGIFactory>(out);
-
-  result_ = dxgi_factory->CreateSwapChain(device.get(), swap_chain_desc, &swap_chain_);
-}
-
-DxSwapChain::~DxSwapChain() {
-  ReleaseCom(swap_chain_);
 }
 
 DxBlob::DxBlob(const string& src, const string& type, const string& version)
@@ -253,16 +222,6 @@ DxDevice::~DxDevice() {
   ReleaseCom(device_);
 }
 
-unique_ptr<DxSwapChain> DxDevice::CreateSwapChain(DXGI_SWAP_CHAIN_DESC* swap_chain_desc) {
-  auto state = unique_ptr<DxSwapChain>(new DxSwapChain(*this, swap_chain_desc));
-  if (FAILED(state->result())) {
-    Logger::Logf(LogLevel::Error, "Error creating a swap chain: %s", GetErrorMsg(state->result()));
-    return nullptr;
-  } else {
-    return state;
-  }
-}
-
 unique_ptr<DxVertexShader> DxDevice::CreateVertexShader(const DxVertexBlob& vertex_blob) {
   auto shader = unique_ptr<DxVertexShader>(new DxVertexShader(*this, vertex_blob));
   if (FAILED(shader->result())) {
@@ -359,7 +318,7 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
     window_(window),
     client_rect_(),
     dx_device_(),
-    swap_chain_(),
+    swapChain_(),
     back_buffer_(),
     back_buffer_view_(),
     depalettized_view_(),
@@ -422,15 +381,40 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
   swap_chain_desc.SampleDesc.Count = 1;
   swap_chain_desc.SampleDesc.Quality = 0;
 
-  swap_chain_ = dx_device_->CreateSwapChain(&swap_chain_desc);
-  if (!swap_chain_) {
+  SafeComPtr<IDXGIDevice> dxgiDevice;
+  HRESULT result = dx_device_->get()->QueryInterface(
+      __uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error querying a device interface: %s", GetErrorMsg(result));
+    error_ = "Error creating DXGI device";
+    return;
+  }
+
+  SafeComPtr<IDXGIAdapter> dxgiAdapter;
+  result = dxgiDevice->GetParent(__uuidof(IDXGIAdapter), reinterpret_cast<void**>(&dxgiAdapter));
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error getting a dxgi adapter: %s", GetErrorMsg(result));
+    error_ = "Error creating DXGI adapter";
+    return;
+  }
+
+  SafeComPtr<IDXGIFactory> dxgiFactory;
+  result = dxgiAdapter->GetParent(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&dxgiFactory));
+  if (FAILED(result)) {
+    Logger::Logf(LogLevel::Error, "Error getting a dxgi factory: %s", GetErrorMsg(result));
+    error_ = "Error creating DXGI factory";
+    return;
+  }
+
+  result = dxgiFactory->CreateSwapChain(dx_device_->get(), &swap_chain_desc, &swapChain_);
+  if (FAILED(result)) {
     error_ = "Error creating a DirectX swap chain";
     return;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "DirectX swap chain created");
   }
 
-  back_buffer_ = DxTexture::FromSwapChain(*swap_chain_);
+  back_buffer_ = DxTexture::FromSwapChain(swapChain_.get());
   if (!back_buffer_) {
     error_ = "Error getting a back buffer texture";
     return;
@@ -461,7 +445,6 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Font blend state created");
   }
-  AddComRef(font_blend_state_.get());
 
   RECT output_rect = 
       GetOutputSize(display_mode, maintain_aspect_ratio, client_rect_, ddraw_width_, ddraw_height_);
@@ -947,7 +930,7 @@ void DirectXRenderer::Render(const std::vector<byte> &surface_data) {
   }
   RenderToScreen();
   RenderText();
-  swap_chain_->Present(0, 0);
+  swapChain_->Present(0, 0);
 
   render_skipper_.UpdateLastFrameTime();
   if (DIRECTDRAWLOG) {

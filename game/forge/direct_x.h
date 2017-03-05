@@ -30,33 +30,13 @@ class IndirectDraw;
 class IndirectDrawPalette;
 class DxDevice;
 
-class DxSwapChain {
-  friend class DxDevice;
-public:
-  ~DxSwapChain();
-
-  void Present(uint32 sync_interval, uint32 flags) { swap_chain_->Present(sync_interval, flags); }
-
-  HRESULT result() const { return result_; }
-  IDXGISwapChain* get() const { return swap_chain_; }
-private:
-  DxSwapChain(const DxDevice& device, DXGI_SWAP_CHAIN_DESC* swap_chain_desc);
-
-  // Disallow copying
-  DxSwapChain(const DxSwapChain&) = delete;
-  DxSwapChain& operator=(const DxSwapChain&) = delete;
-
-  HRESULT result_;
-  IDXGISwapChain* swap_chain_;
-};
-
 class DxTexture {
 public:
   ~DxTexture();
 
   static std::unique_ptr<DxTexture> NewTexture(const DxDevice& device,
       const D3D10_TEXTURE2D_DESC& texture_desc);
-  static std::unique_ptr<DxTexture> FromSwapChain(const DxSwapChain& swap_chain);
+  static std::unique_ptr<DxTexture> FromSwapChain(IDXGISwapChain* swapChain);
 
   ID3D10Texture2D* get() const { return texture_; }
 private:
@@ -249,7 +229,6 @@ public:
   DxDevice();
   ~DxDevice();
 
-  std::unique_ptr<DxSwapChain> CreateSwapChain(DXGI_SWAP_CHAIN_DESC* swap_chain_desc);
   std::unique_ptr<DxVertexShader> CreateVertexShader(const DxVertexBlob& vertex_blob);
   std::unique_ptr<DxPixelShader> CreatePixelShader(const DxPixelBlob& pixel_blob);
   std::unique_ptr<DxInputLayout> CreateInputLayout(
@@ -401,7 +380,7 @@ private:
   RECT client_rect_;
 
   std::unique_ptr<DxDevice> dx_device_;
-  std::unique_ptr<DxSwapChain> swap_chain_;
+  SafeComPtr<IDXGISwapChain> swapChain_;
   std::unique_ptr<DxTexture> back_buffer_;
   PtrDxRenderTargetView back_buffer_view_;
   PtrDxRenderTargetView depalettized_view_;
