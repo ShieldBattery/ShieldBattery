@@ -12,6 +12,7 @@ app.setAppUserModelId('net.shieldbattery.client')
 import url from 'url'
 import LocalSettings from './local-settings'
 import currentSession from './current-session'
+import SystemTray from './system-tray'
 import { autoUpdater } from 'electron-updater'
 import {
   LOG_MESSAGE,
@@ -36,8 +37,9 @@ import {
 
 autoUpdater.logger = logger
 
-// Keep a reference to the window object so that it doesn't get GC'd and closed
+// Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow
+let systemTray
 
 function applyOriginFilter(curSession, baseUrl) {
   // Modify the origin for all ShieldBattery server requests
@@ -106,11 +108,16 @@ function setupIpc(localSettings) {
       logger.error('Error merging settings: ' + err)
       event.sender.send(SETTINGS_MERGE_ERROR, err)
     })
-  }).on(WINDOW_CLOSE, event => {
+  }).on(WINDOW_CLOSE, (event, shouldDisplayCloseHint) => {
     if (!mainWindow) {
       return
     }
-    mainWindow.close()
+    if (systemTray) {
+      mainWindow.hide()
+      if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
+    } else {
+      mainWindow.close()
+    }
   }).on(WINDOW_MAXIMIZE, event => {
     if (!mainWindow) {
       return
@@ -283,6 +290,7 @@ app.on('ready', async () => {
 
     setupIpc(localSettings)
     await createWindow(localSettings, currentSession())
+    systemTray = new SystemTray(mainWindow)
   } catch (err) {
     logger.error('Error initializing: ' + err)
     console.error(err)
