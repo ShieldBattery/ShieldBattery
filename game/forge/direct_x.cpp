@@ -166,16 +166,6 @@ DxInputLayout::~DxInputLayout() {
   ReleaseCom(input_layout_);
 }
 
-DxSamplerState::DxSamplerState(const DxDevice& device, const D3D10_SAMPLER_DESC& sampler_desc)
-  : result_(),
-    sampler_state_(nullptr) {
-  result_ = device.get()->CreateSamplerState(&sampler_desc, &sampler_state_);
-}
-
-DxSamplerState::~DxSamplerState() {
-  ReleaseCom(sampler_state_);
-}
-
 DxVertexBuffer::DxVertexBuffer(const DxDevice& device, const D3D10_BUFFER_DESC& buffer_desc,
       const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset)
   : result_(),
@@ -283,17 +273,6 @@ PtrDxShaderResourceView DxDevice::CreateShaderResourceView(const DxTexture& text
   }
 }
 
-unique_ptr<DxSamplerState> DxDevice::CreateSamplerState(const D3D10_SAMPLER_DESC& sampler_desc) {
-  auto state = unique_ptr<DxSamplerState>(new DxSamplerState(*this, sampler_desc));
-  if (FAILED(state->result())) {
-    Logger::Logf(LogLevel::Error, "Error creating a texture sampler: %s",
-        GetErrorMsg(state->result()));
-    return nullptr;
-  } else {
-    return state;
-  }
-}
-
 unique_ptr<DxVertexBuffer> DxDevice::CreateVertexBuffer(const D3D10_BUFFER_DESC& buffer_desc,
     const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset) {
   auto buffer = unique_ptr<DxVertexBuffer>(
@@ -334,7 +313,7 @@ DirectXRenderer::DirectXRenderer(HWND window, uint32 ddraw_width, uint32 ddraw_h
     bw_screen_view_(),
     palette_view_(),
     rendered_view_(),
-    rendered_texture_sampler_(),
+    renderedTextureSampler_(),
     font_atlas_(),
     font_view_(),
     font_vertex_buffer_(),
@@ -621,18 +600,20 @@ bool DirectXRenderer::InitTextures() {
     return false;
   }
 
-  D3D10_SAMPLER_DESC rendered_texture_sampler_desc = D3D10_SAMPLER_DESC();
-  rendered_texture_sampler_desc.Filter = D3D10_FILTER_MIN_MAG_MIP_LINEAR;
-  rendered_texture_sampler_desc.AddressU = D3D10_TEXTURE_ADDRESS_CLAMP;
-  rendered_texture_sampler_desc.AddressV = D3D10_TEXTURE_ADDRESS_CLAMP;
-  rendered_texture_sampler_desc.AddressW = D3D10_TEXTURE_ADDRESS_CLAMP;
-  rendered_texture_sampler_desc.ComparisonFunc = D3D10_COMPARISON_NEVER;
-  rendered_texture_sampler_desc.MinLOD = 0;
-  rendered_texture_sampler_desc.MaxLOD = D3D10_FLOAT32_MAX;
+  D3D10_SAMPLER_DESC samplerDesc = D3D10_SAMPLER_DESC();
+  samplerDesc.Filter = D3D10_FILTER_MIN_MAG_MIP_LINEAR;
+  samplerDesc.AddressU = D3D10_TEXTURE_ADDRESS_CLAMP;
+  samplerDesc.AddressV = D3D10_TEXTURE_ADDRESS_CLAMP;
+  samplerDesc.AddressW = D3D10_TEXTURE_ADDRESS_CLAMP;
+  samplerDesc.ComparisonFunc = D3D10_COMPARISON_NEVER;
+  samplerDesc.MinLOD = 0;
+  samplerDesc.MaxLOD = D3D10_FLOAT32_MAX;
 
-  rendered_texture_sampler_ = dx_device_->CreateSamplerState(rendered_texture_sampler_desc);
-  if (!rendered_texture_sampler_) {
-    error_ = "Error creating a rendered texture sampler";
+  HRESULT result = dx_device_->get()->CreateSamplerState(&samplerDesc, &renderedTextureSampler_);
+  if (!SUCCEEDED(result)) {
+    Logger::Logf(LogLevel::Error, "Error creating rendered texture sampler: %s",
+        GetErrorMsg(result));
+    error_ = "Error creating rendered texture sampler";
     return false;
   } else if (DIRECTDRAWLOG) {
     Logger::Log(LogLevel::Verbose, "Rendered texture sampler created");
@@ -984,7 +965,7 @@ void DirectXRenderer::RenderToScreen() {
       .SetViewports(1, &final_viewport_)
       .SetPixelShader(*scaling_pixel_shader_)
       .SetPixelShaderResource(0, rendered_view_)
-      .SetPixelShaderSampler(*rendered_texture_sampler_)
+      .SetPixelShaderSampler(renderedTextureSampler_.get())
       .Draw(4, 0);
   dx_device_->ClearPixelShaderResource(0);
 }

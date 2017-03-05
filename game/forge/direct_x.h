@@ -161,24 +161,6 @@ private:
   ID3D10InputLayout* input_layout_;
 };
 
-class DxSamplerState {
-  friend class DxDevice;
-public:
-  ~DxSamplerState();
-
-  HRESULT result() const { return result_; }
-  ID3D10SamplerState* get() const { return sampler_state_; }
-private:
-  DxSamplerState(const DxDevice& device, const D3D10_SAMPLER_DESC& sampler_desc);
-
-  // Disallow copying
-  DxSamplerState(const DxSamplerState&) = delete;
-  DxSamplerState& operator=(const DxSamplerState&) = delete;
-
-  HRESULT result_;
-  ID3D10SamplerState* sampler_state_;
-};
-
 class DxVertexBuffer {
   friend class DxDevice;
 public:
@@ -237,7 +219,6 @@ public:
   PtrDxRenderTargetView CreateRenderTargetView(const DxTexture& texture);
   PtrDxShaderResourceView CreateShaderResourceView(const DxTexture& texture,
       const D3D10_SHADER_RESOURCE_VIEW_DESC& srv_desc);
-  std::unique_ptr<DxSamplerState> CreateSamplerState(const D3D10_SAMPLER_DESC& sampler_desc);
   std::unique_ptr<DxVertexBuffer> CreateVertexBuffer(const D3D10_BUFFER_DESC& buffer_desc,
       const D3D10_SUBRESOURCE_DATA& buffer_data, uint32 stride, uint32 offset);
 
@@ -293,8 +274,8 @@ public:
     device_->PSSetShaderResources(start_slot, 1, views);
     return *this;
   }
-  DxDevice& SetPixelShaderSampler(const DxSamplerState& sampler) {
-    ID3D10SamplerState* samplers[] =  { sampler.get() };
+  DxDevice& SetPixelShaderSampler(ID3D10SamplerState* sampler) {
+    ID3D10SamplerState * samplers[] =  { sampler };
     device_->PSSetSamplers(0, 1, samplers);
     return *this;
   }
@@ -398,7 +379,7 @@ private:
   PtrDxShaderResourceView bw_screen_view_;
   PtrDxShaderResourceView palette_view_;
   PtrDxShaderResourceView rendered_view_;
-  std::unique_ptr<DxSamplerState> rendered_texture_sampler_;
+  SafeComPtr<ID3D10SamplerState> renderedTextureSampler_;
 
   std::unique_ptr<DxTexture> font_atlas_;
   PtrDxShaderResourceView font_view_;
