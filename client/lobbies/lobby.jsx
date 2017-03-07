@@ -228,7 +228,6 @@ export default class Lobby extends React.Component {
     onSwitchSlot: React.PropTypes.func,
     onOpenSlot: React.PropTypes.func,
     onCloseSlot: React.PropTypes.func,
-    onRemoveComputer: React.PropTypes.func,
     onKickPlayer: React.PropTypes.func,
     onBanPlayer: React.PropTypes.func,
   };
@@ -239,7 +238,6 @@ export default class Lobby extends React.Component {
       user,
       onSetRace,
       onAddComputer,
-      onRemoveComputer,
       onSendChatMessage,
       onSwitchSlot,
       onOpenSlot,
@@ -286,8 +284,7 @@ export default class Lobby extends React.Component {
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
-                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
-                onRemoveComputer={onRemoveComputer ? () => onRemoveComputer(id) : undefined} />)
+                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined} />)
           case 'controlledOpen':
             return (<OpenSlot key={id} race={race} controlledOpen={true}
                 canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}

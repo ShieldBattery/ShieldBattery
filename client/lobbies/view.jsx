@@ -6,7 +6,6 @@ import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
-  removeComputer,
   changeSlot,
   openSlot,
   closeSlot,
@@ -93,11 +92,11 @@ export default class LobbyView extends React.Component {
       content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
-          onAddComputer={this.onAddComputer} onRemoveComputer={this.onRemoveComputer}
-          onSetRace={this.onSetRace} onSwitchSlot={this.onSwitchSlot}
-          onOpenSlot={this.onOpenSlot} onCloseSlot={this.onCloseSlot}
-          onKickPlayer={this.onKickPlayer} onBanPlayer={this.onBanPlayer}
-          onStartGame={this.onStartGame} onSendChatMessage={this.onSendChatMessage} />
+          onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
+          onSwitchSlot={this.onSwitchSlot} onOpenSlot={this.onOpenSlot}
+          onCloseSlot={this.onCloseSlot} onKickPlayer={this.onKickPlayer}
+          onBanPlayer={this.onBanPlayer} onStartGame={this.onStartGame}
+          onSendChatMessage={this.onSendChatMessage} />
       actions = [
         <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
       ]
@@ -168,10 +167,6 @@ export default class LobbyView extends React.Component {
 
   onAddComputer = slotId => {
     this.props.dispatch(addComputer(slotId))
-  };
-
-  onRemoveComputer = slotId => {
-    this.props.dispatch(removeComputer(slotId))
   };
 
   onSwitchSlot = slotId => {

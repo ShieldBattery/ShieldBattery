@@ -125,10 +125,6 @@ export const LOBBY_LEAVE = 'LOBBY_LEAVE'
 export const LOBBY_OPEN_SLOT_BEGIN = 'LOBBY_OPEN_SLOT_BEGIN'
 // The server has responded with success/failure to our opening of a lobby slot
 export const LOBBY_OPEN_SLOT = 'LOBBY_OPEN_SLOT'
-// We are starting the process of removing a computer from a lobby
-export const LOBBY_REMOVE_COMPUTER_BEGIN = 'LOBBY_REMOVE_COMPUTER_BEGIN'
-// The server has responded with success/failure to our removing a computer in lobby
-export const LOBBY_REMOVE_COMPUTER = 'LOBBY_REMOVE_COMPUTER'
 // We are sending a chat message to the server
 export const LOBBY_SEND_CHAT_BEGIN = 'LOBBY_SEND_CHAT_BEGIN'
 // The server has replied with success/failure to our sent chat message

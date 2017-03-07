@@ -18,7 +18,6 @@ export default class PlayerSlot extends React.Component {
     onCloseSlot: PropTypes.func,
     onKickPlayer: PropTypes.func,
     onBanPlayer: PropTypes.func,
-    onRemoveComputer: PropTypes.func,
     // Whether or not this slot can be set race to
     canSetRace: PropTypes.bool,
     isHost: PropTypes.bool,
@@ -39,7 +38,6 @@ export default class PlayerSlot extends React.Component {
       onCloseSlot,
       onKickPlayer,
       onBanPlayer,
-      onRemoveComputer,
     } = this.props
     const avatar = isComputer ?
         <ComputerAvatar className={styles.slotAvatar} /> :
@@ -53,7 +51,7 @@ export default class PlayerSlot extends React.Component {
         slotActions.push(['Kick player', onKickPlayer])
         slotActions.push(['Ban player', onBanPlayer])
       } else {
-        slotActions.push(['Remove computer', onRemoveComputer])
+        slotActions.push(['Remove computer', onKickPlayer])
       }
       slotActions.push(['Close slot', onCloseSlot])
     }

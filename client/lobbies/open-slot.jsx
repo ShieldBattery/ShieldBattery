@@ -13,7 +13,7 @@ export default class OpenSlot extends React.Component {
     onCloseSlot: PropTypes.func,
     // Indicates if this is a `controlledOpen` type slot
     controlledOpen: PropTypes.bool,
-    // In `controlledOpen` slots indicates if it can be set race to
+    // In `controlledOpen` slots, indicates if it can be set race to
     canSetRace: PropTypes.bool,
     isHost: PropTypes.bool,
     race: PropTypes.string,

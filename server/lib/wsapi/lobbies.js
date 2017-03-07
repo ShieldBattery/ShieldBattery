@@ -87,8 +87,6 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
-    // We keep this map to distinguish between players who left the lobby and those who were kicked
-    this.lobbyKickedUsers = new Map()
     this.lobbyBannedUsers = new Map()
     this.lobbyCountdowns = new Map()
     this.pingPromises = new Map()
@@ -104,11 +102,7 @@ export class LobbyApi {
       return
     }
 
-    const user = this.getUser(data)
-    const summary = this.lobbies.valueSeq()
-        .filterNot(l => this.lobbyBannedUsers.has(l.name) &&
-            this.lobbyBannedUsers.get(l.name).includes(user.name))
-        .map(l => Lobbies.toSummaryJson(l))
+    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
     this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
 
     const onClose = () => {
@@ -388,10 +382,8 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    if (slotToClose.type === 'human') {
-      this.kickPlayer(data, next)
-    } else if (slotToClose.type === 'computer') {
-      this.removeComputer(data, next)
+    if (slotToClose.type === 'human' || slotToClose.type === 'computer') {
+      this._kickPlayerFromLobby(lobby, teamIndex, slotIndex, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.name)
 
@@ -405,28 +397,6 @@ export class LobbyApi {
     this._publishLobbyDiff(afterKick, updated)
   }
 
-  @Api('/removeComputer')
-  async removeComputer(data, next) {
-    const user = this.getUser(data)
-    const lobby = this.getLobbyForUser(user)
-    const [, , player] = findSlotByName(lobby, user.name)
-    this.ensureIsLobbyHost(lobby, player)
-    this.ensureLobbyNotTransient(lobby)
-
-    const { slotId } = data.get('body')
-    const [teamIndex, slotIndex, computer] = findSlotById(lobby, slotId)
-    if (!computer) {
-      throw new errors.BadRequest('invalid slot id')
-    }
-    if (computer.type !== 'computer') {
-      throw new errors.BadRequest('invalid slot type')
-    }
-
-    const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, computer)
-    this.lobbies = this.lobbies.set(lobby.name, updated)
-    this._publishLobbyDiff(lobby, updated)
-  }
-
   @Api('/kickPlayer')
   async kickPlayer(data, next) {
     const user = this.getUser(data)
@@ -436,19 +406,26 @@ export class LobbyApi {
     this.ensureLobbyNotTransient(lobby)
 
     const { slotId } = data.get('body')
-    const [, , playerToKick] = findSlotById(lobby, slotId)
+    const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
     if (!playerToKick) {
       throw new errors.BadRequest('invalid slot id')
     }
-    if (playerToKick.type !== 'human') {
+    if (playerToKick.type !== 'human' && playerToKick.type !== 'computer') {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    this.lobbyKickedUsers =
-        this.lobbyKickedUsers.update(lobby.name, new List(), val => val.push(playerToKick.name))
+    this._kickPlayerFromLobby(lobby, teamIndex, slotIndex, playerToKick)
+  }
 
-    const userToRemove = this.getUserByName(playerToKick.name)
-    this._removeUserFromLobby(lobby, userToRemove)
+  _kickPlayerFromLobby(lobby, teamIndex, slotIndex, playerToKick) {
+    if (playerToKick.type === 'computer') {
+      const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)
+      this.lobbies = this.lobbies.set(lobby.name, updated)
+      this._publishLobbyDiff(lobby, updated)
+    } else if (playerToKick.type === 'human') {
+      const userToRemove = this.getUserByName(playerToKick.name)
+      this._removeUserFromLobby(lobby, userToRemove, playerToKick.name)
+    }
   }
 
   @Api('/banPlayer')
@@ -472,7 +449,7 @@ export class LobbyApi {
         this.lobbyBannedUsers.update(lobby.name, new List(), val => val.push(playerToBan.name))
 
     const userToRemove = this.getUserByName(playerToBan.name)
-    this._removeUserFromLobby(lobby, userToRemove)
+    this._removeUserFromLobby(lobby, userToRemove, null, playerToBan.name)
   }
 
   @Api('/leave')
@@ -482,7 +459,7 @@ export class LobbyApi {
     this._removeUserFromLobby(lobby, user)
   }
 
-  _removeUserFromLobby(lobby, user) {
+  _removeUserFromLobby(lobby, user, kickedUser, bannedUser) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
     const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
@@ -493,12 +470,11 @@ export class LobbyApi {
         player,
       })
       this.lobbies = this.lobbies.delete(lobby.name)
-      this.lobbyKickedUsers = this.lobbyKickedUsers.delete(lobby.name)
       this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
-      this._publishLobbyDiff(lobby, updatedLobby)
+      this._publishLobbyDiff(lobby, updatedLobby, kickedUser, bannedUser)
     }
     this.lobbyUsers = this.lobbyUsers.delete(user)
 
@@ -811,7 +787,7 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getPlayerPath(lobby, playerName), data)
   }
 
-  _publishLobbyDiff(oldLobby, newLobby) {
+  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null) {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
@@ -841,21 +817,12 @@ export class LobbyApi {
       // `slotCreate` operation below anyways). This also means we only care about `human` slots
       // leaving just so we can display appropriate message in the lobby.
       const [, , player] = oldIdSlots.get(id)
-      if (this.lobbyKickedUsers.has(oldLobby.name) &&
-          this.lobbyKickedUsers.get(oldLobby.name).includes(player.name)) {
-        // The player was kicked; delete them from the kicked users map so they have a fresh start
-        // if/when they join again
-        this.lobbyKickedUsers = this.lobbyKickedUsers.update(oldLobby.name, val => {
-          const index = val.findIndex(p => p === player.name)
-          return val.delete(index)
-        })
+      if (kickedUser === player.name) {
         diffEvents.push({
           type: 'kick',
           player,
         })
-      } else if (this.lobbyBannedUsers.has(oldLobby.name) &&
-          this.lobbyBannedUsers.get(oldLobby.name).includes(player.name)) {
-        // The player was banned; they won't be able to rejoin the same lobby
+      } else if (bannedUser === player.name) {
         diffEvents.push({
           type: 'ban',
           player,

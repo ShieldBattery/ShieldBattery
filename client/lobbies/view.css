@@ -63,6 +63,7 @@
 }
 
 .slotAvatar {
+  composes: exact;
   width: 24px !important;
   height: 24px !important;
   margin-right: 16px;
@@ -95,6 +96,7 @@
 }
 
 .slotEmptyAvatar {
+  composes: exact;
   /* extra size accounts for border */
   width: 26px;
   height: 26px;
