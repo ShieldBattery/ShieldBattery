@@ -91,10 +91,18 @@ export const LOBBY_DEACTIVATE = 'LOBBY_DEACTIVATE'
 export const LOBBY_ADD_COMPUTER_BEGIN = 'LOBBY_ADD_COMPUTER_BEGIN'
 // The server has responded with success/failure to our addition of computer in lobby
 export const LOBBY_ADD_COMPUTER = 'LOBBY_ADD_COMPUTER'
+// We are starting the process of banning a player from a lobby
+export const LOBBY_BAN_PLAYER_BEGIN = 'LOBBY_BAN_PLAYER_BEGIN'
+// The server has responded with success/failure to our banning of a player in lobby
+export const LOBBY_BAN_PLAYER = 'LOBBY_BAN_PLAYER'
 // We are starting the process of moving from one slot to another in a lobby
 export const LOBBY_CHANGE_SLOT_BEGIN = 'LOBBY_CHANGE_SLOT_BEGIN'
 // The server has responded with success/rejection to us attempting to switch lobby slots
 export const LOBBY_CHANGE_SLOT = 'LOBBY_CHANGE_SLOT'
+// We are starting the process of closing a lobby slot
+export const LOBBY_CLOSE_SLOT_BEGIN = 'LOBBY_CLOSE_SLOT_BEGIN'
+// The server has responded with success/failure to our closing of a lobby slot
+export const LOBBY_CLOSE_SLOT = 'LOBBY_CLOSE_SLOT'
 // We are starting the process to create a lobby
 export const LOBBY_CREATE_BEGIN = 'LOBBY_CREATE_BEGIN'
 // The server has responded with success/failure to our lobby creation
@@ -105,10 +113,18 @@ export const LOBBY_INIT_DATA = 'LOBBY_INIT_DATA'
 export const LOBBY_JOIN_BEGIN = 'LOBBY_JOIN_BEGIN'
 // The server has responded with success/failure to our lobby joining
 export const LOBBY_JOIN = 'LOBBY_JOIN'
+// We are starting the process of kicking a player from a lobby
+export const LOBBY_KICK_PLAYER_BEGIN = 'LOBBY_KICK_PLAYER_BEGIN'
+// The server has responded with success/failure to our kicking a player in lobby
+export const LOBBY_KICK_PLAYER = 'LOBBY_KICK_PLAYER'
 // We are starting the process of leaving a lobby
 export const LOBBY_LEAVE_BEGIN = 'LOBBY_LEAVE_BEGIN'
 // The server has responded with success/failure to our lobby leaving
 export const LOBBY_LEAVE = 'LOBBY_LEAVE'
+// We are starting the process of opening a lobby slot
+export const LOBBY_OPEN_SLOT_BEGIN = 'LOBBY_OPEN_SLOT_BEGIN'
+// The server has responded with success/failure to our opening of a lobby slot
+export const LOBBY_OPEN_SLOT = 'LOBBY_OPEN_SLOT'
 // We are sending a chat message to the server
 export const LOBBY_SEND_CHAT_BEGIN = 'LOBBY_SEND_CHAT_BEGIN'
 // The server has replied with success/failure to our sent chat message
@@ -121,6 +137,10 @@ export const LOBBY_SET_RACE = 'LOBBY_SET_RACE'
 export const LOBBY_START_COUNTDOWN_BEGIN = 'LOBBY_START_COUNTDOWN_BEGIN'
 // The server has responded with success/failure for starting the game countdown
 export const LOBBY_START_COUNTDOWN = 'LOBBY_START_COUNTDOWN'
+// A user has been banned in a lobby we're in
+export const LOBBY_UPDATE_BAN = 'LOBBY_UPDATE_BAN'
+// We have been banned from a lobby
+export const LOBBY_UPDATE_BAN_SELF = 'LOBBY_UPDATE_BAN_SELF'
 // A new chat message has been received
 export const LOBBY_UPDATE_CHAT_MESSAGE = 'LOBBY_UPDATE_CHAT_MESSAGE'
 // The countdown for the lobby we're in has been canceled
@@ -133,6 +153,10 @@ export const LOBBY_UPDATE_COUNTDOWN_TICK = 'LOBBY_UPDATE_COUNTDOWN_TICK'
 export const LOBBY_UPDATE_GAME_STARTED = 'LOBBY_UPDATE_GAME_STARTED'
 // A lobby we're in now has a new host player
 export const LOBBY_UPDATE_HOST_CHANGE = 'LOBBY_UPDATE_HOST_CHANGE'
+// A user has been kicked in a lobby we're in
+export const LOBBY_UPDATE_KICK = 'LOBBY_UPDATE_KICK'
+// We have been kicked from a lobby
+export const LOBBY_UPDATE_KICK_SELF = 'LOBBY_UPDATE_KICK_SELF'
 // A user has left a lobby we're in
 export const LOBBY_UPDATE_LEAVE = 'LOBBY_UPDATE_LEAVE'
 // We have left a lobby we're in

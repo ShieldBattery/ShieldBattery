@@ -87,6 +87,7 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.lobbies = new Map()
     this.lobbyUsers = new Map()
+    this.lobbyBannedUsers = new Map()
     this.lobbyCountdowns = new Map()
     this.pingPromises = new Map()
     this.loadingLobbies = new Map()
@@ -181,6 +182,11 @@ export class LobbyApi {
     const lobby = this.lobbies.get(name)
     this.ensureLobbyNotTransient(lobby)
 
+    if (this.lobbyBannedUsers.has(lobby.name) &&
+        this.lobbyBannedUsers.get(lobby.name).includes(user.name)) {
+      throw new errors.Conflict('user has been banned from this lobby')
+    }
+
     const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(lobby)
     if (teamIndex < 0 || slotIndex < 0) {
       throw new errors.Conflict('lobby is full')
@@ -245,7 +251,7 @@ export class LobbyApi {
     if (!slotToAddComputer) {
       throw new errors.BadRequest('invalid id')
     }
-    if (slotToAddComputer.type !== 'open') {
+    if (slotToAddComputer.type !== 'open' && slotToAddComputer.type !== 'closed') {
       throw new errors.BadRequest('invalid slot type')
     }
 
@@ -325,6 +331,127 @@ export class LobbyApi {
     this._publishLobbyDiff(lobby, updatedLobby)
   }
 
+  @Api('/openSlot',
+    validateBody({
+      slotId: nonEmptyString,
+    }))
+  async openSlot(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slotToOpen] = findSlotById(lobby, slotId)
+    if (!slotToOpen) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (slotToOpen.type !== 'closed' && slotToOpen.type !== 'controlledClosed') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.openSlot(lobby, teamIndex, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
+  @Api('/closeSlot',
+    validateBody({
+      slotId: nonEmptyString,
+    }))
+  async closeSlot(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slotToClose] = findSlotById(lobby, slotId)
+    if (!slotToClose) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (slotToClose.type === 'closed' || slotToClose.type === 'controlledClosed') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    if (slotToClose.type === 'human' || slotToClose.type === 'computer') {
+      this._kickPlayerFromLobby(lobby, teamIndex, slotIndex, slotToClose)
+    }
+    const afterKick = this.lobbies.get(lobby.name)
+
+    let updated
+    try {
+      updated = Lobbies.closeSlot(afterKick, teamIndex, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(afterKick, updated)
+  }
+
+  @Api('/kickPlayer')
+  async kickPlayer(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
+    if (!playerToKick) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (playerToKick.type !== 'human' && playerToKick.type !== 'computer') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    this._kickPlayerFromLobby(lobby, teamIndex, slotIndex, playerToKick)
+  }
+
+  _kickPlayerFromLobby(lobby, teamIndex, slotIndex, playerToKick) {
+    if (playerToKick.type === 'computer') {
+      const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)
+      this.lobbies = this.lobbies.set(lobby.name, updated)
+      this._publishLobbyDiff(lobby, updated)
+    } else if (playerToKick.type === 'human') {
+      const userToRemove = this.getUserByName(playerToKick.name)
+      this._removeUserFromLobby(lobby, userToRemove, playerToKick.name)
+    }
+  }
+
+  @Api('/banPlayer')
+  async banPlayer(data, next) {
+    const user = this.getUser(data)
+    const lobby = this.getLobbyForUser(user)
+    const [, , player] = findSlotByName(lobby, user.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [, , playerToBan] = findSlotById(lobby, slotId)
+    if (!playerToBan) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (playerToBan.type !== 'human') {
+      throw new errors.BadRequest('invalid slot type')
+    }
+
+    this.lobbyBannedUsers =
+        this.lobbyBannedUsers.update(lobby.name, new List(), val => val.push(playerToBan.name))
+
+    const userToRemove = this.getUserByName(playerToBan.name)
+    this._removeUserFromLobby(lobby, userToRemove, null, playerToBan.name)
+  }
+
   @Api('/leave')
   async leave(data, next) {
     const user = this.getUser(data)
@@ -332,7 +459,7 @@ export class LobbyApi {
     this._removeUserFromLobby(lobby, user)
   }
 
-  _removeUserFromLobby(lobby, user) {
+  _removeUserFromLobby(lobby, user, kickedUser, bannedUser) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
     const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
@@ -343,10 +470,11 @@ export class LobbyApi {
         player,
       })
       this.lobbies = this.lobbies.delete(lobby.name)
+      this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
-      this._publishLobbyDiff(lobby, updatedLobby)
+      this._publishLobbyDiff(lobby, updatedLobby, kickedUser, bannedUser)
     }
     this.lobbyUsers = this.lobbyUsers.delete(user)
 
@@ -598,6 +726,12 @@ export class LobbyApi {
     return user
   }
 
+  getUserByName(name) {
+    const user = this.userSockets.getByName(name)
+    if (!user) throw new errors.BadRequest('user not online')
+    return user
+  }
+
   getLobbyForUser(user) {
     if (!this.lobbyUsers.has(user)) {
       throw new errors.BadRequest('must be in a lobby')
@@ -653,7 +787,7 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getPlayerPath(lobby, playerName), data)
   }
 
-  _publishLobbyDiff(oldLobby, newLobby) {
+  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null) {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
@@ -683,15 +817,27 @@ export class LobbyApi {
       // `slotCreate` operation below anyways). This also means we only care about `human` slots
       // leaving just so we can display appropriate message in the lobby.
       const [, , player] = oldIdSlots.get(id)
-      diffEvents.push({
-        type: 'leave',
-        player,
-      })
+      if (kickedUser === player.name) {
+        diffEvents.push({
+          type: 'kick',
+          player,
+        })
+      } else if (bannedUser === player.name) {
+        diffEvents.push({
+          type: 'ban',
+          player,
+        })
+      } else {
+        diffEvents.push({
+          type: 'leave',
+          player,
+        })
+      }
     }
     for (const id of created.values()) {
       // These are all of the slots that were created in the new lobby compared to the old one. This
       // includes the slots that were created as a result of players leaving the lobby, moving to a
-      // different slot, etc.
+      // different slot, open/closing a slot, etc.
       const [teamIndex, slotIndex, slot] = newIdSlots.get(id)
       diffEvents.push({
         type: 'slotCreate',

@@ -7,6 +7,10 @@ import LoadingIndicator from '../progress/dots.jsx'
 import {
   addComputer,
   changeSlot,
+  openSlot,
+  closeSlot,
+  kickPlayer,
+  banPlayer,
   leaveLobby,
   setRace,
   startCountdown,
@@ -89,7 +93,9 @@ export default class LobbyView extends React.Component {
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
           onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
-          onSwitchSlot={this.onSwitchSlot} onStartGame={this.onStartGame}
+          onSwitchSlot={this.onSwitchSlot} onOpenSlot={this.onOpenSlot}
+          onCloseSlot={this.onCloseSlot} onKickPlayer={this.onKickPlayer}
+          onBanPlayer={this.onBanPlayer} onStartGame={this.onStartGame}
           onSendChatMessage={this.onSendChatMessage} />
       actions = [
         <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
@@ -167,8 +173,24 @@ export default class LobbyView extends React.Component {
     this.props.dispatch(changeSlot(slotId))
   };
 
-  onSetRace = (id, race) => {
-    this.props.dispatch(setRace(id, race))
+  onOpenSlot = slotId => {
+    this.props.dispatch(openSlot(slotId))
+  };
+
+  onCloseSlot = slotId => {
+    this.props.dispatch(closeSlot(slotId))
+  };
+
+  onKickPlayer = slotId => {
+    this.props.dispatch(kickPlayer(slotId))
+  };
+
+  onBanPlayer = slotId => {
+    this.props.dispatch(banPlayer(slotId))
+  };
+
+  onSetRace = (slotId, race) => {
+    this.props.dispatch(setRace(slotId, race))
   };
 
   onSendChatMessage = message => {
