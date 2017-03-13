@@ -38,6 +38,7 @@ autoUpdater.logger = logger
 
 // Keep a reference to the window object so that it doesn't get GC'd and closed
 let mainWindow
+export const getMainWindow = () => mainWindow
 
 function applyOriginFilter(curSession, baseUrl) {
   // Modify the origin for all ShieldBattery server requests
