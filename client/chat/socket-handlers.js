@@ -9,6 +9,12 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
+import {
+  NEW_CHAT_MESSAGE,
+} from '../../app/common/ipc-constants'
+
+const ipcRenderer =
+    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 const eventToAction = {
   init(channel, event, siteSocket) {
@@ -55,6 +61,9 @@ const eventToAction = {
   },
 
   message(channel, event) {
+    // Notify the main process of the new message, so it can display an appropriate notification
+    ipcRenderer.send(NEW_CHAT_MESSAGE, channel, { user: event.user, message: event.data.text })
+
     // TODO(tec27): handle different types of messages (event.data.type)
     return {
       type: CHAT_UPDATE_MESSAGE,

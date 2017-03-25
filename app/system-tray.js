@@ -27,13 +27,19 @@ export default class SystemTray {
     }
   }
 
-  displayHowToCloseHint = () => {
-    const message =
-        'ShieldBattery is running in the background. Right click the system tray icon to quit.'
+  displayNotificationMessage = (title, message) => {
     this.systemTray.displayBalloon({
       icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
-      title: 'ShieldBattery',
-      content: message,
+      title,
+      content: message
     })
+  }
+
+  setUnreadIcon = () => {
+    this.systemTray.setImage(path.join(__dirname, 'assets', 'new_message.png'))
+  }
+
+  clearUnreadIcon = () => {
+    this.systemTray.setImage(path.join(__dirname, 'assets', 'shieldbattery-16.png'))
   }
 }
