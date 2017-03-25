@@ -36,4 +36,12 @@ export default class SystemTray {
       content: message,
     })
   }
+
+  setUnreadIcon = () => {
+    this.systemTray.setImage(path.join(__dirname, 'assets', 'new_message.png'))
+  }
+
+  clearUnreadIcon = () => {
+    this.systemTray.setImage(path.join(__dirname, 'assets', 'shieldbattery-16.png'))
+  }
 }
