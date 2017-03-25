@@ -1,10 +1,11 @@
 import { app, Menu, Tray } from 'electron'
+import path from 'path'
 
 export default class SystemTray {
   constructor(mainWindow) {
     this.mainWindow = mainWindow
 
-    this.systemTray = new Tray('icon.ico')
+    this.systemTray = new Tray(path.join(__dirname, 'icon.ico'))
     this.systemTray.setToolTip('ShieldBattery')
     this.systemTray.setContextMenu(this.buildContextMenu())
     this.systemTray.on('click', this.onTrayClick)
@@ -33,12 +34,7 @@ export default class SystemTray {
     }
   }
 
-  displayHowToCloseHint = () => {
-    const message =
-        'ShieldBattery is running in the background. You can right-click on the icon below to quit.'
-    this.systemTray.displayBalloon({
-      title: 'Shieldbattery',
-      content: message,
-    })
+  displayNotificationMessage = (title, message) => {
+    this.systemTray.displayBalloon({ title, content: message })
   }
 }
