@@ -8,6 +8,7 @@ const app = require('electron').app
 
 let getMainWindow
 
+
 // Ensure that it's only possible to open a single instance of the application in non-dev mode. If
 // someone tries to open two instances, we just focus the main window
 if (!isDev) {
@@ -26,4 +27,6 @@ if (!isDev) {
   } else {
     getMainWindow = require('./app.js').getMainWindow
   }
+} else {
+  require('./app.js')
 }
