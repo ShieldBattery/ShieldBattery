@@ -64,6 +64,18 @@ config.rallyPoint = {
   */
 }
 
+// Settings for store location of uploaded files.
+config.fileStore = {
+  // Stores files on the manner-pylon server's filesystem
+  filesystem: {
+    path: 'uploaded_files',
+  }
+}
+
+// Uncomment if you have Brood War data MPQs extracted to a some directory, they will be used
+// for generating map thumbnails.
+// config.bwData = 'path/to/bw/files'
+
 // Uncomment if you want to utilize emails (requires a mailgun account)
 /*
 config.mailgun = {

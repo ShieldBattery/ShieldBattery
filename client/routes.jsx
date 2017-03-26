@@ -22,6 +22,9 @@ import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 import Whisper from './whispers/whisper.jsx'
 
+const AdminMapUpload =
+    process.webpackEnv.SB_ENV === 'electron' ? require('./admin/map-upload.jsx').default : null
+
 import {
   CanAcceptBetaInvitesFilter,
   CanViewUserProfileFilter,
@@ -68,6 +71,8 @@ const routes = <Route>
                 <Route component={CanAcceptBetaInvitesFilter}>
                   <Route path='/admin/invites' component={AdminBetaInvites} />
                 </Route>
+                { AdminMapUpload ?
+                    <Route path='/admin/map-upload' component={AdminMapUpload} /> : null }
               </Route>
             </Route>
             <Route path='/chat'>

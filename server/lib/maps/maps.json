@@ -1,530 +1,178 @@
 [
   {
     "name": "Andromeda 1.0",
-    "hash": "cedc0c55396e0ab43d15295539ebb3f2a0a86acb8485b7547461470e469623b1",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "You can easily send away your opponent to Andromeda.\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "01f01ffbc6a46af86b5a3a94eae2f8f495d06c68939c983edd8d9b1d50e2c28f"
   },
   {
     "name": "Athena 1.0",
-    "hash": "6eb301fec8eafe62b5658596c079fdfa226a7a1d854bde35eb61fbbf7933936a",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Suggested Players: 2-3\r\nAthena is the Goddess of War. The people of the great Greek city of Athens looked upon her as their defender.\r\nÁ¦ÀÛ : ¼Û±â¹ü\r\n°¨¼ö : Áø±³ÁØ. ±èÁö¿µ",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "164ff8e4cf961ea6d64943faa2c9b061feac015fc84febe03af95c7886f46029"
   },
   {
     "name": "Aztec1.1",
-    "hash": "fab4fc818b0bb3fa6bd619d373de1656cbcd0a4ccade661ac959fc9290528058",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Created By Str18-02      Presented by KeSPA\r\nÀ§´ëÇÏ½Å ÅÂ¾ç½ÅÀÌ ³ÊÀÇ ¶ß°Å¿î ½ÉÀåÀ» ¹ÞÀ¸½Ã¾î ³»ÀÏÀÌ ¿Ã°ÍÀ» ¾à¼Ó ÇÏ½Ç °ÍÀÌ´Ù.",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "9a9dfbdee8a5f765d4e94323f1ade63e0bdb0ed0172af15aa794cf5d17f4b028"
   },
   {
     "name": "Benzene1.1",
-    "hash": "45764b9baa72f83a5eb2eab49ddea46c6af21da75bc42e687e6dab93e4e4044e",
-    "tileset": "platform",
-    "width": 128,
-    "height": 112,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Created By Str18-02      Presented by KeSPA\r\n6 Carbon, 6 Hydrogen. Kekule, who was german chemist, discovered it at 1865.",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "819e5cf9f69f13b1d681fc345338f6808a709b0e807e08370e65558784da6170"
   },
   {
     "name": "Big Game Hunters",
-    "hash": "2984c350c950815ad5b84c7b951191f016d1ad9fedb5a0b194ee12fbafc82302",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 8,
-    "umsSlots": 8,
-    "description": "Suggested Players: 2-8\r\n\r\nBy popular demand....",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "41c43defc0f2e27e261f3cec7d7d9df8d6b366d87aa253a78411150b03e8786a"
   },
   {
     "name": "Blue Storm 1.2",
-    "hash": "7f621b14fcee1d5f15817a03e9618128dcca581f6469302c1a81073f7a72039a",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 96,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Hold Your Breath !!!\r\nCreated by Earthattack\r\nPresented by KeSPA\r\n\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "1529e7d69cdee8ce125fed1b2688b2e6a21183fc9a8e6b2ce5adf363ce32b419"
   },
   {
     "name": "Byzantium II 2.3",
-    "hash": "3030c47356c5d14ff438238aa86a309cd345d8f057e788ee25f6d373bb3ddd23",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Suggested Players: 2-4\r\nThe Byzantium Empire was the Roman Empire of the east.\r\nÁ¦ÀÛ : ¼Û±â¹ü\r\n¼öÁ¤ : ¼Û±â¹ü\r\n°¨¼ö : Áø±³ÁØ",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "18ba2299c1a07aec3e2d5b670bd1b155fe2ada790a9465a2f446c979049979af"
   },
   {
     "name": "Circuit Breaker 1.0",
-    "hash": "9d6977cd3133bb6d727e59a350f3c9d79d0eb0464be5eb17d85e2bf1ee234fcd",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Author: Earthattack\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "eb46ba6e0c2a98d087e1fb43a158f68c6e14654026f26fa098aa8be26c06e534"
   },
   {
     "name": "ColosseumII2.0",
-    "hash": "f5e060a730507a1c8e96f49e09af3c09100d85f7457aaaa03acadcc828bb006d",
-    "tileset": "desert",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Created By Str18-02\r\n½ÉÀå¿¡ Àå½ÄµÈ ±Û¶óµð¿ì½º. ¹ß±æ¿¡ Ã¤ÀÌ´Â ¼ÓÀÌÂù Åõ±¸µé.\r\nÃß¾ÇÇÑ º»¼ºÀ» µå·¯³½È²Á¦. ÈïºÐÀ» ºÎ¸£Â¢´Â  °üÁßµé. \r\nÀÌ ¸ðµç °ÍÀ» ´ã´Â ±×¸©, ÄÝ·Î¼¼¿È.\r\nSpecial Thx to PgrFuroLeague\r\nPresented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "eee60db8c4caa0e15c882e5b5d6fc123cf24e9927c25bf7dfac6acb01a4b4996"
   },
   {
     "name": "Demian SE 2.0",
-    "hash": "fd7a929b5faa7884006287ffc7d5f56453c7ce22bd16815f456a55d9f0374b4f",
-    "tileset": "badlands",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "»õ´Â ¾Ë¿¡¼­ ³ª¿À·Á°í ÅõÀïÇÑ´Ù.\r\n¾ËÀº ÇÏ³ªÀÇ ¼¼°èÀÌ´Ù.\r\nÅÂ¾î³ª·Á´Â ÀÚ´Â ÇÏ³ªÀÇ ¼¼°è¸¦ ÆÄ±«ÇØ¾ß ÇÑ´Ù.\r\n - Çì¸£¸¸ Çì¼¼ ¡¸µ¥¹Ì¾È¡¹ñé\r\nCreated by LatiAs\r\nPresented by AfreecaTV",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "214aa4960545adbf3095e4f61dad5e71969ed90b4aba931c421cd3e6505a0619"
   },
   {
     "name": "Destination 1.1",
-    "hash": "0ff56c07ea95eb99b2ff6c2f5a84204d743dc82ad6ad18276565193123a380b0",
-    "tileset": "badlands",
-    "width": 96,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Created by ESK\r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "acbeb9d88e3cc7e5685116b6a89d34e6c612b53e462610a7fb8e95be8171a5d8"
   },
   {
     "name": "Electric Circuit 2.1",
-    "hash": "1ccb04e25934ff4216c34adef5783cd17798abfc82c336d86f5d152a84b91f29",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "[www.iccup.com] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "003c305e67cf9027415ecfe6f98eed60481f56265fccf8d07f7f37ba87f6c7c5"
   },
   {
     "name": "Fighting Spirit 1.3",
-    "hash": "e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Green Tea, want some?\r\nCreated by Rose.of.Dream.     \r\nPresented by Kespa\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c"
   },
   {
     "name": "Heartbreak Ridge 2.1",
-    "hash": "be0006a307e6e7a08ce666bd68208f10cab3f3d4c3dde3bc9ff262a0c01dd734",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 96,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "VildaMalin <3\r\nCreated by [Ragnarok]Valkyrie\r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "6e10e6ee620dcbdf8782e783f3f5653affda0e9b299013e83cf4b2e3419fc989"
   },
   {
     "name": "Hunters KeSPA 1.0",
-    "hash": "3567b34edc3cef2981fa2c30a022e0cb423496cefe2fa20171db4d0df0ff6b40",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 8,
-    "umsSlots": 8,
-    "description": "Suggested Players: 2-8\r\n\t\r\nEight-player cutthroat.\r\n\r\nObs Trigger by Forgotten_\r\nModified by [Ragnarok]Valkyrie      Presented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "4171cdd8a70b25378f1033c88419799c29fc9cc01c817a617cb85863d71ad1c5"
   },
   {
     "name": "Icarus 1.0",
-    "hash": "9705aaad46ec1dc73f95d8a297ed1d6cf3c5d270d8a4ad6128818e9ec5250e28",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "³ì¾Æ¹ö¸° ³ªÀÇ ³¯°³´Â ¾îµð·Î..?\r\n³¯¾Æ¿À¸£´Â ¹ýÀÌ ±â¾ï³ªÁö ¾Ê¾Æ.\r\n¿ø·¡ ³ª´Â ³¯Áö ¸øÇß´ø °ÍÀÏ±î..?\r\nÈ¥µ· ¼Ó¿¡¼­ ¿µÈ¥Àº ºÎ¼­Á®¹ö¸®°í\r\n½ÉÀåÀº °¥±â°¥±â Âõ¾îÁö°í ¸»¾Ò¾î.\r\n\r\nCreated by Rose.of.Dream.      Presented by Kespa",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "d1621e2260dde1178f7e20d89a5375fe1880fbd2d6eaa8948c1c9b89862fd1e0"
   },
   {
     "name": "Jade 2.1",
-    "hash": "68a558020eccb51dd080c47cbdcdba2f730cd2ec813a0668a2d7b488ab80d1d5",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Author: Rose.Of.Dream.\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "40bd270d0b0e50b6441ba9b07072718ff51c7c31097fb9b232d23623177aea2b"
   },
   {
     "name": "Katrina SE2.0",
-    "hash": "1ab72a07e5454687eae9e39aec81d8325975da8f968ad5012a6501a61942fc2e",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Created By Str18-02      Presented by KeSPA\r\nÁß½É±â¾Ð 904hPa \r\nÁß½ÉÇ³¼Ó 135kt (70m/s)\r\nÇÇÇØº¹±¸¾× 1220¾ï ´Þ·¯ \r\n±×¸®°í ¾ÄÀ» ¼ö ¾ø´Â »ç¸ÁÀÚ 1339¸í.\r\nE-mail to lasina85@hanmail.net .. GoodLuck !!",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "e84b5996dd7de6eee55d9a845beb3dc09b6366e7d424694835b877cd3631ba47"
   },
   {
     "name": "La Mancha 1.1",
-    "hash": "515cc6eae33663658a22b3c4cd61f585b318a57e7a12f33f22bc593ac0f1881f",
-    "tileset": "desert",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "'¶ó ¸¸Â÷'ÀÇ Ç³Â÷¸¦ ÇâÇØ¼­\r\n½ñ¾ÆÁö´Â ÆøÇ³À» °Å½½·¯ ´Þ·Á°£´Ù.\r\nÈÖ³¯¸®´Â °¥±â´Â ³¯°³°¡ µÇ°í\r\n¾Ó»óÇÑ µîÀº ¾Æ¸§´Ù¿î ÀÚÅÂ°¡ µÈ\r\n'·Î½Ã³­Å×', ³ÊÀÇ µîÀ» Å¸°í...\r\n\r\nCreated by Rose.of.Dream.      Presented by Kespa",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "aba024edd29be45e7afeaadf752003702b78f940821b4e1f6843cfab2df7b9cb"
   },
   {
     "name": "Longinus 2.0",
-    "hash": "a36b78d18eee3437a1ba59ed7767aeb071e2c47e27ecb74dcd7ed6c5dc8f25cd",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Author: KuKulZa\r\nEditors: Berserk.E, Sir_Lupin, i_terran\r\nVersion: 2.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "0a53a206d4508c9dc3d9691bd5665147038adecd2e88a822dd988dc579a642ba"
   },
   {
     "name": "Lost Temple 2.4",
-    "hash": "7d7fe9c3ca55ff22a3b62152d1d0241e176e7330a513a4197a4e59737f28410a",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Suggested players : 2 - 4\r\n\r\n\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "185f292c97b21627b67c1799a46e717e84278d85124a7c9f9c2ae02c862fa122"
   },
   {
     "name": "Luna 2.1",
-    "hash": "cbe02e52ca5db139b36297bf4cd3356090ed538003169ecffbb2ccfe94334bbe",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Author: i_terran (draft by DrunkenBird)\r\nEditor: skb9728_CyGnus\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "14ad798ccc8923eca2bfeef29eaab56f0e08a3b0bab2d982fc5335784368a21f"
   },
   {
     "name": "Match Point 1.3",
-    "hash": "1faf909458eb0db8051563d63b412370fc343236c7d3adaed469d16f650b0587",
-    "tileset": "platform",
-    "width": 112,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "PpP\r\n[www.iccup.com] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "ab08194ba25eb9fc4b1b2c23e13895081e6d6c4366e71b14788a887c4236801b"
   },
   {
     "name": "Medusa 2.2",
-    "hash": "9bcfc65e27c92a988e54877995487c7426117fe61a25ee0b9169d1d8b5c81e20",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Author: Str18-02\r\nVersion: 2.2\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "51979df74a17f4a47557b6b55b92911527430c3b9dd6107ba8d993c09ef71cfe"
   },
   {
     "name": "Medusa1.0",
-    "hash": "f46a2fd0c9afbfacb387e8750fab2874bce0ddfc46e364bfbc7e53b0db911af4",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Created By Str18-02      Presented by KeSPA\r\n¼Ò³à¿©, ±×´ëÀÇ Àß¸øÀÌ ÀÖ´ÙÇÏ¸é ±×°ÍÀº ³ªÀÇ ºÒÂûÀÌ´Ù. ºñ·Ï ³ÊÀÇ ºñ´Ü°áÀÌ ±â¾î°¡´Â ¾ÇÀÌ µÇ°í ±× ´©±¸µµ ³Ê¸¦ ¸¶ÁÖÇÏÁö ¸øÇÏ¿©µµ ÀÌ ¹Ù´Ù´Â Ç×»ó ³Ê¸¦ ÇâÇØ ¿­·ÁÀÖÀ½À» ¾Ë¾ÆÁÖ±â¸¦ ¹Ù¶õ´Ù.",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "93df61525ffc8c8116753200a9d7ddec38958a5f8e69debd44fed553a4e7c82a"
   },
   {
     "name": "MoonGlaive 2.1",
-    "hash": "4a8d1fe38d56076b9f2f312caebfe8748fdd94b496a82eac807b6caafadd8e1d",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "All you need is love.\r\n\r\nCreated By Str18-02 \r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "04d38455286e3f232a14910be626fcaedb15c88d68fd7c133b884b659067d5e0"
   },
   {
     "name": "Neo Forbidden Zone 2.0",
-    "hash": "3d4cdad9f9894503b1d2b32ab7bb6f6d3df3f1e8bd79d01e1d8bfd60e5262f3d",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Suggested Players: 2-4\r\n\r\n\u0007Don't approach to there!!!\r\n\u0006Forbidden Zone...\r\n\r\n\u0004- Made by [Ragnarok]Valkyrie -  - Version 2.0 -",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "c46875f8d1ec89adf80274fa89019cd3097c5b665af972d097a18e6f49c31ef3"
   },
   {
     "name": "Neo Harmony",
-    "hash": "5fa3334ac650581b442eb6d80dd6217a3f8e003ebbb1d8300c10e9ab4f46835b",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "°­ÇÔ°ú ¾àÇÔ, ºü¸§°ú ´À¸²\r\nºÎµå·¯¿ò°ú ³¯Ä«·Î¿ò...\r\n±×¸®°í Çª¸£¸¥ ¹Ù¶÷°ú ¹àÀº ´Þ\r\n±× ¸ðµç °ÍÀÌ Á¶È­¸¦ ÀÌ·ç´Â °÷\r\nCreated by Rose.of.Dream.      Mapdori.com Map Architect Team     http://www.mapdori.com",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "d1955c91a90b44cdbe8563566e49eb3dcad9d6c7c44fdb49864bef14a1af86bf"
   },
   {
     "name": "New Bloody Ridge",
-    "hash": "d8f6cdaf59cc8dd5255ff4567be0e261aecc7ee7a0941ef804ecad84610ca885",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 96,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Àü¿ì¿©! ÇÇ·Î¼­ µÇ Ã£Àº ÀÌ ¶¥\r\n´Ù½Ã´Â ´õ·´È÷Áö ¸»ÀÚ ±×¸®°í ¼ÒÁßÈ÷ °£Á÷ÇÏÀÚ\r\n¹Ù·Î Àú±â ±Ý°­»êÀÌ º¸ÀÌÁö ¾Ê´Â°¡? ÀÌ°÷ µó°í ¹éµÎ»ê±îÁö.\r\n[ÇÇÀÇ ´É¼± ÀüÅõÀüÀûºñ ñé]\r\nCreated by [Ragnarok]Valkyrie      Presented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "26e9725a048c6a6653c276e87be7d94227fd1bc60dc17a19d7c22ef15370f780"
   },
   {
     "name": "New Sniper Ridge",
-    "hash": "a9433ce91d2d39fc293097b9bf0eb80e0b0e8b0f48c7d922c1d5035045b0d55d",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "°¡¶ûÀÙÃ³·³ ½×ÀÎ ½ÃÃ¼¸¦ ¹â°í ³Ñ¾î Á¶±¹ÀÇ ±ê¹ßÀ» µå³ôÀÌ µé°í ³»µó´ø È­¶ûÀÇ ÈÄ¿¹µéÀÌ Áö±Ý ¾Ö±¹ÀÇ ¼±ºÀÀÌ µÇ¾î ¿©±â¿¡ °íÀÌ Àáµé¾î ÀÖ´Ù.\r\n[Àú°Ý´É¼± ÀüÅõÀüÀûºñ ñé]\r\nCreated by [Ragnarok]Valkyrie      Presented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "c370c4bbcbb36a4287c5f917116a2bb8b30ec485b20e0ff9705c545c88e62f51"
   },
   {
     "name": "Othello 1.1",
-    "hash": "500a302964535046e10210d38b2cdd514b05b502168a71b0fe0bb1a972e62541",
-    "tileset": "twilight",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "You are as pompous as the square of the sum of brightly charming violet and cherry blossom.\r\nFrom 'Shakespear Programming Language'\r\nCreated by Forgotten_\r\nPresented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "1168aa32a0b4a47e2526d84993df7d5ee4c8378fac5f634201e37ca30a2dfc3a"
   },
   {
     "name": "Outsider 1.0",
-    "hash": "edd5b56a9fcc5e8b1ba42eb173ca5918b20f312d7a292b6c9d54e034618e0f0e",
-    "tileset": "ashworld",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Outside Minerals: 749\r\nOutside Vespene Gas: 2500\r\n\r\nCreated by ESK\r\nPresented by KeSPA",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "a7c7bc77f1336468ad6a29ce40b7fcaf818a6cb522855a497eb239e276d39bcb"
   },
   {
     "name": "Overwatch [ASL] 1.3",
-    "hash": "852733ac7227615d13359c11211f0db4f74a0b9a997a14c13c72a5c4748605e9",
-    "tileset": "desert",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "»õ·Î¿î ¿µ¿õÀº ¾ðÁ¦³ª È¯¿µÀÌ¾ß !\r\n\r\nAfreeca Starleague Official Map\r\n\r\nCreated by [Ragnarok]Valkyrie\r\n\r\nthx LatiAs",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "68b6307fc4e8a26691dbd15758b0ca056f7c8ca44025f62d6fd4f7321481671b"
   },
   {
     "name": "Overwatch 2.1",
-    "hash": "305a82c86d279c88bc0f991ab481d88e6de5fcec6d750b44053871b11b52eec6",
-    "tileset": "twilight",
-    "width": 112,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Author: -NegativeZero-\r\nEditor: Freakling\r\nVersion: 2.1\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "698302cf477d8946979477d88a4199bd94e923922c05095f9cb3d73194509ab3"
   },
   {
     "name": "PolarisRhapsody 1.0",
-    "hash": "d4cd2911b59c34fe2dc05d4a3fa1b436eb071974438f16bbbcf00ac883cbfcfb",
-    "tileset": "twilight",
-    "width": 112,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Created By Str18-02      Presented by KeSPA\r\n¼ÒÀ¯ÇÏÁö ¾ÊÀº ÀÚ°¡ ÀÌ ¼¼»óÀÇ ÁÖÀÎÀÌ´Ù.\r\n¼ÒÀ¯ÇÏ°í »ç´Â ÀÚ°¡ ÀÌ ¼¼»óÀÇ ³ë¿¹ÀÌ´Ù.",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "d58dd620264d79f3f52432c0e8a141a0b9e1a0071a0cdb9a149ed246394d2cfb"
   },
   {
     "name": "Primeval Isles",
-    "hash": "47d5806d1467f26d1fd6dace2db5c1d4d0d1902b58b1ff35b99ff745781e3740",
-    "tileset": "desert",
-    "width": 256,
-    "height": 256,
-    "slots": 8,
-    "umsSlots": 8,
-    "description": "Suggested Players: 2-8\r\n\r\nFight well, or become extinct.",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "1d845c395f1be4dac5e990d7aed65269be1fb0ab5c7a62e7315d3c037b701be7"
   },
   {
     "name": "Python 1.3",
-    "hash": "aeba1dda6286eccb004ff09877bbdeccbe953b692f61d7d14a25385d970eebcd",
-    "tileset": "jungle",
-    "width": 128,
-    "height": 128,
-    "slots": 4,
-    "umsSlots": 4,
-    "description": "Created by Terrance\r\nModified by Forgotten_\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "e64ef907014d972405ec12419c10e8bcbddb93949b588225cb65a95adc0ef34c"
   },
   {
     "name": "Rush Hour 3.1",
-    "hash": "9d32a9081e59f084b253c8748949b9d6be432289a60228af02f39b3438362da2",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 0,
-    "description": "Created by skb9728_CyGnus\r\nModified by skb9728_CyGnus.\r\ni_terran. Berserk_E\r\nPresented by MBCgame\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "8ef6ffaae0d6b5607223a04ed093abf9e11eaff1d3c65a4a9b4478da307f9dbf"
   },
   {
     "name": "Sin Chupung Ryeong2.1",
-    "hash": "60e420fe506676241ade868bf7eae3ad16a9e685e4b88a72d72618a7be50d470",
-    "tileset": "jungle",
-    "width": 96,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 0,
-    "description": "Created By Str18-02      \r\nPresented by KeSPA\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "ef12d75ee234d0da4d762411d43d1e720c283bec257c38c58d626cbe723f0886"
   },
   {
     "name": "Sin Peaks of Baekdu",
-    "hash": "3cffa4facd974b9a8bca002a16fe1c3f9d4364505693489c187d543328cd13e9",
-    "tileset": "jungle",
-    "width": 96,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Suggested Players: 2\r\n[¹éµÎ´ë°£]\r\nÇÑ¹Ýµµ¸¦ µ¿¤ý¼­·Î °¡¸£´Â »êÁÙ±â\r\nÇÑ¹Ýµµ ÀÚ¿¬ÀÇ »óÂ¡ÀÌÀÚ ÀÎ¹®Àû ±â¹Ý\r\nCreated by [Ragnarok]Valkyrie      Ongamenet Map Architect Team     http://www.mapdori.com",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "68afba26ee8511d08fbefe0c2c4fe30031ef12e7d851c3611c5a7c212dc71373"
   },
   {
     "name": "Tau Cross 1.0",
-    "hash": "b3eb0a67dc14b6ab2e4ee0e082881de3d18d8bbf37c9a72a5ac54695ddbe18f5",
-    "tileset": "ice",
-    "width": 128,
-    "height": 128,
-    "slots": 3,
-    "umsSlots": 3,
-    "description": "Author: Rose.of.Dream.\r\nVersion: 1.0\r\nPresented by iCCup\r\n[ www.iccup.com ] modification",
-    "format": "scx",
-    "thumbFormat": "jpg"
+    "hash": "9e0a5dbb0c9d43d8e862b3a98b6f0c98a2d9156cde76bffe36a1c52226445978"
   },
   {
     "name": "Theatre of War",
-    "hash": "b45260967b76d5d8366e5c8225dbb9c2f6c6f17a6ca5308f66ac1f85bfe4b80f",
-    "tileset": "jungle",
-    "width": 192,
-    "height": 192,
-    "slots": 8,
-    "umsSlots": 8,
-    "description": "Suggested Players: 2-8\r\n\r\nExplore, Destroy, Conquer.",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "8957476ae8d24034020ca4d636d5b277cb46e6636c58a519b316cad5f40be711"
   },
   {
     "name": "UGL 22 Space",
-    "hash": "ba7acf68c9a9948b8bdb49eaa2a2963b2eae4ecf17266fe3f336ff31480a3a2d",
-    "tileset": "platform",
-    "width": 128,
-    "height": 128,
-    "slots": 8,
-    "umsSlots": 8,
-    "description": "UGL Season 22 | http://unigl.net/\r\nUni Gaming League\r\n©2013-2016 UNIGL.NET",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "902abfa979c4476702f1fba6e88215c0d826a46bf0e06c266d634e149f4a05ee"
   },
   {
     "name": "Venom Road",
-    "hash": "d783586d4f59cb631adabe27d8a3c5f293d2ff1e073e41124ecafb2a9f04ec93",
-    "tileset": "platform",
-    "width": 96,
-    "height": 128,
-    "slots": 2,
-    "umsSlots": 2,
-    "description": "Suggested Player : 2\r\nThe Venom Road.\r\nCreated by Noah2nd\r\nhttp://wemsm.ivyro.net/",
-    "format": "scm",
-    "thumbFormat": "jpg"
+    "hash": "993623507e1c87c6a8e67b5d22664b6383267c32a02c13a1e4981b97d0d3f3bd"
   }
 ]

@@ -12,6 +12,7 @@ export const Permissions = new Record({
   acceptInvites: false,
   editAllChannels: false,
   banUsers: false,
+  manageMaps: false,
 
   lastUpdated: 0,
   isRequesting: false,

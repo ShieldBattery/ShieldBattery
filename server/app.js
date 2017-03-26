@@ -31,6 +31,9 @@ import views from 'koa-views'
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
 
+import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
+import LocalFileStore from './lib/file-upload/local-filesystem'
+
 if (!config.canonicalHost) {
   throw new Error('Configuration must contain canonicalHost')
 }
@@ -60,6 +63,11 @@ if (config.rallyPoint.local) {
     process.exit(1)
   })
 }
+
+if (!config.fileStore || !config.fileStore.filesystem) {
+  throw new Error('Configuration must contain file storage settings')
+}
+setStore(new LocalFileStore(config.fileStore.filesystem))
 
 const asyncLookup = thenify(dns.lookup)
 const rallyPointServers = config.rallyPoint.local ?
@@ -151,6 +159,9 @@ if (isDev) {
   })))
   app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
 }
+
+fileStoreMiddleware(app)
+
 import createRoutes from './routes'
 createRoutes(app, userSockets)
 

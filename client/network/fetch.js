@@ -52,6 +52,11 @@ export function fetchRaw(path, opts) {
     ...defaults.headers,
     ...opts.headers,
   }
+  // If we're want to send content-type: multipart/form-data, let the fetch set content-type
+  // by itself, so the form-data boundary gets set correctly.
+  if (opts.body && FormData.prototype.isPrototypeOf(opts.body)) {
+    delete headers['Content-Type']
+  }
 
   const credentials = path !== serverUrl ? {
       // Include credentials for non-web clients because everything is cross-origin
