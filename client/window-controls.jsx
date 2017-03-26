@@ -41,7 +41,16 @@ export default class WindowControls extends React.Component {
   }
 
   onCloseClick = () => {
-    ipcRenderer.send(WINDOW_CLOSE)
+    let shouldDisplayCloseHint
+    const KEY = 'closeHintShown'
+    const val = window.localStorage.getItem(KEY)
+    if (!val) {
+      shouldDisplayCloseHint = true
+      window.localStorage.setItem(KEY, true)
+    } else {
+      shouldDisplayCloseHint = false
+    }
+    ipcRenderer.send(WINDOW_CLOSE, shouldDisplayCloseHint)
   };
 
   onMaximizeClick = () => {
