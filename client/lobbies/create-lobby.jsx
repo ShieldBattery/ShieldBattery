@@ -212,9 +212,9 @@ export default class CreateLobby extends React.Component {
 
   onCreateClick = () => {
     this._form.submit()
-  };
+  }
 
-  onSubmit = async () => {
+  onSubmit = () => {
     const { name, map, gameType, gameSubType } = this._form.getModel()
     const { localMapHash, localMapPath } = this.props.maps
     const subType = isTeamType(gameType) ? gameSubType : undefined
@@ -225,9 +225,9 @@ export default class CreateLobby extends React.Component {
       this.props.dispatch(navigateToLobby(name))
       this.props.dispatch(closeOverlay())
     }
-  };
+  }
 
   onMapBrowse = () => {
     this.props.dispatch(openOverlay('browseMaps'))
-  };
+  }
 }

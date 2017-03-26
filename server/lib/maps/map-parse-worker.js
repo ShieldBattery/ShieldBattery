@@ -1,3 +1,5 @@
+process.env.BABEL_ENV = 'node'
+
 require('babel-register')
 require('babel-polyfill')
 const fs = require('fs')
