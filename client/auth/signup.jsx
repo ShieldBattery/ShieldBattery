@@ -29,7 +29,7 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../app/common/constants'
 import { signUp } from './auther'
-import styles from './login.css'
+import styles from './signup.css'
 
 async function usernameAvailable(val) {
   try {

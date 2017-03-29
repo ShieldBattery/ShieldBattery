@@ -216,6 +216,15 @@ export default (validations = {}) => (Wrapped) => {
       this.onSubmit()
     }
 
+    // Resets the input values to the model passed in props
+    reset() {
+      this.setState({
+        model: this.props.model,
+        dirty: Object.create(null),
+        validationErrors: Object.create(null),
+      })
+    }
+
     render() {
       const childProps = {
         ...this.props,

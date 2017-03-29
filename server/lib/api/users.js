@@ -9,8 +9,10 @@ import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { getTokenByEmail } from '../models/invites'
+import { usePasswordResetCode } from '../models/password-resets'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
+import transact from '../db/transaction'
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
@@ -24,7 +26,7 @@ export default function(router) {
     .put('/:id', function* (next) {
       // TODO(tec27): update a user
       throw new httpErrors.ImATeapot()
-    })
+    }).post('/:username/password', resetPassword)
 }
 
 async function find(ctx, next) {
@@ -34,12 +36,15 @@ async function find(ctx, next) {
     const user = await users.find(searchTerm)
     ctx.body = user ? [ user ] : []
   } catch (err) {
-    ctx.log.error({ err }, 'error finding user by name')
     throw err
   }
 }
 
 const bcryptHash = thenify(bcrypt.hash)
+function hashPass(password) {
+  return bcryptHash(password, 10)
+}
+
 async function createUser(ctx, next) {
   const { username, password } = ctx.request.body
   const email = ctx.request.body.email.trim()
@@ -65,17 +70,10 @@ async function createUser(ctx, next) {
       // Return same error as when token is invalid so we don't leak emails
       throw new httpErrors.BadRequest('Invalid token')
     }
-    ctx.log.error({ err }, 'error getting email by token')
     throw err
   }
 
-  let hashed
-  try {
-    hashed = await bcryptHash(password, 10)
-  } catch (err) {
-    ctx.log.error({ err }, 'error hashing password')
-    throw err
-  }
+  const hashed = await hashPass(password)
 
   let result
   try {
@@ -85,7 +83,6 @@ async function createUser(ctx, next) {
     if (err.code && err.code === UNIQUE_VIOLATION) {
       throw new httpErrors.Conflict('A user with that name already exists')
     }
-    ctx.log.error({ err }, 'error saving user')
     throw err
   }
 
@@ -95,4 +92,27 @@ async function createUser(ctx, next) {
   initSession(ctx, result.user, result.permissions)
   setReturningCookie(ctx)
   ctx.body = result
+}
+
+async function resetPassword(ctx, next) {
+  const { username } = ctx.params
+  const { code } = ctx.query
+  const { password } = ctx.request.body
+
+  if (!code || !isValidUsername(username) || !isValidPassword(password)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  await transact(async client => {
+    try {
+      await usePasswordResetCode(client, username, code)
+    } catch (err) {
+      throw new httpErrors.BadRequest('Password reset code is invalid')
+    }
+
+    const user = await users.find(username)
+    user.password = await hashPass(password)
+    await user.save()
+    ctx.status = 204
+  })
 }

@@ -23,15 +23,17 @@ class Button extends React.Component {
 
   render() {
     const {
+      className,
       label,
-      avatarClassName, // eslint-disable-line no-unused-vars
+      labelClassName,
       buttonRef, // eslint-disable-line no-unused-vars
       ...otherProps,
     } = this.props
 
-    const classes = classnames(this.props.className, {
+    const classes = classnames(className, {
       [styles.focused]: this.state.isKeyboardFocused,
     })
+    const labelClasses = classnames(styles.label, labelClassName)
 
     const buttonProps = {
       className: classes,
@@ -42,7 +44,7 @@ class Button extends React.Component {
     }
 
     return (<button ref={this._setRef} {...otherProps} {...buttonProps}>
-      <span className={styles.label}>{label}</span>
+      <span className={labelClasses}>{label}</span>
     </button>)
   }
 
@@ -106,6 +108,7 @@ Button.propTypes = {
     React.PropTypes.string,
     React.PropTypes.element,
   ]).isRequired,
+  labelClassName: React.PropTypes.string,
   onBlur: React.PropTypes.func,
   onFocus: React.PropTypes.func,
   onClick: React.PropTypes.func,

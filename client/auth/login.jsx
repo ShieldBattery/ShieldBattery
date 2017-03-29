@@ -2,7 +2,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
 import { redirectIfLoggedIn } from './auth-utils'
-import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -45,27 +44,55 @@ const passwordValidator = composeValidators(
 })
 class LoginForm extends React.Component {
   render() {
-    const { onSubmit, bindInput, bindCheckable } = this.props
+    const {
+      onSubmit,
+      bindInput,
+      bindCheckable,
+      onForgotUsernameClick,
+      onForgotPasswordClick,
+    } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter/>
-      <TextField {...bindInput('username')} className={styles.textFields}
-          label='Username' floatingLabel={true}
-          inputProps={{
-            tabIndex: 1,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}/>
-      <TextField {...bindInput('password')} className={styles.textFields}
-          label='Password' floatingLabel={true} type='password'
-          inputProps={{
-            tabIndex: 1,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}/>
-      <CheckBox {...bindCheckable('remember')} className={styles.checkboxes} label='Remember me'
-          inputProps={{ tabIndex: 1 }} />
+      <div className={styles.fieldRow}>
+        <div className={styles.rowEdge}/>
+        <TextField {...bindInput('username')} className={styles.textField}
+            label='Username' floatingLabel={true}
+            inputProps={{
+              tabIndex: 1,
+              autoCapitalize: 'off',
+              autoCorrect: 'off',
+              spellCheck: false,
+            }}/>
+        <div className={styles.rowEdge}>
+          <FlatButton labelClassName={styles.forgotActionLabel}
+              label='Forgot username?' onClick={onForgotUsernameClick}/>
+        </div>
+      </div>
+
+      <div className={styles.fieldRow}>
+        <div className={styles.rowEdge}/>
+        <TextField {...bindInput('password')} className={styles.textField}
+            label='Password' floatingLabel={true} type='password'
+            inputProps={{
+              tabIndex: 1,
+              autoCapitalize: 'off',
+              autoCorrect: 'off',
+              spellCheck: false,
+            }}/>
+        <div className={styles.rowEdge}>
+          <FlatButton labelClassName={styles.forgotActionLabel}
+              label='Forgot password?' onClick={onForgotPasswordClick}/>
+        </div>
+      </div>
+
+      <div className={styles.fieldRow}>
+        <div className={styles.rowEdge}/>
+        <CheckBox {...bindCheckable('remember')} className={styles.checkBox} label='Remember me'
+            inputProps={{ tabIndex: 1 }} />
+        <div className={styles.spacer}/>
+        <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1}/>
+        <div className={styles.rowEdge}/>
+      </div>
     </form>)
   }
 }
@@ -99,30 +126,26 @@ export default class Login extends React.Component {
     }
 
     return (<div className={styles.content}>
-      <Card className={styles.card}>
-        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-          <h3 className={styles.cardTitle}>Log in</h3>
-          { errContents }
-          <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}/>
-          <RaisedButton label='Log in' onClick={this.onLogInClick} tabIndex={1}/>
-        </div>
-        { loadingContents }
-      </Card>
+      <div className={authChangeInProgress ? styles.formLoading : styles.form}>
+        <h3 className={styles.title}>Log in</h3>
+        { errContents }
+        <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
+            onForgotUsernameClick={this.onForgotUsernameClick}
+            onForgotPasswordClick={this.onForgotPasswordClick}/>
+      </div>
+      { loadingContents }
       <div className={styles.bottomAction}>
-        <p>Don't have an account?</p>
-        <span>
-          <FlatButton label='Sign up for beta' onClick={this.onSignUpClick} tabIndex={1}/>
-          or
-          <FlatButton label='Create account' onClick={this.onCreateAccountClick}
-              tabIndex={1}/>
-        </span>
+          <FlatButton labelClassName={styles.bottomActionButtonLabel}
+              label='Sign up for an account' onClick={this.onCreateAccountClick} tabIndex={1}/>
+          <FlatButton labelClassName={styles.bottomActionButtonLabel}
+              label='View beta info' onClick={this.onSignUpClick} tabIndex={1}/>
       </div>
     </div>)
   }
 
   onSignUpClick = () => {
     this.props.dispatch(routerActions.push({ pathname: '/splash' }))
-  };
+  }
 
   onCreateAccountClick = () => {
     const query = {
@@ -130,11 +153,15 @@ export default class Login extends React.Component {
       username: this._form.getModel().username,
     }
     this.props.dispatch(routerActions.push({ pathname: '/signup', query }))
-  };
+  }
 
-  onLogInClick = () => {
-    this._form.submit()
-  };
+  onForgotUsernameClick = () => {
+    this.props.dispatch(routerActions.push({ pathname: '/forgot-user' }))
+  }
+
+  onForgotPasswordClick = () => {
+    this.props.dispatch(routerActions.push({ pathname: '/forgot-password' }))
+  }
 
   onSubmit = () => {
     const values = this._form.getModel()
@@ -143,5 +170,5 @@ export default class Login extends React.Component {
       reqId: id
     })
     this.props.dispatch(action)
-  };
+  }
 }

@@ -3,7 +3,10 @@ import {
   AUTH_CHANGE_BEGIN,
   AUTH_LOG_IN,
   AUTH_LOG_OUT,
+  AUTH_RESET_PASSWORD,
+  AUTH_RETRIEVE_USERNAME,
   AUTH_SIGN_UP,
+  AUTH_START_PASSWORD_RESET,
   AUTH_UPDATE,
 } from '../actions'
 import cuid from 'cuid'
@@ -47,7 +50,7 @@ export function logOut() {
 }
 
 export function signUp(username, email, password, token) {
-  const reqUrl = '/api/1/users?token=' + token
+  const reqUrl = '/api/1/users?token=' + encodeURIComponent(token)
   return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
     method: 'post',
     body: JSON.stringify({ username, email, password })
@@ -57,5 +60,35 @@ export function signUp(username, email, password, token) {
 export function getCurrentSession() {
   return idRequest(AUTH_UPDATE, () => fetch('/api/1/sessions', {
     method: 'get'
+  }))
+}
+
+export function retrieveUsername(email) {
+  return idRequest(AUTH_RETRIEVE_USERNAME, () => fetch('/api/1/recovery/user', {
+    method: 'post',
+    body: JSON.stringify({
+      email,
+    })
+  }))
+}
+
+export function startPasswordReset(username, email) {
+  return idRequest(AUTH_START_PASSWORD_RESET, () => fetch('/api/1/recovery/password', {
+    method: 'post',
+    body: JSON.stringify({
+      username,
+      email,
+    })
+  }))
+}
+
+export function resetPassword(username, code, password) {
+  const url = '/api/1/users/' + encodeURIComponent(username) + '/password?code=' +
+      encodeURIComponent(code)
+  return idRequest(AUTH_RESET_PASSWORD, () => fetch(url, {
+    method: 'post',
+    body: JSON.stringify({
+      password
+    })
   }))
 }

@@ -1,4 +1,4 @@
-@value blue400, amberA400, colorTextSecondary, colorError from '../styles/colors.css';
+@value blue400, amberA400, colorTextSecondary, colorError, colorSuccess from '../styles/colors.css';
 @value row, col, grow, take33, itemsCenter, justifyCenter from '../styles/flex.css';
 @value display1 from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
@@ -24,6 +24,12 @@
   opacity: 0;
 }
 
+.formContents {
+  width: 100%;
+  padding-left: 24%;
+  padding-right: 24%;
+}
+
 .loadingArea {
   composes: row itemsCenter justifyCenter;
   position: absolute;
@@ -36,42 +42,16 @@
 .errors {
   composes: grow;
   color: colorError;
-  padding-left: 24%;
-  padding-right: 24%;
+}
+
+.success {
+  composes: grow;
+  color: colorSuccess;
 }
 
 .fieldRow {
-  composes: row itemsCenter;
   width: 100%;
   margin-top: 16px;
-}
-
-.rowEdge {
-  flex: 1 1 24%;
-  max-width: 24%;
-  max-height: 100%;
-}
-
-.rowEdge > * {
-  float: right;
-}
-
-.forgotActionLabel {
-  color: colorTextSecondary;
-  font-weight: 400;
-  font-size: 12px;
-}
-
-.spacer {
-  composes: grow;
-}
-
-.textField {
-  composes: grow;
-}
-
-.checkBox {
-  composes: take33;
 }
 
 .bottomAction {

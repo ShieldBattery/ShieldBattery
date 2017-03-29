@@ -5,6 +5,7 @@ export default async function transact(next) {
   try {
     await client.queryPromise('BEGIN')
   } catch (err) {
+    // This will re-throw err
     await rollbackFor(err, client, done)
   }
 
@@ -22,9 +23,9 @@ export default async function transact(next) {
 async function rollbackFor(err, client, done) {
   try {
     await client.queryPromise('ROLLBACK')
-  } catch (err) {
-    done(err)
-    throw err
+  } catch (rollbackErr) {
+    done(rollbackErr)
+    throw rollbackErr
   }
 
   done()

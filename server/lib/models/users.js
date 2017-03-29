@@ -86,7 +86,7 @@ function createUser(name, email, hashedPassword, ipAddress, createdDate) {
   })
 }
 
-async function findUser(criteria) {
+export async function findUser(criteria) {
   let query = 'SELECT id, name, email, password, created FROM users WHERE '
     , params
   if (typeof criteria != 'number') {
@@ -114,6 +114,18 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
     return client.queryPromise(
         'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
         [ ipAddress, userId ])
+  } finally {
+    done()
+  }
+}
+
+export async function findAllUsernamesWithEmail(email) {
+  const { client, done } = await db()
+  try {
+    const result = await client.queryPromise(
+        'SELECT name FROM users WHERE email = $1',
+        [ email ])
+    return result.rows.map(row => row.name)
   } finally {
     done()
   }

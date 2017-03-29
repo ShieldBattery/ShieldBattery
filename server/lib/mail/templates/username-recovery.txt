@@ -1,0 +1,23 @@
+*******************************
+ShieldBattery Username Recovery
+*******************************
+
+Someone requested a list of all usernames
+registered to this email account on
+ShieldBattery. If this wasn't you, you can
+safely ignore this email.
+
+The usernames registered to this email are:
+
+{{#each usernames}}* {{username}}
+{{/each}}
+
+You can log in with any of the above
+usernames by visiting
+our login page ( {{{HOST}}}/login ).
+
+gl hf gogogo
+
+— The ShieldBattery team
+
+Follow @ShieldBatteryBW ( http://twitter.com/ShieldBatteryBW ) on Twitter.

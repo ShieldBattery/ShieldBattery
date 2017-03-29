@@ -2,7 +2,10 @@ import {
   AUTH_CHANGE_BEGIN,
   AUTH_LOG_IN,
   AUTH_LOG_OUT,
+  AUTH_RESET_PASSWORD,
+  AUTH_RETRIEVE_USERNAME,
   AUTH_SIGN_UP,
+  AUTH_START_PASSWORD_RESET,
   AUTH_UPDATE,
 } from '../actions'
 import { Auth, Permissions, User } from './auth-records'
@@ -38,6 +41,15 @@ function handleError(state, action) {
   ))
 }
 
+function noOpOrError(state, action) {
+  if (!action.error) {
+    return (state.set('authChangeInProgress', false)
+      .set('lastFailure', null))
+  } else {
+    return handleError(state, action)
+  }
+}
+
 const logInSplitter = (state, action) => (!action.error ? logInSuccess : handleError)(state, action)
 const handlers = {
   [AUTH_CHANGE_BEGIN]: begin,
@@ -46,6 +58,9 @@ const handlers = {
   [AUTH_SIGN_UP]: logInSplitter,
   [AUTH_UPDATE]: (state, action) => (!action.error ? logInSuccess(state, action) :
       state.set('authChangeInProgress', false)),
+  [AUTH_RESET_PASSWORD]: noOpOrError,
+  [AUTH_RETRIEVE_USERNAME]: noOpOrError,
+  [AUTH_START_PASSWORD_RESET]: noOpOrError,
 }
 
 export default function authReducer(state = initialState, action) {

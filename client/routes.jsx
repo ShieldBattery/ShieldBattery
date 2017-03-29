@@ -9,6 +9,7 @@ import AppNotFound from './app-not-found.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import Faq from './beta/faq.jsx'
+import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
 import DownloadPage from './download/download-page.jsx'
 import LoadingFilter from './loading/loading-filter.jsx'
@@ -89,7 +90,10 @@ const routes = <Route>
     </Route>
   </Route>
   <Route component={LoginLayout}>
+    <Route path='/forgot-password' component={ForgotPassword} />
+    <Route path='/forgot-user' component={ForgotUser} />
     <Route path='/login' component={Login} />
+    <Route path='/reset-password' component={ResetPassword} />
     <Route path='/signup' component={Signup} />
   </Route>
   { devRoutes }
