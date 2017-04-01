@@ -24,6 +24,7 @@ import {
   JoinChannelMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
+  SelfJoinChannelMessage,
   UserOnlineMessage,
   UserOfflineMessage,
 } from '../messaging/message-records'
@@ -121,8 +122,16 @@ export default keyedReducer(new ChatState(), {
         active: sortedActiveUsers,
       })
     })
-    return (state.update('channels', c => c.add(channel))
-      .setIn(['byName', channel.toLowerCase()], record))
+    const updated = state.update('channels', c => c.add(channel))
+      .setIn(['byName', channel.toLowerCase()], record)
+
+    return updateMessages(updated, channel, m => {
+      return m.push(new SelfJoinChannelMessage({
+        id: cuid(),
+        time: Date.now(),
+        channel,
+      }))
+    })
   },
 
   [CHAT_UPDATE_JOIN](state, action) {
