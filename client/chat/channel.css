@@ -1,5 +1,6 @@
 @value colorTextSecondary, colorDividers from '../styles/colors.css';
 @value row, col, grow, exact, justifyEnd, itemsCenter, justifyCenter from '../styles/flex.css';
+@value justifySpaceBetween from '../styles/flex.css';
 @value body2, singleLine from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
@@ -98,4 +99,39 @@
 
 .navLeaveButton > span {
   line-height: 32px !important;
+}
+
+.joinChannelContents {
+  min-width: 340px;
+}
+
+.joinChannelActions {
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.enter .joinChannelActions {
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.enterActive .joinChannelActions {
+  opacity: 1;
+}
+
+.leave .joinChannelActions {
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.leaveActive .joinChannelActions {
+  opacity: 0;
+}
+
+.joinChannelForm {
+  composes: row itemsCenter justifySpaceBetween;
+  padding: 16px;
 }
