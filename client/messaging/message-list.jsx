@@ -6,6 +6,7 @@ import {
   JoinChannelMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
+  SelfJoinChannelMessage,
   UserOnlineMessage,
   UserOfflineMessage
 } from './message-types.jsx'
@@ -27,6 +28,7 @@ class PureMessageList extends React.Component {
       case 'message':
         return <ChatMessage key={id} user={msg.from} time={msg.time} text={msg.text} />
       case 'newOwner': return <NewChannelOwnerMessage key={id} record={msg} />
+      case 'selfJoinChannel': return <SelfJoinChannelMessage key={id} record={msg} />
       case 'userOnline': return <UserOnlineMessage key={id} record={msg} />
       case 'userOffline': return <UserOfflineMessage key={id} record={msg} />
       default: return null

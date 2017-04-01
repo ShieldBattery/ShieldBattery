@@ -62,3 +62,13 @@ export class ChatMessage extends React.Component {
     </ChatMessageLayout>)
   }
 }
+
+export const InfoMessageLayout = props => {
+  const classes = classnames(styles.infoMessage, props.className)
+  return (<div className={classes}>
+    {props.children}
+  </div>)
+}
+InfoMessageLayout.propTypes = {
+  className: React.PropTypes.string,
+}
