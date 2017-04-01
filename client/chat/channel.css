@@ -1,6 +1,6 @@
 @value colorTextSecondary, colorDividers from '../styles/colors.css';
 @value row, col, grow, exact, justifyEnd, itemsCenter, justifyCenter from '../styles/flex.css';
-@value body2, singleLine from '../styles/typography.css';
+@value body2, singleLine, title, subhead from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';
 
 .container {
@@ -98,4 +98,75 @@
 
 .navLeaveButton > span {
   line-height: 32px !important;
+}
+
+.joinChannel {
+}
+
+.joinChannelContents {
+  min-width: 364px;
+}
+
+.joinChannelActions {
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.enter .joinChannelActions {
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.enterActive .joinChannelActions {
+  opacity: 1;
+}
+
+.leave .joinChannelActions {
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.leaveActive .joinChannelActions {
+  opacity: 0;
+}
+
+.joinChannelForm {
+  composes: row itemsCenter;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.joinChannelButton {
+  margin-left: 16px;
+}
+
+.joinChannelLabel {
+  color: colorTextSecondary;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.featuredTitle {
+  composes: title;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.featuredChannel {
+  composes: row itemsCenter;
+  composes: subhead;
+  width: 100%;
+  height: 48px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.featuredChannel:hover {
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.08);
 }
