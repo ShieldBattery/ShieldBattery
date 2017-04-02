@@ -28,7 +28,7 @@ const transitionNames = {
 export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
-      case 'createLobby': return CreateLobby ? <CreateLobby /> : null
+      case 'createLobby': return <CreateLobby />
       case 'joinLobby': return <JoinLobby />
       case 'watchReplay': return <WatchReplay />
       case 'browseMaps': return <BrowseMaps />

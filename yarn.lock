@@ -5328,15 +5328,6 @@ scm-extractor@^1.0.6:
     implode-decoder "^1.0.0"
     stream-splicer "^2.0.0"
 
-scm-extractor@^1.0.6:
-  version "1.0.6"
-  resolved "https://registry.yarnpkg.com/scm-extractor/-/scm-extractor-1.0.6.tgz#cb521d23454d820a6ad8a91e60d240be7259bead"
-  dependencies:
-    bl "^1.0.1"
-    cuint "^0.2.0"
-    implode-decoder "^1.0.0"
-    stream-splicer "^2.0.0"
-
 semver-diff@^2.0.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/semver-diff/-/semver-diff-2.1.0.tgz#4bbb8437c8d37e4b0cf1a68fd726ec6d645d6d36"

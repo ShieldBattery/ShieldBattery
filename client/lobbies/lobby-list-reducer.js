@@ -1,8 +1,11 @@
 import { List, Map, Record } from 'immutable'
-import { Slot } from './lobby-reducer'
 import { MapRecord } from './maps-reducer'
 import { LOBBIES_LIST_UPDATE } from '../actions'
 
+export const HostRecord = new Record({
+  name: null,
+  id: null,
+})
 export const LobbySummary = new Record({
   name: null,
   map: null,
@@ -20,7 +23,7 @@ function createSummary(lobbyData) {
   return new LobbySummary({
     ...lobbyData,
     map: new MapRecord(lobbyData.map),
-    host: new Slot(lobbyData.host),
+    host: new HostRecord(lobbyData.host),
   })
 }
 

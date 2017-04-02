@@ -337,7 +337,11 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
   if (!hasControlledOpens(lobby.gameType)) {
     let openSlot
     let updated = lobby
-    if (isUms(lobby.gameType)) {
+    if (!isUms(lobby.gameType)) {
+      // 1) case - move the source slot to the destination slot and create an `open` slot at the
+      // source slot
+      openSlot = Slots.createOpen()
+    } else {
       // 2) case - in UMS games, when player moves to a different slot, it's possible that the
       // destination slot has a forced race, while the source slot didn't. Also, `playerId` of the
       // moving player needs to change to the value of the destination slot.
@@ -350,12 +354,8 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
       if (orig === lobby.host) {
         // It was the host who moved to a different slot; update the lobby host record because it
         // now has a different `playerId` and potentially a different `race`
-        updated = lobby.set('host', sourceSlot)
+        updated = updated.set('host', sourceSlot)
       }
-    } else {
-      // 1) case - move the source slot to the destination slot and create an `open` slot at the
-      // source slot
-      openSlot = Slots.createOpen()
     }
     return updated.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
         .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], openSlot)
@@ -378,7 +378,7 @@ export function movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTe
         // 3.2.4) case - move the source slot to the destination slot
         updated = lobby.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
       }
-      // 3.2.1) and 2.2.2) case - clean up the controlled team which the player is leaving
+      // 3.2.1) and 3.2.2) case - clean up the controlled team which the player is leaving
       return removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
     }
   }

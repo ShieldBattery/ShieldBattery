@@ -195,12 +195,7 @@ export class LobbyApi {
     const player = isUms(lobby.gameType) ?
         Slots.createHuman(user.name, availableSlot.race, true, availableSlot.playerId) :
         Slots.createHuman(user.name)
-    let updated
-    try {
-      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
-    } catch (err) {
-      throw new errors.BadRequest(err.message)
-    }
+    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyUsers = this.lobbyUsers.set(user, name)
 
@@ -267,12 +262,7 @@ export class LobbyApi {
     }
 
     const computer = Slots.createComputer()
-    let updated
-    try {
-      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, computer)
-    } catch (err) {
-      throw new errors.BadRequest(err.message)
-    }
+    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, computer)
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
   }
@@ -481,7 +471,7 @@ export class LobbyApi {
 
   _removeUserFromLobby(lobby, user, kickedUser, bannedUser) {
     const [teamIndex, slotIndex, player] = findSlotByName(lobby, user.name)
-    let updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
+    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
     if (!updatedLobby) {
       // Ensure the user's local state gets updated to confirm the leave
@@ -502,8 +492,6 @@ export class LobbyApi {
     user.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
     this._maybeCancelLoading(lobby)
-    updatedLobby = this.lobbies.get(lobby.name)
-    return updatedLobby ? updatedLobby : null
   }
 
   @Api('/startCountdown')
