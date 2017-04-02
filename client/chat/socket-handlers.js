@@ -61,8 +61,10 @@ const eventToAction = {
   },
 
   message(channel, event) {
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send(NEW_CHAT_MESSAGE, channel, { user: event.user, message: event.data.text })
+    if (ipcRenderer) {
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send(NEW_CHAT_MESSAGE, { user: event.user, message: event.data.text })
+    }
 
     // TODO(tec27): handle different types of messages (event.data.type)
     return {

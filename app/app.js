@@ -117,9 +117,7 @@ function setupIpc(localSettings) {
     }
     if (systemTray) {
       mainWindow.hide()
-      if (shouldDisplayCloseHint) {
-        if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
-      }
+      if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
     } else {
       mainWindow.close()
     }
@@ -179,7 +177,7 @@ function setupIpc(localSettings) {
     })
   }
 
-  ipcMain.on(NEW_CHAT_MESSAGE, (event, channel, data) => {
+  ipcMain.on(NEW_CHAT_MESSAGE, (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
       mainWindow.setOverlayIcon(path.join(__dirname, 'assets', 'new_message.png'), 'New message.')
       if (systemTray) systemTray.setUnreadIcon()
