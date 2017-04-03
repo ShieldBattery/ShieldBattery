@@ -20,6 +20,10 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
+import {
+  NEW_CHAT_MESSAGE,
+} from '../../app/common/ipc-constants'
+
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
@@ -27,6 +31,9 @@ import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
 import { getLobbySlotsWithIndexes } from '../../app/common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
+
+const ipcRenderer =
+    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 let countdownTimer = null
 function clearCountdownTimer() {
@@ -207,10 +214,17 @@ const eventToAction = {
     type: LOBBY_UPDATE_GAME_STARTED,
   }),
 
-  chat: (name, event) => ({
-    type: LOBBY_UPDATE_CHAT_MESSAGE,
-    payload: event,
-  })
+  chat: (name, event) => {
+    if (ipcRenderer) {
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send(NEW_CHAT_MESSAGE, { user: event.from, message: event.text })
+    }
+
+    return {
+      type: LOBBY_UPDATE_CHAT_MESSAGE,
+      payload: event,
+    }
+  }
 }
 
 export default function registerModule({ siteSocket }) {

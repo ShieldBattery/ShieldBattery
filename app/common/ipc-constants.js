@@ -6,6 +6,10 @@ export const LOG_MESSAGE = 'LOG_MESSAGE'
 // Tells the main process that a renderer process is now connected to the site
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 
+// Tells the main process that there has been a new message posted in either the chat channels,
+// whisper session, or inside a lobby
+export const NEW_CHAT_MESSAGE = 'NEW_CHAT_MESSAGE'
+
 // Tells a renderer process that a new version was found, but failed to download
 export const NEW_VERSION_DOWNLOAD_ERROR = 'NEW_VERSION_DOWNLOAD_ERROR'
 // Tells a renderer process that a new version has been downloaded (and can be installed)

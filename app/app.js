@@ -17,6 +17,7 @@ import { autoUpdater } from 'electron-updater'
 import {
   LOG_MESSAGE,
   NETWORK_SITE_CONNECTED,
+  NEW_CHAT_MESSAGE,
   NEW_VERSION_DOWNLOAD_ERROR,
   NEW_VERSION_DOWNLOADED,
   NEW_VERSION_FOUND,
@@ -175,6 +176,14 @@ function setupIpc(localSettings) {
       autoUpdater.checkForUpdates()
     })
   }
+
+  ipcMain.on(NEW_CHAT_MESSAGE, (event, data) => {
+    if (mainWindow && !mainWindow.isFocused()) {
+      if (systemTray) {
+        systemTray.setUnreadIcon()
+      }
+    }
+  })
 }
 
 function registerHotkeys() {
@@ -202,6 +211,7 @@ async function createWindow(localSettings, curSession) {
     height: winHeight && winHeight > 0 ? winHeight : 768,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
+    // icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
 
     acceptFirstMouse: true,
     backgroundColor: '#303030',
@@ -252,6 +262,10 @@ async function createWindow(localSettings, curSession) {
       clearTimeout(debounceTimer)
     }
     debounceTimer = setTimeout(handleResizeOrMove, 100)
+  }).on('focus', () => {
+    if (systemTray) {
+      systemTray.clearUnreadIcon()
+    }
   })
 
   mainWindow.webContents.on('new-window', (event, url) => {
