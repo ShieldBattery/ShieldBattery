@@ -16,6 +16,10 @@
     "hash": "819e5cf9f69f13b1d681fc345338f6808a709b0e807e08370e65558784da6170"
   },
   {
+    "name": "BGH 3.0 BETA (UMS)",
+    "hash": "6c71c4eb286e98d5d086f302517f7cf632ed15b1413bde070d254bfd34c2b9eb"
+  },
+  {
     "name": "Big Game Hunters",
     "hash": "41c43defc0f2e27e261f3cec7d7d9df8d6b366d87aa253a78411150b03e8786a"
   },
@@ -26,6 +30,10 @@
   {
     "name": "Byzantium II 2.3",
     "hash": "18ba2299c1a07aec3e2d5b670bd1b155fe2ada790a9465a2f446c979049979af"
+  },
+  {
+    "name": "Camelot 1.2",
+    "hash": "db94afc358c305f473e6411176fd63be06fc90dcbb767a2af8628e55e9c4b21e"
   },
   {
     "name": "Circuit Breaker 1.0",
@@ -100,6 +108,22 @@
     "hash": "93df61525ffc8c8116753200a9d7ddec38958a5f8e69debd44fed553a4e7c82a"
   },
   {
+    "name": "Micro Tournament 10.5t",
+    "hash": "7d8e6b34c826f389de598f25f9e64f4b4189316003faa77ee220fcc17f0b2271"
+  },
+  {
+    "name": "Mini-Game Party! FINALv2.0",
+    "hash": "fa3fbc59f5af734279439f2d34fb888cd3ab80817a34e567033109aa57e56002"
+  },
+  {
+    "name": "Mizu de Chaud 1.4",
+    "hash": "fdcfc97f7c5669bdb5b17560f086227a8f263a8dc4a708b843fb93fc5a59a4f0"
+  },
+  {
+    "name": "Monopoly! 1.01",
+    "hash": "75658dedf823f708b7e91b42847c113d4c7a8af8db6f0407b6c7a874e7ca0db9"
+  },
+  {
     "name": "MoonGlaive 2.1",
     "hash": "04d38455286e3f232a14910be626fcaedb15c88d68fd7c133b884b659067d5e0"
   },
@@ -136,6 +160,10 @@
     "hash": "698302cf477d8946979477d88a4199bd94e923922c05095f9cb3d73194509ab3"
   },
   {
+    "name": "Poker D NovaX2 4.02",
+    "hash": "00a226a6a5e9c96ace11cc790bda0fe3a19b223ad8ca1e5d55dc622475d0ed52"
+  },
+  {
     "name": "PolarisRhapsody 1.0",
     "hash": "d58dd620264d79f3f52432c0e8a141a0b9e1a0071a0cdb9a149ed246394d2cfb"
   },
@@ -148,6 +176,10 @@
     "hash": "e64ef907014d972405ec12419c10e8bcbddb93949b588225cb65a95adc0ef34c"
   },
   {
+    "name": "Random Micro Arena",
+    "hash": "f46c2095ce0e8c4c7edadc54594b5492152f1b74acd71c0aeadbe85de68d7371"
+  },
+  {
     "name": "Rush Hour 3.1",
     "hash": "8ef6ffaae0d6b5607223a04ed093abf9e11eaff1d3c65a4a9b4478da307f9dbf"
   },
@@ -158,6 +190,10 @@
   {
     "name": "Sin Peaks of Baekdu",
     "hash": "68afba26ee8511d08fbefe0c2c4fe30031ef12e7d851c3611c5a7c212dc71373"
+  },
+  {
+    "name": "SoG - Random Heros SE Final",
+    "hash": "c495259b6c2c151d3bac0d99917eb250927070c0e1535d940291462e4df44bd0"
   },
   {
     "name": "Tau Cross 1.0",
