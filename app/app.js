@@ -179,8 +179,9 @@ function setupIpc(localSettings) {
 
   ipcMain.on(NEW_CHAT_MESSAGE, (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
-      mainWindow.setOverlayIcon(path.join(__dirname, 'assets', 'new_message.png'), 'New message.')
-      if (systemTray) systemTray.setUnreadIcon()
+      if (systemTray) {
+        systemTray.setUnreadIcon()
+      }
     }
   })
 }
