@@ -263,9 +263,9 @@ async function createWindow(localSettings, curSession) {
     }
     debounceTimer = setTimeout(handleResizeOrMove, 100)
   }).on('focus', () => {
-    // Note: For some reason, second parameter is required even when clearing the overlay
-    mainWindow.setOverlayIcon(null, 'No new messages.')
-    if (systemTray) systemTray.clearUnreadIcon()
+    if (systemTray) {
+      systemTray.clearUnreadIcon()
+    }
   })
 
   mainWindow.webContents.on('new-window', (event, url) => {
