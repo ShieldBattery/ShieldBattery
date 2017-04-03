@@ -7,6 +7,7 @@ import { setRallyPoint, setNetworkRoutes } from './natives/snp'
 import * as gameTypes from './game-types'
 import createDeferred from '../../app/common/async/deferred'
 import rejectOnTimeout from '../../app/common/async/reject-on-timeout'
+import { isUms } from '../../app/common/lobbies'
 import {
   GAME_STATUS_AWAITING_PLAYERS,
   GAME_STATUS_ERROR,
@@ -286,6 +287,7 @@ class GameInitializer {
       case 'human':
         return 'human'
       case 'computer':
+      case 'umsComputer':
         return 'lobbycomputer'
       case 'controlledOpen':
       case 'controlledClosed':
@@ -298,7 +300,7 @@ class GameInitializer {
   }
 
   setupSlots() {
-    const { slots: lobbySlots } = this.lobbyConfig
+    const { gameType, slots: lobbySlots } = this.lobbyConfig
 
     for (let i = 0; i < bw.slots.length; i++) {
       const slot = bw.slots[i]
@@ -311,8 +313,9 @@ class GameInitializer {
 
     for (let i = 0; i < lobbySlots.length; i++) {
       const lobbySlot = lobbySlots[i]
-      const slot = bw.slots[i]
+      const slot = isUms(gameType) ? bw.slots[lobbySlot.playerId] : bw.slots[i]
 
+      slot.playerId = isUms(gameType) ? lobbySlot.playerId : i
       slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
       slot.race = getBwRace(lobbySlot.race)
       slot.team = lobbySlot.teamId

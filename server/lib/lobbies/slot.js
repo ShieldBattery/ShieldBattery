@@ -8,31 +8,44 @@ const Slot = new Record({
   id: null,
   joinedAt: null,
   controlledBy: null,
+  hasForcedRace: false,
+  playerId: null,
 })
 
-export function createOpen() {
+export function createOpen(race = 'r', hasForcedRace = false, playerId = null) {
   return new Slot({
     type: 'open',
     name: 'Open',
+    race,
     id: cuid(),
+    // These last two fields are used in UMS
+    hasForcedRace,
+    playerId,
   })
 }
 
-export function createClosed() {
+export function createClosed(race = 'r', hasForcedRace = false, playerId = null) {
   return new Slot({
     type: 'closed',
     name: 'Closed',
+    race,
     id: cuid(),
+    // These last two fields are used in UMS
+    hasForcedRace,
+    playerId,
   })
 }
 
-export function createHuman(name, race = 'r') {
+export function createHuman(name, race = 'r', hasForcedRace = false, playerId = null) {
   return new Slot({
     type: 'human',
     name,
     race,
     id: cuid(),
     joinedAt: Date.now(),
+    // These last two fields are used in UMS
+    hasForcedRace,
+    playerId,
   })
 }
 
@@ -68,5 +81,18 @@ export function createControlledClosed(race, controllerId) {
     race,
     id: cuid(),
     controlledBy: controllerId,
+  })
+}
+
+// Creates a computer slot that is used in UMS lobbies. Computers in UMS lobbies can't be removed
+// from the lobby and their race can't be changed.
+export function createUmsComputer(race, playerId) {
+  return new Slot({
+    type: 'umsComputer',
+    name: 'Computer',
+    race,
+    id: cuid(),
+    hasForcedRace: true,
+    playerId,
   })
 }

@@ -602,4 +602,428 @@ describe('Lobbies - Team melee', () => {
     expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
     expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
   })
+
+  it('should support closing an open slot', () => {
+    let lobby = TEAM_MELEE_2
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot = lobby.teams.get(0).slots.get(1)
+    expect(openSlot.type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1, openSlot)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const closedSlot = lobby.teams.get(0).slots.get(1)
+    expect(closedSlot.type).to.equal('controlledClosed')
+    expect(closedSlot.race).to.equal(openSlot.race)
+    expect(closedSlot.controlledBy).to.equal(openSlot.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.closeSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.closeSlot(lobby, 0, 1)).to.throw(Error)
+  })
+
+  it('should support opening a closed slot', () => {
+    let lobby = TEAM_MELEE_2
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot1 = lobby.teams.get(0).slots.get(1)
+    expect(openSlot1.type).to.equal('controlledOpen')
+    expect(openSlot1.race).to.equal(lobby.host.race)
+    expect(openSlot1.controlledBy).to.equal(lobby.host.id)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.closeSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const closedSlot = lobby.teams.get(0).slots.get(1)
+    expect(closedSlot.type).to.equal('controlledClosed')
+    expect(closedSlot.race).to.equal(openSlot1.race)
+    expect(closedSlot.controlledBy).to.equal(openSlot1.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    lobby = Lobbies.openSlot(lobby, 0, 1)
+    expect(lobby.teams.get(0).slots.get(0)).to.equal(lobby.host)
+    const openSlot2 = lobby.teams.get(0).slots.get(1)
+    expect(openSlot2.type).to.equal('controlledOpen')
+    expect(openSlot2.race).to.equal(closedSlot.race)
+    expect(openSlot2.controlledBy).to.equal(closedSlot.controlledBy)
+    expect(lobby.teams.get(0).slots.get(2).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(0).slots.get(3).type).to.equal('controlledOpen')
+    expect(lobby.teams.get(1).slots.get(0).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(1).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(2).type).to.equal('open')
+    expect(lobby.teams.get(1).slots.get(3).type).to.equal('open')
+
+    expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
+    expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
+  })
+})
+
+const UMS_MAP_1 = {
+  umsForces: [
+    { name: 'Force Player', teamId: 1, players: [
+      { id: 0, race: 'z', computer: false },
+      { id: 1, race: 'z', computer: false },
+      { id: 2, race: 'z', computer: false },
+      { id: 3, race: 'z', computer: false },
+      { id: 4, race: 'z', computer: false },
+      { id: 5, race: 'z', computer: false }
+    ]},
+    { name: 'Force Computer', teamId: 2, players: [
+      { id: 7, race: 'z', computer: true }
+    ]},
+    { name: 'Force Computer', teamId: 3, players: [
+      { id: 6, race: 'z', computer: true }
+    ]},
+  ]
+}
+const UMS_MAP_2 = {
+  umsForces: [
+    { name: 'tappavat', teamId: 1, players: [
+      { id: 1, race: 't', computer: false }
+    ]},
+    { name: 'tapettavat', teamId: 2, players: [
+      { id: 0, race: 't', computer: true },
+      { id: 3, race: 'z', computer: true },
+      { id: 4, race: 'z', computer: true },
+      { id: 5, race: 'z', computer: true },
+      { id: 6, race: 't', computer: true },
+      { id: 7, race: 'z', computer: true }
+    ]},
+    { name: 'portitossi', teamId: 4, players: [
+      { id: 2, race: 'p', computer: true }
+    ]}
+  ]
+}
+const UMS_MAP_3 = {
+  umsForces: [
+    { name: 'Players', teamId: 1, players: [
+      { id: 0, race: 'any', computer: false },
+      { id: 1, race: 'any', computer: false }
+    ]},
+    { name: 'Observers', teamId: 2, players: [
+      { id: 2, race: 'p', computer: false },
+      { id: 3, race: 't', computer: false },
+    ]}
+  ]
+}
+const UMS_LOBBY_1 = Lobbies.create('Sunken Defence', UMS_MAP_1, 'ums', 0, 8, 'Slayers`Boxer')
+const UMS_LOBBY_2 = Lobbies.create('tappajat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer')
+const UMS_LOBBY_3 = Lobbies.create('Accipiter', UMS_MAP_3, 'ums', 0, 4, 'Slayers`Boxer')
+
+const evaluateUmsSlot = (slot, type, name, race, hasForcedRace, playerId) => {
+  expect(slot.type).to.equal(type)
+  expect(slot.name).to.equal(name)
+  expect(slot.race).to.equal(race)
+  expect(slot.hasForcedRace).to.equal(hasForcedRace)
+  expect(slot.playerId).to.equal(playerId)
+}
+
+describe('Lobbies - Use map settings', () => {
+  it('should create the lobby correctly', () => {
+    const l1 = UMS_LOBBY_1
+    expect(l1.teams).to.have.size(3)
+    let team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    let team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    let team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    let player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    const l2 = UMS_LOBBY_2
+    expect(l2.teams).to.have.size(3)
+    team1 = l2.teams.get(0)
+    expect(team1.slots).to.have.size(1)
+    expect(team1.teamId).to.equal(1)
+    team2 = l2.teams.get(1)
+    expect(team2.slots).to.have.size(6)
+    expect(team2.teamId).to.equal(2)
+    team3 = l2.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(4)
+    expect(humanSlotCount(l2)).to.equal(1)
+    expect(hasOpposingSides(l2)).to.be.true
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 't', true, 1)
+    expect(player).to.equal(l2.host)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 't', true, 0)
+    evaluateUmsSlot(team2.slots.get(1), 'umsComputer', 'Computer', 'z', true, 3)
+    evaluateUmsSlot(team2.slots.get(2), 'umsComputer', 'Computer', 'z', true, 4)
+    evaluateUmsSlot(team2.slots.get(3), 'umsComputer', 'Computer', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(4), 'umsComputer', 'Computer', 't', true, 6)
+    evaluateUmsSlot(team2.slots.get(5), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'p', true, 2)
+
+    const l3 = UMS_LOBBY_3
+    expect(l3.teams).to.have.size(2)
+    team1 = l3.teams.get(0)
+    expect(team1.slots).to.have.size(2)
+    expect(team1.teamId).to.equal(1)
+    team2 = l3.teams.get(1)
+    expect(team2.slots).to.have.size(2)
+    expect(team2.teamId).to.equal(2)
+    expect(humanSlotCount(l3)).to.equal(1)
+    expect(hasOpposingSides(l3)).to.be.false
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 0)
+    expect(player).to.equal(l3.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'r', false, 1)
+    evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
+    evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
+  })
+
+  it('should support removing players', () => {
+    const babo = Slots.createHuman('dronebabo', 'z', true, 1)
+    let lobby = Lobbies.addPlayer(UMS_LOBBY_1, 0, 1, babo)
+
+    evaluateUmsSlot(lobby.teams.get(0).slots.get(1), 'human', 'dronebabo', 'z', true, 1)
+    expect(humanSlotCount(lobby)).to.equal(2)
+    expect(hasOpposingSides(lobby)).to.be.true
+
+    lobby = Lobbies.removePlayer(lobby, 0, 1, lobby.teams.get(0).slots.get(1))
+    evaluateUmsSlot(lobby.teams.get(0).slots.get(1), 'open', 'Open', 'z', true, 1)
+    expect(humanSlotCount(lobby)).to.equal(1)
+    expect(hasOpposingSides(lobby)).to.be.true
+  })
+
+  it('should support moving players between slots', () => {
+    let l1 = UMS_LOBBY_1
+    expect(l1.teams).to.have.size(3)
+    let team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    let team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    let team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    let player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    l1 = Lobbies.movePlayerToSlot(l1, 0, 0, 0, 1)
+    expect(l1.teams).to.have.size(3)
+    team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    evaluateUmsSlot(team1.slots.get(0), 'open', 'Open', 'z', true, 0)
+    player = team1.slots.get(1)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 1)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    let l3 = UMS_LOBBY_3
+    expect(l3.teams).to.have.size(2)
+    team1 = l3.teams.get(0)
+    expect(team1.slots).to.have.size(2)
+    expect(team1.teamId).to.equal(1)
+    team2 = l3.teams.get(1)
+    expect(team2.slots).to.have.size(2)
+    expect(team2.teamId).to.equal(2)
+    expect(humanSlotCount(l3)).to.equal(1)
+    expect(hasOpposingSides(l3)).to.be.false
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 0)
+    expect(player).to.equal(l3.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'r', false, 1)
+    evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
+    evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
+
+    l3 = Lobbies.movePlayerToSlot(l3, 0, 0, 0, 1)
+    expect(l3.teams).to.have.size(2)
+    team1 = l3.teams.get(0)
+    expect(team1.slots).to.have.size(2)
+    expect(team1.teamId).to.equal(1)
+    team2 = l3.teams.get(1)
+    expect(team2.slots).to.have.size(2)
+    expect(team2.teamId).to.equal(2)
+    expect(humanSlotCount(l3)).to.equal(1)
+    expect(hasOpposingSides(l3)).to.be.false
+    evaluateUmsSlot(team1.slots.get(0), 'open', 'Open', 'r', false, 0)
+    player = team1.slots.get(1)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 1)
+    expect(player).to.equal(l3.host)
+    evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
+    evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
+  })
+
+  it('should support closing an open slot', () => {
+    let l1 = UMS_LOBBY_1
+    expect(l1.teams).to.have.size(3)
+    let team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    let team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    let team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    let player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    l1 = Lobbies.closeSlot(l1, 0, 1)
+    expect(l1.teams).to.have.size(3)
+    team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'closed', 'Closed', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+  })
+
+  it('should support opening a closed slot', () => {
+    let l1 = UMS_LOBBY_1
+    expect(l1.teams).to.have.size(3)
+    let team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    let team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    let team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    let player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    l1 = Lobbies.closeSlot(l1, 0, 1)
+    expect(l1.teams).to.have.size(3)
+    team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'closed', 'Closed', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+
+    l1 = Lobbies.openSlot(l1, 0, 1)
+    expect(l1.teams).to.have.size(3)
+    team1 = l1.teams.get(0)
+    expect(team1.slots).to.have.size(6)
+    expect(team1.teamId).to.equal(1)
+    team2 = l1.teams.get(1)
+    expect(team2.slots).to.have.size(1)
+    expect(team2.teamId).to.equal(2)
+    team3 = l1.teams.get(2)
+    expect(team3.slots).to.have.size(1)
+    expect(team3.teamId).to.equal(3)
+    expect(humanSlotCount(l1)).to.equal(1)
+    expect(hasOpposingSides(l1)).to.be.true
+    player = team1.slots.get(0)
+    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
+    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
+    evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
+    evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
+    evaluateUmsSlot(team1.slots.get(5), 'open', 'Open', 'z', true, 5)
+    evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 'z', true, 7)
+    evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
+  })
 })

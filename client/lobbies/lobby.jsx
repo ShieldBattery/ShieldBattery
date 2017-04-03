@@ -1,6 +1,11 @@
 import React, { PropTypes } from 'react'
 import { gameTypeToString } from './game-type'
-import { findSlotByName, hasOpposingSides, isTeamType } from '../../app/common/lobbies'
+import {
+  isUms,
+  findSlotByName,
+  hasOpposingSides,
+  isTeamType,
+} from '../../app/common/lobbies'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -246,10 +251,11 @@ export default class Lobby extends React.Component {
       onBanPlayer,
     } = this.props
 
+    const isLobbyUms = isUms(lobby.gameType)
     const slots = []
     const [, , mySlot] = findSlotByName(lobby, user.name)
     const isHost = mySlot && lobby.host.id === mySlot.id
-    const displayTeamName = isTeamType(lobby.gameType)
+    const displayTeamName = isTeamType(lobby.gameType) || isLobbyUms
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
       const currentTeam = lobby.teams.get(teamIndex)
       if (displayTeamName) {
@@ -263,16 +269,16 @@ export default class Lobby extends React.Component {
         switch (type) {
           case 'open':
             return (<OpenSlot key={id} race={race} isHost={isHost}
-                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
+                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
                 onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
           case 'closed':
             return (<ClosedSlot key={id} race={race} isHost={isHost}
-                onAddComputer={onAddComputer ? () => onAddComputer(id) : undefined}
+                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           case 'human':
-            return (<PlayerSlot key={id} name={name} race={race} isComputer={false}
-                canSetRace={slot === mySlot} isHost={isHost} hasSlotActions={slot !== mySlot}
+            return (<PlayerSlot key={id} name={name} race={race} isComputer={false} isHost={isHost}
+                canSetRace={slot === mySlot && !slot.hasForcedRace} hasSlotActions={slot !== mySlot}
                 onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
@@ -285,6 +291,8 @@ export default class Lobby extends React.Component {
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                 onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined} />)
+          case 'umsComputer':
+            return (<PlayerSlot key={id} name={name} race={race} isComputer={true} />)
           case 'controlledOpen':
             return (<OpenSlot key={id} race={race} controlledOpen={true}
                 canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}

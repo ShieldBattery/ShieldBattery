@@ -32,10 +32,10 @@ export default class ClosedSlot extends React.Component {
     const { isHost, controlledClosed, onAddComputer, onOpenSlot } = this.props
     const slotActions = []
     if (isHost) {
-      if (!controlledClosed) {
+      slotActions.push(['Open slot', onOpenSlot])
+      if (!controlledClosed && onAddComputer) {
         slotActions.push(['Add computer', onAddComputer])
       }
-      slotActions.push(['Open slot', onOpenSlot])
     }
 
     return (<div className={styles.slot}>
