@@ -7,6 +7,7 @@ import ContentLayout from '../content/content-layout.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
+import BanUsers from './bans.jsx'
 import PermissionsResult from './permissions.jsx'
 
 import {
@@ -30,6 +31,9 @@ export class UserProfile extends React.Component {
     const children = []
     if (perms.editPermissions) {
       children.push(<PermissionsResult key='perms' username={username} />)
+    }
+    if (perms.banUsers) {
+      children.push(<BanUsers key='bans' username={username} />)
     }
 
     return <div>{children}</div>
