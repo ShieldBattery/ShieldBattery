@@ -211,7 +211,7 @@ async function createWindow(localSettings, curSession) {
     height: winHeight && winHeight > 0 ? winHeight : 768,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
-    icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
+    // icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
 
     acceptFirstMouse: true,
     backgroundColor: '#303030',
