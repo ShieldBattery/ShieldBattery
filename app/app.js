@@ -294,10 +294,6 @@ app.on('ready', async () => {
   const localSettingsPromise = createLocalSettings()
 
   if (!isDev) {
-    setInterval(() => {
-      // TODO(tec27): trigger another update check when the websocket reconnects to the server
-      autoUpdater.checkForUpdates()
-    }, 1 * 60 * 60 * 1000)
     autoUpdater.checkForUpdates()
   }
 

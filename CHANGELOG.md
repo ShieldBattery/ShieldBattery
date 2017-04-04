@@ -1,3 +1,46 @@
+#### 6.0.0 (April 3rd, 2017)
+
+- **Maps. Again. But better.** We've been hard at work implementing a new maps backend that can be
+used to upload and play any maps during lobby creation. It's not quite ready for use by everyone,
+but it now backs all of our official maps (you'll probably notice that map thumbnails look nicer
+and are more consistent, and that some maps have different titles between the selection and lobby
+screen). Expect this upload ability to come in a near-future update! Along with this, we've added a
+couple more requested maps: Camelot (from ASL) and Mizu de Chaud.
+- **Lobby actions.** Adding computers just wasn't enough, so we finally threw in some more options
+for all you lobby enthusiasts out there. Try not to get *too* into it as you close slots, or kick
+or ban players from your lobbies, you do need *some* opposing players to start the game.
+- **UMS.** If you've ever wanted to trade freedom of controlling your own settings for the thrill
+of playing a completely different game inside of Brood War, do we have exciting news for you! Use
+Map Settings maps are now supported on ShieldBattery! The maps we provide for now are: BGH 3.0 (a
+version of BGH that randomly assigns teams), Micro Tournament, Mini-Game Party, Monopoly, Poker D
+NovaX2, Random Micro Arena, and SoG - Random. This is all backed by our new maps backend, as well,
+so you'll soon be able to play whatever UMS maps you want. These won't currently display the
+pre-game instructions/overview screen, but we're working on that as well.
+- **System tray icon.** Our standalone client has one now, and will go there when you hit the close
+button. If that weren't enough, its icon will also change when you've received a new message (it's
+still pretty unintelligent though, better notifications with nickname highlighting and sounds and
+other such niceties are coming very soon!).
+- **Saved window position.** We installed some additional memory modules in our windowed mode
+mainframe, meaning it can now save and restore your Brood War window's position between games!
+- **Username and password recovery.** No longer will you have to PM an admin to recover your lost
+or forgotten account info! It's 2017, so we've built this functionality right into the login form.
+Please don't PM admins any more. Please. I mean, unless it's about something more interesting than
+resetting TamponZerg's password for the 15th time.
+- **Window titles.** We made our window titles differ from stock Brood War, so that it's easier to
+configure streaming programs to work specifically for ShieldBattery. You may have to adjust your
+streaming configuration, depending on how you had it set up. The window title will also change
+between game initialization and actual gameplay, to help avoid switching scenes before things are
+ready.
+- **OpenGL full screen fixes.** Some previous updates introduced a bug that caused the task bar to
+never get hidden in OpenGL full screen mode. It seems some people actually like using the bottom
+part of their screen or something, so we fixed that. We still recommend DirectX for everyone who can
+use it, but if you need to use OpenGL for compatibility reasons, it should work a bit better now.
+- **Chat scrolling fixes.** Our auto-scrolling code used to be a bit picky about who it would work
+for, but we gave it a nice, stern talking to. It should be cool with everyone now.
+- **Enhanced game launch failures.** If your game is failing to launch (should be incredibly rare!),
+we've implemented some additional logging. If this is happening to you, please reach out to an admin
+so we can collect this data and get some proper fixes in.
+
 #### 5.0.0 (February 15th, 2017)
 
 - **Standalone client.** We've moved to a standalone client model, instead of running everything
