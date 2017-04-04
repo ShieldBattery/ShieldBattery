@@ -5,6 +5,7 @@ import { PassThrough } from 'stream'
 import config from '../../config.js'
 import * as db from '../models/maps'
 import { writeFile, getUrl } from '../file-upload'
+import bl from 'bl'
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
@@ -72,7 +73,7 @@ function runChildProcess(path, args) {
       clearTimeout(childTimeout)
     }
   }
-  return new Promise(async (resolve, reject) => {
+  const result = new Promise(async (resolve, reject) => {
     const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
     const child = childProcess.fork(path, args, opts)
     let error = false
@@ -99,7 +100,7 @@ function runChildProcess(path, args) {
     // If the child process writes image data to the pipe before we are able to handle it, it
     // will get lost. Buffering the data with a PassThrough prevents that, without requiring
     // the pipe consumer to send any synchronization messages themselves.
-    const binaryData = child.stdio[3].pipe(new PassThrough())
+    const binaryData = child.stdio[3].pipe(bl())
     child.on('exit', () => resolve({ messages, binaryData }))
     child.on('message', message => {
       if (inited) {
@@ -126,11 +127,8 @@ function runChildProcess(path, args) {
       await new Promise(resolve => setTimeout(resolve, 10))
     }
   })
-  .then(ok => {
-    cleanup()
-    return Promise.resolve(ok)
-  }, e => {
-    cleanup()
-    return Promise.reject(e)
-  })
+
+  result.then(cleanup, cleanup)
+
+  return result
 }

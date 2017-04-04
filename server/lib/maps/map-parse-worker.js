@@ -55,7 +55,7 @@ function generateImage(map, bwDataPath) {
       width = map.size[0] * Math.floor(1024 / map.size[1])
     }
 
-    return map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
+    return (map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
       .then(imageRgb => {
         const rgbaBuffer = new Buffer(width * height * 4)
         for (let i = 0; i < width * height; i++) {
@@ -69,7 +69,7 @@ function generateImage(map, bwDataPath) {
           height,
         }, 90)
         return data
-      })
+      }))
   } else {
     return Promise.resolve(null)
   }
@@ -83,15 +83,16 @@ process.once('message', msg => {
       if (hash !== calculatedHash) {
         throw new Error("Data doesn't match the hash")
       }
-      return generateImage(map, bwDataPath)
+      return (generateImage(map, bwDataPath)
         .then(image => {
           const imagePromise = new Promise((resolve, reject) => {
             if (image) {
               const imagePipe = fs.createWriteStream('', { fd: 3, flags: 'w' })
+              imagePipe.on('error', reject)
+                .on('finish', resolve)
+
               imagePipe.write(image)
               imagePipe.end()
-              imagePipe.on('error', reject)
-              imagePipe.on('finish', resolve)
             } else {
               resolve()
             }
@@ -107,10 +108,11 @@ process.once('message', msg => {
             lobbyInitData: createLobbyInitData(map),
           }, resolve))
           return Promise.all([imagePromise, sendPromise])
-        })
-    })
-    .catch(e => {
+        }))
+    }).catch(e => {
       console.log(e)
-      process.exit(1)
+      setImmediate(() => {
+        process.exit(1)
+      })
     })
 })
