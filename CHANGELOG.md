@@ -5,7 +5,7 @@ used to upload and play any maps during lobby creation. It's not quite ready for
 but it now backs all of our official maps (you'll probably notice that map thumbnails look nicer
 and are more consistent, and that some maps have different titles between the selection and lobby
 screen). Expect this upload ability to come in a near-future update! Along with this, we've added a
-couple more requested maps: Camelot (from ASL) and Mizu de Chaud.
+few more requested maps: Camelot (from ASL), Judgment Day, and Mizu de Chaud.
 - **Lobby actions.** Adding computers just wasn't enough, so we finally threw in some more options
 for all you lobby enthusiasts out there. Try not to get *too* into it as you close slots, or kick
 or ban players from your lobbies, you do need *some* opposing players to start the game.

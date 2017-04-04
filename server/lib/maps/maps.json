@@ -32,8 +32,8 @@
     "hash": "18ba2299c1a07aec3e2d5b670bd1b155fe2ada790a9465a2f446c979049979af"
   },
   {
-    "name": "Camelot 1.2",
-    "hash": "db94afc358c305f473e6411176fd63be06fc90dcbb767a2af8628e55e9c4b21e"
+    "name": "Camelot 1.4",
+    "hash": "bf9b7ec03468d878c613ab284decb352f9d07e2eb94d1ab5da60ae87711f3123"
   },
   {
     "name": "Circuit Breaker 1.0",
@@ -74,6 +74,10 @@
   {
     "name": "Jade 2.1",
     "hash": "40bd270d0b0e50b6441ba9b07072718ff51c7c31097fb9b232d23623177aea2b"
+  },
+  {
+    "name": "Judgment Day",
+    "hash": "db94afc358c305f473e6411176fd63be06fc90dcbb767a2af8628e55e9c4b21e"
   },
   {
     "name": "Katrina SE2.0",
