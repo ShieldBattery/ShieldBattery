@@ -25,7 +25,7 @@ const babelOpts = {
           TODO(tec27): change this to the proper version (1.6 at this time) once babel-preset-env
           updates to include that version
         */
-        targets: { electron: 1.5 },
+        targets: { electron: 1.6 },
         modules: false,
         useBuiltIns: true,
       },
