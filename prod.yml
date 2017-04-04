@@ -26,7 +26,6 @@ win:
 
 # These properties differ between configs
 productName: ShieldBattery
-productFilename: ShieldBattery
 publish:
   provider: generic
   url: "https://shieldbattery.net/published_artifacts/${os}/"

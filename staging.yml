@@ -28,7 +28,6 @@ win:
 
 # These properties differ between configs
 productName: ShieldBattery-Dev
-productFilename: ShieldBattery-Dev
 publish:
   provider: generic
   url: "https://dev.shieldbattery.net/published_artifacts/${os}/"
