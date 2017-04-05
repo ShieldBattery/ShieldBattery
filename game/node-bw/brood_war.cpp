@@ -79,11 +79,43 @@ void __stdcall BroodWar::OnGameLoopIteration() {
   }
 }
 
+static std::string Utf8FromBwCodepage(const char *in) {
+  // This is the same check that bw uses.
+  int codepage = GetUserDefaultLangID() == LANG_KOREAN ? 949 : 1252;
+  wchar_t buf[512];
+  int result = MultiByteToWideChar(codepage, 0, in, -1, buf, 512);
+  if (result == 0) {
+    return "";
+  }
+  char out[512];
+  result = WideCharToMultiByte(CP_UTF8, 0, buf, result, out, 512, NULL, NULL);
+  if (result == 0) {
+    return "";
+  }
+  return std::string(out);
+}
+
+static std::string Utf8ToBwCodepage(const char *in) {
+  int codepage = GetUserDefaultLangID() == LANG_KOREAN ? 949 : 1252;
+  wchar_t buf[512];
+  int result = MultiByteToWideChar(CP_UTF8, 0, in, -1, buf, 512);
+  if (result == 0) {
+    return "";
+  }
+  char out[512];
+  result = WideCharToMultiByte(codepage, 0, buf, result, out, 512, NULL, NULL);
+  if (result == 0) {
+    return "";
+  }
+  return std::string(out);
+}
+
 uint32 __stdcall BroodWar::CheckForChatCommandHook(char* message) {
   if (!is_programmatic_chat_ && HAVE_HANDLER_FOR(OnCheckForChatCommand)) {
     byte recipients = instance_->chat_message_recipients();
     ChatMessageType type = instance_->chat_message_type();
-    instance_->event_handlers_->OnCheckForChatCommand(message, type, recipients);
+    std::string utf8 = Utf8FromBwCodepage(message);
+    instance_->event_handlers_->OnCheckForChatCommand(utf8, type, recipients);
     // We act like a command was always parsed in order to give the event handler time to deal with
     // it asynchronously. If a command was not actually parsed, it should re-send the message with
     // the programmatic flag set, so that we let it pass through
@@ -560,7 +592,7 @@ bool BroodWar::JoinGame(const JoinableGameInfo& game_info, const std::string& ma
   return true;
 }
 
-void BroodWar::SendMultiplayerChatMessage(const std::string& message, byte recipients,
+void BroodWar::SendMultiplayerChatMessage(const std::string& utf8_message, byte recipients,
     ChatMessageType type) {
   byte backup_recipients = chat_message_recipients();
   ChatMessageType backup_type = chat_message_type();
@@ -568,6 +600,7 @@ void BroodWar::SendMultiplayerChatMessage(const std::string& message, byte recip
   set_chat_message_recipients(recipients);
   set_chat_message_type(type);
 
+  std::string message = Utf8ToBwCodepage(utf8_message.c_str());
   const char* c_message = message.c_str();
   auto send = offsets_->functions.SendMultiplayerChatMessage;
   __asm {
