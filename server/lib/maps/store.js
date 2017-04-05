@@ -1,7 +1,6 @@
 import childProcess from 'child_process'
 import fs from 'fs'
 import { Seq } from 'immutable'
-import { PassThrough } from 'stream'
 import config from '../../config.js'
 import * as db from '../models/maps'
 import { writeFile, getUrl } from '../file-upload'
