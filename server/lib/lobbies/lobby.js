@@ -117,11 +117,11 @@ export function toSummaryJson(lobby) {
 }
 
 // Finds the next available slot in the lobby (ie. `open` or `controlledOpen` slot type). Returns
-// the [teamIndex, slotIndex] tuple of the available slot if found. If there are no available slots,
-// it returns a [-1, -1] tuple.
+// the [teamIndex, slotIndex, slot] tuple of the available slot if found. If there are no available
+// slots, it returns a [-1, -1, null] tuple.
 export function findAvailableSlot(lobby) {
   if (slotCount(lobby) <= takenSlotCount(lobby)) {
-    return [-1, -1]
+    return [-1, -1, null]
   }
 
   // To choose the team of the empty slot, first filter out any teams that are full, then sort the
@@ -140,10 +140,10 @@ export function findAvailableSlot(lobby) {
 
   const [teamIndex, team] = availableTeam
   // After finding the available team, find the first available slot in that team and return its
-  // team index and slot index
+  // team index, slot index, and slot
   const slotIndex =
       team.slots.findIndex(slot => slot.type === 'open' || slot.type === 'controlledOpen')
-  return [teamIndex, slotIndex]
+  return [teamIndex, slotIndex, team.slots.get(slotIndex)]
 }
 
 // Creates a new lobby, and an initial host player in the first slot.
