@@ -25,7 +25,7 @@ function createLobbyInitData(chk) {
       .map(({ name, players }, index) => ({
         name,
         teamId: index + 1,
-        players: players.map(({ id, race, computer }) => {
+        players: players.map(({ id, race, computer, typeId }) => {
           const raceName = raceIdToName[race]
           if (!raceName) {
             throw new Error(`Player ${id} has an invalid race ${race}`)
@@ -33,6 +33,7 @@ function createLobbyInitData(chk) {
           return {
             id,
             computer,
+            typeId,
             race: raceName,
           }
         }),

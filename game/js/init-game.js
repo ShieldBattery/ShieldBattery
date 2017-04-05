@@ -287,7 +287,6 @@ class GameInitializer {
       case 'human':
         return 'human'
       case 'computer':
-      case 'umsComputer':
         return 'lobbycomputer'
       case 'controlledOpen':
       case 'controlledClosed':
@@ -318,9 +317,20 @@ class GameInitializer {
       slot.playerId = isUms(gameType) ? lobbySlot.playerId : i
       slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
       slot.race = getBwRace(lobbySlot.race)
-      slot.team = lobbySlot.teamId
+      // This typeId check is completely ridiculous and doesn't make sense, but that gives
+      // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
+      // doesn't allow setting them anyways D:
+      if (!isUms(gameType) || (lobbySlot.typeId !== 1 && lobbySlot.typeId !== 2)) {
+        slot.team = lobbySlot.teamId
+      }
       slot.name = lobbySlot.name
-      slot.type = this.mapSlotTypes(lobbySlot.type)
+      if (isUms(gameType) && lobbySlot.type !== 'human') {
+        // The type of UMS computers is set in the map file, and we have no reason to
+        // worry about the various possibilities there are, so just pass the integer onwards.
+        slot.typeId = lobbySlot.typeId
+      } else {
+        slot.type = this.mapSlotTypes(lobbySlot.type)
+      }
     }
   }
 

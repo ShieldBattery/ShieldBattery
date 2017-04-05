@@ -30,6 +30,13 @@ export function getLobbySlotsWithIndexes(lobby) {
       team.slots.map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
 }
 
+// Like getLobbySlotsWithIndexes, but includes the possible UMS hidden slots that are necessary
+// in game initialization
+export function getIngameLobbySlotsWithIndexes(lobby) {
+  return lobby.teams.flatMap((team, teamIndex) =>
+      team.slots.concat(team.hiddenSlots).map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
+}
+
 // Finds the slot with the specified name in the lobby. Only works for `human` type slots (other
 // type of slots do not have unique names). Returns the [teamIndex, slotIndex, slot] list if the
 // player is found; otherwise returns an empty list.

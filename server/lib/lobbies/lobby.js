@@ -16,6 +16,8 @@ const Team = new Record({
   teamId: null,
   // Slots that belong to a particular team
   slots: new List(),
+  // UMS maps can have slots which are not shown in lobby but get initialized in game.
+  hiddenSlots: new List(),
 })
 const Lobby = new Record({
   name: null,
@@ -177,7 +179,7 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
       }
 
       return player.get('computer') ?
-          Slots.createUmsComputer(race, playerId) :
+          Slots.createUmsComputer(race, playerId, player.get('typeId')) :
           Slots.createOpen(race, hasForcedRace, playerId)
     }))
   }
@@ -186,13 +188,19 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
   let slotIndex = 0
   const teams = Range(0, numTeams(gameType, gameSubType, map.umsForces))
     .map(teamIndex => {
-      const teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
+      let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
+      let hiddenSlots
       slotIndex += slotsPerTeam[teamIndex]
       const teamName = teamNames[teamIndex]
       let teamId
       if (isUms(gameType)) {
+        // Player type 5 means regular computer and 6 means human
+        const isHiddenSlot = player => player.typeId !== 5 && player.typeId !== 6
         teamId = map.umsForces[teamIndex].teamId
+        hiddenSlots = teamSlots.filter(isHiddenSlot)
+        teamSlots = teamSlots.filterNot(isHiddenSlot)
       } else {
+        hiddenSlots = new List()
         teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
       }
 
@@ -200,6 +208,7 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
         name: teamName,
         teamId,
         slots: teamSlots,
+        hiddenSlots,
       })
     }).toList()
 

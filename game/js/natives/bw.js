@@ -63,6 +63,14 @@ class PlayerSlot {
     this.nativeSlot.type = PLAYER_TYPES[newType]
   }
 
+  get typeId() {
+    return this.nativeSlot.type
+  }
+
+  set typeId(newType) {
+    this.nativeSlot.type = newType
+  }
+
   get race() {
     return PLAYER_RACES[this.nativeSlot.race]
   }

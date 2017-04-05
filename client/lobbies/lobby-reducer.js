@@ -36,11 +36,13 @@ export const Slot = new Record({
   teamId: null,
   hasForcedRace: false,
   playerId: null,
+  typeId: 0,
 })
 export const Team = new Record({
   name: null,
   teamId: null,
   slots: new List(),
+  hiddenSlots: new List(),
 })
 export const LobbyInfo = new Record({
   name: null,
@@ -72,7 +74,8 @@ const infoReducer = keyedReducer(undefined, {
     const { lobby } = action.payload
     const teams = lobby.teams.map(team => {
       const slots = team.slots.map(slot => new Slot(slot))
-      return new Team({ ...team, slots: new List(slots) })
+      const hiddenSlots = team.hiddenSlots.map(slot => new Slot(slot))
+      return new Team({ ...team, slots: new List(slots), hiddenSlots })
     })
     const lobbyInfo = new LobbyInfo({
       ...lobby,

@@ -43,7 +43,7 @@
     "@exponent/electron-cookies": "^2.0.0",
     "babel-polyfill": "^6.20.0",
     "babel-preset-env": "^1.1.8",
-    "bw-chk": "^1.0.1",
+    "bw-chk": "^1.1.0",
     "classnames": "^2.2.5",
     "concat-stream": "^1.6.0",
     "core-js": "^2.4.1",
