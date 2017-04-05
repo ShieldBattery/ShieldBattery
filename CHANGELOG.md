@@ -13,9 +13,10 @@ or ban players from your lobbies, you do need *some* opposing players to start t
 of playing a completely different game inside of Brood War, do we have exciting news for you! Use
 Map Settings maps are now supported on ShieldBattery! The maps we provide for now are: BGH 3.0 (a
 version of BGH that randomly assigns teams), Micro Tournament, Mini-Game Party, Monopoly, Poker D
-NovaX2, Random Micro Arena, and SoG - Random. This is all backed by our new maps backend, as well,
-so you'll soon be able to play whatever UMS maps you want. These won't currently display the
-pre-game instructions/overview screen, but we're working on that as well.
+NovaX2, Random Micro Arena, SoG - Random, TMA Legends, i S k U Bound, Dhoom 2 Bound, and TriX Bound.
+This is all backed by our new maps backend, as well, so you'll soon be able to play whatever UMS
+maps you want. These won't currently display the pre-game briefing screen, but we're working on that
+as well.
 - **System tray icon.** Our standalone client has one now, and will go there when you hit the close
 button. If that weren't enough, its icon will also change when you've received a new message (it's
 still pretty unintelligent though, better notifications with nickname highlighting and sounds and

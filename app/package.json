@@ -3,7 +3,7 @@
   "productName": "ShieldBattery-Local",
   "productFilename": "ShieldBattery-Local",
   "private": true,
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "The electron host app for ShieldBattery.",
   "main": "index.js",
   "license": "MIT",
