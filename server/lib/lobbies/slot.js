@@ -10,6 +10,7 @@ const Slot = new Record({
   controlledBy: null,
   hasForcedRace: false,
   playerId: null,
+  typeId: 0,
 })
 
 export function createOpen(race = 'r', hasForcedRace = false, playerId = null) {
@@ -18,9 +19,10 @@ export function createOpen(race = 'r', hasForcedRace = false, playerId = null) {
     name: 'Open',
     race,
     id: cuid(),
-    // These last two fields are used in UMS
+    // These last three fields are used in UMS
     hasForcedRace,
     playerId,
+    typeId: 6,
   })
 }
 
@@ -30,9 +32,10 @@ export function createClosed(race = 'r', hasForcedRace = false, playerId = null)
     name: 'Closed',
     race,
     id: cuid(),
-    // These last two fields are used in UMS
+    // These last three fields are used in UMS
     hasForcedRace,
     playerId,
+    typeId: 6,
   })
 }
 
@@ -43,9 +46,10 @@ export function createHuman(name, race = 'r', hasForcedRace = false, playerId = 
     race,
     id: cuid(),
     joinedAt: Date.now(),
-    // These last two fields are used in UMS
+    // These last three fields are used in UMS
     hasForcedRace,
     playerId,
+    typeId: 6,
   })
 }
 
@@ -85,8 +89,9 @@ export function createControlledClosed(race, controllerId) {
 }
 
 // Creates a computer slot that is used in UMS lobbies. Computers in UMS lobbies can't be removed
-// from the lobby and their race can't be changed.
-export function createUmsComputer(race, playerId) {
+// from the lobby and their race can't be changed. TypeId is the exact type (regular computer,
+// rescueable, neutral, etc) which needs to be passed to bw but can otherwise be ignored.
+export function createUmsComputer(race, playerId, typeId) {
   return new Slot({
     type: 'umsComputer',
     name: 'Computer',
@@ -94,5 +99,6 @@ export function createUmsComputer(race, playerId) {
     id: cuid(),
     hasForcedRace: true,
     playerId,
+    typeId,
   })
 }

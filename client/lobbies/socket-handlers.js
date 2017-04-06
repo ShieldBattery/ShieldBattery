@@ -29,7 +29,7 @@ import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
-import { getLobbySlotsWithIndexes } from '../../app/common/lobbies'
+import { getIngameLobbySlotsWithIndexes } from '../../app/common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const ipcRenderer =
@@ -176,7 +176,7 @@ const eventToAction = {
     } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
-    const slots = getLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
+    const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
         new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
     const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
