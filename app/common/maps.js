@@ -6,7 +6,7 @@ import HashThrough from './hash-through'
 
 export async function parseAndHashMap(filePath, extension) {
   const hasher = new HashThrough()
-  hasher.hasher.update(extension)
+  hasher.hasher.update(extension.toLowerCase())
 
   const map = await new Promise((resolve, reject) => {
     const stream = fs.createReadStream(filePath)

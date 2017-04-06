@@ -157,7 +157,7 @@ export default class Files extends React.Component {
         <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
       )}
       { files.map(file => {
-        const extension = file.path.substr(file.path.lastIndexOf('.') + 1)
+        const extension = file.path.substr(file.path.lastIndexOf('.') + 1).toLowerCase()
         if (this.props.fileTypes[extension]) {
           const { onSelect, icon } = this.props.fileTypes[extension]
           return <FileEntry file={file} onClick={onSelect} icon={icon} key={file.path} />

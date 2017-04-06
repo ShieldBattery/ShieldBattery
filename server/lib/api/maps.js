@@ -42,13 +42,14 @@ async function ensureLoggedIn(ctx, next) {
 }
 
 async function upload(ctx, next) {
-  const { timestamp, hash, extension, filename } = ctx.request.body.fields
+  const { timestamp, hash, extension: anyCaseExtension, filename } = ctx.request.body.fields
   const { path } = ctx.request.body.files.data
   if (await mapExists(hash)) {
     ctx.status = 201
     ctx.body = {}
     return
   }
+  const extension = anyCaseExtension.toLowerCase()
   if (extension !== 'scx' && extension !== 'scm') {
     throw new httpErrors.BadRequest('Map must have either .scm or .scx extension')
   }
