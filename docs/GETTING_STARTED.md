@@ -33,33 +33,6 @@ submodule is tagged to.
 The various JavaScript components use [Yarn](https://yarnpkg.com/) to manage their dependencies.
 Install the latest version of it from their [downloads page](https://yarnpkg.com/en/docs/install).
 
-There is currently a bug in Yarn's gyp installation/usage that results in it failing to install
-native (C++) dependencies on Windows. To work around this currently, open your Yarn installation
-folder and navigate to `node_modules/node-gyp/gyp/pylib/gyp/`. Open `input.py` in a text editor, and
-find the following lines (line 1218 at the time of writing):
-
-```py
-for key, value in the_dict.iteritems():
-  # Skip "variables", which was already processed if present.
-  if key != 'variables' and type(value) is str:
-    expanded = ExpandVariables(value, phase, variables, build_file)
-    if type(expanded) not in (str, int):
-      raise ValueError(
-            'Variable expansion in this context permits str and int ' + \
-            'only, found ' + expanded.__class__.__name__ + ' for ' + key)
-    the_dict[key] = expanded
-```
-
-Add a check to skip variables named `lastUpdateCheck` at the start of the `for` loop:
-
-```py
-for key, value in the_dict.iteritems():
-  if key.lower() == 'lastupdatecheck':
-    continue
-```
-
-This will [likely] need to be re-applied whenever yarn is updated (until they fix the root cause).
-
 ### C++
 
 Building the C++ code requires Visual Studio 2015 or higher. The easiest/cheapest way to get this
