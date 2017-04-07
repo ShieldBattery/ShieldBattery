@@ -15,7 +15,13 @@ if (!isDev) {
   const shouldQuit = app.makeSingleInstance(() => {
     const mainWindow = getMainWindow()
     if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) {
+        mainWindow.show()
+        return true
+      }
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
       mainWindow.focus()
     }
 
