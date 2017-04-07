@@ -33,40 +33,25 @@ submodule is tagged to.
 The various JavaScript components use [Yarn](https://yarnpkg.com/) to manage their dependencies.
 Install the latest version of it from their [downloads page](https://yarnpkg.com/en/docs/install).
 
-There is currently a bug in Yarn's gyp installation/usage that results in it failing to install
-native (C++) dependencies on Windows. To work around this currently, open your Yarn installation
-folder and navigate to `node_modules/node-gyp/gyp/pylib/gyp/`. Open `input.py` in a text editor, and
-find the following lines (line 1218 at the time of writing):
-
-```py
-for key, value in the_dict.iteritems():
-  # Skip "variables", which was already processed if present.
-  if key != 'variables' and type(value) is str:
-    expanded = ExpandVariables(value, phase, variables, build_file)
-    if type(expanded) not in (str, int):
-      raise ValueError(
-            'Variable expansion in this context permits str and int ' + \
-            'only, found ' + expanded.__class__.__name__ + ' for ' + key)
-    the_dict[key] = expanded
-```
-
-Add a check to skip variables named `lastUpdateCheck` at the start of the `for` loop:
-
-```py
-for key, value in the_dict.iteritems():
-  if key.lower() == 'lastupdatecheck':
-    continue
-```
-
-This will [likely] need to be re-applied whenever yarn is updated (until they fix the root cause).
-
 ### C++
 
 Building the C++ code requires Visual Studio 2015 or higher. The easiest/cheapest way to get this
 is through the
 [Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
-TODO(tec27): Build instructions once game client stuff has been moved around
+Once Visual Studio is installed, you can generate project files by running the `vcbuild.bat` script in the
+root of this repository. If you plan on building inside of Visual Studio, you can run this with the
+`nobuild` flag to speed things up. Note that this script will also install JS dependencies and link up
+the JS directory to your `SHIELDBATTERY_PATH`, so complete the previous setup steps first.
+
+`vcbuild.bat` will generate `shieldbattery.sln` in the root of the repo; open this with Visual Studio to be
+able to edit and build the C++ code. Note that Debug builds add significant startup time to the
+applications, while Release builds add significant compile time. Pick your poison based on your needs at the
+time.
+
+If you should ever need to add or remove files to the projects, make the changes in `shieldbattery.gyp` and
+then re-run the build script to regenerate projects. This will ensure everyone can get to the same project
+state as you, once your changes are merged.
 
 ### Server software
 
@@ -158,6 +143,17 @@ also use:
 ```
 node index.js
 ```
+
+#### Overriding the server URL (optional)
+
+It is possible to override the server's URL with environment variables. Two levels of environment variables:
+- **Build time**: `SB_SERVER` set in the environment that runs the webpack dev server will pick the
+"default" server for that build. If none is set, the default will be, in `NODE_ENV=production`,
+`https://shieldbattery.net`, or otherwise, the canonical URL set in your local server config.
+- **Run time**: `SB_SERVER` set in the environment that runs the app (`yarn run app` or just running the
+actual packaged executable).
+
+Note: run time takes precedence over build time.
 
 ### Set up an initial user
 
