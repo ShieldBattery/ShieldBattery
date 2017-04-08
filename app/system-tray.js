@@ -11,7 +11,7 @@ export default class SystemTray {
     this.onQuitClick = quitAppFn
 
     this.systemTray = new Tray(NORMAL_ICON)
-    this.systemTray.setToolTip('ShieldBattery')
+    this.systemTray.setToolTip(app.getName())
     this.systemTray.setContextMenu(this.buildContextMenu())
     this.systemTray.on('click', this.onTrayClick)
   }
