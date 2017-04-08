@@ -211,6 +211,6 @@ export default class Files extends React.Component {
   };
 
   onRefreshClick = () => {
-    this.props.dispatch(getFiles(this.props.browseId, this.props.replays.path))
+    this.props.dispatch(getFiles(this.props.browseId, this.props.replays[this.props.browseId].path))
   };
 }
