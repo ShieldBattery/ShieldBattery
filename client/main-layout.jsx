@@ -13,6 +13,7 @@ import ActivitySpacer from './activities/spacer.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
+import JoinChannelOverlay, { JoinChannel } from './chat/join-channel.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
@@ -79,9 +80,12 @@ function stateToProps(state) {
 class MainLayout extends React.Component {
   state = {
     avatarOverlayOpened: false,
+    joinChannelOverlayOpened: false,
   };
   _avatarButtonRef = null;
   _setAvatarButtonRef = elem => { this._avatarButtonRef = elem };
+  _joinChannelButtonRef = null;
+  _setJoinChannelButton = elem => { this._joinChannelButtonRef = elem };
 
   componentWillMount() {
     if (!this.props.children) {
@@ -145,6 +149,15 @@ class MainLayout extends React.Component {
     </SelfProfileOverlay>)
   }
 
+  renderJoinChannelOverlay() {
+    return (<JoinChannelOverlay
+        open={this.state.joinChannelOverlayOpened}
+        onDismiss={this.onCloseJoinChannelOverlay}
+        anchor={this._joinChannelButtonRef}>
+      <JoinChannel onJoinedChannel={this.onCloseJoinChannelOverlay} />
+    </JoinChannelOverlay>)
+  }
+
   render() {
     const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
     const channelNav = chatChannels.map(c =>
@@ -154,7 +167,8 @@ class MainLayout extends React.Component {
             hasUnread={c.hasUnread}
             onLeave={this.onChannelLeave}/>)
     const joinChannelButton = <IconButton icon={<AddIcon/>} title='Join a channel'
-        className={styles.subheaderButton} onClick={this.onJoinChannelClick} />
+        buttonRef={this._setJoinChannelButton} className={styles.subheaderButton}
+        onClick={this.onJoinChannelClick} />
     const whisperNav = whispers.map(w =>
         <WhisperNavEntry key={w.name}
             user={w.name}
@@ -207,6 +221,7 @@ class MainLayout extends React.Component {
           {activityButtons}
         </ActivityBar>
         { this.renderAvatarOverlay() }
+        { this.renderJoinChannelOverlay() }
         <ActivityOverlay />
         <ConnectedSnackbar />
       </ConnectedDialogOverlay>
@@ -226,8 +241,16 @@ class MainLayout extends React.Component {
   };
 
   onJoinChannelClick = () => {
-    this.props.dispatch(openDialog('channel'))
+    this.setState({
+      joinChannelOverlayOpened: true
+    })
   };
+
+  onCloseJoinChannelOverlay = () => {
+    this.setState({
+      joinChannelOverlayOpened: false
+    })
+  }
 
   onChannelLeave = channel => {
     this.props.dispatch(leaveChannel(channel))

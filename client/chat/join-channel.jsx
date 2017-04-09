@@ -1,8 +1,11 @@
-import React from 'react'
+import React, { PropTypes } from 'react'
 import { connect } from 'react-redux'
-import Dialog from '../material/dialog.jsx'
-import FlatButton from '../material/flat-button.jsx'
+import TransitionGroup from 'react-addons-css-transition-group'
+import styles from './channel.css'
+
 import form from '../forms/form.jsx'
+import Popover from '../material/popover.jsx'
+import RaisedButton from '../material/raised-button.jsx'
 import TextField from '../material/text-field.jsx'
 import {
   composeValidators,
@@ -11,12 +14,82 @@ import {
   required,
 } from '../forms/validators'
 
-import { closeDialog } from '../dialogs/dialog-action-creator'
-import { navigateToChannel } from './action-creators'
+import { joinChannel, navigateToChannel } from './action-creators'
 import {
   CHANNEL_MAXLENGTH,
   CHANNEL_PATTERN,
 } from '../../app/common/constants'
+
+const transitionNames = {
+  appear: styles.enter,
+  appearActive: styles.enterActive,
+  enter: styles.enter,
+  enterActive: styles.enterActive,
+  leave: styles.leave,
+  leaveActive: styles.leaveActive,
+}
+
+export default class JoinChannelOverlay extends React.Component {
+  static propTypes = {
+    open: PropTypes.bool.isRequired,
+    onDismiss: PropTypes.func.isRequired,
+    anchor: PropTypes.object,
+  };
+
+  render() {
+    const { children, open, onDismiss, anchor } = this.props
+
+    return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
+        anchorOriginVertical='top' anchorOriginHorizontal='left'
+        popoverOriginVertical='top' popoverOriginHorizontal='left'>
+      {
+        (state, timings) => {
+          const { openDelay, openDuration, closeDuration } = timings
+          let style
+          if (state === 'opening') {
+            style = {
+              transitionDuration: `${openDuration}ms`,
+              transitionDelay: `${openDelay}ms`,
+            }
+          } else if (state === 'opened') {
+            style = {
+              transitionDuration: `${closeDuration}ms`,
+            }
+          }
+
+          return (<TransitionGroup
+              transitionName={transitionNames} transitionAppear={true}
+              transitionAppearTimeout={openDuration}
+              transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
+            {
+              state === 'opening' || state === 'opened' ?
+                <JoinChannelContents key={'contents'} style={style}>
+                  {children}
+                </JoinChannelContents> :
+                null
+            }
+          </TransitionGroup>)
+        }
+      }
+    </Popover>)
+  }
+}
+
+export class JoinChannelContents extends React.Component {
+  static propTypes = {
+    style: PropTypes.object,
+  };
+
+  render() {
+    const { children, style } = this.props
+
+    return (<div className={styles.joinChannelContents} style={style}>
+      <div className={styles.joinChannelActions} style={style}>
+        { children }
+      </div>
+    </div>)
+  }
+}
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),
@@ -36,13 +109,17 @@ class JoinChannelForm extends React.Component {
             autoCorrect: 'off',
             spellCheck: 'off',
             tabIndex: 0,
-          }}/>
+          }} />
     </form>)
   }
 }
 
 @connect()
-export default class JoinChannel extends React.Component {
+export class JoinChannel extends React.Component {
+  static propTypes = {
+    onJoinedChannel: PropTypes.func,
+  }
+
   _autoFocusTimer = null;
   _form = null;
   _setForm = elem => { this._form = elem };
@@ -66,17 +143,11 @@ export default class JoinChannel extends React.Component {
   }
 
   render() {
-    const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent'
-          onClick={this.props.onCancel} />,
-      <FlatButton label='Join' key='join' color='accent'
-          onClick={this.onJoinChannel} />
-    ]
-
-    return (<Dialog title={'Join channel'} buttons={buttons} onCancel={this.props.onCancel}>
+    return (<div className={styles.joinChannelForm}>
       <JoinChannelForm ref={this._setForm} inputRef={this._setInput} model={{}}
-          onSubmit={this.onSubmit}/>
-    </Dialog>)
+          onSubmit={this.onSubmit} />
+      <RaisedButton label='Join' onClick={this.onJoinChannel} />
+    </div>)
   }
 
   onJoinChannel = () => {
@@ -84,8 +155,11 @@ export default class JoinChannel extends React.Component {
   };
 
   onSubmit = () => {
+    if (this.props.onJoinedChannel) {
+      this.props.onJoinedChannel()
+    }
     const channel = this._form.getModel().channel
-    this.props.dispatch(closeDialog())
+    this.props.dispatch(joinChannel(channel))
     this.props.dispatch(navigateToChannel(channel))
   };
 }

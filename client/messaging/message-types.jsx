@@ -48,6 +48,17 @@ export class NewChannelOwnerMessage extends BaseMessage {
   }
 }
 
+export class SelfJoinChannelMessage extends BaseMessage {
+  render() {
+    const { time, channel } = this.props.record
+    return (<ChatMessageLayout time={time} className={styles.systemMessage}>
+      <span>
+        You joined <span className={styles.important}>{channel}</span>
+      </span>
+    </ChatMessageLayout>)
+  }
+}
+
 export class UserOnlineMessage extends BaseMessage {
   render() {
     const { time, user } = this.props.record
