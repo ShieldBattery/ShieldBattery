@@ -38,8 +38,6 @@ export class LeaveChannelMessage extends BaseMessage {
 export class NewChannelOwnerMessage extends BaseMessage {
   render() {
     const { time, newOwner } = this.props.record
-    // TODO(2Pac): change the design of the message maybe? So it doesn't look the same as
-    // online/offline messages
     return (<ChatMessageLayout time={time} className={styles.systemMessage}>
       <span>
         <span className={styles.systemImportant}>{newOwner}</span> is the new owner of the channel
@@ -51,7 +49,7 @@ export class NewChannelOwnerMessage extends BaseMessage {
 export class SelfJoinChannelMessage extends BaseMessage {
   render() {
     const { channel } = this.props.record
-    return (<InfoMessageLayout>
+    return (<InfoMessageLayout className={styles.infoMessage}>
       <span>
         You joined <span className={styles.infoImportant}>#{channel}</span>
       </span>

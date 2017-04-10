@@ -1,5 +1,5 @@
-@value colorTextFaint, amberA100, blue100, blue200 from '../styles/colors.css';
-@value grey400, grey500, grey850 from '../styles/colors.css';
+@value colorDividers, colorTextFaint, colorTextSecondary from '../styles/colors.css';
+@value amberA100, blue100, blue200 from '../styles/colors.css';
 @value row, col, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
 @value itemsEnd, itemsCenter, justifyCenter from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
@@ -69,21 +69,29 @@
 }
 
 .infoMessage {
-  composes: body1;
-  width: calc(100% - 16px); /* account for the scrollbar width */
-  margin: 10px 0 14px 8px; /* make the height same as normal messages */
-  padding-left: 72px;
-  color: grey500;
-  line-height: 1px;
-  border-bottom: 1px solid grey500;
+  composes: itemsCenter;
+  color: colorTextFaint;
 }
 
-.infoMessage > span {
-  background: grey850;
-  padding: 0 12px;
+.infoDivider {
+  border: none;
+  border-top: 1px solid colorDividers;
+  margin: 0;
+}
+
+.infoDividerLeft {
+  composes: infoDivider;
+  width: 72px;
+  margin-right: 8px;
+}
+
+.infoDividerRight {
+  composes: infoDivider;
+  composes: grow;
+  margin-left: 8px;
 }
 
 .infoImportant {
   composes: important;
-  color: grey400;
+  color: colorTextSecondary;
 }
