@@ -25,6 +25,7 @@
 }
 
 .formContents {
+  position: relative;
   width: 100%;
   padding-left: 24%;
   padding-right: 24%;

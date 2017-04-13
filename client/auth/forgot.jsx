@@ -97,9 +97,9 @@ class ForgotFormHolder extends React.Component {
           { errContents }
           { successContents }
           <FormComponent ref={this._setForm} model={model || {}} onSubmit={this.onSubmit}/>
+          { loadingContents }
         </div>
       </div>
-      { loadingContents }
       <div className={styles.bottomAction}>
           <FlatButton labelClassName={styles.bottomActionButtonLabel}
               label='Back to login' onClick={this.onBackClick} tabIndex={1}/>
