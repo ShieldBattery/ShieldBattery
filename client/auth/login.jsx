@@ -116,9 +116,9 @@ export default class Login extends React.Component {
   render() {
     const { auth: { authChangeInProgress, lastFailure } } = this.props
     let loadingContents
-    if (authChangeInProgress) {
+    // if (authChangeInProgress) {
       loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
-    }
+    // }
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
@@ -130,10 +130,10 @@ export default class Login extends React.Component {
         <h3 className={styles.title}>Log in</h3>
         <div className={styles.formContents}>
           { errContents }
+          { loadingContents }
           <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
               onForgotUsernameClick={this.onForgotUsernameClick}
               onForgotPasswordClick={this.onForgotPasswordClick}/>
-          { loadingContents }
         </div>
       </div>
       <div className={styles.bottomAction}>
