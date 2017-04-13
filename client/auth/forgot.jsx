@@ -78,9 +78,9 @@ class ForgotFormHolder extends React.Component {
       successMessage,
     } = this.props
     let loadingContents
-    // if (authChangeInProgress) {
+    if (authChangeInProgress) {
       loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
-    // }
+    }
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
