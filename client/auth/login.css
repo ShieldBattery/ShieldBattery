@@ -24,6 +24,11 @@
   opacity: 0;
 }
 
+.formContents {
+  position: relative;
+  width: 100%;
+}
+
 .loadingArea {
   composes: row itemsCenter justifyCenter;
   position: absolute;
