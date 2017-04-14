@@ -1,4 +1,5 @@
-@value colorTextFaint, amberA100, blue100, blue200 from '../styles/colors.css';
+@value colorDividers, colorTextFaint, colorTextSecondary from '../styles/colors.css';
+@value amberA100, blue100, blue200 from '../styles/colors.css';
 @value row, col, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
 @value itemsEnd, itemsCenter, justifyCenter from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
@@ -53,12 +54,44 @@
   overflow: hidden;
 }
 
+.important {
+  composes: body2;
+  line-height: inherit;
+}
+
 .systemMessage {
   color: blue100;
 }
 
-.important {
-  composes: body2;
-  line-height: inherit;
+.systemImportant {
+  composes: important;
   color: blue200;
+}
+
+.infoMessage {
+  composes: itemsCenter;
+  color: colorTextFaint;
+}
+
+.infoDivider {
+  border: none;
+  border-top: 1px solid colorDividers;
+  margin: 0;
+}
+
+.infoDividerLeft {
+  composes: infoDivider;
+  width: 72px;
+  margin-right: 8px;
+}
+
+.infoDividerRight {
+  composes: infoDivider;
+  composes: grow;
+  margin-left: 8px;
+}
+
+.infoImportant {
+  composes: important;
+  color: colorTextSecondary;
 }
