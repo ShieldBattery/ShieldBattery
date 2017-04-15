@@ -128,14 +128,12 @@ export default class Login extends React.Component {
     return (<div className={styles.content}>
       <div className={authChangeInProgress ? styles.formLoading : styles.form}>
         <h3 className={styles.title}>Log in</h3>
-        <div className={styles.formContents}>
           { errContents }
-          { loadingContents }
           <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
               onForgotUsernameClick={this.onForgotUsernameClick}
               onForgotPasswordClick={this.onForgotPasswordClick}/>
-        </div>
       </div>
+      { loadingContents }
       <div className={styles.bottomAction}>
           <FlatButton labelClassName={styles.bottomActionButtonLabel}
               label='Sign up for an account' onClick={this.onCreateAccountClick} tabIndex={1}/>

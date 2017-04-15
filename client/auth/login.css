@@ -4,6 +4,7 @@
 @value fastOutSlowIn from '../material/curve-constants.css';
 
 .content {
+  position: relative;
   width: 100%;
 }
 
@@ -22,11 +23,6 @@
   composes: form;
   pointer-events: none;
   opacity: 0;
-}
-
-.formContents {
-  position: relative;
-  width: 100%;
 }
 
 .loadingArea {
