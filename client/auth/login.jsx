@@ -128,10 +128,10 @@ export default class Login extends React.Component {
     return (<div className={styles.content}>
       <div className={authChangeInProgress ? styles.formLoading : styles.form}>
         <h3 className={styles.title}>Log in</h3>
-          { errContents }
-          <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
-              onForgotUsernameClick={this.onForgotUsernameClick}
-              onForgotPasswordClick={this.onForgotPasswordClick}/>
+        { errContents }
+        <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
+            onForgotUsernameClick={this.onForgotUsernameClick}
+            onForgotPasswordClick={this.onForgotPasswordClick}/>
       </div>
       { loadingContents }
       <div className={styles.bottomAction}>
