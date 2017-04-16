@@ -5,6 +5,10 @@
   -webkit-user-select: none;
 }
 
+:global(.electron) .background {
+  overflow: hidden;
+}
+
 .background {
   composes: draggable;
 }
@@ -14,7 +18,17 @@
   background-color: grey850;
 }
 
-:global(#app) .wrapper {
+:global(.electron) .wrapper {
+  height: calc(100% - 32px);
+}
+
+.wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+:global(#app) .contents {
   width: calc(640px + (16px * 2));
   margin: 0 auto;
 }
