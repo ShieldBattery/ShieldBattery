@@ -1,5 +1,5 @@
 // Uses dynamic require to avoid ever pulling this into the Web build
-const native = require('./win-process.node')
+// const native = require('./win-process.node')
 import thenify from 'thenify'
 
 class Process {
@@ -39,7 +39,7 @@ class Process {
   }
 }
 
-const $launchProcess = thenify(native.launchProcess)
+// const $launchProcess = thenify(native.launchProcess)
 export async function launchProcess({
     appPath, args = [], launchSuspended = true, currentDir = '', environment = [] }) {
   const joinedArgs = typeof args === 'string' ? args : args.join(' ')

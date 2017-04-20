@@ -20,12 +20,12 @@
 
 :global(.electron) .wrapper {
   height: calc(100% - 32px);
+  overflow: auto;
 }
 
 .wrapper {
   width: 100%;
   height: 100%;
-  overflow: auto;
 }
 
 :global(#app) .contents {
