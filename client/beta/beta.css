@@ -169,11 +169,17 @@
   padding-right: 48px;
 }
 
-.faqFeature {
+.faqFeature, .faqTOC {
   composes: row itemsCenter;
   composes: pageWidth;
   padding: 48px 0;
   border-bottom: 1px solid colorDividers;
+}
+
+.faqTOC {
+  composes: col subhead;
+  font-size: 20px;
+  line-height: 1.5;
 }
 
 .faqQuestion {

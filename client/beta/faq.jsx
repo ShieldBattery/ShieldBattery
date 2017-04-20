@@ -125,9 +125,21 @@ const questions = [
   },
 ]
 
+const makeQuestionId = question => {
+  return question.replace(/\s/g, '-')
+}
+
+const scrollQuestionIntoView = id => {
+  const question = document.getElementById(id)
+
+  if (question) {
+    question.scrollIntoView()
+  }
+}
+
 const QuestionSection = ({ question, answer }) => {
   return (
-    <div className={styles.faqFeature}>
+    <div id={makeQuestionId(question)} className={styles.faqFeature}>
       <div className={styles.faqText}>
         <QuestionIcon className={styles.faqQuestionIcon} />
         <h3 className={styles.faqQuestion}>
@@ -141,7 +153,36 @@ const QuestionSection = ({ question, answer }) => {
   )
 }
 
+class FragmentLink extends React.Component {
+  onClick = () => {
+    scrollQuestionIntoView(this.props.fragment)
+  }
+
+  render() {
+    return (
+      <Link to={`${this.props.to}#${this.props.fragment}`} onClick={this.onClick}>
+        {this.props.children}
+      </Link>
+    )
+  }
+}
+
 export default class Faq extends React.Component {
+  componentDidMount() {
+    // No need for fragment anchoring on electron
+    if (process.webpackEnv.SB_ENV === 'electron') {
+      return
+    }
+
+    const hashParts = window.location.hash.split('#')
+
+    if (hashParts.length < 2) {
+      return
+    }
+
+    scrollQuestionIntoView(hashParts.slice(-1)[0])
+  }
+
   render() {
     return (
       <div className={styles.splash}>
@@ -153,7 +194,18 @@ export default class Faq extends React.Component {
         <div className={styles.intro}>
           <h1 className={styles.faqHeader}>FAQ</h1>
         </div>
-
+        <div className={styles.faqTOC}>
+          <h3>Frequently Asked Questions</h3>
+          <ul>
+            {questions.map((q, i) =>
+              <li>
+                <FragmentLink key={`question-${i}`} to="/faq" fragment={makeQuestionId(q.question)}>
+                  {q.question}
+                </FragmentLink>
+              </li>,
+            )}
+          </ul>
+        </div>
         {questions.map((q, i) =>
           <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />,
         )}
