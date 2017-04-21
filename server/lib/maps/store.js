@@ -16,12 +16,12 @@ export async function storeMap(hash, extension, origFilename, timestamp, mapMpqP
   // collision, and the colliding maps are uploaded simultaneously, the actual file might differ
   // from the metadata stored in db.
   const { mapData, imageStream } = await mapParseWorker(mapMpqPath, extension, hash)
-  if (imageStream) {
-    await writeFile(imagePath(hash), imageStream)
-  }
 
-  await writeFile(mapPath(hash, extension), fs.createReadStream(mapMpqPath))
-  await db.addMap(hash, extension, origFilename, mapData, timestamp)
+  await Promise.all([
+    imageStream ? writeFile(imagePath(hash), imageStream) : Promise.resolve(),
+    writeFile(mapPath(hash, extension), fs.createReadStream(mapMpqPath)),
+    db.addMap(hash, extension, origFilename, mapData, timestamp),
+  ])
 }
 
 export async function mapInfo(...hashes) {

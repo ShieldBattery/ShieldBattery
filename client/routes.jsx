@@ -25,9 +25,12 @@ import Whisper from './whispers/whisper.jsx'
 
 const AdminMapUpload =
     process.webpackEnv.SB_ENV === 'electron' ? require('./admin/map-upload.jsx').default : null
+const AdminPatchUpload =
+    process.webpackEnv.SB_ENV === 'electron' ? require('./admin/patch-upload.jsx').default : null
 
 import {
   CanAcceptBetaInvitesFilter,
+  CanManageStarcraftPatchesFilter,
   CanViewUserProfileFilter,
   IsAdminFilter
 } from './admin/admin-route-filters.jsx'
@@ -72,6 +75,11 @@ const routes = <Route>
                 <Route component={CanAcceptBetaInvitesFilter}>
                   <Route path='/admin/invites' component={AdminBetaInvites} />
                 </Route>
+                { AdminPatchUpload ?
+                  <Route component={CanManageStarcraftPatchesFilter}>
+                    <Route path='/admin/patch-upload' component={AdminPatchUpload} />
+                  </Route> : null
+                }
                 { AdminMapUpload ?
                     <Route path='/admin/map-upload' component={AdminMapUpload} /> : null }
               </Route>

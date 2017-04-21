@@ -8,6 +8,9 @@
 *.scm binary
 *.scx binary
 *.msi binary
+*.exe binary
+*.diff binary
+*.dll binary
 
 # Custom for Visual Studio
 *.sln    merge=union

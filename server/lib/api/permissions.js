@@ -1,39 +1,18 @@
-import permissions from '../models/permissions'
+import { getPermissions, updatePermissions } from '../models/permissions'
 import { checkAllPermissions } from '../permissions/check-permissions'
 
 export default function(router) {
   router
-    .get('/:userId', checkAllPermissions('editPermissions'), getPermissions)
-    .post('/:userId', checkAllPermissions('editPermissions'), updatePermissions)
+    .get('/:userId', checkAllPermissions('editPermissions'), doGetPermissions)
+    .post('/:userId', checkAllPermissions('editPermissions'), doUpdatePermissions)
 }
 
-async function getPermissions(ctx, next) {
+async function doGetPermissions(ctx, next) {
   const userId = ctx.params.userId
-
-  try {
-    ctx.body = await permissions.get(userId)
-  } catch (err) {
-    ctx.log.error({ err }, 'error querying permissions')
-    throw err
-  }
+  ctx.body = await getPermissions(userId)
 }
 
-async function updatePermissions(ctx, next) {
-  const b = ctx.request.body
+async function doUpdatePermissions(ctx, next) {
   const userId = ctx.params.userId
-  const perms = {
-    editPermissions: b.editPermissions,
-    debug: b.debug,
-    acceptInvites: b.acceptInvites,
-    editAllChannels: b.editAllChannels,
-    banUsers: b.banUsers,
-    manageMaps: b.manageMaps,
-  }
-
-  try {
-    ctx.body = await permissions.update(userId, perms)
-  } catch (err) {
-    ctx.log.error({ err }, 'error updating permissions')
-    throw err
-  }
+  ctx.body = await updatePermissions(userId, ctx.request.body)
 }

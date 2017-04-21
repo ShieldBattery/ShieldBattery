@@ -5,6 +5,10 @@ import koaStatic from 'koa-static'
 import path from 'path'
 import thenify from 'thenify'
 
+// How long browsers can cache resources for (in milliseconds). These resources should all be pretty
+// static, so this can be a long time
+const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
+
 const access = thenify(fs.access)
 const mkdir = thenify(fs.mkdir)
 
@@ -61,6 +65,6 @@ export default class LocalFsStore {
   }
 
   addMiddleware(app) {
-    app.use(koaMount('/files', koaStatic(this.path)))
+    app.use(koaMount('/files', koaStatic(this.path, { maxage: FILE_MAX_AGE_MS })))
   }
 }

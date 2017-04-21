@@ -1,18 +1,17 @@
 import httpErrors from 'http-errors'
-import fs from 'fs'
 import { Seq } from 'immutable'
-import koaBody from 'koa-body'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
 import { mapExists } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
+import handleMultipartFiles from '../file-upload/handle-multipart-files'
+import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function(router) {
   router.get('/', ensureLoggedIn, list)
-  router.post('/upload', ensureLoggedIn, uploadPermissionCheck(), koaBody({ multipart: true }),
-      clearMultipartFiles, upload)
-  router.get('/info/:hash', ensureLoggedIn, getInfo)
+    .post('/upload', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
+    .get('/info/:hash', ensureLoggedIn, getInfo)
 }
 
 function uploadPermissionCheck() {
@@ -23,23 +22,6 @@ function uploadPermissionCheck() {
   }
 }
 
-async function clearMultipartFiles(ctx, next) {
-  try {
-    await next()
-  } finally {
-    for (const { path } of Object.values(ctx.request.body.files)) {
-      fs.unlink(path, e => {})
-    }
-  }
-}
-
-async function ensureLoggedIn(ctx, next) {
-  if (!ctx.session.userId) {
-    throw new httpErrors.Unauthorized()
-  }
-
-  await next()
-}
 
 async function upload(ctx, next) {
   const { timestamp, hash, extension: anyCaseExtension, filename } = ctx.request.body.fields

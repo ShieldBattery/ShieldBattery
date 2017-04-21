@@ -22,7 +22,7 @@ export default (validations = {}) => (Wrapped) => {
     _customChangeHandlers = Object.create(null);
     _validationPromises = Object.create(null);
     _notifyValidation = [];
-    _doOnSubmit = () => this.props.onSubmit();
+    _doOnSubmit = () => this.props.onSubmit(this);
 
     state = {
       model: this.props.model,

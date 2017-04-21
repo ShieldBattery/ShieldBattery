@@ -102,6 +102,8 @@ There are also some other important folders:
 - **assets**: contains source assets for our graphics
 - **test**: contains tests for various things (runnable with `yarn test`). Note that the server has its own
 tests, which are located inside of the `server/test` directory.
+- **tools**: contains third-party tools we use for building and maintaining various parts of the
+project, such as generating diffs to patch between game versions
 
 ## License
 

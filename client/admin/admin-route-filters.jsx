@@ -20,3 +20,9 @@ export const CanAcceptBetaInvitesFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'acceptInvites'),
   () => routerActions.replace('/admin')
 )
+
+export const CanManageStarcraftPatchesFilter = createConditionalRedirect(
+  'CanManageStarcraftPatchesFilter',
+  state => !hasAllPermissions(state.auth, 'manageStarcraftPatches'),
+  () => routerActions.replace('/admin')
+)

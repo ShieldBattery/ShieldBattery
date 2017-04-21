@@ -7,7 +7,7 @@ import throttleMiddleware from '../throttle/middleware'
 import redis from '../redis'
 import { isUserBanned } from '../models/bans'
 import users from '../models/users'
-import permissions from '../models/permissions'
+import { getPermissions } from '../models/permissions'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 
@@ -89,7 +89,7 @@ async function startNewSession(ctx, next) {
 
   try {
     await co(ctx.regenerateSession())
-    const perms = await permissions.get(user.id)
+    const perms = await getPermissions(user.id)
     await users.maybeUpdateIp(user.id, ctx.ip)
     initSession(ctx, user, perms)
     if (!remember) {

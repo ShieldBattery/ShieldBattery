@@ -28,6 +28,8 @@ class UserPermissionsForm extends React.Component {
           inputProps={inputProps}/>
       <CheckBox {...bindCheckable('manageMaps')} label='Manage maps'
           inputProps={inputProps}/>
+      <CheckBox {...bindCheckable('manageStarcraftPatches')} label='Manage StarCraft patches'
+          inputProps={inputProps}/>
     </form>)
   }
 }
@@ -65,14 +67,7 @@ export default class PermissionsResult extends React.Component {
       return <p>{user.lastError.message}</p>
     }
 
-    const model = {
-      editPermissions: user.editPermissions,
-      debug: user.debug,
-      acceptInvites: user.acceptInvites,
-      editAllChannels: user.editAllChannels,
-      banUsers: user.banUsers,
-      manageMaps: user.manageMaps,
-    }
+    const model = user.toObject()
 
     return (<div className={styles.saveForm}>
       <h3>Set permissions for {username}</h3>

@@ -190,7 +190,7 @@ void StartNode(void* arg) {
 // custom functionality continues and our UiThreadWorker can begin.
 
 typedef int (*EntryPointFunc)(HMODULE module_handle);
-sbat::FuncHook<EntryPointFunc>* entry_point_hook;
+FuncHook<EntryPointFunc>* entry_point_hook;
 int HOOK_EntryPoint(HMODULE module_handle) {
   entry_point_hook->Restore();
 
@@ -274,7 +274,7 @@ int HOOK_EntryPoint(HMODULE module_handle) {
 }
 
 typedef void (*GameInitFunc)();
-sbat::FuncHook<GameInitFunc>* game_init_hook;
+FuncHook<GameInitFunc>* game_init_hook;
 void HOOK_GameInit() {
   // This essentially just serves as a stopping point for "general initialization stuff" BW does
   // after its entry point
@@ -354,7 +354,36 @@ NODE_EXTERN const Settings& GetSettings() {
   return *current_settings;
 }
 
+HMODULE process_module_handle = GetModuleHandle(NULL);
+HookedModule process_hooks(GetModuleHandle(NULL));
+char current_dir_on_inject[MAX_PATH];
+string real_starcraft_path;
+
+DWORD __stdcall GetModuleFileNameAHook(
+  _In_opt_ HMODULE module_handle, _Out_ LPSTR filename, _In_ DWORD size) {
+  if (module_handle == nullptr || module_handle == process_module_handle) {
+    real_starcraft_path.copy(filename, size);
+    filename[size - 1] = '\0';
+    if (real_starcraft_path.length() > size) {
+      SetLastError(ERROR_INSUFFICIENT_BUFFER);
+      return size;
+    } else {
+      return real_starcraft_path.length();
+    }
+  } else {
+    return GetModuleFileNameA(module_handle, filename, size);
+  }
+}
+
 extern "C" __declspec(dllexport) void OnInject() {
+  DWORD count = GetCurrentDirectoryA(sizeof(current_dir_on_inject), current_dir_on_inject);
+  if (!count) {
+    ExitProcess(GetLastError());
+  }
+  real_starcraft_path = string(current_dir_on_inject) + "\\StarCraft.exe";
+  process_hooks.AddHook("kernel32.dll", "GetModuleFileNameA", GetModuleFileNameAHook);
+  process_hooks.Inject();
+
   // note that this is not the exe's entry point, but rather the first point where BW starts doing
   // BW-specific things
   entry_point_hook = new sbat::FuncHook<EntryPointFunc>(

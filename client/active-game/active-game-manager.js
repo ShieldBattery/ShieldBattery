@@ -7,6 +7,7 @@ import deepEqual from 'deep-equal'
 import thenify from 'thenify'
 import ReplayParser from 'jssuh'
 import { checkStarcraftPath } from '../settings/check-starcraft-path'
+import getDowngradePath from './get-downgrade-path'
 import log from '../logging/logger'
 import {
   GAME_STATUS_UNKNOWN,
@@ -240,18 +241,26 @@ async function removeIfOld(path, maxAge) {
 
 const accessAsync = thenify(fs.access)
 async function doLaunch(gameId, serverPort, settings) {
+  try {
+    await accessAsync(injectPath)
+  } catch (err) {
+    throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
+  }
+
   const { starcraftPath } = settings.local
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }
-  const appPath = path.join(starcraftPath, 'starcraft.exe')
-  try {
-    await checkStarcraftPath(starcraftPath)
-  } catch (err) {
-    throw new Error(`Could not access/find Starcraft executable at ${appPath}: ${err}`)
+  const downgradePath = getDowngradePath()
+  const checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
+  if (!checkResult.path || !checkResult.version) {
+    throw new Error(`StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
+        JSON.stringify(checkResult))
   }
 
-  log.debug('Attempting to launch ' + appPath)
+  const appPath =
+      path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
+  log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   const proc = await launchProcess({
     appPath,
     args: `${gameId} ${serverPort}`,
@@ -266,12 +275,6 @@ async function doLaunch(gameId, serverPort, settings) {
     ]
   })
   log.verbose('Process launched')
-
-  try {
-    await accessAsync(injectPath)
-  } catch (err) {
-    throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
-  }
 
   log.debug(`Injecting ${injectPath} into the process...`)
   const dataRoot = remote.app.getPath('userData')

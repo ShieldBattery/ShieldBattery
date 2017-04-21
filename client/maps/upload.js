@@ -4,7 +4,6 @@ import fs from 'fs'
 import path from 'path'
 import thenify from 'thenify'
 
-
 import fetch from '../network/fetch'
 
 const asyncStat = thenify(fs.stat)

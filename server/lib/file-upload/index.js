@@ -6,7 +6,7 @@ export function setStore(obj) {
   store = obj
 }
 
-// Accepts either `Bufffer` or a `Readable` for `data`
+// Accepts either `Buffer` or a `Readable` for `data`
 export async function writeFile(filename, data) {
   if (Buffer.isBuffer(data)) {
     return store.write(filename, new Readable({

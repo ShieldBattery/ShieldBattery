@@ -12,6 +12,9 @@ export default class Panel extends React.Component {
         <li><Link to='/admin/users'>View user's profile</Link></li> : null
     const uploadLink = perms.manageMaps && process.webpackEnv.SB_ENV === 'electron' ?
         <li><Link to='/admin/map-upload'>Mass map upload</Link></li> : null
+    const managePatchesLink =
+        perms.manageStarcraftPatches && process.webpackEnv.SB_ENV === 'electron' ?
+            <li><Link to='/admin/patch-upload'>Upload StarCraft patch</Link></li> : null
     const invitesLink = perms.acceptInvites ?
         <li><Link to='/admin/invites'>View beta invites</Link></li> : null
 
@@ -20,6 +23,7 @@ export default class Panel extends React.Component {
         <ul>
           {usersLink}
           {uploadLink}
+          {managePatchesLink}
           {invitesLink}
         </ul>
       </ContentLayout>

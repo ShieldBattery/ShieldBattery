@@ -85,7 +85,7 @@ Forge::Forge()
     Forge::instance_->PublishQueuedEvents();
   });
 
-  process_hooks_.AddHook("user32.dll", "CreateWindowExA", &CreateWindowExAHook);
+  process_hooks_.AddHook("user32.dll", "CreateWindowExA", CreateWindowExAHook);
   process_hooks_.AddHook("user32.dll", "RegisterClassExA", RegisterClassExAHook);
   process_hooks_.AddHook("user32.dll", "GetSystemMetrics", GetSystemMetricsHook);
   process_hooks_.AddHook("kernel32.dll", "GetProcAddress", GetProcAddressHook);

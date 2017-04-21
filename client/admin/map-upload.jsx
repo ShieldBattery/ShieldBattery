@@ -4,34 +4,14 @@ import ContentLayout from '../content/content-layout.jsx'
 import form from '../forms/form.jsx'
 import uploadMap from '../maps/upload'
 import RaisedButton from '../material/raised-button.jsx'
-
-// Quick and ugly wrap for <input type='file'> that works with rest of the form stuff
-class FileInput extends React.Component {
-  render() {
-    const internalInputProps = {
-      type: 'file',
-      multiple: true,
-      onChange: this.onInputChange,
-    }
-
-    return (
-      <input {...internalInputProps} />
-    )
-  }
-
-  onInputChange = e => {
-    if (this.props.onChange) {
-      this.props.onChange(e.target.files)
-    }
-  };
-}
+import FileInput from '../forms/file-input.jsx'
 
 @form()
 class UploadForm extends React.Component {
   render() {
     const { onSubmit, bindCustom } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
-      <FileInput {...bindCustom('files')} />
+      <FileInput {...bindCustom('files')} multiple={true} accept={'.scm,.scx'}/>
     </form>)
   }
 }

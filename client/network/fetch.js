@@ -1,4 +1,5 @@
 import 'whatwg-fetch'
+import { Readable } from 'stream'
 import { makeServerUrl } from './server-url'
 import readCookies from './read-cookies'
 
@@ -90,6 +91,55 @@ export function fetchJson(path, opts) {
           throw err
         }))
     }))
+}
+
+// Wraps the whatwg ReadableStream to be a Node ReadableStream
+class BrowserReadableStreamWrapper extends Readable {
+  constructor(fetchPromise) {
+    super()
+    this._readerPromise = fetchPromise.then(res => res.body.getReader(), this._emitError)
+    this._reading = false
+  }
+
+  _read() {
+    if (this._reading) {
+      return
+    }
+
+    this._reading = true
+    this._doRead()
+  }
+
+  _doRead() {
+    this._readerPromise
+      .then(reader => reader.read())
+      .then(({ value, done }) => {
+        if (done) {
+          this.push(null)
+          this._reading = false
+          return
+        }
+
+        const keepGoing = this.push(Buffer.from(value.buffer))
+        if (keepGoing) {
+          this._doRead()
+        } else {
+          this._reading = false
+        }
+      }, this._emitError)
+  }
+
+  _emitError = err => {
+    this.emit('error', err)
+  }
+}
+
+// Returns a Node ReadableStream for data from the response of the request. This should only be used
+// in Electron, as the necessary fetch API is not supported in all browsers we support yet (and not
+// polyfilled with our polyfill)
+export function fetchReadableStream(path, opts) {
+  const fetchPromise = fetchRaw(path, opts).then(ensureSuccessStatus)
+  return new BrowserReadableStreamWrapper(fetchPromise)
 }
 
 export default fetchJson

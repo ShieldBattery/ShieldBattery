@@ -1,7 +1,7 @@
 // User model, corresponding to a user account on the site (with a login, password, etc.)
 import db from '../db'
 import transact from '../db/transaction'
-import permissions from './permissions'
+import { createPermissions } from './permissions'
 import { addUserToChannel } from './chat-channels'
 import { deleteInvite } from './invites'
 
@@ -52,7 +52,7 @@ class User {
       this.id = result.rows[0].id
       this._fromDb = true
       await deleteInvite(client, this.email)
-      const userPermissions = await permissions.create(client, this.id)
+      const userPermissions = await createPermissions(client, this.id)
       await addUserToChannel(this.id, 'ShieldBattery', client)
       return { user: this, permissions: userPermissions }
     })
