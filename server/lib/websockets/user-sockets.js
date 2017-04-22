@@ -1,15 +1,17 @@
-import { List, Map, Set } from 'immutable'
+import { Map, Set } from 'immutable'
 import { EventEmitter } from 'events'
 import { updateOrInsertUserIp } from '../models/user-ips'
 import getAddress from './get-address'
 
 function defaultDataGetter() {}
 
-export class UserSocketGroup extends EventEmitter {
+class SocketGroup extends EventEmitter {
   constructor(nydus, session, initSocket) {
     super()
     this.nydus = nydus
     this.name = session.userName
+    this.userId = session.userId
+    this.clientId = session.clientId
     this.session = session
     this.sockets = new Set()
     this.subscriptions = new Map()
@@ -98,12 +100,11 @@ export class UserManager extends EventEmitter {
     this.nydus = nydus
     this.sessionLookup = sessionLookup
     this.users = new Map()
-    this.newUserListeners = new List()
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)
       const userName = session.userName
       if (!this.users.has(userName)) {
-        const user = new UserSocketGroup(this.nydus, session, socket)
+        const user = new SocketGroup(this.nydus, session, socket)
         this.users = this.users.set(userName, user)
         this.emit('newUser', user)
         user.once('close', () => this._removeUser(userName))
@@ -115,21 +116,6 @@ export class UserManager extends EventEmitter {
         // Can't log without creating a context here, so we just drop these. Bleh.
       })
     })
-  }
-
-  // Adds a listener for when new users connect to the server (users that had no other sockets
-  // connected previously). Returns a function that can be used to unsubscribe the listener.
-  addNewUserListener(listener) {
-    this.newUserListeners = this.newUserListeners.push(listener)
-    let called = false
-    return () => {
-      if (called) return
-      called = true
-      const index = this.newUserListeners.findIndex(l => l === listener)
-      if (index >= 0) {
-        this.newUserListeners = this.newUserListeners.delete(index)
-      }
-    }
   }
 
   getByName(name) {
@@ -148,6 +134,51 @@ export class UserManager extends EventEmitter {
   }
 }
 
-export default function(nydus, sessionLookup) {
+export class ClientManager extends EventEmitter {
+  constructor(nydus, sessionLookup) {
+    super()
+    this.nydus = nydus
+    this.sessionLookup = sessionLookup
+    this.clients = new Map()
+    this.nydus.on('connection', socket => {
+      const session = this.sessionLookup.get(socket.conn.request)
+      const userClientId = `${session.userId}|${session.clientId}`
+      if (!this.clients.has(userClientId)) {
+        const client = new SocketGroup(this.nydus, session, socket)
+        this.clients = this.clients.set(userClientId, client)
+        client.once('close', () => this._removeClient(userClientId))
+      } else {
+        this.clients.get(userClientId).add(socket)
+      }
+    })
+  }
+
+  getCurrentClient(socket) {
+    const session = this.sessionLookup.get(socket.conn.request)
+    const userClientId = `${session.userId}|${session.clientId}`
+    return this.clients.get(userClientId)
+  }
+
+  // Returns socket groups for a particular user that are not currently active, ie. user's clients
+  // that they're not currently using
+  getIdleClients(socket) {
+    const session = this.sessionLookup.get(socket.conn.request)
+    return this.clients.filter((socketGroup, userClientId) => {
+      const [userId, clientId] = userClientId.split('|')
+      return userId === session.userId && clientId !== session.clientId
+    })
+  }
+
+  _removeClient(userClientId) {
+    this.clients = this.clients.delete(userClientId)
+    return this
+  }
+}
+
+export function createUserSockets(nydus, sessionLookup) {
   return new UserManager(nydus, sessionLookup)
+}
+
+export function createClientSockets(nydus, sessionLookup) {
+  return new ClientManager(nydus, sessionLookup)
 }

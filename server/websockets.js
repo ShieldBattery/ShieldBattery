@@ -4,7 +4,7 @@ import fs from 'fs'
 import co from 'co'
 import uid from 'cuid'
 import getAddress from './lib/websockets/get-address'
-import createUserSockets from './lib/websockets/user-sockets'
+import { createUserSockets, createClientSockets } from './lib/websockets/user-sockets'
 import log from './lib/logging/logger'
 import config from './config'
 
@@ -31,9 +31,10 @@ class WebsocketServer {
       allowRequest: (info, cb) => this.onAuthorization(info, cb)
     })
     this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
+    this.clientSockets = createClientSockets(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
-      handler(this.nydus, this.userSockets)
+      handler(this.nydus, this.userSockets, this.clientSockets)
     }
 
     this.userSockets
@@ -73,6 +74,7 @@ class WebsocketServer {
       const handshakeData = {
         sessionId: ctx.sessionId,
         userId: ctx.session.userId,
+        clientId: ctx.query.clientId,
         userName: ctx.session.userName,
         address: getAddress(req),
       }
