@@ -62,7 +62,7 @@ const COLORS = [
 function hashStr(str) {
   if (!str) return 0
   let result = 0
-  for (const c of str) {
+  for (const c of Array.from(str)) {
     result += (result << 5) + c.charCodeAt(0)
   }
   return result >>> 0
