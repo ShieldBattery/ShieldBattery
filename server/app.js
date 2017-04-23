@@ -134,7 +134,7 @@ process.on('unhandledRejection', err => {
 
 app
   .use(logMiddleware())
-  .use(koaConvert(koaError())) // TODO(tec27): Customize error view
+  .use(koaError()) // TODO(tec27): Customize error view
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())

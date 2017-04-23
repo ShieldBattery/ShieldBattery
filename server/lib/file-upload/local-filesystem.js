@@ -1,6 +1,5 @@
 import config from '../../config'
 import fs from 'fs'
-import koaConvert from 'koa-convert'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
 import path from 'path'
@@ -62,6 +61,6 @@ export default class LocalFsStore {
   }
 
   addMiddleware(app) {
-    app.use(koaMount('/files', koaConvert(koaStatic(this.path))))
+    app.use(koaMount('/files', koaStatic(this.path)))
   }
 }
