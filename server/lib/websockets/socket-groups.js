@@ -10,8 +10,6 @@ class SocketGroup extends EventEmitter {
     super()
     this.nydus = nydus
     this.name = session.userName
-    this.userId = session.userId
-    this.clientId = session.clientId
     this.session = session
     this.sockets = new Set()
     this.subscriptions = new Map()
@@ -21,12 +19,12 @@ class SocketGroup extends EventEmitter {
     }
   }
 
-  add(socket) {
+  add(socket, type) {
     const newSockets = this.sockets.add(socket)
     if (newSockets !== this.sockets) {
       this.sockets = newSockets
       socket.once('close', () => this.delete(socket))
-      this._applySubscriptions(socket)
+      this._applySubscriptions(socket, type)
       this.emit('connection', this, socket)
     }
   }
@@ -45,11 +43,11 @@ class SocketGroup extends EventEmitter {
     }
   }
 
-  // Adds a subscription to all sockets for this user, including any sockets that may connect
-  // after this. `initialDataGetter` should either be undefined, or a function(user, socket)
-  // that returns the initialData to use for a subscribe call. `cleanup` should either be
-  // null/undefined, or a function(user) that will be called when the user has disconnected
-  // completely.
+  // Adds a subscription to all sockets for this socket group, including any sockets that may
+  // connect after this. `initialDataGetter` should either be undefined, or a
+  // function(socketGroup, socket) that returns the initialData to use for a subscribe call.
+  // `cleanup` should either be null/undefined, or a function(socketGroup) that will be called when
+  // every socket in the socket group has disconnected.
   subscribe(path, initialDataGetter = defaultDataGetter, cleanup) {
     if (this.subscriptions.has(path)) {
       throw new Error('duplicate persistent subscription: ' + path)
@@ -64,13 +62,18 @@ class SocketGroup extends EventEmitter {
     }
   }
 
-  _applySubscriptions(socket) {
+  _applySubscriptions(socket, type) {
     for (const [path, { getter }] of this.subscriptions.entries()) {
       this.nydus.subscribeClient(socket, path, getter(this, socket))
     }
 
-    // Give the client a message so they know we're done subscribing them to things
-    this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribed' })
+    // Give the user and each of their clients a message so they know we're done subscribing them to
+    // things
+    if (type === 'user') {
+      this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribedUser' })
+    } else if (type === 'client') {
+      this.nydus.publish(this.getUserPath(), { type: 'subscribedClient' })
+    }
   }
 
   _applyCleanups() {
@@ -94,6 +97,28 @@ class SocketGroup extends EventEmitter {
   }
 }
 
+export class UserSocketsGroup extends SocketGroup {
+  constructor(nydus, session, socket) {
+    super(nydus, session, socket)
+  }
+
+  add(socket) {
+    super.add(socket, 'user')
+  }
+}
+
+export class ClientSocketsGroup extends SocketGroup {
+  constructor(nydus, session, socket) {
+    super(nydus, session, socket)
+    this.userId = session.userId
+    this.clientId = session.clientId
+  }
+
+  add(socket) {
+    super.add(socket, 'client')
+  }
+}
+
 export class UserManager extends EventEmitter {
   constructor(nydus, sessionLookup) {
     super()
@@ -104,7 +129,7 @@ export class UserManager extends EventEmitter {
       const session = this.sessionLookup.get(socket.conn.request)
       const userName = session.userName
       if (!this.users.has(userName)) {
-        const user = new SocketGroup(this.nydus, session, socket)
+        const user = new UserSocketsGroup(this.nydus, session, socket)
         this.users = this.users.set(userName, user)
         this.emit('newUser', user)
         user.once('close', () => this._removeUser(userName))
@@ -144,7 +169,7 @@ export class ClientManager extends EventEmitter {
       const session = this.sessionLookup.get(socket.conn.request)
       const userClientId = `${session.userId}|${session.clientId}`
       if (!this.clients.has(userClientId)) {
-        const client = new SocketGroup(this.nydus, session, socket)
+        const client = new ClientSocketsGroup(this.nydus, session, socket)
         this.clients = this.clients.set(userClientId, client)
         client.once('close', () => this._removeClient(userClientId))
       } else {
@@ -157,16 +182,6 @@ export class ClientManager extends EventEmitter {
     const session = this.sessionLookup.get(socket.conn.request)
     const userClientId = `${session.userId}|${session.clientId}`
     return this.clients.get(userClientId)
-  }
-
-  // Returns socket groups for a particular user that are not currently active, ie. user's clients
-  // that they're not currently using
-  getIdleClients(socket) {
-    const session = this.sessionLookup.get(socket.conn.request)
-    return this.clients.filter((socketGroup, userClientId) => {
-      const [userId, clientId] = userClientId.split('|')
-      return userId === session.userId && clientId !== session.clientId
-    })
   }
 
   _removeClient(userClientId) {

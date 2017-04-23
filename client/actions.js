@@ -181,6 +181,8 @@ export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 export const LOBBY_UPDATE_SLOT_CHANGE = 'LOBBY_UPDATE_SLOT_CHANGE'
 // A new slot has been created in a lobby we're in (this could indicate player joining)
 export const LOBBY_UPDATE_SLOT_CREATE = 'LOBBY_UPDATE_SLOT_CREATE'
+// Our status has changed, ie. one of our clients either joined or left the lobby
+export const LOBBY_UPDATE_STATUS = 'LOBBY_UPDATE_STATUS'
 
 // We are starting the process of saving the settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'
@@ -233,9 +235,11 @@ export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
 // current path is a version we are compatible with
 export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
 
-// The server has finished subscribing us to the things we need to be (e.g. lobbies) and giving us
-// initial data
-export const SUBSCRIPTIONS_LOADING_COMPLETE = 'SUBSCRIPTIONS_LOADING_COMPLETE'
+// The server has finished subscribing this particular client to the things it needs to be in (e.g.
+// lobbies) and giving it initial data
+export const SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE = 'SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE'
+// The server has finished subscribing this user (accross clients) to the things it needs
+export const SUBSCRIPTIONS_USER_LOADING_COMPLETE = 'SUBSCRIPTIONS_USER_LOADING_COMPLETE'
 
 // The auto-updater has found that a new version is available and a download is in progress
 export const UPDATER_NEW_VERSION_FOUND = 'UPDATER_NEW_VERSION_FOUND'

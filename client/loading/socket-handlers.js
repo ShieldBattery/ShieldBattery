@@ -1,7 +1,8 @@
 import { dispatch } from '../dispatch-registry'
 import {
   CHAT_LOADING_COMPLETE,
-  SUBSCRIPTIONS_LOADING_COMPLETE,
+  SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE,
+  SUBSCRIPTIONS_USER_LOADING_COMPLETE,
   WHISPERS_LOADING_COMPLETE,
 } from '../actions'
 
@@ -12,9 +13,15 @@ const eventToAction = {
     }
   },
 
-  subscribed() {
+  subscribedClient() {
     return {
-      type: SUBSCRIPTIONS_LOADING_COMPLETE,
+      type: SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE,
+    }
+  },
+
+  subscribedUser() {
+    return {
+      type: SUBSCRIPTIONS_USER_LOADING_COMPLETE,
     }
   },
 
