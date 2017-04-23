@@ -7,8 +7,6 @@ import path from 'path'
 import isDev from 'electron-is-dev'
 import logger from './logger'
 
-// Set a proper app name, since our build setup makes the one in our package.json innaccurate
-app.setName(path.basename(getUserDataPath()))
 app.setAppUserModelId('net.shieldbattery.client')
 
 import url from 'url'

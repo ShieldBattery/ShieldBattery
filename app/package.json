@@ -22,6 +22,7 @@
     "electron-updater": "^1.6.4",
     "mkdirp": "^0.5.1",
     "nan": "^2.5.0",
+    "sanitize-filename": "^1.6.1",
     "thenify": "^3.2.1",
     "winreg": "^1.2.2"
   },
