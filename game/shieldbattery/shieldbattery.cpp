@@ -26,6 +26,7 @@ const bool AWAIT_DEBUGGER = false;
 
 using std::queue;
 using std::string;
+using std::wstring;
 using std::vector;
 
 namespace sbat {
@@ -140,44 +141,60 @@ NODE_EXTERN void QueueWorkForUiThread(void* arg,
 
 void StartNode(void* arg) {
   HMODULE module_handle;
-  char path[MAX_PATH];
+  wchar_t path[MAX_PATH];
   GetModuleHandleExA(
       GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
       reinterpret_cast<LPCSTR>(&StartNode), &module_handle);
-  GetModuleFileNameA(module_handle, path, sizeof(path));
+  GetModuleFileNameW(module_handle, path, sizeof(path));
 
-  string pathString(path);
-  string::size_type slashPos = string(path).find_last_of("\\/");
-  string scriptPath = pathString.substr(0, slashPos).append("\\index.js");
-  vector<char> scriptPathArg(scriptPath.begin(), scriptPath.end());
+  wstring pathString(path);
+  wstring::size_type slashPos = wstring(path).find_last_of(L"\\/");
+  wstring scriptPath = pathString.substr(0, slashPos).append(L"\\index.js");
+  vector<wchar_t> scriptPathArg(scriptPath.begin(), scriptPath.end());
   scriptPathArg.push_back('\0');
 
   wchar_t** processArgs;
   int numProcessArgs;
   processArgs = CommandLineToArgvW(GetCommandLineW(), &numProcessArgs);
   assert(numProcessArgs >= 2);
-  const wchar_t* wideGameId = processArgs[0];
-  size_t wideLen = wcslen(wideGameId);
-  char* gameId = new char[wideLen + 1];
-  size_t numConverted;
-  wcstombs_s(&numConverted, gameId, wideLen + 1, wideGameId, wideLen);
+  wchar_t* gameId = processArgs[0];
+  wchar_t* port = processArgs[1];
 
-  const wchar_t* widePort = processArgs[1];
-  wideLen = wcslen(wideGameId);
-  char* port = new char[wideLen + 1];
-  wcstombs_s(&numConverted, port, wideLen + 1, widePort, wideLen);
-
-  vector<char*> argv;
+  vector<wchar_t*> argv;
   argv.push_back(path);
   if (NODE_DEBUG) {
-    argv.push_back("--debug=5858");
+    argv.push_back(L"--debug=5858");
   }
   argv.push_back(&scriptPathArg[0]);
-  argv.push_back("shieldbattery");
+  argv.push_back(L"shieldbattery");
   argv.push_back(gameId);
   argv.push_back(port);
 
-  node::Start(argv.size(), &argv[0]);
+  // Convert argv to to UTF8
+  vector<char*> utf8_argv;
+  std::transform(argv.begin(), argv.end(), std::back_inserter(utf8_argv), [](wchar_t* arg) {
+    // Compute the size of the required buffer
+    DWORD size = WideCharToMultiByte(CP_UTF8, 0, arg, -1, nullptr, 0, nullptr, nullptr);
+    if (size == 0) {
+      // This should never happen.
+      fprintf(stderr, "Could not convert arguments to utf8.");
+      exit(1);
+    }
+
+    // Do the actual conversion
+    char* utf8_arg = new char[size];
+    DWORD result = WideCharToMultiByte(CP_UTF8, 0, arg, -1, utf8_arg, size, nullptr, nullptr);
+    if (result == 0) {
+      // This should never happen.
+      fprintf(stderr, "Could not convert arguments to utf8.");
+      exit(1);
+    }
+
+    return utf8_arg;
+  });
+  utf8_argv.push_back(nullptr);
+
+  node::Start(utf8_argv.size() - 1, &utf8_argv[0]);  
 
   delete[] gameId;
 
