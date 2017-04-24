@@ -14,8 +14,10 @@ files:
 - "!node_modules/devtron/**/*"
 - "!node_modules/highlight.js/**/*"
 - "!node_modules/humanize-plus/**/*"
-# babel-preset-env brings in caniuse-db, but its not necessary at runtime in our app
-- "!node_modules/caniuse-db/**/*"
+# babel-preset-env brings in caniuse-db, but its not necessary at runtime in our app (as long as we
+# also remove browserslist so it doesn't try to require it)
+- "!node_modules/browserslist/**/*"
+- "!node_modules/caniuse-db/**/*""
 nsis:
   artifactName: "${productName}-setup-${version}.${ext}"
 win:
