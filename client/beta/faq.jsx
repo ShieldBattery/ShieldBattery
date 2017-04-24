@@ -55,10 +55,9 @@ const questions = [
   {
     question: 'What are the system requirements to play on ShieldBattery?',
     answer: <ul>
-      <li>A computer running Windows Vista or later</li>
+      <li>A computer running Windows 7 or later</li>
       <li>A graphics card that supports either DirectX 10+ or OpenGL 3.1+</li>
-      <li>A modern browser (Chrome, Firefox, Opera, or IE10+ should all work)</li>
-      <li>A Brood War installation, patched to the latest version (1.16.1)</li>
+      <li>A Brood War installation, patched to version 1.16.1 or greater</li>
     </ul>,
   },
   {
