@@ -1,0 +1,19 @@
+@value subhead from '../styles/typography.css';
+
+.headerText {
+  composes: subhead;
+  margin-top: 0;
+}
+
+.loadingArea {
+  width: 100%;
+  text-align: center;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+.errorMessage {
+  composes: subhead;
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
