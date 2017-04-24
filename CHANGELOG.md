@@ -6,6 +6,11 @@ so we won't actually be using that yet, but we do support transparently converti
 installations back to a pristine 1.16.1 copy automatically (without affecting your installation in
 any way). Feel free to point things to your updated copy in the settings, and/or stop having to
 maintain two separate installations just to use our service.
+- **When did you join this channel?** Now you can easily see! There is now a line in chat that
+indicates when you connected to the channel, so you can easily see how people change their demeanor
+when you're around.
+- **In your face, user.** If you try to launch the app when it's already running the background, the
+original app will actually be brought to the front now.
 - **B̈étte̋r character support.** Users with non-latin characters in their Windows usernames should
 have a 1000x better time launching games now. As in they'll actually work again. Whoops.
 - **FAQ accuracy.** The FAQ has been updated to be more accurate towards our actual requirements,
