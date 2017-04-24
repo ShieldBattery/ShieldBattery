@@ -10,7 +10,7 @@ export default function(router) {
   router
     .post('/', ensureLoggedIn,
         checkAllPermissions('manageStarcraftPatches'), handleMultipartFiles, uploadPatch)
-    .get('/:filename/:hash', ensureLoggedIn, getPatchInfo)
+    .get('/:filename/:hash', getPatchInfo)
 }
 
 function patchPath(hash, filename) {
