@@ -258,12 +258,13 @@ async function doLaunch(gameId, serverPort, settings) {
         JSON.stringify(checkResult))
   }
 
+  const userDataPath = remote.app.getPath('userData')
   const appPath =
       path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   const proc = await launchProcess({
     appPath,
-    args: `${gameId} ${serverPort}`,
+    args: `${gameId} ${serverPort} "${userDataPath}"`,
     launchSuspended: true,
     currentDir: starcraftPath,
     environment: [

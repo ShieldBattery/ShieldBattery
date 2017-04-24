@@ -156,9 +156,10 @@ void StartNode(void* arg) {
   wchar_t** processArgs;
   int numProcessArgs;
   processArgs = CommandLineToArgvW(GetCommandLineW(), &numProcessArgs);
-  assert(numProcessArgs >= 2);
+  assert(numProcessArgs >= 3);
   wchar_t* gameId = processArgs[0];
   wchar_t* port = processArgs[1];
+  wchar_t* userDataPath = processArgs[2];
 
   vector<wchar_t*> argv;
   argv.push_back(path);
@@ -169,6 +170,7 @@ void StartNode(void* arg) {
   argv.push_back(L"shieldbattery");
   argv.push_back(gameId);
   argv.push_back(port);
+  argv.push_back(userDataPath);
 
   // Convert argv to to UTF8
   vector<char*> utf8_argv;

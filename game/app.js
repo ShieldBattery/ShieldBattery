@@ -27,8 +27,8 @@ import nydusClient from 'nydus-client'
 import forge from './js/natives/forge'
 import initGame from './js/init-game'
 
-const port = process.argv[process.argv.length - 1]
-const gameId = process.argv[process.argv.length - 2]
+const port = process.argv[process.argv.length - 2]
+const gameId = process.argv[process.argv.length - 3]
 log.verbose(`Connecting to game server on port ${port} with game ID ${gameId}`)
 const socket = nydusClient(`ws://localhost:${port}`, {
   extraHeaders: {
