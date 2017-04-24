@@ -9,11 +9,11 @@ import {
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
-const { checkStarcraftPath } = process.webpackEnv.SB_ENV === 'electron' ?
-    require('../settings/check-starcraft-path') :
+const checkStarcraftPath = process.webpackEnv.SB_ENV === 'electron' ?
+    require('../settings/check-starcraft-path').checkStarcraftPath :
     null
-const { patchStarcraftDir } = process.webpackEnv.SB_ENV === 'electron' ?
-    require('../settings/patch-starcraft') :
+const patchStarcraftDir = process.webpackEnv.SB_ENV === 'electron' ?
+    require('../settings/patch-starcraft').patchStarcraftDir :
     null
 
 export function hasValidStarcraftPath({ starcraft }) {
