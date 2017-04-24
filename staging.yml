@@ -14,11 +14,10 @@ files:
 - "!node_modules/devtron/**/*"
 - "!node_modules/highlight.js/**/*"
 - "!node_modules/humanize-plus/**/*"
+# babel-preset-env brings in caniuse-db, but its not necessary at runtime in our app
+- "!node_modules/caniuse-db/**/*"
 nsis:
   artifactName: "${productName}-setup-${version}.${ext}"
-  # There's currently a bug with Windows Defender that makes it slow things down considerably if
-  # NSIS is in unicode mode
-  unicode: false
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
 win:
