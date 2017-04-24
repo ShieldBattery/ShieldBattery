@@ -1,3 +1,16 @@
+#### 6.1.0 (April 24th, 2017)
+
+- **Support for newer game installs.** We can now handle installs of newer versions of StarCraft
+than 1.16.1! We're of the opinion that 1.18 would be a downgrade for existing ShieldBattery users,
+so we won't actually be using that yet, but we do support transparently converting newer
+installations back to a pristine 1.16.1 copy automatically (without affecting your installation in
+any way). Feel free to point things to your updated copy in the settings, and/or stop having to
+maintain two separate installations just to use our service.
+- **B̈étte̋r character support.** Users with non-latin characters in their Windows usernames should
+have a 1000x better time launching games now. As in they'll actually work again. Whoops.
+- **FAQ accuracy.** The FAQ has been updated to be more accurate towards our actual requirements,
+as well as to provide a link to the (Now free! Now working with ShieldBattery!) Brood War download.
+
 #### 6.0.0 (April 3rd, 2017)
 
 - **Maps. Again. But better.** We've been hard at work implementing a new maps backend that can be
