@@ -20,16 +20,13 @@ async function checkHash(path, validHashes) {
   try {
     hash = await getFileHash(path)
   } catch (err) {
-    logger.error(`Error hashing ${path}: ${err}`)
+    if (err.code !== 'ENOENT') {
+      logger.error(`Error hashing ${path}: ${err}`)
+    }
     return false
   }
 
-  const matches = validHashes.includes(hash)
-  if (!matches) {
-    logger.warning(`${path} has non-matching hash: ${hash}`)
-  }
-
-  return matches
+  return validHashes.includes(hash)
 }
 
 // Returns whether or not a StarCraft path is valid, along with whether or not the versions of
