@@ -73,6 +73,12 @@
   color: colorTextFaint;
 }
 
+.separatedInfoMessage {
+  composes: infoMessage;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
 .infoDivider {
   border: none;
   border-top: 1px solid colorDividers;

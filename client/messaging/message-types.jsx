@@ -49,7 +49,7 @@ export class NewChannelOwnerMessage extends BaseMessage {
 export class SelfJoinChannelMessage extends BaseMessage {
   render() {
     const { channel } = this.props.record
-    return (<InfoMessageLayout className={styles.infoMessage}>
+    return (<InfoMessageLayout className={styles.separatedInfoMessage}>
       <span>
         You joined <span className={styles.infoImportant}>#{channel}</span>
       </span>
