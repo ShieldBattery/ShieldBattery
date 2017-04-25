@@ -251,17 +251,24 @@ class GameInitializer {
 
   async waitForPlayers() {
     const players = this.lobbyConfig.slots
-        .filter(slot => slot.type === 'human' || slot.type === 'observer')
+        .filter(slot => slot.type === 'human')
+        .map(p => p.name)
+    const observers = this.lobbyConfig.slots
+        .filter(slot => slot.type === 'observer')
         .map(p => p.name)
 
     const hasAllPlayers = () => {
       const playerSlots = bw.slots.filter(s => s.type === 'human')
       const waitingFor = players.filter(p => !playerSlots.find(s => s.name === p && s.stormId < 8))
-      if (!waitingFor.length) {
+
+      const stormNames = bw.getStormPlayerNames()
+      const observerWaitingFor = observers.filter(o => !stormNames.find(name => name === o))
+      if (!waitingFor.length && !observerWaitingFor.length) {
         return true
       } else {
-        this.notifyProgress(GAME_STATUS_AWAITING_PLAYERS, waitingFor)
-        log.debug(`Waiting for players: ${waitingFor.join(', ')}`)
+        const allWaiting = waitingFor.concat(observerWaitingFor)
+        this.notifyProgress(GAME_STATUS_AWAITING_PLAYERS, allWaiting)
+        log.debug(`Waiting for players: ${allWaiting.join(', ')}`)
         return false
       }
     }
@@ -321,7 +328,7 @@ class GameInitializer {
       const slot = isUms(gameType) ? bw.slots[lobbySlot.playerId] : bw.slots[i]
 
       slot.playerId = isUms(gameType) ? lobbySlot.playerId : i
-      slot.stormId = lobbySlot.type === 'human' || lobbySlot.type === 'observer' ? 27 : 0xFF
+      slot.stormId = lobbySlot.type === 'human' ? 27 : 0xFF
       slot.race = getBwRace(lobbySlot.race)
       // This typeId check is completely ridiculous and doesn't make sense, but that gives
       // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
@@ -330,7 +337,7 @@ class GameInitializer {
         slot.team = lobbySlot.teamId
       }
       slot.name = lobbySlot.name
-      if (isUms(gameType) && lobbySlot.type !== 'human' && lobbySlot.type !== 'observer') {
+      if (isUms(gameType) && lobbySlot.type !== 'human') {
         // The type of UMS computers is set in the map file, and we have no reason to
         // worry about the various possibilities there are, so just pass the integer onwards.
         slot.typeId = lobbySlot.typeId
