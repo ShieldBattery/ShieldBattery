@@ -1,29 +1,25 @@
-import { DIALOG_OPEN, DIALOG_CLOSE } from '../actions'
 import { Record } from 'immutable'
+import { DIALOG_OPEN, DIALOG_CLOSE } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const Dialog = new Record({
   isDialogOpened: false,
   dialogType: null,
+  simpleTitle: '',
+  simpleContent: '',
 })
 
-const initialState = new Dialog()
+export default keyedReducer(new Dialog(), {
+  [DIALOG_OPEN](state, action) {
+    return new Dialog({
+      isDialogOpened: true,
+      dialogType: action.payload.dialogType,
+      simpleTitle: action.payload.simpleTitle,
+      simpleContent: action.payload.simpleContent,
+    })
+  },
 
-function open(state, action) {
-  return new Dialog({
-    isDialogOpened: true,
-    dialogType: action.dialogType,
-  })
-}
-
-function close(state, action) {
-  return new Dialog()
-}
-
-const handlers = {
-  [DIALOG_OPEN]: open,
-  [DIALOG_CLOSE]: close,
-}
-
-export default function dialogReducer(state = initialState, action) {
-  return handlers[action.type] ? handlers[action.type](state, action) : state
-}
+  [DIALOG_CLOSE](state, action) {
+    return new Dialog()
+  },
+})

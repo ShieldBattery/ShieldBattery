@@ -1,8 +1,12 @@
+import fs from 'fs'
 import { routerActions } from 'react-router-redux'
 import { List } from 'immutable'
 import cuid from 'cuid'
+import ReplayParser from 'jssuh'
+import logger from '../logging/logger'
 import readFolder from './get-files'
 import activeGameManager from '../active-game/active-game-manager-instance'
+import { openSimpleDialog } from '../dialogs/dialog-action-creator'
 import { Slot } from '../lobbies/lobby-reducer'
 import {
   REPLAYS_CHANGE_PATH,
@@ -32,9 +36,26 @@ export function getFiles(browseId, path) {
   }
 }
 
-function setGameConfig(replay, user, settings) {
+function getReplayHeader(filePath) {
+  return new Promise((resolve, reject) => {
+    const fileStream = fs.createReadStream(filePath)
+    fileStream.on('error', reject)
+
+    const parser = new ReplayParser()
+    parser.on('replayHeader', resolve)
+      .on('error', reject)
+
+    fileStream.pipe(parser)
+    parser.resume()
+  })
+}
+
+
+async function setGameConfig(replay, user, settings) {
   const player = new Slot({ type: 'human', name: user.name, id: cuid(), teamId: 0 })
   const slots = List.of(player)
+
+  const header = await getReplayHeader(replay.path)
 
   return activeGameManager.setGameConfig({
     lobby: {
@@ -47,6 +68,9 @@ function setGameConfig(replay, user, settings) {
     },
     settings,
     localUser: user,
+    setup: {
+      seed: header.seed
+    },
   })
 }
 
@@ -63,9 +87,15 @@ export function startReplay(replay) {
       payload: replay,
     })
 
-    const gameId = setGameConfig(replay, user, settings)
-    setGameRoutes(gameId)
-    dispatch(routerActions.push('/active-game'))
+    setGameConfig(replay, user, settings).then(gameId => {
+      setGameRoutes(gameId)
+      dispatch(routerActions.push('/active-game'))
+    }, err => {
+      logger.error(`Error starting replay file [${replay.path}]: ${err}`)
+      dispatch(openSimpleDialog('Error loading replay',
+          'The selected replay could not be loaded. It may either be corrupt, or was created ' +
+              'by a version of StarCraft newer than is currently supported.'))
+    })
   }
 }
 

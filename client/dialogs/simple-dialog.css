@@ -1,0 +1,7 @@
+@value subhead from '../styles/typography.css';
+
+.bodyText {
+  composes: subhead;
+  margin-top: 0;
+  margin-bottom: 0;
+}

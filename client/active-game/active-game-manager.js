@@ -5,7 +5,6 @@ import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
-import ReplayParser from 'jssuh'
 import { checkStarcraftPath } from '../settings/check-starcraft-path'
 import getDowngradePath from './get-downgrade-path'
 import log from '../logging/logger'
@@ -88,14 +87,6 @@ export default class ActiveGameManager extends EventEmitter {
     this.emit('gameCommand', gameId, 'setRoutes', routes)
   }
 
-  getReplayHeader(filename) {
-    return new Promise((resolve, reject) => {
-      const reppi = fs.createReadStream(filename).pipe(new ReplayParser())
-      reppi.on('replayHeader', resolve)
-        .on('error', reject)
-      reppi.resume()
-    })
-  }
 
   async handleGameConnected(id) {
     if (!this.activeGame || this.activeGame.id !== id) {
@@ -108,29 +99,8 @@ export default class ActiveGameManager extends EventEmitter {
     const game = this.activeGame
     this._setStatus(GAME_STATUS_CONFIGURING)
     const { map } = game.config.lobby
-    let localMap
-    if (map.isReplay) {
-      localMap = map.path
+    const localMap = map.path ? map.path : this.mapStore.getPath(map.hash, map.format)
 
-      // TODO(tec27): Do this while the game is launching, no point in waiting for it to launch
-      // before kicking the process off
-      //
-      // To be able to watch the replay correctly, we need to get the `seed` value that the game was
-      // played with
-      let header
-      try {
-        header = await this.getReplayHeader(localMap)
-      } catch (err) {
-        this.emit('gameCommand', id, 'quit')
-        log.verbose('Error parsing the replay file, sending quit command')
-        return
-      }
-      game.config.setup = {
-        seed: header.seed
-      }
-    } else {
-      localMap = this.mapStore.getPath(map.hash, map.format)
-    }
     this.emit('gameCommand', id, 'setConfig', {
       ...game.config,
       localMap,

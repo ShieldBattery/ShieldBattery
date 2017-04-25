@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import TransitionGroup from 'react-addons-css-transition-group'
+import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
 import JoinChannelDialog from '../chat/join-channel.jsx'
@@ -31,6 +32,7 @@ class ConnectedDialogOverlay extends React.Component {
       case 'download': return DownloadDialog
       case 'psiHealth': return PsiHealthCheckupDialog
       case 'settings': return Settings
+      case 'simple': return SimpleDialog
       case 'updateAvailable': return UpdateDialog
       case 'whispers': return CreateWhisperSessionDialog
       default: throw new Error('Unknown dialog type: ' + dialogType)
@@ -45,7 +47,8 @@ class ConnectedDialogOverlay extends React.Component {
     let dialogComponent
     if (dialog.isDialogOpened) {
       const DialogComponent = this.getDialogComponent(dialog.dialogType)
-      dialogComponent = <DialogComponent key='dialog' onCancel={this.onCancel}/>
+      dialogComponent = <DialogComponent key='dialog' onCancel={this.onCancel}
+          simpleTitle={dialog.simpleTitle} simpleContent={dialog.simpleContent}/>
     }
 
     return [
