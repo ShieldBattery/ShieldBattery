@@ -1,7 +1,7 @@
 {
   "name": "shieldbattery-game",
   "private": true,
-  "version": "6.1.1",
+  "version": "6.1.2",
   "description": "JS files for ShieldBattery",
   "main": "index.js",
   "scripts": {
