@@ -72,6 +72,7 @@ function stateToProps(state) {
     })),
     starcraft: state.starcraft,
     routing: state.routing,
+    winMaximized: state.settings.local.winMaximized,
   }
 }
 
@@ -146,7 +147,14 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
+    const {
+      inLobby,
+      chatChannels,
+      whispers,
+      winMaximized,
+      routing: { location: { pathname } }
+    } = this.props
+
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
             channel={c.name}
@@ -186,7 +194,7 @@ class MainLayout extends React.Component {
     ]
 
     return (<div>
-      <WindowControls className={styles.windowControls} />
+      <WindowControls winMaximized={winMaximized} className={styles.windowControls} />
       <ConnectedDialogOverlay className={styles.layout} containerClassName={styles.content}>
         <LeftNav footer={footer}>
           {this.renderActiveGameNav()}

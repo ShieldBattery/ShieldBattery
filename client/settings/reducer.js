@@ -14,6 +14,7 @@ export const LocalSettings = new Record({
   starcraftPath: null,
   gameWinX: null,
   gameWinY: null,
+  winMaximized: false,
 })
 
 export const Settings = new Record({
