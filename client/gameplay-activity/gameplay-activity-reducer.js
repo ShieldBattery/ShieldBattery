@@ -4,14 +4,19 @@ import {
   LOBBY_UPDATE_STATUS,
 } from '../actions'
 
-export const GameplayActivity = new Record({
-  isInGameplayActivity: false,
+const BaseGameplayActivity = new Record({
+  gameplayActivity: null,
 })
+export class GameplayActivity extends BaseGameplayActivity {
+  get inGameplayActivity() {
+    return !!this.gameplayActivity
+  }
+}
 
 export default keyedReducer(new GameplayActivity(), {
   [LOBBY_UPDATE_STATUS](state, action) {
-    const { isInLobby } = action.payload
+    const { source } = action.payload
 
-    return state.set('isInGameplayActivity', isInLobby)
+    return state.set('gameplayActivity', source)
   }
 })

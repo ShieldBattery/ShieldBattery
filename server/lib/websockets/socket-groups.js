@@ -19,12 +19,11 @@ class SocketGroup extends EventEmitter {
     }
   }
 
-  add(socket, type) {
+  add(socket) {
     const newSockets = this.sockets.add(socket)
     if (newSockets !== this.sockets) {
       this.sockets = newSockets
       socket.once('close', () => this.delete(socket))
-      this._applySubscriptions(socket, type)
       this.emit('connection', this, socket)
     }
   }
@@ -66,14 +65,6 @@ class SocketGroup extends EventEmitter {
     for (const [path, { getter }] of this.subscriptions.entries()) {
       this.nydus.subscribeClient(socket, path, getter(this, socket))
     }
-
-    // Give the user and each of their clients a message so they know we're done subscribing them to
-    // things
-    if (type === 'user') {
-      this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribedUser' })
-    } else if (type === 'client') {
-      this.nydus.publish(this.getUserPath(), { type: 'subscribedClient' })
-    }
   }
 
   _applyCleanups() {
@@ -91,10 +82,6 @@ class SocketGroup extends EventEmitter {
     }
     this.subscriptions = updated
   }
-
-  getUserPath() {
-    return `/users/${this.session.userId}`
-  }
 }
 
 export class UserSocketsGroup extends SocketGroup {
@@ -103,7 +90,14 @@ export class UserSocketsGroup extends SocketGroup {
   }
 
   add(socket) {
-    super.add(socket, 'user')
+    super.add(socket)
+    super._applySubscriptions(socket)
+    // Give the user a message so they know we're done subscribing them to things
+    this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribedUser' })
+  }
+
+  getUserPath() {
+    return `/users/${this.session.userId}`
   }
 }
 
@@ -115,7 +109,13 @@ export class ClientSocketsGroup extends SocketGroup {
   }
 
   add(socket) {
-    super.add(socket, 'client')
+    super.add(socket)
+    super._applySubscriptions(socket)
+    this.nydus.subscribeClient(socket, this.getClientPath(), { type: 'subscribedClient' })
+  }
+
+  getClientPath() {
+    return `/clients/${this.session.clientId}`
   }
 }
 

@@ -218,7 +218,7 @@ export class LobbyApi {
     user.subscribe(LobbyApi._getUserPath(lobby, user.name), () => {
       return {
         type: 'status',
-        isInLobby: true,
+        source: 'lobby',
       }
     })
     client.subscribe(LobbyApi._getClientPath(lobby, client))
@@ -478,7 +478,7 @@ export class LobbyApi {
   @Api('/leave')
   async leave(data, next) {
     const user = this.getUser(data)
-    const client = this.getClient(data)
+    const client = this.getClientByName(user.name)
     const lobby = this.getLobbyForClient(client)
     this._removeClientFromLobby(lobby, user, client)
   }
@@ -504,7 +504,7 @@ export class LobbyApi {
 
     this._publishToUser(lobby, user.name, {
       type: 'status',
-      isInLobby: false,
+      source: null,
     })
 
     user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
@@ -712,7 +712,7 @@ export class LobbyApi {
           const user = this.getUserByName(client.name)
           this._publishToUser(lobby, user.name, {
             type: 'status',
-            isInLobby: false,
+            source: null,
           })
           user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
           client.unsubscribe(LobbyApi._getPath(lobby))

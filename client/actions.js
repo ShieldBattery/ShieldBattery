@@ -238,7 +238,7 @@ export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
 // The server has finished subscribing this particular client to the things it needs to be in (e.g.
 // lobbies) and giving it initial data
 export const SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE = 'SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE'
-// The server has finished subscribing this user (accross clients) to the things it needs
+// The server has finished subscribing this user (across clients) to the things it needs
 export const SUBSCRIPTIONS_USER_LOADING_COMPLETE = 'SUBSCRIPTIONS_USER_LOADING_COMPLETE'
 
 // The auto-updater has found that a new version is available and a download is in progress

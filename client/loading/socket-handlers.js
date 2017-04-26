@@ -33,10 +33,12 @@ const eventToAction = {
 }
 
 export default function registerModule({ siteSocket }) {
-  siteSocket.registerRoute('/users/:userId/:area?', (route, event) => {
+  const loadingHandler = (route, event) => {
     if (!eventToAction[event.type]) return
 
     const action = eventToAction[event.type](event, siteSocket)
     if (action) dispatch(action)
-  })
+  }
+  siteSocket.registerRoute('/users/:userId/:area?', loadingHandler)
+  siteSocket.registerRoute('/clients/:clientId/:area?', loadingHandler)
 }

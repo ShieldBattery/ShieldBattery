@@ -62,7 +62,7 @@ function stateToProps(state) {
     inLobby: state.lobby.inLobby,
     lobby: state.lobby.inLobby ?
         { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
-    isInGameplayActivity: state.gameplayActivity.isInGameplayActivity,
+    inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
       hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
@@ -148,7 +148,7 @@ class MainLayout extends React.Component {
 
   render() {
     const {
-      isInGameplayActivity,
+      inGameplayActivity,
       chatChannels,
       whispers,
       routing: { location: { pathname } }
@@ -178,7 +178,7 @@ class MainLayout extends React.Component {
       <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
           onClick={this.onFindMatchClick} />,
       <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
-          onClick={this.onCreateLobbyClick} disabled={isInGameplayActivity} keycode={KEY_C}
+          onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
           altKey={true} />,
       <HotkeyedActivityButton key='join-game' icon={<JoinGameIcon />} label='Join'
           onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />,
