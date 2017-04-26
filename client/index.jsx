@@ -40,6 +40,10 @@ import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
 import fetch from './network/fetch'
+import audioManager from './audio/audio-manager-instance'
+import {
+  AUDIO_MANAGER_INITIALIZED
+} from './actions'
 import {
   UPDATE_SERVER,
   UPDATE_SERVER_COMPLETE
@@ -74,7 +78,9 @@ const updatedServerPromise = new Promise(resolve => {
   ipcRenderer.send(UPDATE_SERVER, makeServerUrl(''))
 })
 
-Promise.all([ rootElemPromise, updatedServerPromise ]).then(([ elem ]) => {
+const initAudioPromise = audioManager ? audioManager.initialize() : Promise.resolve()
+
+Promise.all([ rootElemPromise, updatedServerPromise ]).then(async ([ elem ]) => {
   const initData = window._sbInitData
   if (initData && initData.auth) {
     initData.auth = authFromJS(initData.auth)
@@ -90,6 +96,8 @@ Promise.all([ rootElemPromise, updatedServerPromise ]).then(([ elem ]) => {
   })
   registerDispatch(store.dispatch)
   registerSocketHandlers()
+
+  initAudioPromise.then(() => { store.dispatch({ type: AUDIO_MANAGER_INITIALIZED }) })
 
   return { elem, store, history }
 }).then(async ({ elem, store, history }) => {

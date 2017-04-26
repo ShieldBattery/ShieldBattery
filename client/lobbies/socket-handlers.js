@@ -29,6 +29,7 @@ import { dispatch } from '../dispatch-registry'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
+import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../app/common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 
@@ -64,10 +65,16 @@ const eventToAction = {
     }
   },
 
-  slotCreate: (name, event) => ({
-    type: LOBBY_UPDATE_SLOT_CREATE,
-    payload: event,
-  }),
+  slotCreate: (name, event) => {
+    if (event.slot.type === 'human') {
+      audioManager.playSound(SOUNDS.JOIN_ALERT)
+    }
+
+    return {
+      type: LOBBY_UPDATE_SLOT_CREATE,
+      payload: event,
+    }
+  },
 
   raceChange: (name, event) => ({
     type: LOBBY_UPDATE_RACE_CHANGE,
