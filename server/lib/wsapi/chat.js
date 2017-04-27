@@ -238,7 +238,7 @@ export class ChatApi {
       this._publishTo(chan, { action: 'userActive', user: user.name })
       this._subscribeUserToChannel(user, chan)
     }
-    user.subscribe(`${user.getUserPath()}/chat`, () => ({ type: 'chatReady' }))
+    user.subscribe(`${user.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
   async _handleUserQuit(userName) {

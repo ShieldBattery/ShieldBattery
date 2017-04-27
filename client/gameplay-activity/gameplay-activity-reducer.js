@@ -15,8 +15,8 @@ export class GameplayActivity extends BaseGameplayActivity {
 
 export default keyedReducer(new GameplayActivity(), {
   [LOBBY_UPDATE_STATUS](state, action) {
-    const { source } = action.payload
+    const { lobby } = action.payload
 
-    return state.set('gameplayActivity', source)
+    return state.set('gameplayActivity', lobby)
   }
 })

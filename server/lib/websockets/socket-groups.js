@@ -24,6 +24,7 @@ class SocketGroup extends EventEmitter {
     if (newSockets !== this.sockets) {
       this.sockets = newSockets
       socket.once('close', () => this.delete(socket))
+      this._applySubscriptions(socket)
       this.emit('connection', this, socket)
     }
   }
@@ -61,10 +62,13 @@ class SocketGroup extends EventEmitter {
     }
   }
 
-  _applySubscriptions(socket, type) {
+  _applySubscriptions(socket) {
     for (const [path, { getter }] of this.subscriptions.entries()) {
       this.nydus.subscribeClient(socket, path, getter(this, socket))
     }
+
+    // Give the client a message so they know we're done subscribing them to things
+    this.nydus.subscribeClient(socket, this.getPath(), { type: this.getType() })
   }
 
   _applyCleanups() {
@@ -82,6 +86,14 @@ class SocketGroup extends EventEmitter {
     }
     this.subscriptions = updated
   }
+
+  getPath() {
+    return this.getPath()
+  }
+
+  getPath() {
+    return this.getType()
+  }
 }
 
 export class UserSocketsGroup extends SocketGroup {
@@ -89,15 +101,12 @@ export class UserSocketsGroup extends SocketGroup {
     super(nydus, session, socket)
   }
 
-  add(socket) {
-    super.add(socket)
-    super._applySubscriptions(socket)
-    // Give the user a message so they know we're done subscribing them to things
-    this.nydus.subscribeClient(socket, this.getUserPath(), { type: 'subscribedUser' })
+  getPath() {
+    return `/users/${this.session.userId}`
   }
 
-  getUserPath() {
-    return `/users/${this.session.userId}`
+  getType() {
+    return 'subscribedUser'
   }
 }
 
@@ -108,14 +117,12 @@ export class ClientSocketsGroup extends SocketGroup {
     this.clientId = session.clientId
   }
 
-  add(socket) {
-    super.add(socket)
-    super._applySubscriptions(socket)
-    this.nydus.subscribeClient(socket, this.getClientPath(), { type: 'subscribedClient' })
+  getPath() {
+    return `/clients/${this.userId}|${this.session.clientId}`
   }
 
-  getClientPath() {
-    return `/clients/${this.session.clientId}`
+  getType() {
+    return 'subscribedClient'
   }
 }
 

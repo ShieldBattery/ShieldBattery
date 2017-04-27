@@ -88,6 +88,7 @@ export class LobbyApi {
     this.clientSockets = clientSockets
     this.lobbies = new Map()
     this.lobbyClients = new Map()
+    this.userClients = new Map()
     this.lobbyBannedUsers = new Map()
     this.lobbyCountdowns = new Map()
     this.pingPromises = new Map()
@@ -164,6 +165,7 @@ export class LobbyApi {
     const lobby = Lobbies.create(name, mapData, gameType, gameSubType, numSlots, client.name)
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    this.userClients = this.userClients.set(user.name, client)
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
@@ -201,6 +203,7 @@ export class LobbyApi {
     const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    this.userClients = this.userClients.set(user.name, client)
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
@@ -218,7 +221,7 @@ export class LobbyApi {
     user.subscribe(LobbyApi._getUserPath(lobby, user.name), () => {
       return {
         type: 'status',
-        source: 'lobby',
+        lobby: Lobbies.toSummaryJson(lobby),
       }
     })
     client.subscribe(LobbyApi._getClientPath(lobby, client))
@@ -501,10 +504,11 @@ export class LobbyApi {
       this._publishLobbyDiff(lobby, updatedLobby, kickedUser, bannedUser)
     }
     this.lobbyClients = this.lobbyClients.delete(client)
+    this.userClients = this.userClients.delete(user.name)
 
     this._publishToUser(lobby, user.name, {
       type: 'status',
-      source: null,
+      lobby: null,
     })
 
     user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
@@ -712,12 +716,13 @@ export class LobbyApi {
           const user = this.getUserByName(client.name)
           this._publishToUser(lobby, user.name, {
             type: 'status',
-            source: null,
+            lobby: null,
           })
           user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
           client.unsubscribe(LobbyApi._getPath(lobby))
           client.unsubscribe(LobbyApi._getClientPath(lobby, client))
           this.lobbyClients = this.lobbyClients.delete(client)
+          this.userClients = this.userClients.delete(user.name)
         })
       this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
       this.lobbies = this.lobbies.delete(lobby.name)
@@ -775,7 +780,7 @@ export class LobbyApi {
   }
 
   getClientByName(name) {
-    const client = this.lobbyClients.keySeq().find(client => client.name === name)
+    const client = this.userClients.get(name)
     if (!client) throw new errors.BadRequest('user not online')
     return client
   }
@@ -788,7 +793,7 @@ export class LobbyApi {
   }
 
   ensureNotInLobby(client) {
-    if (this.lobbyClients.keySeq().find(c => c.name === client.name)) {
+    if (this.userClients.has(client.name)) {
       throw new errors.Conflict('cannot enter multiple lobbies at once')
     }
   }

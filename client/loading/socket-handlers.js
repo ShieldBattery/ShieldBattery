@@ -40,5 +40,5 @@ export default function registerModule({ siteSocket }) {
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/users/:userId/:area?', loadingHandler)
-  siteSocket.registerRoute('/clients/:clientId/:area?', loadingHandler)
+  siteSocket.registerRoute('/clients/:userClientId/:area?', loadingHandler)
 }
