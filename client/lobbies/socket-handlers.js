@@ -36,11 +36,33 @@ import { openSnackbar } from '../snackbars/action-creators'
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
-let countdownTimer = null
-function clearCountdownTimer() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
+const countdownState = {
+  timer: null,
+  sound: null,
+  atmosphere: null,
+}
+function fadeAtmosphere(fast = true) {
+  const { atmosphere } = countdownState
+  if (atmosphere) {
+    const timing = fast ? 1.5 : 3
+    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
+    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
+    countdownState.atmosphere = null
+  }
+}
+function clearCountdownTimer(leaveAtmosphere = false) {
+  const { timer, sound, atmosphere } = countdownState
+  if (timer) {
+    clearInterval(timer)
+    countdownState.timer = null
+  }
+  if (sound) {
+    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
+    sound.source.stop(audioManager.currentTime + 0.6)
+    countdownState.sound = null
+  }
+  if (!leaveAtmosphere && atmosphere) {
+    fadeAtmosphere()
   }
 }
 
@@ -154,15 +176,17 @@ const eventToAction = {
       type: LOBBY_UPDATE_COUNTDOWN_START,
       payload: tick,
     })
+    countdownState.sound = audioManager.playFadeableSound(SOUNDS.COUNTDOWN)
+    countdownState.atmosphere = audioManager.playFadeableSound(SOUNDS.ATMOSPHERE)
 
-    countdownTimer = setInterval(() => {
+    countdownState.timer = setInterval(() => {
       tick -= 1
       dispatch({
         type: LOBBY_UPDATE_COUNTDOWN_TICK,
         payload: tick
       })
       if (!tick) {
-        clearCountdownTimer()
+        clearCountdownTimer(true /* leaveAtmosphere */)
       }
     }, 1000)
   },
@@ -175,7 +199,7 @@ const eventToAction = {
   },
 
   setupGame: (name, event) => (dispatch, getState) => {
-    clearCountdownTimer()
+    clearCountdownTimer(true /* leaveAtmosphere */)
     const {
       lobby,
       settings,
@@ -217,9 +241,13 @@ const eventToAction = {
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },
 
-  gameStarted: (name, event) => ({
-    type: LOBBY_UPDATE_GAME_STARTED,
-  }),
+  gameStarted: (name, event) => {
+    fadeAtmosphere(false /* fast */)
+
+    return {
+      type: LOBBY_UPDATE_GAME_STARTED,
+    }
+  },
 
   chat: (name, event) => {
     if (ipcRenderer) {

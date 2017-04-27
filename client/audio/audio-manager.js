@@ -8,11 +8,15 @@ const readFileAsync = thenify(fs.readFile)
 const SOUND_PATH = path.join('assets', 'sounds')
 
 const AVAILABLE_SOUNDS = {
-  JOIN_ALERT: 0
+  JOIN_ALERT: 0,
+  COUNTDOWN: 1,
+  ATMOSPHERE: 2,
 }
 const s = AVAILABLE_SOUNDS
 const SOUND_FILES = {
-  [s.JOIN_ALERT]: 'join-alert.opus'
+  [s.JOIN_ALERT]: 'join-alert.opus',
+  [s.COUNTDOWN]: 'countdown.opus',
+  [s.ATMOSPHERE]: 'atmosphere.opus',
 }
 
 export default class AudioManager {
@@ -44,23 +48,42 @@ export default class AudioManager {
     this._initialized = true
   }
 
-  // soundId is a value from AudioManager.SOUNDS
-  playSound(soundId) {
-    const buffer = this._loadedSounds[soundId]
-    if (!buffer) {
+  _getBufferSource(soundId) {
+    if (!SOUND_FILES[soundId]) {
       throw new Error('Invalid sound ID: ' + soundId)
     }
 
     const source = this._context.createBufferSource()
-
     if (!this._initialized) {
       return source
     }
 
-    source.buffer = buffer
+    source.buffer = this._loadedSounds[soundId]
+    return source
+  }
+
+  get currentTime() {
+    return this._context.currentTime
+  }
+
+  // soundId is a value from AudioManager.SOUNDS
+  // Returns the AudioBufferSourceNode
+  playSound(soundId) {
+    const source = this._getBufferSource(soundId)
     source.connect(this._nodes.masterGain)
     source.start()
-
     return source
+  }
+
+  // soundId is a value from AudioManager.SOUNDS
+  // Returns { source: AudioBufferSourceNode, gainNode: GainNode}
+  playFadeableSound(soundId) {
+    const source = this._getBufferSource(soundId)
+    const gainNode = this._context.createGain()
+
+    source.connect(gainNode)
+    gainNode.connect(this._nodes.masterGain)
+    source.start()
+    return { source, gainNode }
   }
 }
