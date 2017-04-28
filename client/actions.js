@@ -291,6 +291,3 @@ export const WHISPERS_UPDATE_USER_ACTIVE = 'WHISPERS_UPDATE_USER_ACTIVE'
 export const WHISPERS_UPDATE_USER_IDLE = 'WHISPERS_UPDATE_USER_IDLE'
 // A user in one of our whisper sessions has gone offline
 export const WHISPERS_UPDATE_USER_OFFLINE = 'WHISPERS_UPDATE_USER_OFFLINE'
-
-// The maximized state in which the window controls operate has changed
-export const WINDOW_CONTROLS_MAXIMIZED_STATE = 'WINDOW_CONTROLS_MAXIMIZED_STATE'

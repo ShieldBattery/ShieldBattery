@@ -1,5 +1,4 @@
 import React from 'react'
-import { connect } from 'react-redux'
 import classnames from 'classnames'
 import styles from './window-controls.css'
 
@@ -16,7 +15,6 @@ import {
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
-@connect(state => ({ isMaximized: state.windowControls.isMaximized }))
 export default class WindowControls extends React.Component {
   render() {
     if (process.webpackEnv.SB_ENV !== 'electron') {
