@@ -1,20 +1,22 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import classnames from 'classnames'
 import styles from './window-controls.css'
 
-import CloseIcon from './icons/material/ic_close_black_24px.svg'
-import MaximizeIcon from './icons/material/ic_fullscreen_black_24px.svg'
-import MinimizeIcon from './icons/material/ic_remove_black_24px.svg'
+import CloseIcon from '../icons/material/ic_close_black_24px.svg'
+import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
+import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
 
 import {
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MINIMIZE,
-} from '../app/common/ipc-constants'
+} from '../../app/common/ipc-constants'
 
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
+@connect(state => ({ isMaximized: state.windowControls.isMaximized }))
 export default class WindowControls extends React.Component {
   render() {
     if (process.webpackEnv.SB_ENV !== 'electron') {
@@ -22,14 +24,11 @@ export default class WindowControls extends React.Component {
     }
 
     const classes = classnames(this.props.className, styles.root)
-    const sizes = !this.props.winMaximized ? [
-      <div key='top' className={styles.sizeTop} />,
-      <div key='left' className={styles.sizeLeft} />,
-      <div key='right' className={styles.sizeRight} />,
-    ] : null
 
     return (<div className={classes}>
-      { sizes }
+      <div className={styles.sizeTop} />
+      <div className={styles.sizeLeft} />
+      <div className={styles.sizeRight} />
       <button title={'Close'} className={styles.closeButton} onClick={this.onCloseClick}>
         <CloseIcon/>
       </button>

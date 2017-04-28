@@ -20,7 +20,7 @@ import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
-import WindowControls from './window-controls.jsx'
+import WindowControls from './window-controls/window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
@@ -72,7 +72,6 @@ function stateToProps(state) {
     })),
     starcraft: state.starcraft,
     routing: state.routing,
-    winMaximized: state.settings.local.winMaximized,
   }
 }
 
@@ -147,13 +146,7 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const {
-      inLobby,
-      chatChannels,
-      whispers,
-      winMaximized,
-      routing: { location: { pathname } }
-    } = this.props
+    const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
 
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
@@ -194,7 +187,7 @@ class MainLayout extends React.Component {
     ]
 
     return (<div>
-      <WindowControls winMaximized={winMaximized} className={styles.windowControls} />
+      <WindowControls className={styles.windowControls} />
       <ConnectedDialogOverlay className={styles.layout} containerClassName={styles.content}>
         <LeftNav footer={footer}>
           {this.renderActiveGameNav()}

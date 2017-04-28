@@ -1,16 +1,14 @@
 import React from 'react'
-import { connect } from 'react-redux'
 import { makeServerUrl } from '../network/server-url'
 import styles from './login-layout.css'
 
 import LogoText from '../logos/logotext-640x100.svg'
-import WindowControls from '../window-controls.jsx'
+import WindowControls from '../window-controls/window-controls.jsx'
 
-@connect(state => ({ winMaximized: state.settings.local.winMaximized }))
 class MainLayout extends React.Component {
   render() {
     return (<div className={styles.background}>
-      <WindowControls winMaximized={this.props.winMaximized} className={styles.windowControls}/>
+      <WindowControls className={styles.windowControls}/>
       <div className={styles.wrapper}>
           <div className={styles.contents}>
             <img className={styles.logo} src={makeServerUrl('/images/logo.svg')} />

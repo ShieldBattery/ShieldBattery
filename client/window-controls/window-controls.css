@@ -1,4 +1,4 @@
-@value reset from './material/button-reset.css';
+@value reset from '../material/button-reset.css';
 
 .root {
   position: relative;
@@ -12,6 +12,11 @@
   -webkit-app-region: no-drag;
   position: absolute;
   z-index: 1000;
+}
+
+:global(.maximized) .sizeBase {
+  display: none;
+  -webkit-app-region: inherit;
 }
 
 .sizeTop {
