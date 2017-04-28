@@ -33,6 +33,7 @@ import {
   UPDATE_SERVER_COMPLETE,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
+  WINDOW_MAXIMIZED_STATE,
   WINDOW_MINIMIZE,
 } from './common/ipc-constants'
 
@@ -248,10 +249,12 @@ async function createWindow(localSettings, curSession) {
     localSettings.merge({ winMaximized: true }).catch(err => {
       logger.error('Error saving new window maximized state: ' + err)
     })
+    mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, true)
   }).on('unmaximize', () => {
     localSettings.merge({ winMaximized: false }).catch(err => {
       logger.error('Error saving new window maximized state: ' + err)
     })
+    mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, false)
   }).on('resize', () => {
     if (debounceTimer) {
       clearTimeout(debounceTimer)
@@ -303,6 +306,10 @@ app.on('ready', async () => {
     setupIpc(localSettings)
     await createWindow(localSettings, currentSession())
     systemTray = new SystemTray(mainWindow, ::app.quit)
+
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, mainWindow.isMaximized())
+    })
   } catch (err) {
     logger.error('Error initializing: ' + err)
     console.error(err)
