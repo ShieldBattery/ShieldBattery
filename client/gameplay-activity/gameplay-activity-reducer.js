@@ -17,6 +17,6 @@ export default keyedReducer(new GameplayActivity(), {
   [LOBBY_UPDATE_STATUS](state, action) {
     const { lobby } = action.payload
 
-    return state.set('gameplayActivity', lobby)
+    return state.set('gameplayActivity', lobby ? 'lobby' : null)
   }
 })

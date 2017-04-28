@@ -86,14 +86,6 @@ class SocketGroup extends EventEmitter {
     }
     this.subscriptions = updated
   }
-
-  getPath() {
-    return this.getPath()
-  }
-
-  getPath() {
-    return this.getType()
-  }
 }
 
 export class UserSocketsGroup extends SocketGroup {
@@ -118,7 +110,7 @@ export class ClientSocketsGroup extends SocketGroup {
   }
 
   getPath() {
-    return `/clients/${this.userId}|${this.session.clientId}`
+    return `/clients/${this.userId}/${this.session.clientId}`
   }
 
   getType() {
