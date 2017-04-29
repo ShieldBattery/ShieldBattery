@@ -3,7 +3,7 @@ import { makeServerUrl } from '../network/server-url'
 import styles from './login-layout.css'
 
 import LogoText from '../logos/logotext-640x100.svg'
-import WindowControls from '../window-controls.jsx'
+import WindowControls from '../window-controls/window-controls.jsx'
 
 class MainLayout extends React.Component {
   render() {

@@ -2,15 +2,15 @@ import React from 'react'
 import classnames from 'classnames'
 import styles from './window-controls.css'
 
-import CloseIcon from './icons/material/ic_close_black_24px.svg'
-import MaximizeIcon from './icons/material/ic_fullscreen_black_24px.svg'
-import MinimizeIcon from './icons/material/ic_remove_black_24px.svg'
+import CloseIcon from '../icons/material/ic_close_black_24px.svg'
+import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
+import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
 
 import {
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MINIMIZE,
-} from '../app/common/ipc-constants'
+} from '../../app/common/ipc-constants'
 
 const ipcRenderer =
     process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null

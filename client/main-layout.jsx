@@ -20,7 +20,7 @@ import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
-import WindowControls from './window-controls.jsx'
+import WindowControls from './window-controls/window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
@@ -153,6 +153,7 @@ class MainLayout extends React.Component {
       whispers,
       routing: { location: { pathname } }
     } = this.props
+
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
             channel={c.name}

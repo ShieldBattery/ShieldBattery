@@ -41,3 +41,6 @@ export const UPDATE_SERVER_COMPLETE = 'UPDATE_SERVER_COMPLETE'
 export const WINDOW_CLOSE = 'WINDOW_CLOSE'
 export const WINDOW_MAXIMIZE = 'WINDOW_MAXIMIZE'
 export const WINDOW_MINIMIZE = 'WINDOW_MINIMIZE'
+
+// Tells a renderer process that a window's maximized state has been changed
+export const WINDOW_MAXIMIZED_STATE = 'WINDOW_MAXIMIZED_STATE'
