@@ -253,7 +253,7 @@ export class WhispersApi {
       this._subscribeUserToWhisperSession(user, target)
     }
 
-    user.subscribe(`${user.getUserPath()}/whispers`, () => ({ type: 'whispersReady' }))
+    user.subscribe(`${user.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
   }
 
   async _handleUserQuit(userName) {

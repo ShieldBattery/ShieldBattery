@@ -2,9 +2,9 @@ import nydus from 'nydus'
 import path from 'path'
 import fs from 'fs'
 import co from 'co'
-import uid from 'cuid'
+import cuid from 'cuid'
 import getAddress from './lib/websockets/get-address'
-import createUserSockets from './lib/websockets/user-sockets'
+import { createUserSockets, createClientSockets } from './lib/websockets/socket-groups'
 import log from './lib/logging/logger'
 import config from './config'
 
@@ -31,9 +31,10 @@ class WebsocketServer {
       allowRequest: (info, cb) => this.onAuthorization(info, cb)
     })
     this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
+    this.clientSockets = createClientSockets(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
-      handler(this.nydus, this.userSockets)
+      handler(this.nydus, this.userSockets, this.clientSockets)
     }
 
     this.userSockets
@@ -52,7 +53,7 @@ class WebsocketServer {
   }
 
   onAuthorization(req, cb) {
-    const logger = log.child({ reqId: uid() })
+    const logger = log.child({ reqId: cuid() })
     logger.info({ req }, 'websocket authorizing')
     if (!req.headers.cookie) {
       logger.error({ err: new Error('request had no cookies') }, 'websocket error')
@@ -70,9 +71,11 @@ class WebsocketServer {
         throw new Error('User is not logged in')
       }
 
+      const clientId = ctx.query.clientId || cuid()
       const handshakeData = {
         sessionId: ctx.sessionId,
         userId: ctx.session.userId,
+        clientId,
         userName: ctx.session.userName,
         address: getAddress(req),
       }

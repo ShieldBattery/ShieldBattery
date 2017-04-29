@@ -19,6 +19,7 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
+  LOBBY_UPDATE_STATUS,
 } from '../actions'
 import {
   NEW_CHAT_MESSAGE,
@@ -259,7 +260,12 @@ const eventToAction = {
       type: LOBBY_UPDATE_CHAT_MESSAGE,
       payload: event,
     }
-  }
+  },
+
+  status: (name, event) => ({
+    type: LOBBY_UPDATE_STATUS,
+    payload: event,
+  })
 }
 
 export default function registerModule({ siteSocket }) {
@@ -271,6 +277,7 @@ export default function registerModule({ siteSocket }) {
   }
   siteSocket.registerRoute('/lobbies/:lobby', lobbyHandler)
   siteSocket.registerRoute('/lobbies/:lobby/:playerName', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobby/:userId/:clientId', lobbyHandler)
 
   siteSocket.registerRoute('/lobbies', (route, event) => {
     const { action, payload } = event

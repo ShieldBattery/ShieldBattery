@@ -62,6 +62,7 @@ function stateToProps(state) {
     inLobby: state.lobby.inLobby,
     lobby: state.lobby.inLobby ?
         { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
+    inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
       hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
@@ -146,7 +147,12 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const { inLobby, chatChannels, whispers, routing: { location: { pathname } } } = this.props
+    const {
+      inGameplayActivity,
+      chatChannels,
+      whispers,
+      routing: { location: { pathname } }
+    } = this.props
 
     const channelNav = chatChannels.map(c =>
         <ChatNavEntry key={c.name}
@@ -173,7 +179,8 @@ class MainLayout extends React.Component {
       <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
           onClick={this.onFindMatchClick} />,
       <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
-          onClick={this.onCreateLobbyClick} disabled={inLobby} keycode={KEY_C} altKey={true} />,
+          onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
+          altKey={true} />,
       <HotkeyedActivityButton key='join-game' icon={<JoinGameIcon />} label='Join'
           onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />,
       <ActivityButton key='replays' icon={<ReplaysIcon />} label='Replays'
