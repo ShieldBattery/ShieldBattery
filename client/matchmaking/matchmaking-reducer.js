@@ -3,8 +3,8 @@ import {
   MATCHMAKING_ACCEPT,
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND,
-  MATCHMAKING_REJECT,
   MATCHMAKING_RESTART_STATE,
+  MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
@@ -16,10 +16,10 @@ const Match = new Record({
   players: new Map(),
   acceptedPlayers: 0
 })
-
 export const MatchmakingState = new Record({
   isFinding: false,
   hasAccepted: false,
+  acceptTime: -1,
   race: 'r',
   match: new Match(),
 })
@@ -55,16 +55,12 @@ const handlers = {
     ))
   },
 
-  [MATCHMAKING_REJECT](state, action) {
-    if (action.error) {
-      return new MatchmakingState()
-    }
-
-    return state.set('hasAccepted', false)
-  },
-
   [MATCHMAKING_RESTART_STATE](state, action) {
     return new MatchmakingState()
+  },
+
+  [MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME](state, action) {
+    return state.set('acceptTime', action.payload)
   },
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
@@ -80,7 +76,10 @@ const handlers = {
   },
 
   [MATCHMAKING_UPDATE_MATCH_READY](state, action) {
-    return state.setIn(['match', 'players'], action.payload.players)
+    const { players } = action.payload
+
+    return state.setIn(['match', 'acceptedPlayers'], Object.keys(players).length)
+      .setIn(['match', 'players'], players)
   },
 }
 

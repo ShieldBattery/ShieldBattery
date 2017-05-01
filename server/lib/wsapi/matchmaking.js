@@ -19,14 +19,15 @@ const Player = new Record({
   name: null,
   rating: 0,
   interval: new Interval(),
-  race: 'r'
+  race: 'r',
 })
 
 const Match = new Record({
   id: null,
   type: null,
   players: new Map(),
-  acceptedPlayers: new Set()
+  acceptedPlayers: new Set(),
+  acceptTimer: null,
 })
 
 // TODO(2Pac): Move this to its own folder/file?
@@ -215,28 +216,10 @@ export class MatchmakingApi {
       throw new errors.Conflict('matchmaker service is stopped')
     }
 
-    // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
-    // Until we devise a ranking system, make the search interval same for all players
-    const rating = 1000
-    const interval = new Interval({
-      low: rating - 50,
-      high: rating + 50
-    })
+    this._placeUserInQueue(type, user.name, race)
 
-    const player = new Player({
-      name: user.name,
-      rating,
-      interval,
-      race
-    })
-
-    const isAdded = this.matchmakers.get(type).addToQueue(player)
-    if (!isAdded) {
-      throw new errors.Conflict('already searching for the game')
-    }
-
-    user.subscribe(MatchmakingApi._getPath(user), undefined, user => {
-      user.unsubscribe(MatchmakingApi._getPath(user))
+    user.subscribe(MatchmakingApi._getUserPath(user.name), undefined, user => {
+      user.unsubscribe(MatchmakingApi._getUserPath(user.name))
     })
   }
 
@@ -258,7 +241,7 @@ export class MatchmakingApi {
       throw new errors.Conflict('not searching for the game')
     }
 
-    user.unsubscribe(MatchmakingApi._getPath(user))
+    user.unsubscribe(MatchmakingApi._getUserPath(user.name))
   }
 
   @Api('/accept',
@@ -267,6 +250,10 @@ export class MatchmakingApi {
     const { matchId } = data.get('body')
     const user = data.get('user')
 
+    if (!this.matches.has(matchId)) {
+      throw new errors.Conflict('invalid match id')
+    }
+
     let match = this.matches.get(matchId)
     if (match.acceptedPlayers.has(user.name)) {
       throw new errors.Conflict('already accepted the game')
@@ -274,48 +261,29 @@ export class MatchmakingApi {
     match = match.set('acceptedPlayers', match.acceptedPlayers.add(user.name))
     this.matches = this.matches.set(matchId, match)
 
-    // TODO(2Pac): Make this work for all matchmaking types
-    if (match.acceptedPlayers.size === 2) {
+    if (match.acceptedPlayers.size === match.players.size) {
       // All the players have accepted the match; notify them that they can start the match
       match.players.forEach(player => {
-        this.nydus.publish(MatchmakingApi._getPath(player), {
-          type: 'accepted'
-        })
-
-        this.nydus.publish(MatchmakingApi._getPath(player), {
+        this._publishToUser(player.name, {
           type: 'ready',
-          players: match.players
+          players: match.players,
         })
 
-        const playerSockets = this.userSockets.getByName(player.name)
-        if (playerSockets) {
-          playerSockets.unsubscribe(MatchmakingApi._getPath(player))
-        }
-      })
-    } else {
-      // A player has accepted the match; notify all others
-      match.players.forEach(player => {
-        this.nydus.publish(MatchmakingApi._getPath(player), {
-          type: 'accepted'
-        })
-      })
-    }
-  }
-
-  @Api('/reject')
-  async reject(data, next) {
-    const { matchId } = data.get('body')
-
-    if (this.matches.has(matchId)) {
-      const match = this.matches.get(matchId)
-      match.players.forEach(player => {
-        const playerSockets = this.userSockets.getByName(player.name)
-        if (playerSockets) {
-          playerSockets.unsubscribe(MatchmakingApi._getPath(player))
-        }
+        const user = this.getUserByName(player.name)
+        user.unsubscribe(MatchmakingApi._getUserPath(player.name))
       })
 
+      if (match.acceptTimer) {
+        clearTimeout(match.acceptTimer)
+      }
       this.matches = this.matches.delete(matchId)
+    } else {
+      // A player has accepted the match; notify all of the players
+      match.players.forEach(player => {
+        this._publishToUser(player.name, {
+          type: 'accepted',
+        })
+      })
     }
   }
 
@@ -329,27 +297,93 @@ export class MatchmakingApi {
 
   _onMatchFound(player, opponent, type) {
     const matchId = cuid()
-    let match = new Match({
+    const match = new Match({
       id: matchId,
       type,
-      players: new Map({ [player.name]: player }),
+      players: new Map([
+        [player.name, player],
+        [opponent.name, opponent]
+      ]),
     })
-    match = match.setIn(['players', opponent.name], opponent)
     this.matches = this.matches.set(matchId, match)
 
     // Notify both players that the match is found and who is their opponent
-    this.nydus.publish(MatchmakingApi._getPath(player), {
+    this._publishToUser(player.name, {
       type: 'matchFound',
       matchId
     })
-    this.nydus.publish(MatchmakingApi._getPath(opponent), {
+    this._publishToUser(opponent.name, {
       type: 'matchFound',
       matchId
     })
+
+    // Make the server's timer slightly longer to account for the back and forth latency from the
+    // clients
+    const timerId = setTimeout(() => this._onMatchNotAccepted(matchId), 15200)
+    this.matches = this.matches.setIn([matchId, 'acceptTimer'], timerId)
   }
 
-  static _getPath(user) {
-    return `${MOUNT_BASE}/${encodeURIComponent(user.name)}`
+  _onMatchNotAccepted(matchId) {
+    // Place players who accepted back into the queue; notify them that someone failed to accept so
+    // they can reset their matchmaking state
+    const match = this.matches.get(matchId)
+    match.acceptedPlayers.forEach(playerName => {
+      const race = match.players.get(playerName).race
+      setTimeout(() => this._placeUserInQueue(match.type, playerName, race), 5200)
+      this._publishToUser(playerName, {
+        type: 'acceptFailed',
+      })
+    })
+
+    // Remove the players who failed to accept the match from the matchmaking.
+    // TODO(2Pac): Introduce some kind of a penalty?
+    const players = new Set(match.players.keys())
+    const notAcceptedPlayers = players.subtract(match.acceptedPlayers)
+    notAcceptedPlayers.forEach(playerName => {
+      const user = this.getUserByName(playerName)
+      user.unsubscribe(MatchmakingApi._getUserPath(playerName))
+    })
+
+    if (match.acceptTimer) {
+      clearTimeout(match.acceptTimer)
+    }
+    this.matches = this.matches.delete(match.id)
+  }
+
+  _placeUserInQueue(type, username, race) {
+    // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
+    // Until we devise a ranking system, make the search interval same for all players
+    const rating = 1000
+    const interval = new Interval({
+      low: rating - 50,
+      high: rating + 50
+    })
+
+    const player = new Player({
+      name: username,
+      rating,
+      interval,
+      race
+    })
+
+    const isAdded = this.matchmakers.get(type).addToQueue(player)
+    if (!isAdded) {
+      throw new errors.Conflict('already searching for the game')
+    }
+  }
+
+  getUserByName(name) {
+    const user = this.userSockets.getByName(name)
+    if (!user) throw new errors.BadRequest('user not online')
+    return user
+  }
+
+  _publishToUser(username, data) {
+    this.nydus.publish(MatchmakingApi._getUserPath(username), data)
+  }
+
+  static _getUserPath(username) {
+    return `${MOUNT_BASE}/${encodeURIComponent(username)}`
   }
 }
 

@@ -33,6 +33,18 @@
     tough-cookie "^2.2.2"
     tough-cookie-web-storage-store "^1.0.0"
 
+"@types/core-js@^0.9.34":
+  version "0.9.41"
+  resolved "https://registry.yarnpkg.com/@types/core-js/-/core-js-0.9.41.tgz#cfeceb63c2beaa29f882252c7c18e0e9471ff4e2"
+
+"@types/cuid@0.0.30":
+  version "0.0.30"
+  resolved "https://registry.yarnpkg.com/@types/cuid/-/cuid-0.0.30.tgz#10afaf53bbaf54a11415234045b95a8d01904f61"
+
+"@types/shallowequal@^0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@types/shallowequal/-/shallowequal-0.2.1.tgz#902f9f09c86193a9b63c145cbde962c1a6a58e65"
+
 abbrev@1:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-1.1.0.tgz#d0554c2256636e2f56e7c2e5ad183f859428d81f"
@@ -3556,7 +3568,7 @@ lodash.isplainobject@^4.0.4:
   version "4.0.6"
   resolved "https://registry.yarnpkg.com/lodash.isplainobject/-/lodash.isplainobject-4.0.6.tgz#7c526a52d89b45c45cc690b88163be0497f550cb"
 
-lodash.keys@^3.0.0:
+lodash.keys@^3.0.0, lodash.keys@^3.1.2:
   version "3.1.2"
   resolved "https://registry.yarnpkg.com/lodash.keys/-/lodash.keys-3.1.2.tgz#4dbc0472b156be50a0b286855d1bd0b0c656098a"
   dependencies:
@@ -3840,6 +3852,17 @@ node-fingerprint@0.0.2:
 node-forge@^0.7.1:
   version "0.7.1"
   resolved "https://registry.yarnpkg.com/node-forge/-/node-forge-0.7.1.tgz#9da611ea08982f4b94206b3beb4cc9665f20c300"
+
+node-interval-tree@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/node-interval-tree/-/node-interval-tree-1.0.0.tgz#c8510891f21f73d35c1a5d0f3400c3d9eb221dfb"
+  dependencies:
+    "@types/core-js" "^0.9.34"
+    "@types/cuid" "0.0.30"
+    "@types/shallowequal" "^0.2.1"
+    core-js "^2.4.1"
+    cuid "^1.3.8"
+    shallowequal "^0.2.2"
 
 node-libs-browser@^2.0.0:
   version "2.0.0"
@@ -5428,6 +5451,12 @@ sha.js@^2.3.6:
   resolved "https://registry.yarnpkg.com/sha.js/-/sha.js-2.4.8.tgz#37068c2c476b6baf402d14a49c67f597921f634f"
   dependencies:
     inherits "^2.0.1"
+
+shallowequal@^0.2.2:
+  version "0.2.2"
+  resolved "https://registry.yarnpkg.com/shallowequal/-/shallowequal-0.2.2.tgz#1e32fd5bcab6ad688a4812cb0cc04efc75c7014e"
+  dependencies:
+    lodash.keys "^3.1.2"
 
 shebang-command@^1.2.0:
   version "1.2.0"

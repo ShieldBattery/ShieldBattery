@@ -214,12 +214,10 @@ export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
 export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
 // The server has responded with success/failure to us starting to find game
 export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
-// We are starting the process of rejecting the match
-export const MATCHMAKING_REJECT_BEGIN = 'MATCHMAKING_REJECT_BEGIN'
-// The server has responded with success/failure to us rejecting the match
-export const MATCHMAKING_REJECT = 'MATCHMAKING_REJECT'
 // We are restarting the matchmaking state
 export const MATCHMAKING_RESTART_STATE = 'MATCHMAKING_RESTART_STATE'
+// The accept match time has changed
+export const MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME'
 // The server has responded that a player has accepted the match
 export const MATCHMAKING_UPDATE_MATCH_ACCEPTED = 'MATCHMAKING_UPDATE_MATCH_ACCEPTED'
 // The server has responded with a found match

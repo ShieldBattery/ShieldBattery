@@ -6,8 +6,6 @@ import {
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND_BEGIN,
   MATCHMAKING_FIND,
-  MATCHMAKING_REJECT_BEGIN,
-  MATCHMAKING_REJECT,
   MATCHMAKING_RESTART_STATE
 } from '../actions'
 
@@ -20,9 +18,6 @@ export const cancelFindMatch = type => createSiteSocketAction(MATCHMAKING_CANCEL
 
 export const acceptMatch = matchId => createSiteSocketAction(MATCHMAKING_ACCEPT_BEGIN,
     MATCHMAKING_ACCEPT, '/matchmaking/accept', { matchId })
-
-export const rejectMatch = matchId => createSiteSocketAction(MATCHMAKING_REJECT_BEGIN,
-    MATCHMAKING_REJECT, '/matchmaking/reject', { matchId })
 
 export function resetMatchmakingState() {
   return {
