@@ -9,7 +9,9 @@ import RaisedButton from '../material/raised-button.jsx'
 @connect(state => ({ matchmaking: state.matchmaking }))
 export default class AcceptMatch extends React.Component {
   renderDialogContents() {
-    const { matchmaking: { hasAccepted, acceptTime, match: { acceptedPlayers } }} = this.props
+    const {
+      matchmaking: { hasAccepted, acceptTime, match: { numPlayers, acceptedPlayers } }
+    } = this.props
 
     if (hasAccepted && acceptTime <= 0) {
       return <p>Some of the players failed to accept the match. Returning to the matchmaking...</p>
@@ -21,9 +23,9 @@ export default class AcceptMatch extends React.Component {
     } else {
       return (<div>
         { !hasAccepted ?
-            <RaisedButton label='Accept' key='accept' onClick={::this.onAcceptClicked} /> : null }
+            <RaisedButton label='Accept' key='accept' onClick={this.onAcceptClick} /> : null }
         <h3>{ acceptTime }</h3>
-        <h4>{ acceptedPlayers + ' / 2'}</h4>
+        <h4>{ `${acceptedPlayers} / ${numPlayers}`}</h4>
       </div>)
     }
   }
@@ -34,8 +36,7 @@ export default class AcceptMatch extends React.Component {
     </Dialog>)
   }
 
-  onAcceptClicked() {
-    const { matchmaking: { match: { id: matchId } } } = this.props
-    this.props.dispatch(acceptMatch(matchId))
+  onAcceptClick = () => {
+    this.props.dispatch(acceptMatch())
   }
 }

@@ -26,15 +26,14 @@ class FindMatchForm extends React.Component {
         <Option key='t' value='t' text='Terran' />
         <Option key='r' value='r' text='Random' />
       </Select>
+
+      <RaisedButton label='Find' onClick={onSubmit} />
     </form>)
   }
 }
 
 @connect()
 export default class FindMatch extends React.Component {
-  _form = null;
-  _setForm = elem => { this._form = elem };
-
   render() {
     const model = {
       type: '1v1ladder',
@@ -43,18 +42,15 @@ export default class FindMatch extends React.Component {
 
     return (<div className={styles.root}>
       <h3>Find match</h3>
-      <FindMatchForm ref={this._setForm} model={model} onSubmit={this.onSubmitted} />
-      <RaisedButton label='Find' onClick={this.onFindClicked} />
+      <FindMatchForm model={model} onSubmit={this.onSubmit} />
     </div>)
   }
 
-  onFindClicked = () => {
-    this._form.submit()
-  }
+  onSubmit = async form => {
+    const { dispatch } = this.props
+    const { type, race } = form.getModel()
 
-  onSubmitted = () => {
-    const { type, race } = this._form.getModel()
-    this.props.dispatch(findMatch(type, race))
-    this.props.dispatch(closeOverlay())
+    dispatch(findMatch(type, race))
+    dispatch(closeOverlay())
   }
 }

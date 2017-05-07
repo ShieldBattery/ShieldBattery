@@ -3,7 +3,7 @@ import {
   MATCHMAKING_ACCEPT,
   MATCHMAKING_CANCEL,
   MATCHMAKING_FIND,
-  MATCHMAKING_RESTART_STATE,
+  MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
@@ -11,10 +11,10 @@ import {
 } from '../actions'
 
 const Match = new Record({
-  id: null,
   type: null,
+  numPlayers: 0,
+  acceptedPlayers: 0,
   players: new Map(),
-  acceptedPlayers: 0
 })
 export const MatchmakingState = new Record({
   isFinding: false,
@@ -55,8 +55,8 @@ const handlers = {
     ))
   },
 
-  [MATCHMAKING_RESTART_STATE](state, action) {
-    return new MatchmakingState()
+  [MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED](state, action) {
+    return state.setIn(['match', 'numPlayers'], 0).setIn(['match', 'acceptedPlayers'], 0)
   },
 
   [MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME](state, action) {
@@ -65,14 +65,12 @@ const handlers = {
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
     return (state.withMutations(s =>
-      s.set('isFinding', false)
-        .setIn(['match', 'id'], action.payload.matchId)
-        .setIn(['match', 'acceptedPlayers'], 0)
+      s.set('isFinding', false).setIn(['match', 'numPlayers'], action.payload.numPlayers)
     ))
   },
 
   [MATCHMAKING_UPDATE_MATCH_ACCEPTED](state, action) {
-    return state.setIn(['match', 'acceptedPlayers'], state.match.acceptedPlayers + 1)
+    return state.setIn(['match', 'acceptedPlayers'], action.payload.acceptedPlayers)
   },
 
   [MATCHMAKING_UPDATE_MATCH_READY](state, action) {

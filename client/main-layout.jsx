@@ -41,10 +41,8 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
-import { findMatch } from './matchmaking/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/dialog-action-creator'
-import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { leaveChannel } from './chat/action-creators'
 import { leaveLobby } from './lobbies/action-creators'
@@ -55,6 +53,7 @@ import { openChangelogIfNecessary, openChangelog } from './changelog/action-crea
 import { DEV_INDICATOR, MULTI_CHANNEL } from '../app/common/flags'
 
 const KEY_C = keycode('c')
+const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_S = keycode('s')
 
@@ -181,7 +180,8 @@ class MainLayout extends React.Component {
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ?
         <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
-            onClick={this.onFindMatchClick} /> :
+            onClick={this.onFindMatchClick} disabled={inGameplayActivity} keycode={KEY_F}
+            altKey={true} /> :
         <ActivityButton key='cancel-match' icon={<CancelMatchIcon />} label='Cancel'
             onClick={this.onCancelFindMatchClick} />
     const activityButtons = process.webpackEnv.SB_ENV === 'electron' ? [
