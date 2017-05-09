@@ -18,7 +18,7 @@ class FindMatchForm extends React.Component {
     return (<form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
       <Select {...bindCustom('type')} label='Type' tabIndex={0}>
-        <Option key='1v1' value='1v1ladder' text='1v1 Ladder' />
+        <Option key='1v1' value='1v1' text='1v1' />
       </Select>
       <Select {...bindCustom('race')} label='Race' tabIndex={0}>
         <Option key='z' value='z' text='Zerg' />
@@ -36,7 +36,7 @@ class FindMatchForm extends React.Component {
 export default class FindMatch extends React.Component {
   render() {
     const model = {
-      type: '1v1ladder',
+      type: '1v1',
       race: 'r',
     }
 

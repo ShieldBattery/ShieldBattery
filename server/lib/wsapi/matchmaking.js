@@ -1,20 +1,32 @@
-import { Map, Set } from 'immutable'
+import { Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import cuid from 'cuid'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
-import gameplayActivity from '../gameplay-activity/gameplay-activity'
+import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
 import Matchmaker from '../matchmaking/matchmaker'
 import { Interval, Player, Match } from '../matchmaking/matchmaking-records'
 import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../app/common/constants'
 
+const MatchmakerState = new Record({
+  instance: null,
+  tickTimer: null,
+})
+
+const QueueEntry = new Record({
+  username: null,
+  type: null,
+})
+
 const MATCHMAKING_TYPES = [
-  '1v1ladder'
+  '1v1'
 ]
 const MATCHMAKING_INTERVAL = 10000
+// Extra time that is added to the matchmaking accept time to account for latency in getting
+// messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 
-const validateType = type => MATCHMAKING_TYPES.includes(type)
+const validType = type => MATCHMAKING_TYPES.includes(type)
 
 const MOUNT_BASE = '/matchmaking'
 
@@ -25,7 +37,7 @@ export class MatchmakingApi {
     this.userSockets = userSockets
     this.clientSockets = clientSockets
     this.matchmakers = new Map()
-    this.matchmakerTimers = new Map()
+    this.clientQueueEntries = new Map()
     this.clientMatches = new Map()
     this.matchAcceptedPlayers = new Map()
     this.acceptMatchTimers = new Map()
@@ -34,7 +46,9 @@ export class MatchmakingApi {
     for (const mmType of MATCHMAKING_TYPES) {
       const matchmaker = new Matchmaker(mmType,
           (player, opponent) => this._onMatchFound(player, opponent, mmType))
-      this.matchmakers = this.matchmakers.set(mmType, matchmaker)
+      this.matchmakers = this.matchmakers.set(mmType, new MatchmakerState({
+        instance: matchmaker,
+      }))
     }
   }
 
@@ -46,38 +60,39 @@ export class MatchmakingApi {
   }
 
   _isRunning(type) {
-    const mmTimer = this.matchmakerTimers.get(type)
-    return !!mmTimer
+    return !!this.matchmakers.get(type).tickTimer
   }
 
   // Maybe starts the matchmaker service, if we have enough plyers to actually match, and runs the
   // `matchPlayers` function every `MATCHMAKING_INTERVAL`
   maybeStartMatchmaker(type) {
-    if (!this._isEnabled(type) || this._isRunning(type)) return
+    if (!this._isEnabled(type) || this._isRunning(type)) {
+      return
+    }
 
-    const matchmaker = this.matchmakers.get(type)
-    if (matchmaker.players.size > 1) {
-      const mm = this.matchmakers.get(type)
-      const intervalId = setInterval(() => mm.matchPlayers(), MATCHMAKING_INTERVAL)
-      this.matchmakerTimers = this.matchmakerTimers.set(type, intervalId)
+    const { instance: matchmaker } = this.matchmakers.get(type)
+    if (matchmaker.players.size >= 2) {
+      const intervalId = setInterval(() => matchmaker.matchPlayers(), MATCHMAKING_INTERVAL)
+      this.matchmakers.setIn([ type, 'tickTimer' ], intervalId)
     }
   }
 
   // Maybe stops the matchmaking service; depending on how many players there are left in the queue
   maybeStopMatchmaker(type) {
-    const matchmaker = this.matchmakers.get(type)
+    if (!this._isRunning(type)) {
+      return
+    }
+
+    const { instance: matchmaker, tickTimer } = this.matchmakers.get(type)
     if (matchmaker.players.size < 2) {
-      const mmTimer = this.matchmakerTimers.get(type)
-      if (mmTimer) {
-        clearInterval(mmTimer)
-        this.matchmakerTimers = this.matchmakerTimers.set(type, null)
-      }
+      clearInterval(tickTimer)
+      this.matchmakers.setIn([ type, 'tickTimer' ], null)
     }
   }
 
   @Api('/find',
     validateBody({
-      type: validateType,
+      type: validType,
       race: validRace,
     }))
   async find(data, next) {
@@ -85,54 +100,38 @@ export class MatchmakingApi {
     const user = this.getUser(data)
     const client = this.getClient(data)
 
-    const matchmaker = this.matchmakers.get(type)
-    if (matchmaker.players.has(user.name)) {
-      throw new errors.Conflict('already searching for match')
-    }
-    if (this.clientMatches.has(client)) {
-      throw new errors.Conflict('already have a match')
+    if (!activityRegistry.registerActiveClient(user.name, client)) {
+      throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
     this._placePlayerInQueue(type, client.name, race)
+    this.clientQueueEntries = this.clientQueueEntries.set(client, new QueueEntry({
+      username: client.name,
+      type,
+    }))
 
-    gameplayActivity.addClient(user.name, client)
     user.subscribe(MatchmakingApi._getUserPath(user.name), () => {
       return {
         type: 'status',
         matchmaking: { type },
       }
     })
-    client.subscribe(MatchmakingApi._getClientPath(client), undefined, client =>
-        client.unsubscribe(MatchmakingApi._getClientPath(client)))
+    client.subscribe(MatchmakingApi._getClientPath(client), undefined,
+        client => this._removeClientFromQueue(client))
   }
 
   @Api('/cancel',
     validateBody({
-      type: validateType,
+      type: validType,
     }))
   async cancel(data, next) {
-    const { type } = data.get('body')
     const user = this.getUser(data)
-    const client = this.getClient(data)
-
-    // Check if the player is canceling while already having a match
-    if (this.clientMatches.has(user)) {
-      const match = this.clientMatches.get(user)
-      this.matchAcceptedPlayers = this.matchAcceptedPlayers.delete(match.id)
-      this._cleanupAcceptMatchTimer(match.id)
-      this.clientMatches = this.clientMatches.delete(user)
+    const client = activityRegistry.getClientForUser(user.name)
+    if (!client) {
+      throw new errors.Conflict('user does not have an active matchmaking queue')
     }
 
-    this.matchmakers.get(type).removeFromQueue(user.name)
-    this.maybeStopMatchmaker(type)
-
-    gameplayActivity.deleteClient(user.name)
-    this._publishToUser(user.name, {
-      type: 'status',
-      lobby: null,
-    })
-    user.unsubscribe(MatchmakingApi._getUserPath(user.name))
-    client.unsubscribe(MatchmakingApi._getClientPath(client))
+    this._removeClientFromQueue(client)
   }
 
   @Api('/accept')
@@ -140,7 +139,7 @@ export class MatchmakingApi {
     const client = this.getClient(data)
 
     if (!this.clientMatches.has(client)) {
-      throw new errors.Conflict('no match for this client')
+      throw new errors.Conflict('no active match for this client')
     }
 
     const match = this.clientMatches.get(client)
@@ -156,19 +155,17 @@ export class MatchmakingApi {
     const acceptedPlayers = this.matchAcceptedPlayers.get(match.id)
     if (acceptedPlayers.size === match.players.size) {
       // All the players have accepted the match; notify them that they can start the match
+      this.matchAcceptedPlayers = this.matchAcceptedPlayers.delete(match.id)
+      this._cleanupAcceptMatchTimer(match.id)
+
       for (const player of match.players.values()) {
+        // TODO(tec27): Write code to actually deal with game init, instead of doing this
         this._publishToClient(player.name, {
           type: 'ready',
           players: match.players,
         })
-
-        // TODO: This should be done once the game is actually loaded, but need to do it somewhere
-        // for now to clean up
-        this._removePlayerFromMatchmaking(player.name, match.type)
+        this._removeClientFromQueue(activityRegistry.getClientForUser(player.name))
       }
-
-      this.matchAcceptedPlayers = this.matchAcceptedPlayers.delete(match.id)
-      this._cleanupAcceptMatchTimer(match.id)
     } else {
       // A player has accepted the match; notify all of the players
       for (const player of match.players.values()) {
@@ -178,6 +175,35 @@ export class MatchmakingApi {
         })
       }
     }
+  }
+
+  _removeClientFromQueue(client) {
+    if (!this.clientQueueEntries.has(client)) {
+      // Already removed (probably this is a re-entrant call due to onMatchNotAccepted)
+      return
+    }
+
+    const { type } = this.clientQueueEntries.get(client)
+    this.clientQueueEntries = this.clientQueueEntries.delete(client)
+
+    // Check if the player is canceling while already having a match
+    if (this.clientMatches.has(client)) {
+      const match = this.clientMatches.get(client)
+      // FIXME FIXME FIXME
+      // Anyone who is *not* this player should be requeued, but right now they are removed
+      this._onMatchNotAccepted(match)
+    }
+
+    this.matchmakers.get(type).instance.removeFromQueue(client.name)
+    this.maybeStopMatchmaker(type)
+
+    activityRegistry.unregisterClientForUser(client.name)
+    this._publishToUser(client.name, {
+      type: 'status',
+      lobby: null,
+    })
+    this.getUserByName(client.name).unsubscribe(MatchmakingApi._getUserPath(client.name))
+    client.unsubscribe(MatchmakingApi._getClientPath(client))
   }
 
   _onMatchFound(player, opponent, type) {
@@ -190,8 +216,8 @@ export class MatchmakingApi {
         [opponent.name, opponent]
       ]),
     })
-    const playerClient = gameplayActivity.getClientByName(player.name)
-    const opponentClient = gameplayActivity.getClientByName(opponent.name)
+    const playerClient = activityRegistry.getClientForUser(player.name)
+    const opponentClient = activityRegistry.getClientForUser(opponent.name)
     this.clientMatches = this.clientMatches.set(playerClient, match).set(opponentClient, match)
     this.matchAcceptedPlayers = this.matchAcceptedPlayers.set(match.id, new Set())
 
@@ -205,8 +231,6 @@ export class MatchmakingApi {
       numPlayers: 2,
     })
 
-    // Make the server's timer slightly longer to account for the back and forth latency from the
-    // clients
     const acceptMatchTime = MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY
     const timerId = setTimeout(() => this._onMatchNotAccepted(match), acceptMatchTime)
     this.acceptMatchTimers = this.acceptMatchTimers.set(matchId, timerId)
@@ -218,39 +242,32 @@ export class MatchmakingApi {
     const players = new Set(match.players.keys())
     const acceptedPlayers = this.matchAcceptedPlayers.get(match.id)
     const notAcceptedPlayers = players.subtract(acceptedPlayers)
-    for (const playerName of notAcceptedPlayers.values()) {
-      this._removePlayerFromMatchmaking(playerName, match.type)
-    }
 
     this.matchAcceptedPlayers = this.matchAcceptedPlayers.delete(match.id)
     this._cleanupAcceptMatchTimer(match.id)
 
+    for (const playerName of notAcceptedPlayers.values()) {
+      this._publishToClient(playerName, {
+        type: 'acceptTimeout',
+      })
+      const client = activityRegistry.getClientForUser(playerName)
+      this.clientMatches = this.clientMatches.delete(client)
+      this._removeClientFromQueue(client)
+    }
+
     // Place players who accepted back into the queue; notify them that they're being requeued
     for (const playerName of acceptedPlayers.values()) {
+      const client = activityRegistry.getClientForUser(playerName)
+      this.clientMatches = this.clientMatches.delete(client)
+
       const race = match.players.get(playerName).race
       this._placePlayerInQueue(match.type, playerName, race)
       this._publishToClient(playerName, {
         type: 'requeue',
       })
-
-      const client = gameplayActivity.getClientByName(playerName)
-      this.clientMatches = this.clientMatches.delete(client)
     }
-  }
 
-  _removePlayerFromMatchmaking(playerName, type) {
-    const client = gameplayActivity.getClientByName(playerName)
-    client.unsubscribe(MatchmakingApi._getClientPath(client))
-    this.clientMatches = this.clientMatches.delete(client)
-
-    const user = this.getUserByName(playerName)
-    this._publishToUser(user.name, {
-      type: 'status',
-      lobby: null,
-    })
-    user.unsubscribe(MatchmakingApi._getUserPath(user.name))
-    gameplayActivity.deleteClient(user.name)
-    this.maybeStopMatchmaker(type)
+    this.maybeStopMatchmaker(match.type)
   }
 
   _placePlayerInQueue(type, username, race) {
@@ -269,7 +286,7 @@ export class MatchmakingApi {
       race
     })
 
-    this.matchmakers.get(type).addToQueue(player)
+    this.matchmakers.get(type).instance.addToQueue(player)
     this.maybeStartMatchmaker(type)
   }
 
@@ -303,8 +320,8 @@ export class MatchmakingApi {
     this.nydus.publish(MatchmakingApi._getUserPath(username), data)
   }
 
-  _publishToClient(playername, data) {
-    const client = gameplayActivity.getClientByName(playername)
+  _publishToClient(username, data) {
+    const client = activityRegistry.getClientForUser(username)
     this.nydus.publish(MatchmakingApi._getClientPath(client), data)
   }
 

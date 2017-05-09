@@ -3,6 +3,7 @@ import keyedReducer from '../reducers/keyed-reducer'
 import {
   LOBBY_UPDATE_STATUS,
   MATCHMAKING_UPDATE_STATUS,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 
 const BaseGameplayActivity = new Record({
@@ -25,5 +26,9 @@ export default keyedReducer(new GameplayActivity(), {
     const { matchmaking } = action.payload
 
     return state.set('gameplayActivity', matchmaking ? 'matchmaking' : null)
-  }
+  },
+
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new GameplayActivity()
+  },
 })

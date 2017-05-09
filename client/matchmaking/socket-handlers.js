@@ -35,15 +35,15 @@ function clearRequeueTimer() {
 
 const eventToAction = {
   matchFound: (name, event) => {
-    dispatch(openDialog('acceptMatch'))
-
     clearRequeueTimer()
     clearAcceptMatchTimer()
+
     let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
     dispatch({
       type: MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
       payload: tick,
     })
+    dispatch(openDialog('acceptMatch'))
 
     acceptMatchState.timer = setInterval(() => {
       tick -= 1
@@ -51,11 +51,8 @@ const eventToAction = {
         type: MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
         payload: tick,
       })
-      if (!tick) {
+      if (tick <= 0) {
         clearAcceptMatchTimer()
-        dispatch({
-          type: MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
-        })
       }
     }, 1000)
 
@@ -72,19 +69,24 @@ const eventToAction = {
     }
   },
 
+  acceptTimeout: (name, event) => {
+    return {
+      type: MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
+      payload: event,
+    }
+  },
+
   requeue: (name, event) => (dispatch, getState) => {
     clearRequeueTimer()
+    clearAcceptMatchTimer()
 
+    dispatch({
+      type: MATCHMAKING_FIND,
+    })
     requeueState.timer = setTimeout(() => {
-      const { matchmaking: { match: { type } }, matchmaking: { race } } = getState()
+      // TODO(tec27): we should allow people to close this dialog themselves, and if/when they do,
+      // clear this timer
       dispatch(closeDialog())
-      dispatch({
-        type: MATCHMAKING_FIND,
-        meta: {
-          type,
-          race,
-        }
-      })
     }, 5000)
   },
 

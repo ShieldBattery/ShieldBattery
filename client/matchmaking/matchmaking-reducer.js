@@ -1,4 +1,5 @@
-import { Map, Record } from 'immutable'
+import { Record } from 'immutable'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   MATCHMAKING_ACCEPT,
   MATCHMAKING_CANCEL,
@@ -8,23 +9,22 @@ import {
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
+  NETWORK_SITE_CONNECTED,
 } from '../actions'
 
 const Match = new Record({
-  type: null,
   numPlayers: 0,
   acceptedPlayers: 0,
-  players: new Map(),
 })
 export const MatchmakingState = new Record({
   isFinding: false,
   hasAccepted: false,
   acceptTime: -1,
-  race: 'r',
-  match: new Match(),
+  failedToAccept: false,
+  match: null,
 })
 
-const handlers = {
+export default keyedReducer(new MatchmakingState(), {
   [MATCHMAKING_ACCEPT](state, action) {
     if (action.error) {
       return new MatchmakingState()
@@ -34,11 +34,9 @@ const handlers = {
   },
 
   [MATCHMAKING_CANCEL](state, action) {
-    if (action.error) {
-      return new MatchmakingState()
-    }
+    // TODO(tec27): handle errors, which might indicate you're currently still in the queue
 
-    return state.set('isFinding', false)
+    return new MatchmakingState()
   },
 
   [MATCHMAKING_FIND](state, action) {
@@ -46,17 +44,13 @@ const handlers = {
       return new MatchmakingState()
     }
 
-    const { type, race } = action.meta
-    return (state.withMutations(s =>
-      s.set('isFinding', true)
-        .set('hasAccepted', false)
-        .set('race', race)
-        .setIn(['match', 'type'], type)
-    ))
+    return new MatchmakingState({
+      isFinding: true,
+    })
   },
 
   [MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED](state, action) {
-    return state.setIn(['match', 'numPlayers'], 0).setIn(['match', 'acceptedPlayers'], 0)
+    return state.set('failedToAccept', true)
   },
 
   [MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME](state, action) {
@@ -64,9 +58,11 @@ const handlers = {
   },
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
-    return (state.withMutations(s =>
-      s.set('isFinding', false).setIn(['match', 'numPlayers'], action.payload.numPlayers)
-    ))
+    return (state
+      .set('match', new Match({ numPlayers: action.payload.numPlayers }))
+      .set('isFinding', false)
+      .set('hasAccepted', false)
+    )
   },
 
   [MATCHMAKING_UPDATE_MATCH_ACCEPTED](state, action) {
@@ -75,12 +71,10 @@ const handlers = {
 
   [MATCHMAKING_UPDATE_MATCH_READY](state, action) {
     const { players } = action.payload
-
     return state.setIn(['match', 'acceptedPlayers'], Object.keys(players).length)
-      .setIn(['match', 'players'], players)
   },
-}
 
-export default function matchmakingReducer(state = new MatchmakingState(), action) {
-  return handlers.hasOwnProperty(action.type) ? handlers[action.type](state, action) : state
-}
+  [NETWORK_SITE_CONNECTED](state, action) {
+    return new MatchmakingState()
+  }
+})

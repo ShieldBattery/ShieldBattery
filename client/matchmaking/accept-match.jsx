@@ -8,24 +8,45 @@ import RaisedButton from '../material/raised-button.jsx'
 
 @connect(state => ({ matchmaking: state.matchmaking }))
 export default class AcceptMatch extends React.Component {
+  componentWillMount() {
+    this.maybeClose(this.props)
+  }
+
+  componentWillUpdate(nextProps) {
+    this.maybeClose(nextProps)
+  }
+
+  maybeClose(props) {
+    const { matchmaking: { isFinding, failedToAccept, match } } = props
+    if (!isFinding && !failedToAccept && !match) {
+      this.props.dispatch(closeDialog())
+    }
+  }
+
   renderDialogContents() {
     const {
-      matchmaking: { hasAccepted, acceptTime, match: { numPlayers, acceptedPlayers } }
+      matchmaking: { isFinding, hasAccepted, acceptTime, failedToAccept, match }
     } = this.props
 
-    if (hasAccepted && acceptTime <= 0) {
-      return <p>Some of the players failed to accept the match. Returning to the matchmaking...</p>
-    } else if (!hasAccepted && acceptTime <= 0) {
+    if (isFinding) {
+      return (<p>
+        Some players failed to accept the match.
+        Returning to the matchmaking queue&hellip;
+      </p>)
+    } else if (failedToAccept) {
       return (<div>
-        <p>You have failed to accept the match.</p>
-        <RaisedButton label='Ok' key='close' onClick={() => this.props.dispatch(closeDialog())} />
+        <p>You failed to accept the match and have been removed from the queue.</p>
+        <RaisedButton label='Ok' onClick={() => this.props.dispatch(closeDialog())} />
       </div>)
+    } else if (!match) {
+      // In this case, the dialog is about to close anyway
+      return null
     } else {
       return (<div>
         { !hasAccepted ?
-            <RaisedButton label='Accept' key='accept' onClick={this.onAcceptClick} /> : null }
+            <RaisedButton label='Accept' onClick={this.onAcceptClick} /> : null }
         <h3>{ acceptTime }</h3>
-        <h4>{ `${acceptedPlayers} / ${numPlayers}`}</h4>
+        <h4>{ `${match.acceptedPlayers} / ${match.numPlayers}`}</h4>
       </div>)
     }
   }
