@@ -62,7 +62,7 @@ const eventToAction = {
     }
   },
 
-  accept: (name, event) => {
+  playerAccepted: (name, event) => {
     return {
       type: MATCHMAKING_UPDATE_MATCH_ACCEPTED,
       payload: event,
@@ -90,7 +90,7 @@ const eventToAction = {
     }, 5000)
   },
 
-  ready: (name, event) => {
+  matchReady: (name, event) => {
     dispatch(closeDialog())
 
     clearAcceptMatchTimer()

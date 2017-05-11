@@ -279,7 +279,7 @@ class MainLayout extends React.Component {
   };
 
   onCancelFindMatchClick = () => {
-    this.props.dispatch(cancelFindMatch(this.props.matchmaking.match.type))
+    this.props.dispatch(cancelFindMatch())
   };
 
   onCreateLobbyClick = () => {
