@@ -179,10 +179,7 @@ export class MatchmakingApi {
     client.subscribe(MatchmakingApi._getClientPath(client), undefined, this._handleLeave)
   }
 
-  @Api('/cancel',
-    validateBody({
-      type: validType,
-    }))
+  @Api('/cancel')
   async cancel(data, next) {
     const user = this.getUser(data)
     const client = activityRegistry.getClientForUser(user.name)
