@@ -9,6 +9,7 @@ import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import DownloadDialog from '../download/download-dialog.jsx'
 import UpdateDialog from '../download/update-dialog.jsx'
+import AcceptMatch from '../matchmaking/accept-match.jsx'
 import { closeDialog } from './dialog-action-creator'
 import styles from '../material/dialog.css'
 
@@ -27,6 +28,7 @@ class ConnectedDialogOverlay extends React.Component {
 
   getDialogComponent(dialogType) {
     switch (dialogType) {
+      case 'acceptMatch': return AcceptMatch
       case 'changelog': return ChangelogDialog
       case 'channel': return JoinChannelDialog
       case 'download': return DownloadDialog

@@ -32,8 +32,8 @@ class SocketGroup extends EventEmitter {
   delete(socket) {
     this.sockets = this.sockets.delete(socket)
     if (this.sockets.isEmpty()) {
-      this.emit('close', this)
       this._applyCleanups()
+      this.emit('close', this)
     }
   }
 

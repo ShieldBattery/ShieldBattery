@@ -15,6 +15,8 @@ export const USERNAME_MAXLENGTH = 16
 export const CHANNEL_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}|?<>:;,'"]+$/
 export const CHANNEL_MAXLENGTH = 64
 
+export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
+
 export function isValidUsername(username) {
   return (username &&
     username.length >= USERNAME_MINLENGTH &&
@@ -38,4 +40,8 @@ export function isValidChannelName(channel) {
   return (channel &&
     channel.length <= CHANNEL_MAXLENGTH &&
     CHANNEL_PATTERN.test(channel))
+}
+
+export function validRace(r) {
+  return r === 'r' || r === 't' || r === 'z' || r === 'p'
 }

@@ -23,6 +23,7 @@ import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overla
 import WindowControls from './window-controls/window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
+import CancelMatchIcon from './icons/material/ic_cancel_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
@@ -40,8 +41,8 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 
 import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
+import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/dialog-action-creator'
-import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { leaveChannel } from './chat/action-creators'
 import { leaveLobby } from './lobbies/action-creators'
@@ -52,6 +53,7 @@ import { openChangelogIfNecessary, openChangelog } from './changelog/action-crea
 import { DEV_INDICATOR, MULTI_CHANNEL } from '../app/common/flags'
 
 const KEY_C = keycode('c')
+const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_S = keycode('s')
 
@@ -73,6 +75,7 @@ function stateToProps(state) {
     })),
     starcraft: state.starcraft,
     routing: state.routing,
+    matchmaking: state.matchmaking,
   }
 }
 
@@ -175,9 +178,14 @@ class MainLayout extends React.Component {
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
     ]
+    const findMatchButton = !this.props.matchmaking.isFinding ?
+        <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
+            onClick={this.onFindMatchClick} disabled={inGameplayActivity} keycode={KEY_F}
+            altKey={true} /> :
+        <ActivityButton key='cancel-match' icon={<CancelMatchIcon />} label='Cancel'
+            onClick={this.onCancelFindMatchClick} />
     const activityButtons = process.webpackEnv.SB_ENV === 'electron' ? [
-      <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
-          onClick={this.onFindMatchClick} />,
+      findMatchButton,
       <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
           onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
           altKey={true} />,
@@ -263,9 +271,15 @@ class MainLayout extends React.Component {
   };
 
   onFindMatchClick = () => {
-    this.props.dispatch(openSnackbar({
-      message: 'Not implemented yet. Coming soon!',
-    }))
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
+    } else {
+      this.props.dispatch(openOverlay('findMatch'))
+    }
+  };
+
+  onCancelFindMatchClick = () => {
+    this.props.dispatch(cancelFindMatch())
   };
 
   onCreateLobbyClick = () => {

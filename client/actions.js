@@ -202,6 +202,31 @@ export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
 
+// We are starting the process of accepting the match
+export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'
+// The server has responded with success/failure to us accepting the match
+export const MATCHMAKING_ACCEPT = 'MATCHMAKING_ACCEPT'
+// We are starting the process of canceling the match finding
+export const MATCHMAKING_CANCEL_BEGIN = 'MATCHMAKING_CANCEL_BEGIN'
+// The server has responded with success/failure to us canceling the match finding
+export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
+// We are starting the matchmaking process to find game
+export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
+// The server has responded with success/failure to us starting to find game
+export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
+// Some (or all) of the players have failed to accept the match
+export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
+// The accept match time has changed
+export const MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME'
+// The server has responded that a player has accepted the match
+export const MATCHMAKING_UPDATE_MATCH_ACCEPTED = 'MATCHMAKING_UPDATE_MATCH_ACCEPTED'
+// The server has responded with a found match
+export const MATCHMAKING_UPDATE_MATCH_FOUND = 'MATCHMAKING_UPDATE_MATCH_FOUND'
+// The server has responded that all players have accepted the match and game is ready to start
+export const MATCHMAKING_UPDATE_MATCH_READY = 'MATCHMAKING_UPDATE_MATCH_READY'
+// Our status has changed, ie. one of our clients is searching for a game or has stopped searching
+export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
+
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 

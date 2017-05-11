@@ -30,8 +30,11 @@ class WebsocketServer {
     this.nydus = nydus(this.httpServer, {
       allowRequest: (info, cb) => this.onAuthorization(info, cb)
     })
-    this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
+
+    // NOTE(tec27): the order of creation here is very important, we want *more specific* event
+    // handlers on sockets registered first, so that their close handlers get called first.
     this.clientSockets = createClientSockets(this.nydus, this.sessionLookup)
+    this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
       handler(this.nydus, this.userSockets, this.clientSockets)
