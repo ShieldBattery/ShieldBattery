@@ -49,8 +49,8 @@ export function logOut() {
   }))
 }
 
-export function signUp(username, email, password, token) {
-  const reqUrl = '/api/1/users?token=' + encodeURIComponent(token)
+export function signUp(username, email, password) {
+  const reqUrl = '/api/1/users'
   return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
     method: 'post',
     body: JSON.stringify({ username, email, password })

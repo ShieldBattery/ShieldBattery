@@ -1,7 +1,5 @@
 import httpErrors from 'http-errors'
 import cuid from 'cuid'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
 import invites from '../models/invites'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { isValidEmail } from '../../../app/common/constants'
@@ -9,45 +7,10 @@ import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
 import config from '../../config.js'
 
-// The expectation is that you should *really* not be signing up for beta that often, so this rate
-// is pretty low
-const throttle = createThrottle('invitesignup', {
-  rate: 1,
-  burst: 4,
-  window: 60000,
-})
-
 export default function(router) {
   router
-    .post('/', throttleMiddleware(throttle, ctx => ctx.ip), createInvite)
     .get('/', checkAllPermissions('acceptInvites'), listInvites)
     .put('/:email', checkAllPermissions('acceptInvites'), acceptInvite)
-}
-
-async function createInvite(ctx, next) {
-  const b = ctx.request.body
-  const invite = {
-    email: b.email.trim(),
-    teamliquidName: b.teamliquidName,
-    os: b.os,
-    browser: b.browser,
-    graphics: b.graphics,
-    canHost: b.canHost,
-  }
-  if (!invite.email || !isValidEmail(invite.email)) {
-    throw new httpErrors.BadRequest('Invalid email')
-  }
-
-  try {
-    await invites.create(invite)
-  } catch (err) {
-    // Swallow dupe email error to prevent leaking already signed up emails
-    if (err.name !== 'DuplicateEmail') {
-      throw err
-    }
-  }
-
-  ctx.status = 201
 }
 
 async function listInvites(ctx, next) {

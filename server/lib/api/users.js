@@ -8,7 +8,6 @@ import users from '../models/users'
 import initSession from '../session/init'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
-import { getTokenByEmail } from '../models/invites'
 import { usePasswordResetCode } from '../models/password-resets'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -48,29 +47,11 @@ function hashPass(password) {
 async function createUser(ctx, next) {
   const { username, password } = ctx.request.body
   const email = ctx.request.body.email.trim()
-  const { token } = ctx.query
-
-  if (!token) {
-    throw new httpErrors.BadRequest('Token must be specified')
-  }
 
   if (!isValidUsername(username) ||
       !isValidEmail(email) ||
       !isValidPassword(password)) {
     throw new httpErrors.BadRequest('Invalid parameters')
-  }
-
-  try {
-    const tokenFromDb = await getTokenByEmail(email)
-    if (token !== tokenFromDb) {
-      throw new httpErrors.BadRequest('Invalid token')
-    }
-  } catch (err) {
-    if (err.name === 'NonexistentEmail') {
-      // Return same error as when token is invalid so we don't leak emails
-      throw new httpErrors.BadRequest('Invalid token')
-    }
-    throw err
   }
 
   const hashed = await hashPass(password)

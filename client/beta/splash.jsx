@@ -1,9 +1,11 @@
 import React from 'react'
+import { connect } from 'react-redux'
 import { makeServerUrl } from '../network/server-url'
+import { routerActions } from 'react-router-redux'
+import RaisedButton from '../material/raised-button.jsx'
 import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
-import BetaSignup from './signup.jsx'
 import LogoText from '../logos/logotext-640x100.svg'
 
 import ChatImage from './chat.svg'
@@ -24,6 +26,7 @@ const FeatureSection = ({ title, titleStyle, body, image }) => {
   </div>)
 }
 
+@connect()
 export default class Splash extends React.Component {
   render() {
     const features = [
@@ -105,7 +108,7 @@ export default class Splash extends React.Component {
                 has a life of lively to live to life of full life thanks to ShieldBattery.
               </p>
             </div>
-            <BetaSignup />
+            <RaisedButton label='Sign up' onClick={this.onSignUpClick} tabIndex={1}/>
           </div>
         </div>
 
@@ -122,5 +125,9 @@ export default class Splash extends React.Component {
         }
       </div>
     )
+  }
+
+  onSignUpClick = () => {
+    this.props.dispatch(routerActions.push({ pathname: '/signup' }))
   }
 }

@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
 import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
-import Card from '../material/card.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -61,14 +60,12 @@ const passwordValidator = composeValidators(
 const confirmPasswordValidator = composeValidators(
     required('Confirm your password'),
     matchesOther('password', 'Enter a matching password'))
-const tokenValidator = required('Enter your invite code')
 
 @form({
   username: usernameValidator,
   email: emailValidator,
   password: passwordValidator,
   confirmPassword: confirmPasswordValidator,
-  token: tokenValidator,
 })
 class SignupForm extends React.Component {
   render() {
@@ -90,8 +87,6 @@ class SignupForm extends React.Component {
           label='Password' floatingLabel={true} type='password'/>
       <TextField {...bindInput('confirmPassword')} inputProps={textInputProps}
           label='Confirm password' floatingLabel={true} type='password'/>
-      <TextField {...bindInput('token')} inputProps={textInputProps}
-          label='Invite code' floatingLabel={true}/>
     </form>)
   }
 }
@@ -128,19 +123,16 @@ export default class Signup extends React.Component {
     const model = {
       username: location.query.username,
       email: location.query.email,
-      token: location.query.token,
     }
 
     return (<div className={styles.content}>
-      <Card className={styles.card}>
-        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-          <h3 className={styles.cardTitle}>Create account</h3>
-          { errContents }
-          <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>
-          <RaisedButton label='Create account' onClick={this.onSignUpClick} tabIndex={1}/>
-        </div>
-        { loadingContents }
-      </Card>
+      <div className={authChangeInProgress ? styles.formLoading : styles.form}>
+        <h3 className={styles.cardTitle}>Create account</h3>
+        { errContents }
+        <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>
+        <RaisedButton label='Create account' onClick={this.onSignUpClick} tabIndex={1}/>
+      </div>
+      { loadingContents }
       <div className={styles.bottomAction}>
         <p>Already have an account?</p>
         <FlatButton label='Log in' onClick={this.onLogInClick} tabIndex={1} />
@@ -161,7 +153,7 @@ export default class Signup extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    const { id, action } = signUp(values.username, values.email, values.password, values.token)
+    const { id, action } = signUp(values.username, values.email, values.password)
     this.setState({
       reqId: id
     })

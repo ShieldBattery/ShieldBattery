@@ -3,7 +3,6 @@ import db from '../db'
 import transact from '../db/transaction'
 import { createPermissions } from './permissions'
 import { addUserToChannel } from './chat-channels'
-import { deleteInvite } from './invites'
 
 function defPrivate(o, name, value) {
   Object.defineProperty(o, name, {
@@ -51,7 +50,6 @@ class User {
 
       this.id = result.rows[0].id
       this._fromDb = true
-      await deleteInvite(client, this.email)
       const userPermissions = await createPermissions(client, this.id)
       await addUserToChannel(this.id, 'ShieldBattery', client)
       return { user: this, permissions: userPermissions }

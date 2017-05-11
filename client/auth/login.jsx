@@ -138,12 +138,12 @@ export default class Login extends React.Component {
           <FlatButton labelClassName={styles.bottomActionButtonLabel}
               label='Sign up for an account' onClick={this.onCreateAccountClick} tabIndex={1}/>
           <FlatButton labelClassName={styles.bottomActionButtonLabel}
-              label='View beta info' onClick={this.onSignUpClick} tabIndex={1}/>
+              label='What is ShieldBattery?' onClick={this.onSplashClick} tabIndex={1}/>
       </div>
     </div>)
   }
 
-  onSignUpClick = () => {
+  onSplashClick = () => {
     this.props.dispatch(routerActions.push({ pathname: '/splash' }))
   }
 
