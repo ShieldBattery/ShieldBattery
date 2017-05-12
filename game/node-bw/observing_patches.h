@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/types.h"
+
 namespace sbat {
 namespace bw {
 
@@ -15,7 +17,11 @@ struct ObservingPatches {
   static void __stdcall AllianceDialog_EventHook(Control *ctrl, void *event);
   static void __stdcall RedrawScreenHook();
   static void __stdcall GameScreenLeftClickHook(void *event);
+  static void __stdcall
+    PlaySoundAtPosHook(int sound, uint32 xy, int actually_play_something, int min_volume);
+  static void __stdcall ProcessCommandsHook(void *data, int len, int replay);
   static int __stdcall Command_SyncHook(void *data);
+  static int __stdcall ChatMessageHook(int net_player, const char *message, int length);
 
   static bool IsObserver(BroodWar *bw);
 

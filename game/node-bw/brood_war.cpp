@@ -190,7 +190,10 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.Minimap_TimerRefresh.Inject();
   offsets_->func_hooks.AllianceDialog_EventHandler.Inject();
   offsets_->func_hooks.GameScreenLeftClick.Inject();
+  offsets_->func_hooks.PlaySoundAtPos.Inject();
+  offsets_->func_hooks.ProcessCommands.Inject();
   offsets_->func_hooks.Command_Sync.Inject();
+  offsets_->func_hooks.ChatMessage.Inject();
 
   process_hooks_.Inject();
 }
@@ -427,11 +430,10 @@ bool BroodWar::NetGetPlayerNames(std::array<char*, 8>& names) {
   return offsets_->functions.SNetGetPlayerNames(&names[0]) == TRUE;
 }
 
-void BroodWar::DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_bytes) {
-  for (int i = 0; i < 8; i++) {
-    if (players()[i].storm_id < 8) {
-      offsets_->functions.InitNetworkPlayerInfo(static_cast<byte>(players()[i].storm_id), 0, 1, 5);
-    }
+void BroodWar::DoLobbyGameInit(uint32 seed, const std::vector<byte>& storm_ids_to_init,
+    const std::array<byte, 8>& player_bytes) {
+  for (auto id : storm_ids_to_init) {
+    offsets_->functions.InitNetworkPlayerInfo(id, 0, 1, 5);
   }
 
   DoUpdateNationAndHumanIds();
@@ -675,6 +677,27 @@ void BroodWar::ConvertGameResults() {
     if (*player_lose_type == PlayerLoseType::UnknownChecksumMismatch) {
       instance_->game_results_[*local_storm_id] = GameResult::Playing;
     }
+  }
+}
+
+void BroodWar::AddToReplayData(int player, void *command, int command_length) {
+  ReplayData *replay_data = *offsets_->replay_data;
+  auto func = offsets_->functions.AddToReplayData;
+  __asm {
+    push eax;
+    push edi;
+    push ebx;
+    push ecx;
+    mov eax, replay_data;
+    mov edi, command_length;
+    mov ebx, command;
+    mov ecx, func;
+    push player;
+    call ecx;
+    pop ecx;
+    pop ebx;
+    pop edi;
+    pop eax;
   }
 }
 

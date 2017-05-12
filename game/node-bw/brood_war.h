@@ -16,6 +16,7 @@ struct SNetSnpListEntry;
 };
 
 namespace bw {
+#pragma pack(1)
 struct PlayerInfo {
   uint32 player_id;
   uint32 storm_id;
@@ -25,13 +26,24 @@ struct PlayerInfo {
   char name[25];
 };
 
+struct StormPlayerInfo {
+  uint8 state;
+  uint8 unk1;
+  uint16 flags;
+  uint16 unk4;
+  // Always 5, not useful for us
+  uint16 protocol_version;
+  char name[0x19];
+  uint8 padding;
+};
+static_assert(sizeof(StormPlayerInfo) == 0x22, "sizeof StormPlayerInfo");
+
 struct MapListEntry {
   MapListEntry* prev;
   MapListEntry* next;
   char filename[32];
 };
 
-#pragma pack(1)
 struct GameTemplate {
   uint16 game_type;
   uint16 game_subtype;
@@ -91,6 +103,9 @@ struct Control {
   byte whatever[0x20];
   uint16 id;
 };
+
+// Feel free to add the fields if they are ever needed.
+struct ReplayData;
 #pragma pack()
 
 enum class GameSpeed {
@@ -205,6 +220,7 @@ struct Functions {
   FUNCDEF(void, SendMultiplayerChatMessage);
   FUNCDEF(uint32, CheckForMultiplayerChatCommand, char* message);
   FUNCDEF(void, DisplayMessage);
+  FUNCDEF(void, AddToReplayData);
   FUNCDEF(void, CleanUpForExit);
   FUNCDEF(BOOL, InitNetworkPlayerInfo, byte storm_id, uint16 flags, uint16 version_hi,
       uint16 version_lo);
@@ -241,7 +257,10 @@ struct FuncHooks {
   FuncHook<void()> RedrawScreen;
   FuncHook<void(Control *ctrl, void *event)> AllianceDialog_EventHandler;
   FuncHook<void(void *event)> GameScreenLeftClick;
+  FuncHook<void(int sound, uint32 xy, int actually_play_something, int min_volume)> PlaySoundAtPos;
+  FuncHook<void(void *data, int len, int replay)> ProcessCommands;
   FuncHook<int(void *data)> Command_Sync;
+  FuncHook<int(int net_player, const char *message, int length)> ChatMessage;
 };
 
 struct EventHandlers {
@@ -254,6 +273,7 @@ struct EventHandlers {
 
 struct Offsets {
   PlayerInfo* players;
+  StormPlayerInfo* storm_players;
   char* current_map_path;
   char* current_map_name;
   char* current_map_folder_path;
@@ -267,6 +287,8 @@ struct Offsets {
 
   // The storm id for the player. This is the id to use with storm function calls.
   uint32* local_storm_id;
+
+  uint32* storm_id_to_human_id;
 
   char* local_player_name;
   uint32* current_game_speed;
@@ -289,6 +311,8 @@ struct Offsets {
   uint32* player_nation_ids;
   uint32* game_time;
   uint32* current_command_player;
+  ReplayData** replay_data;
+
   bool* storm_snp_list_initialized;
   sbat::snp::SNetSnpListEntry* storm_snp_list;
 
@@ -368,7 +392,8 @@ public:
   bool NetSendTurn(const byte* data, size_t data_len);
   bool NetSendMessage(uint32 storm_id, const byte* data, size_t data_len);
   bool NetGetPlayerNames(std::array<char*, 8>& names);
-  void DoLobbyGameInit(uint32 seed, const std::array<byte, 8>& player_bytes);
+  void DoLobbyGameInit(uint32 seed, const std::vector<byte>& storm_ids_to_init,
+      const std::array<byte, 8>& player_bytes);
   void RunGameLoop();
   void CleanUpForExit();
   uint32 GetLastStormError();
@@ -381,6 +406,9 @@ public:
       ChatMessageType type);
   void DisplayMessage(const std::string& message, uint32 timeout);
   void ConvertGameResults();
+
+  // Adds a command (such as a chat message) to replay data.
+  void AddToReplayData(int player, void *command, int command_length);
 
   // Detour hook functions
   static void __stdcall OnGameLoopIteration();
@@ -437,12 +465,14 @@ Offsets* GetOffsets<Version::v1161>() {
   assert(storm_base != 0);
 
   offsets->players = reinterpret_cast<PlayerInfo*>(0x0057EEE0);
+  offsets->storm_players = reinterpret_cast<StormPlayerInfo*>(0x0066FE20);
   offsets->current_map_path = reinterpret_cast<char*>(0x0057FD3C);
   offsets->current_map_name = reinterpret_cast<char*>(0x0057FE40);
   offsets->current_map_folder_path = reinterpret_cast<char*>(0x0059BB70);
   offsets->local_nation_id = reinterpret_cast<uint32*>(0x00512684);
   offsets->local_human_id = reinterpret_cast<uint32*>(0x00512688);
   offsets->local_storm_id = reinterpret_cast<uint32*>(0x0051268C);
+  offsets->storm_id_to_human_id = reinterpret_cast<uint32*>(0x0057EE7C);
   offsets->local_player_name = reinterpret_cast<char*>(0x0057EE9C);
   offsets->current_game_speed = reinterpret_cast<uint32*>(0x006CDFD4);
   offsets->is_brood_war = reinterpret_cast<uint8*>(0x0058F440);
@@ -463,6 +493,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->player_nation_ids = reinterpret_cast<uint32*>(0x0057EEC0);
   offsets->game_time = reinterpret_cast<uint32*>(0x0057F23C);
   offsets->current_command_player = reinterpret_cast<uint32*>(0x00512678);
+  offsets->replay_data = reinterpret_cast<ReplayData**>(0x00596BBC);
   offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
   offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
@@ -485,6 +516,8 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->functions.SendMultiplayerChatMessage =
       reinterpret_cast<Functions::SendMultiplayerChatMessageFunc>(0x004F3280);
   offsets->functions.DisplayMessage = reinterpret_cast<Functions::DisplayMessageFunc>(0x0048D0C0);
+  offsets->functions.AddToReplayData =
+      reinterpret_cast<Functions::AddToReplayDataFunc>(0x004CDE70);
   offsets->functions.CleanUpForExit =
       reinterpret_cast<Functions::CleanUpForExitFunc>(0x004207B0);
   offsets->functions.InitNetworkPlayerInfo =
@@ -545,8 +578,14 @@ Offsets* GetOffsets<Version::v1161>() {
       0x00491310 , ObservingPatches::AllianceDialog_EventHook);
   offsets->func_hooks.GameScreenLeftClick.InitCustom<Ecx>(
       0x0046FEA0, ObservingPatches::GameScreenLeftClickHook);
+  offsets->func_hooks.PlaySoundAtPos.InitCustom<Ebx, Stack, Stack, Stack>(
+      0x0048EC10, ObservingPatches::PlaySoundAtPosHook);
+  offsets->func_hooks.ProcessCommands.InitCustom<Eax, Stack, Stack>(
+      0x004865D0, ObservingPatches::ProcessCommandsHook);
   offsets->func_hooks.Command_Sync.InitCustom<Edi>(
       0x0047CDD0, ObservingPatches::Command_SyncHook);
+  offsets->func_hooks.ChatMessage.InitCustom<Ecx, Edx, Stack>(
+      0x00485F50, ObservingPatches::ChatMessageHook);
 
   return offsets;
 }
