@@ -73,6 +73,7 @@ Forge::Forge()
       bw_window_active_(false),
       captured_window_(NULL),
       stored_cursor_rect_(nullptr),
+      active_bitmap_(NULL),
       indirect_draw_(nullptr),
       event_publish_mutex_(), 
       event_publish_async_(),
@@ -100,6 +101,10 @@ Forge::Forge()
   process_hooks_.AddHook("user32.dll", "ReleaseCapture", ReleaseCaptureHook);
   process_hooks_.AddHook("user32.dll", "ShowWindow", ShowWindowHook);
   process_hooks_.AddHook("user32.dll", "GetKeyState", GetKeyStateHook);
+  process_hooks_.AddHook("gdi32.dll", "CreateCompatibleBitmap", CreateCompatibleBitmapHook);
+  process_hooks_.AddHook("gdi32.dll", "DeleteObject", DeleteObjectHook);
+  process_hooks_.AddHook("gdi32.dll", "GetObjectA", GetObjectHook);
+  process_hooks_.AddHook("gdi32.dll", "GetBitmapBits", GetBitmapBitsHook);
 
   storm_hooks_.AddHook("user32.dll", "IsIconic", IsIconicHook);
   storm_hooks_.AddHook("user32.dll", "IsWindowVisible", IsWindowVisibleHook);
@@ -992,6 +997,78 @@ SHORT __stdcall Forge::GetKeyStateHook(int nVirtKey) {
     // is not active, it shouldn't be acting on it anyways.
     return 0;
   }
+}
+
+HBITMAP __stdcall Forge::CreateCompatibleBitmapHook(HDC dc, int width, int height) {
+  // We have to track the one bitmap BW creates, so we can tell BW it's 8 bits per pixel when it
+  // calls GetObject on it.
+  HBITMAP result = CreateCompatibleBitmap(dc, width, height);
+  if (instance_->active_bitmap_ != NULL) {
+    Logger::Log(LogLevel::Warning, "BW is using multiple bitmaps at once?");
+  }
+  instance_->active_bitmap_ = result;
+  return result;
+}
+
+BOOL __stdcall Forge::DeleteObjectHook(HGDIOBJ object) {
+  if (object == instance_->active_bitmap_) {
+    instance_->active_bitmap_ = NULL;
+  }
+  return DeleteObject(object);
+}
+
+int __stdcall Forge::GetObjectHook(HGDIOBJ object, int cbBuffer, LPVOID lpvObject) {
+  int result = GetObject(object, cbBuffer, lpvObject);
+  if (result != 0 && object == instance_->active_bitmap_) {
+    auto bitmap = reinterpret_cast<BITMAP*>(lpvObject);
+    bitmap->bmWidthBytes = bitmap->bmWidth;
+    bitmap->bmBitsPixel = 1;
+    // Fortunately BW doesn't care about the data pointer.
+  }
+  return result;
+}
+
+LONG __stdcall Forge::GetBitmapBitsHook(HBITMAP hbmp, LONG cbBuffer, LPVOID lpvBits) {
+  // BW 1.16.1 calls GetBitmapBits only when drawing korean text.
+  // (It uses Gdi32 DrawText to draw it to a bitmap DC, and then reads it from there)
+  // Since BW believes it has told Windows it is using 8-bit video mode, it assumes that
+  // GetBitmapBits returns 8bpp bitmap, so we have to fix it up.
+  // This hook assumes that the text is always drawn as simple white-on-black text (which it is).
+  //
+  // Technically, it seems that it should be possible to just make windows use 8bpp bitmaps, but
+  // I wasn't able to make it work.
+
+  // Maybe the DC isn't always 32-bit? I'm not trusting Windows being consistent or sensible.
+  if (instance_->window_handle_ == NULL) {
+    return 0;
+  }
+  auto dc = GetDC(instance_->window_handle_);
+  if (dc == NULL) {
+    Logger::Log(LogLevel::Error, "GetBitmapBitsHook: Couldn't access default DC");
+    // BW actually doesn't check the return value D:
+    return 0;
+  }
+  int bpp = GetDeviceCaps(dc, BITSPIXEL);
+  ReleaseDC(instance_->window_handle_, dc);
+
+  if (bpp % 8 != 0 || bpp > 32 || bpp == 0) {
+    Logger::Logf(LogLevel::Error, "Nonsensical value for DC bit depth: %d", bpp);
+    return 0;
+  }
+
+  // 0xff, 0xffff, etc
+  int pixel_mask = (1LL << static_cast<uint64>(bpp)) - 1;
+  int bytes_per_pixel = bpp / 8;
+
+  auto buffer = unique_ptr<uint8[]>(new uint8[cbBuffer * bytes_per_pixel]);
+  int bytes_read = GetBitmapBits(hbmp, cbBuffer * bytes_per_pixel, buffer.get());
+  auto bw_buffer = reinterpret_cast<uint8*>(lpvBits);
+  for (int pos = 0; pos < bytes_read; pos += bytes_per_pixel) {
+    uint32 val = *reinterpret_cast<uint32_t*>(buffer.get() + pos) & pixel_mask;
+    *bw_buffer = val == 0 ? 0x00 : 0xff;
+    bw_buffer += 1;
+  }
+  return bytes_read / bytes_per_pixel;
 }
 
 const int MOUSE_SETTING_MAX = 10;

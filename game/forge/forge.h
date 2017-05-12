@@ -74,7 +74,7 @@ private:
     return static_cast<int>((val * (480.0 / mouse_resolution_height_)) + 0.5);
   }
 
-  
+
 
   // hooks
   static HWND __stdcall CreateWindowExAHook(DWORD dwExStyle, LPCSTR lpClassName,
@@ -99,6 +99,10 @@ private:
   static BOOL __stdcall ReleaseCaptureHook();
   static BOOL __stdcall ShowWindowHook(HWND hwnd, int nCmdShow);
   static SHORT __stdcall GetKeyStateHook(int nVirtKey);
+  static LONG __stdcall GetBitmapBitsHook(HBITMAP hbmp, LONG cbBuffer, LPVOID lpvBits);
+  static HBITMAP __stdcall CreateCompatibleBitmapHook(HDC dc, int width, int height);
+  static BOOL __stdcall DeleteObjectHook(HGDIOBJ object);
+  static int __stdcall GetObjectHook(HGDIOBJ object, int cbBuffer, LPVOID lpvObject);
   static void __stdcall RenderScreenHook();
 
   // callable from JS
@@ -136,6 +140,7 @@ private:
   bool bw_window_active_;
   HWND captured_window_;
   std::unique_ptr<RECT> stored_cursor_rect_;
+  HBITMAP active_bitmap_;
   IndirectDraw* indirect_draw_;
 
   uv_mutex_t event_publish_mutex_;

@@ -81,7 +81,7 @@ void __stdcall BroodWar::OnGameLoopIteration() {
 
 static std::string Utf8FromBwCodepage(const char *in) {
   // This is the same check that bw uses.
-  int codepage = GetUserDefaultLangID() == LANG_KOREAN ? 949 : 1252;
+  int codepage = GetUserDefaultLangID() == 0x412 ? 949 : 1252;
   wchar_t buf[512];
   int result = MultiByteToWideChar(codepage, 0, in, -1, buf, 512);
   if (result == 0) {
@@ -96,7 +96,7 @@ static std::string Utf8FromBwCodepage(const char *in) {
 }
 
 static std::string Utf8ToBwCodepage(const char *in) {
-  int codepage = GetUserDefaultLangID() == LANG_KOREAN ? 949 : 1252;
+  int codepage = GetUserDefaultLangID() == 0x412 ? 949 : 1252;
   wchar_t buf[512];
   int result = MultiByteToWideChar(CP_UTF8, 0, in, -1, buf, 512);
   if (result == 0) {
