@@ -75,6 +75,7 @@ class ChatHandler extends EventEmitter {
     super()
     this.bw = bw
     this._exclusive = null
+    this._allyOverride = null
     this._registerWithBindings()
   }
 
@@ -104,8 +105,22 @@ class ChatHandler extends EventEmitter {
 
     if (!handled) {
       // we didn't handle it, so send it back to BW so it goes through to other users
-      this.bw.bindings.sendMultiplayerChatMessage(message, type, recipients)
+      if (this._allyOverride !== null && type === 3) {
+        this.bw.bindings.sendMultiplayerChatMessage(message, 4, this._allyOverride)
+      } else {
+        this.bw.bindings.sendMultiplayerChatMessage(message, type, recipients)
+      }
     }
+  }
+
+  // Allows overriding the send to allies behaviour for setting observer-only chat.
+  // Can pass null to disable a previous override.
+  overrideAllies(allyStormIds) {
+    let bits = 0
+    for (const id of allyStormIds) {
+      bits |= (1 << id)
+    }
+    this._allyOverride = bits
   }
 
   grabExclusiveStream() {

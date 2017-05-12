@@ -99,9 +99,25 @@ struct SEvent {
   uint32 size;
 };
 
+struct Dialog;
 struct Control {
-  byte whatever[0x20];
+  Control* next;
+  uint16 area[0x4];
+  byte whatever8[0x8];
+  const char* label;
+  uint32 flags;
+  byte whatever1c[0x4];
   uint16 id;
+  byte whatever22[0x10];
+  Dialog* parent;
+};
+
+static_assert(sizeof(Control) == 0x36, "sizeof Control");
+
+struct Dialog {
+  Control base;
+  byte whatever36[0xc];
+  Control* first_child;
 };
 
 // Feel free to add the fields if they are ever needed.
@@ -261,6 +277,9 @@ struct FuncHooks {
   FuncHook<void(void *data, int len, int replay)> ProcessCommands;
   FuncHook<int(void *data)> Command_Sync;
   FuncHook<int(int net_player, const char *message, int length)> ChatMessage;
+  FuncHook<void(Dialog *dialog, void *base, void *event_handler, const char *source_file,
+      int source_line)> LoadDialog;
+  FuncHook<void()> InitUiVariables;
 };
 
 struct EventHandlers {
@@ -312,6 +331,10 @@ struct Offsets {
   uint32* game_time;
   uint32* current_command_player;
   ReplayData** replay_data;
+  uint32* replay_visions;
+  uint32* player_visions;
+  // Ingame player id or 8 for all or 9 for allies
+  uint8* chat_dialog_recipent;
 
   bool* storm_snp_list_initialized;
   sbat::snp::SNetSnpListEntry* storm_snp_list;
@@ -494,6 +517,9 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->game_time = reinterpret_cast<uint32*>(0x0057F23C);
   offsets->current_command_player = reinterpret_cast<uint32*>(0x00512678);
   offsets->replay_data = reinterpret_cast<ReplayData**>(0x00596BBC);
+  offsets->replay_visions = reinterpret_cast<uint32*>(0x006D0F18);
+  offsets->player_visions = reinterpret_cast<uint32*>(0x0057F0B0);
+  offsets->chat_dialog_recipent = reinterpret_cast<uint8*>(0x00581D60);
   offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
   offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
@@ -586,6 +612,10 @@ Offsets* GetOffsets<Version::v1161>() {
       0x0047CDD0, ObservingPatches::Command_SyncHook);
   offsets->func_hooks.ChatMessage.InitCustom<Ecx, Edx, Stack>(
       0x00485F50, ObservingPatches::ChatMessageHook);
+  offsets->func_hooks.LoadDialog.InitCustom<Eax, Ebx, Stack, Stack, Stack>(
+      0x004194E0, ObservingPatches::LoadDialogHook);
+  offsets->func_hooks.InitUiVariables.InitStdcall(
+      0x004EE180, ObservingPatches::InitUiVariablesHook);
 
   return offsets;
 }

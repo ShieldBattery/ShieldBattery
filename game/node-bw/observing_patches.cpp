@@ -1,5 +1,8 @@
 #include "observing_patches.h"
 
+#include <algorithm>
+#include "logger/logger.h"
+
 #include "brood_war.h"
 
 namespace sbat {
@@ -114,7 +117,7 @@ int __stdcall ObservingPatches::ChatMessageHook(int net_player, const char *mess
     uint8 replay_command[0x52] = { 0 };
     replay_command[0] = 0x5c; // Replay chat
     replay_command[1] = 0x8; // Player
-    memcpy(replay_command + 2, buf, min(0x50, strlen(buf)));
+    memcpy(replay_command + 2, buf, std::min(static_cast<size_t>(0x50), strlen(buf)));
     replay_command[0x51] = 0;
     bw->AddToReplayData(net_player, replay_command, sizeof replay_command);
 
@@ -128,6 +131,60 @@ int __stdcall ObservingPatches::ChatMessageHook(int net_player, const char *mess
   } else {
     auto &hook = bw->offsets_->func_hooks.ChatMessage;
     return hook.callable()(net_player, message, length);
+  }
+}
+
+static Control *FindDialogChild(Dialog* dialog, int child_id) {
+  for (Control *control = dialog->first_child; control != nullptr; control = control->next) {
+    if (control->id == child_id) {
+      return control;
+    }
+  }
+  return nullptr;
+}
+
+void __stdcall ObservingPatches::LoadDialogHook(Dialog *dialog, void *base, void *event_handler,
+    const char* source_file, int source_line) {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.LoadDialog;
+  hook.callable()(dialog, base, event_handler, source_file, source_line);
+  if (!IsObserver(bw)) {
+    return;
+  }
+  if (strcmp(dialog->base.label, "TextBox") == 0) {
+    Control *to_allies = FindDialogChild(dialog, 0x2);
+    if (to_allies != nullptr) {
+      to_allies->label = "To Observers:";
+      // Of course the control has to be resized by hand <.<
+      // Possibly could also just make it left aligned.
+      // This can be determined "easily" by breaking 1.16.1 in debugger at 004F2FFF when opening
+      // chat entry while talking to one player, and replacing the "To player:" string, and stepping
+      // over the call.
+      to_allies->area[2] = 0x55;
+    } else {
+      Logger::Log(LogLevel::Error, "Couldn't find 'To Allies:' control");
+    }
+  } else if (strcmp(dialog->base.label, "MsgFltr") == 0) {
+    Control *to_allies = FindDialogChild(dialog, 0x3);
+    if (to_allies != nullptr) {
+      to_allies->label = "Send to observers";
+    } else {
+      Logger::Log(LogLevel::Error, "Couldn't find 'Send to allies:' control");
+    }
+  }
+  return;
+}
+
+void __stdcall ObservingPatches::InitUiVariablesHook() {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.InitUiVariables;
+  hook.callable()();
+  if (IsObserver(bw)) {
+    *bw->offsets_->replay_visions = 0xff;
+    *bw->offsets_->player_visions = 0xff;
+    // To allies (=observers)
+    *bw->offsets_->chat_dialog_recipent = 9;
+    // Could also set the race, it currently just does an overflow read to zerg.
   }
 }
 
