@@ -831,17 +831,22 @@ void WrappedBroodWar::GetStormPlayerNames(const FunctionCallbackInfo<Value>& inf
 }
 
 void WrappedBroodWar::DoLobbyGameInit(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() >= 2);
+  assert(info.Length() >= 3);
 
   BroodWar* bw = WrappedBroodWar::Unwrap(info);
   uint32 seed = info[0]->Uint32Value();
-  Local<Array> bytesArg = info[1].As<Array>();
+  Local<Array> stormIdsToInit = info[1].As<Array>();
+  Local<Array> bytesArg = info[2].As<Array>();
+  std::vector<byte> storm_ids;
+  for (unsigned i = 0; i < stormIdsToInit->Length(); i++) {
+    storm_ids.push_back(stormIdsToInit->Get(i)->Uint32Value());
+  }
   std::array<byte, 8> player_bytes;
   for (int i = 0; i < 8; i++) {
     player_bytes[i] = static_cast<byte>(bytesArg->Get(i)->Uint32Value());
   }
 
-  bw->DoLobbyGameInit(seed, player_bytes);
+  bw->DoLobbyGameInit(seed, storm_ids, player_bytes);
 }
 
 struct GameLoopContext {
@@ -1027,7 +1032,7 @@ void EventHandlerImmediate(void* arg) {
   HandleScope scope;
   EventHandlerCallbackInfo* info = reinterpret_cast<EventHandlerCallbackInfo*>(arg);
 
-  for (auto it = WrappedBroodWar::event_handlers_.begin(); 
+  for (auto it = WrappedBroodWar::event_handlers_.begin();
       it != WrappedBroodWar::event_handlers_.end(); ++it) {
     WrappedBroodWar* wrapped_bw = it->first;
 #pragma warning(suppress: 6011)
@@ -1088,7 +1093,7 @@ void WrappedBroodWar::OnReplaySave(const wstring& replay_path) {
   AddImmediateCallback(EventHandlerImmediate, info);
 }
 
-GameLoopQueue::GameLoopQueue() 
+GameLoopQueue::GameLoopQueue()
     : has_items_(false),
       mutex_(),
       async_(),

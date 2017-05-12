@@ -149,8 +149,8 @@ class BroodWar extends EventEmitter {
     return this.bindings.getStormPlayerNames()
   }
 
-  doLobbyGameInit(seed, playerBytes) {
-    this.bindings.doLobbyGameInit(seed, playerBytes)
+  doLobbyGameInit(seed, stormIdsToInit, playerBytes) {
+    this.bindings.doLobbyGameInit(seed, stormIdsToInit, playerBytes)
   }
 
   async createLobby(gameSettings) {
