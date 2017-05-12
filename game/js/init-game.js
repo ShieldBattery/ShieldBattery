@@ -180,19 +180,27 @@ class GameInitializer {
     this.notifyProgress(GAME_STATUS_STARTING)
     log.verbose('setting game seed')
     const stormNames = bw.getStormPlayerNames()
+    const playerNameToStormId = name => {
+      const idx = stormNames.findIndex(x => x === name)
+      if (idx === -1) {
+        throw new Error(`${name} does not have storm id`)
+      }
+      return idx
+    }
     const stormPlayerIds = this.lobbyConfig.slots
         .filter(slot => slot.type === 'human' || slot.type === 'observer')
-        .map(p => {
-          const idx = stormNames.findIndex(x => x === p.name)
-          if (idx === -1) {
-            throw new Error(`${p.name} does not have storm id`)
-          }
-          return idx
-        })
+        .map(p => playerNameToStormId(p.name))
     // TODO(tec27): deal with player bytes if we ever allow save games
     bw.doLobbyGameInit(this.setup.seed | 0, stormPlayerIds, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
     forge.endWndProc()
 
+    const mySlot = this.lobbyConfig.slots.find(x => x.name === myName)
+    if (mySlot && mySlot.type === 'observer') {
+      const observerStormIds = this.lobbyConfig.slots
+          .filter(slot => slot.type === 'observer')
+          .map(p => playerNameToStormId(p.name))
+      bw.chatHandler.overrideAllies(observerStormIds)
+    }
     this.socket.invoke('/game/start')
     const { results, time } = await bw.runGameLoop()
     log.verbose('gameResults: ' + JSON.stringify(results))

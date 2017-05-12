@@ -6,6 +6,7 @@ namespace sbat {
 namespace bw {
 
 struct Control;
+struct Dialog;
 class BroodWar;
 
 // These are just grouped into a struct so they can be befriended by BroodWar
@@ -22,6 +23,9 @@ struct ObservingPatches {
   static void __stdcall ProcessCommandsHook(void *data, int len, int replay);
   static int __stdcall Command_SyncHook(void *data);
   static int __stdcall ChatMessageHook(int net_player, const char *message, int length);
+  static void __stdcall LoadDialogHook(Dialog *dialog, void *base, void *event_handler,
+      const char* source_file, int source_line);
+  static void __stdcall InitUiVariablesHook();
 
   static bool IsObserver(BroodWar *bw);
 
