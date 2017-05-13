@@ -196,6 +196,11 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.ChatMessage.Inject();
   offsets_->func_hooks.LoadDialog.Inject();
   offsets_->func_hooks.InitUiVariables.Inject();
+  offsets_->func_hooks.DrawStatusScreen.Inject();
+  offsets_->func_hooks.UpdateCommandCard.Inject();
+  offsets_->func_hooks.CmdBtn_EventHandler.Inject();
+  offsets_->func_hooks.DrawCommandButton.Inject();
+  offsets_->func_hooks.DrawResourceCounts.Inject();
 
   process_hooks_.Inject();
 }

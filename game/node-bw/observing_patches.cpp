@@ -75,6 +75,45 @@ void __stdcall ObservingPatches::PlaySoundAtPosHook(int sound, uint32 xy,
   CallWithReplayFlagIfObserver(bw, hook, sound, xy, actually_play_something, min_volume);
 }
 
+void __stdcall ObservingPatches::DrawStatusScreenHook() {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.DrawStatusScreen;
+  CallWithReplayFlagIfObserver(bw, hook);
+}
+
+void __stdcall ObservingPatches::DrawResourceCountsHook(Control *control, void *param) {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.DrawResourceCounts;
+  CallWithReplayFlagIfObserver(bw, hook, control, param);
+}
+
+void __stdcall ObservingPatches::DrawCommandButtonHook(Control *control, int x, int y,
+    void *area) {
+  // Need to disable replay flag being set from DrawScreenHook if observing
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.DrawCommandButton;
+  auto was_replay = *bw->offsets_->is_replay;
+  if (IsObserver(bw)) {
+    *bw->offsets_->is_replay = 0;
+  }
+  hook.callable()(control, x, y, area);
+  if (IsObserver(bw)) {
+    *bw->offsets_->is_replay = was_replay;
+  }
+}
+
+void __stdcall ObservingPatches::UpdateCommandCardHook() {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.UpdateCommandCard;
+  if (IsObserver(bw) && *bw->offsets_->primary_selected != nullptr) {
+    *bw->offsets_->local_nation_id = (*bw->offsets_->primary_selected)->player;
+    hook.callable()();
+    *bw->offsets_->local_nation_id = -1;
+  } else {
+    hook.callable()();
+  }
+}
+
 void __stdcall ObservingPatches::ProcessCommandsHook(void *data, int len, int replay) {
   auto bw = BroodWar::Get();
   auto &hook = bw->offsets_->func_hooks.ProcessCommands;
@@ -185,6 +224,24 @@ void __stdcall ObservingPatches::InitUiVariablesHook() {
     // To allies (=observers)
     *bw->offsets_->chat_dialog_recipent = 9;
     // Could also set the race, it currently just does an overflow read to zerg.
+  }
+}
+
+int __stdcall ObservingPatches::CmdBtn_EventHandlerHook(Control* control, UiEvent* event) {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.CmdBtn_EventHandler;
+  if (!IsObserver(bw)) {
+    return hook.callable()(control, event);
+  } else {
+    // Disable clicking on command buttons.
+    // Event 4 = Left click, 6 = Double click, Extended 3 = Hotkey
+    if (event->type == 0x4 || event->type == 0x6) {
+      return 0;
+    } else if (event->type == 0xe && event->extended_type == 3) {
+      return 1;
+    } else {
+      return hook.callable()(control, event);
+    }
   }
 }
 
