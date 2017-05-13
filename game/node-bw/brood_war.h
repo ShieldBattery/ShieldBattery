@@ -114,10 +114,24 @@ struct Control {
 
 static_assert(sizeof(Control) == 0x36, "sizeof Control");
 
+struct UiEvent {
+  uint32 extended_type;
+  uint32 extended_param;
+  uint32 value;
+  uint16 type;
+  uint16 x;
+  uint16 y;
+};
+
 struct Dialog {
   Control base;
   byte whatever36[0xc];
   Control* first_child;
+};
+
+struct Unit {
+  byte whatever[0x4c];
+  byte player;
 };
 
 // Feel free to add the fields if they are ever needed.
@@ -280,6 +294,11 @@ struct FuncHooks {
   FuncHook<void(Dialog *dialog, void *base, void *event_handler, const char *source_file,
       int source_line)> LoadDialog;
   FuncHook<void()> InitUiVariables;
+  FuncHook<void()> DrawStatusScreen;
+  FuncHook<void()> UpdateCommandCard;
+  FuncHook<int(Control*, UiEvent*)> CmdBtn_EventHandler;
+  FuncHook<void(Control*, int, int, void*)> DrawCommandButton;
+  FuncHook<void(Control*, void*)> DrawResourceCounts;
 };
 
 struct EventHandlers {
@@ -335,6 +354,7 @@ struct Offsets {
   uint32* player_visions;
   // Ingame player id or 8 for all or 9 for allies
   uint8* chat_dialog_recipent;
+  Unit** primary_selected;
 
   bool* storm_snp_list_initialized;
   sbat::snp::SNetSnpListEntry* storm_snp_list;
@@ -520,6 +540,7 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->replay_visions = reinterpret_cast<uint32*>(0x006D0F18);
   offsets->player_visions = reinterpret_cast<uint32*>(0x0057F0B0);
   offsets->chat_dialog_recipent = reinterpret_cast<uint8*>(0x00581D60);
+  offsets->primary_selected = reinterpret_cast<Unit**>(0x00597248);
   offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
   offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
@@ -616,6 +637,16 @@ Offsets* GetOffsets<Version::v1161>() {
       0x004194E0, ObservingPatches::LoadDialogHook);
   offsets->func_hooks.InitUiVariables.InitStdcall(
       0x004EE180, ObservingPatches::InitUiVariablesHook);
+  offsets->func_hooks.DrawStatusScreen.InitStdcall(
+      0x00458120, ObservingPatches::DrawStatusScreenHook);
+  offsets->func_hooks.UpdateCommandCard.InitStdcall(
+      0x004591D0, ObservingPatches::UpdateCommandCardHook);
+  offsets->func_hooks.CmdBtn_EventHandler.InitCustom<Ecx, Edx>(
+      0x004598D0, ObservingPatches::CmdBtn_EventHandlerHook);
+  offsets->func_hooks.DrawCommandButton.InitCustom<Ecx, Edx, Stack, Stack>(
+      0x00458900, ObservingPatches::DrawCommandButtonHook);
+  offsets->func_hooks.DrawResourceCounts.InitCustom<Ecx, Edx>(
+      0x004E5640, ObservingPatches::DrawResourceCountsHook);
 
   return offsets;
 }
