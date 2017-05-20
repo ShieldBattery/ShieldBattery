@@ -92,11 +92,6 @@ export default function({
       ],
     },
     plugins: [
-      // get rid of warnings from ws about native requires that its okay with failing
-      new webpack.NormalModuleReplacementPlugin(
-          /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
-      new webpack.NormalModuleReplacementPlugin(
-          /^utf-8-validate$/, require.resolve('ws/lib/Validation.fallback.js')),
       // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(

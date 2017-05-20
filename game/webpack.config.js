@@ -63,11 +63,6 @@ const options = {
   },
   devtool: 'hidden-source-map',
   plugins: [
-    // get rid of warnings from ws about native requires that its okay with failing
-    new webpack.NormalModuleReplacementPlugin(
-        /^bufferutil$/, require.resolve('ws/lib/BufferUtil.fallback.js')),
-    new webpack.NormalModuleReplacementPlugin(
-        /^utf-8-validate$/, require.resolve('ws/lib/Validation.fallback.js')),
     new webpack.NormalModuleReplacementPlugin(
         /[\\/]any-promise[\\/]/, require.resolve('../app/common/promise.js')),
     new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
