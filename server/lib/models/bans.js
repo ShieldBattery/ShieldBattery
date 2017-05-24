@@ -22,15 +22,12 @@ export async function getBanHistory(userId) {
   }
 }
 
-export async function banUser(userId, bannedBy, banLengthHours, reason) {
+export async function banUser(userId, bannedBy, banLengthHours, reason = null) {
   const { client, done } = await db()
   const startDate = new Date()
   const endDate = new Date()
   endDate.setHours(endDate.getHours() + banLengthHours)
-  const params = [ userId, startDate, endDate, bannedBy ]
-  if (reason) {
-    params.push(reason)
-  }
+  const params = [ userId, startDate, endDate, bannedBy, reason ]
 
   try {
     const result = await client.queryPromise(
