@@ -52,8 +52,7 @@ export async function getMatchmakingPreferences(userId, matchmakingType) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    if (!result.rows.length) throw new Error('No matchmaking preferences for this user')
-    return new MatchmakingPreferences(result.rows[0])
+    return result.rows.length > 0 ? new MatchmakingPreferences(result.rows[0]) : null
   } finally {
     done()
   }

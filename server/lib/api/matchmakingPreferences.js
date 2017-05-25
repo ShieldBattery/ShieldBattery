@@ -22,13 +22,13 @@ async function upsertPreferences(ctx, next) {
   if (!race) {
     throw new httpErrors.BadRequest('race must be specified')
   } else if (!isValidMapPoolId(mapPoolId)) {
-    throw new httpErrors.BadRequest('mapPoolId must be specified')
+    throw new httpErrors.NotImplemented('map pool support not implemented yet')
   } else if (alternateRace !== null && alternateRace !== undefined &&
       !isValidAlternateRace(alternateRace)) {
     throw new httpErrors.BadRequest('invalid alternateRace')
   } else if (preferredMaps !== undefined && preferredMaps !== null) {
     // TODO(2Pac): Change this once matchmaking map pool support is added
-    throw new httpErrors.BadRequest('preferredMaps support not implemented yet')
+    throw new httpErrors.NotImplemented('preferredMaps support not implemented yet')
   }
 
   ctx.body = await upsertMatchmakingPreferences(ctx.session.id, matchmakingType, race,
@@ -37,5 +37,9 @@ async function upsertPreferences(ctx, next) {
 
 async function getPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
-  ctx.body = await getMatchmakingPreferences(ctx.session.id, matchmakingType)
+  const preferences = await getMatchmakingPreferences(ctx.session.id, matchmakingType)
+  if (!preferences) {
+    throw new httpErrors.NotFound('no matchmaking preferences for this user')
+  }
+  ctx.body = preferences
 }
