@@ -5,7 +5,11 @@ class MatchmakingPreferences {
     this.race = props.race
     this.alternateRace = props.alternate_race
     this.mapPoolId = props.map_pool_id
-    this.preferredMaps = props.preferred_maps.map(m => m.toString('hex'))
+    this.preferredMaps = this._getPreferredMaps(props.preferred_maps)
+  }
+
+  _getPreferredMaps(maps) {
+    return maps ? maps.map(m => m.toString('hex')) : []
   }
 }
 
@@ -29,7 +33,7 @@ export async function upsertMatchmakingPreferences(userId, matchmakingType, race
     race,
     alternateRace,
     mapPoolId,
-    preferredMapsHashes
+    preferredMapsHashes,
   ]
 
   const { client, done } = await db()
@@ -47,7 +51,7 @@ export async function getMatchmakingPreferences(userId, matchmakingType) {
     FROM matchmaking_preferences
     WHERE user_id = $1 AND matchmaking_type = $2;
   `
-  const params = [ userId ]
+  const params = [ userId, matchmakingType ]
 
   const { client, done } = await db()
   try {
