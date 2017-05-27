@@ -5,7 +5,12 @@ import validateBody from '../websockets/validate-body'
 import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
-import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../app/common/constants'
+import {
+  MATCHMAKING_ACCEPT_MATCH_TIME,
+  MATCHMAKING_TYPES,
+  isValidMatchmakingType,
+  validRace,
+} from '../../../app/common/constants'
 
 const Player = new Record({
   name: null,
@@ -24,17 +29,11 @@ const QueueEntry = new Record({
   type: null,
 })
 
-const MATCHMAKING_TYPES = [
-  '1v1'
-]
 // How often to run the matchmaker 'find match' process
 const MATCHMAKING_INTERVAL = 7500
 // Extra time that is added to the matchmaking accept time to account for latency in getting
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
-
-const validType = type => MATCHMAKING_TYPES.includes(type)
-
 const MOUNT_BASE = '/matchmaking'
 
 @Mount(MOUNT_BASE)
@@ -140,7 +139,7 @@ export class MatchmakingApi {
 
   @Api('/find',
     validateBody({
-      type: validType,
+      type: isValidMatchmakingType,
       race: validRace,
     }))
   async find(data, next) {

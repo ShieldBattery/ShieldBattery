@@ -1,5 +1,6 @@
 import httpErrors from 'http-errors'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import { isValidMatchmakingType } from '../../../app/common/constants'
 import {
   getMatchmakingPreferences,
   upsertMatchmakingPreferences
@@ -20,7 +21,9 @@ async function upsertPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
   const { race, alternateRace, mapPoolId, preferredMaps } = ctx.request.body
 
-  if (!isValidRace(race)) {
+  if (!isValidMatchmakingType) {
+    throw new httpErrors.BadRequest('invalid matchmaking type')
+  } else if (!isValidRace(race)) {
     throw new httpErrors.BadRequest('invalid race')
   } else if (!await isValidMapPoolId(mapPoolId)) {
     throw new httpErrors.NotImplemented('map pool support not implemented yet')
@@ -38,6 +41,10 @@ async function upsertPreferences(ctx, next) {
 
 async function getPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
+  if (!isValidMatchmakingType) {
+    throw new httpErrors.BadRequest('invalid matchmaking type')
+  }
+
   const preferences = await getMatchmakingPreferences(ctx.session.userId, matchmakingType)
   if (!preferences) {
     throw new httpErrors.NotFound('no matchmaking preferences for this user')
