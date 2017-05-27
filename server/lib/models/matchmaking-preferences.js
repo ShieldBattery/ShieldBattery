@@ -5,11 +5,7 @@ class MatchmakingPreferences {
     this.race = props.race
     this.alternateRace = props.alternate_race
     this.mapPoolId = props.map_pool_id
-    this.preferredMaps = this._getPreferredMaps(props.preferred_maps)
-  }
-
-  _getPreferredMaps(maps) {
-    return maps ? maps.map(m => m.toString('hex')) : []
+    this.preferredMaps = (props.preferred_maps || []).map(m => m.toString('hex'))
   }
 }
 

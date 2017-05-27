@@ -11,10 +11,10 @@ export default function(router, userSockets) {
     .get('/:matchmakingType', ensureLoggedIn, getPreferences)
 }
 
-const isValidRace = r => r === 'random' || r === 'terran' || r === 'zerg' || r === 'protoss'
-// TODO(2Pac): Change this once matchmaking map pool support is added
-const isValidMapPoolId = mapPoolId => mapPoolId === -1
+const isValidRace = race => ['zerg', 'terran', 'protoss', 'random'].includes(race)
 const isValidAlternateRace = race => ['zerg', 'terran', 'protoss'].includes(race)
+// TODO(2Pac): Change this once matchmaking map pool support is added
+const isValidMapPoolId = async mapPoolId => mapPoolId === -1
 
 async function upsertPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
@@ -22,7 +22,7 @@ async function upsertPreferences(ctx, next) {
 
   if (!isValidRace(race)) {
     throw new httpErrors.BadRequest('invalid race')
-  } else if (!isValidMapPoolId(mapPoolId)) {
+  } else if (!await isValidMapPoolId(mapPoolId)) {
     throw new httpErrors.NotImplemented('map pool support not implemented yet')
   } else if (alternateRace !== null && alternateRace !== undefined &&
       !isValidAlternateRace(alternateRace)) {
