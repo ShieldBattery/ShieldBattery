@@ -21,7 +21,7 @@ async function upsertPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
   const { race, alternateRace, mapPoolId, preferredMaps } = ctx.request.body
 
-  if (!isValidMatchmakingType) {
+  if (!isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   } else if (!isValidRace(race)) {
     throw new httpErrors.BadRequest('invalid race')
@@ -41,7 +41,7 @@ async function upsertPreferences(ctx, next) {
 
 async function getPreferences(ctx, next) {
   const { matchmakingType } = ctx.params
-  if (!isValidMatchmakingType) {
+  if (!isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   }
 
