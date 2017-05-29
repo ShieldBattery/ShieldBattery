@@ -16,6 +16,9 @@ export const CHANNEL_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}|?<>:;,'"]+$/
 export const CHANNEL_MAXLENGTH = 64
 
 export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
+export const MATCHMAKING_TYPES = [
+  '1v1'
+]
 
 export function isValidUsername(username) {
   return (username &&
@@ -40,6 +43,10 @@ export function isValidChannelName(channel) {
   return (channel &&
     channel.length <= CHANNEL_MAXLENGTH &&
     CHANNEL_PATTERN.test(channel))
+}
+
+export function isValidMatchmakingType(type) {
+  return MATCHMAKING_TYPES.includes(type)
 }
 
 export function validRace(r) {
