@@ -2,7 +2,7 @@ import httpErrors from 'http-errors'
 import { Seq } from 'immutable'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
-import { mapExists } from '../models/maps'
+import { mapExists, searchMaps as dbSearchMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
@@ -12,6 +12,7 @@ export default function(router) {
   router.get('/', ensureLoggedIn, list)
     .post('/upload', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
     .get('/info/:hash', ensureLoggedIn, getInfo)
+    .get('/search', ensureLoggedIn, checkAllPermissions('manageMapPools'), searchMaps)
 }
 
 function uploadPermissionCheck() {
@@ -84,4 +85,14 @@ async function list(ctx, next) {
     limit,
     total: MAPS.length,
   }
+}
+
+async function searchMaps(ctx, next) {
+  const { searchStr } = ctx.query
+
+  if (!searchStr) {
+    throw new httpErrors.BadRequest('search string must be specified')
+  }
+
+  ctx.body = await dbSearchMaps(searchStr)
 }

@@ -1,6 +1,19 @@
 import db from '../db'
-
 import { tilesetIdToName } from '../../../app/common/maps'
+
+class MapInfo {
+  constructor(info) {
+    this.format = info.extension
+    this.tileset = tilesetIdToName(info.tileset)
+    this.name = info.title
+    this.description = info.description
+    this.slots = info.players_melee
+    this.umsSlots = info.players_ums
+    this.umsForces = info.lobby_init_data.forces
+    this.width = info.width
+    this.height = info.height
+  }
+}
 
 export async function addMap(hashStr, extension, filename, mapData, timestamp) {
   const { client, done } = await db()
@@ -64,23 +77,28 @@ export async function mapInfo(...hashStr) {
     } else {
       return hashStr.map(hash => {
         const info = result.rows.find(x => x.hash.toString('hex') === hash)
-        if (!info) {
-          return null
-        } else {
-          return {
-            format: info.extension,
-            tileset: tilesetIdToName(info.tileset),
-            name: info.title,
-            description: info.description,
-            slots: info.players_melee,
-            umsSlots: info.players_ums,
-            umsForces: info.lobby_init_data.forces,
-            width: info.width,
-            height: info.height,
-          }
-        }
+        return info ? new MapInfo(info) : null
       })
     }
+  } finally {
+    done()
+  }
+}
+
+export async function searchMaps(searchStr) {
+  const query = `
+    SELECT hash, extension, title, description, width, height, tileset, players_melee, players_ums,
+        lobby_init_data
+    FROM maps
+    WHERE title ILIKE $1
+  `
+  const escapedStr = searchStr.replace(/_/g, '\_').replace(/%/g, '\%')
+  const params = [`%${escapedStr}%`]
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows.length > 0 ? result.rows.map(map => new MapInfo(map)) : null
   } finally {
     done()
   }
