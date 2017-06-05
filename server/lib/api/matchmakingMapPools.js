@@ -10,7 +10,7 @@ import {
 } from '../models/matchmaking-map-pools'
 
 export default function(router) {
-  router.get('/:matchmakingType', ensureLoggedIn, getHistory)
+  router.get('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'), getHistory)
     .get('/:matchmakingType/current', ensureLoggedIn, getCurrent)
     .post('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'), setNewMapPool)
 }
@@ -37,10 +37,17 @@ async function getHistory(ctx, next) {
   if (!mapPoolHistory) {
     throw new httpErrors.NotFound('no matchmaking map pool history for this type')
   }
-  ctx.body = await Promise.all(mapPoolHistory.map(async m => ({
+  const pools = await Promise.all(mapPoolHistory.map(async m => ({
     startDate: +m.startDate,
     maps: await mapInfo(...m.maps),
   })))
+
+  ctx.body = {
+    matchmakingType,
+    page: pageNumber,
+    limit,
+    pools,
+  }
 }
 
 async function setNewMapPool(ctx, next) {
@@ -48,16 +55,20 @@ async function setNewMapPool(ctx, next) {
   const { maps } = ctx.request.body
   let { startDate } = ctx.request.body
 
-  if (startDate) {
-    startDate = new Date(startDate)
-  }
-
   if (!isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
-  } else if (!Array.isArray(maps) || Array.isArray(maps) && maps.length < 1) {
-    throw new httpErrors.BadRequest('maps must be specified')
-  } else if (startDate && startDate.toString() === 'Invalid Date') {
-    throw new httpErrors.BadRequest('startDate must be a valid date')
+  } else if (!Array.isArray(maps)) {
+    throw new httpErrors.BadRequest('maps must be an array')
+  } else if (maps.length < 1) {
+    throw new httpErrors.BadRequest('maps cant be an empty array')
+  } else if (startDate && !Number.isInteger(startDate)) {
+    throw new httpErrors.BadRequest('startDate must be an integer')
+  } else if (startDate && startDate < 0) {
+    throw new httpErrors.BadRequest('startDate must be a positive integer')
+  }
+
+  if (startDate) {
+    startDate = new Date(startDate)
   }
 
   await addMapPool(matchmakingType, maps, startDate)
