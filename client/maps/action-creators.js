@@ -11,6 +11,8 @@ import {
   MAPS_BROWSE_SELECT,
   MAPS_HOST_LOCAL_BEGIN,
   MAPS_HOST_LOCAL,
+  MAPS_LIST_GET_BEGIN,
+  MAPS_LIST_GET,
 } from '../actions'
 
 export function selectLocalMap(path) {
@@ -76,5 +78,18 @@ async function readMap(filePath) {
     umsSlots: map.maxPlayers(true),
     width: map.size[0],
     height: map.size[1],
+  }
+}
+
+export function getMapsList() {
+  return (dispatch, getState) => {
+    const { maps } = getState()
+    if (maps.isFetching || (!maps.lastError && maps.list.size)) {
+      return
+    }
+
+    dispatch({ type: MAPS_LIST_GET_BEGIN })
+    const payload = fetch('/api/1/maps')
+    dispatch({ type: MAPS_LIST_GET, payload })
   }
 }

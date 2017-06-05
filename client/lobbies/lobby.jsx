@@ -14,7 +14,7 @@ import MessageInput from '../messaging/message-input.jsx'
 import OpenSlot from './open-slot.jsx'
 import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
-import MapThumbnail from './map-thumbnail.jsx'
+import MapThumbnail from '../maps/map-thumbnail.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 
 class JoinMessage extends React.Component {

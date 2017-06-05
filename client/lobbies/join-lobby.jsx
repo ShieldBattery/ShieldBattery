@@ -6,7 +6,7 @@ import { joinLobby, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 import styles from './join-lobby.css'
 
-import MapThumbnail from './map-thumbnail.jsx'
+import MapThumbnail from '../maps/map-thumbnail.jsx'
 
 class ListEntry extends React.Component {
   static propTypes = {

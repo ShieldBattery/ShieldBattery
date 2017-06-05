@@ -1,6 +1,5 @@
 import siteSocket from '../network/site-socket'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
-import fetch from '../network/fetch'
 import { routerActions } from 'react-router-redux'
 import {
   LOBBIES_GET_STATE_BEGIN,
@@ -31,8 +30,6 @@ import {
   LOBBY_SET_RACE,
   LOBBY_START_COUNTDOWN_BEGIN,
   LOBBY_START_COUNTDOWN,
-  MAPS_LIST_GET_BEGIN,
-  MAPS_LIST_GET,
 } from '../actions'
 
 export const createLobby = (name, map, gameType, gameSubType) => createSiteSocketAction(
@@ -90,19 +87,6 @@ export function getLobbyState(lobbyName) {
       payload: siteSocket.invoke('/lobbies/getLobbyState', { lobbyName }),
       meta: { lobbyName, requestTime }
     })
-  }
-}
-
-export function getMapsList() {
-  return (dispatch, getState) => {
-    const { maps } = getState()
-    if (maps.isFetching || (!maps.lastError && maps.list.size)) {
-      return
-    }
-
-    dispatch({ type: MAPS_LIST_GET_BEGIN })
-    const payload = fetch('/api/1/maps')
-    dispatch({ type: MAPS_LIST_GET, payload })
   }
 }
 
