@@ -3,7 +3,7 @@ import { List } from 'immutable'
 import LoadingScreen from '../loading.jsx'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
-import { MapRecord } from '../maps-reducer'
+import { MapRecord } from '../../maps/maps-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../game-client-reducer'
 

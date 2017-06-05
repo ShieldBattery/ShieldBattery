@@ -3,7 +3,7 @@ import { Range, List } from 'immutable'
 import Lobby from '../lobby.jsx'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
-import { MapRecord } from '../maps-reducer'
+import { MapRecord } from '../../maps/maps-reducer'
 import { User } from '../../auth/auth-records'
 
 const SLOTS = new List([

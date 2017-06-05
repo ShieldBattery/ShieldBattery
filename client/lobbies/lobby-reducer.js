@@ -1,7 +1,7 @@
 import { Record, List } from 'immutable'
 import cuid from 'cuid'
 import keyedReducer from '../reducers/keyed-reducer'
-import { MapRecord } from './maps-reducer'
+import { MapRecord } from '../maps/maps-reducer'
 import {
   LOBBY_ACTIVATE,
   LOBBY_DEACTIVATE,

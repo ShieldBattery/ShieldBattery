@@ -2,7 +2,7 @@ import React from 'react'
 import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
 
-import MapThumbnail from './map-thumbnail.jsx'
+import MapThumbnail from '../maps/map-thumbnail.jsx'
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
 import ComputerAvatar from '../avatars/computer-avatar.jsx'
