@@ -92,7 +92,7 @@ export async function searchMaps(searchStr) {
     FROM maps
     WHERE title ILIKE $1
   `
-  const escapedStr = searchStr.replace(/_/g, '\_').replace(/%/g, '\%')
+  const escapedStr = searchStr.replace(/[_%]/g, '\\$&')
   const params = [`%${escapedStr}%`]
 
   const { client, done } = await db()
