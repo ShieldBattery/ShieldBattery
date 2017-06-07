@@ -56,10 +56,16 @@ async function getMaps(ctx, next) {
   if (!query) {
     ctx.body = await listMaps(page, limit)
   } else {
-    if (!ctx.session.permissions.debug) {
+    if (!ctx.session.permissions.manageMapPools) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    ctx.body = await searchMaps(query)
+    const maps = await searchMaps(query)
+    ctx.body = {
+      maps,
+      page: 0,
+      limit: maps.length,
+      total: maps.length,
+    }
   }
 }
 
