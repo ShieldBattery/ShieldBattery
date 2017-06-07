@@ -35,13 +35,19 @@ async function getHistory(ctx, next) {
 
   const mapPoolHistory = await getMapPoolHistory(matchmakingType, limit, pageNumber)
   if (!mapPoolHistory) {
-    throw new httpErrors.NotFound('no matchmaking map pool history for this type')
+    ctx.body = {
+      matchmakingType,
+      page: pageNumber,
+      limit,
+      pools: [],
+    }
+    return
   }
+
   const pools = await Promise.all(mapPoolHistory.map(async m => ({
     startDate: +m.startDate,
     maps: await mapInfo(...m.maps),
   })))
-
   ctx.body = {
     matchmakingType,
     page: pageNumber,
@@ -56,10 +62,8 @@ async function setNewMapPool(ctx, next) {
 
   if (!isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
-  } else if (!Array.isArray(maps)) {
-    throw new httpErrors.BadRequest('maps must be an array')
-  } else if (maps.length < 1) {
-    throw new httpErrors.BadRequest('maps cant be an empty array')
+  } else if (!Array.isArray(maps) || maps.length < 1) {
+    throw new httpErrors.BadRequest('maps must be a non-empty array')
   } else if (!startDate || !Number.isInteger(startDate) || startDate < 0) {
     throw new httpErrors.BadRequest('startDate must be a valid timestamp value')
   }
