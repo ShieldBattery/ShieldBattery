@@ -68,7 +68,7 @@
     "markdown-loader": "^2.0.0",
     "nydus": "^1.0.2",
     "nydus-client": "^1.0.0",
-    "pg": "^6.0.1",
+    "pg": "2Pacalypse-/node-postgres#array_buffers",
     "postcss-cssnext": "^2.3.0",
     "postcss-for": "^2.0.1",
     "postcss-loader": "^1.3.3",
