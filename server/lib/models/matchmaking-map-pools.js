@@ -25,7 +25,7 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
   }
 }
 
-export async function addMapPool(matchmakingType, maps, startDate = new Date()) {
+export async function addMapPool(matchmakingType, maps, startDate) {
   const query = `
     INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
     VALUES ($1, $2, $3)

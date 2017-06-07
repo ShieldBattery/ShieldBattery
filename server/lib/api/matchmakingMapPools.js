@@ -52,8 +52,7 @@ async function getHistory(ctx, next) {
 
 async function setNewMapPool(ctx, next) {
   const { matchmakingType } = ctx.params
-  const { maps } = ctx.request.body
-  let { startDate } = ctx.request.body
+  const { maps, startDate } = ctx.request.body
 
   if (!isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
@@ -61,17 +60,11 @@ async function setNewMapPool(ctx, next) {
     throw new httpErrors.BadRequest('maps must be an array')
   } else if (maps.length < 1) {
     throw new httpErrors.BadRequest('maps cant be an empty array')
-  } else if (startDate && !Number.isInteger(startDate)) {
-    throw new httpErrors.BadRequest('startDate must be an integer')
-  } else if (startDate && startDate < 0) {
-    throw new httpErrors.BadRequest('startDate must be a positive integer')
+  } else if (!startDate || !Number.isInteger(startDate) || startDate < 0) {
+    throw new httpErrors.BadRequest('startDate must be a valid timestamp value')
   }
 
-  if (startDate) {
-    startDate = new Date(startDate)
-  }
-
-  await addMapPool(matchmakingType, maps, startDate)
+  await addMapPool(matchmakingType, maps, new Date(startDate))
   ctx.status = 204
 }
 
