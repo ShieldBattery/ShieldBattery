@@ -98,7 +98,7 @@ export async function searchMaps(searchStr) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows.map(map => new MapInfo(map)) : null
+    return result.rows.length > 0 ? result.rows.map(map => new MapInfo(map)) : []
   } finally {
     done()
   }
