@@ -34,20 +34,11 @@ async function getHistory(ctx, next) {
   }
 
   const mapPoolHistory = await getMapPoolHistory(matchmakingType, limit, pageNumber)
-  if (!mapPoolHistory) {
-    ctx.body = {
-      matchmakingType,
-      page: pageNumber,
-      limit,
-      pools: [],
-    }
-    return
-  }
-
   const pools = await Promise.all(mapPoolHistory.map(async m => ({
     startDate: +m.startDate,
     maps: await mapInfo(...m.maps),
   })))
+
   ctx.body = {
     matchmakingType,
     page: pageNumber,

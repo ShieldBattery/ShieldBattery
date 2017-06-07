@@ -19,7 +19,7 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
           startDate: row.start_date,
           maps: row.maps.map(map => map.toString('hex')),
         })) :
-        null
+        []
   } finally {
     done()
   }
