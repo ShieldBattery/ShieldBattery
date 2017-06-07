@@ -2,17 +2,16 @@ import httpErrors from 'http-errors'
 import { Seq } from 'immutable'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo } from '../maps/store'
-import { mapExists, searchMaps as dbSearchMaps } from '../models/maps'
+import { mapExists, searchMaps as searchMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function(router) {
-  router.get('/', ensureLoggedIn, list)
+  router.get('/', ensureLoggedIn, getMaps)
     .post('/upload', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
     .get('/info/:hash', ensureLoggedIn, getInfo)
-    .get('/search', ensureLoggedIn, checkAllPermissions('manageMapPools'), searchMaps)
 }
 
 function uploadPermissionCheck() {
@@ -52,8 +51,19 @@ async function getInfo(ctx, next) {
   }
 }
 
-async function list(ctx, next) {
-  let { page, limit } = ctx.request.query
+async function getMaps(ctx, next) {
+  const { query, page, limit } = ctx.query
+  if (!query) {
+    ctx.body = await listMaps(page, limit)
+  } else {
+    if (!ctx.session.permissions.debug) {
+      throw new httpErrors.Forbidden('Not enough permissions')
+    }
+    ctx.body = await searchMaps(query)
+  }
+}
+
+async function listMaps(page, limit) {
   if (!page || page < 0) {
     page = 0
   }
@@ -64,7 +74,7 @@ async function list(ctx, next) {
 
   const maps = MAPS.slice(page * limit, (page + 1) * limit)
   const dbInfo = await mapInfo(...maps.map(x => x.hash))
-  ctx.body = {
+  return {
     maps: new Seq(maps).zip(dbInfo).map(([map, info]) => {
       if (info) {
         return {
@@ -85,14 +95,4 @@ async function list(ctx, next) {
     limit,
     total: MAPS.length,
   }
-}
-
-async function searchMaps(ctx, next) {
-  const { searchStr } = ctx.query
-
-  if (!searchStr) {
-    throw new httpErrors.BadRequest('search string must be specified')
-  }
-
-  ctx.body = await dbSearchMaps(searchStr)
 }
