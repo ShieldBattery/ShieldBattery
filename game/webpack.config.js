@@ -38,7 +38,7 @@ const options = {
               presets: [
                 [
                   'env', {
-                    targets: { node: 7.4 },
+                    targets: { node: '7.4' },
                     modules: false,
                     useBuiltIns: true,
                   },

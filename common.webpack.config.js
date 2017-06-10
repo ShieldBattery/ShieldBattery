@@ -1,6 +1,7 @@
 // Common webpack config settings, call with options specific to each environment to create a real
 // config
 
+import path from 'path'
 import webpack from 'webpack'
 import ExtractTextPlugin from 'extract-text-webpack-plugin'
 import packageJson from './package.json'
@@ -17,6 +18,15 @@ export default function({
   envDefines = {},
   minify,
 }) {
+  const postCssOpts = JSON.stringify({
+    config: {
+      path: path.join(__dirname, 'postcss.config.js'),
+      ctx: {
+        target: webpackOpts.target
+      },
+    },
+  })
+
   const styleRule = {
     test: /\.css$/,
     use: !isProd ? [
@@ -31,7 +41,7 @@ export default function({
       },
       // NOTE(tec27): We have to use the string form here or css-loader screws up at importing this
       // loader because it's a massive pile of unupdated crap
-      'postcss-loader',
+      `postcss-loader?${postCssOpts}`,
     ] : ExtractTextPlugin.extract({
       fallback: 'style-loader',
       use: [
@@ -44,7 +54,7 @@ export default function({
         },
         // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
         // this loader because it's a massive pile of unupdated crap
-        'postcss-loader',
+        `postcss-loader?${postCssOpts}`,
       ]
     })
   }

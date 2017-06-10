@@ -1,5 +1,5 @@
 module.exports = function(ctx) {
-  const cssNextOpts = ctx.webpack.options.target === 'electron-renderer' ?
+  const cssNextOpts = ctx.options.target === 'electron-renderer' ?
       { browsers: 'last 2 Chrome versions' } :
       { browsers: 'last 2 versions' }
   return {
