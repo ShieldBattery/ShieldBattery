@@ -36,6 +36,9 @@ class NetworkHandler {
     this.rallyPoint = _rallyPoint
 
     this.mappings = {}
+    if (_routes) {
+      this.updateRoutes()
+    }
 
     this.countersTimer = setInterval(() => this._logCounters(), 4 * 60 * 1000)
     // TODO(tec27): Figure out wtf is going on with the queuing and remove this

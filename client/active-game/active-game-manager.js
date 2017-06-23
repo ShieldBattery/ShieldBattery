@@ -55,7 +55,7 @@ export default class ActiveGameManager extends EventEmitter {
       // Quit the currently active game so we can replace it
       this.emit('gameCommand', current.id, 'quit')
     }
-    if (!config.lobby) {
+    if (!config.setup) {
       this._setStatus(GAME_STATUS_UNKNOWN)
       this.activeGame = null
       return null
@@ -84,7 +84,8 @@ export default class ActiveGameManager extends EventEmitter {
     }
 
     this.activeGame.routes = routes
-    this.emit('gameCommand', gameId, 'setRoutes', routes)
+    this.emit('gameCommand', gameId, 'routes', routes)
+    this.emit('gameCommand', gameId, 'setupGame', this.activeGame.config.setup)
   }
 
 
@@ -98,16 +99,15 @@ export default class ActiveGameManager extends EventEmitter {
 
     const game = this.activeGame
     this._setStatus(GAME_STATUS_CONFIGURING)
-    const { map } = game.config.lobby
-    const localMap = map.path ? map.path : this.mapStore.getPath(map.hash, map.format)
+    const { map } = game.config.setup
+    game.config.setup.mapPath = map.path ? map.path : this.mapStore.getPath(map.hash, map.format)
 
-    this.emit('gameCommand', id, 'setConfig', {
-      ...game.config,
-      localMap,
-    })
+    this.emit('gameCommand', id, 'localUser', game.config.localUser)
+    this.emit('gameCommand', id, 'settings', game.config.settings)
 
     if (game.routes) {
-      this.emit('gameCommand', game.id, 'setRoutes', game.routes)
+      this.emit('gameCommand', id, 'routes', game.routes)
+      this.emit('gameCommand', id, 'setupGame', game.config.setup)
     }
   }
 

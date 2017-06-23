@@ -212,17 +212,17 @@ const eventToAction = {
         new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
     const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
-      lobby: {
+      localUser: user,
+      settings,
+      setup: {
         name: lobbyName,
         map,
         gameType,
         gameSubType,
         slots,
         host,
+        seed: event.setup.seed,
       },
-      settings,
-      setup: event.setup,
-      localUser: user,
     }
 
     dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManager.setGameConfig(config) })

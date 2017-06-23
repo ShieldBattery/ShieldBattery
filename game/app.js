@@ -25,7 +25,8 @@ bw.on('log', function(level, msg) {
 
 import nydusClient from 'nydus-client'
 import forge from './js/natives/forge'
-import initGame from './js/init-game'
+import CancelToken from '../app/common/async/cancel-token'
+import GameInitializer from './js/game-initializer'
 
 const port = process.argv[process.argv.length - 2]
 const gameId = process.argv[process.argv.length - 3]
@@ -64,22 +65,44 @@ forge.on('windowMove', ({ x, y }) => {
   socket.invoke('/game/windowMove', { x, y })
 })
 
-let gameInitializer
+const gameCancelToken = new CancelToken()
+const gameInitializer = new GameInitializer(socket, gameCancelToken)
+
 socket.registerRoute('/game/:id', (route, event) => {
   clearTimeout(timeoutId)
   if (event.command === 'quit') {
     log.verbose('Received quit command')
+    gameCancelToken.cancel()
+    gameInitializer.noOp()
     forge.endWndProc() // ensure that we aren't blocking the UI thread with forge's wndproc
     bw.cleanUpForExit(() => setTimeout(() => process.exit(), 100))
-  } else if (event.command === 'setConfig') {
-    clearTimeout(timeoutId)
-    log.verbose('Received setConfig command')
-    gameInitializer = initGame(socket, event.payload)
-  } else if (event.command === 'setRoutes') {
-    log.verbose('Received setRoutes command')
-    gameInitializer.setRoutes(event.payload)
   } else {
-    log.verbose(`TODO: ${JSON.stringify(event)}`)
+    // TODO(tec27): reset timeout instead (if we don't receive a command for e.g. 2 minutes,
+    // exit process)
+    clearTimeout(timeoutId)
+
+    log.verbose('Received command: ' + event.command)
+    switch (event.command) {
+      case 'cancel':
+        gameCancelToken.cancel()
+        gameInitializer.noOp()
+        break
+      case 'localUser': gameInitializer.setLocalUser(event.payload); break
+      case 'settings': gameInitializer.setSettings(event.payload); break
+      case 'routes': gameInitializer.setRoutes(event.payload); break
+      case 'setupGame': gameInitializer.doGameSetup(event.payload); break
+      default: log.warning('Unknown command type')
+    }
+  }
+})
+
+gameInitializer.run().catch(err => {
+  if (err.name !== CancelToken.ERROR_NAME) {
+    log.error('Error initializing game: ' + err)
+    // give the log time to write out
+    setTimeout(function() {
+      process.exit(0x27272729)
+    }, 100)
   }
 })
 
