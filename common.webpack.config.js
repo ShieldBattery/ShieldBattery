@@ -130,6 +130,7 @@ export default function({
     ]
   } else {
     config.plugins = config.plugins.concat([
+      new webpack.optimize.ModuleConcatenationPlugin(),
       new webpack.DefinePlugin({
         // We only define the exact field here to avoid overwriting all of process.env
         'process.env.NODE_ENV': JSON.stringify('production')

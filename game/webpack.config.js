@@ -63,6 +63,7 @@ const options = {
   },
   devtool: 'hidden-source-map',
   plugins: [
+    new webpack.optimize.ModuleConcatenationPlugin(),
     new webpack.NormalModuleReplacementPlugin(
         /[\\/]any-promise[\\/]/, require.resolve('../app/common/promise.js')),
     new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
