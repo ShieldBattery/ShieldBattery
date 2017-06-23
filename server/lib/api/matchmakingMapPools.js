@@ -55,8 +55,8 @@ async function setNewMapPool(ctx, next) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   } else if (!Array.isArray(maps) || maps.length < 1) {
     throw new httpErrors.BadRequest('maps must be a non-empty array')
-  } else if (!startDate || !Number.isInteger(startDate) || startDate < 0) {
-    throw new httpErrors.BadRequest('startDate must be a valid timestamp value')
+  } else if (!startDate || !Number.isInteger(startDate) || startDate < Date.now()) {
+    throw new httpErrors.BadRequest('startDate must be a valid timestamp value in the future')
   }
 
   await addMapPool(matchmakingType, maps, new Date(startDate))
@@ -70,9 +70,12 @@ async function getCurrent(ctx, next) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   }
 
-  const maps = await getCurrentMapPool(matchmakingType)
-  if (!maps) {
+  const mapPool = await getCurrentMapPool(matchmakingType)
+  if (!mapPool) {
     throw new httpErrors.NotFound('no matchmaking map pool for this type')
   }
-  ctx.body = await mapInfo(...maps)
+  ctx.body = {
+    ...mapPool,
+    maps: await mapInfo(...mapPool.maps),
+  }
 }

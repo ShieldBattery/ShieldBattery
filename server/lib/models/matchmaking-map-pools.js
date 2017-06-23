@@ -5,7 +5,7 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
     SELECT start_date, maps
     FROM matchmaking_map_pools
     WHERE matchmaking_type = $1
-    ORDER BY start_date
+    ORDER BY start_date DESC
     LIMIT $2
     OFFSET $3
   `
@@ -43,18 +43,21 @@ export async function addMapPool(matchmakingType, maps, startDate) {
 
 export async function getCurrentMapPool(matchmakingType) {
   const query = `
-    SELECT maps
+    SELECT id, maps
     FROM matchmaking_map_pools
-    WHERE matchmaking_type = $1
+    WHERE matchmaking_type = $1 AND start_date <= $2
     ORDER BY start_date DESC
     LIMIT 1
   `
-  const params = [matchmakingType]
+  const params = [matchmakingType, new Date()]
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows[0].maps.map(map => map.toString('hex')) : null
+    return result.rows.length > 0 ? {
+      id: result.rows[0].id,
+      maps: result.rows[0].maps.map(map => map.toString('hex')),
+    } : null
   } finally {
     done()
   }
