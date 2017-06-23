@@ -1,7 +1,7 @@
 import httpErrors from 'http-errors'
 import { Seq } from 'immutable'
 import MAPS from '../maps/maps.json'
-import { storeMap, mapInfo } from '../maps/store'
+import { storeMap, mapInfo, formatMapInfo } from '../maps/store'
 import { mapExists, searchMaps as searchMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
@@ -60,8 +60,9 @@ async function getMaps(ctx, next) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
     const maps = await searchMaps(query)
+    const mapInfos = await formatMapInfo(maps.map(m => m.mapInfo), maps.map(m => m.hash))
     ctx.body = {
-      maps,
+      maps: mapInfos,
       page: 0,
       limit: maps.length,
       total: maps.length,
