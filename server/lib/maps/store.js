@@ -24,9 +24,8 @@ export async function storeMap(hash, extension, origFilename, timestamp, mapMpqP
   ])
 }
 
-export async function mapInfo(...hashes) {
-  const dbInfo = await db.mapInfo(...hashes)
-  return Promise.all(new Seq(dbInfo).zip(hashes).map(async ([info, hash]) => {
+export async function formatMapInfo(mapInfos, hashes) {
+  return Promise.all(new Seq(mapInfos).zip(hashes).map(async ([info, hash]) => {
     if (!info) {
       return null
     } else {
@@ -38,6 +37,11 @@ export async function mapInfo(...hashes) {
       }
     }
   }))
+}
+
+export async function mapInfo(...hashes) {
+  const dbInfo = await db.mapInfo(...hashes)
+  return formatMapInfo(dbInfo, hashes)
 }
 
 function mapPath(hash, extension) {
