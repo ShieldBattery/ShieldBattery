@@ -29,18 +29,18 @@ import {
 import styles from './forgot.css'
 
 const emailValidator = composeValidators(
-    required('Enter an email address'),
-    minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-    maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-    regex(EMAIL_PATTERN, 'Enter a valid email address'))
+  required('Enter an email address'),
+  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
+  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
+  regex(EMAIL_PATTERN, 'Enter a valid email address'))
 const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH,
-        `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH,
-        `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN,
-        'Username contains invalid characters'))
+  required('Enter a username'),
+  minLength(USERNAME_MINLENGTH,
+    `Enter at least ${USERNAME_MINLENGTH} characters`),
+  maxLength(USERNAME_MAXLENGTH,
+    `Enter at most ${USERNAME_MAXLENGTH} characters`),
+  regex(USERNAME_PATTERN,
+    'Username contains invalid characters'))
 
 @connect(state => ({ auth: state.auth }))
 class ForgotFormHolder extends React.Component {
@@ -101,8 +101,8 @@ class ForgotFormHolder extends React.Component {
       </div>
       { loadingContents }
       <div className={styles.bottomAction}>
-          <FlatButton labelClassName={styles.bottomActionButtonLabel}
-              label='Back to login' onClick={this.onBackClick} tabIndex={1}/>
+        <FlatButton labelClassName={styles.bottomActionButtonLabel}
+          label='Back to login' onClick={this.onBackClick} tabIndex={1}/>
       </div>
     </div>)
   }
@@ -136,13 +136,13 @@ class ForgotUserForm extends React.Component {
       <p>Please enter the email address you signed up with.</p>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('email')} className={styles.textField}
-            label='Email address' floatingLabel={true}
-            inputProps={{
-              tabIndex: 1,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}/>
+          label='Email address' floatingLabel={true}
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
       </div>
       <div className={styles.fieldRow}>
         <RaisedButton label='Recover username' onClick={onSubmit} tabIndex={1}/>
@@ -155,8 +155,8 @@ const FORGOT_USER_SUCCESS = 'If there are any users registered to that email add
     'receive an email in the next few minutes with the relevant usernames.'
 const doForgotUserSubmit = values => retrieveUsername(values.email)
 export const ForgotUser = () => (<ForgotFormHolder form={ForgotUserForm}
-    title={'Recover your username'} doSubmit={doForgotUserSubmit}
-    successMessage={FORGOT_USER_SUCCESS}/>)
+  title={'Recover your username'} doSubmit={doForgotUserSubmit}
+  successMessage={FORGOT_USER_SUCCESS}/>)
 
 @form({
   email: emailValidator,
@@ -172,23 +172,23 @@ class ForgotPasswordForm extends React.Component {
       <SubmitOnEnter/>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('email')} className={styles.textField}
-            label='Email address' floatingLabel={true}
-            inputProps={{
-              tabIndex: 1,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}/>
+          label='Email address' floatingLabel={true}
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
       </div>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('username')} className={styles.textField}
-            label='Username' floatingLabel={true}
-            inputProps={{
-              tabIndex: 1,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}/>
+          label='Username' floatingLabel={true}
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
       </div>
       <div className={styles.fieldRow}>
         <RaisedButton label='Send reset email' onClick={onSubmit} tabIndex={1}/>
@@ -202,17 +202,17 @@ const FORGOT_PASSWORD_SUCCESS = 'If that email address and username match a regi
     'your password.'
 const doPasswordResetStart = values => startPasswordReset(values.username, values.email)
 export const ForgotPassword = () => (<ForgotFormHolder form={ForgotPasswordForm}
-    title={'Reset password'} doSubmit={doPasswordResetStart}
-    successMessage={FORGOT_PASSWORD_SUCCESS}/>)
+  title={'Reset password'} doSubmit={doPasswordResetStart}
+  successMessage={FORGOT_PASSWORD_SUCCESS}/>)
 
 
 const tokenValidator = required('Enter your password reset code')
 const passwordValidator = composeValidators(
-    required('Enter a password'),
-    minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`))
+  required('Enter a password'),
+  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`))
 const confirmPasswordValidator = composeValidators(
-    required('Confirm your password'),
-    matchesOther('password', 'Enter a matching password'))
+  required('Confirm your password'),
+  matchesOther('password', 'Enter a matching password'))
 
 @form({
   username: usernameValidator,
@@ -233,19 +233,19 @@ class ResetPasswordForm extends React.Component {
       <SubmitOnEnter/>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('username')} inputProps={textInputProps}
-            label='Username' floatingLabel={true}/>
+          label='Username' floatingLabel={true}/>
       </div>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('token')} inputProps={textInputProps}
-            label='Password reset code' floatingLabel={true}/>
+          label='Password reset code' floatingLabel={true}/>
       </div>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('password')} inputProps={textInputProps}
-            label='New password' floatingLabel={true} type='password'/>
+          label='New password' floatingLabel={true} type='password'/>
       </div>
       <div className={styles.fieldRow}>
         <TextField {...bindInput('confirmPassword')} inputProps={textInputProps}
-            label='Confirm new password' floatingLabel={true} type='password'/>
+          label='Confirm new password' floatingLabel={true} type='password'/>
       </div>
       <div className={styles.fieldRow}>
         <RaisedButton label='Set new password' onClick={onSubmit} tabIndex={1}/>
@@ -262,8 +262,8 @@ export const ResetPassword = ({ location }) => {
     token: location.query.token,
   }
   return (<ForgotFormHolder form={ResetPasswordForm}
-      model={model}
-      title={'Reset password'}
-      doSubmit={doPasswordReset}
-      successMessage={RESET_PASSWORD_SUCCESS}/>)
+    model={model}
+    title={'Reset password'}
+    doSubmit={doPasswordReset}
+    successMessage={RESET_PASSWORD_SUCCESS}/>)
 }

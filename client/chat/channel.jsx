@@ -95,11 +95,11 @@ class Channel extends React.Component {
       <div className={styles.messagesAndInput}>
         <div className={styles.messages}>
           <MessageList
-              ref={this._setMessageListRef}
-              loading={channel.loadingHistory}
-              hasMoreHistory={channel.hasHistory}
-              messages={channel.messages}
-              onScrollUpdate={this.onScrollUpdate}/>
+            ref={this._setMessageListRef}
+            loading={channel.loadingHistory}
+            hasMoreHistory={channel.hasHistory}
+            messages={channel.messages}
+            onScrollUpdate={this.onScrollUpdate}/>
         </div>
         <MessageInput className={inputClass} onSend={onSendChatMessage} />
       </div>
@@ -189,9 +189,9 @@ export default class ChatChannelView extends React.Component {
 
   renderChannel() {
     return (<Channel
-        channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
-        onSendChatMessage={this._handleSendChatMessage}
-        onRequestMoreHistory={this._handleRequestMoreHistory}/>)
+      channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
+      onSendChatMessage={this._handleSendChatMessage}
+      onRequestMoreHistory={this._handleRequestMoreHistory}/>)
   }
 
   render() {
@@ -199,11 +199,11 @@ export default class ChatChannelView extends React.Component {
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
     return (<ContentLayout title={`#${channel ? channel.name : routeChannel}`}
-        appBarContentClassName={styles.appBarContent}>
+      appBarContentClassName={styles.appBarContent}>
       {
         channel ?
-            this.renderChannel() :
-            <div className={styles.loadingArea}><LoadingIndicator /></div>
+          this.renderChannel() :
+          <div className={styles.loadingArea}><LoadingIndicator /></div>
       }
     </ContentLayout>)
   }

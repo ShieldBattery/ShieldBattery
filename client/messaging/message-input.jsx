@@ -17,10 +17,10 @@ export default class MessageInput extends React.Component {
     const { className } = this.props
     const { message } = this.state
     return (<KeyListener onKeyPress={this.onKeyPress}>
-        <TextField ref={this._setRef} className={className} label='Send a message' value={message}
-            maxLength={500} floatingLabel={false} allowErrors={false}
-            inputProps={{ autoComplete: 'off' }}
-            onEnterKeyDown={this.onEnterKeyDown} onChange={this.onChange}/>
+      <TextField ref={this._setRef} className={className} label='Send a message' value={message}
+        maxLength={500} floatingLabel={false} allowErrors={false}
+        inputProps={{ autoComplete: 'off' }}
+        onEnterKeyDown={this.onEnterKeyDown} onChange={this.onChange}/>
     </KeyListener>)
   }
 

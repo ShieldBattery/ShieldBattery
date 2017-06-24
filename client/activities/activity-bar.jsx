@@ -16,7 +16,7 @@ export default class ActivityBar extends React.Component {
 
     return (<div className={styles.activityBar}>
       <AvatarButton className={styles.avatarButton} avatarClassName={styles.avatar} user={user}
-          title={avatarTitle} buttonRef={avatarButtonRef} onClick={onAvatarClick} />
+        title={avatarTitle} buttonRef={avatarButtonRef} onClick={onAvatarClick} />
       {this.props.children}
     </div>)
   }

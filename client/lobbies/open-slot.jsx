@@ -28,8 +28,8 @@ export default class OpenSlot extends React.Component {
     const { controlledOpen, canSetRace, race, onSetRace } = this.props
     if (controlledOpen) {
       return (canSetRace ?
-          <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
-          <SelectedRace className={styles.slotRace} race={race} />)
+        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
+        <SelectedRace className={styles.slotRace} race={race} />)
     } else {
       return null
     }
@@ -59,8 +59,8 @@ export default class OpenSlot extends React.Component {
         <span className={styles.slotEmptyAvatar}>
           {
             this.state.isHovered ?
-                <SwapSlotsIcon /> :
-                null
+              <SwapSlotsIcon /> :
+              null
           }
         </span>
         <span className={styles.slotEmptyName}>Open</span>
@@ -68,8 +68,8 @@ export default class OpenSlot extends React.Component {
       <div className={styles.slotRight}>
         {
           slotActions.length > 0 ?
-              <SlotActions slotActions={slotActions} /> :
-              <div></div>
+            <SlotActions slotActions={slotActions} /> :
+            <div></div>
         }
         { this.renderControls() }
       </div>

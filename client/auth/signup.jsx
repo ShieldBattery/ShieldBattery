@@ -44,22 +44,22 @@ async function usernameAvailable(val) {
 }
 
 const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH, `Use at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH, `Use at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'),
-    debounce(usernameAvailable, 250))
+  required('Enter a username'),
+  minLength(USERNAME_MINLENGTH, `Use at least ${USERNAME_MINLENGTH} characters`),
+  maxLength(USERNAME_MAXLENGTH, `Use at most ${USERNAME_MAXLENGTH} characters`),
+  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+  debounce(usernameAvailable, 250))
 const emailValidator = composeValidators(
-    required('Enter an email address'),
-    minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-    maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-    regex(EMAIL_PATTERN, 'Enter a valid email address'))
+  required('Enter an email address'),
+  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
+  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
+  regex(EMAIL_PATTERN, 'Enter a valid email address'))
 const passwordValidator = composeValidators(
-    required('Enter a password'),
-    minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`))
+  required('Enter a password'),
+  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`))
 const confirmPasswordValidator = composeValidators(
-    required('Confirm your password'),
-    matchesOther('password', 'Enter a matching password'))
+  required('Confirm your password'),
+  matchesOther('password', 'Enter a matching password'))
 
 @form({
   username: usernameValidator,
@@ -80,13 +80,13 @@ class SignupForm extends React.Component {
     return (<form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter/>
       <TextField {...bindInput('username')} inputProps={textInputProps}
-          label='Username' floatingLabel={true}/>
+        label='Username' floatingLabel={true}/>
       <TextField {...bindInput('email')} inputProps={textInputProps}
-          label='Email address' floatingLabel={true}/>
+        label='Email address' floatingLabel={true}/>
       <TextField {...bindInput('password')} inputProps={textInputProps}
-          label='Password' floatingLabel={true} type='password'/>
+        label='Password' floatingLabel={true} type='password'/>
       <TextField {...bindInput('confirmPassword')} inputProps={textInputProps}
-          label='Confirm password' floatingLabel={true} type='password'/>
+        label='Confirm password' floatingLabel={true} type='password'/>
     </form>)
   }
 }

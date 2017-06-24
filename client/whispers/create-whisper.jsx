@@ -21,10 +21,10 @@ import {
 } from '../../app/common/constants'
 
 const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+  required('Enter a username'),
+  minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
+  maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
+  regex(USERNAME_PATTERN, 'Username contains invalid characters'))
 
 @form({
   target: usernameValidator,
@@ -34,12 +34,12 @@ class CreateWhisperForm extends React.Component {
     const { onSubmit, bindInput, inputRef } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
       <TextField {...bindInput('target')} label='Username' floatingLabel={true} ref={inputRef}
-          inputProps={{
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: 'off',
-            tabIndex: 0,
-          }}/>
+        inputProps={{
+          autoCapitalize: 'off',
+          autoCorrect: 'off',
+          spellCheck: 'off',
+          tabIndex: 0,
+        }}/>
     </form>)
   }
 }
@@ -71,14 +71,14 @@ export default class CreateWhisper extends React.Component {
   render() {
     const buttons = [
       <FlatButton label='Cancel' key='cancel' color='accent'
-          onClick={this.props.onCancel} />,
+        onClick={this.props.onCancel} />,
       <FlatButton label='Start' key='send' color='accent'
-          onClick={this.onSendMessage} />
+        onClick={this.onSendMessage} />
     ]
 
     return (<Dialog title={'Send a message'} buttons={buttons} onCancel={this.props.onCancel}>
       <CreateWhisperForm ref={this._setForm} inputRef={this._setInput} model={{}}
-          onSubmit={this.onSubmit}/>
+        onSubmit={this.onSubmit}/>
     </Dialog>)
   }
 

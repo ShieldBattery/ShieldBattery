@@ -20,8 +20,8 @@ import Select from '../material/select/select.jsx'
 import TextField from '../material/text-field.jsx'
 
 const lobbyNameValidator = composeValidators(
-    required('Enter a lobby name'),
-    maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`))
+  required('Enter a lobby name'),
+  maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`))
 
 @form({
   name: lobbyNameValidator,
@@ -90,14 +90,14 @@ class CreateLobbyForm extends React.Component {
       return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
         {
           Range(slots - 1, 0).map(
-              top => <Option key={top} value={top} text={`${top} vs ${slots - top}`} />)
+            top => <Option key={top} value={top} text={`${top} vs ${slots - top}`} />)
         }
       </Select>)
     } else {
       return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
         {
           Range(2, Math.min(slots, 4) + 1).map(
-              numTeams => <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />)
+            numTeams => <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />)
         }
       </Select>)
     }
@@ -106,27 +106,27 @@ class CreateLobbyForm extends React.Component {
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
     let mapListContents = maps.list.map(hash =>
-        <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
+      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
     )
     if (maps.localMapHash) {
       const text = maps.byHash.get(maps.localMapHash).name
       mapListContents = mapListContents.unshift(
-          <Option key={'localMap'} value={maps.localMapHash} text={text} />
+        <Option key={'localMap'} value={maps.localMapHash} text={text} />
       )
     }
     return (<form noValidate={true} onSubmit={onSubmit}>
       <TextField {...bindInput('name')} ref={inputRef} label='Lobby name' floatingLabel={true}
-          inputProps={{
-            autoCapitalize: 'off',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-            tabIndex: 0,
-          }}/>
+        inputProps={{
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+          tabIndex: 0,
+        }}/>
       <div className={styles.selectMap}>
         <Select className={styles.mapList} {...bindCustom('map')} label='Map' tabIndex={0}
-            disabled={!mapListContents.size}>
-            { mapListContents }
+          disabled={!mapListContents.size}>
+          { mapListContents }
         </Select>
         { MAP_UPLOADING ?
           <RaisedButton className={styles.mapBrowse} label='Browse'
@@ -203,7 +203,7 @@ export default class CreateLobby extends React.Component {
     return (<div className={styles.root}>
       <h3>Create lobby</h3>
       <CreateLobbyForm ref={this._setForm} inputRef={this._setInput} model={model}
-          onSubmit={this.onSubmit} onMapBrowse={this.onMapBrowse} maps={maps}/>
+        onSubmit={this.onSubmit} onMapBrowse={this.onMapBrowse} maps={maps}/>
       <RaisedButton label='Create lobby' onClick={this.onCreateClick}/>
       { maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null }
       { maps.isUploading ? <div className={styles.loadingArea}><LoadingIndicator /></div> : null }

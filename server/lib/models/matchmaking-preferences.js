@@ -10,7 +10,7 @@ class MatchmakingPreferences {
 }
 
 export async function upsertMatchmakingPreferences(userId, matchmakingType, race,
-    alternateRace = null, mapPoolId, preferredMaps) {
+  alternateRace = null, mapPoolId, preferredMaps) {
   const query = `
     INSERT INTO matchmaking_preferences (user_id, matchmaking_type, race, alternate_race,
       map_pool_id, preferred_maps)
@@ -21,8 +21,8 @@ export async function upsertMatchmakingPreferences(userId, matchmakingType, race
     RETURNING *;
   `
   const preferredMapsHashes = preferredMaps ?
-      preferredMaps.map(m => Buffer.from(m, 'hex')) :
-      null
+    preferredMaps.map(m => Buffer.from(m, 'hex')) :
+    null
   const params = [
     userId,
     matchmakingType,

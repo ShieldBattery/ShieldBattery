@@ -31,13 +31,13 @@ export default class SlotActions extends React.Component {
   render() {
     const { slotActions } = this.props
     const actions = slotActions.map(([text, handler], i) =>
-        <SlotAction key={i} text={text} onClick={handler} />)
+      <SlotAction key={i} text={text} onClick={handler} />)
 
     return (<div>
       <IconButton icon={<SlotActionsIcon />} title='Slot actions'
-          buttonRef={this._setSlotActionsButtonRef} onClick={this.onSlotActionsClick} />
+        buttonRef={this._setSlotActionsButtonRef} onClick={this.onSlotActionsClick} />
       <SlotActionsOverlay open={this.state.slotActionsOverlayOpened}
-          onDismiss={this.onCloseSlotActionsOverlay} anchor={this._slotActionsButtonRef}>
+        onDismiss={this.onCloseSlotActionsOverlay} anchor={this._slotActionsButtonRef}>
         {actions}
       </SlotActionsOverlay>
     </div>)
@@ -67,8 +67,8 @@ export class SlotActionsOverlay extends React.Component {
     const { children, open, onDismiss, anchor } = this.props
 
     return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
-        anchorOriginVertical='top' anchorOriginHorizontal='right'
-        popoverOriginVertical='top' popoverOriginHorizontal='right'>
+      anchorOriginVertical='top' anchorOriginHorizontal='right'
+      popoverOriginVertical='top' popoverOriginHorizontal='right'>
       {
         (state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
@@ -85,9 +85,9 @@ export class SlotActionsOverlay extends React.Component {
           }
 
           return (<TransitionGroup
-              transitionName={transitionNames} transitionAppear={true}
-              transitionAppearTimeout={openDuration}
-              transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
+            transitionName={transitionNames} transitionAppear={true}
+            transitionAppearTimeout={openDuration}
+            transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
             {
               state === 'opening' || state === 'opened' ?
                 <SlotActionsContents key={'contents'} style={style}>

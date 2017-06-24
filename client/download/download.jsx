@@ -12,9 +12,9 @@ export default class Download extends React.Component {
       </p>
       <div className={styles.installerLinks}>
         <RaisedButton className={styles.installerLink} onClick={this.onDownloadClick}
-            label={<span className={styles.buttonLabel}>
-              <GetApp className={styles.icon}/><span>Download client</span>
-            </span>}/>
+          label={<span className={styles.buttonLabel}>
+            <GetApp className={styles.icon}/><span>Download client</span>
+          </span>}/>
       </div>
     </div>)
   }

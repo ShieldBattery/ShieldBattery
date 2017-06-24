@@ -184,7 +184,7 @@ export default keyedReducer(new ChatState(), {
     const { channel } = action.payload
 
     return state.update('channels',
-        c => c.delete(channel)).deleteIn(['byName', channel.toLowerCase()])
+      c => c.delete(channel)).deleteIn(['byName', channel.toLowerCase()])
   },
 
   [CHAT_UPDATE_MESSAGE](state, action) {

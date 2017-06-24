@@ -33,13 +33,13 @@ class BanUserForm extends React.Component {
         <Option value={24 * 365 * 999} text='Permanent!' />
       </Select>
       <TextField {...bindInput('banReason')} label='Ban reason' floatingLabel={true}
-          inputProps={{
-            tabIndex: 0,
-            autoCapitalize: 'off',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false
-          }}/>
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false
+        }}/>
     </form>)
   }
 }
@@ -100,10 +100,10 @@ export default class BanUsers extends React.Component {
 
     return [
       <BanUserForm
-          key='banUserForm'
-          ref={this._setForm}
-          model={{ banLength: 24 }}
-          onSubmit={this.onSubmit} />,
+        key='banUserForm'
+        ref={this._setForm}
+        model={{ banLength: 24 }}
+        onSubmit={this.onSubmit} />,
       <FlatButton key='banUser' label='Ban' color='accent' tabIndex={0} onClick={this.onBanClick} />
     ]
   }

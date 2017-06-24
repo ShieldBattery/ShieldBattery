@@ -18,7 +18,7 @@ function uploadPermissionCheck() {
   if (!MAP_UPLOADING) {
     return checkAllPermissions('manageMaps')
   } else {
-    return async (ctx, next) => { await next() }
+    return async(ctx, next) => { await next() }
   }
 }
 

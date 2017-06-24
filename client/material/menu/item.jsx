@@ -16,7 +16,7 @@ export default class MenuItem extends React.Component {
     const className = active ? styles.active : styles.item
     return (
       <div className={className}
-          onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+        onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
         { icon ? <span className={styles.itemIcon}>{icon}</span> : null }
         <span className={styles.itemText}>
           { text }

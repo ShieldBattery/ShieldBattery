@@ -10,8 +10,8 @@ import config from './config'
 
 const apiHandlers =
   fs.readdirSync(path.join(__dirname, 'lib', 'wsapi'))
-  .filter(filename => /\.js$/.test(filename))
-  .map(filename => require('./lib/wsapi/' + filename).default)
+    .filter(filename => /\.js$/.test(filename))
+    .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {

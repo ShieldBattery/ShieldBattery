@@ -17,7 +17,7 @@ export default class SelectedRace extends React.Component {
     if (this.props.race === race) {
       return (
         <Button className={styles.button} disabled={true}
-            label={<RaceIcon className={`${styles.active} ${styles[race]}`} race={race} />} />
+          label={<RaceIcon className={`${styles.active} ${styles[race]}`} race={race} />} />
       )
     } else {
       return <span className={styles.deselected}/>

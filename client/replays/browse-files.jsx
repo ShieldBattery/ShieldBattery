@@ -94,9 +94,9 @@ class PathBreadcrumbs extends React.Component {
       // Save the value at the current time so the function doesn't always use the last value
       const navPath = r.curPath
       r.elems.push(<span
-          key={i}
-          className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
-          onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>{piece}</span>)
+        key={i}
+        className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
+        onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>{piece}</span>)
       r.elems.push(<ChevronRight key={i + '|'} className={styles.breadcrumbSeparator} />)
 
       return r
@@ -147,11 +147,11 @@ export default class Files extends React.Component {
     return (<div className={styles.fileList}>
       {
         !isRootFolder ?
-            <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
-              <div className={styles.entryIcon}><UpDirectory/></div>
-              <div className={styles.name}>{'Up one directory'}</div>
-            </div> :
-            null
+          <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
+            <div className={styles.entryIcon}><UpDirectory/></div>
+            <div className={styles.name}>{'Up one directory'}</div>
+          </div> :
+          null
       }
       { folders.map(folder =>
         <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
@@ -179,7 +179,7 @@ export default class Files extends React.Component {
           <IconButton icon={<Refresh/>} onClick={this.onRefreshClick} title={'Refresh'}/>
         </div>
         <PathBreadcrumbs className={styles.path}
-            path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
+          path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
       </div>
       { error ? (
         <div className={styles.externalError}>
@@ -187,8 +187,8 @@ export default class Files extends React.Component {
         </div>) : null
       }
       <ScrollableContent
-          className={styles.filesScrollable}
-          viewClassName={styles.filesScrollableView}>
+        className={styles.filesScrollable}
+        viewClassName={styles.filesScrollableView}>
         { this.renderFiles() }
       </ScrollableContent>
     </div>)

@@ -16,8 +16,8 @@ async function findStarcraftPath() {
   if (!starcraftPath) {
     log.warning('No Starcraft path found in registry, defaulting to standard install location')
     starcraftPath = process.env['ProgramFiles(x86)'] ?
-        `${process.env['ProgramFiles(x86)']}\\Starcraft` :
-        `${process.env.ProgramFiles}\\Starcraft`
+      `${process.env['ProgramFiles(x86)']}\\Starcraft` :
+      `${process.env.ProgramFiles}\\Starcraft`
   }
 
   return starcraftPath
@@ -36,7 +36,7 @@ export default class LocalSettings extends EventEmitter {
     this._settings = null
     this._watcher = null
 
-    this._initialized = (async () => {
+    this._initialized = (async() => {
       try {
         this._settings = JSON.parse(await readFileAsync(this._filepath, { encoding: 'utf8' }))
       } catch (err) {

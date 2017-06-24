@@ -209,7 +209,7 @@ const eventToAction = {
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
     const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
-        new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
+      new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
     const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
       localUser: user,

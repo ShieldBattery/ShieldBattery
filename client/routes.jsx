@@ -81,7 +81,7 @@ const routes = <Route>
                   </Route> : null
                 }
                 { AdminMapUpload ?
-                    <Route path='/admin/map-upload' component={AdminMapUpload} /> : null }
+                  <Route path='/admin/map-upload' component={AdminMapUpload} /> : null }
               </Route>
             </Route>
             <Route path='/chat'>

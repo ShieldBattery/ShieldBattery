@@ -27,8 +27,8 @@ export const PermissionState = new Record({
 export default keyedReducer(new PermissionState(), {
   [ADMIN_GET_PERMISSIONS_BEGIN](state, action) {
     return state.updateIn([ 'users', action.payload.username ],
-        new Permissions(),
-        p => p.set('isRequesting', true))
+      new Permissions(),
+      p => p.set('isRequesting', true))
   },
 
   [ADMIN_GET_PERMISSIONS](state, action) {
@@ -38,8 +38,8 @@ export default keyedReducer(new PermissionState(), {
         isRequesting: false,
       }
       return state.updateIn([ 'users', action.meta.username ],
-          new Permissions(),
-          p => p.merge(data))
+        new Permissions(),
+        p => p.merge(data))
     }
 
     const data = {
@@ -49,8 +49,8 @@ export default keyedReducer(new PermissionState(), {
       isRequesting: false,
     }
     return state.updateIn([ 'users', action.meta.username ],
-        new Permissions(),
-        p => p.merge(data))
+      new Permissions(),
+      p => p.merge(data))
   },
 
   [ADMIN_SET_PERMISSIONS](state, action) {
@@ -60,8 +60,8 @@ export default keyedReducer(new PermissionState(), {
         isRequesting: false,
       }
       return state.updateIn([ 'users', action.meta.username ],
-          new Permissions(),
-          p => p.merge(data))
+        new Permissions(),
+        p => p.merge(data))
     }
 
     const data = {
@@ -71,7 +71,7 @@ export default keyedReducer(new PermissionState(), {
       isRequesting: false,
     }
     return state.updateIn([ 'users', action.meta.username ],
-        new Permissions(),
-        p => p.merge(data))
+      new Permissions(),
+      p => p.merge(data))
   },
 })

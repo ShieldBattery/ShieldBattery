@@ -25,7 +25,7 @@ export default class UpdateDialog extends React.Component {
     if (!nextProps.update.hasUpdate) {
       // This should really never happen, but just in case!
       this.props.dispatch(
-          openSnackbar({ message: 'Your client is now up to date.' }))
+        openSnackbar({ message: 'Your client is now up to date.' }))
       this.props.dispatch(closeDialog())
     }
   }

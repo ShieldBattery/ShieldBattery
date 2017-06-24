@@ -10,10 +10,10 @@ import {
 
 
 export const findMatch = (type, race) => createSiteSocketAction(MATCHMAKING_FIND_BEGIN,
-    MATCHMAKING_FIND, '/matchmaking/find', { type, race })
+  MATCHMAKING_FIND, '/matchmaking/find', { type, race })
 
 export const cancelFindMatch = () => createSiteSocketAction(MATCHMAKING_CANCEL_BEGIN,
-    MATCHMAKING_CANCEL, '/matchmaking/cancel')
+  MATCHMAKING_CANCEL, '/matchmaking/cancel')
 
 export const acceptMatch = () => createSiteSocketAction(MATCHMAKING_ACCEPT_BEGIN,
-    MATCHMAKING_ACCEPT, '/matchmaking/accept')
+  MATCHMAKING_ACCEPT, '/matchmaking/accept')

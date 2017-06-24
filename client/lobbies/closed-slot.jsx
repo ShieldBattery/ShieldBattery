@@ -22,8 +22,8 @@ export default class ClosedSlot extends React.Component {
     const { controlledClosed, canSetRace, race, onSetRace } = this.props
     if (controlledClosed) {
       return (canSetRace ?
-          <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
-          <SelectedRace className={styles.slotRace} race={race} />)
+        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
+        <SelectedRace className={styles.slotRace} race={race} />)
     } else {
       return null
     }
@@ -47,8 +47,8 @@ export default class ClosedSlot extends React.Component {
       <div className={styles.slotRight}>
         {
           slotActions.length > 0 ?
-              <SlotActions slotActions={slotActions} /> :
-              <div></div>
+            <SlotActions slotActions={slotActions} /> :
+            <div></div>
         }
         { this.renderControls() }
       </div>

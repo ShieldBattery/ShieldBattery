@@ -15,11 +15,11 @@ export default class ChatNavEntry extends React.Component {
   render() {
     const { channel, currentPath, hasUnread } = this.props
     const button = <IconButton className={styles.navLeaveButton} icon={<CloseIcon />}
-        title='Leave channel' onClick={this.onLeaveClick} />
+      title='Leave channel' onClick={this.onLeaveClick} />
 
     return (
       <Entry link={`/chat/${encodeURIComponent(channel)}`} currentPath={currentPath}
-          needsAttention={hasUnread} button={channel !== 'ShieldBattery' ? button : null}>
+        needsAttention={hasUnread} button={channel !== 'ShieldBattery' ? button : null}>
         #{channel}
       </Entry>
     )

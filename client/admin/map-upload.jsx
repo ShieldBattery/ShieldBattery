@@ -46,7 +46,7 @@ export default class UploadMap extends React.Component {
     this._form.submit()
   };
 
-  onSubmit = async () => {
+  onSubmit = async() => {
     const { files } = this._form.getModel()
     for (const { path } of files) {
       this.setState({

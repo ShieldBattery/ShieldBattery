@@ -63,9 +63,9 @@ export default class JoinLobby extends React.Component {
     return (<div className={styles.list}>
       {
         !openLobbies.isEmpty() ?
-            openLobbies.map(name => <ListEntry key={name} lobby={byName.get(name)}
-                onClick={this._handleLobbyClick} />) :
-            <p className={styles.emptyText}>There are no open lobbies</p>
+          openLobbies.map(name => (<ListEntry key={name} lobby={byName.get(name)}
+            onClick={this._handleLobbyClick} />)) :
+          <p className={styles.emptyText}>There are no open lobbies</p>
       }
     </div>)
   }

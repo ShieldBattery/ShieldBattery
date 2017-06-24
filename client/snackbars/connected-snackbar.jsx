@@ -84,17 +84,17 @@ class ConnectedSnackbar extends React.Component {
     if (!this._awaitingLeave && snackbars.size > 0) {
       const bar = snackbars.get(0)
       const action = bar.action ?
-          id => {
-            bar.action()
-            this.props.dispatch(closeSnackbar(id))
-          } : undefined
+        id => {
+          bar.action()
+          this.props.dispatch(closeSnackbar(id))
+        } : undefined
       elem = <TransitionSnackbar key={bar.id} id={bar.id} message={bar.message}
-          actionLabel={bar.actionLabel} action={action} time={bar.time}
-          dispatch={this.props.dispatch} onLeft={this._handleChildLeft}/>
+        actionLabel={bar.actionLabel} action={action} time={bar.time}
+        dispatch={this.props.dispatch} onLeft={this._handleChildLeft}/>
     }
 
     return (<TransitionGroup transitionName={transitionNames}
-        transitionEnterTimeout={ENTER_TIME} transitionLeaveTimeout={LEAVE_TIME}>
+      transitionEnterTimeout={ENTER_TIME} transitionLeaveTimeout={LEAVE_TIME}>
       {elem}
     </TransitionGroup>)
   }

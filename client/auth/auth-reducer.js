@@ -57,7 +57,7 @@ const handlers = {
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),
   [AUTH_SIGN_UP]: logInSplitter,
   [AUTH_UPDATE]: (state, action) => (!action.error ? logInSuccess(state, action) :
-      state.set('authChangeInProgress', false)),
+    state.set('authChangeInProgress', false)),
   [AUTH_RESET_PASSWORD]: noOpOrError,
   [AUTH_RETRIEVE_USERNAME]: noOpOrError,
   [AUTH_START_PASSWORD_RESET]: noOpOrError,

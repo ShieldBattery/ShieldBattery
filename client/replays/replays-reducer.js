@@ -37,7 +37,7 @@ export default keyedReducer(new FileStates(), {
   [REPLAYS_GET](state, action) {
     if (action.error) {
       return state.update(action.meta.browseId, prev =>
-          prev.set('isRequesting', false).set('lastError', action.payload)
+        prev.set('isRequesting', false).set('lastError', action.payload)
       )
     }
 
@@ -55,10 +55,10 @@ export default keyedReducer(new FileStates(), {
     }
 
     return state.update(action.meta.browseId, prev => prev
-        .set('isRequesting', false)
-        .set('lastError', null)
-        .set('folders', new List(folders))
-        .set('files', new List(files))
+      .set('isRequesting', false)
+      .set('lastError', null)
+      .set('folders', new List(folders))
+      .set('files', new List(files))
     )
   },
 

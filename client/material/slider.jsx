@@ -38,13 +38,13 @@ const Ticks = ({ show, min, max, step }) => {
       elems.push(<div key={i} className={styles.valueTick} style={{ left: `${p}%` }} />)
     }
     elems.push(
-        <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }}/>)
+      <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }}/>)
 
     container = <span className={styles.tickContainer}>{elems}</span>
   }
 
   return (<TransitionGroup transitionName={tickTransitionNames}
-      transitionEnterTimeout={150} transitionLeaveTimeout={150}>
+    transitionEnterTimeout={150} transitionLeaveTimeout={150}>
     {container}
   </TransitionGroup>)
 }
@@ -72,7 +72,7 @@ class Slider extends React.Component {
       }
       if ((props.max - props.min) % props.step !== 0) {
         return new Error(
-            'The range between `min` and `max` needs to be evenly divisible by `step`.')
+          'The range between `min` and `max` needs to be evenly divisible by `step`.')
       }
       return null
     },
@@ -135,7 +135,7 @@ class Slider extends React.Component {
     const thumbPosition = stepPercentage * optionNum
 
     const labelElement = this.props.label ?
-        <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
+      <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
 
     const thumbClass = this.props.value === this.props.min ? styles.thumbEmpty : styles.thumb
     const thumbContainerStyle = {
@@ -147,12 +147,12 @@ class Slider extends React.Component {
         onFocus={this.onFocus} onBlur={this.onBlur} onKeyDown={this.onKeyDown}>
         {labelElement}
         <Track min={this.props.min} max={this.props.max} step={this.props.step}
-            value={this.props.value} showTicks={this.state.isClicked} />
+          value={this.props.value} showTicks={this.state.isClicked} />
         <div className={styles.overflowClip}>
           <div className={styles.thumbContainer} style={thumbContainerStyle}>
             <div className={thumbClass} />
             <TransitionGroup transitionName={balloonTransitionNames}
-                transitionEnterTimeout={300} transitionLeaveTimeout={300}>
+              transitionEnterTimeout={300} transitionLeaveTimeout={300}>
               {this._renderBalloon(thumbPosition)}
             </TransitionGroup>
           </div>
@@ -214,7 +214,7 @@ class Slider extends React.Component {
 
   stepValidator(value) {
     const formattedValue = Math.round(
-        (value - this.props.min) / this.props.step) * this.props.step + this.props.min
+      (value - this.props.min) / this.props.step) * this.props.step + this.props.min
     // Format to 3 digits after the decimal point; fixes issues when step is a decimal number
     return Math.round(formattedValue * 1000) / 1000
   }
@@ -225,7 +225,7 @@ class Slider extends React.Component {
 
   positionToPercent(x) {
     return Math.max(0, Math.min(
-        1, (x - this._sliderDimensions.left) / (this._sliderDimensions.width)))
+      1, (x - this._sliderDimensions.left) / (this._sliderDimensions.width)))
   }
 
   getClosestValue(x) {

@@ -70,7 +70,7 @@ class Select extends React.Component {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
-          valueIndex, React.Children.count(this.props.children))
+        valueIndex, React.Children.count(this.props.children))
       this._overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
     }
@@ -129,13 +129,13 @@ class Select extends React.Component {
       <div className={classes} onClick={this.onOpen}>
         {this.renderLabel()}
         <span ref={this._setRoot} className={styles.valueContainer}
-            tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
-            onFocus={this.onFocus} onBlur={this.onBlur}>
+          tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
+          onFocus={this.onFocus} onBlur={this.onBlur}>
           <span className={styles.value}>{displayValue}</span>
           <span className={styles.icon}><ArrowDropDownIcon /></span>
         </span>
         <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
-            disabled={this.props.disabled} />
+          disabled={this.props.disabled} />
         {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
       </div>
     )
@@ -148,8 +148,8 @@ class Select extends React.Component {
 
     return (
       <FloatingLabel htmlFor={this.id} text={this.props.label} hasValue={this.hasValue()}
-          focused={this.state.isFocused} disabled={this.props.disabled}
-          error={!!this.props.errorText} />
+        focused={this.state.isFocused} disabled={this.props.disabled}
+        error={!!this.props.errorText} />
     )
   }
 
@@ -160,7 +160,7 @@ class Select extends React.Component {
 
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
-          valueIndex, React.Children.count(this.props.children))
+        valueIndex, React.Children.count(this.props.children))
       const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
 
       const overlayStyle = {
@@ -183,15 +183,15 @@ class Select extends React.Component {
         <WindowListener event='resize' listener={this.recalcOverlayPosition} />
         <WindowListener event='scroll' listener={this.recalcOverlayPosition} />
         <TransitionGroup transitionName={transitionNames} transitionAppear={true}
-            transitionAppearTimeout={200} transitionEnterTimeout={200}
-            transitionLeaveTimeout={CLOSE_TIME}>
+          transitionAppearTimeout={200} transitionEnterTimeout={200}
+          transitionLeaveTimeout={CLOSE_TIME}>
           {
             isOpened && !isClosing ?
-                <div key='overlay' ref={this._setOverlay} className={styles.overlay}
-                    style={overlayStyle} onMouseMove={this.onMouseMove}>
-                  { options }
-                </div> :
-                null
+              <div key='overlay' ref={this._setOverlay} className={styles.overlay}
+                style={overlayStyle} onMouseMove={this.onMouseMove}>
+                { options }
+              </div> :
+              null
           }
         </TransitionGroup>
       </span>)

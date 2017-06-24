@@ -232,8 +232,8 @@ class LoadingPlayer extends React.Component {
     const { player, isReady } = this.props
     const isComputer = player.type === 'computer'
     const avatar = isComputer ?
-        <ComputerAvatar className={styles.playerAvatar} /> :
-        <Avatar user={player.name} className={styles.playerAvatar} />
+      <ComputerAvatar className={styles.playerAvatar} /> :
+      <Avatar user={player.name} className={styles.playerAvatar} />
     const displayName = isComputer ? 'Computer' : player.name
 
     return (<Card className={isReady ? styles.readyPlayer : styles.player}>
@@ -263,7 +263,7 @@ export default class LoadingScreen extends React.Component {
     }
 
     const playerElems = getPlayerSlots(lobby).map(p =>
-        <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
+      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
 
     return (<div className={styles.content}>
       <div className={styles.typeAndMap}>

@@ -65,7 +65,7 @@ export default class ActiveGameManager extends EventEmitter {
     const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
       .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
       .then(code => this.handleGameExit(gameId, code),
-          err => this.handleGameExitWaitError(gameId, err))
+        err => this.handleGameExitWaitError(gameId, err))
     this.activeGame = {
       id: gameId,
       promise: activeGamePromise,
@@ -166,7 +166,7 @@ export default class ActiveGameManager extends EventEmitter {
         this._setStatus(GAME_STATUS_UNKNOWN)
       } else {
         this._setStatus(GAME_STATUS_ERROR,
-            new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
+          new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
       }
     }
 

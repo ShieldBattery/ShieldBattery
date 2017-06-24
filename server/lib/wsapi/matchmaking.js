@@ -44,9 +44,9 @@ export class MatchmakingApi {
     this.clientSockets = clientSockets
 
     this.matchmakers = new Map(MATCHMAKING_TYPES.map(type =>
-        [type, new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound)]))
+      [type, new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound)]))
     this.acceptor = new MatchAcceptor(MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
-        this._onMatchAccepted, this._onMatchDeclined, this._onMatchAcceptProgress)
+      this._onMatchAccepted, this._onMatchDeclined, this._onMatchAcceptProgress)
 
     this.queueEntries = new Map()
   }

@@ -93,7 +93,7 @@ export function startReplay(replay) {
     }, err => {
       logger.error(`Error starting replay file [${replay.path}]: ${err}`)
       dispatch(openSimpleDialog('Error loading replay',
-          'The selected replay could not be loaded. It may either be corrupt, or was created ' +
+        'The selected replay could not be loaded. It may either be corrupt, or was created ' +
               'by a version of StarCraft newer than is currently supported.'))
     })
   }

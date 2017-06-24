@@ -14,8 +14,8 @@ export default function() {
   const appName = app.getName()
   let getMainWindow
   const socket = (process.platform === 'win32') ?
-      `\\\\.\\pipe\\${sanitize(process.env.USERNAME)}-${appName}-singleInstance` :
-      path.join(os.tempdir(), appName + '.sock')
+    `\\\\.\\pipe\\${sanitize(process.env.USERNAME)}-${appName}-singleInstance` :
+    path.join(os.tempdir(), appName + '.sock')
 
   const client = net.connect(socket, () => {
     // This will only be executed by the second instance of the app (because it will successfully

@@ -26,17 +26,17 @@ import {
 } from '../../app/common/constants'
 
 const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH,
-        `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH,
-        `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN,
-        'Username contains invalid characters'))
+  required('Enter a username'),
+  minLength(USERNAME_MINLENGTH,
+    `Enter at least ${USERNAME_MINLENGTH} characters`),
+  maxLength(USERNAME_MAXLENGTH,
+    `Enter at most ${USERNAME_MAXLENGTH} characters`),
+  regex(USERNAME_PATTERN,
+    'Username contains invalid characters'))
 const passwordValidator = composeValidators(
-    required('Enter a password'),
-    minLength(PASSWORD_MINLENGTH,
-        `Enter at least ${PASSWORD_MINLENGTH} characters`))
+  required('Enter a password'),
+  minLength(PASSWORD_MINLENGTH,
+    `Enter at least ${PASSWORD_MINLENGTH} characters`))
 
 @form({
   username: usernameValidator,
@@ -56,39 +56,39 @@ class LoginForm extends React.Component {
       <div className={styles.fieldRow}>
         <div className={styles.rowEdge}/>
         <TextField {...bindInput('username')} className={styles.textField}
-            label='Username' floatingLabel={true}
-            inputProps={{
-              tabIndex: 1,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}/>
+          label='Username' floatingLabel={true}
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
         <div className={styles.rowEdge}>
           <FlatButton labelClassName={styles.forgotActionLabel}
-              label='Forgot username?' onClick={onForgotUsernameClick}/>
+            label='Forgot username?' onClick={onForgotUsernameClick}/>
         </div>
       </div>
 
       <div className={styles.fieldRow}>
         <div className={styles.rowEdge}/>
         <TextField {...bindInput('password')} className={styles.textField}
-            label='Password' floatingLabel={true} type='password'
-            inputProps={{
-              tabIndex: 1,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}/>
+          label='Password' floatingLabel={true} type='password'
+          inputProps={{
+            tabIndex: 1,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}/>
         <div className={styles.rowEdge}>
           <FlatButton labelClassName={styles.forgotActionLabel}
-              label='Forgot password?' onClick={onForgotPasswordClick}/>
+            label='Forgot password?' onClick={onForgotPasswordClick}/>
         </div>
       </div>
 
       <div className={styles.fieldRow}>
         <div className={styles.rowEdge}/>
         <CheckBox {...bindCheckable('remember')} className={styles.checkBox} label='Remember me'
-            inputProps={{ tabIndex: 1 }} />
+          inputProps={{ tabIndex: 1 }} />
         <div className={styles.spacer}/>
         <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1}/>
         <div className={styles.rowEdge}/>
@@ -130,15 +130,15 @@ export default class Login extends React.Component {
         <h3 className={styles.title}>Log in</h3>
         { errContents }
         <LoginForm ref={this._setForm} model={{}} onSubmit={this.onSubmit}
-            onForgotUsernameClick={this.onForgotUsernameClick}
-            onForgotPasswordClick={this.onForgotPasswordClick}/>
+          onForgotUsernameClick={this.onForgotUsernameClick}
+          onForgotPasswordClick={this.onForgotPasswordClick}/>
       </div>
       { loadingContents }
       <div className={styles.bottomAction}>
-          <FlatButton labelClassName={styles.bottomActionButtonLabel}
-              label='Sign up for an account' onClick={this.onCreateAccountClick} tabIndex={1}/>
-          <FlatButton labelClassName={styles.bottomActionButtonLabel}
-              label='What is ShieldBattery?' onClick={this.onSplashClick} tabIndex={1}/>
+        <FlatButton labelClassName={styles.bottomActionButtonLabel}
+          label='Sign up for an account' onClick={this.onCreateAccountClick} tabIndex={1}/>
+        <FlatButton labelClassName={styles.bottomActionButtonLabel}
+          label='What is ShieldBattery?' onClick={this.onSplashClick} tabIndex={1}/>
       </div>
     </div>)
   }

@@ -26,8 +26,8 @@ export const BanState = new Record({
 export default keyedReducer(new BanState(), {
   [ADMIN_GET_BAN_HISTORY_BEGIN](state, action) {
     return state.updateIn([ 'users', action.payload.username ],
-        new BanHistory(),
-        b => b.set('isRequesting', true))
+      new BanHistory(),
+      b => b.set('isRequesting', true))
   },
 
   [ADMIN_GET_BAN_HISTORY](state, action) {
@@ -37,8 +37,8 @@ export default keyedReducer(new BanState(), {
         isRequesting: false,
       }
       return state.updateIn([ 'users', action.meta.username ],
-          new BanHistory(),
-          b => b.merge(data))
+        new BanHistory(),
+        b => b.merge(data))
     }
 
     const data = {
@@ -48,8 +48,8 @@ export default keyedReducer(new BanState(), {
       isRequesting: false,
     }
     return state.updateIn([ 'users', action.meta.username ],
-        new BanHistory(),
-        b => b.merge(data))
+      new BanHistory(),
+      b => b.merge(data))
   },
 
   [ADMIN_BAN_USER](state, action) {
@@ -59,8 +59,8 @@ export default keyedReducer(new BanState(), {
         isRequesting: false,
       }
       return state.updateIn([ 'users', action.meta.username ],
-          new BanHistory(),
-          b => b.merge(data))
+        new BanHistory(),
+        b => b.merge(data))
     }
 
     const banHistory = state.users.get(action.meta.username)
@@ -71,7 +71,7 @@ export default keyedReducer(new BanState(), {
       isRequesting: false,
     }
     return state.updateIn([ 'users', action.meta.username ],
-        new BanHistory(),
-        b => b.merge(data))
+      new BanHistory(),
+      b => b.merge(data))
   },
 })

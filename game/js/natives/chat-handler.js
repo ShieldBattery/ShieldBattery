@@ -129,8 +129,8 @@ class ChatHandler extends EventEmitter {
     }
 
     this._exclusive = new ChatStream(
-        (message, timeout) => this.bw.displayIngameMessage(message, timeout),
-        () => { this._exclusive = null })
+      (message, timeout) => this.bw.displayIngameMessage(message, timeout),
+      () => { this._exclusive = null })
 
     return this._exclusive
   }

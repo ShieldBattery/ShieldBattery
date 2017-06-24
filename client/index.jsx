@@ -80,14 +80,14 @@ const updatedServerPromise = new Promise(resolve => {
 
 const initAudioPromise = audioManager ? audioManager.initialize() : Promise.resolve()
 
-Promise.all([ rootElemPromise, updatedServerPromise ]).then(async ([ elem ]) => {
+Promise.all([ rootElemPromise, updatedServerPromise ]).then(async([ elem ]) => {
   const initData = window._sbInitData
   if (initData && initData.auth) {
     initData.auth = authFromJS(initData.auth)
   }
 
   let history = useRouterHistory(process.webpackEnv.SB_ENV === 'web' ?
-      createHistory : createHashHistory)()
+    createHistory : createHashHistory)()
   const store = createStore(initData, history)
   history = syncHistoryWithStore(history, store, {
     // Since we're using a custom reducer, we have to adjust the state to be shaped like
@@ -100,7 +100,7 @@ Promise.all([ rootElemPromise, updatedServerPromise ]).then(async ([ elem ]) => 
   initAudioPromise.then(() => { store.dispatch({ type: AUDIO_MANAGER_INITIALIZED }) })
 
   return { elem, store, history }
-}).then(async ({ elem, store, history }) => {
+}).then(async({ elem, store, history }) => {
   let analyticsId = window._sbAnalyticsId
   if (process.webpackEnv.SB_ENV !== 'web') {
     const configPromise = fetch('/config', { method: 'get' })

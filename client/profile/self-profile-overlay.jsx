@@ -27,9 +27,9 @@ export default class SelfProfileOverlay extends React.Component {
     const { user, children, open, onDismiss, anchor } = this.props
 
     return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
-        anchorOffsetVertical={8} anchorOffsetHorizontal={4}
-        anchorOriginVertical='top' anchorOriginHorizontal='right'
-        popoverOriginVertical='top' popoverOriginHorizontal='right'>
+      anchorOffsetVertical={8} anchorOffsetHorizontal={4}
+      anchorOriginVertical='top' anchorOriginHorizontal='right'
+      popoverOriginVertical='top' popoverOriginHorizontal='right'>
       {
         (state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
@@ -46,9 +46,9 @@ export default class SelfProfileOverlay extends React.Component {
           }
 
           return (<TransitionGroup
-              transitionName={transitionNames} transitionAppear={true}
-              transitionAppearTimeout={openDelay + openDuration}
-              transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
+            transitionName={transitionNames} transitionAppear={true}
+            transitionAppearTimeout={openDelay + openDuration}
+            transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
             {
               state === 'opening' || state === 'opened' ?
                 <SelfProfileContents key={'contents'} user={user} style={style}>

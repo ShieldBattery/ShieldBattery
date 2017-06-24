@@ -73,13 +73,13 @@ export default class OverflowTest extends React.Component {
     return (<div style={containerStyle}>
       <div style={contentStyle}>
         <IconButton style={topLeftStyle} buttonRef={this._setTopLeft}
-            icon={<VertMenuIcon />} onClick={this.onTopLeftClick} />
+          icon={<VertMenuIcon />} onClick={this.onTopLeftClick} />
         <IconButton style={topRightStyle} buttonRef={this._setTopRight}
-            icon={<VertMenuIcon />} onClick={this.onTopRightClick} />
+          icon={<VertMenuIcon />} onClick={this.onTopRightClick} />
         <IconButton style={bottomLeftStyle} buttonRef={this._setBottomLeft}
-            icon={<VertMenuIcon />} onClick={this.onBottomLeftClick} />
+          icon={<VertMenuIcon />} onClick={this.onBottomLeftClick} />
         <IconButton style={bottomRightStyle} buttonRef={this._setBottomRight}
-            icon={<VertMenuIcon />} onClick={this.onBottomRightClick} />
+          icon={<VertMenuIcon />} onClick={this.onBottomRightClick} />
 
         <Popover open={open === 'topLeft'} onDismiss={this.onDismiss} anchor={this._topLeft}
           children={this.renderPopoverContents}
@@ -116,17 +116,17 @@ export default class OverflowTest extends React.Component {
     }
 
     return (<TransitionGroup
-        transitionName={transitionNames} transitionAppear={true}
-        transitionAppearTimeout={openDelay + openDuration}
-        transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
+      transitionName={transitionNames} transitionAppear={true}
+      transitionAppearTimeout={openDelay + openDuration}
+      transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
       {
         state === 'opening' || state === 'opened' ?
-            <div className={styles.contents} style={style}>
-              <h2>Hello</h2>
-              <h3>World</h3>
-              <h4>How are you?</h4>
-            </div> :
-            null
+          <div className={styles.contents} style={style}>
+            <h2>Hello</h2>
+            <h3>World</h3>
+            <h4>How are you?</h4>
+          </div> :
+          null
       }
     </TransitionGroup>)
   };
@@ -146,5 +146,4 @@ export default class OverflowTest extends React.Component {
   onBottomRightClick = () => {
     this.setState({ open: 'bottomRight' })
   };
-
 }

@@ -102,10 +102,10 @@ function setupIpc(localSettings) {
 
   ipcMain.on(SETTINGS_EMIT, event => {
     localSettings.get().then(settings => event.sender.send(SETTINGS_CHANGED, settings),
-        err => {
-          logger.error('Error getting settings: ' + err)
-          event.sender.send(SETTINGS_EMIT_ERROR, err)
-        })
+      err => {
+        logger.error('Error getting settings: ' + err)
+        event.sender.send(SETTINGS_EMIT_ERROR, err)
+      })
   }).on(SETTINGS_MERGE, (event, settings) => {
     // This will trigger a change if things changed (which will then emit a SETTINGS_CHANGED)
     localSettings.merge(settings).catch(err => {
@@ -190,11 +190,11 @@ function setupIpc(localSettings) {
 function registerHotkeys() {
   const isMac = process.platform === 'darwin'
   localShortcut.register(mainWindow, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',
-      () => mainWindow.toggleDevTools())
+    () => mainWindow.toggleDevTools())
   localShortcut.register(mainWindow, 'F12', () => mainWindow.toggleDevTools())
 
   localShortcut.register(mainWindow, 'CmdOrCtrl+R',
-      () => mainWindow.webContents.reloadIgnoringCache())
+    () => mainWindow.webContents.reloadIgnoringCache())
   localShortcut.register(mainWindow, 'F5', () => mainWindow.webContents.reloadIgnoringCache())
 }
 
@@ -292,7 +292,7 @@ async function createWindow(localSettings, curSession) {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
-app.on('ready', async () => {
+app.on('ready', async() => {
   const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
 

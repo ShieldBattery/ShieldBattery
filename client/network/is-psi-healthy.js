@@ -10,11 +10,11 @@ import {
 } from '../actions'
 
 const checkStarcraftPath = process.webpackEnv.SB_ENV === 'electron' ?
-    require('../settings/check-starcraft-path').checkStarcraftPath :
-    null
+  require('../settings/check-starcraft-path').checkStarcraftPath :
+  null
 const patchStarcraftDir = process.webpackEnv.SB_ENV === 'electron' ?
-    require('../settings/patch-starcraft').patchStarcraftDir :
-    null
+  require('../settings/patch-starcraft').patchStarcraftDir :
+  null
 
 export function hasValidStarcraftPath({ starcraft }) {
   return starcraft.pathValid

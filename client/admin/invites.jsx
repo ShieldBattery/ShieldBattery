@@ -50,9 +50,9 @@ export default class Invites extends React.Component {
         <td>{invitee.canHost ? <span>Yes</span> : <span>No</span>}</td>
         <td>
           {invitee.isAccepted ?
-              <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
+            <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
                   Signup Link</a> :
-              <span>{this.renderAcceptLink(invitee)}</span>}
+            <span>{this.renderAcceptLink(invitee)}</span>}
         </td>
       </tr>
     )
@@ -95,7 +95,7 @@ export default class Invites extends React.Component {
     const numOfPages = Math.ceil(total / LIMIT)
 
     const search = (accepted === 'true' || accepted === 'false') ?
-        '?accepted=' + accepted + '&page=' : '?page='
+      '?accepted=' + accepted + '&page=' : '?page='
 
     const parsedPage = parseInt(page, 10)
     const pagesLinks = Range(1, numOfPages + 1)

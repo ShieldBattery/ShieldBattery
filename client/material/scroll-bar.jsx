@@ -85,7 +85,7 @@ export class ScrollableContent extends React.Component {
     // adjust scrollTop by the difference between old scroll height and new scroll height, to
     // maintain the same top element
     this._scrollBars.scrollTop(
-        this._scrollBars.getScrollTop() + (scrollHeight - this._lastScrollHeight))
+      this._scrollBars.getScrollTop() + (scrollHeight - this._lastScrollHeight))
   }
 
   // Set a flag that indicates whether or not we are inserting content at the top of the scrollable
@@ -98,20 +98,20 @@ export class ScrollableContent extends React.Component {
   render() {
     return (
       <Scrollbars
-          ref={this._setScrollBarsRef}
-          className={this.props.className}
-          renderView={this._renderView}
-          renderTrackHorizontal={renderTrackHorizontal}
-          renderTrackVertical={renderTrackVertical}
-          renderThumbHorizontal={renderThumbHorizontal}
-          renderThumbVertical={renderThumbVertical}
-          hideTracksWhenNotNeeded={true}
-          autoHeight={this.props.autoHeight}
-          autoHeightMin={this.props.autoHeightMin}
-          autoHeightMax={this.props.autoHeightMax}
-          onUpdate={this.props.onUpdate}
-          onMouseEnter={this._handleMouseEnter}
-          onMouseLeave={this._handleMouseLeave}>
+        ref={this._setScrollBarsRef}
+        className={this.props.className}
+        renderView={this._renderView}
+        renderTrackHorizontal={renderTrackHorizontal}
+        renderTrackVertical={renderTrackVertical}
+        renderThumbHorizontal={renderThumbHorizontal}
+        renderThumbVertical={renderThumbVertical}
+        hideTracksWhenNotNeeded={true}
+        autoHeight={this.props.autoHeight}
+        autoHeightMin={this.props.autoHeightMin}
+        autoHeightMax={this.props.autoHeightMax}
+        onUpdate={this.props.onUpdate}
+        onMouseEnter={this._handleMouseEnter}
+        onMouseLeave={this._handleMouseLeave}>
         {this.props.children}
       </Scrollbars>
     )

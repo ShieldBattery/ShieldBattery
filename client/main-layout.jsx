@@ -63,7 +63,7 @@ function stateToProps(state) {
     auth: state.auth,
     inLobby: state.lobby.inLobby,
     lobby: state.lobby.inLobby ?
-        { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
+      { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread } : null,
     inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
@@ -114,7 +114,7 @@ class MainLayout extends React.Component {
       <Subheader key='lobby-header'>Lobby</Subheader>,
       <Section key='lobby-section'>
         <LobbyNavEntry key='lobby' lobby={name} currentPath={currentPath} hasUnread={hasUnread}
-            onLeaveClick={this.onLeaveLobbyClick}/>
+          onLeaveClick={this.onLeaveLobbyClick}/>
       </Section>,
       <Divider key='lobby-divider'/>
     ]
@@ -133,18 +133,18 @@ class MainLayout extends React.Component {
 
   renderAvatarOverlay() {
     return (<SelfProfileOverlay
-        open={this.state.avatarOverlayOpened}
-        onDismiss={this.onCloseProfileOverlay}
-        anchor={this._avatarButtonRef}
-        user={this.props.auth.user.name}>
+      open={this.state.avatarOverlayOpened}
+      onDismiss={this.onCloseProfileOverlay}
+      anchor={this._avatarButtonRef}
+      user={this.props.auth.user.name}>
       {
         window._sbFeedbackUrl ?
-            <ProfileAction icon={<FeedbackIcon />}
-                text='Send feedback' onClick={this.onFeedbackClick}/> :
-            null
+          <ProfileAction icon={<FeedbackIcon />}
+            text='Send feedback' onClick={this.onFeedbackClick}/> :
+          null
       }
       <ProfileAction icon={<ChangelogIcon />} text='View changelog'
-          onClick={this.onChangelogClick}/>
+        onClick={this.onChangelogClick}/>
       <ProfileAction icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick}/>
     </SelfProfileOverlay>)
   }
@@ -158,47 +158,47 @@ class MainLayout extends React.Component {
     } = this.props
 
     const channelNav = chatChannels.map(c =>
-        <ChatNavEntry key={c.name}
-            channel={c.name}
-            currentPath={pathname}
-            hasUnread={c.hasUnread}
-            onLeave={this.onChannelLeave}/>)
+      (<ChatNavEntry key={c.name}
+        channel={c.name}
+        currentPath={pathname}
+        hasUnread={c.hasUnread}
+        onLeave={this.onChannelLeave}/>))
     const joinChannelButton = <IconButton icon={<AddIcon/>} title='Join a channel'
-        className={styles.subheaderButton} onClick={this.onJoinChannelClick} />
+      className={styles.subheaderButton} onClick={this.onJoinChannelClick} />
     const whisperNav = whispers.map(w =>
-        <WhisperNavEntry key={w.name}
-            user={w.name}
-            currentPath={pathname}
-            hasUnread={w.hasUnread}
-            onClose={this.onWhisperClose}/>)
+      (<WhisperNavEntry key={w.name}
+        user={w.name}
+        currentPath={pathname}
+        hasUnread={w.hasUnread}
+        onClose={this.onWhisperClose}/>))
     const addWhisperButton = <IconButton icon={<AddIcon/>} title='Start a whisper'
-        className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
+      className={styles.subheaderButton} onClick={this.onAddWhisperClick} />
     const footer = [
       DEV_INDICATOR ? <span key='dev' className={styles.devIndicator}>Dev Mode</span> : null,
       <ActiveUserCount key='userCount' className={styles.userCount}/>,
       isAdmin(this.props.auth) ? <p key='adminPanel'><Link to='/admin'>Admin</Link></p> : null,
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ?
-        <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
-            onClick={this.onFindMatchClick} disabled={inGameplayActivity} keycode={KEY_F}
-            altKey={true} /> :
-        <ActivityButton key='cancel-match' icon={<CancelMatchIcon />} label='Cancel'
-            onClick={this.onCancelFindMatchClick} />
+      <ActivityButton key='find-match' icon={<FindMatchIcon />} label='Find match'
+        onClick={this.onFindMatchClick} disabled={inGameplayActivity} keycode={KEY_F}
+        altKey={true} /> :
+      <ActivityButton key='cancel-match' icon={<CancelMatchIcon />} label='Cancel'
+        onClick={this.onCancelFindMatchClick} />
     const activityButtons = process.webpackEnv.SB_ENV === 'electron' ? [
       findMatchButton,
       <HotkeyedActivityButton key='create-game' icon={<CreateGameIcon />} label='Create'
-          onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
-          altKey={true} />,
+        onClick={this.onCreateLobbyClick} disabled={inGameplayActivity} keycode={KEY_C}
+        altKey={true} />,
       <HotkeyedActivityButton key='join-game' icon={<JoinGameIcon />} label='Join'
-          onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />,
+        onClick={this.onJoinLobbyClick} keycode={KEY_J} altKey={true} />,
       <ActivityButton key='replays' icon={<ReplaysIcon />} label='Replays'
-          onClick={this.onReplaysClick} />,
+        onClick={this.onReplaysClick} />,
       <ActivitySpacer key='spacer' />,
       <HotkeyedActivityButton key='settings' icon={<SettingsIcon />} label='Settings'
-          onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />,
+        onClick={this.onSettingsClick} keycode={KEY_S} altKey={true} />,
     ] : [
       <ActivityButton key='download' icon={<DownloadIcon />} label='Download'
-          onClick={this.onDownloadClick} />
+        onClick={this.onDownloadClick} />
     ]
 
     return (<div>
@@ -219,7 +219,7 @@ class MainLayout extends React.Component {
         </LeftNav>
         { this.props.children }
         <ActivityBar user={this.props.auth.user.name} avatarTitle={this.props.auth.user.name}
-            onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
+          onAvatarClick={this.onAvatarClick} avatarButtonRef={this._setAvatarButtonRef}>
           {activityButtons}
         </ActivityBar>
         { this.renderAvatarOverlay() }

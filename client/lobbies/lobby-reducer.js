@@ -327,8 +327,8 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
     return EMPTY_CHAT
   }
   return chatHandlers.hasOwnProperty(action.type) ?
-      prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action)) :
-      state
+    prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action)) :
+    state
 }
 
 export default function lobbyReducer(state = new LobbyRecord(), action) {

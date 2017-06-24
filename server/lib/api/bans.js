@@ -8,7 +8,7 @@ export default function(router, userSockets) {
   router
     .get('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
     .post('/:userId', checkAllPermissions('banUsers'),
-        (ctx, next) => banUser(ctx, next, userSockets))
+      (ctx, next) => banUser(ctx, next, userSockets))
 }
 
 async function getUserBanHistory(ctx, next) {

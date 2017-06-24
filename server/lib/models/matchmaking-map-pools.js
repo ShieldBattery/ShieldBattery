@@ -15,11 +15,11 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
   try {
     const result = await client.query(query, params)
     return result.rows.length > 0 ?
-        result.rows.map(row => ({
-          startDate: row.start_date,
-          maps: row.maps.map(map => map.toString('hex')),
-        })) :
-        []
+      result.rows.map(row => ({
+        startDate: row.start_date,
+        maps: row.maps.map(map => map.toString('hex')),
+      })) :
+      []
   } finally {
     done()
   }

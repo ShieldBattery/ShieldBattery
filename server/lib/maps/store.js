@@ -25,7 +25,7 @@ export async function storeMap(hash, extension, origFilename, timestamp, mapMpqP
 }
 
 export async function formatMapInfo(mapInfos, hashes) {
-  return Promise.all(new Seq(mapInfos).zip(hashes).map(async ([info, hash]) => {
+  return Promise.all(new Seq(mapInfos).zip(hashes).map(async([info, hash]) => {
     if (!info) {
       return null
     } else {
@@ -76,7 +76,7 @@ function runChildProcess(path, args) {
       clearTimeout(childTimeout)
     }
   }
-  const result = new Promise(async (resolve, reject) => {
+  const result = new Promise(async(resolve, reject) => {
     const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
     const child = childProcess.fork(path, args, opts)
     let error = false

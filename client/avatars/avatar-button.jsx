@@ -17,7 +17,7 @@ export default class AvatarButton extends React.Component {
     const avatarClasses = classnames(avatarStyles.buttonImage, avatarClassName)
     return (
       <Button {...rest} buttonRef={buttonRef} className={classes}
-          label={<Avatar user={user} image={image} className={avatarClasses} />} />
+        label={<Avatar user={user} image={image} className={avatarClasses} />} />
     )
   }
 }

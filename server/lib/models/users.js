@@ -110,8 +110,8 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
   const { client, done } = await db()
   try {
     return client.queryPromise(
-        'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
-        [ ipAddress, userId ])
+      'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
+      [ ipAddress, userId ])
   } finally {
     done()
   }
@@ -121,8 +121,8 @@ export async function findAllUsernamesWithEmail(email) {
   const { client, done } = await db()
   try {
     const result = await client.queryPromise(
-        'SELECT name FROM users WHERE email = $1',
-        [ email ])
+      'SELECT name FROM users WHERE email = $1',
+      [ email ])
     return result.rows.map(row => row.name)
   } finally {
     done()

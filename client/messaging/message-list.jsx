@@ -81,11 +81,11 @@ export default class MessageList extends React.Component {
 
   render() {
     return (<ScrollableContent
-        ref={this._setScrollableRef}
-        autoScroll={true}
-        onUpdate={this.props.onScrollUpdate}
-        className={styles.messagesScrollable}
-        viewClassName={styles.messagesScrollableView}>
+      ref={this._setScrollableRef}
+      autoScroll={true}
+      onUpdate={this.props.onScrollUpdate}
+      className={styles.messagesScrollable}
+      viewClassName={styles.messagesScrollableView}>
       { this.renderLoadingArea() }
       <PureMessageList messages={this.props.messages} />
     </ScrollableContent>)

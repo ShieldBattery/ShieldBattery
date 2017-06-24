@@ -18,7 +18,7 @@ export default class RacePicker extends React.Component {
     const onClick = this.props.onSetRace ? () => this.props.onSetRace(race) : null
 
     return (<Button className={styles.button} onClick={onClick}
-        label={<RaceIcon className={classes} race={race} />} />)
+      label={<RaceIcon className={classes} race={race} />} />)
   }
 
   render() {

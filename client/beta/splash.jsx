@@ -119,9 +119,9 @@ export default class Splash extends React.Component {
         </p>
 
         {
-          features.map((f, i) => <FeatureSection title={f.title} body={f.body} image={f.image}
-              key={`feature-${i}`}
-              titleStyle={i % 2 === 0 ? styles.titleBlue : styles.titleAmber}/>)
+          features.map((f, i) => (<FeatureSection title={f.title} body={f.body} image={f.image}
+            key={`feature-${i}`}
+            titleStyle={i % 2 === 0 ? styles.titleBlue : styles.titleAmber}/>))
         }
       </div>
     )

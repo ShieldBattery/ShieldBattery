@@ -15,7 +15,7 @@ exports.up = function(db, cb) {
     }
 
     db.addIndex('user_bans', 'user_bans_user_id_index', ['user_id'],
-        false /* unique */, cb)
+      false /* unique */, cb)
   }
 }
 

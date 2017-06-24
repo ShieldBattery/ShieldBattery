@@ -29,7 +29,7 @@ exports.up = function(db, cb) {
     // on that to ensure it will be a faster lookup
     // See: http://dba.stackexchange.com/questions/6115/working-of-indexes-in-postgresql
     db.addIndex('joined_channels', 'joined_channels_name_index', ['channel_name'],
-        false /* unique */, createChannelMessages)
+      false /* unique */, createChannelMessages)
   }
 
   function createChannelMessages(err) {
@@ -56,7 +56,7 @@ exports.up = function(db, cb) {
     }
 
     db.addIndex('channel_messages', 'channel_messages_channel_index', ['channel_name'],
-        false /* unique */, createMessageDateIndex)
+      false /* unique */, createMessageDateIndex)
   }
 
   function createMessageDateIndex(err) {
@@ -66,7 +66,7 @@ exports.up = function(db, cb) {
     }
 
     db.runSql('CREATE INDEX channel_messages_sent_index ON channel_messages(sent DESC);',
-        addInitialChannel)
+      addInitialChannel)
   }
 
   function addInitialChannel(err) {

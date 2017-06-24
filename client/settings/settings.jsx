@@ -52,7 +52,7 @@ class SettingsForm extends React.Component {
 
     return filterWindowSizes(width, height).map((size, i) => {
       return (<Option key={i} value={{ width: size.width, height: size.height }}
-          text={`${size.width}x${size.height}`}/>)
+        text={`${size.width}x${size.height}`}/>)
     })
   }
 
@@ -80,24 +80,24 @@ class SettingsForm extends React.Component {
         <Option value={2} text='Windowed' />
       </Select>
       <Select {...windowSizeProps} label='Window size' tabIndex={0}
-          compareValues={compareResolutions}>
+        compareValues={compareResolutions}>
         { this.renderWindowSizeOptions(resolution) }
       </Select>
       <CheckBox {...bindCheckable('maintainAspectRatio')} label='Maintain aspect ratio'
-          disabled={!this.isFullscreen()} inputProps={{ tabIndex: 0 }}/>
+        disabled={!this.isFullscreen()} inputProps={{ tabIndex: 0 }}/>
       <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
         <Option value={0} text='DirectX' />
         <Option value={1} text='OpenGL' />
       </Select>
       <Slider {...bindCustom('sensitivity')} label='Mouse sensitivity' tabIndex={0}
-          min={0} max={10} step={1} />
+        min={0} max={10} step={1} />
       <TextField {...bindInput('path')} label='StarCraft folder path' floatingLabel={true}
-          inputProps={{
-            tabIndex: 0,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false
-          }}/>
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoCorrect: 'off',
+          spellCheck: false
+        }}/>
     </form>)
   }
 }
@@ -155,19 +155,19 @@ export default class Settings extends React.Component {
 
     const buttons = [
       <FlatButton label='Cancel' key='cancel' color='accent'
-          onClick={this.onSettingsCancel} />,
+        onClick={this.onSettingsCancel} />,
       <FlatButton ref='save' label='Save' key='save' color='accent'
-          onClick={this.onSettingsSave} />
+        onClick={this.onSettingsSave} />
     ]
 
     const defaultWindowSize = this.getDefaultWindowSizeValue(local)
     return (<Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
       <SettingsForm
-          ref={this._setForm}
-          resolution={this._resolution}
-          defaultWindowSize={defaultWindowSize}
-          model={formModel}
-          onSubmit={this.onSubmit}/>
+        ref={this._setForm}
+        resolution={this._resolution}
+        defaultWindowSize={defaultWindowSize}
+        model={formModel}
+        onSubmit={this.onSubmit}/>
     </Dialog>)
   }
 
@@ -198,6 +198,4 @@ export default class Settings extends React.Component {
     this.props.dispatch(mergeLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
   };
-
-
 }

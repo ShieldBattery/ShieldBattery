@@ -9,7 +9,7 @@ import { addPatch, patchExists } from '../models/starcraft-patches'
 export default function(router) {
   router
     .post('/', ensureLoggedIn,
-        checkAllPermissions('manageStarcraftPatches'), handleMultipartFiles, uploadPatch)
+      checkAllPermissions('manageStarcraftPatches'), handleMultipartFiles, uploadPatch)
     .get('/:filename/:hash', getPatchInfo)
 }
 
@@ -38,8 +38,8 @@ async function uploadPatch(ctx, next) {
   }
 
   await addPatch(hash, filename, description,
-      () => writeFile(patchPath(hash, filename),
-          fs.createReadStream(path)))
+    () => writeFile(patchPath(hash, filename),
+      fs.createReadStream(path)))
   ctx.status = 204
 }
 

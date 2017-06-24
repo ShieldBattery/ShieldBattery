@@ -14,7 +14,7 @@ exports.up = function(db, cb) {
     }
 
     db.addIndex('user_ips', 'user_ips_user_id_index', ['user_id'],
-        false /* unique */, createIpAddressIndex)
+      false /* unique */, createIpAddressIndex)
   }
 
   function createIpAddressIndex(err) {
@@ -24,7 +24,7 @@ exports.up = function(db, cb) {
     }
 
     db.addIndex('user_ips', 'user_ips_ip_address_index', ['ip_address'],
-        false /* unique */, cb)
+      false /* unique */, cb)
   }
 }
 

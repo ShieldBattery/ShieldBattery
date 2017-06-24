@@ -38,7 +38,7 @@ const sendThrottle = createThrottle('chatsend', {
   window: 60000,
 })
 
-const featureEnabled = async (data, next) => {
+const featureEnabled = async(data, next) => {
   if (!MULTI_CHANNEL) throw new errors.NotFound()
   return next(data)
 }
@@ -104,7 +104,7 @@ export class ChatApi {
     const result = await leaveChannel(user.session.userId, channel)
     const updated = this.state.channels.get(channel).delete(user.name)
     this.state = updated.size ? this.state.setIn(['channels', channel], updated) :
-        this.state.deleteIn(['channels', channel])
+      this.state.deleteIn(['channels', channel])
     this.state = this.state.updateIn(['users', user.name], u => u.delete(channel))
     this._publishTo(channel, { action: 'leave', user: user.name, newOwner: result.newOwner })
     this._unsubscribeUserFromChannel(user, channel)
@@ -250,7 +250,7 @@ export class ChatApi {
     for (const channel of channels.values()) {
       const updated = this.state.channels.get(channel).delete(userName)
       this.state = updated.size ? this.state.setIn(['channels', channel], updated) :
-          this.state.deleteIn(['channels', channel])
+        this.state.deleteIn(['channels', channel])
     }
     this.state = this.state.deleteIn(['users', userName])
 

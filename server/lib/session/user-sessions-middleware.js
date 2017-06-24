@@ -5,7 +5,7 @@ import config from '../../config'
 
 // This middleware must be placed *after* the session middleware in the chain of middlewares
 export default function() {
-  return async (ctx, next) => {
+  return async(ctx, next) => {
     await next()
 
     if (ctx.sessionId && ctx.session.userId) {

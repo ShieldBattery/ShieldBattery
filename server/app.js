@@ -71,8 +71,8 @@ setStore(new LocalFileStore(config.fileStore.filesystem))
 
 const asyncLookup = thenify(dns.lookup)
 const rallyPointServers = config.rallyPoint.local ?
-    [ config.rallyPoint.local ] :
-    config.rallyPoint.remote
+  [ config.rallyPoint.local ] :
+  config.rallyPoint.remote
 const resolvedRallyPointServers = Promise.all(rallyPointServers.map(async s => {
   let v6
   try {
@@ -108,7 +108,7 @@ const resolvedRallyPointServers = Promise.all(rallyPointServers.map(async s => {
 
 const routeCreatorConfig = config.rallyPoint.routeCreator || {}
 const initRouteCreatorPromise = routeCreator.initialize(routeCreatorConfig.host || '::',
-    routeCreatorConfig.port || 0, config.rallyPoint.secret)
+  routeCreatorConfig.port || 0, config.rallyPoint.secret)
 
 const app = new Koa()
 const port = config.httpPort

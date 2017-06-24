@@ -27,14 +27,14 @@ export function getHumanSlots(lobby) {
 // the following form: [teamIndex, slotIndex, slot]
 export function getLobbySlotsWithIndexes(lobby) {
   return lobby.teams.flatMap((team, teamIndex) =>
-      team.slots.map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
+    team.slots.map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
 }
 
 // Like getLobbySlotsWithIndexes, but includes the possible UMS hidden slots that are necessary
 // in game initialization
 export function getIngameLobbySlotsWithIndexes(lobby) {
   return lobby.teams.flatMap((team, teamIndex) =>
-      team.slots.concat(team.hiddenSlots).map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
+    team.slots.concat(team.hiddenSlots).map((slot, slotIndex) => [teamIndex, slotIndex, slot]))
 }
 
 // Finds the slot with the specified name in the lobby. Only works for `human` type slots (other
@@ -42,7 +42,7 @@ export function getIngameLobbySlotsWithIndexes(lobby) {
 // player is found; otherwise returns an empty list.
 export function findSlotByName(lobby, name) {
   const slot = getLobbySlotsWithIndexes(lobby).find(
-      ([, , slot]) => (slot.type === 'human' || slot.type === 'observer') && slot.name === name)
+    ([, , slot]) => (slot.type === 'human' || slot.type === 'observer') && slot.name === name)
   return slot ? slot : []
 }
 
@@ -57,7 +57,7 @@ export function findSlotById(lobby, id) {
 // excludes the observer team
 export function slotCount(lobby) {
   return (lobby.teams.filterNot(team => team.isObserver)
-      .reduce((slots, team) => slots + team.slots.size, 0))
+    .reduce((slots, team) => slots + team.slots.size, 0))
 }
 
 // Utility function that returns the number of `human` type slots for a particular lobby. Useful for
@@ -116,8 +116,8 @@ export function isTeamType(gameType) {
 // starting a game from)
 export function hasOpposingSides(lobby) {
   return !isTeamType(lobby.gameType) ?
-      getPlayerSlots(lobby).size > 1 :
-      lobby.teams.filter(team => !team.isObserver && teamPlayerSlotCount(team) > 0).size > 1
+    getPlayerSlots(lobby).size > 1 :
+    lobby.teams.filter(team => !team.isObserver && teamPlayerSlotCount(team) > 0).size > 1
 }
 
 // Returns true if the lobby has an observer team; false otherwise.
@@ -129,7 +129,7 @@ export function hasObservers(lobby) {
 // conjunction with the `hasObserver` function, so you're sure there is an observer team.
 export function getObserverTeam(lobby) {
   return lobby.teams.map((team, teamIndex) => [teamIndex, team])
-      .find(([, team]) => team.isObserver)
+    .find(([, team]) => team.isObserver)
 }
 
 // Checks whether a particular slot is inside the observer team

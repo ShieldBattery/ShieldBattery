@@ -12,8 +12,8 @@ import {
 } from '../../app/common/ipc-constants'
 
 const { checkStarcraftPath } = process.webpackEnv.SB_ENV === 'electron' ?
-    require('./check-starcraft-path') :
-    null
+  require('./check-starcraft-path') :
+  null
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

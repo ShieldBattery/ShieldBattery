@@ -120,7 +120,7 @@ export class WhispersApi {
 
     if (!this.userSessions.get(user.name).has(target.name)) {
       throw new errors.Forbidden(
-          'must have a whisper session with this user to retrieve message history')
+        'must have a whisper session with this user to retrieve message history')
     }
 
     const messages = await getMessagesForWhisperSession(user.name, target.name, 50, beforeTime)
@@ -151,7 +151,7 @@ export class WhispersApi {
 
     const updated = this.sessionUsers.get(target.name).delete(user.name)
     this.sessionUsers = updated.size ?
-        this.sessionUsers.set(target.name, updated) : this.sessionUsers.delete(target.name)
+      this.sessionUsers.set(target.name, updated) : this.sessionUsers.delete(target.name)
 
     this._publishTo(user.name, target.name, {
       action: 'closeSession',

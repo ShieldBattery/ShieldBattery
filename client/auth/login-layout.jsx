@@ -10,13 +10,13 @@ class MainLayout extends React.Component {
     return (<div className={styles.background}>
       <WindowControls className={styles.windowControls}/>
       <div className={styles.wrapper}>
-          <div className={styles.contents}>
-            <img className={styles.logo} src={makeServerUrl('/images/logo.svg')} />
-            <div className={styles.logoText}><LogoText /></div>
-            <div>
-              { this.props.children }
-            </div>
+        <div className={styles.contents}>
+          <img className={styles.logo} src={makeServerUrl('/images/logo.svg')} />
+          <div className={styles.logoText}><LogoText /></div>
+          <div>
+            { this.props.children }
           </div>
+        </div>
       </div>
     </div>)
   }

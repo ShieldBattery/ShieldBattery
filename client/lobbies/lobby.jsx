@@ -90,10 +90,10 @@ class SelfJoinMessage extends React.Component {
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>
+      <span>
           You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>. The host
           is <span className={styles.chatImportant}>{this.props.host}</span>.
-        </span>
+      </span>
     </ChatMessageLayout>)
   }
 }
@@ -106,9 +106,9 @@ class HostChangeMessage extends React.Component {
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>
-          <span className={styles.chatImportant}>{this.props.name}</span> is now the host
-        </span>
+      <span>
+        <span className={styles.chatImportant}>{this.props.name}</span> is now the host
+      </span>
     </ChatMessageLayout>)
   }
 }
@@ -120,7 +120,7 @@ class CountdownStartedMessage extends React.Component {
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>The game countdown has begun</span>
+      <span>The game countdown has begun</span>
     </ChatMessageLayout>)
   }
 }
@@ -133,7 +133,7 @@ class CountdownTickMessage extends React.Component {
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>{this.props.timeLeft}&hellip;</span>
+      <span>{this.props.timeLeft}&hellip;</span>
     </ChatMessageLayout>)
   }
 }
@@ -145,7 +145,7 @@ class CountdownCanceledMessage extends React.Component {
 
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>The game countdown has been canceled</span>
+      <span>The game countdown has been canceled</span>
     </ChatMessageLayout>)
   }
 }
@@ -158,7 +158,7 @@ class LoadingCanceledMessage extends React.Component {
   // TODO(tec27): We really need to pass a reason back here
   render() {
     return (<ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>Game initialization has been canceled</span>
+      <span>Game initialization has been canceled</span>
     </ChatMessageLayout>)
   }
 }
@@ -271,47 +271,47 @@ export default class Lobby extends React.Component {
         switch (type) {
           case 'open':
             return (<OpenSlot key={id} race={race} isHost={isHost} isObserver={isObserver}
-                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
-                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
-                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
+              onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
+              onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
+              onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
           case 'closed':
             return (<ClosedSlot key={id} race={race} isHost={isHost} isObserver={isObserver}
-                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
-                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
+              onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
+              onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           case 'human':
             return (<PlayerSlot key={id} name={name} race={race} isHost={isHost}
-                canSetRace={slot === mySlot && !slot.hasForcedRace} hasSlotActions={slot !== mySlot}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
-                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
-                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
-                onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
+              canSetRace={slot === mySlot && !slot.hasForcedRace} hasSlotActions={slot !== mySlot}
+              onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+              onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+              onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+              onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
+              onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
           case 'observer':
             return (<PlayerSlot key={id} name={name} isHost={isHost} isObserver={true}
-                hasSlotActions={slot !== mySlot}
-                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
-                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
-                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
-                onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
+              hasSlotActions={slot !== mySlot}
+              onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+              onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+              onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
+              onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined} />)
           case 'computer':
             return (<PlayerSlot key={id} name={name} race={race} isComputer={true}
-                canSetRace={isHost} isHost={isHost} hasSlotActions={true}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
-                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
-                onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined} />)
+              canSetRace={isHost} isHost={isHost} hasSlotActions={true}
+              onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+              onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+              onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+              onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined} />)
           case 'umsComputer':
             return (<PlayerSlot key={id} name={name} race={race} isComputer={true} />)
           case 'controlledOpen':
             return (<OpenSlot key={id} race={race} controlledOpen={true}
-                canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
-                onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
-                onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
+              canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
+              onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+              onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
+              onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined} />)
           case 'controlledClosed':
             return (<ClosedSlot key={id} race={race} controlledClosed={true}
-                canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
-                onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
+              canSetRace={mySlot && controlledBy === mySlot.id} isHost={isHost}
+              onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined} />)
           default: throw new Error('Unknown slot type: ' + type)
         }
       }).toArray())
@@ -356,6 +356,6 @@ export default class Lobby extends React.Component {
 
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby)
     return (<RaisedButton className={styles.startButton} color='primary' label='Start game'
-        disabled={isDisabled} onClick={onStartGame}/>)
+      disabled={isDisabled} onClick={onStartGame}/>)
   }
 }

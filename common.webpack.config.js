@@ -105,7 +105,7 @@ export default function({
       // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(
-          /[\\/]any-promise[\\/]/, require.resolve('./app/common/promise.js')),
+        /[\\/]any-promise[\\/]/, require.resolve('./app/common/promise.js')),
       new webpack.DefinePlugin({
         'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),

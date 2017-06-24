@@ -14,8 +14,8 @@ const questions = [
       Open beta will start once ShieldBattery is stable and ready for the public. An exact ETA for
       this is unfortunately impossible to give, but expect to receive regular updates from us as
       we make progress. Make sure to follow our <a href='https://twitter.com/shieldbatterybw'
-      target='_blank'>Twitter account</a> to keep up with the latest news and changes.</p>,
-      <p key='p2'>Even before the open beta starts, we'll be inviting new users to our closed beta
+        target='_blank'>Twitter account</a> to keep up with the latest news and changes.</p>,
+    <p key='p2'>Even before the open beta starts, we'll be inviting new users to our closed beta
       periodically. So if you're interested in helping us test the software, finding bugs, and
       giving feedback before it's available to a wider audience,
       please <Link to='/splash'>sign up</Link> for an invite.
@@ -30,7 +30,7 @@ const questions = [
       based on their responses. While the basics of the features we've promised are in place, we are
       also still actively working on some of the more complex pieces, such as matchmaking.</p>,
 
-      <p key='p2'>
+    <p key='p2'>
       As these features come online, we'll need a larger player-base in order to test them, so
       please <Link to='/splash'>sign up</Link> for a chance to get invited.
     </p>],
@@ -40,7 +40,7 @@ const questions = [
     answer: [<p key='p1'>
       Of course not. This is a project made purely out of our love for BW; by community members,
       for the community.</p>,
-      <p key='p2'>As for the donation link, there isn't one at this time. The server costs
+    <p key='p2'>As for the donation link, there isn't one at this time. The server costs
       are currently very manageable, and we'd prefer the community directed their funds to more
       needy causes.
     </p>],
@@ -117,8 +117,8 @@ export default class Faq extends React.Component {
         </div>
 
         {
-          questions.map((q, i) => <QuestionSection question={q.question} answer={q.answer}
-              key={`question-${i}`} />)
+          questions.map((q, i) => (<QuestionSection question={q.question} answer={q.answer}
+            key={`question-${i}`} />))
         }
       </div>
     )

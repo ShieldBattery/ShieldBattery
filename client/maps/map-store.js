@@ -36,7 +36,7 @@ export default class MapStore {
   async downloadMap(mapHash, mapFormat, mapUrl) {
     if (!this._activeDownloads.has(mapHash)) {
       this._activeDownloads = this._activeDownloads.set(
-          mapHash, this._checkAndDownloadMap(mapHash, mapFormat, mapUrl))
+        mapHash, this._checkAndDownloadMap(mapHash, mapFormat, mapUrl))
     }
 
     return this._activeDownloads.get(mapHash)

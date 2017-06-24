@@ -92,18 +92,18 @@ export default class LobbyView extends React.Component {
       content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
-          onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
-          onSwitchSlot={this.onSwitchSlot} onOpenSlot={this.onOpenSlot}
-          onCloseSlot={this.onCloseSlot} onKickPlayer={this.onKickPlayer}
-          onBanPlayer={this.onBanPlayer} onStartGame={this.onStartGame}
-          onSendChatMessage={this.onSendChatMessage} />
+        onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
+        onSwitchSlot={this.onSwitchSlot} onOpenSlot={this.onOpenSlot}
+        onCloseSlot={this.onCloseSlot} onKickPlayer={this.onKickPlayer}
+        onBanPlayer={this.onBanPlayer} onStartGame={this.onStartGame}
+        onSendChatMessage={this.onSendChatMessage} />
       actions = [
         <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
       ]
     }
 
     return (<ContentLayout title={this.props.params.lobby} actions={actions}
-          appBarContentClassName={styles.appBarContent}>
+      appBarContentClassName={styles.appBarContent}>
       { content }
     </ContentLayout>)
   }
@@ -141,13 +141,13 @@ export default class LobbyView extends React.Component {
     } else if (lobby.state) {
       preLobbyAreaContents = [
         lobby.isRequesting ?
-            <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
+          <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
         this.renderLobbyStateContent(lobby.state),
       ]
     } else if (lobby.error) {
       preLobbyAreaContents = [
         lobby.isRequesting ?
-            <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
+          <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
         <p>There was a problem loading this lobby</p>,
       ]
     }

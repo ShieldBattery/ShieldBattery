@@ -32,6 +32,6 @@ export function registerApiRoutes(apiObject, nydus) {
     const middleware =
         desc.middleware.map(f => typeof f === 'string' ? apiObject[f].bind(apiObject) : f)
     nydus.registerRoute(`${basePath}${desc.path}`,
-        ...middleware, apiObject[method].bind(apiObject))
+      ...middleware, apiObject[method].bind(apiObject))
   }
 }

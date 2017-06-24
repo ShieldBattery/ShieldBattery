@@ -75,7 +75,7 @@ export default class TextField extends React.Component {
         {this.renderLabel()}
         <input {...inputProps} {...internalInputProps} />
         <InputUnderline focused={this.state.isFocused} error={!!errorText}
-            disabled={this.props.disabled} />
+          disabled={this.props.disabled} />
         {allowErrors ? <InputError error={errorText} /> : null}
       </div>
     )
@@ -94,8 +94,8 @@ export default class TextField extends React.Component {
     } else if (floatingLabel) {
       return (
         <FloatingLabel htmlFor={this.id} text={label} hasValue={!!value}
-            focused={this.state.isFocused} disabled={disabled}
-            error={!!errorText} />
+          focused={this.state.isFocused} disabled={disabled}
+          error={!!errorText} />
       )
     } else {
       return <Label htmlFor={this.id} text={label} hasValue={!!value} />

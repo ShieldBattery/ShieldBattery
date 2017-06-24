@@ -41,10 +41,10 @@ export class UserProfile extends React.Component {
 }
 
 const usernameValidator = composeValidators(
-    required('Enter a username'),
-    minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-    maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-    regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+  required('Enter a username'),
+  minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
+  maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
+  regex(USERNAME_PATTERN, 'Username contains invalid characters'))
 
 @form({
   username: usernameValidator,
@@ -54,12 +54,12 @@ class SearchForm extends React.Component {
     const { onSubmit, bindInput } = this.props
     return (<form noValidate={true} onSubmit={onSubmit}>
       <TextField {...bindInput('username')} label='Username' floatingLabel={true}
-          inputProps={{
-            tabIndex: 0,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}/>
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}/>
     </form>)
   }
 }
@@ -95,6 +95,6 @@ export class UserFind extends React.Component {
     const values = this._form.getModel()
     const username = values.username
     this.props.dispatch(
-        routerActions.push(`/admin/users/${encodeURIComponent(username)}`))
+      routerActions.push(`/admin/users/${encodeURIComponent(username)}`))
   };
 }

@@ -6,7 +6,7 @@ export const TIMING_LONG = 2750
 export const TIMING_INDEFINITE = -1
 
 export function openSnackbar({ message = '', time = TIMING_SHORT,
-    actionLabel = null, action = null }) {
+  actionLabel = null, action = null }) {
   return (dispatch, getState) => {
     dispatch({
       type: SNACKBAR_OPEN,

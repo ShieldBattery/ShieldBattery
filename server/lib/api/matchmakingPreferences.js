@@ -36,7 +36,7 @@ async function upsertPreferences(ctx, next) {
   }
 
   ctx.body = await upsertMatchmakingPreferences(ctx.session.userId, matchmakingType, race,
-      alternateRace, mapPoolId, preferredMaps)
+    alternateRace, mapPoolId, preferredMaps)
 }
 
 async function getPreferences(ctx, next) {

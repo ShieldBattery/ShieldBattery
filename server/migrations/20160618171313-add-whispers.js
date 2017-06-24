@@ -14,7 +14,7 @@ exports.up = function(db, cb) {
     }
 
     db.addIndex('whisper_sessions', 'whisper_sessions_user_id_index', ['user_id'],
-        false /* unique */, createWhisperMessages)
+      false /* unique */, createWhisperMessages)
   }
 
   function createWhisperMessages(err) {

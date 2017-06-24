@@ -7,5 +7,5 @@ export default function serializeRes(res) {
     size: res.getHeader('Content-Length') || -1,
     elapsed,
     headers: {} // I don't really want to display response headers, but bunyan's CLI has
-  }             // an erroneous check for headers or won't display statusCode
+  } // an erroneous check for headers or won't display statusCode
 }

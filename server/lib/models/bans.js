@@ -31,7 +31,7 @@ export async function banUser(userId, bannedBy, banLengthHours, reason = null) {
 
   try {
     const result = await client.queryPromise(
-        `WITH ins AS (
+      `WITH ins AS (
           INSERT INTO user_bans (user_id, start_time, end_time, banned_by, reason)
           VALUES ($1, $2, $3, $4, $5) RETURNING *
         ) SELECT ins.start_time, ins.end_time, u.name AS banned_by_name, ins.reason FROM ins
@@ -54,8 +54,8 @@ export async function isUserBanned(userId) {
 
   try {
     const result = await client.queryPromise(
-        'SELECT 1 FROM user_bans WHERE user_id = $1 AND end_time > $2 AND start_time <= $2',
-        [ userId, now ])
+      'SELECT 1 FROM user_bans WHERE user_id = $1 AND end_time > $2 AND start_time <= $2',
+      [ userId, now ])
     return !!result.rows.length
   } finally {
     done()

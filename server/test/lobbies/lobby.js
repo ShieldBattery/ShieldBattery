@@ -14,7 +14,7 @@ import {
 } from '../../../common/lobbies/lobby-slots'
 
 const BOXER_LOBBY = Lobbies.create(
-    '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
+  '5v3 Comp Stomp Pros Only', 'Big Game Hunters.scm', 'melee', 0, 4, 'Slayers`Boxer')
 
 describe('Lobbies - melee', () => {
   it('should create the lobby correctly', () => {
@@ -233,7 +233,7 @@ describe('Lobbies - melee', () => {
 })
 
 const TEAM_LOBBY = Lobbies.create(
-    '2v6 BGH', 'Big Game Hunters.scm', 'topVBottom', 2, 8, 'Slayers`Boxer')
+  '2v6 BGH', 'Big Game Hunters.scm', 'topVBottom', 2, 8, 'Slayers`Boxer')
 
 describe('Lobbies - Top vs bottom', () => {
   it('should create the lobby correctly', () => {

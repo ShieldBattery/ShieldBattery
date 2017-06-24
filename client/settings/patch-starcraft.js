@@ -72,7 +72,7 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
 
   // Check if there's a patch available for this version
   const { url } = await fetchJson(
-      `/api/1/patches/${encodeURIComponent(filename)}/${encodeURIComponent(inHash)}`)
+    `/api/1/patches/${encodeURIComponent(filename)}/${encodeURIComponent(inHash)}`)
   const tempPatchFile = path.join(outPath, `${filename}-${Date.now()}.patch`)
   const patchFileStream = fs.createWriteStream(tempPatchFile)
   const downloadStream = fetchReadableStream(url)

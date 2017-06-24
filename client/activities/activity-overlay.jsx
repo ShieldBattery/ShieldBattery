@@ -53,7 +53,7 @@ export default class ActivityOverlay extends React.Component {
   render() {
     return (
       <TransitionGroup transitionName={transitionNames}
-          transitionEnterTimeout={350} transitionLeaveTimeout={250}>
+        transitionEnterTimeout={350} transitionLeaveTimeout={250}>
         { this.renderOverlay() }
       </TransitionGroup>
     )

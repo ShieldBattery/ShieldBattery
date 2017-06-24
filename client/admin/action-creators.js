@@ -70,11 +70,11 @@ export function setPermissions(username, permissions) {
     dispatch({
       type: ADMIN_SET_PERMISSIONS,
       payload: fetchUserId(username)
-          .then(id => fetch('/api/1/permissions/' + encodeURIComponent(id), params))
-          .then(permissions => {
-            dispatch(openSnackbar({ message: 'Saved!' }))
-            return permissions
-          }),
+        .then(id => fetch('/api/1/permissions/' + encodeURIComponent(id), params))
+        .then(permissions => {
+          dispatch(openSnackbar({ message: 'Saved!' }))
+          return permissions
+        }),
       meta: { username, permissions },
     })
   }
@@ -112,11 +112,11 @@ export function banUser(username, length, reason) {
     dispatch({
       type: ADMIN_BAN_USER,
       payload: fetchUserId(username)
-          .then(id => fetch('/api/1/bans/' + encodeURIComponent(id), params))
-          .then(bans => {
-            dispatch(openSnackbar({ message: 'Banned!' }))
-            return bans
-          }),
+        .then(id => fetch('/api/1/bans/' + encodeURIComponent(id), params))
+        .then(bans => {
+          dispatch(openSnackbar({ message: 'Banned!' }))
+          return bans
+        }),
       meta: { username, length, reason },
     })
   }

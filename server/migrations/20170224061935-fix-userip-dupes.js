@@ -13,7 +13,7 @@ exports.up = function(db) {
     return db.removeIndex('user_ips', 'user_ips_unique_user_ip_counter_index')
   }).then(() => {
     return db.addIndex('user_ips', 'user_ips_unique_user_ip_counter_index',
-        ['user_id', 'ip_address', 'user_ip_counter'], true /* unique */)
+      ['user_id', 'ip_address', 'user_ip_counter'], true /* unique */)
   })
 }
 
@@ -21,7 +21,7 @@ exports.down = function(db) {
   return (db.removeIndex('user_ips', 'user_ips_unique_user_ip_counter_index')
     .then(() => {
       return db.addIndex('user_ips', 'user_ips_unique_user_ip_counter_index',
-          ['user_id', 'ip_address', 'user_ip_counter'])
+        ['user_id', 'ip_address', 'user_ip_counter'])
     }))
 }
 

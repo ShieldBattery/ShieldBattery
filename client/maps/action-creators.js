@@ -28,7 +28,7 @@ export function selectLocalMap(path) {
 }
 
 export function hostLocalMap(mapPath, name, map, gameType, gameSubType) {
-  return async (dispatch, getState) => {
+  return async(dispatch, getState) => {
     if (getState().maps.isUploading) {
       // Users don't currently have a way to replace an ongoing upload with another,
       // hopefully it won't be necessary.

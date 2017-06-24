@@ -208,8 +208,8 @@ export class LobbyApi {
       player = Slots.createObserver(client.name)
     } else {
       player = isUms(lobby.gameType) ?
-          Slots.createHuman(client.name, availableSlot.race, true, availableSlot.playerId) :
-          Slots.createHuman(client.name)
+        Slots.createHuman(client.name, availableSlot.race, true, availableSlot.playerId) :
+        Slots.createHuman(client.name)
     }
 
     const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
@@ -320,7 +320,7 @@ export class LobbyApi {
     let updated
     try {
       updated = Lobbies.movePlayerToSlot(lobby, sourceTeamIndex, sourceSlotIndex, destTeamIndex,
-          destSlotIndex)
+        destSlotIndex)
     } catch (err) {
       throw new errors.BadRequest(err.message)
     }
@@ -519,8 +519,8 @@ export class LobbyApi {
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
       this._publishLobbyDiff(lobby, updatedLobby,
-          removalType === REMOVAL_TYPE_KICK ? userName : null,
-          removalType === REMOVAL_TYPE_BAN ? userName : null)
+        removalType === REMOVAL_TYPE_KICK ? userName : null,
+        removalType === REMOVAL_TYPE_BAN ? userName : null)
     }
     this.lobbyClients = this.lobbyClients.delete(client)
     activityRegistry.unregisterClientForUser(userName)
@@ -607,8 +607,8 @@ export class LobbyApi {
     const humanPlayers = getHumanSlots(lobby)
     const hasMultipleHumans = humanPlayers.size > 1
     const pingPromise = !hasMultipleHumans ?
-        Promise.resolve() :
-        Promise.all(humanPlayers.map(p => pingRegistry.waitForPingResult(p.name)))
+      Promise.resolve() :
+      Promise.all(humanPlayers.map(p => pingRegistry.waitForPingResult(p.name)))
 
     await pingPromise
     cancelToken.throwIfCancelling()
@@ -640,13 +640,13 @@ export class LobbyApi {
       }))
 
       routeCreations = routesToCreate.map(({ p1, p2, server }) => server === -1 ?
-          Promise.reject(new Error('No server match found')) :
-          routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
-            p1,
-            p2,
-            server: pingRegistry.servers[server],
-            result,
-          })))
+        Promise.reject(new Error('No server match found')) :
+        routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
+          p1,
+          p2,
+          server: pingRegistry.servers[server],
+          result,
+        })))
     } else {
       routeCreations = []
     }
@@ -659,8 +659,8 @@ export class LobbyApi {
       const { p1, p2, server, result: { routeId, p1Id, p2Id } } = route
       return (
         result
-          .update(p1, new List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
-          .update(p2, new List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))
+        .update(p1, new List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
+        .update(p2, new List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))
       )
     }, new Map())
 
@@ -877,9 +877,9 @@ export class LobbyApi {
     const created = newSlots.subtract(same)
 
     const oldIdSlots = new Map(getLobbySlotsWithIndexes(oldLobby)
-        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
+      .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
     const newIdSlots = new Map(getLobbySlotsWithIndexes(newLobby)
-        .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
+      .map(([teamIndex, slotIndex, slot]) => [slot.id, [teamIndex, slotIndex, slot]]))
 
     for (const id of left.values()) {
       // These are the human slots that have left the lobby or were removed. Note that every `leave`

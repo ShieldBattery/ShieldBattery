@@ -93,11 +93,11 @@ export default class Portal extends React.Component {
 
     const contents = <div ref={this.setContent}>
       <TransitionGroup
-          transitionName={transitionNames} transitionAppear={true}
-          transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
+        transitionName={transitionNames} transitionAppear={true}
+        transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
         {
           open && scrim ?
-              <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway}/> : null
+            <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway}/> : null
         }
       </TransitionGroup>
       { open ? children() : null }

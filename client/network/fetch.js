@@ -60,7 +60,7 @@ export function fetchRaw(path, opts) {
   }
 
   const credentials = path !== serverUrl ? {
-      // Include credentials for non-web clients because everything is cross-origin
+    // Include credentials for non-web clients because everything is cross-origin
     credentials: 'include',
   } : null
 

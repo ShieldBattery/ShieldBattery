@@ -48,11 +48,11 @@ class Whisper extends React.Component {
       <div className={styles.messagesAndInput}>
         <div className={styles.messages}>
           <MessageList
-              ref={this._setMessageListRef}
-              loading={session.loadingHistory}
-              hasMoreHistory={session.hasHistory}
-              messages={session.messages}
-              onScrollUpdate={this.onScrollUpdate}/>
+            ref={this._setMessageListRef}
+            loading={session.loadingHistory}
+            hasMoreHistory={session.hasHistory}
+            messages={session.messages}
+            onScrollUpdate={this.onScrollUpdate}/>
         </div>
         <MessageInput className={inputClass} onSend={onSendChatMessage} />
       </div>
@@ -159,12 +159,12 @@ export default class WhisperView extends React.Component {
 
     return (
       <ContentLayout title={`Whisper with ${session ? session.target : target}`}
-          appBarContentClassName={styles.appBarContent}>
+        appBarContentClassName={styles.appBarContent}>
         {
           session ?
-              <Whisper session={session} onSendChatMessage={this._handleSendChatMessage}
-                  onRequestMoreHistory={this._handleRequestMoreHistory} /> :
-              <div className={styles.loadingArea}><LoadingIndicator /></div>
+            <Whisper session={session} onSendChatMessage={this._handleSendChatMessage}
+              onRequestMoreHistory={this._handleRequestMoreHistory} /> :
+            <div className={styles.loadingArea}><LoadingIndicator /></div>
         }
       </ContentLayout>
     )

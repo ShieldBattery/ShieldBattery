@@ -31,7 +31,7 @@ export default class WindowControls extends React.Component {
         <CloseIcon/>
       </button>
       <button title={'Maximize/Restore'} className={styles.maximizeButton}
-          onClick={this.onMaximizeClick}>
+        onClick={this.onMaximizeClick}>
         <MaximizeIcon/>
       </button>
       <button title={'Minimize'} className={styles.minimizeButton} onClick={this.onMinimizeClick}>

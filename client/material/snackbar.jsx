@@ -25,8 +25,8 @@ class Snackbar extends React.Component {
 
   render() {
     const actionButton = this.props.actionLabel ? <FlatButton label={this.props.actionLabel}
-        color='accent' onClick={this._handleActionClick} className={styles.action} /> :
-        null
+      color='accent' onClick={this._handleActionClick} className={styles.action} /> :
+      null
     return (<div className={styles.container}>
       <div className={styles.snackbar}>
         <div className={styles.message}>{this.props.message}</div>

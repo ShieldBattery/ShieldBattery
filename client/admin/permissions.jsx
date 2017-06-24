@@ -18,18 +18,18 @@ class UserPermissionsForm extends React.Component {
     }
     return (<form noValidate={true} onSubmit={onSubmit}>
       <CheckBox {...bindCheckable('editPermissions')} label='Edit permissions'
-          inputProps={inputProps} disabled={isSelf}/>
+        inputProps={inputProps} disabled={isSelf}/>
       <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps}/>
       <CheckBox {...bindCheckable('acceptInvites')} label='Accept beta invites'
-          inputProps={inputProps}/>
+        inputProps={inputProps}/>
       <CheckBox {...bindCheckable('editAllChannels')} label='Edit all channels'
-          inputProps={inputProps}/>
+        inputProps={inputProps}/>
       <CheckBox {...bindCheckable('banUsers')} label='Ban users'
-          inputProps={inputProps}/>
+        inputProps={inputProps}/>
       <CheckBox {...bindCheckable('manageMaps')} label='Manage maps'
-          inputProps={inputProps}/>
+        inputProps={inputProps}/>
       <CheckBox {...bindCheckable('manageStarcraftPatches')} label='Manage StarCraft patches'
-          inputProps={inputProps}/>
+        inputProps={inputProps}/>
     </form>)
   }
 }
@@ -72,10 +72,10 @@ export default class PermissionsResult extends React.Component {
     return (<div className={styles.saveForm}>
       <h3>Set permissions for {username}</h3>
       <UserPermissionsForm
-          ref={this._setForm}
-          isSelf={username === this.props.auth.user.name}
-          model={model}
-          onSubmit={this.onSubmit}/>
+        ref={this._setForm}
+        isSelf={username === this.props.auth.user.name}
+        model={model}
+        onSubmit={this.onSubmit}/>
       <FlatButton label='Save' color='accent' tabIndex={0} onClick={this.onSaveClick} />
     </div>)
   }

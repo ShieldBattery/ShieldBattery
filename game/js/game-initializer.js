@@ -128,7 +128,7 @@ function buildNetworkMappings(routes, slots, host) {
   const slotList = new List(slots)
   const players = slotList.filter(slot => slot.type === 'human' || slot.type === 'observer')
   const ordered = players.filter(p => p.id === host.id)
-      .concat(players.filterNot(p => p.id === host.id))
+    .concat(players.filterNot(p => p.id === host.id))
   const routesById = new Map(routes.map(r => [ r.forId, r.route ]))
   const netInfos = ordered.map(p => routesById.get(p.id))
   return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
@@ -160,7 +160,7 @@ async function joinLobby(gameType, gameSubType, gameName, slots, map, mapPath, c
     gameName,
     numSlots: slots.length,
     numPlayers: slots
-        .filter(slot => slot.type === 'human' || slot.type === 'observer').length,
+      .filter(slot => slot.type === 'human' || slot.type === 'observer').length,
     mapName: map.name,
     mapTileset: tilesetNameToId[map.tileset],
     mapWidth: map.width,
@@ -251,11 +251,11 @@ function setupSlots(configSlots, gameType) {
 
 async function waitForPlayers(slots) {
   const players = slots
-      .filter(slot => slot.type === 'human')
-      .map(p => p.name)
+    .filter(slot => slot.type === 'human')
+    .map(p => p.name)
   const observers = slots
-      .filter(slot => slot.type === 'observer')
-      .map(p => p.name)
+    .filter(slot => slot.type === 'observer')
+    .map(p => p.name)
 
   const hasAllPlayers = () => {
     const playerSlots = bw.slots.filter(s => s.type === 'human')
@@ -509,8 +509,8 @@ export default class GameInitializer {
       return idx
     }
     const stormPlayerIds = slots
-        .filter(slot => slot.type === 'human' || slot.type === 'observer')
-        .map(p => playerNameToStormId(p.name))
+      .filter(slot => slot.type === 'human' || slot.type === 'observer')
+      .map(p => playerNameToStormId(p.name))
     // TODO(tec27): deal with player bytes if we ever allow save games
     log.verbose('setting game seed')
     bw.doLobbyGameInit(seed | 0, stormPlayerIds, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
@@ -519,8 +519,8 @@ export default class GameInitializer {
     const mySlot = slots.find(x => x.name === myName)
     if (mySlot && mySlot.type === 'observer') {
       const observerStormIds = slots
-          .filter(slot => slot.type === 'observer')
-          .map(p => playerNameToStormId(p.name))
+        .filter(slot => slot.type === 'observer')
+        .map(p => playerNameToStormId(p.name))
       bw.chatHandler.overrideAllies(observerStormIds)
     }
 
