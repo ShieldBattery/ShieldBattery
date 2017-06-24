@@ -1,22 +1,23 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
 import styles from './check-box.css'
 
 export default class CheckBox extends React.Component {
   static propTypes = {
-    name: React.PropTypes.string,
-    checked: React.PropTypes.bool,
-    label: React.PropTypes.string,
-    value: React.PropTypes.string,
-    onChange: React.PropTypes.func,
-    disabled: React.PropTypes.bool,
-    className: React.PropTypes.oneOfType([
-      React.PropTypes.string,
-      React.PropTypes.array,
-      React.PropTypes.object,
+    name: PropTypes.string,
+    checked: PropTypes.bool,
+    label: PropTypes.string,
+    value: PropTypes.string,
+    onChange: PropTypes.func,
+    disabled: PropTypes.bool,
+    className: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.array,
+      PropTypes.object,
     ])
-  };
+  }
 
   id = uniqueId();
   state = {

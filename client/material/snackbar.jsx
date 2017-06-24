@@ -1,12 +1,13 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import styles from './snackbar.css'
 import FlatButton from './flat-button.jsx'
 
 class Snackbar extends React.Component {
   static propTypes = {
-    id: React.PropTypes.string.isRequired,
-    message: React.PropTypes.string.isRequired,
-    actionLabel: React.PropTypes.string,
+    id: PropTypes.string.isRequired,
+    message: PropTypes.string.isRequired,
+    actionLabel: PropTypes.string,
     action: props => {
       if (props.actionLabel && !props.action) {
         return new Error('`action` is required when `actionLabel` is supplied')
@@ -16,7 +17,7 @@ class Snackbar extends React.Component {
       }
       return null
     },
-  };
+  }
 
   constructor(props) {
     super(props)

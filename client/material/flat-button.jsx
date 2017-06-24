@@ -1,10 +1,16 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import Button from './button.jsx'
 import styles from './button.css'
 
 // A button with no elevation
-class FlatButton extends React.Component {
+export default class FlatButton extends React.Component {
+  static propTypes = {
+    ...Button.propTypes,
+    color: PropTypes.oneOf(['primary', 'accent', 'normal'])
+  }
+
   render() {
     const classes = classnames(styles.flat, this.props.className, {
       [styles.primary]: this.props.color === 'primary',
@@ -22,9 +28,3 @@ class FlatButton extends React.Component {
     this.refs.button.blur()
   }
 }
-
-FlatButton.propTypes = Object.assign({}, Button.propTypes, {
-  color: React.PropTypes.oneOf(['primary', 'accent', 'normal']),
-})
-
-export default FlatButton

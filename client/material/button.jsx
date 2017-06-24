@@ -1,10 +1,24 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import styles from './button.css'
 
 // Button with Material Design goodness. You don't want to use this directly, see FlatButton or
 // RaisedButton instead
-class Button extends React.Component {
+export default class Button extends React.Component {
+  static propTypes = {
+    label: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.element,
+    ]).isRequired,
+    labelClassName: PropTypes.string,
+    onBlur: PropTypes.func,
+    onFocus: PropTypes.func,
+    onClick: PropTypes.func,
+    onMouseDown: PropTypes.func,
+    buttonRef: PropTypes.func,
+  }
+
   constructor(props) {
     super(props)
     this.state = {
@@ -102,18 +116,3 @@ class Button extends React.Component {
     }
   }
 }
-
-Button.propTypes = {
-  label: React.PropTypes.oneOfType([
-    React.PropTypes.string,
-    React.PropTypes.element,
-  ]).isRequired,
-  labelClassName: React.PropTypes.string,
-  onBlur: React.PropTypes.func,
-  onFocus: React.PropTypes.func,
-  onClick: React.PropTypes.func,
-  onMouseDown: React.PropTypes.func,
-  buttonRef: React.PropTypes.func,
-}
-
-export default Button

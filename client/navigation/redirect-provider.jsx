@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 
 class RedirectChecker {
   constructor() {
@@ -35,10 +36,10 @@ class RedirectChecker {
 // should fire per store change.
 export default class RedirectProvider extends React.Component {
   static childContextTypes = {
-    redirectChecker: React.PropTypes.object.isRequired,
+    redirectChecker: PropTypes.object.isRequired,
   };
   static contextTypes = {
-    store: React.PropTypes.object.isRequired,
+    store: PropTypes.object.isRequired,
   };
 
   constructor(props, context) {

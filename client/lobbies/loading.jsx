@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
 
@@ -224,8 +225,8 @@ class LoadingMessage extends React.Component {
 
 class LoadingPlayer extends React.Component {
   static propTypes = {
-    player: React.PropTypes.object.isRequired,
-    isReady: React.PropTypes.bool,
+    player: PropTypes.object.isRequired,
+    isReady: PropTypes.bool,
   };
 
   render() {
@@ -246,9 +247,9 @@ class LoadingPlayer extends React.Component {
 
 export default class LoadingScreen extends React.Component {
   static propTypes = {
-    lobby: React.PropTypes.object.isRequired,
-    gameStatus: React.PropTypes.object.isRequired,
-    user: React.PropTypes.object.isRequired,
+    lobby: PropTypes.object.isRequired,
+    gameStatus: PropTypes.object.isRequired,
+    user: PropTypes.object.isRequired,
   };
 
   render() {

@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import keycode from 'keycode'
 import KeyListener from '../keyboard/key-listener.jsx'
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'

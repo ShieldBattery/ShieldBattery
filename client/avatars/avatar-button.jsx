@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import Button from '../material/button.jsx'
 import buttonStyles from '../material/button.css'
@@ -7,8 +8,8 @@ import avatarStyles from './avatar.css'
 
 export default class AvatarButton extends React.Component {
   static propTypes = {
-    avatarClassName: React.PropTypes.string,
-    buttonRef: React.PropTypes.func,
+    avatarClassName: PropTypes.string,
+    buttonRef: PropTypes.func,
   };
 
   render() {

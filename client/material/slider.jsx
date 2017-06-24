@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import TransitionGroup from 'react-addons-css-transition-group'
 import classnames from 'classnames'
 import keycode from 'keycode'

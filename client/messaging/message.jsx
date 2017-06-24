@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import styles from './message.css'
 
@@ -25,7 +26,7 @@ function getLocalTime(date) {
 export const ChatTimestamp =
     props => <span className={styles.timestamp}>{getLocalTime(new Date(props.time))}</span>
 ChatTimestamp.propTypes = {
-  time: React.PropTypes.number.isRequired,
+  time: PropTypes.number.isRequired,
 }
 
 export const ChatMessageLayout = props => {
@@ -36,8 +37,8 @@ export const ChatMessageLayout = props => {
   </div>)
 }
 ChatMessageLayout.propTypes = {
-  time: React.PropTypes.number.isRequired,
-  className: React.PropTypes.string,
+  time: PropTypes.number.isRequired,
+  className: PropTypes.string,
 }
 
 export class ChatMessage extends React.Component {
@@ -72,5 +73,5 @@ export const InfoMessageLayout = props => {
   </div>)
 }
 InfoMessageLayout.propTypes = {
-  className: React.PropTypes.string,
+  className: PropTypes.string,
 }

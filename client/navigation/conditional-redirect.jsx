@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 
 // Creates a component that conditionally redirects based on store data. createRedirectAction
 // *must* result in this component being unmounted.
@@ -9,9 +10,9 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
   return class ConditionalRedirect extends React.Component {
     static displayName = name;
     static contextTypes = {
-      router: React.PropTypes.object.isRequired,
-      store: React.PropTypes.object.isRequired,
-      redirectChecker: React.PropTypes.object.isRequired,
+      router: PropTypes.object.isRequired,
+      store: PropTypes.object.isRequired,
+      redirectChecker: PropTypes.object.isRequired,
     };
 
     constructor(props, context) {

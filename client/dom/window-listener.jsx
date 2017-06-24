@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 
 // An animation-frame throttled event listener attached to the window, useful for things like
 // listening to resize events and adjusting state based on it (e.g. fixed position). Note that this

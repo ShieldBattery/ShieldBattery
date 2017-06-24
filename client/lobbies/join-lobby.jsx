@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import siteSocket from '../network/site-socket'
 import { gameTypeToString } from './game-type'
@@ -10,8 +11,8 @@ import MapThumbnail from '../maps/map-thumbnail.jsx'
 
 class ListEntry extends React.Component {
   static propTypes = {
-    lobby: React.PropTypes.object.isRequired,
-    onClick: React.PropTypes.func.isRequired,
+    lobby: PropTypes.object.isRequired,
+    onClick: PropTypes.func.isRequired,
   };
 
   shouldComponentUpdate(nextProps) {

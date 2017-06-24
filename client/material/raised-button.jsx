@@ -1,10 +1,16 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import classnames from 'classnames'
 import Button from './button.jsx'
 import styles from './button.css'
 
 // A button that has elevation, and raises further when pressed
-class RaisedButton extends React.Component {
+export default class RaisedButton extends React.Component {
+  static propTypes = {
+    ...Button.propTypes,
+    color: PropTypes.oneOf(['primary', 'accent']),
+  }
+
   constructor(props) {
     super(props)
   }
@@ -18,9 +24,3 @@ class RaisedButton extends React.Component {
     return (<Button {...this.props} className={classes}/>)
   }
 }
-
-RaisedButton.propTypes = Object.assign({}, Button.propTypes, {
-  color: React.PropTypes.oneOf(['primary', 'accent']),
-})
-
-export default RaisedButton

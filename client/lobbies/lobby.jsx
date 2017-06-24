@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import { gameTypeToString } from './game-type'
 import {
   isUms,
@@ -224,17 +225,17 @@ class ChatList extends React.Component {
 
 export default class Lobby extends React.Component {
   static propTypes = {
-    lobby: React.PropTypes.object.isRequired,
-    chat: React.PropTypes.object.isRequired,
-    user: React.PropTypes.object,
-    onSetRace: React.PropTypes.func,
-    onAddComputer: React.PropTypes.func,
-    onSendChatMessage: React.PropTypes.func,
-    onSwitchSlot: React.PropTypes.func,
-    onOpenSlot: React.PropTypes.func,
-    onCloseSlot: React.PropTypes.func,
-    onKickPlayer: React.PropTypes.func,
-    onBanPlayer: React.PropTypes.func,
+    lobby: PropTypes.object.isRequired,
+    chat: PropTypes.object.isRequired,
+    user: PropTypes.object,
+    onSetRace: PropTypes.func,
+    onAddComputer: PropTypes.func,
+    onSendChatMessage: PropTypes.func,
+    onSwitchSlot: PropTypes.func,
+    onOpenSlot: PropTypes.func,
+    onCloseSlot: PropTypes.func,
+    onKickPlayer: PropTypes.func,
+    onBanPlayer: PropTypes.func,
   };
 
   render() {

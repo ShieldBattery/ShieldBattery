@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 
 import ActivityButton from './activity-button.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'

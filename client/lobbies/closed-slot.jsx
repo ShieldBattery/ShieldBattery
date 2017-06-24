@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import React from 'react'
+import PropTypes from 'prop-types'
 import styles from './view.css'
 import RacePicker from './race-picker.jsx'
 import SelectedRace from './selected-race.jsx'
