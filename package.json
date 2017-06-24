@@ -100,7 +100,7 @@
     "electron": "^1.4.13",
     "electron-builder": "^19.8.0",
     "electron-devtools-installer": "^2.0.1",
-    "eslint": "^4.0.0",
+    "eslint": "^4.1.0",
     "eslint-plugin-babel": "^4.0.0",
     "eslint-plugin-react": "^7.0.1",
     "express": "^4.14.0",
