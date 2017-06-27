@@ -1,8 +1,17 @@
 import db from '../db'
 
+class MapPool {
+  constructor(props) {
+    this.id = props.id
+    this.type = props.matchmaking_type
+    this.startDate = props.start_date
+    this.maps = props.maps.map(m => m.toString('hex'))
+  }
+}
+
 export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
   const query = `
-    SELECT start_date, maps
+    SELECT *
     FROM matchmaking_map_pools
     WHERE matchmaking_type = $1
     ORDER BY start_date DESC
@@ -14,12 +23,7 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ?
-      result.rows.map(row => ({
-        startDate: row.start_date,
-        maps: row.maps.map(map => map.toString('hex')),
-      })) :
-      []
+    return result.rows.length > 0 ? result.rows.map(row => new MapPool(row)) : []
   } finally {
     done()
   }
@@ -43,7 +47,7 @@ export async function addMapPool(matchmakingType, maps, startDate) {
 
 export async function getCurrentMapPool(matchmakingType) {
   const query = `
-    SELECT id, maps
+    SELECT *
     FROM matchmaking_map_pools
     WHERE matchmaking_type = $1 AND start_date <= $2
     ORDER BY start_date DESC
@@ -54,10 +58,40 @@ export async function getCurrentMapPool(matchmakingType) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? {
-      id: result.rows[0].id,
-      maps: result.rows[0].maps.map(map => map.toString('hex')),
-    } : null
+    return result.rows.length > 0 ? new MapPool(result.rows[0]) : null
+  } finally {
+    done()
+  }
+}
+
+export async function getMapPoolById(mapPoolId) {
+  const query = `
+    SELECT *
+    FROM matchmaking_map_pools
+    WHERE id = $1
+    LIMIT 1
+  `
+  const params = [mapPoolId]
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows.length > 0 ? new MapPool(result.rows[0]) : null
+  } finally {
+    done()
+  }
+}
+
+export async function removeMapPool(mapPoolId) {
+  const query = `
+    DELETE FROM matchmaking_map_pools
+    WHERE id = $1
+  `
+  const params = [mapPoolId]
+
+  const { client, done } = await db()
+  try {
+    await client.query(query, params)
   } finally {
     done()
   }
