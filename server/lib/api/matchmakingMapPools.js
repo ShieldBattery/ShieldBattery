@@ -88,7 +88,9 @@ async function removeMapPool(ctx, next) {
   const { mapPoolId } = ctx.params
 
   const mapPool = await getMapPoolById(mapPoolId)
-  if (!mapPool || mapPool && mapPool.startDate < Date.now()) {
+  if (!mapPool) {
+    throw new httpErrors.NotFound('map pool doesn\'t exist')
+  } else if (mapPool.startDate < Date.now()) {
     throw new httpErrors.BadRequest('can\'t delete map pools in past')
   }
 

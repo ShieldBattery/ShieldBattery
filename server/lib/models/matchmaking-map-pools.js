@@ -69,7 +69,6 @@ export async function getMapPoolById(mapPoolId) {
     SELECT *
     FROM matchmaking_map_pools
     WHERE id = $1
-    LIMIT 1
   `
   const params = [mapPoolId]
 
