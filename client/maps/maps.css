@@ -1,0 +1,51 @@
+@value amberA100 from '../styles/colors.css';
+@value row, col, exact, wrap from '../styles/flex.css';
+@value body1 from '../styles/typography.css';
+
+.mapList {
+  composes: row wrap;
+}
+
+.map {
+  composes: col exact;
+  position: relative;
+  width: 128px;
+  height: 128px;
+}
+
+.map + .map {
+  margin-left: 8px;
+}
+
+.map:hover {
+  cursor: pointer;
+}
+
+.mapName {
+  composes: body1;
+  position: absolute;
+  bottom: 0px;
+}
+
+.mapImage {
+  width: auto;
+  height: 100%;
+}
+
+.mapOverlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: ;
+  opacity: 0.5;
+}
+
+.hoverIcon {
+  composes: exact;
+  position: absolute;
+  left: calc(50% - 12px);
+  top: calc(50% - 12px);
+  width: 24px;
+  overflow: hidden;
+  opacity: 0.5;
+}

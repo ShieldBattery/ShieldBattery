@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
 
-import MapThumbnail from '../maps/map-thumbnail.jsx'
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
 import ComputerAvatar from '../avatars/computer-avatar.jsx'
@@ -285,7 +284,7 @@ export default class LoadingScreen extends React.Component {
           </span>
         </div>
         <div>
-          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
+          <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
         </div>
         <div className={styles.players}>
           {playerElems}

@@ -10,7 +10,6 @@ import MessageInput from '../messaging/message-input.jsx'
 import OpenSlot from './open-slot.jsx'
 import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
-import MapThumbnail from '../maps/map-thumbnail.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 
 class JoinMessage extends React.Component {
@@ -428,7 +427,7 @@ export default class Lobby extends React.Component {
           <h3 className={styles.mapName}>
             {lobby.map.name}
           </h3>
-          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
+          <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Game type</span>
             <span className={styles.infoValue}>
