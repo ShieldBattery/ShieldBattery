@@ -36,7 +36,7 @@ export default class SystemTray {
 
   displayHowToCloseHint = () => {
     const message =
-        'ShieldBattery is running in the background. Right click the system tray icon to quit.'
+      'ShieldBattery is running in the background. Right click the system tray icon to quit.'
     this.systemTray.displayBalloon({
       icon: BALLOON_ICON,
       title: 'ShieldBattery',

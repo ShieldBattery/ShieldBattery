@@ -9,8 +9,7 @@ export default class HashThrough extends Transform {
     super(opts)
     this.hasher = crypto.createHash('sha256')
     this.hashPromise = new Promise((resolve, reject) => {
-      this.on('finish', () => resolve(this.hasher.digest('hex')))
-        .on('error', err => reject(err))
+      this.on('finish', () => resolve(this.hasher.digest('hex'))).on('error', err => reject(err))
     })
   }
 

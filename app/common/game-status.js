@@ -14,14 +14,23 @@ export const GAME_STATUS_ERROR = 7
 
 export function statusToString(status) {
   switch (status) {
-    case GAME_STATUS_UNKNOWN: return 'unknown'
-    case GAME_STATUS_LAUNCHING: return 'launching'
-    case GAME_STATUS_CONFIGURING: return 'configuring'
-    case GAME_STATUS_AWAITING_PLAYERS: return 'awaitingPlayers'
-    case GAME_STATUS_STARTING: return 'starting'
-    case GAME_STATUS_PLAYING: return 'playing'
-    case GAME_STATUS_FINISHED: return 'finished'
-    case GAME_STATUS_ERROR: return 'error'
-    default: return 'invalid'
+    case GAME_STATUS_UNKNOWN:
+      return 'unknown'
+    case GAME_STATUS_LAUNCHING:
+      return 'launching'
+    case GAME_STATUS_CONFIGURING:
+      return 'configuring'
+    case GAME_STATUS_AWAITING_PLAYERS:
+      return 'awaitingPlayers'
+    case GAME_STATUS_STARTING:
+      return 'starting'
+    case GAME_STATUS_PLAYING:
+      return 'playing'
+    case GAME_STATUS_FINISHED:
+      return 'finished'
+    case GAME_STATUS_ERROR:
+      return 'error'
+    default:
+      return 'invalid'
   }
 }

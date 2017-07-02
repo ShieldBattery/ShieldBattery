@@ -26,13 +26,13 @@ export async function findInstallPath() {
   const regValueName = 'InstallPath'
 
   const attempts = [
-    [ Registry.HKCU, normalRegPath ],
-    [ Registry.HKCU, _6432RegPath ],
-    [ Registry.HKLM, normalRegPath ],
-    [ Registry.HKLM, _6432RegPath ],
+    [Registry.HKCU, normalRegPath],
+    [Registry.HKCU, _6432RegPath],
+    [Registry.HKLM, normalRegPath],
+    [Registry.HKLM, _6432RegPath],
   ]
 
-  for (const [ hive, path ] of attempts) {
+  for (const [hive, path] of attempts) {
     try {
       const result = await readRegValue(hive, path, regValueName)
       if (result) {
@@ -66,9 +66,11 @@ export async function findInstallPath() {
   const localAppData = (process.env.LocalAppData || '').toLowerCase()
   const paths = recentMaps.split('\\0').filter(p => {
     const path = p.toLowerCase()
-    return (path.includes('\\maps\\') &&
-        !/\\shieldbattery(|-dev|-local)\\maps\\/i.test(path) &&
-        (!localAppData || !path.includes(localAppData)))
+    return (
+      path.includes('\\maps\\') &&
+      !/\\shieldbattery(|-dev|-local)\\maps\\/i.test(path) &&
+      (!localAppData || !path.includes(localAppData))
+    )
   })
   if (!paths.length) {
     return undefined

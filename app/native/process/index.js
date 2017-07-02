@@ -41,9 +41,19 @@ class Process {
 
 const $launchProcess = thenify(native.launchProcess)
 export async function launchProcess({
-  appPath, args = [], launchSuspended = true, currentDir = '', environment = [] }) {
+  appPath,
+  args = [],
+  launchSuspended = true,
+  currentDir = '',
+  environment = [],
+}) {
   const joinedArgs = typeof args === 'string' ? args : args.join(' ')
-  const cProcess =
-      await $launchProcess(appPath, joinedArgs, launchSuspended, currentDir, environment)
+  const cProcess = await $launchProcess(
+    appPath,
+    joinedArgs,
+    launchSuspended,
+    currentDir,
+    environment,
+  )
   return new Process(cProcess)
 }

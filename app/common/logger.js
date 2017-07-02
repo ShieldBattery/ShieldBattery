@@ -8,9 +8,9 @@ import packageJson from '../package.json'
 const defaultOptions = {
   rolloverSize: 1024 * 1024, // in bytes
   maxRollovers: 3,
-  logLevels: [ 'warning', 'error' ],
+  logLevels: ['warning', 'error'],
 }
-const possibleLevels = [ 'verbose', 'info', 'debug', 'warning', 'error' ]
+const possibleLevels = ['verbose', 'info', 'debug', 'warning', 'error']
 
 export default function createLogger(baseFilename, options) {
   const actualOptions = {}
