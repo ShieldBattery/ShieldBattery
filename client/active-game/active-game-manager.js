@@ -15,7 +15,7 @@ import {
   GAME_STATUS_PLAYING,
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
-  statusToString
+  statusToString,
 } from '../../app/common/game-status'
 
 const { launchProcess } = remote.require('./native/process')
@@ -34,7 +34,7 @@ export default class ActiveGameManager extends EventEmitter {
       return {
         id: game.id,
         state: statusToString(game.status.state),
-        extra: game.status.extra
+        extra: game.status.extra,
       }
     } else {
       return null
@@ -64,8 +64,10 @@ export default class ActiveGameManager extends EventEmitter {
     const gameId = cuid()
     const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
       .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
-      .then(code => this.handleGameExit(gameId, code),
-        err => this.handleGameExitWaitError(gameId, err))
+      .then(
+        code => this.handleGameExit(gameId, code),
+        err => this.handleGameExitWaitError(gameId, err),
+      )
     this.activeGame = {
       id: gameId,
       promise: activeGamePromise,
@@ -87,7 +89,6 @@ export default class ActiveGameManager extends EventEmitter {
     this.emit('gameCommand', gameId, 'routes', routes)
     this.emit('gameCommand', gameId, 'setupGame', this.activeGame.config.setup)
   }
-
 
   async handleGameConnected(id) {
     if (!this.activeGame || this.activeGame.id !== id) {
@@ -165,8 +166,10 @@ export default class ActiveGameManager extends EventEmitter {
         // TODO(tec27): report a disc to the server
         this._setStatus(GAME_STATUS_UNKNOWN)
       } else {
-        this._setStatus(GAME_STATUS_ERROR,
-          new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`))
+        this._setStatus(
+          GAME_STATUS_ERROR,
+          new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`),
+        )
       }
     }
 
@@ -224,13 +227,17 @@ async function doLaunch(gameId, serverPort, settings) {
   const downgradePath = getDowngradePath()
   const checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
   if (!checkResult.path || !checkResult.version) {
-    throw new Error(`StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
-        JSON.stringify(checkResult))
+    throw new Error(
+      `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
+        JSON.stringify(checkResult),
+    )
   }
 
   const userDataPath = remote.app.getPath('userData')
-  const appPath =
-      path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
+  const appPath = path.join(
+    checkResult.downgradePath ? downgradePath : starcraftPath,
+    'starcraft.exe',
+  )
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   const proc = await launchProcess({
     appPath,
@@ -243,7 +250,7 @@ async function doLaunch(gameId, serverPort, settings) {
       // settings that people typically enabled for pre-ShieldBattery BW, but cause problems with
       // forge.
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
-    ]
+    ],
   })
   log.verbose('Process launched')
 

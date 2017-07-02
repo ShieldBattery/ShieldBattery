@@ -10,7 +10,11 @@ const FloatingLabel = props => {
     [styles.error]: props.error,
     [styles.disabled]: props.disabled,
   })
-  return <label className={classes} htmlFor={props.htmlFor}>{props.text}</label>
+  return (
+    <label className={classes} htmlFor={props.htmlFor}>
+      {props.text}
+    </label>
+  )
 }
 
 FloatingLabel.propTypes = {

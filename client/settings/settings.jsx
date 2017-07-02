@@ -47,58 +47,78 @@ class SettingsForm extends React.Component {
   renderWindowSizeOptions(resolution) {
     const { width, height } = resolution
     if (this.isFullscreen()) {
-      return <Option value={{width, height}} text={`${width}x${height}`} />
+      return <Option value={{ width, height }} text={`${width}x${height}`} />
     }
 
     return filterWindowSizes(width, height).map((size, i) => {
-      return (<Option key={i} value={{ width: size.width, height: size.height }}
-        text={`${size.width}x${size.height}`}/>)
+      return (
+        <Option
+          key={i}
+          value={{ width: size.width, height: size.height }}
+          text={`${size.width}x${size.height}`}
+        />
+      )
     })
   }
 
   render() {
-    const {
-      bindCheckable,
-      bindCustom,
-      bindInput,
-      onSubmit,
-      resolution
-    } = this.props
+    const { bindCheckable, bindCustom, bindInput, onSubmit, resolution } = this.props
 
-    const windowSizeProps = this.isFullscreen() ? {
-      value: { width: resolution.width, height: resolution.height },
-      disabled: true,
-    } : {
-      ...bindCustom('windowSize'),
-    }
+    const windowSizeProps = this.isFullscreen()
+      ? {
+          value: { width: resolution.width, height: resolution.height },
+          disabled: true,
+        }
+      : {
+          ...bindCustom('windowSize'),
+        }
 
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <SubmitOnEnter/>
-      <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
-        <Option value={0} text='Fullscreen' />
-        <Option value={1} text='Borderless Window' />
-        <Option value={2} text='Windowed' />
-      </Select>
-      <Select {...windowSizeProps} label='Window size' tabIndex={0}
-        compareValues={compareResolutions}>
-        { this.renderWindowSizeOptions(resolution) }
-      </Select>
-      <CheckBox {...bindCheckable('maintainAspectRatio')} label='Maintain aspect ratio'
-        disabled={!this.isFullscreen()} inputProps={{ tabIndex: 0 }}/>
-      <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
-        <Option value={0} text='DirectX' />
-        <Option value={1} text='OpenGL' />
-      </Select>
-      <Slider {...bindCustom('sensitivity')} label='Mouse sensitivity' tabIndex={0}
-        min={0} max={10} step={1} />
-      <TextField {...bindInput('path')} label='StarCraft folder path' floatingLabel={true}
-        inputProps={{
-          tabIndex: 0,
-          autoCapitalize: 'off',
-          autoCorrect: 'off',
-          spellCheck: false
-        }}/>
-    </form>)
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <Select {...bindCustom('displayMode')} label="Display mode" tabIndex={0}>
+          <Option value={0} text="Fullscreen" />
+          <Option value={1} text="Borderless Window" />
+          <Option value={2} text="Windowed" />
+        </Select>
+        <Select
+          {...windowSizeProps}
+          label="Window size"
+          tabIndex={0}
+          compareValues={compareResolutions}>
+          {this.renderWindowSizeOptions(resolution)}
+        </Select>
+        <CheckBox
+          {...bindCheckable('maintainAspectRatio')}
+          label="Maintain aspect ratio"
+          disabled={!this.isFullscreen()}
+          inputProps={{ tabIndex: 0 }}
+        />
+        <Select {...bindCustom('renderer')} label="Renderer" tabIndex={0}>
+          <Option value={0} text="DirectX" />
+          <Option value={1} text="OpenGL" />
+        </Select>
+        <Slider
+          {...bindCustom('sensitivity')}
+          label="Mouse sensitivity"
+          tabIndex={0}
+          min={0}
+          max={10}
+          step={1}
+        />
+        <TextField
+          {...bindInput('path')}
+          label="StarCraft folder path"
+          floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}
+        />
+      </form>
+    )
   }
 }
 
@@ -106,7 +126,9 @@ class SettingsForm extends React.Component {
 export default class Settings extends React.Component {
   _focusTimeout = null
   _form = null
-  _setForm = elem => { this._form = elem }
+  _setForm = elem => {
+    this._form = elem
+  }
   // NOTE(tec27): Slight optimizaton, since getting the resolution is IPC'd. We assume it will
   // never change while this form is up. I think this is mostly true (and at worst, you just close
   // Settings and re-open it and you're fine)
@@ -150,34 +172,41 @@ export default class Settings extends React.Component {
       path: local.starcraftPath,
       renderer: local.renderer,
       sensitivity: local.mouseSensitivity,
-      windowSize: this.getDefaultWindowSizeValue(local)
+      windowSize: this.getDefaultWindowSizeValue(local),
     }
 
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent'
-        onClick={this.onSettingsCancel} />,
-      <FlatButton ref='save' label='Save' key='save' color='accent'
-        onClick={this.onSettingsSave} />
+      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.onSettingsCancel} />,
+      <FlatButton
+        ref="save"
+        label="Save"
+        key="save"
+        color="accent"
+        onClick={this.onSettingsSave}
+      />,
     ]
 
     const defaultWindowSize = this.getDefaultWindowSizeValue(local)
-    return (<Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
-      <SettingsForm
-        ref={this._setForm}
-        resolution={this._resolution}
-        defaultWindowSize={defaultWindowSize}
-        model={formModel}
-        onSubmit={this.onSubmit}/>
-    </Dialog>)
+    return (
+      <Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
+        <SettingsForm
+          ref={this._setForm}
+          resolution={this._resolution}
+          defaultWindowSize={defaultWindowSize}
+          model={formModel}
+          onSubmit={this.onSubmit}
+        />
+      </Dialog>
+    )
   }
 
   onSettingsSave = () => {
     this._form.submit()
-  };
+  }
 
   onSettingsCancel = () => {
     this.props.dispatch(closeDialog())
-  };
+  }
 
   onSubmit = () => {
     const values = this._form.getModel()
@@ -197,5 +226,5 @@ export default class Settings extends React.Component {
     }
     this.props.dispatch(mergeLocalSettings(newSettings))
     this.props.dispatch(closeDialog())
-  };
+  }
 }

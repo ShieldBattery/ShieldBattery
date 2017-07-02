@@ -60,11 +60,13 @@ export default class LobbyTest extends React.Component {
       transformOrigin: '0 0',
       transform: 'scale(0.5)',
     }
-    return (<div key={lobby.name} style={containerStyle}>
-      <div key={lobby.name} style={scaledStyle}>
-        <Lobby lobby={lobby} user={USER} chat={new List()} onSendChatMessage={() => null} />
+    return (
+      <div key={lobby.name} style={containerStyle}>
+        <div key={lobby.name} style={scaledStyle}>
+          <Lobby lobby={lobby} user={USER} chat={new List()} onSendChatMessage={() => null} />
+        </div>
       </div>
-    </div>)
+    )
   }
 
   render() {
@@ -74,8 +76,10 @@ export default class LobbyTest extends React.Component {
       justifyContent: 'space-around',
       padding: 8,
     }
-    return (<div style={style}>
-      { LOBBIES.map(this.renderLobby) }
-    </div>)
+    return (
+      <div style={style}>
+        {LOBBIES.map(this.renderLobby)}
+      </div>
+    )
   }
 }

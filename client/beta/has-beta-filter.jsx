@@ -5,7 +5,7 @@ import isReturningUser from './is-returning-user'
 const HasBetaFilter = createConditionalRedirect(
   'HasBetaFilter',
   state => !isReturningUser(state.auth),
-  () => routerActions.replace('/splash')
+  () => routerActions.replace('/splash'),
 )
 
 export default HasBetaFilter

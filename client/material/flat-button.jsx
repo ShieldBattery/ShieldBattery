@@ -8,7 +8,7 @@ import styles from './button.css'
 export default class FlatButton extends React.Component {
   static propTypes = {
     ...Button.propTypes,
-    color: PropTypes.oneOf(['primary', 'accent', 'normal'])
+    color: PropTypes.oneOf(['primary', 'accent', 'normal']),
   }
 
   render() {
@@ -17,7 +17,7 @@ export default class FlatButton extends React.Component {
       [styles.accent]: this.props.color === 'accent',
     })
 
-    return (<Button ref='button' {...this.props} className={classes}/>)
+    return <Button ref="button" {...this.props} className={classes} />
   }
 
   focus() {

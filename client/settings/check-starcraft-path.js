@@ -8,9 +8,7 @@ import getFileHash from '../../app/common/get-file-hash'
 
 const accessAsync = thenify(fs.access)
 
-export const EXE_HASHES_1161 = [
-  'ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46',
-]
+export const EXE_HASHES_1161 = ['ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46']
 export const STORM_HASHES_1161 = [
   '706ff2164ca472f27c44235ed55586644e5c86e68cd69b62d76f5a78778bff25',
 ]
@@ -44,13 +42,7 @@ async function checkHash(path, validHashes) {
 // be checked for other copies. If downgradePath contains files that match the correct hashes, this
 // will be counted as having the correct version, but `downgradePath` will be true.
 export async function checkStarcraftPath(dirPath, downgradePath) {
-  const requiredFiles = [
-    'starcraft.exe',
-    'storm.dll',
-    'local.dll',
-    'stardat.mpq',
-    'broodat.mpq',
-  ]
+  const requiredFiles = ['starcraft.exe', 'storm.dll', 'local.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
     await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
@@ -67,7 +59,7 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
     return { path: true, version: true, downgradePath: false }
   }
 
-  [starcraftValid, stormValid] = await Promise.all([
+  ;[starcraftValid, stormValid] = await Promise.all([
     checkHash(path.join(downgradePath, 'starcraft.exe'), EXE_HASHES_1161),
     checkHash(path.join(downgradePath, 'storm.dll'), STORM_HASHES_1161),
   ])

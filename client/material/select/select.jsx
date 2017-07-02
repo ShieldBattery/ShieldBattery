@@ -44,12 +44,12 @@ class Select extends React.Component {
     onChange: PropTypes.func,
     // function used to compare values for equality, will never be called with null/undefined
     compareValues: PropTypes.func,
-  };
+  }
 
   static defaultProps = {
     allowErrors: true,
-    compareValues: (a, b) => a === b
-  };
+    compareValues: (a, b) => a === b,
+  }
 
   state = {
     isFocused: false,
@@ -57,21 +57,27 @@ class Select extends React.Component {
     isClosing: false,
     overlayPosition: null,
     activeIndex: -1,
-  };
-  _overlayTop = 0;
-  _lastMouseY = -1;
-  _closeTimer = null;
-  _root = null;
-  _setRoot = elem => { this._root = elem };
-  _overlay = null;
-  _setOverlay = elem => { this._overlay = elem };
+  }
+  _overlayTop = 0
+  _lastMouseY = -1
+  _closeTimer = null
+  _root = null
+  _setRoot = elem => {
+    this._root = elem
+  }
+  _overlay = null
+  _setOverlay = elem => {
+    this._overlay = elem
+  }
 
   componentDidUpdate(prevProps, prevState) {
     if (!prevState.isOpened && this._overlay) {
       // update the scroll position to center (or at least attempt to) the selected value
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
-        valueIndex, React.Children.count(this.props.children))
+        valueIndex,
+        React.Children.count(this.props.children),
+      )
       this._overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
       this._lastMouseY = -1
     }
@@ -97,11 +103,13 @@ class Select extends React.Component {
   }
 
   render() {
-    return (<span className={this.props.className}>
-      <KeyListener onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} />
-      { this.renderSelect() }
-      { this.renderOverlay() }
-    </span>)
+    return (
+      <span className={this.props.className}>
+        <KeyListener onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} />
+        {this.renderSelect()}
+        {this.renderOverlay()}
+      </span>
+    )
   }
 
   renderSelect() {
@@ -112,7 +120,8 @@ class Select extends React.Component {
           if (this.props.compareValues(this.props.value, child.props.value)) {
             displayValue = child.props.text
           }
-        } else if (this.props.value === child.props.value) { // if both are undefined/null
+        } else if (this.props.value === child.props.value) {
+          // if both are undefined/null
           displayValue = child.props.text
         }
       })
@@ -129,14 +138,24 @@ class Select extends React.Component {
     return (
       <div className={classes} onClick={this.onOpen}>
         {this.renderLabel()}
-        <span ref={this._setRoot} className={styles.valueContainer}
-          tabIndex={this.props.disabled ? undefined : (this.props.tabIndex || 0)}
-          onFocus={this.onFocus} onBlur={this.onBlur}>
-          <span className={styles.value}>{displayValue}</span>
-          <span className={styles.icon}><ArrowDropDownIcon /></span>
+        <span
+          ref={this._setRoot}
+          className={styles.valueContainer}
+          tabIndex={this.props.disabled ? undefined : this.props.tabIndex || 0}
+          onFocus={this.onFocus}
+          onBlur={this.onBlur}>
+          <span className={styles.value}>
+            {displayValue}
+          </span>
+          <span className={styles.icon}>
+            <ArrowDropDownIcon />
+          </span>
         </span>
-        <InputUnderline focused={this.state.isFocused} error={!!this.props.errorText}
-          disabled={this.props.disabled} />
+        <InputUnderline
+          focused={this.state.isFocused}
+          error={!!this.props.errorText}
+          disabled={this.props.disabled}
+        />
         {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
       </div>
     )
@@ -148,9 +167,14 @@ class Select extends React.Component {
     }
 
     return (
-      <FloatingLabel htmlFor={this.id} text={this.props.label} hasValue={this.hasValue()}
-        focused={this.state.isFocused} disabled={this.props.disabled}
-        error={!!this.props.errorText} />
+      <FloatingLabel
+        htmlFor={this.id}
+        text={this.props.label}
+        hasValue={this.hasValue()}
+        focused={this.state.isFocused}
+        disabled={this.props.disabled}
+        error={!!this.props.errorText}
+      />
     )
   }
 
@@ -161,7 +185,9 @@ class Select extends React.Component {
 
       const valueIndex = this._getValueIndex()
       const firstDisplayed = this._getFirstDisplayedOptionIndex(
-        valueIndex, React.Children.count(this.props.children))
+        valueIndex,
+        React.Children.count(this.props.children),
+      )
       const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
 
       const overlayStyle = {
@@ -180,25 +206,36 @@ class Select extends React.Component {
         })
       })
 
-      return (<span>
-        <WindowListener event='resize' listener={this.recalcOverlayPosition} />
-        <WindowListener event='scroll' listener={this.recalcOverlayPosition} />
-        <TransitionGroup transitionName={transitionNames} transitionAppear={true}
-          transitionAppearTimeout={200} transitionEnterTimeout={200}
-          transitionLeaveTimeout={CLOSE_TIME}>
-          {
-            isOpened && !isClosing ?
-              <div key='overlay' ref={this._setOverlay} className={styles.overlay}
-                style={overlayStyle} onMouseMove={this.onMouseMove}>
-                { options }
-              </div> :
-              null
-          }
-        </TransitionGroup>
-      </span>)
+      return (
+        <span>
+          <WindowListener event="resize" listener={this.recalcOverlayPosition} />
+          <WindowListener event="scroll" listener={this.recalcOverlayPosition} />
+          <TransitionGroup
+            transitionName={transitionNames}
+            transitionAppear={true}
+            transitionAppearTimeout={200}
+            transitionEnterTimeout={200}
+            transitionLeaveTimeout={CLOSE_TIME}>
+            {isOpened && !isClosing
+              ? <div
+                  key="overlay"
+                  ref={this._setOverlay}
+                  className={styles.overlay}
+                  style={overlayStyle}
+                  onMouseMove={this.onMouseMove}>
+                  {options}
+                </div>
+              : null}
+          </TransitionGroup>
+        </span>
+      )
     }
 
-    return <Portal onDismiss={this.onClose} open={isOpened}>{ renderContents }</Portal>
+    return (
+      <Portal onDismiss={this.onClose} open={isOpened}>
+        {renderContents}
+      </Portal>
+    )
   }
 
   _getValueIndex() {
@@ -209,7 +246,8 @@ class Select extends React.Component {
           if (this.props.compareValues(this.props.value, child.props.value)) {
             valueIndex = i
           }
-        } else if (this.props.value === child.props.value) { // if both are undefined/null
+        } else if (this.props.value === child.props.value) {
+          // if both are undefined/null
           valueIndex = i
         }
       })
@@ -237,7 +275,7 @@ class Select extends React.Component {
     this.setState({
       overlayPosition: this.calculateOverlayPosition(),
     })
-  };
+  }
 
   onMouseMove = event => {
     if (event.clientY === this._lastMouseY) {
@@ -256,7 +294,7 @@ class Select extends React.Component {
         activeIndex: itemIndex,
       })
     }
-  };
+  }
 
   _moveActiveIndexBy(delta) {
     let newIndex = this.state.activeIndex
@@ -278,18 +316,19 @@ class Select extends React.Component {
     }
 
     // Adjust scroll position to keep the item in view
-    const curTopIndex =
-        Math.ceil(Math.max(0, (this._overlay.scrollTop - VERT_PADDING)) / OPTION_HEIGHT)
+    const curTopIndex = Math.ceil(
+      Math.max(0, this._overlay.scrollTop - VERT_PADDING) / OPTION_HEIGHT,
+    )
     const curBottomIndex = curTopIndex + OPTIONS_SHOWN - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
       // New index is in view, no need to adjust scroll position
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this._overlay.scrollTop = VERT_PADDING + (OPTION_HEIGHT * newIndex)
+      this._overlay.scrollTop = VERT_PADDING + OPTION_HEIGHT * newIndex
     } else {
       // Make the new index the bottom item
-      this._overlay.scrollTop = (OPTION_HEIGHT * ((newIndex + 1) - OPTIONS_SHOWN))
+      this._overlay.scrollTop = OPTION_HEIGHT * (newIndex + 1 - OPTIONS_SHOWN)
     }
   }
 
@@ -310,7 +349,7 @@ class Select extends React.Component {
     }
 
     return false
-  };
+  }
 
   onKeyDown = event => {
     // Only handle things that can't be handled with keypress
@@ -334,7 +373,7 @@ class Select extends React.Component {
     }
 
     return false
-  };
+  }
 
   onOpen = () => {
     clearTimeout(this._closeTimer)
@@ -347,27 +386,29 @@ class Select extends React.Component {
         activeIndex: this.hasValue() ? this._getValueIndex() : -1,
       })
     }
-  };
+  }
 
   onClose = () => {
     this.setState({ isClosing: true, isFocused: true })
-    this._closeTimer =
-        setTimeout(() => this.setState({ isOpened: false, isClosing: false }), CLOSE_TIME)
+    this._closeTimer = setTimeout(
+      () => this.setState({ isOpened: false, isClosing: false }),
+      CLOSE_TIME,
+    )
     this.focus()
-  };
+  }
 
   onFocus = () => {
     if (!this.props.disabled) {
       this.setState({ isFocused: true })
     }
-  };
+  }
 
   onBlur = () => {
     if (!this.state.isOpened || this.state.isClosing) {
       // If we're opened, leave isFocused since we'll be reassigning focus on close
       this.setState({ isFocused: false })
     }
-  };
+  }
 
   onOptionChanged = value => {
     if (this.props.onChange) {
@@ -378,7 +419,7 @@ class Select extends React.Component {
     // the overlay jumping around)
     this.setState({ value, isClosing: true })
     this.onClose()
-  };
+  }
 }
 
 export default Select

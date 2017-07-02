@@ -19,7 +19,7 @@ export function selectLocalMap(path) {
   return async dispatch => {
     const result = await dispatch({
       type: MAPS_BROWSE_SELECT,
-      payload: readMap(path).then(map => ({ map, path, }))
+      payload: readMap(path).then(map => ({ map, path })),
     })
     if (!result.error) {
       dispatch(openOverlay('createLobby'))
@@ -28,7 +28,7 @@ export function selectLocalMap(path) {
 }
 
 export function hostLocalMap(mapPath, name, map, gameType, gameSubType) {
-  return async(dispatch, getState) => {
+  return async (dispatch, getState) => {
     if (getState().maps.isUploading) {
       // Users don't currently have a way to replace an ongoing upload with another,
       // hopefully it won't be necessary.
@@ -41,14 +41,13 @@ export function hostLocalMap(mapPath, name, map, gameType, gameSubType) {
     let hadToUpload = false
     const result = await dispatch({
       type: MAPS_HOST_LOCAL,
-      payload: fetch(`/api/1/maps/info/${map}`)
-        .catch(err => {
-          if (err.res.status !== 404) {
-            throw err
-          }
-          hadToUpload = true
-          return uploadMap(mapPath)
-        }),
+      payload: fetch(`/api/1/maps/info/${map}`).catch(err => {
+        if (err.res.status !== 404) {
+          throw err
+        }
+        hadToUpload = true
+        return uploadMap(mapPath)
+      }),
       meta: map,
     })
     if (!result.error) {
@@ -57,9 +56,11 @@ export function hostLocalMap(mapPath, name, map, gameType, gameSubType) {
         dispatch(navigateToLobby(name))
         dispatch(closeOverlay())
       } else if (hadToUpload) {
-        dispatch(openSnackbar({
-          message: `Map '${path.basename(mapPath)}' was uploaded succesfully`,
-        }))
+        dispatch(
+          openSnackbar({
+            message: `Map '${path.basename(mapPath)}' was uploaded succesfully`,
+          }),
+        )
       }
     }
   }

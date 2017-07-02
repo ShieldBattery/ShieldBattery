@@ -24,30 +24,38 @@ class BanUserForm extends React.Component {
   render() {
     const { onSubmit, bindCustom, bindInput } = this.props
 
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <Select {...bindCustom('banLength')} label='Ban length' tabIndex={0}>
-        <Option value={3} text='3 Hours' />
-        <Option value={24} text='1 Day' />
-        <Option value={24 * 7} text='1 Week' />
-        <Option value={24 * 7 * 4} text='1 Month' />
-        <Option value={24 * 365 * 999} text='Permanent!' />
-      </Select>
-      <TextField {...bindInput('banReason')} label='Ban reason' floatingLabel={true}
-        inputProps={{
-          tabIndex: 0,
-          autoCapitalize: 'off',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          spellCheck: false
-        }}/>
-    </form>)
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <Select {...bindCustom('banLength')} label="Ban length" tabIndex={0}>
+          <Option value={3} text="3 Hours" />
+          <Option value={24} text="1 Day" />
+          <Option value={24 * 7} text="1 Week" />
+          <Option value={24 * 7 * 4} text="1 Month" />
+          <Option value={24 * 365 * 999} text="Permanent!" />
+        </Select>
+        <TextField
+          {...bindInput('banReason')}
+          label="Ban reason"
+          floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoComplete: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}
+        />
+      </form>
+    )
   }
 }
 
 @connect(state => ({ bans: state.bans, auth: state.auth }))
 export default class BanUsers extends React.Component {
-  _form = null;
-  _setForm = elem => { this._form = elem };
+  _form = null
+  _setForm = elem => {
+    this._form = elem
+  }
 
   componentDidMount() {
     const { username } = this.props
@@ -66,10 +74,18 @@ export default class BanUsers extends React.Component {
   renderBanRow(ban) {
     return (
       <tr key={ban.startTime}>
-        <td>{dateFormat.format(ban.startTime)}</td>
-        <td>{dateFormat.format(ban.endTime)}</td>
-        <td>{ban.bannedBy}</td>
-        <td>{ban.reason}</td>
+        <td>
+          {dateFormat.format(ban.startTime)}
+        </td>
+        <td>
+          {dateFormat.format(ban.endTime)}
+        </td>
+        <td>
+          {ban.bannedBy}
+        </td>
+        <td>
+          {ban.reason}
+        </td>
       </tr>
     )
   }
@@ -89,7 +105,7 @@ export default class BanUsers extends React.Component {
           </tr>
         </thead>
         <tbody>
-          { bans.map(b => this.renderBanRow(b)) }
+          {bans.map(b => this.renderBanRow(b))}
         </tbody>
       </table>
     )
@@ -100,42 +116,54 @@ export default class BanUsers extends React.Component {
 
     return [
       <BanUserForm
-        key='banUserForm'
+        key="banUserForm"
         ref={this._setForm}
         model={{ banLength: 24 }}
-        onSubmit={this.onSubmit} />,
-      <FlatButton key='banUser' label='Ban' color='accent' tabIndex={0} onClick={this.onBanClick} />
+        onSubmit={this.onSubmit}
+      />,
+      <FlatButton
+        key="banUser"
+        label="Ban"
+        color="accent"
+        tabIndex={0}
+        onClick={this.onBanClick}
+      />,
     ]
   }
 
   render() {
-    const {
-      bans: { users },
-      username,
-    } = this.props
+    const { bans: { users }, username } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
       return <LoadingIndicator />
     }
 
     if (user.lastError) {
-      return <p>{user.lastError.message}</p>
+      return (
+        <p>
+          {user.lastError.message}
+        </p>
+      )
     }
 
-    return (<div className={styles.bans}>
-      <h3>Ban history for {username}</h3>
-      { this.renderBanHistory(user) }
-      { this.renderBanUserForm(user) }
-    </div>)
+    return (
+      <div className={styles.bans}>
+        <h3>
+          Ban history for {username}
+        </h3>
+        {this.renderBanHistory(user)}
+        {this.renderBanUserForm(user)}
+      </div>
+    )
   }
 
   onBanClick = () => {
     this._form.submit()
-  };
+  }
 
   onSubmit = () => {
     const { username } = this.props
     const { banLength, banReason } = this._form.getModel()
     this.props.dispatch(banUser(username, banLength, banReason))
-  };
+  }
 }

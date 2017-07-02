@@ -58,11 +58,10 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
-    return (state
+    return state
       .set('match', new Match({ numPlayers: action.payload.numPlayers }))
       .set('isFinding', false)
       .set('hasAccepted', false)
-    )
   },
 
   [MATCHMAKING_UPDATE_MATCH_ACCEPTED](state, action) {
@@ -76,5 +75,5 @@ export default keyedReducer(new MatchmakingState(), {
 
   [NETWORK_SITE_CONNECTED](state, action) {
     return new MatchmakingState()
-  }
+  },
 })

@@ -7,7 +7,7 @@ import changelogContent from '../../CHANGELOG.md'
 const changelogHtml = { __html: changelogContent }
 
 export default class ChangelogDialog extends React.Component {
-  _setting = false;
+  _setting = false
 
   componentDidMount() {
     window.addEventListener('storage', this.onStorageChange)
@@ -18,9 +18,11 @@ export default class ChangelogDialog extends React.Component {
   }
 
   render() {
-    return (<Dialog title={'What\'s new'} onCancel={this.onDismiss} showCloseButton={true}>
-      <div className={styles.changelog} dangerouslySetInnerHTML={changelogHtml}/>
-    </Dialog>)
+    return (
+      <Dialog title={"What's new"} onCancel={this.onDismiss} showCloseButton={true}>
+        <div className={styles.changelog} dangerouslySetInnerHTML={changelogHtml} />
+      </Dialog>
+    )
   }
 
   onStorageChange = e => {
@@ -29,7 +31,7 @@ export default class ChangelogDialog extends React.Component {
         this.onDismiss()
       }
     }
-  };
+  }
 
   onDismiss = () => {
     this._setting = true
@@ -38,5 +40,5 @@ export default class ChangelogDialog extends React.Component {
     if (this.props.onCancel) {
       this.props.onCancel()
     }
-  };
+  }
 }

@@ -21,9 +21,7 @@ import {
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
-import {
-  NEW_CHAT_MESSAGE,
-} from '../../app/common/ipc-constants'
+import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
@@ -35,7 +33,7 @@ import { getIngameLobbySlotsWithIndexes } from '../../app/common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 const countdownState = {
   timer: null,
@@ -184,7 +182,7 @@ const eventToAction = {
       tick -= 1
       dispatch({
         type: LOBBY_UPDATE_COUNTDOWN_TICK,
-        payload: tick
+        payload: tick,
       })
       if (!tick) {
         clearCountdownTimer(true /* leaveAtmosphere */)
@@ -201,15 +199,13 @@ const eventToAction = {
 
   setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer(true /* leaveAtmosphere */)
-    const {
-      lobby,
-      settings,
-      auth: { user },
-    } = getState()
+    const { lobby, settings, auth: { user } } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
-    const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(([teamIndex, , slot]) =>
-      new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }))
+    const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(
+      ([teamIndex, , slot]) =>
+        new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
+    )
     const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
     const config = {
       localUser: user,
@@ -237,7 +233,7 @@ const eventToAction = {
   cancelLoading: (name, event) => dispatch => {
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
-      payload: activeGameManager.setGameConfig({})
+      payload: activeGameManager.setGameConfig({}),
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },
@@ -265,7 +261,7 @@ const eventToAction = {
   status: (name, event) => ({
     type: LOBBY_UPDATE_STATUS,
     payload: event,
-  })
+  }),
 }
 
 export default function registerModule({ siteSocket }) {
@@ -286,7 +282,7 @@ export default function registerModule({ siteSocket }) {
       payload: {
         message: action,
         data: payload,
-      }
+      },
     })
   })
 }

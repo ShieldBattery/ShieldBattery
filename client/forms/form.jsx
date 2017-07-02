@@ -13,22 +13,22 @@ function getDisplayName(WrappedComponent) {
 // to something, that chain must be handled/converted by the validator function.
 //
 // Validator functions receive (value, model).
-export default (validations = {}) => (Wrapped) => {
+export default (validations = {}) => Wrapped => {
   class FormWrapper extends React.Component {
-    static displayName = `Form(${getDisplayName(Wrapped)})`;
+    static displayName = `Form(${getDisplayName(Wrapped)})`
 
     // Allows us to cache bound functions to avoid causing unnecessary prop changes. Only gets
     // cleaned up when this component unmounts, but that generally shouldn't be an issue.
-    _customChangeHandlers = Object.create(null);
-    _validationPromises = Object.create(null);
-    _notifyValidation = [];
-    _doOnSubmit = () => this.props.onSubmit(this);
+    _customChangeHandlers = Object.create(null)
+    _validationPromises = Object.create(null)
+    _notifyValidation = []
+    _doOnSubmit = () => this.props.onSubmit(this)
 
     state = {
       model: this.props.model,
       dirty: Object.create(null),
       validationErrors: Object.create(null),
-    };
+    }
 
     componentDidUpdate(oldProps, oldState) {
       if (!shallowEquals(oldProps.model, this.props.model)) {
@@ -65,10 +65,9 @@ export default (validations = {}) => (Wrapped) => {
         }
 
         // Check if we are currently waiting for any validations to finish
-        const awaitingValidations =
-            Object.keys(this._validationPromises)
-              .map(k => this._validationPromises[k])
-              .filter(v => !!v)
+        const awaitingValidations = Object.keys(this._validationPromises)
+          .map(k => this._validationPromises[k])
+          .filter(v => !!v)
         // If we aren't, we can go ahead and submit
         if (!awaitingValidations.length) {
           this._doOnSubmit()
@@ -83,12 +82,13 @@ export default (validations = {}) => (Wrapped) => {
       }
 
       checkValidations()
-    };
+    }
 
     validate(name) {
       if (validations.hasOwnProperty(name)) {
-        const resultPromise =
-            Promise.resolve(validations[name](this.state.model[name], this.state.model))
+        const resultPromise = Promise.resolve(
+          validations[name](this.state.model[name], this.state.model),
+        )
         this._validationPromises[name] = resultPromise
         resultPromise.then(errorMsg => {
           if (this._validationPromises[name] === resultPromise) {
@@ -97,7 +97,7 @@ export default (validations = {}) => (Wrapped) => {
                 validationErrors: {
                   ...this.state.validationErrors,
                   [name]: errorMsg,
-                }
+                },
               })
             }
             this._validationPromises[name] = null
@@ -122,16 +122,16 @@ export default (validations = {}) => (Wrapped) => {
     onChange = event => {
       const { name, value } = event.target
       this.setInputValue(name, value)
-    };
+    }
 
     onCheckableChange = event => {
       const { name, checked } = event.target
       this.setInputValue(name, checked)
-    };
+    }
 
     onCustomChange = (name, newValue) => {
       this.setInputValue(name, newValue)
-    };
+    }
 
     // Binds a DOM input (`<input>` tag, etc.) to this form instance
     bindInput = name => {
@@ -142,7 +142,7 @@ export default (validations = {}) => (Wrapped) => {
         value,
         errorText: this.state.validationErrors[name],
       }
-    };
+    }
 
     // Binds a DOM input that uses the `checked` attribute (e.g. `<input type="checkbox">`) to this
     // form instance
@@ -153,7 +153,7 @@ export default (validations = {}) => (Wrapped) => {
         checked: !!this.state.model[name],
         errorText: this.state.validationErrors[name],
       }
-    };
+    }
 
     // Binds a custom form element (that doesn't use normal DOM input elements or have change events
     // that include a target with a value) to this form instance
@@ -168,9 +168,9 @@ export default (validations = {}) => (Wrapped) => {
         value,
         errorText: this.state.validationErrors[name],
       }
-    };
+    }
 
-    getInputValue = name => this.state.model[name];
+    getInputValue = name => this.state.model[name]
     setInputValue = (name, value) => {
       this.setState({
         model: {
@@ -182,7 +182,7 @@ export default (validations = {}) => (Wrapped) => {
           [name]: true,
         },
       })
-    };
+    }
 
     getModel() {
       return this.state.model

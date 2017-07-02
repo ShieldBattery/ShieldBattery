@@ -1,8 +1,5 @@
 import { Record } from 'immutable'
-import {
-  LOCAL_SETTINGS_SET,
-  LOCAL_SETTINGS_UPDATE,
-} from '../actions'
+import { LOCAL_SETTINGS_SET, LOCAL_SETTINGS_UPDATE } from '../actions'
 
 export const LocalSettings = new Record({
   width: -1,
@@ -44,7 +41,8 @@ export function globalSettingsReducer(state = null, action) {
 
 export default function settingsReducer(state = new Settings(), action) {
   return state.withMutations(state => {
-    state.set('local', localSettingsReducer(state.local, action))
+    state
+      .set('local', localSettingsReducer(state.local, action))
       .set('global', globalSettingsReducer(state.global, action))
   })
 }

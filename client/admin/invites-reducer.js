@@ -1,9 +1,6 @@
 import { List, Map, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import {
-  ADMIN_GET_INVITES,
-  ADMIN_ACCEPT_USER,
-} from '../actions'
+import { ADMIN_GET_INVITES, ADMIN_ACCEPT_USER } from '../actions'
 
 export const Signup = new Record({
   email: null,
@@ -31,7 +28,7 @@ export default keyedReducer(new InviteState(), {
     }
 
     const signups = new List(action.payload.invites.map(s => s.email))
-    const byEmail = new Map(action.payload.invites.map(s => [ s.email, new Signup(s) ]))
+    const byEmail = new Map(action.payload.invites.map(s => [s.email, new Signup(s)]))
     const data = {
       signups,
       byEmail,

@@ -10,7 +10,7 @@ export default class Avatar extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     image: PropTypes.string,
-  };
+  }
 
   render() {
     const { className, image, user, ...otherProps } = this.props
@@ -23,6 +23,10 @@ export default class Avatar extends React.Component {
       color: randomColorForString(user),
     }
 
-    return <i {...otherProps} className={classes} style={iconStyle}><PlaceholderIcon /></i>
+    return (
+      <i {...otherProps} className={classes} style={iconStyle}>
+        <PlaceholderIcon />
+      </i>
+    )
   }
 }

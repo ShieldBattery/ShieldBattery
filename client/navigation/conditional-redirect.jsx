@@ -8,12 +8,12 @@ import PropTypes from 'prop-types'
 // createRedirectAction is function(currentState, router) => action
 export default function createConditionalRedirect(name, shouldRedirect, createRedirectAction) {
   return class ConditionalRedirect extends React.Component {
-    static displayName = name;
+    static displayName = name
     static contextTypes = {
       router: PropTypes.object.isRequired,
       store: PropTypes.object.isRequired,
       redirectChecker: PropTypes.object.isRequired,
-    };
+    }
 
     constructor(props, context) {
       super(props, context)

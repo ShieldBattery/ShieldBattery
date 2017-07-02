@@ -20,8 +20,10 @@ export default class ActiveGameView extends React.Component {
 
   render() {
     // TODO(tec27): render some data about who is in the game?
-    return (<ContentLayout title={'You\'re in a game'}>
-      <span>Why are you looking here?</span>
-    </ContentLayout>)
+    return (
+      <ContentLayout title={"You're in a game"}>
+        <span>Why are you looking here?</span>
+      </ContentLayout>
+    )
   }
 }

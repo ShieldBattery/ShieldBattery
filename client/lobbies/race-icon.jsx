@@ -17,14 +17,18 @@ const ICONS = {
 
 export default class RaceIcon extends React.Component {
   static propTypes = {
-    race: PropTypes.oneOf([ 'r', 'p', 't', 'z' ]).isRequired,
+    race: PropTypes.oneOf(['r', 'p', 't', 'z']).isRequired,
     className: PropTypes.string,
     style: PropTypes.string,
-  };
+  }
 
   render() {
     const classes = classnames(styles[this.props.race], this.props.className)
     const icon = ICONS[this.props.race]
-    return <i className={classes} style={this.props.style}>{icon}</i>
+    return (
+      <i className={classes} style={this.props.style}>
+        {icon}
+      </i>
+    )
   }
 }

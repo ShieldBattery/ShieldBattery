@@ -15,7 +15,7 @@ export default function create(initialState, history) {
     applyMiddleware(thunk, promise, routerMiddleware(history)),
     batchedSubscribe(batchedUpdates),
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
-    isDev && window.devToolsExtension ? window.devToolsExtension() : f => f
+    isDev && window.devToolsExtension ? window.devToolsExtension() : f => f,
   )(createStore)
 
   const store = createMiddlewaredStore(rootReducer, initialState)

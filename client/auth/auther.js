@@ -20,7 +20,7 @@ function idRequest(type, fetcher) {
         type: AUTH_CHANGE_BEGIN,
         payload: {
           reqId,
-        }
+        },
       })
 
       const payload = fetcher()
@@ -33,62 +33,76 @@ function idRequest(type, fetcher) {
 }
 
 export function logIn(username, password, remember) {
-  return idRequest(AUTH_LOG_IN, () => fetch('/api/1/sessions', {
-    method: 'post',
-    body: JSON.stringify({
-      username,
-      password,
-      remember: !!remember
-    })
-  }))
+  return idRequest(AUTH_LOG_IN, () =>
+    fetch('/api/1/sessions', {
+      method: 'post',
+      body: JSON.stringify({
+        username,
+        password,
+        remember: !!remember,
+      }),
+    }),
+  )
 }
 
 export function logOut() {
-  return idRequest(AUTH_LOG_OUT, () => fetch('/api/1/sessions', {
-    method: 'delete'
-  }))
+  return idRequest(AUTH_LOG_OUT, () =>
+    fetch('/api/1/sessions', {
+      method: 'delete',
+    }),
+  )
 }
 
 export function signUp(username, email, password) {
   const reqUrl = '/api/1/users'
-  return idRequest(AUTH_SIGN_UP, () => fetch(reqUrl, {
-    method: 'post',
-    body: JSON.stringify({ username, email, password })
-  }))
+  return idRequest(AUTH_SIGN_UP, () =>
+    fetch(reqUrl, {
+      method: 'post',
+      body: JSON.stringify({ username, email, password }),
+    }),
+  )
 }
 
 export function getCurrentSession() {
-  return idRequest(AUTH_UPDATE, () => fetch('/api/1/sessions', {
-    method: 'get'
-  }))
+  return idRequest(AUTH_UPDATE, () =>
+    fetch('/api/1/sessions', {
+      method: 'get',
+    }),
+  )
 }
 
 export function retrieveUsername(email) {
-  return idRequest(AUTH_RETRIEVE_USERNAME, () => fetch('/api/1/recovery/user', {
-    method: 'post',
-    body: JSON.stringify({
-      email,
-    })
-  }))
+  return idRequest(AUTH_RETRIEVE_USERNAME, () =>
+    fetch('/api/1/recovery/user', {
+      method: 'post',
+      body: JSON.stringify({
+        email,
+      }),
+    }),
+  )
 }
 
 export function startPasswordReset(username, email) {
-  return idRequest(AUTH_START_PASSWORD_RESET, () => fetch('/api/1/recovery/password', {
-    method: 'post',
-    body: JSON.stringify({
-      username,
-      email,
-    })
-  }))
+  return idRequest(AUTH_START_PASSWORD_RESET, () =>
+    fetch('/api/1/recovery/password', {
+      method: 'post',
+      body: JSON.stringify({
+        username,
+        email,
+      }),
+    }),
+  )
 }
 
 export function resetPassword(username, code, password) {
-  const url = '/api/1/users/' + encodeURIComponent(username) + '/password?code=' +
-      encodeURIComponent(code)
-  return idRequest(AUTH_RESET_PASSWORD, () => fetch(url, {
-    method: 'post',
-    body: JSON.stringify({
-      password
-    })
-  }))
+  const url =
+    '/api/1/users/' + encodeURIComponent(username) + '/password?code=' + encodeURIComponent(code)
+  return idRequest(AUTH_RESET_PASSWORD, () =>
+    fetch(url, {
+      method: 'post',
+      body: JSON.stringify({
+        password,
+      }),
+    }),
+  )
 }

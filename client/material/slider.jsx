@@ -33,21 +33,30 @@ const Ticks = ({ show, min, max, step }) => {
     const stepPercentage = step / (max - min) * 100
     const elems = [
       // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
-      <div key={0} className={styles.valueTick} style={{ left: '-5px' }}/>,
+      <div key={0} className={styles.valueTick} style={{ left: '-5px' }} />,
     ]
     for (let i = 1, p = stepPercentage; i < numSteps - 1; i++, p = i * stepPercentage) {
       elems.push(<div key={i} className={styles.valueTick} style={{ left: `${p}%` }} />)
     }
     elems.push(
-      <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }}/>)
+      <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }} />,
+    )
 
-    container = <span className={styles.tickContainer}>{elems}</span>
+    container = (
+      <span className={styles.tickContainer}>
+        {elems}
+      </span>
+    )
   }
 
-  return (<TransitionGroup transitionName={tickTransitionNames}
-    transitionEnterTimeout={150} transitionLeaveTimeout={150}>
-    {container}
-  </TransitionGroup>)
+  return (
+    <TransitionGroup
+      transitionName={tickTransitionNames}
+      transitionEnterTimeout={150}
+      transitionLeaveTimeout={150}>
+      {container}
+    </TransitionGroup>
+  )
 }
 
 const Track = ({ showTicks, value, min, max, step }) => {
@@ -56,10 +65,12 @@ const Track = ({ showTicks, value, min, max, step }) => {
     transform: `scaleX(${scale})`,
   }
 
-  return (<div className={styles.track}>
-    <div className={styles.filled} style={filledStyle} />
-    <Ticks show={showTicks} min={min} max={max} step={step} />
-  </div>)
+  return (
+    <div className={styles.track}>
+      <div className={styles.filled} style={filledStyle} />
+      <Ticks show={showTicks} min={min} max={max} step={step} />
+    </div>
+  )
 }
 
 class Slider extends React.Component {
@@ -73,26 +84,27 @@ class Slider extends React.Component {
       }
       if ((props.max - props.min) % props.step !== 0) {
         return new Error(
-          'The range between `min` and `max` needs to be evenly divisible by `step`.')
+          'The range between `min` and `max` needs to be evenly divisible by `step`.',
+        )
       }
       return null
     },
     label: PropTypes.string,
     tabIndex: PropTypes.number,
     onChange: PropTypes.func,
-  };
+  }
 
   static defaultProps = {
     step: 1,
     tabIndex: 0,
-  };
+  }
 
   state = {
     isFocused: false,
     isClicked: false,
-  };
-  _sliderDimensions = null;
-  _hasWindowListeners = false;
+  }
+  _sliderDimensions = null
+  _hasWindowListeners = false
 
   _addWindowListeners() {
     if (this._hasWindowListeners) return
@@ -118,10 +130,14 @@ class Slider extends React.Component {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
     const className = this.props.value === this.props.min ? styles.balloonEmpty : styles.balloon
-    return (<div className={className}>
-      <div className={styles.balloonAfter} />
-      <span className={styles.balloonText}>{this.props.value}</span>
-    </div>)
+    return (
+      <div className={className}>
+        <div className={styles.balloonAfter} />
+        <span className={styles.balloonText}>
+          {this.props.value}
+        </span>
+      </div>
+    )
   }
 
   render() {
@@ -135,8 +151,11 @@ class Slider extends React.Component {
     const optionNum = (this.props.value - this.props.min) / this.props.step
     const thumbPosition = stepPercentage * optionNum
 
-    const labelElement = this.props.label ?
-      <label className={styles.label} htmlFor={this.id}>{this.props.label}</label> : null
+    const labelElement = this.props.label
+      ? <label className={styles.label} htmlFor={this.id}>
+          {this.props.label}
+        </label>
+      : null
 
     const thumbClass = this.props.value === this.props.min ? styles.thumbEmpty : styles.thumb
     const thumbContainerStyle = {
@@ -144,21 +163,33 @@ class Slider extends React.Component {
     }
 
     return (
-      <div ref='root' className={classes} tabIndex={this.props.tabIndex}
-        onFocus={this.onFocus} onBlur={this.onBlur} onKeyDown={this.onKeyDown}>
+      <div
+        ref="root"
+        className={classes}
+        tabIndex={this.props.tabIndex}
+        onFocus={this.onFocus}
+        onBlur={this.onBlur}
+        onKeyDown={this.onKeyDown}>
         {labelElement}
-        <Track min={this.props.min} max={this.props.max} step={this.props.step}
-          value={this.props.value} showTicks={this.state.isClicked} />
+        <Track
+          min={this.props.min}
+          max={this.props.max}
+          step={this.props.step}
+          value={this.props.value}
+          showTicks={this.state.isClicked}
+        />
         <div className={styles.overflowClip}>
           <div className={styles.thumbContainer} style={thumbContainerStyle}>
             <div className={thumbClass} />
-            <TransitionGroup transitionName={balloonTransitionNames}
-              transitionEnterTimeout={300} transitionLeaveTimeout={300}>
+            <TransitionGroup
+              transitionName={balloonTransitionNames}
+              transitionEnterTimeout={300}
+              transitionLeaveTimeout={300}>
               {this._renderBalloon(thumbPosition)}
             </TransitionGroup>
           </div>
         </div>
-        <div ref='trackArea' className={styles.clickableArea} onMouseDown={::this.onMouseDown}/>
+        <div ref="trackArea" className={styles.clickableArea} onMouseDown={::this.onMouseDown} />
       </div>
     )
   }
@@ -173,11 +204,11 @@ class Slider extends React.Component {
 
   onFocus = () => {
     this.setState({ isFocused: true })
-  };
+  }
 
   onBlur = () => {
     this.setState({ isFocused: false })
-  };
+  }
 
   onKeyDown = event => {
     let handled = false
@@ -207,15 +238,15 @@ class Slider extends React.Component {
       event.preventDefault()
       event.stopPropagation()
     }
-  };
+  }
 
   minMaxValidator(value) {
     return Math.max(this.props.min, Math.min(this.props.max, value))
   }
 
   stepValidator(value) {
-    const formattedValue = Math.round(
-      (value - this.props.min) / this.props.step) * this.props.step + this.props.min
+    const formattedValue =
+      Math.round((value - this.props.min) / this.props.step) * this.props.step + this.props.min
     // Format to 3 digits after the decimal point; fixes issues when step is a decimal number
     return Math.round(formattedValue * 1000) / 1000
   }
@@ -225,8 +256,10 @@ class Slider extends React.Component {
   }
 
   positionToPercent(x) {
-    return Math.max(0, Math.min(
-      1, (x - this._sliderDimensions.left) / (this._sliderDimensions.width)))
+    return Math.max(
+      0,
+      Math.min(1, (x - this._sliderDimensions.left) / this._sliderDimensions.width),
+    )
   }
 
   getClosestValue(x) {
@@ -246,7 +279,7 @@ class Slider extends React.Component {
     if (newValue !== this.props.value) {
       this.onChange(newValue)
     }
-  };
+  }
 
   onMouseMove = event => {
     event.preventDefault()
@@ -254,7 +287,7 @@ class Slider extends React.Component {
     if (newValue !== this.props.value) {
       this.onChange(newValue)
     }
-  };
+  }
 
   onMouseUp = event => {
     event.preventDefault()
@@ -264,13 +297,13 @@ class Slider extends React.Component {
     if (newValue !== this.props.value) {
       this.onChange(newValue)
     }
-  };
+  }
 
   onChange = newValue => {
     if (this.props.onChange) {
       this.props.onChange(newValue)
     }
-  };
+  }
 }
 
 export default Slider

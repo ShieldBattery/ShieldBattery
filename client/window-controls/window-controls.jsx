@@ -6,14 +6,10 @@ import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
 import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
 
-import {
-  WINDOW_CLOSE,
-  WINDOW_MAXIMIZE,
-  WINDOW_MINIMIZE,
-} from '../../app/common/ipc-constants'
+import { WINDOW_CLOSE, WINDOW_MAXIMIZE, WINDOW_MINIMIZE } from '../../app/common/ipc-constants'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 export default class WindowControls extends React.Component {
   render() {
@@ -23,21 +19,25 @@ export default class WindowControls extends React.Component {
 
     const classes = classnames(this.props.className, styles.root)
 
-    return (<div className={classes}>
-      <div className={styles.sizeTop} />
-      <div className={styles.sizeLeft} />
-      <div className={styles.sizeRight} />
-      <button title={'Close'} className={styles.closeButton} onClick={this.onCloseClick}>
-        <CloseIcon/>
-      </button>
-      <button title={'Maximize/Restore'} className={styles.maximizeButton}
-        onClick={this.onMaximizeClick}>
-        <MaximizeIcon/>
-      </button>
-      <button title={'Minimize'} className={styles.minimizeButton} onClick={this.onMinimizeClick}>
-        <MinimizeIcon/>
-      </button>
-    </div>)
+    return (
+      <div className={classes}>
+        <div className={styles.sizeTop} />
+        <div className={styles.sizeLeft} />
+        <div className={styles.sizeRight} />
+        <button title={'Close'} className={styles.closeButton} onClick={this.onCloseClick}>
+          <CloseIcon />
+        </button>
+        <button
+          title={'Maximize/Restore'}
+          className={styles.maximizeButton}
+          onClick={this.onMaximizeClick}>
+          <MaximizeIcon />
+        </button>
+        <button title={'Minimize'} className={styles.minimizeButton} onClick={this.onMinimizeClick}>
+          <MinimizeIcon />
+        </button>
+      </div>
+    )
   }
 
   onCloseClick = () => {
@@ -51,13 +51,13 @@ export default class WindowControls extends React.Component {
       shouldDisplayCloseHint = false
     }
     ipcRenderer.send(WINDOW_CLOSE, shouldDisplayCloseHint)
-  };
+  }
 
   onMaximizeClick = () => {
     ipcRenderer.send(WINDOW_MAXIMIZE)
-  };
+  }
 
   onMinimizeClick = () => {
     ipcRenderer.send(WINDOW_MINIMIZE)
-  };
+  }
 }

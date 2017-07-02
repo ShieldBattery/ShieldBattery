@@ -48,18 +48,22 @@ const usernameValidator = composeValidators(
   minLength(USERNAME_MINLENGTH, `Use at least ${USERNAME_MINLENGTH} characters`),
   maxLength(USERNAME_MAXLENGTH, `Use at most ${USERNAME_MAXLENGTH} characters`),
   regex(USERNAME_PATTERN, 'Username contains invalid characters'),
-  debounce(usernameAvailable, 250))
+  debounce(usernameAvailable, 250),
+)
 const emailValidator = composeValidators(
   required('Enter an email address'),
   minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
   maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-  regex(EMAIL_PATTERN, 'Enter a valid email address'))
+  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+)
 const passwordValidator = composeValidators(
   required('Enter a password'),
-  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`))
+  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`),
+)
 const confirmPasswordValidator = composeValidators(
   required('Confirm your password'),
-  matchesOther('password', 'Enter a matching password'))
+  matchesOther('password', 'Enter a matching password'),
+)
 
 @form({
   username: usernameValidator,
@@ -77,17 +81,37 @@ class SignupForm extends React.Component {
       tabIndex: 1,
     }
 
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <SubmitOnEnter/>
-      <TextField {...bindInput('username')} inputProps={textInputProps}
-        label='Username' floatingLabel={true}/>
-      <TextField {...bindInput('email')} inputProps={textInputProps}
-        label='Email address' floatingLabel={true}/>
-      <TextField {...bindInput('password')} inputProps={textInputProps}
-        label='Password' floatingLabel={true} type='password'/>
-      <TextField {...bindInput('confirmPassword')} inputProps={textInputProps}
-        label='Confirm password' floatingLabel={true} type='password'/>
-    </form>)
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <TextField
+          {...bindInput('username')}
+          inputProps={textInputProps}
+          label="Username"
+          floatingLabel={true}
+        />
+        <TextField
+          {...bindInput('email')}
+          inputProps={textInputProps}
+          label="Email address"
+          floatingLabel={true}
+        />
+        <TextField
+          {...bindInput('password')}
+          inputProps={textInputProps}
+          label="Password"
+          floatingLabel={true}
+          type="password"
+        />
+        <TextField
+          {...bindInput('confirmPassword')}
+          inputProps={textInputProps}
+          label="Confirm password"
+          floatingLabel={true}
+          type="password"
+        />
+      </form>
+    )
   }
 }
 
@@ -95,9 +119,11 @@ class SignupForm extends React.Component {
 export default class Signup extends React.Component {
   state = {
     reqId: null,
-  };
-  _form = null;
-  _setForm = elem => { this._form = elem };
+  }
+  _form = null
+  _setForm = elem => {
+    this._form = elem
+  }
 
   componentDidMount() {
     redirectIfLoggedIn(this.props)
@@ -111,13 +137,21 @@ export default class Signup extends React.Component {
     const { auth: { authChangeInProgress, lastFailure }, location } = this.props
     let loadingContents
     if (authChangeInProgress) {
-      loadingContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
+      loadingContents = (
+        <div className={styles.loadingArea}>
+          <LoadingIndicator />
+        </div>
+      )
     }
 
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
+      errContents = (
+        <div className={styles.errors}>
+          Error: {lastFailure.err}
+        </div>
+      )
     }
 
     const model = {
@@ -125,38 +159,40 @@ export default class Signup extends React.Component {
       email: location.query.email,
     }
 
-    return (<div className={styles.content}>
-      <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-        <h3 className={styles.cardTitle}>Create account</h3>
-        { errContents }
-        <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit}/>
-        <RaisedButton label='Create account' onClick={this.onSignUpClick} tabIndex={1}/>
+    return (
+      <div className={styles.content}>
+        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
+          <h3 className={styles.cardTitle}>Create account</h3>
+          {errContents}
+          <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
+          <RaisedButton label="Create account" onClick={this.onSignUpClick} tabIndex={1} />
+        </div>
+        {loadingContents}
+        <div className={styles.bottomAction}>
+          <p>Already have an account?</p>
+          <FlatButton label="Log in" onClick={this.onLogInClick} tabIndex={1} />
+        </div>
       </div>
-      { loadingContents }
-      <div className={styles.bottomAction}>
-        <p>Already have an account?</p>
-        <FlatButton label='Log in' onClick={this.onLogInClick} tabIndex={1} />
-      </div>
-    </div>)
+    )
   }
 
   onSignUpClick = () => {
     this._form.submit()
-  };
+  }
 
   onLogInClick = () => {
     const query = {
       ...this.props.location.query,
     }
     this.props.dispatch(routerActions.push({ pathname: '/login', query }))
-  };
+  }
 
   onSubmit = () => {
     const values = this._form.getModel()
     const { id, action } = signUp(values.username, values.email, values.password)
     this.setState({
-      reqId: id
+      reqId: id,
     })
     this.props.dispatch(action)
-  };
+  }
 }

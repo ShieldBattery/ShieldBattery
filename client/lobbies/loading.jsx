@@ -64,7 +64,7 @@ const LOADING_MESSAGES = [
   'Betraying humanity',
   'Clearing command center infestation',
   'Configuring cloaking matrix',
-  'Denying \'WarCraft in Space\' accusations',
+  "Denying 'WarCraft in Space' accusations",
   'Installing structure thrusters',
   'Merging another Overmind',
   'Planting field of flowers',
@@ -91,27 +91,27 @@ const LOADING_MESSAGES = [
   'Randomizing scarab misfire',
   'Constructing ramp unit vortex',
   'Filling drones with helium',
-  'Adding in-game cheat \'Power overwhelming\'',
-  'Adding in-game cheat \'Show me the money\'',
-  'Adding in-game cheat \'Operation CWAL\'',
-  'Adding in-game cheat \'The Gathering\'',
-  'Adding in-game cheat \'Game over man\'',
-  'Adding in-game cheat \'Staying Alive\'',
-  'Adding in-game cheat \'There is no cow level\'',
-  'Adding in-game cheat \'Whats mine is mine\'',
-  'Adding in-game cheat \'Breathe deep\'',
-  'Adding in-game cheat \'Something for nothing\'',
-  'Adding in-game cheat \'Black Sheep Wall\'',
-  'Adding in-game cheat \'Medieval man\'',
-  'Adding in-game cheat \'Modify the phase variance\'',
-  'Adding in-game cheat \'War aint what it used to be\'',
-  'Adding in-game cheat \'Food for thought\'',
-  'Adding in-game cheat \'Ophelia\'',
-  'Adding in-game cheat \'Radio Free Zerg\'',
+  "Adding in-game cheat 'Power overwhelming'",
+  "Adding in-game cheat 'Show me the money'",
+  "Adding in-game cheat 'Operation CWAL'",
+  "Adding in-game cheat 'The Gathering'",
+  "Adding in-game cheat 'Game over man'",
+  "Adding in-game cheat 'Staying Alive'",
+  "Adding in-game cheat 'There is no cow level'",
+  "Adding in-game cheat 'Whats mine is mine'",
+  "Adding in-game cheat 'Breathe deep'",
+  "Adding in-game cheat 'Something for nothing'",
+  "Adding in-game cheat 'Black Sheep Wall'",
+  "Adding in-game cheat 'Medieval man'",
+  "Adding in-game cheat 'Modify the phase variance'",
+  "Adding in-game cheat 'War aint what it used to be'",
+  "Adding in-game cheat 'Food for thought'",
+  "Adding in-game cheat 'Ophelia'",
+  "Adding in-game cheat 'Radio Free Zerg'",
   'Investigating warp-gate manipulation',
   'Researching protoss energy shield generation',
   'Decoding the psionic matrix',
-  'Strengthening the protoss\'s belief in the Khala',
+  "Strengthening the protoss's belief in the Khala",
   'Our belief in the Khala will never be broken',
   'The overmind shall always be watching',
   'Looking at the tank',
@@ -136,9 +136,9 @@ const LOADING_MESSAGES = [
   'Checking for new builds on Liquipedia',
   'Lickypiddy best piddy',
   'Posting balance whines on TeamLiquid',
-  'Planting trees on Demon\'s Forest',
+  "Planting trees on Demon's Forest",
   'Giving SCVs more health',
-  'Singing a karaoke rendition of \'Floating Engineering Bay\'',
+  "Singing a karaoke rendition of 'Floating Engineering Bay'",
   'Adjusting neural transmissions',
   'Buckling up',
   'Preparing for some chop',
@@ -156,7 +156,7 @@ const LOADING_MESSAGES = [
   'Learning how to wear headphones',
   'Spinning the tank',
   'Building carriers (a useful skill toi have)',
-  'Spawning October Zerg\'s natural enemy',
+  "Spawning October Zerg's natural enemy",
   'Fixing the power outage',
   'Incorrectly attributing a build order to Bisu',
   'Placing 1st in Courage',
@@ -219,7 +219,11 @@ class LoadingMessage extends React.Component {
 
   render() {
     const message = LOADING_MESSAGES[this.state.messageIndex]
-    return <span className={styles.loadingMessage}>{message}&hellip;</span>
+    return (
+      <span className={styles.loadingMessage}>
+        {message}&hellip;
+      </span>
+    )
   }
 }
 
@@ -227,21 +231,25 @@ class LoadingPlayer extends React.Component {
   static propTypes = {
     player: PropTypes.object.isRequired,
     isReady: PropTypes.bool,
-  };
+  }
 
   render() {
     const { player, isReady } = this.props
     const isComputer = player.type === 'computer'
-    const avatar = isComputer ?
-      <ComputerAvatar className={styles.playerAvatar} /> :
-      <Avatar user={player.name} className={styles.playerAvatar} />
+    const avatar = isComputer
+      ? <ComputerAvatar className={styles.playerAvatar} />
+      : <Avatar user={player.name} className={styles.playerAvatar} />
     const displayName = isComputer ? 'Computer' : player.name
 
-    return (<Card className={isReady ? styles.readyPlayer : styles.player}>
-      { avatar }
-      <span className={styles.playerName}>{displayName}</span>
-      <RaceIcon className={styles.playerRace} race={player.race} />
-    </Card>)
+    return (
+      <Card className={isReady ? styles.readyPlayer : styles.player}>
+        {avatar}
+        <span className={styles.playerName}>
+          {displayName}
+        </span>
+        <RaceIcon className={styles.playerRace} race={player.race} />
+      </Card>
+    )
   }
 }
 
@@ -250,7 +258,7 @@ export default class LoadingScreen extends React.Component {
     lobby: PropTypes.object.isRequired,
     gameStatus: PropTypes.object.isRequired,
     user: PropTypes.object.isRequired,
-  };
+  }
 
   render() {
     const { lobby, gameStatus, user } = this.props
@@ -264,19 +272,26 @@ export default class LoadingScreen extends React.Component {
     }
 
     const playerElems = getPlayerSlots(lobby).map(p =>
-      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />)
+      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />,
+    )
 
-    return (<div className={styles.content}>
-      <div className={styles.typeAndMap}>
-        <span className={styles.gameType}>Melee</span>
-        <span className={styles.gameTypeMapBridge}> on </span>
-        <span className={styles.mapName}>{lobby.map.name}</span>
+    return (
+      <div className={styles.content}>
+        <div className={styles.typeAndMap}>
+          <span className={styles.gameType}>Melee</span>
+          <span className={styles.gameTypeMapBridge}> on </span>
+          <span className={styles.mapName}>
+            {lobby.map.name}
+          </span>
+        </div>
+        <div>
+          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
+        </div>
+        <div className={styles.players}>
+          {playerElems}
+        </div>
+        <LoadingMessage />
       </div>
-      <div>
-        <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
-      </div>
-      <div className={styles.players}>{playerElems}</div>
-      <LoadingMessage/>
-    </div>)
+    )
   }
 }

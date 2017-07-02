@@ -8,10 +8,13 @@ const LoggedInFilter = createConditionalRedirect(
   (state, router) => {
     const { routing: { location } } = state
     const query = {
-      nextPath: router.createPath({ pathname: location.pathname, query: location.query })
+      nextPath: router.createPath({
+        pathname: location.pathname,
+        query: location.query,
+      }),
     }
     return routerActions.push({ pathname: '/login', query })
-  }
+  },
 )
 
 export default LoggedInFilter

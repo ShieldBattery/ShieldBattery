@@ -37,7 +37,7 @@ export default keyedReducer(new FileStates(), {
   [REPLAYS_GET](state, action) {
     if (action.error) {
       return state.update(action.meta.browseId, prev =>
-        prev.set('isRequesting', false).set('lastError', action.payload)
+        prev.set('isRequesting', false).set('lastError', action.payload),
       )
     }
 
@@ -45,20 +45,19 @@ export default keyedReducer(new FileStates(), {
       .filter(e => e.isFolder)
       .map(e => new Folder(e))
       .sort((a, b) => a.name.localeCompare(b.name))
-    let files = action.payload
-      .filter(e => !e.isFolder)
-      .map(e => new Replay(e))
+    let files = action.payload.filter(e => !e.isFolder).map(e => new Replay(e))
     if (action.meta.browseId === 'replays') {
       files = files.sort((a, b) => b.date - a.date)
     } else {
       files = files.sort((a, b) => a.name.localeCompare(b.name))
     }
 
-    return state.update(action.meta.browseId, prev => prev
-      .set('isRequesting', false)
-      .set('lastError', null)
-      .set('folders', new List(folders))
-      .set('files', new List(files))
+    return state.update(action.meta.browseId, prev =>
+      prev
+        .set('isRequesting', false)
+        .set('lastError', null)
+        .set('folders', new List(folders))
+        .set('files', new List(files)),
     )
   },
 

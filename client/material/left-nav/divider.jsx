@@ -1,4 +1,4 @@
 import React from 'react'
 import styles from './left-nav.css'
 
-export default () => <hr className={styles.divider}></hr>
+export default () => <hr className={styles.divider} />

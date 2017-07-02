@@ -1,4 +1,4 @@
-import { List, } from 'immutable'
+import { List } from 'immutable'
 import React from 'react'
 import ContentLayout from '../content/content-layout.jsx'
 import form from '../forms/form.jsx'
@@ -10,9 +10,11 @@ import FileInput from '../forms/file-input.jsx'
 class UploadForm extends React.Component {
   render() {
     const { onSubmit, bindCustom } = this.props
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <FileInput {...bindCustom('files')} multiple={true} accept={'.scm,.scx'}/>
-    </form>)
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <FileInput {...bindCustom('files')} multiple={true} accept={'.scm,.scx'} />
+      </form>
+    )
   }
 }
 
@@ -21,12 +23,20 @@ class UploadForm extends React.Component {
 export default class UploadMap extends React.Component {
   state = {
     results: new List(),
-  };
-  _form = null;
+  }
+  _form = null
 
   renderResult() {
-    const results = this.state.results.entrySeq().map(([idx, val]) => (<div key={idx}>{val}</div>))
-    return (<div>{results}</div>)
+    const results = this.state.results.entrySeq().map(([idx, val]) =>
+      <div key={idx}>
+        {val}
+      </div>,
+    )
+    return (
+      <div>
+        {results}
+      </div>
+    )
   }
 
   render() {
@@ -35,18 +45,24 @@ export default class UploadMap extends React.Component {
     }
     return (
       <ContentLayout title={'Map upload'}>
-        <UploadForm ref={x => { this._form = x }} model={model} onSubmit={this.onSubmit} />
-        <RaisedButton label='Upload' tabIndex={0} onClick={this.onClick} />
-        { this.renderResult() }
+        <UploadForm
+          ref={x => {
+            this._form = x
+          }}
+          model={model}
+          onSubmit={this.onSubmit}
+        />
+        <RaisedButton label="Upload" tabIndex={0} onClick={this.onClick} />
+        {this.renderResult()}
       </ContentLayout>
     )
   }
 
   onClick = () => {
     this._form.submit()
-  };
+  }
 
-  onSubmit = async() => {
+  onSubmit = async () => {
     const { files } = this._form.getModel()
     for (const { path } of files) {
       this.setState({
@@ -64,5 +80,5 @@ export default class UploadMap extends React.Component {
         results: this.state.results.push(msg),
       })
     }
-  };
+  }
 }

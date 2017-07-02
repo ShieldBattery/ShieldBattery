@@ -22,17 +22,23 @@ export default class SelfProfileOverlay extends React.Component {
     user: PropTypes.string.isRequired,
     onDismiss: PropTypes.func.isRequired,
     anchor: PropTypes.object,
-  };
+  }
 
   render() {
     const { user, children, open, onDismiss, anchor } = this.props
 
-    return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
-      anchorOffsetVertical={8} anchorOffsetHorizontal={4}
-      anchorOriginVertical='top' anchorOriginHorizontal='right'
-      popoverOriginVertical='top' popoverOriginHorizontal='right'>
-      {
-        (state, timings) => {
+    return (
+      <Popover
+        open={open}
+        onDismiss={onDismiss}
+        anchor={anchor}
+        anchorOffsetVertical={8}
+        anchorOffsetHorizontal={4}
+        anchorOriginVertical="top"
+        anchorOriginHorizontal="right"
+        popoverOriginVertical="top"
+        popoverOriginHorizontal="right">
+        {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style
           if (state === 'opening') {
@@ -46,21 +52,23 @@ export default class SelfProfileOverlay extends React.Component {
             }
           }
 
-          return (<TransitionGroup
-            transitionName={transitionNames} transitionAppear={true}
-            transitionAppearTimeout={openDelay + openDuration}
-            transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
-            {
-              state === 'opening' || state === 'opened' ?
-                <SelfProfileContents key={'contents'} user={user} style={style}>
-                  {children}
-                </SelfProfileContents> :
-                null
-            }
-          </TransitionGroup>)
-        }
-      }
-    </Popover>)
+          return (
+            <TransitionGroup
+              transitionName={transitionNames}
+              transitionAppear={true}
+              transitionAppearTimeout={openDelay + openDuration}
+              transitionEnterTimeout={openDuration}
+              transitionLeaveTimeout={closeDuration}>
+              {state === 'opening' || state === 'opened'
+                ? <SelfProfileContents key={'contents'} user={user} style={style}>
+                    {children}
+                  </SelfProfileContents>
+                : null}
+            </TransitionGroup>
+          )
+        }}
+      </Popover>
+    )
   }
 }
 
@@ -68,20 +76,24 @@ export class SelfProfileContents extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     style: PropTypes.object,
-  };
+  }
 
   render() {
     const { user, children, style } = this.props
 
-    return (<div className={styles.contents}>
-      <div className={styles.header} style={style}>
-        <Avatar className={styles.avatar} user={user} />
-        <h3 className={styles.username}>{user}</h3>
+    return (
+      <div className={styles.contents}>
+        <div className={styles.header} style={style}>
+          <Avatar className={styles.avatar} user={user} />
+          <h3 className={styles.username}>
+            {user}
+          </h3>
+        </div>
+        <div className={styles.actions} style={style}>
+          {children}
+        </div>
       </div>
-      <div className={styles.actions} style={style}>
-        { children }
-      </div>
-    </div>)
+    )
   }
 }
 
@@ -90,19 +102,19 @@ export class ProfileAction extends React.Component {
     text: PropTypes.string.isRequired,
     icon: PropTypes.node.isRequired,
     onClick: PropTypes.func,
-  };
+  }
 
   state = {
     active: false,
-  };
+  }
 
   onMouseEnter = () => {
     this.setState({ active: true })
-  };
+  }
 
   onMouseLeave = () => {
     this.setState({ active: false })
-  };
+  }
 
   render() {
     const { text, icon, onClick } = this.props
@@ -115,7 +127,8 @@ export class ProfileAction extends React.Component {
         onClick={onClick}
         active={active}
         onMouseEnter={this.onMouseEnter}
-        onMouseLeave={this.onMouseLeave}/>
+        onMouseLeave={this.onMouseLeave}
+      />
     )
   }
 }

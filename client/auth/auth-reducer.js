@@ -13,17 +13,14 @@ import { Auth, Permissions, User } from './auth-records'
 const initialState = new Auth()
 
 function begin(state, action) {
-  return (state.withMutations(s =>
-    s.set('authChangeInProgress', true)
-      .set('lastFailure', null)
-  ))
+  return state.withMutations(s => s.set('authChangeInProgress', true).set('lastFailure', null))
 }
 
 function logInSuccess(state, action) {
   const { user, permissions } = action.payload
   return new Auth({
     user: new User(user),
-    permissions: new Permissions(permissions)
+    permissions: new Permissions(permissions),
   })
 }
 
@@ -32,19 +29,17 @@ function logOutSuccess(state, action) {
 }
 
 function handleError(state, action) {
-  return (state.withMutations(s =>
-    s.set('authChangeInProgress', false)
-      .set('lastFailure', {
-        ...action.meta,
-        err: action.payload.body ? action.payload.body.error : 'Connection error'
-      })
-  ))
+  return state.withMutations(s =>
+    s.set('authChangeInProgress', false).set('lastFailure', {
+      ...action.meta,
+      err: action.payload.body ? action.payload.body.error : 'Connection error',
+    }),
+  )
 }
 
 function noOpOrError(state, action) {
   if (!action.error) {
-    return (state.set('authChangeInProgress', false)
-      .set('lastFailure', null))
+    return state.set('authChangeInProgress', false).set('lastFailure', null)
   } else {
     return handleError(state, action)
   }
@@ -56,8 +51,8 @@ const handlers = {
   [AUTH_LOG_IN]: logInSplitter,
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),
   [AUTH_SIGN_UP]: logInSplitter,
-  [AUTH_UPDATE]: (state, action) => (!action.error ? logInSuccess(state, action) :
-    state.set('authChangeInProgress', false)),
+  [AUTH_UPDATE]: (state, action) =>
+    !action.error ? logInSuccess(state, action) : state.set('authChangeInProgress', false),
   [AUTH_RESET_PASSWORD]: noOpOrError,
   [AUTH_RETRIEVE_USERNAME]: noOpOrError,
   [AUTH_START_PASSWORD_RESET]: noOpOrError,

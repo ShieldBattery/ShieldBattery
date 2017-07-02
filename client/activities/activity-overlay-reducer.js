@@ -1,8 +1,5 @@
 import { Record } from 'immutable'
-import {
-  ACTIVITY_OVERLAY_OPEN,
-  ACTIVITY_OVERLAY_CLOSE,
-} from '../actions'
+import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE } from '../actions'
 
 const OverlayStateBase = new Record({
   overlayType: null,

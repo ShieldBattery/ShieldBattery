@@ -10,17 +10,24 @@ export default class MenuItem extends React.Component {
     onClick: PropTypes.func,
     onMouseEnter: PropTypes.func,
     onMouseLeave: PropTypes.func,
-  };
+  }
 
   render() {
     const { active, icon, onClick, onMouseEnter, onMouseLeave, text } = this.props
     const className = active ? styles.active : styles.item
     return (
-      <div className={className}
-        onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
-        { icon ? <span className={styles.itemIcon}>{icon}</span> : null }
+      <div
+        className={className}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}>
+        {icon
+          ? <span className={styles.itemIcon}>
+              {icon}
+            </span>
+          : null}
         <span className={styles.itemText}>
-          { text }
+          {text}
         </span>
       </div>
     )

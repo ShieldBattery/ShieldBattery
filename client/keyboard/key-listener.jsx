@@ -52,7 +52,7 @@ export default class KeyListener extends React.Component {
     onKeyDown: PropTypes.func,
     onKeyUp: PropTypes.func,
     onKeyPress: PropTypes.func,
-  };
+  }
 
   _handleKeyDown(event) {
     return this.props.onKeyDown && this.props.onKeyDown(event)
@@ -92,7 +92,11 @@ export default class KeyListener extends React.Component {
     } else if (count === 1) {
       return React.Children.only(children)
     } else {
-      return <div>{ children }</div>
+      return (
+        <div>
+          {children}
+        </div>
+      )
     }
   }
 }

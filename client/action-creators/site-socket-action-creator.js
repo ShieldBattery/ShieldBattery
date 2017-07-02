@@ -11,13 +11,13 @@ export default function createSiteSocketAction(beginAction, action, route, param
   return dispatch => {
     dispatch({
       type: beginAction,
-      payload: params
+      payload: params,
     })
 
     dispatch({
       type: action,
       payload: siteSocket.invoke(route, params),
-      meta: params
+      meta: params,
     })
   }
 }

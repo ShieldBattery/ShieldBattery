@@ -76,10 +76,12 @@ function makeGameServer() {
 
   const nydus = require('nydus').default
   const http = require('http')
-  const httpServer = http.createServer((req, res) => {
-    res.writeHead(418)
-    res.end('life of lively 2 live 2 life of full life thx 2 shieldbattery\n')
-  }).listen(0, '127.0.0.1')
+  const httpServer = http
+    .createServer((req, res) => {
+      res.writeHead(418)
+      res.end('life of lively 2 live 2 life of full life thx 2 shieldbattery\n')
+    })
+    .listen(0, '127.0.0.1')
 
   const nydusServer = nydus(httpServer, { allowRequest: authorize })
   registerGameRoutes(nydusServer)

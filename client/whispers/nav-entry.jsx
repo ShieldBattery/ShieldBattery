@@ -11,18 +11,31 @@ export default class WhisperNavEntry extends React.Component {
     currentPath: PropTypes.string.isRequired,
     onClose: PropTypes.func.isRequired,
     hasUnread: PropTypes.bool,
-  };
+  }
 
   render() {
     const { user, currentPath, hasUnread } = this.props
-    const button = <IconButton className={styles.navCloseButton} icon={<CloseWhisperIcon />}
-      title='Close whisper' onClick={this.onClose} />
+    const button = (
+      <IconButton
+        className={styles.navCloseButton}
+        icon={<CloseWhisperIcon />}
+        title="Close whisper"
+        onClick={this.onClose}
+      />
+    )
 
-    return (<Entry link={`/whispers/${encodeURIComponent(user)}`} currentPath={currentPath}
-      button={button} needsAttention={hasUnread}>{user}</Entry>)
+    return (
+      <Entry
+        link={`/whispers/${encodeURIComponent(user)}`}
+        currentPath={currentPath}
+        button={button}
+        needsAttention={hasUnread}>
+        {user}
+      </Entry>
+    )
   }
 
   onClose = () => {
     this.props.onClose(this.props.user)
-  };
+  }
 }

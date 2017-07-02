@@ -32,5 +32,5 @@ export default class Replays extends React.Component {
   onStartReplay = replay => {
     this.props.dispatch(closeOverlay())
     this.props.dispatch(startReplay(replay))
-  };
+  }
 }

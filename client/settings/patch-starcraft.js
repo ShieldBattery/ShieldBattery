@@ -11,7 +11,6 @@ import { remote } from 'electron'
 
 const asyncMkdirp = thenify(mkdirp)
 
-
 const bspatchPath = path.resolve(remote.app.getAppPath(), '../game/dist/bspatch.exe')
 
 function runBspatch(origFile, destFile, patchFile) {
@@ -24,7 +23,10 @@ function runBspatch(origFile, destFile, patchFile) {
     }
 
     let err
-    spawned.on('error', e => { err = err || e })
+    spawned
+      .on('error', e => {
+        err = err || e
+      })
       .on('close', (code, signal) => {
         if (err === undefined && code !== 0) {
           err = new Error('Non-zero exit code: ' + (signal || code))
@@ -51,7 +53,7 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
   const inFile = path.join(dirPath, filename)
   const outFile = path.join(outPath, filename)
 
-  const [outValid, ] = await checkFileHash(outFile, validHashes)
+  const [outValid] = await checkFileHash(outFile, validHashes)
   if (outValid) {
     return
   }
@@ -67,12 +69,13 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
   }
 
   if (!inHash) {
-    throw new Error('File doesn\'t exist: ' + inFile)
+    throw new Error("File doesn't exist: " + inFile)
   }
 
   // Check if there's a patch available for this version
   const { url } = await fetchJson(
-    `/api/1/patches/${encodeURIComponent(filename)}/${encodeURIComponent(inHash)}`)
+    `/api/1/patches/${encodeURIComponent(filename)}/${encodeURIComponent(inHash)}`,
+  )
   const tempPatchFile = path.join(outPath, `${filename}-${Date.now()}.patch`)
   const patchFileStream = fs.createWriteStream(tempPatchFile)
   const downloadStream = fetchReadableStream(url)

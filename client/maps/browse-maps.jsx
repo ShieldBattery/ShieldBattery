@@ -24,7 +24,7 @@ export default class Replays extends React.Component {
       rootFolderName: 'Maps',
       root,
       fileTypes,
-      error: this.props.maps.localMapError
+      error: this.props.maps.localMapError,
     }
 
     return <BrowseFiles {...props} />

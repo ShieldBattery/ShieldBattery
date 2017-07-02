@@ -13,7 +13,6 @@ import AcceptMatch from '../matchmaking/accept-match.jsx'
 import { closeDialog } from './dialog-action-creator'
 import styles from '../material/dialog.css'
 
-
 const transitionNames = {
   enter: styles.enter,
   enterActive: styles.enterActive,
@@ -23,21 +22,33 @@ const transitionNames = {
 
 @connect(state => ({ dialog: state.dialog }))
 class ConnectedDialogOverlay extends React.Component {
-  _focusable = null;
-  _setFocusable = elem => { this._focusable = elem };
+  _focusable = null
+  _setFocusable = elem => {
+    this._focusable = elem
+  }
 
   getDialogComponent(dialogType) {
     switch (dialogType) {
-      case 'acceptMatch': return AcceptMatch
-      case 'changelog': return ChangelogDialog
-      case 'channel': return JoinChannelDialog
-      case 'download': return DownloadDialog
-      case 'psiHealth': return PsiHealthCheckupDialog
-      case 'settings': return Settings
-      case 'simple': return SimpleDialog
-      case 'updateAvailable': return UpdateDialog
-      case 'whispers': return CreateWhisperSessionDialog
-      default: throw new Error('Unknown dialog type: ' + dialogType)
+      case 'acceptMatch':
+        return AcceptMatch
+      case 'changelog':
+        return ChangelogDialog
+      case 'channel':
+        return JoinChannelDialog
+      case 'download':
+        return DownloadDialog
+      case 'psiHealth':
+        return PsiHealthCheckupDialog
+      case 'settings':
+        return Settings
+      case 'simple':
+        return SimpleDialog
+      case 'updateAvailable':
+        return UpdateDialog
+      case 'whispers':
+        return CreateWhisperSessionDialog
+      default:
+        throw new Error('Unknown dialog type: ' + dialogType)
     }
   }
 
@@ -49,19 +60,27 @@ class ConnectedDialogOverlay extends React.Component {
     let dialogComponent
     if (dialog.isDialogOpened) {
       const DialogComponent = this.getDialogComponent(dialog.dialogType)
-      dialogComponent = <DialogComponent key='dialog' onCancel={this.onCancel}
-        simpleTitle={dialog.simpleTitle} simpleContent={dialog.simpleContent}/>
+      dialogComponent = (
+        <DialogComponent
+          key="dialog"
+          onCancel={this.onCancel}
+          simpleTitle={dialog.simpleTitle}
+          simpleContent={dialog.simpleContent}
+        />
+      )
     }
 
     return [
-      <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap}/>,
-      <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
-        <TransitionGroup transitionName={transitionNames}
-          transitionEnterTimeout={350} transitionLeaveTimeout={250}>
-          { dialogComponent }
+      <span key="topFocus" tabIndex={0} onFocus={this.onFocusTrap} />,
+      <span key="mainFocus" ref={this._setFocusable} tabIndex={-1}>
+        <TransitionGroup
+          transitionName={transitionNames}
+          transitionEnterTimeout={350}
+          transitionLeaveTimeout={250}>
+          {dialogComponent}
         </TransitionGroup>
       </span>,
-      <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap}/>,
+      <span key="bottomFocus" tabIndex={0} onFocus={this.onFocusTrap} />,
     ]
   }
 
@@ -69,22 +88,24 @@ class ConnectedDialogOverlay extends React.Component {
     const { dialog } = this.props
     // We always render a dialog even if we don't have one, so that its always mounted (and
     // thus usable for TransitionGroup animations)
-    return (<div className={this.props.containerClassName}>
-      <div className={this.props.className} aria-hidden={dialog.isDialogOpened}>
-        {this.props.children}
+    return (
+      <div className={this.props.containerClassName}>
+        <div className={this.props.className} aria-hidden={dialog.isDialogOpened}>
+          {this.props.children}
+        </div>
+        {this.renderDialog()}
       </div>
-      {this.renderDialog()}
-    </div>)
+    )
   }
 
   onCancel = () => {
     this.props.dispatch(closeDialog())
-  };
+  }
 
   onFocusTrap = () => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
     this._focusable.focus()
-  };
+  }
 }
 
 export default ConnectedDialogOverlay

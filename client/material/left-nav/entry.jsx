@@ -12,7 +12,7 @@ export default class Entry extends React.Component {
     title: PropTypes.string,
     button: PropTypes.element,
     needsAttention: PropTypes.bool,
-  };
+  }
 
   render() {
     const { link, currentPath, title, button, needsAttention, children } = this.props
@@ -21,10 +21,16 @@ export default class Entry extends React.Component {
     const classes = isActive ? styles.active : styles.entry
 
     // TODO(tec27): only add title if the link is actually cut off, or add marquee'ing?
-    return (<li className={classes}>
-      {needsAttention ? <AttentionIndicator /> : null}
-      <Link className={styles.entryLink} to={link} title={title}>{children}</Link>
-      <div className={styles.entryButton}>{ button }</div>
-    </li>)
+    return (
+      <li className={classes}>
+        {needsAttention ? <AttentionIndicator /> : null}
+        <Link className={styles.entryLink} to={link} title={title}>
+          {children}
+        </Link>
+        <div className={styles.entryButton}>
+          {button}
+        </div>
+      </li>
+    )
   }
 }

@@ -48,7 +48,7 @@ export default class Popover extends React.Component {
     // The horizontal side of the Popover that should sit adjacent to the anchor element ('left' or
     // 'right'). Defaults to left.
     popoverOriginHorizontal: PropTypes.oneOf(['left', 'right']),
-  };
+  }
 
   static defaultProps = {
     anchorOriginVertical: 'top',
@@ -56,8 +56,8 @@ export default class Popover extends React.Component {
     anchorOffsetVertical: 0,
     anchorOffsetHorizontal: 0,
     popoverOriginVertical: 'top',
-    popoverOriginHorizontal: 'left'
-  };
+    popoverOriginHorizontal: 'left',
+  }
 
   state = {
     open: this.props.open,
@@ -74,10 +74,10 @@ export default class Popover extends React.Component {
     backgroundStyle: {
       opacity: 0.1,
     },
-  };
-  animationId = null;
-  openTimer = null;
-  closeTimer = null;
+  }
+  animationId = null
+  openTimer = null
+  closeTimer = null
 
   get opening() {
     return this.state.transitioning && this.props.open
@@ -96,7 +96,7 @@ export default class Popover extends React.Component {
     }
 
     return false
-  };
+  }
 
   animateOnOpen = props => {
     this.setState({
@@ -115,7 +115,7 @@ export default class Popover extends React.Component {
         transition: `opacity 150ms ${fastOutSlowIn}`,
       },
     })
-  };
+  }
 
   calculatePopoverPosition(props) {
     if (!props.anchor) {
@@ -187,8 +187,10 @@ export default class Popover extends React.Component {
           popoverPosition: this.calculatePopoverPosition(nextProps),
         })
         clearTimeout(this.openTimer)
-        this.openTimer =
-            setTimeout(() => this.setState({ transitioning: false }), OPEN_DELAY + OPEN_DURATION)
+        this.openTimer = setTimeout(
+          () => this.setState({ transitioning: false }),
+          OPEN_DELAY + OPEN_DURATION,
+        )
         clearTimeout(this.closeTimer)
         this.closeTimer = null
       } else {
@@ -210,8 +212,10 @@ export default class Popover extends React.Component {
           },
         })
         clearTimeout(this.closeTimer)
-        this.closeTimer =
-            setTimeout(() => this.setState({ open: false, transitioning: false }), CLOSE_DURATION)
+        this.closeTimer = setTimeout(
+          () => this.setState({ open: false, transitioning: false }),
+          CLOSE_DURATION,
+        )
       }
     }
   }
@@ -245,34 +249,36 @@ export default class Popover extends React.Component {
         right: pos.right,
       }
 
-      return (<span>
-        <WindowListener event='resize' listener={this.recalcPopoverPosition} />
-        <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
-        <KeyListener onKeyDown={this.onKeyDown}>
-          {
-            open ?
-              <div key={'popover'} className={styles.popover} style={popoverStyle}>
-                <div className={styles.scaleHorizontal} style={this.state.scaleHorizontalStyle}>
-                  <div className={styles.scaleVertical} style={this.state.scaleVerticalStyle}>
-                    <div className={styles.background} style={this.state.backgroundStyle} />
+      return (
+        <span>
+          <WindowListener event="resize" listener={this.recalcPopoverPosition} />
+          <WindowListener event="scroll" listener={this.recalcPopoverPosition} />
+          <KeyListener onKeyDown={this.onKeyDown}>
+            {open
+              ? <div key={'popover'} className={styles.popover} style={popoverStyle}>
+                  <div className={styles.scaleHorizontal} style={this.state.scaleHorizontalStyle}>
+                    <div className={styles.scaleVertical} style={this.state.scaleVerticalStyle}>
+                      <div className={styles.background} style={this.state.backgroundStyle} />
+                    </div>
                   </div>
+                  {children(state, TIMINGS)}
                 </div>
-                { children(state, TIMINGS) }
-              </div> :
-              null
-          }
-        </KeyListener>
-      </span>)
+              : null}
+          </KeyListener>
+        </span>
+      )
     }
 
-    return (<Portal onDismiss={onDismiss} open={open}>
-      { renderContents }
-    </Portal>)
+    return (
+      <Portal onDismiss={onDismiss} open={open}>
+        {renderContents}
+      </Portal>
+    )
   }
 
   recalcPopoverPosition = () => {
     this.setState({
       popoverPosition: this.calculatePopoverPosition(this.props),
     })
-  };
+  }
 }

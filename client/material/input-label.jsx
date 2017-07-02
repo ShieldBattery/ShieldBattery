@@ -7,7 +7,11 @@ const Label = props => {
   const classes = classnames(styles.label, {
     [styles.hasValue]: props.hasValue,
   })
-  return <label className={classes} htmlFor={props.htmlFor}>{props.text}</label>
+  return (
+    <label className={classes} htmlFor={props.htmlFor}>
+      {props.text}
+    </label>
+  )
 }
 
 Label.propTypes = {

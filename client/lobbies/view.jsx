@@ -37,9 +37,9 @@ const mapStateToProps = state => {
 // Returns true if the lobby store state shows that we have left the current lobby
 function isLeavingLobby(oldProps, newProps) {
   return (
-    oldProps.params === newProps.params && /* rule out a route change */
+    oldProps.params === newProps.params /* rule out a route change */ &&
     oldProps.lobby.inLobby &&
-    oldProps.lobby.info.name === oldProps.params.lobby && /* we were in this lobby */
+    oldProps.lobby.info.name === oldProps.params.lobby /* we were in this lobby */ &&
     !newProps.lobby.inLobby /* now we're not */
   )
 }
@@ -91,33 +91,45 @@ export default class LobbyView extends React.Component {
     } else if (lobby.info.isLoading) {
       content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
-      content = <Lobby lobby={lobby.info} chat={lobby.chat} user={user}
-        onAddComputer={this.onAddComputer} onSetRace={this.onSetRace}
-        onSwitchSlot={this.onSwitchSlot} onOpenSlot={this.onOpenSlot}
-        onCloseSlot={this.onCloseSlot} onKickPlayer={this.onKickPlayer}
-        onBanPlayer={this.onBanPlayer} onStartGame={this.onStartGame}
-        onSendChatMessage={this.onSendChatMessage} />
-      actions = [
-        <FlatButton key='leave' label='Leave lobby' onClick={this.onLeaveLobbyClick} />,
-      ]
+      content = (
+        <Lobby
+          lobby={lobby.info}
+          chat={lobby.chat}
+          user={user}
+          onAddComputer={this.onAddComputer}
+          onSetRace={this.onSetRace}
+          onSwitchSlot={this.onSwitchSlot}
+          onOpenSlot={this.onOpenSlot}
+          onCloseSlot={this.onCloseSlot}
+          onKickPlayer={this.onKickPlayer}
+          onBanPlayer={this.onBanPlayer}
+          onStartGame={this.onStartGame}
+          onSendChatMessage={this.onSendChatMessage}
+        />
+      )
+      actions = [<FlatButton key="leave" label="Leave lobby" onClick={this.onLeaveLobbyClick} />]
     }
 
-    return (<ContentLayout title={this.props.params.lobby} actions={actions}
-      appBarContentClassName={styles.appBarContent}>
-      { content }
-    </ContentLayout>)
+    return (
+      <ContentLayout
+        title={this.props.params.lobby}
+        actions={actions}
+        appBarContentClassName={styles.appBarContent}>
+        {content}
+      </ContentLayout>
+    )
   }
 
   // TODO(tec27): refactor out into its own component
   renderLobbyStateContent(state) {
     switch (state) {
       case 'nonexistent':
-        return <p key='stateContent'>Lobby doesn't exist. Create it?</p>
+        return <p key="stateContent">Lobby doesn't exist. Create it?</p>
       case 'exists':
-        return <p key='stateContent'>Lobby already exists. Join it?</p>
+        return <p key="stateContent">Lobby already exists. Join it?</p>
       case 'countingDown':
       case 'hasStarted':
-        return <p key='stateContent'>Lobby already started.</p>
+        return <p key="stateContent">Lobby already started.</p>
       default:
         throw new Error('Unknown lobby state: ' + state)
     }
@@ -134,27 +146,39 @@ export default class LobbyView extends React.Component {
     let preLobbyAreaContents
     if (!lobby.state && !lobby.error) {
       if (lobby.isRequesting) {
-        preLobbyAreaContents = <div className={styles.loadingArea}><LoadingIndicator /></div>
+        preLobbyAreaContents = (
+          <div className={styles.loadingArea}>
+            <LoadingIndicator />
+          </div>
+        )
       } else {
         preLobbyAreaContents = <span>There was a problem loading this lobby</span>
       }
     } else if (lobby.state) {
       preLobbyAreaContents = [
-        lobby.isRequesting ?
-          <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
+        lobby.isRequesting
+          ? <div key="loading" className={styles.loadingArea}>
+              <LoadingIndicator />
+            </div>
+          : null,
         this.renderLobbyStateContent(lobby.state),
       ]
     } else if (lobby.error) {
       preLobbyAreaContents = [
-        lobby.isRequesting ?
-          <div key='loading' className={styles.loadingArea}><LoadingIndicator /></div> : null,
+        lobby.isRequesting
+          ? <div key="loading" className={styles.loadingArea}>
+              <LoadingIndicator />
+            </div>
+          : null,
         <p>There was a problem loading this lobby</p>,
       ]
     }
 
-    return (<div className={styles.preLobbyArea}>
-      { preLobbyAreaContents }
-    </div>)
+    return (
+      <div className={styles.preLobbyArea}>
+        {preLobbyAreaContents}
+      </div>
+    )
   }
 
   renderLeaveAndJoin() {
@@ -163,41 +187,41 @@ export default class LobbyView extends React.Component {
 
   onLeaveLobbyClick = () => {
     this.props.dispatch(leaveLobby())
-  };
+  }
 
   onAddComputer = slotId => {
     this.props.dispatch(addComputer(slotId))
-  };
+  }
 
   onSwitchSlot = slotId => {
     this.props.dispatch(changeSlot(slotId))
-  };
+  }
 
   onOpenSlot = slotId => {
     this.props.dispatch(openSlot(slotId))
-  };
+  }
 
   onCloseSlot = slotId => {
     this.props.dispatch(closeSlot(slotId))
-  };
+  }
 
   onKickPlayer = slotId => {
     this.props.dispatch(kickPlayer(slotId))
-  };
+  }
 
   onBanPlayer = slotId => {
     this.props.dispatch(banPlayer(slotId))
-  };
+  }
 
   onSetRace = (slotId, race) => {
     this.props.dispatch(setRace(slotId, race))
-  };
+  }
 
   onSendChatMessage = message => {
     this.props.dispatch(sendChat(message))
-  };
+  }
 
   onStartGame = () => {
     this.props.dispatch(startCountdown())
-  };
+  }
 }

@@ -25,26 +25,31 @@ function parsePrefixedJson(str) {
 
 const defaults = {
   get headers() {
-    return process.webpackEnv.SB_ENV === 'web' ? {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN'],
-    } : {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-Shield-Battery-Client': 'true',
-    }
+    return process.webpackEnv.SB_ENV === 'web'
+      ? {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN'],
+        }
+      : {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Shield-Battery-Client': 'true',
+        }
   },
-  credentials: 'same-origin'
+  credentials: 'same-origin',
 }
 export function fetchRaw(path, opts) {
   const serverUrl = path.startsWith('http') ? path : makeServerUrl(path)
   if (!opts) {
-    const compiledOpts = path !== serverUrl ? {
-      ...defaults,
-      // Include credentials for non-web clients because everything is cross-origin
-      credentials: 'include',
-    } : defaults
+    const compiledOpts =
+      path !== serverUrl
+        ? {
+            ...defaults,
+            // Include credentials for non-web clients because everything is cross-origin
+            credentials: 'include',
+          }
+        : defaults
     return fetch(serverUrl, compiledOpts)
   }
 
@@ -59,10 +64,13 @@ export function fetchRaw(path, opts) {
     delete headers['Content-Type']
   }
 
-  const credentials = path !== serverUrl ? {
-    // Include credentials for non-web clients because everything is cross-origin
-    credentials: 'include',
-  } : null
+  const credentials =
+    path !== serverUrl
+      ? {
+          // Include credentials for non-web clients because everything is cross-origin
+          credentials: 'include',
+        }
+      : null
 
   return fetch(serverUrl, {
     ...defaults,
@@ -73,7 +81,7 @@ export function fetchRaw(path, opts) {
 }
 
 export function fetchJson(path, opts) {
-  return (fetchRaw(path, opts)
+  return fetchRaw(path, opts)
     .then(ensureSuccessStatus)
     .then(res => res.text())
     .then(parsePrefixedJson)
@@ -81,16 +89,17 @@ export function fetchJson(path, opts) {
       if (!err.res) throw err
 
       // Make a best effort to parse the error body as JSON
-      return (err.res.text()
-        .then(parsePrefixedJson)
-        .then(errJson => {
+      return err.res.text().then(parsePrefixedJson).then(
+        errJson => {
           err.body = errJson
           throw err
-        }, () => {
+        },
+        () => {
           err.body = { error: err.message }
           throw err
-        }))
-    }))
+        },
+      )
+    })
 }
 
 // Wraps the whatwg ReadableStream to be a Node ReadableStream
@@ -111,22 +120,20 @@ class BrowserReadableStreamWrapper extends Readable {
   }
 
   _doRead() {
-    this._readerPromise
-      .then(reader => reader.read())
-      .then(({ value, done }) => {
-        if (done) {
-          this.push(null)
-          this._reading = false
-          return
-        }
+    this._readerPromise.then(reader => reader.read()).then(({ value, done }) => {
+      if (done) {
+        this.push(null)
+        this._reading = false
+        return
+      }
 
-        const keepGoing = this.push(Buffer.from(value.buffer))
-        if (keepGoing) {
-          this._doRead()
-        } else {
-          this._reading = false
-        }
-      }, this._emitError)
+      const keepGoing = this.push(Buffer.from(value.buffer))
+      if (keepGoing) {
+        this._doRead()
+      } else {
+        this._reading = false
+      }
+    }, this._emitError)
   }
 
   _emitError = err => {

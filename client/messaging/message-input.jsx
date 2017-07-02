@@ -7,22 +7,34 @@ export default class MessageInput extends React.Component {
   static propTypes = {
     className: PropTypes.any,
     onSend: PropTypes.func.isRequired,
-  };
+  }
   state = {
-    message: ''
-  };
-  _ref = null;
-  _setRef = elem => { this._ref = elem };
+    message: '',
+  }
+  _ref = null
+  _setRef = elem => {
+    this._ref = elem
+  }
 
   render() {
     const { className } = this.props
     const { message } = this.state
-    return (<KeyListener onKeyPress={this.onKeyPress}>
-      <TextField ref={this._setRef} className={className} label='Send a message' value={message}
-        maxLength={500} floatingLabel={false} allowErrors={false}
-        inputProps={{ autoComplete: 'off' }}
-        onEnterKeyDown={this.onEnterKeyDown} onChange={this.onChange}/>
-    </KeyListener>)
+    return (
+      <KeyListener onKeyPress={this.onKeyPress}>
+        <TextField
+          ref={this._setRef}
+          className={className}
+          label="Send a message"
+          value={message}
+          maxLength={500}
+          floatingLabel={false}
+          allowErrors={false}
+          inputProps={{ autoComplete: 'off' }}
+          onEnterKeyDown={this.onEnterKeyDown}
+          onChange={this.onChange}
+        />
+      </KeyListener>
+    )
   }
 
   onChange = e => {
@@ -30,19 +42,22 @@ export default class MessageInput extends React.Component {
     if (value !== this.state.message) {
       this.setState({ message: value })
     }
-  };
+  }
 
   onEnterKeyDown = () => {
     if (this.state.message) {
       this.props.onSend(this.state.message)
       this.setState({ message: '' })
     }
-  };
+  }
 
   onKeyPress = event => {
-    if (event.target === this._ref ||
-        event.ctrlKey || event.altKey ||
-        ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) {
+    if (
+      event.target === this._ref ||
+      event.ctrlKey ||
+      event.altKey ||
+      ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)
+    ) {
       return false
     }
 
@@ -59,5 +74,5 @@ export default class MessageInput extends React.Component {
     }
 
     return false
-  };
+  }
 }

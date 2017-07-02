@@ -26,8 +26,10 @@ class TransitionSnackbar extends React.Component {
 
   _startSnackbarTimer() {
     if (this.props.time === -1) return
-    this._timer =
-        setTimeout(() => this.props.dispatch(closeSnackbar(this.props.id)), this.props.time)
+    this._timer = setTimeout(
+      () => this.props.dispatch(closeSnackbar(this.props.id)),
+      this.props.time,
+    )
   }
 
   _stopTimers() {
@@ -83,20 +85,34 @@ class ConnectedSnackbar extends React.Component {
     let elem = null
     if (!this._awaitingLeave && snackbars.size > 0) {
       const bar = snackbars.get(0)
-      const action = bar.action ?
-        id => {
-          bar.action()
-          this.props.dispatch(closeSnackbar(id))
-        } : undefined
-      elem = <TransitionSnackbar key={bar.id} id={bar.id} message={bar.message}
-        actionLabel={bar.actionLabel} action={action} time={bar.time}
-        dispatch={this.props.dispatch} onLeft={this._handleChildLeft}/>
+      const action = bar.action
+        ? id => {
+            bar.action()
+            this.props.dispatch(closeSnackbar(id))
+          }
+        : undefined
+      elem = (
+        <TransitionSnackbar
+          key={bar.id}
+          id={bar.id}
+          message={bar.message}
+          actionLabel={bar.actionLabel}
+          action={action}
+          time={bar.time}
+          dispatch={this.props.dispatch}
+          onLeft={this._handleChildLeft}
+        />
+      )
     }
 
-    return (<TransitionGroup transitionName={transitionNames}
-      transitionEnterTimeout={ENTER_TIME} transitionLeaveTimeout={LEAVE_TIME}>
-      {elem}
-    </TransitionGroup>)
+    return (
+      <TransitionGroup
+        transitionName={transitionNames}
+        transitionEnterTimeout={ENTER_TIME}
+        transitionLeaveTimeout={LEAVE_TIME}>
+        {elem}
+      </TransitionGroup>
+    )
   }
 
   onChildLeft() {

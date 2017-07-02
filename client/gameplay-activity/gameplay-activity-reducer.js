@@ -1,10 +1,6 @@
 import { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import {
-  LOBBY_UPDATE_STATUS,
-  MATCHMAKING_UPDATE_STATUS,
-  NETWORK_SITE_CONNECTED,
-} from '../actions'
+import { LOBBY_UPDATE_STATUS, MATCHMAKING_UPDATE_STATUS, NETWORK_SITE_CONNECTED } from '../actions'
 
 const BaseGameplayActivity = new Record({
   gameplayActivity: null,

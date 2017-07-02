@@ -5,6 +5,6 @@ export function subscribeToCommands(nydus, socket, id) {
 export function sendCommand(nydus, id, command, payload) {
   nydus.publish(`/game/${id}`, {
     command,
-    payload
+    payload,
   })
 }

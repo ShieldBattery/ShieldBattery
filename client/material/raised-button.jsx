@@ -21,6 +21,6 @@ export default class RaisedButton extends React.Component {
       [styles.accent]: this.props.color === 'accent',
     })
 
-    return (<Button {...this.props} className={classes}/>)
+    return <Button {...this.props} className={classes} />
   }
 }

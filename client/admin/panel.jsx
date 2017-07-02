@@ -8,15 +8,29 @@ export default class Panel extends React.Component {
   render() {
     const perms = this.props.auth.permissions
 
-    const usersLink = (perms.editPermissions || perms.banUsers) ?
-      <li><Link to='/admin/users'>View user's profile</Link></li> : null
-    const uploadLink = perms.manageMaps && process.webpackEnv.SB_ENV === 'electron' ?
-      <li><Link to='/admin/map-upload'>Mass map upload</Link></li> : null
+    const usersLink =
+      perms.editPermissions || perms.banUsers
+        ? <li>
+            <Link to="/admin/users">View user's profile</Link>
+          </li>
+        : null
+    const uploadLink =
+      perms.manageMaps && process.webpackEnv.SB_ENV === 'electron'
+        ? <li>
+            <Link to="/admin/map-upload">Mass map upload</Link>
+          </li>
+        : null
     const managePatchesLink =
-        perms.manageStarcraftPatches && process.webpackEnv.SB_ENV === 'electron' ?
-          <li><Link to='/admin/patch-upload'>Upload StarCraft patch</Link></li> : null
-    const invitesLink = perms.acceptInvites ?
-      <li><Link to='/admin/invites'>View beta invites</Link></li> : null
+      perms.manageStarcraftPatches && process.webpackEnv.SB_ENV === 'electron'
+        ? <li>
+            <Link to="/admin/patch-upload">Upload StarCraft patch</Link>
+          </li>
+        : null
+    const invitesLink = perms.acceptInvites
+      ? <li>
+          <Link to="/admin/invites">View beta invites</Link>
+        </li>
+      : null
 
     return (
       <ContentLayout title={'Admin panel'}>

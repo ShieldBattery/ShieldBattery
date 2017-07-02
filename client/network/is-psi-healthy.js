@@ -9,12 +9,14 @@ import {
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
-const checkStarcraftPath = process.webpackEnv.SB_ENV === 'electron' ?
-  require('../settings/check-starcraft-path').checkStarcraftPath :
-  null
-const patchStarcraftDir = process.webpackEnv.SB_ENV === 'electron' ?
-  require('../settings/patch-starcraft').patchStarcraftDir :
-  null
+const checkStarcraftPath =
+  process.webpackEnv.SB_ENV === 'electron'
+    ? require('../settings/check-starcraft-path').checkStarcraftPath
+    : null
+const patchStarcraftDir =
+  process.webpackEnv.SB_ENV === 'electron'
+    ? require('../settings/patch-starcraft').patchStarcraftDir
+    : null
 
 export function hasValidStarcraftPath({ starcraft }) {
   return starcraft.pathValid
@@ -25,10 +27,8 @@ export function hasValidStarcraftVersion({ starcraft }) {
 }
 
 export function isPsiHealthy({ starcraft }) {
-  return (hasValidStarcraftPath({ starcraft }) &&
-      hasValidStarcraftVersion({ starcraft }))
+  return hasValidStarcraftPath({ starcraft }) && hasValidStarcraftVersion({ starcraft })
 }
-
 
 export function handleCheckStarcraftPathResult(result) {
   return dispatch => {
@@ -42,8 +42,7 @@ const MIN_TIME_BETWEEN_DOWNGRADES_MS = 60000
 export function maybeAttemptDowngrade(starcraftPath, downgradePath) {
   return (dispatch, getState) => {
     const { starcraft: { downgradeInProgress, lastDowngradeAttempt } } = getState()
-    if (downgradeInProgress ||
-        (Date.now() - lastDowngradeAttempt) < MIN_TIME_BETWEEN_DOWNGRADES_MS) {
+    if (downgradeInProgress || Date.now() - lastDowngradeAttempt < MIN_TIME_BETWEEN_DOWNGRADES_MS) {
       return
     }
 
@@ -58,7 +57,8 @@ export function forceAttemptDowngrade(starcraftPath, downgradePath) {
     const patchPromise = patchStarcraftDir(starcraftPath, downgradePath)
     dispatch({ type: STARCRAFT_DOWNGRADE, payload: patchPromise })
 
-    patchPromise.then(() => checkStarcraftPath(starcraftPath, downgradePath))
+    patchPromise
+      .then(() => checkStarcraftPath(starcraftPath, downgradePath))
       .then(result => dispatch(handleCheckStarcraftPathResult(result)))
       .catch(() => {})
 

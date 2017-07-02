@@ -12,7 +12,7 @@ import {
   CHAT_LOAD_USER_LIST_BEGIN,
   CHAT_LOAD_USER_LIST,
   CHAT_SEND_MESSAGE_BEGIN,
-  CHAT_SEND_MESSAGE
+  CHAT_SEND_MESSAGE,
 } from '../actions'
 
 export function joinChannel(channel) {
@@ -79,12 +79,12 @@ export function retrieveInitialMessageHistory(channel) {
 
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
-      payload: params
+      payload: params,
     })
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY,
       payload: siteSocket.invoke('/chat/getHistory', params),
-      meta: params
+      meta: params,
     })
   }
 }
@@ -106,12 +106,12 @@ export function retrieveNextMessageHistory(channel) {
 
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
-      payload: params
+      payload: params,
     })
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY,
       payload: siteSocket.invoke('/chat/getHistory', params),
-      meta: params
+      meta: params,
     })
   }
 }
@@ -132,12 +132,12 @@ export function retrieveUserList(channel) {
     const params = { channel }
     dispatch({
       type: CHAT_LOAD_USER_LIST_BEGIN,
-      payload: params
+      payload: params,
     })
     dispatch({
       type: CHAT_LOAD_USER_LIST,
       payload: siteSocket.invoke('/chat/getUsers', params),
-      meta: params
+      meta: params,
     })
   }
 }

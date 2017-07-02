@@ -17,6 +17,6 @@ export function openSimpleDialog(simpleTitle, simpleContent) {
 
 export function closeDialog() {
   return {
-    type: DIALOG_CLOSE
+    type: DIALOG_CLOSE,
   }
 }

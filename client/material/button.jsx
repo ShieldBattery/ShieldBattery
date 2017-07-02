@@ -7,10 +7,7 @@ import styles from './button.css'
 // RaisedButton instead
 export default class Button extends React.Component {
   static propTypes = {
-    label: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.element,
-    ]).isRequired,
+    label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]).isRequired,
     labelClassName: PropTypes.string,
     onBlur: PropTypes.func,
     onFocus: PropTypes.func,
@@ -22,18 +19,18 @@ export default class Button extends React.Component {
   constructor(props) {
     super(props)
     this.state = {
-      isKeyboardFocused: false
+      isKeyboardFocused: false,
     }
     this.mouseActive = false
     this.clearMouseActive = null
   }
-  _ref = null;
+  _ref = null
   _setRef = elem => {
     this._ref = elem
     if (this.props.buttonRef) {
       this.props.buttonRef(elem)
     }
-  };
+  }
 
   render() {
     const {
@@ -41,7 +38,7 @@ export default class Button extends React.Component {
       label,
       labelClassName,
       buttonRef, // eslint-disable-line no-unused-vars
-      ...otherProps,
+      ...otherProps
     } = this.props
 
     const classes = classnames(className, {
@@ -57,9 +54,13 @@ export default class Button extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
     }
 
-    return (<button ref={this._setRef} {...otherProps} {...buttonProps}>
-      <span className={labelClasses}>{label}</span>
-    </button>)
+    return (
+      <button ref={this._setRef} {...otherProps} {...buttonProps}>
+        <span className={labelClasses}>
+          {label}
+        </span>
+      </button>
+    )
   }
 
   isKeyboardFocused() {

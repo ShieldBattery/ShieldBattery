@@ -28,10 +28,12 @@ function createSummary(lobbyData) {
 }
 
 function handleFull(state, data) {
-  const byName = new Map(data.map(lobby => {
-    const summary = createSummary(lobby)
-    return [ summary.name, summary ]
-  }))
+  const byName = new Map(
+    data.map(lobby => {
+      const summary = createSummary(lobby)
+      return [summary.name, summary]
+    }),
+  )
   const list = byName.keySeq().sort((a, b) => a.localeCompare(b)).toList()
   return new LobbyList({ list, byName })
 }
@@ -42,22 +44,22 @@ function handleAdd(state, data) {
   const insertBefore = state.list.findEntry(name => data.name.localeCompare(name) < 1)
   const index = insertBefore ? insertBefore[0] : state.list.size
   const updatedList = state.list.insert(index, data.name)
-  return state.setIn([ 'byName', data.name ], createSummary(data)).set('list', updatedList)
+  return state.setIn(['byName', data.name], createSummary(data)).set('list', updatedList)
 }
 
 function handleUpdate(state, data) {
   if (!state.byName.has(data.name)) return state
 
   const summary = createSummary(data)
-  return state.setIn([ 'byName', summary.name ], summary)
+  return state.setIn(['byName', summary.name], summary)
 }
 
 function handleDelete(state, data) {
   if (!state.byName.has(data)) return state
 
-  const newState = state.deleteIn([ 'byName', data ])
+  const newState = state.deleteIn(['byName', data])
   const listEntry = state.list.findEntry(name => name === data)
-  return newState.deleteIn([ 'list', listEntry[0] ])
+  return newState.deleteIn(['list', listEntry[0]])
 }
 
 export default function lobbyListReducer(state = new LobbyList(), action) {
@@ -65,10 +67,15 @@ export default function lobbyListReducer(state = new LobbyList(), action) {
 
   const { message, data } = action.payload
   switch (message) {
-    case 'full': return handleFull(state, data)
-    case 'add': return handleAdd(state, data)
-    case 'update': return handleUpdate(state, data)
-    case 'delete': return handleDelete(state, data)
-    default: return state
+    case 'full':
+      return handleFull(state, data)
+    case 'add':
+      return handleAdd(state, data)
+    case 'update':
+      return handleUpdate(state, data)
+    case 'delete':
+      return handleDelete(state, data)
+    default:
+      return state
   }
 }
