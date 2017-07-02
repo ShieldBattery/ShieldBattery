@@ -16,33 +16,32 @@ export const CHANNEL_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}|?<>:;,'"]+$/
 export const CHANNEL_MAXLENGTH = 64
 
 export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
-export const MATCHMAKING_TYPES = [
-  '1v1'
-]
+export const MATCHMAKING_TYPES = ['1v1']
 
 export function isValidUsername(username) {
-  return (username &&
+  return (
+    username &&
     username.length >= USERNAME_MINLENGTH &&
     username.length <= USERNAME_MAXLENGTH &&
-    USERNAME_PATTERN.test(username))
+    USERNAME_PATTERN.test(username)
+  )
 }
 
 export function isValidEmail(email) {
-  return (email &&
+  return (
+    email &&
     email.length >= EMAIL_MINLENGTH &&
     email.length <= EMAIL_MAXLENGTH &&
-    EMAIL_PATTERN.test(email))
+    EMAIL_PATTERN.test(email)
+  )
 }
 
 export function isValidPassword(password) {
-  return (password &&
-      password.length >= PASSWORD_MINLENGTH)
+  return password && password.length >= PASSWORD_MINLENGTH
 }
 
 export function isValidChannelName(channel) {
-  return (channel &&
-    channel.length <= CHANNEL_MAXLENGTH &&
-    CHANNEL_PATTERN.test(channel))
+  return channel && channel.length <= CHANNEL_MAXLENGTH && CHANNEL_PATTERN.test(channel)
 }
 
 export function isValidMatchmakingType(type) {

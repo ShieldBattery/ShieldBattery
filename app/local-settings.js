@@ -15,9 +15,9 @@ async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
   if (!starcraftPath) {
     log.warning('No Starcraft path found in registry, defaulting to standard install location')
-    starcraftPath = process.env['ProgramFiles(x86)'] ?
-      `${process.env['ProgramFiles(x86)']}\\Starcraft` :
-      `${process.env.ProgramFiles}\\Starcraft`
+    starcraftPath = process.env['ProgramFiles(x86)']
+      ? `${process.env['ProgramFiles(x86)']}\\Starcraft`
+      : `${process.env.ProgramFiles}\\Starcraft`
   }
 
   return starcraftPath
@@ -28,7 +28,7 @@ function jsonify(settings) {
 }
 
 export default class LocalSettings extends EventEmitter {
-  static EVENT = 'change';
+  static EVENT = 'change'
 
   constructor(filepath) {
     super()
@@ -36,7 +36,7 @@ export default class LocalSettings extends EventEmitter {
     this._settings = null
     this._watcher = null
 
-    this._initialized = (async() => {
+    this._initialized = (async () => {
       try {
         this._settings = JSON.parse(await readFileAsync(this._filepath, { encoding: 'utf8' }))
       } catch (err) {
@@ -59,7 +59,9 @@ export default class LocalSettings extends EventEmitter {
       this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
     })()
 
-    this._initialized.then(() => { this._emitChange() })
+    this._initialized.then(() => {
+      this._emitChange()
+    })
   }
 
   untilInitialized() {
@@ -147,11 +149,17 @@ function migrateV1MouseSensitivity(oldSens) {
   }
 
   switch (oldSens) {
-    case 0: return 0
-    case 1: return 3
-    case 2: return 5
-    case 3: return 8
-    case 4: return 10
-    default: return 0
+    case 0:
+      return 0
+    case 1:
+      return 3
+    case 2:
+      return 5
+    case 3:
+      return 8
+    case 4:
+      return 10
+    default:
+      return 0
   }
 }

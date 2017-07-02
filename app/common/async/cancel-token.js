@@ -8,7 +8,7 @@ class CancelError extends Error {
 }
 
 export default class CancelToken {
-  static ERROR_NAME = errorName;
+  static ERROR_NAME = errorName
 
   constructor() {
     this._cancelling = false

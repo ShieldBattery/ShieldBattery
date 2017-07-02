@@ -9,6 +9,6 @@ export default async function getFileHash(filePath) {
   fileStream.pipe(hasher)
   hasher.resume()
 
-  const [hash, ] = await Promise.all([hasher.hashPromise, fsPromise])
+  const [hash] = await Promise.all([hasher.hashPromise, fsPromise])
   return hash
 }
