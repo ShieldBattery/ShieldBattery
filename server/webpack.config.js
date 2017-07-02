@@ -65,6 +65,8 @@ export default makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
   hotUrl: 'webpack-hot-middleware/client',
-  envDefines: { SB_ENV: JSON.stringify('web') },
+  globalDefines: {
+    IS_ELECTRON: false,
+  },
   minify: true,
 })

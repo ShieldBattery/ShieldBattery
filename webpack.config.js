@@ -85,8 +85,10 @@ module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
   hotUrl,
+  globalDefines: {
+    IS_ELECTRON: true,
+  },
   envDefines: {
-    SB_ENV: JSON.stringify('electron'),
     SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
   },
   minify: false,

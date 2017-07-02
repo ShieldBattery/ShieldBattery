@@ -30,7 +30,8 @@
   "globals": {
     "document": false,
     "navigator": false,
-    "window": false
+    "window": false,
+    "IS_ELECTRON": true
   },
 
   "rules": {
