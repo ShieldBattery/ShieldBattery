@@ -13,44 +13,32 @@ export default class MapThumbnail extends React.Component {
     onMapClick: PropTypes.func,
   }
 
-  state = {
-    isHovered: false,
-  }
-
   render() {
-    const {
-      map,
-      showMapName,
-      hoverIcon,
-      mapClassName,
-      thumbnailClassName,
-      onMapClick,
-    } = this.props
+    const { map, showMapName, hoverIcon, mapClassName, thumbnailClassName, onMapClick } = this.props
 
     const mapProps = {
-      onMouseOver: hoverIcon ? this.onMouseOver : undefined,
-      onMouseLeave: hoverIcon ? this.onMouseLeave : undefined,
       onClick: onMapClick,
     }
 
     const mapClasses = classnames(styles.map, mapClassName)
     const thumbnailClasses = classnames(styles.thumbnail, thumbnailClassName)
-    return (<div className={mapClasses} {...mapProps}>
-      <img className={thumbnailClasses} src={map.imageUrl} />
-      { showMapName ? <span className={styles.name}>{map.name}</span> : null }
-      { hoverIcon && this.state.isHovered ? ([
-        <div key='overlay' className={styles.overlay}></div>,
-        <span key='icon' className={styles.hoverIcon}>{hoverIcon}</span>
-      ]) : null
-      }
-    </div>)
-  }
-
-  onMouseOver = () => {
-    this.setState({ isHovered: true })
-  }
-
-  onMouseLeave = () => {
-    this.setState({ isHovered: false })
+    return (
+      <div className={mapClasses} {...mapProps}>
+        <img className={thumbnailClasses} src={map.imageUrl} />
+        {showMapName
+          ? <span className={styles.name}>
+              {map.name}
+            </span>
+          : null}
+        {hoverIcon
+          ? <div className={styles.overlayContainer}>
+              <div key="overlay" className={styles.overlay} />
+              <span key="icon" className={styles.hoverIcon}>
+                {hoverIcon}
+              </span>
+            </div>
+          : null}
+      </div>
+    )
   }
 }

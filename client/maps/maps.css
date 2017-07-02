@@ -32,6 +32,17 @@
   height: 100%;
 }
 
+.overlayContainer {
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.overlayContainer:hover {
+  opacity: 1;
+}
+
 .overlay {
   position: absolute;
   width: 100%;
