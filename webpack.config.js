@@ -20,7 +20,8 @@ const babelOpts = {
   presets: [
     'react',
     [
-      'env', {
+      'env',
+      {
         targets: { electron: '1.7' },
         modules: false,
         useBuiltIns: true,
@@ -28,25 +29,33 @@ const babelOpts = {
     ],
     'stage-0',
   ],
-  plugins: [
-    'transform-decorators-legacy',
-  ].concat(process.env.NODE_ENV !== 'production' ? [
-    // Need these to work around an issue in react-transform/react-hot-loader:
-    // https://github.com/gaearon/react-hot-loader/issues/313
-    'transform-class-properties',
-    'transform-es2015-classes',
+  plugins: ['transform-decorators-legacy'].concat(
+    process.env.NODE_ENV !== 'production'
+      ? [
+          // Need these to work around an issue in react-transform/react-hot-loader:
+          // https://github.com/gaearon/react-hot-loader/issues/313
+          'transform-class-properties',
+          'transform-es2015-classes',
 
-    ['react-transform', {
-      transforms: [{
-        transform: 'react-transform-hmr',
-        imports: ['react'],
-        locals: ['module']
-      }, {
-        transform: 'react-transform-catch-errors',
-        imports: ['react', 'redbox-react']
-      }]
-    }],
-  ] : []),
+          [
+            'react-transform',
+            {
+              transforms: [
+                {
+                  transform: 'react-transform-hmr',
+                  imports: ['react'],
+                  locals: ['module'],
+                },
+                {
+                  transform: 'react-transform-catch-errors',
+                  imports: ['react', 'redbox-react'],
+                },
+              ],
+            },
+          ],
+        ]
+      : [],
+  ),
 }
 
 const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'

@@ -1,10 +1,6 @@
 import { expect } from 'chai'
 
-import {
-  create,
-  findIndex,
-  insert,
-} from '../../app/common/sorted-list'
+import { create, findIndex, insert } from '../../app/common/sorted-list'
 
 const alphaSort = (a, b) => a.localeCompare(b)
 
@@ -16,7 +12,7 @@ describe('sorted-list', () => {
     })
 
     it('should create an filled list', () => {
-      const result = create(alphaSort, [ 'z', 'a', 'b' ])
+      const result = create(alphaSort, ['z', 'a', 'b'])
       expect(result.size).to.eql(3)
       expect(result.get(0)).to.eql('a')
       expect(result.get(1)).to.eql('b')
@@ -56,14 +52,20 @@ describe('sorted-list', () => {
     })
 
     it('should find a single item in a large list', () => {
-      const result = findIndex(alphaSort, create(alphaSort,
-        ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']), 'c')
+      const result = findIndex(
+        alphaSort,
+        create(alphaSort, ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']),
+        'c',
+      )
       expect(result).to.eql(4)
     })
 
     it('should not find a single item in a large list, no equal item present', () => {
-      const result = findIndex(alphaSort, create(alphaSort,
-        ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']), 'g')
+      const result = findIndex(
+        alphaSort,
+        create(alphaSort, ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']),
+        'g',
+      )
       expect(result).to.eql(-1)
     })
   })
@@ -105,10 +107,45 @@ describe('sorted-list', () => {
     })
 
     it('should insert into a large list', () => {
-      const result = insert(alphaSort, create(alphaSort,
-        ['a', 'f', 'f', 'f', 'g', 'g', 'g', 'h', 'i', 't', 'u', 'v', 'y', 'y', 'z']), 'c')
-      expect(result.toJS()).to.eql(
-        ['a', 'c', 'f', 'f', 'f', 'g', 'g', 'g', 'h', 'i', 't', 'u', 'v', 'y', 'y', 'z'])
+      const result = insert(
+        alphaSort,
+        create(alphaSort, [
+          'a',
+          'f',
+          'f',
+          'f',
+          'g',
+          'g',
+          'g',
+          'h',
+          'i',
+          't',
+          'u',
+          'v',
+          'y',
+          'y',
+          'z',
+        ]),
+        'c',
+      )
+      expect(result.toJS()).to.eql([
+        'a',
+        'c',
+        'f',
+        'f',
+        'f',
+        'g',
+        'g',
+        'g',
+        'h',
+        'i',
+        't',
+        'u',
+        'v',
+        'y',
+        'y',
+        'z',
+      ])
     })
   })
 })
