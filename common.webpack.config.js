@@ -22,41 +22,43 @@ export default function({
     config: {
       path: path.join(__dirname, 'postcss.config.js'),
       ctx: {
-        target: webpackOpts.target
+        target: webpackOpts.target,
       },
     },
   })
 
   const styleRule = {
     test: /\.css$/,
-    use: !isProd ? [
-      { loader: 'style-loader' },
-      {
-        loader: 'css-loader',
-        options: {
-          modules: true,
-          importLoaders: 1,
-          localIdentName: '[name]__[local]__[hash:base64:5]',
-        }
-      },
-      // NOTE(tec27): We have to use the string form here or css-loader screws up at importing this
-      // loader because it's a massive pile of unupdated crap
-      `postcss-loader?${postCssOpts}`,
-    ] : ExtractTextPlugin.extract({
-      fallback: 'style-loader',
-      use: [
-        {
-          loader: 'css-loader',
-          options: {
-            modules: true,
-            importLoaders: 1,
-          }
-        },
-        // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-        // this loader because it's a massive pile of unupdated crap
-        `postcss-loader?${postCssOpts}`,
-      ]
-    })
+    use: !isProd
+      ? [
+          { loader: 'style-loader' },
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              importLoaders: 1,
+              localIdentName: '[name]__[local]__[hash:base64:5]',
+            },
+          },
+          // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
+          // this loader because it's a massive pile of unupdated crap
+          `postcss-loader?${postCssOpts}`,
+        ]
+      : ExtractTextPlugin.extract({
+          fallback: 'style-loader',
+          use: [
+            {
+              loader: 'css-loader',
+              options: {
+                modules: true,
+                importLoaders: 1,
+              },
+            },
+            // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
+            // this loader because it's a massive pile of unupdated crap
+            `postcss-loader?${postCssOpts}`,
+          ],
+        }),
   }
 
   const config = {
@@ -71,7 +73,7 @@ export default function({
             {
               loader: 'babel-loader',
               options: babelOpts,
-            }
+            },
           ],
         },
         {
@@ -86,31 +88,30 @@ export default function({
               loader: 'react-svg-loader',
               options: {
                 jsx: true,
-              }
+              },
             },
-          ]
+          ],
         },
         {
           test: /\.md$/,
           exclude: /README.md$/,
-          use: [
-            { loader: 'html-loader' },
-            { loader: 'markdown-loader' },
-          ],
+          use: [{ loader: 'html-loader' }, { loader: 'markdown-loader' }],
         },
-        styleRule
+        styleRule,
       ],
     },
     plugins: [
       // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(
-        /[\\/]any-promise[\\/]/, require.resolve('./app/common/promise.js')),
+        /[\\/]any-promise[\\/]/,
+        require.resolve('./app/common/promise.js'),
+      ),
       new webpack.DefinePlugin({
         'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),
           VERSION: `"${VERSION}"`,
-          ...envDefines
+          ...envDefines,
         },
       }),
     ],
@@ -124,16 +125,13 @@ export default function({
     // TODO(tec27): can we just remove this? Are any of our loaders actually using this?
     config.plugins.push(new webpack.LoaderOptionsPlugin({ debug: true }))
     config.devtool = 'cheap-module-eval-source-map'
-    config.entry = [
-      hotUrl,
-      config.entry,
-    ]
+    config.entry = [hotUrl, config.entry]
   } else {
     config.plugins = config.plugins.concat([
       new webpack.optimize.ModuleConcatenationPlugin(),
       new webpack.DefinePlugin({
         // We only define the exact field here to avoid overwriting all of process.env
-        'process.env.NODE_ENV': JSON.stringify('production')
+        'process.env.NODE_ENV': JSON.stringify('production'),
       }),
       new ExtractTextPlugin({
         // This path is relative to the publicPath, not this file's directory
@@ -142,11 +140,13 @@ export default function({
       }),
     ])
     if (minify) {
-      config.plugins.push(new webpack.optimize.UglifyJsPlugin({
-        compress: { warnings: false },
-        output: { comments: false },
-        sourceMap: true,
-      }))
+      config.plugins.push(
+        new webpack.optimize.UglifyJsPlugin({
+          compress: { warnings: false },
+          output: { comments: false },
+          sourceMap: true,
+        }),
+      )
     }
     config.devtool = 'hidden-source-map'
   }
