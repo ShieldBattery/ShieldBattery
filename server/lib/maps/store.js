@@ -25,18 +25,20 @@ export async function storeMap(hash, extension, origFilename, timestamp, mapMpqP
 }
 
 export async function formatMapInfo(mapInfos, hashes) {
-  return Promise.all(new Seq(mapInfos).zip(hashes).map(async([info, hash]) => {
-    if (!info) {
-      return null
-    } else {
-      return {
-        hash,
-        mapUrl: await getUrl(mapPath(hash, info.format)),
-        imageUrl: await getUrl(imagePath(hash)),
-        ...info,
+  return Promise.all(
+    new Seq(mapInfos).zip(hashes).map(async ([info, hash]) => {
+      if (!info) {
+        return null
+      } else {
+        return {
+          hash,
+          mapUrl: await getUrl(mapPath(hash, info.format)),
+          imageUrl: await getUrl(imagePath(hash)),
+          ...info,
+        }
       }
-    }
-  }))
+    }),
+  )
 }
 
 export async function mapInfo(...hashes) {
@@ -58,10 +60,12 @@ function imagePath(hash) {
 
 async function mapParseWorker(path, extension, hash) {
   const bwDataPath = config.bwData ? config.bwData : ''
-  const {
-    messages,
-    binaryData,
-  } = await runChildProcess('lib/maps/map-parse-worker', [path, extension, hash, bwDataPath])
+  const { messages, binaryData } = await runChildProcess('lib/maps/map-parse-worker', [
+    path,
+    extension,
+    hash,
+    bwDataPath,
+  ])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
@@ -76,7 +80,7 @@ function runChildProcess(path, args) {
       clearTimeout(childTimeout)
     }
   }
-  const result = new Promise(async(resolve, reject) => {
+  const result = new Promise(async (resolve, reject) => {
     const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
     const child = childProcess.fork(path, args, opts)
     let error = false

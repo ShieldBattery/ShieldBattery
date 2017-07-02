@@ -8,15 +8,15 @@ import { createUserSockets, createClientSockets } from './lib/websockets/socket-
 import log from './lib/logging/logger'
 import config from './config'
 
-const apiHandlers =
-  fs.readdirSync(path.join(__dirname, 'lib', 'wsapi'))
-    .filter(filename => /\.js$/.test(filename))
-    .map(filename => require('./lib/wsapi/' + filename).default)
+const apiHandlers = fs
+  .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
+  .filter(filename => /\.js$/.test(filename))
+  .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {
   getHeader() {},
-  setHeader() {}
+  setHeader() {},
 }
 
 class WebsocketServer {
@@ -28,7 +28,7 @@ class WebsocketServer {
 
     this.connectedUsers = 0
     this.nydus = nydus(this.httpServer, {
-      allowRequest: (info, cb) => this.onAuthorization(info, cb)
+      allowRequest: (info, cb) => this.onAuthorization(info, cb),
     })
 
     // NOTE(tec27): the order of creation here is very important, we want *more specific* event
@@ -66,28 +66,30 @@ class WebsocketServer {
 
     const koaContext = this.koa.createContext(req, dummyRes)
     const sessionWare = this.sessionWare
-    co(function* () {
-      yield* sessionWare.call(koaContext, (function* () {})())
+    co(function*() {
+      yield* sessionWare.call(koaContext, (function*() {})())
       return koaContext
-    }).then(ctx => {
-      if (!ctx.session.userId) {
-        throw new Error('User is not logged in')
-      }
-
-      const clientId = ctx.query.clientId || cuid()
-      const handshakeData = {
-        sessionId: ctx.sessionId,
-        userId: ctx.session.userId,
-        clientId,
-        userName: ctx.session.userName,
-        address: getAddress(req),
-      }
-      this.sessionLookup.set(req, handshakeData)
-      cb(null, true)
-    }).catch(err => {
-      logger.error({ err }, 'websocket error')
-      cb(null, false)
     })
+      .then(ctx => {
+        if (!ctx.session.userId) {
+          throw new Error('User is not logged in')
+        }
+
+        const clientId = ctx.query.clientId || cuid()
+        const handshakeData = {
+          sessionId: ctx.sessionId,
+          userId: ctx.session.userId,
+          clientId,
+          userName: ctx.session.userName,
+          address: getAddress(req),
+        }
+        this.sessionLookup.set(req, handshakeData)
+        cb(null, true)
+      })
+      .catch(err => {
+        logger.error({ err }, 'websocket error')
+        cb(null, false)
+      })
   }
 }
 

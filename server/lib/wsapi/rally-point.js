@@ -14,16 +14,19 @@ class RallyPointApi {
   constructor(nydus, userSockets) {
     this.nydus = nydus
     this.userSockets = userSockets
-    this.userSockets.on('newUser', user => this._handleNewUser(user))
+    this.userSockets
+      .on('newUser', user => this._handleNewUser(user))
       .on('userQuit', name => this._handleUserQuit(name))
   }
 
-  @Api('/pingResult',
+  @Api(
+    '/pingResult',
     validateBody({
       serverIndex,
       ping,
     }),
-    'getUser')
+    'getUser',
+  )
   async pingResult(data, next) {
     const { serverIndex, ping } = data.get('body')
     const user = data.get('user')

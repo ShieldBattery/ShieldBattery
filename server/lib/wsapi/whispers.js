@@ -50,25 +50,29 @@ export class WhispersApi {
     this.userSessions = new Map()
     // All the users that have a particular session opened
     this.sessionUsers = new Map()
-    this.userSockets.on('newUser', user => this._handleNewUser(user))
+    this.userSockets
+      .on('newUser', user => this._handleNewUser(user))
       .on('userQuit', name => this._handleUserQuit(name))
   }
 
-  @Api('/start',
+  @Api(
+    '/start',
     validateBody({
       target: isValidUsername,
     }),
     'getUser',
     throttleMiddleware(startThrottle, data => data.get('user')),
     'noSelfMessaging',
-    'getTarget')
+    'getTarget',
+  )
   async start(data, next) {
     const user = data.get('user')
     const target = data.get('target')
     await this._ensureWhisperSession(user.name, target.name)
   }
 
-  @Api('/send',
+  @Api(
+    '/send',
     validateBody({
       target: isValidUsername,
       message: nonEmptyString,
@@ -76,7 +80,8 @@ export class WhispersApi {
     'getUser',
     throttleMiddleware(sendThrottle, data => data.get('user')),
     'noSelfMessaging',
-    'getTarget')
+    'getTarget',
+  )
   async send(data, next) {
     const { message } = data.get('body')
     const user = data.get('user')
@@ -101,18 +106,20 @@ export class WhispersApi {
       from: result.from,
       to: result.to,
       sent: +result.sent,
-      data: result.data
+      data: result.data,
     })
   }
 
-  @Api('/getHistory',
+  @Api(
+    '/getHistory',
     validateBody({
       target: isValidUsername,
       beforeTime,
     }),
     'getUser',
     throttleMiddleware(retrievalThrottle, data => data.get('user')),
-    'getTarget')
+    'getTarget',
+  )
   async getHistory(data, next) {
     const { beforeTime } = data.get('body')
     const user = data.get('user')
@@ -120,7 +127,8 @@ export class WhispersApi {
 
     if (!this.userSessions.get(user.name).has(target.name)) {
       throw new errors.Forbidden(
-        'must have a whisper session with this user to retrieve message history')
+        'must have a whisper session with this user to retrieve message history',
+      )
     }
 
     const messages = await getMessagesForWhisperSession(user.name, target.name, 50, beforeTime)
@@ -133,12 +141,14 @@ export class WhispersApi {
     }))
   }
 
-  @Api('/close',
+  @Api(
+    '/close',
     validateBody({
       target: isValidUsername,
     }),
     'getUser',
-    'getTarget')
+    'getTarget',
+  )
   async close(data, next) {
     const user = data.get('user')
     const target = data.get('target')
@@ -150,8 +160,9 @@ export class WhispersApi {
     this.userSessions = this.userSessions.update(user.name, s => s.delete(target.name))
 
     const updated = this.sessionUsers.get(target.name).delete(user.name)
-    this.sessionUsers = updated.size ?
-      this.sessionUsers.set(target.name, updated) : this.sessionUsers.delete(target.name)
+    this.sessionUsers = updated.size
+      ? this.sessionUsers.set(target.name, updated)
+      : this.sessionUsers.delete(target.name)
 
     this._publishTo(user.name, target.name, {
       action: 'closeSession',
@@ -172,7 +183,7 @@ export class WhispersApi {
     const user = data.get('user')
     const { target } = data.get('body')
     if (user.name.toLowerCase() === target.toLowerCase()) {
-      throw new errors.BadRequest('can\'t whisper with yourself')
+      throw new errors.BadRequest("can't whisper with yourself")
     }
 
     return await next(data)
@@ -272,8 +283,9 @@ export class WhispersApi {
     // Delete the user that quit from all of the sessions they had opened, if any
     for (const target of this.userSessions.get(userName).values()) {
       const updated = this.sessionUsers.get(target).delete(userName)
-      this.sessionUsers =
-          updated.size ? this.sessionUsers.set(target, updated) : this.sessionUsers.delete(target)
+      this.sessionUsers = updated.size
+        ? this.sessionUsers.set(target, updated)
+        : this.sessionUsers.delete(target)
     }
     this.userSessions = this.userSessions.delete(userName)
   }

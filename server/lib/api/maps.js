@@ -2,14 +2,15 @@ import httpErrors from 'http-errors'
 import { Seq } from 'immutable'
 import MAPS from '../maps/maps.json'
 import { storeMap, mapInfo, formatMapInfo } from '../maps/store'
-import { mapExists, searchMaps as searchMaps } from '../models/maps'
+import { mapExists, searchMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function(router) {
-  router.get('/', ensureLoggedIn, getMaps)
+  router
+    .get('/', ensureLoggedIn, getMaps)
     .post('/upload', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
     .get('/info/:hash', ensureLoggedIn, getInfo)
 }
@@ -18,10 +19,11 @@ function uploadPermissionCheck() {
   if (!MAP_UPLOADING) {
     return checkAllPermissions('manageMaps')
   } else {
-    return async(ctx, next) => { await next() }
+    return async (ctx, next) => {
+      await next()
+    }
   }
 }
-
 
 async function upload(ctx, next) {
   const { timestamp, hash, extension: anyCaseExtension, filename } = ctx.request.body.fields

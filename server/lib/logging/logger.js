@@ -19,6 +19,6 @@ export default bunyan.createLogger({
       path: path.join(path.resolve(__dirname, '..', '..'), 'logs', 'manner-pylon.log'),
       period: '1d',
       count: 7,
-    }
-  ]
+    },
+  ],
 })

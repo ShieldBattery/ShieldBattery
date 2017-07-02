@@ -1,7 +1,7 @@
 import redis from '../lib/redis'
 import config from '../config'
 
-(async() => {
+(async() => { // eslint-disable-line
   const sessionKeys = await redis.keys('koa:sess:*')
   for (const sessionId of sessionKeys) {
     const session = JSON.parse(await redis.get(sessionId))

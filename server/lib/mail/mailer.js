@@ -11,10 +11,12 @@ const enabled = !!config.mailgun
 
 const FROM = enabled ? config.mailgun.from : ''
 const HOST = config.canonicalHost
-const mailgun = enabled ? createMailgun({
-  apiKey: config.mailgun.apiKey,
-  domain: config.mailgun.domain
-}) : null
+const mailgun = enabled
+  ? createMailgun({
+      apiKey: config.mailgun.apiKey,
+      domain: config.mailgun.domain,
+    })
+  : null
 
 const templates = new Map()
 
@@ -41,7 +43,7 @@ export default async function sendMail({ to, subject, templateName, templateData
     to,
     subject,
     html,
-    text
+    text,
   }
 
   if (!enabled) {

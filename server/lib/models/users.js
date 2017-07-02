@@ -38,9 +38,10 @@ class User {
   }
 
   async _insert() {
-    const query = 'INSERT INTO users (name, email, password, created, signup_ip_address) ' +
-        'VALUES ($1, $2, $3, $4, $5) RETURNING id'
-    const params = [ this.name, this.email, this.password, this.created, this.signupIpAddress ]
+    const query =
+      'INSERT INTO users (name, email, password, created, signup_ip_address) ' +
+      'VALUES ($1, $2, $3, $4, $5) RETURNING id'
+    const params = [this.name, this.email, this.password, this.created, this.signupIpAddress]
 
     return await transact(async client => {
       const result = await client.queryPromise(query, params)
@@ -58,11 +59,16 @@ class User {
 
   async _update() {
     if (!this.id) throw new Error('Incomplete data')
-    const query =
-        `UPDATE users SET name = $1, email = $2, password = $3, created = $4,
+    const query = `UPDATE users SET name = $1, email = $2, password = $3, created = $4,
         signup_ip_address = $5 WHERE id = $6`
-    const params =
-        [ this.name, this.email, this.password, this.created, this.signupIpAddress, this.id ]
+    const params = [
+      this.name,
+      this.email,
+      this.password,
+      this.created,
+      this.signupIpAddress,
+      this.id,
+    ]
 
     const { client, done } = await db()
     try {
@@ -85,16 +91,16 @@ function createUser(name, email, hashedPassword, ipAddress, createdDate) {
 }
 
 export async function findUser(criteria) {
-  let query = 'SELECT id, name, email, password, created FROM users WHERE '
-    , params
+  let query = 'SELECT id, name, email, password, created FROM users WHERE ',
+    params
   if (typeof criteria != 'number') {
     // by name
     query += 'name = $1'
-    params = [ criteria + '' ]
+    params = [criteria + '']
   } else {
     // by id
     query += 'id = $1'
-    params = [ criteria ]
+    params = [criteria]
   }
 
   const { client, done } = await db()
@@ -111,7 +117,8 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
   try {
     return client.queryPromise(
       'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
-      [ ipAddress, userId ])
+      [ipAddress, userId],
+    )
   } finally {
     done()
   }
@@ -120,9 +127,7 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
 export async function findAllUsernamesWithEmail(email) {
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(
-      'SELECT name FROM users WHERE email = $1',
-      [ email ])
+    const result = await client.queryPromise('SELECT name FROM users WHERE email = $1', [email])
     return result.rows.map(row => row.name)
   } finally {
     done()

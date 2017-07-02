@@ -1,11 +1,14 @@
 exports.up = function(db, cb) {
-  db.runSql(`
+  db.runSql(
+    `
       CREATE TABLE whisper_sessions (
         user_id integer NOT NULL,
         target_user_id integer NOT NULL,
         start_date timestamp without time zone NOT NULL,
         PRIMARY KEY(user_id, target_user_id)
-      );`, createUserIdIndex)
+      );`,
+    createUserIdIndex,
+  )
 
   function createUserIdIndex(err) {
     if (err) {
@@ -13,8 +16,13 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.addIndex('whisper_sessions', 'whisper_sessions_user_id_index', ['user_id'],
-      false /* unique */, createWhisperMessages)
+    db.addIndex(
+      'whisper_sessions',
+      'whisper_sessions_user_id_index',
+      ['user_id'],
+      false /* unique */,
+      createWhisperMessages,
+    )
   }
 
   function createWhisperMessages(err) {
@@ -23,7 +31,8 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.runSql(`
+    db.runSql(
+      `
         CREATE TABLE whisper_messages (
           id uuid NOT NULL,
           from_id integer NOT NULL,
@@ -31,7 +40,9 @@ exports.up = function(db, cb) {
           sent timestamp without time zone NOT NULL,
           data jsonb NOT NULL,
           PRIMARY KEY(id)
-        );`, createMessageDateIndex)
+        );`,
+      createMessageDateIndex,
+    )
   }
 
   function createMessageDateIndex(err) {

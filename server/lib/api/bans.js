@@ -7,8 +7,9 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 export default function(router, userSockets) {
   router
     .get('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
-    .post('/:userId', checkAllPermissions('banUsers'),
-      (ctx, next) => banUser(ctx, next, userSockets))
+    .post('/:userId', checkAllPermissions('banUsers'), (ctx, next) =>
+      banUser(ctx, next, userSockets),
+    )
 }
 
 async function getUserBanHistory(ctx, next) {
@@ -39,7 +40,7 @@ async function banUser(ctx, next, userSockets) {
     throw new httpErrors.NotFound('User does not exist')
   }
   if (userId === ctx.session.userId) {
-    throw new httpErrors.Conflict('Can\'t ban yourself')
+    throw new httpErrors.Conflict("Can't ban yourself")
   }
 
   try {

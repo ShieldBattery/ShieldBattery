@@ -12,14 +12,16 @@ exports.up = function(db, callback) {
       return
     }
 
-    const sql = 'ALTER TABLE users ALTER COLUMN name TYPE citext; ' +
+    const sql =
+      'ALTER TABLE users ALTER COLUMN name TYPE citext; ' +
       'ALTER TABLE users ADD CONSTRAINT name_length_check CHECK (length(name) <= 32)'
     db.runSql(sql, callback)
   }
 }
 
 exports.down = function(db, callback) {
-  const sql = 'ALTER TABLE users ALTER COLUMN name TYPE varchar(32); ' +
+  const sql =
+    'ALTER TABLE users ALTER COLUMN name TYPE varchar(32); ' +
     'ALTER TABLE users DROP CONSTRAINT name_length_check'
   db.runSql(sql, callback)
 }

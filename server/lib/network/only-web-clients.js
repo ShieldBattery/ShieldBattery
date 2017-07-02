@@ -2,8 +2,10 @@
 // (i.e. not an Electron standalone client)
 export default function(wrapped) {
   return function onlyWebClients(ctx, next) {
-    if (ctx.req.headers.origin !== 'http://client.shieldbattery.net' ||
-        !ctx.req.headers['x-shield-battery-client']) {
+    if (
+      ctx.req.headers.origin !== 'http://client.shieldbattery.net' ||
+      !ctx.req.headers['x-shield-battery-client']
+    ) {
       return wrapped(ctx, next)
     } else {
       return next()

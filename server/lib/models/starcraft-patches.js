@@ -9,22 +9,15 @@ export async function addPatch(hashStr, filename, versionDesc, transactionFn) {
       INSERT INTO starcraft_patches (hash, filename, version_desc)
       VALUES ($1, $2, $3) RETURNING *
     `
-    const params = [
-      Buffer.from(hashStr, 'hex'),
-      filename,
-      versionDesc,
-    ]
+    const params = [Buffer.from(hashStr, 'hex'), filename, versionDesc]
 
-    const [result, ] = await Promise.all([
-      client.query(query, params),
-      transactionFn(),
-    ])
+    const [result] = await Promise.all([client.query(query, params), transactionFn()])
 
     const row = result.rows[0]
     return {
       hash: row.hash,
       filename: row.filename,
-      versionDesc: row.version_desc
+      versionDesc: row.version_desc,
     }
   })
 }
@@ -34,10 +27,7 @@ export async function patchExists(hashStr, filename) {
     SELECT 1 FROM starcraft_patches
     WHERE hash = $1 AND filename = $2
   `
-  const params = [
-    Buffer.from(hashStr, 'hex'),
-    filename,
-  ]
+  const params = [Buffer.from(hashStr, 'hex'), filename]
 
   const { client, done } = await db()
   try {

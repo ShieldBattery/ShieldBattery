@@ -2,7 +2,7 @@
 // its safe to send things like arrays to GET requests)
 import isJson from 'koa-is-json'
 
-const jsonPrefix = ')]}\',\n'
+const jsonPrefix = ")]}',\n"
 
 export default function() {
   return async function secureJson(ctx, next) {

@@ -1,11 +1,14 @@
 exports.up = function(db, cb) {
-  db.runSql(`
+  db.runSql(
+    `
       CREATE TABLE joined_channels (
         user_id integer NOT NULL,
         channel_name citext NOT NULL,
         join_date timestamp without time zone NOT NULL,
         PRIMARY KEY(user_id, channel_name)
-      );`, addJoinedConstraints)
+      );`,
+    addJoinedConstraints,
+  )
 
   function addJoinedConstraints(err) {
     if (err) {
@@ -28,8 +31,13 @@ exports.up = function(db, cb) {
     // just y. Given that we'll want to enumerate all the users in a channel a lot, we add an index
     // on that to ensure it will be a faster lookup
     // See: http://dba.stackexchange.com/questions/6115/working-of-indexes-in-postgresql
-    db.addIndex('joined_channels', 'joined_channels_name_index', ['channel_name'],
-      false /* unique */, createChannelMessages)
+    db.addIndex(
+      'joined_channels',
+      'joined_channels_name_index',
+      ['channel_name'],
+      false /* unique */,
+      createChannelMessages,
+    )
   }
 
   function createChannelMessages(err) {
@@ -38,7 +46,8 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.runSql(`
+    db.runSql(
+      `
         CREATE TABLE channel_messages (
           id uuid NOT NULL,
           user_id integer NOT NULL,
@@ -46,7 +55,9 @@ exports.up = function(db, cb) {
           sent timestamp without time zone NOT NULL,
           data jsonb NOT NULL,
           PRIMARY KEY(id)
-        );`, createChannelNameIndex)
+        );`,
+      createChannelNameIndex,
+    )
   }
 
   function createChannelNameIndex(err) {
@@ -55,8 +66,13 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.addIndex('channel_messages', 'channel_messages_channel_index', ['channel_name'],
-      false /* unique */, createMessageDateIndex)
+    db.addIndex(
+      'channel_messages',
+      'channel_messages_channel_index',
+      ['channel_name'],
+      false /* unique */,
+      createMessageDateIndex,
+    )
   }
 
   function createMessageDateIndex(err) {
@@ -65,8 +81,10 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.runSql('CREATE INDEX channel_messages_sent_index ON channel_messages(sent DESC);',
-      addInitialChannel)
+    db.runSql(
+      'CREATE INDEX channel_messages_sent_index ON channel_messages(sent DESC);',
+      addInitialChannel,
+    )
   }
 
   function addInitialChannel(err) {
@@ -75,10 +93,13 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.runSql(`INSERT INTO joined_channels
+    db.runSql(
+      `INSERT INTO joined_channels
         SELECT id as user_id,
         'ShieldBattery'::citext as channel_name,
-        CURRENT_TIMESTAMP AT TIME ZONE 'UTC' as join_date FROM users;`, cb)
+        CURRENT_TIMESTAMP AT TIME ZONE 'UTC' as join_date FROM users;`,
+      cb,
+    )
   }
 }
 

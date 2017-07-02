@@ -53,12 +53,15 @@ class IoredisTable extends RedisTable {
 export default function createThrottle(name, opts) {
   const table = new IoredisTable(redisClient, {
     prefix: 'sbthrottle:' + name,
-    expiry: opts.expiry ||
-        Math.round((opts.window || 1000) * 10 * ((opts.burst || opts.rate) / opts.rate) / 1000)
+    expiry:
+      opts.expiry ||
+      Math.round((opts.window || 1000) * 10 * ((opts.burst || opts.rate) / opts.rate) / 1000),
   })
 
-  return new PromiseBasedThrottle(tokenthrottle({
-    ...opts,
-    tokensTable: table,
-  }))
+  return new PromiseBasedThrottle(
+    tokenthrottle({
+      ...opts,
+      tokensTable: table,
+    }),
+  )
 }
