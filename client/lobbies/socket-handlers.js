@@ -32,8 +32,7 @@ import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../app/common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 const countdownState = {
   timer: null,

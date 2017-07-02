@@ -15,13 +15,13 @@ export default class Panel extends React.Component {
           </li>
         : null
     const uploadLink =
-      perms.manageMaps && process.webpackEnv.SB_ENV === 'electron'
+      perms.manageMaps && IS_ELECTRON
         ? <li>
             <Link to="/admin/map-upload">Mass map upload</Link>
           </li>
         : null
     const managePatchesLink =
-      perms.manageStarcraftPatches && process.webpackEnv.SB_ENV === 'electron'
+      perms.manageStarcraftPatches && IS_ELECTRON
         ? <li>
             <Link to="/admin/patch-upload">Upload StarCraft patch</Link>
           </li>

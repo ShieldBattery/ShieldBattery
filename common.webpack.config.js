@@ -15,6 +15,7 @@ export default function({
   webpack: webpackOpts,
   babel: babelOpts,
   hotUrl,
+  globalDefines = {},
   envDefines = {},
   minify,
 }) {
@@ -108,6 +109,7 @@ export default function({
         require.resolve('./app/common/promise.js'),
       ),
       new webpack.DefinePlugin({
+        ...globalDefines,
         'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),
           VERSION: `"${VERSION}"`,

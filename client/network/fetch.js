@@ -25,7 +25,7 @@ function parsePrefixedJson(str) {
 
 const defaults = {
   get headers() {
-    return process.webpackEnv.SB_ENV === 'web'
+    return !IS_ELECTRON
       ? {
           Accept: 'application/json',
           'Content-Type': 'application/json',

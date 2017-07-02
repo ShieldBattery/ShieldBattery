@@ -13,7 +13,7 @@ import { minLength } from '../forms/validators'
 import { closeDialog } from '../dialogs/dialog-action-creator'
 import { mergeLocalSettings } from './action-creators'
 
-const screen = process.webpackEnv.SB_ENV === 'electron' ? require('electron').screen : null
+const screen = IS_ELECTRON ? require('electron').screen : null
 const getResolution = () => screen.getPrimaryDisplay().size
 
 const SUPPORTED_WINDOW_SIZES = [

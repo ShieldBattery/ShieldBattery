@@ -107,7 +107,7 @@ class MainLayout extends React.Component {
   }
 
   renderLobbyNav() {
-    if (!this.props.inLobby || process.webpackEnv.SB_ENV !== 'electron') return null
+    if (!this.props.inLobby || !IS_ELECTRON) return null
 
     const {
       lobby: { name, hasUnread },
@@ -129,7 +129,7 @@ class MainLayout extends React.Component {
   }
 
   renderActiveGameNav() {
-    if (!this.props.activeGame.isActive || process.webpackEnv.SB_ENV !== 'electron') return null
+    if (!this.props.activeGame.isActive || !IS_ELECTRON) return null
 
     return [
       <Section key="active-game-section">
@@ -234,51 +234,50 @@ class MainLayout extends React.Component {
           label="Cancel"
           onClick={this.onCancelFindMatchClick}
         />
-    const activityButtons =
-      process.webpackEnv.SB_ENV === 'electron'
-        ? [
-            findMatchButton,
-            <HotkeyedActivityButton
-              key="create-game"
-              icon={<CreateGameIcon />}
-              label="Create"
-              onClick={this.onCreateLobbyClick}
-              disabled={inGameplayActivity}
-              keycode={KEY_C}
-              altKey={true}
-            />,
-            <HotkeyedActivityButton
-              key="join-game"
-              icon={<JoinGameIcon />}
-              label="Join"
-              onClick={this.onJoinLobbyClick}
-              keycode={KEY_J}
-              altKey={true}
-            />,
-            <ActivityButton
-              key="replays"
-              icon={<ReplaysIcon />}
-              label="Replays"
-              onClick={this.onReplaysClick}
-            />,
-            <ActivitySpacer key="spacer" />,
-            <HotkeyedActivityButton
-              key="settings"
-              icon={<SettingsIcon />}
-              label="Settings"
-              onClick={this.onSettingsClick}
-              keycode={KEY_S}
-              altKey={true}
-            />,
-          ]
-        : [
-            <ActivityButton
-              key="download"
-              icon={<DownloadIcon />}
-              label="Download"
-              onClick={this.onDownloadClick}
-            />,
-          ]
+    const activityButtons = IS_ELECTRON
+      ? [
+          findMatchButton,
+          <HotkeyedActivityButton
+            key="create-game"
+            icon={<CreateGameIcon />}
+            label="Create"
+            onClick={this.onCreateLobbyClick}
+            disabled={inGameplayActivity}
+            keycode={KEY_C}
+            altKey={true}
+          />,
+          <HotkeyedActivityButton
+            key="join-game"
+            icon={<JoinGameIcon />}
+            label="Join"
+            onClick={this.onJoinLobbyClick}
+            keycode={KEY_J}
+            altKey={true}
+          />,
+          <ActivityButton
+            key="replays"
+            icon={<ReplaysIcon />}
+            label="Replays"
+            onClick={this.onReplaysClick}
+          />,
+          <ActivitySpacer key="spacer" />,
+          <HotkeyedActivityButton
+            key="settings"
+            icon={<SettingsIcon />}
+            label="Settings"
+            onClick={this.onSettingsClick}
+            keycode={KEY_S}
+            altKey={true}
+          />,
+        ]
+      : [
+          <ActivityButton
+            key="download"
+            icon={<DownloadIcon />}
+            label="Download"
+            onClick={this.onDownloadClick}
+          />,
+        ]
 
     return (
       <div>

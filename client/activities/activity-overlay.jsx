@@ -8,15 +8,14 @@ import styles from './activity-overlay.css'
 import KeyListener from '../keyboard/key-listener.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
 
-const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } =
-  process.webpackEnv.SB_ENV === 'electron'
-    ? {
-        FindMatch: require('../matchmaking/find-match.jsx').default,
-        CreateLobby: require('../lobbies/create-lobby.jsx').default,
-        WatchReplay: require('../replays/watch-replay.jsx').default,
-        BrowseMaps: require('../maps/browse-maps.jsx').default,
-      }
-    : {}
+const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } = IS_ELECTRON
+  ? {
+      FindMatch: require('../matchmaking/find-match.jsx').default,
+      CreateLobby: require('../lobbies/create-lobby.jsx').default,
+      WatchReplay: require('../replays/watch-replay.jsx').default,
+      BrowseMaps: require('../maps/browse-maps.jsx').default,
+    }
+  : {}
 
 const ESCAPE = keycode('escape')
 

@@ -11,7 +11,7 @@ export default class App extends React.Component {
       return
     }
 
-    if (process.webpackEnv.SB_ENV !== 'web') {
+    if (IS_ELECTRON) {
       ga.pageview(window.location.hash.slice(1))
     } else {
       ga.pageview(window.location.pathname)
@@ -21,7 +21,7 @@ export default class App extends React.Component {
   componentDidMount() {
     if (this.props.analyticsId) {
       ga.initialize(this.props.analyticsId)
-      if (process.webpackEnv.SB_ENV !== 'web') {
+      if (IS_ELECTRON) {
         ga.set({ location: makeServerUrl('') })
         ga.set({ checkProtocolTask: null })
       }

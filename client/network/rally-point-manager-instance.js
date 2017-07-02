@@ -1,6 +1,5 @@
-const RallyPointManager =
-  process.webpackEnv.SB_ENV === 'electron' ? require('./rally-point-manager').default : null
+const RallyPointManager = IS_ELECTRON ? require('./rally-point-manager').default : null
 
-const manager = process.webpackEnv.SB_ENV === 'electron' ? new RallyPointManager() : null
+const manager = IS_ELECTRON ? new RallyPointManager() : null
 
 export default manager
