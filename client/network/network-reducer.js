@@ -1,8 +1,5 @@
 import { Record } from 'immutable'
-import {
-  NETWORK_SITE_CONNECTED,
-  NETWORK_SITE_DISCONNECTED,
-} from '../actions'
+import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 
 export const SiteSocketStatus = new Record({
   isConnected: false,

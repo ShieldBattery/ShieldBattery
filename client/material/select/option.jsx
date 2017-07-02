@@ -8,7 +8,7 @@ class Option extends React.Component {
     value: PropTypes.any.isRequired,
     active: PropTypes.bool,
     onOptionSelected: PropTypes.func,
-  };
+  }
 
   constructor(props) {
     super(props)

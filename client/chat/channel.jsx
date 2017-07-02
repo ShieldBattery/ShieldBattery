@@ -27,17 +27,21 @@ const LOADING_AREA_BOTTOM = 32 + 8
 class UserListEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
-  };
+  }
 
   render() {
-    return <li className={styles.userListEntry}>{this.props.user}</li>
+    return (
+      <li className={styles.userListEntry}>
+        {this.props.user}
+      </li>
+    )
   }
 }
 
 class UserList extends React.Component {
   static propTypes = {
     users: PropTypes.object.isRequired,
-  };
+  }
 
   shouldComponentUpdate(nextProps) {
     return this.props.users !== nextProps.users
@@ -48,23 +52,29 @@ class UserList extends React.Component {
       return null
     }
 
-    return (<div className={styles.userListSection}>
-      <p className={styles.userSubheader}>{title}</p>
-      <ul className={styles.userSublist}>
-        { users.map(u => <UserListEntry user={u} key={u} />) }
-      </ul>
-    </div>)
+    return (
+      <div className={styles.userListSection}>
+        <p className={styles.userSubheader}>
+          {title}
+        </p>
+        <ul className={styles.userSublist}>
+          {users.map(u => <UserListEntry user={u} key={u} />)}
+        </ul>
+      </div>
+    )
   }
 
   render() {
     const { active, idle, offline } = this.props.users
-    return (<div className={styles.userList}>
-      <ScrollableContent>
-        { this.renderSection('Active', active) }
-        { this.renderSection('Idle', idle) }
-        { this.renderSection('Offline', offline) }
-      </ScrollableContent>
-    </div>)
+    return (
+      <div className={styles.userList}>
+        <ScrollableContent>
+          {this.renderSection('Active', active)}
+          {this.renderSection('Idle', idle)}
+          {this.renderSection('Offline', offline)}
+        </ScrollableContent>
+      </div>
+    )
   }
 }
 
@@ -73,39 +83,45 @@ class Channel extends React.Component {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
     onRequestMoreHistory: PropTypes.func,
-  };
+  }
 
-  messageList = null;
-  _setMessageListRef = elem => { this.messageList = elem };
+  messageList = null
+  _setMessageListRef = elem => {
+    this.messageList = elem
+  }
   state = {
-    isScrolledUp: false
-  };
+    isScrolledUp: false,
+  }
 
   componentWillUpdate(nextProps, nextState) {
-    const insertingAtTop = nextProps.channel !== this.props.channel &&
-        this.props.channel.messages.size > 0 &&
-        nextProps.channel.messages.size > this.props.channel.messages.size &&
-        nextProps.channel.messages.get(0) !== this.props.channel.messages.get(0)
+    const insertingAtTop =
+      nextProps.channel !== this.props.channel &&
+      this.props.channel.messages.size > 0 &&
+      nextProps.channel.messages.size > this.props.channel.messages.size &&
+      nextProps.channel.messages.get(0) !== this.props.channel.messages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
   }
 
   render() {
     const { channel, onSendChatMessage } = this.props
     const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
-    return (<div className={styles.container}>
-      <div className={styles.messagesAndInput}>
-        <div className={styles.messages}>
-          <MessageList
-            ref={this._setMessageListRef}
-            loading={channel.loadingHistory}
-            hasMoreHistory={channel.hasHistory}
-            messages={channel.messages}
-            onScrollUpdate={this.onScrollUpdate}/>
+    return (
+      <div className={styles.container}>
+        <div className={styles.messagesAndInput}>
+          <div className={styles.messages}>
+            <MessageList
+              ref={this._setMessageListRef}
+              loading={channel.loadingHistory}
+              hasMoreHistory={channel.hasHistory}
+              messages={channel.messages}
+              onScrollUpdate={this.onScrollUpdate}
+            />
+          </div>
+          <MessageInput className={inputClass} onSend={onSendChatMessage} />
         </div>
-        <MessageInput className={inputClass} onSend={onSendChatMessage} />
+        <UserList users={this.props.channel.users} />
       </div>
-      <UserList users={this.props.channel.users} />
-    </div>)
+    )
   }
 
   onScrollUpdate = values => {
@@ -116,12 +132,15 @@ class Channel extends React.Component {
       this.setState({ isScrolledUp })
     }
 
-    if (this.props.onRequestMoreHistory &&
-        this.props.channel.hasHistory && !this.props.channel.loadingHistory &&
-        scrollTop < LOADING_AREA_BOTTOM) {
+    if (
+      this.props.onRequestMoreHistory &&
+      this.props.channel.hasHistory &&
+      !this.props.channel.loadingHistory &&
+      scrollTop < LOADING_AREA_BOTTOM
+    ) {
       this.props.onRequestMoreHistory()
     }
-  };
+  }
 }
 
 const mapStateToProps = state => {
@@ -170,16 +189,20 @@ export default class ChatChannelView extends React.Component {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
       this.props.dispatch(activateChannel(routeChannel))
-    } else if (!prevProps.chat.byName.has(routeChannel) &&
-        prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()) {
+    } else if (
+      !prevProps.chat.byName.has(routeChannel) &&
+      prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()
+    ) {
       if (MULTI_CHANNEL) {
         this.props.dispatch(joinChannel(routeChannel))
       } else {
         this.props.dispatch(routerActions.push('/'))
       }
     }
-    if (prevProps.params.channel &&
-        prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()) {
+    if (
+      prevProps.params.channel &&
+      prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()
+    ) {
       this.props.dispatch(deactivateChannel(prevProps.params.channel))
     }
   }
@@ -189,24 +212,30 @@ export default class ChatChannelView extends React.Component {
   }
 
   renderChannel() {
-    return (<Channel
-      channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
-      onSendChatMessage={this._handleSendChatMessage}
-      onRequestMoreHistory={this._handleRequestMoreHistory}/>)
+    return (
+      <Channel
+        channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
+        onSendChatMessage={this._handleSendChatMessage}
+        onRequestMoreHistory={this._handleRequestMoreHistory}
+      />
+    )
   }
 
   render() {
     const routeChannel = this.props.params.channel
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
-    return (<ContentLayout title={`#${channel ? channel.name : routeChannel}`}
-      appBarContentClassName={styles.appBarContent}>
-      {
-        channel ?
-          this.renderChannel() :
-          <div className={styles.loadingArea}><LoadingIndicator /></div>
-      }
-    </ContentLayout>)
+    return (
+      <ContentLayout
+        title={`#${channel ? channel.name : routeChannel}`}
+        appBarContentClassName={styles.appBarContent}>
+        {channel
+          ? this.renderChannel()
+          : <div className={styles.loadingArea}>
+              <LoadingIndicator />
+            </div>}
+      </ContentLayout>
+    )
   }
 
   onSendChatMessage(msg) {

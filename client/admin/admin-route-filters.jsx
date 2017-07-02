@@ -6,23 +6,23 @@ import { goToIndex } from '../navigation/action-creators'
 export const IsAdminFilter = createConditionalRedirect(
   'IsAdminFilter',
   state => !isAdmin(state.auth),
-  () => goToIndex(routerActions.replace)
+  () => goToIndex(routerActions.replace),
 )
 
 export const CanViewUserProfileFilter = createConditionalRedirect(
   'CanViewUserProfileFilter',
   state => !hasAnyPermission(state.auth, 'editPermissions', 'banUsers'),
-  () => routerActions.replace('/admin')
+  () => routerActions.replace('/admin'),
 )
 
 export const CanAcceptBetaInvitesFilter = createConditionalRedirect(
   'CanAcceptBetaInvitesFilter',
   state => !hasAllPermissions(state.auth, 'acceptInvites'),
-  () => routerActions.replace('/admin')
+  () => routerActions.replace('/admin'),
 )
 
 export const CanManageStarcraftPatchesFilter = createConditionalRedirect(
   'CanManageStarcraftPatchesFilter',
   state => !hasAllPermissions(state.auth, 'manageStarcraftPatches'),
-  () => routerActions.replace('/admin')
+  () => routerActions.replace('/admin'),
 )

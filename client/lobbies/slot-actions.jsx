@@ -20,41 +20,52 @@ const transitionNames = {
 export default class SlotActions extends React.Component {
   static propTypes = {
     slotActions: PropTypes.array,
-  };
+  }
 
   state = {
     slotActionsOverlayOpened: false,
-  };
+  }
 
-  _slotActionsButtonRef = null;
-  _setSlotActionsButtonRef = elem => { this._slotActionsButtonRef = elem };
+  _slotActionsButtonRef = null
+  _setSlotActionsButtonRef = elem => {
+    this._slotActionsButtonRef = elem
+  }
 
   render() {
     const { slotActions } = this.props
     const actions = slotActions.map(([text, handler], i) =>
-      <SlotAction key={i} text={text} onClick={handler} />)
+      <SlotAction key={i} text={text} onClick={handler} />,
+    )
 
-    return (<div>
-      <IconButton icon={<SlotActionsIcon />} title='Slot actions'
-        buttonRef={this._setSlotActionsButtonRef} onClick={this.onSlotActionsClick} />
-      <SlotActionsOverlay open={this.state.slotActionsOverlayOpened}
-        onDismiss={this.onCloseSlotActionsOverlay} anchor={this._slotActionsButtonRef}>
-        {actions}
-      </SlotActionsOverlay>
-    </div>)
+    return (
+      <div>
+        <IconButton
+          icon={<SlotActionsIcon />}
+          title="Slot actions"
+          buttonRef={this._setSlotActionsButtonRef}
+          onClick={this.onSlotActionsClick}
+        />
+        <SlotActionsOverlay
+          open={this.state.slotActionsOverlayOpened}
+          onDismiss={this.onCloseSlotActionsOverlay}
+          anchor={this._slotActionsButtonRef}>
+          {actions}
+        </SlotActionsOverlay>
+      </div>
+    )
   }
 
   onSlotActionsClick = type => {
     this.setState({
       slotActionsOverlayOpened: true,
     })
-  };
+  }
 
   onCloseSlotActionsOverlay = () => {
     this.setState({
       slotActionsOverlayOpened: false,
     })
-  };
+  }
 }
 
 export class SlotActionsOverlay extends React.Component {
@@ -62,16 +73,21 @@ export class SlotActionsOverlay extends React.Component {
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func.isRequired,
     anchor: PropTypes.object,
-  };
+  }
 
   render() {
     const { children, open, onDismiss, anchor } = this.props
 
-    return (<Popover open={open} onDismiss={onDismiss} anchor={anchor}
-      anchorOriginVertical='top' anchorOriginHorizontal='right'
-      popoverOriginVertical='top' popoverOriginHorizontal='right'>
-      {
-        (state, timings) => {
+    return (
+      <Popover
+        open={open}
+        onDismiss={onDismiss}
+        anchor={anchor}
+        anchorOriginVertical="top"
+        anchorOriginHorizontal="right"
+        popoverOriginVertical="top"
+        popoverOriginHorizontal="right">
+        {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style
           if (state === 'opening') {
@@ -85,37 +101,41 @@ export class SlotActionsOverlay extends React.Component {
             }
           }
 
-          return (<TransitionGroup
-            transitionName={transitionNames} transitionAppear={true}
-            transitionAppearTimeout={openDuration}
-            transitionEnterTimeout={openDuration} transitionLeaveTimeout={closeDuration}>
-            {
-              state === 'opening' || state === 'opened' ?
-                <SlotActionsContents key={'contents'} style={style}>
-                  {children}
-                </SlotActionsContents> :
-                null
-            }
-          </TransitionGroup>)
-        }
-      }
-    </Popover>)
+          return (
+            <TransitionGroup
+              transitionName={transitionNames}
+              transitionAppear={true}
+              transitionAppearTimeout={openDuration}
+              transitionEnterTimeout={openDuration}
+              transitionLeaveTimeout={closeDuration}>
+              {state === 'opening' || state === 'opened'
+                ? <SlotActionsContents key={'contents'} style={style}>
+                    {children}
+                  </SlotActionsContents>
+                : null}
+            </TransitionGroup>
+          )
+        }}
+      </Popover>
+    )
   }
 }
 
 export class SlotActionsContents extends React.Component {
   static propTypes = {
     style: PropTypes.object,
-  };
+  }
 
   render() {
     const { children, style } = this.props
 
-    return (<div className={styles.slotActionsContents}>
-      <div className={styles.slotActions} style={style}>
-        { children }
+    return (
+      <div className={styles.slotActionsContents}>
+        <div className={styles.slotActions} style={style}>
+          {children}
+        </div>
       </div>
-    </div>)
+    )
   }
 }
 
@@ -123,19 +143,19 @@ export class SlotAction extends React.Component {
   static propTypes = {
     text: PropTypes.string.isRequired,
     onClick: PropTypes.func,
-  };
+  }
 
   state = {
     active: false,
-  };
+  }
 
   onMouseEnter = () => {
     this.setState({ active: true })
-  };
+  }
 
   onMouseLeave = () => {
     this.setState({ active: false })
-  };
+  }
 
   render() {
     const { text, onClick } = this.props
@@ -147,7 +167,8 @@ export class SlotAction extends React.Component {
         onClick={onClick}
         active={active}
         onMouseEnter={this.onMouseEnter}
-        onMouseLeave={this.onMouseLeave} />
+        onMouseLeave={this.onMouseLeave}
+      />
     )
   }
 }

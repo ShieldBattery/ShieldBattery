@@ -25,18 +25,15 @@ export default class MapStore {
     // - Get the resulting filename under 32 characters (necessary because BW checks this =/)
     const firstDir = mapHash.substr(0, 2)
     const secondDir = b64
-    return path.join(
-      this.basePath,
-      firstDir,
-      secondDir,
-      `map.${mapFormat}`
-    )
+    return path.join(this.basePath, firstDir, secondDir, `map.${mapFormat}`)
   }
 
   async downloadMap(mapHash, mapFormat, mapUrl) {
     if (!this._activeDownloads.has(mapHash)) {
       this._activeDownloads = this._activeDownloads.set(
-        mapHash, this._checkAndDownloadMap(mapHash, mapFormat, mapUrl))
+        mapHash,
+        this._checkAndDownloadMap(mapHash, mapFormat, mapUrl),
+      )
     }
 
     return this._activeDownloads.get(mapHash)
@@ -75,11 +72,8 @@ export default class MapStore {
       await asyncMkdirp(path.dirname(mapPath))
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
-        outStream.on('error', reject)
-          .on('finish', resolve)
-        request.get(mapUrl)
-          .on('error', reject)
-          .pipe(outStream)
+        outStream.on('error', reject).on('finish', resolve)
+        request.get(mapUrl).on('error', reject).pipe(outStream)
       })
 
       return true

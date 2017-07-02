@@ -12,9 +12,9 @@ const STATUSES = [
   make('unknown'),
   make('launching'),
   make('configuring'),
-  make('awaitingPlayers', [ 'dronebabo', 'grnp', 'Heyoka' ]),
-  make('awaitingPlayers', [ 'dronebabo', 'grnp' ]),
-  make('awaitingPlayers', [ 'dronebabo' ]),
+  make('awaitingPlayers', ['dronebabo', 'grnp', 'Heyoka']),
+  make('awaitingPlayers', ['dronebabo', 'grnp']),
+  make('awaitingPlayers', ['dronebabo']),
   make('awaitingPlayers', []),
   make('starting'),
   make('playing'),
@@ -33,7 +33,7 @@ export default class LoadingTest extends React.Component {
   componentDidMount() {
     this._timer = setInterval(() => {
       this.setState({
-        statusIndex: (this.state.statusIndex + 1) % STATUSES.length
+        statusIndex: (this.state.statusIndex + 1) % STATUSES.length,
       })
     }, 2000)
   }
@@ -83,9 +83,13 @@ export default class LoadingTest extends React.Component {
       padding: 16,
     }
 
-    return (<div style={containerStyle}>
-      <p>Status: {JSON.stringify(gameStatus)}</p>
-      <LoadingScreen lobby={lobby} gameStatus={gameStatus} user={user} />
-    </div>)
+    return (
+      <div style={containerStyle}>
+        <p>
+          Status: {JSON.stringify(gameStatus)}
+        </p>
+        <LoadingScreen lobby={lobby} gameStatus={gameStatus} user={user} />
+      </div>
+    )
   }
 }

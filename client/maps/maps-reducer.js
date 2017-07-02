@@ -47,14 +47,15 @@ export default keyedReducer(new Maps(), {
     const list = new List(action.payload.maps.map(m => m.hash))
 
     const localMap = state.localMapHash ? state.byHash.get(state.localMapHash) : null
-    let byHash = new Map(action.payload.maps.map(m => [ m.hash, new MapRecord(m) ]))
+    let byHash = new Map(action.payload.maps.map(m => [m.hash, new MapRecord(m)]))
     if (localMap) {
       byHash = byHash.set(state.localMapHash, localMap)
     }
-    return (state.set('isFetching', false)
+    return state
+      .set('isFetching', false)
       .set('byHash', byHash)
       .set('list', list)
-      .set('lastError', null))
+      .set('lastError', null)
   },
 
   [MAPS_BROWSE_SELECT](state, action) {
@@ -62,12 +63,15 @@ export default keyedReducer(new Maps(), {
       return state.set('localMapError', action.payload.message)
     }
     const { map, path } = action.payload
-    return state.set('localMapHash', map.hash)
-      .set('localMapPath', path)
-      .set('uploadError', null)
-      .set('localMapError', null)
-      // Don't overwrite default map list's MapRecords
-      .update('byHash', x => x.set(map.hash, x.get(map.hash, new MapRecord(map))))
+    return (
+      state
+        .set('localMapHash', map.hash)
+        .set('localMapPath', path)
+        .set('uploadError', null)
+        .set('localMapError', null)
+        // Don't overwrite default map list's MapRecords
+        .update('byHash', x => x.set(map.hash, x.get(map.hash, new MapRecord(map))))
+    )
   },
 
   [MAPS_HOST_LOCAL_BEGIN](state, action) {
@@ -84,5 +88,5 @@ export default keyedReducer(new Maps(), {
 
   [LOBBY_INIT_DATA](state, action) {
     return state.set('uploadError', null).set('localMapError', null)
-  }
+  },
 })

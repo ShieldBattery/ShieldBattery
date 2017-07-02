@@ -26,38 +26,44 @@ class Whisper extends React.Component {
     session: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
     onRequestMoreHistory: PropTypes.func,
-  };
+  }
 
-  messageList = null;
-  _setMessageListRef = elem => { this.messageList = elem };
+  messageList = null
+  _setMessageListRef = elem => {
+    this.messageList = elem
+  }
   state = {
     isScrolledUp: false,
-  };
+  }
 
   componentWillUpdate(nextProps, nextState) {
-    const insertingAtTop = nextProps.session !== this.props.session &&
-        this.props.session.messages.size > 0 &&
-        nextProps.session.messages.size > this.props.session.messages.size &&
-        nextProps.session.messages.get(0) !== this.props.session.messages.get(0)
+    const insertingAtTop =
+      nextProps.session !== this.props.session &&
+      this.props.session.messages.size > 0 &&
+      nextProps.session.messages.size > this.props.session.messages.size &&
+      nextProps.session.messages.get(0) !== this.props.session.messages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
   }
 
   render() {
     const { session, onSendChatMessage } = this.props
     const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
-    return (<div className={styles.container}>
-      <div className={styles.messagesAndInput}>
-        <div className={styles.messages}>
-          <MessageList
-            ref={this._setMessageListRef}
-            loading={session.loadingHistory}
-            hasMoreHistory={session.hasHistory}
-            messages={session.messages}
-            onScrollUpdate={this.onScrollUpdate}/>
+    return (
+      <div className={styles.container}>
+        <div className={styles.messagesAndInput}>
+          <div className={styles.messages}>
+            <MessageList
+              ref={this._setMessageListRef}
+              loading={session.loadingHistory}
+              hasMoreHistory={session.hasHistory}
+              messages={session.messages}
+              onScrollUpdate={this.onScrollUpdate}
+            />
+          </div>
+          <MessageInput className={inputClass} onSend={onSendChatMessage} />
         </div>
-        <MessageInput className={inputClass} onSend={onSendChatMessage} />
       </div>
-    </div>)
+    )
   }
 
   onScrollUpdate = values => {
@@ -68,12 +74,15 @@ class Whisper extends React.Component {
       this.setState({ isScrolledUp })
     }
 
-    if (this.props.onRequestMoreHistory &&
-        this.props.session.hasHistory && !this.props.session.loadingHistory &&
-        scrollTop < LOADING_AREA_BOTTOM) {
+    if (
+      this.props.onRequestMoreHistory &&
+      this.props.session.hasHistory &&
+      !this.props.session.loadingHistory &&
+      scrollTop < LOADING_AREA_BOTTOM
+    ) {
       this.props.onRequestMoreHistory()
     }
-  };
+  }
 }
 
 // Returns true if the whispers store state shows that we have closed the whisper session while
@@ -101,7 +110,7 @@ export default class WhisperView extends React.Component {
     const target = this.props.params.target.toLowerCase()
     if (this.props.user.name.toLowerCase() === target) {
       this.props.dispatch(routerActions.push('/'))
-      this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
+      this.props.dispatch(openSnackbar({ message: "Can't whisper with yourself." }))
       return
     }
 
@@ -131,7 +140,7 @@ export default class WhisperView extends React.Component {
 
     if (nextProps.user.name.toLowerCase() === target) {
       this.props.dispatch(routerActions.push('/'))
-      this.props.dispatch(openSnackbar({ message: 'Can\'t whisper with yourself.' }))
+      this.props.dispatch(openSnackbar({ message: "Can't whisper with yourself." }))
       return
     }
   }
@@ -144,8 +153,7 @@ export default class WhisperView extends React.Component {
     } else if (!prevProps.whispers.byName.has(target)) {
       this.props.dispatch(startWhisperSession(target))
     }
-    if (prevProps.params.target &&
-        prevProps.params.target.toLowerCase() !== target) {
+    if (prevProps.params.target && prevProps.params.target.toLowerCase() !== target) {
       this.props.dispatch(deactivateWhisperSession(prevProps.params.target.toLowerCase()))
     }
   }
@@ -159,14 +167,18 @@ export default class WhisperView extends React.Component {
     const session = this.props.whispers.byName.get(target.toLowerCase())
 
     return (
-      <ContentLayout title={`Whisper with ${session ? session.target : target}`}
+      <ContentLayout
+        title={`Whisper with ${session ? session.target : target}`}
         appBarContentClassName={styles.appBarContent}>
-        {
-          session ?
-            <Whisper session={session} onSendChatMessage={this._handleSendChatMessage}
-              onRequestMoreHistory={this._handleRequestMoreHistory} /> :
-            <div className={styles.loadingArea}><LoadingIndicator /></div>
-        }
+        {session
+          ? <Whisper
+              session={session}
+              onSendChatMessage={this._handleSendChatMessage}
+              onRequestMoreHistory={this._handleRequestMoreHistory}
+            />
+          : <div className={styles.loadingArea}>
+              <LoadingIndicator />
+            </div>}
       </ContentLayout>
     )
   }

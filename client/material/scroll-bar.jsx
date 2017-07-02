@@ -25,26 +25,24 @@ export class ScrollableContent extends React.Component {
     viewClassName: PropTypes.string,
     onUpdate: PropTypes.func,
     autoHeight: PropTypes.bool,
-    autoHeightMin: PropTypes.oneOfType([
-      PropTypes.number,
-      PropTypes.string,
-    ]),
-    autoHeightMax: PropTypes.oneOfType([
-      PropTypes.number,
-      PropTypes.string,
-    ]),
+    autoHeightMin: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    autoHeightMax: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     // Whether the element should keep the scroll position at the bottom if it's at the bottom and
     // more content is added
     autoScroll: PropTypes.bool,
-  };
+  }
 
   constructor(props) {
     super(props)
     this._renderView = ({ children, style }) =>
-      <div className={this.props.viewClassName} style={style}>{children}</div>
+      <div className={this.props.viewClassName} style={style}>
+        {children}
+      </div>
 
     this._scrollBars = null
-    this._setScrollBarsRef = elem => { this._scrollBars = elem }
+    this._setScrollBarsRef = elem => {
+      this._scrollBars = elem
+    }
     this._shouldAutoScroll = true
 
     this._insertingAtTop = false
@@ -54,8 +52,10 @@ export class ScrollableContent extends React.Component {
   componentWillUpdate() {
     const node = this._scrollBars
     this._lastScrollHeight = node.getScrollHeight()
-    this._shouldAutoScroll = !this._insertingAtTop && (node.getScrollTop() +
-        node.getClientHeight() + 8 /* allow some leeway */) >= this._lastScrollHeight
+    this._shouldAutoScroll =
+      !this._insertingAtTop &&
+      node.getScrollTop() + node.getClientHeight() + 8 /* allow some leeway */ >=
+        this._lastScrollHeight
   }
 
   componentDidMount() {
@@ -86,7 +86,8 @@ export class ScrollableContent extends React.Component {
     // adjust scrollTop by the difference between old scroll height and new scroll height, to
     // maintain the same top element
     this._scrollBars.scrollTop(
-      this._scrollBars.getScrollTop() + (scrollHeight - this._lastScrollHeight))
+      this._scrollBars.getScrollTop() + (scrollHeight - this._lastScrollHeight),
+    )
   }
 
   // Set a flag that indicates whether or not we are inserting content at the top of the scrollable

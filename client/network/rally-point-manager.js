@@ -26,7 +26,7 @@ class ServerEntry extends EventEmitter {
       let tries = PING_RETRIES
       const doTry = () => {
         tries--
-        const promises = [ this.address6, this.address4 ]
+        const promises = [this.address6, this.address4]
           .filter(addr => !!addr) // remove undefined addresses
           .map(addr => this.rallyPoint.pingServers([{ address: addr, port: this.port }]))
 
@@ -49,9 +49,8 @@ class ServerEntry extends EventEmitter {
 }
 
 function matchServer(server) {
-  return s => s.address6 === server.address6 &&
-      s.address4 === server.address4 &&
-      server.port === s.port
+  return s =>
+    s.address6 === server.address6 && s.address4 === server.address4 && server.port === s.port
 }
 
 export default class RallyPointManager extends EventEmitter {

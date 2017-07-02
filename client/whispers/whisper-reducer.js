@@ -16,11 +16,7 @@ import {
   WHISPERS_UPDATE_USER_OFFLINE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
-import {
-  ChatMessage,
-  UserOnlineMessage,
-  UserOfflineMessage,
-} from '../messaging/message-records'
+import { ChatMessage, UserOnlineMessage, UserOfflineMessage } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
@@ -39,7 +35,8 @@ const SessionBase = new Record({
 
 export class Session extends SessionBase {
   get hasLoadedHistory() {
-    return (this.loadingHistory ||
+    return (
+      this.loadingHistory ||
       this.messages.size > 0 ||
       (this.messages.size === 0 && !this.hasHistory)
     )
@@ -69,9 +66,10 @@ function updateMessages(state, targetName, updateFn) {
       sliced = true
     }
 
-    return (c.set('messages', updated)
+    return c
+      .set('messages', updated)
       .set('hasUnread', c.hasUnread || !c.activated)
-      .set('hasHistory', c.hasHistory || sliced))
+      .set('hasHistory', c.hasHistory || sliced)
   })
 }
 
@@ -80,8 +78,9 @@ export default keyedReducer(new WhisperState(), {
     const { target, targetStatus: status } = action.payload
     const session = new Session({ target, status })
 
-    return (state.update('sessions', s => s.add(target))
-      .setIn(['byName', target.toLowerCase()], session))
+    return state
+      .update('sessions', s => s.add(target))
+      .setIn(['byName', target.toLowerCase()], session)
   },
 
   [WHISPERS_START_SESSION_BEGIN](state, action) {
@@ -92,8 +91,9 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_START_SESSION](state, action) {
     if (action.error) {
       const { target } = action.meta
-      const message = 'Something went wrong. Please try again and make sure you\'ve entered a' +
-          ' correct username.'
+      const message =
+        "Something went wrong. Please try again and make sure you've entered a" +
+        ' correct username.'
       return state.setIn(['errorsByName', target.toLowerCase()], message)
     }
 
@@ -103,8 +103,9 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_CLOSE_SESSION](state, action) {
     const { target } = action.payload
 
-    return (state.update('sessions', s => s.delete(target))
-      .deleteIn(['byName', target.toLowerCase()]))
+    return state
+      .update('sessions', s => s.delete(target))
+      .deleteIn(['byName', target.toLowerCase()])
   },
 
   [WHISPERS_UPDATE_MESSAGE](state, action) {
@@ -112,12 +113,14 @@ export default keyedReducer(new WhisperState(), {
     const target = state.sessions.has(from) ? from : to
 
     return updateMessages(state, target.toLowerCase(), m => {
-      return m.push(new ChatMessage({
-        id,
-        time,
-        from,
-        text: message,
-      }))
+      return m.push(
+        new ChatMessage({
+          id,
+          time,
+          from,
+          text: message,
+        }),
+      )
     })
   },
 
@@ -138,11 +141,13 @@ export default keyedReducer(new WhisperState(), {
     }
 
     return updateMessages(updated, name, m => {
-      return m.push(new UserOnlineMessage({
-        id: cuid(),
-        time: Date.now(),
-        user,
-      }))
+      return m.push(
+        new UserOnlineMessage({
+          id: cuid(),
+          time: Date.now(),
+          user,
+        }),
+      )
     })
   },
 
@@ -164,11 +169,13 @@ export default keyedReducer(new WhisperState(), {
     }
 
     return updateMessages(updated, name, m => {
-      return m.push(new UserOfflineMessage({
-        id: cuid(),
-        time: Date.now(),
-        user,
-      }))
+      return m.push(
+        new UserOfflineMessage({
+          id: cuid(),
+          time: Date.now(),
+          user,
+        }),
+      )
     })
   },
 
@@ -188,12 +195,17 @@ export default keyedReducer(new WhisperState(), {
     }
 
     return updateMessages(updated, name, messages => {
-      return new List(newMessages.map(msg => new ChatMessage({
-        id: msg.id,
-        time: msg.sent,
-        from: msg.from,
-        text: msg.data.text,
-      }))).concat(messages)
+      return new List(
+        newMessages.map(
+          msg =>
+            new ChatMessage({
+              id: msg.id,
+              time: msg.sent,
+              from: msg.from,
+              text: msg.data.text,
+            }),
+        ),
+      ).concat(messages)
     })
   },
 
@@ -217,9 +229,10 @@ export default keyedReducer(new WhisperState(), {
     const hasHistory = state.byName.get(name).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
     return state.updateIn(['byName', name], s => {
-      return (s.set('messages', s.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
+      return s
+        .set('messages', s.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
         .set('hasHistory', s.hasHistory || hasHistory)
-        .set('activated', false))
+        .set('activated', false)
     })
   },
 

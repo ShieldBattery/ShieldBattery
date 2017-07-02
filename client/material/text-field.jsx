@@ -24,36 +24,27 @@ export default class TextField extends React.Component {
     onFocus: PropTypes.func,
     onKeyDown: PropTypes.func,
     onEnterKeyDown: PropTypes.func,
-    className: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.array,
-      PropTypes.object,
-    ]),
+    className: PropTypes.oneOfType([PropTypes.string, PropTypes.array, PropTypes.object]),
     inputProps: PropTypes.object,
-  };
+  }
 
   static defaultProps = {
     type: 'text',
     allowErrors: true,
     floatingLabel: false,
-  };
+  }
 
-  id = uniqueId();
+  id = uniqueId()
   state = {
     isFocused: false,
-  };
-  input = null;
-  setInput = elem => { this.input = elem };
+  }
+  input = null
+  setInput = elem => {
+    this.input = elem
+  }
 
   render() {
-    const {
-      allowErrors,
-      errorText,
-      value,
-      name,
-      type,
-      inputProps,
-    } = this.props
+    const { allowErrors, errorText, value, name, type, inputProps } = this.props
     const classes = classnames(styles.textField, this.props.className, {
       [styles.disabled]: this.props.disabled,
     })
@@ -75,28 +66,30 @@ export default class TextField extends React.Component {
       <div className={classes}>
         {this.renderLabel()}
         <input {...inputProps} {...internalInputProps} />
-        <InputUnderline focused={this.state.isFocused} error={!!errorText}
-          disabled={this.props.disabled} />
+        <InputUnderline
+          focused={this.state.isFocused}
+          error={!!errorText}
+          disabled={this.props.disabled}
+        />
         {allowErrors ? <InputError error={errorText} /> : null}
       </div>
     )
   }
 
   renderLabel() {
-    const {
-      label,
-      floatingLabel,
-      value,
-      disabled,
-      errorText,
-    } = this.props
+    const { label, floatingLabel, value, disabled, errorText } = this.props
     if (!label) {
       return null
     } else if (floatingLabel) {
       return (
-        <FloatingLabel htmlFor={this.id} text={label} hasValue={!!value}
-          focused={this.state.isFocused} disabled={disabled}
-          error={!!errorText} />
+        <FloatingLabel
+          htmlFor={this.id}
+          text={label}
+          hasValue={!!value}
+          focused={this.state.isFocused}
+          disabled={disabled}
+          error={!!errorText}
+        />
       )
     } else {
       return <Label htmlFor={this.id} text={label} hasValue={!!value} />
@@ -116,20 +109,20 @@ export default class TextField extends React.Component {
     if (this.props.onBlur) {
       this.props.onBlur(e)
     }
-  };
+  }
 
   onInputFocus = e => {
     this.setState({ isFocused: true })
     if (this.props.onFocus) {
       this.props.onFocus(e)
     }
-  };
+  }
 
   onInputChange = e => {
     if (this.props.onChange) {
       this.props.onChange(e)
     }
-  };
+  }
 
   onKeyDown = e => {
     if (e.keyCode === 13 && this.props.onEnterKeyDown) {
@@ -138,5 +131,5 @@ export default class TextField extends React.Component {
     if (this.props.onKeyDown) {
       this.props.onKeyDown(e)
     }
-  };
+  }
 }

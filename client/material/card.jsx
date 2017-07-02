@@ -7,7 +7,7 @@ class Card extends React.Component {
     const classes = classnames(styles.card, this.props.className)
     return (
       <div className={classes} style={this.props.style}>
-        { this.props.children }
+        {this.props.children}
       </div>
     )
   }

@@ -7,11 +7,11 @@ import DevSliders from './slider-test.jsx'
 import DevTextFields from './text-field-test.jsx'
 
 export default (
-  <Route path='/devmaterial/'>
-    <Route path='overflow' component={DevOverflow} />
-    <Route path='popover' component={DevPopover} />
-    <Route path='select' component={DevSelects} />
-    <Route path='slider' component={DevSliders} />
-    <Route path='textfield' component={DevTextFields} />
+  <Route path="/devmaterial/">
+    <Route path="overflow" component={DevOverflow} />
+    <Route path="popover" component={DevPopover} />
+    <Route path="select" component={DevSelects} />
+    <Route path="slider" component={DevSliders} />
+    <Route path="textfield" component={DevTextFields} />
   </Route>
 )

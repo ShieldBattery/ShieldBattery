@@ -9,10 +9,12 @@ const InputUnderline = props => {
     [styles.error]: props.error,
     [styles.disabled]: props.disabled,
   })
-  return (<div className={classes}>
-    <hr className={styles.underline}/>
-    <hr className={styles.focusUnderline}/>
-  </div>)
+  return (
+    <div className={classes}>
+      <hr className={styles.underline} />
+      <hr className={styles.focusUnderline} />
+    </div>
+  )
 }
 
 InputUnderline.propTypes = {

@@ -22,7 +22,8 @@ function readCookies() {
 
   for (const cookie of cookieArray) {
     const index = cookie.indexOf('=')
-    if (index < 0) { // ignore nameless cookies
+    if (index < 0) {
+      // ignore nameless cookies
       continue
     }
 

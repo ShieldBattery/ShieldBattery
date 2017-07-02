@@ -9,12 +9,10 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
-import {
-  NEW_CHAT_MESSAGE,
-} from '../../app/common/ipc-constants'
+import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 const eventToAction = {
   init(channel, event, siteSocket) {
@@ -23,7 +21,7 @@ const eventToAction = {
       payload: {
         channel,
         activeUsers: event.activeUsers,
-      }
+      },
     }
   },
 
@@ -33,7 +31,7 @@ const eventToAction = {
       payload: {
         channel,
         user: event.user,
-      }
+      },
     }
   },
 
@@ -46,7 +44,7 @@ const eventToAction = {
         type: CHAT_UPDATE_LEAVE_SELF,
         payload: {
           channel,
-        }
+        },
       })
     } else {
       dispatch({
@@ -55,7 +53,7 @@ const eventToAction = {
           channel,
           user: event.user,
           newOwner: event.newOwner,
-        }
+        },
       })
     }
   },
@@ -75,7 +73,7 @@ const eventToAction = {
         time: event.sent,
         user: event.user,
         message: event.data.text,
-      }
+      },
     }
   },
 
@@ -85,7 +83,7 @@ const eventToAction = {
       payload: {
         channel,
         user: event.user,
-      }
+      },
     }
   },
 
@@ -95,7 +93,7 @@ const eventToAction = {
       payload: {
         channel,
         user: event.user,
-      }
+      },
     }
   },
 
@@ -105,7 +103,7 @@ const eventToAction = {
       payload: {
         channel,
         user: event.user,
-      }
+      },
     }
   },
 }

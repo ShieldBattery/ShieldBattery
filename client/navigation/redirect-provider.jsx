@@ -37,10 +37,10 @@ class RedirectChecker {
 export default class RedirectProvider extends React.Component {
   static childContextTypes = {
     redirectChecker: PropTypes.object.isRequired,
-  };
+  }
   static contextTypes = {
     store: PropTypes.object.isRequired,
-  };
+  }
 
   constructor(props, context) {
     super(props, context)

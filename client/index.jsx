@@ -5,19 +5,21 @@ import log from './logging/logger'
 import { makeServerUrl } from './network/server-url'
 
 if (process.webpackEnv.SB_ENV === 'electron') {
-  process.on('uncaughtException', function(err) {
-    console.error(err.stack)
-    log.error(err.stack)
-    // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
-    // dialog to user?
-  }).on('unhandledRejection', function(err) {
-    log.error(err.stack)
-    if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+  process
+    .on('uncaughtException', function(err) {
+      console.error(err.stack)
+      log.error(err.stack)
       // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
       // dialog to user?
-    }
-    // Other promise rejections are likely less severe, leave the process up but log it
-  })
+    })
+    .on('unhandledRejection', function(err) {
+      log.error(err.stack)
+      if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+        // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
+        // dialog to user?
+      }
+      // Other promise rejections are likely less severe, leave the process up but log it
+    })
 
   require('./active-game/game-server')
   // Necessary to make Google Analytics work, since it wants to store/read a cookie but we're on a
@@ -41,16 +43,11 @@ import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
 import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
-import {
-  AUDIO_MANAGER_INITIALIZED
-} from './actions'
-import {
-  UPDATE_SERVER,
-  UPDATE_SERVER_COMPLETE
-} from '../app/common/ipc-constants'
+import { AUDIO_MANAGER_INITIALIZED } from './actions'
+import { UPDATE_SERVER, UPDATE_SERVER_COMPLETE } from '../app/common/ipc-constants'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
@@ -80,46 +77,56 @@ const updatedServerPromise = new Promise(resolve => {
 
 const initAudioPromise = audioManager ? audioManager.initialize() : Promise.resolve()
 
-Promise.all([ rootElemPromise, updatedServerPromise ]).then(async([ elem ]) => {
-  const initData = window._sbInitData
-  if (initData && initData.auth) {
-    initData.auth = authFromJS(initData.auth)
-  }
-
-  let history = useRouterHistory(process.webpackEnv.SB_ENV === 'web' ?
-    createHistory : createHashHistory)()
-  const store = createStore(initData, history)
-  history = syncHistoryWithStore(history, store, {
-    // Since we're using a custom reducer, we have to adjust the state to be shaped like
-    // react-router-redux expects
-    selectLocationState: ({ routing }) => ({ locationBeforeTransitions: routing.location })
-  })
-  registerDispatch(store.dispatch)
-  registerSocketHandlers()
-
-  initAudioPromise.then(() => { store.dispatch({ type: AUDIO_MANAGER_INITIALIZED }) })
-
-  return { elem, store, history }
-}).then(async({ elem, store, history }) => {
-  let analyticsId = window._sbAnalyticsId
-  if (process.webpackEnv.SB_ENV !== 'web') {
-    const configPromise = fetch('/config', { method: 'get' })
-    const { action, promise: sessionPromise } = getCurrentSession()
-    store.dispatch(action)
-    try {
-      const [ config, ] = await Promise.all([ configPromise, sessionPromise ])
-      analyticsId = config.analyticsId
-      window._sbFeedbackUrl = config.feedbackUrl
-    } catch (err) {
-      // Ignored, usually just means we don't have a current session
+Promise.all([rootElemPromise, updatedServerPromise])
+  .then(async ([elem]) => {
+    const initData = window._sbInitData
+    if (initData && initData.auth) {
+      initData.auth = authFromJS(initData.auth)
     }
-  }
-  return { elem, store, history, analyticsId }
-}).then(({elem, store, history, analyticsId}) => {
-  render(
-    <Provider store={store}>
-      <RedirectProvider>
-        <App history={history} analyticsId={analyticsId}/>
-      </RedirectProvider>
-    </Provider>, elem)
-})
+
+    let history = useRouterHistory(
+      process.webpackEnv.SB_ENV === 'web' ? createHistory : createHashHistory,
+    )()
+    const store = createStore(initData, history)
+    history = syncHistoryWithStore(history, store, {
+      // Since we're using a custom reducer, we have to adjust the state to be shaped like
+      // react-router-redux expects
+      selectLocationState: ({ routing }) => ({
+        locationBeforeTransitions: routing.location,
+      }),
+    })
+    registerDispatch(store.dispatch)
+    registerSocketHandlers()
+
+    initAudioPromise.then(() => {
+      store.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
+    })
+
+    return { elem, store, history }
+  })
+  .then(async ({ elem, store, history }) => {
+    let analyticsId = window._sbAnalyticsId
+    if (process.webpackEnv.SB_ENV !== 'web') {
+      const configPromise = fetch('/config', { method: 'get' })
+      const { action, promise: sessionPromise } = getCurrentSession()
+      store.dispatch(action)
+      try {
+        const [config] = await Promise.all([configPromise, sessionPromise])
+        analyticsId = config.analyticsId
+        window._sbFeedbackUrl = config.feedbackUrl
+      } catch (err) {
+        // Ignored, usually just means we don't have a current session
+      }
+    }
+    return { elem, store, history, analyticsId }
+  })
+  .then(({ elem, store, history, analyticsId }) => {
+    render(
+      <Provider store={store}>
+        <RedirectProvider>
+          <App history={history} analyticsId={analyticsId} />
+        </RedirectProvider>
+      </Provider>,
+      elem,
+    )
+  })

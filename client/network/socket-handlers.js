@@ -1,10 +1,8 @@
 import siteSocket from './site-socket'
 import rallyPointManager from './rally-point-manager-instance'
 import { dispatch } from '../dispatch-registry'
-import {
-  NETWORK_SITE_CONNECTED,
-  NETWORK_SITE_DISCONNECTED,
-} from '../actions'
+import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
+// prettier-ignore
 import {
   NETWORK_SITE_CONNECTED as IPC_NETWORK_SITE_CONNNECTED,
 } from '../../app/common/ipc-constants'
@@ -15,18 +13,20 @@ import serverStatus from '../serverstatus/server-status-checker'
 import whispers from '../whispers/socket-handlers'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 function networkStatusHandler({ siteSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
-  siteSocket.on('connect', () => {
-    dispatch({ type: NETWORK_SITE_CONNECTED })
-    if (ipcRenderer) {
-      ipcRenderer.send(IPC_NETWORK_SITE_CONNNECTED)
-    }
-  }).on('disconnect', () => {
-    dispatch({ type: NETWORK_SITE_DISCONNECTED })
-  })
+  siteSocket
+    .on('connect', () => {
+      dispatch({ type: NETWORK_SITE_CONNECTED })
+      if (ipcRenderer) {
+        ipcRenderer.send(IPC_NETWORK_SITE_CONNNECTED)
+      }
+    })
+    .on('disconnect', () => {
+      dispatch({ type: NETWORK_SITE_DISCONNECTED })
+    })
 }
 
 function rallyPointHandler({ siteSocket }) {
@@ -45,23 +45,22 @@ function rallyPointHandler({ siteSocket }) {
   })
 }
 
-const envSpecificHandlers = process.webpackEnv.SB_ENV === 'electron' ? [
-  rallyPointHandler,
-  require('../active-game/socket-handlers').default,
-  require('../download/ipc-handlers').default,
-  require('../lobbies/socket-handlers').default,
-  require('../matchmaking/socket-handlers').default,
-  require('../settings/ipc-handlers').default,
-  require('../window-controls/ipc-handlers').default,
-] : []
+const envSpecificHandlers =
+  process.webpackEnv.SB_ENV === 'electron'
+    ? [
+        rallyPointHandler,
+        require('../active-game/socket-handlers').default,
+        require('../download/ipc-handlers').default,
+        require('../lobbies/socket-handlers').default,
+        require('../matchmaking/socket-handlers').default,
+        require('../settings/ipc-handlers').default,
+        require('../window-controls/ipc-handlers').default,
+      ]
+    : []
 
-const handlers = [
-  chat,
-  loading,
-  networkStatusHandler,
-  serverStatus,
-  whispers,
-].concat(envSpecificHandlers)
+const handlers = [chat, loading, networkStatusHandler, serverStatus, whispers].concat(
+  envSpecificHandlers,
+)
 
 export default function register() {
   for (const handler of handlers) {

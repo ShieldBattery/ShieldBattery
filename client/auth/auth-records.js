@@ -1,4 +1,4 @@
-import {Record} from 'immutable'
+import { Record } from 'immutable'
 
 export const User = new Record({ id: null, name: null })
 export const Permissions = new Record({

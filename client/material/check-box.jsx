@@ -12,39 +12,30 @@ export default class CheckBox extends React.Component {
     value: PropTypes.string,
     onChange: PropTypes.func,
     disabled: PropTypes.bool,
-    className: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.array,
-      PropTypes.object,
-    ])
+    className: PropTypes.oneOfType([PropTypes.string, PropTypes.array, PropTypes.object]),
   }
 
-  id = uniqueId();
+  id = uniqueId()
   state = {
     isKeyboardFocused: false,
-  };
-  mouseActive = false;
-  clearMouseActive = null;
+  }
+  mouseActive = false
+  clearMouseActive = null
 
   render() {
-    const {
-      className,
-      label,
-      checked,
-      name,
-      value,
-      onChange,
-      disabled,
-      inputProps,
-    } = this.props
+    const { className, label, checked, name, value, onChange, disabled, inputProps } = this.props
     const classes = classnames(styles.checkBox, className, {
       [styles.checked]: checked,
       [styles.disabled]: disabled,
       [styles.focused]: this.state.isKeyboardFocused,
     })
 
-    const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
-    const iconElem = <div className={styles.icon}></div>
+    const labelElem = label
+      ? <label htmlFor={this.id}>
+          {this.props.label}
+        </label>
+      : null
+    const iconElem = <div className={styles.icon} />
 
     const internalInputProps = {
       type: 'checkbox',
@@ -60,26 +51,28 @@ export default class CheckBox extends React.Component {
     }
     const inputElem = <input {...inputProps} {...internalInputProps} />
 
-    return (<div className={classes}>
-      {inputElem}
-      <div className={styles.iconContainer}>
-        {iconElem}
+    return (
+      <div className={classes}>
+        {inputElem}
+        <div className={styles.iconContainer}>
+          {iconElem}
+        </div>
+        {labelElem}
       </div>
-      {labelElem}
-    </div>)
+    )
   }
 
   onBlur = e => {
     if (this.state.isKeyboardFocused) {
       this.setState({ isKeyboardFocused: false })
     }
-  };
+  }
 
   onFocus = e => {
     if (!this.mouseActive) {
       this.setState({ isKeyboardFocused: true })
     }
-  };
+  }
 
   onMouseDown = e => {
     if (this.clearMouseActive) {
@@ -90,5 +83,5 @@ export default class CheckBox extends React.Component {
       this.clearMouseActive = null
     }, 100)
     this.mouseActive = true
-  };
+  }
 }

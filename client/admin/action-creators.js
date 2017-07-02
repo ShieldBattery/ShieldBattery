@@ -25,29 +25,29 @@ function shouldGetUserProfile(state, username) {
     return true
   }
   const user = users.get(username)
-  return !user.isRequesting && (Date.now() - user.lastUpdated) > USER_PROFILE_STALE_TIME
+  return !user.isRequesting && Date.now() - user.lastUpdated > USER_PROFILE_STALE_TIME
 }
 
 function fetchUserId(username) {
   // TODO(tec27): this can be cached
-  return (fetch('/api/1/users/' + encodeURIComponent(username))
-    .then(value => {
-      if (!value.length) throw new Error('No user found with that name')
-      else return value[0].id
-    }))
+  return fetch('/api/1/users/' + encodeURIComponent(username)).then(value => {
+    if (!value.length) throw new Error('No user found with that name')
+    else return value[0].id
+  })
 }
 
 function getPermissions(username) {
   return dispatch => {
     dispatch({
       type: ADMIN_GET_PERMISSIONS_BEGIN,
-      payload: { username }
+      payload: { username },
     })
     dispatch({
       type: ADMIN_GET_PERMISSIONS,
-      payload: fetchUserId(username)
-        .then(id => fetch('/api/1/permissions/' + encodeURIComponent(id))),
-      meta: { username }
+      payload: fetchUserId(username).then(id =>
+        fetch('/api/1/permissions/' + encodeURIComponent(id)),
+      ),
+      meta: { username },
     })
   }
 }
@@ -64,7 +64,7 @@ export function setPermissions(username, permissions) {
   return dispatch => {
     dispatch({
       type: ADMIN_SET_PERMISSIONS_BEGIN,
-      meta: { username, permissions }
+      meta: { username, permissions },
     })
     const params = { method: 'post', body: JSON.stringify(permissions) }
     dispatch({
@@ -84,12 +84,12 @@ function getBanHistory(username) {
   return dispatch => {
     dispatch({
       type: ADMIN_GET_BAN_HISTORY_BEGIN,
-      payload: { username }
+      payload: { username },
     })
     dispatch({
       type: ADMIN_GET_BAN_HISTORY,
       payload: fetchUserId(username).then(id => fetch('/api/1/bans/' + encodeURIComponent(id))),
-      meta: { username }
+      meta: { username },
     })
   }
 }
@@ -106,7 +106,7 @@ export function banUser(username, length, reason) {
   return dispatch => {
     dispatch({
       type: ADMIN_BAN_USER_BEGIN,
-      meta: { username, length, reason }
+      meta: { username, length, reason },
     })
     const params = { method: 'post', body: JSON.stringify({ banLengthHours: length, reason }) }
     dispatch({
@@ -148,16 +148,16 @@ export function acceptUser(email) {
   return dispatch => {
     dispatch({
       type: ADMIN_ACCEPT_USER_BEGIN,
-      meta: { email }
+      meta: { email },
     })
 
     dispatch({
       type: ADMIN_ACCEPT_USER,
       payload: fetch('/api/1/invites/' + encodeURIComponent(email), {
         method: 'put',
-        body: JSON.stringify({ isAccepted: true })
+        body: JSON.stringify({ isAccepted: true }),
       }),
-      meta: { email }
+      meta: { email },
     })
   }
 }

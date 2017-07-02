@@ -7,12 +7,10 @@ import {
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
 } from '../actions'
-import {
-  NEW_CHAT_MESSAGE,
-} from '../../app/common/ipc-constants'
+import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 const eventToAction = {
   initSession(event, siteSocket) {
@@ -21,7 +19,7 @@ const eventToAction = {
       payload: {
         target: event.target,
         targetStatus: event.targetStatus,
-      }
+      },
     }
   },
 
@@ -30,7 +28,7 @@ const eventToAction = {
       type: WHISPERS_UPDATE_CLOSE_SESSION,
       payload: {
         target: event.target,
-      }
+      },
     }
   },
 
@@ -48,7 +46,7 @@ const eventToAction = {
         from: event.from,
         to: event.to,
         message: event.data.text,
-      }
+      },
     }
   },
 
@@ -57,7 +55,7 @@ const eventToAction = {
       type: WHISPERS_UPDATE_USER_ACTIVE,
       payload: {
         user: event.target,
-      }
+      },
     }
   },
 
@@ -66,7 +64,7 @@ const eventToAction = {
       type: WHISPERS_UPDATE_USER_IDLE,
       payload: {
         user: event.target,
-      }
+      },
     }
   },
 
@@ -75,7 +73,7 @@ const eventToAction = {
       type: WHISPERS_UPDATE_USER_OFFLINE,
       payload: {
         user: event.target,
-      }
+      },
     }
   },
 }

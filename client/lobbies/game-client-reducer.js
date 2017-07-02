@@ -1,9 +1,6 @@
 import Immutable, { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import {
-  ACTIVE_GAME_LAUNCH,
-  ACTIVE_GAME_STATUS,
-} from '../actions'
+import { ACTIVE_GAME_LAUNCH, ACTIVE_GAME_STATUS } from '../actions'
 
 export const GameStatus = new Record({
   state: 'unknown',
@@ -29,7 +26,7 @@ export default keyedReducer(new GameClient(), {
       status: new GameStatus({
         state: action.payload.state,
         extra: action.payload.extra ? Immutable.fromJS(action.payload.extra) : null,
-      })
+      }),
     })
   },
 })

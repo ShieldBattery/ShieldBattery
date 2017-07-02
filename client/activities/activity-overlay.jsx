@@ -9,12 +9,14 @@ import KeyListener from '../keyboard/key-listener.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
 
 const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } =
-    process.webpackEnv.SB_ENV === 'electron' ? {
-      FindMatch: require('../matchmaking/find-match.jsx').default,
-      CreateLobby: require('../lobbies/create-lobby.jsx').default,
-      WatchReplay: require('../replays/watch-replay.jsx').default,
-      BrowseMaps: require('../maps/browse-maps.jsx').default,
-    } : {}
+  process.webpackEnv.SB_ENV === 'electron'
+    ? {
+        FindMatch: require('../matchmaking/find-match.jsx').default,
+        CreateLobby: require('../lobbies/create-lobby.jsx').default,
+        WatchReplay: require('../replays/watch-replay.jsx').default,
+        BrowseMaps: require('../maps/browse-maps.jsx').default,
+      }
+    : {}
 
 const ESCAPE = keycode('escape')
 
@@ -29,12 +31,18 @@ const transitionNames = {
 export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
-      case 'findMatch': return <FindMatch />
-      case 'createLobby': return <CreateLobby />
-      case 'joinLobby': return <JoinLobby />
-      case 'watchReplay': return <WatchReplay />
-      case 'browseMaps': return <BrowseMaps />
-      default: return <span/>
+      case 'findMatch':
+        return <FindMatch />
+      case 'createLobby':
+        return <CreateLobby />
+      case 'joinLobby':
+        return <JoinLobby />
+      case 'watchReplay':
+        return <WatchReplay />
+      case 'browseMaps':
+        return <BrowseMaps />
+      default:
+        return <span />
     }
   }
 
@@ -43,25 +51,31 @@ export default class ActivityOverlay extends React.Component {
       return null
     }
 
-    return (<div key={'overlay'}>
-      <KeyListener onKeyDown={this.onKeyDown} />
-      <div className={styles.scrim} onClick={this.onScrimClick}/>
-      <div className={styles.overlay}>{ this.getOverlayComponent() }</div>
-    </div>)
+    return (
+      <div key={'overlay'}>
+        <KeyListener onKeyDown={this.onKeyDown} />
+        <div className={styles.scrim} onClick={this.onScrimClick} />
+        <div className={styles.overlay}>
+          {this.getOverlayComponent()}
+        </div>
+      </div>
+    )
   }
 
   render() {
     return (
-      <TransitionGroup transitionName={transitionNames}
-        transitionEnterTimeout={350} transitionLeaveTimeout={250}>
-        { this.renderOverlay() }
+      <TransitionGroup
+        transitionName={transitionNames}
+        transitionEnterTimeout={350}
+        transitionLeaveTimeout={250}>
+        {this.renderOverlay()}
       </TransitionGroup>
     )
   }
 
   onScrimClick = () => {
     this.props.dispatch(closeOverlay())
-  };
+  }
 
   onKeyDown = event => {
     if (event.keyCode === ESCAPE) {
@@ -70,5 +84,5 @@ export default class ActivityOverlay extends React.Component {
     }
 
     return false
-  };
+  }
 }

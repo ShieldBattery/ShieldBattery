@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import {
   unstable_renderSubtreeIntoContainer as renderSubtreeIntoContainer,
-  unmountComponentAtNode
+  unmountComponentAtNode,
 } from 'react-dom'
 import TransitionGroup from 'react-addons-css-transition-group'
 import styles from './portal.css'
@@ -27,12 +27,14 @@ export default class Portal extends React.Component {
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func,
     scrim: PropTypes.bool,
-  };
+  }
 
-  portal = null;
-  content = null;
-  setContent = elem => { this.content = elem };
-  _registeredWindowClick = false;
+  portal = null
+  content = null
+  setContent = elem => {
+    this.content = elem
+  }
+  _registeredWindowClick = false
 
   componentDidMount() {
     this.renderPortal()
@@ -49,11 +51,13 @@ export default class Portal extends React.Component {
   onClickAway = event => {
     if (!this.props.onDismiss || !this.props.open) return
 
-    if (this.props.scrim ||
-        (event.currentTarget === window && !this.content.contains(event.target))) {
+    if (
+      this.props.scrim ||
+      (event.currentTarget === window && !this.content.contains(event.target))
+    ) {
       this.props.onDismiss()
     }
-  };
+  }
 
   registerWindowClick() {
     if (this._registeredWindowClick) return
@@ -92,17 +96,21 @@ export default class Portal extends React.Component {
       this.unregisterWindowClick()
     }
 
-    const contents = <div ref={this.setContent}>
-      <TransitionGroup
-        transitionName={transitionNames} transitionAppear={true}
-        transitionAppearTimeout={250} transitionEnterTimeout={250} transitionLeaveTimeout={200}>
-        {
-          open && scrim ?
-            <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway}/> : null
-        }
-      </TransitionGroup>
-      { open ? children() : null }
-    </div>
+    const contents = (
+      <div ref={this.setContent}>
+        <TransitionGroup
+          transitionName={transitionNames}
+          transitionAppear={true}
+          transitionAppearTimeout={250}
+          transitionEnterTimeout={250}
+          transitionLeaveTimeout={200}>
+          {open && scrim
+            ? <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway} />
+            : null}
+        </TransitionGroup>
+        {open ? children() : null}
+      </div>
+    )
     renderSubtreeIntoContainer(this, contents, this.portal)
   }
 

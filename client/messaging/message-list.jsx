@@ -9,7 +9,7 @@ import {
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
   UserOnlineMessage,
-  UserOfflineMessage
+  UserOfflineMessage,
 } from './message-types.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
@@ -24,22 +24,31 @@ class PureMessageList extends React.Component {
   renderMessage(msg) {
     const { id, type } = msg
     switch (type) {
-      case 'joinChannel': return <JoinChannelMessage key={id} record={msg} />
-      case 'leaveChannel': return <LeaveChannelMessage key={id} record={msg} />
+      case 'joinChannel':
+        return <JoinChannelMessage key={id} record={msg} />
+      case 'leaveChannel':
+        return <LeaveChannelMessage key={id} record={msg} />
       case 'message':
         return <ChatMessage key={id} user={msg.from} time={msg.time} text={msg.text} />
-      case 'newOwner': return <NewChannelOwnerMessage key={id} record={msg} />
-      case 'selfJoinChannel': return <SelfJoinChannelMessage key={id} record={msg} />
-      case 'userOnline': return <UserOnlineMessage key={id} record={msg} />
-      case 'userOffline': return <UserOfflineMessage key={id} record={msg} />
-      default: return null
+      case 'newOwner':
+        return <NewChannelOwnerMessage key={id} record={msg} />
+      case 'selfJoinChannel':
+        return <SelfJoinChannelMessage key={id} record={msg} />
+      case 'userOnline':
+        return <UserOnlineMessage key={id} record={msg} />
+      case 'userOffline':
+        return <UserOfflineMessage key={id} record={msg} />
+      default:
+        return null
     }
   }
 
   render() {
-    return (<div className={styles.messages}>
-      { this.props.messages.map(msg => this.renderMessage(msg)) }
-    </div>)
+    return (
+      <div className={styles.messages}>
+        {this.props.messages.map(msg => this.renderMessage(msg))}
+      </div>
+    )
   }
 }
 
@@ -51,13 +60,15 @@ export default class MessageList extends React.Component {
     // Whether this message list has more history available that could be requested
     hasMoreHistory: PropTypes.bool,
     onScrollUpdate: PropTypes.func,
-  };
+  }
 
   constructor(props) {
     super(props)
 
     this.scrollable = null
-    this._setScrollableRef = elem => { this.scrollable = elem }
+    this._setScrollableRef = elem => {
+      this.scrollable = elem
+    }
   }
 
   shouldComponentUpdate(nextProps) {
@@ -75,21 +86,25 @@ export default class MessageList extends React.Component {
       return null
     }
 
-    return (<div className={styles.loadingArea}>
-      { this.props.loading ? <LoadingIndicator /> : null }
-    </div>)
+    return (
+      <div className={styles.loadingArea}>
+        {this.props.loading ? <LoadingIndicator /> : null}
+      </div>
+    )
   }
 
   render() {
-    return (<ScrollableContent
-      ref={this._setScrollableRef}
-      autoScroll={true}
-      onUpdate={this.props.onScrollUpdate}
-      className={styles.messagesScrollable}
-      viewClassName={styles.messagesScrollableView}>
-      { this.renderLoadingArea() }
-      <PureMessageList messages={this.props.messages} />
-    </ScrollableContent>)
+    return (
+      <ScrollableContent
+        ref={this._setScrollableRef}
+        autoScroll={true}
+        onUpdate={this.props.onScrollUpdate}
+        className={styles.messagesScrollable}
+        viewClassName={styles.messagesScrollableView}>
+        {this.renderLoadingArea()}
+        <PureMessageList messages={this.props.messages} />
+      </ScrollableContent>
+    )
   }
 
   // Set a flag that indicates whether or not we are inserting content at the top of the scrollable

@@ -17,14 +17,14 @@ export default class ClosedSlot extends React.Component {
     isHost: PropTypes.bool,
     race: PropTypes.string,
     isObserver: PropTypes.bool,
-  };
+  }
 
   renderControls() {
     const { controlledClosed, canSetRace, race, onSetRace } = this.props
     if (controlledClosed) {
-      return (canSetRace ?
-        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
-        <SelectedRace className={styles.slotRace} race={race} />)
+      return canSetRace
+        ? <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+        : <SelectedRace className={styles.slotRace} race={race} />
     } else {
       return null
     }
@@ -40,19 +40,17 @@ export default class ClosedSlot extends React.Component {
       }
     }
 
-    return (<div className={styles.slot}>
-      <div className={styles.slotLeft}>
-        <span className={styles.slotEmptyAvatar}></span>
-        <span className={styles.slotEmptyName}>Closed</span>
+    return (
+      <div className={styles.slot}>
+        <div className={styles.slotLeft}>
+          <span className={styles.slotEmptyAvatar} />
+          <span className={styles.slotEmptyName}>Closed</span>
+        </div>
+        <div className={styles.slotRight}>
+          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
+          {this.renderControls()}
+        </div>
       </div>
-      <div className={styles.slotRight}>
-        {
-          slotActions.length > 0 ?
-            <SlotActions slotActions={slotActions} /> :
-            <div></div>
-        }
-        { this.renderControls() }
-      </div>
-    </div>)
+    )
   }
 }

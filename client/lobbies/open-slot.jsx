@@ -19,18 +19,18 @@ export default class OpenSlot extends React.Component {
     isHost: PropTypes.bool,
     race: PropTypes.string,
     isObserver: PropTypes.bool,
-  };
+  }
 
   state = {
     isHovered: false,
-  };
+  }
 
   renderControls() {
     const { controlledOpen, canSetRace, race, onSetRace } = this.props
     if (controlledOpen) {
-      return (canSetRace ?
-        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace}/> :
-        <SelectedRace className={styles.slotRace} race={race} />)
+      return canSetRace
+        ? <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+        : <SelectedRace className={styles.slotRace} race={race} />
     } else {
       return null
     }
@@ -53,35 +53,31 @@ export default class OpenSlot extends React.Component {
       }
     }
 
-    return (<div className={styles.slot}>
-      <div className={styles.slotLeftOpen}
-        onMouseEnter={this.onLeftMouseEnter} onMouseLeave={this.onLeftMouseLeave}
-        onClick={onSwitchClick}>
-        <span className={styles.slotEmptyAvatar}>
-          {
-            this.state.isHovered ?
-              <SwapSlotsIcon /> :
-              null
-          }
-        </span>
-        <span className={styles.slotEmptyName}>Open</span>
+    return (
+      <div className={styles.slot}>
+        <div
+          className={styles.slotLeftOpen}
+          onMouseEnter={this.onLeftMouseEnter}
+          onMouseLeave={this.onLeftMouseLeave}
+          onClick={onSwitchClick}>
+          <span className={styles.slotEmptyAvatar}>
+            {this.state.isHovered ? <SwapSlotsIcon /> : null}
+          </span>
+          <span className={styles.slotEmptyName}>Open</span>
+        </div>
+        <div className={styles.slotRight}>
+          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
+          {this.renderControls()}
+        </div>
       </div>
-      <div className={styles.slotRight}>
-        {
-          slotActions.length > 0 ?
-            <SlotActions slotActions={slotActions} /> :
-            <div></div>
-        }
-        { this.renderControls() }
-      </div>
-    </div>)
+    )
   }
 
   onLeftMouseEnter = () => {
     this.setState({ isHovered: true })
-  };
+  }
 
   onLeftMouseLeave = () => {
     this.setState({ isHovered: false })
-  };
+  }
 }

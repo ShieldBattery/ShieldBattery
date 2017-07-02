@@ -10,13 +10,7 @@ import TextField from '../material/text-field.jsx'
 import BanUsers from './bans.jsx'
 import PermissionsResult from './permissions.jsx'
 
-import {
-  composeValidators,
-  minLength,
-  maxLength,
-  regex,
-  required,
-} from '../forms/validators'
+import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
 import {
   USERNAME_MINLENGTH,
   USERNAME_MAXLENGTH,
@@ -30,13 +24,17 @@ export class UserProfile extends React.Component {
 
     const children = []
     if (perms.editPermissions) {
-      children.push(<PermissionsResult key='perms' username={username} />)
+      children.push(<PermissionsResult key="perms" username={username} />)
     }
     if (perms.banUsers) {
-      children.push(<BanUsers key='bans' username={username} />)
+      children.push(<BanUsers key="bans" username={username} />)
     }
 
-    return <div>{children}</div>
+    return (
+      <div>
+        {children}
+      </div>
+    )
   }
 }
 
@@ -44,7 +42,8 @@ const usernameValidator = composeValidators(
   required('Enter a username'),
   minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
   maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-  regex(USERNAME_PATTERN, 'Username contains invalid characters'))
+  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+)
 
 @form({
   username: usernameValidator,
@@ -52,26 +51,34 @@ const usernameValidator = composeValidators(
 class SearchForm extends React.Component {
   render() {
     const { onSubmit, bindInput } = this.props
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <TextField {...bindInput('username')} label='Username' floatingLabel={true}
-        inputProps={{
-          tabIndex: 0,
-          autoCapitalize: 'off',
-          autoCorrect: 'off',
-          spellCheck: false,
-        }}/>
-    </form>)
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <TextField
+          {...bindInput('username')}
+          label="Username"
+          floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}
+        />
+      </form>
+    )
   }
 }
 
 @connect()
 export class UserFind extends React.Component {
-  _form = null;
-  _setForm = elem => { this._form = elem };
+  _form = null
+  _setForm = elem => {
+    this._form = elem
+  }
 
   render() {
     const model = {
-      username: this.props.params.username
+      username: this.props.params.username,
     }
     return (
       <ContentLayout title={'Users'}>
@@ -79,9 +86,9 @@ export class UserFind extends React.Component {
           <div>
             <h3>Find user</h3>
             <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-            <FlatButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
+            <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
           </div>
-          { this.props.children }
+          {this.props.children}
         </div>
       </ContentLayout>
     )
@@ -89,12 +96,11 @@ export class UserFind extends React.Component {
 
   onFindClick = () => {
     this._form.submit()
-  };
+  }
 
   onSubmit = () => {
     const values = this._form.getModel()
     const username = values.username
-    this.props.dispatch(
-      routerActions.push(`/admin/users/${encodeURIComponent(username)}`))
-  };
+    this.props.dispatch(routerActions.push(`/admin/users/${encodeURIComponent(username)}`))
+  }
 }

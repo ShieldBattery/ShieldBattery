@@ -10,15 +10,19 @@ export default class AvatarButton extends React.Component {
   static propTypes = {
     avatarClassName: PropTypes.string,
     buttonRef: PropTypes.func,
-  };
+  }
 
   render() {
     const { buttonRef, user, image, avatarClassName, ...rest } = this.props
     const classes = classnames(buttonStyles.iconButton, this.props.className)
     const avatarClasses = classnames(avatarStyles.buttonImage, avatarClassName)
     return (
-      <Button {...rest} buttonRef={buttonRef} className={classes}
-        label={<Avatar user={user} image={image} className={avatarClasses} />} />
+      <Button
+        {...rest}
+        buttonRef={buttonRef}
+        className={classes}
+        label={<Avatar user={user} image={image} className={avatarClasses} />}
+      />
     )
   }
 }

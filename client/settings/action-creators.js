@@ -1,12 +1,8 @@
-import {
-  LOCAL_SETTINGS_SET_BEGIN,
-} from '../actions'
-import {
-  SETTINGS_MERGE,
-} from '../../app/common/ipc-constants'
+import { LOCAL_SETTINGS_SET_BEGIN } from '../actions'
+import { SETTINGS_MERGE } from '../../app/common/ipc-constants'
 
 const ipcRenderer =
-    process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
 
 export function mergeLocalSettings(settings) {
   if (!ipcRenderer) {
@@ -18,7 +14,7 @@ export function mergeLocalSettings(settings) {
   return dispatch => {
     dispatch({
       type: LOCAL_SETTINGS_SET_BEGIN,
-      payload: params
+      payload: params,
     })
 
     // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)

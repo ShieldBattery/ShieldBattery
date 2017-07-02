@@ -104,7 +104,7 @@ const eventToAction = {
   status: (name, event) => ({
     type: MATCHMAKING_UPDATE_STATUS,
     payload: event,
-  })
+  }),
 }
 
 export default function registerModule({ siteSocket }) {

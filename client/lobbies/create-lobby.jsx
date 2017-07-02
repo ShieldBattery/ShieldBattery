@@ -21,15 +21,16 @@ import TextField from '../material/text-field.jsx'
 
 const lobbyNameValidator = composeValidators(
   required('Enter a lobby name'),
-  maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`))
+  maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`),
+)
 
 @form({
   name: lobbyNameValidator,
 })
 class CreateLobbyForm extends React.Component {
-  _lastMapHash = null;
-  _lastGameType = null;
-  _lastGameSubType = null;
+  _lastMapHash = null
+  _lastGameType = null
+  _lastGameSubType = null
 
   _updateLastValues() {
     const { getInputValue } = this.props
@@ -60,13 +61,21 @@ class CreateLobbyForm extends React.Component {
       // Ensure gameSubType is always set, and always within a valid range for the current map
       const { slots } = maps.byHash.get(nextMapHash)
       if (nextGameType === 'topVBottom') {
-        if (nextGameType !== this._lastGameType ||
-            !nextGameSubType || nextGameSubType < 1 || nextGameSubType >= slots) {
+        if (
+          nextGameType !== this._lastGameType ||
+          !nextGameSubType ||
+          nextGameSubType < 1 ||
+          nextGameSubType >= slots
+        ) {
           setInputValue('gameSubType', Math.ceil(slots / 2))
         }
       } else {
-        if (nextGameType !== this._lastGameType ||
-            !nextGameSubType || nextGameSubType < 2 || nextGameSubType > Math.min(slots, 4)) {
+        if (
+          nextGameType !== this._lastGameType ||
+          !nextGameSubType ||
+          nextGameSubType < 2 ||
+          nextGameSubType > Math.min(slots, 4)
+        ) {
           setInputValue('gameSubType', 2)
         }
       }
@@ -87,57 +96,73 @@ class CreateLobbyForm extends React.Component {
 
     const { slots } = maps.byHash.get(mapHash)
     if (gameType === 'topVBottom') {
-      return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
-        {
-          Range(slots - 1, 0).map(
-            top => <Option key={top} value={top} text={`${top} vs ${slots - top}`} />)
-        }
-      </Select>)
+      return (
+        <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
+          {Range(slots - 1, 0).map(top =>
+            <Option key={top} value={top} text={`${top} vs ${slots - top}`} />,
+          )}
+        </Select>
+      )
     } else {
-      return (<Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
-        {
-          Range(2, Math.min(slots, 4) + 1).map(
-            numTeams => <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />)
-        }
-      </Select>)
+      return (
+        <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
+          {Range(2, Math.min(slots, 4) + 1).map(numTeams =>
+            <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />,
+          )}
+        </Select>
+      )
     }
   }
 
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
     let mapListContents = maps.list.map(hash =>
-      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
+      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />,
     )
     if (maps.localMapHash) {
       const text = maps.byHash.get(maps.localMapHash).name
       mapListContents = mapListContents.unshift(
-        <Option key={'localMap'} value={maps.localMapHash} text={text} />
+        <Option key={'localMap'} value={maps.localMapHash} text={text} />,
       )
     }
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <TextField {...bindInput('name')} ref={inputRef} label='Lobby name' floatingLabel={true}
-        inputProps={{
-          autoCapitalize: 'off',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          spellCheck: false,
-          tabIndex: 0,
-        }}/>
-      <div className={styles.selectMap}>
-        <Select className={styles.mapList} {...bindCustom('map')} label='Map' tabIndex={0}
-          disabled={!mapListContents.size}>
-          { mapListContents }
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <TextField
+          {...bindInput('name')}
+          ref={inputRef}
+          label="Lobby name"
+          floatingLabel={true}
+          inputProps={{
+            autoCapitalize: 'off',
+            autoComplete: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+            tabIndex: 0,
+          }}
+        />
+        <div className={styles.selectMap}>
+          <Select
+            className={styles.mapList}
+            {...bindCustom('map')}
+            label="Map"
+            tabIndex={0}
+            disabled={!mapListContents.size}>
+            {mapListContents}
+          </Select>
+          {MAP_UPLOADING
+            ? <RaisedButton
+                className={styles.mapBrowse}
+                label="Browse"
+                onClick={this.props.onMapBrowse}
+              />
+            : null}
+        </div>
+        <Select {...bindCustom('gameType')} label="Game type" tabIndex={0}>
+          {GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)} />)}
         </Select>
-        { MAP_UPLOADING ?
-          <RaisedButton className={styles.mapBrowse} label='Browse'
-            onClick={this.props.onMapBrowse}/> :
-          null }
-      </div>
-      <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
-        { GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)}/>) }
-      </Select>
-      { this.renderSubTypeSelection() }
-    </form>)
+        {this.renderSubTypeSelection()}
+      </form>
+    )
   }
 }
 
@@ -145,12 +170,16 @@ class CreateLobbyForm extends React.Component {
 export default class CreateLobby extends React.Component {
   state = {
     defaultMap: null,
-  };
-  _autoFocusTimer = null;
-  _form = null;
-  _setForm = elem => { this._form = elem };
-  _input = null;
-  _setInput = elem => { this._input = elem };
+  }
+  _autoFocusTimer = null
+  _form = null
+  _setForm = elem => {
+    this._form = elem
+  }
+  _input = null
+  _setInput = elem => {
+    this._input = elem
+  }
 
   componentWillMount() {
     const { maps } = this.props
@@ -200,14 +229,30 @@ export default class CreateLobby extends React.Component {
       gameType: 'melee',
     }
 
-    return (<div className={styles.root}>
-      <h3>Create lobby</h3>
-      <CreateLobbyForm ref={this._setForm} inputRef={this._setInput} model={model}
-        onSubmit={this.onSubmit} onMapBrowse={this.onMapBrowse} maps={maps}/>
-      <RaisedButton label='Create lobby' onClick={this.onCreateClick}/>
-      { maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null }
-      { maps.isUploading ? <div className={styles.loadingArea}><LoadingIndicator /></div> : null }
-    </div>)
+    return (
+      <div className={styles.root}>
+        <h3>Create lobby</h3>
+        <CreateLobbyForm
+          ref={this._setForm}
+          inputRef={this._setInput}
+          model={model}
+          onSubmit={this.onSubmit}
+          onMapBrowse={this.onMapBrowse}
+          maps={maps}
+        />
+        <RaisedButton label="Create lobby" onClick={this.onCreateClick} />
+        {maps.uploadError
+          ? <div>
+              {'Uploading the map failed :('}
+            </div>
+          : null}
+        {maps.isUploading
+          ? <div className={styles.loadingArea}>
+              <LoadingIndicator />
+            </div>
+          : null}
+      </div>
+    )
   }
 
   onCreateClick = () => {

@@ -6,13 +6,22 @@ import IconButton from '../material/icon-button.jsx'
 import styles from './nav-entry.css'
 
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
-  const button = <IconButton className={styles.leaveButton}
-    icon={<CloseLobbyIcon />} title='Leave lobby' onClick={onLeaveClick}/>
+  const button = (
+    <IconButton
+      className={styles.leaveButton}
+      icon={<CloseLobbyIcon />}
+      title="Leave lobby"
+      onClick={onLeaveClick}
+    />
+  )
   return (
-    <Entry link={`/lobbies/${encodeURIComponent(lobby)}`}
+    <Entry
+      link={`/lobbies/${encodeURIComponent(lobby)}`}
       currentPath={currentPath}
       needsAttention={hasUnread}
-      button={button}>{lobby}</Entry>
+      button={button}>
+      {lobby}
+    </Entry>
   )
 }
 

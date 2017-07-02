@@ -29,30 +29,51 @@ export default class Invites extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.location.query.accepted !== this.props.location.query.accepted ||
-        prevProps.location.query.page !== this.props.location.query.page) {
+    if (
+      prevProps.location.query.accepted !== this.props.location.query.accepted ||
+      prevProps.location.query.page !== this.props.location.query.page
+    ) {
       this._retrieveData()
     }
   }
 
   renderAcceptLink(invitee) {
-    return <a href='#' onClick={event => this.onAcceptUserClicked(event, invitee.email)}>Accept</a>
+    return (
+      <a href="#" onClick={event => this.onAcceptUserClicked(event, invitee.email)}>
+        Accept
+      </a>
+    )
   }
 
   renderInviteeRow(invitee) {
     return (
       <tr key={invitee.email}>
-        <td>{invitee.email}</td>
-        <td>{invitee.teamliquidName}</td>
-        <td>{invitee.os}</td>
-        <td>{invitee.browser}</td>
-        <td>{invitee.graphics}</td>
-        <td>{invitee.canHost ? <span>Yes</span> : <span>No</span>}</td>
         <td>
-          {invitee.isAccepted ?
-            <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
-                  Signup Link</a> :
-            <span>{this.renderAcceptLink(invitee)}</span>}
+          {invitee.email}
+        </td>
+        <td>
+          {invitee.teamliquidName}
+        </td>
+        <td>
+          {invitee.os}
+        </td>
+        <td>
+          {invitee.browser}
+        </td>
+        <td>
+          {invitee.graphics}
+        </td>
+        <td>
+          {invitee.canHost ? <span>Yes</span> : <span>No</span>}
+        </td>
+        <td>
+          {invitee.isAccepted
+            ? <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
+                Signup Link
+              </a>
+            : <span>
+                {this.renderAcceptLink(invitee)}
+              </span>}
         </td>
       </tr>
     )
@@ -76,7 +97,7 @@ export default class Invites extends React.Component {
           </tr>
         </thead>
         <tbody>
-          { signups.map(e => this.renderInviteeRow(byEmail.get(e))) }
+          {signups.map(e => this.renderInviteeRow(byEmail.get(e)))}
         </tbody>
       </table>
     )
@@ -86,7 +107,11 @@ export default class Invites extends React.Component {
     const { lastError } = this.props.invites
     if (!lastError) return null
 
-    return <div className={styles.invitesError}>{lastError.message}</div>
+    return (
+      <div className={styles.invitesError}>
+        {lastError.message}
+      </div>
+    )
   }
 
   renderPaging() {
@@ -94,17 +119,24 @@ export default class Invites extends React.Component {
     const { total } = this.props.invites
     const numOfPages = Math.ceil(total / LIMIT)
 
-    const search = (accepted === 'true' || accepted === 'false') ?
-      '?accepted=' + accepted + '&page=' : '?page='
+    const search =
+      accepted === 'true' || accepted === 'false' ? '?accepted=' + accepted + '&page=' : '?page='
 
     const parsedPage = parseInt(page, 10)
-    const pagesLinks = Range(1, numOfPages + 1)
-      .map(pageNum => {
-        if (!page && pageNum === 1 || pageNum === parsedPage) {
-          return <span key={pageNum}>{pageNum} </span>
-        }
-        return <Link to={'/admin/invites' + search + pageNum} key={pageNum}>{pageNum} </Link>
-      })
+    const pagesLinks = Range(1, numOfPages + 1).map(pageNum => {
+      if ((!page && pageNum === 1) || pageNum === parsedPage) {
+        return (
+          <span key={pageNum}>
+            {pageNum}{' '}
+          </span>
+        )
+      }
+      return (
+        <Link to={'/admin/invites' + search + pageNum} key={pageNum}>
+          {pageNum}{' '}
+        </Link>
+      )
+    })
 
     return pagesLinks
   }
@@ -113,14 +145,14 @@ export default class Invites extends React.Component {
     return (
       <ContentLayout title={'Invites'}>
         <div className={styles.invites}>
-          { this.renderError() }
+          {this.renderError()}
           <div className={styles.filterInvites}>
-            <Link to='/admin/invites'>All</Link>
-            <Link to='/admin/invites?accepted=true'>Accepted</Link>
-            <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
+            <Link to="/admin/invites">All</Link>
+            <Link to="/admin/invites?accepted=true">Accepted</Link>
+            <Link to="/admin/invites?accepted=false">Unaccepted</Link>
           </div>
-          { this.renderInvites() }
-          { this.renderPaging() }
+          {this.renderInvites()}
+          {this.renderPaging()}
         </div>
       </ContentLayout>
     )

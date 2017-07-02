@@ -145,7 +145,7 @@ const infoReducer = keyedReducer(undefined, {
 
   [NETWORK_SITE_CONNECTED](state, action) {
     return new LobbyInfo()
-  }
+  },
 })
 
 // id, type, and time need to be present for ALL message types
@@ -222,22 +222,26 @@ function prune(chatList) {
 const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
     const event = action.payload
-    return state.push(new ChatMessage({
-      id: cuid(),
-      time: event.time,
-      from: event.from,
-      text: event.text,
-    }))
+    return state.push(
+      new ChatMessage({
+        id: cuid(),
+        time: event.time,
+        from: event.from,
+        text: event.text,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_SLOT_CREATE](lobbyInfo, lastLobbyInfo, state, action) {
     const { slot } = action.payload
     if (slot.type === 'human') {
-      return state.push(new JoinMessage({
-        id: cuid(),
-        time: Date.now(),
-        name: slot.name
-      }))
+      return state.push(
+        new JoinMessage({
+          id: cuid(),
+          time: Date.now(),
+          name: slot.name,
+        }),
+      )
     }
 
     return state
@@ -245,79 +249,101 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
-    return state.push(new LeaveMessage({
-      id: cuid(),
-      time: Date.now(),
-      name: player.name,
-    }))
+    return state.push(
+      new LeaveMessage({
+        id: cuid(),
+        time: Date.now(),
+        name: player.name,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_KICK](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
-    return state.push(new KickMessage({
-      id: cuid(),
-      time: Date.now(),
-      name: player.name,
-    }))
+    return state.push(
+      new KickMessage({
+        id: cuid(),
+        time: Date.now(),
+        name: player.name,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_BAN](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
-    return state.push(new BanMessage({
-      id: cuid(),
-      time: Date.now(),
-      name: player.name,
-    }))
+    return state.push(
+      new BanMessage({
+        id: cuid(),
+        time: Date.now(),
+        name: player.name,
+      }),
+    )
   },
 
   [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new SelfJoinMessage({
-      id: cuid(),
-      time: Date.now(),
-      lobby: lobbyInfo.name,
-      host: lobbyInfo.host.name,
-    }))
+    return state.push(
+      new SelfJoinMessage({
+        id: cuid(),
+        time: Date.now(),
+        lobby: lobbyInfo.name,
+        host: lobbyInfo.host.name,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new HostChangeMessage({
-      id: cuid(),
-      time: Date.now(),
-      name: lobbyInfo.host.name,
-    }))
+    return state.push(
+      new HostChangeMessage({
+        id: cuid(),
+        time: Date.now(),
+        name: lobbyInfo.host.name,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_COUNTDOWN_START](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new CountdownStartedMessage({
-      id: cuid(),
-      time: Date.now(),
-    })).push(new CountdownTickMessage({
-      id: cuid(),
-      time: Date.now(),
-      timeLeft: lobbyInfo.countdownTimer,
-    }))
+    return state
+      .push(
+        new CountdownStartedMessage({
+          id: cuid(),
+          time: Date.now(),
+        }),
+      )
+      .push(
+        new CountdownTickMessage({
+          id: cuid(),
+          time: Date.now(),
+          timeLeft: lobbyInfo.countdownTimer,
+        }),
+      )
   },
 
   [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new CountdownTickMessage({
-      id: cuid(),
-      time: Date.now(),
-      timeLeft: lobbyInfo.countdownTimer,
-    }))
+    return state.push(
+      new CountdownTickMessage({
+        id: cuid(),
+        time: Date.now(),
+        timeLeft: lobbyInfo.countdownTimer,
+      }),
+    )
   },
 
   [LOBBY_UPDATE_COUNTDOWN_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new CountdownCanceledMessage({
-      id: cuid(),
-      time: Date.now(),
-    }))
+    return state.push(
+      new CountdownCanceledMessage({
+        id: cuid(),
+        time: Date.now(),
+      }),
+    )
   },
 
   [LOBBY_UPDATE_LOADING_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
-    return state.push(new LoadingCanceledMessage({
-      id: cuid(),
-      time: Date.now(),
-    }))
+    return state.push(
+      new LoadingCanceledMessage({
+        id: cuid(),
+        time: Date.now(),
+      }),
+    )
   },
 }
 
@@ -326,9 +352,9 @@ function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
   if (!lobbyInfo.name) {
     return EMPTY_CHAT
   }
-  return chatHandlers.hasOwnProperty(action.type) ?
-    prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action)) :
-    state
+  return chatHandlers.hasOwnProperty(action.type)
+    ? prune(chatHandlers[action.type](lobbyInfo, lastLobbyInfo, state, action))
+    : state
 }
 
 export default function lobbyReducer(state = new LobbyRecord(), action) {
@@ -344,7 +370,8 @@ export default function lobbyReducer(state = new LobbyRecord(), action) {
       updated = updated.set('activated', false)
     }
   }
-  return (updated.set('info', nextInfo)
+  return updated
+    .set('info', nextInfo)
     .set('chat', nextChat)
-    .set('hasUnread', updated.hasUnread || (!updated.activated && nextChat !== state.chat)))
+    .set('hasUnread', updated.hasUnread || (!updated.activated && nextChat !== state.chat))
 }

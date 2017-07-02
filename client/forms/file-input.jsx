@@ -12,9 +12,7 @@ export default class FileInput extends React.Component {
       onChange: this.onInputChange,
     }
 
-    return (
-      <input {...internalInputProps} />
-    )
+    return <input {...internalInputProps} />
   }
 
   onInputChange = e => {

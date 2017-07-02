@@ -3,7 +3,7 @@
 import { LOCATION_CHANGE } from 'react-router-redux'
 
 const routingState = {
-  location: null
+  location: null,
 }
 
 export default function routingReducer(state = routingState, { type, payload } = {}) {

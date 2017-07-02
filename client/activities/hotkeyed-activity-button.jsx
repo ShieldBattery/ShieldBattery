@@ -14,14 +14,14 @@ export default class HotkeyedActivityButton extends React.Component {
     label: PropTypes.string.isRequired,
     icon: PropTypes.element.isRequired,
     onClick: PropTypes.func,
-  };
+  }
 
   static defaultProps = {
     disabled: false,
     altKey: false,
     shiftKey: false,
     ctrlKey: false,
-  };
+  }
 
   render() {
     const { disabled, label, icon, onClick } = this.props
@@ -32,20 +32,28 @@ export default class HotkeyedActivityButton extends React.Component {
       onClick,
     }
 
-    return (<KeyListener onKeyDown={this.onKeyDown}>
-      <ActivityButton {...activityButtonProps} />
-    </KeyListener>)
+    return (
+      <KeyListener onKeyDown={this.onKeyDown}>
+        <ActivityButton {...activityButtonProps} />
+      </KeyListener>
+    )
   }
 
   onKeyDown = event => {
     const { disabled, keycode, altKey, shiftKey, ctrlKey, onClick } = this.props
 
-    if (!disabled && onClick && event.keyCode === keycode &&
-        event.altKey === altKey && event.shiftKey === shiftKey && event.ctrlKey === ctrlKey) {
+    if (
+      !disabled &&
+      onClick &&
+      event.keyCode === keycode &&
+      event.altKey === altKey &&
+      event.shiftKey === shiftKey &&
+      event.ctrlKey === ctrlKey
+    ) {
       onClick()
       return true
     }
 
     return false
-  };
+  }
 }

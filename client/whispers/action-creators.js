@@ -76,12 +76,12 @@ export function retrieveInitialMessageHistory(target) {
 
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
-      payload: params
+      payload: params,
     })
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY,
       payload: siteSocket.invoke('/whispers/getHistory', params),
-      meta: params
+      meta: params,
     })
   }
 }
@@ -102,12 +102,12 @@ export function retrieveNextMessageHistory(target) {
 
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
-      payload: params
+      payload: params,
     })
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY,
       payload: siteSocket.invoke('/whispers/getHistory', params),
-      meta: params
+      meta: params,
     })
   }
 }
@@ -115,14 +115,14 @@ export function retrieveNextMessageHistory(target) {
 export function activateWhisperSession(target) {
   return {
     type: WHISPERS_SESSION_ACTIVATE,
-    payload: { target }
+    payload: { target },
   }
 }
 
 export function deactivateWhisperSession(target) {
   return {
     type: WHISPERS_SESSION_DEACTIVATE,
-    payload: { target }
+    payload: { target },
   }
 }
 

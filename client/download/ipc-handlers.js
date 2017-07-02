@@ -18,16 +18,20 @@ export default function registerModule({ ipcRenderer }) {
     return
   }
 
-  ipcRenderer.on(NEW_VERSION_FOUND, () => {
-    dispatch({ type: UPDATER_NEW_VERSION_FOUND })
-    dispatch(openDialog('updateAvailable'))
-  }).on(NEW_VERSION_DOWNLOAD_ERROR, () => {
-    dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED, error: true })
-  }).on(NEW_VERSION_DOWNLOADED, () => {
-    dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED })
-  }).on(NEW_VERSION_UP_TO_DATE, () => {
-    dispatch({ type: UPDATER_UP_TO_DATE })
-  })
+  ipcRenderer
+    .on(NEW_VERSION_FOUND, () => {
+      dispatch({ type: UPDATER_NEW_VERSION_FOUND })
+      dispatch(openDialog('updateAvailable'))
+    })
+    .on(NEW_VERSION_DOWNLOAD_ERROR, () => {
+      dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED, error: true })
+    })
+    .on(NEW_VERSION_DOWNLOADED, () => {
+      dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED })
+    })
+    .on(NEW_VERSION_UP_TO_DATE, () => {
+      dispatch({ type: UPDATER_UP_TO_DATE })
+    })
 
   // Trigger an initial retrieval of the update state, in case one was found before this window
   // was fully loaded

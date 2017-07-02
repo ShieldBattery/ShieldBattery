@@ -15,20 +15,22 @@ class FindMatchForm extends React.Component {
   render() {
     const { onSubmit, bindCustom } = this.props
 
-    return (<form noValidate={true} onSubmit={onSubmit}>
-      <SubmitOnEnter />
-      <Select {...bindCustom('type')} label='Type' tabIndex={0}>
-        <Option key='1v1' value='1v1' text='1v1' />
-      </Select>
-      <Select {...bindCustom('race')} label='Race' tabIndex={0}>
-        <Option key='z' value='z' text='Zerg' />
-        <Option key='p' value='p' text='Protoss' />
-        <Option key='t' value='t' text='Terran' />
-        <Option key='r' value='r' text='Random' />
-      </Select>
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <Select {...bindCustom('type')} label="Type" tabIndex={0}>
+          <Option key="1v1" value="1v1" text="1v1" />
+        </Select>
+        <Select {...bindCustom('race')} label="Race" tabIndex={0}>
+          <Option key="z" value="z" text="Zerg" />
+          <Option key="p" value="p" text="Protoss" />
+          <Option key="t" value="t" text="Terran" />
+          <Option key="r" value="r" text="Random" />
+        </Select>
 
-      <RaisedButton label='Find' onClick={onSubmit} />
-    </form>)
+        <RaisedButton label="Find" onClick={onSubmit} />
+      </form>
+    )
   }
 }
 
@@ -40,10 +42,12 @@ export default class FindMatch extends React.Component {
       race: 'r',
     }
 
-    return (<div className={styles.root}>
-      <h3>Find match</h3>
-      <FindMatchForm model={model} onSubmit={this.onSubmit} />
-    </div>)
+    return (
+      <div className={styles.root}>
+        <h3>Find match</h3>
+        <FindMatchForm model={model} onSubmit={this.onSubmit} />
+      </div>
+    )
   }
 
   onSubmit = async form => {

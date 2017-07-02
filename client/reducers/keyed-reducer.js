@@ -14,8 +14,8 @@ const myReducers = {
 */
 export default function keyedReducer(defaultState, reducerObject) {
   return (state = defaultState, action) => {
-    return (reducerObject.hasOwnProperty(action.type) ?
-      reducerObject[action.type](state, action) :
-      state)
+    return reducerObject.hasOwnProperty(action.type)
+      ? reducerObject[action.type](state, action)
+      : state
   }
 }

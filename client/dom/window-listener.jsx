@@ -9,7 +9,7 @@ export default class WindowListener extends React.Component {
   static propTypes = {
     event: PropTypes.string.isRequired,
     listener: PropTypes.func.isRequired,
-  };
+  }
 
   constructor(props, context) {
     super(props, context)

@@ -42,14 +42,12 @@ function getReplayHeader(filePath) {
     fileStream.on('error', reject)
 
     const parser = new ReplayParser()
-    parser.on('replayHeader', resolve)
-      .on('error', reject)
+    parser.on('replayHeader', resolve).on('error', reject)
 
     fileStream.pipe(parser)
     parser.resume()
   })
 }
-
 
 async function setGameConfig(replay, user, settings) {
   const player = new Slot({ type: 'human', name: user.name, id: cuid(), teamId: 0 })
@@ -69,7 +67,7 @@ async function setGameConfig(replay, user, settings) {
     settings,
     localUser: user,
     setup: {
-      seed: header.seed
+      seed: header.seed,
     },
   })
 }
@@ -87,15 +85,22 @@ export function startReplay(replay) {
       payload: replay,
     })
 
-    setGameConfig(replay, user, settings).then(gameId => {
-      setGameRoutes(gameId)
-      dispatch(routerActions.push('/active-game'))
-    }, err => {
-      logger.error(`Error starting replay file [${replay.path}]: ${err}`)
-      dispatch(openSimpleDialog('Error loading replay',
-        'The selected replay could not be loaded. It may either be corrupt, or was created ' +
-              'by a version of StarCraft newer than is currently supported.'))
-    })
+    setGameConfig(replay, user, settings).then(
+      gameId => {
+        setGameRoutes(gameId)
+        dispatch(routerActions.push('/active-game'))
+      },
+      err => {
+        logger.error(`Error starting replay file [${replay.path}]: ${err}`)
+        dispatch(
+          openSimpleDialog(
+            'Error loading replay',
+            'The selected replay could not be loaded. It may either be corrupt, or was created ' +
+              'by a version of StarCraft newer than is currently supported.',
+          ),
+        )
+      },
+    )
   }
 }
 

@@ -6,13 +6,13 @@ import styles from './site-connected-filter.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 
-let applyCookies = async() => {}
+let applyCookies = async () => {}
 if (process.webpackEnv.SB_ENV === 'electron') {
   const { remote } = require('electron')
   const curSession = remote.require('./current-session.js').default
   // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the
   // right cookies on its headers
-  applyCookies = async() => {
+  applyCookies = async () => {
     return new Promise(resolve => {
       curSession().cookies.get({ url: makeServerUrl('') }, (err, cookies) => {
         if (err) {
@@ -34,7 +34,7 @@ if (process.webpackEnv.SB_ENV === 'electron') {
 
 @connect(state => ({ siteNetwork: state.network.site }))
 export default class SiteConnectedFilter extends React.Component {
-  mounted = false;
+  mounted = false
 
   componentDidMount() {
     this.mounted = true
@@ -56,7 +56,11 @@ export default class SiteConnectedFilter extends React.Component {
     if (this.props.siteNetwork.isConnected) {
       return React.Children.only(this.props.children)
     } else {
-      return <div className={styles.loadingArea}><LoadingIndicator /></div>
+      return (
+        <div className={styles.loadingArea}>
+          <LoadingIndicator />
+        </div>
+      )
     }
   }
 }

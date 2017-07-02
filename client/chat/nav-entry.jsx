@@ -11,16 +11,25 @@ export default class ChatNavEntry extends React.Component {
     currentPath: PropTypes.string.isRequired,
     hasUnread: PropTypes.bool,
     onLeave: PropTypes.func.isRequired,
-  };
+  }
 
   render() {
     const { channel, currentPath, hasUnread } = this.props
-    const button = <IconButton className={styles.navLeaveButton} icon={<CloseIcon />}
-      title='Leave channel' onClick={this.onLeaveClick} />
+    const button = (
+      <IconButton
+        className={styles.navLeaveButton}
+        icon={<CloseIcon />}
+        title="Leave channel"
+        onClick={this.onLeaveClick}
+      />
+    )
 
     return (
-      <Entry link={`/chat/${encodeURIComponent(channel)}`} currentPath={currentPath}
-        needsAttention={hasUnread} button={channel !== 'ShieldBattery' ? button : null}>
+      <Entry
+        link={`/chat/${encodeURIComponent(channel)}`}
+        currentPath={currentPath}
+        needsAttention={hasUnread}
+        button={channel !== 'ShieldBattery' ? button : null}>
         #{channel}
       </Entry>
     )
@@ -28,5 +37,5 @@ export default class ChatNavEntry extends React.Component {
 
   onLeaveClick = () => {
     this.props.onLeave(this.props.channel)
-  };
+  }
 }

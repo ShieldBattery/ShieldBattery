@@ -30,6 +30,10 @@ export default class App extends React.Component {
   }
 
   render() {
-    return <Router history={this.props.history} onUpdate={this.onUpdate}>{routes}</Router>
+    return (
+      <Router history={this.props.history} onUpdate={this.onUpdate}>
+        {routes}
+      </Router>
+    )
   }
 }
