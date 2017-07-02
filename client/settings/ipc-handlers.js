@@ -10,8 +10,7 @@ import {
   SETTINGS_MERGE_ERROR,
 } from '../../app/common/ipc-constants'
 
-const { checkStarcraftPath } =
-  process.webpackEnv.SB_ENV === 'electron' ? require('./check-starcraft-path') : null
+const { checkStarcraftPath } = IS_ELECTRON ? require('./check-starcraft-path') : null
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

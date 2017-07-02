@@ -4,7 +4,7 @@
 
 let audioManager
 let SOUNDS
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   const AudioManager = require('./audio-manager').default
   audioManager = new AudioManager()
   SOUNDS = AudioManager.SOUNDS

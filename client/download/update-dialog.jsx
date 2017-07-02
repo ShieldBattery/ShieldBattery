@@ -10,8 +10,7 @@ import { NEW_VERSION_RESTART } from '../../app/common/ipc-constants'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 @connect(state => ({ update: state.update }))
 export default class UpdateDialog extends React.Component {

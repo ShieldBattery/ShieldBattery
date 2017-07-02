@@ -5,7 +5,7 @@ import { routerActions } from 'react-router-redux'
 export function goToIndex(transitionFn = routerActions.push) {
   return (dispatch, getState) => {
     const { lobby, whispers: { sessions }, chat: { channels } } = getState()
-    if (lobby.inLobby && process.webpackEnv.SB_ENV === 'electron') {
+    if (lobby.inLobby && IS_ELECTRON) {
       dispatch(transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
     } else if (channels.size) {
       dispatch(transitionFn(`/chat/${encodeURIComponent(channels.first())}`))

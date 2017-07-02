@@ -1,5 +1,5 @@
 let activeGameManager
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   const ActiveGameManager = require('./active-game-manager').default
   const mapStore = require('../maps/map-store-instance').default
 

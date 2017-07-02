@@ -12,8 +12,7 @@ import loading from '../loading/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import whispers from '../whispers/socket-handlers'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 function networkStatusHandler({ siteSocket }) {
   // TODO(tec27): we could probably pass through reconnecting status as well
@@ -45,18 +44,17 @@ function rallyPointHandler({ siteSocket }) {
   })
 }
 
-const envSpecificHandlers =
-  process.webpackEnv.SB_ENV === 'electron'
-    ? [
-        rallyPointHandler,
-        require('../active-game/socket-handlers').default,
-        require('../download/ipc-handlers').default,
-        require('../lobbies/socket-handlers').default,
-        require('../matchmaking/socket-handlers').default,
-        require('../settings/ipc-handlers').default,
-        require('../window-controls/ipc-handlers').default,
-      ]
-    : []
+const envSpecificHandlers = IS_ELECTRON
+  ? [
+      rallyPointHandler,
+      require('../active-game/socket-handlers').default,
+      require('../download/ipc-handlers').default,
+      require('../lobbies/socket-handlers').default,
+      require('../matchmaking/socket-handlers').default,
+      require('../settings/ipc-handlers').default,
+      require('../window-controls/ipc-handlers').default,
+    ]
+  : []
 
 const handlers = [chat, loading, networkStatusHandler, serverStatus, whispers].concat(
   envSpecificHandlers,

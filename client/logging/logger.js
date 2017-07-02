@@ -3,8 +3,7 @@
 
 import { LOG_MESSAGE } from '../../app/common/ipc-constants'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : { send: () => {} }
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : { send: () => {} }
 
 const log = (level, msg) => ipcRenderer.send(LOG_MESSAGE, level, msg)
 const logger = {

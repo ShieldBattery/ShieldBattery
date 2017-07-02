@@ -70,7 +70,7 @@ function registerGameRoutes(nydus) {
 }
 
 function makeGameServer() {
-  if (process.webpackEnv.SB_ENV !== 'electron') {
+  if (!IS_ELECTRON) {
     return null
   }
 

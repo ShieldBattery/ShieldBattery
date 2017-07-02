@@ -8,12 +8,11 @@ import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
 
 import { WINDOW_CLOSE, WINDOW_MAXIMIZE, WINDOW_MINIMIZE } from '../../app/common/ipc-constants'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 export default class WindowControls extends React.Component {
   render() {
-    if (process.webpackEnv.SB_ENV !== 'electron') {
+    if (!IS_ELECTRON) {
       return null
     }
 

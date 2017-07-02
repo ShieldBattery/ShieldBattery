@@ -1,8 +1,7 @@
 import { LOCAL_SETTINGS_SET_BEGIN } from '../actions'
 import { SETTINGS_MERGE } from '../../app/common/ipc-constants'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 export function mergeLocalSettings(settings) {
   if (!ipcRenderer) {

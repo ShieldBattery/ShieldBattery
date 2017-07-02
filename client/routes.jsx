@@ -23,10 +23,8 @@ import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 import Whisper from './whispers/whisper.jsx'
 
-const AdminMapUpload =
-  process.webpackEnv.SB_ENV === 'electron' ? require('./admin/map-upload.jsx').default : null
-const AdminPatchUpload =
-  process.webpackEnv.SB_ENV === 'electron' ? require('./admin/patch-upload.jsx').default : null
+const AdminMapUpload = IS_ELECTRON ? require('./admin/map-upload.jsx').default : null
+const AdminPatchUpload = IS_ELECTRON ? require('./admin/patch-upload.jsx').default : null
 
 import {
   CanAcceptBetaInvitesFilter,
@@ -50,7 +48,7 @@ if (process.webpackEnv.NODE_ENV !== 'production') {
 
 let activeGameRoute
 let lobbyRoute
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   activeGameRoute = <Route path="/active-game" component={ActiveGame} />
   lobbyRoute = <Route path="/lobbies/:lobby" component={LobbyView} />
 }

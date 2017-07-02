@@ -1,5 +1,5 @@
 let mapStore
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   const MapStore = require('./map-store').default
   const path = require('path')
   const { remote } = require('electron')

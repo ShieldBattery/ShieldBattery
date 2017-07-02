@@ -11,8 +11,7 @@ import {
 } from '../actions'
 import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 const eventToAction = {
   init(channel, event, siteSocket) {

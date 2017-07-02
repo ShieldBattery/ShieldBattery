@@ -7,7 +7,7 @@ import styles from './site-connected-filter.css'
 import LoadingIndicator from '../progress/dots.jsx'
 
 let applyCookies = async () => {}
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   const { remote } = require('electron')
   const curSession = remote.require('./current-session.js').default
   // engine.io uses Node APIs to make web requests in Electron, so we have to explicitly put the

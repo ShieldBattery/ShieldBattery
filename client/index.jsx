@@ -4,7 +4,7 @@ import 'babel-polyfill'
 import log from './logging/logger'
 import { makeServerUrl } from './network/server-url'
 
-if (process.webpackEnv.SB_ENV === 'electron') {
+if (IS_ELECTRON) {
   process
     .on('uncaughtException', function(err) {
       console.error(err.stack)
@@ -46,8 +46,7 @@ import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { UPDATE_SERVER, UPDATE_SERVER_COMPLETE } from '../app/common/ipc-constants'
 
-const ipcRenderer =
-  process.webpackEnv.SB_ENV === 'electron' ? require('electron').ipcRenderer : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
@@ -84,9 +83,7 @@ Promise.all([rootElemPromise, updatedServerPromise])
       initData.auth = authFromJS(initData.auth)
     }
 
-    let history = useRouterHistory(
-      process.webpackEnv.SB_ENV === 'web' ? createHistory : createHashHistory,
-    )()
+    let history = useRouterHistory(!IS_ELECTRON ? createHistory : createHashHistory)()
     const store = createStore(initData, history)
     history = syncHistoryWithStore(history, store, {
       // Since we're using a custom reducer, we have to adjust the state to be shaped like
@@ -106,7 +103,7 @@ Promise.all([rootElemPromise, updatedServerPromise])
   })
   .then(async ({ elem, store, history }) => {
     let analyticsId = window._sbAnalyticsId
-    if (process.webpackEnv.SB_ENV !== 'web') {
+    if (IS_ELECTRON) {
       const configPromise = fetch('/config', { method: 'get' })
       const { action, promise: sessionPromise } = getCurrentSession()
       store.dispatch(action)

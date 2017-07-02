@@ -1,7 +1,7 @@
 let downgradePath
 
 export default function getDowngradePath() {
-  if (process.webpackEnv.SB_ENV !== 'electron') {
+  if (!IS_ELECTRON) {
     return null
   } else {
     if (downgradePath) {
