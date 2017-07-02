@@ -21,22 +21,22 @@
   cursor: pointer;
 }
 
-.mapName {
+.name {
   composes: body1;
   position: absolute;
   bottom: 0px;
 }
 
-.mapImage {
+.thumbnail {
   width: auto;
   height: 100%;
 }
 
-.mapOverlay {
+.overlay {
   position: absolute;
   width: 100%;
   height: 100%;
-  background-color: ;
+  background-color: amberA100;
   opacity: 0.5;
 }
 

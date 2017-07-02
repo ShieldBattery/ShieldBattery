@@ -6,10 +6,10 @@ import styles from './maps.css'
 export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
-    shouldDisplayMapName: PropTypes.bool,
+    showMapName: PropTypes.bool,
     hoverIcon: PropTypes.element,
     mapClassName: PropTypes.string,
-    mapImageClassName: PropTypes.string,
+    thumbnailClassName: PropTypes.string,
     onMapClick: PropTypes.func,
   }
 
@@ -20,47 +20,37 @@ export default class MapThumbnail extends React.Component {
   render() {
     const {
       map,
-      shouldDisplayMapName,
+      showMapName,
       hoverIcon,
       mapClassName,
-      mapImageClassName,
+      thumbnailClassName,
       onMapClick,
     } = this.props
 
-    let mapProps = {}
-    if (hoverIcon) {
-      mapProps = {
-        ...mapProps,
-        onMouseOver: this.onLeftMouseOver,
-        onMouseLeave: this.onLeftMouseLeave,
-      }
-    }
-    if (onMapClick) {
-      mapProps = {
-        ...mapProps,
-        onClick: onMapClick,
-      }
+    const mapProps = {
+      onMouseOver: hoverIcon ? this.onMouseOver : undefined,
+      onMouseLeave: hoverIcon ? this.onMouseLeave : undefined,
+      onClick: onMapClick,
     }
 
     const mapClasses = classnames(styles.map, mapClassName)
-    const mapImageClasses = classnames(styles.mapImage, mapImageClassName)
+    const thumbnailClasses = classnames(styles.thumbnail, thumbnailClassName)
     return (<div className={mapClasses} {...mapProps}>
-      <img className={mapImageClasses} src={map.imageUrl} />
-      { shouldDisplayMapName ? <span className={styles.mapName}>{map.name}</span> : null }
+      <img className={thumbnailClasses} src={map.imageUrl} />
+      { showMapName ? <span className={styles.name}>{map.name}</span> : null }
       { hoverIcon && this.state.isHovered ? ([
-        // Waiting patiently for React version where adjecent elements don't have to be wrapped!
-        <div key='wtf' className={styles.mapOverlay}></div>,
-        <span key='ftw' className={styles.hoverIcon}>{hoverIcon}</span>
+        <div key='overlay' className={styles.overlay}></div>,
+        <span key='icon' className={styles.hoverIcon}>{hoverIcon}</span>
       ]) : null
       }
     </div>)
   }
 
-  onLeftMouseOver = () => {
+  onMouseOver = () => {
     this.setState({ isHovered: true })
   }
 
-  onLeftMouseLeave = () => {
+  onMouseLeave = () => {
     this.setState({ isHovered: false })
   }
 }

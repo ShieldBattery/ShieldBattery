@@ -9,9 +9,10 @@ export default class MapList extends React.Component {
   static propTypes = {
     maps: PropTypes.array.isRequired,
     className: PropTypes.string,
+    mapClassName: PropTypes.string,
     thumbnailClassName: PropTypes.string,
     hoverIcon: PropTypes.element,
-    shouldDisplayMapName: PropTypes.bool,
+    showMapName: PropTypes.bool,
     onMapClick: PropTypes.func,
   }
 
@@ -19,14 +20,15 @@ export default class MapList extends React.Component {
     const {
       maps,
       className,
+      mapClassName,
       thumbnailClassName,
       hoverIcon,
-      shouldDisplayMapName,
+      showMapName,
       onMapClick,
     } = this.props
 
     const mapList = maps.map(map => (<MapThumbnail key={map.hash} map={map} hoverIcon={hoverIcon}
-      shouldDisplayMapName={shouldDisplayMapName} thumbnailClassName={thumbnailClassName}
+      showMapName={showMapName} mapClassName={mapClassName} thumbnailClassName={thumbnailClassName}
       onMapClick={() => onMapClick(map)} />))
 
     const mapListClasses = classnames(styles.mapList, className)
