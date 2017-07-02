@@ -11,10 +11,7 @@
   position: relative;
   width: 128px;
   height: 128px;
-}
-
-.map + .map {
-  margin-left: 8px;
+  margin: 4px;
 }
 
 .map:hover {

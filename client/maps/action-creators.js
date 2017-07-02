@@ -13,6 +13,9 @@ import {
   MAPS_HOST_LOCAL,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
+  MAPS_SEARCH_BEGIN,
+  MAPS_SEARCH,
+  MAPS_SEARCH_CLEAR,
 } from '../actions'
 
 export function selectLocalMap(path) {
@@ -92,5 +95,33 @@ export function getMapsList() {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
     const payload = fetch('/api/1/maps')
     dispatch({ type: MAPS_LIST_GET, payload })
+  }
+}
+
+export function searchMaps(query) {
+  return (dispatch, getState) => {
+    const { maps: { search } } = getState()
+    if (search.isSearching) {
+      return
+    }
+
+    dispatch({
+      type: MAPS_SEARCH_BEGIN,
+      payload: { query },
+    })
+    dispatch({
+      type: MAPS_SEARCH,
+      payload: fetch('/api/1/maps?query=' + encodeURIComponent(query)).then(searchResult => {
+        if (searchResult.maps.length === 0) throw new Error('No maps found')
+        else return searchResult
+      }),
+      meta: { query },
+    })
+  }
+}
+
+export function clearSearchMapsState() {
+  return {
+    type: MAPS_SEARCH_CLEAR,
   }
 }

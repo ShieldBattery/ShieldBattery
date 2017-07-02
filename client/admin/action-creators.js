@@ -7,10 +7,16 @@ import {
   ADMIN_GET_BAN_HISTORY,
   ADMIN_GET_INVITES_BEGIN,
   ADMIN_GET_INVITES,
+  ADMIN_GET_MAP_POOL_HISTORY_BEGIN,
+  ADMIN_GET_MAP_POOL_HISTORY,
   ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_GET_PERMISSIONS,
   ADMIN_ACCEPT_USER_BEGIN,
   ADMIN_ACCEPT_USER,
+  ADMIN_CREATE_MAP_POOL_BEGIN,
+  ADMIN_CREATE_MAP_POOL,
+  ADMIN_DELETE_MAP_POOL_BEGIN,
+  ADMIN_DELETE_MAP_POOL,
   ADMIN_SET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
@@ -158,6 +164,57 @@ export function acceptUser(email) {
         body: JSON.stringify({ isAccepted: true }),
       }),
       meta: { email },
+    })
+  }
+}
+
+export function getMapPoolHistory(type) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_GET_MAP_POOL_HISTORY_BEGIN,
+      payload: { type },
+    })
+    dispatch({
+      type: ADMIN_GET_MAP_POOL_HISTORY,
+      payload: fetch('/api/1/matchmakingMapPools/' + encodeURIComponent(type)),
+      meta: { type },
+    })
+  }
+}
+
+export function createMapPool(type, maps, startDate = Date.now()) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_CREATE_MAP_POOL_BEGIN,
+      meta: { type, maps, startDate },
+    })
+    const params = { method: 'post', body: JSON.stringify({ maps, startDate }) }
+    dispatch({
+      type: ADMIN_CREATE_MAP_POOL,
+      payload: fetch(
+        '/api/1/matchmakingMapPools/' + encodeURIComponent(type),
+        params,
+      ).then(mapPool => {
+        dispatch(openSnackbar({ message: 'New map pool created!' }))
+        return mapPool
+      }),
+      meta: { type, maps, startDate },
+    })
+  }
+}
+
+export function deleteMapPool(type, id) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_DELETE_MAP_POOL_BEGIN,
+      meta: { type, id },
+    })
+    dispatch({
+      type: ADMIN_DELETE_MAP_POOL,
+      payload: fetch('/api/1/matchmakingMapPools/' + encodeURIComponent(id), {
+        method: 'delete',
+      }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted!' }))),
+      meta: { type, id },
     })
   }
 }

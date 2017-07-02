@@ -25,10 +25,12 @@ import Whisper from './whispers/whisper.jsx'
 
 const AdminMapUpload = IS_ELECTRON ? require('./admin/map-upload.jsx').default : null
 const AdminPatchUpload = IS_ELECTRON ? require('./admin/patch-upload.jsx').default : null
+const AdminMapPools = IS_ELECTRON ? require('./admin/map-pools.jsx').default : null
 
 import {
   CanAcceptBetaInvitesFilter,
   CanManageStarcraftPatchesFilter,
+  CanManageMapPoolsFilter,
   CanViewUserProfileFilter,
   IsAdminFilter,
 } from './admin/admin-route-filters.jsx'
@@ -83,6 +85,13 @@ const routes = (
                     : null}
                   {AdminMapUpload
                     ? <Route path="/admin/map-upload" component={AdminMapUpload} />
+                    : null}
+                  {AdminMapPools
+                    ? <Route component={CanManageMapPoolsFilter}>
+                        <Route path="/admin/map-pools">
+                          <Route path=":type" component={AdminMapPools} />
+                        </Route>
+                      </Route>
                     : null}
                 </Route>
               </Route>

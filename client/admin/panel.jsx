@@ -31,6 +31,12 @@ export default class Panel extends React.Component {
           <Link to="/admin/invites">View beta invites</Link>
         </li>
       : null
+    const mapPoolsLink =
+      perms.manageMapPools && IS_ELECTRON
+        ? <li>
+            <Link to="/admin/map-pools/1v1">Manage matchmaking map pools</Link>
+          </li>
+        : null
 
     return (
       <ContentLayout title={'Admin panel'}>
@@ -38,6 +44,7 @@ export default class Panel extends React.Component {
           {usersLink}
           {uploadLink}
           {managePatchesLink}
+          {mapPoolsLink}
           {invitesLink}
         </ul>
       </ContentLayout>

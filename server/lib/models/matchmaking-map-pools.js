@@ -33,13 +33,15 @@ export async function addMapPool(matchmakingType, maps, startDate) {
   const query = `
     INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
     VALUES ($1, $2, $3)
+    RETURNING *
   `
   const mapsHashes = maps.map(m => Buffer.from(m, 'hex'))
   const params = [matchmakingType, startDate, mapsHashes]
 
   const { client, done } = await db()
   try {
-    await client.query(query, params)
+    const result = await client.query(query, params)
+    return result.rows.length > 0 ? new MapPool(result.rows[0]) : null
   } finally {
     done()
   }

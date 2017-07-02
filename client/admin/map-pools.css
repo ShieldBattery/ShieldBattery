@@ -1,0 +1,87 @@
+@value colorTextSecondary from '../styles/colors.css';
+@value fastOutSlowIn from '../material/curve-constants.css';
+
+.mapPools {
+  height: calc(100% - 64px);
+  padding: 16px;
+  overflow-x: hidden;
+}
+
+.mapPoolEditor {
+}
+
+.dateContainer {
+  margin-top: 16px;
+}
+
+.dateInput {
+  margin-left: 8px;
+  color: black;
+}
+
+.invalidDate {
+  margin-left: 8px;
+  color: #ff6e6e;
+}
+
+.searchMaps {
+  margin-top: 24px;
+}
+
+.searchMapsInput {
+  width: 600px;
+}
+
+.mapPoolHistory {
+  margin-top: 48px;
+}
+
+.mapPoolHistoryTable {
+}
+
+.mapPoolHistoryTable th, .mapPoolHistoryTable td {
+  min-width: 200px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  padding: 5px 0px;
+}
+
+.mapPoolHistoryTable th {
+  color: colorTextSecondary;
+  text-align: left;
+  font-weight: 500;
+}
+
+.mapPoolHistoryActionsColumn {
+  min-width: 64px !important;
+}
+
+.mapPoolHistoryActionsContents {
+  min-width: 160px;
+}
+
+.mapPoolHistoryActions {
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.enter .mapPoolHistoryActions {
+  opacity: 0;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.enterActive .mapPoolHistoryActions {
+  opacity: 1;
+}
+
+.leave .mapPoolHistoryActions {
+  opacity: 1;
+  transition-property: opacity;
+  transition-timing-function: fastOutSlowIn;
+}
+
+.leaveActive .mapPoolHistoryActions {
+  opacity: 0;
+}

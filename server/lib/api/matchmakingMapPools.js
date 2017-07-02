@@ -60,13 +60,14 @@ async function getHistory(ctx, next) {
   const mapPoolHistory = await getMapPoolHistory(matchmakingType, limit, pageNumber)
   const pools = await Promise.all(
     mapPoolHistory.map(async m => ({
+      ...m,
       startDate: +m.startDate,
       maps: await mapInfo(...m.maps),
     })),
   )
 
   ctx.body = {
-    matchmakingType,
+    type: matchmakingType,
     page: pageNumber,
     limit,
     pools,
@@ -85,8 +86,12 @@ async function createNewMapPool(ctx, next) {
     throw new httpErrors.BadRequest('startDate must be a valid timestamp value in the future')
   }
 
-  await addMapPool(matchmakingType, maps, new Date(startDate))
-  ctx.status = 204
+  const mapPool = await addMapPool(matchmakingType, maps, new Date(startDate))
+  ctx.body = {
+    ...mapPool,
+    startDate: +mapPool.startDate,
+    maps: await mapInfo(...mapPool.maps),
+  }
 }
 
 async function getCurrent(ctx, next) {
@@ -102,6 +107,7 @@ async function getCurrent(ctx, next) {
   }
   ctx.body = {
     ...mapPool,
+    startDate: +mapPool.startDate,
     maps: await mapInfo(...mapPool.maps),
   }
 }

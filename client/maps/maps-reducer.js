@@ -7,6 +7,9 @@ import {
   MAPS_HOST_LOCAL,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
+  MAPS_SEARCH_BEGIN,
+  MAPS_SEARCH,
+  MAPS_SEARCH_CLEAR,
 } from '../actions'
 
 export const MapRecord = new Record({
@@ -21,6 +24,16 @@ export const MapRecord = new Record({
   slots: -1,
   umsSlots: -1,
 })
+export const SearchRecord = new Record({
+  list: new List(),
+  byHash: new Map(),
+  page: -1,
+  limit: -1,
+  total: -1,
+
+  isSearching: false,
+  lastError: null,
+})
 export const Maps = new Record({
   isFetching: false,
   list: new List(),
@@ -31,6 +44,7 @@ export const Maps = new Record({
   localMapError: null,
   isUploading: false,
   uploadError: null,
+  search: new SearchRecord(),
 })
 
 export default keyedReducer(new Maps(), {
@@ -84,6 +98,30 @@ export default keyedReducer(new Maps(), {
     } else {
       return state.set('isUploading', false)
     }
+  },
+
+  [MAPS_SEARCH_BEGIN](state, action) {
+    return state.setIn(['search', 'isSearching'], true)
+  },
+
+  [MAPS_SEARCH](state, action) {
+    if (action.error) {
+      return state
+        .setIn(['search', 'lastError'], action.payload)
+        .setIn(['search', 'isSearching'], false)
+    }
+
+    const data = {
+      list: new List(action.payload.maps.map(m => m.hash)),
+      byHash: new Map(action.payload.maps.map(m => [m.hash, new MapRecord(m)])),
+      lastError: null,
+      isSearching: false,
+    }
+    return state.set('search', new SearchRecord(data))
+  },
+
+  [MAPS_SEARCH_CLEAR](state, action) {
+    return state.set('search', new SearchRecord())
   },
 
   [LOBBY_INIT_DATA](state, action) {

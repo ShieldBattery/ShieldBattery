@@ -14,10 +14,16 @@ export const ADMIN_GET_BAN_HISTORY_BEGIN = 'ADMIN_GET_BAN_HISTORY_BEGIN'
 export const ADMIN_GET_BAN_HISTORY = 'ADMIN_GET_BAN_HISTORY'
 export const ADMIN_GET_INVITES_BEGIN = 'ADMIN_GET_INVITES_BEGIN'
 export const ADMIN_GET_INVITES = 'ADMIN_GET_INVITES'
+export const ADMIN_GET_MAP_POOL_HISTORY_BEGIN = 'ADMIN_GET_MAP_POOL_HISTORY_BEGIN'
+export const ADMIN_GET_MAP_POOL_HISTORY = 'ADMIN_GET_MAP_POOL_HISTORY'
 export const ADMIN_GET_PERMISSIONS_BEGIN = 'ADMIN_GET_PERMISSIONS_BEGIN'
 export const ADMIN_GET_PERMISSIONS = 'ADMIN_GET_PERMISSIONS'
 export const ADMIN_ACCEPT_USER_BEGIN = 'ADMIN_ACCEPT_USER_BEGIN'
 export const ADMIN_ACCEPT_USER = 'ADMIN_ACCEPT_USER'
+export const ADMIN_CREATE_MAP_POOL_BEGIN = 'ADMIN_CREATE_MAP_POOL_BEGIN'
+export const ADMIN_CREATE_MAP_POOL = 'ADMIN_CREATE_MAP_POOL'
+export const ADMIN_DELETE_MAP_POOL_BEGIN = 'ADMIN_DELETE_MAP_POOL_BEGIN'
+export const ADMIN_DELETE_MAP_POOL = 'ADMIN_DELETE_MAP_POOL'
 export const ADMIN_SET_PERMISSIONS_BEGIN = 'ADMIN_SET_PERMISSIONS_BEGIN'
 export const ADMIN_SET_PERMISSIONS = 'ADMIN_SET_PERMISSIONS'
 
@@ -201,6 +207,13 @@ export const MAPS_HOST_LOCAL = 'MAPS_HOST_LOCAL'
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
+// We are beginning to search for the maps
+export const MAPS_SEARCH_BEGIN = 'MAPS_SEARCH_BEGIN'
+// The server has responded with success/failure to our maps search
+export const MAPS_SEARCH = 'MAPS_SEARCH'
+// We are clearing the maps search state, so the next time someone is using this state doesn't get
+// old results
+export const MAPS_SEARCH_CLEAR = 'MAPS_SEARCH_CLEAR'
 
 // We are starting the process of accepting the match
 export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'
@@ -214,6 +227,10 @@ export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
 export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
 // The server has responded with success/failure to us starting to find game
 export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
+// We are starting the process to get the current matchmaking map pool
+export const MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN = 'MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN'
+// The server has responded with success/failure to our request of the current matchmaking map pool
+export const MATCHMAKING_GET_CURRENT_MAP_POOL = 'MATCHMAKING_GET_CURRENT_MAP_POOL'
 // Some (or all) of the players have failed to accept the match
 export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
 // The accept match time has changed

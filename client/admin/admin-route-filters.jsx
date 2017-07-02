@@ -26,3 +26,9 @@ export const CanManageStarcraftPatchesFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'manageStarcraftPatches'),
   () => routerActions.replace('/admin'),
 )
+
+export const CanManageMapPoolsFilter = createConditionalRedirect(
+  'CanManageMapPoolsFilter',
+  state => !hasAllPermissions(state.auth, 'manageMapPools'),
+  () => routerActions.replace('/admin'),
+)

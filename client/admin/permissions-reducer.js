@@ -14,6 +14,7 @@ export const Permissions = new Record({
   banUsers: false,
   manageMaps: false,
   manageStarcraftPatches: false,
+  manageMapPools: false,
 
   lastUpdated: 0,
   isRequesting: false,
