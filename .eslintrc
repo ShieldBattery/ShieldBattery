@@ -5,8 +5,13 @@
     "sourceType": "module"
   },
 
+  "extends": [
+    "prettier"
+  ],
+
   "plugins": [
     "babel",
+    "prettier",
     "react"
   ],
 
@@ -54,8 +59,6 @@
     "global-strict": 0,
     "guard-for-in": 0,
     "handle-callback-err": [2, "^(err|error)$" ],
-    "indent": [2, 2, { "SwitchCase": 1 }],
-    "jsx-quotes": [2, "prefer-single"],
     "key-spacing": [2, { "beforeColon": false, "afterColon": true }],
     "keyword-spacing": 2,
     "linebreak-style": [2, "unix"],
@@ -170,7 +173,6 @@
     "object-shorthand": 2,
     "one-var": 0,
     "operator-assignment": 0,
-    "operator-linebreak": [2, "after"],
     "padded-blocks": [2, "never"],
     "prefer-const": 2,
     "quote-props": [2, "as-needed"],
@@ -181,7 +183,6 @@
     "sort-vars": 0,
     "space-after-function-name": 0,
     "space-before-blocks": [2, "always"],
-    "space-before-function-paren": [2, "never"],
     "space-in-brackets": 0,
     "space-in-parens": [2, "never"],
     "space-infix-ops": [2, { "int32Hint": true }],
@@ -201,6 +202,14 @@
     "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
     "babel/space-in-brackets": 0,
 
+    "prettier/prettier": ["error", {
+      "jsxBracketSameLine": true,
+      "printWidth": 100,
+      "semi": false,
+      "singleQuote": true,
+      "trailingComma": "all"
+    }],
+
     "react/display-name": 0,
     "react/jsx-boolean-value": [2, "always"],
     "react/jsx-no-duplicate-props": 2,
@@ -209,7 +218,6 @@
     "react/jsx-sort-props": 0,
     "react/jsx-uses-react": 2,
     "react/jsx-uses-vars": 2,
-    "react/jsx-wrap-multilines": [2, { "declaration": false, "assignment": false, "return": true }],
     "react/no-deprecated": 2,
     "react/no-did-mount-set-state": 0,
     "react/no-did-update-set-state": 0,
