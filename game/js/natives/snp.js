@@ -92,9 +92,11 @@ class NetworkHandler {
 
   _logCounters() {
     const c = this.counters
-    log.debug('Network handler counters: ' +
+    log.debug(
+      'Network handler counters: ' +
         `${prettyBytes(c.bytesSent)} sent, ${prettyBytes(c.bytesReceived)} received, ` +
-        `${c.overLengthPackets} over length, ${c.unmappedSends} unmapped sends`)
+        `${c.overLengthPackets} over length, ${c.unmappedSends} unmapped sends`,
+    )
   }
 }
 

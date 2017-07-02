@@ -33,9 +33,11 @@ class RouteManager {
       const server = await this._pickServer(route.server)
       this.cancelToken.throwIfCancelling()
       const joined = await this.rallyPoint.joinRoute(
-        { address: server.address, port: server.port }, route.routeId, route.playerId)
-      log.verbose(
-        `Connected to ${route.server.desc} for id ${route.for} [${route.routeId}]`)
+        { address: server.address, port: server.port },
+        route.routeId,
+        route.playerId,
+      )
+      log.verbose(`Connected to ${route.server.desc} for id ${route.for} [${route.routeId}]`)
       return { route: joined, forId: route.for }
     })
 
@@ -49,22 +51,26 @@ class RouteManager {
     })
 
     // Keep routes alive until someone else takes them over from us (or the process is cancelled)
-    joinPromises.map(async joinPromise => {
-      this.cancelToken.throwIfCancelling()
-
-      const route = await joinPromise
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      while (this.keepAlive) {
+    joinPromises
+      .map(async joinPromise => {
         this.cancelToken.throwIfCancelling()
-        route.keepAlive()
+
+        const route = await joinPromise
         await new Promise(resolve => setTimeout(resolve, 500))
-      }
-    }).map(promise => promise.catch(err => {
-      if (err.name !== CancelToken.ERROR_NAME) {
-        log.error('Unhandled error while waiting for join promises: ' + err)
-      }
-    }))
+
+        while (this.keepAlive) {
+          this.cancelToken.throwIfCancelling()
+          route.keepAlive()
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      })
+      .map(promise =>
+        promise.catch(err => {
+          if (err.name !== CancelToken.ERROR_NAME) {
+            log.error('Unhandled error while waiting for join promises: ' + err)
+          }
+        }),
+      )
 
     return Promise.all(readyPromises)
   }
@@ -106,7 +112,7 @@ class RouteManager {
       if (address6) {
         pingPromises.push(this.rallyPoint.pingServers([{ address: address6, port }]))
       }
-      const [ pingResult ] = await Promise.race(pingPromises)
+      const [pingResult] = await Promise.race(pingPromises)
 
       if (pingResult.time < Number.MAX_VALUE) {
         return { address: pingResult.server.address, port }
@@ -127,9 +133,10 @@ function buildNetworkMappings(routes, slots, host) {
   // - Allowing us to easily get references to active rally-point routes
   const slotList = new List(slots)
   const players = slotList.filter(slot => slot.type === 'human' || slot.type === 'observer')
-  const ordered = players.filter(p => p.id === host.id)
+  const ordered = players
+    .filter(p => p.id === host.id)
     .concat(players.filterNot(p => p.id === host.id))
-  const routesById = new Map(routes.map(r => [ r.forId, r.route ]))
+  const routesById = new Map(routes.map(r => [r.forId, r.route]))
   const netInfos = ordered.map(p => routesById.get(p.id))
   return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
 }
@@ -159,14 +166,13 @@ async function joinLobby(gameType, gameSubType, gameName, slots, map, mapPath, c
   const bwGameInfo = {
     gameName,
     numSlots: slots.length,
-    numPlayers: slots
-      .filter(slot => slot.type === 'human' || slot.type === 'observer').length,
+    numPlayers: slots.filter(slot => slot.type === 'human' || slot.type === 'observer').length,
     mapName: map.name,
     mapTileset: tilesetNameToId[map.tileset],
     mapWidth: map.width,
     mapHeight: map.height,
-    gameType: gameTypeValue & 0xFFFF,
-    gameSubtype: (gameTypeValue >> 16) & 0xFFFF,
+    gameType: gameTypeValue & 0xffff,
+    gameSubtype: (gameTypeValue >> 16) & 0xffff,
   }
 
   while (!succeeded) {
@@ -187,10 +193,14 @@ async function joinLobby(gameType, gameSubType, gameName, slots, map, mapPath, c
 
 function getBwRace(configRace) {
   switch (configRace) {
-    case 'z': return 'zerg'
-    case 't': return 'terran'
-    case 'p': return 'protoss'
-    default: return 'random'
+    case 'z':
+      return 'zerg'
+    case 't':
+      return 'terran'
+    case 'p':
+      return 'protoss'
+    default:
+      return 'random'
   }
 }
 
@@ -216,7 +226,7 @@ function setupSlots(configSlots, gameType) {
   for (let i = 0; i < bw.slots.length; i++) {
     const slot = bw.slots[i]
     slot.playerId = i
-    slot.stormId = 0xFF
+    slot.stormId = 0xff
     slot.type = i >= configSlots.length ? 'none' : 'open'
     slot.race = 'random'
     slot.team = 0
@@ -230,7 +240,7 @@ function setupSlots(configSlots, gameType) {
     const slot = isUms(gameType) ? bw.slots[configSlot.playerId] : bw.slots[i]
 
     slot.playerId = isUms(gameType) ? configSlot.playerId : i
-    slot.stormId = configSlot.type === 'human' ? 27 : 0xFF
+    slot.stormId = configSlot.type === 'human' ? 27 : 0xff
     slot.race = getBwRace(configSlot.race)
     // This typeId check is completely ridiculous and doesn't make sense, but that gives
     // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
@@ -250,12 +260,8 @@ function setupSlots(configSlots, gameType) {
 }
 
 async function waitForPlayers(slots) {
-  const players = slots
-    .filter(slot => slot.type === 'human')
-    .map(p => p.name)
-  const observers = slots
-    .filter(slot => slot.type === 'observer')
-    .map(p => p.name)
+  const players = slots.filter(slot => slot.type === 'human').map(p => p.name)
+  const observers = slots.filter(slot => slot.type === 'observer').map(p => p.name)
 
   const hasAllPlayers = () => {
     const playerSlots = bw.slots.filter(s => s.type === 'human')
@@ -296,9 +302,7 @@ function updateSlots(slots) {
     r[s.name] = s
     return r
   }, {})
-  const observers = slots
-    .filter(s => s.type === 'observer')
-    .map(s => s.name)
+  const observers = slots.filter(s => s.type === 'observer').map(s => s.name)
 
   for (let stormId = 0; stormId < stormNames.length; stormId++) {
     const name = stormNames[stormId]
@@ -378,12 +382,22 @@ export default class GameInitializer {
         while (this.commandQueue.length > 0) {
           const command = this.commandQueue.shift()
           switch (command.type) {
-            case 'noop': break
-            case 'localUser': this._runSetLocalUser(command); break
-            case 'settings': this._runSetSettings(command); break
-            case 'routes': this._runSetRoutes(command); break
-            case 'setupGame': await this._runSetupGame(command); break
-            default: throw new Error('Unknown command type: ' + command.type)
+            case 'noop':
+              break
+            case 'localUser':
+              this._runSetLocalUser(command)
+              break
+            case 'settings':
+              this._runSetSettings(command)
+              break
+            case 'routes':
+              this._runSetRoutes(command)
+              break
+            case 'setupGame':
+              await this._runSetupGame(command)
+              break
+            default:
+              throw new Error('Unknown command type: ' + command.type)
           }
         }
 
@@ -513,7 +527,7 @@ export default class GameInitializer {
       .map(p => playerNameToStormId(p.name))
     // TODO(tec27): deal with player bytes if we ever allow save games
     log.verbose('setting game seed')
-    bw.doLobbyGameInit(seed | 0, stormPlayerIds, [ 8, 8, 8, 8, 8, 8, 8, 8 ])
+    bw.doLobbyGameInit(seed | 0, stormPlayerIds, [8, 8, 8, 8, 8, 8, 8, 8])
     forge.endWndProc()
 
     const mySlot = slots.find(x => x.name === myName)

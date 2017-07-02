@@ -6,11 +6,11 @@ const GREED = 0x06 // eslint-disable-line no-unused-vars
 const SLAUGHTER = 0x07 // eslint-disable-line no-unused-vars
 const SUDDEN_DEATH = 0x08 // eslint-disable-line no-unused-vars
 const LADDER = 0x09 // eslint-disable-line no-unused-vars
-const UMS = 0x0A
-const TEAM_MELEE = 0x0B
-const TEAM_FFA = 0x0C
-const TEAM_CAPTURE_THE_FLAG = 0x0D // eslint-disable-line no-unused-vars
-const TOP_V_BOTTOM = 0x0F
+const UMS = 0x0a
+const TEAM_MELEE = 0x0b
+const TEAM_FFA = 0x0c
+const TEAM_CAPTURE_THE_FLAG = 0x0d // eslint-disable-line no-unused-vars
+const TOP_V_BOTTOM = 0x0f
 
 function gameType(main, sub = 0x01) {
   return main | (sub << 16)
