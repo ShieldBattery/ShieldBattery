@@ -9,7 +9,7 @@ const options = {
   target: 'node',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'index.js'
+    filename: 'index.js',
   },
   module: {
     rules: [
@@ -18,13 +18,17 @@ const options = {
         test: /validate.js$/,
         include: /node_modules(\\|\/)json-schema/,
         use: StringReplacePlugin.replace({
-          replacements: [{
-            pattern: /\(\{define:typeof define!="undefined"\?define:function\(deps, factory\)\{module\.exports = factory\(\);\}\}\)\./ig, // eslint-disable-line max-len
-            replacement(match, p1, offset, string) {
-              return ''
+          replacements: [
+            {
+              pattern: /\(\{define:typeof define!="undefined"\?define:function\(deps, factory\)\{module\.exports = factory\(\);\}\}\)\./gi, // eslint-disable-line max-len
+              replacement(match, p1, offset, string) {
+                return ''
+              },
             },
-          }]
-        }).split('!').map(name => ({ loader: name })),
+          ],
+        })
+          .split('!')
+          .map(name => ({ loader: name })),
       },
       {
         test: /\.js$/,
@@ -37,7 +41,8 @@ const options = {
               cacheDirectory: true,
               presets: [
                 [
-                  'env', {
+                  'env',
+                  {
                     targets: { node: '7.4' },
                     modules: false,
                     useBuiltIns: true,
@@ -45,9 +50,7 @@ const options = {
                 ],
                 'stage-0',
               ],
-              plugins: [
-                'transform-decorators-legacy',
-              ]
+              plugins: ['transform-decorators-legacy'],
             },
           },
         ],
@@ -55,24 +58,24 @@ const options = {
       {
         test: /shaders.+\..+sl$/,
         exclude: /node_modules/,
-        use: [
-          { loader: 'raw-loader' },
-        ],
+        use: [{ loader: 'raw-loader' }],
       },
-    ]
+    ],
   },
   devtool: 'hidden-source-map',
   plugins: [
     new webpack.optimize.ModuleConcatenationPlugin(),
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify('production')
+      'process.env.NODE_ENV': JSON.stringify('production'),
     }),
     new webpack.NormalModuleReplacementPlugin(
-      /[\\/]any-promise[\\/]/, require.resolve('../app/common/promise.js')),
+      /[\\/]any-promise[\\/]/,
+      require.resolve('../app/common/promise.js'),
+    ),
     new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
     new StringReplacePlugin(),
     new webpack.NoEmitOnErrorsPlugin(),
-  ]
+  ],
 }
 
 export default options

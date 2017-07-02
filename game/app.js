@@ -1,22 +1,24 @@
 // Put log and bw first to ensure we can log as much as possible in the event of a crash
 import log from './js/logger'
-process.on('uncaughtException', function(err) {
-  console.error(err.stack)
-  log.error(err.stack)
-  // give the log time to write out
-  setTimeout(function() {
-    process.exit(0x27272727)
-  }, 100)
-}).on('unhandledRejection', function(err) {
-  log.error('Unhandled rejection:\n' + err.stack)
-  if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
-    // These types are very unlikely to be handle-able properly, exit
+process
+  .on('uncaughtException', function(err) {
+    console.error(err.stack)
+    log.error(err.stack)
+    // give the log time to write out
     setTimeout(function() {
       process.exit(0x27272727)
     }, 100)
-  }
-  // Other promise rejections are likely less severe, leave the process up but log it
-})
+  })
+  .on('unhandledRejection', function(err) {
+    log.error('Unhandled rejection:\n' + err.stack)
+    if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+      // These types are very unlikely to be handle-able properly, exit
+      setTimeout(function() {
+        process.exit(0x27272727)
+      }, 100)
+    }
+    // Other promise rejections are likely less severe, leave the process up but log it
+  })
 
 import bw from './js/natives/bw'
 bw.on('log', function(level, msg) {
@@ -34,8 +36,8 @@ log.verbose(`Connecting to game server on port ${port} with game ID ${gameId}`)
 const socket = nydusClient(`ws://localhost:${port}`, {
   extraHeaders: {
     origin: 'BROODWARS',
-    'x-game-id': gameId
-  }
+    'x-game-id': gameId,
+  },
 })
 
 const timeoutId = setTimeout(() => {
@@ -45,16 +47,19 @@ const timeoutId = setTimeout(() => {
   }, 100)
 }, 2 * 60 * 1000)
 
-socket.on('connect', function() {
-  log.verbose('Connected to psi.')
-}).on('disconnect', function() {
-  log.verbose('Disconnected from psi...')
-}).on('error', function(err) {
-  log.error('Error connecting to psi, is it running? Error: ' + err)
-  setTimeout(function() {
-    process.exit()
-  }, 100)
-})
+socket
+  .on('connect', function() {
+    log.verbose('Connected to psi.')
+  })
+  .on('disconnect', function() {
+    log.verbose('Disconnected from psi...')
+  })
+  .on('error', function(err) {
+    log.error('Error connecting to psi, is it running? Error: ' + err)
+    setTimeout(function() {
+      process.exit()
+    }, 100)
+  })
 
 bw.on('replaySave', replayPath => {
   log.verbose(`Replay saved to ${replayPath}`)
@@ -87,11 +92,20 @@ socket.registerRoute('/game/:id', (route, event) => {
         gameCancelToken.cancel()
         gameInitializer.noOp()
         break
-      case 'localUser': gameInitializer.setLocalUser(event.payload); break
-      case 'settings': gameInitializer.setSettings(event.payload); break
-      case 'routes': gameInitializer.setRoutes(event.payload); break
-      case 'setupGame': gameInitializer.doGameSetup(event.payload); break
-      default: log.warning('Unknown command type')
+      case 'localUser':
+        gameInitializer.setLocalUser(event.payload)
+        break
+      case 'settings':
+        gameInitializer.setSettings(event.payload)
+        break
+      case 'routes':
+        gameInitializer.setRoutes(event.payload)
+        break
+      case 'setupGame':
+        gameInitializer.doGameSetup(event.payload)
+        break
+      default:
+        log.warning('Unknown command type')
     }
   }
 })

@@ -40,19 +40,19 @@ class PlayerSlot {
   }
 
   get playerId() {
-    return this.nativeSlot.playerId & 0xFF
+    return this.nativeSlot.playerId & 0xff
   }
 
   set playerId(id) {
-    this.nativeSlot.playerId = id & 0xFF
+    this.nativeSlot.playerId = id & 0xff
   }
 
   get stormId() {
-    return this.nativeSlot.stormId & 0xFF
+    return this.nativeSlot.stormId & 0xff
   }
 
   set stormId(id) {
-    this.nativeSlot.stormId = id & 0xFF
+    this.nativeSlot.stormId = id & 0xff
   }
 
   get type() {
@@ -80,11 +80,11 @@ class PlayerSlot {
   }
 
   get team() {
-    return this.nativeSlot.team & 0xFF
+    return this.nativeSlot.team & 0xff
   }
 
   set team(newTeam) {
-    this.nativeSlot.team = newTeam & 0xFF
+    this.nativeSlot.team = newTeam & 0xff
   }
 
   get name() {
@@ -115,7 +115,7 @@ class BroodWar extends EventEmitter {
     super()
     this.bindings = bindings
     this.slots = this.bindings.slots.map(nativeSlot => new PlayerSlot(nativeSlot))
-    const levels = [ 'verbose', 'debug', 'warning', 'error' ]
+    const levels = ['verbose', 'debug', 'warning', 'error']
     this.bindings.onLog = (logLevel, msg) => this.emit('log', levels[logLevel], msg)
     this.bindings.onReplaySave = replayPath => this.emit('replaySave', replayPath)
     this.bindings.onNetPlayerJoin = stormId => this.emit('netPlayerJoin', stormId)
@@ -196,11 +196,11 @@ class BroodWar extends EventEmitter {
     }
 
     await new Promise((resolve, reject) => {
-      this.bindings.initProcess(err => err ? reject(err) : resolve())
+      this.bindings.initProcess(err => (err ? reject(err) : resolve()))
     })
     this.bindings.isBroodWar = true
     await new Promise((resolve, reject) => {
-      this.bindings.initSprites(err => err ? reject(err) : resolve())
+      this.bindings.initSprites(err => (err ? reject(err) : resolve()))
     })
     processInitialized = true
   }
@@ -227,9 +227,14 @@ class BroodWar extends EventEmitter {
 
     let typeNum
     switch (type) {
-      case 'all': typeNum = 2; break
-      case 'allies': typeNum = 3; break
-      default: typeNum = 4
+      case 'all':
+        typeNum = 2
+        break
+      case 'allies':
+        typeNum = 3
+        break
+      default:
+        typeNum = 4
     }
     if (typeNum === 4 && (arguments.length < 3 || (recipients | 0) > 256)) {
       throw new Error('Incorrect arguments')
@@ -257,6 +262,5 @@ class BroodWar extends EventEmitter {
     }
   }
 }
-
 
 export default new BroodWar(bw)

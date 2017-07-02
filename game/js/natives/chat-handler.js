@@ -80,8 +80,8 @@ class ChatHandler extends EventEmitter {
   }
 
   _registerWithBindings() {
-    this.bw.bindings.onCheckForChatCommand =
-        (message, type, recipients) => this._onChatLine(message, type, recipients)
+    this.bw.bindings.onCheckForChatCommand = (message, type, recipients) =>
+      this._onChatLine(message, type, recipients)
   }
 
   _onChatLine(message, type, recipients) {
@@ -94,10 +94,17 @@ class ChatHandler extends EventEmitter {
 
     let convertedType
     switch (type) {
-      case 2: convertedType = 'all'; break
-      case 3: convertedType = 'allies'; break
-      case 4: convertedType = 'player'; break
-      default: convertedType = 'unknown'
+      case 2:
+        convertedType = 'all'
+        break
+      case 3:
+        convertedType = 'allies'
+        break
+      case 4:
+        convertedType = 'player'
+        break
+      default:
+        convertedType = 'unknown'
     }
 
     const command = message.split(' ', 1)[0]
@@ -118,7 +125,7 @@ class ChatHandler extends EventEmitter {
   overrideAllies(allyStormIds) {
     let bits = 0
     for (const id of allyStormIds) {
-      bits |= (1 << id)
+      bits |= 1 << id
     }
     this._allyOverride = bits
   }
@@ -130,7 +137,10 @@ class ChatHandler extends EventEmitter {
 
     this._exclusive = new ChatStream(
       (message, timeout) => this.bw.displayIngameMessage(message, timeout),
-      () => { this._exclusive = null })
+      () => {
+        this._exclusive = null
+      },
+    )
 
     return this._exclusive
   }
