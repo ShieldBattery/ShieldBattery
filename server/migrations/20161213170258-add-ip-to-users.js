@@ -7,8 +7,13 @@ exports.up = function(db, cb) {
       return
     }
 
-    db.addIndex('users', 'users_signup_ip_address_index', ['signup_ip_address'],
-      false /* unique */, cb)
+    db.addIndex(
+      'users',
+      'users_signup_ip_address_index',
+      ['signup_ip_address'],
+      false /* unique */,
+      cb,
+    )
   }
 }
 

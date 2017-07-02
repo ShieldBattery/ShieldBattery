@@ -26,7 +26,8 @@ const forgotPasswordSuccessThrottle = createThrottle('forgotpasssuccess', {
 })
 
 export default function(router) {
-  router.post('/user', throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip), recoverUsername)
+  router
+    .post('/user', throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip), recoverUsername)
     .post('/password', throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip), resetPassword)
 }
 
@@ -59,8 +60,8 @@ async function recoverUsername(ctx, next) {
     subject: 'ShieldBattery Username Recovery',
     templateName: 'username-recovery',
     templateData: {
-      usernames: users.map(username => ({ username }))
-    }
+      usernames: users.map(username => ({ username })),
+    },
   })
 }
 
@@ -98,6 +99,6 @@ async function resetPassword(ctx, next) {
     templateData: {
       username: user.name,
       token: code,
-    }
+    },
   })
 }

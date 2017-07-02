@@ -1,5 +1,6 @@
 exports.up = function(db, cb) {
-  db.runSql(`
+  db.runSql(
+    `
       CREATE TABLE maps (
         hash bytea PRIMARY KEY,
         extension char(3) NOT NULL,
@@ -14,7 +15,9 @@ exports.up = function(db, cb) {
         upload_time timestamp without time zone NOT NULL,
         modified_time timestamp without time zone NOT NULL,
         lobby_init_data jsonb NOT NULL
-      );`, cb)
+      );`,
+    cb,
+  )
 }
 
 exports.down = function(db, cb) {

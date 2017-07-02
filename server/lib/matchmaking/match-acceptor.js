@@ -70,7 +70,8 @@ export default class MatchAcceptor {
     // disconnected will be requeued, those who have disconnected will be kicked.
     const split = match.clients.groupBy(status => status !== STATUS_DISCONNECTED)
     process.nextTick(() =>
-      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()))
+      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()),
+    )
     return true
   }
 
@@ -89,8 +90,11 @@ export default class MatchAcceptor {
       // Still waiting on at least one player
       if (oldMatch !== match) {
         this.matches = this.matches.set(id, match)
-        this.onAcceptProgress(match.info, match.clients.size,
-          match.clients.count(status => status === STATUS_ACCEPTED))
+        this.onAcceptProgress(
+          match.info,
+          match.clients.size,
+          match.clients.count(status => status === STATUS_ACCEPTED),
+        )
       }
     } else {
       // All players have accepted
@@ -109,7 +113,8 @@ export default class MatchAcceptor {
     // will be requeued, everyone else will be kicked.
     const split = match.clients.groupBy(status => status === STATUS_ACCEPTED)
     process.nextTick(() =>
-      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()))
+      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()),
+    )
   }
 
   _cleanupMatch(match) {

@@ -38,7 +38,7 @@ const sendThrottle = createThrottle('chatsend', {
   window: 60000,
 })
 
-const featureEnabled = async(data, next) => {
+const featureEnabled = async (data, next) => {
   if (!MULTI_CHANNEL) throw new errors.NotFound()
   return next(data)
 }
@@ -57,18 +57,21 @@ export class ChatApi {
     this.nydus = nydus
     this.userSockets = userSockets
     this.state = new ChatState()
-    this.userSockets.on('newUser', user => this._handleNewUser(user))
+    this.userSockets
+      .on('newUser', user => this._handleNewUser(user))
       .on('userQuit', name => this._handleUserQuit(name))
   }
 
-  @Api('/join',
+  @Api(
+    '/join',
     featureEnabled,
     validateBody({
       channel: isValidChannelName,
     }),
     'getUser',
     throttleMiddleware(joinThrottle, data => data.get('user')),
-    'getChannel')
+    'getChannel',
+  )
   async join(data, next) {
     const user = data.get('user')
     const channel = data.get('channel')
@@ -78,24 +81,27 @@ export class ChatApi {
 
     await addUserToChannel(user.session.userId, channel)
 
-    this.state = this.state.updateIn(['channels', channel], new Set(), s => s.add(user.name))
+    this.state = this.state
+      .updateIn(['channels', channel], new Set(), s => s.add(user.name))
       .updateIn(['users', user.name], new Set(), s => s.add(channel))
     this._publishTo(channel, { action: 'join', user: user.name })
     this._subscribeUserToChannel(user, channel)
   }
 
-  @Api('/leave',
+  @Api(
+    '/leave',
     featureEnabled,
     validateBody({
       channel: isValidChannelName,
     }),
     'getUser',
-    'getChannel')
+    'getChannel',
+  )
   async leave(data, next) {
     const user = data.get('user')
     const channel = data.get('channel')
     if (channel === 'ShieldBattery') {
-      throw new errors.Forbidden('can\'t leave ShieldBattery channel')
+      throw new errors.Forbidden("can't leave ShieldBattery channel")
     }
     if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
       throw new errors.NotFound('not in this channel')
@@ -103,21 +109,24 @@ export class ChatApi {
 
     const result = await leaveChannel(user.session.userId, channel)
     const updated = this.state.channels.get(channel).delete(user.name)
-    this.state = updated.size ? this.state.setIn(['channels', channel], updated) :
-      this.state.deleteIn(['channels', channel])
+    this.state = updated.size
+      ? this.state.setIn(['channels', channel], updated)
+      : this.state.deleteIn(['channels', channel])
     this.state = this.state.updateIn(['users', user.name], u => u.delete(channel))
     this._publishTo(channel, { action: 'leave', user: user.name, newOwner: result.newOwner })
     this._unsubscribeUserFromChannel(user, channel)
   }
 
-  @Api('/send',
+  @Api(
+    '/send',
     validateBody({
       channel: isValidChannelName,
       message: nonEmptyString,
     }),
     'getUser',
     throttleMiddleware(sendThrottle, data => data.get('user')),
-    'getChannel')
+    'getChannel',
+  )
   async send(data, next) {
     const { message } = data.get('body')
     const user = data.get('user')
@@ -138,18 +147,20 @@ export class ChatApi {
       action: 'message',
       user: result.userName,
       sent: +result.sent,
-      data: result.data
+      data: result.data,
     })
   }
 
-  @Api('/getHistory',
+  @Api(
+    '/getHistory',
     validateBody({
       channel: isValidChannelName,
       beforeTime,
     }),
     'getUser',
     throttleMiddleware(retrievalThrottle, data => data.get('user')),
-    'getChannel')
+    'getChannel',
+  )
   async getHistory(data, next) {
     const { beforeTime } = data.get('body')
     const user = data.get('user')
@@ -168,13 +179,15 @@ export class ChatApi {
     }))
   }
 
-  @Api('/getUsers',
+  @Api(
+    '/getUsers',
     validateBody({
       channel: isValidChannelName,
     }),
     'getUser',
     throttleMiddleware(retrievalThrottle, data => data.get('user')),
-    'getChannel')
+    'getChannel',
+  )
   async getUsers(data, next) {
     const user = data.get('user')
     const channel = data.get('channel')
@@ -229,10 +242,11 @@ export class ChatApi {
     }
 
     const channelSet = new Set(channelsForUser.map(c => c.channelName))
-    const userSet = new Set([ user.name ])
-    const inChannels = new Map(channelsForUser.map(c => [ c.channelName, userSet ]))
+    const userSet = new Set([user.name])
+    const inChannels = new Map(channelsForUser.map(c => [c.channelName, userSet]))
 
-    this.state = this.state.mergeDeepIn(['channels'], inChannels)
+    this.state = this.state
+      .mergeDeepIn(['channels'], inChannels)
       .setIn(['users', user.name], channelSet)
     for (const { channelName: chan } of channelsForUser) {
       this._publishTo(chan, { action: 'userActive', user: user.name })
@@ -249,8 +263,9 @@ export class ChatApi {
     const channels = this.state.users.get(userName)
     for (const channel of channels.values()) {
       const updated = this.state.channels.get(channel).delete(userName)
-      this.state = updated.size ? this.state.setIn(['channels', channel], updated) :
-        this.state.deleteIn(['channels', channel])
+      this.state = updated.size
+        ? this.state.setIn(['channels', channel], updated)
+        : this.state.deleteIn(['channels', channel])
     }
     this.state = this.state.deleteIn(['users', userName])
 

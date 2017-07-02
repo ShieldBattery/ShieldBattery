@@ -26,7 +26,8 @@ export async function getChannelsForUser(userId) {
   try {
     const result = await client.queryPromise(
       'SELECT channel_name, join_date FROM joined_channels WHERE user_id = $1 ORDER BY join_date',
-      [ userId ])
+      [userId],
+    )
     return result.rows.map(row => ({ channelName: row.channel_name, joinDate: row.join_date }))
   } finally {
     done()
@@ -41,7 +42,8 @@ export async function getUsersForChannel(channelName) {
         FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
         WHERE c.channel_name = $1
         ORDER BY c.join_date`,
-      [ channelName ])
+      [channelName],
+    )
     return result.rows.map(row => ({ userName: row.name, joinDate: row.join_date }))
   } finally {
     done()
@@ -52,28 +54,32 @@ export async function addUserToChannel(userId, channelName, client = null) {
   const fn = async function(client) {
     let columns
     let values
-    const params = [ userId, channelName ]
+    const params = [userId, channelName]
 
     const channelExists = await findChannel(channelName)
     if (channelExists) {
       // Channel already exists, add a new user to it with no permissions
       columns = '(user_id, channel_name, join_date)'
-      values = '($1, $2, CURRENT_TIMESTAMP AT TIME ZONE \'UTC\')'
+      values = "($1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')"
     } else {
       // Channel doesn't exist, new channel will be added and user added to it with full permissions
       columns = `(user_id, channel_name, join_date, kick, ban, change_topic, toggle_private,
           edit_permissions)`
-      values = '($1, $2, CURRENT_TIMESTAMP AT TIME ZONE \'UTC\', $3, $4, $5, $6, $7)'
+      values = "($1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5, $6, $7)"
       params.push(true, true, true, true, true)
     }
 
     await client.queryPromise(
       `INSERT INTO channels (name) SELECT $1
         WHERE NOT EXISTS (SELECT 1 FROM channels WHERE name=$1)`,
-      [ channelName ])
+      [channelName],
+    )
 
-    const result = await client.queryPromise(`INSERT INTO joined_channels ${columns}
-        VALUES ${values} RETURNING *`, params)
+    const result = await client.queryPromise(
+      `INSERT INTO joined_channels ${columns}
+        VALUES ${values} RETURNING *`,
+      params,
+    )
     if (result.rows.length < 1) {
       throw new Error('No rows returned')
     }
@@ -92,8 +98,13 @@ export async function addUserToChannel(userId, channelName, client = null) {
       userId: userIdFromDb,
       channelName: channelNameFromDb,
       joinDate,
-      channelPermissions: new ChannelPermissions(
-        {kick, ban, changeTopic, togglePrivate, editPermissions}),
+      channelPermissions: new ChannelPermissions({
+        kick,
+        ban,
+        changeTopic,
+        togglePrivate,
+        editPermissions,
+      }),
     }
   }
 
@@ -115,7 +126,8 @@ export async function addMessageToChannel(userId, channelName, messageData) {
           RETURNING id, user_id, channel_name, sent, data
         ) SELECT ins.id, users.name, ins.channel_name, ins.sent, ins.data
         FROM ins INNER JOIN users ON ins.user_id = users.id`,
-      [ userId, channelName, JSON.stringify(messageData) ])
+      [userId, channelName, JSON.stringify(messageData)],
+    )
     if (result.rows.length < 1) {
       throw new Error('No rows returned')
     }
@@ -126,7 +138,7 @@ export async function addMessageToChannel(userId, channelName, messageData) {
       userName: row.name,
       channelName: row.channel_name,
       sent: row.sent,
-      data: row.data
+      data: row.data,
     }
   } finally {
     done()
@@ -135,9 +147,10 @@ export async function addMessageToChannel(userId, channelName, messageData) {
 
 export async function getMessagesForChannel(channelName, userId, limit = 50, beforeDate = -1) {
   const { client, done } = await db()
-  const whereClause = 'WHERE m.channel_name = $1 AND m.sent >= joined.join_date' +
-      (beforeDate > -1 ? ' AND m.sent < $4' : '')
-  const params = [ channelName, userId, limit ]
+  const whereClause =
+    'WHERE m.channel_name = $1 AND m.sent >= joined.join_date' +
+    (beforeDate > -1 ? ' AND m.sent < $4' : '')
+  const params = [channelName, userId, limit]
   if (beforeDate > -1) {
     params.push(new Date(beforeDate))
   }
@@ -172,7 +185,8 @@ export async function leaveChannel(userId, channelName) {
   return await transact(async function(client) {
     let result = await client.queryPromise(
       'DELETE FROM joined_channels WHERE user_id = $1 AND channel_name = $2 RETURNING *',
-      [ userId, channelName ])
+      [userId, channelName],
+    )
     if (result.rows.length < 1) {
       throw new Error('No rows returned')
     }
@@ -181,7 +195,8 @@ export async function leaveChannel(userId, channelName) {
       `DELETE FROM channels WHERE name = $1 AND
         NOT EXISTS (SELECT 1 FROM joined_channels WHERE channel_name = $1)
         RETURNING name`,
-      [ channelName ])
+      [channelName],
+    )
     if (result.rows.length > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
@@ -190,7 +205,8 @@ export async function leaveChannel(userId, channelName) {
 
     result = await client.queryPromise(
       'SELECT user_id FROM joined_channels WHERE channel_name = $1 AND edit_permissions = true',
-      [ channelName ])
+      [channelName],
+    )
     if (result.rows.length > 0) {
       // The channel still has someone who can edit permissions; no transfer of ownership necessary
       return { newOwner: null }
@@ -198,7 +214,8 @@ export async function leaveChannel(userId, channelName) {
 
     result = await client.queryPromise(
       'SELECT name FROM channels WHERE name = $1 AND high_traffic = true',
-      [ channelName ])
+      [channelName],
+    )
     if (result.rows.length > 0) {
       // Don't transfer ownership in "high traffic" channels
       return { newOwner: null }
@@ -210,14 +227,17 @@ export async function leaveChannel(userId, channelName) {
         WHERE c.channel_name = $1 AND
           (c.kick = true OR c.ban = true OR c.change_topic = true OR toggle_private = true)
         ORDER BY c.join_date`,
-      [ channelName ])
+      [channelName],
+    )
     if (result.rows.length > 0) {
       // Transfer ownership to the user who has joined the channel earliest and has at least some
       // kind of a permission
       await client.queryPromise(
         `UPDATE joined_channels
           SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
-          WHERE user_id = $1 AND channel_name = $2`, [ result.rows[0].user_id, channelName ])
+          WHERE user_id = $1 AND channel_name = $2`,
+        [result.rows[0].user_id, channelName],
+      )
       return { newOwner: result.rows[0].name }
     }
 
@@ -227,22 +247,25 @@ export async function leaveChannel(userId, channelName) {
         FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
         WHERE c.channel_name = $1
         ORDER BY c.join_date`,
-      [ channelName ])
+      [channelName],
+    )
 
     await client.queryPromise(
       `UPDATE joined_channels
         SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
-        WHERE user_id = $1 AND channel_name = $2`, [ result.rows[0].user_id, channelName ])
+        WHERE user_id = $1 AND channel_name = $2`,
+      [result.rows[0].user_id, channelName],
+    )
     return { newOwner: result.rows[0].name }
   })
 }
 
-
 export async function findChannel(channelName) {
   const { client, done } = await db()
   try {
-    const result =
-        await client.queryPromise('SELECT * FROM channels WHERE name = $1', [ channelName ])
+    const result = await client.queryPromise('SELECT * FROM channels WHERE name = $1', [
+      channelName,
+    ])
     return result.rows.length < 1 ? null : new Channel(result.rows[0])
   } finally {
     done()

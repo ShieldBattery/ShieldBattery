@@ -56,7 +56,8 @@ function generateImage(map, bwDataPath) {
       width = map.size[0] * Math.floor(1024 / map.size[1])
     }
 
-    return (map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
+    return map
+      .image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
       .then(imageRgb => {
         const rgbaBuffer = new Buffer(width * height * 4)
         for (let i = 0; i < width * height; i++) {
@@ -64,13 +65,16 @@ function generateImage(map, bwDataPath) {
           rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]
           rgbaBuffer[i * 4 + 2] = imageRgb[i * 3 + 2]
         }
-        const { data } = jpeg.encode({
-          data: rgbaBuffer,
-          width,
-          height,
-        }, 90)
+        const { data } = jpeg.encode(
+          {
+            data: rgbaBuffer,
+            width,
+            height,
+          },
+          90,
+        )
         return data
-      }))
+      })
   } else {
     return Promise.resolve(null)
   }
@@ -84,33 +88,37 @@ process.once('message', msg => {
       if (hash !== calculatedHash) {
         throw new Error("Data doesn't match the hash")
       }
-      return (generateImage(map, bwDataPath)
-        .then(image => {
-          const imagePromise = new Promise((resolve, reject) => {
-            if (image) {
-              const imagePipe = fs.createWriteStream('', { fd: 3, flags: 'w' })
-              imagePipe.on('error', reject)
-                .on('finish', resolve)
+      return generateImage(map, bwDataPath).then(image => {
+        const imagePromise = new Promise((resolve, reject) => {
+          if (image) {
+            const imagePipe = fs.createWriteStream('', { fd: 3, flags: 'w' })
+            imagePipe.on('error', reject).on('finish', resolve)
 
-              imagePipe.write(image)
-              imagePipe.end()
-            } else {
-              resolve()
-            }
-          })
-          const sendPromise = new Promise(resolve => process.send({
-            title: map.title,
-            description: map.description,
-            width: map.size[0],
-            height: map.size[1],
-            tileset: map.tileset,
-            meleePlayers: map.maxPlayers(false),
-            umsPlayers: map.maxPlayers(true),
-            lobbyInitData: createLobbyInitData(map),
-          }, resolve))
-          return Promise.all([imagePromise, sendPromise])
-        }))
-    }).catch(e => {
+            imagePipe.write(image)
+            imagePipe.end()
+          } else {
+            resolve()
+          }
+        })
+        const sendPromise = new Promise(resolve =>
+          process.send(
+            {
+              title: map.title,
+              description: map.description,
+              width: map.size[0],
+              height: map.size[1],
+              tileset: map.tileset,
+              meleePlayers: map.maxPlayers(false),
+              umsPlayers: map.maxPlayers(true),
+              lobbyInitData: createLobbyInitData(map),
+            },
+            resolve,
+          ),
+        )
+        return Promise.all([imagePromise, sendPromise])
+      })
+    })
+    .catch(e => {
       console.log(e)
       setImmediate(() => {
         process.exit(1)

@@ -12,10 +12,15 @@ import {
 } from '../models/matchmaking-map-pools'
 
 export default function(router) {
-  router.get('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'), getHistory)
+  router
+    .get('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'), getHistory)
     .get('/:matchmakingType/current', ensureLoggedIn, getCurrent)
-    .post('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'),
-      createNewMapPool)
+    .post(
+      '/:matchmakingType',
+      ensureLoggedIn,
+      checkAllPermissions('manageMapPools'),
+      createNewMapPool,
+    )
     .delete('/:mapPoolId', ensureLoggedIn, checkAllPermissions('manageMapPools'), removeMapPool)
 }
 
@@ -38,10 +43,12 @@ async function getHistory(ctx, next) {
   }
 
   const mapPoolHistory = await getMapPoolHistory(matchmakingType, limit, pageNumber)
-  const pools = await Promise.all(mapPoolHistory.map(async m => ({
-    startDate: +m.startDate,
-    maps: await mapInfo(...m.maps),
-  })))
+  const pools = await Promise.all(
+    mapPoolHistory.map(async m => ({
+      startDate: +m.startDate,
+      maps: await mapInfo(...m.maps),
+    })),
+  )
 
   ctx.body = {
     matchmakingType,
@@ -89,9 +96,9 @@ async function removeMapPool(ctx, next) {
 
   const mapPool = await getMapPoolById(mapPoolId)
   if (!mapPool) {
-    throw new httpErrors.NotFound('map pool doesn\'t exist')
+    throw new httpErrors.NotFound("map pool doesn't exist")
   } else if (mapPool.startDate < Date.now()) {
-    throw new httpErrors.BadRequest('can\'t delete map pools in past')
+    throw new httpErrors.BadRequest("can't delete map pools in past")
   }
 
   await removeMapPoolDb(mapPoolId)

@@ -15,7 +15,7 @@ class Permissions {
 
 export async function createPermissions(dbClient, userId) {
   const query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
-  const params = [ userId ]
+  const params = [userId]
 
   const result = await dbClient.queryPromise(query, params)
   if (result.rows.length < 1) throw new Error('No rows returned')
@@ -29,7 +29,7 @@ export async function getPermissions(userId) {
     FROM permissions
     WHERE user_id = $1
   `
-  const params = [ userId ]
+  const params = [userId]
 
   const { client, done } = await db()
   try {

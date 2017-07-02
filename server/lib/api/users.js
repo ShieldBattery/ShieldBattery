@@ -20,12 +20,14 @@ const accountCreationThrottle = createThrottle('accountcreation', {
 })
 
 export default function(router) {
-  router.post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
+  router
+    .post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
-    .put('/:id', function* (next) {
+    .put('/:id', function*(next) {
       // TODO(tec27): update a user
       throw new httpErrors.ImATeapot()
-    }).post('/:username/password', resetPassword)
+    })
+    .post('/:username/password', resetPassword)
 }
 
 async function find(ctx, next) {
@@ -33,7 +35,7 @@ async function find(ctx, next) {
 
   try {
     const user = await users.find(searchTerm)
-    ctx.body = user ? [ user ] : []
+    ctx.body = user ? [user] : []
   } catch (err) {
     throw err
   }
@@ -48,9 +50,7 @@ async function createUser(ctx, next) {
   const { username, password } = ctx.request.body
   const email = ctx.request.body.email.trim()
 
-  if (!isValidUsername(username) ||
-      !isValidEmail(email) ||
-      !isValidPassword(password)) {
+  if (!isValidUsername(username) || !isValidEmail(email) || !isValidPassword(password)) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 

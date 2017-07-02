@@ -18,10 +18,11 @@ class MapInfo {
 export async function addMap(hashStr, extension, filename, mapData, timestamp) {
   const { client, done } = await db()
   try {
-    const query = 'INSERT INTO maps ' +
-        '(hash, extension, filename, title, description, width, height, tileset, ' +
-        'players_melee, players_ums, upload_time, modified_time, lobby_init_data) ' +
-        'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)'
+    const query =
+      'INSERT INTO maps ' +
+      '(hash, extension, filename, title, description, width, height, tileset, ' +
+      'players_melee, players_ums, upload_time, modified_time, lobby_init_data) ' +
+      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)'
     const hash = Buffer.from(hashStr, 'hex')
     const {
       title,
@@ -38,8 +39,21 @@ export async function addMap(hashStr, extension, filename, mapData, timestamp) {
     // lost on uploads (maybe there's a reason to search by it?), bw doesn't accept filenames
     // longer than 32 chars anyways, so just cut it silently.
     const limitedFilename = filename.slice(0, 32)
-    const params = [hash, extension, limitedFilename, title, description,
-      width, height, tileset, meleePlayers, umsPlayers, new Date(), timestamp, lobbyInitData]
+    const params = [
+      hash,
+      extension,
+      limitedFilename,
+      title,
+      description,
+      width,
+      height,
+      tileset,
+      meleePlayers,
+      umsPlayers,
+      new Date(),
+      timestamp,
+      lobbyInitData,
+    ]
     await client.queryPromise(query, params)
   } finally {
     done()
@@ -55,7 +69,7 @@ export async function mapExists(hashStr) {
   }
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise('SELECT 1 FROM maps WHERE hash = $1', [ hash ])
+    const result = await client.queryPromise('SELECT 1 FROM maps WHERE hash = $1', [hash])
     return result.rows.length !== 0
   } finally {
     done()
@@ -68,10 +82,11 @@ export async function mapInfo(...hashStr) {
   const hashes = hashStr.map(s => '\\x' + s)
   const { client, done } = await db()
   try {
-    const query = 'SELECT hash, extension, title, description, width, height, players_melee, ' +
-        'players_ums, tileset, lobby_init_data ' +
-        'FROM maps WHERE hash = ANY($1)'
-    const result = await client.queryPromise(query, [ hashes ])
+    const query =
+      'SELECT hash, extension, title, description, width, height, players_melee, ' +
+      'players_ums, tileset, lobby_init_data ' +
+      'FROM maps WHERE hash = ANY($1)'
+    const result = await client.queryPromise(query, [hashes])
     if (result.rows.length === 0) {
       return null
     } else {
@@ -98,10 +113,12 @@ export async function searchMaps(searchStr) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows.map(map => ({
-      hash: map.hash.toString('hex'),
-      mapInfo: new MapInfo(map),
-    })) : []
+    return result.rows.length > 0
+      ? result.rows.map(map => ({
+          hash: map.hash.toString('hex'),
+          mapInfo: new MapInfo(map),
+        }))
+      : []
   } finally {
     done()
   }

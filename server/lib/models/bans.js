@@ -1,11 +1,10 @@
 import db from '../db'
 
 export async function getBanHistory(userId) {
-  const query =
-    `SELECT start_time, end_time, u.name AS banned_by_name, reason FROM user_bans bans
+  const query = `SELECT start_time, end_time, u.name AS banned_by_name, reason FROM user_bans bans
     INNER JOIN users u ON bans.banned_by = u.id WHERE bans.user_id = $1
     ORDER BY end_time DESC`
-  const params = [ userId ]
+  const params = [userId]
 
   const { client, done } = await db()
   try {
@@ -27,7 +26,7 @@ export async function banUser(userId, bannedBy, banLengthHours, reason = null) {
   const startDate = new Date()
   const endDate = new Date()
   endDate.setHours(endDate.getHours() + banLengthHours)
-  const params = [ userId, startDate, endDate, bannedBy, reason ]
+  const params = [userId, startDate, endDate, bannedBy, reason]
 
   try {
     const result = await client.queryPromise(
@@ -35,7 +34,9 @@ export async function banUser(userId, bannedBy, banLengthHours, reason = null) {
           INSERT INTO user_bans (user_id, start_time, end_time, banned_by, reason)
           VALUES ($1, $2, $3, $4, $5) RETURNING *
         ) SELECT ins.start_time, ins.end_time, u.name AS banned_by_name, ins.reason FROM ins
-        INNER JOIN users u ON ins.banned_by = u.id`, params)
+        INNER JOIN users u ON ins.banned_by = u.id`,
+      params,
+    )
 
     return {
       startTime: result.rows[0].start_time,
@@ -55,7 +56,8 @@ export async function isUserBanned(userId) {
   try {
     const result = await client.queryPromise(
       'SELECT 1 FROM user_bans WHERE user_id = $1 AND end_time > $2 AND start_time <= $2',
-      [ userId, now ])
+      [userId, now],
+    )
     return !!result.rows.length
   } finally {
     done()

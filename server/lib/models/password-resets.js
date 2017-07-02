@@ -7,13 +7,7 @@ export async function addPasswordResetCode(userId, code, ip) {
       (user_id, reset_code, request_time, request_ip, used)
       VALUES ($1, $2, $3, $4, $5)
   `
-  const params = [
-    userId,
-    code,
-    new Date(),
-    ip,
-    false
-  ]
+  const params = [userId, code, new Date(), ip, false]
 
   try {
     await client.queryPromise(query, params)
@@ -37,11 +31,7 @@ export async function usePasswordResetCode(client, username, code) {
   `
   const twoDaysAgo = new Date()
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-  const params = [
-    username,
-    code,
-    twoDaysAgo,
-  ]
+  const params = [username, code, twoDaysAgo]
 
   const result = await client.queryPromise(query, params)
   if (!result.rows.length) throw new Error('No such reset code for user')

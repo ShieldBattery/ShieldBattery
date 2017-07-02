@@ -43,10 +43,18 @@ export class MatchmakingApi {
     this.userSockets = userSockets
     this.clientSockets = clientSockets
 
-    this.matchmakers = new Map(MATCHMAKING_TYPES.map(type =>
-      [type, new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound)]))
-    this.acceptor = new MatchAcceptor(MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
-      this._onMatchAccepted, this._onMatchDeclined, this._onMatchAcceptProgress)
+    this.matchmakers = new Map(
+      MATCHMAKING_TYPES.map(type => [
+        type,
+        new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound),
+      ]),
+    )
+    this.acceptor = new MatchAcceptor(
+      MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
+      this._onMatchAccepted,
+      this._onMatchDeclined,
+      this._onMatchAcceptProgress,
+    )
 
     this.queueEntries = new Map()
   }
@@ -137,11 +145,13 @@ export class MatchmakingApi {
     client.unsubscribe(MatchmakingApi._getClientPath(client))
   }
 
-  @Api('/find',
+  @Api(
+    '/find',
     validateBody({
       type: isValidMatchmakingType,
       race: validRace,
-    }))
+    }),
+  )
   async find(data, next) {
     const { type, race } = data.get('body')
     const user = this.getUser(data)
@@ -159,13 +169,13 @@ export class MatchmakingApi {
     const rating = 1000
     const interval = new Interval({
       low: rating - 50,
-      high: rating + 50
+      high: rating + 50,
     })
     const player = new Player({
       name: user.name,
       rating,
       interval,
-      race
+      race,
     })
     this.matchmakers.get(type).addToQueue(player)
 

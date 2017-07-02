@@ -9,8 +9,14 @@ class MatchmakingPreferences {
   }
 }
 
-export async function upsertMatchmakingPreferences(userId, matchmakingType, race,
-  alternateRace = null, mapPoolId, preferredMaps) {
+export async function upsertMatchmakingPreferences(
+  userId,
+  matchmakingType,
+  race,
+  alternateRace = null,
+  mapPoolId,
+  preferredMaps,
+) {
   const query = `
     INSERT INTO matchmaking_preferences (user_id, matchmaking_type, race, alternate_race,
       map_pool_id, preferred_maps)
@@ -20,17 +26,8 @@ export async function upsertMatchmakingPreferences(userId, matchmakingType, race
     WHERE matchmaking_preferences.user_id = $1 AND matchmaking_preferences.matchmaking_type = $2
     RETURNING *;
   `
-  const preferredMapsHashes = preferredMaps ?
-    preferredMaps.map(m => Buffer.from(m, 'hex')) :
-    null
-  const params = [
-    userId,
-    matchmakingType,
-    race,
-    alternateRace,
-    mapPoolId,
-    preferredMapsHashes,
-  ]
+  const preferredMapsHashes = preferredMaps ? preferredMaps.map(m => Buffer.from(m, 'hex')) : null
+  const params = [userId, matchmakingType, race, alternateRace, mapPoolId, preferredMapsHashes]
 
   const { client, done } = await db()
   try {
@@ -47,7 +44,7 @@ export async function getMatchmakingPreferences(userId, matchmakingType) {
     FROM matchmaking_preferences
     WHERE user_id = $1 AND matchmaking_type = $2;
   `
-  const params = [ userId, matchmakingType ]
+  const params = [userId, matchmakingType]
 
   const { client, done } = await db()
   try {

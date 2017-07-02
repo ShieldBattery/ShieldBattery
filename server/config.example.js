@@ -16,17 +16,17 @@ config.sessionSecret = 'shhhhhhh'
 config.sessionTtl = 1209600 // in seconds
 
 config.db = {
-  connString: require('./database.json').dev
+  connString: require('./database.json').dev,
 }
 
 config.redis = {
   host: 'localhost',
-  port: 6379
+  port: 6379,
 }
 
 config.logLevels = {
   file: 'warn',
-  console: 'debug'
+  console: 'debug',
 }
 
 // Uncomment and set your Google Analytics ID to enable analytics reporting
@@ -69,7 +69,7 @@ config.fileStore = {
   // Stores files on the manner-pylon server's filesystem
   filesystem: {
     path: 'uploaded_files',
-  }
+  },
 }
 
 // Uncomment if you have Brood War data MPQs extracted to a some directory, they will be used

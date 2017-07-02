@@ -11,8 +11,7 @@ const throttle = createThrottle('usernameavailability', {
 })
 
 export default function(router) {
-  router
-    .get('/:username', throttleMiddleware(throttle, ctx => ctx.ip), checkAvailability)
+  router.get('/:username', throttleMiddleware(throttle, ctx => ctx.ip), checkAvailability)
 }
 
 async function checkAvailability(ctx, next) {

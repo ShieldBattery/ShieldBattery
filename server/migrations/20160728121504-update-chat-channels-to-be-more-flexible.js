@@ -1,12 +1,15 @@
 exports.up = function(db, cb) {
-  db.runSql(`
+  db.runSql(
+    `
       CREATE TABLE channels (
         name citext PRIMARY KEY,
         private boolean NOT NULL DEFAULT false,
         high_traffic boolean NOT NULL DEFAULT false,
         topic text,
         password text
-      );`, addChannelNameConstraint)
+      );`,
+    addChannelNameConstraint,
+  )
 
   function addChannelNameConstraint(err) {
     if (err) {
@@ -24,7 +27,7 @@ exports.up = function(db, cb) {
       cb(err)
       return
     }
-    const sql = 'INSERT INTO channels (name, high_traffic) VALUES (\'ShieldBattery\', true);'
+    const sql = "INSERT INTO channels (name, high_traffic) VALUES ('ShieldBattery', true);"
     db.runSql(sql, addPermissionsToJoinedChannels)
   }
 
@@ -57,9 +60,12 @@ exports.up = function(db, cb) {
 }
 
 exports.down = function(db, cb) {
-  db.runSql(`ALTER TABLE joined_channels
+  db.runSql(
+    `ALTER TABLE joined_channels
       DROP CONSTRAINT fk_user_id,
-      DROP CONSTRAINT fk_channel_name;`, removePermissions)
+      DROP CONSTRAINT fk_channel_name;`,
+    removePermissions,
+  )
 
   function removePermissions(err) {
     if (err) {
@@ -67,12 +73,15 @@ exports.down = function(db, cb) {
       return
     }
 
-    db.runSql(`ALTER TABLE joined_channels
+    db.runSql(
+      `ALTER TABLE joined_channels
         DROP COLUMN kick,
         DROP COLUMN ban,
         DROP COLUMN change_topic,
         DROP COLUMN toggle_private,
-        DROP COLUMN edit_permissions;`, dropChannels)
+        DROP COLUMN edit_permissions;`,
+      dropChannels,
+    )
   }
 
   function dropChannels(err) {

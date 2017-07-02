@@ -39,10 +39,7 @@ async function _getInvites(condition, limit, pageNumber) {
   }
 
   query += ' ORDER BY email LIMIT $1 OFFSET $2'
-  params = [
-    limit,
-    pageNumber * limit
-  ]
+  params = [limit, pageNumber * limit]
 
   const total = await _getInvitesCount(condition)
 
@@ -69,7 +66,7 @@ async function getAcceptedInvites(limit, pageNumber) {
 
 async function acceptInvite(client, email, token) {
   const query = 'UPDATE invites SET token = $1 WHERE email = $2 AND token IS NULL RETURNING *'
-  const params = [ token, email ]
+  const params = [token, email]
 
   const result = await client.queryPromise(query, params)
   if (!result.rows.length) throw new Error('No such uninvited email')

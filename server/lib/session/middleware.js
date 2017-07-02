@@ -11,5 +11,5 @@ export default session({
     maxAge: config.sessionTtl * 1000,
   },
   rolling: true,
-  genSid: () => cuid()
+  genSid: () => cuid(),
 })

@@ -33,7 +33,7 @@ async function listInvites(ctx, next) {
         total,
         invites: invs,
         limit,
-        pageNumber
+        pageNumber,
       }
     } else {
       const { total, invites: invs } = await invites.getUnaccepted(limit, pageNumber)
@@ -41,7 +41,7 @@ async function listInvites(ctx, next) {
         total,
         invites: invs,
         limit,
-        pageNumber
+        pageNumber,
       }
     }
   } else {
@@ -50,7 +50,7 @@ async function listInvites(ctx, next) {
       total,
       invites: invs,
       limit,
-      pageNumber
+      pageNumber,
     }
   }
 }
@@ -77,7 +77,7 @@ async function acceptInvite(ctx, next) {
         token: invite.token,
         feedbackUrl: config.feedbackUrl,
         installerUrl: `${config.canonicalHost}/installer.msi`,
-      }
+      },
     })
 
     ctx.body = invite
