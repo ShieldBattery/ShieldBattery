@@ -24,7 +24,7 @@ attempting to follow further steps.
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (7.3.0 at the time of
+to install a version of it, generally the current version is a good choice (8.1.4 at the time of
 writing). The version you install does not need to match the version that the game client's
 submodule is tagged to.
 
@@ -40,11 +40,11 @@ is through the
 [Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
 Once Visual Studio is installed, you can generate project files by running the `vcbuild.bat` script in the
-root of this repository. If you plan on building inside of Visual Studio, you can run this with the
-`nobuild` flag to speed things up. Note that this script will also install JS dependencies and link up
-the JS directory to your `SHIELDBATTERY_PATH`, so complete the previous setup steps first.
+[`game` directory](../game). If you plan on building inside of Visual Studio, you can run this with the
+`nobuild` flag to speed things up. Note that this script will also install JS dependencies for the game
+side of things.
 
-`vcbuild.bat` will generate `shieldbattery.sln` in the root of the repo; open this with Visual Studio to be
+`vcbuild.bat` will generate `shieldbattery.sln` in the same folder; open this with Visual Studio to be
 able to edit and build the C++ code. Note that Debug builds add significant startup time to the
 applications, while Release builds add significant compile time. Pick your poison based on your needs at the
 time.
@@ -89,7 +89,8 @@ On Windows, use the installers provided by MSOpenTech; they can be found [here](
 On Linux, this can generally be installed through the package manage for your OS. On Mac, use
 [brew](http://brew.sh).
 
-The redis server can be started using
+On Windows, redis service is started automatically if you use the above installer. on Linux/Mac, start the
+redis server by using
 
 ```
 redis-server
@@ -129,6 +130,21 @@ yarn run migrate-up
 You will need to run this command after pulling in commits that change the database structure as
 well.
 
+### Set up map system
+
+The server needs access to some of BW's data files in order to generate map images. Download an mpq editor,
+such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download "listfiles" from
+that website as well, which you'll need to use in the mpq editor. Use the mpq editor to extract BW's data
+files from `stardat.mpq`, `broodat.mpq`, in that order, having `broodat.mpq` overwrite any conflicting files
+from `stardat.mpq`. The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files
+to a directory (keeping the directory structure), and set `config.bwData` in server's `config.js` to that
+directory.
+
+Set `config.fileStore` in the `config.js` to the directory that you wish to use for uploaded maps and their
+images (see example in `config.example.js`). Now you can use the admin panel and "Mass map upload" feature to
+upload any map(s) from your hard disk to the server. If you wish to upload official maps, you can download
+them from [here](https://drive.google.com/file/d/0B76qCUchMgsnb0dla2V2NEdDVTQ/).
+
 ### Run the server
 
 The standard way to run the server is (from the `server` directory):
@@ -154,24 +170,3 @@ It is possible to override the server's URL with environment variables. Two leve
 actual packaged executable).
 
 Note: run time takes precedence over build time.
-
-### Set up an initial user
-
-You'll need to update the database manually to get a user signed up. Access the server (defaulting
-to http://localhost:5555) and sign up for an invite using the splash page. Then, run the following
-query on your database:
-
-```sql
-UPDATE invites SET token = 'invited';
-```
-
-Navigate to the account sign up page (http://localhost:5555/signup) and plug in the email address
-you signed up with, invite code as `invited`, and whatever other info you want, then create the
-account. To update this account to be an admin, run the following query on your database:
-
-```sql
-UPDATE permissions SET edit_permissions = true WHERE user_id = 1;
-```
-
-Log out and back in with your user, and from then on you should be able to manage everything through
-the client's admin interfaces (including adding more permissions to the root account).
