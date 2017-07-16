@@ -22,18 +22,14 @@
     "packstaging": "yarn run clean && cross-env SB_SERVER=https\\://dev.shieldbattery.net yarn run build && yarn run buildgame && build --dir --win --ia32 --x64 -c staging.yml",
     "postinstall": "cross-env-test SB_SERVER_ONLY=1 || electron-builder install-app-deps",
     "posttest": "npm run lint",
-    "test": "cross-env BABEL_ENV=node mocha -R spec --compilers js:babel-register --recursive --harmony test/",
+    "test": "cross-env BABEL_ENV=node mocha -R spec --compilers js:babel-register --recursive --harmony test/ && cd server && yarn test",
     "yarnall": "cd app && yarn && cd ../game && yarn && cd ../server && yarn && cd .. && yarn"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tec27/shieldbattery.git"
   },
-  "keywords": [
-    "brood war",
-    "shieldbattery",
-    "starcraft"
-  ],
+  "keywords": ["brood war", "shieldbattery", "starcraft"],
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "license": "MIT",
   "bugs": {

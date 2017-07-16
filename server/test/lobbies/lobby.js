@@ -11,7 +11,7 @@ import {
   humanSlotCount,
   hasOpposingSides,
   hasObservers,
-} from '../../../common/lobbies/lobby-slots'
+} from '../../../app/common/lobbies'
 
 const BOXER_LOBBY = Lobbies.create(
   '5v3 Comp Stomp Pros Only',
