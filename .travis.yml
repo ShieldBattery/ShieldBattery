@@ -12,4 +12,4 @@ addons:
       - g++-4.8
 
 install:
-  - cd server && yarn
+  - cd server && yarn && cd .. && yarn
