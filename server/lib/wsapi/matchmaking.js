@@ -11,6 +11,7 @@ import {
   isValidMatchmakingType,
   validRace,
 } from '../../../app/common/constants'
+import { MATCHMAKING } from '../../../app/common/flags'
 
 const Player = new Record({
   name: null,
@@ -240,6 +241,7 @@ export class MatchmakingApi {
 }
 
 export default function registerApi(nydus, userSockets, clientSockets) {
+  if (!MATCHMAKING) return null
   const api = new MatchmakingApi(nydus, userSockets, clientSockets)
   registerApiRoutes(api, nydus)
   return api

@@ -43,6 +43,7 @@ import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/dialog-action-creator'
+import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { leaveChannel } from './chat/action-creators'
 import { leaveLobby } from './lobbies/action-creators'
@@ -50,7 +51,7 @@ import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 
-import { DEV_INDICATOR, MULTI_CHANNEL } from '../app/common/flags'
+import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -354,10 +355,14 @@ class MainLayout extends React.Component {
   }
 
   onFindMatchClick = () => {
-    if (!isPsiHealthy(this.props)) {
-      this.props.dispatch(openDialog('psiHealth'))
+    if (!MATCHMAKING) {
+      this.props.dispatch(openSnackbar({ message: 'Not implemented yet. Coming soon!' }))
     } else {
-      this.props.dispatch(openOverlay('findMatch'))
+      if (!isPsiHealthy(this.props)) {
+        this.props.dispatch(openDialog('psiHealth'))
+      } else {
+        this.props.dispatch(openOverlay('findMatch'))
+      }
     }
   }
 

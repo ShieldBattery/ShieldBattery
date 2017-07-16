@@ -1,6 +1,8 @@
 import httpErrors from 'http-errors'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { isValidMatchmakingType } from '../../../app/common/constants'
+import { MATCHMAKING } from '../../../app/common/flags'
+import { featureEnabled } from '../flags/feature-enabled'
 import {
   getMatchmakingPreferences,
   upsertMatchmakingPreferences,
@@ -8,8 +10,8 @@ import {
 
 export default function(router, userSockets) {
   router
-    .post('/:matchmakingType', ensureLoggedIn, upsertPreferences)
-    .get('/:matchmakingType', ensureLoggedIn, getPreferences)
+    .post('/:matchmakingType', featureEnabled(MATCHMAKING), ensureLoggedIn, upsertPreferences)
+    .get('/:matchmakingType', featureEnabled(MATCHMAKING), ensureLoggedIn, getPreferences)
 }
 
 const isValidRace = race => ['zerg', 'terran', 'protoss', 'random'].includes(race)
