@@ -136,9 +136,7 @@ export function findAvailableSlot(lobby) {
       const [teamIndex, observerTeam] = getObserverTeam(lobby)
       // Find the first available slot in the observer team
       const slotIndex = observerTeam.slots.findIndex(slot => slot.type === 'open')
-      return slotIndex !== undefined
-        ? [teamIndex, slotIndex, observerTeam.slots.get(slotIndex)]
-        : [-1, -1]
+      return slotIndex !== -1 ? [teamIndex, slotIndex, observerTeam.slots.get(slotIndex)] : [-1, -1]
     } else {
       // There is no available slot in the lobby
       return [-1, -1]
@@ -172,7 +170,16 @@ export function findAvailableSlot(lobby) {
 }
 
 // Creates a new lobby, and an initial host player in the first slot.
-export function create(name, map, gameType, gameSubType = 0, numSlots, hostName, hostRace = 'r') {
+export function create(
+  name,
+  map,
+  gameType,
+  gameSubType = 0,
+  numSlots,
+  hostName,
+  hostRace = 'r',
+  allowObservers,
+) {
   // When creating a lobby, we first create all the individual slots for the lobby, and then we
   // distribute each of the slots into their respective teams. This distribution of slots shouldn't
   // change at all during the lifetime of a lobby, except when creating/deleting observer slots,
@@ -237,8 +244,8 @@ export function create(name, map, gameType, gameSubType = 0, numSlots, hostName,
     })
     .toList()
 
-  if (gameType === 'melee') {
-    const observerSlots = Range(slots.size, 8).map(() => Slots.createOpen()).toList()
+  if (gameType === 'melee' && allowObservers) {
+    const observerSlots = Range(slots.size, 8).map(() => Slots.createClosed()).toList()
     const observerTeam = new Team({
       name: 'Observers',
       isObserver: true,
