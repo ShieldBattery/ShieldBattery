@@ -32,12 +32,13 @@ import {
   LOBBY_START_COUNTDOWN,
 } from '../actions'
 
-export const createLobby = (name, map, gameType, gameSubType) =>
+export const createLobby = (name, map, gameType, gameSubType, allowObservers = true) =>
   createSiteSocketAction(LOBBY_CREATE_BEGIN, LOBBY_CREATE, '/lobbies/create', {
     name,
     map,
     gameType,
     gameSubType,
+    allowObservers,
   })
 
 export const joinLobby = name =>

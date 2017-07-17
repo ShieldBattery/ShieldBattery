@@ -167,7 +167,7 @@ export class LobbyApi {
       gameSubType,
       numSlots,
       client.name,
-      undefined,
+      undefined /* hostRace */,
       allowObservers,
     )
     if (!activityRegistry.registerActiveClient(user.name, client)) {
