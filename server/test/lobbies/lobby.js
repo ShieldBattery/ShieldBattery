@@ -10,7 +10,6 @@ import {
   findSlotById,
   humanSlotCount,
   hasOpposingSides,
-  hasObservers,
 } from '../../../app/common/lobbies'
 
 const BOXER_LOBBY = Lobbies.create(
@@ -22,43 +21,73 @@ const BOXER_LOBBY = Lobbies.create(
   'Slayers`Boxer',
 )
 
+const BOXER_LOBBY_WITH_OBSERVERS = Lobbies.create(
+  '5v3 Comp Stomp Pros Only',
+  'Big Game Hunters.scm',
+  'melee',
+  0,
+  4,
+  'Slayers`Boxer',
+  'r',
+  true,
+)
+
+const evaluateMeleeLobby = (lobby, teamSize) => {
+  expect(lobby.teams).to.have.size(teamSize)
+  const team = lobby.teams.get(0)
+  expect(team.slots).to.have.size(4)
+  expect(humanSlotCount(lobby)).to.equal(1)
+  expect(hasOpposingSides(lobby)).to.be.false
+  const player = team.slots.get(0)
+  expect(player.type).to.equal('human')
+  expect(player.name).to.equal('Slayers`Boxer')
+  expect(player.race).to.equal('r')
+  expect(player).to.equal(lobby.host)
+  expect(team.slots.get(1).type).to.equal('open')
+  expect(team.slots.get(2).type).to.equal('open')
+  expect(team.slots.get(3).type).to.equal('open')
+}
+
+const evaluateSummarizedJson = (lobby, openSlotCount) => {
+  const json = JSON.stringify(Lobbies.toSummaryJson(lobby))
+  const parsed = JSON.parse(json)
+
+  const id = lobby.host.id
+  expect(parsed).to.eql({
+    name: '5v3 Comp Stomp Pros Only',
+    map: 'Big Game Hunters.scm',
+    gameType: 'melee',
+    gameSubType: 0,
+    host: { name: 'Slayers`Boxer', id },
+    openSlotCount,
+  })
+}
+
 describe('Lobbies - melee', () => {
   it('should create the lobby correctly', () => {
-    const l = BOXER_LOBBY
-    if (hasObservers(l)) {
-      expect(l.teams).to.have.size(2)
-    } else {
-      expect(l.teams).to.have.size(1)
-    }
-    const team = l.teams.get(0)
-    expect(team.slots).to.have.size(4)
-    expect(humanSlotCount(l)).to.equal(1)
-    expect(hasOpposingSides(l)).to.be.false
-    const player = team.slots.get(0)
-    expect(player.type).to.equal('human')
-    expect(player.name).to.equal('Slayers`Boxer')
-    expect(player.race).to.equal('r')
-    expect(player).to.equal(l.host)
-    expect(team.slots.get(1).type).to.equal('open')
-    expect(team.slots.get(2).type).to.equal('open')
-    expect(team.slots.get(3).type).to.equal('open')
+    evaluateMeleeLobby(BOXER_LOBBY, 1)
+
+    let l = BOXER_LOBBY_WITH_OBSERVERS
+    evaluateMeleeLobby(l, 2)
+    let observers = l.teams.get(1)
+    expect(observers.slots).to.have.size(4)
+    expect(observers.slots.get(0).type).to.equal('closed')
+    expect(observers.slots.get(1).type).to.equal('closed')
+    expect(observers.slots.get(2).type).to.equal('closed')
+    expect(observers.slots.get(3).type).to.equal('closed')
+
+    l = Lobbies.openSlot(l, 1, 0)
+    observers = l.teams.get(1)
+    expect(observers.slots.get(0).type).to.equal('open')
+    expect(observers.slots.get(1).type).to.equal('closed')
+    expect(observers.slots.get(2).type).to.equal('closed')
+    expect(observers.slots.get(3).type).to.equal('closed')
   })
 
   it('should support summarized JSON serialization', () => {
-    // stringifying and then parsing ensures that the structure has no circular references
-    const json = JSON.stringify(Lobbies.toSummaryJson(BOXER_LOBBY))
-    const parsed = JSON.parse(json)
-
-    const host = BOXER_LOBBY.host.toJS()
-    const openSlots = hasObservers(BOXER_LOBBY) ? 7 : 3
-    expect(parsed).to.eql({
-      name: '5v3 Comp Stomp Pros Only',
-      map: 'Big Game Hunters.scm',
-      gameType: 'melee',
-      gameSubType: 0,
-      host,
-      openSlots,
-    })
+    evaluateSummarizedJson(BOXER_LOBBY, 3)
+    evaluateSummarizedJson(BOXER_LOBBY_WITH_OBSERVERS, 3)
+    evaluateSummarizedJson(Lobbies.openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 4)
   })
 
   it('should find available slot', () => {
@@ -70,6 +99,24 @@ describe('Lobbies - melee', () => {
     const [t2, s2] = Lobbies.findAvailableSlot(fullLobby)
     expect(t2).to.eql(-1)
     expect(s2).to.eql(-1)
+
+    let fullLobbyWithObservers = Lobbies.create(
+      'Full',
+      'Lost Temple.scm',
+      'melee',
+      0,
+      1,
+      'pachi',
+      'r',
+      true,
+    )
+    const [t3, s3] = Lobbies.findAvailableSlot(fullLobbyWithObservers)
+    expect(t3).to.eql(-1)
+    expect(s3).to.eql(-1)
+    fullLobbyWithObservers = Lobbies.openSlot(fullLobbyWithObservers, 1, 0)
+    const [t4, s4] = Lobbies.findAvailableSlot(fullLobbyWithObservers)
+    expect(t4).to.eql(1)
+    expect(s4).to.eql(0)
   })
 
   it('should support adding players', () => {
@@ -719,23 +766,23 @@ const UMS_MAP_1 = {
       name: 'Force Player',
       teamId: 1,
       players: [
-        { id: 0, race: 'z', computer: false },
-        { id: 1, race: 'z', computer: false },
-        { id: 2, race: 'z', computer: false },
-        { id: 3, race: 'z', computer: false },
-        { id: 4, race: 'z', computer: false },
-        { id: 5, race: 'z', computer: false },
+        { id: 0, race: 'z', typeId: 6, computer: false },
+        { id: 1, race: 'z', typeId: 6, computer: false },
+        { id: 2, race: 'z', typeId: 6, computer: false },
+        { id: 3, race: 'z', typeId: 6, computer: false },
+        { id: 4, race: 'z', typeId: 6, computer: false },
+        { id: 5, race: 'z', typeId: 6, computer: false },
       ],
     },
     {
       name: 'Force Computer',
       teamId: 2,
-      players: [{ id: 7, race: 'z', computer: true }],
+      players: [{ id: 7, race: 'z', typeId: 5, computer: true }],
     },
     {
       name: 'Force Computer',
       teamId: 3,
-      players: [{ id: 6, race: 'z', computer: true }],
+      players: [{ id: 6, race: 'z', typeId: 5, computer: true }],
     },
   ],
 }
@@ -744,24 +791,24 @@ const UMS_MAP_2 = {
     {
       name: 'tappavat',
       teamId: 1,
-      players: [{ id: 1, race: 't', computer: false }],
+      players: [{ id: 1, race: 't', typeId: 6, computer: false }],
     },
     {
       name: 'tapettavat',
       teamId: 2,
       players: [
-        { id: 0, race: 't', computer: true },
-        { id: 3, race: 'z', computer: true },
-        { id: 4, race: 'z', computer: true },
-        { id: 5, race: 'z', computer: true },
-        { id: 6, race: 't', computer: true },
-        { id: 7, race: 'z', computer: true },
+        { id: 0, race: 't', typeId: 5, computer: true },
+        { id: 3, race: 'z', typeId: 5, computer: true },
+        { id: 4, race: 'z', typeId: 5, computer: true },
+        { id: 5, race: 'z', typeId: 5, computer: true },
+        { id: 6, race: 't', typeId: 5, computer: true },
+        { id: 7, race: 'z', typeId: 5, computer: true },
       ],
     },
     {
       name: 'portitossi',
       teamId: 4,
-      players: [{ id: 2, race: 'p', computer: true }],
+      players: [{ id: 2, race: 'p', typeId: 5, computer: true }],
     },
   ],
 }
@@ -770,18 +817,70 @@ const UMS_MAP_3 = {
     {
       name: 'Players',
       teamId: 1,
-      players: [{ id: 0, race: 'any', computer: false }, { id: 1, race: 'any', computer: false }],
+      players: [
+        { id: 0, race: 'any', typeId: 6, computer: false },
+        { id: 1, race: 'any', typeId: 6, computer: false },
+      ],
     },
     {
       name: 'Observers',
       teamId: 2,
-      players: [{ id: 2, race: 'p', computer: false }, { id: 3, race: 't', computer: false }],
+      players: [
+        { id: 2, race: 'p', typeId: 6, computer: false },
+        { id: 3, race: 't', typeId: 6, computer: false },
+      ],
+    },
+  ],
+}
+const UMS_MAP_4 = {
+  umsForces: [
+    {
+      name: 'Team I',
+      teamId: 1,
+      players: [
+        { id: 0, race: 't', typeId: 6, computer: false },
+        { id: 1, race: 't', typeId: 6, computer: false },
+        { id: 2, race: 't', typeId: 6, computer: false },
+      ],
+    },
+    {
+      name: 'Team II',
+      teamId: 2,
+      players: [
+        { id: 3, race: 't', typeId: 6, computer: false },
+        { id: 4, race: 't', typeId: 6, computer: false },
+        { id: 5, race: 't', typeId: 6, computer: false },
+      ],
+    },
+    {
+      name: 'Map by Cygnus',
+      teamId: 3,
+      players: [{ id: 6, race: 't', typeId: 7, computer: true }],
+    },
+    {
+      name: 'Force 4',
+      teamId: 4,
+      players: [{ id: 7, race: 't', typeId: 7, computer: true }],
     },
   ],
 }
 const UMS_LOBBY_1 = Lobbies.create('Sunken Defence', UMS_MAP_1, 'ums', 0, 8, 'Slayers`Boxer')
-const UMS_LOBBY_2 = Lobbies.create('tappajat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer')
+const UMS_LOBBY_2 = Lobbies.create('tappavat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer')
 const UMS_LOBBY_3 = Lobbies.create('Accipiter', UMS_MAP_3, 'ums', 0, 4, 'Slayers`Boxer')
+const UMS_LOBBY_4 = Lobbies.create('Team Micro', UMS_MAP_4, 'ums', 0, 8, 'Slayers`Boxer')
+
+const evaluateUmsLobby = (lobby, teamCount, humanSlotsCount, opposingSides, host) => {
+  expect(lobby.teams).to.have.size(teamCount)
+  expect(humanSlotCount(lobby)).to.equal(humanSlotsCount)
+  expect(hasOpposingSides(lobby)).to.be[opposingSides]
+  expect(host).to.equal(lobby.host)
+}
+
+const evaluateUmsTeam = (team, teamId, slotsCount, hiddenSlotsCount) => {
+  expect(team.teamId).to.equal(teamId)
+  expect(team.slots).to.have.size(slotsCount)
+  expect(team.hiddenSlots).to.have.size(hiddenSlotsCount)
+}
 
 const evaluateUmsSlot = (slot, type, name, race, hasForcedRace, playerId) => {
   expect(slot.type).to.equal(type)
@@ -794,21 +893,14 @@ const evaluateUmsSlot = (slot, type, name, race, hasForcedRace, playerId) => {
 describe('Lobbies - Use map settings', () => {
   it('should create the lobby correctly', () => {
     const l1 = UMS_LOBBY_1
-    expect(l1.teams).to.have.size(3)
     let team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     let team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     let team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    let player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -818,21 +910,14 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     const l2 = UMS_LOBBY_2
-    expect(l2.teams).to.have.size(3)
     team1 = l2.teams.get(0)
-    expect(team1.slots).to.have.size(1)
-    expect(team1.teamId).to.equal(1)
     team2 = l2.teams.get(1)
-    expect(team2.slots).to.have.size(6)
-    expect(team2.teamId).to.equal(2)
     team3 = l2.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(4)
-    expect(humanSlotCount(l2)).to.equal(1)
-    expect(hasOpposingSides(l2)).to.be.true
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 't', true, 1)
-    expect(player).to.equal(l2.host)
+    evaluateUmsLobby(l2, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 1, 0)
+    evaluateUmsTeam(team2, 2, 6, 0)
+    evaluateUmsTeam(team3, 4, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 't', true, 1)
     evaluateUmsSlot(team2.slots.get(0), 'umsComputer', 'Computer', 't', true, 0)
     evaluateUmsSlot(team2.slots.get(1), 'umsComputer', 'Computer', 'z', true, 3)
     evaluateUmsSlot(team2.slots.get(2), 'umsComputer', 'Computer', 'z', true, 4)
@@ -842,54 +927,60 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'p', true, 2)
 
     const l3 = UMS_LOBBY_3
-    expect(l3.teams).to.have.size(2)
     team1 = l3.teams.get(0)
-    expect(team1.slots).to.have.size(2)
-    expect(team1.teamId).to.equal(1)
     team2 = l3.teams.get(1)
-    expect(team2.slots).to.have.size(2)
-    expect(team2.teamId).to.equal(2)
-    expect(humanSlotCount(l3)).to.equal(1)
-    expect(hasOpposingSides(l3)).to.be.false
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 0)
-    expect(player).to.equal(l3.host)
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 2, 0)
+    evaluateUmsTeam(team2, 2, 2, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'r', false, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'r', false, 1)
     evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
     evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
+
+    const l4 = UMS_LOBBY_4
+    team1 = l4.teams.get(0)
+    team2 = l4.teams.get(1)
+    team3 = l4.teams.get(2)
+    const team4 = l4.teams.get(3)
+    evaluateUmsLobby(l4, 4, 1, false, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 3, 0)
+    evaluateUmsTeam(team2, 2, 3, 0)
+    evaluateUmsTeam(team3, 3, 0, 1)
+    evaluateUmsTeam(team4, 4, 0, 1)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 't', true, 0)
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 't', true, 1)
+    evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 't', true, 2)
+    evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 't', true, 3)
+    evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 4)
+    evaluateUmsSlot(team2.slots.get(2), 'open', 'Open', 't', true, 5)
+    evaluateUmsSlot(team3.hiddenSlots.get(0), 'umsComputer', 'Computer', 't', true, 6)
+    evaluateUmsSlot(team4.hiddenSlots.get(0), 'umsComputer', 'Computer', 't', true, 7)
   })
 
   it('should support removing players', () => {
     const babo = Slots.createHuman('dronebabo', 'z', true, 1)
     let lobby = Lobbies.addPlayer(UMS_LOBBY_1, 0, 1, babo)
 
-    evaluateUmsSlot(lobby.teams.get(0).slots.get(1), 'human', 'dronebabo', 'z', true, 1)
-    expect(humanSlotCount(lobby)).to.equal(2)
-    expect(hasOpposingSides(lobby)).to.be.true
+    let team1 = lobby.teams.get(0)
+    evaluateUmsLobby(lobby, 3, 2, true, team1.slots.get(0))
+    evaluateUmsSlot(team1.slots.get(1), 'human', 'dronebabo', 'z', true, 1)
 
-    lobby = Lobbies.removePlayer(lobby, 0, 1, lobby.teams.get(0).slots.get(1))
-    evaluateUmsSlot(lobby.teams.get(0).slots.get(1), 'open', 'Open', 'z', true, 1)
-    expect(humanSlotCount(lobby)).to.equal(1)
-    expect(hasOpposingSides(lobby)).to.be.true
+    lobby = Lobbies.removePlayer(lobby, 0, 1, team1.slots.get(1))
+    team1 = lobby.teams.get(0)
+    evaluateUmsLobby(lobby, 3, 1, true, team1.slots.get(0))
+    evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
   })
 
   it('should support moving players between slots', () => {
     let l1 = UMS_LOBBY_1
-    expect(l1.teams).to.have.size(3)
     let team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     let team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     let team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    let player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -899,22 +990,15 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     l1 = Lobbies.movePlayerToSlot(l1, 0, 0, 0, 1)
-    expect(l1.teams).to.have.size(3)
     team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(1))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
     evaluateUmsSlot(team1.slots.get(0), 'open', 'Open', 'z', true, 0)
-    player = team1.slots.get(1)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 1)
-    expect(player).to.equal(l1.host)
+    evaluateUmsSlot(team1.slots.get(1), 'human', 'Slayers`Boxer', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
     evaluateUmsSlot(team1.slots.get(4), 'open', 'Open', 'z', true, 4)
@@ -923,57 +1007,38 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     let l3 = UMS_LOBBY_3
-    expect(l3.teams).to.have.size(2)
     team1 = l3.teams.get(0)
-    expect(team1.slots).to.have.size(2)
-    expect(team1.teamId).to.equal(1)
     team2 = l3.teams.get(1)
-    expect(team2.slots).to.have.size(2)
-    expect(team2.teamId).to.equal(2)
-    expect(humanSlotCount(l3)).to.equal(1)
-    expect(hasOpposingSides(l3)).to.be.false
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 0)
-    expect(player).to.equal(l3.host)
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 2, 0)
+    evaluateUmsTeam(team2, 2, 2, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'r', false, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'r', false, 1)
     evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
     evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
 
     l3 = Lobbies.movePlayerToSlot(l3, 0, 0, 0, 1)
-    expect(l3.teams).to.have.size(2)
     team1 = l3.teams.get(0)
-    expect(team1.slots).to.have.size(2)
-    expect(team1.teamId).to.equal(1)
     team2 = l3.teams.get(1)
-    expect(team2.slots).to.have.size(2)
-    expect(team2.teamId).to.equal(2)
-    expect(humanSlotCount(l3)).to.equal(1)
-    expect(hasOpposingSides(l3)).to.be.false
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(1))
+    evaluateUmsTeam(team1, 1, 2, 0)
+    evaluateUmsTeam(team2, 2, 2, 0)
     evaluateUmsSlot(team1.slots.get(0), 'open', 'Open', 'r', false, 0)
-    player = team1.slots.get(1)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'r', false, 1)
-    expect(player).to.equal(l3.host)
+    evaluateUmsSlot(team1.slots.get(1), 'human', 'Slayers`Boxer', 'r', false, 1)
     evaluateUmsSlot(team2.slots.get(0), 'open', 'Open', 'p', true, 2)
     evaluateUmsSlot(team2.slots.get(1), 'open', 'Open', 't', true, 3)
   })
 
   it('should support closing an open slot', () => {
     let l1 = UMS_LOBBY_1
-    expect(l1.teams).to.have.size(3)
     let team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     let team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     let team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    let player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -983,21 +1048,14 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     l1 = Lobbies.closeSlot(l1, 0, 1)
-    expect(l1.teams).to.have.size(3)
     team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'closed', 'Closed', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -1009,21 +1067,14 @@ describe('Lobbies - Use map settings', () => {
 
   it('should support opening a closed slot', () => {
     let l1 = UMS_LOBBY_1
-    expect(l1.teams).to.have.size(3)
     let team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     let team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     let team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    let player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -1033,21 +1084,14 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     l1 = Lobbies.closeSlot(l1, 0, 1)
-    expect(l1.teams).to.have.size(3)
     team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'closed', 'Closed', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
@@ -1057,21 +1101,14 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team3.slots.get(0), 'umsComputer', 'Computer', 'z', true, 6)
 
     l1 = Lobbies.openSlot(l1, 0, 1)
-    expect(l1.teams).to.have.size(3)
     team1 = l1.teams.get(0)
-    expect(team1.slots).to.have.size(6)
-    expect(team1.teamId).to.equal(1)
     team2 = l1.teams.get(1)
-    expect(team2.slots).to.have.size(1)
-    expect(team2.teamId).to.equal(2)
     team3 = l1.teams.get(2)
-    expect(team3.slots).to.have.size(1)
-    expect(team3.teamId).to.equal(3)
-    expect(humanSlotCount(l1)).to.equal(1)
-    expect(hasOpposingSides(l1)).to.be.true
-    player = team1.slots.get(0)
-    evaluateUmsSlot(player, 'human', 'Slayers`Boxer', 'z', true, 0)
-    expect(player).to.equal(l1.host)
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0))
+    evaluateUmsTeam(team1, 1, 6, 0)
+    evaluateUmsTeam(team2, 2, 1, 0)
+    evaluateUmsTeam(team3, 3, 1, 0)
+    evaluateUmsSlot(team1.slots.get(0), 'human', 'Slayers`Boxer', 'z', true, 0)
     evaluateUmsSlot(team1.slots.get(1), 'open', 'Open', 'z', true, 1)
     evaluateUmsSlot(team1.slots.get(2), 'open', 'Open', 'z', true, 2)
     evaluateUmsSlot(team1.slots.get(3), 'open', 'Open', 'z', true, 3)
