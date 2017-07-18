@@ -19,6 +19,8 @@ export default class OpenSlot extends React.Component {
     isHost: PropTypes.bool,
     race: PropTypes.string,
     isObserver: PropTypes.bool,
+    canMakeObserver: PropTypes.bool,
+    canRemoveObserver: PropTypes.bool,
   }
 
   state = {
@@ -42,16 +44,26 @@ export default class OpenSlot extends React.Component {
     const {
       isHost,
       isObserver,
+      canMakeObserver,
+      canRemoveObserver,
       controlledOpen,
       onAddComputer,
       onSwitchClick,
       onCloseSlot,
+      onMakeObserver,
+      onRemoveObserver,
     } = this.props
     const slotActions = []
     if (isHost) {
       slotActions.push(['Close slot', onCloseSlot])
       if (!controlledOpen && !isObserver && onAddComputer) {
         slotActions.push(['Add computer', onAddComputer])
+      }
+      if (canMakeObserver) {
+        slotActions.push(['Move to observers', onMakeObserver])
+      }
+      if (canRemoveObserver) {
+        slotActions.push(['Move to players', onRemoveObserver])
       }
     }
 

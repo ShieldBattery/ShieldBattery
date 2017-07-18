@@ -17,6 +17,7 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
+  LOBBY_UPDATE_SLOTS_DELETED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
@@ -43,6 +44,7 @@ export const Team = new Record({
   teamId: null,
   isObserver: false,
   slots: new List(),
+  originalSize: null,
   hiddenSlots: new List(),
 })
 export const LobbyInfo = new Record({
@@ -91,6 +93,11 @@ const infoReducer = keyedReducer(undefined, {
   [LOBBY_UPDATE_SLOT_CREATE](state, action) {
     const { teamIndex, slotIndex, slot } = action.payload
     return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(slot))
+  },
+
+  [LOBBY_UPDATE_SLOTS_DELETED](state, action) {
+    const { teamIndex, count } = action.payload
+    return state.updateIn(['teams', teamIndex, 'slots'], slots => slots.skipLast(count))
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {

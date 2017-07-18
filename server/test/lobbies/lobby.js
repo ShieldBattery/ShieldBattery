@@ -283,6 +283,86 @@ describe('Lobbies - melee', () => {
     expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
     expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
   })
+
+  it('should support adding observer slots', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    let players = lobby.teams.get(0)
+    let observers = lobby.teams.get(1)
+    expect(players.slots).to.have.size(4)
+    expect(observers.slots).to.have.size(4)
+
+    lobby = Lobbies.makeObserver(lobby, 0, 0)
+    players = lobby.teams.get(0)
+    observers = lobby.teams.get(1)
+    expect(players.slots).to.have.size(3)
+    expect(observers.slots).to.have.size(5)
+    expect(players.slots.get(0).type).to.equal('open')
+    expect(players.slots.get(1).type).to.equal('open')
+    expect(players.slots.get(2).type).to.equal('open')
+    expect(observers.slots.get(4).id).to.equal(lobby.host.id)
+
+    const babo = Slots.createHuman('dronebabo', 'z')
+    const pachi = Slots.createHuman('pachi', 'p')
+    const computer = Slots.createComputer('p')
+    lobby = Lobbies.addPlayer(lobby, 0, 0, babo)
+    lobby = Lobbies.addPlayer(lobby, 0, 1, pachi)
+    lobby = Lobbies.addPlayer(lobby, 0, 2, computer)
+    expect(() => Lobbies.makeObserver(lobby, 0, 2)).to.throw(Error)
+    lobby = Lobbies.makeObserver(lobby, 0, 1)
+    expect(() => Lobbies.makeObserver(lobby, 0, 0)).to.throw(Error)
+
+    players = lobby.teams.get(0)
+    observers = lobby.teams.get(1)
+    expect(players.slots).to.have.size(2)
+    expect(observers.slots).to.have.size(6)
+    expect(players.slots.get(0).type).to.equal('human')
+    expect(players.slots.get(0).name).to.equal('dronebabo')
+    expect(players.slots.get(1).type).to.equal('computer')
+    expect(observers.slots.get(0).type).to.equal('closed')
+    expect(observers.slots.get(1).type).to.equal('closed')
+    expect(observers.slots.get(2).type).to.equal('closed')
+    expect(observers.slots.get(3).type).to.equal('closed')
+    expect(observers.slots.get(4).name).to.equal('Slayers`Boxer')
+    expect(observers.slots.get(5).name).to.equal('pachi')
+
+    expect(() => Lobbies.makeObserver(lobby, 0, 0)).to.throw(Error)
+  })
+
+  it('should support removing observer slots', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+
+    const babo = Slots.createHuman('dronebabo', 'z')
+    lobby = Lobbies.addPlayer(lobby, 0, 1, babo)
+
+    let players = lobby.teams.get(0)
+    let observers = lobby.teams.get(1)
+    expect(players.slots).to.have.size(4)
+    expect(observers.slots).to.have.size(4)
+    expect(() => Lobbies.removeObserver(lobby, 0)).to.throw(Error)
+
+    // Move boxer and open slot to obs
+    lobby = Lobbies.makeObserver(lobby, 0, 0)
+    lobby = Lobbies.makeObserver(lobby, 0, 1)
+    // Move closed and boxer back
+    lobby = Lobbies.removeObserver(lobby, 1)
+    lobby = Lobbies.removeObserver(lobby, 3)
+    players = lobby.teams.get(0)
+    observers = lobby.teams.get(1)
+
+    expect(players.slots).to.have.size(4)
+    expect(observers.slots).to.have.size(4)
+    expect(() => Lobbies.removeObserver(lobby, 0)).to.throw(Error)
+    expect(players.slots.get(0).type).to.equal('human')
+    expect(players.slots.get(1).type).to.equal('open')
+    expect(players.slots.get(2).type).to.equal('closed')
+    expect(players.slots.get(3).type).to.equal('human')
+    expect(players.slots.get(3).name).to.equal('Slayers`Boxer')
+
+    expect(observers.slots.get(0).type).to.equal('closed')
+    expect(observers.slots.get(1).type).to.equal('closed')
+    expect(observers.slots.get(2).type).to.equal('closed')
+    expect(observers.slots.get(3).type).to.equal('open')
+  })
 })
 
 const TEAM_LOBBY = Lobbies.create(

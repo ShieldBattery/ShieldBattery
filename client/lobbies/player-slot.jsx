@@ -25,6 +25,8 @@ export default class PlayerSlot extends React.Component {
     // Whether or not this slot has slot actions
     hasSlotActions: PropTypes.bool,
     isObserver: PropTypes.bool,
+    canMakeObserver: PropTypes.bool,
+    canRemoveObserver: PropTypes.bool,
   }
 
   renderControls() {
@@ -46,10 +48,14 @@ export default class PlayerSlot extends React.Component {
       isComputer,
       avatarImage,
       isHost,
+      canMakeObserver,
+      canRemoveObserver,
       hasSlotActions,
       onCloseSlot,
       onKickPlayer,
       onBanPlayer,
+      onMakeObserver,
+      onRemoveObserver,
     } = this.props
     const avatar = isComputer ? (
       <ComputerAvatar className={styles.slotAvatar} />
@@ -66,6 +72,12 @@ export default class PlayerSlot extends React.Component {
         slotActions.push(['Ban player', onBanPlayer])
       } else {
         slotActions.push(['Remove computer', onKickPlayer])
+      }
+      if (canMakeObserver) {
+        slotActions.push(['Move to observers', onMakeObserver])
+      }
+      if (canRemoveObserver) {
+        slotActions.push(['Move to players', onRemoveObserver])
       }
     }
 

@@ -131,10 +131,18 @@ export const LOBBY_KICK_PLAYER = 'LOBBY_KICK_PLAYER'
 export const LOBBY_LEAVE_BEGIN = 'LOBBY_LEAVE_BEGIN'
 // The server has responded with success/failure to our lobby leaving
 export const LOBBY_LEAVE = 'LOBBY_LEAVE'
+// We are starting a request to add an additional slot to the observer team
+export const LOBBY_MAKE_OBSERVER_BEGIN = 'LOBBY_MAKE_OBSERVER_BEGIN'
+// The server has responded with success/failure to obs team extension
+export const LOBBY_MAKE_OBSERVER = 'LOBBY_MAKE_OBSERVER'
 // We are starting the process of opening a lobby slot
 export const LOBBY_OPEN_SLOT_BEGIN = 'LOBBY_OPEN_SLOT_BEGIN'
 // The server has responded with success/failure to our opening of a lobby slot
 export const LOBBY_OPEN_SLOT = 'LOBBY_OPEN_SLOT'
+// We are starting a request to remove a slot from the observer team
+export const LOBBY_REMOVE_OBSERVER_BEGIN = 'LOBBY_REMOVE_OBSERVER_BEGIN'
+// The server has responded with success/failure to our request of removing an obs slot
+export const LOBBY_REMOVE_OBSERVER = 'LOBBY_REMOVE_OBSERVER'
 // We are sending a chat message to the server
 export const LOBBY_SEND_CHAT_BEGIN = 'LOBBY_SEND_CHAT_BEGIN'
 // The server has replied with success/failure to our sent chat message
@@ -181,6 +189,8 @@ export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 export const LOBBY_UPDATE_SLOT_CHANGE = 'LOBBY_UPDATE_SLOT_CHANGE'
 // A new slot has been created in a lobby we're in (this could indicate player joining)
 export const LOBBY_UPDATE_SLOT_CREATE = 'LOBBY_UPDATE_SLOT_CREATE'
+// One of teams in a lobby has had slots deleted (due to creating/removing obs slots)
+export const LOBBY_UPDATE_SLOTS_DELETED = 'LOBBY_UPDATE_SLOTS_DELETED'
 // Our status has changed, ie. one of our clients either joined or left the lobby
 export const LOBBY_UPDATE_STATUS = 'LOBBY_UPDATE_STATUS'
 

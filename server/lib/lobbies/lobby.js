@@ -12,6 +12,9 @@ import {
   hasObservers,
   getObserverTeam,
   isInObserverTeam,
+  canAddObservers,
+  canRemoveObservers,
+  getLobbySlotsWithIndexes,
 } from '../../../app/common/lobbies'
 
 const Team = new Record({
@@ -20,6 +23,9 @@ const Team = new Record({
   isObserver: false,
   // Slots that belong to a particular team
   slots: new List(),
+  // Since slots can be made obs slots and that can be reverted, keep track of how many slots
+  // there were originally.
+  originalSize: null,
   // UMS maps can have slots which are not shown in lobby but get initialized in game.
   hiddenSlots: new List(),
 })
@@ -169,45 +175,24 @@ export function findAvailableSlot(lobby) {
   return [teamIndex, slotIndex, team.slots.get(slotIndex)]
 }
 
-// Creates a new lobby, and an initial host player in the first slot.
-export function create(
-  name,
-  map,
-  gameType,
-  gameSubType = 0,
-  numSlots,
-  hostName,
-  hostRace = 'r',
-  allowObservers,
-) {
+function createInitialTeams(map, gameType, gameSubType, numSlots) {
   // When creating a lobby, we first create all the individual slots for the lobby, and then we
   // distribute each of the slots into their respective teams. This distribution of slots shouldn't
   // change at all during the lifetime of a lobby, except when creating/deleting observer slots,
   // which will be handled separately
   const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.umsForces)
-  let host
   let slots
   if (!isUms(gameType)) {
-    host = Slots.createHuman(hostName, hostRace)
-    const controlled = hasControlledOpens(gameType)
-      ? Range(1, slotsPerTeam[0]).map(() => Slots.createControlledOpen(hostRace, host.id))
-      : new List()
-    const open = Range(1 + controlled.size, numSlots).map(() => Slots.createOpen())
-    slots = List.of(host).concat(controlled, open)
+    slots = Range(0, numSlots)
+      .map(() => Slots.createOpen())
+      .toList()
   } else {
-    let hasHost = false
     slots = fromJS(map.umsForces).flatMap(force =>
       force.get('players').map(player => {
         const playerId = player.get('id')
         const playerRace = player.get('race')
         const race = playerRace !== 'any' ? playerRace : 'r'
         const hasForcedRace = playerRace !== 'any'
-        if (!player.get('computer') && !hasHost) {
-          host = Slots.createHuman(hostName, race, hasForcedRace, playerId)
-          hasHost = true
-          return host
-        }
-
         return player.get('computer')
           ? Slots.createUmsComputer(race, playerId, player.get('typeId'))
           : Slots.createOpen(race, hasForcedRace, playerId)
@@ -217,7 +202,7 @@ export function create(
 
   const teamNames = getTeamNames(gameType, gameSubType, map.umsForces)
   let slotIndex = 0
-  let teams = Range(0, numTeams(gameType, gameSubType, map.umsForces))
+  return Range(0, numTeams(gameType, gameSubType, map.umsForces))
     .map(teamIndex => {
       let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
       let hiddenSlots
@@ -239,13 +224,28 @@ export function create(
         name: teamName,
         teamId,
         slots: teamSlots,
+        originalSize: teamSlots.size,
         hiddenSlots,
       })
     })
     .toList()
+}
 
+// Creates a new lobby, and an initial host player in the first slot.
+export function create(
+  name,
+  map,
+  gameType,
+  gameSubType = 0,
+  numSlots,
+  hostName,
+  hostRace = 'r',
+  allowObservers,
+) {
+  let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (gameType === 'melee' && allowObservers) {
-    const observerSlots = Range(slots.size, 8)
+    const observerCount = 8 - teams.reduce((sum, team) => sum + team.slots.size, 0)
+    const observerSlots = Range(0, observerCount)
       .map(() => Slots.createClosed())
       .toList()
     const observerTeam = new Team({
@@ -256,14 +256,25 @@ export function create(
     teams = teams.concat(List.of(observerTeam))
   }
 
-  return new Lobby({
+  const lobby = Lobby({
     name,
     map,
     gameType,
     gameSubType: +gameSubType,
     teams,
-    host,
+    host: null,
   })
+  let host
+  const [hostTeamIndex, hostSlotIndex, hostSlot] = getLobbySlotsWithIndexes(lobby)
+    .filter(([teamIndex, slotIndex, slot]) => slot.type === 'open')
+    .min()
+
+  if (!isUms(gameType)) {
+    host = Slots.createHuman(hostName, hostRace)
+  } else {
+    host = Slots.createHuman(hostName, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
+  }
+  return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host).set('host', host)
 }
 
 // A helper function that is used when a player joins an empty team in team melee/ffa game types.
@@ -502,6 +513,64 @@ export function closeSlot(lobby, teamIndex, slotIndex) {
       Slots.createControlledClosed(slotToClose.race, slotToClose.controlledBy),
     )
   } else {
-    throw new Error('tring to close an invalid slot type: ' + slotToClose.type)
+    throw new Error('trying to close an invalid slot type: ' + slotToClose.type)
   }
+}
+
+// Moves a regular slot to the observer team.
+export function makeObserver(lobby, teamIndex, slotIndex) {
+  if (!canAddObservers(lobby)) {
+    throw new Error('Cannot add more observers')
+  }
+  const team = lobby.teams.get(teamIndex)
+  if (team.isObserver) {
+    throw new Error("Trying to make an observer from obs team's slot")
+  }
+  if (team.slots.size <= 1) {
+    throw new Error('Cannot make observer from the last slot in team')
+  }
+  const slot = team.slots.get(slotIndex)
+  if (slot.type !== 'open' && slot.type !== 'closed' && slot.type !== 'human') {
+    throw new Error('Trying to make observer from an invalid slot type: ' + slot.type)
+  }
+  const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+  // We create a new slot in obs team and move human to it, or just replicate the slot there,
+  // and then delete the original slot.
+  if (slot.type === 'human') {
+    const newSlot = Slots.createOpen()
+    lobby = lobby.setIn(['teams', obsTeamIndex, 'slots'], obsTeam.slots.push(newSlot))
+    lobby = movePlayerToSlot(lobby, teamIndex, slotIndex, obsTeamIndex, obsTeam.slots.size)
+  } else {
+    const newSlot = slot.type === 'open' ? Slots.createOpen() : Slots.createClosed()
+    lobby = lobby.setIn(['teams', obsTeamIndex, 'slots'], obsTeam.slots.push(newSlot))
+  }
+  return lobby.deleteIn(['teams', teamIndex, 'slots', slotIndex])
+}
+
+// Moves a slot from the observer team to players. The team that the slot gets moved to is the
+// smallest one with space for players.
+export function removeObserver(lobby, slotIndex) {
+  if (!canRemoveObservers(lobby)) {
+    throw new Error('Cannot remove more observers')
+  }
+  const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+
+  const slot = obsTeam.slots.get(slotIndex)
+  const [newTeam, newTeamIndex] = lobby.teams
+    .filter(team => !team.isObserver && team.slots.size !== team.originalSize)
+    .map((team, index) => [team, index])
+    .minBy(([team]) => team.slots.size)
+
+  // We create a new slot in the team and move human to it, or just replicate the slot there,
+  // and then delete the original slot.
+  if (slot.type === 'observer') {
+    console.assert(!isUms(lobby.gameType))
+    const newSlot = Slots.createOpen()
+    lobby = lobby.setIn(['teams', newTeamIndex, 'slots'], newTeam.slots.push(newSlot))
+    lobby = movePlayerToSlot(lobby, obsTeamIndex, slotIndex, newTeamIndex, newTeam.slots.size)
+  } else {
+    const newSlot = slot.type === 'open' ? Slots.createOpen() : Slots.createClosed()
+    lobby = lobby.setIn(['teams', newTeamIndex, 'slots'], newTeam.slots.push(newSlot))
+  }
+  return lobby.deleteIn(['teams', obsTeamIndex, 'slots', slotIndex])
 }

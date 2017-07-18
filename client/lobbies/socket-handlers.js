@@ -19,6 +19,7 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
+  LOBBY_UPDATE_SLOTS_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
 import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
@@ -164,6 +165,11 @@ const eventToAction = {
 
   slotChange: (name, event) => ({
     type: LOBBY_UPDATE_SLOT_CHANGE,
+    payload: event,
+  }),
+
+  slotsDeleted: (name, event) => ({
+    type: LOBBY_UPDATE_SLOTS_DELETED,
     payload: event,
   }),
 

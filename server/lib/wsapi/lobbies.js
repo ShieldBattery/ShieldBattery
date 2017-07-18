@@ -538,6 +538,57 @@ export class LobbyApi {
     this._removeClientFromLobby(lobby, playerToBan.name, REMOVAL_TYPE_BAN)
   }
 
+  @Api('/makeObserver')
+  async makeObserver(data, next) {
+    const client = this.getClient(data)
+    const lobby = this.getLobbyForClient(client)
+    const [, , player] = findSlotByName(lobby, client.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
+    if (!slot) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.makeObserver(lobby, teamIndex, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
+  @Api('/removeObserver')
+  async removeObserver(data, next) {
+    const client = this.getClient(data)
+    const lobby = this.getLobbyForClient(client)
+    const [, , player] = findSlotByName(lobby, client.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
+    if (!slot) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (!lobby.teams.get(teamIndex).isObserver) {
+      throw new errors.BadRequest('Slot is not in the observer team')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.removeObserver(lobby, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
   @Api('/leave')
   async leave(data, next) {
     const user = this.getUser(data)
@@ -1001,6 +1052,22 @@ export class LobbyApi {
           teamIndex: newTeamIndex,
           slotIndex: newSlotIndex,
           newRace: newSlot.race,
+        })
+      }
+    }
+
+    // Check for deleted slots caused by obs slot creation/removal.
+    // We can just tell clients to pop N slots from end of the slot list of a team, regardless of
+    // where the removed slots actually were, as there will be slot change event for every slot
+    // after the removed one anyways, as their indices change.
+    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
+      const oldTeam = oldLobby.teams.get(teamIndex)
+      const newTeam = newLobby.teams.get(teamIndex)
+      if (oldTeam.slots.size > newTeam.slots.size) {
+        diffEvents.push({
+          type: 'slotsDeleted',
+          teamIndex,
+          count: oldTeam.slots.size - newTeam.slots.size,
         })
       }
     }

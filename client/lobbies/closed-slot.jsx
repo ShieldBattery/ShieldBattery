@@ -10,6 +10,8 @@ export default class ClosedSlot extends React.Component {
     onAddComputer: PropTypes.func,
     onSetRace: PropTypes.func,
     onOpenSlot: PropTypes.func,
+    onMakeObserver: PropTypes.func,
+    onRemoveObserver: PropTypes.func,
     // Indicates if this is a `controlledClosed` type slot
     controlledClosed: PropTypes.bool,
     // In `controlledClosed` slots, indicates if it can be set race to
@@ -17,6 +19,8 @@ export default class ClosedSlot extends React.Component {
     isHost: PropTypes.bool,
     race: PropTypes.string,
     isObserver: PropTypes.bool,
+    canMakeObserver: PropTypes.bool,
+    canRemoveObserver: PropTypes.bool,
   }
 
   renderControls() {
@@ -33,12 +37,28 @@ export default class ClosedSlot extends React.Component {
   }
 
   render() {
-    const { isHost, isObserver, controlledClosed, onAddComputer, onOpenSlot } = this.props
+    const {
+      isHost,
+      isObserver,
+      canMakeObserver,
+      canRemoveObserver,
+      controlledClosed,
+      onAddComputer,
+      onOpenSlot,
+      onMakeObserver,
+      onRemoveObserver,
+    } = this.props
     const slotActions = []
     if (isHost) {
       slotActions.push(['Open slot', onOpenSlot])
       if (!controlledClosed && !isObserver && onAddComputer) {
         slotActions.push(['Add computer', onAddComputer])
+      }
+      if (canMakeObserver) {
+        slotActions.push(['Move to observers', onMakeObserver])
+      }
+      if (canRemoveObserver) {
+        slotActions.push(['Move to players', onRemoveObserver])
       }
     }
 

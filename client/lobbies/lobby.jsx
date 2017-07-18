@@ -1,7 +1,14 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { gameTypeToString } from './game-type'
-import { isUms, findSlotByName, hasOpposingSides, isTeamType } from '../../app/common/lobbies'
+import {
+  isUms,
+  findSlotByName,
+  hasOpposingSides,
+  isTeamType,
+  canRemoveObservers,
+  canAddObservers,
+} from '../../app/common/lobbies'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'
@@ -264,6 +271,8 @@ export default class Lobby extends React.Component {
     onCloseSlot: PropTypes.func,
     onKickPlayer: PropTypes.func,
     onBanPlayer: PropTypes.func,
+    onMakeObserver: PropTypes.func,
+    onRemoveObserver: PropTypes.func,
   }
 
   render() {
@@ -278,12 +287,16 @@ export default class Lobby extends React.Component {
       onCloseSlot,
       onKickPlayer,
       onBanPlayer,
+      onMakeObserver,
+      onRemoveObserver,
     } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
     const [, , mySlot] = findSlotByName(lobby, user.name)
     const isHost = mySlot && lobby.host.id === mySlot.id
+    const canAddObsSlots = canAddObservers(lobby)
+    const canRemoveObsSlots = canRemoveObservers(lobby)
     for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
       const currentTeam = lobby.teams.get(teamIndex)
       const isObserver = currentTeam.isObserver
@@ -309,11 +322,15 @@ export default class Lobby extends React.Component {
                     race={race}
                     isHost={isHost}
                     isObserver={isObserver}
+                    canMakeObserver={!isObserver && canAddObsSlots && currentTeam.slots.size > 1}
+                    canRemoveObserver={isObserver && canRemoveObsSlots}
                     onAddComputer={
                       onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined
                     }
                     onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
                     onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
+                    onMakeObserver={onMakeObserver ? () => onMakeObserver(id) : undefined}
+                    onRemoveObserver={onRemoveObserver ? () => onRemoveObserver(id) : undefined}
                   />
                 )
               case 'closed':
@@ -323,10 +340,14 @@ export default class Lobby extends React.Component {
                     race={race}
                     isHost={isHost}
                     isObserver={isObserver}
+                    canMakeObserver={!isObserver && canAddObsSlots && currentTeam.slots.size > 1}
+                    canRemoveObserver={isObserver && canRemoveObsSlots}
                     onAddComputer={
                       onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined
                     }
                     onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
+                    onMakeObserver={onMakeObserver ? () => onMakeObserver(id) : undefined}
+                    onRemoveObserver={onRemoveObserver ? () => onRemoveObserver(id) : undefined}
                   />
                 )
               case 'human':
@@ -337,12 +358,14 @@ export default class Lobby extends React.Component {
                     race={race}
                     isHost={isHost}
                     canSetRace={slot === mySlot && !slot.hasForcedRace}
+                    canMakeObserver={canAddObsSlots && currentTeam.slots.size > 1}
                     hasSlotActions={slot !== mySlot}
                     onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
                     onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                     onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                     onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
                     onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined}
+                    onMakeObserver={onMakeObserver ? () => onMakeObserver(id) : undefined}
                   />
                 )
               case 'observer':
@@ -352,11 +375,13 @@ export default class Lobby extends React.Component {
                     name={name}
                     isHost={isHost}
                     isObserver={true}
+                    canRemoveObserver={isObserver && canRemoveObsSlots}
                     hasSlotActions={slot !== mySlot}
                     onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                     onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                     onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
                     onBanPlayer={onBanPlayer ? () => onBanPlayer(id) : undefined}
+                    onRemoveObserver={onRemoveObserver ? () => onRemoveObserver(id) : undefined}
                   />
                 )
               case 'computer':
