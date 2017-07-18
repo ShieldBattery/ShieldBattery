@@ -37,7 +37,9 @@ class WebsocketServer {
     this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
-      handler(this.nydus, this.userSockets, this.clientSockets)
+      if (handler) {
+        handler(this.nydus, this.userSockets, this.clientSockets)
+      }
     }
 
     this.userSockets
