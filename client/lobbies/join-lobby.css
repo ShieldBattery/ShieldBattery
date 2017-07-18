@@ -1,6 +1,6 @@
 @value colorDividers from '../styles/colors.css';
-@value row, col, grow, itemsCenter, exact from '../styles/flex.css';
-@value title, subhead, headline, body2, body1 from '../styles/typography.css';
+@value row, col, grow, itemsCenter from '../styles/flex.css';
+@value title, subhead, headline, body2 from '../styles/typography.css';
 
 .root {
   padding: 16px;
@@ -62,21 +62,4 @@
 
 .openSlots {
   composes: body2;
-}
-
-.map {
-  composes: col exact;
-  height: 128px;
-  position: relative;
-}
-
-.mapName {
-  composes: body1;
-  position: absolute;
-  bottom: 0px;
-}
-
-.mapThumbnail {
-  width: auto;
-  height: 100%;
 }

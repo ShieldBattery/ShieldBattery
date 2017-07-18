@@ -38,12 +38,7 @@ class ListEntry extends React.Component {
             {lobby.openSlotCount} slots open
           </span>
         </div>
-        <div className={styles.map}>
-          <MapThumbnail className={styles.mapThumbnail} map={lobby.map} />
-          <span className={styles.mapName}>
-            {lobby.map.name}
-          </span>
-        </div>
+        <MapThumbnail map={lobby.map} shouldDisplayMapName={true} />
       </div>
     )
   }
