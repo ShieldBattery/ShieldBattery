@@ -8,6 +8,7 @@ namespace bw {
 struct Control;
 struct Dialog;
 struct UiEvent;
+struct PreplacedUnit;
 class BroodWar;
 
 // These are just grouped into a struct so they can be befriended by BroodWar
@@ -32,6 +33,9 @@ struct ObservingPatches {
   static int __stdcall CmdBtn_EventHandlerHook(Control* control, UiEvent* event);
   static void __stdcall DrawCommandButtonHook(Control* control, int x, int y, void *area);
   static void __stdcall DrawResourceCountsHook(Control *control, void *param);
+  static const char* __stdcall GetGluAllStringHook(int string_id);
+  static void __stdcall UpdateNetTimeoutPlayersHook();
+  static int __stdcall CenterScreenOnOwnStartLocationHook(PreplacedUnit* unit, void* b);
 
   static bool IsObserver(BroodWar *bw);
 

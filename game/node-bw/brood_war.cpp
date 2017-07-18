@@ -201,6 +201,9 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.CmdBtn_EventHandler.Inject();
   offsets_->func_hooks.DrawCommandButton.Inject();
   offsets_->func_hooks.DrawResourceCounts.Inject();
+  offsets_->func_hooks.GetGluAllString.Inject();
+  offsets_->func_hooks.UpdateNetTimeoutPlayers.Inject();
+  offsets_->func_hooks.CenterScreenOnOwnStartLocation.Inject();
 
   process_hooks_.Inject();
 }

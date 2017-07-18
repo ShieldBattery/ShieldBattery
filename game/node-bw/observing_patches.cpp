@@ -1,6 +1,7 @@
 #include "observing_patches.h"
 
 #include <algorithm>
+#include <iterator>
 #include "logger/logger.h"
 
 #include "brood_war.h"
@@ -85,6 +86,22 @@ void __stdcall ObservingPatches::DrawResourceCountsHook(Control *control, void *
   auto bw = BroodWar::Get();
   auto &hook = bw->offsets_->func_hooks.DrawResourceCounts;
   CallWithReplayFlagIfObserver(bw, hook, control, param);
+}
+
+int __stdcall ObservingPatches::CenterScreenOnOwnStartLocationHook(PreplacedUnit* unit, void* b) {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.CenterScreenOnOwnStartLocation;
+  auto was_replay = *bw->offsets_->is_replay;
+  if (IsObserver(bw)) {
+    if (bw->players()[unit->player].type != 0) {
+      // Center the screen once we get the first active player so observers don't randomly
+      // end up staring at unused start location.
+      *bw->offsets_->is_replay = true;
+    }
+  }
+  auto result = hook.callable()(unit, b);
+  *bw->offsets_->is_replay = was_replay;
+  return result;
 }
 
 void __stdcall ObservingPatches::DrawCommandButtonHook(Control *control, int x, int y,
@@ -243,6 +260,97 @@ int __stdcall ObservingPatches::CmdBtn_EventHandlerHook(Control* control, UiEven
       return hook.callable()(control, event);
     }
   }
+}
+
+const char* __stdcall ObservingPatches::GetGluAllStringHook(int string_id) {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.GetGluAllString;
+  // Replace "Replay players" text in the alliance dialog when observing
+  if (string_id == 0xb6) {
+    if (IsObserver(bw)) {
+      return "Players";
+    }
+  }
+  return hook.callable()(string_id);
+}
+
+void __stdcall ObservingPatches::UpdateNetTimeoutPlayersHook() {
+  auto bw = BroodWar::Get();
+  auto &hook = bw->offsets_->func_hooks.UpdateNetTimeoutPlayers;
+
+  // To make observers appear in network timeout dialog, we temporarily write their info to
+  // ingame player structure, and revert the change after this function has been called.
+  PlayerInfo* players = bw->players();
+  StormPlayerInfo* storm_players = bw->offsets_->storm_players;
+  auto IsStormPlayerObs = [=](int storm_id) {
+    return !std::any_of(players, players + 8, [=](const auto& player) {
+      return player.storm_id == storm_id;
+    });
+  };
+  auto FindNonHumanPlayerSlot = [=]() {
+    for (int i = 0; i < 8; i++) {
+      if (players[i].type != 2) {
+        return i;
+      }
+    }
+    return -1;
+  };
+  auto FindTimeoutDialogPlayerLabel = [&](int bw_id) -> Control* {
+    Dialog* timeout_dlg = *bw->offsets_->timeout_bin;
+    Control* label = FindDialogChild(timeout_dlg, -10);
+    for (int i = 0; i < 8; i++) {
+      if (label == nullptr) {
+        return nullptr;
+      }
+      // Flag 0x8 == Shown
+      if (label->flags & 0x8 && label->custom_value == reinterpret_cast<void*>(bw_id)) {
+        return label;
+      }
+      label = label->next;
+    }
+    return nullptr;
+  };
+
+  PlayerInfo player_backup[0x8];
+  int overwritten_player_id_to_storm[0x8];
+  std::copy_n(players, 8, player_backup);
+  std::fill_n(overwritten_player_id_to_storm, 8, -1);
+  for (int storm_id = 0; storm_id < 8; storm_id++) {
+    if (IsStormPlayerObs(storm_id)) {
+      int slot = FindNonHumanPlayerSlot();
+      if (slot != -1) {
+        assert(slot >= 0 && slot < 8);
+        overwritten_player_id_to_storm[slot] = storm_id;
+        players[slot].storm_id = storm_id;
+        players[slot].type = 2; // Human
+      } else {
+        Logger::Logf(LogLevel::Error,
+            "Net timeout dialog: Out of player slots for observer, storm id %d", storm_id);
+      }
+    }
+  }
+
+  hook.callable()();
+
+  for (int bw_id = 0; bw_id < 8; bw_id++) {
+    int storm_id = overwritten_player_id_to_storm[bw_id];
+    if (storm_id != -1) {
+      Control* ctrl = FindTimeoutDialogPlayerLabel(bw_id);
+      if (ctrl != nullptr) {
+        // We need to redirect the name string to the storm player string, and replace the
+        // player value to unused player 10, whose color will be set to neutral resource color.
+        // (The neutral player 11 actually can have a different color for neutral buildings)
+        //
+        // Technically player 10 can actually have units in some odd UMS maps, but we aren't
+        // allowing observing UMS games anyways, so whatever. Even if the someone noticed the
+        // color changing, I doubt they would care.
+        ctrl->label = storm_players[storm_id].name;
+        ctrl->custom_value = reinterpret_cast<void*>(10);
+        bw->offsets_->player_minimap_color[10] = *bw->offsets_->resource_minimap_color;
+      }
+    }
+  }
+  std::copy_n(player_backup, 8, players);
 }
 
 }  // namespace bw
