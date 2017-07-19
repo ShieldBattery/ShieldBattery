@@ -13,7 +13,7 @@
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
     "test": "cross-env BABEL_ENV=node mocha -R spec --compilers js:babel-register --recursive test/",
-    "start": "node index.js | bunyan"
+    "start": "nodemon --ignore tests/ --ignore migrations/ --ignore redis-migrations/ index.js | bunyan"
   },
   "keywords": [
     "starcraft",
@@ -88,6 +88,7 @@
     "cross-env": "^5.0.0",
     "koa-webpack-dev-middleware": "^1.2.2",
     "koa-webpack-hot-middleware": "^1.0.3",
-    "mocha": "^3.0.2"
+    "mocha": "^3.0.2",
+    "nodemon": "^1.11.0"
   }
 }
