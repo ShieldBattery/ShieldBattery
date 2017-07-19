@@ -23,6 +23,7 @@ import {
   hasOpposingSides,
   hasObservers,
   getObserverTeam,
+  isInObserverTeam,
 } from '../../../app/common/lobbies'
 
 const LOBBY_START_TIMEOUT = 30 * 1000
@@ -559,7 +560,7 @@ export class LobbyApi {
       throw new errors.BadRequest(err.message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
-    this._publishLobbyDiff(lobby, updated)
+    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
   }
 
   @Api('/removeObserver')
@@ -586,7 +587,7 @@ export class LobbyApi {
       throw new errors.BadRequest(err.message)
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
-    this._publishLobbyDiff(lobby, updated)
+    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
   }
 
   @Api('/leave')
@@ -963,7 +964,7 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getClientPath(lobby, client), data)
   }
 
-  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null) {
+  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null, deletedSlotIndex) {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
@@ -1018,6 +1019,24 @@ export class LobbyApi {
         })
       }
     }
+
+    // Check for deleted slots caused by obs slot creation/removal.
+    // In order for things on client to work properly, we need to tell them exactly *which* slot was
+    // deleted, which seems to be impossible to figure out just by comparing lobby diffs. So in a
+    // similar fashion as we do when determining if the user was kicked/banned, we pass the slot
+    // index of a deleted slot from the method that knows which slot it is
+    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
+      const oldTeam = oldLobby.teams.get(teamIndex)
+      const newTeam = newLobby.teams.get(teamIndex)
+      if (oldTeam.slots.size > newTeam.slots.size) {
+        diffEvents.push({
+          type: 'slotDeleted',
+          teamIndex,
+          slotIndex: deletedSlotIndex,
+        })
+      }
+    }
+
     for (const id of created.values()) {
       // These are all of the slots that were created in the new lobby compared to the old one. This
       // includes the slots that were created as a result of players leaving the lobby, moving to a
@@ -1052,22 +1071,6 @@ export class LobbyApi {
           teamIndex: newTeamIndex,
           slotIndex: newSlotIndex,
           newRace: newSlot.race,
-        })
-      }
-    }
-
-    // Check for deleted slots caused by obs slot creation/removal.
-    // We can just tell clients to pop N slots from end of the slot list of a team, regardless of
-    // where the removed slots actually were, as there will be slot change event for every slot
-    // after the removed one anyways, as their indices change.
-    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
-      const oldTeam = oldLobby.teams.get(teamIndex)
-      const newTeam = newLobby.teams.get(teamIndex)
-      if (oldTeam.slots.size > newTeam.slots.size) {
-        diffEvents.push({
-          type: 'slotsDeleted',
-          teamIndex,
-          count: oldTeam.slots.size - newTeam.slots.size,
         })
       }
     }

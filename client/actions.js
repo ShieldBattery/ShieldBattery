@@ -189,8 +189,8 @@ export const LOBBY_UPDATE_RACE_CHANGE = 'LOBBY_UPDATE_RACE_CHANGE'
 export const LOBBY_UPDATE_SLOT_CHANGE = 'LOBBY_UPDATE_SLOT_CHANGE'
 // A new slot has been created in a lobby we're in (this could indicate player joining)
 export const LOBBY_UPDATE_SLOT_CREATE = 'LOBBY_UPDATE_SLOT_CREATE'
-// One of teams in a lobby has had slots deleted (due to creating/removing obs slots)
-export const LOBBY_UPDATE_SLOTS_DELETED = 'LOBBY_UPDATE_SLOTS_DELETED'
+// One of teams in a lobby has had a slot deleted (due to creating/removing obs slots)
+export const LOBBY_UPDATE_SLOT_DELETED = 'LOBBY_UPDATE_SLOT_DELETED'
 // Our status has changed, ie. one of our clients either joined or left the lobby
 export const LOBBY_UPDATE_STATUS = 'LOBBY_UPDATE_STATUS'
 

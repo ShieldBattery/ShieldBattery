@@ -17,7 +17,7 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
-  LOBBY_UPDATE_SLOTS_DELETED,
+  LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_COUNTDOWN_START,
   LOBBY_UPDATE_COUNTDOWN_TICK,
   LOBBY_UPDATE_COUNTDOWN_CANCELED,
@@ -95,9 +95,9 @@ const infoReducer = keyedReducer(undefined, {
     return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(slot))
   },
 
-  [LOBBY_UPDATE_SLOTS_DELETED](state, action) {
-    const { teamIndex, count } = action.payload
-    return state.updateIn(['teams', teamIndex, 'slots'], slots => slots.skipLast(count))
+  [LOBBY_UPDATE_SLOT_DELETED](state, action) {
+    const { teamIndex, slotIndex } = action.payload
+    return state.deleteIn(['teams', teamIndex, 'slots', slotIndex])
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
