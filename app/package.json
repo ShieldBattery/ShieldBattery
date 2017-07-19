@@ -17,7 +17,7 @@
     "babel-register": "^6.18.0",
     "deep-equal": "^1.0.1",
     "devtron": "^1.4.0",
-    "electron-is-dev": "^0.1.2",
+    "electron-is-dev": "^0.2.0",
     "electron-localshortcut": "^2.0.0",
     "electron-updater": "^2.1.2",
     "mkdirp": "^0.5.1",
