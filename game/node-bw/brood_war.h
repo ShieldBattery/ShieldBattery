@@ -36,6 +36,7 @@ struct StormPlayerInfo {
   char name[0x19];
   uint8 padding;
 };
+static_assert(sizeof(PlayerInfo) == 0x24, "sizeof PlayerInfo");
 static_assert(sizeof(StormPlayerInfo) == 0x22, "sizeof StormPlayerInfo");
 
 struct MapListEntry {
@@ -107,8 +108,10 @@ struct Control {
   const char* label;
   uint32 flags;
   byte whatever1c[0x4];
-  uint16 id;
-  byte whatever22[0x10];
+  int16 id;
+  byte whatever22[0x4];
+  void* custom_value;
+  byte whatever2a[0x8];
   Dialog* parent;
 };
 
@@ -131,6 +134,11 @@ struct Dialog {
 
 struct Unit {
   byte whatever[0x4c];
+  byte player;
+};
+
+struct PreplacedUnit {
+  byte whatever[0x10];
   byte player;
 };
 
@@ -299,6 +307,9 @@ struct FuncHooks {
   FuncHook<int(Control*, UiEvent*)> CmdBtn_EventHandler;
   FuncHook<void(Control*, int, int, void*)> DrawCommandButton;
   FuncHook<void(Control*, void*)> DrawResourceCounts;
+  FuncHook<const char *(int)> GetGluAllString;
+  FuncHook<void()> UpdateNetTimeoutPlayers;
+  FuncHook<int(PreplacedUnit *, void *)> CenterScreenOnOwnStartLocation;
 };
 
 struct EventHandlers {
@@ -355,6 +366,9 @@ struct Offsets {
   // Ingame player id or 8 for all or 9 for allies
   uint8* chat_dialog_recipent;
   Unit** primary_selected;
+  uint8* resource_minimap_color;
+  uint8* player_minimap_color;
+  Dialog **timeout_bin;
 
   bool* storm_snp_list_initialized;
   sbat::snp::SNetSnpListEntry* storm_snp_list;
@@ -541,6 +555,9 @@ Offsets* GetOffsets<Version::v1161>() {
   offsets->player_visions = reinterpret_cast<uint32*>(0x0057F0B0);
   offsets->chat_dialog_recipent = reinterpret_cast<uint8*>(0x00581D60);
   offsets->primary_selected = reinterpret_cast<Unit**>(0x00597248);
+  offsets->resource_minimap_color = reinterpret_cast<uint8*>(0x006CEB39);
+  offsets->player_minimap_color = reinterpret_cast<uint8*>(0x00581DD6);
+  offsets->timeout_bin = reinterpret_cast<Dialog**>(0x006D5BC4);
   offsets->storm_snp_list_initialized = reinterpret_cast<bool*>(storm_base + 0x5E630);
   offsets->storm_snp_list = reinterpret_cast<sbat::snp::SNetSnpListEntry*>(storm_base + 0x5AD6C);
 
@@ -647,6 +664,12 @@ Offsets* GetOffsets<Version::v1161>() {
       0x00458900, ObservingPatches::DrawCommandButtonHook);
   offsets->func_hooks.DrawResourceCounts.InitCustom<Ecx, Edx>(
       0x004E5640, ObservingPatches::DrawResourceCountsHook);
+  offsets->func_hooks.GetGluAllString.InitStdcall(
+      0x004DDD30, ObservingPatches::GetGluAllStringHook);
+  offsets->func_hooks.UpdateNetTimeoutPlayers.InitStdcall(
+      0x004A2D60, ObservingPatches::UpdateNetTimeoutPlayersHook);
+  offsets->func_hooks.CenterScreenOnOwnStartLocation.InitCustom<Eax, Ecx>(
+      0x004CB190, ObservingPatches::CenterScreenOnOwnStartLocationHook);
 
   return offsets;
 }
