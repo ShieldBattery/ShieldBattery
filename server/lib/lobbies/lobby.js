@@ -43,6 +43,10 @@ export function hasControlledOpens(gameType) {
   return gameType === 'teamMelee' || gameType === 'teamFfa'
 }
 
+export function hasDynamicObsSlots(gameType) {
+  return gameType === 'melee'
+}
+
 export function isTeamEmpty(team) {
   // Team is deemed empty if it's only consisted of open and/or closed type of slots
   return team.slots.every(slot => slot.type === 'open' || slot.type === 'closed')
@@ -519,6 +523,9 @@ export function closeSlot(lobby, teamIndex, slotIndex) {
 
 // Moves a regular slot to the observer team.
 export function makeObserver(lobby, teamIndex, slotIndex) {
+  if (!hasDynamicObsSlots(lobby.gameType)) {
+    throw new Error('Lobby type not supported')
+  }
   if (!canAddObservers(lobby)) {
     throw new Error('Cannot add more observers')
   }
@@ -550,6 +557,9 @@ export function makeObserver(lobby, teamIndex, slotIndex) {
 // Moves a slot from the observer team to players. The team that the slot gets moved to is the
 // smallest one with space for players.
 export function removeObserver(lobby, slotIndex) {
+  if (!hasDynamicObsSlots(lobby.gameType)) {
+    throw new Error('Lobby type not supported')
+  }
   if (!canRemoveObservers(lobby)) {
     throw new Error('Cannot remove more observers')
   }
