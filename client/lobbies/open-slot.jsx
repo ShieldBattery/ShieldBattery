@@ -69,18 +69,20 @@ export default class OpenSlot extends React.Component {
 
     return (
       <div className={styles.slot}>
-        <div
-          className={styles.slotLeftOpen}
-          onMouseEnter={this.onLeftMouseEnter}
-          onMouseLeave={this.onLeftMouseLeave}
-          onClick={onSwitchClick}>
-          <span className={styles.slotEmptyAvatar}>
-            {this.state.isHovered ? <SwapSlotsIcon /> : null}
-          </span>
-          <span className={styles.slotEmptyName}>Open</span>
+        <div className={styles.slotLeft}>
+          <div
+            className={styles.slotProfileOpen}
+            onMouseEnter={this.onLeftMouseEnter}
+            onMouseLeave={this.onLeftMouseLeave}
+            onClick={onSwitchClick}>
+            <span className={styles.slotEmptyAvatar}>
+              {this.state.isHovered ? <SwapSlotsIcon /> : null}
+            </span>
+            <span className={styles.slotEmptyName}>Open</span>
+          </div>
+          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </div>
         <div className={styles.slotRight}>
-          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
           {this.renderControls()}
         </div>
       </div>

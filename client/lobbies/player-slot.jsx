@@ -84,13 +84,13 @@ export default class PlayerSlot extends React.Component {
     return (
       <div className={styles.slot}>
         <div className={styles.slotLeft}>
-          {avatar}
-          <span className={styles.slotName}>{displayName}</span>
-        </div>
-        <div className={styles.slotRight}>
+          <div className={styles.slotProfile}>
+            {avatar}
+            <span className={styles.slotName}>{displayName}</span>
+          </div>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
-          {this.renderControls()}
         </div>
+        <div className={styles.slotRight}>{this.renderControls()}</div>
       </div>
     )
   }

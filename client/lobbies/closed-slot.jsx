@@ -65,11 +65,13 @@ export default class ClosedSlot extends React.Component {
     return (
       <div className={styles.slot}>
         <div className={styles.slotLeft}>
-          <span className={styles.slotEmptyAvatar} />
-          <span className={styles.slotEmptyName}>Closed</span>
+          <div className={styles.slotProfile}>
+            <span className={styles.slotEmptyAvatar} />
+            <span className={styles.slotEmptyName}>Closed</span>
+          </div>
+          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </div>
         <div className={styles.slotRight}>
-          {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
           {this.renderControls()}
         </div>
       </div>
