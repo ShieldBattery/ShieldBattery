@@ -564,7 +564,6 @@ export function removeObserver(lobby, slotIndex) {
   // We create a new slot in the team and move human to it, or just replicate the slot there,
   // and then delete the original slot.
   if (slot.type === 'observer') {
-    console.assert(!isUms(lobby.gameType))
     const newSlot = Slots.createOpen()
     lobby = lobby.setIn(['teams', newTeamIndex, 'slots'], newTeam.slots.push(newSlot))
     lobby = movePlayerToSlot(lobby, obsTeamIndex, slotIndex, newTeamIndex, newTeam.slots.size)

@@ -23,7 +23,6 @@ import {
   hasOpposingSides,
   hasObservers,
   getObserverTeam,
-  isInObserverTeam,
 } from '../../../app/common/lobbies'
 
 const LOBBY_START_TIMEOUT = 30 * 1000

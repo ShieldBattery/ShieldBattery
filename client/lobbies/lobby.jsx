@@ -301,7 +301,7 @@ export default class Lobby extends React.Component {
       const currentTeam = lobby.teams.get(teamIndex)
       const isObserver = currentTeam.isObserver
       const displayTeamName =
-        isObserver || ((isTeamType(lobby.gameType) || isLobbyUms) && currentTeam.slots.size !== 0)
+        (isTeamType(lobby.gameType) || isLobbyUms || isObserver) && currentTeam.slots.size !== 0
       if (displayTeamName) {
         slots.push(
           <span key={'team' + teamIndex} className={styles.teamName}>

@@ -55,10 +55,10 @@ export default class ClosedSlot extends React.Component {
         slotActions.push(['Add computer', onAddComputer])
       }
       if (canMakeObserver) {
-        slotActions.push(['Move to observers', onMakeObserver])
+        slotActions.push(['Make observer', onMakeObserver])
       }
       if (canRemoveObserver) {
-        slotActions.push(['Move to players', onRemoveObserver])
+        slotActions.push(['Make player', onRemoveObserver])
       }
     }
 

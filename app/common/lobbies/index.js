@@ -165,12 +165,14 @@ export function isInObserverTeam(lobby, slot) {
 
 // Checks if the lobby has any slots that can be made observers.
 export function canAddObservers(lobby) {
+  if (!hasObservers(lobby)) return false
   const [, observerTeam] = getObserverTeam(lobby)
   return observerTeam && observerTeam.slots.size < 6
 }
 
 // Checks if the lobby has space for moving observers to players
 export function canRemoveObservers(lobby) {
+  if (!hasObservers(lobby)) return false
   return (
     lobby.teams.find(team => {
       return !team.isObserver && team.slots.size !== team.originalSize
