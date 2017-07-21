@@ -21,7 +21,6 @@ import {
   findSlotByName,
   findSlotById,
   hasOpposingSides,
-  hasObservers,
   getObserverTeam,
 } from '../../../app/common/lobbies'
 
@@ -212,7 +211,7 @@ export class LobbyApi {
 
     let player
     const [, observerTeam] = getObserverTeam(lobby)
-    if (hasObservers(lobby) && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
       player = Slots.createObserver(client.name)
     } else {
       player = isUms(lobby.gameType)
