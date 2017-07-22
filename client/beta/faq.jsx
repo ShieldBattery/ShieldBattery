@@ -1,4 +1,7 @@
 import React from 'react'
+import { connect } from 'react-redux'
+import { Link } from 'react-router'
+import { makeServerUrl } from '../network/server-url'
 import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
@@ -129,58 +132,53 @@ const makeQuestionId = question => {
   return question.replace(/\s/g, '-')
 }
 
-const scrollQuestionIntoView = id => {
-  const question = document.getElementById(id)
-
-  if (question) {
-    question.scrollIntoView()
-  }
-}
-
-const QuestionSection = ({ question, answer }) => {
-  return (
-    <div id={makeQuestionId(question)} className={styles.faqFeature}>
-      <div className={styles.faqText}>
-        <QuestionIcon className={styles.faqQuestionIcon} />
-        <h3 className={styles.faqQuestion}>
-          {question}
-        </h3>
-        <div className={styles.faqAnswer}>
-          {answer}
+class QuestionSection extends React.PureComponent {
+  render() {
+    const { question, answer } = this.props
+    return (
+      <div id={makeQuestionId(question)} className={styles.faqFeature}>
+        <div className={styles.faqText}>
+          <QuestionIcon className={styles.faqQuestionIcon} />
+          <h3 className={styles.faqQuestion}>
+            {question}
+          </h3>
+          <div className={styles.faqAnswer}>
+            {answer}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 }
 
-class FragmentLink extends React.Component {
-  onClick = () => {
-    scrollQuestionIntoView(this.props.fragment)
-  }
-
+class FragmentLink extends React.PureComponent {
   render() {
     return (
-      <Link to={`${this.props.to}#${this.props.fragment}`} onClick={this.onClick}>
+      <Link to={`${this.props.to}#${this.props.fragment}`}>
         {this.props.children}
       </Link>
     )
   }
 }
 
+@connect()
 export default class Faq extends React.Component {
-  componentDidMount() {
-    // No need for fragment anchoring on electron
-    if (process.webpackEnv.SB_ENV === 'electron') {
-      return
+  componentDidUpdate(prevProps) {
+    const { location: { hash: prevHash } } = prevProps
+    const { location: { hash: newHash } } = this.props
+
+    if (prevHash !== newHash) {
+      this.scrollElementIntoView(newHash.slice(1))
     }
+  }
 
-    const hashParts = window.location.hash.split('#')
+  scrollElementIntoView = id => {
+    id = id === '' ? 'faqTOC' : id
+    const element = document.getElementById(id)
 
-    if (hashParts.length < 2) {
-      return
+    if (element) {
+      element.scrollIntoView()
     }
-
-    scrollQuestionIntoView(hashParts.slice(-1)[0])
   }
 
   render() {
@@ -188,13 +186,13 @@ export default class Faq extends React.Component {
       <div className={styles.splash}>
         <div className={styles.logoContainer}>
           <TopLinks />
-          <img className={styles.logo} src="/images/splash-logo.png" />
+          <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
           <LogoText className={styles.logotext} />
         </div>
         <div className={styles.intro}>
           <h1 className={styles.faqHeader}>FAQ</h1>
         </div>
-        <div className={styles.faqTOC}>
+        <div id={'faqTOC'} className={styles.faqTOC}>
           <h3>Frequently Asked Questions</h3>
           <ul>
             {questions.map((q, i) =>
