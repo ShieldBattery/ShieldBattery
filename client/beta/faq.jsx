@@ -1,5 +1,4 @@
 import React from 'react'
-import { Link } from 'react-router'
 import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
@@ -9,44 +8,40 @@ import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 
 const questions = [
   {
-    question: 'When will the open beta start?',
+    question: 'What version of BW does ShieldBattery support?',
     answer: [
       <p key="p1">
-        Open beta will start once ShieldBattery is stable and ready for the public. An exact ETA for
-        this is unfortunately impossible to give, but expect to receive regular updates from us as
-        we make progress. Make sure to follow our{' '}
-        <a href="https://twitter.com/shieldbatterybw" target="_blank">
-          Twitter account
-        </a>{' '}
-        to keep up with the latest news and changes.
+        ShieldBattery supports all versions of BW from 1.16.1 and up. The version that is actually
+        run when playing on ShieldBattery is 1.16.1. This means that you can give our application an
+        install path to any version of BW 1.16.1 and above, and things will just work.
       </p>,
       <p key="p2">
-        Even before the open beta starts, we'll be inviting new users to our closed beta
-        periodically. So if you're interested in helping us test the software, finding bugs, and
-        giving feedback before it's available to a wider audience, please{' '}
-        <Link to="/splash">sign up</Link> for an invite.
+        BW:Remaster is not out yet, but to play on it using ShieldBattery, you will have to purchase
+        it from Blizzard.
       </p>,
     ],
   },
   {
-    question: 'What is the status of the closed beta?',
+    question: 'What is the status of the open beta?',
     answer: [
       <p key="p1">
-        The closed beta is currently running, and will last until we feel that the feature set is
-        relatively complete, polished, and bug-free. Our current beta invitees have given us tons of
-        great feedback, and the software is under active development to improve and polish things
-        based on their responses. While the basics of the features we've promised are in place, we
-        are also still actively working on some of the more complex pieces, such as matchmaking.
+        The open beta is currently running, and will last until we feel that the feature set is
+        relatively complete, polished, and bug-free. The point of the closed beta was to test the
+        features we've had in a more controlled fashion and see if we had any leaks, ie. bugs, in
+        our system. Now it's time to open the floodgates, so to speak, as we believe it's time to
+        test our system in a less controlled fashion.
       </p>,
 
       <p key="p2">
-        As these features come online, we'll need a larger player-base in order to test them, so
-        please <Link to="/splash">sign up</Link> for a chance to get invited.
+        Please keep in mind that this is still a <i>beta</i>, so there will be features missing that
+        you'd want to see, and some that we do have might be a bit rough around the edges. However,
+        we do feel you can enjoy your experience on Shieldbattery, and we'll continue working
+        relentlessly on features that are missing, based on your feedback.
       </p>,
     ],
   },
   {
-    question: 'Will ShieldBattery cost anything? Is there a way to donate?',
+    question: 'Does ShieldBattery cost anything? Is there a way to donate?',
     answer: [
       <p key="p1">
         Of course not. This is a project made purely out of our love for BW; by community members,
@@ -59,13 +54,21 @@ const questions = [
     ],
   },
   {
-    question: 'Will the project be open source?',
-    answer: (
-      <span>
-        Yes, it will. Shortly after we enter the open beta, all of the code used in the project will
-        be posted publicly on GitHub.
-      </span>
-    ),
+    question: 'Is the project open source?',
+    answer: [
+      <p key="p1">
+        Yes. You can access our main repository as well as the various additional projects we've
+        written and separated into their own repositories at our{' '}
+        <a href="https://github.com/ShieldBattery" target="_blank">
+          github page
+        </a>.
+      </p>,
+      <p key="p2">
+        We could always use more contributors, so if you find technically challenging projects to
+        your liking and also enjoy the awesome game that is BW, then we look forward to seeing you
+        on our github pages.
+      </p>,
+    ],
   },
   {
     question: 'What are the system requirements to play on ShieldBattery?',
