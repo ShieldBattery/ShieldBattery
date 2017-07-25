@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router'
 import styles from './beta.css'
 
-const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
+export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
 
 const TopLinks = () => {
   return (

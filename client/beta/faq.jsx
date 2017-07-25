@@ -1,7 +1,7 @@
 import React from 'react'
 import styles from './beta.css'
 
-import TopLinks from './top-links.jsx'
+import TopLinks, { STARCRAFT_DOWNLOAD_URL } from './top-links.jsx'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
@@ -16,8 +16,10 @@ const questions = [
         install path to any version of BW 1.16.1 and above, and things will just work.
       </p>,
       <p key="p2">
-        BW:Remaster is not out yet, but to play on it using ShieldBattery, you will have to purchase
-        it from Blizzard.
+        You can download the free version of StarCraft: Brood War from the offical{' '}
+        <a href={STARCRAFT_DOWNLOAD_URL} target="_blank" rel="nofollow noreferrer">
+          Blizzard's site
+        </a>.
       </p>,
     ],
   },
@@ -26,17 +28,18 @@ const questions = [
     answer: [
       <p key="p1">
         The open beta is currently running, and will last until we feel that the feature set is
-        relatively complete, polished, and bug-free. The point of the closed beta was to test the
-        features we've had in a more controlled fashion and see if we had any leaks, ie. bugs, in
-        our system. Now it's time to open the floodgates, so to speak, as we believe it's time to
-        test our system in a less controlled fashion.
+        relatively complete, polished, and bug-free. We've ironed out most of the significant bugs
+        in our base feature set during our closed beta process, and are now ready to test things
+        with a more significant playerbase, as well as build new features that require a larger
+        group.
       </p>,
 
       <p key="p2">
         Please keep in mind that this is still a <i>beta</i>, so there will be features missing that
-        you'd want to see, and some that we do have might be a bit rough around the edges. However,
-        we do feel you can enjoy your experience on Shieldbattery, and we'll continue working
-        relentlessly on features that are missing, based on your feedback.
+        you want to see, and you might encounter issues that need fixing. You shouldn't expect a
+        perfect, completely polished experience, but we'll do our best to keep the quality bar high.
+        The ShieldBattery developers will continue working relentlessly on features that are
+        missing, with priorities based on community feedback.
       </p>,
     ],
   },
@@ -60,13 +63,13 @@ const questions = [
         Yes. You can access our main repository as well as the various additional projects we've
         written and separated into their own repositories at our{' '}
         <a href="https://github.com/ShieldBattery" target="_blank">
-          github page
+          GitHub page
         </a>.
       </p>,
       <p key="p2">
         We could always use more contributors, so if you find technically challenging projects to
-        your liking and also enjoy the awesome game that is BW, then we look forward to seeing you
-        on our github pages.
+        your liking and also enjoy the awesome game that is BW, we then look forward to seeing you
+        on our GitHub pages.
       </p>,
     ],
   },
