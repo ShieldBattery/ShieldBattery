@@ -129,7 +129,7 @@ const questions = [
 ]
 
 const makeQuestionId = question => {
-  return question.replace(/\s/g, '-')
+  return encodeURIComponent(question.replace(/\s/g, '-'))
 }
 
 class QuestionSection extends React.PureComponent {
@@ -173,7 +173,7 @@ export default class Faq extends React.Component {
   }
 
   scrollElementIntoView = id => {
-    id = id === '' ? 'faqTOC' : id
+    id = id === '' ? 'faqToc' : id
     const element = document.getElementById(id)
 
     if (element) {
@@ -192,7 +192,7 @@ export default class Faq extends React.Component {
         <div className={styles.intro}>
           <h1 className={styles.faqHeader}>FAQ</h1>
         </div>
-        <div id={'faqTOC'} className={styles.faqTOC}>
+        <div id={'faqToc'} className={styles.faqToc}>
           <h3>Frequently Asked Questions</h3>
           <ul>
             {questions.map((q, i) =>
