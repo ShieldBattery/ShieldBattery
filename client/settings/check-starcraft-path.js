@@ -2,11 +2,14 @@
 
 import fs from 'fs'
 import path from 'path'
+import glob from 'glob'
 import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
+import { streamEndPromise, streamFinishPromise } from '../../app/common/async/stream-promise'
 
 const accessAsync = thenify(fs.access)
+const globAsync = thenify(glob)
 
 export const EXE_HASHES_1161 = ['ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46']
 export const STORM_HASHES_1161 = [
@@ -27,6 +30,19 @@ async function checkHash(path, validHashes) {
   return validHashes.includes(hash)
 }
 
+async function maybeCopyLocalDll(dllPath, downgradePath) {
+  const outFile = path.join(downgradePath, 'local.dll')
+  // Check if the local.dll file already exists in our downgradePath
+  const matches = await globAsync(outFile)
+  if (matches.length > 0) return
+
+  // local.dll file doesn't exist; copy it over
+  const inStream = fs.createReadStream(dllPath)
+  const outStream = fs.createWriteStream(outFile)
+  inStream.pipe(outStream)
+  await Promise.all([streamEndPromise(inStream), streamFinishPromise(outStream)])
+}
+
 // Returns whether or not a StarCraft path is valid, along with whether or not the versions of
 // files contained in it are the expected versions. A path is valid if it contains:
 //   - StarCraft.exe
@@ -42,11 +58,19 @@ async function checkHash(path, validHashes) {
 // be checked for other copies. If downgradePath contains files that match the correct hashes, this
 // will be counted as having the correct version, but `downgradePath` will be true.
 export async function checkStarcraftPath(dirPath, downgradePath) {
-  const requiredFiles = ['starcraft.exe', 'storm.dll', 'local.dll', 'stardat.mpq', 'broodat.mpq']
+  const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
     await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
   } catch (err) {
+    return { path: false, version: false, downgradePath: false }
+  }
+
+  // Due to 1.19 version moving local.dll to a separate folder, we need to handle it separately
+  const matches = await globAsync(`${dirPath}/**/local.dll`)
+  if (matches.length > 0) {
+    maybeCopyLocalDll(matches[0], downgradePath)
+  } else {
     return { path: false, version: false, downgradePath: false }
   }
 
