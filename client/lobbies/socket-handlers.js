@@ -230,6 +230,7 @@ const eventToAction = {
   },
 
   cancelLoading: (name, event) => dispatch => {
+    fadeAtmosphere()
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: activeGameManager.setGameConfig({}),
