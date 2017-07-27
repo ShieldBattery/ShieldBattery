@@ -1,7 +1,8 @@
 import React from 'react'
 import styles from './beta.css'
 
-import TopLinks, { STARCRAFT_DOWNLOAD_URL } from './top-links.jsx'
+import TopLinks from './top-links.jsx'
+import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
@@ -18,7 +19,7 @@ const questions = [
       <p key="p2">
         You can download the free version of StarCraft: Brood War from the offical{' '}
         <a href={STARCRAFT_DOWNLOAD_URL} target="_blank" rel="nofollow noreferrer">
-          Blizzard's site
+          Blizzard site
         </a>.
       </p>,
     ],
@@ -69,7 +70,7 @@ const questions = [
       <p key="p2">
         We could always use more contributors, so if you find technically challenging projects to
         your liking and also enjoy the awesome game that is BW, we then look forward to seeing you
-        on our GitHub pages.
+        on our GitHub repos.
       </p>,
     ],
   },

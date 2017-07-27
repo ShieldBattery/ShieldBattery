@@ -14,7 +14,7 @@ import {
 import getDowngradePath from '../active-game/get-downgrade-path'
 import styles from './psi-health.css'
 
-const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
+import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
 
 @connect(state => ({ starcraft: state.starcraft }))
 export default class PsiHealthCheckupDialog extends React.Component {

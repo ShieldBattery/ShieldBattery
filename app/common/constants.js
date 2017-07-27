@@ -18,6 +18,8 @@ export const CHANNEL_MAXLENGTH = 64
 export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
 export const MATCHMAKING_TYPES = ['1v1']
 
+export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
+
 export function isValidUsername(username) {
   return (
     username &&
