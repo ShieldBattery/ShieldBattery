@@ -7,6 +7,7 @@ import thenify from 'thenify'
 import { EXE_HASHES_1161, STORM_HASHES_1161 } from '../settings/check-starcraft-path'
 import { streamEndPromise, streamFinishPromise } from '../../app/common/async/stream-promise'
 import getFileHash from '../../app/common/get-file-hash'
+import checkFileExists from '../../app/common/check-file-exists'
 import { fetchJson, fetchReadableStream } from '../network/fetch'
 import { remote } from 'electron'
 
@@ -96,11 +97,16 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
 }
 
 async function copyLocalDll(dirPath, downgradePath) {
-  const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
-  if (matches.length < 1) {
-    throw new Error("local.dll doesn't exist in StarCraft directory")
+  let inFile = path.join(dirPath, 'local.dll')
+  const localDllExists = await checkFileExists(inFile)
+  if (!localDllExists) {
+    const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
+    if (matches.length < 1) {
+      throw new Error("local.dll doesn't exist in StarCraft directory")
+    } else {
+      inFile = matches[0]
+    }
   }
-  const inFile = matches[0]
   const outFile = path.join(downgradePath, 'local.dll')
 
   await copyFile(inFile, outFile)

@@ -388,10 +388,11 @@ DWORD __stdcall GetModuleFileNameAHook(
 
 HMODULE __stdcall LoadLibraryAHook(_In_ LPCTSTR filename) {
   if (EndsWith(filename, "local.dll")) {
-    wchar_t starcraft_path[MAX_PATH];
-    GetModuleFileNameW(NULL, starcraft_path, sizeof(starcraft_path));
-    wstring local_dll_path = wstring(starcraft_path);
-    local_dll_path.replace(local_dll_path.end() - strlen("starcraft.exe"), local_dll_path.end(), L"local.dll");
+    wchar_t starcraft_exe_path[MAX_PATH];
+    GetModuleFileNameW(NULL, starcraft_exe_path, sizeof(starcraft_exe_path));
+    wstring starcraft_exe_path_string = wstring(starcraft_exe_path);
+    wstring::size_type slash_pos = starcraft_exe_path_string.find_last_of(L"\\/");
+    wstring local_dll_path = starcraft_exe_path_string.substr(0, slash_pos).append(L"\\local.dll");
     return LoadLibraryW(local_dll_path.c_str());
   } else {
     return LoadLibraryA(filename);
