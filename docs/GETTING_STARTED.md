@@ -44,12 +44,12 @@ Once Visual Studio is installed, you can generate project files by running the `
 `nobuild` flag to speed things up. Note that this script will also install JS dependencies for the game
 side of things.
 
-`vcbuild.bat` will generate `shieldbattery.sln` in the same folder; open this with Visual Studio to be
+`vcbuild.bat` will generate `game.sln` in the same folder; open this with Visual Studio to be
 able to edit and build the C++ code. Note that Debug builds add significant startup time to the
 applications, while Release builds add significant compile time. Pick your poison based on your needs at the
 time.
 
-If you should ever need to add or remove files to the projects, make the changes in `shieldbattery.gyp` and
+If you should ever need to add or remove files to the projects, make the changes in `game.gyp` and
 then re-run the build script to regenerate projects. This will ensure everyone can get to the same project
 state as you, once your changes are merged.
 
