@@ -70,7 +70,7 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
   const [inValid, inHash] = await checkFileHash(inFile, validHashes)
   if (inValid) {
     // the one in the folder is already valid, we can just copy it over
-    copyFile(inFile, outFile)
+    await copyFile(inFile, outFile)
     return
   }
 
@@ -96,14 +96,14 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
 }
 
 async function copyLocalDll(dirPath, downgradePath) {
-  const matches = await globAsync(`${dirPath}/**/local.dll`)
+  const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
   if (matches.length < 1) {
     throw new Error("local.dll doesn't exist in StarCraft directory")
   }
   const inFile = matches[0]
   const outFile = path.join(downgradePath, 'local.dll')
 
-  copyFile(inFile, outFile)
+  await copyFile(inFile, outFile)
 }
 
 export async function patchStarcraftDir(dirPath, outPath) {

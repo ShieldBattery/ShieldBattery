@@ -165,10 +165,12 @@
       ],
       'sources': [
         'common/func_hook.cpp',
+        'common/string_helpers.cpp',
         'common/win_helpers.cpp',
         # headers
         'common/func_hook.h',
         'common/macros.h',
+        'common/string_helpers.h',
         'common/types.h',
         'common/win_helpers.h',
       ],

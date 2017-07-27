@@ -9,6 +9,7 @@
 #include <string>
 #include <Shlobj.h>
 
+#include "common/string_helpers.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "logger/logger.h"
