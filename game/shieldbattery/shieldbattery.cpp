@@ -6,6 +6,7 @@
 #include <winsock2.h>
 #include <Windows.h>
 #include <shellapi.h>
+#include <Shlwapi.h>
 
 #include <queue>
 #include <string>
@@ -139,6 +140,7 @@ NODE_EXTERN void QueueWorkForUiThread(void* arg,
   uv_mutex_unlock(&work_queue_mutex);
 }
 
+wstring userDataPath;
 void StartNode(void* arg) {
   HMODULE module_handle;
   wchar_t path[MAX_PATH];
@@ -159,7 +161,7 @@ void StartNode(void* arg) {
   assert(numProcessArgs >= 3);
   wchar_t* gameId = processArgs[0];
   wchar_t* port = processArgs[1];
-  wchar_t* userDataPath = processArgs[2];
+  userDataPath = processArgs[2];
 
   vector<wchar_t*> argv;
   argv.push_back(path);
@@ -170,7 +172,7 @@ void StartNode(void* arg) {
   argv.push_back(L"shieldbattery");
   argv.push_back(gameId);
   argv.push_back(port);
-  argv.push_back(userDataPath);
+  argv.push_back(&userDataPath[0]);
 
   // Convert argv to to UTF8
   vector<char*> utf8_argv;
@@ -384,6 +386,23 @@ DWORD __stdcall GetModuleFileNameAHook(
   }
 }
 
+HMODULE __stdcall LoadLibraryAHook(_In_ LPCTSTR filename) {
+  if (EndsWith(filename, "local.dll")) {
+    wchar_t starcraft_dir[MAX_PATH];
+    DWORD count = GetCurrentDirectoryW(sizeof(starcraft_dir), starcraft_dir);
+    if (!count) {
+      ExitProcess(GetLastError());
+    }
+    wstring local_dll_path = wstring(starcraft_dir) + L"\\local.dll";
+    if (!PathFileExistsW(local_dll_path.c_str())) {
+      local_dll_path = userDataPath + L"\\downgrade\\local.dll";
+    }
+    return LoadLibraryW(local_dll_path.c_str());
+  } else {
+    return LoadLibraryA(filename);
+  }
+}
+
 extern "C" __declspec(dllexport) void OnInject() {
   DWORD count = GetCurrentDirectoryA(sizeof(current_dir_on_inject), current_dir_on_inject);
   if (!count) {
@@ -391,6 +410,7 @@ extern "C" __declspec(dllexport) void OnInject() {
   }
   real_starcraft_path = string(current_dir_on_inject) + "\\StarCraft.exe";
   process_hooks.AddHook("kernel32.dll", "GetModuleFileNameA", GetModuleFileNameAHook);
+  process_hooks.AddHook("kernel32.dll", "LoadLibraryA", LoadLibraryAHook);
   process_hooks.Inject();
 
   // note that this is not the exe's entry point, but rather the first point where BW starts doing
