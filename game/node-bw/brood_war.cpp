@@ -208,15 +208,6 @@ void BroodWar::InjectDetours() {
   process_hooks_.Inject();
 }
 
-bool EndsWith(const string checked, const string suffix) {
-  if (suffix.length() > checked.length()) {
-    return false;
-  }
-
-  int index = checked.rfind(suffix);
-  return index != string::npos && (index + suffix.length() == checked.length());
-}
-
 HANDLE __stdcall BroodWar::CreateFileAHook(LPCSTR lpFileName, DWORD dwDesiredAccess,
     DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
     DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
