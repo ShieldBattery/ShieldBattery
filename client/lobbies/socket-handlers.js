@@ -230,6 +230,7 @@ const eventToAction = {
   },
 
   cancelLoading: (name, event) => dispatch => {
+    clearCountdownTimer()
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: activeGameManager.setGameConfig({}),
