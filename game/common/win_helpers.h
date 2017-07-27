@@ -92,5 +92,6 @@ private:
 };
 
 std::wstring GetDocumentsPath();
+bool EndsWith(const std::string checked, const std::string suffix);
 
 }  // namespace sbat
