@@ -6,7 +6,6 @@ import glob from 'glob'
 import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
-import { streamEndPromise, streamFinishPromise } from '../../app/common/async/stream-promise'
 
 const accessAsync = thenify(fs.access)
 const globAsync = thenify(glob)
@@ -28,19 +27,6 @@ async function checkHash(path, validHashes) {
   }
 
   return validHashes.includes(hash)
-}
-
-async function maybeCopyLocalDll(dllPath, downgradePath) {
-  const outFile = path.join(downgradePath, 'local.dll')
-  // Check if the local.dll file already exists in our downgradePath
-  const matches = await globAsync(outFile)
-  if (matches.length > 0) return
-
-  // local.dll file doesn't exist; copy it over
-  const inStream = fs.createReadStream(dllPath)
-  const outStream = fs.createWriteStream(outFile)
-  inStream.pipe(outStream)
-  await Promise.all([streamEndPromise(inStream), streamFinishPromise(outStream)])
 }
 
 // Returns whether or not a StarCraft path is valid, along with whether or not the versions of
@@ -67,19 +53,19 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   }
 
   // Due to 1.19 version moving local.dll to a separate folder, we need to handle it separately
-  const matches = await globAsync(`${dirPath}/**/local.dll`)
-  if (matches.length > 0) {
-    maybeCopyLocalDll(matches[0], downgradePath)
-  } else {
+  let matches = await globAsync(`${dirPath}/**/local.dll`)
+  if (matches.length < 1) {
     return { path: false, version: false, downgradePath: false }
   }
 
+  matches = matches.map(match => path.normalize(match))
+  let localDllValid = matches.includes(path.normalize(`${dirPath}/local.dll`))
   let [starcraftValid, stormValid] = await Promise.all([
     checkHash(path.join(dirPath, 'starcraft.exe'), EXE_HASHES_1161),
     checkHash(path.join(dirPath, 'storm.dll'), STORM_HASHES_1161),
   ])
 
-  if (starcraftValid && stormValid) {
+  if (starcraftValid && stormValid && localDllValid) {
     return { path: true, version: true, downgradePath: false }
   }
 
@@ -88,7 +74,10 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
     checkHash(path.join(downgradePath, 'storm.dll'), STORM_HASHES_1161),
   ])
 
-  if (starcraftValid && stormValid) {
+  matches = await globAsync(`${downgradePath}/local.dll`)
+  localDllValid = matches.length > 0
+
+  if (starcraftValid && stormValid && localDllValid) {
     return { path: true, version: true, downgradePath: true }
   } else {
     return { path: true, version: false, downgradePath: false }

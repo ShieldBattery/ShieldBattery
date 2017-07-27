@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import glob from 'glob'
 import childProcess from 'child_process'
 import mkdirp from 'mkdirp'
 import thenify from 'thenify'
@@ -10,6 +11,7 @@ import { fetchJson, fetchReadableStream } from '../network/fetch'
 import { remote } from 'electron'
 
 const asyncMkdirp = thenify(mkdirp)
+const globAsync = thenify(glob)
 
 const bspatchPath = path.resolve(remote.app.getAppPath(), '../game/dist/bspatch.exe')
 
@@ -49,6 +51,13 @@ async function checkFileHash(path, validHashes) {
   }
 }
 
+async function copyFile(inFile, outFile) {
+  const inStream = fs.createReadStream(inFile)
+  const outStream = fs.createWriteStream(outFile)
+  inStream.pipe(outStream)
+  await Promise.all([streamEndPromise(inStream), streamFinishPromise(outStream)])
+}
+
 async function patchFile(dirPath, outPath, filename, validHashes) {
   const inFile = path.join(dirPath, filename)
   const outFile = path.join(outPath, filename)
@@ -61,10 +70,7 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
   const [inValid, inHash] = await checkFileHash(inFile, validHashes)
   if (inValid) {
     // the one in the folder is already valid, we can just copy it over
-    const inStream = fs.createReadStream(inFile)
-    const outStream = fs.createWriteStream(outFile)
-    inStream.pipe(outStream)
-    await Promise.all([streamEndPromise(inStream), streamFinishPromise(outStream)])
+    copyFile(inFile, outFile)
     return
   }
 
@@ -89,11 +95,23 @@ async function patchFile(dirPath, outPath, filename, validHashes) {
   }
 }
 
+async function copyLocalDll(dirPath, downgradePath) {
+  const matches = await globAsync(`${dirPath}/**/local.dll`)
+  if (matches.length < 1) {
+    throw new Error("local.dll doesn't exist in StarCraft directory")
+  }
+  const inFile = matches[0]
+  const outFile = path.join(downgradePath, 'local.dll')
+
+  copyFile(inFile, outFile)
+}
+
 export async function patchStarcraftDir(dirPath, outPath) {
   await asyncMkdirp(outPath)
 
   await Promise.all([
     patchFile(dirPath, outPath, 'starcraft.exe', EXE_HASHES_1161),
     patchFile(dirPath, outPath, 'storm.dll', STORM_HASHES_1161),
+    copyLocalDll(dirPath, outPath),
   ])
 }
