@@ -2,11 +2,14 @@
 
 import fs from 'fs'
 import path from 'path'
+import glob from 'glob'
 import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
+import checkFileExists from '../../app/common/check-file-exists'
 
 const accessAsync = thenify(fs.access)
+const globAsync = thenify(glob)
 
 export const EXE_HASHES_1161 = ['ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46']
 export const STORM_HASHES_1161 = [
@@ -42,7 +45,7 @@ async function checkHash(path, validHashes) {
 // be checked for other copies. If downgradePath contains files that match the correct hashes, this
 // will be counted as having the correct version, but `downgradePath` will be true.
 export async function checkStarcraftPath(dirPath, downgradePath) {
-  const requiredFiles = ['starcraft.exe', 'storm.dll', 'local.dll', 'stardat.mpq', 'broodat.mpq']
+  const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
     await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
@@ -50,21 +53,31 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
     return { path: false, version: false, downgradePath: false }
   }
 
+  // Due to 1.19 version moving local.dll to a separate folder, we need to handle it separately
+  let localDllValid = await checkFileExists(path.join(dirPath, 'local.dll'))
+  if (!localDllValid) {
+    const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
+    if (matches.length < 1) {
+      return { path: false, version: false, downgradePath: false }
+    }
+  }
+
   let [starcraftValid, stormValid] = await Promise.all([
     checkHash(path.join(dirPath, 'starcraft.exe'), EXE_HASHES_1161),
     checkHash(path.join(dirPath, 'storm.dll'), STORM_HASHES_1161),
   ])
 
-  if (starcraftValid && stormValid) {
+  if (starcraftValid && stormValid && localDllValid) {
     return { path: true, version: true, downgradePath: false }
   }
 
-  ;[starcraftValid, stormValid] = await Promise.all([
+  ;[starcraftValid, stormValid, localDllValid] = await Promise.all([
     checkHash(path.join(downgradePath, 'starcraft.exe'), EXE_HASHES_1161),
     checkHash(path.join(downgradePath, 'storm.dll'), STORM_HASHES_1161),
+    checkFileExists(path.join(downgradePath, 'local.dll')),
   ])
 
-  if (starcraftValid && stormValid) {
+  if (starcraftValid && stormValid && localDllValid) {
     return { path: true, version: true, downgradePath: true }
   } else {
     return { path: true, version: false, downgradePath: false }

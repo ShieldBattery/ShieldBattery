@@ -6,6 +6,7 @@
 #include <winsock2.h>
 #include <Windows.h>
 #include <shellapi.h>
+#include <Shlwapi.h>
 
 #include <queue>
 #include <string>
@@ -13,6 +14,7 @@
 
 #include "shieldbattery/settings.h"
 #include "common/func_hook.h"
+#include "common/string_helpers.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "logger/logger.h"
@@ -384,6 +386,19 @@ DWORD __stdcall GetModuleFileNameAHook(
   }
 }
 
+HMODULE __stdcall LoadLibraryAHook(_In_ LPCTSTR filename) {
+  if (EndsWith(filename, "local.dll")) {
+    wchar_t starcraft_exe_path[MAX_PATH];
+    GetModuleFileNameW(NULL, starcraft_exe_path, sizeof(starcraft_exe_path));
+    wstring starcraft_exe_path_string = wstring(starcraft_exe_path);
+    wstring::size_type slash_pos = starcraft_exe_path_string.find_last_of(L"\\/");
+    wstring local_dll_path = starcraft_exe_path_string.substr(0, slash_pos).append(L"\\local.dll");
+    return LoadLibraryW(local_dll_path.c_str());
+  } else {
+    return LoadLibraryA(filename);
+  }
+}
+
 extern "C" __declspec(dllexport) void OnInject() {
   DWORD count = GetCurrentDirectoryA(sizeof(current_dir_on_inject), current_dir_on_inject);
   if (!count) {
@@ -391,6 +406,7 @@ extern "C" __declspec(dllexport) void OnInject() {
   }
   real_starcraft_path = string(current_dir_on_inject) + "\\StarCraft.exe";
   process_hooks.AddHook("kernel32.dll", "GetModuleFileNameA", GetModuleFileNameAHook);
+  process_hooks.AddHook("kernel32.dll", "LoadLibraryA", LoadLibraryAHook);
   process_hooks.Inject();
 
   // note that this is not the exe's entry point, but rather the first point where BW starts doing

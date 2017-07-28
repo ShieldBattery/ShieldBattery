@@ -9,6 +9,7 @@
 #include <string>
 #include <Shlobj.h>
 
+#include "common/string_helpers.h"
 #include "common/types.h"
 #include "common/win_helpers.h"
 #include "logger/logger.h"
@@ -206,15 +207,6 @@ void BroodWar::InjectDetours() {
   offsets_->func_hooks.CenterScreenOnOwnStartLocation.Inject();
 
   process_hooks_.Inject();
-}
-
-bool EndsWith(const string checked, const string suffix) {
-  if (suffix.length() > checked.length()) {
-    return false;
-  }
-
-  int index = checked.rfind(suffix);
-  return index != string::npos && (index + suffix.length() == checked.length());
 }
 
 HANDLE __stdcall BroodWar::CreateFileAHook(LPCSTR lpFileName, DWORD dwDesiredAccess,
