@@ -1,0 +1,20 @@
+**********************************
+ShieldBattery Email Verification
+**********************************
+
+Thank you for signing up to the
+ShieldBattery!
+
+Please confirm your email address by
+clicking the link below. We may need to
+send you critical information about our
+service and it is important that we
+have an accurate email address.
+
+Verify email ( {{{HOST}}}/verify-email?token={{token}}&email={{escapedEmail}} )
+
+gl hf gogogo
+
+— The ShieldBattery team
+
+Follow @ShieldBatteryBW ( http://twitter.com/ShieldBatteryBW ) on Twitter.

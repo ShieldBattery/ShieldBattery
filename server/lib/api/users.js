@@ -1,13 +1,16 @@
 import bcrypt from 'bcrypt'
+import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
+import sendAccountVerificationEmail from '../verifications/send-account-verification-email'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { usePasswordResetCode } from '../models/password-resets'
+import { addEmailVerificationCode, useEmailVerificationCode } from '../models/email-verifications'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
@@ -27,6 +30,8 @@ export default function(router) {
       throw new httpErrors.ImATeapot()
     })
     .post('/:username/password', resetPassword)
+    .post('/:id/emailVerification', verifyEmail)
+    .post('/:id/resendVerification', resendVerificationEmail)
 }
 
 async function find(ctx, next) {
@@ -71,6 +76,10 @@ async function createUser(ctx, next) {
   await ctx.regenerateSession()
   initSession(ctx, result.user, result.permissions)
   setReturningCookie(ctx)
+
+  const code = cuid()
+  await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
+  await sendAccountVerificationEmail(email, code)
   ctx.body = result
 }
 
@@ -95,4 +104,34 @@ async function resetPassword(ctx, next) {
     await user.save()
     ctx.status = 204
   })
+}
+
+async function verifyEmail(ctx, next) {
+  const { id } = ctx.params
+  const { code } = ctx.query
+  const { email } = ctx.request.body
+
+  if (!id || !code || !isValidEmail(email)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const verifiedEmail = await useEmailVerificationCode(id, email, code)
+  if (!verifiedEmail) {
+    throw new httpErrors.BadRequest('Email verification code is invalid')
+  }
+  ctx.body = verifiedEmail
+}
+
+async function resendVerificationEmail(ctx, next) {
+  const { id } = ctx.params
+  const { email } = ctx.request.body
+
+  if (!id || !isValidEmail(email)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const code = cuid()
+  await addEmailVerificationCode(id, email, code, ctx.ip)
+  await sendAccountVerificationEmail(email, code)
+  ctx.status = 204
 }
