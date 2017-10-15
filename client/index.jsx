@@ -31,9 +31,8 @@ if (IS_ELECTRON) {
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
-import { useRouterHistory } from 'react-router'
-import { syncHistoryWithStore } from 'react-router-redux'
-import { createHistory, createHashHistory } from 'history'
+import { ConnectedRouter } from 'react-router-redux'
+import { createBrowserHistory, createHashHistory } from 'history'
 import { ThemeProvider } from 'styled-components'
 
 import createStore from './create-store'
@@ -86,15 +85,8 @@ Promise.all([rootElemPromise, updatedServerPromise])
       initData.auth = authFromJS(initData.auth)
     }
 
-    let history = useRouterHistory(!IS_ELECTRON ? createHistory : createHashHistory)()
+    const history = !IS_ELECTRON ? createBrowserHistory() : createHashHistory()
     const store = createStore(initData, history)
-    history = syncHistoryWithStore(history, store, {
-      // Since we're using a custom reducer, we have to adjust the state to be shaped like
-      // react-router-redux expects
-      selectLocationState: ({ routing }) => ({
-        locationBeforeTransitions: routing.location,
-      }),
-    })
     registerDispatch(store.dispatch)
     registerSocketHandlers()
 
@@ -123,11 +115,13 @@ Promise.all([rootElemPromise, updatedServerPromise])
   .then(({ elem, store, history, analyticsId }) => {
     render(
       <Provider store={store}>
-        <RedirectProvider>
-          <ThemeProvider theme={colors}>
-            <App history={history} analyticsId={analyticsId} />
-          </ThemeProvider>
-        </RedirectProvider>
+        <ConnectedRouter history={history}>
+          <RedirectProvider>
+            <ThemeProvider theme={colors}>
+              <App analyticsId={analyticsId} />
+            </ThemeProvider>
+          </RedirectProvider>
+        </ConnectedRouter>
       </Provider>,
       elem,
     )

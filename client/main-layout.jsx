@@ -1,25 +1,32 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router'
+import { Link, Route, Switch } from 'react-router-dom'
 import { routerActions } from 'react-router-redux'
 import keycode from 'keycode'
-import { goToIndex } from './navigation/action-creators'
 import styles from './main-layout.css'
 
+import ActiveGame from './active-game/view.jsx'
 import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
+import AdminPanel from './admin/panel.jsx'
+import ChatChannel from './chat/channel.jsx'
+import ChatList from './chat/list.jsx'
+import { ConditionalRoute } from './navigation/custom-routes.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
+import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
+import LobbyView from './lobbies/view.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
+import Whisper from './whispers/whisper.jsx'
 import WindowControls from './window-controls/window-controls.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
@@ -50,6 +57,7 @@ import { leaveLobby } from './lobbies/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
+import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 
 import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 
@@ -57,6 +65,13 @@ const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_S = keycode('s')
+
+let activeGameRoute
+let lobbyRoute
+if (IS_ELECTRON) {
+  activeGameRoute = <Route path="/active-game" component={ActiveGame} />
+  lobbyRoute = <Route path="/lobbies/:lobby" component={LobbyView} />
+}
 
 function stateToProps(state) {
   return {
@@ -89,18 +104,6 @@ class MainLayout extends React.Component {
   _avatarButtonRef = null
   _setAvatarButtonRef = elem => {
     this._avatarButtonRef = elem
-  }
-
-  componentWillMount() {
-    if (!this.props.children) {
-      this.props.dispatch(goToIndex(routerActions.replace))
-    }
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (!nextProps.children) {
-      nextProps.dispatch(goToIndex(routerActions.replace))
-    }
   }
 
   componentDidMount() {
@@ -295,7 +298,17 @@ class MainLayout extends React.Component {
             <Subheader button={addWhisperButton}>Whispers</Subheader>
             <Section>{whisperNav}</Section>
           </LeftNav>
-          {this.props.children}
+          <Switch>
+            {activeGameRoute}
+            <ConditionalRoute path="/admin" filters={[IsAdminFilter]} component={AdminPanel} />
+            <Route path="/chat" exact={true} component={ChatList} />
+            <Route path="/chat/:channel" component={ChatChannel} />
+            {lobbyRoute}
+            <Route path="/whispers/:target" component={Whisper} />
+            {/* If no paths match, redirect the page to the "index". Note: this means that we can't
+                actually have a 404 page, but I don't think we really need one? */}
+            <Index transitionFn={routerActions.replace} />
+          </Switch>
           <ActivityBar
             user={this.props.auth.user.name}
             avatarTitle={this.props.auth.user.name}

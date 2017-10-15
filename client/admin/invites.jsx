@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
+import queryString from 'query-string'
 import { Range } from 'immutable'
 import styles from './admin.css'
 
@@ -13,7 +14,7 @@ const LIMIT = 25
 @connect(state => ({ invites: state.invites }))
 export default class Invites extends React.Component {
   _retrieveData() {
-    const { location: { query: { accepted, page } } } = this.props
+    const { accepted, page } = queryString.parse(this.props.location.search)
     let type
     if (accepted === 'true') {
       type = 'accepted'
@@ -29,10 +30,9 @@ export default class Invites extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (
-      prevProps.location.query.accepted !== this.props.location.query.accepted ||
-      prevProps.location.query.page !== this.props.location.query.page
-    ) {
+    const prevSearch = queryString.parse(prevProps.location.search)
+    const search = queryString.parse(this.props.location.search)
+    if (prevSearch.accepted !== search.accepted || prevSearch.page !== search.page) {
       this._retrieveData()
     }
   }
@@ -97,9 +97,9 @@ export default class Invites extends React.Component {
   }
 
   renderPaging() {
-    const { location: { query: { accepted, page } } } = this.props
     const { total } = this.props.invites
     const numOfPages = Math.ceil(total / LIMIT)
+    const { accepted, page } = queryString.parse(this.props.location.search)
 
     const search =
       accepted === 'true' || accepted === 'false' ? '?accepted=' + accepted + '&page=' : '?page='

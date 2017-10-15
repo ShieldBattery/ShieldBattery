@@ -9,8 +9,10 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import BanUsers from './bans.jsx'
 import PermissionsResult from './permissions.jsx'
+import { ConditionalRoute } from '../navigation/custom-routes.jsx'
 
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
+import { CanViewUserProfileFilter } from './admin-route-filters.jsx'
 import {
   USERNAME_MINLENGTH,
   USERNAME_MAXLENGTH,
@@ -20,7 +22,7 @@ import {
 @connect(state => ({ auth: state.auth }))
 export class UserProfile extends React.Component {
   render() {
-    const { auth: { permissions: perms }, params: { username } } = this.props
+    const { auth: { permissions: perms }, match: { params: { username } } } = this.props
 
     const children = []
     if (perms.editPermissions) {
@@ -74,7 +76,7 @@ export class UserFind extends React.Component {
 
   render() {
     const model = {
-      username: this.props.params.username,
+      username: this.props.match.params.username,
     }
     return (
       <ContentLayout title={'Users'}>
@@ -84,7 +86,11 @@ export class UserFind extends React.Component {
             <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
             <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
           </div>
-          {this.props.children}
+          <ConditionalRoute
+            path="/admin/users/:username"
+            filters={[CanViewUserProfileFilter]}
+            component={UserProfile}
+          />
         </div>
       </ContentLayout>
     )

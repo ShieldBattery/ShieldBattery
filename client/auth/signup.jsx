@@ -1,8 +1,10 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
+import queryString from 'query-string'
 import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
+
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -150,11 +152,7 @@ export default class Signup extends React.Component {
       errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
     }
 
-    const model = {
-      username: location.query.username,
-      email: location.query.email,
-    }
-
+    const model = queryString.parse(location.search)
     return (
       <div className={styles.content}>
         <div className={authChangeInProgress ? styles.formLoading : styles.form}>
@@ -177,10 +175,10 @@ export default class Signup extends React.Component {
   }
 
   onLogInClick = () => {
-    const query = {
+    const search = queryString.stringify({
       ...this.props.location.query,
-    }
-    this.props.dispatch(routerActions.push({ pathname: '/login', query }))
+    })
+    this.props.dispatch(routerActions.push({ pathname: '/login', search }))
   }
 
   onSubmit = () => {

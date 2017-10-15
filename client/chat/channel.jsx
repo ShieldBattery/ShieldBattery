@@ -144,9 +144,9 @@ const mapStateToProps = state => {
 
 function isLeavingChannel(oldProps, newProps) {
   return (
-    oldProps.params === newProps.params &&
-    oldProps.chat.byName.has(oldProps.params.channel.toLowerCase()) &&
-    !newProps.chat.byName.has(oldProps.params.channel.toLowerCase())
+    oldProps.location === newProps.location &&
+    oldProps.chat.byName.has(oldProps.match.params.channel.toLowerCase()) &&
+    !newProps.chat.byName.has(oldProps.match.params.channel.toLowerCase())
   )
 }
 
@@ -159,7 +159,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   componentDidMount() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = this.props.match.params.channel
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
@@ -176,14 +176,14 @@ export default class ChatChannelView extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    const routeChannel = this.props.params.channel
+    const routeChannel = this.props.match.params.channel
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
       this.props.dispatch(activateChannel(routeChannel))
     } else if (
       !prevProps.chat.byName.has(routeChannel) &&
-      prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()
+      prevProps.match.params.channel.toLowerCase() !== routeChannel.toLowerCase()
     ) {
       if (MULTI_CHANNEL) {
         this.props.dispatch(joinChannel(routeChannel))
@@ -192,21 +192,21 @@ export default class ChatChannelView extends React.Component {
       }
     }
     if (
-      prevProps.params.channel &&
-      prevProps.params.channel.toLowerCase() !== routeChannel.toLowerCase()
+      prevProps.match.params.channel &&
+      prevProps.match.params.channel.toLowerCase() !== routeChannel.toLowerCase()
     ) {
-      this.props.dispatch(deactivateChannel(prevProps.params.channel))
+      this.props.dispatch(deactivateChannel(prevProps.match.params.channel))
     }
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(this.props.params.channel))
+    this.props.dispatch(deactivateChannel(this.props.match.params.channel))
   }
 
   renderChannel() {
     return (
       <Channel
-        channel={this.props.chat.byName.get(this.props.params.channel.toLowerCase())}
+        channel={this.props.chat.byName.get(this.props.match.params.channel.toLowerCase())}
         onSendChatMessage={this._handleSendChatMessage}
         onRequestMoreHistory={this._handleRequestMoreHistory}
       />
@@ -214,7 +214,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   render() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = this.props.match.params.channel
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
     return (
@@ -233,15 +233,15 @@ export default class ChatChannelView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    this.props.dispatch(sendMessage(this.props.params.channel, msg))
+    this.props.dispatch(sendMessage(this.props.match.params.channel, msg))
   }
 
   onRequestMoreHistory() {
-    this.props.dispatch(retrieveNextMessageHistory(this.props.params.channel))
+    this.props.dispatch(retrieveNextMessageHistory(this.props.match.params.channel))
   }
 
   _isInChannel() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = this.props.match.params.channel
     return this.props.chat.byName.has(routeChannel.toLowerCase())
   }
 }

@@ -1,11 +1,14 @@
 import React from 'react'
-import { Route } from 'react-router'
+import { Route, Switch } from 'react-router-dom'
 import Lobby from './lobby-test.jsx'
 import Loading from './loading-test.jsx'
 
-export default (
-  <Route path="/devlobbies/">
-    <Route path="lobby" component={Lobby} />
-    <Route path="loading" component={Loading} />
-  </Route>
-)
+export default props => {
+  const baseUrl = props.match.url
+  return (
+    <Switch>
+      <Route path={baseUrl + '/lobby'} component={Lobby} />
+      <Route path={baseUrl + '/loading'} component={Loading} />
+    </Switch>
+  )
+}
