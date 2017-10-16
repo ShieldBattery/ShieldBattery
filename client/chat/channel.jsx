@@ -176,6 +176,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
+    const prevChannel = prevProps.match.params.channel
     const routeChannel = this.props.match.params.channel
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
@@ -183,7 +184,7 @@ export default class ChatChannelView extends React.Component {
       this.props.dispatch(activateChannel(routeChannel))
     } else if (
       !prevProps.chat.byName.has(routeChannel) &&
-      prevProps.match.params.channel.toLowerCase() !== routeChannel.toLowerCase()
+      prevChannel.toLowerCase() !== routeChannel.toLowerCase()
     ) {
       if (MULTI_CHANNEL) {
         this.props.dispatch(joinChannel(routeChannel))
@@ -191,11 +192,8 @@ export default class ChatChannelView extends React.Component {
         this.props.dispatch(routerActions.push('/'))
       }
     }
-    if (
-      prevProps.match.params.channel &&
-      prevProps.match.params.channel.toLowerCase() !== routeChannel.toLowerCase()
-    ) {
-      this.props.dispatch(deactivateChannel(prevProps.match.params.channel))
+    if (prevChannel && prevChannel.toLowerCase() !== routeChannel.toLowerCase()) {
+      this.props.dispatch(deactivateChannel(prevChannel))
     }
   }
 

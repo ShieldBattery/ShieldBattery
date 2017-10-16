@@ -175,9 +175,7 @@ export default class Signup extends React.Component {
   }
 
   onLogInClick = () => {
-    const search = queryString.stringify({
-      ...this.props.location.query,
-    })
+    const { search } = this.props.location
     this.props.dispatch(routerActions.push({ pathname: '/login', search }))
   }
 

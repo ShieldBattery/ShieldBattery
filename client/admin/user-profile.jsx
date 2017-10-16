@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { Route } from 'react-router-dom'
 import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
@@ -9,10 +10,8 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import BanUsers from './bans.jsx'
 import PermissionsResult from './permissions.jsx'
-import { ConditionalRoute } from '../navigation/custom-routes.jsx'
 
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
-import { CanViewUserProfileFilter } from './admin-route-filters.jsx'
 import {
   USERNAME_MINLENGTH,
   USERNAME_MAXLENGTH,
@@ -86,11 +85,7 @@ export class UserFind extends React.Component {
             <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
             <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
           </div>
-          <ConditionalRoute
-            path="/admin/users/:username"
-            filters={[CanViewUserProfileFilter]}
-            component={UserProfile}
-          />
+          <Route path="/admin/users/:username" component={UserProfile} />
         </div>
       </ContentLayout>
     )
