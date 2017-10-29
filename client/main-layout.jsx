@@ -288,7 +288,7 @@ class MainLayout extends React.Component {
     return (
       <div>
         <WindowControls className={styles.windowControls} />
-        <ConnectedDialogOverlay className={styles.layout} containerClassName={styles.content}>
+        <div className={styles.layout}>
           <LeftNav footer={footer}>
             {this.renderActiveGameNav()}
             {this.renderLobbyNav()}
@@ -319,7 +319,8 @@ class MainLayout extends React.Component {
           {this.renderAvatarOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
-        </ConnectedDialogOverlay>
+          <ConnectedDialogOverlay />
+        </div>
       </div>
     )
   }

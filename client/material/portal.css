@@ -5,6 +5,7 @@
 .portal {
   contain: layout style;
   position: relative;
+  z-index: 0;
 }
 
 .scrim {

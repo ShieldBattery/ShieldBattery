@@ -1,6 +1,9 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import TransitionGroup from 'react-addons-css-transition-group'
+import styles from '../material/dialog.css'
+
+import Portal from '../material/portal.jsx'
 import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
@@ -11,20 +14,32 @@ import DownloadDialog from '../download/download-dialog.jsx'
 import UpdateDialog from '../download/update-dialog.jsx'
 import AcceptMatch from '../matchmaking/accept-match.jsx'
 import { closeDialog } from './dialog-action-creator'
-import styles from '../material/dialog.css'
 
 const transitionNames = {
+  appear: styles.enter,
+  appearActive: styles.enterActive,
   enter: styles.enter,
   enterActive: styles.enterActive,
   leave: styles.leave,
   leaveActive: styles.leaveActive,
 }
 
+const CLOSE_TIME = 250
+
 @connect(state => ({ dialog: state.dialog }))
 class ConnectedDialogOverlay extends React.Component {
+  state = {
+    isClosing: false,
+  }
+
+  _closeTimer = null
   _focusable = null
   _setFocusable = elem => {
     this._focusable = elem
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this._closeTimer)
   }
 
   getDialogComponent(dialogType) {
@@ -52,13 +67,14 @@ class ConnectedDialogOverlay extends React.Component {
     }
   }
 
-  renderDialog() {
+  renderDialog = () => {
     const { dialog } = this.props
+    const { isClosing } = this.state
 
     // Dialog content implementations should focus *something* when mounted, so that our focus traps
     // have the proper effect of keeping focus in the dialog
     let dialogComponent
-    if (dialog.isDialogOpened) {
+    if (dialog.isDialogOpened && !isClosing) {
       const DialogComponent = this.getDialogComponent(dialog.dialogType)
       dialogComponent = (
         <DialogComponent
@@ -75,8 +91,10 @@ class ConnectedDialogOverlay extends React.Component {
       <span key="mainFocus" ref={this._setFocusable} tabIndex={-1}>
         <TransitionGroup
           transitionName={transitionNames}
+          transitionAppear={true}
+          transitionAppearTimeout={350}
           transitionEnterTimeout={350}
-          transitionLeaveTimeout={250}>
+          transitionLeaveTimeout={CLOSE_TIME}>
           {dialogComponent}
         </TransitionGroup>
       </span>,
@@ -86,20 +104,20 @@ class ConnectedDialogOverlay extends React.Component {
 
   render() {
     const { dialog } = this.props
-    // We always render a dialog even if we don't have one, so that its always mounted (and
-    // thus usable for TransitionGroup animations)
+
     return (
-      <div className={this.props.containerClassName}>
-        <div className={this.props.className} aria-hidden={dialog.isDialogOpened}>
-          {this.props.children}
-        </div>
-        {this.renderDialog()}
-      </div>
+      <Portal onDismiss={this.onCancel} open={dialog.isDialogOpened} scrim={true}>
+        {this.renderDialog}
+      </Portal>
     )
   }
 
   onCancel = () => {
-    this.props.dispatch(closeDialog())
+    this.setState({ isClosing: true })
+    this._closeTimer = setTimeout(() => {
+      this.setState({ isClosing: false })
+      this.props.dispatch(closeDialog())
+    }, CLOSE_TIME)
   }
 
   onFocusTrap = () => {

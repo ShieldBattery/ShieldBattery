@@ -30,11 +30,6 @@ export default class Portal extends React.Component {
   }
 
   portal = null
-  content = null
-  setContent = elem => {
-    this.content = elem
-  }
-  _registeredWindowClick = false
 
   componentDidMount() {
     this.renderPortal()
@@ -48,35 +43,6 @@ export default class Portal extends React.Component {
     this.removePortal()
   }
 
-  onClickAway = event => {
-    if (!this.props.onDismiss || !this.props.open) return
-
-    if (
-      this.props.scrim ||
-      (event.currentTarget === window && !this.content.contains(event.target))
-    ) {
-      this.props.onDismiss()
-    }
-  }
-
-  registerWindowClick() {
-    if (this._registeredWindowClick) return
-
-    // Ensure that if this component was added because of a click, it doesn't receive that event
-    // itself
-    setTimeout(() => {
-      window.addEventListener('click', this.onClickAway)
-      this._registeredWindowClick = true
-    }, 0)
-  }
-
-  unregisterWindowClick() {
-    if (!this._registeredWindowClick) return
-
-    window.removeEventListener('click', this.onClickAway)
-    this._registeredWindowClick = false
-  }
-
   renderPortal() {
     const { open, scrim, children } = this.props
 
@@ -86,26 +52,22 @@ export default class Portal extends React.Component {
       document.body.appendChild(this.portal)
     }
 
-    if (open) {
-      if (scrim) {
-        this.unregisterWindowClick()
-      } else {
-        this.registerWindowClick()
-      }
-    } else {
-      this.unregisterWindowClick()
-    }
-
+    const scrimStyle = scrim ? { opacity: 1 } : { opacity: 0 }
     const contents = (
-      <div ref={this.setContent}>
+      <div>
         <TransitionGroup
           transitionName={transitionNames}
           transitionAppear={true}
           transitionAppearTimeout={250}
           transitionEnterTimeout={250}
           transitionLeaveTimeout={200}>
-          {open && scrim ? (
-            <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway} />
+          {open ? (
+            <div
+              key={'scrim'}
+              className={styles.scrim}
+              style={scrimStyle}
+              onClick={this.onClickAway}
+            />
           ) : null}
         </TransitionGroup>
         {open ? children() : null}
@@ -114,14 +76,17 @@ export default class Portal extends React.Component {
     renderSubtreeIntoContainer(this, contents, this.portal)
   }
 
+  onClickAway = event => {
+    if (!this.props.onDismiss || !this.props.open) return
+    this.props.onDismiss()
+  }
+
   removePortal() {
     if (!this.portal) return
 
-    this.unregisterWindowClick()
     unmountComponentAtNode(this.portal)
     document.body.removeChild(this.portal)
     this.portal = null
-    this.content = null
   }
 
   render() {
