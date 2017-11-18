@@ -11,7 +11,6 @@ const ESCAPE = keycode('esc')
 
 class Dialog extends React.Component {
   static propTypes = {
-    modal: PropTypes.bool,
     onCancel: PropTypes.func,
     title: PropTypes.string.isRequired,
     showCloseButton: PropTypes.bool,
@@ -67,7 +66,7 @@ class Dialog extends React.Component {
   }
 
   onKeyDown = event => {
-    if (this.props.onCancel && !this.props.modal && event.keyCode === ESCAPE) {
+    if (this.props.onCancel && event.keyCode === ESCAPE) {
       this.props.onCancel()
       return true
     }

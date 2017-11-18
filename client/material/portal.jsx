@@ -20,13 +20,15 @@ const transitionNames = {
 // the React root. This is useful for things like modal dialogs, popovers, etc. Contains
 // functionality for being dismissed when a click-away occurs, and can optionally scrim the screen
 // behind the portal content. If a scrim is displayed, clicks will not propagate to the elements
-// behind it.
+// behind it. If a scrim is not displayed though, the propagation of clicks to the elements behind
+// it can be configured with `propagateClicks` props.
 export default class Portal extends React.Component {
   static propTypes = {
     children: PropTypes.func.isRequired,
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func,
     scrim: PropTypes.bool,
+    propagateClicks: PropTypes.bool,
   }
 
   portal = null
@@ -44,7 +46,7 @@ export default class Portal extends React.Component {
   }
 
   renderPortal() {
-    const { open, scrim, children } = this.props
+    const { open, scrim, propagateClicks, children } = this.props
 
     if (!this.portal) {
       this.portal = document.createElement('div')
@@ -52,7 +54,9 @@ export default class Portal extends React.Component {
       document.body.appendChild(this.portal)
     }
 
-    const scrimStyle = scrim ? { opacity: 1 } : { opacity: 0 }
+    const scrimStyle = propagateClicks
+      ? { visibility: scrim ? 'visible' : 'hidden' }
+      : { opacity: scrim ? 1 : 0 }
     const contents = (
       <div>
         <TransitionGroup

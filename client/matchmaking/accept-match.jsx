@@ -55,7 +55,7 @@ export default class AcceptMatch extends React.Component {
 
   render() {
     return (
-      <Dialog title="Accept match" modal={true} showCloseButton={false}>
+      <Dialog title="Accept match" showCloseButton={false}>
         {this.renderDialogContents()}
       </Dialog>
     )
