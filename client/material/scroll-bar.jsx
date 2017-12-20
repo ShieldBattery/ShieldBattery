@@ -34,10 +34,11 @@ export class ScrollableContent extends React.Component {
 
   constructor(props) {
     super(props)
-    this._renderView = ({ children, style }) =>
+    this._renderView = ({ children, style }) => (
       <div className={this.props.viewClassName} style={style}>
         {children}
       </div>
+    )
 
     this._scrollBars = null
     this._setScrollBarsRef = elem => {

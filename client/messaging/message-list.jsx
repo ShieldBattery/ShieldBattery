@@ -87,9 +87,7 @@ export default class MessageList extends React.Component {
     }
 
     return (
-      <div className={styles.loadingArea}>
-        {this.props.loading ? <LoadingIndicator /> : null}
-      </div>
+      <div className={styles.loadingArea}>{this.props.loading ? <LoadingIndicator /> : null}</div>
     )
   }
 

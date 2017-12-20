@@ -30,11 +30,7 @@ class UserListEntry extends React.Component {
   }
 
   render() {
-    return (
-      <li className={styles.userListEntry}>
-        {this.props.user}
-      </li>
-    )
+    return <li className={styles.userListEntry}>{this.props.user}</li>
   }
 }
 
@@ -54,12 +50,8 @@ class UserList extends React.Component {
 
     return (
       <div className={styles.userListSection}>
-        <p className={styles.userSubheader}>
-          {title}
-        </p>
-        <ul className={styles.userSublist}>
-          {users.map(u => <UserListEntry user={u} key={u} />)}
-        </ul>
+        <p className={styles.userSubheader}>{title}</p>
+        <ul className={styles.userSublist}>{users.map(u => <UserListEntry user={u} key={u} />)}</ul>
       </div>
     )
   }
@@ -229,11 +221,13 @@ export default class ChatChannelView extends React.Component {
       <ContentLayout
         title={`#${channel ? channel.name : routeChannel}`}
         appBarContentClassName={styles.appBarContent}>
-        {channel
-          ? this.renderChannel()
-          : <div className={styles.loadingArea}>
-              <LoadingIndicator />
-            </div>}
+        {channel ? (
+          this.renderChannel()
+        ) : (
+          <div className={styles.loadingArea}>
+            <LoadingIndicator />
+          </div>
+        )}
       </ContentLayout>
     )
   }

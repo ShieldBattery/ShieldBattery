@@ -28,9 +28,11 @@ export default class OpenSlot extends React.Component {
   renderControls() {
     const { controlledOpen, canSetRace, race, onSetRace } = this.props
     if (controlledOpen) {
-      return canSetRace
-        ? <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
-        : <SelectedRace className={styles.slotRace} race={race} />
+      return canSetRace ? (
+        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+      ) : (
+        <SelectedRace className={styles.slotRace} race={race} />
+      )
     } else {
       return null
     }

@@ -10,9 +10,7 @@ export default class SimpleDialog extends React.Component {
 
     return (
       <Dialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
-        <p className={styles.bodyText}>
-          {simpleContent}
-        </p>
+        <p className={styles.bodyText}>{simpleContent}</p>
       </Dialog>
     )
   }

@@ -27,7 +27,7 @@ export default class MapList extends React.Component {
       onMapClick,
     } = this.props
 
-    const mapList = maps.map(map =>
+    const mapList = maps.map(map => (
       <MapThumbnail
         key={map.hash}
         map={map}
@@ -36,14 +36,10 @@ export default class MapList extends React.Component {
         mapClassName={mapClassName}
         thumbnailClassName={thumbnailClassName}
         onMapClick={() => onMapClick(map)}
-      />,
-    )
+      />
+    ))
 
     const mapListClasses = classnames(styles.mapList, className)
-    return (
-      <div className={mapListClasses}>
-        {mapList}
-      </div>
-    )
+    return <div className={mapListClasses}>{mapList}</div>
   }
 }

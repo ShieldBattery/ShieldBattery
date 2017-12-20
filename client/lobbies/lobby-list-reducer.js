@@ -34,7 +34,10 @@ function handleFull(state, data) {
       return [summary.name, summary]
     }),
   )
-  const list = byName.keySeq().sort((a, b) => a.localeCompare(b)).toList()
+  const list = byName
+    .keySeq()
+    .sort((a, b) => a.localeCompare(b))
+    .toList()
   return new LobbyList({ list, byName })
 }
 

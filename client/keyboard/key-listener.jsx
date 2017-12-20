@@ -92,11 +92,7 @@ export default class KeyListener extends React.Component {
     } else if (count === 1) {
       return React.Children.only(children)
     } else {
-      return (
-        <div>
-          {children}
-        </div>
-      )
+      return <div>{children}</div>
     }
   }
 }

@@ -42,11 +42,7 @@ const Ticks = ({ show, min, max, step }) => {
       <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }} />,
     )
 
-    container = (
-      <span className={styles.tickContainer}>
-        {elems}
-      </span>
-    )
+    container = <span className={styles.tickContainer}>{elems}</span>
   }
 
   return (
@@ -133,9 +129,7 @@ class Slider extends React.Component {
     return (
       <div className={className}>
         <div className={styles.balloonAfter} />
-        <span className={styles.balloonText}>
-          {this.props.value}
-        </span>
+        <span className={styles.balloonText}>{this.props.value}</span>
       </div>
     )
   }
@@ -151,11 +145,11 @@ class Slider extends React.Component {
     const optionNum = (this.props.value - this.props.min) / this.props.step
     const thumbPosition = stepPercentage * optionNum
 
-    const labelElement = this.props.label
-      ? <label className={styles.label} htmlFor={this.id}>
-          {this.props.label}
-        </label>
-      : null
+    const labelElement = this.props.label ? (
+      <label className={styles.label} htmlFor={this.id}>
+        {this.props.label}
+      </label>
+    ) : null
 
     const thumbClass = this.props.value === this.props.min ? styles.thumbEmpty : styles.thumb
     const thumbContainerStyle = {

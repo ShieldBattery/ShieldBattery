@@ -59,11 +59,11 @@ export default class SelfProfileOverlay extends React.Component {
               transitionAppearTimeout={openDelay + openDuration}
               transitionEnterTimeout={openDuration}
               transitionLeaveTimeout={closeDuration}>
-              {state === 'opening' || state === 'opened'
-                ? <SelfProfileContents key={'contents'} user={user} style={style}>
-                    {children}
-                  </SelfProfileContents>
-                : null}
+              {state === 'opening' || state === 'opened' ? (
+                <SelfProfileContents key={'contents'} user={user} style={style}>
+                  {children}
+                </SelfProfileContents>
+              ) : null}
             </TransitionGroup>
           )
         }}
@@ -85,9 +85,7 @@ export class SelfProfileContents extends React.Component {
       <div className={styles.contents}>
         <div className={styles.header} style={style}>
           <Avatar className={styles.avatar} user={user} />
-          <h3 className={styles.username}>
-            {user}
-          </h3>
+          <h3 className={styles.username}>{user}</h3>
         </div>
         <div className={styles.actions} style={style}>
           {children}

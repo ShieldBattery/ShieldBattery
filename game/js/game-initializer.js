@@ -138,7 +138,10 @@ function buildNetworkMappings(routes, slots, host) {
     .concat(players.filterNot(p => p.id === host.id))
   const routesById = new Map(routes.map(r => [r.forId, r.route]))
   const netInfos = ordered.map(p => routesById.get(p.id))
-  return netInfos.toKeyedSeq().mapKeys(i => `10.27.27.${i}`).toJS()
+  return netInfos
+    .toKeyedSeq()
+    .mapKeys(i => `10.27.27.${i}`)
+    .toJS()
 }
 
 async function createLobby(gameType, gameSubType, mapPath) {

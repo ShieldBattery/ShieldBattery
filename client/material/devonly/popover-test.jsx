@@ -172,13 +172,13 @@ export default class OverflowTest extends React.Component {
         transitionAppearTimeout={openDelay + openDuration}
         transitionEnterTimeout={openDuration}
         transitionLeaveTimeout={closeDuration}>
-        {state === 'opening' || state === 'opened'
-          ? <div className={styles.contents} style={style}>
-              <h2>Hello</h2>
-              <h3>World</h3>
-              <h4>How are you?</h4>
-            </div>
-          : null}
+        {state === 'opening' || state === 'opened' ? (
+          <div className={styles.contents} style={style}>
+            <h2>Hello</h2>
+            <h3>World</h3>
+            <h4>How are you?</h4>
+          </div>
+        ) : null}
       </TransitionGroup>
     )
   }

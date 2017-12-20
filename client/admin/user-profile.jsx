@@ -30,11 +30,7 @@ export class UserProfile extends React.Component {
       children.push(<BanUsers key="bans" username={username} />)
     }
 
-    return (
-      <div>
-        {children}
-      </div>
-    )
+    return <div>{children}</div>
   }
 }
 

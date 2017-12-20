@@ -203,13 +203,7 @@
     "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
     "babel/space-in-brackets": 0,
 
-    "prettier/prettier": ["error", {
-      "jsxBracketSameLine": true,
-      "printWidth": 100,
-      "semi": false,
-      "singleQuote": true,
-      "trailingComma": "all"
-    }],
+    "prettier/prettier": 2,
 
     "react/display-name": 0,
     "react/jsx-boolean-value": [2, "always"],

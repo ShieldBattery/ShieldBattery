@@ -139,12 +139,8 @@ class QuestionSection extends React.PureComponent {
       <div id={makeQuestionId(question)} className={styles.faqFeature}>
         <div className={styles.faqText}>
           <QuestionIcon className={styles.faqQuestionIcon} />
-          <h3 className={styles.faqQuestion}>
-            {question}
-          </h3>
-          <div className={styles.faqAnswer}>
-            {answer}
-          </div>
+          <h3 className={styles.faqQuestion}>{question}</h3>
+          <div className={styles.faqAnswer}>{answer}</div>
         </div>
       </div>
     )
@@ -153,11 +149,7 @@ class QuestionSection extends React.PureComponent {
 
 class FragmentLink extends React.PureComponent {
   render() {
-    return (
-      <Link to={`${this.props.to}#${this.props.fragment}`}>
-        {this.props.children}
-      </Link>
-    )
+    return <Link to={`${this.props.to}#${this.props.fragment}`}>{this.props.children}</Link>
   }
 }
 
@@ -195,18 +187,18 @@ export default class Faq extends React.Component {
         <div id={'faqToc'} className={styles.faqToc}>
           <h3>Frequently Asked Questions</h3>
           <ul>
-            {questions.map((q, i) =>
+            {questions.map((q, i) => (
               <li key={`question-${i}`}>
                 <FragmentLink to="/faq" fragment={makeQuestionId(q.question)}>
                   {q.question}
                 </FragmentLink>
-              </li>,
-            )}
+              </li>
+            ))}
           </ul>
         </div>
-        {questions.map((q, i) =>
-          <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />,
-        )}
+        {questions.map((q, i) => (
+          <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
+        ))}
       </div>
     )
   }

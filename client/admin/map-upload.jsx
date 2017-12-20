@@ -27,16 +27,8 @@ export default class UploadMap extends React.Component {
   _form = null
 
   renderResult() {
-    const results = this.state.results.entrySeq().map(([idx, val]) =>
-      <div key={idx}>
-        {val}
-      </div>,
-    )
-    return (
-      <div>
-        {results}
-      </div>
-    )
+    const results = this.state.results.entrySeq().map(([idx, val]) => <div key={idx}>{val}</div>)
+    return <div>{results}</div>
   }
 
   render() {

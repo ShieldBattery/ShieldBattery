@@ -15,7 +15,7 @@ export const Display4 = styled.h1`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay4};
   font-weight: 300;
-  letter-spacing: -0.010em;
+  letter-spacing: -0.01em;
   line-height: ${textSizeDisplay4};
 `
 
@@ -59,24 +59,24 @@ export const Subheading = styled.h5`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeSubhead};
   font-weight: 400;
-  letter-spacing: 0.010em;
+  letter-spacing: 0.01em;
   line-height: 24px;
 `
 
 export const Caption = styled.h6`
   font-weight: 400;
   font-size: ${textSizeCaption};
-  letter-spacing: 0.020em;
+  letter-spacing: 0.02em;
 `
 
 export const Body2 = styled.span`
   font-weight: 500;
-  letter-spacing: 0.010em;
+  letter-spacing: 0.01em;
   line-height: 24px;
 `
 
 export const Body1 = styled.span`
   font-weight: 400;
-  letter-spacing: 0.010em;
+  letter-spacing: 0.01em;
   line-height: 20px;
 `

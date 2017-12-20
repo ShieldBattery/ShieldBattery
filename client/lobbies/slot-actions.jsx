@@ -33,9 +33,9 @@ export default class SlotActions extends React.Component {
 
   render() {
     const { slotActions } = this.props
-    const actions = slotActions.map(([text, handler], i) =>
-      <SlotAction key={i} text={text} onClick={handler} />,
-    )
+    const actions = slotActions.map(([text, handler], i) => (
+      <SlotAction key={i} text={text} onClick={handler} />
+    ))
 
     return (
       <div>
@@ -108,11 +108,11 @@ export class SlotActionsOverlay extends React.Component {
               transitionAppearTimeout={openDuration}
               transitionEnterTimeout={openDuration}
               transitionLeaveTimeout={closeDuration}>
-              {state === 'opening' || state === 'opened'
-                ? <SlotActionsContents key={'contents'} style={style}>
-                    {children}
-                  </SlotActionsContents>
-                : null}
+              {state === 'opening' || state === 'opened' ? (
+                <SlotActionsContents key={'contents'} style={style}>
+                  {children}
+                </SlotActionsContents>
+              ) : null}
             </TransitionGroup>
           )
         }}

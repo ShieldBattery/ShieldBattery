@@ -76,14 +76,14 @@ const routes = (
                   <Route component={CanAcceptBetaInvitesFilter}>
                     <Route path="/admin/invites" component={AdminBetaInvites} />
                   </Route>
-                  {AdminPatchUpload
-                    ? <Route component={CanManageStarcraftPatchesFilter}>
-                        <Route path="/admin/patch-upload" component={AdminPatchUpload} />
-                      </Route>
-                    : null}
-                  {AdminMapUpload
-                    ? <Route path="/admin/map-upload" component={AdminMapUpload} />
-                    : null}
+                  {AdminPatchUpload ? (
+                    <Route component={CanManageStarcraftPatchesFilter}>
+                      <Route path="/admin/patch-upload" component={AdminPatchUpload} />
+                    </Route>
+                  ) : null}
+                  {AdminMapUpload ? (
+                    <Route path="/admin/map-upload" component={AdminMapUpload} />
+                  ) : null}
                 </Route>
               </Route>
               <Route path="/chat">

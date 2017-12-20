@@ -85,9 +85,7 @@ export default class LoadingTest extends React.Component {
 
     return (
       <div style={containerStyle}>
-        <p>
-          Status: {JSON.stringify(gameStatus)}
-        </p>
+        <p>Status: {JSON.stringify(gameStatus)}</p>
         <LoadingScreen lobby={lobby} gameStatus={gameStatus} user={user} />
       </div>
     )

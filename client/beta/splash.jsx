@@ -18,16 +18,10 @@ const FeatureSection = ({ title, titleStyle, body, image }) => {
   return (
     <div className={styles.feature}>
       <div className={styles.featureText}>
-        <h3 className={titleStyle}>
-          {title}
-        </h3>
-        <p className={styles.featureBody}>
-          {body}
-        </p>
+        <h3 className={titleStyle}>{title}</h3>
+        <p className={styles.featureBody}>{body}</p>
       </div>
-      <div className={styles.featureImage}>
-        {image}
-      </div>
+      <div className={styles.featureImage}>{image}</div>
     </div>
   )
 }
@@ -134,15 +128,15 @@ export default class Splash extends React.Component {
           Entertainment.
         </p>
 
-        {features.map((f, i) =>
+        {features.map((f, i) => (
           <FeatureSection
             title={f.title}
             body={f.body}
             image={f.image}
             key={`feature-${i}`}
             titleStyle={i % 2 === 0 ? styles.titleBlue : styles.titleAmber}
-          />,
-        )}
+          />
+        ))}
       </div>
     )
   }

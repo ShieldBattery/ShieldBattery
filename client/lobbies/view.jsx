@@ -156,29 +156,25 @@ export default class LobbyView extends React.Component {
       }
     } else if (lobby.state) {
       preLobbyAreaContents = [
-        lobby.isRequesting
-          ? <div key="loading" className={styles.loadingArea}>
-              <LoadingIndicator />
-            </div>
-          : null,
+        lobby.isRequesting ? (
+          <div key="loading" className={styles.loadingArea}>
+            <LoadingIndicator />
+          </div>
+        ) : null,
         this.renderLobbyStateContent(lobby.state),
       ]
     } else if (lobby.error) {
       preLobbyAreaContents = [
-        lobby.isRequesting
-          ? <div key="loading" className={styles.loadingArea}>
-              <LoadingIndicator />
-            </div>
-          : null,
+        lobby.isRequesting ? (
+          <div key="loading" className={styles.loadingArea}>
+            <LoadingIndicator />
+          </div>
+        ) : null,
         <p>There was a problem loading this lobby</p>,
       ]
     }
 
-    return (
-      <div className={styles.preLobbyArea}>
-        {preLobbyAreaContents}
-      </div>
-    )
+    return <div className={styles.preLobbyArea}>{preLobbyAreaContents}</div>
   }
 
   renderLeaveAndJoin() {

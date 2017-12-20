@@ -90,25 +90,17 @@ class ForgotFormHolder extends React.Component {
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = (
-        <div className={styles.errors}>
-          Error: {lastFailure.err}
-        </div>
-      )
+      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
     }
     const successContents =
-      this.state.success && successMessage
-        ? <p className={styles.success}>
-            {successMessage}
-          </p>
-        : null
+      this.state.success && successMessage ? (
+        <p className={styles.success}>{successMessage}</p>
+      ) : null
 
     return (
       <div className={styles.content}>
         <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-          <h3 className={styles.title}>
-            {title}
-          </h3>
+          <h3 className={styles.title}>{title}</h3>
           <div className={styles.formContents}>
             {errContents}
             {successContents}
@@ -179,13 +171,14 @@ const FORGOT_USER_SUCCESS =
   'If there are any users registered to that email address, you should ' +
   'receive an email in the next few minutes with the relevant usernames.'
 const doForgotUserSubmit = values => retrieveUsername(values.email)
-export const ForgotUser = () =>
+export const ForgotUser = () => (
   <ForgotFormHolder
     form={ForgotUserForm}
     title={'Recover your username'}
     doSubmit={doForgotUserSubmit}
     successMessage={FORGOT_USER_SUCCESS}
   />
+)
 
 @form({
   email: emailValidator,
@@ -238,13 +231,14 @@ const FORGOT_PASSWORD_SUCCESS =
   'you should receive an email in the next few minutes with instructions on how to reset ' +
   'your password.'
 const doPasswordResetStart = values => startPasswordReset(values.username, values.email)
-export const ForgotPassword = () =>
+export const ForgotPassword = () => (
   <ForgotFormHolder
     form={ForgotPasswordForm}
     title={'Reset password'}
     doSubmit={doPasswordResetStart}
     successMessage={FORGOT_PASSWORD_SUCCESS}
   />
+)
 
 const tokenValidator = required('Enter your password reset code')
 const passwordValidator = composeValidators(

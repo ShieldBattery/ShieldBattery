@@ -56,9 +56,7 @@ export default class Button extends React.Component {
 
     return (
       <button ref={this._setRef} {...otherProps} {...buttonProps}>
-        <span className={labelClasses}>
-          {label}
-        </span>
+        <span className={labelClasses}>{label}</span>
       </button>
     )
   }

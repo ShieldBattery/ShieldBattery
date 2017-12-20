@@ -27,9 +27,7 @@ export default class Entry extends React.Component {
         <Link className={styles.entryLink} to={link} title={title}>
           {children}
         </Link>
-        <div className={styles.entryButton}>
-          {button}
-        </div>
+        <div className={styles.entryButton}>{button}</div>
       </li>
     )
   }

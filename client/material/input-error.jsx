@@ -4,11 +4,11 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import styles from './input-error.css'
 
 const InputError = props => {
-  const errorText = props.error
-    ? <div className={styles.error} key="error">
-        {props.error}
-      </div>
-    : null
+  const errorText = props.error ? (
+    <div className={styles.error} key="error">
+      {props.error}
+    </div>
+  ) : null
   return (
     <TransitionGroup
       transitionName={{

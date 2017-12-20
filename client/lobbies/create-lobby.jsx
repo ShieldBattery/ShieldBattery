@@ -98,17 +98,17 @@ class CreateLobbyForm extends React.Component {
     if (gameType === 'topVBottom') {
       return (
         <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
-          {Range(slots - 1, 0).map(top =>
-            <Option key={top} value={top} text={`${top} vs ${slots - top}`} />,
-          )}
+          {Range(slots - 1, 0).map(top => (
+            <Option key={top} value={top} text={`${top} vs ${slots - top}`} />
+          ))}
         </Select>
       )
     } else {
       return (
         <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
-          {Range(2, Math.min(slots, 4) + 1).map(numTeams =>
-            <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />,
-          )}
+          {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
+            <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />
+          ))}
         </Select>
       )
     }
@@ -116,9 +116,9 @@ class CreateLobbyForm extends React.Component {
 
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
-    let mapListContents = maps.list.map(hash =>
-      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />,
-    )
+    let mapListContents = maps.list.map(hash => (
+      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
+    ))
     if (maps.localMapHash) {
       const text = maps.byHash.get(maps.localMapHash).name
       mapListContents = mapListContents.unshift(
@@ -149,13 +149,13 @@ class CreateLobbyForm extends React.Component {
             disabled={!mapListContents.size}>
             {mapListContents}
           </Select>
-          {MAP_UPLOADING
-            ? <RaisedButton
-                className={styles.mapBrowse}
-                label="Browse"
-                onClick={this.props.onMapBrowse}
-              />
-            : null}
+          {MAP_UPLOADING ? (
+            <RaisedButton
+              className={styles.mapBrowse}
+              label="Browse"
+              onClick={this.props.onMapBrowse}
+            />
+          ) : null}
         </div>
         <Select {...bindCustom('gameType')} label="Game type" tabIndex={0}>
           {GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)} />)}
@@ -241,16 +241,12 @@ export default class CreateLobby extends React.Component {
           maps={maps}
         />
         <RaisedButton label="Create lobby" onClick={this.onCreateClick} />
-        {maps.uploadError
-          ? <div>
-              {'Uploading the map failed :('}
-            </div>
-          : null}
-        {maps.isUploading
-          ? <div className={styles.loadingArea}>
-              <LoadingIndicator />
-            </div>
-          : null}
+        {maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null}
+        {maps.isUploading ? (
+          <div className={styles.loadingArea}>
+            <LoadingIndicator />
+          </div>
+        ) : null}
       </div>
     )
   }

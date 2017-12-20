@@ -13,15 +13,18 @@ export async function parseAndHashMap(filePath, extension) {
     const scmExtractor = createScmExtractor()
     stream.on('error', e => reject(e))
     scmExtractor.on('error', e => reject(e))
-    stream.pipe(hasher).pipe(scmExtractor).pipe(
-      Chk.createStream((err, chk) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(chk)
-        }
-      }),
-    )
+    stream
+      .pipe(hasher)
+      .pipe(scmExtractor)
+      .pipe(
+        Chk.createStream((err, chk) => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve(chk)
+          }
+        }),
+      )
   })
   const hash = await hasher.hashPromise
   return {

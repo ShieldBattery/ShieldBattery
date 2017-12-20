@@ -89,16 +89,19 @@ export function fetchJson(path, opts) {
       if (!err.res) throw err
 
       // Make a best effort to parse the error body as JSON
-      return err.res.text().then(parsePrefixedJson).then(
-        errJson => {
-          err.body = errJson
-          throw err
-        },
-        () => {
-          err.body = { error: err.message }
-          throw err
-        },
-      )
+      return err.res
+        .text()
+        .then(parsePrefixedJson)
+        .then(
+          errJson => {
+            err.body = errJson
+            throw err
+          },
+          () => {
+            err.body = { error: err.message }
+            throw err
+          },
+        )
     })
 }
 

@@ -33,9 +33,11 @@ export default class PlayerSlot extends React.Component {
       return null
     }
 
-    return canSetRace
-      ? <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
-      : <SelectedRace className={styles.slotRace} race={race} />
+    return canSetRace ? (
+      <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+    ) : (
+      <SelectedRace className={styles.slotRace} race={race} />
+    )
   }
 
   render() {
@@ -49,9 +51,11 @@ export default class PlayerSlot extends React.Component {
       onKickPlayer,
       onBanPlayer,
     } = this.props
-    const avatar = isComputer
-      ? <ComputerAvatar className={styles.slotAvatar} />
-      : <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
+    const avatar = isComputer ? (
+      <ComputerAvatar className={styles.slotAvatar} />
+    ) : (
+      <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
+    )
     const displayName = isComputer ? 'Computer' : name
 
     const slotActions = []
@@ -69,9 +73,7 @@ export default class PlayerSlot extends React.Component {
       <div className={styles.slot}>
         <div className={styles.slotLeft}>
           {avatar}
-          <span className={styles.slotName}>
-            {displayName}
-          </span>
+          <span className={styles.slotName}>{displayName}</span>
         </div>
         <div className={styles.slotRight}>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}

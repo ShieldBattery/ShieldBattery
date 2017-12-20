@@ -44,9 +44,7 @@ class FolderEntry extends React.Component {
           <Folder />
         </div>
         <div className={styles.info}>
-          <span className={styles.name}>
-            {folder.name}
-          </span>
+          <span className={styles.name}>{folder.name}</span>
         </div>
       </div>
     )
@@ -69,16 +67,10 @@ class FileEntry extends React.Component {
 
     return (
       <div className={classes} onClick={() => onClick(file)}>
-        <div className={styles.entryIcon}>
-          {icon}
-        </div>
+        <div className={styles.entryIcon}>{icon}</div>
         <div className={styles.info}>
-          <span className={styles.name}>
-            {file.name}
-          </span>
-          <span className={styles.date}>
-            {dateFormat.format(file.date)}
-          </span>
+          <span className={styles.name}>{file.name}</span>
+          <span className={styles.date}>{dateFormat.format(file.date)}</span>
         </div>
       </div>
     )
@@ -123,11 +115,7 @@ class PathBreadcrumbs extends React.Component {
       { elems: [], curPath: '' },
     )
 
-    return (
-      <div className={this.props.className}>
-        {elems}
-      </div>
-    )
+    return <div className={this.props.className}>{elems}</div>
   }
 }
 
@@ -164,30 +152,24 @@ export default class Files extends React.Component {
     }
 
     if (lastError) {
-      return (
-        <p>
-          {lastError.message}
-        </p>
-      )
+      return <p>{lastError.message}</p>
     }
 
     const isRootFolder = path === this.props.root
 
     return (
       <div className={styles.fileList}>
-        {!isRootFolder
-          ? <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
-              <div className={styles.entryIcon}>
-                <UpDirectory />
-              </div>
-              <div className={styles.name}>
-                {'Up one directory'}
-              </div>
+        {!isRootFolder ? (
+          <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
+            <div className={styles.entryIcon}>
+              <UpDirectory />
             </div>
-          : null}
-        {folders.map(folder =>
-          <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />,
-        )}
+            <div className={styles.name}>{'Up one directory'}</div>
+          </div>
+        ) : null}
+        {folders.map(folder => (
+          <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
+        ))}
         {files.map(file => {
           const extension = file.path.substr(file.path.lastIndexOf('.') + 1).toLowerCase()
           if (this.props.fileTypes[extension]) {
@@ -209,9 +191,7 @@ export default class Files extends React.Component {
       <div className={styles.root}>
         <div className={styles.topBar}>
           <div className={styles.titleAndActions}>
-            <h3 className={styles.contentTitle}>
-              {title}
-            </h3>
+            <h3 className={styles.contentTitle}>{title}</h3>
             <IconButton icon={<Refresh />} onClick={this.onRefreshClick} title={'Refresh'} />
           </div>
           <PathBreadcrumbs
@@ -220,11 +200,7 @@ export default class Files extends React.Component {
             onNavigate={this.onBreadcrumbNavigate}
           />
         </div>
-        {error
-          ? <div className={styles.externalError}>
-              {error}
-            </div>
-          : null}
+        {error ? <div className={styles.externalError}>{error}</div> : null}
         <ScrollableContent
           className={styles.filesScrollable}
           viewClassName={styles.filesScrollableView}>

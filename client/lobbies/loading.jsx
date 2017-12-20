@@ -218,11 +218,7 @@ class LoadingMessage extends React.Component {
 
   render() {
     const message = LOADING_MESSAGES[this.state.messageIndex]
-    return (
-      <span className={styles.loadingMessage}>
-        {message}&hellip;
-      </span>
-    )
+    return <span className={styles.loadingMessage}>{message}&hellip;</span>
   }
 }
 
@@ -235,17 +231,17 @@ class LoadingPlayer extends React.Component {
   render() {
     const { player, isReady } = this.props
     const isComputer = player.type === 'computer'
-    const avatar = isComputer
-      ? <ComputerAvatar className={styles.playerAvatar} />
-      : <Avatar user={player.name} className={styles.playerAvatar} />
+    const avatar = isComputer ? (
+      <ComputerAvatar className={styles.playerAvatar} />
+    ) : (
+      <Avatar user={player.name} className={styles.playerAvatar} />
+    )
     const displayName = isComputer ? 'Computer' : player.name
 
     return (
       <Card className={isReady ? styles.readyPlayer : styles.player}>
         {avatar}
-        <span className={styles.playerName}>
-          {displayName}
-        </span>
+        <span className={styles.playerName}>{displayName}</span>
         <RaceIcon className={styles.playerRace} race={player.race} />
       </Card>
     )
@@ -270,25 +266,21 @@ export default class LoadingScreen extends React.Component {
       return gameStatus.extra ? !gameStatus.extra.includes(p.name) : true
     }
 
-    const playerElems = getPlayerSlots(lobby).map(p =>
-      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />,
-    )
+    const playerElems = getPlayerSlots(lobby).map(p => (
+      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />
+    ))
 
     return (
       <div className={styles.content}>
         <div className={styles.typeAndMap}>
           <span className={styles.gameType}>Melee</span>
           <span className={styles.gameTypeMapBridge}> on </span>
-          <span className={styles.mapName}>
-            {lobby.map.name}
-          </span>
+          <span className={styles.mapName}>{lobby.map.name}</span>
         </div>
         <div>
           <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
         </div>
-        <div className={styles.players}>
-          {playerElems}
-        </div>
+        <div className={styles.players}>{playerElems}</div>
         <LoadingMessage />
       </div>
     )

@@ -143,9 +143,7 @@ class CountdownTickMessage extends React.Component {
   render() {
     return (
       <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
-        <span>
-          {this.props.timeLeft}&hellip;
-        </span>
+        <span>{this.props.timeLeft}&hellip;</span>
       </ChatMessageLayout>
     )
   }
@@ -415,24 +413,18 @@ export default class Lobby extends React.Component {
       <div className={styles.contentArea}>
         <div className={styles.left}>
           <Card className={styles.slots}>
-            <div className={styles.slotColumn}>
-              {slots}
-            </div>
+            <div className={styles.slotColumn}>{slots}</div>
           </Card>
           <ChatList messages={this.props.chat} />
           <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
         </div>
 
         <div className={styles.info}>
-          <h3 className={styles.mapName}>
-            {lobby.map.name}
-          </h3>
+          <h3 className={styles.mapName}>{lobby.map.name}</h3>
           <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Game type</span>
-            <span className={styles.infoValue}>
-              {gameTypeToString(lobby.gameType)}
-            </span>
+            <span className={styles.infoValue}>{gameTypeToString(lobby.gameType)}</span>
           </div>
           {this.renderCountdown()}
           {this.renderStartButton()}
@@ -447,11 +439,7 @@ export default class Lobby extends React.Component {
       return null
     }
 
-    return (
-      <h3 className={styles.countdown}>
-        {lobby.countdownTimer}
-      </h3>
-    )
+    return <h3 className={styles.countdown}>{lobby.countdownTimer}</h3>
   }
 
   renderStartButton() {

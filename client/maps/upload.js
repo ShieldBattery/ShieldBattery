@@ -9,7 +9,10 @@ import fetch from '../network/fetch'
 const asyncStat = thenify(fs.stat)
 
 export default async function uploadMap(mapPath) {
-  const extension = path.extname(mapPath).slice(1).toLowerCase()
+  const extension = path
+    .extname(mapPath)
+    .slice(1)
+    .toLowerCase()
 
   const hasher = new HashThrough()
   const file = fs.createReadStream(mapPath)

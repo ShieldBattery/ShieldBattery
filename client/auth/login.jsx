@@ -141,11 +141,7 @@ export default class Login extends React.Component {
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = (
-        <div className={styles.errors}>
-          Error: {lastFailure.err}
-        </div>
-      )
+      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
     }
 
     return (

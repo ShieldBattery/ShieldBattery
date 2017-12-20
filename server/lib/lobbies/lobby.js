@@ -245,7 +245,9 @@ export function create(
     .toList()
 
   if (gameType === 'melee' && allowObservers) {
-    const observerSlots = Range(slots.size, 8).map(() => Slots.createClosed()).toList()
+    const observerSlots = Range(slots.size, 8)
+      .map(() => Slots.createClosed())
+      .toList()
     const observerTeam = new Team({
       name: 'Observers',
       isObserver: true,

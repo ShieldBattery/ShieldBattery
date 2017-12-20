@@ -222,7 +222,10 @@ export default keyedReducer(new ChatState(), {
       const [active, idle, offline] = updateUserState(user, users.active, users.idle, users.offline)
       wasIdle = idle !== users.idle
 
-      return users.set('active', active).set('idle', idle).set('offline', offline)
+      return users
+        .set('active', active)
+        .set('idle', idle)
+        .set('offline', offline)
     })
 
     if (!updated.byName.get(lowerCaseChannel).hasLoadedHistory) {
@@ -250,7 +253,10 @@ export default keyedReducer(new ChatState(), {
     return state.updateIn(['byName', channel.toLowerCase(), 'users'], users => {
       const [idle, active, offline] = updateUserState(user, users.idle, users.active, users.offline)
 
-      return users.set('active', active).set('idle', idle).set('offline', offline)
+      return users
+        .set('active', active)
+        .set('idle', idle)
+        .set('offline', offline)
     })
   },
 
@@ -260,7 +266,10 @@ export default keyedReducer(new ChatState(), {
     const updated = state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
       const [offline, active, idle] = updateUserState(user, users.offline, users.active, users.idle)
 
-      return users.set('active', active).set('idle', idle).set('offline', offline)
+      return users
+        .set('active', active)
+        .set('idle', idle)
+        .set('offline', offline)
     })
 
     if (!updated.byName.get(lowerCaseChannel).hasLoadedHistory) {

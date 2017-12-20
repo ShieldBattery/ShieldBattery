@@ -73,7 +73,10 @@ export default class MapStore {
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject).on('finish', resolve)
-        request.get(mapUrl).on('error', reject).pipe(outStream)
+        request
+          .get(mapUrl)
+          .on('error', reject)
+          .pipe(outStream)
       })
 
       return true

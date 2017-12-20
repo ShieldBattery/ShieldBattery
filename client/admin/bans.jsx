@@ -74,18 +74,10 @@ export default class BanUsers extends React.Component {
   renderBanRow(ban) {
     return (
       <tr key={ban.startTime}>
-        <td>
-          {dateFormat.format(ban.startTime)}
-        </td>
-        <td>
-          {dateFormat.format(ban.endTime)}
-        </td>
-        <td>
-          {ban.bannedBy}
-        </td>
-        <td>
-          {ban.reason}
-        </td>
+        <td>{dateFormat.format(ban.startTime)}</td>
+        <td>{dateFormat.format(ban.endTime)}</td>
+        <td>{ban.bannedBy}</td>
+        <td>{ban.reason}</td>
       </tr>
     )
   }
@@ -104,9 +96,7 @@ export default class BanUsers extends React.Component {
             <th>Reason</th>
           </tr>
         </thead>
-        <tbody>
-          {bans.map(b => this.renderBanRow(b))}
-        </tbody>
+        <tbody>{bans.map(b => this.renderBanRow(b))}</tbody>
       </table>
     )
   }
@@ -139,18 +129,12 @@ export default class BanUsers extends React.Component {
     }
 
     if (user.lastError) {
-      return (
-        <p>
-          {user.lastError.message}
-        </p>
-      )
+      return <p>{user.lastError.message}</p>
     }
 
     return (
       <div className={styles.bans}>
-        <h3>
-          Ban history for {username}
-        </h3>
+        <h3>Ban history for {username}</h3>
         {this.renderBanHistory(user)}
         {this.renderBanUserForm(user)}
       </div>

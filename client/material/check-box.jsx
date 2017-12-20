@@ -30,11 +30,7 @@ export default class CheckBox extends React.Component {
       [styles.focused]: this.state.isKeyboardFocused,
     })
 
-    const labelElem = label
-      ? <label htmlFor={this.id}>
-          {this.props.label}
-        </label>
-      : null
+    const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
     const iconElem = <div className={styles.icon} />
 
     const internalInputProps = {
@@ -54,9 +50,7 @@ export default class CheckBox extends React.Component {
     return (
       <div className={classes}>
         {inputElem}
-        <div className={styles.iconContainer}>
-          {iconElem}
-        </div>
+        <div className={styles.iconContainer}>{iconElem}</div>
         {labelElem}
       </div>
     )

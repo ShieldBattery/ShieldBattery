@@ -76,10 +76,6 @@ export default class LobbyTest extends React.Component {
       justifyContent: 'space-around',
       padding: 8,
     }
-    return (
-      <div style={style}>
-        {LOBBIES.map(this.renderLobby)}
-      </div>
-    )
+    return <div style={style}>{LOBBIES.map(this.renderLobby)}</div>
   }
 }

@@ -147,13 +147,13 @@ class MainLayout extends React.Component {
         onDismiss={this.onCloseProfileOverlay}
         anchor={this._avatarButtonRef}
         user={this.props.auth.user.name}>
-        {window._sbFeedbackUrl
-          ? <ProfileAction
-              icon={<FeedbackIcon />}
-              text="Send feedback"
-              onClick={this.onFeedbackClick}
-            />
-          : null}
+        {window._sbFeedbackUrl ? (
+          <ProfileAction
+            icon={<FeedbackIcon />}
+            text="Send feedback"
+            onClick={this.onFeedbackClick}
+          />
+        ) : null}
         <ProfileAction
           icon={<ChangelogIcon />}
           text="View changelog"
@@ -172,15 +172,15 @@ class MainLayout extends React.Component {
       routing: { location: { pathname } },
     } = this.props
 
-    const channelNav = chatChannels.map(c =>
+    const channelNav = chatChannels.map(c => (
       <ChatNavEntry
         key={c.name}
         channel={c.name}
         currentPath={pathname}
         hasUnread={c.hasUnread}
         onLeave={this.onChannelLeave}
-      />,
-    )
+      />
+    ))
     const joinChannelButton = (
       <IconButton
         icon={<AddIcon />}
@@ -189,15 +189,15 @@ class MainLayout extends React.Component {
         onClick={this.onJoinChannelClick}
       />
     )
-    const whisperNav = whispers.map(w =>
+    const whisperNav = whispers.map(w => (
       <WhisperNavEntry
         key={w.name}
         user={w.name}
         currentPath={pathname}
         hasUnread={w.hasUnread}
         onClose={this.onWhisperClose}
-      />,
-    )
+      />
+    ))
     const addWhisperButton = (
       <IconButton
         icon={<AddIcon />}
@@ -207,34 +207,36 @@ class MainLayout extends React.Component {
       />
     )
     const footer = [
-      DEV_INDICATOR
-        ? <span key="dev" className={styles.devIndicator}>
-            Dev Mode
-          </span>
-        : null,
+      DEV_INDICATOR ? (
+        <span key="dev" className={styles.devIndicator}>
+          Dev Mode
+        </span>
+      ) : null,
       <ActiveUserCount key="userCount" className={styles.userCount} />,
-      isAdmin(this.props.auth)
-        ? <p key="adminPanel">
-            <Link to="/admin">Admin</Link>
-          </p>
-        : null,
+      isAdmin(this.props.auth) ? (
+        <p key="adminPanel">
+          <Link to="/admin">Admin</Link>
+        </p>
+      ) : null,
     ]
-    const findMatchButton = !this.props.matchmaking.isFinding
-      ? <ActivityButton
-          key="find-match"
-          icon={<FindMatchIcon />}
-          label="Find match"
-          onClick={this.onFindMatchClick}
-          disabled={inGameplayActivity}
-          keycode={KEY_F}
-          altKey={true}
-        />
-      : <ActivityButton
-          key="cancel-match"
-          icon={<CancelMatchIcon />}
-          label="Cancel"
-          onClick={this.onCancelFindMatchClick}
-        />
+    const findMatchButton = !this.props.matchmaking.isFinding ? (
+      <ActivityButton
+        key="find-match"
+        icon={<FindMatchIcon />}
+        label="Find match"
+        onClick={this.onFindMatchClick}
+        disabled={inGameplayActivity}
+        keycode={KEY_F}
+        altKey={true}
+      />
+    ) : (
+      <ActivityButton
+        key="cancel-match"
+        icon={<CancelMatchIcon />}
+        label="Cancel"
+        onClick={this.onCancelFindMatchClick}
+      />
+    )
     const activityButtons = IS_ELECTRON
       ? [
           findMatchButton,
@@ -288,14 +290,10 @@ class MainLayout extends React.Component {
             {this.renderActiveGameNav()}
             {this.renderLobbyNav()}
             <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
-            <Section>
-              {channelNav}
-            </Section>
+            <Section>{channelNav}</Section>
             <Divider />
             <Subheader button={addWhisperButton}>Whispers</Subheader>
-            <Section>
-              {whisperNav}
-            </Section>
+            <Section>{whisperNav}</Section>
           </LeftNav>
           {this.props.children}
           <ActivityBar

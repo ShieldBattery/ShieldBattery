@@ -104,9 +104,9 @@ export default class Portal extends React.Component {
           transitionAppearTimeout={250}
           transitionEnterTimeout={250}
           transitionLeaveTimeout={200}>
-          {open && scrim
-            ? <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway} />
-            : null}
+          {open && scrim ? (
+            <div key={'scrim'} className={styles.scrim} onClick={this.onClickAway} />
+          ) : null}
         </TransitionGroup>
         {open ? children() : null}
       </div>

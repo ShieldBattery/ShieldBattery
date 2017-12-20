@@ -254,16 +254,16 @@ export default class Popover extends React.Component {
           <WindowListener event="resize" listener={this.recalcPopoverPosition} />
           <WindowListener event="scroll" listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown}>
-            {open
-              ? <div key={'popover'} className={styles.popover} style={popoverStyle}>
-                  <div className={styles.scaleHorizontal} style={this.state.scaleHorizontalStyle}>
-                    <div className={styles.scaleVertical} style={this.state.scaleVerticalStyle}>
-                      <div className={styles.background} style={this.state.backgroundStyle} />
-                    </div>
+            {open ? (
+              <div key={'popover'} className={styles.popover} style={popoverStyle}>
+                <div className={styles.scaleHorizontal} style={this.state.scaleHorizontalStyle}>
+                  <div className={styles.scaleVertical} style={this.state.scaleVerticalStyle}>
+                    <div className={styles.background} style={this.state.backgroundStyle} />
                   </div>
-                  {children(state, TIMINGS)}
                 </div>
-              : null}
+                {children(state, TIMINGS)}
+              </div>
+            ) : null}
           </KeyListener>
         </span>
       )

@@ -12,9 +12,7 @@ export default class Subheader extends React.Component {
 
     return (
       <div className={styles.subheader}>
-        <p className={styles.subheaderTitle}>
-          {children}
-        </p>
+        <p className={styles.subheaderTitle}>{children}</p>
         {button}
       </div>
     )

@@ -48,32 +48,20 @@ export default class Invites extends React.Component {
   renderInviteeRow(invitee) {
     return (
       <tr key={invitee.email}>
+        <td>{invitee.email}</td>
+        <td>{invitee.teamliquidName}</td>
+        <td>{invitee.os}</td>
+        <td>{invitee.browser}</td>
+        <td>{invitee.graphics}</td>
+        <td>{invitee.canHost ? <span>Yes</span> : <span>No</span>}</td>
         <td>
-          {invitee.email}
-        </td>
-        <td>
-          {invitee.teamliquidName}
-        </td>
-        <td>
-          {invitee.os}
-        </td>
-        <td>
-          {invitee.browser}
-        </td>
-        <td>
-          {invitee.graphics}
-        </td>
-        <td>
-          {invitee.canHost ? <span>Yes</span> : <span>No</span>}
-        </td>
-        <td>
-          {invitee.isAccepted
-            ? <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
-                Signup Link
-              </a>
-            : <span>
-                {this.renderAcceptLink(invitee)}
-              </span>}
+          {invitee.isAccepted ? (
+            <a href={`/signup?token=${invitee.token}&email=${encodeURIComponent(invitee.email)}`}>
+              Signup Link
+            </a>
+          ) : (
+            <span>{this.renderAcceptLink(invitee)}</span>
+          )}
         </td>
       </tr>
     )
@@ -96,9 +84,7 @@ export default class Invites extends React.Component {
             <th>Accepted</th>
           </tr>
         </thead>
-        <tbody>
-          {signups.map(e => this.renderInviteeRow(byEmail.get(e)))}
-        </tbody>
+        <tbody>{signups.map(e => this.renderInviteeRow(byEmail.get(e)))}</tbody>
       </table>
     )
   }
@@ -107,11 +93,7 @@ export default class Invites extends React.Component {
     const { lastError } = this.props.invites
     if (!lastError) return null
 
-    return (
-      <div className={styles.invitesError}>
-        {lastError.message}
-      </div>
-    )
+    return <div className={styles.invitesError}>{lastError.message}</div>
   }
 
   renderPaging() {
@@ -125,11 +107,7 @@ export default class Invites extends React.Component {
     const parsedPage = parseInt(page, 10)
     const pagesLinks = Range(1, numOfPages + 1).map(pageNum => {
       if ((!page && pageNum === 1) || pageNum === parsedPage) {
-        return (
-          <span key={pageNum}>
-            {pageNum}{' '}
-          </span>
-        )
+        return <span key={pageNum}>{pageNum} </span>
       }
       return (
         <Link to={'/admin/invites' + search + pageNum} key={pageNum}>

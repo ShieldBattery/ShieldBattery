@@ -15,9 +15,7 @@ class AppBar extends React.Component {
       <header className={styles.appBar}>
         <div className={this.props.contentClassName}>
           <div className={styles.content}>
-            <h4 className={styles.title}>
-              {this.props.title}
-            </h4>
+            <h4 className={styles.title}>{this.props.title}</h4>
             {this.props.children}
           </div>
         </div>

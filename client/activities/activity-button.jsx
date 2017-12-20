@@ -15,12 +15,8 @@ export default class ActivityButton extends React.Component {
 
     return (
       <button className={styles.button} disabled={disabled} onClick={onClick}>
-        <div className={styles.buttonIcon}>
-          {icon}
-        </div>
-        <span className={styles.buttonLabel}>
-          {label}
-        </span>
+        <div className={styles.buttonIcon}>{icon}</div>
+        <span className={styles.buttonLabel}>{label}</span>
       </button>
     )
   }

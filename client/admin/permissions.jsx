@@ -76,20 +76,14 @@ export default class PermissionsResult extends React.Component {
     }
 
     if (user.lastError) {
-      return (
-        <p>
-          {user.lastError.message}
-        </p>
-      )
+      return <p>{user.lastError.message}</p>
     }
 
     const model = user.toObject()
 
     return (
       <div className={styles.saveForm}>
-        <h3>
-          Set permissions for {username}
-        </h3>
+        <h3>Set permissions for {username}</h3>
         <UserPermissionsForm
           ref={this._setForm}
           isSelf={username === this.props.auth.user.name}

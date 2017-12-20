@@ -144,9 +144,7 @@ class Select extends React.Component {
           tabIndex={this.props.disabled ? undefined : this.props.tabIndex || 0}
           onFocus={this.onFocus}
           onBlur={this.onBlur}>
-          <span className={styles.value}>
-            {displayValue}
-          </span>
+          <span className={styles.value}>{displayValue}</span>
           <span className={styles.icon}>
             <ArrowDropDownIcon />
           </span>
@@ -216,16 +214,16 @@ class Select extends React.Component {
             transitionAppearTimeout={200}
             transitionEnterTimeout={200}
             transitionLeaveTimeout={CLOSE_TIME}>
-            {isOpened && !isClosing
-              ? <div
-                  key="overlay"
-                  ref={this._setOverlay}
-                  className={styles.overlay}
-                  style={overlayStyle}
-                  onMouseMove={this.onMouseMove}>
-                  {options}
-                </div>
-              : null}
+            {isOpened && !isClosing ? (
+              <div
+                key="overlay"
+                ref={this._setOverlay}
+                className={styles.overlay}
+                style={overlayStyle}
+                onMouseMove={this.onMouseMove}>
+                {options}
+              </div>
+            ) : null}
           </TransitionGroup>
         </span>
       )

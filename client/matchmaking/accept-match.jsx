@@ -46,9 +46,7 @@ export default class AcceptMatch extends React.Component {
       return (
         <div>
           {!hasAccepted ? <RaisedButton label="Accept" onClick={this.onAcceptClick} /> : null}
-          <h3>
-            {acceptTime}
-          </h3>
+          <h3>{acceptTime}</h3>
           <h4>{`${match.acceptedPlayers} / ${match.numPlayers}`}</h4>
         </div>
       )

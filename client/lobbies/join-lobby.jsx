@@ -25,18 +25,10 @@ class ListEntry extends React.Component {
     return (
       <div className={styles.listEntry} onClick={() => onClick(lobby)}>
         <div className={styles.info}>
-          <span className={styles.name}>
-            {lobby.name}
-          </span>
-          <span className={styles.hostName}>
-            {lobby.host.name}
-          </span>
-          <span className={styles.gameType}>
-            {gameTypeToString(lobby.gameType)}
-          </span>
-          <span className={styles.openSlots}>
-            {lobby.openSlotCount} slots open
-          </span>
+          <span className={styles.name}>{lobby.name}</span>
+          <span className={styles.hostName}>{lobby.host.name}</span>
+          <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
+          <span className={styles.openSlots}>{lobby.openSlotCount} slots open</span>
         </div>
         <MapThumbnail map={lobby.map} shouldDisplayMapName={true} />
       </div>
@@ -72,11 +64,13 @@ export default class JoinLobby extends React.Component {
     const openLobbies = list.filter(name => byName.get(name).openSlotCount > 0)
     return (
       <div className={styles.list}>
-        {!openLobbies.isEmpty()
-          ? openLobbies.map(name =>
-              <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />,
-            )
-          : <p className={styles.emptyText}>There are no open lobbies</p>}
+        {!openLobbies.isEmpty() ? (
+          openLobbies.map(name => (
+            <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />
+          ))
+        ) : (
+          <p className={styles.emptyText}>There are no open lobbies</p>
+        )}
       </div>
     )
   }

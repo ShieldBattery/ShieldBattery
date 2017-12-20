@@ -16,9 +16,7 @@ class MainLayout extends React.Component {
             <div className={styles.logoText}>
               <LogoText />
             </div>
-            <div>
-              {this.props.children}
-            </div>
+            <div>{this.props.children}</div>
           </div>
         </div>
       </div>

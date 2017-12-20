@@ -26,10 +26,9 @@ function getLocalTime(date) {
   return hour + ':' + minute + ' ' + (isPm ? 'PM' : 'AM')
 }
 
-export const ChatTimestamp = props =>
-  <span className={styles.timestamp}>
-    {getLocalTime(new Date(props.time))}
-  </span>
+export const ChatTimestamp = props => (
+  <span className={styles.timestamp}>{getLocalTime(new Date(props.time))}</span>
+)
 ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
@@ -68,12 +67,8 @@ export class ChatMessage extends React.Component {
 
     return (
       <ChatMessageLayout time={time}>
-        <span className={styles.username}>
-          {user}
-        </span>
-        <span className={styles.text}>
-          {text}
-        </span>
+        <span className={styles.username}>{user}</span>
+        <span className={styles.text}>{text}</span>
       </ChatMessageLayout>
     )
   }
