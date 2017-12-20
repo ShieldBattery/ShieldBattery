@@ -34,6 +34,8 @@ import { Provider } from 'react-redux'
 import { useRouterHistory } from 'react-router'
 import { syncHistoryWithStore } from 'react-router-redux'
 import { createHistory, createHashHistory } from 'history'
+import { ThemeProvider } from 'styled-components'
+
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
@@ -45,6 +47,7 @@ import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { UPDATE_SERVER, UPDATE_SERVER_COMPLETE } from '../app/common/ipc-constants'
+import * as colors from './styles/colors'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -121,7 +124,9 @@ Promise.all([rootElemPromise, updatedServerPromise])
     render(
       <Provider store={store}>
         <RedirectProvider>
-          <App history={history} analyticsId={analyticsId} />
+          <ThemeProvider theme={colors}>
+            <App history={history} analyticsId={analyticsId} />
+          </ThemeProvider>
         </RedirectProvider>
       </Provider>,
       elem,
