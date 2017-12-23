@@ -1,5 +1,5 @@
 @value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
-@value colorError, colorDividers, amberA400, blue700, blue800, grey700 from '../styles/colors.css';
+@value colorError, colorDividers, secondary, primary, grey700 from '../styles/colors.css';
 @value row, col, exact, grow, shrink, itemsCenter, justifyCenter from '../styles/flex.css';
 @value title, subhead, caption, headline from '../styles/typography.css';
 @value shadow4dp from '../material/shadows.css';
@@ -12,7 +12,7 @@
 
 .topBar {
   composes: shadow4dp;
-  background: blue800;
+  background: primary;
 }
 
 .titleAndActions {
@@ -101,12 +101,12 @@
 }
 
 .file .entryIcon {
-  background: blue700;
+  background: primary;
   color: colorTextPrimary;
 }
 
 .folder .entryIcon {
-  background: amberA400;
+  background: secondary;
 }
 
 .info {

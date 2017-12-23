@@ -1,20 +1,11 @@
 /* Primary color */
-@value blue50: #e3f2fd;
-@value blue100: #bbdefb;
-@value blue200: #90caf9;
-@value blue300: #64b5f6;
-@value blue400: #42a5f5;
-@value blue500: #2196f3;
-@value blue600: #1e88e5;
-@value blue700: #1976d2;
-@value blue800: #1565c0;
-@value blue900: #0d47a1;
+@value primary: #3961ed;
+@value primaryLight: #5c7ffa;
+@value primaryDark: #2c4980;
 
-/* Accent color */
-@value amberA100: #ffe57f;
-@value amberA200: #ffd740;
-@value amberA400: #ffc400;
-@value amberA700: #ffab00;
+/* Secondary color */
+@value secondary: #ffca38;
+@value secondaryDark: #deac23;
 
 /* Greys (for backgrounds) */
 @value grey50: #fafafa;

@@ -1,4 +1,4 @@
-@value amberA100 from '../styles/colors.css';
+@value secondary from '../styles/colors.css';
 @value row, col, exact, wrap from '../styles/flex.css';
 @value body1 from '../styles/typography.css';
 
@@ -47,7 +47,7 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  background-color: amberA100;
+  background-color: secondary;
   opacity: 0.5;
 }
 

@@ -1,4 +1,4 @@
-@value colorTextFaint, colorDividers, colorError, amberA400 from '../styles/colors.css';
+@value colorTextFaint, colorDividers, colorError, secondary from '../styles/colors.css';
 @value fastOutSlowInShort from './curves.css';
 
 .container {
@@ -7,7 +7,7 @@
   width: 100%;
   margin: 0;
   padding-bottom: 8px;
-  color: amberA400;
+  color: secondary;
   position: relative;
 }
 

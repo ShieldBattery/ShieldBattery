@@ -1,6 +1,5 @@
 @value colorTextPrimary, colorTextFaint, colorTextSecondary from '../styles/colors.css';
-@value blue400, blue500, blue600, blue700 from '../styles/colors.css';
-@value amberA400 from '../styles/colors.css';
+@value primary, secondary from '../styles/colors.css';
 @value justifyCenter, itemsCenter from '../styles/flex.css';
 @value button as buttonText from '../styles/typography.css';
 @value reset from './button-reset.css';
@@ -53,7 +52,7 @@
 }
 
 .primary {}
-.accent {}
+.secondary {}
 
 .flatActive {
   @nest &:not([disabled]) {
@@ -75,11 +74,11 @@
 }
 
 .flat.primary:not([disabled]) .label {
-  color: blue400;
+  color: primary;
 }
 
-.flat.accent:not([disabled]) .label {
-  color: amberA400;
+.flat.secondary:not([disabled]) .label {
+  color: secondary;
 }
 
 .raised {
@@ -92,32 +91,44 @@
 }
 
 .raised.primary:not([disabled]) {
-  background-color: blue500;
+  background-color: primary;
 
-  @nest &:hover, &.focused {
-    background-color: blue600;
+  @nest &:hover {
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #486dee; /* primary lightened 8% */
+  }
+
+  @nest &.focused {
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #6886f1; /* primary lightened 24% */
   }
 
   @nest &:active {
-    background-color: blue700;
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #7893f2; /* primary lightened 32% */
   }
 }
 
-.raised.accent:not([disabled]) {
-  background-color: amberA400;
+.raised.secondary:not([disabled]) {
+  background-color: secondary;
 
   @nest & .label {
     color: rgba(0, 0, 0, 0.87);
   }
 
-  @nest &:hover, &.focused {
-    /* TODO(tec27): replace with a color() operation once that works properly with @values */
-    background-color: #ebb000; /* amberA400 darkened 8% */
+  @nest &:hover {
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #fece47; /* secondary lightened 8% */
+  }
+
+  @nest &.focused {
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #ffd667; /* secondary lightened 24% */
   }
 
   @nest &:active {
-    /* TODO(tec27): replace with a color() operation once that works properly with @values */
-    background-color: #d69b00; /* amberA400 darkened 16% */
+    /* TODO(marko): replace with a color() operation once that becomes available */
+    background-color: #feda77; /* secondary lightened 32% */
   }
 }
 

@@ -28,7 +28,7 @@ class Snackbar extends React.Component {
     const actionButton = this.props.actionLabel ? (
       <FlatButton
         label={this.props.actionLabel}
-        color="accent"
+        color="secondary"
         onClick={this._handleActionClick}
         className={styles.action}
       />

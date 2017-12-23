@@ -90,7 +90,7 @@ export default class PermissionsResult extends React.Component {
           model={model}
           onSubmit={this.onSubmit}
         />
-        <FlatButton label="Save" color="accent" tabIndex={0} onClick={this.onSaveClick} />
+        <FlatButton label="Save" color="secondary" tabIndex={0} onClick={this.onSaveClick} />
       </div>
     )
   }

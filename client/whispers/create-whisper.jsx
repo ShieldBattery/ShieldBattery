@@ -76,8 +76,8 @@ export default class CreateWhisper extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.props.onCancel} />,
-      <FlatButton label="Start" key="send" color="accent" onClick={this.onSendMessage} />,
+      <FlatButton label="Cancel" key="cancel" color="secondary" onClick={this.props.onCancel} />,
+      <FlatButton label="Start" key="send" color="secondary" onClick={this.onSendMessage} />,
     ]
 
     return (

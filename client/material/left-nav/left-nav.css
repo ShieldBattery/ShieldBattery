@@ -1,4 +1,4 @@
-@value blue400, blue800, amberA200, amberA400, grey800 from '../../styles/colors.css';
+@value secondary, grey800 from '../../styles/colors.css';
 @value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
 @value col, grow, exact, row, itemsCenter, justifySpaceBetween, wrap from '../../styles/flex.css';
 @value body2, singleLine from '../../styles/typography.css';
@@ -19,8 +19,8 @@
   width: 100%;
   height: standardIncrement;
   padding-left: 16px;
-  /* Color calculated by lightening blue800 12% (opacity of divider colors) */
-  border-right: 1px solid #3178c8;
+  /* Color calculated by lightening primary 12% (opacity of divider colors) */
+  border-right: 1px solid #1875e0;
   border-bottom: 1px solid colorDividers;
 }
 
@@ -89,7 +89,7 @@
 .active {
   composes: entry;
   background-color: rgba(255, 255, 255, 0.12);
-  color: amberA200;
+  color: secondary;
 }
 
 .entry:hover {
@@ -120,5 +120,5 @@
   top: calc(50% - 4px);
 
   border-radius: 50%;
-  background-color: amberA200;
+  background-color: secondary;
 }

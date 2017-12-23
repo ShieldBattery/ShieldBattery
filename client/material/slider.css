@@ -1,4 +1,4 @@
-@value colorTextFaint, colorTextPrimary, amberA400, grey700 from '../styles/colors.css';
+@value colorTextFaint, colorTextPrimary, secondary, grey700 from '../styles/colors.css';
 @value body1, caption from '../styles/typography.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 
@@ -49,7 +49,7 @@
   left: 0;
   width: 100%;
   height: 2px;
-  background-color: amberA400;
+  background-color: secondary;
   transform: scaleX(1);
   transform-origin: 0% 50%;
   transition: transform 200ms fastOutSlowIn;
@@ -115,7 +115,7 @@
 
 .thumb {
   position: absolute;
-  background-color: amberA400;
+  background-color: secondary;
   width: thumbWidth;
   height: thumbHeight;
   left: calc(thumbWidth / -2);
@@ -140,7 +140,7 @@
   top: -42px;
   left: calc(balloonWidth / -2);
   border-radius: 50%;
-  background-color: amberA400;
+  background-color: secondary;
   color: rgba(0, 0, 0, 0.87);
   text-align: center;
   transform-origin: 50% 150%;
@@ -163,7 +163,7 @@
   left: 0;
   top: 19px;
   border-radius: 16px;
-  border-top: 16px solid amberA400;
+  border-top: 16px solid secondary;
   border-left: calc(balloonWidth / 2) solid transparent;
   border-right: calc(balloonWidth / 2) solid transparent;
   z-index: 1;

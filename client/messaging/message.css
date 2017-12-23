@@ -1,5 +1,5 @@
 @value colorDividers, colorTextFaint, colorTextSecondary from '../styles/colors.css';
-@value amberA100, blue100, blue200 from '../styles/colors.css';
+@value primary, primaryLight, secondary from '../styles/colors.css';
 @value row, col, itemsStart, exact, grow, shrink, justifyEnd from '../styles/flex.css';
 @value itemsEnd, itemsCenter, justifyCenter from '../styles/flex.css';
 @value body1, caption, body2 from '../styles/typography.css';
@@ -39,7 +39,7 @@
 .username {
   composes: exact;
   composes: body2;
-  color: amberA100;
+  color: secondary;
   line-height: inherit;
   padding-right: 8px;
 }
@@ -60,12 +60,12 @@
 }
 
 .systemMessage {
-  color: blue100;
+  color: primaryLight;
 }
 
 .systemImportant {
   composes: important;
-  color: blue200;
+  color: primary;
 }
 
 .infoMessage {

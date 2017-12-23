@@ -1,5 +1,5 @@
 @value colorTextSecondary, colorTextFaint, colorDividers from '../styles/colors.css';
-@value colorTextPrimary, blue100, blue200, grey700 from '../styles/colors.css';
+@value colorTextPrimary, primary, primaryLight, grey700 from '../styles/colors.css';
 @value row, col, grow, shrink, exact, justifySpaceBetween, itemsCenter from '../styles/flex.css';
 @value justifyStart from '../styles/flex.css';
 @value subhead, headline, body1, body2, singleLine from '../styles/typography.css';
@@ -196,11 +196,11 @@
 }
 
 .chatSystemMessage {
-  color: blue100;
+  color: primaryLight;
 }
 
 .chatImportant {
   composes: body2;
   line-height: inherit;
-  color: blue200;
+  color: primary;
 }

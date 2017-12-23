@@ -8,13 +8,13 @@ import styles from './button.css'
 export default class FlatButton extends React.Component {
   static propTypes = {
     ...Button.propTypes,
-    color: PropTypes.oneOf(['primary', 'accent', 'normal']),
+    color: PropTypes.oneOf(['primary', 'secondary', 'normal']),
   }
 
   render() {
     const classes = classnames(styles.flat, this.props.className, {
       [styles.primary]: this.props.color === 'primary',
-      [styles.accent]: this.props.color === 'accent',
+      [styles.secondary]: this.props.color === 'secondary',
     })
 
     return <Button ref="button" {...this.props} className={classes} />

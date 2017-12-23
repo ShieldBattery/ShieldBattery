@@ -1,5 +1,5 @@
 @value colorTextFaint, colorTextPrimary, colorDividers, colorError from '../styles/colors.css';
-@value amberA400, grey800, grey850 from '../styles/colors.css';
+@value grey800, grey850 from '../styles/colors.css';
 @value col, itemsStart, grow from '../styles/flex.css';
 
 .textField {
