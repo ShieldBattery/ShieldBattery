@@ -20,7 +20,7 @@ class Dialog extends React.Component {
 
   state = {
     scrolledUp: false,
-    scrolledDwon: false,
+    scrolledDown: false,
   }
 
   render() {
