@@ -74,13 +74,13 @@ export default class Panel extends React.Component {
           filters={[CanAcceptBetaInvitesFilter]}
           component={AdminBetaInvites}
         />
-        {AdminPatchUpload
-          ? <ConditionalRoute
-              path="/admin/patch-upload"
-              filters={[CanManageStarcraftPatchesFilter]}
-              component={AdminPatchUpload}
-            />
-          : null}
+        {AdminPatchUpload ? (
+          <ConditionalRoute
+            path="/admin/patch-upload"
+            filters={[CanManageStarcraftPatchesFilter]}
+            component={AdminPatchUpload}
+          />
+        ) : null}
         {AdminMapUpload ? <Route path="/admin/map-upload" component={AdminMapUpload} /> : null}
       </Switch>
     )

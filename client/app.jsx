@@ -6,6 +6,7 @@ import { makeServerUrl } from './network/server-url'
 import Faq from './beta/faq.jsx'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
+import Dev from './dev.jsx'
 import DownloadPage from './download/download-page.jsx'
 import LoadingFilter from './loading/loading-filter.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
@@ -16,16 +17,7 @@ import Signup from './auth/signup.jsx'
 import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 
-let devRoutes
-if (process.webpackEnv.NODE_ENV !== 'production') {
-  const DevLobbies = require('./lobbies/devonly/routes.jsx').default
-  const DevMaterial = require('./material/devonly/routes.jsx').default
-
-  devRoutes = [
-    <Route path="/dev/lobbies" component={DevLobbies} key="lobbies" />,
-    <Route path="/dev/material" component={DevMaterial} key="material" />,
-  ]
-}
+const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
 export default class App extends React.Component {
   initialized = false
@@ -67,7 +59,7 @@ export default class App extends React.Component {
         <LoginRoute path="/login" component={Login} />
         <LoginRoute path="/reset-password" component={ResetPassword} />
         <LoginRoute path="/signup" component={Signup} />
-        {devRoutes}
+        {!IS_PRODUCTION ? <Route path="/dev" component={Dev} /> : null}
         <ConditionalRoute
           filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
           component={MainLayout}
