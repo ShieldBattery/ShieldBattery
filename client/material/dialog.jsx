@@ -11,7 +11,6 @@ const ESCAPE = keycode('esc')
 
 class Dialog extends React.Component {
   static propTypes = {
-    modal: PropTypes.bool,
     onCancel: PropTypes.func,
     title: PropTypes.string.isRequired,
     showCloseButton: PropTypes.bool,
@@ -38,35 +37,26 @@ class Dialog extends React.Component {
 
     return (
       <KeyListener onKeyDown={this.onKeyDown}>
-        <div key="dialog" className={styles.container}>
-          <div className={styles.scrim} onClick={this.onCancel} />
-          <div role="dialog" className={styles.contents}>
-            <div className={styles.titleBar}>
-              <h3 className={styles.title}>{title}</h3>
-              {closeButton}
-            </div>
-            {scrolledDown ? <div className={styles.titleDivider} /> : null}
-            <ScrollableContent
-              autoHeight={true}
-              autoHeightMin={'100px'}
-              autoHeightMax={'calc(80vh - 132px)'}
-              onUpdate={this.onScrollUpdate}>
-              <div className={styles.body}>{this.props.children}</div>
-            </ScrollableContent>
-            {scrolledUp && buttons && buttons.length ? (
-              <div className={styles.actionsDivider} />
-            ) : null}
-            {buttons && buttons.length ? <div className={styles.actions}>{buttons}</div> : null}
+        <div role="dialog" className={styles.contents}>
+          <div className={styles.titleBar}>
+            <h3 className={styles.title}>{title}</h3>
+            {closeButton}
           </div>
+          {scrolledDown ? <div className={styles.titleDivider} /> : null}
+          <ScrollableContent
+            autoHeight={true}
+            autoHeightMin={'100px'}
+            autoHeightMax={'calc(80vh - 132px)'}
+            onUpdate={this.onScrollUpdate}>
+            <div className={styles.body}>{this.props.children}</div>
+          </ScrollableContent>
+          {scrolledUp && buttons && buttons.length ? (
+            <div className={styles.actionsDivider} />
+          ) : null}
+          {buttons && buttons.length ? <div className={styles.actions}>{buttons}</div> : null}
         </div>
       </KeyListener>
     )
-  }
-
-  onCancel = () => {
-    if (!this.props.modal && this.props.onCancel) {
-      this.props.onCancel()
-    }
   }
 
   onCloseButtonClick = () => {
@@ -76,7 +66,7 @@ class Dialog extends React.Component {
   }
 
   onKeyDown = event => {
-    if (this.props.onCancel && !this.props.modal && event.keyCode === ESCAPE) {
+    if (this.props.onCancel && event.keyCode === ESCAPE) {
       this.props.onCancel()
       return true
     }

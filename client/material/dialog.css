@@ -1,32 +1,24 @@
-@value grey800, dialogScrim, colorDividers from '../styles/colors.css';
-@value col, row, itemsCenter, justifyCenter, grow, exact from '../styles/flex.css';
+@value colorDividers from '../styles/colors.css';
+@value row, itemsCenter, grow, exact from '../styles/flex.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from './curve-constants.css';
 @value shadow8dp from './shadows.css';
-@value zIndexDialog, zIndexDialogScrim from './zindex.css';
-
-.fullSizeFixed {
-  position: fixed;
-  top: 0px;
-  left: 0px;
-  right: 0px;
-  bottom: 0px;
-}
-
-.container {
-  composes: col itemsCenter justifyCenter;
-  composes: fullSizeFixed;
-  z-index: zIndexDialog;
-}
+@value zIndexDialog from './zindex.css';
 
 .contents {
   composes: global(cardLayer);
   composes: shadow8dp;
-  position: relative;
-  z-index: zIndexDialog;
+  position: fixed;
+  display: table;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 80%;
+  height: auto;
   max-width: 768px;
   max-height: 80%;
-  opacity: 1;
+  margin: auto;
+  z-index: zIndexDialog;
   border-radius: 2px;
 }
 
@@ -73,32 +65,13 @@
   margin-bottom: -1px;
 }
 
-.scrim {
-  composes: fullSizeFixed;
-  z-index: zIndexDialogScrim;
-  background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
-}
-
-/*
-  TODO(tec27): ideally these would animate from the triggering click point, but that'll require
-  some more work to calculate and apply through JS
-*/
-.enter .scrim {
-  background-color: rgba(33, 33, 33, 0);
-  transition: background-color 250ms fastOutSlowIn;
-}
-
-.enter .contents {
+.enter.contents {
   transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
   opacity: 0;
   transition: transform 350ms linearOutSlowIn, opacity 250ms fastOutSlowIn;
 }
 
-.enterActive .scrim {
-  background-color: rgba(33, 33, 33, 0.42);
-}
-
-.enterActive .contents {
+.enterActive.contents {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
 }
@@ -107,21 +80,13 @@
   pointer-events: none;
 }
 
-.leave .scrim {
-  transition: background-color 200ms fastOutSlowIn;
-}
-
-.leave .contents {
+.leave.contents {
   transform: translate3d(0,0,0) scale(1);
   opacity: 1;
   transition: transform 250ms fastOutLinearIn, opacity 200ms fastOutSlowIn 50ms;
 }
 
-.leaveActive .scrim {
-  background-color: rgba(33, 33, 33, 0);
-}
-
-.leaveActive .contents {
+.leaveActive.contents {
   transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
   opacity: 0;
 }

@@ -5,6 +5,11 @@
 .portal {
   contain: layout style;
   position: relative;
+  /*
+    Since portals are a top-level element inside the body, we create a new stacking context so
+    they're stacked correctly alongside the rest of the application.
+  */
+  z-index: 0;
 }
 
 .scrim {
@@ -17,6 +22,12 @@
   z-index: zIndexDialogScrim;
 
   background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
+  /*
+    Even though we're using React's CSS Transition Group to animate the scrim with the classes below
+    we also have a transition of `opacity` property here, because it is possible in some special
+    case (Dialogs) for scrim to always be rendered.
+  */
+  transition: opacity 250ms fastOutSlowIn;
 }
 
 .enter.scrim {
