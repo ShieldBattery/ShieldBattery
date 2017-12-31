@@ -5,6 +5,10 @@
 .portal {
   contain: layout style;
   position: relative;
+  /*
+    Since portals are a top-level element inside the body, we create a new stacking context so
+    they're stacked correctly alongside the rest of the application.
+  */
   z-index: 0;
 }
 
