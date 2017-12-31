@@ -54,9 +54,10 @@ export default class Portal extends React.Component {
       document.body.appendChild(this.portal)
     }
 
-    const scrimStyle = propagateClicks
-      ? { visibility: scrim ? 'visible' : 'hidden' }
-      : { opacity: scrim ? 1 : 0 }
+    const scrimStyle = { opacity: scrim ? 1 : 0 }
+    if (propagateClicks) {
+      scrimStyle.visibility = scrim ? 'visible' : 'hidden'
+    }
     const contents = (
       <div>
         <TransitionGroup
