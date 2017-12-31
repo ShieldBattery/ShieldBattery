@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import styles from './beta.css'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'

@@ -2,6 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
+import queryString from 'query-string'
+
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -313,10 +315,7 @@ class ResetPasswordForm extends React.Component {
 const RESET_PASSWORD_SUCCESS = 'Your password has been reset.'
 const doPasswordReset = values => resetPassword(values.username, values.token, values.password)
 export const ResetPassword = ({ location }) => {
-  const model = {
-    username: location.query.username,
-    token: location.query.token,
-  }
+  const model = queryString.parse(location.search)
   return (
     <ForgotFormHolder
       form={ResetPasswordForm}

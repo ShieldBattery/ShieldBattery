@@ -12,7 +12,7 @@ export function goToIndex(transitionFn = routerActions.push) {
     } else if (sessions.size) {
       dispatch(transitionFn(`/whispers/${encodeURIComponent(sessions.get(0).from)}`))
     } else {
-      dispatch(transitionFn('/chat/'))
+      dispatch(transitionFn('/chat'))
     }
   }
 }

@@ -1,7 +1,9 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
+import queryString from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
+
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -181,11 +183,11 @@ export default class Login extends React.Component {
   }
 
   onCreateAccountClick = () => {
-    const query = {
-      ...this.props.location.query,
+    const search = queryString.stringify({
+      ...queryString.parse(this.props.location.search),
       username: this._form.getModel().username,
-    }
-    this.props.dispatch(routerActions.push({ pathname: '/signup', query }))
+    })
+    this.props.dispatch(routerActions.push({ pathname: '/signup', search }))
   }
 
   onForgotUsernameClick = () => {

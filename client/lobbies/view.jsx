@@ -37,9 +37,9 @@ const mapStateToProps = state => {
 // Returns true if the lobby store state shows that we have left the current lobby
 function isLeavingLobby(oldProps, newProps) {
   return (
-    oldProps.params === newProps.params /* rule out a route change */ &&
+    oldProps.location === newProps.location /* rule out a route change */ &&
     oldProps.lobby.inLobby &&
-    oldProps.lobby.info.name === oldProps.params.lobby /* we were in this lobby */ &&
+    oldProps.lobby.info.name === oldProps.match.params.lobby /* we were in this lobby */ &&
     !newProps.lobby.inLobby /* now we're not */
   )
 }
@@ -48,7 +48,7 @@ function isLeavingLobby(oldProps, newProps) {
 export default class LobbyView extends React.Component {
   componentDidMount() {
     if (!this.props.lobby.inLobby) {
-      const routeLobby = this.props.params.lobby
+      const routeLobby = this.props.match.params.lobby
       this.props.dispatch(getLobbyState(routeLobby))
     } else {
       this.props.dispatch(activateLobby())
@@ -71,15 +71,15 @@ export default class LobbyView extends React.Component {
       return
     }
 
-    const routeLobby = this.props.params.lobby
-    const nextRouteLobby = nextProps.params.lobby
+    const routeLobby = this.props.match.params.lobby
+    const nextRouteLobby = nextProps.match.params.lobby
     if (!this.props.lobby.inLobby && routeLobby !== nextRouteLobby) {
       this.props.dispatch(getLobbyState(nextRouteLobby))
     }
   }
 
   render() {
-    const routeLobby = this.props.params.lobby
+    const routeLobby = this.props.match.params.lobby
     const { lobby, user, gameClient } = this.props
 
     let content
@@ -112,7 +112,7 @@ export default class LobbyView extends React.Component {
 
     return (
       <ContentLayout
-        title={this.props.params.lobby}
+        title={this.props.match.params.lobby}
         actions={actions}
         appBarContentClassName={styles.appBarContent}>
         {content}
@@ -136,7 +136,7 @@ export default class LobbyView extends React.Component {
   }
 
   renderLobbyState() {
-    const routeLobby = this.props.params.lobby
+    const routeLobby = this.props.match.params.lobby
     const { lobbyState } = this.props
     if (!lobbyState.has(routeLobby)) {
       return null

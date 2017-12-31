@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { Route } from 'react-router-dom'
 import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
@@ -20,7 +21,7 @@ import {
 @connect(state => ({ auth: state.auth }))
 export class UserProfile extends React.Component {
   render() {
-    const { auth: { permissions: perms }, params: { username } } = this.props
+    const { auth: { permissions: perms }, match: { params: { username } } } = this.props
 
     const children = []
     if (perms.editPermissions) {
@@ -74,7 +75,7 @@ export class UserFind extends React.Component {
 
   render() {
     const model = {
-      username: this.props.params.username,
+      username: this.props.match.params.username,
     }
     return (
       <ContentLayout title={'Users'}>
@@ -84,7 +85,7 @@ export class UserFind extends React.Component {
             <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
             <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
           </div>
-          {this.props.children}
+          <Route path="/admin/users/:username" component={UserProfile} />
         </div>
       </ContentLayout>
     )
