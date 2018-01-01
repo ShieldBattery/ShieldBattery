@@ -1,4 +1,3 @@
-import co from 'co'
 import bcrypt from 'bcrypt'
 import thenify from 'thenify'
 import httpErrors from 'http-errors'
@@ -39,7 +38,7 @@ async function getCurrentSession(ctx, next) {
   }
 
   if (!user) {
-    await co(ctx.regenerateSession())
+    await ctx.regenerateSession()
     throw new httpErrors.Gone('Session expired')
   }
 
@@ -88,7 +87,7 @@ async function startNewSession(ctx, next) {
   }
 
   try {
-    await co(ctx.regenerateSession())
+    await ctx.regenerateSession()
     const perms = await getPermissions(user.id)
     await users.maybeUpdateIp(user.id, ctx.ip)
     initSession(ctx, user, perms)
@@ -112,6 +111,6 @@ async function endSession(ctx, next) {
   }
 
   await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId)
-  await co(ctx.regenerateSession())
+  await ctx.regenerateSession()
   ctx.status = 204
 }

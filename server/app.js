@@ -149,7 +149,7 @@ app
   .use(koaCompress())
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
-  .use(koaConvert(sessionMiddleware))
+  .use(sessionMiddleware)
   .use(onlyWebClients(csrfCookie()))
   .use(onlyWebClients(new Csrf()))
   .use(secureHeaders())
@@ -164,12 +164,10 @@ const { userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
 if (isDev) {
   app.use(
-    koaConvert(
-      require('koa-webpack-dev-middleware')(compiler, {
-        noInfo: true,
-        publicPath: webpackConfig.output.publicPath,
-      }),
-    ),
+    require('koa-webpack-dev-middleware')(compiler, {
+      noInfo: true,
+      publicPath: webpackConfig.output.publicPath,
+    }),
   )
   app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
 }

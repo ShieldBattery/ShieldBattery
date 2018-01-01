@@ -1,5 +1,4 @@
 import bcrypt from 'bcrypt'
-import co from 'co'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
 import createThrottle from '../throttle/create-throttle'
@@ -69,7 +68,7 @@ async function createUser(ctx, next) {
 
   // regenerate the session to ensure that logged in sessions and anonymous sessions don't
   // share a session ID
-  await co(ctx.regenerateSession())
+  await ctx.regenerateSession()
   initSession(ctx, result.user, result.permissions)
   setReturningCookie(ctx)
   ctx.body = result
