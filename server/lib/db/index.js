@@ -1,5 +1,4 @@
 import pg from 'pg'
-import thenify from 'thenify'
 import config from '../../config.js'
 
 // Our DATETIME columns are all in UTC, so we mark the strings postgres returns this way so the
@@ -10,19 +9,19 @@ pg.types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+
 // zones work correctly
 pg.defaults.parseInputDatesAsUTC = true
 
-const connString = config.db.connString
-if (!connString) throw new Error('db.connString must be set in config.js')
+const connectionString = config.db.connString
+if (!connectionString) throw new Error('db.connString must be set in config.js')
+
+const pool = new pg.Pool({ connectionString })
 
 // TODO(tec27): I think it might be better to wrap the query functions instead of just wrapping the
 // client pool getter, but since I don't know how we'll be using this too much yet I'm just
 // keeping it simple for now
 export default function() {
   return new Promise((resolve, reject) => {
-    pg.connect(connString, (err, client, done) => {
+    pool.connect((err, client, done) => {
       if (err) reject(err)
       else resolve({ client, done })
     })
   })
 }
-
-pg.Client.prototype.queryPromise = thenify(pg.Client.prototype.query)

@@ -23,7 +23,7 @@ async function _getInvitesCount(condition) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
     return result.rows[0]
   } finally {
     done()
@@ -45,7 +45,7 @@ async function _getInvites(condition, limit, pageNumber) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
     return { total: parseInt(total.count, 10), invites: result.rows.map(row => new Invite(row)) }
   } finally {
     done()
@@ -68,7 +68,7 @@ async function acceptInvite(client, email, token) {
   const query = 'UPDATE invites SET token = $1 WHERE email = $2 AND token IS NULL RETURNING *'
   const params = [token, email]
 
-  const result = await client.queryPromise(query, params)
+  const result = await client.query(query, params)
   if (!result.rows.length) throw new Error('No such uninvited email')
   return new Invite(result.rows[0])
 }

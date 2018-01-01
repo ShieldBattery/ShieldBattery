@@ -17,7 +17,7 @@ export async function createPermissions(dbClient, userId) {
   const query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
   const params = [userId]
 
-  const result = await dbClient.queryPromise(query, params)
+  const result = await dbClient.query(query, params)
   if (result.rows.length < 1) throw new Error('No rows returned')
   return new Permissions(result.rows[0])
 }
@@ -33,7 +33,7 @@ export async function getPermissions(userId) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
     return new Permissions(result.rows[0])
   } finally {
     done()
@@ -62,7 +62,7 @@ export async function updatePermissions(userId, perms) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
     return new Permissions(result.rows[0])
   } finally {
     done()

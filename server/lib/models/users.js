@@ -44,7 +44,7 @@ class User {
     const params = [this.name, this.email, this.password, this.created, this.signupIpAddress]
 
     return await transact(async client => {
-      const result = await client.queryPromise(query, params)
+      const result = await client.query(query, params)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')
       }
@@ -72,7 +72,7 @@ class User {
 
     const { client, done } = await db()
     try {
-      await client.queryPromise(query, params)
+      await client.query(query, params)
       return this
     } finally {
       done()
@@ -105,7 +105,7 @@ export async function findUser(criteria) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
     return result.rows.length < 1 ? null : new User(result.rows[0], true)
   } finally {
     done()
@@ -115,7 +115,7 @@ export async function findUser(criteria) {
 export async function maybeUpdateIpAddress(userId, ipAddress) {
   const { client, done } = await db()
   try {
-    return client.queryPromise(
+    return client.query(
       'UPDATE users SET signup_ip_address = $1 WHERE id = $2 AND signup_ip_address IS NULL',
       [ipAddress, userId],
     )
@@ -127,7 +127,7 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
 export async function findAllUsernamesWithEmail(email) {
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise('SELECT name FROM users WHERE email = $1', [email])
+    const result = await client.query('SELECT name FROM users WHERE email = $1', [email])
     return result.rows.map(row => row.name)
   } finally {
     done()

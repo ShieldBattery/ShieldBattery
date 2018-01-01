@@ -3,7 +3,7 @@ import db from '../db'
 export async function getWhisperSessionsForUser(userId) {
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(
+    const result = await client.query(
       `SELECT u.name AS target_user FROM whisper_sessions
         INNER JOIN users AS u ON target_user_id = u.id
         WHERE user_id = $1 ORDER BY start_date`,
@@ -18,7 +18,7 @@ export async function getWhisperSessionsForUser(userId) {
 export async function startWhisperSession(user, targetUser) {
   const { client, done } = await db()
   try {
-    await client.queryPromise(
+    await client.query(
       `WITH ut AS (
           SELECT u.id AS user_id, t.id AS target_user_id
           FROM users AS u, users AS t
@@ -37,7 +37,7 @@ export async function startWhisperSession(user, targetUser) {
 export async function closeWhisperSession(userId, targetUser) {
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(
+    const result = await client.query(
       `WITH tid AS (
           SELECT t.id AS target_user_id FROM users AS t WHERE t.name = $2
         ) DELETE FROM whisper_sessions WHERE user_id = $1 AND target_user_id =
@@ -55,7 +55,7 @@ export async function closeWhisperSession(userId, targetUser) {
 export async function addMessageToWhisper(fromId, toName, messageData) {
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(
+    const result = await client.query(
       `WITH tid AS (
           SELECT t.id AS to_id FROM users AS t WHERE t.name = $2
         ), ins AS (
@@ -109,7 +109,7 @@ export async function getMessagesForWhisperSession(user1, user2, limit = 50, bef
       ) SELECT * FROM messages ORDER BY sent ASC`
 
   try {
-    const result = await client.queryPromise(sql, params)
+    const result = await client.query(sql, params)
 
     return result.rows.map(row => ({
       msgId: row.id,

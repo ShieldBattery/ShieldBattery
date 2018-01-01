@@ -54,7 +54,7 @@ export async function addMap(hashStr, extension, filename, mapData, timestamp) {
       timestamp,
       lobbyInitData,
     ]
-    await client.queryPromise(query, params)
+    await client.query(query, params)
   } finally {
     done()
   }
@@ -69,7 +69,7 @@ export async function mapExists(hashStr) {
   }
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise('SELECT 1 FROM maps WHERE hash = $1', [hash])
+    const result = await client.query('SELECT 1 FROM maps WHERE hash = $1', [hash])
     return result.rows.length !== 0
   } finally {
     done()
@@ -86,7 +86,7 @@ export async function mapInfo(...hashStr) {
       'SELECT hash, extension, title, description, width, height, players_melee, ' +
       'players_ums, tileset, lobby_init_data ' +
       'FROM maps WHERE hash = ANY($1)'
-    const result = await client.queryPromise(query, [hashes])
+    const result = await client.query(query, [hashes])
     if (result.rows.length === 0) {
       return null
     } else {

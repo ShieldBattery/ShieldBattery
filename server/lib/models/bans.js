@@ -8,7 +8,7 @@ export async function getBanHistory(userId) {
 
   const { client, done } = await db()
   try {
-    const result = await client.queryPromise(query, params)
+    const result = await client.query(query, params)
 
     return result.rows.map(row => ({
       startTime: row.start_time,
@@ -29,7 +29,7 @@ export async function banUser(userId, bannedBy, banLengthHours, reason = null) {
   const params = [userId, startDate, endDate, bannedBy, reason]
 
   try {
-    const result = await client.queryPromise(
+    const result = await client.query(
       `WITH ins AS (
           INSERT INTO user_bans (user_id, start_time, end_time, banned_by, reason)
           VALUES ($1, $2, $3, $4, $5) RETURNING *
@@ -54,7 +54,7 @@ export async function isUserBanned(userId) {
   const now = new Date()
 
   try {
-    const result = await client.queryPromise(
+    const result = await client.query(
       'SELECT 1 FROM user_bans WHERE user_id = $1 AND end_time > $2 AND start_time <= $2',
       [userId, now],
     )

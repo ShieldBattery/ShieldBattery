@@ -3,7 +3,7 @@ import db from './index'
 export default async function transact(next) {
   const { client, done } = await db()
   try {
-    await client.queryPromise('BEGIN')
+    await client.query('BEGIN')
   } catch (err) {
     // This will re-throw err
     await rollbackFor(err, client, done)
@@ -11,7 +11,7 @@ export default async function transact(next) {
 
   try {
     const result = await next(client)
-    await client.queryPromise('COMMIT')
+    await client.query('COMMIT')
     done()
     return result
   } catch (err) {
@@ -22,7 +22,7 @@ export default async function transact(next) {
 
 async function rollbackFor(err, client, done) {
   try {
-    await client.queryPromise('ROLLBACK')
+    await client.query('ROLLBACK')
   } catch (rollbackErr) {
     done(rollbackErr)
     throw rollbackErr
