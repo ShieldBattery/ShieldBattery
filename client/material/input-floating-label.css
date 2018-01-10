@@ -1,4 +1,4 @@
-@value colorTextFaint, colorError, amberA400 from '../styles/colors.css';
+@value colorTextFaint, colorError, secondary from '../styles/colors.css';
 @value fastOutSlowInShort from './curves.css';
 
 .label {
@@ -14,7 +14,7 @@
 }
 
 .focused {
-  color: amberA400;
+  color: secondary;
 }
 
 .focused.error {

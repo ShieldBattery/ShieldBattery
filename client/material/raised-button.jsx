@@ -8,7 +8,7 @@ import styles from './button.css'
 export default class RaisedButton extends React.Component {
   static propTypes = {
     ...Button.propTypes,
-    color: PropTypes.oneOf(['primary', 'accent']),
+    color: PropTypes.oneOf(['primary', 'secondary']),
   }
 
   constructor(props) {
@@ -17,8 +17,8 @@ export default class RaisedButton extends React.Component {
 
   render() {
     const classes = classnames(styles.raised, this.props.className, {
-      [styles.primary]: this.props.color !== 'accent',
-      [styles.accent]: this.props.color === 'accent',
+      [styles.primary]: this.props.color !== 'secondary',
+      [styles.secondary]: this.props.color === 'secondary',
     })
 
     return <Button {...this.props} className={classes} />

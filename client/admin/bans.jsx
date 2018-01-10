@@ -114,7 +114,7 @@ export default class BanUsers extends React.Component {
       <FlatButton
         key="banUser"
         label="Ban"
-        color="accent"
+        color="secondary"
         tabIndex={0}
         onClick={this.onBanClick}
       />,

@@ -1,11 +1,11 @@
-@value colorTextSecondary, colorError, blue900 from './styles/colors.css';
+@value colorTextSecondary, colorError, primaryDark from './styles/colors.css';
 @value row from './styles/flex.css';
 @value body2 from './styles/typography.css';
 @value zIndexMenuBackdrop from './material/zindex.css';
 
 .windowControls {
   width: 100%;
-  background-color: blue900;
+  background-color: primaryDark;
 }
 
 .layout {

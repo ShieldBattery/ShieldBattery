@@ -1,6 +1,6 @@
 @value colorTextPrimary, colorTextSecondary, colorDividers from '../styles/colors.css';
 @value alphaDividers, alphaDisabled from '../styles/colors.css';
-@value amberA400, colorBackground, colorTextFaint from '../styles/colors.css';
+@value secondary, colorBackground, colorTextFaint from '../styles/colors.css';
 @value flex, itemsCenter from '../styles/flex.css';
 @value fastOutSlowIn from './curve-constants.css';
 @value fastOutSlowInShort from './curves.css';
@@ -120,13 +120,13 @@
 }
 
 .checked.focused .iconContainer:before {
-  /* TODO(tec27): replace with a color() operation once that works properly with @values */
-  background-color: rgba(255, 196, 0, alphaDividers); /* amberA400 */
+  /* TODO(marko): replace with a color() operation once that becomes available */
+  background-color: rgba(255, 202, 56, alphaDividers); /* secondary */
 }
 
 .checked .icon {
-  border: 2px solid amberA400;
-  background-color: amberA400;
+  border: 2px solid secondary;
+  background-color: secondary;
 }
 
 .checked .icon:after {

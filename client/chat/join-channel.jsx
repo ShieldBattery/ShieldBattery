@@ -71,8 +71,8 @@ export default class JoinChannel extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.props.onCancel} />,
-      <FlatButton label="Join" key="join" color="accent" onClick={this.onJoinChannel} />,
+      <FlatButton label="Cancel" key="cancel" color="secondary" onClick={this.props.onCancel} />,
+      <FlatButton label="Join" key="join" color="secondary" onClick={this.onJoinChannel} />,
     ]
 
     return (

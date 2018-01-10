@@ -1,4 +1,4 @@
-@value blue400, amberA400, colorTextSecondary, colorError from '../styles/colors.css';
+@value colorTextSecondary, colorError from '../styles/colors.css';
 @value row, col, grow, take33, itemsCenter, justifyCenter from '../styles/flex.css';
 @value display1 from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';

@@ -1,20 +1,11 @@
 /* Primary color */
-export const blue50 = '#e3f2fd'
-export const blue100 = '#bbdefb'
-export const blue200 = '#90caf9'
-export const blue300 = '#64b5f6'
-export const blue400 = '#42a5f5'
-export const blue500 = '#2196f3'
-export const blue600 = '#1e88e5'
-export const blue700 = '#1976d2'
-export const blue800 = '#1565c0'
-export const blue900 = '#0d47a1'
+export const primary = '#3961ed'
+export const primaryLight = '#5c7ffa'
+export const primaryDark = '#2c4980'
 
-/* Accent color */
-export const amberA100 = '#ffe57f'
-export const amberA200 = '#ffd740'
-export const amberA400 = '#ffc400'
-export const amberA700 = '#ffab00'
+/* Secondary color */
+export const secondary = '#ffca38'
+export const secondaryDark = '#deac23'
 
 /* Greys (for backgrounds) */
 export const grey50 = '#fafafa'

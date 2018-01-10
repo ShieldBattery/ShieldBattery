@@ -176,12 +176,12 @@ export default class Settings extends React.Component {
     }
 
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.onSettingsCancel} />,
+      <FlatButton label="Cancel" key="cancel" color="secondary" onClick={this.onSettingsCancel} />,
       <FlatButton
         ref="save"
         label="Save"
         key="save"
-        color="accent"
+        color="secondary"
         onClick={this.onSettingsSave}
       />,
     ]

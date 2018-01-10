@@ -1,4 +1,4 @@
-@value blue800 from '../styles/colors.css';
+@value primary from '../styles/colors.css';
 @value row, itemsCenter, grow from '../styles/flex.css';
 @value title, singleLine from '../styles/typography.css';
 @value shadow4dp from './shadows.css';
@@ -11,7 +11,7 @@
   height: standardIncrement;
   margin: 0;
   padding: 0;
-  background-color: blue800;
+  background-color: primary;
   position: relative;
   z-index: zIndexAppBar;
 }

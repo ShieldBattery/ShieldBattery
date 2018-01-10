@@ -1,4 +1,4 @@
-@value colorTextFaint, grey800, grey700, colorDividers, amberA400 from '../../styles/colors.css';
+@value colorTextFaint, grey800, grey700, colorDividers from '../../styles/colors.css';
 @value col, row, grow, itemsStart from '../../styles/flex.css';
 @value singleLine, subhead from '../../styles/typography.css';
 @value fastOutSlowIn, linearOutSlowIn, fastOutLinearIn from '../curve-constants.css';

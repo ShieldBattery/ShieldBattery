@@ -1,4 +1,3 @@
-@value blue400, amberA400 from '../styles/colors.css';
 @value take100, row, wrap, take33, itemsCenter, justifyCenter from '../styles/flex.css';
 @value headline from '../styles/typography.css';
 @value fastOutSlowIn from '../material/curve-constants.css';

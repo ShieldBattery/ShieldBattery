@@ -1,5 +1,5 @@
 @value colorTextSecondary, colorTextFaint, grey900, grey850 from '../styles/colors.css';
-@value blue400, amberA400, colorDividers from '../styles/colors.css';
+@value primary, secondary, colorDividers from '../styles/colors.css';
 @value col, row, itemsCenter, itemsStart, justifySpaceBetween from '../styles/flex.css';
 @value grow, shrink, take85, take15 from '../styles/flex.css';
 @value body1, display1, display2, display4, subhead, headline from '../styles/typography.css';
@@ -143,12 +143,12 @@
 
 .titleBlue {
   composes: featureTitle;
-  color: blue400;
+  color: primary;
 }
 
 .titleAmber {
   composes: featureTitle;
-  color: amberA400;
+  color: secondary;
 }
 
 .featureBody {
@@ -184,7 +184,7 @@
 
 .faqQuestion {
   composes: headline;
-  color: blue400;
+  color: primary;
   display: inline-block;
   vertical-align: middle;
   line-height: 48px;
@@ -217,7 +217,7 @@
 }
 
 .faqQuestionIcon {
-  color: blue400;
+  color: primary;
   display: inline-block;
   margin-left: 16px;
   margin-right: 16px;

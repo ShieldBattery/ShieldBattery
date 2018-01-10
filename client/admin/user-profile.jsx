@@ -83,7 +83,7 @@ export class UserFind extends React.Component {
           <div>
             <h3>Find user</h3>
             <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-            <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
+            <FlatButton label="Find" color="secondary" tabIndex={0} onClick={this.onFindClick} />
           </div>
           <Route path="/admin/users/:username" component={UserProfile} />
         </div>
