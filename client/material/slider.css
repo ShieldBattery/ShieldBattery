@@ -97,7 +97,7 @@
   width: calc(100% + 28px - 12px);
   height: 100%;
   top: 0;
-  left: calc(balloonWidth / -2 + thumbWidth / 2);
+  left: calc(28px / -2 + 12px / 2); /* balloonWidth / -2 + thumbWidth / 2 */
   padding: 0 14px;
   pointer-events: none; /* handled by clickable-area */
   user-select: none;
@@ -105,7 +105,7 @@
 
 .thumbContainer {
   position: relative;
-  top: calc(48px - thumbHeight / 2);
+  top: calc(48px - 12px / 2); /* 48px - thumbHeight / 2 */
   width: 100%;
   pointer-events: none; /* handled by clickable-area */
   user-select: none;
@@ -118,7 +118,7 @@
   background-color: amberA400;
   width: thumbWidth;
   height: thumbHeight;
-  left: calc(thumbWidth / -2);
+  left: calc(12px / -2); /* thumbWidth / -2 */
   border-radius: 50%;
   z-index: 1;
   transition: background-color 300ms fastOutSlowIn;
@@ -138,7 +138,7 @@
   width: balloonWidth;
   height: balloonHeight;
   top: -42px;
-  left: calc(balloonWidth / -2);
+  left: calc(28px / -2); /* balloonWidth / -2 */
   border-radius: 50%;
   background-color: amberA400;
   color: rgba(0, 0, 0, 0.87);
@@ -164,8 +164,8 @@
   top: 19px;
   border-radius: 16px;
   border-top: 16px solid amberA400;
-  border-left: calc(balloonWidth / 2) solid transparent;
-  border-right: calc(balloonWidth / 2) solid transparent;
+  border-left: calc(28px / 2) solid transparent; /* balloonWidth / 2 */
+  border-right: calc(28px / 2) solid transparent; /* balloonWidth / 2 */
   z-index: 1;
   transition: border-top-color 300ms fastOutSlowIn;
   will-change: border-top-color;

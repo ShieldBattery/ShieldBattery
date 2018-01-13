@@ -15,9 +15,9 @@
   overflow: visible;
   height: auto;
   padding: 8px 0 8px 2px;
-  line-height: calc(boxHeight + 2px);
+  line-height: calc(18px + 2px); /* boxHeight + 2px */
   min-width: boxWidth;
-  min-height: calc(boxHeight + 2px);
+  min-height: calc(18px + 2px); /* boxHeight + 2px */
   contain: layout style;
 }
 
@@ -108,10 +108,10 @@
   transform: rotate(-135deg);
   display: table;
   position: absolute;
-  left: calc(boxWidth / 3 - 2px);
-  top: calc(boxHeight / 9 - 2px);
-  width: calc(boxWidth / 3);
-  height: calc(boxWidth * 2 / 3);
+  left: calc(18px / 3 - 2px); /* boxWidth / 3 - 2px */
+  top: calc(18px / 9 - 2px); /* boxHeight / 9 - 2px */
+  width: calc(18px / 3); /* boxWidth / 3 */
+  height: calc(18px * 2 / 3); /* boxWidth * 2 / 3 */
   border: 2px solid transparent;
   border-top: 0;
   border-left: 0;

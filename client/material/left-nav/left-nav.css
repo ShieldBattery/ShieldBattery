@@ -8,7 +8,7 @@
 
 .leftNav {
   composes: col exact;
-  width: calc(standardIncrement * 3.5);
+  width: calc(64px * 3.5); /* standardIncrement * 3.5 */
   height: 100%;
   background-color: grey800;
   z-index: zIndexLeftNav;
