@@ -2,11 +2,17 @@ import React from 'react'
 import TransitionGroup from 'react-addons-css-transition-group'
 import { connect } from 'react-redux'
 import keycode from 'keycode'
-import { closeOverlay } from './action-creators'
-import styles from './activity-overlay.css'
+import styled from 'styled-components'
 
 import KeyListener from '../keyboard/key-listener.jsx'
 import JoinLobby from '../lobbies/join-lobby.jsx'
+
+import { closeOverlay } from './action-creators'
+
+import { dialogScrim, grey800 } from '../styles/colors'
+import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
+import { shadow8dp } from '../material/shadows'
+import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 
 const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } = IS_ELECTRON
   ? {
@@ -20,11 +26,78 @@ const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } = IS_ELECTRON
 const ESCAPE = keycode('escape')
 
 const transitionNames = {
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  enter: 'enter',
+  enterActive: 'enterActive',
+  leave: 'leave',
+  leaveActive: 'leaveActive',
 }
+
+const Scrim = styled.div`
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.42;
+  background-color: ${dialogScrim};
+  z-index: ${zIndexBackdrop};
+  will-change: opacity;
+`
+
+const Overlay = styled.div`
+  ${shadow8dp};
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 60%;
+  min-width: 448px;
+  max-width: 768px;
+  background-color: ${grey800};
+  z-index: ${zIndexSideNav};
+`
+
+const Container = styled.div`
+  &.enter ${Overlay} {
+    transform: translate3d(100%, 0, 0);
+    transition: transform 350ms ${linearOutSlowIn};
+  }
+
+  &.enter ${Scrim} {
+    opacity: 0;
+    transition: opacity 250ms ${fastOutSlowIn};
+  }
+
+  &.enterActive ${Overlay} {
+    transform: translate3d(0, 0, 0);
+  }
+
+  &.enterActive ${Scrim} {
+    opacity: 0.42;
+  }
+
+  &.leave {
+    pointer-events: none;
+  }
+
+  &.leave ${Overlay} {
+    transform: translate3d(0, 0, 0);
+    transition: transform 250ms ${fastOutLinearIn};
+  }
+
+  &.leave ${Scrim} {
+    opacity: 0.42;
+    transition: opacity 200ms ${fastOutSlowIn};
+  }
+
+  &.leaveActive ${Overlay} {
+    transform: translate3d(100%, 0, 0);
+  }
+
+  &.leaveActive ${Scrim} {
+    opacity: 0;
+  }
+`
 
 @connect(state => ({ activityOverlay: state.activityOverlay }))
 export default class ActivityOverlay extends React.Component {
@@ -51,11 +124,11 @@ export default class ActivityOverlay extends React.Component {
     }
 
     return (
-      <div key={'overlay'}>
+      <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} />
-        <div className={styles.scrim} onClick={this.onScrimClick} />
-        <div className={styles.overlay}>{this.getOverlayComponent()}</div>
-      </div>
+        <Scrim onClick={this.onScrimClick} />
+        <Overlay>{this.getOverlayComponent()}</Overlay>
+      </Container>
     )
   }
 
