@@ -11,6 +11,8 @@ import {
   closeSlot,
   kickPlayer,
   banPlayer,
+  makeObserver,
+  removeObserver,
   leaveLobby,
   setRace,
   startCountdown,
@@ -103,6 +105,8 @@ export default class LobbyView extends React.Component {
           onCloseSlot={this.onCloseSlot}
           onKickPlayer={this.onKickPlayer}
           onBanPlayer={this.onBanPlayer}
+          onMakeObserver={this.onMakeObserver}
+          onRemoveObserver={this.onRemoveObserver}
           onStartGame={this.onStartGame}
           onSendChatMessage={this.onSendChatMessage}
         />
@@ -207,6 +211,14 @@ export default class LobbyView extends React.Component {
 
   onBanPlayer = slotId => {
     this.props.dispatch(banPlayer(slotId))
+  }
+
+  onMakeObserver = slotId => {
+    this.props.dispatch(makeObserver(slotId))
+  }
+
+  onRemoveObserver = slotId => {
+    this.props.dispatch(removeObserver(slotId))
   }
 
   onSetRace = (slotId, race) => {

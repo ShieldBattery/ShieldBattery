@@ -19,6 +19,8 @@ export default class OpenSlot extends React.Component {
     isHost: PropTypes.bool,
     race: PropTypes.string,
     isObserver: PropTypes.bool,
+    canMakeObserver: PropTypes.bool,
+    canRemoveObserver: PropTypes.bool,
   }
 
   state = {
@@ -42,10 +44,14 @@ export default class OpenSlot extends React.Component {
     const {
       isHost,
       isObserver,
+      canMakeObserver,
+      canRemoveObserver,
       controlledOpen,
       onAddComputer,
       onSwitchClick,
       onCloseSlot,
+      onMakeObserver,
+      onRemoveObserver,
     } = this.props
     const slotActions = []
     if (isHost) {
@@ -53,24 +59,30 @@ export default class OpenSlot extends React.Component {
       if (!controlledOpen && !isObserver && onAddComputer) {
         slotActions.push(['Add computer', onAddComputer])
       }
+      if (canMakeObserver) {
+        slotActions.push(['Make observer', onMakeObserver])
+      }
+      if (canRemoveObserver) {
+        slotActions.push(['Make player', onRemoveObserver])
+      }
     }
 
     return (
       <div className={styles.slot}>
-        <div
-          className={styles.slotLeftOpen}
-          onMouseEnter={this.onLeftMouseEnter}
-          onMouseLeave={this.onLeftMouseLeave}
-          onClick={onSwitchClick}>
-          <span className={styles.slotEmptyAvatar}>
-            {this.state.isHovered ? <SwapSlotsIcon /> : null}
-          </span>
-          <span className={styles.slotEmptyName}>Open</span>
-        </div>
-        <div className={styles.slotRight}>
+        <div className={styles.slotLeft}>
+          <div
+            className={styles.slotProfileOpen}
+            onMouseEnter={this.onLeftMouseEnter}
+            onMouseLeave={this.onLeftMouseLeave}
+            onClick={onSwitchClick}>
+            <span className={styles.slotEmptyAvatar}>
+              {this.state.isHovered ? <SwapSlotsIcon /> : null}
+            </span>
+            <span className={styles.slotEmptyName}>Open</span>
+          </div>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
-          {this.renderControls()}
         </div>
+        <div className={styles.slotRight}>{this.renderControls()}</div>
       </div>
     )
   }

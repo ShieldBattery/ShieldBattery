@@ -151,14 +151,33 @@ export function hasObservers(lobby) {
   return lobby.teams.reduce((hasObserver, team) => hasObserver || team.isObserver, false)
 }
 
-// Returns a [teamIndex, team] tuple if the observer team is found. Should usually be used in
-// conjunction with the `hasObserver` function, so you're sure there is an observer team.
+// Returns a [teamIndex, team] tuple if the observer team is found. If the observer team is not
+// found, it returns a [null, null] tuple, so you should always check the return value of this
+// function to make sure you actually received the observer team
 export function getObserverTeam(lobby) {
-  return lobby.teams.map((team, teamIndex) => [teamIndex, team]).find(([, team]) => team.isObserver)
+  return hasObservers(lobby)
+    ? lobby.teams.map((team, teamIndex) => [teamIndex, team]).find(([, team]) => team.isObserver)
+    : [null, null]
 }
 
 // Checks whether a particular slot is inside the observer team
 export function isInObserverTeam(lobby, slot) {
   const [, observerTeam] = getObserverTeam(lobby)
-  return observerTeam.slots.find(s => s.id === slot.id)
+  return observerTeam && observerTeam.slots.find(s => s.id === slot.id)
+}
+
+// Checks if the lobby has any slots that can be made observers.
+export function canAddObservers(lobby) {
+  const [, observerTeam] = getObserverTeam(lobby)
+  return observerTeam && observerTeam.slots.size < 6
+}
+
+// Checks if the lobby has space for moving observers to players
+export function canRemoveObservers(lobby) {
+  if (!hasObservers(lobby)) return false
+  return (
+    lobby.teams.find(team => {
+      return !team.isObserver && team.slots.size !== team.originalSize
+    }) !== undefined
+  )
 }

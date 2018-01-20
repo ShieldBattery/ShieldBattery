@@ -22,8 +22,12 @@ import {
   LOBBY_KICK_PLAYER,
   LOBBY_LEAVE_BEGIN,
   LOBBY_LEAVE,
+  LOBBY_MAKE_OBSERVER_BEGIN,
+  LOBBY_MAKE_OBSERVER,
   LOBBY_OPEN_SLOT_BEGIN,
   LOBBY_OPEN_SLOT,
+  LOBBY_REMOVE_OBSERVER_BEGIN,
+  LOBBY_REMOVE_OBSERVER,
   LOBBY_SEND_CHAT_BEGIN,
   LOBBY_SEND_CHAT,
   LOBBY_SET_RACE_BEGIN,
@@ -70,6 +74,19 @@ export const kickPlayer = slotId =>
 
 export const banPlayer = slotId =>
   createSiteSocketAction(LOBBY_BAN_PLAYER_BEGIN, LOBBY_BAN_PLAYER, '/lobbies/banPlayer', { slotId })
+
+export const makeObserver = slotId =>
+  createSiteSocketAction(LOBBY_MAKE_OBSERVER_BEGIN, LOBBY_MAKE_OBSERVER, '/lobbies/makeObserver', {
+    slotId,
+  })
+
+export const removeObserver = slotId =>
+  createSiteSocketAction(
+    LOBBY_REMOVE_OBSERVER_BEGIN,
+    LOBBY_REMOVE_OBSERVER,
+    '/lobbies/removeObserver',
+    { slotId },
+  )
 
 export const leaveLobby = () =>
   createSiteSocketAction(LOBBY_LEAVE_BEGIN, LOBBY_LEAVE, '/lobbies/leave')

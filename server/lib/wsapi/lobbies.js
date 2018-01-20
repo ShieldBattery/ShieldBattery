@@ -21,7 +21,6 @@ import {
   findSlotByName,
   findSlotById,
   hasOpposingSides,
-  hasObservers,
   getObserverTeam,
 } from '../../../app/common/lobbies'
 
@@ -212,7 +211,7 @@ export class LobbyApi {
 
     let player
     const [, observerTeam] = getObserverTeam(lobby)
-    if (hasObservers(lobby) && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
       player = Slots.createObserver(client.name)
     } else {
       player = isUms(lobby.gameType)
@@ -536,6 +535,57 @@ export class LobbyApi {
     )
 
     this._removeClientFromLobby(lobby, playerToBan.name, REMOVAL_TYPE_BAN)
+  }
+
+  @Api('/makeObserver')
+  async makeObserver(data, next) {
+    const client = this.getClient(data)
+    const lobby = this.getLobbyForClient(client)
+    const [, , player] = findSlotByName(lobby, client.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
+    if (!slot) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.makeObserver(lobby, teamIndex, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+  }
+
+  @Api('/removeObserver')
+  async removeObserver(data, next) {
+    const client = this.getClient(data)
+    const lobby = this.getLobbyForClient(client)
+    const [, , player] = findSlotByName(lobby, client.name)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const { slotId } = data.get('body')
+    const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
+    if (!slot) {
+      throw new errors.BadRequest('invalid slot id')
+    }
+    if (!lobby.teams.get(teamIndex).isObserver) {
+      throw new errors.BadRequest('Slot is not in the observer team')
+    }
+
+    let updated
+    try {
+      updated = Lobbies.removeObserver(lobby, slotIndex)
+    } catch (err) {
+      throw new errors.BadRequest(err.message)
+    }
+    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
   }
 
   @Api('/leave')
@@ -912,7 +962,7 @@ export class LobbyApi {
     this.nydus.publish(LobbyApi._getClientPath(lobby, client), data)
   }
 
-  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null) {
+  _publishLobbyDiff(oldLobby, newLobby, kickedUser = null, bannedUser = null, deletedSlotIndex) {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
@@ -967,6 +1017,24 @@ export class LobbyApi {
         })
       }
     }
+
+    // Check for deleted slots caused by obs slot creation/removal.
+    // In order for things on client to work properly, we need to tell them exactly *which* slot was
+    // deleted, which seems to be impossible to figure out just by comparing lobby diffs. So in a
+    // similar fashion as we do when determining if the user was kicked/banned, we pass the slot
+    // index of a deleted slot from the method that knows which slot it is
+    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
+      const oldTeam = oldLobby.teams.get(teamIndex)
+      const newTeam = newLobby.teams.get(teamIndex)
+      if (oldTeam.slots.size > newTeam.slots.size) {
+        diffEvents.push({
+          type: 'slotDeleted',
+          teamIndex,
+          slotIndex: deletedSlotIndex,
+        })
+      }
+    }
+
     for (const id of created.values()) {
       // These are all of the slots that were created in the new lobby compared to the old one. This
       // includes the slots that were created as a result of players leaving the lobby, moving to a
