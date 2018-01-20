@@ -64,6 +64,7 @@ export default function applyRoutes(app, userSockets) {
         initData.auth = {
           user: { id: ctx.session.userId, name: ctx.session.userName },
           permissions: ctx.session.permissions,
+          emailVerified: ctx.session.emailVerified,
         }
       }
       await ctx.render('index', {

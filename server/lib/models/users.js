@@ -22,6 +22,7 @@ class User {
     defPrivate(this, 'password', props.password)
     this.created = props.created || new Date()
     this.signupIpAddress = this._fromDb ? props.ip_address_at_signup : props.signupIpAddress
+    this.emailVerified = props.email_verified
   }
 
   async save() {

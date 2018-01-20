@@ -10,7 +10,11 @@ import sendAccountVerificationEmail from '../verifications/send-account-verifica
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { usePasswordResetCode } from '../models/password-resets'
-import { addEmailVerificationCode, useEmailVerificationCode } from '../models/email-verifications'
+import {
+  addEmailVerificationCode,
+  getEmailVerificationsCount,
+  useEmailVerificationCode,
+} from '../models/email-verifications'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
@@ -19,6 +23,18 @@ const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
   burst: 4,
   window: 60000,
+})
+
+const emailVerificationThrottle = createThrottle('emailverification', {
+  rate: 10,
+  burst: 20,
+  window: 12 * 60 * 60 * 1000,
+})
+
+const resendVerificationThrottle = createThrottle('resendverification', {
+  rate: 4,
+  burst: 4,
+  window: 12 * 60 * 60 * 1000,
 })
 
 export default function(router) {
@@ -30,8 +46,24 @@ export default function(router) {
       throw new httpErrors.ImATeapot()
     })
     .post('/:username/password', resetPassword)
-    .post('/:id/emailVerification', verifyEmail)
-    .post('/:id/resendVerification', resendVerificationEmail)
+    .post(
+      '/:id/emailVerification',
+      throttleMiddleware(emailVerificationThrottle, ctx => {
+        const { id } = ctx.params
+        const { email } = ctx.request.body
+        return `${id}|${email}`
+      }),
+      verifyEmail,
+    )
+    .post(
+      '/:id/resendVerification',
+      throttleMiddleware(resendVerificationThrottle, ctx => {
+        const { id } = ctx.params
+        const { email } = ctx.request.body
+        return `${id}|${email}`
+      }),
+      resendVerificationEmail,
+    )
 }
 
 async function find(ctx, next) {
@@ -79,7 +111,7 @@ async function createUser(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(email, code)
+  await sendAccountVerificationEmail(result.user.id, email, code)
   ctx.body = result
 }
 
@@ -115,11 +147,11 @@ async function verifyEmail(ctx, next) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
-  const verifiedEmail = await useEmailVerificationCode(id, email, code)
-  if (!verifiedEmail) {
+  const emailVerified = await useEmailVerificationCode(id, email, code)
+  if (!emailVerified) {
     throw new httpErrors.BadRequest('Email verification code is invalid')
   }
-  ctx.body = verifiedEmail
+  ctx.status = 204
 }
 
 async function resendVerificationEmail(ctx, next) {
@@ -130,8 +162,13 @@ async function resendVerificationEmail(ctx, next) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
+  const emailVerificationsCount = await getEmailVerificationsCount(id, email)
+  if (emailVerificationsCount > 10) {
+    throw new httpErrors.Conflict('Email is over verification limit')
+  }
+
   const code = cuid()
   await addEmailVerificationCode(id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(email, code)
+  await sendAccountVerificationEmail(id, email, code)
   ctx.status = 204
 }

@@ -1,16 +1,33 @@
 import db from '../db'
 
 export async function addEmailVerificationCode(userId, email, code, ip) {
-  const { client, done } = await db()
   const query = `
-      INSERT INTO email_verifications
-      (user_id, email, verification_code, request_time, request_ip)
-      VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO email_verifications
+    (user_id, email, verification_code, request_time, request_ip)
+    VALUES ($1, $2, $3, $4, $5)
   `
   const params = [userId, email, code, new Date(), ip]
 
+  const { client, done } = await db()
   try {
     await client.query(query, params)
+  } finally {
+    done()
+  }
+}
+
+export async function getEmailVerificationsCount(id, email) {
+  const query = `
+    SELECT COUNT(*)
+    FROM email_verifications
+    WHERE user_id = $1 AND email = $2
+  `
+  const params = [id, email]
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows[0]
   } finally {
     done()
   }
@@ -25,6 +42,7 @@ export async function useEmailVerificationCode(id, email, code) {
       ev.user_id = $1 AND
       ev.email = $2 AND
       ev.user_id = u.id AND
+      ev.email = u.email AND
       ev.verification_code = $3 AND
       ev.request_time > $4 AND
       u.email_verified = FALSE
@@ -37,7 +55,7 @@ export async function useEmailVerificationCode(id, email, code) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? { email: result.rows[0].email } : null
+    return result.rows.length
   } finally {
     done()
   }
