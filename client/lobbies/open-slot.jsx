@@ -82,9 +82,7 @@ export default class OpenSlot extends React.Component {
           </div>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </div>
-        <div className={styles.slotRight}>
-          {this.renderControls()}
-        </div>
+        <div className={styles.slotRight}>{this.renderControls()}</div>
       </div>
     )
   }
