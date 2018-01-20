@@ -15,24 +15,6 @@
   overflow: auto;
 }
 
-.topLinks {
-  composes: pageWidth;
-  pointer-events: all;
-  position: absolute;
-  top: 8px;
-  right: 0;
-  list-style: none;
-  width: auto;
-}
-
-.topLinks > li {
-  display: inline;
-}
-
-.topLinks > li + li {
-  margin-left: 32px;
-}
-
 .logoContainer {
   composes: pageWidth;
   pointer-events: none;
@@ -57,106 +39,6 @@
   composes: shadow4dp;
   background-color: grey850;
   margin-top: 180px;
-}
-
-.introContent {
-  composes: row justifySpaceBetween itemsStart;
-  composes: pageWidth;
-}
-
-.introText {
-  composes: grow shrink;
-  max-width: 424px;
-  margin-right: 16px;
-  margin-top: 240px;
-  margin-bottom: 128px;
-}
-
-.introHeadline {
-  composes: display1;
-  font-weight: 300;
-}
-
-.introBody {
-  composes: subhead;
-  color: colorTextSecondary;
-  margin-top: 32px;
-}
-
-.signup {
-  composes: grow shrink;
-  max-width: 464px;
-  margin: 32px 0 32px 16px;
-}
-
-.signupCard {
-  width: 100%;
-}
-
-.signupTitle {
-  margin: 8px 0 0;
-}
-
-.signupDone {
-  padding: 0 8px;
-}
-
-.signupDoneParagraph {
-  composes: subhead;
-}
-
-.trademarkInfo {
-  composes: body1;
-  composes: pageWidth;
-  color: colorTextFaint;
-  margin-top: 16px;
-  padding: 0 96px;
-  font-size: 12px;
-}
-
-.feature {
-  composes: row itemsCenter;
-  composes: pageWidth;
-  padding-top: 64px;
-  padding-bottom: 63px;
-  border-bottom: 1px solid colorDividers;
-}
-
-.featureImage {
-  composes: take15;
-}
-
-.featureImage svg {
-  width: 100%;
-  height: auto;
-}
-
-.featureText {
-  composes: take85;
-  padding-right: 48px;
-}
-
-.featureTitle {
-  composes: display1;
-  margin: 0;
-}
-
-.titleBlue {
-  composes: featureTitle;
-  color: blue400;
-}
-
-.titleAmber {
-  composes: featureTitle;
-  color: amberA400;
-}
-
-.featureBody {
-  composes: subhead;
-  color: colorTextSecondary;
-  font-size: 20px;
-  line-height: 1.5;
-  margin: 32px 0 0;
 }
 
 .faqHeader {
