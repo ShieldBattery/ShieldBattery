@@ -12,6 +12,7 @@
 *.diff binary
 *.dll binary
 *.opus binary
+*.mp4 binary
 
 # Custom for Visual Studio
 *.sln    merge=union

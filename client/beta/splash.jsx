@@ -2,146 +2,316 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { makeServerUrl } from '../network/server-url'
 import { routerActions } from 'react-router-redux'
-import RaisedButton from '../material/raised-button.jsx'
-import styles from './beta.css'
+import styled from 'styled-components'
 
+import Card from '../material/card.jsx'
+import ConnectedDialogOverlay from '../dialogs/connected-dialog-overlay.jsx'
+import RaisedButton from '../material/raised-button.jsx'
 import TopLinks from './top-links.jsx'
-import LogoText from '../logos/logotext-640x100.svg'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 
 import ChatImage from './chat.svg'
-import NetworkImage from './network.svg'
-import PrizeImage from './prize.svg'
-import ResolutionImage from './resolution.svg'
-import WindowsImage from './windows.svg'
+import LogoText from '../logos/logotext-640x100.svg'
 
-const FeatureSection = ({ title, titleStyle, body, image }) => {
+import { openDialog } from '../dialogs/dialog-action-creator'
+import { grey850, grey900, colorTextSecondary } from '../styles/colors'
+
+const SplashContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: auto !important;
+  background-color: ${grey900};
+  margin: 0px auto;
+  overflow: auto;
+`
+
+const BackgroundVideo = styled.video`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 860px;
+  object-fit: fill;
+  filter: blur(8px);
+  opacity: 0.5;
+`
+
+const LogoLockup = styled.div`
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin: 20px 0px;
+  pointer-events: none;
+`
+
+const Logo = styled.img`
+  margin-right: 16px;
+`
+
+const StyledLogoText = styled(LogoText)`
+  width: 320px;
+  height: 50px;
+`
+
+// TODO(2Pac): Use proper typography css for this from some common place
+const TagLine = styled.div`
+  position: relative;
+  font-family: Roboto Condensed, sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 40px;
+  margin: 16px 0px;
+`
+
+const ButtonsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  width: 464px;
+  margin: 16px 0px;
+`
+
+const SplashButton = styled(RaisedButton)`
+  width: 200px;
+  height: 54px;
+  margin: 0px;
+
+  & > span {
+    font-size: 18px;
+    font-weight: 400;
+  }
+`
+
+const Feature = styled(Card)`
+  width: 368px;
+  padding: 12px 24px 24px 24px;
+`
+
+const FeatureContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  margin: 24px 0px 40px 0px;
+
+  & > ${Feature} + ${Feature} {
+    margin-left: 16px;
+  }
+`
+
+const StyledChatImage = styled(ChatImage)`
+  width: 100%;
+  height: auto;
+`
+
+// TODO(2Pac): Use proper typography css for this from some common place
+const FeatureTitle = styled.h3`
+  font-family: Roboto Condensed, sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 34px;
+`
+
+const FeatureBody = styled.div`
+  & > p {
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 24px;
+  }
+
+  & > p + p {
+    margin-top: 32px;
+  }
+`
+
+const FeatureSection = ({ title, body, image }) => {
   return (
-    <div className={styles.feature}>
-      <div className={styles.featureText}>
-        <h3 className={titleStyle}>{title}</h3>
-        <p className={styles.featureBody}>{body}</p>
-      </div>
-      <div className={styles.featureImage}>{image}</div>
-    </div>
+    <Feature>
+      {image}
+      <FeatureTitle>{title}</FeatureTitle>
+      <FeatureBody>{body}</FeatureBody>
+    </Feature>
   )
 }
 
+const BottomContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding-top: 40px;
+  background-color: ${grey850};
+`
+
+const BottomSection = styled.div`
+  width: 864px;
+  margin-bottom: 64px;
+`
+
+// TODO(2Pac): Use proper typography css for this from some common place
+const bottomSectionTitle = `
+  font-family: Roboto Condensed, sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 40px;
+  margin: 0px;
+`
+
+const BottomSectionTitle = styled.h3`
+  ${bottomSectionTitle};
+`
+
+const BottomSectionList = styled.ul`
+  list-style: inside;
+  padding-left: 0px;
+  column-count: ${props => props.columnCount || 'auto'};
+  column-gap: ${props => props.columnGap || 'normal'};
+
+  & > li {
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 40px;
+  }
+`
+
+const ComingSoonText = styled.span`
+  ${bottomSectionTitle};
+  color: ${colorTextSecondary};
+`
+
 @connect()
 export default class Splash extends React.Component {
+  features = [
+    {
+      title: 'A social experience',
+      body: [
+        <p key="p1">
+          Chat channels? You wanted those, right? No tiny message windows in the corner of the
+          screen here; ShieldBattery makes chat a priority and keeps it front and center.
+        </p>,
+        <p key="p2">
+          You can join tons of channels simultaneously, talk with all your friends and enemies, and
+          easily keep tabs on potential rivals. When you’ve figured out the map pool for your
+          best-of-21 grudge match, getting into a game is just a few clicks away!
+        </p>,
+        <p key="p3">
+          We keep all of the chat history for you too, even when you’re not connected, so you can
+          keep up with what happened when you (finally) went to sleep last night.
+        </p>,
+      ],
+      image: <StyledChatImage />,
+    },
+    {
+      title: 'Fanatically faithful',
+      body: [
+        <p key="p1">
+          ShieldBattery is developed and directed by long-time members of the Brood War community,
+          and we’ve maintained an intense devotion to keeping the gameplay faithfully intact as
+          we’ve solved bugs and added features. From the graphics and sounds down to things like
+          mouse movement and latency, we’ve kept things as accurate as possible to what StarCraft
+          has always been.
+        </p>,
+        <p key="p2">
+          The Brood War community has a long history of building its own solutions to problems.
+          ShieldBattery descends from this grand lineage, building a modern, seamless experience
+          based on a keen understanding of the community’s issues and desires.
+        </p>,
+      ],
+      image: <StyledChatImage />,
+    },
+    {
+      title: 'Seamless and easy',
+      body: [
+        <p key="p1">
+          Third-party servers and ladders for StarCraft have often required following a complex set
+          of instructions, downloading launchers and plugins from shady websites, and fiddling with
+          settings for hours until things work.
+        </p>,
+        <p key="p2">
+          ShieldBattery is different. Download our super fast installer, sign up for an account, and
+          be playing in seconds!
+        </p>,
+        <p key="p3">
+          ShieldBattery supports all modern versions of Brood War and modern operating systems. It
+          also packs in an improved network stack so that hosting and network problems are a thing
+          of the past.
+        </p>,
+      ],
+      image: <StyledChatImage />,
+    },
+  ]
+
   render() {
-    const features = [
-      {
-        title: 'Modern operating system support',
-        body: (
-          <span>
-            Since the release of Windows Vista, Brood War players have struggled with a myriad of
-            compatibility problems that have only gotten worse with each new Windows version.
-            Struggle no longer&mdash;ShieldBattery offers full support for all Windows versions
-            Vista and above: no batch files, registry tweaks, or command line arguments required.
-          </span>
-        ),
-        image: <WindowsImage />,
-      },
-      {
-        title: 'Brand new windowed mode',
-        body: (
-          <span>
-            Brood War's forced 640x480, full screen graphics mode might have made sense in 1998, but
-            who wants to play like that today? ShieldBattery offers a completely new graphics
-            backend supporting both DirectX and OpenGL, borderless and bordered windows, and fast,
-            smooth scaling to tons of different resolutions. Smart mouse sensitivity is included,
-            too, so you can get things just right for your muta micro. Should you want to broadcast
-            your matches to all of your adoring fans, ShieldBattery's windowed mode also works great
-            with streaming programs out of the box.
-          </span>
-        ),
-        image: <ResolutionImage />,
-      },
-      {
-        title: 'Improved networking',
-        body: (
-          <span>
-            Tired of doing battle with your router before you can play with your friends online? We
-            were too, which is why ShieldBattery includes a brand new network stack that removes the
-            need for port forwarding completely, and brings LAN latency settings by default, no
-            plugin needed. Support for forthcoming network technologies like IPv6 is included too,
-            so Brood War is ready for the next decade of internet changes.
-          </span>
-        ),
-        image: <NetworkImage />,
-      },
-      {
-        title: 'Auto-matchmaking and ladder',
-        body: (
-          <span>
-            No modern multiplayer experience would be complete without a streamlined ladder system
-            that doesn't require you to spam a chat channel to find opponents. ShieldBattery
-            provides a fast, easy laddering experience and can automatically match you to similarly
-            skilled opponents on a fresh, rotating map pool. Searching for matches is just a click
-            away, and continues in the background so you can focus on more important things, like
-            learning that awesome 10/15 build from Liquipedia.
-          </span>
-        ),
-        image: <PrizeImage />,
-      },
-      {
-        title: 'Completely revamped multiplayer experience',
-        body: (
-          <span>
-            Chat channels? You wanted those, right? ShieldBattery has 'em, front and center. Join
-            tons of channels simultaneously, chat with your friends and enemies, all from our simple
-            web interface that you can connect to from anywhere. And when you're ready for a game,
-            you can do that there, too, all without leaving chat.
-          </span>
-        ),
-        image: <ChatImage />,
-      },
-    ]
-
     return (
-      <div className={styles.splash}>
-        <div className={styles.logoContainer}>
+      <ScrollableContent>
+        <SplashContainer>
+          <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
+            <source src={makeServerUrl('/videos/splash-video.mp4')} type="video/webm" />
+          </BackgroundVideo>
           <TopLinks />
-          <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
-          <LogoText className={styles.logotext} />
-        </div>
-        <div className={styles.intro}>
-          <div className={styles.introContent}>
-            <div className={styles.introText}>
-              <h3 className={styles.introHeadline}>
-                The Brood War gameplay you love, the multiplayer experience it deserves
-              </h3>
-              <p className={styles.introBody}>
-                Playing Brood War online today feels like a chore. Whether it's modern operating
-                system problems, port forwarding challenges, or graphical glitches, every player has
-                experienced their share of frustration. Want to start having fun again? Brood War
-                has a life of lively to live to life of full life thanks to ShieldBattery.
-              </p>
-            </div>
-            <RaisedButton label="Sign up" onClick={this.onSignUpClick} tabIndex={1} />
-          </div>
-        </div>
-
-        <p className={styles.trademarkInfo}>
-          StarCraft and Brood War are registered trademarks of Blizzard Entertainment. ShieldBattery
-          is a community-driven project with no official support or endorsement by Blizzard
-          Entertainment.
-        </p>
-
-        {features.map((f, i) => (
-          <FeatureSection
-            title={f.title}
-            body={f.body}
-            image={f.image}
-            key={`feature-${i}`}
-            titleStyle={i % 2 === 0 ? styles.titleBlue : styles.titleAmber}
-          />
-        ))}
-      </div>
+          <LogoLockup>
+            <Logo src={makeServerUrl('/images/shieldbattery-128.png')} />
+            <StyledLogoText />
+          </LogoLockup>
+          <TagLine>Play StarCraft: Brood War on the premier community-run platform</TagLine>
+          {!IS_ELECTRON ? (
+            <ButtonsContainer>
+              <SplashButton label="Sign Up" color="primary" onClick={this.onSignUpClick} />
+              <SplashButton label="Download" color="primary" onClick={this.onDownloadClick} />
+            </ButtonsContainer>
+          ) : (
+            <SplashButton label="Sign Up" color="primary" onClick={this.onSignUpClick} />
+          )}
+          <FeatureContainer>
+            {this.features.map((f, i) => (
+              <FeatureSection title={f.title} body={f.body} image={f.image} key={`feature-${i}`} />
+            ))}
+          </FeatureContainer>
+          <BottomContainer>
+            <BottomSection>
+              <BottomSectionTitle>Features</BottomSectionTitle>
+              <BottomSectionList>
+                <li>Innovative new network stack</li>
+                <li>
+                  Support for fullscreen, borderless, and normal windowed mode with resolution
+                  scaling
+                </li>
+                <li>Windows 7 and 10 support</li>
+                <li>Observer mode, with up to 6 observers per game</li>
+                <li>Lobby join alerts</li>
+                <li>Web-based client for chat and community features</li>
+                <li>Server-based map distribution and hosting</li>
+                <li>Automatic replay saving</li>
+              </BottomSectionList>
+            </BottomSection>
+            <BottomSection>
+              <BottomSectionTitle>
+                In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
+              </BottomSectionTitle>
+              <BottomSectionList columnCount="2" columnGap="24px">
+                <li>Matchmaking</li>
+                <li>Ranked ladder</li>
+                <li>Custom map uploading</li>
+                <li>Cloud-synced replays</li>
+                <li>Configurable pixel scaling</li>
+                <li>Live match streaming</li>
+                <li>First person replays</li>
+                <li>Player profiles and statistics</li>
+                <li>Replay analysis</li>
+                <li>Friends list</li>
+              </BottomSectionList>
+            </BottomSection>
+          </BottomContainer>
+        </SplashContainer>
+        <ConnectedDialogOverlay />
+      </ScrollableContent>
     )
   }
 
   onSignUpClick = () => {
     this.props.dispatch(routerActions.push({ pathname: '/signup' }))
+  }
+
+  onDownloadClick = () => {
+    this.props.dispatch(openDialog('download'))
   }
 }
