@@ -1,12 +1,13 @@
+import { css } from 'styled-components'
+
 export const shadowKeyUmbraOpacity = 0.2
 export const shadowKeyPenumbraOpacity = 0.14
 export const shadowAmbientOpacity = 0.12
 
 /* eslint-disable max-params */
 const shadow = (depth, uOff, uBlur, uSpread, pOff, pBlur, pSpread, aOff, aBlur, aSpread) => {
-  return `
-    box-shadow:
-      0px ${uOff}px ${uBlur}px ${uSpread}px rgba(0, 0, 0, ${shadowKeyUmbraOpacity}),
+  return css`
+    box-shadow: 0px ${uOff}px ${uBlur}px ${uSpread}px rgba(0, 0, 0, ${shadowKeyUmbraOpacity}),
       0px ${pOff}px ${pBlur}px ${pSpread}px rgba(0, 0, 0, ${shadowKeyPenumbraOpacity}),
       0px ${aOff}px ${aBlur}px ${aSpread}px rgba(0, 0, 0, ${shadowAmbientOpacity});
     z-index: ${depth};
