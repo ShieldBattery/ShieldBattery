@@ -18,7 +18,7 @@ export async function addEmailVerificationCode(userId, email, code, ip) {
 
 export async function getEmailVerificationsCount(id, email) {
   const query = `
-    SELECT COUNT(*)
+    SELECT COUNT(*) AS count
     FROM email_verifications
     WHERE user_id = $1 AND email = $2
   `
@@ -27,7 +27,7 @@ export async function getEmailVerificationsCount(id, email) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows[0]
+    return result.rows[0].count
   } finally {
     done()
   }
