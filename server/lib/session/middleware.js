@@ -1,12 +1,11 @@
 import session from 'koa-generic-session'
-import redisStore from 'koa-redis'
 import cuid from 'cuid'
-import redis from '../redis'
+import store from './session-store'
 import config from '../../config'
 
 export default session({
   key: 's',
-  store: redisStore({ client: redis }),
+  store,
   cookie: {
     maxAge: config.sessionTtl * 1000,
   },
