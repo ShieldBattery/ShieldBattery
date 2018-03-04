@@ -4,7 +4,7 @@ import { getBanHistory, banUser as dbBanUser } from '../models/bans'
 import users from '../models/users'
 import { checkAllPermissions } from '../permissions/check-permissions'
 
-export default function(router, userSockets) {
+export default function(router, { userSockets }) {
   router
     .get('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
     .post('/:userId', checkAllPermissions('banUsers'), (ctx, next) =>

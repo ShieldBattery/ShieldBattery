@@ -69,6 +69,10 @@ class SocketGroup extends EventEmitter {
 
     // Give the client a message so they know we're done subscribing them to things
     this.nydus.subscribeClient(socket, this.getPath(), { type: this.getType() })
+
+    // Subscribe the client to the their profile path, so they can receive an update in case their
+    // profile changes
+    this.nydus.subscribeClient(socket, '/userProfiles/' + this.session.userId)
   }
 
   _applyCleanups() {

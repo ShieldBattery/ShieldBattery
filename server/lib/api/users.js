@@ -18,8 +18,8 @@ import {
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
-import redis from '../redis'
-import sessionStore from '../session/session-store'
+import updateAllSessions from '../session/update-all-sessions'
+import ensureLoggedIn from '../session/ensure-logged-in'
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
@@ -33,13 +33,13 @@ const emailVerificationThrottle = createThrottle('emailverification', {
   window: 12 * 60 * 60 * 1000,
 })
 
-const resendVerificationThrottle = createThrottle('resendverification', {
+const sendVerificationThrottle = createThrottle('sendverification', {
   rate: 4,
   burst: 4,
   window: 12 * 60 * 60 * 1000,
 })
 
-export default function(router, userSockets) {
+export default function(router, { nydus }) {
   router
     .post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
@@ -55,16 +55,18 @@ export default function(router, userSockets) {
         const { email } = ctx.request.body
         return `${id}|${email}`
       }),
-      (ctx, next) => verifyEmail(ctx, next, userSockets),
+      ensureLoggedIn,
+      (ctx, next) => verifyEmail(ctx, next, nydus),
     )
     .post(
-      '/:id/resendVerification',
-      throttleMiddleware(resendVerificationThrottle, ctx => {
+      '/:id/sendVerification',
+      throttleMiddleware(sendVerificationThrottle, ctx => {
         const { id } = ctx.params
         const { email } = ctx.request.body
         return `${id}|${email}`
       }),
-      resendVerificationEmail,
+      ensureLoggedIn,
+      sendVerificationEmail,
     )
 }
 
@@ -113,7 +115,7 @@ async function createUser(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(result.user.id, email, code)
+  await sendAccountVerificationEmail(email, code)
   ctx.body = result
 }
 
@@ -140,7 +142,7 @@ async function resetPassword(ctx, next) {
   })
 }
 
-async function verifyEmail(ctx, next, userSockets) {
+async function verifyEmail(ctx, next, nydus) {
   const { id } = ctx.params
   const { code } = ctx.query
   const { email } = ctx.request.body
@@ -154,42 +156,19 @@ async function verifyEmail(ctx, next, userSockets) {
     throw new httpErrors.BadRequest('Email verification code is invalid')
   }
 
-  ctx.status = 204
-
-  // If the user is not logged in, our job is done here. They will receive the updated data with
-  // `emailVerified` set to `true` next time they log in.
-  if (!ctx.session.userId) return
-
-  // If the user is logged in when verifying their email, update all of their sessions to indicate
-  // that their email is now indeed verified.
-  const userSessionsKey = 'user_sessions:' + ctx.session.userId
-  const userSessionIds = await redis.smembers(userSessionsKey)
-
-  for (const sessionId of userSessionIds) {
-    // NOTE(2Pac): There is actually a race condition here (we first get the value, then modify and
-    // store it back; something else could modify it between the get and the store). However, fixing
-    // it would be quite involved (would probably need to modify the redis store) and the impact of
-    // it is not that great, so it's whatever.
-    const session = await sessionStore.get(sessionId)
-    if (session) await sessionStore.set(sessionId, { ...session, emailVerified: true })
-  }
-
-  // Above updates the sessions directly in the store, but the current session on the server remains
-  // unupdated. So we update it manually here.
-  ctx.session.emailVerified = true
+  // Update all of the user's sessions to indicate that their email is now indeed verified.
+  updateAllSessions(ctx, { emailVerified: true })
 
   // Last thing to do is to notify all of the user's opened sockets that their email is now verified
   // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
-  // connected when they open the email verification page), the client actually making the request
-  // won't get this event. Thankfully, that's easy to deal with on the client-side.
-  const user = userSockets.getByName(ctx.session.userName)
-  if (user) {
-    user.subscribe('/auth/emailVerification', () => ({ action: 'emailVerified' }))
-    user.unsubscribe('/auth/emailVerification')
-  }
+  // connected when they open the email verification page), the client making the request won't
+  // actually get this event. Thankfully, that's easy to deal with on the client-side.
+  nydus.publish('/userProfiles/' + ctx.session.userId, { action: 'emailVerified' })
+
+  ctx.status = 204
 }
 
-async function resendVerificationEmail(ctx, next) {
+async function sendVerificationEmail(ctx, next) {
   const { id } = ctx.params
   const { email } = ctx.request.body
 
@@ -204,6 +183,6 @@ async function resendVerificationEmail(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(id, email, code)
+  await sendAccountVerificationEmail(email, code)
   ctx.status = 204
 }
