@@ -42,6 +42,8 @@ const Scrim = styled.div`
   background-color: ${dialogScrim};
   z-index: ${zIndexBackdrop};
   will-change: opacity;
+
+  -webkit-app-region: no-drag;
 `
 
 const Overlay = styled.div`
@@ -55,6 +57,8 @@ const Overlay = styled.div`
   max-width: 768px;
   background-color: ${grey800};
   z-index: ${zIndexSideNav};
+
+  -webkit-app-region: no-drag;
 `
 
 const Container = styled.div`

@@ -263,6 +263,7 @@ export default class Lobby extends React.Component {
     lobby: PropTypes.object.isRequired,
     chat: PropTypes.object.isRequired,
     user: PropTypes.object,
+    onLeaveLobbyClick: PropTypes.func,
     onSetRace: PropTypes.func,
     onAddComputer: PropTypes.func,
     onSendChatMessage: PropTypes.func,
@@ -414,7 +415,7 @@ export default class Lobby extends React.Component {
   }
 
   render() {
-    const { lobby, onSendChatMessage } = this.props
+    const { lobby, onLeaveLobbyClick, onSendChatMessage } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -451,6 +452,7 @@ export default class Lobby extends React.Component {
           <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
         </div>
         <div className={styles.info}>
+          <RaisedButton label="Leave lobby" onClick={onLeaveLobbyClick} />
           <h3 className={styles.mapName}>{lobby.map.name}</h3>
           <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
           <div className={styles.infoItem}>

@@ -2,11 +2,15 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { getPlayerSlots } from '../../app/common/lobbies'
 import styles from './loading.css'
+import styled from 'styled-components'
 
 import Card from '../material/card.jsx'
 import Avatar from '../avatars/avatar.jsx'
 import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RaceIcon from './race-icon.jsx'
+
+import { fastOutSlowInShort } from '../material/curves'
+import { alphaDisabled } from '../styles/colors'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',
@@ -186,6 +190,14 @@ const LOADING_MESSAGES = [
   'Building a bot to perfectly emulate SlayerS`BoxeR`',
 ]
 
+const StyledAvatar = styled(Avatar)`
+  ${fastOutSlowInShort};
+  margin-right: 16px;
+  opacity: ${props => (props.isReady ? 1 : alphaDisabled)};
+`
+
+const StyledComputerAvatar = StyledAvatar.withComponent(ComputerAvatar)
+
 const MESSAGE_TIME_MIN = 3000
 const MESSAGE_TIME_MAX = 5500
 class LoadingMessage extends React.Component {
@@ -232,9 +244,9 @@ class LoadingPlayer extends React.Component {
     const { player, isReady } = this.props
     const isComputer = player.type === 'computer'
     const avatar = isComputer ? (
-      <ComputerAvatar className={styles.playerAvatar} />
+      <StyledComputerAvatar isReady={isReady} />
     ) : (
-      <Avatar user={player.name} className={styles.playerAvatar} />
+      <StyledAvatar user={player.name} isReady={isReady} />
     )
     const displayName = isComputer ? 'Computer' : player.name
 

@@ -1,4 +1,8 @@
-import React from 'react'
-import styles from './left-nav.css'
+import styled from 'styled-components'
 
-export default () => <hr className={styles.divider} />
+const Divider = styled.hr`
+  border: none;
+  margin-top: 16px;
+`
+
+export default Divider

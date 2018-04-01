@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
 
 import AdminBetaInvites from './invites.jsx'
-import ContentLayout from '../content/content-layout.jsx'
 import { ConditionalRoute } from '../navigation/custom-routes.jsx'
 import { UserFind } from './user-profile.jsx'
 import {
@@ -44,14 +43,12 @@ class AdminDashboard extends React.Component {
     ) : null
 
     return (
-      <ContentLayout title={'Admin panel'}>
-        <ul>
-          {usersLink}
-          {uploadLink}
-          {managePatchesLink}
-          {invitesLink}
-        </ul>
-      </ContentLayout>
+      <ul>
+        {usersLink}
+        {uploadLink}
+        {managePatchesLink}
+        {invitesLink}
+      </ul>
     )
   }
 }

@@ -4,7 +4,6 @@
 @value reset from '../material/button-reset.css';
 @value iconButton from '../material/button.css';
 @value shadow3dp from '../material/shadows.css';
-@value avatarImage from '../avatars/avatar.css';
 
 .activityBar {
   composes: col exact justifyStart itemsCenter;
@@ -14,22 +13,6 @@
   background-color: grey900;
   padding-bottom: 8px;
   overflow: hidden;
-}
-
-.avatar {
-  composes: avatarImage;
-  width: 40px;
-  height: 40px;
-}
-
-.avatar > svg {
-  width: 40px;
-  height: 40px;
-}
-
-.avatarButton {
-  width: 64px;
-  min-height: 64px;
 }
 
 .button {

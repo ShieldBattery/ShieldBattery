@@ -1,12 +1,23 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styles from './view.css'
+import styled from 'styled-components'
 
 import Avatar from '../avatars/avatar.jsx'
 import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RacePicker from './race-picker.jsx'
 import SelectedRace from './selected-race.jsx'
 import SlotActions from './slot-actions.jsx'
+
+const StyledAvatar = styled(Avatar)`
+  flex-grow: 0;
+  flex-shrink: 0;
+  width: 24px !important;
+  height: 24px !important;
+  margin-right: 16px;
+`
+
+const StyledComputerAvatar = StyledAvatar.withComponent(ComputerAvatar)
 
 export default class PlayerSlot extends React.Component {
   static propTypes = {
@@ -58,9 +69,9 @@ export default class PlayerSlot extends React.Component {
       onRemoveObserver,
     } = this.props
     const avatar = isComputer ? (
-      <ComputerAvatar className={styles.slotAvatar} />
+      <StyledComputerAvatar />
     ) : (
-      <Avatar user={name} image={avatarImage} className={styles.slotAvatar} />
+      <StyledAvatar user={name} image={avatarImage} />
     )
     const displayName = isComputer ? 'Computer' : name
 

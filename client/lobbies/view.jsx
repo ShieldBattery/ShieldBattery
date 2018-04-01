@@ -1,9 +1,12 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
-import ContentLayout from '../content/content-layout.jsx'
-import FlatButton from '../material/flat-button.jsx'
+import styles from './view.css'
+
+import Lobby from './lobby.jsx'
+import LoadingScreen from './loading.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+
 import {
   addComputer,
   changeSlot,
@@ -21,10 +24,6 @@ import {
   activateLobby,
   deactivateLobby,
 } from './action-creators'
-import styles from './view.css'
-
-import Lobby from './lobby.jsx'
-import LoadingScreen from './loading.jsx'
 
 const mapStateToProps = state => {
   return {
@@ -85,7 +84,6 @@ export default class LobbyView extends React.Component {
     const { lobby, user, gameClient } = this.props
 
     let content
-    let actions
     if (!lobby.inLobby) {
       content = this.renderLobbyState()
     } else if (lobby.info.name !== routeLobby) {
@@ -98,6 +96,7 @@ export default class LobbyView extends React.Component {
           lobby={lobby.info}
           chat={lobby.chat}
           user={user}
+          onLeaveLobbyClick={this.onLeaveLobbyClick}
           onAddComputer={this.onAddComputer}
           onSetRace={this.onSetRace}
           onSwitchSlot={this.onSwitchSlot}
@@ -111,17 +110,9 @@ export default class LobbyView extends React.Component {
           onSendChatMessage={this.onSendChatMessage}
         />
       )
-      actions = [<FlatButton key="leave" label="Leave lobby" onClick={this.onLeaveLobbyClick} />]
     }
 
-    return (
-      <ContentLayout
-        title={this.props.match.params.lobby}
-        actions={actions}
-        appBarContentClassName={styles.appBarContent}>
-        {content}
-      </ContentLayout>
-    )
+    return content
   }
 
   // TODO(tec27): refactor out into its own component

@@ -4,7 +4,6 @@ import { Route } from 'react-router-dom'
 import { routerActions } from 'react-router-redux'
 import styles from './admin.css'
 
-import ContentLayout from '../content/content-layout.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
@@ -78,16 +77,14 @@ export class UserFind extends React.Component {
       username: this.props.match.params.username,
     }
     return (
-      <ContentLayout title={'Users'}>
-        <div className={styles.users}>
-          <div>
-            <h3>Find user</h3>
-            <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-            <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
-          </div>
-          <Route path="/admin/users/:username" component={UserProfile} />
+      <div className={styles.users}>
+        <div>
+          <h3>Find user</h3>
+          <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
+          <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
         </div>
-      </ContentLayout>
+        <Route path="/admin/users/:username" component={UserProfile} />
+      </div>
     )
   }
 

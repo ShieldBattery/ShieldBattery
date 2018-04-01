@@ -12,7 +12,6 @@ import {
 } from './action-creators'
 import styles from './whisper.css'
 
-import ContentLayout from '../content/content-layout.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import MessageList from '../messaging/message-list.jsx'
@@ -166,22 +165,20 @@ export default class WhisperView extends React.Component {
     const target = this.props.match.params.target
     const session = this.props.whispers.byName.get(target.toLowerCase())
 
+    if (!session) {
+      return (
+        <div className={styles.loadingArea}>
+          <LoadingIndicator />
+        </div>
+      )
+    }
+
     return (
-      <ContentLayout
-        title={`Whisper with ${session ? session.target : target}`}
-        appBarContentClassName={styles.appBarContent}>
-        {session ? (
-          <Whisper
-            session={session}
-            onSendChatMessage={this._handleSendChatMessage}
-            onRequestMoreHistory={this._handleRequestMoreHistory}
-          />
-        ) : (
-          <div className={styles.loadingArea}>
-            <LoadingIndicator />
-          </div>
-        )}
-      </ContentLayout>
+      <Whisper
+        session={session}
+        onSendChatMessage={this._handleSendChatMessage}
+        onRequestMoreHistory={this._handleRequestMoreHistory}
+      />
     )
   }
 

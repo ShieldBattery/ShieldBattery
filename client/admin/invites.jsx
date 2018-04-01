@@ -5,8 +5,6 @@ import queryString from 'query-string'
 import { Range } from 'immutable'
 import styles from './admin.css'
 
-import ContentLayout from '../content/content-layout.jsx'
-
 import { getInvites, acceptUser } from './action-creators'
 
 const LIMIT = 25
@@ -121,18 +119,16 @@ export default class Invites extends React.Component {
 
   render() {
     return (
-      <ContentLayout title={'Invites'}>
-        <div className={styles.invites}>
-          {this.renderError()}
-          <div className={styles.filterInvites}>
-            <Link to="/admin/invites">All</Link>
-            <Link to="/admin/invites?accepted=true">Accepted</Link>
-            <Link to="/admin/invites?accepted=false">Unaccepted</Link>
-          </div>
-          {this.renderInvites()}
-          {this.renderPaging()}
+      <div className={styles.invites}>
+        {this.renderError()}
+        <div className={styles.filterInvites}>
+          <Link to="/admin/invites">All</Link>
+          <Link to="/admin/invites?accepted=true">Accepted</Link>
+          <Link to="/admin/invites?accepted=false">Unaccepted</Link>
         </div>
-      </ContentLayout>
+        {this.renderInvites()}
+        {this.renderPaging()}
+      </div>
     )
   }
 

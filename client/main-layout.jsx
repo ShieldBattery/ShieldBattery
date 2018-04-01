@@ -4,15 +4,20 @@ import { Link, Route, Switch } from 'react-router-dom'
 import { routerActions } from 'react-router-redux'
 import keycode from 'keycode'
 import styles from './main-layout.css'
+import styled from 'styled-components'
 
 import ActiveGame from './active-game/view.jsx'
+import ActiveGameTitle from './active-game/app-bar-title.jsx'
 import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
 import AdminPanel from './admin/panel.jsx'
+import AdminTitle from './admin/app-bar-title.jsx'
+import AppBar from './app-bar/app-bar.jsx'
 import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
+import { ChatListTitle, ChatTitle } from './chat/app-bar-title.jsx'
 import { ConditionalRoute } from './navigation/custom-routes.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
@@ -20,14 +25,15 @@ import IconButton from './material/icon-button.jsx'
 import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import LobbyView from './lobbies/view.jsx'
+import LobbyTitle from './lobbies/app-bar-title.jsx'
+import ProfileNavEntry from './profile/nav-entry.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
-import ActiveUserCount from './serverstatus/active-users.jsx'
 import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
 import Whisper from './whispers/whisper.jsx'
-import WindowControls from './window-controls/window-controls.jsx'
+import WhispersTitle from './whispers/app-bar-title.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import CancelMatchIcon from './icons/material/ic_cancel_black_24px.svg'
@@ -66,6 +72,16 @@ const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_S = keycode('s')
 
+const ContentLayout = styled.div`
+  flex-grow: 1;
+  flex-shrink: 1;
+  overflow-x: hidden;
+`
+
+const AdminLink = styled.p`
+  width: 100%;
+`
+
 let activeGameRoute
 let lobbyRoute
 if (IS_ELECTRON) {
@@ -99,11 +115,11 @@ function stateToProps(state) {
 @connect(stateToProps)
 class MainLayout extends React.Component {
   state = {
-    avatarOverlayOpened: false,
+    profileOverlayOpened: false,
   }
-  _avatarButtonRef = null
-  _setAvatarButtonRef = elem => {
-    this._avatarButtonRef = elem
+  _profileEntryRef = null
+  _setProfileEntryRef = elem => {
+    this._profileEntryRef = elem
   }
 
   componentDidMount() {
@@ -143,12 +159,12 @@ class MainLayout extends React.Component {
     ]
   }
 
-  renderAvatarOverlay() {
+  renderProfileOverlay() {
     return (
       <SelfProfileOverlay
-        open={this.state.avatarOverlayOpened}
+        open={this.state.profileOverlayOpened}
         onDismiss={this.onCloseProfileOverlay}
-        anchor={this._avatarButtonRef}
+        anchor={this._profileEntryRef}
         user={this.props.auth.user.name}>
         {window._sbFeedbackUrl ? (
           <ProfileAction
@@ -169,11 +185,27 @@ class MainLayout extends React.Component {
 
   render() {
     const {
+      auth,
       inGameplayActivity,
       chatChannels,
       whispers,
       routing: { location: { pathname } },
     } = this.props
+
+    let appBarTitle
+    if (pathname.startsWith('/active-game')) {
+      appBarTitle = <ActiveGameTitle />
+    } else if (pathname.startsWith('/admin')) {
+      appBarTitle = <AdminTitle />
+    } else if (pathname === '/chat') {
+      appBarTitle = <ChatListTitle />
+    } else if (pathname.startsWith('/chat/')) {
+      appBarTitle = <ChatTitle />
+    } else if (pathname.startsWith('/lobbies')) {
+      appBarTitle = <LobbyTitle />
+    } else if (pathname.startsWith('/whispers')) {
+      appBarTitle = <WhispersTitle />
+    }
 
     const channelNav = chatChannels.map(c => (
       <ChatNavEntry
@@ -215,12 +247,18 @@ class MainLayout extends React.Component {
           Dev Mode
         </span>
       ) : null,
-      <ActiveUserCount key="userCount" className={styles.userCount} />,
-      isAdmin(this.props.auth) ? (
-        <p key="adminPanel">
+      isAdmin(auth) ? (
+        <AdminLink key="adminPanel">
           <Link to="/admin">Admin</Link>
-        </p>
+        </AdminLink>
       ) : null,
+      <ProfileNavEntry
+        key="profileEntry"
+        user={auth.user.name}
+        avatarTitle={auth.user.name}
+        onProfileEntryClick={this.onProfileEntryClick}
+        profileEntryRef={this._setProfileEntryRef}
+      />,
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <ActivityButton
@@ -287,7 +325,7 @@ class MainLayout extends React.Component {
 
     return (
       <div>
-        <WindowControls className={styles.windowControls} />
+        <AppBar>{appBarTitle}</AppBar>
         <div className={styles.layout}>
           <LeftNav footer={footer}>
             {this.renderActiveGameNav()}
@@ -298,25 +336,21 @@ class MainLayout extends React.Component {
             <Subheader button={addWhisperButton}>Whispers</Subheader>
             <Section>{whisperNav}</Section>
           </LeftNav>
-          <Switch>
-            {activeGameRoute}
-            <ConditionalRoute path="/admin" filters={[IsAdminFilter]} component={AdminPanel} />
-            <Route path="/chat" exact={true} component={ChatList} />
-            <Route path="/chat/:channel" component={ChatChannel} />
-            {lobbyRoute}
-            <Route path="/whispers/:target" component={Whisper} />
-            {/* If no paths match, redirect the page to the "index". Note: this means that we can't
-                actually have a 404 page, but I don't think we really need one? */}
-            <Index transitionFn={routerActions.replace} />
-          </Switch>
-          <ActivityBar
-            user={this.props.auth.user.name}
-            avatarTitle={this.props.auth.user.name}
-            onAvatarClick={this.onAvatarClick}
-            avatarButtonRef={this._setAvatarButtonRef}>
-            {activityButtons}
-          </ActivityBar>
-          {this.renderAvatarOverlay()}
+          <ContentLayout>
+            <Switch>
+              {activeGameRoute}
+              <ConditionalRoute path="/admin" filters={[IsAdminFilter]} component={AdminPanel} />
+              <Route path="/chat" exact={true} component={ChatList} />
+              <Route path="/chat/:channel" component={ChatChannel} />
+              {lobbyRoute}
+              <Route path="/whispers/:target" component={Whisper} />
+              {/* If no paths match, redirect the page to the "index". Note: this means that we
+                  can't actually have a 404 page, but I don't think we really need one? */}
+              <Index transitionFn={routerActions.replace} />
+            </Switch>
+          </ContentLayout>
+          <ActivityBar>{activityButtons}</ActivityBar>
+          {this.renderProfileOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
@@ -325,15 +359,15 @@ class MainLayout extends React.Component {
     )
   }
 
-  onAvatarClick = () => {
+  onProfileEntryClick = () => {
     this.setState({
-      avatarOverlayOpened: true,
+      profileOverlayOpened: true,
     })
   }
 
   onCloseProfileOverlay = () => {
     this.setState({
-      avatarOverlayOpened: false,
+      profileOverlayOpened: false,
     })
   }
 

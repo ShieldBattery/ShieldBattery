@@ -1,7 +1,6 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import ContentLayout from '../../content/content-layout.jsx'
 import DevOverflow from './overflow-test.jsx'
 import DevPopover from './popover-test.jsx'
 import DevSelects from './selects-test.jsx'
@@ -13,25 +12,23 @@ class DevMaterialDashboard extends React.Component {
     const { baseUrl } = this.props
 
     return (
-      <ContentLayout title={'Material components'}>
-        <ul>
-          <li>
-            <Link to={baseUrl + '/overflow'}>Overflow component</Link>
-          </li>
-          <li>
-            <Link to={baseUrl + '/popover'}>Popover component</Link>
-          </li>
-          <li>
-            <Link to={baseUrl + '/select'}>Select component</Link>
-          </li>
-          <li>
-            <Link to={baseUrl + '/slider'}>Slider component</Link>
-          </li>
-          <li>
-            <Link to={baseUrl + '/textfield'}>Textfield component</Link>
-          </li>
-        </ul>
-      </ContentLayout>
+      <ul>
+        <li>
+          <Link to={baseUrl + '/overflow'}>Overflow component</Link>
+        </li>
+        <li>
+          <Link to={baseUrl + '/popover'}>Popover component</Link>
+        </li>
+        <li>
+          <Link to={baseUrl + '/select'}>Select component</Link>
+        </li>
+        <li>
+          <Link to={baseUrl + '/slider'}>Slider component</Link>
+        </li>
+        <li>
+          <Link to={baseUrl + '/textfield'}>Textfield component</Link>
+        </li>
+      </ul>
     )
   }
 }

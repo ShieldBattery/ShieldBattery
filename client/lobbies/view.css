@@ -6,18 +6,11 @@
 @value fastOutSlowIn from '../material/curve-constants.css';
 @value shadow1dp from '../material/shadows.css';
 
-.appBarContent {
-  max-width: 1140px;
-  margin: 0 auto;
-  padding-left: 16px;
-  padding-right: 0px;
-}
-
 .contentArea {
   composes: row justifySpaceBetween;
   padding: 0 16px;
   margin: 0 auto;
-  height: calc(100% - 64px);
+  height: 100%;
   max-width: 1140px;
 }
 
@@ -77,13 +70,6 @@
   composes: row itemsCenter justifyStart;
   width: 100%;
   height: 40px;
-}
-
-.slotAvatar {
-  composes: exact;
-  width: 24px !important;
-  height: 24px !important;
-  margin-right: 16px;
 }
 
 .slotLeft {
@@ -197,7 +183,7 @@
 
 .info {
   composes: exact;
-  margin: 28px 0 16px 40px;
+  margin: 16px 0 16px 40px;
   width: 256px;
 }
 

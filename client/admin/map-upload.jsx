@@ -1,6 +1,5 @@
 import { List } from 'immutable'
 import React from 'react'
-import ContentLayout from '../content/content-layout.jsx'
 import form from '../forms/form.jsx'
 import uploadMap from '../maps/upload'
 import RaisedButton from '../material/raised-button.jsx'
@@ -36,7 +35,7 @@ export default class UploadMap extends React.Component {
       files: '',
     }
     return (
-      <ContentLayout title={'Map upload'}>
+      <div>
         <UploadForm
           ref={x => {
             this._form = x
@@ -46,7 +45,7 @@ export default class UploadMap extends React.Component {
         />
         <RaisedButton label="Upload" tabIndex={0} onClick={this.onClick} />
         {this.renderResult()}
-      </ContentLayout>
+      </div>
     )
   }
 

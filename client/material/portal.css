@@ -28,6 +28,8 @@
     case (Dialogs) for scrim to always be rendered.
   */
   transition: opacity 250ms fastOutSlowIn;
+
+  -webkit-app-region: no-drag;
 }
 
 .enter.scrim {
