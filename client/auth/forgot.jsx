@@ -4,13 +4,25 @@ import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
 import queryString from 'query-string'
 
-import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import { retrieveUsername, startPasswordReset, resetPassword } from './auther'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
-import TextField from '../material/text-field.jsx'
+import {
+  AuthContentContainer,
+  AuthContent,
+  AuthTitle,
+  AuthBody,
+  LoadingArea,
+  ErrorsContainer,
+  SuccessContainer,
+  AuthBottomAction,
+  BottomActionButton,
+  FieldRow,
+  AuthTextField,
+} from './auth-content.jsx'
+
 import {
   composeValidators,
   minLength,
@@ -28,8 +40,6 @@ import {
   USERNAME_MAXLENGTH,
   USERNAME_PATTERN,
 } from '../../app/common/constants'
-
-import styles from './forgot.css'
 
 const emailValidator = composeValidators(
   required('Enter an email address'),
@@ -84,41 +94,36 @@ class ForgotFormHolder extends React.Component {
     let loadingContents
     if (authChangeInProgress) {
       loadingContents = (
-        <div className={styles.loadingArea}>
+        <LoadingArea>
           <LoadingIndicator />
-        </div>
+        </LoadingArea>
       )
     }
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
+      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
     }
     const successContents =
       this.state.success && successMessage ? (
-        <p className={styles.success}>{successMessage}</p>
+        <SuccessContainer>{successMessage}</SuccessContainer>
       ) : null
 
     return (
-      <div className={styles.content}>
-        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-          <h3 className={styles.title}>{title}</h3>
-          <div className={styles.formContents}>
+      <AuthContent>
+        <AuthContentContainer isLoading={authChangeInProgress}>
+          <AuthTitle>{title}</AuthTitle>
+          <AuthBody>
             {errContents}
             {successContents}
             <FormComponent ref={this._setForm} model={model || {}} onSubmit={this.onSubmit} />
-          </div>
-        </div>
+          </AuthBody>
+        </AuthContentContainer>
         {loadingContents}
-        <div className={styles.bottomAction}>
-          <FlatButton
-            labelClassName={styles.bottomActionButtonLabel}
-            label="Back to login"
-            onClick={this.onBackClick}
-            tabIndex={1}
-          />
-        </div>
-      </div>
+        <AuthBottomAction>
+          <BottomActionButton label="Back to login" onClick={this.onBackClick} tabIndex={1} />
+        </AuthBottomAction>
+      </AuthContent>
     )
   }
 
@@ -147,10 +152,9 @@ class ForgotUserForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <p>Please enter the email address you signed up with.</p>
-        <div className={styles.fieldRow}>
-          <TextField
+        <FieldRow>
+          <AuthTextField
             {...bindInput('email')}
-            className={styles.textField}
             label="Email address"
             floatingLabel={true}
             inputProps={{
@@ -160,10 +164,10 @@ class ForgotUserForm extends React.Component {
               spellCheck: false,
             }}
           />
-        </div>
-        <div className={styles.fieldRow}>
+        </FieldRow>
+        <FieldRow>
           <RaisedButton label="Recover username" onClick={onSubmit} tabIndex={1} />
-        </div>
+        </FieldRow>
       </form>
     )
   }
@@ -192,10 +196,9 @@ class ForgotPasswordForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <div className={styles.fieldRow}>
-          <TextField
+        <FieldRow>
+          <AuthTextField
             {...bindInput('email')}
-            className={styles.textField}
             label="Email address"
             floatingLabel={true}
             inputProps={{
@@ -205,11 +208,10 @@ class ForgotPasswordForm extends React.Component {
               spellCheck: false,
             }}
           />
-        </div>
-        <div className={styles.fieldRow}>
-          <TextField
+        </FieldRow>
+        <FieldRow>
+          <AuthTextField
             {...bindInput('username')}
-            className={styles.textField}
             label="Username"
             floatingLabel={true}
             inputProps={{
@@ -219,10 +221,10 @@ class ForgotPasswordForm extends React.Component {
               spellCheck: false,
             }}
           />
-        </div>
-        <div className={styles.fieldRow}>
+        </FieldRow>
+        <FieldRow>
           <RaisedButton label="Send reset email" onClick={onSubmit} tabIndex={1} />
-        </div>
+        </FieldRow>
       </form>
     )
   }
@@ -270,43 +272,43 @@ class ResetPasswordForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <div className={styles.fieldRow}>
-          <TextField
+        <FieldRow>
+          <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
             label="Username"
             floatingLabel={true}
           />
-        </div>
-        <div className={styles.fieldRow}>
-          <TextField
+        </FieldRow>
+        <FieldRow>
+          <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
             label="Password reset code"
             floatingLabel={true}
           />
-        </div>
-        <div className={styles.fieldRow}>
-          <TextField
+        </FieldRow>
+        <FieldRow>
+          <AuthTextField
             {...bindInput('password')}
             inputProps={textInputProps}
             label="New password"
             floatingLabel={true}
             type="password"
           />
-        </div>
-        <div className={styles.fieldRow}>
-          <TextField
+        </FieldRow>
+        <FieldRow>
+          <AuthTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
             label="Confirm new password"
             floatingLabel={true}
             type="password"
           />
-        </div>
-        <div className={styles.fieldRow}>
+        </FieldRow>
+        <FieldRow>
           <RaisedButton label="Set new password" onClick={onSubmit} tabIndex={1} />
-        </div>
+        </FieldRow>
       </form>
     )
   }

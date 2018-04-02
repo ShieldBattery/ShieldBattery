@@ -20,6 +20,7 @@ import ChatList from './chat/list.jsx'
 import { ChatListTitle, ChatTitle } from './chat/app-bar-title.jsx'
 import { ConditionalRoute } from './navigation/custom-routes.jsx'
 import Divider from './material/left-nav/divider.jsx'
+import EmailVerificationNotification from './auth/email-verification-notification.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import IconButton from './material/icon-button.jsx'
 import Index from './navigation/index.jsx'
@@ -71,6 +72,11 @@ const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_S = keycode('s')
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+`
 
 const ContentLayout = styled.div`
   flex-grow: 1;
@@ -324,8 +330,9 @@ class MainLayout extends React.Component {
         ]
 
     return (
-      <div>
+      <Container>
         <AppBar>{appBarTitle}</AppBar>
+        {!auth.emailVerified ? <EmailVerificationNotification user={auth.user} /> : null}
         <div className={styles.layout}>
           <LeftNav footer={footer}>
             {this.renderActiveGameNav()}
@@ -355,7 +362,7 @@ class MainLayout extends React.Component {
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
         </div>
-      </div>
+      </Container>
     )
   }
 

@@ -45,7 +45,7 @@ const Logo = styled.img`
   -webkit-user-select: none;
 `
 
-const StyledLogoText = styled(LogoText)`
+const StyledLogoText = styled.div`
   display: block;
   margin: 0 auto 8px;
   text-align: center;
@@ -66,7 +66,9 @@ class MainLayout extends React.Component {
           <Wrapper>
             <Contents>
               <Logo src={makeServerUrl('/images/logo.svg')} />
-              <StyledLogoText />
+              <StyledLogoText>
+                <LogoText />
+              </StyledLogoText>
               {this.props.children}
             </Contents>
           </Wrapper>

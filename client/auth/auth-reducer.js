@@ -7,6 +7,7 @@ import {
   AUTH_SIGN_UP,
   AUTH_START_PASSWORD_RESET,
   AUTH_UPDATE,
+  AUTH_UPDATE_EMAIL_VERIFIED,
 } from '../actions'
 import { Auth, Permissions, User } from './auth-records'
 
@@ -21,6 +22,7 @@ function logInSuccess(state, action) {
   return new Auth({
     user: new User(user),
     permissions: new Permissions(permissions),
+    emailVerified: user.emailVerified,
   })
 }
 
@@ -45,6 +47,10 @@ function noOpOrError(state, action) {
   }
 }
 
+function emailVerified(state, action) {
+  return state.set('emailVerified', true)
+}
+
 const logInSplitter = (state, action) => (!action.error ? logInSuccess : handleError)(state, action)
 const handlers = {
   [AUTH_CHANGE_BEGIN]: begin,
@@ -56,6 +62,7 @@ const handlers = {
   [AUTH_RESET_PASSWORD]: noOpOrError,
   [AUTH_RETRIEVE_USERNAME]: noOpOrError,
   [AUTH_START_PASSWORD_RESET]: noOpOrError,
+  [AUTH_UPDATE_EMAIL_VERIFIED]: emailVerified,
 }
 
 export default function authReducer(state = initialState, action) {

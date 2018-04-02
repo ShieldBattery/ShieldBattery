@@ -5,12 +5,23 @@ import queryString from 'query-string'
 import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
 
-import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
-import TextField from '../material/text-field.jsx'
+import {
+  AuthContentContainer,
+  AuthContent,
+  AuthTitle,
+  AuthBody,
+  LoadingArea,
+  ErrorsContainer,
+  AuthBottomAction,
+  BottomActionButton,
+  FieldRow,
+  AuthTextField,
+} from './auth-content.jsx'
+
 import {
   composeValidators,
   debounce,
@@ -30,7 +41,15 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../app/common/constants'
 import { signUp } from './auther'
-import styles from './signup.css'
+
+const SignupBottomAction = AuthBottomAction.extend`
+  flex-direction: row;
+  justify-content: center;
+
+  & > p {
+    margin-right: 8px;
+  }
+`
 
 async function usernameAvailable(val) {
   try {
@@ -86,32 +105,47 @@ class SignupForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <TextField
-          {...bindInput('username')}
-          inputProps={textInputProps}
-          label="Username"
-          floatingLabel={true}
-        />
-        <TextField
-          {...bindInput('email')}
-          inputProps={textInputProps}
-          label="Email address"
-          floatingLabel={true}
-        />
-        <TextField
-          {...bindInput('password')}
-          inputProps={textInputProps}
-          label="Password"
-          floatingLabel={true}
-          type="password"
-        />
-        <TextField
-          {...bindInput('confirmPassword')}
-          inputProps={textInputProps}
-          label="Confirm password"
-          floatingLabel={true}
-          type="password"
-        />
+        <FieldRow>
+          <AuthTextField
+            {...bindInput('username')}
+            inputProps={textInputProps}
+            label="Username"
+            floatingLabel={true}
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <AuthTextField
+            {...bindInput('email')}
+            inputProps={textInputProps}
+            label="Email address"
+            floatingLabel={true}
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <AuthTextField
+            {...bindInput('password')}
+            inputProps={textInputProps}
+            label="Password"
+            floatingLabel={true}
+            type="password"
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <AuthTextField
+            {...bindInput('confirmPassword')}
+            inputProps={textInputProps}
+            label="Confirm password"
+            floatingLabel={true}
+            type="password"
+          />
+        </FieldRow>
+
+        <FieldRow>
+          <RaisedButton label="Create account" onClick={onSubmit} tabIndex={1} />
+        </FieldRow>
       </form>
     )
   }
@@ -140,38 +174,35 @@ export default class Signup extends React.Component {
     let loadingContents
     if (authChangeInProgress) {
       loadingContents = (
-        <div className={styles.loadingArea}>
+        <LoadingArea>
           <LoadingIndicator />
-        </div>
+        </LoadingArea>
       )
     }
 
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <div className={styles.errors}>Error: {lastFailure.err}</div>
+      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
     }
 
     const model = queryString.parse(location.search)
     return (
-      <div className={styles.content}>
-        <div className={authChangeInProgress ? styles.formLoading : styles.form}>
-          <h3 className={styles.cardTitle}>Create account</h3>
-          {errContents}
-          <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-          <RaisedButton label="Create account" onClick={this.onSignUpClick} tabIndex={1} />
-        </div>
+      <AuthContent>
+        <AuthContentContainer isLoading={authChangeInProgress}>
+          <AuthTitle>Create account</AuthTitle>
+          <AuthBody>
+            {errContents}
+            <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
+          </AuthBody>
+        </AuthContentContainer>
         {loadingContents}
-        <div className={styles.bottomAction}>
+        <SignupBottomAction>
           <p>Already have an account?</p>
-          <FlatButton label="Log in" onClick={this.onLogInClick} tabIndex={1} />
-        </div>
-      </div>
+          <BottomActionButton label="Log in" onClick={this.onLogInClick} tabIndex={1} />
+        </SignupBottomAction>
+      </AuthContent>
     )
-  }
-
-  onSignUpClick = () => {
-    this._form.submit()
   }
 
   onLogInClick = () => {
