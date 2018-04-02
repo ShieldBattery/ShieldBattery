@@ -13,7 +13,6 @@ import {
 } from './action-creators'
 import styles from './channel.css'
 
-import ContentLayout from '../content/content-layout.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
@@ -201,32 +200,24 @@ export default class ChatChannelView extends React.Component {
     this.props.dispatch(deactivateChannel(this.props.match.params.channel))
   }
 
-  renderChannel() {
-    return (
-      <Channel
-        channel={this.props.chat.byName.get(this.props.match.params.channel.toLowerCase())}
-        onSendChatMessage={this._handleSendChatMessage}
-        onRequestMoreHistory={this._handleRequestMoreHistory}
-      />
-    )
-  }
-
   render() {
     const routeChannel = this.props.match.params.channel
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
+    if (!channel) {
+      return (
+        <div className={styles.loadingArea}>
+          <LoadingIndicator />
+        </div>
+      )
+    }
+
     return (
-      <ContentLayout
-        title={`#${channel ? channel.name : routeChannel}`}
-        appBarContentClassName={styles.appBarContent}>
-        {channel ? (
-          this.renderChannel()
-        ) : (
-          <div className={styles.loadingArea}>
-            <LoadingIndicator />
-          </div>
-        )}
-      </ContentLayout>
+      <Channel
+        channel={channel}
+        onSendChatMessage={this._handleSendChatMessage}
+        onRequestMoreHistory={this._handleRequestMoreHistory}
+      />
     )
   }
 

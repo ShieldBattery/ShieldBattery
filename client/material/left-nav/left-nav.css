@@ -4,49 +4,22 @@
 @value body2, singleLine from '../../styles/typography.css';
 @value fastOutSlowIn from '../curve-constants.css';
 @value standardIncrement from '../units.css';
-@value zIndexLeftNav from '../zindex.css';
 
 .leftNav {
   composes: col exact;
-  width: calc(64px * 3.5); /* standardIncrement * 3.5 */
+  width: 240px;
   height: 100%;
-  background-color: grey800;
-  z-index: zIndexLeftNav;
-}
-
-.logo {
-  composes: row itemsCenter exact;
-  width: 100%;
-  height: standardIncrement;
-  padding-left: 16px;
-  /* Color calculated by lightening blue800 12% (opacity of divider colors) */
-  border-right: 1px solid #3178c8;
-  border-bottom: 1px solid colorDividers;
-}
-
-.border {
-  border-right: 1px solid colorDividers;
-  margin: 0;
-  width: 100%;
+  background-color: grey850;
 }
 
 .sections {
   composes: grow;
-  composes: border;
   padding: 8px 0 0;
 }
 
 .footer {
   composes: row wrap justifySpaceBetween itemsCenter;
-  composes: border;
-  padding: 0 16px;
-}
-
-.divider {
-  border: none;
-  border-top: 1px solid colorDividers;
-  margin-top: 7px;
-  margin-bottom: 8px;
+  padding: 0 12px;
 }
 
 .entryCommon {

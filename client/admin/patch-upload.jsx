@@ -4,7 +4,6 @@ import form from '../forms/form.jsx'
 import FileInput from '../forms/file-input.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import TextField from '../material/text-field.jsx'
-import ContentLayout from '../content/content-layout.jsx'
 import styles from './patch-upload.css'
 
 import fetch from '../network/fetch'
@@ -80,19 +79,17 @@ class PatchUploadForm extends React.Component {
 export default class PatchUpload extends React.Component {
   render() {
     return (
-      <ContentLayout title={'Upload StarCraft patch'}>
-        <div className={styles.content}>
-          <p>
-            Generate a diff to patch from the new binary to the old (1.16.1) one using bsdiff, then
-            upload the binary and the diff here. Filename is case insensitive but should match the
-            target filename exactly (<i>starcraft.exe</i> or <i>storm.dll</i> for example). Version
-            description is for human consumption, usually it should be the version the file says it
-            is (i.e. <i>1.18.0.1345</i>).
-          </p>
+      <div className={styles.content}>
+        <p>
+          Generate a diff to patch from the new binary to the old (1.16.1) one using bsdiff, then
+          upload the binary and the diff here. Filename is case insensitive but should match the
+          target filename exactly (<i>starcraft.exe</i> or <i>storm.dll</i> for example). Version
+          description is for human consumption, usually it should be the version the file says it is
+          (i.e. <i>1.18.0.1345</i>).
+        </p>
 
-          <PatchUploadForm model={{}} onSubmit={this.onSubmit} />
-        </div>
-      </ContentLayout>
+        <PatchUploadForm model={{}} onSubmit={this.onSubmit} />
+      </div>
     )
   }
 

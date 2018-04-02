@@ -1,24 +1,10 @@
-@value colorTextSecondary, colorError, blue900 from './styles/colors.css';
+@value colorTextSecondary, colorError from './styles/colors.css';
 @value row from './styles/flex.css';
 @value body2 from './styles/typography.css';
-@value zIndexMenuBackdrop from './material/zindex.css';
-
-.windowControls {
-  width: 100%;
-  background-color: blue900;
-}
 
 .layout {
   composes: row;
-  height: 100%;
-}
-
-:global(.electron) .layout {
-  height: calc(100% - 32px);
-}
-
-.userCount {
-  color: colorTextSecondary;
+  height: calc(100% - 64px);
 }
 
 .devIndicator {

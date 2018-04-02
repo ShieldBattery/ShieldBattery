@@ -16,6 +16,7 @@ import MainLayout from './main-layout.jsx'
 import Signup from './auth/signup.jsx'
 import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
+import WindowControls from './app-bar/window-controls.jsx'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
@@ -50,21 +51,24 @@ export default class App extends React.Component {
     return (
       // NOTE(2Pac): These are only the top-level routes. More specific routes are declared where
       // they are used, as per react-router's new philosophy.
-      <Switch>
-        <Route path="/splash" component={Splash} />
-        <Route path="/faq" component={Faq} />
-        <Route path="/download" component={DownloadPage} />
-        <LoginRoute path="/forgot-password" component={ForgotPassword} />
-        <LoginRoute path="/forgot-user" component={ForgotUser} />
-        <LoginRoute path="/login" component={Login} />
-        <LoginRoute path="/reset-password" component={ResetPassword} />
-        <LoginRoute path="/signup" component={Signup} />
-        {!IS_PRODUCTION ? <Route path="/dev" component={Dev} /> : null}
-        <ConditionalRoute
-          filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
-          component={MainLayout}
-        />
-      </Switch>
+      <React.Fragment>
+        <WindowControls />
+        <Switch>
+          <Route path="/splash" component={Splash} />
+          <Route path="/faq" component={Faq} />
+          <Route path="/download" component={DownloadPage} />
+          <LoginRoute path="/forgot-password" component={ForgotPassword} />
+          <LoginRoute path="/forgot-user" component={ForgotUser} />
+          <LoginRoute path="/login" component={Login} />
+          <LoginRoute path="/reset-password" component={ResetPassword} />
+          <LoginRoute path="/signup" component={Signup} />
+          {!IS_PRODUCTION ? <Route path="/dev" component={Dev} /> : null}
+          <ConditionalRoute
+            filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
+            component={MainLayout}
+          />
+        </Switch>
+      </React.Fragment>
     )
   }
 }

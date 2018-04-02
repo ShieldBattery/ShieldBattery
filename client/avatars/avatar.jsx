@@ -1,10 +1,27 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import styles from './avatar.css'
+import styled from 'styled-components'
+
 import { randomColorForString } from './colors'
 
 import PlaceholderIcon from './avatar-placeholder.svg'
+
+const ImageAvatar = styled.img`
+  width: 40px;
+  height: 40px;
+  display: inline-block;
+
+  & > svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  img.& {
+    border-radius: 50%;
+  }
+`
+
+export const IconAvatar = ImageAvatar.withComponent('i')
 
 export default class Avatar extends React.Component {
   static propTypes = {
@@ -13,10 +30,10 @@ export default class Avatar extends React.Component {
   }
 
   render() {
-    const { className, image, user, ...otherProps } = this.props
-    const classes = classnames(styles.avatarImage, className)
+    const { image, user, ...otherProps } = this.props
+
     if (image) {
-      return <img {...otherProps} className={classes} src={image} />
+      return <ImageAvatar {...otherProps} src={image} />
     }
 
     const iconStyle = {
@@ -24,9 +41,9 @@ export default class Avatar extends React.Component {
     }
 
     return (
-      <i {...otherProps} className={classes} style={iconStyle}>
+      <IconAvatar {...otherProps} style={iconStyle}>
         <PlaceholderIcon />
-      </i>
+      </IconAvatar>
     )
   }
 }

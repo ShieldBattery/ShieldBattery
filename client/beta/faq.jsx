@@ -5,6 +5,7 @@ import { makeServerUrl } from '../network/server-url'
 import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
@@ -175,31 +176,33 @@ export default class Faq extends React.Component {
 
   render() {
     return (
-      <div className={styles.splash}>
-        <div className={styles.logoContainer}>
-          <TopLinks />
-          <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
-          <LogoText className={styles.logotext} />
+      <ScrollableContent>
+        <div className={styles.splash}>
+          <div className={styles.logoContainer}>
+            <TopLinks />
+            <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
+            <LogoText className={styles.logotext} />
+          </div>
+          <div className={styles.intro}>
+            <h1 className={styles.faqHeader}>FAQ</h1>
+          </div>
+          <div id={'faqToc'} className={styles.faqToc}>
+            <h3>Frequently Asked Questions</h3>
+            <ul>
+              {questions.map((q, i) => (
+                <li key={`question-${i}`}>
+                  <FragmentLink to="/faq" fragment={makeQuestionId(q.question)}>
+                    {q.question}
+                  </FragmentLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+          {questions.map((q, i) => (
+            <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
+          ))}
         </div>
-        <div className={styles.intro}>
-          <h1 className={styles.faqHeader}>FAQ</h1>
-        </div>
-        <div id={'faqToc'} className={styles.faqToc}>
-          <h3>Frequently Asked Questions</h3>
-          <ul>
-            {questions.map((q, i) => (
-              <li key={`question-${i}`}>
-                <FragmentLink to="/faq" fragment={makeQuestionId(q.question)}>
-                  {q.question}
-                </FragmentLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-        {questions.map((q, i) => (
-          <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
-        ))}
-      </div>
+      </ScrollableContent>
     )
   }
 }

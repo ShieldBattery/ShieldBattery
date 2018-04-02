@@ -1,4 +1,4 @@
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
 export const textSizeBody = '14px'
 export const textSizeSubhead = '16px'
@@ -79,4 +79,10 @@ export const Body1 = styled.span`
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 20px;
+`
+
+export const singleLine = css`
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `

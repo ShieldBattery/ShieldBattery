@@ -1,14 +1,13 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import ContentLayout from './content/content-layout.jsx'
 import DevLobbies from './lobbies/devonly/routes.jsx'
 import DevMaterial from './material/devonly/routes.jsx'
 
 class DevDashboard extends React.Component {
   render() {
     return (
-      <ContentLayout title={'Developer dashboard'}>
+      <div>
         <span>
           This is a corner dedicated to developers. Here you can inspect and test various components
           of the app.
@@ -21,7 +20,7 @@ class DevDashboard extends React.Component {
             <Link to="/dev/material">Material components</Link>
           </li>
         </ul>
-      </ContentLayout>
+      </div>
     )
   }
 }

@@ -49,16 +49,6 @@
   color: colorTextPrimary;
 }
 
-.playerAvatar {
-  composes: fastOutSlowInShort;
-  margin-right: 16px;
-  opacity: alphaDisabled;
-}
-
-.readyPlayer .playerAvatar {
-  opacity: 1;
-}
-
 .playerName {
   composes: grow;
   composes: subhead singleLine;

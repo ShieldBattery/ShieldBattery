@@ -1,27 +1,40 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import Button from '../material/button.jsx'
-import buttonStyles from '../material/button.css'
+import styled from 'styled-components'
+
+import IconButton from '../material/icon-button.jsx'
 import Avatar from './avatar.jsx'
-import avatarStyles from './avatar.css'
+
+const ButtonAvatar = styled(Avatar)`
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: auto;
+  overflow: hidden;
+
+  & > svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  // This has to be on the bottom so it can override any of the style above.
+  ${props => props.style};
+`
 
 export default class AvatarButton extends React.Component {
   static propTypes = {
-    avatarClassName: PropTypes.string,
+    avatarStyle: PropTypes.array,
     buttonRef: PropTypes.func,
   }
 
   render() {
-    const { buttonRef, user, image, avatarClassName, ...rest } = this.props
-    const classes = classnames(buttonStyles.iconButton, this.props.className)
-    const avatarClasses = classnames(avatarStyles.buttonImage, avatarClassName)
+    const { buttonRef, user, image, avatarStyle, ...rest } = this.props
+
     return (
-      <Button
+      <IconButton
         {...rest}
         buttonRef={buttonRef}
-        className={classes}
-        label={<Avatar user={user} image={image} className={avatarClasses} />}
+        icon={<ButtonAvatar user={user} image={image} style={avatarStyle} />}
       />
     )
   }
