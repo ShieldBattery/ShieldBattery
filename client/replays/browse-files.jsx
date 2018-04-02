@@ -190,15 +190,17 @@ export default class Files extends React.Component {
     return (
       <div className={styles.root}>
         <div className={styles.topBar}>
-          <div className={styles.titleAndActions}>
+          <div className={styles.title}>
             <h3 className={styles.contentTitle}>{title}</h3>
+          </div>
+          <div className={styles.breadcrumbsAndActions}>
+            <PathBreadcrumbs
+              className={styles.path}
+              path={displayedPath}
+              onNavigate={this.onBreadcrumbNavigate}
+            />
             <IconButton icon={<Refresh />} onClick={this.onRefreshClick} title={'Refresh'} />
           </div>
-          <PathBreadcrumbs
-            className={styles.path}
-            path={displayedPath}
-            onNavigate={this.onBreadcrumbNavigate}
-          />
         </div>
         {error ? <div className={styles.externalError}>{error}</div> : null}
         <ScrollableContent
