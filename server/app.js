@@ -26,6 +26,7 @@ import secureJson from './lib/security/json'
 import sessionMiddleware from './lib/session/middleware'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import userSessionsMiddleware from './lib/session/user-sessions-middleware'
+import emailSessionMiddleware from './lib/session/email-session-middleware'
 import views from 'koa-views'
 
 import pingRegistry from './lib/rally-point/ping-registry'
@@ -156,11 +157,12 @@ app
   .use(secureJson())
   .use(userIpsMiddleware())
   .use(userSessionsMiddleware())
+  .use(emailSessionMiddleware())
 
 const mainServer = http.createServer(app.callback())
 
 import setupWebsockets from './websockets'
-const { userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
+const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
 if (isDev) {
   app.use(
@@ -175,7 +177,7 @@ if (isDev) {
 fileStoreMiddleware(app)
 
 import createRoutes from './routes'
-createRoutes(app, userSockets)
+createRoutes(app, nydus, userSockets)
 
 compiler.run = thenify(compiler.run)
 const compilePromise = isDev ? Promise.resolve() : compiler.run()

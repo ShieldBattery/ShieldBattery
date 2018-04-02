@@ -22,6 +22,7 @@ class User {
     defPrivate(this, 'password', props.password)
     this.created = props.created || new Date()
     this.signupIpAddress = this._fromDb ? props.ip_address_at_signup : props.signupIpAddress
+    this.emailVerified = props.email_verified
   }
 
   async save() {
@@ -91,7 +92,7 @@ function createUser(name, email, hashedPassword, ipAddress, createdDate) {
 }
 
 export async function findUser(criteria) {
-  let query = 'SELECT id, name, email, password, created FROM users WHERE ',
+  let query = 'SELECT id, name, email, password, created, email_verified FROM users WHERE ',
     params
   if (typeof criteria != 'number') {
     // by name

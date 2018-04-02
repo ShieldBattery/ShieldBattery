@@ -1,16 +1,25 @@
 import bcrypt from 'bcrypt'
+import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import thenify from 'thenify'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
+import sendAccountVerificationEmail from '../verifications/send-account-verification-email'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { usePasswordResetCode } from '../models/password-resets'
+import {
+  addEmailVerificationCode,
+  getEmailVerificationsCount,
+  useEmailVerificationCode,
+} from '../models/email-verifications'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
+import updateAllSessions from '../session/update-all-sessions'
+import ensureLoggedIn from '../session/ensure-logged-in'
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
@@ -18,7 +27,19 @@ const accountCreationThrottle = createThrottle('accountcreation', {
   window: 60000,
 })
 
-export default function(router) {
+const emailVerificationThrottle = createThrottle('emailverification', {
+  rate: 10,
+  burst: 20,
+  window: 12 * 60 * 60 * 1000,
+})
+
+const sendVerificationThrottle = createThrottle('sendverification', {
+  rate: 4,
+  burst: 4,
+  window: 12 * 60 * 60 * 1000,
+})
+
+export default function(router, { nydus }) {
   router
     .post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
@@ -27,6 +48,26 @@ export default function(router) {
       throw new httpErrors.ImATeapot()
     })
     .post('/:username/password', resetPassword)
+    .post(
+      '/:id/emailVerification',
+      throttleMiddleware(emailVerificationThrottle, ctx => {
+        const { id } = ctx.params
+        const { email } = ctx.request.body
+        return `${id}|${email}`
+      }),
+      ensureLoggedIn,
+      (ctx, next) => verifyEmail(ctx, next, nydus),
+    )
+    .post(
+      '/:id/sendVerification',
+      throttleMiddleware(sendVerificationThrottle, ctx => {
+        const { id } = ctx.params
+        const { email } = ctx.request.body
+        return `${id}|${email}`
+      }),
+      ensureLoggedIn,
+      sendVerificationEmail,
+    )
 }
 
 async function find(ctx, next) {
@@ -71,6 +112,10 @@ async function createUser(ctx, next) {
   await ctx.regenerateSession()
   initSession(ctx, result.user, result.permissions)
   setReturningCookie(ctx)
+
+  const code = cuid()
+  await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
+  await sendAccountVerificationEmail(email, code)
   ctx.body = result
 }
 
@@ -95,4 +140,49 @@ async function resetPassword(ctx, next) {
     await user.save()
     ctx.status = 204
   })
+}
+
+async function verifyEmail(ctx, next, nydus) {
+  const { id } = ctx.params
+  const { code } = ctx.query
+  const { email } = ctx.request.body
+
+  if (!id || !code || !isValidEmail(email)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const emailVerified = await useEmailVerificationCode(id, email, code)
+  if (!emailVerified) {
+    throw new httpErrors.BadRequest('Email verification code is invalid')
+  }
+
+  // Update all of the user's sessions to indicate that their email is now indeed verified.
+  updateAllSessions(ctx, { emailVerified: true })
+
+  // Last thing to do is to notify all of the user's opened sockets that their email is now verified
+  // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
+  // connected when they open the email verification page), the client making the request won't
+  // actually get this event. Thankfully, that's easy to deal with on the client-side.
+  nydus.publish('/userProfiles/' + ctx.session.userId, { action: 'emailVerified' })
+
+  ctx.status = 204
+}
+
+async function sendVerificationEmail(ctx, next) {
+  const { id } = ctx.params
+  const { email } = ctx.request.body
+
+  if (!id || !isValidEmail(email)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const emailVerificationsCount = await getEmailVerificationsCount(id, email)
+  if (emailVerificationsCount > 10) {
+    throw new httpErrors.Conflict('Email is over verification limit')
+  }
+
+  const code = cuid()
+  await addEmailVerificationCode(id, email, code, ctx.ip)
+  await sendAccountVerificationEmail(email, code)
+  ctx.status = 204
 }
