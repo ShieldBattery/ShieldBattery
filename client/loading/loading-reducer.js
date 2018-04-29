@@ -3,6 +3,7 @@ import keyedReducer from '../reducers/keyed-reducer'
 import {
   AUDIO_MANAGER_INITIALIZED,
   CHAT_LOADING_COMPLETE,
+  NETWORK_SITE_DISCONNECTED,
   SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE,
   SUBSCRIPTIONS_USER_LOADING_COMPLETE,
   WHISPERS_LOADING_COMPLETE,
@@ -35,5 +36,16 @@ export default keyedReducer(new LoadingState(), {
 
   [WHISPERS_LOADING_COMPLETE](state, action) {
     return state.set('whispers', false)
+  },
+
+  [NETWORK_SITE_DISCONNECTED](state, action) {
+    // Reset the loading state of the stuff that gets initialized through sockets
+    return state.withMutations(s =>
+      s
+        .set('chat', true)
+        .set('clientSubscriptions', true)
+        .set('userSubscriptions', true)
+        .set('whispers', true),
+    )
   },
 })
