@@ -1,4 +1,5 @@
 import { routerActions } from 'react-router-redux'
+import { createPath } from 'history/PathUtils'
 import queryString from 'query-string'
 
 export function isLoggedIn(authState) {
@@ -15,4 +16,13 @@ export function redirectIfLoggedIn({ auth, location, dispatch }) {
   }
 
   return false
+}
+
+export function createNextPath(location) {
+  return queryString.stringify({
+    nextPath: createPath({
+      pathname: location.pathname,
+      search: location.search,
+    }),
+  })
 }

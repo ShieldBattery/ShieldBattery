@@ -31,7 +31,7 @@ export default class ContentLayout extends React.Component {
       you haven't received it yet,`
     const verifyEmailLink = (
       <a
-        href={makeServerUrl(`/verify-email?sendEmail=true&userId=${user.id}&email=${user.email}`)}
+        href={makeServerUrl(`/send-verification-email?userId=${user.id}&email=${user.email}`)}
         target="_blank">
         get verification email.
       </a>

@@ -1,7 +1,7 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { routerActions } from 'react-router-redux'
-import fetch from '../network/fetch'
 import queryString from 'query-string'
 
 import {
@@ -17,44 +17,48 @@ import {
 } from './auth-content.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 
-import { isLoggedIn } from './auth-utils'
-import { AUTH_UPDATE_EMAIL_VERIFIED } from '../actions'
+import { verifyEmail, sendVerificationEmail } from './auther'
+import { isLoggedIn, createNextPath } from './auth-utils'
 
 @connect(state => ({ auth: state.auth }))
 export class EmailVerification extends React.Component {
+  static propTypes = {
+    title: PropTypes.string.isRequired,
+    doSubmit: PropTypes.func.isRequired,
+    successMessage: PropTypes.string,
+    location: PropTypes.object,
+  }
+
   state = {
-    isRequesting: false,
-    emailVerificationError: null,
-    emailSentError: null,
-    emailVerified: false,
-    verificationEmailSent: false,
+    reqId: null,
+    success: false,
   }
 
   componentDidMount() {
-    const { auth, location } = this.props
-    const { sendEmail } = queryString.parse(location.search)
+    if (isLoggedIn(this.props.auth)) {
+      const { id, action } = this.props.doSubmit()
+      this.setState({
+        reqId: id,
+        success: false,
+      })
+      this.props.dispatch(action)
+    }
+  }
 
-    if (!isLoggedIn(auth)) return
-
-    if (sendEmail) {
-      this.requestBegin(this.sendEmail)
-    } else {
-      this.requestBegin(this.verifyEmail)
+  componentWillUpdate(nextProps, nextState) {
+    if (this.props.auth.authChangeInProgress && !nextProps.auth.authChangeInProgress) {
+      if (this.state.reqId && !nextProps.auth.lastFailure) {
+        this.setState({ success: true })
+      }
     }
   }
 
   render() {
-    const { auth } = this.props
-    const {
-      isRequesting,
-      emailVerificationError,
-      emailSentError,
-      emailVerified,
-      verificationEmailSent,
-    } = this.state
+    const { auth, auth: { authChangeInProgress, lastFailure }, title, successMessage } = this.props
+    const { reqId, success } = this.state
 
     let loadingContents
-    if (isRequesting) {
+    if (authChangeInProgress) {
       loadingContents = (
         <LoadingArea>
           <LoadingIndicator />
@@ -63,139 +67,86 @@ export class EmailVerification extends React.Component {
     }
 
     let contents
+    let bottomActionButton
     if (!isLoggedIn(auth)) {
       contents = (
         <ErrorsContainer>
-          Error: You need to be logged-in inorder to verify your email. Please log in by clicking
-          the button below and try again.
+          Error: You need to be logged-in inorder to perform the email verification. Please log in
+          by clicking the button below and try again.
         </ErrorsContainer>
       )
-    } else if (emailVerificationError) {
-      contents = <ErrorsContainer>Error: {emailVerificationError}</ErrorsContainer>
-    } else if (emailSentError) {
-      contents = <ErrorsContainer>Error: {emailSentError}</ErrorsContainer>
-    } else if (emailVerified) {
-      contents = <SuccessContainer>Your email has been successfully verified.</SuccessContainer>
-    } else if (verificationEmailSent) {
-      contents = (
-        <SuccessContainer>
-          Verification email has successfully been sent. Check your email.
-        </SuccessContainer>
-      )
-    }
+      bottomActionButton = <BottomActionButton label="Log in" onClick={this.onLogInClick} />
+    } else if (reqId && lastFailure && lastFailure.reqId === reqId) {
+      contents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
 
-    let bottomActionButton
-    if (!isLoggedIn(auth)) {
-      bottomActionButton = (
-        <BottomActionButton label="Log in" onClick={this.onLogInClick} tabIndex={1} />
-      )
-    } else if (emailVerified) {
-      bottomActionButton = (
-        <BottomActionButton label="Continue" onClick={this.onContinueClick} tabIndex={1} />
-      )
-    } else if (emailVerificationError && emailVerificationError.startsWith('The provided email')) {
-      bottomActionButton = (
-        <BottomActionButton
-          label="Resend verification email"
-          onClick={() => this.requestBegin(this.sendEmail)}
-          tabIndex={1}
-        />
-      )
+      // Until we add a proper error system, we're stuck with checks like these :/
+      if (lastFailure.err.startsWith('The provided email or verification code is not valid.')) {
+        bottomActionButton = (
+          <BottomActionButton label="Resend verification email" onClick={this.onResendClick} />
+        )
+      }
+    } else if (success && successMessage) {
+      contents = <SuccessContainer>{successMessage}</SuccessContainer>
+
+      // eslint-disable-next-line no-use-before-define
+      if (successMessage === VERIFY_EMAIL_SUCCESS) {
+        bottomActionButton = <BottomActionButton label="Continue" onClick={this.onContinueClick} />
+      }
+    } else {
+      contents = <ErrorsContainer>Something went terribly wrong. Please try again.</ErrorsContainer>
     }
 
     return (
       <AuthContent>
-        <AuthContentContainer isLoading={isRequesting}>
-          <AuthTitle>Email verification</AuthTitle>
+        <AuthContentContainer isLoading={authChangeInProgress}>
+          <AuthTitle>{title}</AuthTitle>
           <AuthBody>{contents}</AuthBody>
+          <AuthBottomAction>{bottomActionButton}</AuthBottomAction>
         </AuthContentContainer>
         {loadingContents}
-        <AuthBottomAction>{bottomActionButton}</AuthBottomAction>
       </AuthContent>
     )
-  }
-
-  baseUrl = () => {
-    const { user: { id } } = this.props.auth
-
-    return `/api/1/users/${encodeURIComponent(id)}`
-  }
-
-  requestBegin = callback => {
-    this.setState({ isRequesting: true }, callback)
-  }
-
-  verifyEmail = async () => {
-    const { user: { email } } = this.props.auth
-    const { token } = queryString.parse(this.props.location.search)
-
-    try {
-      await fetch(`${this.baseUrl()}/emailVerification?code=${encodeURIComponent(token)}`, {
-        method: 'post',
-        body: JSON.stringify({ email }),
-      })
-
-      this.setState({
-        isRequesting: false,
-        emailVerified: true,
-      })
-
-      // Annoyingly, our site socket is not connected at this point so it will not receive the
-      // original event from the server meant to update our store, so we do it half-manually here.
-      this.props.dispatch({ type: AUTH_UPDATE_EMAIL_VERIFIED })
-    } catch (err) {
-      const { body, res } = err
-      let errMessage = body ? body.error : 'Verification error'
-      if (res.status === 400) {
-        errMessage = `The provided email or verification code is not valid. If the verification code
-          matches the one you were emailed, it may have expired. Please request a new verification
-          email and try again.`
-      }
-
-      this.setState({
-        isRequesting: false,
-        emailVerificationError: errMessage,
-      })
-    }
-  }
-
-  sendEmail = async () => {
-    const { user: { email } } = this.props.auth
-
-    try {
-      await fetch(`${this.baseUrl()}/sendVerification`, {
-        method: 'post',
-        body: JSON.stringify({ email }),
-      })
-
-      this.setState({
-        isRequesting: false,
-        verificationEmailSent: true,
-        emailVerificationError: null,
-      })
-    } catch (err) {
-      const { body, res } = err
-      let errMessage = body ? body.error : 'Sending verification error'
-      if (res.status === 409) {
-        errMessage = `The provided email is over verification limit. Please specify a different
-          email address.`
-      }
-
-      this.setState({
-        isRequesting: false,
-        emailVerificationError: null,
-        emailSentError: errMessage,
-      })
-    }
   }
 
   onContinueClick = () => {
     this.props.dispatch(routerActions.push({ pathname: '/' }))
   }
 
-  onLogInClick = () => {
-    const { pathname, search } = this.props.location
-    const nextPath = '?nextPath=' + pathname + search
-    this.props.dispatch(routerActions.push({ pathname: '/login', search: nextPath }))
+  onResendClick = () => {
+    const { userId, email } = queryString.parse(location.search)
+    const search = queryString.stringify({ userId, email })
+    this.props.dispatch(routerActions.push({ pathname: '/send-verification-email', search }))
   }
+
+  onLogInClick = () => {
+    const search = createNextPath(this.props.location)
+    this.props.dispatch(routerActions.push({ pathname: '/login', search }))
+  }
+}
+
+const VERIFY_EMAIL_SUCCESS = 'Your email has been successfully verified.'
+export const VerifyEmail = ({ location }) => {
+  const { userId, token, email } = queryString.parse(location.search)
+  return (
+    <EmailVerification
+      title={'Verify email'}
+      doSubmit={() => verifyEmail(userId, token, email)}
+      successMessage={VERIFY_EMAIL_SUCCESS}
+      location={location}
+    />
+  )
+}
+
+const SEND_VERIFICATION_EMAIL_SUCCESS =
+  'Verification email has successfully been sent. Check your email.'
+export const SendVerificationEmail = () => {
+  const { userId, email } = queryString.parse(location.search)
+  return (
+    <EmailVerification
+      title={'Send verification email'}
+      doSubmit={() => sendVerificationEmail(userId, email)}
+      successMessage={SEND_VERIFICATION_EMAIL_SUCCESS}
+      location={location}
+    />
+  )
 }

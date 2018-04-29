@@ -5,9 +5,11 @@ import {
   AUTH_LOG_OUT,
   AUTH_RESET_PASSWORD,
   AUTH_RETRIEVE_USERNAME,
+  AUTH_SEND_VERIFICATION_EMAIL,
   AUTH_SIGN_UP,
   AUTH_START_PASSWORD_RESET,
   AUTH_UPDATE,
+  AUTH_VERIFY_EMAIL,
 } from '../actions'
 import cuid from 'cuid'
 
@@ -103,6 +105,30 @@ export function resetPassword(username, code, password) {
       body: JSON.stringify({
         password,
       }),
+    }),
+  )
+}
+
+export function verifyEmail(userId, token, email) {
+  const url = `/api/1/users/${encodeURIComponent(
+    userId,
+  )}/emailVerification?code=${encodeURIComponent(token)}`
+
+  return idRequest(AUTH_VERIFY_EMAIL, () =>
+    fetch(url, {
+      method: 'post',
+      body: JSON.stringify({ email }),
+    }),
+  )
+}
+
+export function sendVerificationEmail(userId, email) {
+  const url = `/api/1/users/${encodeURIComponent(userId)}/sendVerification`
+
+  return idRequest(AUTH_SEND_VERIFICATION_EMAIL, () =>
+    fetch(url, {
+      method: 'post',
+      body: JSON.stringify({ email }),
     }),
   )
 }

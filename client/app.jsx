@@ -3,7 +3,7 @@ import { Route, Switch } from 'react-router-dom'
 import ga from 'react-ga'
 import { makeServerUrl } from './network/server-url'
 
-import { EmailVerification } from './auth/email-verification.jsx'
+import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.jsx'
 import Faq from './beta/faq.jsx'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
@@ -63,7 +63,8 @@ export default class App extends React.Component {
           <LoginRoute path="/login" component={Login} />
           <LoginRoute path="/reset-password" component={ResetPassword} />
           <LoginRoute path="/signup" component={Signup} />
-          <LoginRoute path="/verify-email" component={EmailVerification} />
+          <LoginRoute path="/verify-email" component={VerifyEmail} />
+          <LoginRoute path="/send-verification-email" component={SendVerificationEmail} />
           {!IS_PRODUCTION ? <Route path="/dev" component={Dev} /> : null}
           <ConditionalRoute
             filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}

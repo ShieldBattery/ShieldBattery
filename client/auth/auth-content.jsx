@@ -55,7 +55,8 @@ export const AuthBottomAction = styled.div`
 `
 
 export const BottomActionButton = styled(FlatButton)`
-  // TODO(2Pac): Do this properly once the Button gets rewritten as a styled component
+  // TODO(2Pac): Do this properly (by generating this css here and sending it as a prop to the
+  // Button) once the Button gets rewritten as a styled component
   & > span {
     color: ${colorTextSecondary};
     font-weight: 400;
@@ -81,7 +82,8 @@ export const RowEdge = styled.div`
 `
 
 export const ForgotActionButton = styled(FlatButton)`
-  // TODO(2Pac): Do this properly once the Button gets rewritten as a styled component
+  // TODO(2Pac): Do this properly (by generating this css here and sending it as a prop to the
+  // Button) once the Button gets rewritten as a styled component
   & > span {
     color: ${colorTextSecondary};
     font-weight: 400;
