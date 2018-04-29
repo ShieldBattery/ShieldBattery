@@ -115,7 +115,7 @@ async function createUser(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(email, code)
+  await sendAccountVerificationEmail(code, result.user.id, email)
   ctx.body = result
 }
 
@@ -183,6 +183,6 @@ async function sendVerificationEmail(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(email, code)
+  await sendAccountVerificationEmail(code, id, email)
   ctx.status = 204
 }
