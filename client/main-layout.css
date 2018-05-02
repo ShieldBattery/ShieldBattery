@@ -1,10 +1,9 @@
 @value colorTextSecondary, colorError from './styles/colors.css';
-@value row from './styles/flex.css';
+@value row, grow from './styles/flex.css';
 @value body2 from './styles/typography.css';
 
 .layout {
-  composes: row;
-  height: calc(100% - 64px);
+  composes: row grow;
 }
 
 .devIndicator {

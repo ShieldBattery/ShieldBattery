@@ -7,6 +7,7 @@ import {
   NETWORK_SITE_CONNECTED as IPC_NETWORK_SITE_CONNNECTED,
 } from '../../app/common/ipc-constants'
 
+import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import loading from '../loading/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
@@ -56,7 +57,7 @@ const envSpecificHandlers = IS_ELECTRON
     ]
   : []
 
-const handlers = [chat, loading, networkStatusHandler, serverStatus, whispers].concat(
+const handlers = [auth, chat, loading, networkStatusHandler, serverStatus, whispers].concat(
   envSpecificHandlers,
 )
 

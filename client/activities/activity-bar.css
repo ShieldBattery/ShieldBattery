@@ -9,7 +9,6 @@
   composes: col exact justifyStart itemsCenter;
   composes: shadow3dp;
   width: 96px;
-  height: 100%;
   background-color: grey900;
   padding-bottom: 8px;
   overflow: hidden;
