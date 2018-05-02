@@ -41,7 +41,7 @@
 @value colorTextSecondary: rgba(255, 255, 255, alphaSecondary);
 @value colorTextPrimary: rgba(255, 255, 255, alphaPrimary);
 
-@value colorBackground: grey850;
+@value colorBackground: grey900;
 @value colorError: #ff6e6e;
 @value colorSuccess: #66bb6a;
 

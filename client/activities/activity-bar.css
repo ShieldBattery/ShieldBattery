@@ -1,4 +1,4 @@
-@value grey900, colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
+@value colorTextPrimary, colorTextSecondary, colorTextFaint from '../styles/colors.css';
 @value col, grow, exact, justifyStart, justifyCenter, itemsCenter from '../styles/flex.css';
 @value button as buttonText from '../styles/typography.css';
 @value reset from '../material/button-reset.css';
@@ -9,7 +9,7 @@
   composes: col exact justifyStart itemsCenter;
   composes: shadow3dp;
   width: 96px;
-  background-color: grey900;
+  background-color: rgba(21, 101, 192, 0.3); // blue800
   padding-bottom: 8px;
   overflow: hidden;
 }

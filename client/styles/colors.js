@@ -41,7 +41,7 @@ export const colorTextFaint = `rgba(255, 255, 255, ${alphaDisabled})`
 export const colorTextSecondary = `rgba(255, 255, 255, ${alphaSecondary})`
 export const colorTextPrimary = `rgba(255, 255, 255, ${alphaPrimary})`
 
-export const colorBackground = grey850
+export const colorBackground = grey900
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 

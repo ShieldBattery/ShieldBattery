@@ -1,4 +1,4 @@
-@value blue400, blue800, amberA200, amberA400, grey850 from '../../styles/colors.css';
+@value blue400, blue800, amberA200, amberA400, colorBackground from '../../styles/colors.css';
 @value colorDividers, colorTextPrimary, colorTextSecondary from '../../styles/colors.css';
 @value col, grow, exact, row, itemsCenter, justifySpaceBetween, wrap from '../../styles/flex.css';
 @value body2, singleLine from '../../styles/typography.css';
@@ -8,7 +8,7 @@
 .leftNav {
   composes: col exact;
   width: 240px;
-  background-color: grey850;
+  background-color: colorBackground;
 }
 
 .sections {
