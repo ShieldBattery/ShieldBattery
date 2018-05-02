@@ -47,7 +47,16 @@ async function getCurrentSession(ctx, next) {
 
 const bcryptCompare = thenify(bcrypt.compare)
 async function startNewSession(ctx, next) {
-  if (ctx.session.userId) throw new httpErrors.Conflict('Session already active')
+  if (ctx.session.userId) {
+    const { userId, userName, email, permissions, emailVerified } = ctx.session
+    ctx.body = {
+      user: { id: userId, name: userName, email },
+      permissions,
+      emailVerified,
+    }
+
+    return
+  }
   const { username, password, remember } = ctx.request.body
   if (!username || !password) {
     throw new httpErrors.BadRequest('Username and password required')

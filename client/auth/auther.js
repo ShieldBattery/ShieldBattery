@@ -67,7 +67,7 @@ export function signUp(username, email, password) {
 
 export function getCurrentSession() {
   return idRequest(AUTH_UPDATE, () =>
-    fetch('/api/1/sessions', {
+    fetch('/api/1/sessions?date=' + Date.now(), {
       method: 'get',
     }),
   )
