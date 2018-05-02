@@ -113,7 +113,7 @@ export class EmailVerification extends React.Component {
   }
 
   onResendClick = () => {
-    const { userId, email } = queryString.parse(location.search)
+    const { userId, email } = queryString.parse(this.props.location.search)
     const search = queryString.stringify({ userId, email })
     this.props.dispatch(routerActions.push({ pathname: '/send-verification-email', search }))
   }
@@ -139,7 +139,7 @@ export const VerifyEmail = ({ location }) => {
 
 const SEND_VERIFICATION_EMAIL_SUCCESS =
   'Verification email has successfully been sent. Check your email.'
-export const SendVerificationEmail = () => {
+export const SendVerificationEmail = ({ location }) => {
   const { userId, email } = queryString.parse(location.search)
   return (
     <EmailVerification
