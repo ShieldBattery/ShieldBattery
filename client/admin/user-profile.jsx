@@ -20,7 +20,12 @@ import {
 @connect(state => ({ auth: state.auth }))
 export class UserProfile extends React.Component {
   render() {
-    const { auth: { permissions: perms }, match: { params: { username } } } = this.props
+    const {
+      auth: { permissions: perms },
+      match: {
+        params: { username },
+      },
+    } = this.props
 
     const children = []
     if (perms.editPermissions) {

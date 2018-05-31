@@ -204,14 +204,20 @@ const eventToAction = {
 
   setupGame: (name, event) => (dispatch, getState) => {
     clearCountdownTimer(true /* leaveAtmosphere */)
-    const { lobby, settings, auth: { user } } = getState()
+    const {
+      lobby,
+      settings,
+      auth: { user },
+    } = getState()
     dispatch({ type: LOBBY_UPDATE_LOADING_START })
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
     const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(
       ([teamIndex, , slot]) =>
         new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
     )
-    const { info: { name: lobbyName, map, gameType, gameSubType, host } } = lobby
+    const {
+      info: { name: lobbyName, map, gameType, gameSubType, host },
+    } = lobby
     const config = {
       localUser: user,
       settings,
@@ -231,7 +237,9 @@ const eventToAction = {
 
   setRoutes: (name, event) => (dispatch, getState) => {
     const { routes } = event
-    const { gameClient: { gameId } } = getState()
+    const {
+      gameClient: { gameId },
+    } = getState()
     activeGameManager.setGameRoutes(gameId, routes)
   },
 

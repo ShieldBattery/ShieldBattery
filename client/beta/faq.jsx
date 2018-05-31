@@ -157,8 +157,12 @@ class FragmentLink extends React.PureComponent {
 @connect()
 export default class Faq extends React.Component {
   componentDidUpdate(prevProps) {
-    const { location: { hash: prevHash } } = prevProps
-    const { location: { hash: newHash } } = this.props
+    const {
+      location: { hash: prevHash },
+    } = prevProps
+    const {
+      location: { hash: newHash },
+    } = this.props
 
     if (prevHash !== newHash) {
       this.scrollElementIntoView(newHash.slice(1))

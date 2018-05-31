@@ -143,7 +143,11 @@ export default class PsiHealthCheckupDialog extends React.Component {
 
   onTryAgainClick = () => {
     this.props.dispatch((dispatch, getState) => {
-      const { settings: { local: { starcraftPath } } } = getState()
+      const {
+        settings: {
+          local: { starcraftPath },
+        },
+      } = getState()
       // Note: this may unnecessarily copy a valid 1.16.1 installation into the downgrade dir. This
       // is generally fine, as we prefer the "real" installation anyway, and it's actually sort of
       // good to back up valid binaries since they'll be valid for us forever, even if the

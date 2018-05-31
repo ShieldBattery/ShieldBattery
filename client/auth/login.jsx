@@ -133,7 +133,9 @@ export default class Login extends React.Component {
   }
 
   render() {
-    const { auth: { authChangeInProgress, lastFailure } } = this.props
+    const {
+      auth: { authChangeInProgress, lastFailure },
+    } = this.props
     let loadingContents
     if (authChangeInProgress) {
       loadingContents = (

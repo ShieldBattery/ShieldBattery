@@ -78,7 +78,10 @@ function setGameRoutes(gameId) {
 
 export function startReplay(replay) {
   return (dispatch, getState) => {
-    const { auth: { user }, settings } = getState()
+    const {
+      auth: { user },
+      settings,
+    } = getState()
 
     dispatch({
       type: REPLAYS_START_REPLAY,

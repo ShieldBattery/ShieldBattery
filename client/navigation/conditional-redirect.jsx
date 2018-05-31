@@ -34,7 +34,10 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
     }
 
     _handleChange() {
-      const { router, store: { dispatch, getState } } = this.context
+      const {
+        router,
+        store: { dispatch, getState },
+      } = this.context
       if (shouldRedirect(getState())) {
         this._unsubscribe()
         dispatch(createRedirectAction(getState(), router))

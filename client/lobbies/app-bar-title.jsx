@@ -13,7 +13,11 @@ const Container = styled.div`
 @connect(state => ({ routing: state.routing }))
 export default class LobbyTitle extends React.Component {
   render() {
-    const { routing: { location: { pathname } } } = this.props
+    const {
+      routing: {
+        location: { pathname },
+      },
+    } = this.props
 
     const lobbyTitle = pathname.slice(pathname.lastIndexOf('/') + 1)
 

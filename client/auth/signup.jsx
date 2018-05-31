@@ -170,7 +170,10 @@ export default class Signup extends React.Component {
   }
 
   render() {
-    const { auth: { authChangeInProgress, lastFailure }, location } = this.props
+    const {
+      auth: { authChangeInProgress, lastFailure },
+      location,
+    } = this.props
     let loadingContents
     if (authChangeInProgress) {
       loadingContents = (

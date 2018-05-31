@@ -30,7 +30,7 @@ const Ticks = ({ show, min, max, step }) => {
   let container
   if (show) {
     const numSteps = (max - min) / step + 1
-    const stepPercentage = step / (max - min) * 100
+    const stepPercentage = (step / (max - min)) * 100
     const elems = [
       // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
       <div key={0} className={styles.valueTick} style={{ left: '-5px' }} />,
@@ -140,7 +140,7 @@ class Slider extends React.Component {
       [styles.disabled]: this.props.disabled,
     })
 
-    const stepPercentage = this.props.step / (this.props.max - this.props.min) * 100
+    const stepPercentage = (this.props.step / (this.props.max - this.props.min)) * 100
 
     const optionNum = (this.props.value - this.props.min) / this.props.step
     const thumbPosition = stepPercentage * optionNum

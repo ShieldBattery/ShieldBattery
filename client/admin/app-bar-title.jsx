@@ -6,7 +6,11 @@ import { AppBarTitle } from '../app-bar/app-bar.jsx'
 @connect(state => ({ routing: state.routing }))
 export default class AdminTitle extends React.Component {
   render() {
-    const { routing: { location: { pathname } } } = this.props
+    const {
+      routing: {
+        location: { pathname },
+      },
+    } = this.props
 
     let appBarTitle
     if (pathname === '/admin') {

@@ -762,7 +762,12 @@ export class LobbyApi {
 
     // get a list of routes + player IDs per player, broadcast that to each player
     const routesByPlayer = routes.reduce((result, route) => {
-      const { p1, p2, server, result: { routeId, p1Id, p2Id } } = route
+      const {
+        p1,
+        p2,
+        server,
+        result: { routeId, p1Id, p2Id },
+      } = route
       return result
         .update(p1, new List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
         .update(p2, new List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))

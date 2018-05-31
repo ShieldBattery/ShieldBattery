@@ -4,7 +4,11 @@ import { routerActions } from 'react-router-redux'
 // don't really have a root content page
 export function goToIndex(transitionFn = routerActions.push) {
   return (dispatch, getState) => {
-    const { lobby, whispers: { sessions }, chat: { channels } } = getState()
+    const {
+      lobby,
+      whispers: { sessions },
+      chat: { channels },
+    } = getState()
     if (lobby.inLobby && IS_ELECTRON) {
       dispatch(transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
     } else if (channels.size) {

@@ -55,7 +55,7 @@ export default function createThrottle(name, opts) {
     prefix: 'sbthrottle:' + name,
     expiry:
       opts.expiry ||
-      Math.round((opts.window || 1000) * 10 * ((opts.burst || opts.rate) / opts.rate) / 1000),
+      Math.round(((opts.window || 1000) * 10 * ((opts.burst || opts.rate) / opts.rate)) / 1000),
   })
 
   return new PromiseBasedThrottle(

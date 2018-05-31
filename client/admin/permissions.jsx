@@ -69,7 +69,10 @@ export default class PermissionsResult extends React.Component {
   }
 
   render() {
-    const { permissions: { users }, username } = this.props
+    const {
+      permissions: { users },
+      username,
+    } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
       return <LoadingIndicator />

@@ -137,7 +137,9 @@ class MainLayout extends React.Component {
 
     const {
       lobby: { name, hasUnread },
-      routing: { location: { pathname: currentPath } },
+      routing: {
+        location: { pathname: currentPath },
+      },
     } = this.props
     return [
       <Subheader key="lobby-header">Lobby</Subheader>,
@@ -195,7 +197,9 @@ class MainLayout extends React.Component {
       inGameplayActivity,
       chatChannels,
       whispers,
-      routing: { location: { pathname } },
+      routing: {
+        location: { pathname },
+      },
     } = this.props
 
     let appBarTitle

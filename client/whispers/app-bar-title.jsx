@@ -12,7 +12,12 @@ const Container = styled.div`
 @connect(state => ({ whispers: state.whispers, routing: state.routing }))
 export default class WhispersTitle extends React.Component {
   render() {
-    const { whispers, routing: { location: { pathname } } } = this.props
+    const {
+      whispers,
+      routing: {
+        location: { pathname },
+      },
+    } = this.props
 
     const target = pathname.slice(pathname.lastIndexOf('/') + 1)
     const session = whispers.byName.get(target.toLowerCase())

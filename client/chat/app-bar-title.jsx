@@ -12,7 +12,12 @@ const Container = styled.div`
 @connect(state => ({ chat: state.chat, routing: state.routing }))
 export class ChatTitle extends React.Component {
   render() {
-    const { chat, routing: { location: { pathname } } } = this.props
+    const {
+      chat,
+      routing: {
+        location: { pathname },
+      },
+    } = this.props
 
     const routeChannel = pathname.slice(pathname.lastIndexOf('/') + 1)
     const channel = chat.byName.get(routeChannel.toLowerCase())

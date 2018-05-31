@@ -39,7 +39,9 @@ export function handleCheckStarcraftPathResult(result) {
 const MIN_TIME_BETWEEN_DOWNGRADES_MS = 60000
 export function maybeAttemptDowngrade(starcraftPath, downgradePath) {
   return (dispatch, getState) => {
-    const { starcraft: { downgradeInProgress, lastDowngradeAttempt } } = getState()
+    const {
+      starcraft: { downgradeInProgress, lastDowngradeAttempt },
+    } = getState()
     if (downgradeInProgress || Date.now() - lastDowngradeAttempt < MIN_TIME_BETWEEN_DOWNGRADES_MS) {
       return
     }

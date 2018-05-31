@@ -17,7 +17,9 @@ export default class AcceptMatch extends React.Component {
   }
 
   maybeClose(props) {
-    const { matchmaking: { isFinding, failedToAccept, match } } = props
+    const {
+      matchmaking: { isFinding, failedToAccept, match },
+    } = props
     if (!isFinding && !failedToAccept && !match) {
       this.props.dispatch(closeDialog())
     }

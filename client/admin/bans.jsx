@@ -122,7 +122,10 @@ export default class BanUsers extends React.Component {
   }
 
   render() {
-    const { bans: { users }, username } = this.props
+    const {
+      bans: { users },
+      username,
+    } = this.props
     const user = users.get(username)
     if (!user || user.isRequesting) {
       return <LoadingIndicator />

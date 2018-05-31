@@ -65,7 +65,9 @@ export function sendMessage(channel, message) {
 // use `retrieveNextMessageHistory`.
 export function retrieveInitialMessageHistory(channel) {
   return (dispatch, getStore) => {
-    const { chat: { byName } } = getStore()
+    const {
+      chat: { byName },
+    } = getStore()
     const lowerCaseChannel = channel.toLowerCase()
     if (!byName.has(lowerCaseChannel)) {
       return
@@ -91,7 +93,9 @@ export function retrieveInitialMessageHistory(channel) {
 
 export function retrieveNextMessageHistory(channel) {
   return (dispatch, getStore) => {
-    const { chat: { byName } } = getStore()
+    const {
+      chat: { byName },
+    } = getStore()
     const lowerCaseChannel = channel.toLowerCase()
     if (!byName.has(lowerCaseChannel)) {
       return
@@ -118,7 +122,9 @@ export function retrieveNextMessageHistory(channel) {
 
 export function retrieveUserList(channel) {
   return (dispatch, getStore) => {
-    const { chat: { byName } } = getStore()
+    const {
+      chat: { byName },
+    } = getStore()
     const lowerCaseChannel = channel.toLowerCase()
     if (!byName.has(lowerCaseChannel)) {
       return

@@ -19,13 +19,17 @@ export default function() {
       : path.join(os.tempdir(), appName + '.sock')
 
   const client = net
-    .connect(socket, () => {
-      // This will only be executed by the second instance of the app (because it will successfully
-      // connect to the running server). Just send some data to the server, which is running on the
-      // first instance, so the main window can be focused there and quit this instance.
-      client.write('focus first instance')
-      app.quit()
-    })
+    .connect(
+      socket,
+      () => {
+        // This will only be executed by the second instance of the app (because it will
+        // successfully connect to the running server). Just send some data to the server, which is
+        // running on the first instance, so the main window can be focused there and quit this
+        // instance.
+        client.write('focus first instance')
+        app.quit()
+      },
+    )
     .on('error', err => {
       if (err.code !== 'ENOENT') throw err
       if (process.platform === 'win32') {

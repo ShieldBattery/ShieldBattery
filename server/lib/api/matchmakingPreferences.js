@@ -27,7 +27,7 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   } else if (!isValidRace(race)) {
     throw new httpErrors.BadRequest('invalid race')
-  } else if (!await isValidMapPoolId(mapPoolId)) {
+  } else if (!(await isValidMapPoolId(mapPoolId))) {
     throw new httpErrors.NotImplemented('map pool support not implemented yet')
   } else if (
     alternateRace !== null &&

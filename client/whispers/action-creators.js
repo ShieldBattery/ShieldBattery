@@ -63,7 +63,9 @@ export function sendMessage(target, message) {
 // is desired, use `retrieveNextMessageHistory`.
 export function retrieveInitialMessageHistory(target) {
   return (dispatch, getStore) => {
-    const { whispers: { byName } } = getStore()
+    const {
+      whispers: { byName },
+    } = getStore()
     if (!byName.has(target)) {
       return
     }
@@ -88,7 +90,9 @@ export function retrieveInitialMessageHistory(target) {
 
 export function retrieveNextMessageHistory(target) {
   return (dispatch, getStore) => {
-    const { whispers: { byName } } = getStore()
+    const {
+      whispers: { byName },
+    } = getStore()
     if (!byName.has(target)) {
       return
     }

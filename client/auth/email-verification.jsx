@@ -54,7 +54,12 @@ export class EmailVerification extends React.Component {
   }
 
   render() {
-    const { auth, auth: { authChangeInProgress, lastFailure }, title, successMessage } = this.props
+    const {
+      auth,
+      auth: { authChangeInProgress, lastFailure },
+      title,
+      successMessage,
+    } = this.props
     const { reqId, success } = this.state
 
     let loadingContents

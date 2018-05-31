@@ -6,7 +6,9 @@ const LoggedInFilter = createConditionalRedirect(
   'LoggedInFilter',
   state => !isLoggedIn(state.auth),
   state => {
-    const { routing: { location } } = state
+    const {
+      routing: { location },
+    } = state
     const search = createNextPath(location)
     return routerActions.push({ pathname: '/login', search })
   },
