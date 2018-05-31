@@ -79,7 +79,10 @@ async function installDevExtensions() {
     addDevtron()
     const installer = require('electron-devtools-installer')
     const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS']
-    return Promise.all(extensions.map(name => installer.default(installer[name])))
+    // Apparently there's no way to upgrade extensions in Electron, so we're always forcing a
+    // download.
+    const forceDownload = true
+    return Promise.all(extensions.map(name => installer.default(installer[name], forceDownload)))
   }
 
   return null
