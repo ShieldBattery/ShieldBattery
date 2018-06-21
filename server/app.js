@@ -18,7 +18,7 @@ import csrfCookie from './lib/security/csrf-cookie'
 import onlyWebClients from './lib/network/only-web-clients'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
-import koaConvert from 'koa-convert'
+// import compressible from 'compressible'
 import koaError from 'koa-error'
 import logMiddleware from './lib/logging/log-middleware'
 import secureHeaders from './lib/security/headers'
@@ -148,6 +148,11 @@ app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
   .use(koaCompress())
+  /* .use(
+    koaCompress({
+      filter: type => !/event\-stream/i.test(type) && compressible(type),
+    }),
+  )*/
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)
@@ -164,34 +169,40 @@ const mainServer = http.createServer(app.callback())
 import setupWebsockets from './websockets'
 const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
-if (isDev) {
-  app.use(
-    require('koa-webpack-dev-middleware')(compiler, {
-      noInfo: true,
-      publicPath: webpackConfig.output.publicPath,
-    }),
-  )
-  app.use(koaConvert(require('koa-webpack-hot-middleware')(compiler)))
-}
-
-fileStoreMiddleware(app)
-
 import createRoutes from './routes'
-createRoutes(app, nydus, userSockets)
+// Wrapping this in IIFE so we can use `await` until node implements top-level `await` support
+;(async () => {
+  if (isDev) {
+    const koaWebpack = require('koa-webpack')
 
-compiler.run = thenify(compiler.run)
-const compilePromise = isDev ? Promise.resolve() : compiler.run()
-if (!isDev) {
-  log.info('In production mode, building assets...')
-}
+    const middleware = await koaWebpack({
+      compiler,
+      devMiddleware: {
+        logLevel: 'warn',
+        publicPath: webpackConfig.output.publicPath,
+      },
+    })
 
-resolvedRallyPointServers
-  .then(servers => {
+    app.use(middleware)
+  }
+
+  fileStoreMiddleware(app)
+
+  createRoutes(app, nydus, userSockets)
+
+  compiler.run = thenify(compiler.run)
+  const compilePromise = isDev ? Promise.resolve() : compiler.run()
+  if (!isDev) {
+    log.info('In production mode, building assets...')
+  }
+
+  try {
+    const servers = await resolvedRallyPointServers
     pingRegistry.setServers(servers)
-    return initRouteCreatorPromise
-  })
-  .then(() => compilePromise)
-  .then(stats => {
+    await initRouteCreatorPromise
+
+    const stats = await compilePromise
+
     if (stats) {
       if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
         throw new Error(stats.toString())
@@ -204,8 +215,8 @@ resolvedRallyPointServers
     mainServer.listen(port, function() {
       log.info('Server listening on port ' + port)
     })
-  })
-  .catch(err => {
+  } catch (err) {
     log.error({ err }, 'Error building assets')
     process.exit(1)
-  })
+  }
+})()
