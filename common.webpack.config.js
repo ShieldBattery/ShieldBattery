@@ -92,6 +92,12 @@ export default function({
     },
     plugins: [
       ...webpackOpts.plugins,
+      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
+      // that just exports whatever Promise babel is using
+      new webpack.NormalModuleReplacementPlugin(
+        /[\\/]any-promise[\\/]/,
+        require.resolve('./app/common/promise.js'),
+      ),
       new webpack.DefinePlugin({
         ...globalDefines,
         'process.webpackEnv': {

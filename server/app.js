@@ -164,7 +164,7 @@ import setupWebsockets from './websockets'
 const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
 import createRoutes from './routes'
-// Wrapping this in IIFE so we can use `await` until node implements top-level `await` support
+// Wrapping this in IIFE so we can use top-level `await` (until node implements it natively)
 ;(async () => {
   if (isDev) {
     const koaWebpack = require('koa-webpack')
