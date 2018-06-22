@@ -71,10 +71,6 @@ const options = {
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify('production'),
     }),
-    new webpack.NormalModuleReplacementPlugin(
-      /[\\/]any-promise[\\/]/,
-      require.resolve('../app/common/promise.js'),
-    ),
     new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
     new StringReplacePlugin(),
   ],

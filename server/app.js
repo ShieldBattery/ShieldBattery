@@ -18,7 +18,6 @@ import csrfCookie from './lib/security/csrf-cookie'
 import onlyWebClients from './lib/network/only-web-clients'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
-// import compressible from 'compressible'
 import koaError from 'koa-error'
 import logMiddleware from './lib/logging/log-middleware'
 import secureHeaders from './lib/security/headers'
@@ -148,11 +147,6 @@ app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
   .use(koaCompress())
-  /* .use(
-    koaCompress({
-      filter: type => !/event\-stream/i.test(type) && compressible(type),
-    }),
-  )*/
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)

@@ -4,6 +4,7 @@
 import path from 'path'
 import webpack from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import UglifyJsPlugin from 'uglifyjs-webpack-plugin'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version
@@ -29,34 +30,20 @@ export default function({
 
   const styleRule = {
     test: /\.css$/,
-    use: !isProd
-      ? [
-          { loader: 'style-loader' },
-          {
-            loader: 'css-loader',
-            options: {
-              modules: true,
-              importLoaders: 1,
-              localIdentName: '[name]__[local]__[hash:base64:5]',
-            },
-          },
-          // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-          // this loader because it's a massive pile of unupdated crap
-          `postcss-loader?${postCssOpts}`,
-        ]
-      : [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: 'css-loader',
-            options: {
-              modules: true,
-              importLoaders: 1,
-            },
-          },
-          // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-          // this loader because it's a massive pile of unupdated crap
-          `postcss-loader?${postCssOpts}`,
-        ],
+    use: [
+      isProd ? MiniCssExtractPlugin.loader : 'style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          modules: true,
+          importLoaders: 1,
+          localIdentName: !isProd ? '[name]__[local]__[hash:base64:5]' : '[hash:base64]',
+        },
+      },
+      // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
+      // this loader because it's a massive pile of unupdated crap
+      `postcss-loader?${postCssOpts}`,
+    ],
   }
 
   const config = {
@@ -96,40 +83,15 @@ export default function({
           exclude: /README.md$/,
           use: [{ loader: 'html-loader' }, { loader: 'markdown-loader' }],
         },
-        /* {
-          test: /\.css$/,
-          use: [
-            isProd ? MiniCssExtractPlugin.loader : 'style-loader',
-            'css-loader',
-            'postcss-loader',
-          ],
-        },*/
         styleRule,
       ],
     },
     optimization: {
       noEmitOnErrors: true,
-      splitChunks: isProd
-        ? {
-            cacheGroups: {
-              styles: {
-                name: 'styles',
-                test: /\.css$/,
-                chunks: 'all',
-                enforce: true,
-              },
-            },
-          }
-        : undefined,
+      runtimeChunk: false,
     },
     plugins: [
       ...webpackOpts.plugins,
-      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
-      // that just exports whatever Promise babel is using
-      new webpack.NormalModuleReplacementPlugin(
-        /[\\/]any-promise[\\/]/,
-        require.resolve('./app/common/promise.js'),
-      ),
       new webpack.DefinePlugin({
         ...globalDefines,
         'process.webpackEnv': {
@@ -151,24 +113,24 @@ export default function({
         // We only define the exact field here to avoid overwriting all of process.env
         'process.env.NODE_ENV': JSON.stringify('production'),
       }),
-      /* new ExtractTextPlugin({
-        // This path is relative to the publicPath, not this file's directory
-        filename: '../styles/site.css',
-        allChunks: true,
-      }),*/
       new MiniCssExtractPlugin({
         filename: '../styles/site.css',
       }),
     ])
+
     if (minify) {
-      config.plugins.push(
-        new webpack.optimize.UglifyJsPlugin({
-          compress: { warnings: false },
-          output: { comments: false },
+      config.optimization.minimizer = [
+        // we specify a custom UglifyJsPlugin here to get source maps in production
+        new UglifyJsPlugin({
           sourceMap: true,
+          uglifyOptions: {
+            compress: { warnings: false },
+            output: { comments: false },
+          },
         }),
-      )
+      ]
     }
+
     config.devtool = 'hidden-source-map'
   }
 
