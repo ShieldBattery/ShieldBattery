@@ -33,7 +33,6 @@ import { render } from 'react-dom'
 import { Provider } from 'react-redux'
 import { ConnectedRouter } from 'react-router-redux'
 import { createBrowserHistory, createHashHistory } from 'history'
-import { ThemeProvider } from 'styled-components'
 
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
@@ -46,7 +45,6 @@ import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { UPDATE_SERVER, UPDATE_SERVER_COMPLETE } from '../app/common/ipc-constants'
-import * as colors from './styles/colors'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -117,9 +115,7 @@ Promise.all([rootElemPromise, updatedServerPromise])
       <Provider store={store}>
         <ConnectedRouter history={history}>
           <RedirectProvider>
-            <ThemeProvider theme={colors}>
-              <App analyticsId={analyticsId} />
-            </ThemeProvider>
+            <App analyticsId={analyticsId} />
           </RedirectProvider>
         </ConnectedRouter>
       </Provider>,

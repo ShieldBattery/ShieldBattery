@@ -2,16 +2,20 @@
 require('babel-register')
 const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
+const webpack = require('webpack')
+
+const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
 const webpackOpts = {
   target: 'electron-renderer',
-  entry: './client/index.jsx',
+  entry: [hotUrl, './client/index.jsx'],
   output: {
     filename: 'bundle.js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: 'http://localhost:5566/dist/',
     libraryTarget: 'commonjs2',
   },
+  plugins: [new webpack.HotModuleReplacementPlugin()],
 }
 
 const babelOpts = {
@@ -30,35 +34,9 @@ const babelOpts = {
     'stage-0',
   ],
   plugins: ['transform-decorators-legacy'].concat(
-    process.env.NODE_ENV !== 'production'
-      ? [
-          // Need these to work around an issue in react-transform/react-hot-loader:
-          // https://github.com/gaearon/react-hot-loader/issues/313
-          'transform-class-properties',
-          'transform-es2015-classes',
-
-          [
-            'react-transform',
-            {
-              transforms: [
-                {
-                  transform: 'react-transform-hmr',
-                  imports: ['react'],
-                  locals: ['module'],
-                },
-                {
-                  transform: 'react-transform-catch-errors',
-                  imports: ['react', 'redbox-react'],
-                },
-              ],
-            },
-          ],
-        ]
-      : [],
+    process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
   ),
 }
-
-const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 
 const SB_SERVER = (() => {
   if (process.env.SB_SERVER) {
@@ -84,7 +62,6 @@ console.log('Using a server of ' + SB_SERVER + ' by default')
 module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
-  hotUrl,
   globalDefines: {
     IS_ELECTRON: true,
   },

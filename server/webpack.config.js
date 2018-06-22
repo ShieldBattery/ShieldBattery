@@ -5,14 +5,16 @@ const TARGET_BROWSERS = 'last 2 versions'
 
 const webpackOpts = {
   // Relative to the root directory
-  entry: './client/index.jsx',
+  name: 'server',
+  entry: ['./client/index.jsx'],
   output: {
     filename: 'client.js',
     path: path.join(__dirname, 'public', 'scripts'),
     publicPath: '/scripts/',
   },
-  resolveLoader: {
-    // Look for loaders in server's node_modules directory, instead of client's
+  plugins: [],
+  resolve: {
+    // Look for modules and loaders in server's node_modules directory, instead of client's
     modules: [path.join(__dirname, 'node_modules'), 'node_modules'],
   },
 }
@@ -33,38 +35,13 @@ const babelOpts = {
     'stage-0',
   ],
   plugins: ['transform-decorators-legacy'].concat(
-    process.env.NODE_ENV !== 'production'
-      ? [
-          // Need these to work around an issue in react-transform/react-hot-loader:
-          // https://github.com/gaearon/react-hot-loader/issues/313
-          'transform-class-properties',
-          'transform-es2015-classes',
-
-          [
-            'react-transform',
-            {
-              transforms: [
-                {
-                  transform: 'react-transform-hmr',
-                  imports: ['react'],
-                  locals: ['module'],
-                },
-                {
-                  transform: 'react-transform-catch-errors',
-                  imports: ['react', 'redbox-react'],
-                },
-              ],
-            },
-          ],
-        ]
-      : [],
+    process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
   ),
 }
 
 export default makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
-  hotUrl: 'webpack-hot-middleware/client',
   globalDefines: {
     IS_ELECTRON: false,
   },

@@ -20,12 +20,5 @@ export default function create(initialState, history) {
 
   const store = createMiddlewaredStore(rootReducer, initialState)
 
-  if (module.hot) {
-    module.hot.accept('./root-reducer', () => {
-      const nextRootReducer = require('./root-reducer').default
-      store.replaceReducer(nextRootReducer)
-    })
-  }
-
   return store
 }

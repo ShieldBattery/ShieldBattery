@@ -21,7 +21,7 @@ import WindowControls from './app-bar/window-controls.jsx'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
-export default class App extends React.Component {
+class App extends React.Component {
   initialized = false
   onUpdate = () => {
     if (!this.initialized) {
@@ -75,3 +75,12 @@ export default class App extends React.Component {
     )
   }
 }
+
+let ExportedApp = App
+
+if (!IS_PRODUCTION) {
+  const { hot } = require('react-hot-loader')
+  ExportedApp = hot(module)(App)
+}
+
+export default ExportedApp

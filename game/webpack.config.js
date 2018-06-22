@@ -6,6 +6,7 @@ const entry = path.resolve(__dirname, 'index.js')
 
 const options = {
   entry,
+  mode: 'production',
   target: 'node',
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -63,8 +64,10 @@ const options = {
     ],
   },
   devtool: 'hidden-source-map',
+  optimization: {
+    noEmitOnErrors: true,
+  },
   plugins: [
-    new webpack.optimize.ModuleConcatenationPlugin(),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify('production'),
     }),
@@ -74,7 +77,6 @@ const options = {
     ),
     new webpack.IgnorePlugin(/README\.md$|LICENSE$/),
     new StringReplacePlugin(),
-    new webpack.NoEmitOnErrorsPlugin(),
   ],
 }
 

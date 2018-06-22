@@ -3,7 +3,8 @@
 
 import path from 'path'
 import webpack from 'webpack'
-import ExtractTextPlugin from 'extract-text-webpack-plugin'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import UglifyJsPlugin from 'uglifyjs-webpack-plugin'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version
@@ -14,7 +15,6 @@ const isProd = nodeEnv === 'production'
 export default function({
   webpack: webpackOpts,
   babel: babelOpts,
-  hotUrl,
   globalDefines = {},
   envDefines = {},
   minify,
@@ -30,40 +30,25 @@ export default function({
 
   const styleRule = {
     test: /\.css$/,
-    use: !isProd
-      ? [
-          { loader: 'style-loader' },
-          {
-            loader: 'css-loader',
-            options: {
-              modules: true,
-              importLoaders: 1,
-              localIdentName: '[name]__[local]__[hash:base64:5]',
-            },
-          },
-          // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-          // this loader because it's a massive pile of unupdated crap
-          `postcss-loader?${postCssOpts}`,
-        ]
-      : ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: [
-            {
-              loader: 'css-loader',
-              options: {
-                modules: true,
-                importLoaders: 1,
-              },
-            },
-            // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-            // this loader because it's a massive pile of unupdated crap
-            `postcss-loader?${postCssOpts}`,
-          ],
-        }),
+    use: [
+      isProd ? MiniCssExtractPlugin.loader : 'style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          modules: true,
+          importLoaders: 1,
+          localIdentName: !isProd ? '[name]__[local]__[hash:base64:5]' : '[hash:base64]',
+        },
+      },
+      // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
+      // this loader because it's a massive pile of unupdated crap
+      `postcss-loader?${postCssOpts}`,
+    ],
   }
 
   const config = {
     ...webpackOpts,
+    mode: isProd ? 'production' : 'development',
     context: __dirname,
     module: {
       rules: [
@@ -101,7 +86,12 @@ export default function({
         styleRule,
       ],
     },
+    optimization: {
+      noEmitOnErrors: true,
+      runtimeChunk: false,
+    },
     plugins: [
+      ...webpackOpts.plugins,
       // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(
@@ -122,37 +112,33 @@ export default function({
   if (!isProd) {
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
-
-    config.plugins.push(new webpack.HotModuleReplacementPlugin())
-    // TODO(tec27): can we just remove this? Are any of our loaders actually using this?
-    config.plugins.push(new webpack.LoaderOptionsPlugin({ debug: true }))
     config.devtool = 'cheap-module-eval-source-map'
-    config.entry = [hotUrl, config.entry]
   } else {
     config.plugins = config.plugins.concat([
-      new webpack.optimize.ModuleConcatenationPlugin(),
       new webpack.DefinePlugin({
         // We only define the exact field here to avoid overwriting all of process.env
         'process.env.NODE_ENV': JSON.stringify('production'),
       }),
-      new ExtractTextPlugin({
-        // This path is relative to the publicPath, not this file's directory
+      new MiniCssExtractPlugin({
         filename: '../styles/site.css',
-        allChunks: true,
       }),
     ])
+
     if (minify) {
-      config.plugins.push(
-        new webpack.optimize.UglifyJsPlugin({
-          compress: { warnings: false },
-          output: { comments: false },
+      config.optimization.minimizer = [
+        // we specify a custom UglifyJsPlugin here to get source maps in production
+        new UglifyJsPlugin({
           sourceMap: true,
+          uglifyOptions: {
+            compress: { warnings: false },
+            output: { comments: false },
+          },
         }),
-      )
+      ]
     }
+
     config.devtool = 'hidden-source-map'
   }
-  config.plugins.push(new webpack.NoEmitOnErrorsPlugin())
 
   return config
 }

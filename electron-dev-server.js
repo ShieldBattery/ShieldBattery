@@ -11,7 +11,7 @@ const app = express()
 const compiler = webpack(config)
 
 const middleware = webpackDevMiddleware(compiler, {
-  noInfo: true,
+  logLevel: 'warn',
   publicPath: config.output.publicPath,
 })
 app.use(middleware)
