@@ -13,7 +13,7 @@
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
     "test": "cross-env BABEL_ENV=node mocha -R spec --compilers js:babel-register --recursive test/",
-    "start": "node index.js | bunyan",
+    "start": "node index.js | bunyan"
   },
   "keywords": [
     "starcraft",
