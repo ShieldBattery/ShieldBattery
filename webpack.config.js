@@ -4,11 +4,9 @@ const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
 const webpack = require('webpack')
 
-const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
-
 const webpackOpts = {
   target: 'electron-renderer',
-  entry: [hotUrl, './client/index.jsx'],
+  entry: './client/index.jsx',
   output: {
     filename: 'bundle.js',
     path: path.join(__dirname, 'app', 'dist'),
@@ -38,6 +36,8 @@ const babelOpts = {
   ),
 }
 
+const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
+
 const SB_SERVER = (() => {
   if (process.env.SB_SERVER) {
     return process.env.SB_SERVER
@@ -62,6 +62,7 @@ console.log('Using a server of ' + SB_SERVER + ' by default')
 module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
+  hotUrl,
   globalDefines: {
     IS_ELECTRON: true,
   },

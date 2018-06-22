@@ -15,6 +15,7 @@ const isProd = nodeEnv === 'production'
 export default function({
   webpack: webpackOpts,
   babel: babelOpts,
+  hotUrl,
   globalDefines = {},
   envDefines = {},
   minify,
@@ -113,6 +114,13 @@ export default function({
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
+
+    if (hotUrl) {
+      config.entry = [hotUrl, config.entry]
+    } else {
+      // webpack-hot-client doesn't allow string entries for no fucking apparent reason at all.
+      config.entry = [config.entry]
+    }
   } else {
     config.plugins = config.plugins.concat([
       new webpack.DefinePlugin({

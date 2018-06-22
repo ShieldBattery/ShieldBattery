@@ -6,7 +6,7 @@ const TARGET_BROWSERS = 'last 2 versions'
 const webpackOpts = {
   // Relative to the root directory
   name: 'server',
-  entry: ['./client/index.jsx'],
+  entry: './client/index.jsx',
   output: {
     filename: 'client.js',
     path: path.join(__dirname, 'public', 'scripts'),
