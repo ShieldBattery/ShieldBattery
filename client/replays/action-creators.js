@@ -56,17 +56,15 @@ async function setGameConfig(replay, user, settings) {
   const header = await getReplayHeader(replay.path)
 
   return activeGameManager.setGameConfig({
-    lobby: {
+    settings,
+    localUser: user,
+    setup: {
       name: replay.name,
       map: { isReplay: true, path: replay.path },
       gameType: 'melee',
       numSlots: 4,
       slots,
       host: player,
-    },
-    settings,
-    localUser: user,
-    setup: {
       seed: header.seed,
     },
   })
