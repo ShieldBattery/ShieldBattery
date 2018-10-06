@@ -69,9 +69,8 @@ export default class MatchAcceptor {
     // Split clients between those who disconnected and those who haven't. Those who haven't
     // disconnected will be requeued, those who have disconnected will be kicked.
     const split = match.clients.groupBy(status => status !== STATUS_DISCONNECTED)
-    process.nextTick(() =>
-      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()),
-    )
+    this._declineMatch(match, split)
+
     return true
   }
 
@@ -112,9 +111,7 @@ export default class MatchAcceptor {
     // Split clients between those who have accepted and those who haven't. Those who have accepted
     // will be requeued, everyone else will be kicked.
     const split = match.clients.groupBy(status => status === STATUS_ACCEPTED)
-    process.nextTick(() =>
-      this.onMatchDeclined(match.info, split.get(true).keys(), split.get(false).keys()),
-    )
+    this._declineMatch(match, split)
   }
 
   _cleanupMatch(match) {
@@ -125,5 +122,17 @@ export default class MatchAcceptor {
       }
     })
     clearTimeout(match.timer)
+  }
+
+  _declineMatch(match, clients) {
+    const requeueClients = clients.get(true)
+    const kickClients = clients.get(false)
+    process.nextTick(() =>
+      this.onMatchDeclined(
+        match.info,
+        requeueClients ? requeueClients.keys() : [],
+        kickClients ? kickClients.keys() : [],
+      ),
+    )
   }
 }
