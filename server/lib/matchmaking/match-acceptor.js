@@ -117,7 +117,7 @@ export default class MatchAcceptor {
   _cleanupMatch(match) {
     this.matches = this.matches.delete(match.id)
     this.clientToMatchId = this.clientToMatchId.withMutations(map => {
-      for (const c of match.clients) {
+      for (const c of match.clients.keys()) {
         map.delete(c)
       }
     })
