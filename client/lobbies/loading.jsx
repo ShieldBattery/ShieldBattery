@@ -1,6 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { getPlayerSlots } from '../../app/common/lobbies'
+import gameTypeToString from './game-type-to-string'
 import styles from './loading.css'
 import styled from 'styled-components'
 
@@ -285,7 +286,7 @@ export default class LoadingScreen extends React.Component {
     return (
       <div className={styles.content}>
         <div className={styles.typeAndMap}>
-          <span className={styles.gameType}>Melee</span>
+          <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
           <span className={styles.gameTypeMapBridge}> on </span>
           <span className={styles.mapName}>{lobby.map.name}</span>
         </div>

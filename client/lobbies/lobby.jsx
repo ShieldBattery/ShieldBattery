@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { gameTypeToString } from './game-type'
+import gameTypeToString from './game-type-to-string'
 import {
   isUms,
   findSlotByName,

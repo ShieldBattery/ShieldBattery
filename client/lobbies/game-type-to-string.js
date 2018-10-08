@@ -1,6 +1,4 @@
-export const GAME_TYPES = ['melee', 'ffa', 'topVBottom', 'teamMelee', 'teamFfa', 'ums']
-
-export function gameTypeToString(gameType) {
+export default function(gameType) {
   switch (gameType) {
     case 'melee':
       return 'Melee'
@@ -14,6 +12,8 @@ export function gameTypeToString(gameType) {
       return 'Team free for all'
     case 'ums':
       return 'Use map settings'
+    case 'oneVOne':
+      return 'One on one'
     default:
       return 'Unknown'
   }

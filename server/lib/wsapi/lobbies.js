@@ -12,7 +12,7 @@ import { mapInfo } from '../maps/store'
 import CancelToken from '../../../app/common/async/cancel-token'
 import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
-import { LOBBY_NAME_MAXLENGTH, validRace } from '../../../app/common/constants'
+import { LOBBY_NAME_MAXLENGTH, GAME_TYPES, validRace } from '../../../app/common/constants'
 import {
   isUms,
   getLobbySlots,
@@ -25,7 +25,6 @@ import {
 } from '../../../app/common/lobbies'
 
 const LOBBY_START_TIMEOUT = 30 * 1000
-const GAME_TYPES = new Set(['melee', 'ffa', 'topVBottom', 'teamMelee', 'teamFfa', 'ums'])
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
@@ -33,7 +32,7 @@ const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
-const validGameType = str => nonEmptyString(str) && GAME_TYPES.has(str)
+const validGameType = str => nonEmptyString(str) && GAME_TYPES.includes(str)
 const validGameSubType = type => !type || (type >= 1 && type <= 7)
 
 const Countdown = new Record({
@@ -156,8 +155,20 @@ export class LobbyApi {
     }
     checkSubTypeValidity(gameType, gameSubType, mapData.slots)
 
-    // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
-    const numSlots = gameType === 'teamMelee' || gameType === 'teamFfa' ? 8 : mapData.slots
+    let numSlots
+    switch (gameType) {
+      case 'oneVOne':
+        // 1v1 mode always has 2 player slots
+        numSlots = 2
+        break
+      case 'teamMelee':
+      case 'teamFfa':
+        // Team Melee and FFA always provide 8 player slots, divided amongst the teams evenly
+        numSlots = 8
+        break
+      default:
+        numSlots = mapData.slots
+    }
 
     const lobby = Lobbies.create(
       name,

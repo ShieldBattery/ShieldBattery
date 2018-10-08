@@ -69,6 +69,7 @@ export function getSlotsPerTeam(gameType, gameSubType, numSlots, umsForces) {
   switch (gameType) {
     case 'melee':
     case 'ffa':
+    case 'oneVOne':
       return [numSlots]
     case 'topVBottom':
       return [gameSubType, numSlots - gameSubType]
@@ -86,6 +87,7 @@ export function numTeams(gameType, gameSubType, umsForces) {
   switch (gameType) {
     case 'melee':
     case 'ffa':
+    case 'oneVOne':
       return 1
     case 'topVBottom':
       return 2
@@ -103,6 +105,7 @@ export function getTeamNames(gameType, gameSubType, umsForces) {
   switch (gameType) {
     case 'melee':
     case 'ffa':
+    case 'oneVOne':
       return []
     case 'topVBottom':
       return ['Top', 'Bottom']

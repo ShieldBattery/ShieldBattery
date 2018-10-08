@@ -20,6 +20,8 @@ export const MATCHMAKING_TYPES = ['1v1']
 
 export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
 
+export const GAME_TYPES = ['melee', 'ffa', 'topVBottom', 'teamMelee', 'teamFfa', 'ums', 'oneVOne']
+
 export function isValidUsername(username) {
   return (
     username &&
