@@ -6,6 +6,9 @@
   "version": "6.1.2",
   "description": "The electron host app for ShieldBattery.",
   "main": "index.js",
+  "scripts": {
+    "install": "node ./build-native-modules.js"
+  },
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com)",
   "dependencies": {
