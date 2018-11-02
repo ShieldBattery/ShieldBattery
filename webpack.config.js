@@ -1,6 +1,7 @@
 // Can't use ES6 imports in this file because this won't be running through Babel
-require('babel-register')
+require('@babel/register')
 const makeConfig = require('./common.webpack.config.js').default
+const babelPlugins = require('./babel.config.js').plugins
 const path = require('path')
 const webpack = require('webpack')
 
@@ -20,18 +21,17 @@ const babelOpts = {
   babelrc: false,
   cacheDirectory: true,
   presets: [
-    'react',
+    '@babel/react',
     [
-      'env',
+      '@babel/env',
       {
         targets: { electron: '1.7' },
         modules: false,
-        useBuiltIns: true,
+        useBuiltIns: 'entry',
       },
     ],
-    'stage-0',
   ],
-  plugins: ['transform-decorators-legacy'].concat(
+  plugins: babelPlugins.concat(
     process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
   ),
 }

@@ -1,4 +1,5 @@
 import makeConfig from '../common.webpack.config.js'
+import babelConfig from '../babel.config.js'
 import path from 'path'
 
 const TARGET_BROWSERS = 'last 2 versions'
@@ -23,18 +24,17 @@ const babelOpts = {
   cacheDirectory: true,
   // Note that these need to be installed in the root package.json, not the server one
   presets: [
-    'react',
+    '@babel/react',
     [
-      'env',
+      '@babel/env',
       {
         targets: { browsers: TARGET_BROWSERS },
         modules: false,
-        useBuiltIns: true,
+        useBuiltIns: 'entry',
       },
     ],
-    'stage-0',
   ],
-  plugins: ['transform-decorators-legacy'].concat(
+  plugins: babelConfig.plugins.concat(
     process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
   ),
 }

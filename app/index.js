@@ -1,7 +1,7 @@
 process.env.BABEL_ENV = 'app'
 
-require('babel-register')
-require('babel-polyfill')
+require('../babel-register-hook')
+require('@babel/polyfill')
 
 const path = require('path')
 const isDev = require('electron-is-dev')

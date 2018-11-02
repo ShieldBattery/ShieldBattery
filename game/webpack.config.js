@@ -1,6 +1,7 @@
 import path from 'path'
 import webpack from 'webpack'
 import StringReplacePlugin from 'string-replace-webpack-plugin'
+const babelPlugins = require('../babel.config.js').plugins
 
 const entry = path.resolve(__dirname, 'index.js')
 
@@ -42,16 +43,15 @@ const options = {
               cacheDirectory: true,
               presets: [
                 [
-                  'env',
+                  '@babel/env',
                   {
                     targets: { node: '7.4' },
                     modules: false,
-                    useBuiltIns: true,
+                    useBuiltIns: 'entry',
                   },
                 ],
-                'stage-0',
               ],
-              plugins: ['transform-decorators-legacy'],
+              plugins: babelPlugins,
             },
           },
         ],

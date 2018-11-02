@@ -1,7 +1,7 @@
 process.env.BABEL_ENV = 'node'
 
-require('babel-register')
-require('babel-polyfill')
+require('../../../babel-register-hook')
+require('@babel/polyfill')
 const fs = require('fs')
 const Chk = require('bw-chk').default
 const jpeg = require('jpeg-js')

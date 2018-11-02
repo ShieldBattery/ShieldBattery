@@ -1,5 +1,5 @@
 process.env.BABEL_ENV = 'node'
 
-require('babel-register')
-require('babel-polyfill')
+require('../babel-register-hook')
+require('@babel/polyfill')
 require('./app.js')

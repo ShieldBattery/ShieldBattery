@@ -1,6 +1,6 @@
 import './styles/reset.css'
 import './styles/global.css'
-import 'babel-polyfill'
+import '@babel/polyfill'
 import log from './logging/logger'
 import { makeServerUrl } from './network/server-url'
 
