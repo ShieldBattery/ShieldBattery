@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import queryString from 'query-string'
 
 import LoadingIndicator from '../progress/dots.jsx'
@@ -112,7 +112,7 @@ class ForgotFormHolder extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle>{title}</AuthTitle>
+          <AuthTitle as="h3">{title}</AuthTitle>
           <AuthBody>
             {errContents}
             {successContents}
@@ -128,7 +128,7 @@ class ForgotFormHolder extends React.Component {
   }
 
   onBackClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/login' }))
+    this.props.dispatch(push({ pathname: '/login' }))
   }
 
   onSubmit = () => {

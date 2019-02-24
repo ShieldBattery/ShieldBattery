@@ -24,7 +24,8 @@ const questions = [
         You can download the free version of StarCraft: Brood War from the offical{' '}
         <a href={STARCRAFT_DOWNLOAD_URL} target="_blank" rel="nofollow noreferrer">
           Blizzard site
-        </a>.
+        </a>
+        .
       </p>,
     ],
   },
@@ -69,7 +70,8 @@ const questions = [
         written and separated into their own repositories at our{' '}
         <a href="https://github.com/ShieldBattery" target="_blank">
           GitHub page
-        </a>.
+        </a>
+        .
       </p>,
       <p key="p2">
         We could always use more contributors, so if you find technically challenging projects to

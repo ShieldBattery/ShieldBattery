@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import {
   sendMessage,
   retrieveInitialMessageHistory,
@@ -50,7 +50,11 @@ class UserList extends React.Component {
     return (
       <div className={styles.userListSection}>
         <p className={styles.userSubheader}>{title}</p>
-        <ul className={styles.userSublist}>{users.map(u => <UserListEntry user={u} key={u} />)}</ul>
+        <ul className={styles.userSublist}>
+          {users.map(u => (
+            <UserListEntry user={u} key={u} />
+          ))}
+        </ul>
       </div>
     )
   }
@@ -170,7 +174,7 @@ export default class ChatChannelView extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (isLeavingChannel(this.props, nextProps)) {
-      this.props.dispatch(routerActions.push('/'))
+      this.props.dispatch(push('/'))
     }
   }
 
@@ -188,7 +192,7 @@ export default class ChatChannelView extends React.Component {
       if (MULTI_CHANNEL) {
         this.props.dispatch(joinChannel(routeChannel))
       } else {
-        this.props.dispatch(routerActions.push('/'))
+        this.props.dispatch(push('/'))
       }
     }
     if (prevChannel && prevChannel.toLowerCase() !== routeChannel.toLowerCase()) {

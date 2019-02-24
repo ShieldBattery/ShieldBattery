@@ -1,28 +1,24 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { ReactReduxContext } from 'react-redux'
+import { RedirectCheckerContext } from './redirect-provider.jsx'
 
 // Creates a component that conditionally redirects based on store data. createRedirectAction
 // *must* result in this component being unmounted.
 //
 // shouldRedirect is function(currentState) => void
-// createRedirectAction is function(currentState, router) => action
+// createRedirectAction is function(currentState) => action
 export default function createConditionalRedirect(name, shouldRedirect, createRedirectAction) {
-  return class ConditionalRedirect extends React.Component {
+  class ConditionalRedirect extends React.Component {
     static displayName = name
-    static contextTypes = {
-      router: PropTypes.object.isRequired,
-      store: PropTypes.object.isRequired,
-      redirectChecker: PropTypes.object.isRequired,
-    }
 
-    constructor(props, context) {
-      super(props, context)
+    constructor(props) {
+      super(props)
       this._unsubscriber = null
     }
 
     _subscribe() {
       if (!this._unsubscriber) {
-        this._unsubscriber = this.context.redirectChecker.subscribe(() => this._handleChange())
+        this._unsubscriber = this.props.redirectChecker.subscribe(() => this._handleChange())
       }
     }
 
@@ -35,12 +31,11 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
 
     _handleChange() {
       const {
-        router,
         store: { dispatch, getState },
-      } = this.context
+      } = this.props
       if (shouldRedirect(getState())) {
         this._unsubscribe()
-        dispatch(createRedirectAction(getState(), router))
+        dispatch(createRedirectAction(getState()))
         return true
       }
       return false
@@ -56,10 +51,24 @@ export default function createConditionalRedirect(name, shouldRedirect, createRe
     }
 
     render() {
-      if (shouldRedirect(this.context.store.getState())) {
+      if (shouldRedirect(this.props.store.getState())) {
         return null
       }
       return React.Children.only(this.props.children)
     }
   }
+
+  return props => (
+    <ReactReduxContext.Consumer>
+      {({ store }) => (
+        <RedirectCheckerContext.Consumer>
+          {({ redirectChecker }) => (
+            <ConditionalRedirect store={store} redirectChecker={redirectChecker}>
+              {React.Children.only(props.children)}
+            </ConditionalRedirect>
+          )}
+        </RedirectCheckerContext.Consumer>
+      )}
+    </ReactReduxContext.Consumer>
+  )
 }

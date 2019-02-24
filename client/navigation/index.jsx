@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import { goToIndex } from './action-creators'
 
 @connect()
@@ -11,7 +11,7 @@ export default class Index extends React.Component {
   }
 
   static defaultProps = {
-    transitionFn: routerActions.push,
+    transitionFn: push,
   }
 
   componentDidMount() {

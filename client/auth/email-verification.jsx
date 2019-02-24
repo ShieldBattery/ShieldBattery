@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import queryString from 'query-string'
 
 import {
@@ -104,7 +104,7 @@ export class EmailVerification extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle>{title}</AuthTitle>
+          <AuthTitle as="h3">{title}</AuthTitle>
           <AuthBody>{contents}</AuthBody>
           <AuthBottomAction>{bottomActionButton}</AuthBottomAction>
         </AuthContentContainer>
@@ -114,18 +114,18 @@ export class EmailVerification extends React.Component {
   }
 
   onContinueClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/' }))
+    this.props.dispatch(push({ pathname: '/' }))
   }
 
   onResendClick = () => {
     const { userId, email } = queryString.parse(this.props.location.search)
     const search = queryString.stringify({ userId, email })
-    this.props.dispatch(routerActions.push({ pathname: '/send-verification-email', search }))
+    this.props.dispatch(push({ pathname: '/send-verification-email', search }))
   }
 
   onLogInClick = () => {
     const search = createNextPath(this.props.location)
-    this.props.dispatch(routerActions.push({ pathname: '/login', search }))
+    this.props.dispatch(push({ pathname: '/login', search }))
   }
 }
 

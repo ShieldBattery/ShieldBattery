@@ -3,7 +3,6 @@
 @value zIndexDialogScrim from './zindex.css';
 
 .portal {
-  contain: layout style;
   position: relative;
   /*
     Since portals are a top-level element inside the body, we create a new stacking context so
@@ -13,7 +12,6 @@
 }
 
 .scrim {
-  contain: strict;
   position: fixed;
   left: 0;
   top: 0;

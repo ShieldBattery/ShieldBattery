@@ -10,11 +10,11 @@ const Container = styled.div`
   padding-left: 32px;
 `
 
-@connect(state => ({ routing: state.routing }))
+@connect(state => ({ router: state.router }))
 export default class LobbyTitle extends React.Component {
   render() {
     const {
-      routing: {
+      router: {
         location: { pathname },
       },
     } = this.props
@@ -23,7 +23,7 @@ export default class LobbyTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle>{lobbyTitle}</AppBarTitle>
+        <AppBarTitle as="span">{lobbyTitle}</AppBarTitle>
       </Container>
     )
   }

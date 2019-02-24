@@ -1,9 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import {
-  unstable_renderSubtreeIntoContainer as renderSubtreeIntoContainer,
-  unmountComponentAtNode,
-} from 'react-dom'
+import ReactDOM from 'react-dom'
 import TransitionGroup from 'react-addons-css-transition-group'
 import styles from './portal.css'
 
@@ -34,32 +31,45 @@ export default class Portal extends React.Component {
   portal = null
 
   componentDidMount() {
-    this.renderPortal()
+    this.addPortal()
   }
 
   componentDidUpdate() {
-    this.renderPortal()
+    this.addPortal()
   }
 
   componentWillUnmount() {
     this.removePortal()
   }
 
-  renderPortal() {
+  addPortal() {
+    if (this.portal) return
+
+    this.portal = document.createElement('div')
+    this.portal.classList.add(styles.portal)
+    document.body.appendChild(this.portal)
+  }
+
+  onClickAway = event => {
+    if (!this.props.onDismiss || !this.props.open) return
+    this.props.onDismiss()
+  }
+
+  removePortal() {
+    if (!this.portal) return
+
+    document.body.removeChild(this.portal)
+    this.portal = null
+  }
+
+  render() {
     const { open, scrim, propagateClicks, children } = this.props
-
-    if (!this.portal) {
-      this.portal = document.createElement('div')
-      this.portal.classList.add(styles.portal)
-      document.body.appendChild(this.portal)
-    }
-
     const scrimStyle = { opacity: scrim ? 1 : 0 }
     if (propagateClicks) {
       scrimStyle.visibility = scrim ? 'visible' : 'hidden'
     }
     const contents = (
-      <div>
+      <>
         <TransitionGroup
           transitionName={transitionNames}
           transitionAppear={true}
@@ -76,25 +86,9 @@ export default class Portal extends React.Component {
           ) : null}
         </TransitionGroup>
         {open ? children() : null}
-      </div>
+      </>
     )
-    renderSubtreeIntoContainer(this, contents, this.portal)
-  }
 
-  onClickAway = event => {
-    if (!this.props.onDismiss || !this.props.open) return
-    this.props.onDismiss()
-  }
-
-  removePortal() {
-    if (!this.portal) return
-
-    unmountComponentAtNode(this.portal)
-    document.body.removeChild(this.portal)
-    this.portal = null
-  }
-
-  render() {
-    return null
+    return this.portal ? ReactDOM.createPortal(contents, this.portal) : null
   }
 }

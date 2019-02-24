@@ -1,5 +1,5 @@
 import siteSocket from '../network/site-socket'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,
@@ -163,5 +163,5 @@ export function deactivateChannel(channel) {
 }
 
 export function navigateToChannel(channel) {
-  return routerActions.push(`/chat/${encodeURIComponent(channel)}`)
+  return push(`/chat/${encodeURIComponent(channel)}`)
 }

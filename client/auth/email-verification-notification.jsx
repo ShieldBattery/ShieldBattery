@@ -15,7 +15,7 @@ const VerifyEmail = styled.div`
   align-items: center;
 `
 
-const VerifyEmailText = Body1.extend`
+const VerifyEmailText = styled(Body1)`
   color: ${colorTextPrimary};
 `
 

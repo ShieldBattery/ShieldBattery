@@ -79,8 +79,8 @@ class App extends React.Component {
 let ExportedApp = App
 
 if (!IS_PRODUCTION) {
-  const { hot } = require('react-hot-loader')
-  ExportedApp = hot(module)(App)
+  const { hot } = require('react-hot-loader/root')
+  ExportedApp = hot(App)
 }
 
 export default ExportedApp

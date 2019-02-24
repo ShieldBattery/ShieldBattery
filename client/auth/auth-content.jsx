@@ -14,7 +14,7 @@ export const AuthContent = styled.div`
   width: 100%;
 `
 
-export const AuthTitle = Display1.withComponent('h3').extend`
+export const AuthTitle = styled(Display1)`
   text-align: center;
   margin-top: 0;
 `
@@ -110,7 +110,7 @@ export const Content = styled.div`
   transition: opacity 150ms ${fastOutSlowIn};
 `
 
-export const ContentLoading = Content.extend`
+export const ContentLoading = styled(Content)`
   pointer-events: none;
   opacity: 0;
 `

@@ -29,8 +29,8 @@ export function registerApiRoutes(apiObject, nydus) {
   for (const [method, desc] of proto[API_METHODS].entries()) {
     if (!desc.path.startsWith('/')) throw new Error('Method paths must start with a /')
 
-    const middleware = desc.middleware.map(
-      f => (typeof f === 'string' ? apiObject[f].bind(apiObject) : f),
+    const middleware = desc.middleware.map(f =>
+      typeof f === 'string' ? apiObject[f].bind(apiObject) : f,
     )
     nydus.registerRoute(`${basePath}${desc.path}`, ...middleware, apiObject[method].bind(apiObject))
   }

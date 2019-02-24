@@ -158,7 +158,9 @@ class CreateLobbyForm extends React.Component {
           ) : null}
         </div>
         <Select {...bindCustom('gameType')} label="Game type" tabIndex={0}>
-          {GAME_TYPES.map(type => <Option key={type} value={type} text={gameTypeToString(type)} />)}
+          {GAME_TYPES.map(type => (
+            <Option key={type} value={type} text={gameTypeToString(type)} />
+          ))}
         </Select>
         {this.renderSubTypeSelection()}
       </form>

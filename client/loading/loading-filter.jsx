@@ -8,7 +8,7 @@ import LoadingIndicator from '../progress/dots.jsx'
 export default class LoadingFilter extends React.Component {
   render() {
     // TODO(tec27): make a really awesome loading screen
-    if (this.props.loading.some(v => v)) {
+    if (this.props.loading.toSeq().some(v => v)) {
       return (
         <div className={styles.loadingArea}>
           <LoadingIndicator />

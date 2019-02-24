@@ -46,11 +46,11 @@ const CloseButton = styled.button`
   ${button};
 
   &:hover {
-    background-color: rgba(244, 67, 54, 0.8); // red 500
+    background-color: rgba(244, 67, 54, 0.8); /* red 500 */
   }
 
   &:active {
-    background-color: rgba(244, 67, 54, 0.88); // red 500
+    background-color: rgba(244, 67, 54, 0.88); /* red 500 */
   }
 `
 

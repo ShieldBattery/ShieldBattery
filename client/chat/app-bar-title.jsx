@@ -9,12 +9,12 @@ const Container = styled.div`
   margin: 0 auto;
 `
 
-@connect(state => ({ chat: state.chat, routing: state.routing }))
+@connect(state => ({ chat: state.chat, router: state.router }))
 export class ChatTitle extends React.Component {
   render() {
     const {
       chat,
-      routing: {
+      router: {
         location: { pathname },
       },
     } = this.props
@@ -24,7 +24,7 @@ export class ChatTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle>{`#${channel ? channel.name : routeChannel}`}</AppBarTitle>
+        <AppBarTitle as="span">{`#${channel ? channel.name : routeChannel}`}</AppBarTitle>
       </Container>
     )
   }
@@ -32,6 +32,6 @@ export class ChatTitle extends React.Component {
 
 export class ChatListTitle extends React.Component {
   render() {
-    return <AppBarTitle>Chat channels</AppBarTitle>
+    return <AppBarTitle as="span">Chat channels</AppBarTitle>
   }
 }

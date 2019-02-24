@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { makeServerUrl } from '../network/server-url'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import styled from 'styled-components'
 
 import Card from '../material/card.jsx'
@@ -308,7 +308,7 @@ export default class Splash extends React.Component {
   }
 
   onSignUpClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/signup' }))
+    this.props.dispatch(push({ pathname: '/signup' }))
   }
 
   onDownloadClick = () => {

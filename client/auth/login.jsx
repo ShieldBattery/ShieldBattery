@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import queryString from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
 
@@ -153,7 +153,7 @@ export default class Login extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle>Log in</AuthTitle>
+          <AuthTitle as="h3">Log in</AuthTitle>
           <AuthBody>{errContents}</AuthBody>
           <LoginForm
             ref={this._setForm}
@@ -181,7 +181,7 @@ export default class Login extends React.Component {
   }
 
   onSplashClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/splash' }))
+    this.props.dispatch(push({ pathname: '/splash' }))
   }
 
   onCreateAccountClick = () => {
@@ -189,15 +189,15 @@ export default class Login extends React.Component {
       ...queryString.parse(this.props.location.search),
       username: this._form.getModel().username,
     })
-    this.props.dispatch(routerActions.push({ pathname: '/signup', search }))
+    this.props.dispatch(push({ pathname: '/signup', search }))
   }
 
   onForgotUsernameClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/forgot-user' }))
+    this.props.dispatch(push({ pathname: '/forgot-user' }))
   }
 
   onForgotPasswordClick = () => {
-    this.props.dispatch(routerActions.push({ pathname: '/forgot-password' }))
+    this.props.dispatch(push({ pathname: '/forgot-password' }))
   }
 
   onSubmit = () => {

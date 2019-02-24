@@ -1,11 +1,11 @@
-import { routerActions } from 'react-router-redux'
+import { replace } from 'connected-react-router'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
 import isReturningUser from './is-returning-user'
 
 const HasBetaFilter = createConditionalRedirect(
   'HasBetaFilter',
   state => !isReturningUser(state.auth),
-  () => routerActions.replace('/splash'),
+  () => replace('/splash'),
 )
 
 export default HasBetaFilter

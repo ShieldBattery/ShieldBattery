@@ -20,7 +20,7 @@ const Logo = styled.img`
   padding-right: 8px;
 `
 
-const LogoText = Title.extend`
+const LogoText = styled(Title)`
   ${singleLine};
   line-height: ${standardIncrement};
   font-weight: 400;

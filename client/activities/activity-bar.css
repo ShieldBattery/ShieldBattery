@@ -9,7 +9,7 @@
   composes: col exact justifyStart itemsCenter;
   composes: shadow3dp;
   width: 96px;
-  background-color: rgba(21, 101, 192, 0.3); // blue800
+  background-color: rgba(21, 101, 192, 0.3); /* blue800 */
   padding-bottom: 8px;
   overflow: hidden;
 }

@@ -6,7 +6,7 @@ import { randomColorForString } from './colors'
 
 import PlaceholderIcon from './avatar-placeholder.svg'
 
-const ImageAvatar = styled.img`
+export const ImageAvatar = styled.img`
   width: 40px;
   height: 40px;
   display: inline-block;
@@ -20,8 +20,6 @@ const ImageAvatar = styled.img`
     border-radius: 50%;
   }
 `
-
-export const IconAvatar = ImageAvatar.withComponent('i')
 
 export default class Avatar extends React.Component {
   static propTypes = {
@@ -41,9 +39,9 @@ export default class Avatar extends React.Component {
     }
 
     return (
-      <IconAvatar {...otherProps} style={iconStyle}>
+      <ImageAvatar as="i" {...otherProps} style={iconStyle}>
         <PlaceholderIcon />
-      </IconAvatar>
+      </ImageAvatar>
     )
   }
 }

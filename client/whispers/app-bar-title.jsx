@@ -9,12 +9,12 @@ const Container = styled.div`
   margin: 0 auto;
 `
 
-@connect(state => ({ whispers: state.whispers, routing: state.routing }))
+@connect(state => ({ whispers: state.whispers, router: state.router }))
 export default class WhispersTitle extends React.Component {
   render() {
     const {
       whispers,
-      routing: {
+      router: {
         location: { pathname },
       },
     } = this.props
@@ -24,7 +24,7 @@ export default class WhispersTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle>{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
+        <AppBarTitle as="span">{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
       </Container>
     )
   }

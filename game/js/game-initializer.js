@@ -301,10 +301,12 @@ async function waitForPlayers(slots) {
 
 function updateSlots(slots) {
   const stormNames = bw.getStormPlayerNames()
-  const playerSlots = bw.slots.filter(s => s.type === 'human').reduce((r, s) => {
-    r[s.name] = s
-    return r
-  }, {})
+  const playerSlots = bw.slots
+    .filter(s => s.type === 'human')
+    .reduce((r, s) => {
+      r[s.name] = s
+      return r
+    }, {})
   const observers = slots.filter(s => s.type === 'observer').map(s => s.name)
 
   for (let stormId = 0; stormId < stormNames.length; stormId++) {

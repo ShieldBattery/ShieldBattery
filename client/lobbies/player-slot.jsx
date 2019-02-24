@@ -17,8 +17,6 @@ const StyledAvatar = styled(Avatar)`
   margin-right: 16px;
 `
 
-const StyledComputerAvatar = StyledAvatar.withComponent(ComputerAvatar)
-
 export default class PlayerSlot extends React.Component {
   static propTypes = {
     name: PropTypes.string.isRequired,
@@ -69,7 +67,7 @@ export default class PlayerSlot extends React.Component {
       onRemoveObserver,
     } = this.props
     const avatar = isComputer ? (
-      <StyledComputerAvatar />
+      <StyledAvatar as={ComputerAvatar} />
     ) : (
       <StyledAvatar user={name} image={avatarImage} />
     )

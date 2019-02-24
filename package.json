@@ -10,7 +10,7 @@
   },
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
-    "autotest": "cross-env BABEL_ENV=node mocha --watch -R spec --compilers js:@babel/register --recursive --harmony test/",
+    "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive --harmony test/",
     "build": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
     "buildgame": "game/vcbuild.bat && cd game && yarn run build",
     "clean": "rimraf app/dist && rimraf app/styles",
@@ -22,7 +22,7 @@
     "packstaging": "yarn run clean && cross-env SB_SERVER=https\\://dev.shieldbattery.net yarn run build && yarn run buildgame && build --dir --win --ia32 --x64 -c staging.yml",
     "postinstall": "cross-env-test SB_SERVER_ONLY=1 || electron-builder install-app-deps",
     "posttest": "yarn run lint",
-    "test": "cross-env BABEL_ENV=node mocha -R spec --compilers js:@babel/register --recursive --harmony test/ && cd server && yarn test",
+    "test": "cross-env BABEL_ENV=node mocha -R spec --require @babel/register --recursive --harmony test/ && cd server && yarn test",
     "yarnall": "cd app && yarn && cd ../game && yarn && cd ../server && yarn && cd .. && yarn"
   },
   "repository": {

@@ -1,4 +1,4 @@
-import { routerActions } from 'react-router-redux'
+import { replace } from 'connected-react-router'
 import { createPath } from 'history/PathUtils'
 import queryString from 'query-string'
 
@@ -11,7 +11,7 @@ export function redirectIfLoggedIn({ auth, location, dispatch }) {
     // We're logged in now, hooray!
     // Go wherever the user was intending to go before being directed here (or home)
     const nextPath = location && location.search ? queryString.parse(location.search).nextPath : '/'
-    dispatch(routerActions.replace(nextPath))
+    dispatch(replace(nextPath))
     return true
   }
 

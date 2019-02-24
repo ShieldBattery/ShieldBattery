@@ -1,8 +1,8 @@
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 
 // Pick a location to direct the user to given data from the store, used as an "index" page since we
 // don't really have a root content page
-export function goToIndex(transitionFn = routerActions.push) {
+export function goToIndex(transitionFn = push) {
   return (dispatch, getState) => {
     const {
       lobby,

@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -68,7 +68,7 @@ export default class LobbyView extends React.Component {
 
   componentWillReceiveProps(nextProps) {
     if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(routerActions.push(nextProps.hasActiveGame ? '/active-game' : '/'))
+      this.props.dispatch(push(nextProps.hasActiveGame ? '/active-game' : '/'))
       return
     }
 

@@ -1,5 +1,5 @@
 export function isAdmin(authState) {
-  return authState.permissions.valueSeq().some(perm => perm)
+  return authState.permissions.toSeq().some(perm => perm)
 }
 
 export function hasAllPermissions(authState, ...permissionsToCheck) {

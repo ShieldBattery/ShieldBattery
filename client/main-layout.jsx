@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
-import { routerActions } from 'react-router-redux'
+import { replace } from 'connected-react-router'
 import keycode from 'keycode'
 import styles from './main-layout.css'
 import styled from 'styled-components'
@@ -113,7 +113,7 @@ function stateToProps(state) {
       hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
     })),
     starcraft: state.starcraft,
-    routing: state.routing,
+    router: state.router,
     matchmaking: state.matchmaking,
   }
 }
@@ -137,7 +137,7 @@ class MainLayout extends React.Component {
 
     const {
       lobby: { name, hasUnread },
-      routing: {
+      router: {
         location: { pathname: currentPath },
       },
     } = this.props
@@ -161,7 +161,7 @@ class MainLayout extends React.Component {
 
     return [
       <Section key="active-game-section">
-        <ActiveGameNavEntry key="active-game" currentPath={this.props.routing.location.pathname} />
+        <ActiveGameNavEntry key="active-game" currentPath={this.props.router.location.pathname} />
       </Section>,
       <Divider key="active-game-divider" />,
     ]
@@ -197,7 +197,7 @@ class MainLayout extends React.Component {
       inGameplayActivity,
       chatChannels,
       whispers,
-      routing: {
+      router: {
         location: { pathname },
       },
     } = this.props
@@ -357,7 +357,7 @@ class MainLayout extends React.Component {
               <Route path="/whispers/:target" component={Whisper} />
               {/* If no paths match, redirect the page to the "index". Note: this means that we
                   can't actually have a 404 page, but I don't think we really need one? */}
-              <Index transitionFn={routerActions.replace} />
+              <Index transitionFn={replace} />
             </Switch>
           </ContentLayout>
           <ActivityBar>{activityButtons}</ActivityBar>

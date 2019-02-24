@@ -44,7 +44,7 @@ const selectable = css`
   -webkit-user-select: initial;
 `
 
-export const AppBarTitle = Title.withComponent('span').extend`
+export const AppBarTitle = styled(Title)`
   ${singleLine};
   line-height: ${standardIncrement};
   margin: 0;

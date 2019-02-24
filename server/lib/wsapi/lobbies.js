@@ -753,16 +753,15 @@ export class LobbyApi {
         server: pickServer(pingsByPlayer.get(p1), pingsByPlayer.get(p2)),
       }))
 
-      routeCreations = routesToCreate.map(
-        ({ p1, p2, server }) =>
-          server === -1
-            ? Promise.reject(new Error('No server match found'))
-            : routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
-                p1,
-                p2,
-                server: pingRegistry.servers[server],
-                result,
-              })),
+      routeCreations = routesToCreate.map(({ p1, p2, server }) =>
+        server === -1
+          ? Promise.reject(new Error('No server match found'))
+          : routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
+              p1,
+              p2,
+              server: pingRegistry.servers[server],
+              result,
+            })),
       )
     } else {
       routeCreations = []
@@ -849,18 +848,20 @@ export class LobbyApi {
       // TODO(tec27): register this game in the DB for accepting results in another service
       this._publishTo(lobby, { type: 'gameStarted' })
 
-      players.map(p => activityRegistry.getClientForUser(p.name)).forEach(client => {
-        const user = this.getUserByName(client.name)
-        this._publishToUser(lobby, user.name, {
-          type: 'status',
-          lobby: null,
+      players
+        .map(p => activityRegistry.getClientForUser(p.name))
+        .forEach(client => {
+          const user = this.getUserByName(client.name)
+          this._publishToUser(lobby, user.name, {
+            type: 'status',
+            lobby: null,
+          })
+          user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
+          client.unsubscribe(LobbyApi._getPath(lobby))
+          client.unsubscribe(LobbyApi._getClientPath(lobby, client))
+          this.lobbyClients = this.lobbyClients.delete(client)
+          activityRegistry.unregisterClientForUser(user.name)
         })
-        user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
-        client.unsubscribe(LobbyApi._getPath(lobby))
-        client.unsubscribe(LobbyApi._getClientPath(lobby, client))
-        this.lobbyClients = this.lobbyClients.delete(client)
-        activityRegistry.unregisterClientForUser(user.name)
-      })
       this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
       this.lobbies = this.lobbies.delete(lobby.name)
       loadingData.deferred.resolve()

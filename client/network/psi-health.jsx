@@ -40,12 +40,14 @@ export default class PsiHealthCheckupDialog extends React.Component {
         in{' '}
         <a href="#" onClick={e => this.onSettingsClicked(e)}>
           Settings
-        </a>. If you do not have the game installed, it can be easily downloaded from{' '}
+        </a>
+        . If you do not have the game installed, it can be easily downloaded from{' '}
         <span>
           <a href={STARCRAFT_DOWNLOAD_URL} target="_blank">
             Blizzard's website
           </a>
-        </span>. You may need to restart ShieldBattery after installation.
+        </span>
+        . You may need to restart ShieldBattery after installation.
       </p>
     )
   }

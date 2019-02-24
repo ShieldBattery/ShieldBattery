@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Route } from 'react-router-dom'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import styles from './admin.css'
 
 import FlatButton from '../material/flat-button.jsx'
@@ -100,6 +100,6 @@ export class UserFind extends React.Component {
   onSubmit = () => {
     const values = this._form.getModel()
     const username = values.username
-    this.props.dispatch(routerActions.push(`/admin/users/${encodeURIComponent(username)}`))
+    this.props.dispatch(push(`/admin/users/${encodeURIComponent(username)}`))
   }
 }

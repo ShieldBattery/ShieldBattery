@@ -1,7 +1,8 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import queryString from 'query-string'
+import styled from 'styled-components'
 import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
 
@@ -42,7 +43,7 @@ import {
 } from '../../app/common/constants'
 import { signUp } from './auther'
 
-const SignupBottomAction = AuthBottomAction.extend`
+const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;
   justify-content: center;
 
@@ -193,7 +194,7 @@ export default class Signup extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle>Create account</AuthTitle>
+          <AuthTitle as="h3">Create account</AuthTitle>
           <AuthBody>
             {errContents}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
@@ -210,7 +211,7 @@ export default class Signup extends React.Component {
 
   onLogInClick = () => {
     const { search } = this.props.location
-    this.props.dispatch(routerActions.push({ pathname: '/login', search }))
+    this.props.dispatch(push({ pathname: '/login', search }))
   }
 
   onSubmit = () => {

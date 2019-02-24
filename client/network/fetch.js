@@ -123,20 +123,22 @@ class BrowserReadableStreamWrapper extends Readable {
   }
 
   _doRead() {
-    this._readerPromise.then(reader => reader.read()).then(({ value, done }) => {
-      if (done) {
-        this.push(null)
-        this._reading = false
-        return
-      }
+    this._readerPromise
+      .then(reader => reader.read())
+      .then(({ value, done }) => {
+        if (done) {
+          this.push(null)
+          this._reading = false
+          return
+        }
 
-      const keepGoing = this.push(Buffer.from(value.buffer))
-      if (keepGoing) {
-        this._doRead()
-      } else {
-        this._reading = false
-      }
-    }, this._emitError)
+        const keepGoing = this.push(Buffer.from(value.buffer))
+        if (keepGoing) {
+          this._doRead()
+        } else {
+          this._reading = false
+        }
+      }, this._emitError)
   }
 
   _emitError = err => {

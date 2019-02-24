@@ -31,7 +31,7 @@ if (IS_ELECTRON) {
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
-import { ConnectedRouter } from 'react-router-redux'
+import { ConnectedRouter } from 'connected-react-router'
 import { createBrowserHistory, createHashHistory } from 'history'
 
 import createStore from './create-store'

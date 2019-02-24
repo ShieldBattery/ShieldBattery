@@ -3,11 +3,11 @@ import { connect } from 'react-redux'
 
 import { AppBarTitle } from '../app-bar/app-bar.jsx'
 
-@connect(state => ({ routing: state.routing }))
+@connect(state => ({ router: state.router }))
 export default class AdminTitle extends React.Component {
   render() {
     const {
-      routing: {
+      router: {
         location: { pathname },
       },
     } = this.props
@@ -25,6 +25,6 @@ export default class AdminTitle extends React.Component {
       appBarTitle = 'Map upload'
     }
 
-    return <AppBarTitle>{appBarTitle}</AppBarTitle>
+    return <AppBarTitle as="span">{appBarTitle}</AppBarTitle>
   }
 }

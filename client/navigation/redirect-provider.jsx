@@ -1,5 +1,5 @@
 import React from 'react'
-import PropTypes from 'prop-types'
+import { ReactReduxContext } from 'react-redux'
 
 class RedirectChecker {
   constructor() {
@@ -31,29 +31,25 @@ class RedirectChecker {
   }
 }
 
+export const RedirectCheckerContext = React.createContext()
+
 // A component that should be placed near the root of the application, which provides redirect
 // checking capabilities to all ConditionalRedirects. This is necessary because only one redirect
 // should fire per store change.
 export default class RedirectProvider extends React.Component {
-  static childContextTypes = {
-    redirectChecker: PropTypes.object.isRequired,
-  }
-  static contextTypes = {
-    store: PropTypes.object.isRequired,
-  }
+  static contextType = ReactReduxContext
 
-  constructor(props, context) {
-    super(props, context)
-    this.redirectChecker = new RedirectChecker()
+  constructor(props) {
+    super(props)
     this.unsubscriber = null
   }
 
-  getChildContext() {
-    return { redirectChecker: this.redirectChecker }
+  state = {
+    value: { redirectChecker: new RedirectChecker() },
   }
 
   handleChange() {
-    this.redirectChecker.checkForRedirects()
+    this.state.value.redirectChecker.checkForRedirects()
   }
 
   componentDidMount() {
@@ -65,6 +61,10 @@ export default class RedirectProvider extends React.Component {
   }
 
   render() {
-    return React.Children.only(this.props.children)
+    return (
+      <RedirectCheckerContext.Provider value={this.state.value}>
+        {React.Children.only(this.props.children)}
+      </RedirectCheckerContext.Provider>
+    )
   }
 }

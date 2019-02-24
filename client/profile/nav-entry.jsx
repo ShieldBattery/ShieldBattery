@@ -30,7 +30,7 @@ const avatarStyle = css`
   }
 `
 
-const User = Body2.extend`
+const User = styled(Body2)`
   font-size: 24px;
   margin-left: 12px;
   width: 140px;

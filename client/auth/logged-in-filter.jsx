@@ -1,4 +1,4 @@
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
 import { isLoggedIn, createNextPath } from './auth-utils'
 
@@ -7,10 +7,10 @@ const LoggedInFilter = createConditionalRedirect(
   state => !isLoggedIn(state.auth),
   state => {
     const {
-      routing: { location },
+      router: { location },
     } = state
     const search = createNextPath(location)
-    return routerActions.push({ pathname: '/login', search })
+    return push({ pathname: '/login', search })
   },
 )
 

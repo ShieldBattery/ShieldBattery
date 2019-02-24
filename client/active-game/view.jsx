@@ -1,19 +1,19 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { routerActions } from 'react-router-redux'
+import { push } from 'connected-react-router'
 
 @connect(state => ({ activeGame: state.activeGame }))
 export default class ActiveGameView extends React.Component {
   componentDidMount() {
     if (!this.props.activeGame.isActive) {
-      this.props.dispatch(routerActions.push('/'))
+      this.props.dispatch(push('/'))
     }
   }
 
   componentWillReceiveProps(nextProps) {
     if (this.props.activeGame.isActive && !nextProps.activeGame.isActive) {
       // TODO(tec27): redirect to game results page?
-      this.props.dispatch(routerActions.push('/'))
+      this.props.dispatch(push('/'))
     }
   }
 

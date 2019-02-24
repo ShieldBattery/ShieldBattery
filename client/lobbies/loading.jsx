@@ -197,8 +197,6 @@ const StyledAvatar = styled(Avatar)`
   opacity: ${props => (props.isReady ? 1 : alphaDisabled)};
 `
 
-const StyledComputerAvatar = StyledAvatar.withComponent(ComputerAvatar)
-
 const MESSAGE_TIME_MIN = 3000
 const MESSAGE_TIME_MAX = 5500
 class LoadingMessage extends React.Component {
@@ -245,7 +243,7 @@ class LoadingPlayer extends React.Component {
     const { player, isReady } = this.props
     const isComputer = player.type === 'computer'
     const avatar = isComputer ? (
-      <StyledComputerAvatar isReady={isReady} />
+      <StyledAvatar as={ComputerAvatar} isReady={isReady} />
     ) : (
       <StyledAvatar user={player.name} isReady={isReady} />
     )
