@@ -5,7 +5,7 @@ import styles from './input-error.css'
 
 const InputError = props => {
   const errorText = props.error ? (
-    <div className={styles.error} key="error">
+    <div className={styles.error} key='error'>
       {props.error}
     </div>
   ) : null

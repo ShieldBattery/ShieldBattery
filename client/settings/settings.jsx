@@ -76,31 +76,31 @@ class SettingsForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <Select {...bindCustom('displayMode')} label="Display mode" tabIndex={0}>
-          <Option value={0} text="Fullscreen" />
-          <Option value={1} text="Borderless Window" />
-          <Option value={2} text="Windowed" />
+        <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
+          <Option value={0} text='Fullscreen' />
+          <Option value={1} text='Borderless Window' />
+          <Option value={2} text='Windowed' />
         </Select>
         <Select
           {...windowSizeProps}
-          label="Window size"
+          label='Window size'
           tabIndex={0}
           compareValues={compareResolutions}>
           {this.renderWindowSizeOptions(resolution)}
         </Select>
         <CheckBox
           {...bindCheckable('maintainAspectRatio')}
-          label="Maintain aspect ratio"
+          label='Maintain aspect ratio'
           disabled={!this.isFullscreen()}
           inputProps={{ tabIndex: 0 }}
         />
-        <Select {...bindCustom('renderer')} label="Renderer" tabIndex={0}>
-          <Option value={0} text="DirectX" />
-          <Option value={1} text="OpenGL" />
+        <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
+          <Option value={0} text='DirectX' />
+          <Option value={1} text='OpenGL' />
         </Select>
         <Slider
           {...bindCustom('sensitivity')}
-          label="Mouse sensitivity"
+          label='Mouse sensitivity'
           tabIndex={0}
           min={0}
           max={10}
@@ -108,7 +108,7 @@ class SettingsForm extends React.Component {
         />
         <TextField
           {...bindInput('path')}
-          label="StarCraft folder path"
+          label='StarCraft folder path'
           floatingLabel={true}
           inputProps={{
             tabIndex: 0,
@@ -176,12 +176,12 @@ export default class Settings extends React.Component {
     }
 
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.onSettingsCancel} />,
+      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
       <FlatButton
-        ref="save"
-        label="Save"
-        key="save"
-        color="accent"
+        ref='save'
+        label='Save'
+        key='save'
+        color='accent'
         onClick={this.onSettingsSave}
       />,
     ]

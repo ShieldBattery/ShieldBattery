@@ -23,7 +23,7 @@ export default class LobbyTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle as="span">{lobbyTitle}</AppBarTitle>
+        <AppBarTitle as='span'>{lobbyTitle}</AppBarTitle>
       </Container>
     )
   }

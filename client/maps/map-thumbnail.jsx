@@ -28,8 +28,8 @@ export default class MapThumbnail extends React.Component {
         {showMapName ? <span className={styles.name}>{map.name}</span> : null}
         {hoverIcon ? (
           <div className={styles.overlayContainer}>
-            <div key="overlay" className={styles.overlay} />
-            <span key="icon" className={styles.hoverIcon}>
+            <div key='overlay' className={styles.overlay} />
+            <span key='icon' className={styles.hoverIcon}>
               {hoverIcon}
             </span>
           </div>

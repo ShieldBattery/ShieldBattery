@@ -24,7 +24,7 @@ export class ChatTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle as="span">{`#${channel ? channel.name : routeChannel}`}</AppBarTitle>
+        <AppBarTitle as='span'>{`#${channel ? channel.name : routeChannel}`}</AppBarTitle>
       </Container>
     )
   }
@@ -32,6 +32,6 @@ export class ChatTitle extends React.Component {
 
 export class ChatListTitle extends React.Component {
   render() {
-    return <AppBarTitle as="span">Chat channels</AppBarTitle>
+    return <AppBarTitle as='span'>Chat channels</AppBarTitle>
   }
 }

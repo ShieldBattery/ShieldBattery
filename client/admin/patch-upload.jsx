@@ -47,7 +47,7 @@ class PatchUploadForm extends React.Component {
         <div className={styles.field}>
           <TextField
             {...bindInput('filename')}
-            label="Filename"
+            label='Filename'
             floatingLabel={true}
             inputProps={{
               autoCapitalize: 'off',
@@ -59,7 +59,7 @@ class PatchUploadForm extends React.Component {
         <div className={styles.field}>
           <TextField
             {...bindInput('description')}
-            label="Version description"
+            label='Version description'
             floatingLabel={true}
             inputProps={{
               autoCapitalize: 'off',

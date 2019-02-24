@@ -64,7 +64,7 @@ class ConnectedDialogOverlay extends React.Component {
       const { component: DialogComponent } = this.getDialog(dialog.dialogType)
       dialogComponent = (
         <DialogComponent
-          key="dialog"
+          key='dialog'
           onCancel={this.onCancel}
           simpleTitle={dialog.simpleTitle}
           simpleContent={dialog.simpleContent}
@@ -73,8 +73,8 @@ class ConnectedDialogOverlay extends React.Component {
     }
 
     return [
-      <span key="topFocus" tabIndex={0} onFocus={this.onFocusTrap} />,
-      <span key="mainFocus" ref={this._setFocusable} tabIndex={-1}>
+      <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
+      <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
         <TransitionGroup
           transitionName={transitionNames}
           transitionEnterTimeout={350}
@@ -82,7 +82,7 @@ class ConnectedDialogOverlay extends React.Component {
           {dialogComponent}
         </TransitionGroup>
       </span>,
-      <span key="bottomFocus" tabIndex={0} onFocus={this.onFocusTrap} />,
+      <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
     ]
   }
 

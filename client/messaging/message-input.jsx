@@ -24,7 +24,7 @@ export default class MessageInput extends React.Component {
         <TextField
           ref={this._setRef}
           className={className}
-          label="Send a message"
+          label='Send a message'
           value={message}
           maxLength={500}
           floatingLabel={false}

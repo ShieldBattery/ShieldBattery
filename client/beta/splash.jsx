@@ -184,16 +184,16 @@ export default class Splash extends React.Component {
     {
       title: 'A social experience',
       body: [
-        <p key="p1">
+        <p key='p1'>
           Chat channels? You wanted those, right? No tiny message windows in the corner of the
           screen here; ShieldBattery makes chat a priority and keeps it front and center.
         </p>,
-        <p key="p2">
+        <p key='p2'>
           You can join tons of channels simultaneously, talk with all your friends and enemies, and
           easily keep tabs on potential rivals. When you’ve figured out the map pool for your
           best-of-21 grudge match, getting into a game is just a few clicks away!
         </p>,
-        <p key="p3">
+        <p key='p3'>
           We keep all of the chat history for you too, even when you’re not connected, so you can
           keep up with what happened when you (finally) went to sleep last night.
         </p>,
@@ -203,14 +203,14 @@ export default class Splash extends React.Component {
     {
       title: 'Fanatically faithful',
       body: [
-        <p key="p1">
+        <p key='p1'>
           ShieldBattery is developed and directed by long-time members of the Brood War community,
           and we’ve maintained an intense devotion to keeping the gameplay faithfully intact as
           we’ve solved bugs and added features. From the graphics and sounds down to things like
           mouse movement and latency, we’ve kept things as accurate as possible to what StarCraft
           has always been.
         </p>,
-        <p key="p2">
+        <p key='p2'>
           The Brood War community has a long history of building its own solutions to problems.
           ShieldBattery descends from this grand lineage, building a modern, seamless experience
           based on a keen understanding of the community’s issues and desires.
@@ -221,16 +221,16 @@ export default class Splash extends React.Component {
     {
       title: 'Seamless and easy',
       body: [
-        <p key="p1">
+        <p key='p1'>
           Third-party servers and ladders for StarCraft have often required following a complex set
           of instructions, downloading launchers and plugins from shady websites, and fiddling with
           settings for hours until things work.
         </p>,
-        <p key="p2">
+        <p key='p2'>
           ShieldBattery is different. Download our super fast installer, sign up for an account, and
           be playing in seconds!
         </p>,
-        <p key="p3">
+        <p key='p3'>
           ShieldBattery supports all modern versions of Brood War and modern operating systems. It
           also packs in an improved network stack so that hosting and network problems are a thing
           of the past.
@@ -245,7 +245,7 @@ export default class Splash extends React.Component {
       <ScrollableContent>
         <SplashContainer>
           <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
-            <source src={makeServerUrl('/videos/splash-video.mp4')} type="video/webm" />
+            <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/webm' />
           </BackgroundVideo>
           <TopLinks />
           <LogoLockup>
@@ -255,11 +255,11 @@ export default class Splash extends React.Component {
           <TagLine>Play StarCraft: Brood War on the premier community-run platform</TagLine>
           {!IS_ELECTRON ? (
             <ButtonsContainer>
-              <SplashButton label="Sign Up" color="primary" onClick={this.onSignUpClick} />
-              <SplashButton label="Download" color="primary" onClick={this.onDownloadClick} />
+              <SplashButton label='Sign Up' color='primary' onClick={this.onSignUpClick} />
+              <SplashButton label='Download' color='primary' onClick={this.onDownloadClick} />
             </ButtonsContainer>
           ) : (
-            <SplashButton label="Sign Up" color="primary" onClick={this.onSignUpClick} />
+            <SplashButton label='Sign Up' color='primary' onClick={this.onSignUpClick} />
           )}
           <FeatureContainer>
             {this.features.map((f, i) => (
@@ -287,7 +287,7 @@ export default class Splash extends React.Component {
               <BottomSectionTitle>
                 In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
               </BottomSectionTitle>
-              <BottomSectionList columnCount="2" columnGap="24px">
+              <BottomSectionList columnCount='2' columnGap='24px'>
                 <li>Matchmaking</li>
                 <li>Ranked ladder</li>
                 <li>Custom map uploading</li>

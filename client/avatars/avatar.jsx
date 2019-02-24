@@ -39,7 +39,7 @@ export default class Avatar extends React.Component {
     }
 
     return (
-      <ImageAvatar as="i" {...otherProps} style={iconStyle}>
+      <ImageAvatar as='i' {...otherProps} style={iconStyle}>
         <PlaceholderIcon />
       </ImageAvatar>
     )

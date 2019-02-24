@@ -14,10 +14,10 @@ class DevDashboard extends React.Component {
         </span>
         <ul>
           <li>
-            <Link to="/dev/lobbies">Lobby-related components</Link>
+            <Link to='/dev/lobbies'>Lobby-related components</Link>
           </li>
           <li>
-            <Link to="/dev/material">Material components</Link>
+            <Link to='/dev/material'>Material components</Link>
           </li>
         </ul>
       </div>
@@ -29,9 +29,9 @@ export default class Dev extends React.Component {
   render() {
     return (
       <Switch>
-        <Route path="/dev" exact={true} render={() => <DevDashboard />} />
-        <Route path="/dev/lobbies" component={DevLobbies} />
-        <Route path="/dev/material" component={DevMaterial} />
+        <Route path='/dev' exact={true} render={() => <DevDashboard />} />
+        <Route path='/dev/lobbies' component={DevLobbies} />
+        <Route path='/dev/material' component={DevMaterial} />
       </Switch>
     )
   }

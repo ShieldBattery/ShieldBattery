@@ -158,7 +158,7 @@ class Slider extends React.Component {
 
     return (
       <div
-        ref="root"
+        ref='root'
         className={classes}
         tabIndex={this.props.tabIndex}
         onFocus={this.onFocus}
@@ -183,7 +183,7 @@ class Slider extends React.Component {
             </TransitionGroup>
           </div>
         </div>
-        <div ref="trackArea" className={styles.clickableArea} onMouseDown={::this.onMouseDown} />
+        <div ref='trackArea' className={styles.clickableArea} onMouseDown={::this.onMouseDown} />
       </div>
     )
   }

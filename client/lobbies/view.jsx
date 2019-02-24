@@ -119,12 +119,12 @@ export default class LobbyView extends React.Component {
   renderLobbyStateContent(state) {
     switch (state) {
       case 'nonexistent':
-        return <p key="stateContent">Lobby doesn't exist. Create it?</p>
+        return <p key='stateContent'>Lobby doesn't exist. Create it?</p>
       case 'exists':
-        return <p key="stateContent">Lobby already exists. Join it?</p>
+        return <p key='stateContent'>Lobby already exists. Join it?</p>
       case 'countingDown':
       case 'hasStarted':
-        return <p key="stateContent">Lobby already started.</p>
+        return <p key='stateContent'>Lobby already started.</p>
       default:
         throw new Error('Unknown lobby state: ' + state)
     }
@@ -152,7 +152,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.state) {
       preLobbyAreaContents = [
         lobby.isRequesting ? (
-          <div key="loading" className={styles.loadingArea}>
+          <div key='loading' className={styles.loadingArea}>
             <LoadingIndicator />
           </div>
         ) : null,
@@ -161,7 +161,7 @@ export default class LobbyView extends React.Component {
     } else if (lobby.error) {
       preLobbyAreaContents = [
         lobby.isRequesting ? (
-          <div key="loading" className={styles.loadingArea}>
+          <div key='loading' className={styles.loadingArea}>
             <LoadingIndicator />
           </div>
         ) : null,

@@ -43,7 +43,7 @@ export default class UploadMap extends React.Component {
           model={model}
           onSubmit={this.onSubmit}
         />
-        <RaisedButton label="Upload" tabIndex={0} onClick={this.onClick} />
+        <RaisedButton label='Upload' tabIndex={0} onClick={this.onClick} />
         {this.renderResult()}
       </div>
     )

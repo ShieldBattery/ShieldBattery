@@ -112,7 +112,7 @@ class ForgotFormHolder extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as="h3">{title}</AuthTitle>
+          <AuthTitle as='h3'>{title}</AuthTitle>
           <AuthBody>
             {errContents}
             {successContents}
@@ -121,7 +121,7 @@ class ForgotFormHolder extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <AuthBottomAction>
-          <BottomActionButton label="Back to login" onClick={this.onBackClick} tabIndex={1} />
+          <BottomActionButton label='Back to login' onClick={this.onBackClick} tabIndex={1} />
         </AuthBottomAction>
       </AuthContent>
     )
@@ -155,7 +155,7 @@ class ForgotUserForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label="Email address"
+            label='Email address'
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -166,7 +166,7 @@ class ForgotUserForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label="Recover username" onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Recover username' onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -199,7 +199,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label="Email address"
+            label='Email address'
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -212,7 +212,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label="Username"
+            label='Username'
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -223,7 +223,7 @@ class ForgotPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label="Send reset email" onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Send reset email' onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -276,7 +276,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label="Username"
+            label='Username'
             floatingLabel={true}
           />
         </FieldRow>
@@ -284,7 +284,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
-            label="Password reset code"
+            label='Password reset code'
             floatingLabel={true}
           />
         </FieldRow>
@@ -292,22 +292,22 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label="New password"
+            label='New password'
             floatingLabel={true}
-            type="password"
+            type='password'
           />
         </FieldRow>
         <FieldRow>
           <AuthTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label="Confirm new password"
+            label='Confirm new password'
             floatingLabel={true}
-            type="password"
+            type='password'
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label="Set new password" onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Set new password' onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )

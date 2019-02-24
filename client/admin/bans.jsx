@@ -26,16 +26,16 @@ class BanUserForm extends React.Component {
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
-        <Select {...bindCustom('banLength')} label="Ban length" tabIndex={0}>
-          <Option value={3} text="3 Hours" />
-          <Option value={24} text="1 Day" />
-          <Option value={24 * 7} text="1 Week" />
-          <Option value={24 * 7 * 4} text="1 Month" />
-          <Option value={24 * 365 * 999} text="Permanent!" />
+        <Select {...bindCustom('banLength')} label='Ban length' tabIndex={0}>
+          <Option value={3} text='3 Hours' />
+          <Option value={24} text='1 Day' />
+          <Option value={24 * 7} text='1 Week' />
+          <Option value={24 * 7 * 4} text='1 Month' />
+          <Option value={24 * 365 * 999} text='Permanent!' />
         </Select>
         <TextField
           {...bindInput('banReason')}
-          label="Ban reason"
+          label='Ban reason'
           floatingLabel={true}
           inputProps={{
             tabIndex: 0,
@@ -106,15 +106,15 @@ export default class BanUsers extends React.Component {
 
     return [
       <BanUserForm
-        key="banUserForm"
+        key='banUserForm'
         ref={this._setForm}
         model={{ banLength: 24 }}
         onSubmit={this.onSubmit}
       />,
       <FlatButton
-        key="banUser"
-        label="Ban"
-        color="accent"
+        key='banUser'
+        label='Ban'
+        color='accent'
         tabIndex={0}
         onClick={this.onBanClick}
       />,

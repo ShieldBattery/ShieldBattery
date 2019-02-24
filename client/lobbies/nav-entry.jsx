@@ -10,7 +10,7 @@ const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
     <IconButton
       className={styles.leaveButton}
       icon={<CloseLobbyIcon />}
-      title="Leave lobby"
+      title='Leave lobby'
       onClick={onLeaveClick}
     />
   )

@@ -38,7 +38,7 @@ export default class AcceptMatch extends React.Component {
       return (
         <div>
           <p>You failed to accept the match and have been removed from the queue.</p>
-          <RaisedButton label="Ok" onClick={() => this.props.dispatch(closeDialog())} />
+          <RaisedButton label='Ok' onClick={() => this.props.dispatch(closeDialog())} />
         </div>
       )
     } else if (!match) {
@@ -47,7 +47,7 @@ export default class AcceptMatch extends React.Component {
     } else {
       return (
         <div>
-          {!hasAccepted ? <RaisedButton label="Accept" onClick={this.onAcceptClick} /> : null}
+          {!hasAccepted ? <RaisedButton label='Accept' onClick={this.onAcceptClick} /> : null}
           <h3>{acceptTime}</h3>
           <h4>{`${match.acceptedPlayers} / ${match.numPlayers}`}</h4>
         </div>
@@ -57,7 +57,7 @@ export default class AcceptMatch extends React.Component {
 
   render() {
     return (
-      <Dialog title="Accept match" showCloseButton={false}>
+      <Dialog title='Accept match' showCloseButton={false}>
         {this.renderDialogContents()}
       </Dialog>
     )

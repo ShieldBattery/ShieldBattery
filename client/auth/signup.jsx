@@ -110,7 +110,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label="Username"
+            label='Username'
             floatingLabel={true}
           />
         </FieldRow>
@@ -119,7 +119,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('email')}
             inputProps={textInputProps}
-            label="Email address"
+            label='Email address'
             floatingLabel={true}
           />
         </FieldRow>
@@ -128,9 +128,9 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label="Password"
+            label='Password'
             floatingLabel={true}
-            type="password"
+            type='password'
           />
         </FieldRow>
 
@@ -138,14 +138,14 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label="Confirm password"
+            label='Confirm password'
             floatingLabel={true}
-            type="password"
+            type='password'
           />
         </FieldRow>
 
         <FieldRow>
-          <RaisedButton label="Create account" onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Create account' onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -194,7 +194,7 @@ export default class Signup extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as="h3">Create account</AuthTitle>
+          <AuthTitle as='h3'>Create account</AuthTitle>
           <AuthBody>
             {errContents}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
@@ -203,7 +203,7 @@ export default class Signup extends React.Component {
         {loadingContents}
         <SignupBottomAction>
           <p>Already have an account?</p>
-          <BottomActionButton label="Log in" onClick={this.onLogInClick} tabIndex={1} />
+          <BottomActionButton label='Log in' onClick={this.onLogInClick} tabIndex={1} />
         </SignupBottomAction>
       </AuthContent>
     )

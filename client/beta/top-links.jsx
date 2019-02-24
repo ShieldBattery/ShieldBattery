@@ -38,29 +38,29 @@ const TopLinks = () => {
   return (
     <TopLinksList>
       <li>
-        <Link to="/splash">Home</Link>
+        <Link to='/splash'>Home</Link>
       </li>
       <li>
-        <a href={STARCRAFT_DOWNLOAD_URL} target="_blank" rel="nofollow noreferrer">
+        <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer'>
           Download Brood War
         </a>
       </li>
       <li>
-        <Link to="/faq">FAQ</Link>
+        <Link to='/faq'>FAQ</Link>
       </li>
       <li>
-        <a href="https://twitter.com/shieldbatterybw" target="_blank">
+        <a href='https://twitter.com/shieldbatterybw' target='_blank'>
           Twitter
         </a>
       </li>
       <GithubLink>
         <StyledGithubLogo />
-        <a href="https://github.com/ShieldBattery" target="_blank">
+        <a href='https://github.com/ShieldBattery' target='_blank'>
           View on GitHub
         </a>
       </GithubLink>
       <li>
-        <Link to="/login">Log in</Link>
+        <Link to='/login'>Log in</Link>
       </li>
     </TopLinksList>
   )

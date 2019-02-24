@@ -32,10 +32,10 @@ export default class SelfProfileOverlay extends React.Component {
         open={open}
         onDismiss={onDismiss}
         anchor={anchor}
-        anchorOriginVertical="bottom"
-        anchorOriginHorizontal="left"
-        popoverOriginVertical="bottom"
-        popoverOriginHorizontal="left">
+        anchorOriginVertical='bottom'
+        anchorOriginHorizontal='left'
+        popoverOriginVertical='bottom'
+        popoverOriginHorizontal='left'>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style

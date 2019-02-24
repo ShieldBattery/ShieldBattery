@@ -26,7 +26,7 @@ class JoinChannelForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <TextField
           {...bindInput('channel')}
-          label="Channel name"
+          label='Channel name'
           floatingLabel={true}
           ref={inputRef}
           inputProps={{
@@ -71,8 +71,8 @@ export default class JoinChannel extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.props.onCancel} />,
-      <FlatButton label="Join" key="join" color="accent" onClick={this.onJoinChannel} />,
+      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
+      <FlatButton label='Join' key='join' color='accent' onClick={this.onJoinChannel} />,
     ]
 
     return (

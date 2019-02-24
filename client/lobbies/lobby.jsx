@@ -452,7 +452,7 @@ export default class Lobby extends React.Component {
           <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
         </div>
         <div className={styles.info}>
-          <RaisedButton label="Leave lobby" onClick={onLeaveLobbyClick} />
+          <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
           <h3 className={styles.mapName}>{lobby.map.name}</h3>
           <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
           <div className={styles.infoItem}>
@@ -485,8 +485,8 @@ export default class Lobby extends React.Component {
     return (
       <RaisedButton
         className={styles.startButton}
-        color="primary"
-        label="Start game"
+        color='primary'
+        label='Start game'
         disabled={isDisabled}
         onClick={onStartGame}
       />

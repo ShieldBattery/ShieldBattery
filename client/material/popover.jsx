@@ -251,8 +251,8 @@ export default class Popover extends React.Component {
 
       return (
         <span>
-          <WindowListener event="resize" listener={this.recalcPopoverPosition} />
-          <WindowListener event="scroll" listener={this.recalcPopoverPosition} />
+          <WindowListener event='resize' listener={this.recalcPopoverPosition} />
+          <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown}>
             {open ? (
               <div key={'popover'} className={styles.popover} style={popoverStyle}>

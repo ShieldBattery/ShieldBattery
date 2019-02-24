@@ -20,26 +20,26 @@ class UserPermissionsForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <CheckBox
           {...bindCheckable('editPermissions')}
-          label="Edit permissions"
+          label='Edit permissions'
           inputProps={inputProps}
           disabled={isSelf}
         />
-        <CheckBox {...bindCheckable('debug')} label="Debug" inputProps={inputProps} />
+        <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
         <CheckBox
           {...bindCheckable('acceptInvites')}
-          label="Accept beta invites"
+          label='Accept beta invites'
           inputProps={inputProps}
         />
         <CheckBox
           {...bindCheckable('editAllChannels')}
-          label="Edit all channels"
+          label='Edit all channels'
           inputProps={inputProps}
         />
-        <CheckBox {...bindCheckable('banUsers')} label="Ban users" inputProps={inputProps} />
-        <CheckBox {...bindCheckable('manageMaps')} label="Manage maps" inputProps={inputProps} />
+        <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
+        <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
         <CheckBox
           {...bindCheckable('manageStarcraftPatches')}
-          label="Manage StarCraft patches"
+          label='Manage StarCraft patches'
           inputProps={inputProps}
         />
       </form>
@@ -93,7 +93,7 @@ export default class PermissionsResult extends React.Component {
           model={model}
           onSubmit={this.onSubmit}
         />
-        <FlatButton label="Save" color="accent" tabIndex={0} onClick={this.onSaveClick} />
+        <FlatButton label='Save' color='accent' tabIndex={0} onClick={this.onSaveClick} />
       </div>
     )
   }

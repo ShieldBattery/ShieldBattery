@@ -29,10 +29,10 @@ export class UserProfile extends React.Component {
 
     const children = []
     if (perms.editPermissions) {
-      children.push(<PermissionsResult key="perms" username={username} />)
+      children.push(<PermissionsResult key='perms' username={username} />)
     }
     if (perms.banUsers) {
-      children.push(<BanUsers key="bans" username={username} />)
+      children.push(<BanUsers key='bans' username={username} />)
     }
 
     return <div>{children}</div>
@@ -56,7 +56,7 @@ class SearchForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <TextField
           {...bindInput('username')}
-          label="Username"
+          label='Username'
           floatingLabel={true}
           inputProps={{
             tabIndex: 0,
@@ -86,9 +86,9 @@ export class UserFind extends React.Component {
         <div>
           <h3>Find user</h3>
           <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-          <FlatButton label="Find" color="accent" tabIndex={0} onClick={this.onFindClick} />
+          <FlatButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
         </div>
-        <Route path="/admin/users/:username" component={UserProfile} />
+        <Route path='/admin/users/:username' component={UserProfile} />
       </div>
     )
   }

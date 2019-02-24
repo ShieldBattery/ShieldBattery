@@ -25,6 +25,6 @@ export default class AdminTitle extends React.Component {
       appBarTitle = 'Map upload'
     }
 
-    return <AppBarTitle as="span">{appBarTitle}</AppBarTitle>
+    return <AppBarTitle as='span'>{appBarTitle}</AppBarTitle>
   }
 }

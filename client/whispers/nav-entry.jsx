@@ -19,7 +19,7 @@ export default class WhisperNavEntry extends React.Component {
       <IconButton
         className={styles.navCloseButton}
         icon={<CloseWhisperIcon />}
-        title="Close whisper"
+        title='Close whisper'
         onClick={this.onClose}
       />
     )

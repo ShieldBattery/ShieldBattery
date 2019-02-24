@@ -65,7 +65,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthTextField
             {...bindInput('username')}
-            label="Username"
+            label='Username'
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -75,7 +75,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label="Forgot username?" onClick={onForgotUsernameClick} />
+            <ForgotActionButton label='Forgot username?' onClick={onForgotUsernameClick} />
           </RowEdge>
         </FieldRow>
 
@@ -83,9 +83,9 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthTextField
             {...bindInput('password')}
-            label="Password"
+            label='Password'
             floatingLabel={true}
-            type="password"
+            type='password'
             inputProps={{
               tabIndex: 1,
               autoCapitalize: 'off',
@@ -94,7 +94,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label="Forgot password?" onClick={onForgotPasswordClick} />
+            <ForgotActionButton label='Forgot password?' onClick={onForgotPasswordClick} />
           </RowEdge>
         </FieldRow>
 
@@ -102,11 +102,11 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthCheckBox
             {...bindCheckable('remember')}
-            label="Remember me"
+            label='Remember me'
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />
-          <RaisedButton label="Log in" onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1} />
           <RowEdge />
         </FieldRow>
       </form>
@@ -153,7 +153,7 @@ export default class Login extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as="h3">Log in</AuthTitle>
+          <AuthTitle as='h3'>Log in</AuthTitle>
           <AuthBody>{errContents}</AuthBody>
           <LoginForm
             ref={this._setForm}
@@ -166,12 +166,12 @@ export default class Login extends React.Component {
         {loadingContents}
         <AuthBottomAction>
           <BottomActionButton
-            label="Sign up for an account"
+            label='Sign up for an account'
             onClick={this.onCreateAccountClick}
             tabIndex={1}
           />
           <BottomActionButton
-            label="What is ShieldBattery?"
+            label='What is ShieldBattery?'
             onClick={this.onSplashClick}
             tabIndex={1}
           />

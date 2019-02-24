@@ -38,12 +38,12 @@ export default class PsiHealthCheckupDialog extends React.Component {
       <p>
         Your StarCraft path setting does not point to a valid installation. Please correct the value
         in{' '}
-        <a href="#" onClick={e => this.onSettingsClicked(e)}>
+        <a href='#' onClick={e => this.onSettingsClicked(e)}>
           Settings
         </a>
         . If you do not have the game installed, it can be easily downloaded from{' '}
         <span>
-          <a href={STARCRAFT_DOWNLOAD_URL} target="_blank">
+          <a href={STARCRAFT_DOWNLOAD_URL} target='_blank'>
             Blizzard's website
           </a>
         </span>
@@ -85,7 +85,7 @@ export default class PsiHealthCheckupDialog extends React.Component {
             Your StarCraft installation is out of date. ShieldBattery supports installations of
             version 1.16.1 or greater. Please install the{' '}
             <span>
-              <a href={STARCRAFT_DOWNLOAD_URL} target="_blank">
+              <a href={STARCRAFT_DOWNLOAD_URL} target='_blank'>
                 latest version
               </a>
             </span>{' '}
@@ -113,7 +113,7 @@ export default class PsiHealthCheckupDialog extends React.Component {
         <p>
           This may be a temporary error. Click the button below to try again, or consider
           reinstalling the{' '}
-          <a href={STARCRAFT_DOWNLOAD_URL} target="_blank">
+          <a href={STARCRAFT_DOWNLOAD_URL} target='_blank'>
             latest version
           </a>{' '}
           of StarCraft and restarting ShieldBattery.

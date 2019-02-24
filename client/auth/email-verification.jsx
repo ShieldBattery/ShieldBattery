@@ -80,14 +80,14 @@ export class EmailVerification extends React.Component {
           by clicking the button below and try again.
         </ErrorsContainer>
       )
-      bottomActionButton = <BottomActionButton label="Log in" onClick={this.onLogInClick} />
+      bottomActionButton = <BottomActionButton label='Log in' onClick={this.onLogInClick} />
     } else if (reqId && lastFailure && lastFailure.reqId === reqId) {
       contents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
 
       // Until we add a proper error system, we're stuck with checks like these :/
       if (lastFailure.err.startsWith('The provided email or verification code is not valid.')) {
         bottomActionButton = (
-          <BottomActionButton label="Resend verification email" onClick={this.onResendClick} />
+          <BottomActionButton label='Resend verification email' onClick={this.onResendClick} />
         )
       }
     } else if (success && successMessage) {
@@ -95,7 +95,7 @@ export class EmailVerification extends React.Component {
 
       // eslint-disable-next-line no-use-before-define
       if (successMessage === VERIFY_EMAIL_SUCCESS) {
-        bottomActionButton = <BottomActionButton label="Continue" onClick={this.onContinueClick} />
+        bottomActionButton = <BottomActionButton label='Continue' onClick={this.onContinueClick} />
       }
     } else {
       contents = <ErrorsContainer>Something went terribly wrong. Please try again.</ErrorsContainer>
@@ -104,7 +104,7 @@ export class EmailVerification extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as="h3">{title}</AuthTitle>
+          <AuthTitle as='h3'>{title}</AuthTitle>
           <AuthBody>{contents}</AuthBody>
           <AuthBottomAction>{bottomActionButton}</AuthBottomAction>
         </AuthContentContainer>

@@ -17,7 +17,7 @@ export default class FlatButton extends React.Component {
       [styles.accent]: this.props.color === 'accent',
     })
 
-    return <Button ref="button" {...this.props} className={classes} />
+    return <Button ref='button' {...this.props} className={classes} />
   }
 
   focus() {

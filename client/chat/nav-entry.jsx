@@ -19,7 +19,7 @@ export default class ChatNavEntry extends React.Component {
       <IconButton
         className={styles.navLeaveButton}
         icon={<CloseIcon />}
-        title="Leave channel"
+        title='Leave channel'
         onClick={this.onLeaveClick}
       />
     )

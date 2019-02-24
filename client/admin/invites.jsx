@@ -37,7 +37,7 @@ export default class Invites extends React.Component {
 
   renderAcceptLink(invitee) {
     return (
-      <a href="#" onClick={event => this.onAcceptUserClicked(event, invitee.email)}>
+      <a href='#' onClick={event => this.onAcceptUserClicked(event, invitee.email)}>
         Accept
       </a>
     )
@@ -122,9 +122,9 @@ export default class Invites extends React.Component {
       <div className={styles.invites}>
         {this.renderError()}
         <div className={styles.filterInvites}>
-          <Link to="/admin/invites">All</Link>
-          <Link to="/admin/invites?accepted=true">Accepted</Link>
-          <Link to="/admin/invites?accepted=false">Unaccepted</Link>
+          <Link to='/admin/invites'>All</Link>
+          <Link to='/admin/invites?accepted=true'>Accepted</Link>
+          <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
         </div>
         {this.renderInvites()}
         {this.renderPaging()}

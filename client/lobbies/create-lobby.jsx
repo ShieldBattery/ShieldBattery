@@ -97,7 +97,7 @@ class CreateLobbyForm extends React.Component {
     const { slots } = maps.byHash.get(mapHash)
     if (gameType === 'topVBottom') {
       return (
-        <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
+        <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
           {Range(slots - 1, 0).map(top => (
             <Option key={top} value={top} text={`${top} vs ${slots - top}`} />
           ))}
@@ -105,7 +105,7 @@ class CreateLobbyForm extends React.Component {
       )
     } else {
       return (
-        <Select {...bindCustom('gameSubType')} label="Teams" tabIndex={0}>
+        <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
           {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
             <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />
           ))}
@@ -130,7 +130,7 @@ class CreateLobbyForm extends React.Component {
         <TextField
           {...bindInput('name')}
           ref={inputRef}
-          label="Lobby name"
+          label='Lobby name'
           floatingLabel={true}
           inputProps={{
             autoCapitalize: 'off',
@@ -144,7 +144,7 @@ class CreateLobbyForm extends React.Component {
           <Select
             className={styles.mapList}
             {...bindCustom('map')}
-            label="Map"
+            label='Map'
             tabIndex={0}
             disabled={!mapListContents.size}>
             {mapListContents}
@@ -152,12 +152,12 @@ class CreateLobbyForm extends React.Component {
           {MAP_UPLOADING ? (
             <RaisedButton
               className={styles.mapBrowse}
-              label="Browse"
+              label='Browse'
               onClick={this.props.onMapBrowse}
             />
           ) : null}
         </div>
-        <Select {...bindCustom('gameType')} label="Game type" tabIndex={0}>
+        <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
           {GAME_TYPES.map(type => (
             <Option key={type} value={type} text={gameTypeToString(type)} />
           ))}
@@ -242,7 +242,7 @@ export default class CreateLobby extends React.Component {
           onMapBrowse={this.onMapBrowse}
           maps={maps}
         />
-        <RaisedButton label="Create lobby" onClick={this.onCreateClick} />
+        <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
         {maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null}
         {maps.isUploading ? (
           <div className={styles.loadingArea}>

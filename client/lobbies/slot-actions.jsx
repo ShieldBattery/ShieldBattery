@@ -41,7 +41,7 @@ export default class SlotActions extends React.Component {
       <div>
         <IconButton
           icon={<SlotActionsIcon />}
-          title="Slot actions"
+          title='Slot actions'
           buttonRef={this._setSlotActionsButtonRef}
           onClick={this.onSlotActionsClick}
         />
@@ -83,10 +83,10 @@ export class SlotActionsOverlay extends React.Component {
         open={open}
         onDismiss={onDismiss}
         anchor={anchor}
-        anchorOriginVertical="top"
-        anchorOriginHorizontal="right"
-        popoverOriginVertical="top"
-        popoverOriginHorizontal="right">
+        anchorOriginVertical='top'
+        anchorOriginHorizontal='right'
+        popoverOriginVertical='top'
+        popoverOriginHorizontal='right'>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style

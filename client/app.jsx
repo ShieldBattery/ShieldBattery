@@ -55,17 +55,17 @@ class App extends React.Component {
       <React.Fragment>
         <WindowControls />
         <Switch>
-          <Route path="/splash" component={Splash} />
-          <Route path="/faq" component={Faq} />
-          <Route path="/download" component={DownloadPage} />
-          <LoginRoute path="/forgot-password" component={ForgotPassword} />
-          <LoginRoute path="/forgot-user" component={ForgotUser} />
-          <LoginRoute path="/login" component={Login} />
-          <LoginRoute path="/reset-password" component={ResetPassword} />
-          <LoginRoute path="/signup" component={Signup} />
-          <LoginRoute path="/verify-email" component={VerifyEmail} />
-          <LoginRoute path="/send-verification-email" component={SendVerificationEmail} />
-          {!IS_PRODUCTION ? <Route path="/dev" component={Dev} /> : null}
+          <Route path='/splash' component={Splash} />
+          <Route path='/faq' component={Faq} />
+          <Route path='/download' component={DownloadPage} />
+          <LoginRoute path='/forgot-password' component={ForgotPassword} />
+          <LoginRoute path='/forgot-user' component={ForgotUser} />
+          <LoginRoute path='/login' component={Login} />
+          <LoginRoute path='/reset-password' component={ResetPassword} />
+          <LoginRoute path='/signup' component={Signup} />
+          <LoginRoute path='/verify-email' component={VerifyEmail} />
+          <LoginRoute path='/send-verification-email' component={SendVerificationEmail} />
+          {!IS_PRODUCTION ? <Route path='/dev' component={Dev} /> : null}
           <ConditionalRoute
             filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
             component={MainLayout}

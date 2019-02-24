@@ -32,7 +32,7 @@ export default class ContentLayout extends React.Component {
     const verifyEmailLink = (
       <a
         href={makeServerUrl(`/send-verification-email?userId=${user.id}&email=${user.email}`)}
-        target="_blank">
+        target='_blank'>
         get verification email.
       </a>
     )

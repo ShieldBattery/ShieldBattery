@@ -111,40 +111,40 @@ export default class OverflowTest extends React.Component {
             onDismiss={this.onDismiss}
             anchor={this._topLeft}
             children={this.renderPopoverContents}
-            anchorOriginVertical="top"
-            anchorOriginHorizontal="left"
-            popoverOriginVertical="top"
-            popoverOriginHorizontal="left"
+            anchorOriginVertical='top'
+            anchorOriginHorizontal='left'
+            popoverOriginVertical='top'
+            popoverOriginHorizontal='left'
           />
           <Popover
             open={open === 'topRight'}
             onDismiss={this.onDismiss}
             anchor={this._topRight}
             children={this.renderPopoverContents}
-            anchorOriginVertical="top"
-            anchorOriginHorizontal="right"
-            popoverOriginVertical="top"
-            popoverOriginHorizontal="right"
+            anchorOriginVertical='top'
+            anchorOriginHorizontal='right'
+            popoverOriginVertical='top'
+            popoverOriginHorizontal='right'
           />
           <Popover
             open={open === 'bottomLeft'}
             onDismiss={this.onDismiss}
             anchor={this._bottomLeft}
             children={this.renderPopoverContents}
-            anchorOriginVertical="bottom"
-            anchorOriginHorizontal="left"
-            popoverOriginVertical="bottom"
-            popoverOriginHorizontal="left"
+            anchorOriginVertical='bottom'
+            anchorOriginHorizontal='left'
+            popoverOriginVertical='bottom'
+            popoverOriginHorizontal='left'
           />
           <Popover
             open={open === 'bottomRight'}
             onDismiss={this.onDismiss}
             anchor={this._bottomRight}
             children={this.renderPopoverContents}
-            anchorOriginVertical="bottom"
-            anchorOriginHorizontal="right"
-            popoverOriginVertical="bottom"
-            popoverOriginHorizontal="right"
+            anchorOriginVertical='bottom'
+            anchorOriginHorizontal='right'
+            popoverOriginVertical='bottom'
+            popoverOriginHorizontal='right'
           />
         </div>
       </div>

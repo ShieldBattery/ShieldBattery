@@ -206,8 +206,8 @@ class Select extends React.Component {
 
       return (
         <span>
-          <WindowListener event="resize" listener={this.recalcOverlayPosition} />
-          <WindowListener event="scroll" listener={this.recalcOverlayPosition} />
+          <WindowListener event='resize' listener={this.recalcOverlayPosition} />
+          <WindowListener event='scroll' listener={this.recalcOverlayPosition} />
           <TransitionGroup
             transitionName={transitionNames}
             transitionAppear={true}
@@ -216,7 +216,7 @@ class Select extends React.Component {
             transitionLeaveTimeout={CLOSE_TIME}>
             {isOpened && !isClosing ? (
               <div
-                key="overlay"
+                key='overlay'
                 ref={this._setOverlay}
                 className={styles.overlay}
                 style={overlayStyle}

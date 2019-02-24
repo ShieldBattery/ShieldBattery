@@ -24,7 +24,7 @@ export default class WhispersTitle extends React.Component {
 
     return (
       <Container>
-        <AppBarTitle as="span">{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
+        <AppBarTitle as='span'>{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
       </Container>
     )
   }

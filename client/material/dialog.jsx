@@ -30,14 +30,14 @@ class Dialog extends React.Component {
       <IconButton
         className={styles.closeButton}
         icon={<CloseDialogIcon />}
-        title="Close dialog"
+        title='Close dialog'
         onClick={this.onCloseButtonClick}
       />
     ) : null
 
     return (
       <KeyListener onKeyDown={this.onKeyDown}>
-        <div role="dialog" className={styles.contents}>
+        <div role='dialog' className={styles.contents}>
           <div className={styles.titleBar}>
             <h3 className={styles.title}>{title}</h3>
             {closeButton}

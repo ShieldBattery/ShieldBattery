@@ -18,17 +18,17 @@ class FindMatchForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <Select {...bindCustom('type')} label="Type" tabIndex={0}>
-          <Option key="1v1" value="1v1" text="1v1" />
+        <Select {...bindCustom('type')} label='Type' tabIndex={0}>
+          <Option key='1v1' value='1v1' text='1v1' />
         </Select>
-        <Select {...bindCustom('race')} label="Race" tabIndex={0}>
-          <Option key="z" value="z" text="Zerg" />
-          <Option key="p" value="p" text="Protoss" />
-          <Option key="t" value="t" text="Terran" />
-          <Option key="r" value="r" text="Random" />
+        <Select {...bindCustom('race')} label='Race' tabIndex={0}>
+          <Option key='z' value='z' text='Zerg' />
+          <Option key='p' value='p' text='Protoss' />
+          <Option key='t' value='t' text='Terran' />
+          <Option key='r' value='r' text='Random' />
         </Select>
 
-        <RaisedButton label="Find" onClick={onSubmit} />
+        <RaisedButton label='Find' onClick={onSubmit} />
       </form>
     )
   }

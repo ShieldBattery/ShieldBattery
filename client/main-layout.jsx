@@ -91,8 +91,8 @@ const AdminLink = styled.p`
 let activeGameRoute
 let lobbyRoute
 if (IS_ELECTRON) {
-  activeGameRoute = <Route path="/active-game" component={ActiveGame} />
-  lobbyRoute = <Route path="/lobbies/:lobby" component={LobbyView} />
+  activeGameRoute = <Route path='/active-game' component={ActiveGame} />
+  lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
 }
 
 function stateToProps(state) {
@@ -142,17 +142,17 @@ class MainLayout extends React.Component {
       },
     } = this.props
     return [
-      <Subheader key="lobby-header">Lobby</Subheader>,
-      <Section key="lobby-section">
+      <Subheader key='lobby-header'>Lobby</Subheader>,
+      <Section key='lobby-section'>
         <LobbyNavEntry
-          key="lobby"
+          key='lobby'
           lobby={name}
           currentPath={currentPath}
           hasUnread={hasUnread}
           onLeaveClick={this.onLeaveLobbyClick}
         />
       </Section>,
-      <Divider key="lobby-divider" />,
+      <Divider key='lobby-divider' />,
     ]
   }
 
@@ -160,10 +160,10 @@ class MainLayout extends React.Component {
     if (!this.props.activeGame.isActive || !IS_ELECTRON) return null
 
     return [
-      <Section key="active-game-section">
-        <ActiveGameNavEntry key="active-game" currentPath={this.props.router.location.pathname} />
+      <Section key='active-game-section'>
+        <ActiveGameNavEntry key='active-game' currentPath={this.props.router.location.pathname} />
       </Section>,
-      <Divider key="active-game-divider" />,
+      <Divider key='active-game-divider' />,
     ]
   }
 
@@ -177,16 +177,16 @@ class MainLayout extends React.Component {
         {window._sbFeedbackUrl ? (
           <ProfileAction
             icon={<FeedbackIcon />}
-            text="Send feedback"
+            text='Send feedback'
             onClick={this.onFeedbackClick}
           />
         ) : null}
         <ProfileAction
           icon={<ChangelogIcon />}
-          text="View changelog"
+          text='View changelog'
           onClick={this.onChangelogClick}
         />
-        <ProfileAction icon={<LogoutIcon />} text="Log out" onClick={this.onLogOutClick} />
+        <ProfileAction icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
       </SelfProfileOverlay>
     )
   }
@@ -229,7 +229,7 @@ class MainLayout extends React.Component {
     const joinChannelButton = (
       <IconButton
         icon={<AddIcon />}
-        title="Join a channel"
+        title='Join a channel'
         className={styles.subheaderButton}
         onClick={this.onJoinChannelClick}
       />
@@ -246,24 +246,24 @@ class MainLayout extends React.Component {
     const addWhisperButton = (
       <IconButton
         icon={<AddIcon />}
-        title="Start a whisper"
+        title='Start a whisper'
         className={styles.subheaderButton}
         onClick={this.onAddWhisperClick}
       />
     )
     const footer = [
       DEV_INDICATOR ? (
-        <span key="dev" className={styles.devIndicator}>
+        <span key='dev' className={styles.devIndicator}>
           Dev Mode
         </span>
       ) : null,
       isAdmin(auth) ? (
-        <AdminLink key="adminPanel">
-          <Link to="/admin">Admin</Link>
+        <AdminLink key='adminPanel'>
+          <Link to='/admin'>Admin</Link>
         </AdminLink>
       ) : null,
       <ProfileNavEntry
-        key="profileEntry"
+        key='profileEntry'
         user={auth.user.name}
         avatarTitle={auth.user.name}
         onProfileEntryClick={this.onProfileEntryClick}
@@ -272,9 +272,9 @@ class MainLayout extends React.Component {
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <ActivityButton
-        key="find-match"
+        key='find-match'
         icon={<FindMatchIcon />}
-        label="Find match"
+        label='Find match'
         onClick={this.onFindMatchClick}
         disabled={inGameplayActivity}
         keycode={KEY_F}
@@ -282,9 +282,9 @@ class MainLayout extends React.Component {
       />
     ) : (
       <ActivityButton
-        key="cancel-match"
+        key='cancel-match'
         icon={<CancelMatchIcon />}
-        label="Cancel"
+        label='Cancel'
         onClick={this.onCancelFindMatchClick}
       />
     )
@@ -292,33 +292,33 @@ class MainLayout extends React.Component {
       ? [
           findMatchButton,
           <HotkeyedActivityButton
-            key="create-game"
+            key='create-game'
             icon={<CreateGameIcon />}
-            label="Create"
+            label='Create'
             onClick={this.onCreateLobbyClick}
             disabled={inGameplayActivity}
             keycode={KEY_C}
             altKey={true}
           />,
           <HotkeyedActivityButton
-            key="join-game"
+            key='join-game'
             icon={<JoinGameIcon />}
-            label="Join"
+            label='Join'
             onClick={this.onJoinLobbyClick}
             keycode={KEY_J}
             altKey={true}
           />,
           <ActivityButton
-            key="replays"
+            key='replays'
             icon={<ReplaysIcon />}
-            label="Replays"
+            label='Replays'
             onClick={this.onReplaysClick}
           />,
-          <ActivitySpacer key="spacer" />,
+          <ActivitySpacer key='spacer' />,
           <HotkeyedActivityButton
-            key="settings"
+            key='settings'
             icon={<SettingsIcon />}
-            label="Settings"
+            label='Settings'
             onClick={this.onSettingsClick}
             keycode={KEY_S}
             altKey={true}
@@ -326,9 +326,9 @@ class MainLayout extends React.Component {
         ]
       : [
           <ActivityButton
-            key="download"
+            key='download'
             icon={<DownloadIcon />}
-            label="Download"
+            label='Download'
             onClick={this.onDownloadClick}
           />,
         ]
@@ -350,11 +350,11 @@ class MainLayout extends React.Component {
           <ContentLayout>
             <Switch>
               {activeGameRoute}
-              <ConditionalRoute path="/admin" filters={[IsAdminFilter]} component={AdminPanel} />
-              <Route path="/chat" exact={true} component={ChatList} />
-              <Route path="/chat/:channel" component={ChatChannel} />
+              <ConditionalRoute path='/admin' filters={[IsAdminFilter]} component={AdminPanel} />
+              <Route path='/chat' exact={true} component={ChatList} />
+              <Route path='/chat/:channel' component={ChatChannel} />
               {lobbyRoute}
-              <Route path="/whispers/:target" component={Whisper} />
+              <Route path='/whispers/:target' component={Whisper} />
               {/* If no paths match, redirect the page to the "index". Note: this means that we
                   can't actually have a 404 page, but I don't think we really need one? */}
               <Index transitionFn={replace} />

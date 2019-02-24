@@ -31,7 +31,7 @@ class CreateWhisperForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <TextField
           {...bindInput('target')}
-          label="Username"
+          label='Username'
           floatingLabel={true}
           ref={inputRef}
           inputProps={{
@@ -76,8 +76,8 @@ export default class CreateWhisper extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label="Cancel" key="cancel" color="accent" onClick={this.props.onCancel} />,
-      <FlatButton label="Start" key="send" color="accent" onClick={this.onSendMessage} />,
+      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
+      <FlatButton label='Start' key='send' color='accent' onClick={this.onSendMessage} />,
     ]
 
     return (

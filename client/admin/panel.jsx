@@ -21,24 +21,24 @@ class AdminDashboard extends React.Component {
     const usersLink =
       perms.editPermissions || perms.banUsers ? (
         <li>
-          <Link to="/admin/users">View user's profile</Link>
+          <Link to='/admin/users'>View user's profile</Link>
         </li>
       ) : null
     const uploadLink =
       perms.manageMaps && IS_ELECTRON ? (
         <li>
-          <Link to="/admin/map-upload">Mass map upload</Link>
+          <Link to='/admin/map-upload'>Mass map upload</Link>
         </li>
       ) : null
     const managePatchesLink =
       perms.manageStarcraftPatches && IS_ELECTRON ? (
         <li>
-          <Link to="/admin/patch-upload">Upload StarCraft patch</Link>
+          <Link to='/admin/patch-upload'>Upload StarCraft patch</Link>
         </li>
       ) : null
     const invitesLink = perms.acceptInvites ? (
       <li>
-        <Link to="/admin/invites">View beta invites</Link>
+        <Link to='/admin/invites'>View beta invites</Link>
       </li>
     ) : null
 
@@ -60,25 +60,25 @@ export default class Panel extends React.Component {
 
     return (
       <Switch>
-        <Route path="/admin" exact={true} render={() => <AdminDashboard permissions={perms} />} />
+        <Route path='/admin' exact={true} render={() => <AdminDashboard permissions={perms} />} />
         <ConditionalRoute
-          path="/admin/users"
+          path='/admin/users'
           filters={[CanViewUserProfileFilter]}
           component={UserFind}
         />
         <ConditionalRoute
-          path="/admin/invites"
+          path='/admin/invites'
           filters={[CanAcceptBetaInvitesFilter]}
           component={AdminBetaInvites}
         />
         {AdminPatchUpload ? (
           <ConditionalRoute
-            path="/admin/patch-upload"
+            path='/admin/patch-upload'
             filters={[CanManageStarcraftPatchesFilter]}
             component={AdminPatchUpload}
           />
         ) : null}
-        {AdminMapUpload ? <Route path="/admin/map-upload" component={AdminMapUpload} /> : null}
+        {AdminMapUpload ? <Route path='/admin/map-upload' component={AdminMapUpload} /> : null}
       </Switch>
     )
   }
