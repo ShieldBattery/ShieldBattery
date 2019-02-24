@@ -28,13 +28,9 @@ export default class Portal extends React.Component {
     propagateClicks: PropTypes.bool,
   }
 
-  portal = null
+  portal = document.createElement('div')
 
   componentDidMount() {
-    this.addPortal()
-  }
-
-  componentDidUpdate() {
     this.addPortal()
   }
 
@@ -43,9 +39,6 @@ export default class Portal extends React.Component {
   }
 
   addPortal() {
-    if (this.portal) return
-
-    this.portal = document.createElement('div')
     this.portal.classList.add(styles.portal)
     document.body.appendChild(this.portal)
   }
@@ -56,10 +49,7 @@ export default class Portal extends React.Component {
   }
 
   removePortal() {
-    if (!this.portal) return
-
     document.body.removeChild(this.portal)
-    this.portal = null
   }
 
   render() {
@@ -89,6 +79,6 @@ export default class Portal extends React.Component {
       </>
     )
 
-    return this.portal ? ReactDOM.createPortal(contents, this.portal) : null
+    return ReactDOM.createPortal(contents, this.portal)
   }
 }
