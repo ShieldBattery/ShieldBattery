@@ -5,12 +5,15 @@ import styles from './site-connected-filter.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 
+if (IS_ELECTRON) {
+  siteSocket.opts.extraHeaders = {
+    'x-shield-battery-client': 'true',
+  }
+}
+
 @connect(state => ({ siteNetwork: state.network.site }))
 export default class SiteConnectedFilter extends React.Component {
   componentDidMount() {
-    siteSocket.opts.extraHeaders = {
-      'x-shield-battery-client': 'true',
-    }
     siteSocket.connect()
   }
 
