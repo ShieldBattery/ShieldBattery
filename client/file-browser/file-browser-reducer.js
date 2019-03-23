@@ -1,11 +1,6 @@
 import { List, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import {
-  REPLAYS_CHANGE_PATH,
-  REPLAYS_GET_BEGIN,
-  REPLAYS_GET,
-  REPLAYS_START_REPLAY,
-} from '../actions'
+import { FILE_BROWSER_CHANGE_PATH, FILE_BROWSER_GET_BEGIN, FILE_BROWSER_GET } from '../actions'
 
 export const Folder = new Record({
   name: '',
@@ -30,11 +25,11 @@ export const FileStates = new Record({
 })
 
 export default keyedReducer(new FileStates(), {
-  [REPLAYS_GET_BEGIN](state, action) {
+  [FILE_BROWSER_GET_BEGIN](state, action) {
     return state.setIn([action.payload.browseId, 'isRequesting'], true)
   },
 
-  [REPLAYS_GET](state, action) {
+  [FILE_BROWSER_GET](state, action) {
     if (action.error) {
       return state.update(action.meta.browseId, prev =>
         prev.set('isRequesting', false).set('lastError', action.payload),
@@ -61,11 +56,7 @@ export default keyedReducer(new FileStates(), {
     )
   },
 
-  [REPLAYS_START_REPLAY](state, action) {
-    return state
-  },
-
-  [REPLAYS_CHANGE_PATH](state, action) {
+  [FILE_BROWSER_CHANGE_PATH](state, action) {
     return state.setIn([action.payload.browseId, 'path'], action.payload.path)
   },
 })

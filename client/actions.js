@@ -88,6 +88,14 @@ export const CHAT_UPDATE_USER_OFFLINE = 'CHAT_UPDATE_USER_OFFLINE'
 export const DIALOG_OPEN = 'DIALOG_OPEN'
 export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 
+// We have clicked on a folder inside the file browser
+export const FILE_BROWSER_CHANGE_PATH = 'FILE_BROWSER_CHANGE_PATH'
+// We are starting the process of getting the list of files (and folders) from a user's computer
+export const FILE_BROWSER_GET_BEGIN = 'FILE_BROWSER_GET_BEGIN'
+// We have received a response to our files retrieval (error or the list of the files for that
+// particular folder)
+export const FILE_BROWSER_GET = 'FILE_BROWSER_GET'
+
 // We are starting the process of getting the state of a particular lobby
 export const LOBBIES_GET_STATE_BEGIN = 'LOBBIES_GET_STATE_BEGIN'
 // The server has responded with success/failure to our request of lobby state
@@ -244,13 +252,6 @@ export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 
-// We have clicked on a folder inside the replays browser
-export const REPLAYS_CHANGE_PATH = 'REPLAYS_CHANGE_PATH'
-// We are starting the process of getting the list of replays from a user's computer
-export const REPLAYS_GET_BEGIN = 'REPLAYS_GET_BEGIN'
-// We have received a response to our replays retrieval (error or the list of the replays for that
-// particular folder)
-export const REPLAYS_GET = 'REPLAYS_GET'
 // We have started the process of launching the game with the selected replay in it
 export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 

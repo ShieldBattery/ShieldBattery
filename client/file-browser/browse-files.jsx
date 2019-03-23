@@ -28,6 +28,7 @@ class FolderEntry extends React.Component {
   static propTypes = {
     folder: PropTypes.object.isRequired,
     onClick: PropTypes.func.isRequired,
+    isFocused: PropTypes.bool,
   }
 
   shouldComponentUpdate(nextProps) {
@@ -36,7 +37,9 @@ class FolderEntry extends React.Component {
 
   render() {
     const { folder, onClick } = this.props
-    const classes = classnames(styles.entry, styles.folder)
+    const classes = classnames(styles.entry, styles.folder, {
+      [styles.focused]: this.props.isFocused,
+    })
 
     return (
       <div className={classes} onClick={() => onClick(folder)}>
@@ -55,6 +58,7 @@ class FileEntry extends React.Component {
   static propTypes = {
     file: PropTypes.object.isRequired,
     onClick: PropTypes.func.isRequired,
+    isFocused: PropTypes.bool,
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -63,7 +67,9 @@ class FileEntry extends React.Component {
 
   render() {
     const { file, onClick, icon } = this.props
-    const classes = classnames(styles.entry, styles.file)
+    const classes = classnames(styles.entry, styles.file, {
+      [styles.focused]: this.props.isFocused,
+    })
 
     return (
       <div className={classes} onClick={() => onClick(file)}>
@@ -119,11 +125,11 @@ class PathBreadcrumbs extends React.Component {
   }
 }
 
-@connect(state => ({ replays: state.replays }))
+@connect(state => ({ fileBrowser: state.fileBrowser }))
 export default class Files extends React.Component {
   componentDidMount() {
     const { browseId, root } = this.props
-    const { path } = this.props.replays[browseId]
+    const { path } = this.props.fileBrowser[browseId]
     if (path === '') {
       this.props.dispatch(changePath(browseId, root))
     } else {
@@ -133,14 +139,14 @@ export default class Files extends React.Component {
 
   componentDidUpdate(prevProps) {
     const { browseId } = this.props
-    const { path } = this.props.replays[browseId]
-    if (prevProps.replays[browseId].path !== path) {
+    const { path } = this.props.fileBrowser[browseId]
+    if (prevProps.fileBrowser[browseId].path !== path) {
       this.props.dispatch(getFiles(browseId, path))
     }
   }
 
   renderFiles() {
-    const { isRequesting, lastError, path, files, folders } = this.props.replays[
+    const { isRequesting, lastError, path, files, folders } = this.props.fileBrowser[
       this.props.browseId
     ]
     if (isRequesting) {
@@ -167,10 +173,10 @@ export default class Files extends React.Component {
             <div className={styles.name}>{'Up one directory'}</div>
           </div>
         ) : null}
-        {folders.map(folder => (
+        {folders.map((folder, i) => (
           <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
         ))}
-        {files.map(file => {
+        {files.map((file, i) => {
           const extension = file.path.substr(file.path.lastIndexOf('.') + 1).toLowerCase()
           if (this.props.fileTypes[extension]) {
             const { onSelect, icon } = this.props.fileTypes[extension]
@@ -185,7 +191,7 @@ export default class Files extends React.Component {
 
   render() {
     const { rootFolderName, title, root, error } = this.props
-    const { path } = this.props.replays[this.props.browseId]
+    const { path } = this.props.fileBrowser[this.props.browseId]
     const displayedPath = `${rootFolderName}\\${pathApi.relative(root, path)}`
     return (
       <div className={styles.root}>
@@ -219,7 +225,7 @@ export default class Files extends React.Component {
   }
 
   onUpLevelClick = () => {
-    const { path } = this.props.replays[this.props.browseId]
+    const { path } = this.props.fileBrowser[this.props.browseId]
     const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
     this.props.dispatch(changePath(this.props.browseId, prevPath))
   }
@@ -229,6 +235,8 @@ export default class Files extends React.Component {
   }
 
   onRefreshClick = () => {
-    this.props.dispatch(getFiles(this.props.browseId, this.props.replays[this.props.browseId].path))
+    this.props.dispatch(
+      getFiles(this.props.browseId, this.props.fileBrowser[this.props.browseId].path),
+    )
   }
 }
