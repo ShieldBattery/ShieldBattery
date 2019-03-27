@@ -197,7 +197,11 @@ function silentTerminate(proc) {
   }
 }
 
-const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
+// TODO(neive): how to select between local dev/installed dll?
+const injectPath = path.resolve(
+  remote.app.getAppPath(),
+  '../game/rust-dll/target/i686-pc-windows-msvc/debug/shieldbattery_rust.dll'
+)
 
 const statAsync = thenify(fs.stat)
 const unlinkAsync = thenify(fs.unlink)
