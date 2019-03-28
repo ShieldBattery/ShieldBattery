@@ -1,34 +1,63 @@
+mod indirect_draw;
 mod renderer;
 
 use std::ffi::CStr;
+use std::io;
 use std::mem;
 use std::ptr::null_mut;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use libc::c_void;
 
-use winapi::shared::minwindef::{ATOM, HINSTANCE};
-use winapi::shared::windef::{HMENU, HWND, POINT, RECT};
-use winapi::um::winuser::{
-    AdjustWindowRect, ClipCursor, DispatchMessageA, GetMessageA, TranslateMessage, PostMessageA,
-    SetWindowPos, ShowWindow, PtInRect, GetCursorPos, GetClientRect, ClientToScreen,
-    MSG, CS_OWNDC, HWND_BOTTOM, SW_HIDE, SWP_NOACTIVATE, SWP_HIDEWINDOW, WNDCLASSEXA, WS_CAPTION,
-    WS_POPUP, WS_VISIBLE, WS_SYSMENU, WM_USER,
+use winapi::shared::guiddef::GUID;
+use winapi::shared::minwindef::{ATOM, FARPROC, HINSTANCE, HMODULE};
+use winapi::shared::windef::{HDC, HMENU, HWND, POINT, RECT, HBITMAP, HGDIOBJ};
+use winapi::um::dsound::{
+    IDirectSound, IDirectSoundVtbl, IDirectSoundBuffer,
+    DSBUFFERDESC, DS_OK, DSBCAPS_GLOBALFOCUS, DSBCAPS_PRIMARYBUFFER
 };
+use winapi::um::unknwnbase::IUnknown;
+use winapi::um::wingdi::{GetDeviceCaps, BITSPIXEL, BITMAP};
+use winapi::um::winuser::*;
 
 use crate::{game_thread_message, GameThreadMessage};
 
 use self::renderer::Renderer;
 
-whack_export!(pub extern "system" CreateWindowExA(
-    u32, *const i8, *const i8, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
-) -> HWND);
-whack_export!(pub extern "system" RegisterClassExA(*const WNDCLASSEXA) -> ATOM);
+mod hooks {
+    use super::{
+        HWND, HMENU, HINSTANCE, WNDCLASSEXA, ATOM, HMODULE, FARPROC, POINT, RECT, c_void,
+        HGDIOBJ, HBITMAP, HDC,
+    };
+    whack_export!(pub extern "system" CreateWindowExA(
+        u32, *const i8, *const i8, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
+    ) -> HWND);
+    whack_export!(pub extern "system" RegisterClassExA(*const WNDCLASSEXA) -> ATOM);
+    whack_export!(pub extern "system" GetSystemMetrics(i32) -> i32);
+    whack_export!(pub extern "system" GetProcAddress(HMODULE, *const i8) -> FARPROC);
+    whack_export!(pub extern "system" IsIconic(HWND) -> u32);
+    whack_export!(pub extern "system" IsWindowVisible(HWND) -> u32);
+    whack_export!(pub extern "system" ClientToScreen(HWND, *mut POINT) -> u32);
+    whack_export!(pub extern "system" ScreenToClient(HWND, *mut POINT) -> u32);
+    whack_export!(pub extern "system" GetClientRect(HWND, *mut RECT) -> u32);
+    whack_export!(pub extern "system" GetCursorPos(*mut POINT) -> u32);
+    whack_export!(pub extern "system" SetCursorPos(i32, i32) -> u32);
+    whack_export!(pub extern "system" ClipCursor(*const RECT) -> i32);
+    whack_export!(pub extern "system" SetCapture(HWND) -> HWND);
+    whack_export!(pub extern "system" ReleaseCapture() -> u32);
+    whack_export!(pub extern "system" ShowWindow(HWND, i32) -> u32);
+    whack_export!(pub extern "system" GetKeyState(i32) -> i32);
+    whack_export!(pub extern "system" CreateCompatibleBitmap(HDC, i32, i32) -> HBITMAP);
+    whack_export!(pub extern "system" DeleteObject(HGDIOBJ) -> u32);
+    whack_export!(pub extern "system" GetObjectA(HGDIOBJ, u32, *mut c_void) -> u32);
+    whack_export!(pub extern "system" GetBitmapBits(HBITMAP, u32, *mut c_void) -> u32);
 
-whack_hooks!(stdcall, 0x00400000,
-    0x004E0660 => CrashBeforeWindowCreation();
-);
+    whack_hooks!(stdcall, 0x00400000,
+        0x0041E280 => RenderScreen();
+    );
+}
 
 unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
     if val.is_null() {
@@ -39,7 +68,6 @@ unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
 }
 
 unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
-    use winapi::um::winuser::*;
     const FOREGROUND_HOTKEY_ID: i32 = 1337;
     const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
@@ -313,7 +341,7 @@ fn register_class(class: *const WNDCLASSEXA, orig: &Fn(*const WNDCLASSEXA) -> AT
     }
 }
 
-fn create_window(
+unsafe fn create_window(
     ex_style: u32,
     class_name: *const i8,
     window_name: *const i8,
@@ -330,106 +358,109 @@ fn create_window(
         u32, *const i8, *const i8, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
     ) -> HWND,
 ) -> HWND {
-    unsafe {
-        let class = c_str_opt(class_name);
-        debug!(
-            "CreateWindowExA called for class {:?} ({}, {}), {}x{}",
-            class, x, y, width, height,
+    let class = c_str_opt(class_name);
+    debug!(
+        "CreateWindowExA called for class {:?} ({}, {}), {}x{}",
+        class, x, y, width, height,
+    );
+    let is_bw_window = match class {
+        None => false,
+        Some(s) => s.to_str() == Ok("SWarClass"),
+    };
+    if !is_bw_window {
+        return orig(
+            ex_style, class_name, window_name, style, x, y, width, height,
+            parent, menu, instance, param,
         );
-        let is_bw_window = match class {
-            None => false,
-            Some(s) => s.to_str() == Ok("SWarClass"),
-        };
-        if !is_bw_window {
-            return orig(
-                ex_style, class_name, window_name, style, x, y, width, height,
-                parent, menu, instance, param,
-            );
-        }
-        with_forge(|forge| {
-            assert!(forge.window.is_none());
-            set_dpi_aware();
-            let settings = &forge.settings;
-            let (left, top, width, height) = match settings.display_mode {
-                DisplayMode::FullScreen => {
-                    let monitor_size = get_monitor_size();
-                    (0, 0, monitor_size.0, monitor_size.1)
-                }
-                DisplayMode::BorderlessWindow | DisplayMode::Window => {
-                    // Use the saved window coordinates (if available/applicable), or center the window otherwise
-                    // TODO(tec27): Check that the saved coordinates are still visible before we apply them
-                    let width = settings.width;
-                    let height = settings.height;
-                    let work_area = windows_work_area();
-                    let left = settings.window_x
-                        .unwrap_or_else(|| ((work_area.right - work_area.left) - width) / 2);
-                    let top = settings.window_y
-                        .unwrap_or_else(|| ((work_area.bottom - work_area.top) - height) / 2);
-                    (left, top, width, height)
-                }
-            };
-            let style = match settings.display_mode {
-                DisplayMode::FullScreen | DisplayMode::BorderlessWindow => {
-                    if forge.renderer.uses_swap_buffers() {
-                        WS_CAPTION | WS_VISIBLE
-                    } else {
-                        WS_POPUP | WS_VISIBLE
-                    }
-                }
-                DisplayMode::Window => WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
-            };
-
-            // we want the *client rect* to be our width/height, not the actual window size
-            let mut window_rect = RECT {
-                left,
-                top,
-                right: left + width,
-                bottom: top + height,
-            };
-            AdjustWindowRect(&mut window_rect, style, 0);
-            let window_width = window_rect.right - window_rect.left;
-            let window_height = window_rect.bottom - window_rect.top;
-            debug!(
-                "Rewriting CreateWindowExA call to ({}, {}), {}x{}",
-                window_rect.left, window_rect.top, window_width, window_height,
-            );
-            let window = orig(
-                ex_style,
-                class_name,
-                // We change the window name here to make scene switching at the right time easier
-                // (we set a different title just as we bring the window into the foreground)
-                "ShieldBattery initializing...\0".as_ptr() as *const i8,
-                style,
-                window_rect.left,
-                window_rect.top,
-                window_width,
-                window_height,
-                parent,
-                menu,
-                instance,
-                param,
-            );
-            // In some cases, Windows seems to not give us a window of the size we requested, so we also
-            // re-apply the size and position here just in case
-            SetWindowPos(
-                window,
-                HWND_BOTTOM,
-                window_rect.left, window_rect.top,
-                window_width, window_height,
-                SWP_NOACTIVATE | SWP_HIDEWINDOW,
-            );
-            ShowWindow(window, SW_HIDE);
-            let is_borderless = match settings.display_mode {
-                DisplayMode::FullScreen | DisplayMode::BorderlessWindow => true,
-                DisplayMode::Window => false,
-            };
-            if forge.renderer.uses_swap_buffers() && is_borderless {
-                unimplemented!("set opengl window region");
-            }
-            forge.window = Some(Window::new(window, left, top, width, height, &forge.settings));
-            window
-        })
     }
+    // Access the global Forge instance to get setup parameters, but release the lock
+    // before calling CreateWindowEx, as it calls wnd_proc.
+    let (style, (left, top, width, height)) = with_forge(|forge| {
+        assert!(forge.window.is_none());
+        let settings = &forge.settings;
+        let area = match settings.display_mode {
+            DisplayMode::FullScreen => {
+                let monitor_size = get_monitor_size();
+                (0, 0, monitor_size.0, monitor_size.1)
+            }
+            DisplayMode::BorderlessWindow | DisplayMode::Window => {
+                // Use the saved window coordinates (if available/applicable), or center the window otherwise
+                // TODO(tec27): Check that the saved coordinates are still visible before we apply them
+                let width = settings.width;
+                let height = settings.height;
+                let work_area = windows_work_area();
+                let left = settings.window_x
+                    .unwrap_or_else(|| ((work_area.right - work_area.left) - width) / 2);
+                let top = settings.window_y
+                    .unwrap_or_else(|| ((work_area.bottom - work_area.top) - height) / 2);
+                (left, top, width, height)
+            }
+        };
+        let style = match settings.display_mode {
+            DisplayMode::FullScreen | DisplayMode::BorderlessWindow => {
+                if forge.renderer.uses_swap_buffers() {
+                    WS_CAPTION | WS_VISIBLE
+                } else {
+                    WS_POPUP | WS_VISIBLE
+                }
+            }
+            DisplayMode::Window => WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
+        };
+        (style, area)
+    });
+    set_dpi_aware();
+
+    // we want the *client rect* to be our width/height, not the actual window size
+    let mut window_rect = RECT {
+        left,
+        top,
+        right: left + width,
+        bottom: top + height,
+    };
+    AdjustWindowRect(&mut window_rect, style, 0);
+    let window_width = window_rect.right - window_rect.left;
+    let window_height = window_rect.bottom - window_rect.top;
+    debug!(
+        "Rewriting CreateWindowExA call to ({}, {}), {}x{}",
+        window_rect.left, window_rect.top, window_width, window_height,
+    );
+    let window = orig(
+        ex_style,
+        class_name,
+        // We change the window name here to make scene switching at the right time easier
+        // (we set a different title just as we bring the window into the foreground)
+        "ShieldBattery initializing...\0".as_ptr() as *const i8,
+        style,
+        window_rect.left,
+        window_rect.top,
+        window_width,
+        window_height,
+        parent,
+        menu,
+        instance,
+        param,
+    );
+    // In some cases, Windows seems to not give us a window of the size we requested, so we also
+    // re-apply the size and position here just in case
+    SetWindowPos(
+        window,
+        HWND_BOTTOM,
+        window_rect.left, window_rect.top,
+        window_width, window_height,
+        SWP_NOACTIVATE | SWP_HIDEWINDOW,
+    );
+    ShowWindow(window, SW_HIDE);
+    with_forge(|forge| {
+        let is_borderless = match forge.settings.display_mode {
+            DisplayMode::FullScreen | DisplayMode::BorderlessWindow => true,
+            DisplayMode::Window => false,
+        };
+        if forge.renderer.uses_swap_buffers() && is_borderless {
+            unimplemented!("set opengl window region");
+        }
+        forge.window = Some(Window::new(window, left, top, width, height, &forge.settings));
+    });
+    window
 }
 
 lazy_static! {
@@ -448,12 +479,30 @@ struct Forge {
     input_disabled: bool,
     bw_window_active: bool,
     window_active: bool,
+    real_create_sound_buffer: Option<unsafe extern "system" fn(
+        *mut IDirectSound, *const DSBUFFERDESC, *mut *mut IDirectSoundBuffer, *mut IUnknown
+    ) -> i32>,
+    active_bitmap: Option<HBITMAP>,
+    captured_window: Option<HWND>,
 }
 
+// Since it stores HBITMAP
+unsafe impl Send for Forge { }
+
+static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
+    let thread_id = unsafe {
+        winapi::um::processthreadsapi::GetCurrentThreadId() as usize
+    };
+    if LOCKING_THREAD.load(Ordering::Relaxed) == thread_id {
+        panic!("Forge object is being locked recursively");
+    }
     let mut forge = FORGE.lock().unwrap();
+    LOCKING_THREAD.store(thread_id, Ordering::Relaxed);
     let forge = forge.as_mut().expect("Forge was never initialized");
-    func(forge)
+    let result = func(forge);
+    LOCKING_THREAD.store(!0, Ordering::Relaxed);
+    result
 }
 
 impl Forge {
@@ -483,6 +532,13 @@ impl Forge {
         }
     }
 
+    fn is_forge_window(&self, window: HWND) -> bool {
+        match self.window {
+            Some(ref w) => w.handle == window,
+            None => false,
+        }
+    }
+
     fn release_clip_cursor(&mut self) -> i32 {
         unsafe {
             self.input_disabled = true;
@@ -507,7 +563,6 @@ impl Forge {
     }
 
     fn release_held_key(&self, key: i32) {
-        use winapi::um::winuser::*;
         let window = match self.window {
             Some(ref w) => w,
             None => return,
@@ -644,27 +699,401 @@ impl Window {
 }
 
 fn windows_work_area() -> RECT {
-    // TODO
-    // SystemParametersInfo(SPI_GETWORKAREA, 0, &work_area, 0);
-    unimplemented!()
+    unsafe {
+        let mut out: RECT = mem::zeroed();
+        SystemParametersInfoA(SPI_GETWORKAREA, 0, &mut out as *mut RECT as *mut _, 0);
+        out
+    }
 }
 
 fn get_monitor_size() -> (i32, i32) {
-    // TODO
-    // GetSystemMetrics(SM_CXSCREEN);
-    // GetSystemMetrics(SM_CYSCREEN);
-    unimplemented!()
+    unsafe {
+        (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
+    }
 }
 
 fn set_dpi_aware() {
     // TODO
 }
 
+fn render_screen(orig: &Fn()) {
+    orig();
+    with_forge(|forge| {
+        if forge.game_started {
+            forge.renderer.render();
+        }
+    });
+}
+
+fn get_system_metrics(index: i32, orig: &Fn(i32) -> i32) -> i32 {
+    match index {
+        SM_CXSCREEN | SM_CXFULLSCREEN => 640,
+        SM_CYSCREEN | SM_CYFULLSCREEN => 480,
+        _ => orig(index),
+    }
+}
+
+unsafe fn get_proc_address(
+    module: HMODULE,
+    name: *const i8,
+    orig: &Fn(HMODULE, *const i8) -> FARPROC,
+) -> FARPROC {
+    match CStr::from_ptr(name).to_str() {
+        Ok("DirectDrawCreate") => {
+            debug!("Injecting custom DirectDrawCreate");
+            indirect_draw::direct_draw_create as usize as FARPROC
+        }
+        Ok("DirectSoundCreate8") => {
+            debug!("Injecting custom DirectSoundCreate8");
+            direct_sound_create as usize as FARPROC
+        }
+        _ => orig(module, name),
+    }
+}
+
+unsafe extern "system" fn direct_sound_create(
+    device: *const GUID,
+    out: *mut *mut IDirectSound,
+    unused: *mut IUnknown,
+) -> i32 {
+    unsafe fn inner(
+        device: *const GUID,
+        out: *mut *mut IDirectSound,
+        unused: *mut IUnknown,
+    ) -> Result<i32, io::Error> {
+        // Returning Ok() here means that our custom hooking didn't error, not necessarily
+        // that windows succeeeded.
+        use crate::windows;
+
+        type DirectDrawCreatePtr =
+            unsafe extern "system" fn(*const GUID, *mut *mut IDirectSound, *mut IUnknown) -> i32;
+
+        let dsound = windows::load_library("dsound.dll")?;
+        let real_create = dsound.proc_address("DirectSoundCreate8")?;
+        let real_create: DirectDrawCreatePtr = mem::transmute(real_create);
+
+        let result = real_create(device, out, unused);
+        if result != DS_OK {
+            debug!(
+                "DirectSound creation failed: {} / {}",
+                result, io::Error::from_raw_os_error(result),
+            );
+            return Ok(result);
+        }
+        debug!("DirectSound created");
+        let vtable = (**out).lpVtbl as *mut IDirectSoundVtbl;
+        let _guard = windows::unprotect_memory(vtable as *mut c_void, 0x20)?;
+        with_forge(|forge| {
+            forge.real_create_sound_buffer = Some((*vtable).CreateSoundBuffer);
+        });
+        (*vtable).CreateSoundBuffer = create_sound_buffer;
+        debug!("CreateSoundBuffer hooked");
+        Ok(DS_OK)
+    }
+    inner(device, out, unused)
+        .unwrap_or_else(|e| panic!("DirectSound initialization failed: {}", e))
+}
+
+unsafe extern "system" fn create_sound_buffer(
+    this: *mut IDirectSound,
+    desc: *const DSBUFFERDESC,
+    buffer: *mut *mut IDirectSoundBuffer,
+    unused: *mut IUnknown,
+) -> i32 {
+    let orig = with_forge(|forge| forge.real_create_sound_buffer.unwrap());
+    if (*desc).dwFlags & (DSBCAPS_GLOBALFOCUS | (*desc).dwFlags & DSBCAPS_PRIMARYBUFFER) != 0 {
+        orig(this, desc, buffer, unused)
+    } else {
+        let mut fixed = *desc;
+        fixed.dwFlags |= DSBCAPS_GLOBALFOCUS;
+        orig(this, &fixed, buffer, unused)
+    }
+}
+
+fn is_iconic(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        0
+    } else {
+        orig(window)
+    }
+}
+
+fn is_window_visible(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        1
+    } else {
+        orig(window)
+    }
+}
+
+fn client_to_screen(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT) -> u32) -> u32 {
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        // We want BW to think its full screen, and therefore any coordinates it wants in
+        // screenspace would be the same as the ones its passing in
+        1
+    } else {
+        orig(window, point)
+    }
+}
+
+fn screen_to_client(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT) -> u32) -> u32 {
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        // TODO(tec27): I don't think BW even actually uses this, and this implementation is
+        // wrong given our different window types. Figure out if BW calls this, and if not, delete
+        // it.
+
+        unimplemented!();
+        /*
+        Logger::Logf(LogLevel::Verbose, "ScreenToClient(%d, %d)", lpPoint->x, lpPoint->y);
+        RECT window_rect;
+        RECT client_rect;
+        GetWindowRect(hWnd, &window_rect);
+        GetClientRect(hWnd, &client_rect);
+        LONG border_size_x = ((window_rect.right - window_rect.left) - client_rect.right) / 2;
+        int border_size_y = GetSystemMetrics(SM_CYCAPTION);
+        lpPoint->x += window_rect.left + border_size_x;
+        lpPoint->y += window_rect.top + border_size_y;
+        assert((window_rect.bottom - window_rect.top) ==
+            (client_rect.bottom + border_size_y + border_size_x));
+
+        BOOL result = ScreenToClient(hWnd, lpPoint);
+        Logger::Logf(LogLevel::Verbose, "=> (%d, %d)", lpPoint->x, lpPoint->y);
+        return result;
+        */
+    } else {
+        orig(window, point)
+    }
+}
+
+unsafe fn get_client_rect(window: HWND, out: *mut RECT, orig: &Fn(HWND, *mut RECT) -> u32) -> u32 {
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        (*out) = RECT {
+            left: 0,
+            top: 0,
+            right: 640,
+            bottom: 480,
+        };
+        1
+    } else {
+        orig(window, out)
+    }
+}
+
+unsafe fn get_cursor_pos(val: *mut POINT) -> u32 {
+    // BW thinks its running full screen in 640x480, so we give it our mouse_resolution-scaled coords
+    let (x, y) = with_forge(|forge| {
+        forge.screen_to_game_pos(forge.real_cursor_pos.0, forge.real_cursor_pos.1)
+    });
+    (*val).x = x as i32;
+    (*val).y = y as i32;
+    1
+}
+
+unsafe fn set_cursor_pos(x: i32, y: i32, orig: &Fn(i32, i32) -> u32) -> u32 {
+    let pos = with_forge(|forge| {
+        // if we're not actually in the game yet, just ignore any requests to reposition the cursor
+        if !forge.game_started {
+            return None;
+        }
+        if let Some(ref window) = forge.window {
+            // BW thinks its running full screen in 640x480, so we take the coords it gives us
+            // and scale by our mouse resolution, then tack on the additional top/left space it
+            // doesn't know about
+            let x = ((x as f64 * window.mouse_resolution_width as f64 / 640.0) + 0.5) as i32 +
+                window.client_x;
+            let y = ((y as f64 * window.mouse_resolution_height as f64 / 480.0) + 0.5) as i32 +
+                window.client_y;
+            Some((x, y))
+        } else {
+            Some((x, y))
+        }
+    });
+    match pos {
+        Some((x, y)) => orig(x, y),
+        None => 1,
+    }
+}
+
+unsafe fn clip_cursor(rect: *const RECT) -> i32 {
+    with_forge(|forge| {
+        if rect.is_null() {
+            forge.stored_cursor_rect = None;
+            forge.release_clip_cursor()
+        } else {
+            forge.stored_cursor_rect = Some(*rect);
+            if forge.cursor_in_window() {
+                forge.perform_scaled_clip_cursor(&*rect)
+            } else {
+                1
+            }
+        }
+    })
+}
+
+unsafe fn set_capture(window: HWND) -> HWND {
+    with_forge(|forge| {
+        if let Some(window) = forge.captured_window {
+            PostMessageA(window, WM_CAPTURECHANGED, 0, window as isize);
+        }
+        forge.captured_window = Some(window);
+    });
+    window
+}
+
+unsafe fn release_capture() -> u32 {
+    with_forge(|forge| {
+        forge.captured_window = None;
+    });
+    1
+}
+
+fn show_window(window: HWND, show: i32, orig: &Fn(HWND, i32) -> u32) -> u32 {
+    // We handle the window showing around here, Brood War.
+    if with_forge(|forge| forge.is_forge_window(window)) {
+        1
+    } else {
+        orig(window, show)
+    }
+}
+
+fn get_key_state(key: i32, orig: &Fn(i32) -> i32) -> i32 {
+    if with_forge(|forge| forge.window_active) {
+        orig(key)
+    } else {
+        // This will get run at least from WM_NCACTIVATE handler's key
+        // releasing code, as bw checks the state of modifier keys.
+        // If bw checks key state for some other reason while the window
+        // is not active, it shouldn't be acting on it anyways.
+        0
+    }
+}
+
+fn create_compatible_bitmap(
+    dc: HDC,
+    width: i32,
+    height: i32,
+    orig: &Fn(HDC, i32, i32) -> HBITMAP,
+) -> HBITMAP {
+    // We have to track the one bitmap BW creates, so we can tell BW it's 8 bits per pixel when it
+    // calls GetObject on it.
+    let result = orig(dc, width, height);
+    if !result.is_null() {
+        with_forge(|forge| {
+            if forge.active_bitmap.is_some() {
+                warn!("BW is using multiple bitmaps at once?");
+            }
+            forge.active_bitmap = Some(result);
+        });
+    }
+    result
+}
+
+fn gdi_delete_object(object: HGDIOBJ, orig: &Fn(HGDIOBJ) -> u32) -> u32 {
+    with_forge(|forge| {
+        if forge.active_bitmap == Some(object as *mut _) {
+            forge.active_bitmap = None;
+        }
+    });
+    orig(object)
+}
+
+unsafe fn gdi_get_object(
+    object: HGDIOBJ,
+    size: u32,
+    out: *mut c_void,
+    orig: &Fn(HGDIOBJ, u32, *mut c_void) -> u32,
+) -> u32 {
+    let result = orig(object, size, out);
+    if result != 0 && with_forge(|forge| forge.active_bitmap == Some(object as *mut _)) {
+        let bitmap = out as *mut BITMAP;
+        (*bitmap).bmWidthBytes = (*bitmap).bmWidth;
+        (*bitmap).bmBitsPixel = 1;
+        // Fortunately BW doesn't care about the data pointer.
+    }
+    result
+}
+
+unsafe fn get_bitmap_bits(
+    bitmap: HBITMAP,
+    size: u32,
+    bits: *mut c_void,
+    orig: &Fn(HBITMAP, u32, *mut c_void) -> u32,
+) -> u32 {
+    // BW 1.16.1 calls GetBitmapBits only when drawing korean text.
+    // (It uses Gdi32 DrawText to draw it to a bitmap DC, and then reads it from there)
+    // Since BW believes it has told Windows it is using 8-bit video mode, it assumes that
+    // GetBitmapBits returns 8bpp bitmap, so we have to fix it up.
+    // This hook assumes that the text is always drawn as simple white-on-black text (which it is).
+    //
+    // Technically, it seems that it should be possible to just make windows use 8bpp bitmaps, but
+    // I wasn't able to make it work.
+
+    // Maybe the DC isn't always 32-bit? I'm not trusting Windows being consistent or sensible.
+    let window = match with_forge(|forge| forge.window.as_ref().map(|x| x.handle)) {
+        Some(s) => s,
+        None => return 0,
+    };
+    let dc = GetDC(window);
+    if dc.is_null() {
+        error!("GetBitmapBitsHook couldn't access default DC: {}", io::Error::last_os_error());
+        // BW actually doesn't check the return value D:
+        return 0;
+    }
+    let bpp = GetDeviceCaps(dc, BITSPIXEL) as u32;
+    ReleaseDC(window, dc);
+    if bpp % 8 != 0 || bpp > 32 || bpp == 0 {
+        error!("Nonsensical value for DC bit depth: {}", bpp);
+        return 0;
+    }
+
+    // 0xff, 0xffff, etc
+    let pixel_mask = ((1 << bpp as u64) - 1) as u32;
+    let bytes_per_pixel = bpp / 8;
+    let mut buffer = vec![0; size as usize * bytes_per_pixel as usize];
+    let bytes_read = orig(bitmap, size * bytes_per_pixel, buffer.as_mut_ptr() as *mut c_void);
+
+    let mut bw_buffer = bits as *mut u8;
+    let mut pos = 0;
+    while pos < bytes_read as usize {
+        let val = *(buffer.as_ptr().add(pos) as *const u32) & pixel_mask;
+        *bw_buffer.add(pos) = match val {
+            0 => 0,
+            _ => 255,
+        };
+        pos += bytes_per_pixel as usize;
+        bw_buffer = bw_buffer.add(1);
+    }
+    bytes_read / bytes_per_pixel
+}
+
 pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
+    use self::hooks::*;
     let mut starcraft = patcher.patch_exe(0x0040_0000);
     starcraft.import_hook_opt(&b"user32"[..], CreateWindowExA, create_window);
     starcraft.import_hook_opt(&b"user32"[..], RegisterClassExA, register_class);
-    starcraft.hook_closure(CrashBeforeWindowCreation, |_: &Fn()| panic!("todo"));
+    starcraft.import_hook_opt(&b"user32"[..], GetSystemMetrics, get_system_metrics);
+    starcraft.import_hook_opt(&b"kernel32"[..], GetProcAddress, get_proc_address);
+    starcraft.import_hook_opt(&b"user32"[..], IsIconic, is_iconic);
+    starcraft.import_hook_opt(&b"user32"[..], ClientToScreen, client_to_screen);
+    starcraft.import_hook_opt(&b"user32"[..], ScreenToClient, screen_to_client);
+    starcraft.import_hook_opt(&b"user32"[..], GetClientRect, get_client_rect);
+    starcraft.import_hook(&b"user32"[..], GetCursorPos, get_cursor_pos);
+    starcraft.import_hook_opt(&b"user32"[..], SetCursorPos, set_cursor_pos);
+    starcraft.import_hook(&b"user32"[..], ClipCursor, clip_cursor);
+    starcraft.import_hook(&b"user32"[..], SetCapture, set_capture);
+    starcraft.import_hook(&b"user32"[..], ReleaseCapture, release_capture);
+    starcraft.import_hook_opt(&b"user32"[..], ShowWindow, show_window);
+    starcraft.import_hook_opt(&b"user32"[..], GetKeyState, get_key_state);
+    starcraft.import_hook_opt(&b"gdi32"[..], CreateCompatibleBitmap, create_compatible_bitmap);
+    starcraft.import_hook_opt(&b"gdi32"[..], DeleteObject, gdi_delete_object);
+    starcraft.import_hook_opt(&b"gdi32"[..], GetObjectA, gdi_get_object);
+    starcraft.import_hook_opt(&b"gdi32"[..], GetBitmapBits, get_bitmap_bits);
+    starcraft.hook_opt(RenderScreen, render_screen);
+    starcraft.apply();
+
+    let mut storm = patcher.patch_library("storm", 0x1500_0000);
+    storm.import_hook_opt(&b"user32"[..], IsIconic, is_iconic);
+    storm.import_hook_opt(&b"user32"[..], IsWindowVisible, is_window_visible);
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
@@ -722,6 +1151,9 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         input_disabled: false,
         bw_window_active: false,
         window_active: false,
+        real_create_sound_buffer: None,
+        active_bitmap: None,
+        captured_window: None,
     });
 }
 
@@ -747,12 +1179,14 @@ pub unsafe fn run_wnd_proc() {
     std::process::exit(0);
 }
 
-pub unsafe fn end_wnd_proc() {
+pub fn end_wnd_proc() {
     let handle = with_forge(|forge| {
         match forge.window {
             Some(ref s) => s.handle,
             None => panic!("Cannot stop running window procedure without a window"),
         }
     });
-    PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
+    unsafe {
+        PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
+    }
 }

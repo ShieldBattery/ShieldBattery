@@ -1,11 +1,12 @@
 use std::ffi::{OsStr, OsString};
+use std::io;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr::null_mut;
 
 use libc::c_void;
 
 use scopeguard::defer;
-use winapi::shared::minwindef::{HMODULE};
+use winapi::shared::minwindef::{FARPROC, HMODULE};
 use winapi::um::libloaderapi::{FreeLibrary, GetModuleFileNameW, GetModuleHandleExW};
 use winapi::um::winuser::{MessageBoxW};
 
@@ -70,5 +71,76 @@ pub fn message_box(caption: &str, msg: &str) {
             winapi_str(caption).as_ptr(),
             0,
         );
+    }
+}
+
+pub fn load_library<T: AsRef<OsStr>>(name: T) -> Result<Library, io::Error> {
+    use winapi::um::libloaderapi::LoadLibraryW;
+    unsafe {
+        let handle = LoadLibraryW(winapi_str(name).as_ptr());
+        if handle.is_null() {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(Library(handle))
+        }
+    }
+}
+
+#[derive(Eq, PartialEq)]
+pub struct Library(HMODULE);
+
+impl Library {
+    pub fn proc_address(self, proc: &str) -> Result<FARPROC, io::Error> {
+        use winapi::um::libloaderapi::GetProcAddress;
+        unsafe {
+            let string = match std::ffi::CString::new(proc) {
+                Ok(o) => o,
+                Err(e) => return Err(io::ErrorKind::InvalidInput.into()),
+            };
+            let result = GetProcAddress(self.0, string.as_ptr());
+            if result.is_null() {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(result)
+            }
+        }
+    }
+}
+
+impl Drop for Library {
+    fn drop(&mut self) {
+        unsafe {
+            FreeLibrary(self.0);
+        }
+    }
+}
+
+pub unsafe fn unprotect_memory(
+    addr: *mut c_void,
+    length: usize,
+) -> Result<MemoryProtectionGuard, io::Error> {
+    use winapi::um::memoryapi::VirtualProtect;
+    use winapi::um::winnt::{PAGE_EXECUTE_READWRITE};
+    let mut old = 0;
+    let ok = VirtualProtect(addr as *mut _, length, PAGE_EXECUTE_READWRITE, &mut old);
+    match ok {
+        0 => Err(io::Error::last_os_error()),
+        _ => Ok(MemoryProtectionGuard(addr, length, old)),
+    }
+}
+
+#[must_use]
+pub struct MemoryProtectionGuard(*mut c_void, usize, u32);
+
+impl Drop for MemoryProtectionGuard {
+    fn drop(&mut self) {
+        use winapi::um::memoryapi::VirtualProtect;
+        unsafe {
+            let mut old = 0;
+            let ok = VirtualProtect(self.0 as *mut _, self.1, self.2, &mut old);
+            if ok == 0 {
+                error!("Couldn't reprotect memory: {}", io::Error::last_os_error());
+            }
+        }
     }
 }

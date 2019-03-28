@@ -35,7 +35,9 @@ websocket = "0.22.3"
 
 [dependencies.winapi]
 version = "0.3.3"
-features = ["libloaderapi", "processthreadsapi", "winuser"]
+features = [
+    "dsound", "libloaderapi", "memoryapi", "processthreadsapi", "unknwnbase", "winuser", "wingdi",
+]
 
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"

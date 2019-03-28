@@ -163,6 +163,9 @@ unsafe fn patch_game() {
     bw::init_vars(&mut exe);
     exe.hook_opt(bw::WinMain, entry_point_hook);
     exe.hook(bw::GameInit, process_init_hook);
+    // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
+    exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
+    exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
 }
 
 fn entry_point_hook(
@@ -213,6 +216,7 @@ fn process_init_hook() {
 }
 
 fn run_main_thread_event_loop() -> ! {
+    debug!("Main thread reached event loop");
     let mut receive_requests = GAME_RECEIVE_REQUESTS.lock().unwrap();
     let receive_requests = receive_requests.take().expect("Channel to receive requests not set?");
     while let Ok(msg) = receive_requests.recv() {
@@ -230,8 +234,6 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
     match request {
         Initialize => init_bw(),
         RunWndProc => forge::run_wnd_proc(),
-        SetupSlots(game_type, slots) => unimplemented!(),
-        InitLobby => unimplemented!(),
         StartGame => unimplemented!(),
     }
 }
@@ -326,17 +328,10 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
         .filter_map(|message| {
             match message {
                 GameThreadMessage::WindowMove(x, y) => {
-                    let result = encode_message("/game/windowMove", WindowMove {
+                    encode_message("/game/windowMove", WindowMove {
                         x,
                         y,
-                    });
-                    match result {
-                        Ok(o) => Some(AsyncMessage::WebSocket(o)),
-                        Err(e) => {
-                            error!("JSON encode error: {}", e);
-                            None
-                        }
-                    }
+                    }).map(AsyncMessage::WebSocket)
                 }
             }
         })
@@ -577,14 +572,26 @@ struct SetupProgressInfo {
 fn encode_message<T: Serialize>(
     command: &str,
     data: T,
-) -> Result<websocket::OwnedMessage, serde_json::Error> {
-    let payload = serde_json::to_value(data)?;
-    let message = Message {
-        command: command.into(),
-        payload: Some(payload),
-    };
-    let string = serde_json::to_string(&message)?;
-    Ok(websocket::OwnedMessage::Text(string))
+) -> Option<websocket::OwnedMessage> {
+    fn inner<T: Serialize>(
+        command: &str,
+        data: T,
+    ) -> Result<websocket::OwnedMessage, serde_json::Error> {
+        let payload = serde_json::to_value(data)?;
+        let message = Message {
+            command: command.into(),
+            payload: Some(payload),
+        };
+        let string = serde_json::to_string(&message)?;
+        Ok(websocket::OwnedMessage::Text(string))
+    }
+    match inner(command, data) {
+        Ok(o) => Some(o),
+        Err(e) => {
+            error!("JSON encode error: {}", e);
+            None
+        }
+    }
 }
 
 quick_error! {
@@ -684,12 +691,7 @@ struct GameType {
 enum GameThreadRequestType {
     Initialize,
     RunWndProc,
-    SetupSlots(GameType, Slots),
-    InitLobby,
     StartGame,
-}
-
-struct Slots {
 }
 
 struct JoinGameInfo {

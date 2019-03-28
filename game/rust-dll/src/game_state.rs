@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use futures::future::Either;
 use quick_error::quick_error;
@@ -11,7 +12,8 @@ use crate::{
     GameThreadRequestType, GameType, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::bw;
-use crate::cancel_token::{cancelable_channel, CancelableReceiver};
+use crate::cancel_token::{CancelToken, Canceler, cancelable_channel, CancelableReceiver};
+use crate::forge;
 use crate::route_manager::{RouteManager, RouteInput, Route};
 use crate::snp;
 
@@ -23,7 +25,12 @@ pub struct GameState {
     senders: AsyncSenders,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
+    chat_ally_override: Option<Vec<StormPlayerId>>,
+    running_game: Option<Canceler>,
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+struct StormPlayerId(u8);
 
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
@@ -53,7 +60,7 @@ pub struct GameSetupInfo {
 
 impl GameSetupInfo {
     fn game_type(&self) -> Option<GameType> {
-        let primary = match self.game_type {
+        let primary = match &*self.game_type {
             "melee" => 0x2,
             "ffa" => 0x3,
             "oneVOne" => 0x4,
@@ -136,6 +143,8 @@ impl GameState {
             senders,
             init_main_thread,
             send_main_thread_requests,
+            chat_ally_override: None,
+            running_game: None,
         }
     }
 
@@ -187,6 +196,17 @@ impl GameState {
                 return box_future(Err(err).into_future());
             }
         };
+        let is_observer = info.slots.iter().find(|x| x.name == local_user.name)
+            .map(|slot| slot.player_type == "observer")
+            .unwrap_or(false);
+        if is_observer {
+            unimplemented!("Override chat allies");
+        } else {
+            self.chat_ally_override = None;
+        }
+
+        let info = Arc::new(info);
+        self.init_main_thread.send(()).expect("Main thread should be waiting for a wakeup");
         let init_request = GameThreadRequestType::Initialize;
         let is_host = local_user.name == info.host.name;
         let map_path = info.map_path.clone().into();
@@ -201,9 +221,10 @@ impl GameState {
                 unsafe {
                     remaining_game_init(&local_user);
                     if is_host {
-                        Either::A(create_lobby(game_type, map_path))
+                        create_lobby(game_type, map_path);
+                        Ok(())
                     } else {
-                        Either::B(Ok(()).into_future())
+                        Ok(())
                     }
                 }
             });
@@ -223,16 +244,53 @@ impl GameState {
                 assert!(routes.is_empty());
                 Ok(()).into_future()
             });
+        let info2 = info.clone();
         let in_lobby = pre_network_init.join(routes)
             .and_then(move |((), ())| {
                 if !is_host {
-                    Either::A(join_lobby(&info))
+                    unsafe {
+                        Either::A(join_lobby(&info2))
+                    }
                 } else {
                     Either::B(Ok(()).into_future())
                 }
             });
-
-        unimplemented!();
+        let info2 = info.clone();
+        let info3 = info.clone();
+        let lobby_ready = in_lobby
+            .and_then(move |_| {
+                debug!("In lobby, setting up slots");
+                unsafe {
+                    setup_slots(&info2);
+                    wait_for_players(&info2)
+                }
+            })
+            .and_then(move |()| {
+                unsafe {
+                    do_lobby_game_init(&info3);
+                }
+                Ok(())
+            });
+        let ws_send = self.senders.websocket.clone();
+        let game_request_send = self.send_main_thread_requests.clone();
+        let finished = lobby_ready
+            .and_then(|()| {
+                forge::end_wnd_proc();
+                websocket_send_message(ws_send, "/game/start", ())
+                    .map_err(|_| GameInitError::Closed)
+            }).and_then(move |ws_send| {
+                let start_game_request = GameThreadRequestType::StartGame;
+                let game_done = send_game_request(&game_request_send, start_game_request)
+                    .map(|()| ws_send)
+                    .map_err(|_| GameInitError::Closed);
+                game_done
+            }).and_then(|ws_send| {
+                let results: i32 = unimplemented!();
+                websocket_send_message(ws_send, "/game/end", results)
+                    .map(|_| ())
+                    .map_err(|_| GameInitError::Closed)
+            });
+        box_future(finished)
     }
 
     fn handle_message(&mut self, message: GameStateMessage) {
@@ -247,38 +305,66 @@ impl GameState {
                     .or_else(|e| {
                         let msg = format!("Failed to init game: {}", e);
                         error!("{}", msg);
-                        let result = crate::encode_message("/game/setupProgress", SetupProgress {
+
+                        let message = SetupProgress {
                             status: crate::SetupProgressInfo {
                                 state: GAME_STATUS_ERROR,
                                 extra: Some(msg),
                             },
-                        });
-                        match result {
-                            Ok(o) => {
-                                box_future(ws_send.send(o).then(|_| Err(())))
-                            }
-                            Err(e) => {
-                                error!("JSON encode error: {}", e);
-                                box_future(Err(()).into_future())
-                            }
-                        }
+                        };
+                        websocket_send_message(ws_send, "/game/setupProgress", message)
+                            .map(|_| ())
                     })
                     .then(|_| {
-                        debug!("Game init task ended");
+                        debug!("Game setup & play task ended");
                         Ok(())
                     });
-                debug!("Spawning game init task");
-                tokio::spawn(task);
+                let (cancel_token, canceler) = CancelToken::new();
+                self.running_game = Some(canceler);
+                tokio::spawn(cancel_token.bind(task));
             }
         }
     }
 }
 
-fn create_lobby(game_type: GameType, map_path: PathBuf) -> BoxedFuture<(), GameInitError> {
+unsafe fn create_lobby(game_type: GameType, map_path: PathBuf) -> BoxedFuture<(), GameInitError> {
+    // const params = {
+    //   mapPath,
+    //   gameType: gameTypes[gameType](gameSubType),
+    // }
+    // await bw.createLobby(params)
+    // if (!this.bindings.createGame(gameSettings)) {
+    //   throw new Error('Could not create game')
+    // }
+    // this.bindings.initGameNetwork()
     unimplemented!()
 }
 
-fn join_lobby(info: &GameSetupInfo) -> BoxedFuture<(), GameInitError> {
+unsafe fn join_lobby(info: &GameSetupInfo) -> BoxedFuture<(), GameInitError> {
+    // this._log('verbose', 'Attempting to join lobby')
+
+    // this.bindings.spoofGame('shieldbattery', false, host, port)
+    // const isJoined = await new Promise(resolve => {
+    //   this.bindings.joinGame(mapPath, bwGameInfo, resolve)
+    // })
+    // if (!isJoined) {
+    //   throw new Error('Could not join game')
+    // }
+
+    // this.bindings.initGameNetwork()
+    // inLobby = true
+    unimplemented!()
+}
+
+unsafe fn setup_slots(info: &GameSetupInfo) {
+    unimplemented!()
+}
+
+unsafe fn wait_for_players(info: &GameSetupInfo) -> BoxedFuture<(), GameInitError> {
+    unimplemented!()
+}
+
+unsafe fn do_lobby_game_init(info: &GameSetupInfo) -> BoxedFuture<(), GameInitError> {
     unimplemented!()
 }
 
@@ -320,4 +406,16 @@ unsafe fn remaining_game_init(local_user: &LocalUser) {
     // see much reason to do that?
     bw::choose_network_provider(snp::PROVIDER_ID);
     *bw::is_multiplayer = 1;
+}
+
+fn websocket_send_message<T: serde::Serialize>(
+    send: mpsc::Sender<websocket::OwnedMessage>,
+    command: &str,
+    data: T,
+) -> impl Future<Item = mpsc::Sender<websocket::OwnedMessage>, Error = ()> {
+    let message = crate::encode_message(command, data);
+    match message {
+        Some(o) => box_future(send.send(o).map_err(|_| ())),
+        None => box_future(Err(()).into_future()),
+    }
 }

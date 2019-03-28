@@ -31,6 +31,10 @@ pub mod storm {
     );
 }
 
+// Misc non-function-level patches
+pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
+pub const INIT_SPRITES_RENDER_TWO: usize = 0x0047AFB1;
+
 #[repr(C)]
 pub struct GameInfo {
 }
