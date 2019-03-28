@@ -1,5 +1,5 @@
 import { replace } from 'connected-react-router'
-import { createPath } from 'history/PathUtils'
+import { createPath } from 'history'
 import queryString from 'query-string'
 
 export function isLoggedIn(authState) {

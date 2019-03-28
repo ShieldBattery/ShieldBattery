@@ -48,6 +48,7 @@ const options = {
                     targets: { node: '7.4' },
                     modules: false,
                     useBuiltIns: 'entry',
+                    corejs: '3.0.0',
                   },
                 ],
               ],

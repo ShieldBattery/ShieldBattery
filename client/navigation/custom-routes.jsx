@@ -19,6 +19,7 @@ export const LoginRoute = ({ component: Component, ...rest }) => (
 // Note: Filters are resolved in the order they are placed in the array
 export const ConditionalRoute = ({ path, filters, ...rest }) =>
   filters
+    .slice() // Don't mutate the original array
     .reverse()
     .reduce(
       (children, Filter) => <Filter path={path}>{children}</Filter>,

@@ -31,6 +31,7 @@ const babelOpts = {
         targets: { browsers: TARGET_BROWSERS },
         modules: false,
         useBuiltIns: 'entry',
+        corejs: '3.0.0',
       },
     ],
   ],

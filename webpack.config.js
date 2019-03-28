@@ -28,6 +28,7 @@ const babelOpts = {
         targets: { electron: '1.7' },
         modules: false,
         useBuiltIns: 'entry',
+        corejs: '3.0.0',
       },
     ],
   ],
