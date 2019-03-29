@@ -7,8 +7,10 @@ use libc::c_void;
 
 use scopeguard::defer;
 use winapi::shared::minwindef::{FARPROC, HMODULE};
+use winapi::um::handleapi::{CloseHandle, DuplicateHandle};
 use winapi::um::libloaderapi::{FreeLibrary, GetModuleFileNameW, GetModuleHandleExW};
 use winapi::um::winuser::{MessageBoxW};
+use winapi::um::winnt::HANDLE;
 
 /// Convert a rust string to a winapi-usable 0-terminated unicode u16 Vec
 pub fn winapi_str<T: AsRef<OsStr>>(input: T) -> Vec<u16> {
@@ -18,9 +20,87 @@ pub fn winapi_str<T: AsRef<OsStr>>(input: T) -> Vec<u16> {
     buf
 }
 
+// If the conversion was lossy, returns Err(lossy_result)
+pub fn ansi_codepage_cstring<T: AsRef<OsStr>>(input: T) -> Result<Vec<u8>, Vec<u8>> {
+    use winapi::um::stringapiset::WideCharToMultiByte;
+    use winapi::um::winnls::CP_ACP;
+
+    unsafe {
+        let os_str = input.as_ref();
+        let unicode = winapi_str(os_str);
+        let length = WideCharToMultiByte(
+            CP_ACP,
+            0,
+            unicode.as_ptr(),
+            unicode.len() as i32,
+            null_mut(),
+            0,
+            null_mut(),
+            null_mut(),
+        );
+        let mut buffer = vec![0u8; length as usize];
+        let mut used_default_char = 0;
+        WideCharToMultiByte(
+            CP_ACP,
+            0,
+            unicode.as_ptr(),
+            unicode.len() as i32,
+            buffer.as_mut_ptr() as *mut i8,
+            length,
+            null_mut(),
+            &mut used_default_char,
+        );
+        assert!(buffer[length as usize - 1] == 0);
+        if used_default_char != 0 {
+            warn!("Couldn't losslessly convert '{}' to ANSI codepage", os_str.to_string_lossy());
+            Err(buffer)
+        } else {
+            Ok(buffer)
+        }
+    }
+}
+
 pub fn os_string_from_winapi(input: &[u16]) -> OsString {
     OsString::from_wide(input)
 }
+
+pub struct OwnedHandle(HANDLE);
+unsafe impl Send for OwnedHandle {} // Should be valid for all winapi handles..?
+
+impl OwnedHandle {
+    pub fn duplicate(handle: HANDLE) -> Result<OwnedHandle, io::Error> {
+        use winapi::um::processthreadsapi::GetCurrentProcess;
+        use winapi::um::winnt::DUPLICATE_SAME_ACCESS;
+
+        unsafe {
+            let current_process = GetCurrentProcess();
+            let mut out = null_mut();
+            let ok = DuplicateHandle(
+                current_process,
+                handle,
+                current_process,
+                &mut out,
+                0,
+                0,
+                DUPLICATE_SAME_ACCESS,
+            );
+            if ok == 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(OwnedHandle(out))
+            }
+        }
+    }
+}
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.0);
+        }
+    }
+}
+
 
 pub fn module_from_address(address: *mut c_void) -> Option<(OsString, HMODULE)> {
     unsafe {
@@ -90,14 +170,26 @@ pub fn load_library<T: AsRef<OsStr>>(name: T) -> Result<Library, io::Error> {
 pub struct Library(HMODULE);
 
 impl Library {
-    pub fn proc_address(self, proc: &str) -> Result<FARPROC, io::Error> {
+    pub fn proc_address(&self, proc: &str) -> Result<FARPROC, io::Error> {
         use winapi::um::libloaderapi::GetProcAddress;
         unsafe {
             let string = match std::ffi::CString::new(proc) {
                 Ok(o) => o,
-                Err(e) => return Err(io::ErrorKind::InvalidInput.into()),
+                Err(_) => return Err(io::ErrorKind::InvalidInput.into()),
             };
             let result = GetProcAddress(self.0, string.as_ptr());
+            if result.is_null() {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(result)
+            }
+        }
+    }
+
+    pub fn proc_address_ordinal(&self, ordinal: u16) -> Result<FARPROC, io::Error> {
+        use winapi::um::libloaderapi::GetProcAddress;
+        unsafe {
+            let result = GetProcAddress(self.0, ordinal as usize as *const i8);
             if result.is_null() {
                 Err(io::Error::last_os_error())
             } else {

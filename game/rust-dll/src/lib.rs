@@ -5,9 +5,10 @@ mod bw;
 mod cancel_token;
 mod forge;
 mod game_state;
+mod network_manager;
 mod rally_point;
-mod route_manager;
 mod snp;
+mod storm;
 mod windows;
 
 use std::path::PathBuf;
@@ -25,6 +26,8 @@ use websocket::r#async::client::{ClientNew, TcpStream};
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 
 use game_state::{GameStateMessage, GameState};
+
+const WAIT_DEBUGGER: bool = false;
 
 #[derive(Deserialize)]
 pub struct Settings {
@@ -163,9 +166,16 @@ unsafe fn patch_game() {
     bw::init_vars(&mut exe);
     exe.hook_opt(bw::WinMain, entry_point_hook);
     exe.hook(bw::GameInit, process_init_hook);
+    exe.hook_opt(bw::OnSNetPlayerJoined, player_joined);
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
+}
+
+fn player_joined(info: *mut c_void, orig: &Fn(*mut c_void)) {
+    // We could get storm id from the event info, but it's not used anywhere atm
+    game_thread_message(GameThreadMessage::PlayerJoined);
+    orig(info);
 }
 
 fn entry_point_hook(
@@ -175,6 +185,15 @@ fn entry_point_hook(
     a4: i32,
     orig: &Fn(*mut c_void, *mut c_void, *const u8, i32) -> i32,
 ) -> i32 {
+    if WAIT_DEBUGGER {
+        let start = Instant::now();
+        while unsafe { winapi::um::debugapi::IsDebuggerPresent() == 0 } {
+            std::thread::sleep(Duration::from_millis(10));
+            if start.elapsed().as_secs() > 100 {
+                std::process::exit(0);
+            }
+        }
+    }
     // In addition to just setting up a connection to the client,
     // initialize will also get the game settings and wait for startup command from the
     // Shieldbattery client. As such, relatively lot will happen before we let BW execute even a
@@ -234,7 +253,12 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
     match request {
         Initialize => init_bw(),
         RunWndProc => forge::run_wnd_proc(),
-        StartGame => unimplemented!(),
+        StartGame => {
+            forge::game_started();
+            bw::game_loop();
+            // TODO results
+            //forge::hide_window();
+        }
     }
 }
 
@@ -332,6 +356,12 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
                         x,
                         y,
                     }).map(AsyncMessage::WebSocket)
+                }
+                GameThreadMessage::Snp(snp) => {
+                    Some(AsyncMessage::Game(GameStateMessage::Snp(snp)))
+                }
+                GameThreadMessage::PlayerJoined => {
+                    Some(AsyncMessage::Game(GameStateMessage::PlayerJoined))
                 }
             }
         })
@@ -515,7 +545,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     // Should not really matter.
     tokio::run(future::lazy(|| {
         let (websocket_send, websocket_recv) = tokio::sync::mpsc::channel(32);
-        let (game_state_send, game_state_recv) = tokio::sync::mpsc::channel(32);
+        let (game_state_send, game_state_recv) = tokio::sync::mpsc::channel(128);
         let (game_requests_send, game_requests_recv) = std::sync::mpsc::channel();
         let (cancel_token, canceler) = cancel_token::CancelToken::new();
         *GAME_RECEIVE_REQUESTS.lock().unwrap() = Some(game_requests_recv);
@@ -673,6 +703,8 @@ fn try_parse_args() -> Option<Args> {
 // Game thread sends something to async tasks
 enum GameThreadMessage {
     WindowMove(i32, i32),
+    Snp(snp::SnpMessage),
+    PlayerJoined,
 }
 
 // Async tasks request game thread to do some work
@@ -683,9 +715,21 @@ pub struct GameThreadRequest {
     done: tokio::sync::oneshot::Sender<()>,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct GameType {
     primary: u8,
     subtype: u8,
+}
+
+impl GameType {
+    pub fn as_u32(self) -> u32 {
+        self.primary as u32 | ((self.subtype as u32) << 16)
+    }
+
+    pub fn is_ums(&self) -> bool {
+        self.primary == 0xa
+    }
+
 }
 
 enum GameThreadRequestType {

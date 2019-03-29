@@ -235,7 +235,7 @@ impl_ddraw! {
         }
         DD_OK
     }
-    ~unimpl DuplicateSurface(surface: *mut IDirectDrawSurface7, out: *mut *mut IDirectDrawSurface7) {
+    ~unimpl DuplicateSurface(_surface: *mut IDirectDrawSurface7, _out: *mut *mut IDirectDrawSurface7) {
         debug!("DuplicateSurface");
     }
     ~unimpl EnumDisplayModes(

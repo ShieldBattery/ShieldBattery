@@ -4,17 +4,37 @@ use winapi::shared::ntdef::HANDLE;
 whack_hooks!(stdcall, 0x00400000,
     0x004E0AE0 => WinMain(*mut c_void, *mut c_void, *const u8, i32) -> i32;
     0x004E08A5 => GameInit();
+    0x004C4980 => OnSNetPlayerJoined(*mut c_void);
 );
 
-whack_funcs!(init_funcs, 0x00400000,
+whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004D7390 => init_sprites();
     0x004D3CC0 => choose_network_provider(@ebx u32);
+    0x004A8050 => select_map_or_directory(
+        // game_name, password, game_type, speed, directory, map entry
+        *const u8, *const u8, u32, u32, *const u8, @eax *mut MapListEntry
+    ) -> u32;
+    0x004A73C0 => get_maps_list(
+        // flags, directory, last_map_name, callback(entry, name, flags) -> listbox_index
+        u32, *const u8, *const u8,
+        @eax unsafe extern "stdcall" fn(*mut MapListEntry, *const u8, u32) -> u32,
+    );
+    0x004D4130 => init_game_network();
+    0x00472110 => on_lobby_game_init(@eax u32, @edx *const LobbyGameInitData);
+    0x004A8D40 => update_nation_and_human_ids(@esi u32);
+    0x00470D10 => init_network_player_info(u32, u32, u32, u32);
+    0x004E0710 => game_loop();
 );
 
 whack_vars!(init_vars, 0x00400000,
     0x0058F440 => is_brood_war: u8;
     0x0057EE9C => local_player_name: [u8; 25];
     0x0057F0B4 => is_multiplayer: u8;
+    0x0059BB70 => current_map_folder_path: [u8; 260];
+    0x0051A278 => map_list_root: *mut MapListEntry;
+    0x0057EEE0 => players: [Player; 12];
+    0x0051268C => local_storm_id: u32;
+    0x0066FBFA => lobby_state: u8;
 );
 
 pub mod storm {
@@ -44,6 +64,41 @@ pub const GAME_STATE_FULL: u32 = 0x02;
 pub const GAME_STATE_ACTIVE: u32 = 0x04;
 pub const GAME_STATE_STARTED: u32 = 0x08;
 pub const GAME_STATE_REPLAY: u32 = 0x80;
+
+pub const PLAYER_TYPE_NONE: u8 = 0x0;
+pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
+pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
+pub const PLAYER_TYPE_OPEN: u8 = 0x6;
+pub const RACE_ZERG: u8 = 0x0;
+pub const RACE_TERRAN: u8 = 0x1;
+pub const RACE_PROTOSS: u8 = 0x2;
+pub const RACE_RANDOM: u8 = 0x6;
+
+#[repr(C, packed)]
+pub struct Player {
+    pub player_id: u32,
+    pub storm_id: u32,
+    pub player_type: u8,
+    pub race: u8,
+    pub team: u8,
+    pub name: [u8; 25],
+}
+
+// A packet which bw sends to init game data
+#[repr(C, packed)]
+pub struct LobbyGameInitData {
+    pub game_init_command: u8,
+    pub random_seed: u32,
+    pub player_bytes: [u8; 8],
+}
+
+#[repr(C, packed)]
+pub struct MapListEntry {
+    // Storm list pointers, so any value < 0 is list end
+    pub prev: *mut MapListEntry,
+    pub next: *mut MapListEntry,
+    pub name: [u8; 32],
+}
 
 #[repr(C)]
 #[derive(Clone)]
@@ -81,7 +136,7 @@ pub struct SnpFunctions {
     pub enum_devices: unsafe extern "stdcall" fn(*mut *mut c_void) -> i32,
     pub receive_games_list: unsafe extern "stdcall" fn(u32, u32, *mut *mut SnpGameInfo) -> i32,
     pub receive_packet:
-        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *mut u8, *mut u32) -> i32,
+        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
     pub receive_server_packet:
         unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *mut c_void, *mut u32) -> i32,
     pub func13: *mut c_void, // SelectGame
@@ -165,5 +220,6 @@ unsafe impl Sync for ClientInfo {}
 fn struct_sizes() {
     use std::mem::size_of;
     assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
+    assert_eq!(size_of::<Player>(), 0x24);
     // TODO should check also rest
 }

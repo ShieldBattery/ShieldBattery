@@ -68,6 +68,10 @@ unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
 }
 
 unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
+    if std::thread::panicking() {
+        // Avoid recursive locking due to panics
+        return DefWindowProcA(window, msg, wparam, lparam);
+    }
     const FOREGROUND_HOTKEY_ID: i32 = 1337;
     const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
@@ -191,7 +195,11 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
             }
         }
         WM_NCACTIVATE => {
+            // This has to be done in a tricky way to avoid recursive locking
+            let mut key_release_messages = Vec::new();
+            let mut orig_wnd_proc = None;
             with_forge(|forge| {
+                orig_wnd_proc = forge.orig_wnd_proc;
                 let settings = &forge.settings;
                 let activate = wparam != 0;
                 if forge.game_started && forge.renderer.uses_swap_buffers() &&
@@ -226,10 +234,17 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                         VK_MENU, VK_CONTROL, VK_SHIFT, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
                     ];
                     for &key in significant_held_keys_in_bw.iter() {
-                        forge.release_held_key(key);
+                        if let Some(msg) = forge.release_held_key_message(key) {
+                            key_release_messages.push(msg);
+                        }
                     }
                 }
             });
+            if let Some(orig_wnd_proc) = orig_wnd_proc {
+                for (msg, wparam, lparam) in key_release_messages {
+                    orig_wnd_proc(window, msg, wparam, lparam);
+                }
+            }
             return DefWindowProcA(window, msg, wparam, lparam);
         }
         WM_GAME_STARTED => {
@@ -562,30 +577,27 @@ impl Forge {
         }
     }
 
-    fn release_held_key(&self, key: i32) {
+    fn release_held_key_message(&self, key: i32) -> Option<(u32, usize, isize)> {
         let window = match self.window {
             Some(ref w) => w,
-            None => return,
-        };
-        let wnd_proc = match self.orig_wnd_proc {
-            Some(w) => w,
-            None => return,
+            None => return None,
         };
         let (x, y) = self.screen_to_game_pos(self.real_cursor_pos.0, self.real_cursor_pos.1);
         let mouse_lparam = (x as u16 as isize) | ((y as u16 as isize) << 16);
         unsafe {
             if GetAsyncKeyState(key) as u16 & 0x8000 != 0 {
-                match key {
-                    VK_LBUTTON => wnd_proc(window.handle, WM_LBUTTONUP, 0, mouse_lparam),
-                    VK_RBUTTON => wnd_proc(window.handle, WM_RBUTTONUP, 0, mouse_lparam),
-                    VK_MBUTTON => wnd_proc(window.handle, WM_MBUTTONUP, 0, mouse_lparam),
+                return Some(match key {
+                    VK_LBUTTON => (WM_LBUTTONUP, 0, mouse_lparam),
+                    VK_RBUTTON => (WM_RBUTTONUP, 0, mouse_lparam),
+                    VK_MBUTTON => (WM_MBUTTONUP, 0, mouse_lparam),
                     // lparam could be better, but bw shouldn't even look at it..
                     other => {
-                        wnd_proc(window.handle, WM_KEYUP, other as usize, 0xc0000001u32 as isize)
+                        (WM_KEYUP, other as usize, 0xc0000001u32 as isize)
                     }
-                };
+                });
             }
         }
+        None
     }
 
     fn screen_to_game_pos(&self, x: i16, y: i16) -> (i16, i16) {
@@ -1055,7 +1067,7 @@ unsafe fn get_bitmap_bits(
     let mut bw_buffer = bits as *mut u8;
     let mut pos = 0;
     while pos < bytes_read as usize {
-        let val = *(buffer.as_ptr().add(pos) as *const u32) & pixel_mask;
+        let val = (buffer.as_ptr().add(pos) as *const u32).read_unaligned() & pixel_mask;
         *bw_buffer.add(pos) = match val {
             0 => 0,
             _ => 255,
@@ -1188,5 +1200,33 @@ pub fn end_wnd_proc() {
     });
     unsafe {
         PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
+    }
+}
+
+pub fn game_started() {
+    let handle = with_forge(|forge| {
+        match forge.window {
+            Some(ref s) => Some(s.handle),
+            None => None,
+        }
+    });
+    if let Some(handle) = handle {
+        unsafe {
+            PostMessageA(handle, WM_GAME_STARTED, 0, 0);
+        }
+    }
+}
+
+pub fn hide_window() {
+    let handle = with_forge(|forge| {
+        match forge.window {
+            Some(ref s) => Some(s.handle),
+            None => None,
+        }
+    });
+    if let Some(handle) = handle {
+        unsafe {
+            ShowWindow(handle, SW_HIDE);
+        }
     }
 }

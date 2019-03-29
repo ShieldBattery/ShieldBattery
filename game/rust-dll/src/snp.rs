@@ -9,13 +9,14 @@ use winapi::um::libloaderapi::{GetModuleFileNameA};
 use winapi::shared::ntdef::HANDLE;
 
 use crate::bw::{self, storm};
-use crate::windows;
+use crate::windows::{self, OwnedHandle};
 use crate::{game_thread_message};
 
 // 'SBAT'
 pub const PROVIDER_ID: u32 = 0x53424154;
 // min-MTU - (rally-point-overhead) - (max-IP-header-size + udp-header-size)
 const SNP_PACKET_SIZE: u32 = 576 - 13 - (60 + 8);
+const STORM_ERROR_NO_MESSAGES_WAITING: u32 = 0x8510006b;
 
 pub static SNP_FUNCTIONS: bw::SnpFunctions = bw::SnpFunctions {
     size: mem::size_of::<bw::SnpFunctions>() as u32,
@@ -55,6 +56,7 @@ struct State {
     spoofed_game: Option<bw::SnpGameInfo>,
     spoofed_game_dirty: bool,
     current_client_info: Option<bw::ClientInfo>,
+    recv_messages: Option<std::sync::mpsc::Receiver<ReceivedMessage>>,
 }
 
 lazy_static! {
@@ -64,6 +66,7 @@ lazy_static! {
         spoofed_game: None,
         spoofed_game_dirty: false,
         current_client_info: None,
+        recv_messages: None,
     });
 }
 
@@ -161,20 +164,25 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
 /// Messages sent to the async SNP task from BW's side.
 pub enum SnpMessage {
     Destroy,
-    // The HANDLE is an event created by storm, signaled when a message is received
-    CreateNetworkHandler(HANDLE),
+    // The handle is an event created by storm, signaled when a message is received
+    CreateNetworkHandler(SendMessages),
+}
+
+pub struct SendMessages {
+    sender: std::sync::mpsc::Sender<ReceivedMessage>,
+    signal_handle: OwnedHandle,
 }
 
 #[repr(C)]
-struct ReceivedMessage {
+pub struct ReceivedMessage {
     // `from` needs to be the first thing in this struct such that from => ReceivedMessage
     // (so we can free what Storm gives us)
-    from: sockaddr,
-    data: Bytes,
+    pub from: sockaddr,
+    pub data: Bytes,
 }
 
 fn send_snp_message(message: SnpMessage) {
-    unimplemented!();
+    crate::game_thread_message(crate::GameThreadMessage::Snp(message));
 }
 
 extern "stdcall" fn unbind() -> i32 {
@@ -235,7 +243,17 @@ unsafe extern "stdcall" fn initialize(
         state.spoofed_game = None;
         state.spoofed_game_dirty = false;
         state.current_client_info = Some((*client_info).clone());
-        send_snp_message(SnpMessage::CreateNetworkHandler(receive_event));
+        // I don't know what's the intended usage pattern with this handle,
+        // but duplicating it should make it safe to send to a thread that may use it
+        // without having to synchronize storm unbinding SNP.
+        let receive_event = OwnedHandle::duplicate(receive_event)
+            .expect("Handle duplication failed");
+        let (send_messages, recv_messages) = std::sync::mpsc::channel();
+        state.recv_messages = Some(recv_messages);
+        send_snp_message(SnpMessage::CreateNetworkHandler(SendMessages {
+            sender: send_messages,
+            signal_handle: receive_event,
+        }));
         1
     })
 }
@@ -258,10 +276,34 @@ unsafe extern "stdcall" fn receive_games_list(
 
 unsafe extern "stdcall" fn receive_packet(
     addr: *mut *mut sockaddr,
-    data: *mut *mut u8,
+    data: *mut *const u8,
     length: *mut u32,
 ) -> i32 {
-    unimplemented!()
+    use std::sync::mpsc::TryRecvError;
+    if addr.is_null() || data.is_null() || length.is_null() {
+        return 0;
+    }
+    let msg = with_state(|state| {
+        if let Some(ref recv) = state.recv_messages {
+            recv.try_recv().ok()
+        } else {
+            error!("Storm tried to receive messages without initializing SNP?");
+            None
+        }
+    });
+    if let Some(msg) = msg {
+        let ptr = Box::into_raw(Box::new(msg));
+        *addr = ptr as *mut sockaddr;
+        *data = (*ptr).data.as_ptr();
+        *length = (*ptr).data.len() as u32;
+        1
+    } else {
+        *addr = null_mut();
+        *data = null_mut();
+        *length = 0;
+        crate::storm::SErrSetLastError(STORM_ERROR_NO_MESSAGES_WAITING);
+        0
+    }
 }
 
 unsafe extern "stdcall" fn receive_server_packet(
