@@ -1,3 +1,4 @@
+mod direct_x;
 mod indirect_draw;
 mod renderer;
 
@@ -578,10 +579,6 @@ impl Forge {
     }
 
     fn release_held_key_message(&self, key: i32) -> Option<(u32, usize, isize)> {
-        let window = match self.window {
-            Some(ref w) => w,
-            None => return None,
-        };
         let (x, y) = self.screen_to_game_pos(self.real_cursor_pos.0, self.real_cursor_pos.1);
         let mouse_lparam = (x as u16 as isize) | ((y as u16 as isize) << 16);
         unsafe {
@@ -636,13 +633,58 @@ impl Window {
 }
 
 const MOUSE_SETTING_MAX: u8 = 10;
-struct Settings {
+pub struct Settings {
     mouse_sensitivity: u8,
     display_mode: DisplayMode,
     window_x: Option<i32>,
     window_y: Option<i32>,
     width: i32,
     height: i32,
+    maintain_aspect_ratio: bool,
+}
+
+impl Settings {
+    fn get_output_size(&self, client_rect: &RECT, ddraw_width: u32, ddraw_height: u32) -> RECT {
+        let mut result = RECT {
+            left: 0,
+            top: 0,
+            right: client_rect.right,
+            bottom: client_rect.bottom,
+        };
+        if self.display_mode == DisplayMode::FullScreen && self.maintain_aspect_ratio {
+            let original_ratio = ddraw_width as f32 / ddraw_height as f32;
+            let actual_ratio = result.right as f32 / result.bottom as f32;
+            if original_ratio > actual_ratio {
+                // we want to avoid having fractional parts to avoid weird alignments in linear
+                // filtering, so we decrease the width until no fractions are necessary. Since BW
+                // s 4:3, this can be done in 3 steps or less
+                let mut height_unrounded = result.right as f32 / original_ratio;
+                while height_unrounded.fract() > 0.0001 {
+                    result.right -= 1;
+                    height_unrounded = result.right as f32 / original_ratio;
+                }
+                result.bottom = height_unrounded as i32;
+            } else {
+                let mut width_unrounded = result.bottom as f32 * original_ratio;
+                while width_unrounded.fract() > 0.0001 {
+                    result.bottom -= 1;
+                    width_unrounded = result.bottom as f32 * original_ratio;
+                }
+                result.right = width_unrounded as i32;
+            }
+
+            // Center the frame in the screen
+            if result.right < client_rect.right {
+              result.left = ((client_rect.right - result.right) as f32 / 2.0 + 0.5) as i32;
+              result.right += result.left;
+            }
+            if result.bottom < client_rect.bottom {
+              result.top = ((client_rect.bottom - result.bottom) as f32 / 2.0 + 0.5) as i32;
+              result.bottom += result.top;
+            }
+        }
+        result
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -1143,6 +1185,12 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
             warn!("Using default window height");
             480
         });
+
+    let maintain_aspect_ratio = settings.get("maintainAspectRatio").and_then(|x| x.as_bool())
+        .unwrap_or_else(|| {
+            warn!("Using default value for maintainAspectRatio");
+            true
+        });
     let settings = Settings {
         mouse_sensitivity,
         display_mode,
@@ -1150,11 +1198,12 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         window_y,
         width: width as i32,
         height: height as i32,
+        maintain_aspect_ratio,
     };
     *FORGE.lock().unwrap() = Some(Forge {
         settings,
         window: None,
-        renderer: Renderer::new_directx(),
+        renderer: Renderer::new(),
         orig_wnd_proc: None,
         should_clip_cursor: false,
         real_cursor_pos: (0, 0),

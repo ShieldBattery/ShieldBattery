@@ -248,9 +248,9 @@ impl_ddraw! {
     }
     ~unimpl EnumSurfaces(
         flags: u32,
-        desc: *const DDSURFACEDESC2,
-        param: *mut c_void,
-        callback: LPDDENUMSURFACESCALLBACK7
+        _desc: *const DDSURFACEDESC2,
+        _param: *mut c_void,
+        _callback: LPDDENUMSURFACESCALLBACK7
     ) {
         debug!("EnumSurfaces, flags {:x}", flags);
     }
@@ -360,7 +360,7 @@ pub unsafe extern "system" fn direct_draw_create(
 }
 
 #[repr(C)]
-struct IndirectDraw {
+pub struct IndirectDraw {
     vtable: *const IDirectDraw7VTable,
     refcount: i32,
     window: Option<HWND>,
@@ -370,6 +370,33 @@ struct IndirectDraw {
     primary_surface: Option<*mut IndirectDrawSurface>,
     palette_changed: bool,
     dirty: bool,
+}
+
+impl IndirectDraw {
+    pub unsafe fn new_palette(&mut self) -> Option<Vec<PALETTEENTRY>> {
+        if !self.palette_changed {
+            return None;
+        }
+        if let Some(surface) = self.primary_surface {
+            if let Some(palette) = (*surface).palette {
+                self.palette_changed = false;
+                return Some((*palette).entries.clone());
+            }
+        }
+        None
+    }
+
+    pub unsafe fn new_frame(&mut self) -> Option<Vec<u8>> {
+        if !self.dirty {
+            return None;
+        }
+        if let Some(surface) = self.primary_surface {
+            ((*(*surface).vtable).Release)(surface as *mut IDirectDrawSurface7);
+            self.dirty = false;
+            return Some((*surface).surface_data.clone());
+        }
+        None
+    }
 }
 
 impl Drop for IndirectDraw {
@@ -398,7 +425,13 @@ unsafe fn maybe_initialize_renderer(this: *mut IndirectDraw) {
         if (*this).display_width != 0 {
             debug!("IndirectDraw ready to initialize renderer");
             super::with_forge(|forge| {
-                forge.renderer.initialize(window, (*this).display_width, (*this).display_height);
+                forge.renderer.initialize(
+                    this,
+                    window,
+                    &forge.settings,
+                    (*this).display_width,
+                    (*this).display_height,
+                );
             });
         }
     }
@@ -440,7 +473,7 @@ impl_ddraw! {
         _src: *mut IDirectDrawSurface7,
         _src_rect: *const RECT,
         flags: u32,
-        fx: *mut c_void
+        _fx: *mut c_void
     ) {
         debug!("Blt, flags {:x}", flags);
     }
@@ -456,7 +489,7 @@ impl_ddraw! {
     ~unimpl EnumAttachedSurfaces(_ctx: *mut c_void, _callback: *mut c_void) {
         debug!("EnumAttachedSurfaces");
     }
-    ~unimpl EnumOverlayZOrders(flags: u32, _ctx: *mut c_void, c_allback: *mut c_void) {
+    ~unimpl EnumOverlayZOrders(flags: u32, _ctx: *mut c_void, _callback: *mut c_void) {
         debug!("EnumOverlayZOrders, flags {:x}", flags);
     }
     ~unimpl Flip(_target_override: *mut IDirectDrawSurface7, flags: u32) {
@@ -653,10 +686,10 @@ impl IndirectDrawSurface {
         if desc.dwFlags & DDSD_WIDTH == 0 {
             desc.dwWidth = (*owner).display_width;
         };
-        let height = if desc.dwFlags & DDSD_HEIGHT == 0 {
+        if desc.dwFlags & DDSD_HEIGHT == 0 {
             desc.dwHeight = (*owner).display_height;
         };
-        let pitch = if desc.dwFlags & DDSD_PITCH == 0 {
+        if desc.dwFlags & DDSD_PITCH == 0 {
             desc.lPitch = desc.dwWidth * (*owner).display_bpp / 8;
         };
         desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH;
@@ -672,7 +705,7 @@ impl IndirectDrawSurface {
             palette: None,
             owner,
             surface_desc: desc,
-            surface_data: vec![0; desc.dwWidth as usize * desc.lPitch as usize],
+            surface_data: vec![0; desc.dwHeight as usize * desc.lPitch as usize],
             refcount: 1,
         }))
     }
