@@ -5,15 +5,15 @@ use std::sync::Arc;
 
 use futures::future::{self, Either};
 use quick_error::quick_error;
-use serde::Deserialize;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{
-    AsyncSenders, box_future, BoxedFuture, Settings, GameThreadRequest,
-    GameThreadRequestType, GameType, SetupProgress, GAME_STATUS_ERROR,
-};
+use crate::{AsyncSenders, box_future, BoxedFuture, GameThreadRequest, GameThreadRequestType};
 use crate::bw;
+use crate::client_socket;
+use crate::client_messages::{
+    GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GAME_STATUS_ERROR
+};
 use crate::cancel_token::{CancelToken, Canceler, cancelable_channel, CancelableReceiver};
 use crate::forge;
 use crate::network_manager::{NetworkManager, RouteInput, NetworkError};
@@ -48,22 +48,21 @@ pub enum GameStateMessage {
     PlayerJoined,
 }
 
-#[derive(Deserialize, Clone)]
-pub struct LocalUser {
-    pub name: String,
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+struct GameType {
+    primary: u8,
+    subtype: u8,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GameSetupInfo {
-    name: String,
-    map: MapInfo,
-    map_path: String,
-    game_type: String,
-    game_sub_type: Option<u8>,
-    slots: Vec<PlayerInfo>,
-    host: PlayerInfo,
-    seed: u32,
+impl GameType {
+    pub fn as_u32(self) -> u32 {
+        self.primary as u32 | ((self.subtype as u32) << 16)
+    }
+
+    pub fn is_ums(&self) -> bool {
+        self.primary == 0xa
+    }
+
 }
 
 impl GameSetupInfo {
@@ -84,66 +83,6 @@ impl GameSetupInfo {
             primary,
             subtype,
         })
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MapInfo {
-    // This object is literally completely different between playing a game and wathing a replay
-    is_replay: Option<bool>,
-    hash: Option<String>,
-    height: Option<u32>,
-    width: Option<u32>,
-    ums_slots: Option<u8>,
-    slots: Option<u8>,
-    tileset: Option<String>,
-    name: Option<String>,
-    path: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PlayerInfo {
-    id: String,
-    name: String,
-    race: Option<String>,
-    player_id: Option<u8>,
-    team_id: Option<u8>,
-    // Player type can have shieldbattery-specific players (e.g. "observer"),
-    // player type id is the id in BW structures.
-    #[serde(rename = "type")]
-    player_type: String,
-    #[serde(rename = "typeId")]
-    player_type_id: u8,
-}
-
-impl PlayerInfo {
-    /// Returns true for non-observing human players
-    fn is_human(&self) -> bool {
-        self.player_type == "human"
-    }
-
-    fn is_observer(&self) -> bool {
-        self.player_type == "observer"
-    }
-
-    fn bw_player_type(&self) -> u8 {
-        match &*self.player_type {
-            "human" | "observer" => bw::PLAYER_TYPE_HUMAN,
-            "computer" => bw::PLAYER_TYPE_LOBBY_COMPUTER,
-            "controlledOpen" | "controlledClosed" | "open" | "closed" => bw::PLAYER_TYPE_OPEN,
-            _ => bw::PLAYER_TYPE_NONE,
-        }
-    }
-
-    fn bw_race(&self) -> u8 {
-        match self.race.as_ref().map(|x| &**x) {
-            Some("z") => bw::RACE_ZERG,
-            Some("t") => bw::RACE_TERRAN,
-            Some("p") => bw::RACE_PROTOSS,
-            _ => bw::RACE_RANDOM,
-        }
     }
 }
 
@@ -391,7 +330,7 @@ impl GameState {
         let finished = lobby_ready
             .and_then(|()| {
                 forge::end_wnd_proc();
-                websocket_send_message(ws_send, "/game/start", ())
+                client_socket::send_message(ws_send, "/game/start", ())
                     .map_err(|_| GameInitError::Closed)
             }).and_then(move |ws_send| {
                 let start_game_request = GameThreadRequestType::StartGame;
@@ -401,7 +340,7 @@ impl GameState {
                 game_done
             }).and_then(|ws_send| {
                 let results: i32 = unimplemented!();
-                websocket_send_message(ws_send, "/game/end", results)
+                client_socket::send_message(ws_send, "/game/end", results)
                     .map(|_| ())
                     .map_err(|_| GameInitError::Closed)
             });
@@ -430,12 +369,12 @@ impl GameState {
                         error!("{}", msg);
 
                         let message = SetupProgress {
-                            status: crate::SetupProgressInfo {
+                            status: crate::client_messages::SetupProgressInfo {
                                 state: GAME_STATUS_ERROR,
                                 extra: Some(msg),
                             },
                         };
-                        websocket_send_message(ws_send, "/game/setupProgress", message)
+                        client_socket::send_message(ws_send, "/game/setupProgress", message)
                             .map(|_| ())
                     })
                     .then(|_| {
@@ -765,16 +704,4 @@ unsafe fn remaining_game_init(local_user: &LocalUser) {
     // see much reason to do that?
     bw::choose_network_provider(snp::PROVIDER_ID);
     *bw::is_multiplayer = 1;
-}
-
-fn websocket_send_message<T: serde::Serialize>(
-    send: mpsc::Sender<websocket::OwnedMessage>,
-    command: &str,
-    data: T,
-) -> impl Future<Item = mpsc::Sender<websocket::OwnedMessage>, Error = ()> {
-    let message = crate::encode_message(command, data);
-    match message {
-        Some(o) => box_future(send.send(o).map_err(|_| ())),
-        None => box_future(Err(()).into_future()),
-    }
 }

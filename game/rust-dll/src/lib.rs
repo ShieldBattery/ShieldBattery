@@ -3,6 +3,8 @@
 
 mod bw;
 mod cancel_token;
+mod client_socket;
+mod client_messages;
 mod forge;
 mod game_state;
 mod network_manager;
@@ -17,22 +19,14 @@ use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
 use libc::c_void;
-use quick_error::{quick_error, ResultExt};
 use serde::{Deserialize, Serialize};
 use tokio::prelude::*;
-use tokio::timer::Delay;
 use tokio::sync::mpsc::Sender;
-use websocket::r#async::client::{ClientNew, TcpStream};
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 
-use game_state::{GameStateMessage, GameState};
+use crate::game_state::{GameStateMessage, GameState};
 
 const WAIT_DEBUGGER: bool = false;
-
-#[derive(Deserialize)]
-pub struct Settings {
-    local: serde_json::Map<String, serde_json::Value>,
-}
 
 fn log_file_path() -> PathBuf {
     let args = parse_args();
@@ -270,18 +264,6 @@ unsafe fn init_bw() {
     debug!("Process initialized");
 }
 
-fn connect_to_client() -> ClientNew<TcpStream> {
-    let args = parse_args();
-    let url = format!("ws://127.0.0.1:{}", args.server_port);
-    info!("Connecting to {} ...", url);
-    let mut headers = websocket::header::Headers::new();
-    headers.append_raw("x-game-id", args.game_id.into());
-    websocket::ClientBuilder::new(&url).unwrap()
-        .origin("BROODWARS".into())
-        .custom_headers(&headers)
-        .async_connect_insecure()
-}
-
 enum AsyncMessage {
     Game(GameStateMessage),
     WebSocket(websocket::OwnedMessage),
@@ -345,6 +327,8 @@ where F: Future<Item = I, Error = E> + Send + 'static
 
 // Decide what to do with events from game thread.
 fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item = (), Error = ()> {
+    use crate::client_messages::{WindowMove};
+
     let (send, recv) = tokio::sync::mpsc::unbounded_channel();
     *SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
     let senders = senders.clone();
@@ -352,7 +336,7 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
         .filter_map(|message| {
             match message {
                 GameThreadMessage::WindowMove(x, y) => {
-                    encode_message("/game/windowMove", WindowMove {
+                    client_socket::encode_message("/game/windowMove", WindowMove {
                         x,
                         y,
                     }).map(AsyncMessage::WebSocket)
@@ -368,162 +352,6 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
         .fold(senders, |senders, message| {
             senders.send(message)
         }).map(|_| ())
-}
-
-// Executes a single connection until it is closed for whatever reason.
-// All errors are handled before the future resolves.
-fn client_websocket_connection(
-    recv_messages: tokio::sync::mpsc::Receiver<websocket::OwnedMessage>,
-    senders: &AsyncSenders,
-) -> impl Future<Item = (), Error = ()> {
-    use websocket::OwnedMessage;
-    let senders = senders.clone();
-    connect_to_client()
-        .then(|result| {
-            match result {
-                Ok((client, _headers)) => {
-                    info!("Connected to Shieldbattery client");
-                    let recv_messages = recv_messages
-                        .map(|x| AsyncMessage::WebSocket(x))
-                        .map_err(|_| ());
-                    let (sink, stream) = client.split();
-                    let stream_done = stream
-                        .filter_map(|message| {
-                            match message {
-                                OwnedMessage::Text(text) => {
-                                    match handle_client_message(text) {
-                                        Ok(o) => Some(o),
-                                        Err(e) => {
-                                            error!("Error handling message: {}", e);
-                                            None
-                                        }
-                                    }
-                                }
-                                OwnedMessage::Ping(ping) => {
-                                    Some(AsyncMessage::WebSocket(OwnedMessage::Pong(ping)))
-                                }
-                                OwnedMessage::Close(e) => {
-                                    Some(AsyncMessage::WebSocket(OwnedMessage::Close(e)))
-                                }
-                                _ => None,
-                            }
-                        })
-                        .map_err(|e| {
-                            error!("Error reading websocket stream: {}", e);
-                        })
-                        .select(recv_messages)
-                        .fold((senders, sink), |(senders, sink), message| {
-                            match message {
-                                AsyncMessage::WebSocket(ws) => {
-                                    debug!("Sending message: {:?}", ws);
-                                    let future = sink.send(ws).map(move |x| (senders, x))
-                                        .map_err(|e| {
-                                            error!("Error sending to websocket stream: {}", e);
-                                        });
-                                    Box::new(future) as
-                                        Box<dyn Future<Item = _, Error = _> + Send>
-                                }
-                                other => Box::new({
-                                    senders.send(other).map(move |x| (x, sink))
-                                }),
-                            }
-                        })
-                        .map(|_| ());
-                    Box::new(stream_done)
-                }
-                Err(e) => {
-                    error!("Couldn't connect to Shieldbattery: {}", e);
-                    box_future(
-                        Delay::new(Instant::now() + Duration::from_millis(1000))
-                            .map_err(|_| ()) // We don't care about timer errors?
-                    )
-                }
-            }
-        })
-}
-
-fn websocket_connection_future(
-    senders: &AsyncSenders,
-    recv_messages: tokio::sync::mpsc::Receiver<websocket::OwnedMessage>,
-) -> impl Future<Item = (), Error = ()> {
-    use futures::future::Either;
-    use tokio::sync::{mpsc, oneshot};
-
-    // Reconnect if the connection gets lost.
-    // This ends up being pretty bad anyway, since
-    // 1) We just connect to another process on the local system, so ideally the connection
-    // never drops.
-    // 2) We cannot tell if the messages that were sent right before connection was lost were
-    // received, so this just ends up hoping they were (though they likely were not).
-    // 3) A realistic reason for the reconnection would be user closing and reopening the client
-    // program, but at that point we have no way to know what port it binds to, and it would
-    // just tell us quit as it doesn't know about us/doesn't track game state across
-    // closing/reopening.
-    //
-    // Point 2) could be solved by resending what didn't end up being sent succesfully -
-    // maybe messages should have an seq/id field so the receiving end doesn't handle them twice,
-    // but for now let's just keep hoping that the connection during stateful part (init) is
-    // stable, and sending window move/etc misc info is less important.
-    //
-    // Implementing this just by using future combinators as is done below ends up being ugly,
-    // we have to create one subtask that creates connections, and another which sits between it
-    // and the outer world, as there isn't a ready-made way to rescue mspc::Sender from a task
-    // which ends due to receiving end being dropped. (It kind of does make sense for future
-    // APIs to not expose any way to do that, considering that there again isn't any guarantee
-    // how many of the sent messages got handled).
-    //
-    // The better solution would be to create a proper
-    // ReconnectingWebSocketStream: futures::Stream<OwnedMessage> + futures::Sink<OwnedMessage>
-    // (And a stream combinator that does buffering/forwarding/doesn't lose messages that
-    // weren't confirmed flushed), but I'm hoping Rust async libraries improve/stabilize before
-    // that, and for now this should do and have same guarantees as the older c++/js code.
-
-    let senders = senders.clone();
-    let (send1, send2) = futures::sync::BiLock::new(None);
-    let repeat_connection = futures::stream::repeat(())
-        .fold(send1, move |send, ()| {
-            let (current_send, current_recv) = mpsc::channel(8);
-            let current_send = current_send
-                .with_flat_map(|vec: Vec<websocket::OwnedMessage>| {
-                    futures::stream::iter_ok(vec)
-                });
-
-            let senders = senders.clone();
-            send.lock()
-                .and_then(move |mut locked| {
-                    *locked = Some(current_send);
-                    let lock = locked.unlock();
-                    let connection = client_websocket_connection(current_recv, &senders);
-                    connection.map(|()| lock)
-                })
-        }).map(|_| ());
-    // Buffer messages if there isn't a connection active
-    let buffer = Vec::new();
-    let forward_messages_to_current_connection = recv_messages
-        .map_err(|_| ())
-        .fold((send2, buffer), move |(send, mut buffer), msg| {
-            send.lock()
-                .and_then(move |mut locked| {
-                    if let Some(send) = locked.take() {
-                        buffer.push(msg);
-                        let future = send.send(buffer)
-                            .then(|result| {
-                                match result {
-                                    Ok(send) => *locked = Some(send),
-                                    Err(_) => *locked = None,
-                                };
-                                Ok((locked.unlock(), Vec::new()))
-                            });
-                        Either::A(future)
-                    } else {
-                        Either::B(Ok((locked.unlock(), buffer)).into_future())
-                    }
-                })
-        })
-        .map(|_| ());
-    repeat_connection.select(forward_messages_to_current_connection)
-        .map(|_| ())
-        .map_err(|_| ())
 }
 
 fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
@@ -554,7 +382,8 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             websocket: websocket_send,
             canceler: Arc::new(Mutex::new(Some(canceler))),
         };
-        let websocket_connection = websocket_connection_future(&senders, websocket_recv);
+        let websocket_connection =
+            client_socket::websocket_connection_future(&senders, websocket_recv);
         let game_state = game_state::create_future(
             &senders,
             game_state_recv,
@@ -572,107 +401,6 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     }));
     info!("Async thread end");
     std::process::exit(0);
-}
-
-#[derive(Serialize, Deserialize)]
-struct Message {
-    command: String,
-    payload: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-struct WindowMove {
-    x: i32,
-    y: i32,
-}
-
-// app/common/game_status.js
-const GAME_STATUS_ERROR: u8 = 7;
-#[derive(Serialize)]
-struct SetupProgress {
-    status: SetupProgressInfo,
-}
-
-#[derive(Serialize)]
-struct SetupProgressInfo {
-    state: u8,
-    extra: Option<String>,
-}
-
-fn encode_message<T: Serialize>(
-    command: &str,
-    data: T,
-) -> Option<websocket::OwnedMessage> {
-    fn inner<T: Serialize>(
-        command: &str,
-        data: T,
-    ) -> Result<websocket::OwnedMessage, serde_json::Error> {
-        let payload = serde_json::to_value(data)?;
-        let message = Message {
-            command: command.into(),
-            payload: Some(payload),
-        };
-        let string = serde_json::to_string(&message)?;
-        Ok(websocket::OwnedMessage::Text(string))
-    }
-    match inner(command, data) {
-        Ok(o) => Some(o),
-        Err(e) => {
-            error!("JSON encode error: {}", e);
-            None
-        }
-    }
-}
-
-quick_error! {
-    #[derive(Debug)]
-    pub enum HandleMessageError {
-        Serde(error: serde_json::Error, context: &'static str, input: String) {
-            context(c: (&'static str, &str), e: serde_json::Error) -> (e, c.0, c.1.into())
-            description("JSON decode error")
-            display("{} '{}': {}", context, input, error)
-        }
-        UnknownCommand(cmd: String) {
-            description("Unknown command")
-            display("Unknown command '{}'", cmd)
-        }
-    }
-}
-
-fn handle_client_message<'a>(
-    text: String,
-) -> Result<AsyncMessage, HandleMessageError> {
-    let message: Message = serde_json::from_str(&text)
-        .context(("Invalid message", &*text))?;
-    let payload = message.payload
-        .unwrap_or_else(|| serde_json::Value::Null);
-    debug!("Received message: '{}':\n'{}'", message.command, payload);
-    match &*message.command {
-        "settings" => {
-            let settings = serde_json::from_value(payload)
-                .context(("Invalid settings", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetSettings(settings)))
-        }
-        "localUser" => {
-            let user = serde_json::from_value(payload)
-                .context(("Invalid local user", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetLocalUser(user)))
-        }
-        "routes" => {
-            let routes = serde_json::from_value(payload)
-                .context(("Invalid routes", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetRoutes(routes)))
-        }
-        "setupGame" => {
-            let setup = serde_json::from_value(payload)
-                .context(("Invalid game setup", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetupGame(setup)))
-        }
-        "quit" => Ok(AsyncMessage::Stop),
-        _ => {
-            Err(HandleMessageError::UnknownCommand(message.command))
-        }
-    }
 }
 
 struct Args {
@@ -715,37 +443,10 @@ pub struct GameThreadRequest {
     done: tokio::sync::oneshot::Sender<()>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct GameType {
-    primary: u8,
-    subtype: u8,
-}
-
-impl GameType {
-    pub fn as_u32(self) -> u32 {
-        self.primary as u32 | ((self.subtype as u32) << 16)
-    }
-
-    pub fn is_ums(&self) -> bool {
-        self.primary == 0xa
-    }
-
-}
-
 enum GameThreadRequestType {
     Initialize,
     RunWndProc,
     StartGame,
-}
-
-struct JoinGameInfo {
-    name: String,
-    num_slots: u8,
-    num_players: u8,
-    map_name: String,
-    map_tileset: u8,
-    map_width: u32,
-    map_height: u32,
 }
 
 /// Sends a message from game thread to the async system.
