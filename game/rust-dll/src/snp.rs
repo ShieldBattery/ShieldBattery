@@ -279,7 +279,6 @@ unsafe extern "stdcall" fn receive_packet(
     data: *mut *const u8,
     length: *mut u32,
 ) -> i32 {
-    use std::sync::mpsc::TryRecvError;
     if addr.is_null() || data.is_null() || length.is_null() {
         return 0;
     }

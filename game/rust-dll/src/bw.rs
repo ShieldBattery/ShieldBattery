@@ -35,6 +35,10 @@ whack_vars!(init_vars, 0x00400000,
     0x0057EEE0 => players: [Player; 12];
     0x0051268C => local_storm_id: u32;
     0x0066FBFA => lobby_state: u8;
+    0x0057F23C => frame_count: u32;
+    0x0058D700 => victory_state: [u8; 8];
+    0x00581D61 => player_lose_type: u8;
+    0x00581D62 => player_has_left: [u8; 8];
 );
 
 pub mod storm {

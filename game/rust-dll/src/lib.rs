@@ -19,7 +19,6 @@ use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
 use libc::c_void;
-use serde::{Deserialize, Serialize};
 use tokio::prelude::*;
 use tokio::sync::mpsc::Sender;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
@@ -207,7 +206,7 @@ fn initialize() {
     std::thread::spawn(move || {
         async_thread(sender);
     });
-    if let Err(e) = receiver.recv() {
+    if let Err(_) = receiver.recv() {
         // Async thread closed, wait for it to exit the process
         wait_async_exit();
     }
@@ -250,9 +249,45 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         StartGame => {
             forge::game_started();
             bw::game_loop();
-            // TODO results
+            let results = game_results();
+            game_thread_message(GameThreadMessage::Results(results));
             //forge::hide_window();
         }
+    }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone)]
+enum PlayerLoseType {
+    UnknownChecksumMismatch,
+    UnknownDisconnect,
+}
+
+pub struct GameThreadResults {
+    // Index by ingame player id
+    victory_state: [u8; 8],
+    // Index by storm id
+    player_has_left: [bool; 8],
+    player_lose_type: Option<PlayerLoseType>,
+    time_ms: u32,
+}
+
+unsafe fn game_results() -> GameThreadResults {
+    GameThreadResults {
+        victory_state: *bw::victory_state,
+        player_has_left: {
+            let mut arr = [false; 8];
+            for i in 0..8 {
+                arr[i] = bw::player_has_left[i] != 0;
+            }
+            arr
+        },
+        player_lose_type: match *bw::player_lose_type {
+            1 => Some(PlayerLoseType::UnknownChecksumMismatch),
+            2 => Some(PlayerLoseType::UnknownDisconnect),
+            _ => None,
+        },
+        // Assuming fastest speed
+        time_ms: (*bw::frame_count).saturating_mul(42),
     }
 }
 
@@ -347,6 +382,9 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
                 GameThreadMessage::PlayerJoined => {
                     Some(AsyncMessage::Game(GameStateMessage::PlayerJoined))
                 }
+                GameThreadMessage::Results(results) => {
+                    Some(AsyncMessage::Game(GameStateMessage::Results(results)))
+                }
             }
         })
         .fold(senders, |senders, message| {
@@ -433,6 +471,7 @@ enum GameThreadMessage {
     WindowMove(i32, i32),
     Snp(snp::SnpMessage),
     PlayerJoined,
+    Results(GameThreadResults),
 }
 
 // Async tasks request game thread to do some work

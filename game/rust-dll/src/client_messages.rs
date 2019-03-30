@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::bw;
@@ -31,6 +33,13 @@ pub struct LocalUser {
 pub struct WindowMove {
     pub x: i32,
     pub y: i32,
+}
+
+#[derive(Serialize)]
+pub struct GameResults {
+    #[serde(rename = "time")]
+    pub time_ms: u32,
+    pub results: HashMap<String, u8>,
 }
 
 #[derive(Deserialize)]

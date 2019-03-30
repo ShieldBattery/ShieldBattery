@@ -229,8 +229,6 @@ impl Device {
         &self,
         desc: &D3D11_BUFFER_DESC,
         data: &D3D11_SUBRESOURCE_DATA,
-        stride: u32,
-        offset: u32,
     ) -> Result<Buffer> {
         unsafe {
             let mut buffer = null_mut();
@@ -512,7 +510,7 @@ impl Vertices {
             SysMemPitch: 0,
             SysMemSlicePitch: 0,
         };
-        let vertex_buffer = device.create_vertex_buffer(&desc, &data, vertex_size, 0)
+        let vertex_buffer = device.create_vertex_buffer(&desc, &data)
             .context("Creating vertex buffer")?;
         Ok(Vertices {
             vertex_buffer,

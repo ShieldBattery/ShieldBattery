@@ -3,7 +3,7 @@ use std::time::{Instant, Duration};
 use quick_error::{quick_error, ResultExt};
 use serde::{Serialize, Deserialize};
 use tokio::prelude::*;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use tokio::timer::Delay;
 use websocket::{self, OwnedMessage};
 use websocket::r#async::client::{ClientNew, TcpStream};
