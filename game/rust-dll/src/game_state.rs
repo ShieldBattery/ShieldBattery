@@ -60,7 +60,7 @@ pub struct GameSetupInfo {
     map: MapInfo,
     map_path: String,
     game_type: String,
-    game_sub_type: u8,
+    game_sub_type: Option<u8>,
     slots: Vec<PlayerInfo>,
     host: PlayerInfo,
     seed: u32,
@@ -74,10 +74,10 @@ impl GameSetupInfo {
             "oneVOne" => (0x4, 0x1),
             "ums" => (0xa, 0x1),
             // For team games the shieldbattery subtype is team count
-            "teamMelee" => (0xb, self.game_sub_type - 1),
-            "teamFfa" => (0xc, self.game_sub_type - 1),
+            "teamMelee" => (0xb, self.game_sub_type? - 1),
+            "teamFfa" => (0xc, self.game_sub_type? - 1),
             // For TvB the shieldbattery subtype is num players on top team
-            "topVBottom" => (0xf, self.game_sub_type),
+            "topVBottom" => (0xf, self.game_sub_type?),
             _ => return None,
         };
         Some(GameType {
@@ -90,13 +90,16 @@ impl GameSetupInfo {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MapInfo {
-    hash: String,
-    height: u32,
-    width: u32,
-    ums_slots: u8,
-    slots: u8,
-    tileset: String,
-    name: String,
+    // This object is literally completely different between playing a game and wathing a replay
+    is_replay: Option<bool>,
+    hash: Option<String>,
+    height: Option<u32>,
+    width: Option<u32>,
+    ums_slots: Option<u8>,
+    slots: Option<u8>,
+    tileset: Option<String>,
+    name: Option<String>,
+    path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -104,7 +107,7 @@ struct MapInfo {
 struct PlayerInfo {
     id: String,
     name: String,
-    race: String,
+    race: Option<String>,
     player_id: Option<u8>,
     team_id: Option<u8>,
     // Player type can have shieldbattery-specific players (e.g. "observer"),
@@ -135,10 +138,10 @@ impl PlayerInfo {
     }
 
     fn bw_race(&self) -> u8 {
-        match &*self.race {
-            "z" => bw::RACE_ZERG,
-            "t" => bw::RACE_TERRAN,
-            "p" => bw::RACE_PROTOSS,
+        match self.race.as_ref().map(|x| &**x) {
+            Some("z") => bw::RACE_ZERG,
+            Some("t") => bw::RACE_TERRAN,
+            Some("p") => bw::RACE_PROTOSS,
             _ => bw::RACE_RANDOM,
         }
     }
@@ -177,9 +180,9 @@ quick_error! {
             description("Network initialization error")
             display("Network initialization error: {}", e)
         }
-        UnknownGameType(ty: String) {
+        UnknownGameType(ty: String, sub: Option<u8>) {
             description("Unknown game type")
-            display("Unknown game type '{}'", ty)
+            display("Unknown game type '{}', {:?}", ty, sub)
         }
         Bw(e: BwError) {
             description("BW error")
@@ -304,7 +307,7 @@ impl GameState {
         let game_type = match info.game_type() {
             Some(s) => s,
             None => {
-                let err = GameInitError::UnknownGameType(info.game_type);
+                let err = GameInitError::UnknownGameType(info.game_type, info.game_sub_type);
                 return box_future(Err(err).into_future());
             }
         };

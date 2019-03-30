@@ -31,7 +31,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0057EE9C => local_player_name: [u8; 25];
     0x0057F0B4 => is_multiplayer: u8;
     0x0059BB70 => current_map_folder_path: [u8; 260];
-    0x0051A278 => map_list_root: *mut MapListEntry;
+    0x0051A27C => map_list_root: *mut MapListEntry;
     0x0057EEE0 => players: [Player; 12];
     0x0051268C => local_storm_id: u32;
     0x0066FBFA => lobby_state: u8;
