@@ -54,7 +54,6 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use std::fmt::Write;
         writeln!(f, "D3D error: {}", self.err)?;
         if !self.stack.is_empty() {
             writeln!(f, "Cause stack:")?;
@@ -103,6 +102,7 @@ struct Shaders {
 struct Textures {
     palette_texture: Texture2d,
     bw_screen_texture: Texture2d,
+    #[allow(dead_code)]
     rendered_texture: Texture2d,
     palette_view: ShaderResourceView,
     bw_screen_view: ShaderResourceView,
@@ -422,7 +422,6 @@ impl Renderer {
             // No need to go row-by-row, since the rows are directly adjacent
             std::ptr::copy_nonoverlapping(pixels.as_ptr(), ptr, pixels.len());
         } else {
-            let mut pos = 0;
             for row in pixels.chunks_exact(self.ddraw_width as usize) {
                 std::ptr::copy_nonoverlapping(row.as_ptr(), ptr, self.ddraw_width as usize);
                 ptr = ptr.add(mapped.0.RowPitch as usize);

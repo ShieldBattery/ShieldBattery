@@ -11,6 +11,7 @@ mod network_manager;
 mod rally_point;
 mod snp;
 mod storm;
+mod udp;
 mod windows;
 
 use std::path::PathBuf;
@@ -23,13 +24,29 @@ use tokio::prelude::*;
 use tokio::sync::mpsc::Sender;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 
-use crate::game_state::{GameStateMessage, GameState};
+use crate::game_state::{GameStateMessage};
 
 const WAIT_DEBUGGER: bool = false;
 
-fn log_file_path() -> PathBuf {
+fn log_file() -> std::fs::File {
+    use std::os::windows::fs::OpenOptionsExt;
     let args = parse_args();
-    args.user_data_path.join("logs/shieldbattery.log")
+    let dir = args.user_data_path.join("logs");
+    let mut options = std::fs::OpenOptions::new();
+    let options = options
+        .write(true)
+        .create(true)
+        .append(true)
+        .share_mode(1); // FILE_SHARE_READ
+    for i in 0..20 {
+        let filename = dir.join(format!("shieldbattery.{}.log", i));
+        // TODO shorten long files
+        if let Ok(file) = options.open(filename) {
+            return file;
+        }
+    }
+    // Maybe shouldn't panic?
+    panic!("Unable to start logging");
 }
 
 // Show panic message/backtrace and terminate process before reaching the default panic handling.
@@ -105,7 +122,6 @@ fn panic_hook(info: &std::panic::PanicInfo) {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern fn OnInject() {
-    // TODO truncate log?
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -118,7 +134,7 @@ pub extern fn OnInject() {
             ))
         })
         .level(log::LevelFilter::Debug)
-        .chain(fern::log_file(log_file_path()).unwrap())
+        .chain(log_file())
         .apply();
 
     std::panic::set_hook(Box::new(panic_hook));
@@ -150,6 +166,8 @@ lazy_static! {
 }
 
 unsafe fn patch_game() {
+    whack_export!(pub extern "system" CreateEventA(*mut c_void, u32, u32, *const i8) -> *mut c_void);
+
     let mut active_patcher = PATCHER.lock().unwrap();
     forge::init_hooks(&mut active_patcher);
     snp::init_hooks(&mut active_patcher);
@@ -163,6 +181,26 @@ unsafe fn patch_game() {
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
+
+    exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
+}
+
+unsafe fn create_event_hook(
+    security: *mut c_void,
+    init_state: u32,
+    manual_reset: u32,
+    name: *const i8,
+    orig: &Fn(*mut c_void, u32, u32, *const i8) -> *mut c_void,
+) -> *mut c_void {
+    use winapi::um::errhandlingapi::SetLastError;
+    if !name.is_null() {
+        if std::ffi::CStr::from_ptr(name).to_str() == Ok("Starcraft Check For Other Instances") {
+            // BW just checks last error to be ERROR_ALREADY_EXISTS
+            SetLastError(0);
+            return std::ptr::null_mut();
+        }
+    }
+    orig(security, init_state, manual_reset, name)
 }
 
 fn player_joined(info: *mut c_void, orig: &Fn(*mut c_void)) {
@@ -248,10 +286,11 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         RunWndProc => forge::run_wnd_proc(),
         StartGame => {
             forge::game_started();
+            *bw::game_state = 3; // Playing
             bw::game_loop();
             let results = game_results();
             game_thread_message(GameThreadMessage::Results(results));
-            //forge::hide_window();
+            forge::hide_window();
         }
     }
 }

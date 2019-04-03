@@ -70,6 +70,20 @@ pub struct MapInfo {
     pub path: Option<String>,
 }
 
+pub fn bw_tileset_from_str(val: &str) -> Option<u8> {
+    Some(match val {
+        "badlands" => 0,
+        "platform" => 1,
+        "installation" => 2,
+        "ashworld" => 3,
+        "jungle" => 4,
+        "desert" => 5,
+        "ice" => 6,
+        "twilight" => 7,
+        _ => return None,
+    })
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
@@ -113,4 +127,23 @@ impl PlayerInfo {
             _ => bw::RACE_RANDOM,
         }
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Route {
+    #[serde(rename = "for")]
+    pub for_player: String,
+    pub server: RallyPointServer,
+    pub route_id: String,
+    pub player_id: u32,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RallyPointServer {
+    pub address4: Option<String>,
+    pub address6: Option<String>,
+    pub port: u16,
+    pub desc: String,
 }

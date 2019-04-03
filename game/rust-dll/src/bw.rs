@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 use libc::{c_void, sockaddr};
 use winapi::shared::ntdef::HANDLE;
 
@@ -24,6 +26,10 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004A8D40 => update_nation_and_human_ids(@esi u32);
     0x00470D10 => init_network_player_info(u32, u32, u32, u32);
     0x004E0710 => game_loop();
+    0x004D3B50 => join_game(@ebx *mut JoinableGameInfo) -> u32;
+    0x004BF5D0 => init_map_from_path(*const u8, *mut c_void, u32) -> u32;
+    0x00470150 => init_team_game_playable_slots();
+    0x00486580 => maybe_receive_turns();
 );
 
 whack_vars!(init_vars, 0x00400000,
@@ -39,6 +45,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0058D700 => victory_state: [u8; 8];
     0x00581D61 => player_lose_type: u8;
     0x00581D62 => player_has_left: [u8; 8];
+    0x00596904 => game_state: u32;
 );
 
 pub mod storm {
@@ -59,15 +66,7 @@ pub mod storm {
 pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
 pub const INIT_SPRITES_RENDER_TWO: usize = 0x0047AFB1;
 
-#[repr(C)]
-pub struct GameInfo {
-}
-
-pub const GAME_STATE_PRIVATE: u32 = 0x01;
-pub const GAME_STATE_FULL: u32 = 0x02;
 pub const GAME_STATE_ACTIVE: u32 = 0x04;
-pub const GAME_STATE_STARTED: u32 = 0x08;
-pub const GAME_STATE_REPLAY: u32 = 0x80;
 
 pub const PLAYER_TYPE_NONE: u8 = 0x0;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
@@ -211,6 +210,51 @@ pub struct ClientInfo {
     pub language_id: u32,
 }
 
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+pub struct JoinableGameInfo {
+    pub index: u32,
+    pub name: [u8; 24],
+    pub save_checksum: u32,
+    pub map_width: u16,
+    pub map_height: u16,
+    pub active_player_count: u8,
+    pub max_player_count: u8,
+    pub game_speed: u8,
+    pub approval: u8,
+    pub game_type: u16,
+    pub game_subtype: u16,
+    pub cdkey_checksum: u32,
+    pub tileset: u16,
+    pub is_replay: u16,
+    pub game_creator: [u8; 25],
+    pub map_name: [u8; 32],
+    pub game_template: GameTemplate,
+}
+
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+pub struct GameTemplate {
+    pub game_type: u16,
+    pub game_subtype: u16,
+    pub game_subtype_display: u16,
+    pub game_subtype_label: u16,
+    pub victory_condition: u8,
+    pub resource_type: u8,
+    pub use_standard_unit_stats: u8,
+    pub fog_of_war: u8,
+    pub starting_units: u8,
+    pub use_fixed_position: u8,
+    pub restriction_flags: u8,
+    pub allies_enabled: u8,
+    pub num_teams: u8,
+    pub cheats_enabled: u8,
+    pub tournament_mode: u8,
+    pub victory_condition_value: u32,
+    pub mineral_value: u32,
+    pub gas_value: u32,
+}
+
 unsafe impl Send for SnpFunctions {}
 unsafe impl Sync for SnpFunctions {}
 unsafe impl Send for SnpListEntry {}
@@ -225,5 +269,7 @@ fn struct_sizes() {
     use std::mem::size_of;
     assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
     assert_eq!(size_of::<Player>(), 0x24);
+    assert_eq!(size_of::<JoinableGameInfo>(), 0x8d);
+    assert_eq!(size_of::<GameTemplate>(), 0x20);
     // TODO should check also rest
 }

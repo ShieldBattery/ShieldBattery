@@ -143,7 +143,7 @@ export default class ActiveGameManager extends EventEmitter {
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
     this.emit('gameResults', { results, time })
     this._setStatus(GAME_STATUS_FINISHED)
-    this.emit('gameCommand', current.id, 'quit')
+    this.emit('gameCommand', gameId, 'quit')
   }
 
   handleReplaySave(gameId, path) {

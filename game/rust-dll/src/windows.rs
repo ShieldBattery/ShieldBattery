@@ -65,6 +65,7 @@ pub fn os_string_from_winapi(input: &[u16]) -> OsString {
 }
 
 pub struct OwnedHandle(HANDLE);
+unsafe impl Sync for OwnedHandle {} // Should be valid for all winapi handles..?
 unsafe impl Send for OwnedHandle {} // Should be valid for all winapi handles..?
 
 impl OwnedHandle {
@@ -90,6 +91,10 @@ impl OwnedHandle {
                 Ok(OwnedHandle(out))
             }
         }
+    }
+
+    pub fn get(&self) -> HANDLE {
+        self.0
     }
 }
 

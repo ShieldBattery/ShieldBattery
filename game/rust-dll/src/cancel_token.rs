@@ -27,6 +27,7 @@ pub struct CancelableSender<T> {
 
 pub struct CancelableReceiver<T> {
     receiver: oneshot::Receiver<T>,
+    #[allow(dead_code)]
     canceler: Canceler,
 }
 
@@ -42,6 +43,12 @@ impl CancelToken {
         self.0.then(|_| Err(())).select(future)
             .map(|x| x.0)
             .map_err(|_| ())
+    }
+}
+
+impl Canceler {
+    pub fn has_ended(&self) -> bool {
+        self.0.is_closed()
     }
 }
 

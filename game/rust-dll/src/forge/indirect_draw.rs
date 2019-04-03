@@ -78,7 +78,7 @@ pub type LPDDENUMSURFACESCALLBACK7 = Option<unsafe extern "system" fn(
 
 fn ddraw_log() -> bool {
     // Should probably just make the logger filter this is not wanted
-    true
+    false
 }
 
 // A somewhat ridiculous macro to make implementing mostly-empty DirectDraw interfaces

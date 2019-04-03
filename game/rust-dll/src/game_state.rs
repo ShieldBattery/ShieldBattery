@@ -1,9 +1,14 @@
 use std::ffi::CStr;
+use std::mem;
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::Arc;
+use std::time::{Instant, Duration};
 
+use bytes::Bytes;
 use futures::future::{self, Either};
+use libc::c_void;
 use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
@@ -15,11 +20,12 @@ use crate::{
 use crate::bw;
 use crate::client_socket;
 use crate::client_messages::{
-    GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults, GAME_STATUS_ERROR
+    self, GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults,
+    GAME_STATUS_ERROR, Route,
 };
-use crate::cancel_token::{CancelToken, Canceler, cancelable_channel, CancelableReceiver};
+use crate::cancel_token::{CancelToken, Canceler};
 use crate::forge;
-use crate::network_manager::{NetworkManager, RouteInput, NetworkError};
+use crate::network_manager::{NetworkManager, NetworkError};
 use crate::snp;
 use crate::storm;
 use crate::windows;
@@ -43,7 +49,7 @@ struct StormPlayerId(u8);
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
     SetSettings(Settings),
-    SetRoutes(Vec<RouteInput>),
+    SetRoutes(Vec<Route>),
     SetLocalUser(LocalUser),
     SetupGame(GameSetupInfo),
     Snp(snp::SnpMessage),
@@ -127,6 +133,10 @@ quick_error! {
             description("Unknown game type")
             display("Unknown game type '{}', {:?}", ty, sub)
         }
+        UnknownTileset(name: String) {
+            description("Unknown tileset")
+            display("Unknown tileset '{}'", name)
+        }
         Bw(e: BwError) {
             description("BW error")
             display("BW error: {}", e)
@@ -134,6 +144,10 @@ quick_error! {
         NonAnsiPath(path: PathBuf) {
             description("A path cannot be passed to BW")
             display("Path '{}' cannot be passed to BW", path.display())
+        }
+        MissingMapInfo(desc: &'static str) {
+            description("Missing map info")
+            display("Missing map info '{}'", desc)
         }
     }
 }
@@ -194,7 +208,7 @@ impl GameState {
         self.local_user = Some(user);
     }
 
-    fn set_routes(&mut self, routes: Vec<RouteInput>) -> BoxedFuture<(), ()> {
+    fn set_routes(&mut self, routes: Vec<Route>) -> BoxedFuture<(), ()> {
         // TODO check that game is not yet setup
         self.routes_set = true;
         box_future(self.network.set_routes(routes).or_else(|_| Ok(())))
@@ -248,7 +262,6 @@ impl GameState {
         self.init_main_thread.send(()).expect("Main thread should be waiting for a wakeup");
         let init_request = GameThreadRequestType::Initialize;
         let is_host = local_user.name == info.host.name;
-        let is_host = local_user.name == info.host.name;
         let info2 = info.clone();
         // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
         // ready to start the game - remaining initialization is done from other threads.
@@ -272,7 +285,9 @@ impl GameState {
         let wnd_proc_started = self.start_game_request(GameThreadRequestType::RunWndProc)
             .map_err(|()| GameInitError::Closed);
 
-        let network_ready = self.network.wait_network_ready()
+        let network_ready = self.network.wait_network_ready();
+        let network_ready = self.network.set_game_info(info.clone())
+            .and_then(|_| network_ready)
             .map_err(|e| GameInitError::NetworkInit(e))
             .inspect(|_| debug!("Network ready"));
         let info2 = info.clone();
@@ -283,7 +298,7 @@ impl GameState {
                 // any additional BW state poking from async side.
                 if !is_host {
                     unsafe {
-                        Either::A(join_lobby(&info2))
+                        Either::A(join_lobby(&info2, game_type))
                     }
                 } else {
                     Either::B(Ok(()).into_future())
@@ -305,7 +320,19 @@ impl GameState {
                 send_messages_to_state.send(GameStateMessage::InLobby)
                     .map_err(|_| GameInitError::Closed)
             })
-            .and_then(move |_| players_joined)
+            .and_then(move |_| {
+                let tickle_lobby_network =
+                    tokio::timer::Interval::new(Instant::now(), Duration::from_millis(100))
+                    .for_each(|_| unsafe {
+                        bw::maybe_receive_turns();
+                        Ok(())
+                    })
+                    .map(|_| panic!("Interval generation ended???"))
+                    .map_err(|_| GameInitError::Closed);
+                tickle_lobby_network.select(players_joined)
+                    .map(|_| ())
+                    .map_err(|x| x.0)
+            })
             .and_then(move |()| {
                 debug!("All players have joined");
                 unsafe {
@@ -350,6 +377,7 @@ impl GameState {
             SetRoutes(routes) => self.set_routes(routes),
             SetupGame(info) => {
                 let ws_send = self.senders.websocket.clone();
+                let exit_sender = self.senders.clone();
                 let task = self.init_game(info)
                     .or_else(|e| {
                         let msg = format!("Failed to init game: {}", e);
@@ -366,7 +394,12 @@ impl GameState {
                     })
                     .then(|_| {
                         debug!("Game setup & play task ended");
-                        Ok(())
+                        tokio::timer::Delay::new(Instant::now() + Duration::from_millis(10000))
+                    })
+                    .then(|_| {
+                        warn!("Didn't receive close command, exiting automatically");
+                        exit_sender.send(crate::AsyncMessage::Stop)
+                            .map(|_| ())
                     });
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
@@ -691,20 +724,116 @@ unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), 
     Ok(())
 }
 
-unsafe fn join_lobby(info: &GameSetupInfo) -> BoxedFuture<(), GameInitError> {
-    // this._log('verbose', 'Attempting to join lobby')
+unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(), GameInitError> {
+    let map_width = match info.map.width {
+        Some(s) => s as u16,
+        None => return box_future(future::err(GameInitError::MissingMapInfo("width"))),
+    };
+    let map_height = match info.map.height {
+        Some(s) => s as u16,
+        None => return box_future(future::err(GameInitError::MissingMapInfo("height"))),
+    };
+    let map_name = match info.map.name {
+        Some(ref s) => s,
+        None => return box_future(future::err(GameInitError::MissingMapInfo("name"))),
+    };
+    let tileset = match info.map.tileset {
+        Some(ref s) => match client_messages::bw_tileset_from_str(&s) {
+            Some(s) => s as u16,
+            None => return box_future(future::err(GameInitError::UnknownTileset(s.clone()))),
+        },
+        None => return box_future(future::err(GameInitError::MissingMapInfo("tileset"))),
+    };
+    let max_player_count = info.slots.len() as u8;
+    let active_player_count =
+        info.slots.iter().filter(|x| x.is_human() || x.is_observer()).count() as u8;
 
-    // this.bindings.spoofGame('shieldbattery', false, host, port)
-    // const isJoined = await new Promise(resolve => {
-    //   this.bindings.joinGame(mapPath, bwGameInfo, resolve)
-    // })
-    // if (!isJoined) {
-    //   throw new Error('Could not join game')
-    // }
+    // This info isn't used ingame (with exception of game_type?),
+    // but it is written in the header of replays/saves.
+    let game_info = {
+        let mut game_info = bw::JoinableGameInfo {
+            index: 1,
+            map_width,
+            map_height,
+            active_player_count,
+            max_player_count,
+            game_speed: 6, // Fastest
+            game_type: game_type.primary as u16,
+            game_subtype: game_type.subtype as u16,
+            tileset,
+            is_replay: 0,
+            ..mem::zeroed()
+        };
+        for (out, val) in game_info.game_creator.iter_mut().zip(b"fakename".iter()) {
+            *out = *val;
+        }
+        for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
+            *out = *val;
+        }
+        for (out, val) in game_info.map_name.iter_mut().zip(map_name.as_bytes().iter()) {
+            *out = *val;
+        }
+        game_info
+    };
+    let map_path: Bytes = match windows::ansi_codepage_cstring(&info.map_path) {
+        Ok(o) => o.into(),
+        Err(_) => {
+            return box_future(future::err(GameInitError::NonAnsiPath((&info.map_path).into())));
+        }
+    };
+    let future = tokio::timer::Interval::new(Instant::now(), Duration::from_millis(10))
+        .map_err(|_| GameInitError::Closed)
+        .and_then(move |_| {
+            try_join_lobby_once(game_info.clone(), map_path.clone())
+                .then(|result| Ok(result))
+        })
+        // Retries by returning None, proceeds with Some
+        .filter_map(|result| match result {
+            Ok(()) => Some(()),
+            Err(e) => {
+                debug!("Storm join error: {:08x}", e);
+                None
+            }
+        })
+        .into_future()
+        .map_err(|e| e.0)
+        .and_then(|_| {
+            bw::init_game_network();
+            // Run through a turn once, so that we ensure Storm has init'd its names
+            bw::maybe_receive_turns();
+            debug!("Storm player names at join: {:?}", storm::SNetGetPlayerNames());
+            Ok(())
+        });
+    box_future(future)
+}
 
-    // this.bindings.initGameNetwork()
-    // inLobby = true
-    unimplemented!()
+unsafe fn try_join_lobby_once(
+    mut game_info: bw::JoinableGameInfo,
+    map_path: Bytes,
+) -> impl Future<Item = (), Error = u32> {
+    // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
+    // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
+    // that won't work out well (although did it work out "well" in the normal network interface? Not
+    // really. But I digress). Therefore, we queue this onto a background thread, which will let our
+    // network code actually do its job.
+    let (send, recv) = oneshot::channel();
+    std::thread::spawn(move || {
+        snp::spoof_game("shieldbattery", Ipv4Addr::new(10, 27, 27, 0));
+        let ok = bw::join_game(&mut game_info);
+        if ok == 0 {
+            let _ = send.send(Err(storm::SErrGetLastError()));
+            return;
+        }
+        let mut out = [0u32; 8];
+        let ok = bw::init_map_from_path(map_path.as_ptr(), out.as_mut_ptr() as *mut c_void, 0);
+        if ok == 0 {
+            let _ = send.send(Err(storm::SErrGetLastError()));
+            return;
+        }
+        bw::init_team_game_playable_slots();
+        let _ = send.send(Ok(()));
+    });
+    recv.map_err(|_| !(0u32)).flatten()
 }
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
