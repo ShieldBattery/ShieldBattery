@@ -53,10 +53,12 @@ class GameServer {
   }
 
   sendCommand(socket, command, payload) {
-    socket.send(JSON.stringify({
-      command,
-      payload,
-    }))
+    socket.send(
+      JSON.stringify({
+        command,
+        payload,
+      }),
+    )
   }
 
   onMessage(gameId, message) {
