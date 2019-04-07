@@ -119,4 +119,28 @@ export class ScrollableContent extends React.Component {
       </Scrollbars>
     )
   }
+
+  getClientHeight = () => {
+    return this._scrollBars.getClientHeight()
+  }
+
+  getScrollHeight = () => {
+    return this._scrollBars.getScrollHeight()
+  }
+
+  getScrollTop = () => {
+    return this._scrollBars.getScrollTop()
+  }
+
+  scrollTop = (top = 0) => {
+    return this._scrollBars.scrollTop(top)
+  }
+
+  scrollToTop = () => {
+    return this._scrollBars.scrollToTop()
+  }
+
+  scrollToBottom = () => {
+    return this._scrollBars.scrollToBottom()
+  }
 }

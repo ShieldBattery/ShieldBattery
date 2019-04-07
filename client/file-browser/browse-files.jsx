@@ -2,7 +2,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import classnames from 'classnames'
+import memoize from 'memoize-one'
+import keycode from 'keycode'
 import pathApi from 'path'
+import { List } from 'immutable'
 
 import styles from './browse-files.css'
 import { changePath, getFiles } from './action-creators'
@@ -12,6 +15,7 @@ import Folder from '../icons/material/ic_folder_black_24px.svg'
 import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 
+import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import IconButton from '../material/icon-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
@@ -24,15 +28,24 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-class FolderEntry extends React.Component {
+const FOCUSED_KEY = 'FocusedPath'
+
+const ENTER = keycode('enter')
+const UP = keycode('up')
+const DOWN = keycode('down')
+const PAGEUP = keycode('page up')
+const PAGEDOWN = keycode('page down')
+const HOME = keycode('home')
+const END = keycode('end')
+
+const VERT_PADDING = 8
+const ENTRY_HEIGHT = 60
+
+class FolderEntry extends React.PureComponent {
   static propTypes = {
     folder: PropTypes.object.isRequired,
     onClick: PropTypes.func.isRequired,
     isFocused: PropTypes.bool,
-  }
-
-  shouldComponentUpdate(nextProps) {
-    return nextProps.folder !== this.props.folder || nextProps.onClick !== this.props.onClick
   }
 
   render() {
@@ -54,15 +67,11 @@ class FolderEntry extends React.Component {
   }
 }
 
-class FileEntry extends React.Component {
+class FileEntry extends React.PureComponent {
   static propTypes = {
     file: PropTypes.object.isRequired,
     onClick: PropTypes.func.isRequired,
     isFocused: PropTypes.bool,
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return nextProps.file !== this.props.file || nextProps.onClick !== this.props.onClick
   }
 
   render() {
@@ -127,28 +136,104 @@ class PathBreadcrumbs extends React.Component {
 
 @connect(state => ({ fileBrowser: state.fileBrowser }))
 export default class Files extends React.Component {
+  state = {
+    focusedPath: window.localStorage.getItem(this.props.browseId + FOCUSED_KEY),
+  }
+
+  focusTimeout = null
+  browserRef = React.createRef()
+  contentRef = React.createRef()
+
+  getEntries = memoize(
+    props => {
+      const { browseId, fileBrowser, root, fileTypes } = props
+      const { path, files, folders } = fileBrowser[browseId]
+      const isRootFolder = path === root
+      const upOneDir = isRootFolder ? new List([]) : new List([{ path: path + '\\..' }])
+      const filteredFiles = files.filter(f => fileTypes[f.extension])
+      return upOneDir.concat(folders, filteredFiles)
+    },
+    (newArgs, prevArgs) => {
+      const { browseId, fileBrowser } = newArgs[0]
+      const { path, folders, files } = fileBrowser[browseId]
+      const { browseId: prevBrowseId, fileBrowser: prevFileBrowser } = prevArgs[0]
+      const { path: prevPath, folders: prevFolders, files: prevFiles } = prevFileBrowser[
+        prevBrowseId
+      ]
+
+      return path === prevPath && folders.size === prevFolders.size && files.size === prevFiles.size
+    },
+  )
+
+  _saveToLocalStorage = () => {
+    const { focusedPath } = this.state
+
+    if (focusedPath) {
+      window.localStorage.setItem(this.props.browseId + FOCUSED_KEY, focusedPath)
+    }
+  }
+
   componentDidMount() {
     const { browseId, root } = this.props
+    const { focusedPath } = this.state
     const { path } = this.props.fileBrowser[browseId]
     if (path === '') {
-      this.props.dispatch(changePath(browseId, root))
+      const initialPath = focusedPath ? pathApi.parse(focusedPath).dir : root
+
+      this.props.dispatch(changePath(browseId, initialPath))
     } else {
       this.props.dispatch(getFiles(browseId, path))
     }
+
+    // Focus *something* when browser is opened, because if we don't, whatever was focused before
+    // the browser was opened will still have focus and will mess with our keyboard events.
+    this.focusTimeout = setTimeout(() => {
+      this.browserRef.current.focus()
+      this.focusTimeout = null
+    }, 0)
+
+    window.addEventListener('beforeunload', this._saveToLocalStorage)
   }
 
   componentDidUpdate(prevProps) {
     const { browseId } = this.props
-    const { path } = this.props.fileBrowser[browseId]
-    if (prevProps.fileBrowser[browseId].path !== path) {
+    const { focusedPath } = this.state
+    const { path, isRequesting } = this.props.fileBrowser[browseId]
+    const { path: prevPath, isRequesting: prevIsRequesting } = prevProps.fileBrowser[browseId]
+    if (prevPath !== path) {
       this.props.dispatch(getFiles(browseId, path))
     }
+
+    const hasFocusedPath = items => items.map(i => i.path).includes(focusedPath)
+    const entries = this.getEntries(this.props)
+
+    if (prevIsRequesting && !isRequesting && entries.size > 0) {
+      if (hasFocusedPath(entries)) {
+        const focusedIndex = entries.findIndex(f => f.path === focusedPath)
+        this._scrollToIndex(focusedIndex)
+      } else {
+        // Focus first entry if nothing else is focused. Will be 'Up one directory' entry in all
+        // non-root folders. In the root folder it will either be the first folder or a file.
+        this.setState({ focusedPath: entries.get(0).path })
+      }
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.focusTimeout) {
+      clearTimeout(this.focusTimeout)
+    }
+    // Saves the focused path to the local storage if the component had time to unmount. If it
+    // didn't, eg. the page was refreshed, the 'beforeunload' event listener will handle it.
+    this._saveToLocalStorage()
+    window.removeEventListener('beforeunload', this._saveToLocalStorage)
   }
 
   renderFiles() {
     const { isRequesting, lastError, path, files, folders } = this.props.fileBrowser[
       this.props.browseId
     ]
+    const { focusedPath } = this.state
     if (isRequesting) {
       return (
         <div className={styles.loading}>
@@ -162,11 +247,15 @@ export default class Files extends React.Component {
     }
 
     const isRootFolder = path === this.props.root
+    const upOneDirClasses = classnames(styles.entry, {
+      [styles.focused]: focusedPath === path + '\\..',
+    })
 
     return (
       <div className={styles.fileList}>
+        <KeyListener onKeyDown={this.onKeyDown} />
         {!isRootFolder ? (
-          <div className={styles.entry} onClick={this.onUpLevelClick} key={'up-one-dir'}>
+          <div className={upOneDirClasses} onClick={this.onUpLevelClick} key={'up-one-dir'}>
             <div className={styles.entryIcon}>
               <UpDirectory />
             </div>
@@ -174,13 +263,25 @@ export default class Files extends React.Component {
           </div>
         ) : null}
         {folders.map((folder, i) => (
-          <FolderEntry folder={folder} onClick={this.onFolderClick} key={folder.path} />
+          <FolderEntry
+            folder={folder}
+            onClick={this.onFolderClick}
+            isFocused={folder.path === focusedPath}
+            key={folder.path}
+          />
         ))}
         {files.map((file, i) => {
-          const extension = file.path.substr(file.path.lastIndexOf('.') + 1).toLowerCase()
-          if (this.props.fileTypes[extension]) {
-            const { onSelect, icon } = this.props.fileTypes[extension]
-            return <FileEntry file={file} onClick={onSelect} icon={icon} key={file.path} />
+          if (this.props.fileTypes[file.extension]) {
+            const { icon } = this.props.fileTypes[file.extension]
+            return (
+              <FileEntry
+                file={file}
+                onClick={this.onFileClick}
+                isFocused={file.path === focusedPath}
+                icon={icon}
+                key={file.path}
+              />
+            )
           } else {
             return null
           }
@@ -194,7 +295,7 @@ export default class Files extends React.Component {
     const { path } = this.props.fileBrowser[this.props.browseId]
     const displayedPath = `${rootFolderName}\\${pathApi.relative(root, path)}`
     return (
-      <div className={styles.root}>
+      <div ref={this.browserRef} tabIndex='-1' className={styles.root}>
         <div className={styles.topBar}>
           <div className={styles.title}>
             <h3 className={styles.contentTitle}>{title}</h3>
@@ -210,6 +311,7 @@ export default class Files extends React.Component {
         </div>
         {error ? <div className={styles.externalError}>{error}</div> : null}
         <ScrollableContent
+          ref={this.contentRef}
           className={styles.filesScrollable}
           viewClassName={styles.filesScrollableView}>
           {this.renderFiles()}
@@ -234,9 +336,124 @@ export default class Files extends React.Component {
     this.props.dispatch(changePath(this.props.browseId, folder.path))
   }
 
+  onFileClick = file => {
+    const { onSelect } = this.props.fileTypes[file.extension]
+    const { focusedPath } = this.state
+    if (focusedPath !== file.path) {
+      this.setState({ focusedPath: file.path })
+    }
+    onSelect(file)
+  }
+
   onRefreshClick = () => {
     this.props.dispatch(
       getFiles(this.props.browseId, this.props.fileBrowser[this.props.browseId].path),
     )
+  }
+
+  _onEnterPressed = () => {
+    const { path, files, folders } = this.props.fileBrowser[this.props.browseId]
+    const { focusedPath } = this.state
+
+    if (focusedPath === path + '\\..') {
+      this.onUpLevelClick()
+      return
+    }
+    let focusedEntry = folders.find(f => f.path === focusedPath)
+    if (focusedEntry) {
+      this.onFolderClick(focusedEntry)
+      return
+    }
+    focusedEntry = files.find(f => f.path === focusedPath)
+    if (focusedEntry) this.onFileClick(focusedEntry)
+  }
+
+  _moveFocusedIndexBy = delta => {
+    const { focusedPath } = this.state
+    const { scrollToTop, scrollToBottom } = this.contentRef.current
+
+    const entries = this.getEntries(this.props)
+    const focusedIndex = entries.findIndex(f => f.path === focusedPath)
+    if (focusedIndex === -1) return
+
+    let newIndex = focusedIndex + delta
+    if (newIndex < 0) {
+      newIndex = 0
+      scrollToTop()
+    } else if (newIndex > entries.size - 1) {
+      newIndex = entries.size - 1
+      scrollToBottom()
+    }
+
+    if (newIndex === focusedIndex) return
+
+    const newFocusedEntry = entries.get(newIndex)
+
+    if (newFocusedEntry.path !== focusedPath) {
+      this.setState({ focusedPath: newFocusedEntry.path })
+    }
+
+    this._scrollToIndex(newIndex)
+  }
+
+  _scrollToIndex = index => {
+    const { getClientHeight, getScrollTop, scrollTop } = this.contentRef.current
+
+    const clientHeight = getClientHeight()
+    const ENTRIES_SHOWN = Math.floor(clientHeight / ENTRY_HEIGHT)
+
+    // Adjust scroll position to keep the item in view
+    // TODO(2Pac): This was taken from the Select component, with some minor adjustments. Try
+    // extracting this logic (along with anything else needed) into some kind of a List component.
+    const curTopIndex = Math.ceil(Math.max(0, getScrollTop() - VERT_PADDING) / ENTRY_HEIGHT)
+    const curBottomIndex = curTopIndex + ENTRIES_SHOWN - 1 // accounts for partially shown entries
+    if (index >= curTopIndex && index <= curBottomIndex) {
+      // New index is in view, no need to adjust scroll position
+      return
+    } else if (index < curTopIndex) {
+      // Make the new index the top item
+      scrollTop(VERT_PADDING + ENTRY_HEIGHT * index)
+    } else {
+      // Calculates the space used to display a partially shown entry, so the bottom entry is
+      // aligned to the bottom of the list
+      const partialHeight = clientHeight - VERT_PADDING - ENTRIES_SHOWN * ENTRY_HEIGHT
+      // Make the new index the bottom item
+      scrollTop(ENTRY_HEIGHT * (index + 1 - ENTRIES_SHOWN) - partialHeight)
+    }
+  }
+
+  onKeyDown = event => {
+    const { focusedPath } = this.state
+
+    switch (event.which) {
+      case ENTER:
+        this._onEnterPressed()
+        return true
+      case UP:
+        this._moveFocusedIndexBy(-1)
+        return true
+      case DOWN:
+        this._moveFocusedIndexBy(1)
+        return true
+      case PAGEUP:
+      case PAGEDOWN:
+        const ENTRIES_SHOWN = Math.floor(this.contentRef.current.getClientHeight() / ENTRY_HEIGHT)
+        // This tries to mimick the way "page up" and "page down" keys work in Windows file explorer
+        const delta = event.which === PAGEUP ? -ENTRIES_SHOWN + 1 : ENTRIES_SHOWN - 1
+        this._moveFocusedIndexBy(delta)
+        return true
+      case HOME:
+      case END:
+        const entries = this.getEntries(this.props)
+        const newFocusedEntry = event.which === HOME ? entries.first() : entries.last()
+        if (!newFocusedEntry || newFocusedEntry.path === focusedPath) return true
+
+        this.setState({ focusedPath: newFocusedEntry.path })
+        if (event.which === HOME) this.contentRef.current.scrollToTop()
+        else if (event.which === END) this.contentRef.current.scrollToBottom()
+        return true
+    }
+
+    return false
   }
 }

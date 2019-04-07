@@ -71,6 +71,7 @@ import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
+const KEY_R = keycode('r')
 const KEY_S = keycode('s')
 
 const Container = styled.div`
@@ -271,7 +272,7 @@ class MainLayout extends React.Component {
       />,
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ? (
-      <ActivityButton
+      <HotkeyedActivityButton
         key='find-match'
         icon={<FindMatchIcon />}
         label='Find match'
@@ -308,11 +309,13 @@ class MainLayout extends React.Component {
             keycode={KEY_J}
             altKey={true}
           />,
-          <ActivityButton
+          <HotkeyedActivityButton
             key='replays'
             icon={<ReplaysIcon />}
             label='Replays'
             onClick={this.onReplaysClick}
+            keycode={KEY_R}
+            altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
           <HotkeyedActivityButton

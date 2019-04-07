@@ -6,9 +6,10 @@ export const Folder = new Record({
   name: '',
   path: '',
 })
-export const Replay = new Record({
+export const File = new Record({
   name: '',
   path: '',
+  extension: '',
   date: null,
 })
 export const FileBrowseState = new Record({
@@ -40,7 +41,7 @@ export default keyedReducer(new FileStates(), {
       .filter(e => e.isFolder)
       .map(e => new Folder(e))
       .sort((a, b) => a.name.localeCompare(b.name))
-    let files = action.payload.filter(e => !e.isFolder).map(e => new Replay(e))
+    let files = action.payload.filter(e => !e.isFolder).map(e => new File(e))
     if (action.meta.browseId === 'replays') {
       files = files.sort((a, b) => b.date - a.date)
     } else {
