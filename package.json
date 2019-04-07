@@ -77,6 +77,7 @@
     "react-redux": "^6.0.1",
     "react-router-dom": "^5.0.0",
     "react-svg-loader": "2.1.0",
+    "react-virtualized": "^9.21.0",
     "redux": "^4.0.1",
     "redux-batched-subscribe": "^0.1.6",
     "redux-promise": "^0.6.0",

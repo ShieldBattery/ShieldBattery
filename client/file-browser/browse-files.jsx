@@ -6,6 +6,7 @@ import memoize from 'memoize-one'
 import keycode from 'keycode'
 import pathApi from 'path'
 import { List } from 'immutable'
+import { List as VirtualizedList } from 'react-virtualized'
 
 import styles from './browse-files.css'
 import { changePath, getFiles } from './action-creators'
@@ -41,6 +42,29 @@ const END = keycode('end')
 const VERT_PADDING = 8
 const ENTRY_HEIGHT = 60
 
+class UpOneDir extends React.PureComponent {
+  static propTypes = {
+    onClick: PropTypes.func.isRequired,
+    isFocused: PropTypes.bool,
+  }
+
+  render() {
+    const { style, isFocused, onClick } = this.props
+    const upOneDirClasses = classnames(styles.entry, {
+      [styles.focused]: isFocused,
+    })
+
+    return (
+      <div style={style} className={upOneDirClasses} onClick={onClick} key={'up-one-dir'}>
+        <div className={styles.entryIcon}>
+          <UpDirectory />
+        </div>
+        <div className={styles.name}>{'Up one directory'}</div>
+      </div>
+    )
+  }
+}
+
 class FolderEntry extends React.PureComponent {
   static propTypes = {
     folder: PropTypes.object.isRequired,
@@ -55,7 +79,7 @@ class FolderEntry extends React.PureComponent {
     })
 
     return (
-      <div className={classes} onClick={() => onClick(folder)}>
+      <div style={this.props.style} className={classes} onClick={() => onClick(folder)}>
         <div className={styles.entryIcon}>
           <Folder />
         </div>
@@ -81,7 +105,7 @@ class FileEntry extends React.PureComponent {
     })
 
     return (
-      <div className={classes} onClick={() => onClick(file)}>
+      <div style={this.props.style} className={classes} onClick={() => onClick(file)}>
         <div className={styles.entryIcon}>{icon}</div>
         <div className={styles.info}>
           <span className={styles.name}>{file.name}</span>
@@ -143,6 +167,7 @@ export default class Files extends React.Component {
   focusTimeout = null
   browserRef = React.createRef()
   contentRef = React.createRef()
+  listRef = React.createRef()
 
   getEntries = memoize(
     props => {
@@ -230,6 +255,7 @@ export default class Files extends React.Component {
   }
 
   renderFiles() {
+    if (!this.contentRef.current) return null
     const { isRequesting, lastError, path, files, folders } = this.props.fileBrowser[
       this.props.browseId
     ]
@@ -247,45 +273,60 @@ export default class Files extends React.Component {
     }
 
     const isRootFolder = path === this.props.root
-    const upOneDirClasses = classnames(styles.entry, {
-      [styles.focused]: focusedPath === path + '\\..',
-    })
+    const upOneDir = isRootFolder
+      ? new List([])
+      : new List([
+          <UpOneDir
+            onClick={this.onUpLevelClick}
+            isFocused={focusedPath === path + '\\..'}
+            key={'up-one-dir'}
+          />,
+        ])
+    const entries = upOneDir.concat(
+      folders.map((folder, i) => (
+        <FolderEntry
+          folder={folder}
+          onClick={this.onFolderClick}
+          isFocused={folder.path === focusedPath}
+          key={folder.path}
+        />
+      )),
+      files.map((file, i) => {
+        if (this.props.fileTypes[file.extension]) {
+          const { icon } = this.props.fileTypes[file.extension]
+          return (
+            <FileEntry
+              file={file}
+              onClick={this.onFileClick}
+              isFocused={file.path === focusedPath}
+              icon={icon}
+              key={file.path}
+            />
+          )
+        } else {
+          return null
+        }
+      }),
+    )
+    const _rowRenderer = ({ index, style }) => {
+      const file = entries.get(index)
 
+      return React.cloneElement(file, { ...file.props, style })
+    }
+
+    const clientHeight = this.contentRef.current.getClientHeight()
     return (
       <div className={styles.fileList}>
         <KeyListener onKeyDown={this.onKeyDown} />
-        {!isRootFolder ? (
-          <div className={upOneDirClasses} onClick={this.onUpLevelClick} key={'up-one-dir'}>
-            <div className={styles.entryIcon}>
-              <UpDirectory />
-            </div>
-            <div className={styles.name}>{'Up one directory'}</div>
-          </div>
-        ) : null}
-        {folders.map((folder, i) => (
-          <FolderEntry
-            folder={folder}
-            onClick={this.onFolderClick}
-            isFocused={folder.path === focusedPath}
-            key={folder.path}
-          />
-        ))}
-        {files.map((file, i) => {
-          if (this.props.fileTypes[file.extension]) {
-            const { icon } = this.props.fileTypes[file.extension]
-            return (
-              <FileEntry
-                file={file}
-                onClick={this.onFileClick}
-                isFocused={file.path === focusedPath}
-                icon={icon}
-                key={file.path}
-              />
-            )
-          } else {
-            return null
-          }
-        })}
+        <VirtualizedList
+          ref={this.listRef}
+          height={clientHeight}
+          rowCount={entries.size - 1}
+          rowHeight={ENTRY_HEIGHT}
+          rowRenderer={_rowRenderer}
+          width={768}
+          style={{ overflowX: false, overflowY: false }}
+        />
       </div>
     )
   }
@@ -313,7 +354,8 @@ export default class Files extends React.Component {
         <ScrollableContent
           ref={this.contentRef}
           className={styles.filesScrollable}
-          viewClassName={styles.filesScrollableView}>
+          viewClassName={styles.filesScrollableView}
+          onScroll={this.onScroll}>
           {this.renderFiles()}
         </ScrollableContent>
       </div>
@@ -455,5 +497,12 @@ export default class Files extends React.Component {
     }
 
     return false
+  }
+
+  onScroll = event => {
+    const { scrollTop, scrollLeft } = event.target
+    const { Grid: grid } = this.listRef.current
+
+    grid.handleScrollEvent({ scrollTop, scrollLeft })
   }
 }

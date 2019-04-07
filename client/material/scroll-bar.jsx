@@ -30,6 +30,7 @@ export class ScrollableContent extends React.Component {
     // Whether the element should keep the scroll position at the bottom if it's at the bottom and
     // more content is added
     autoScroll: PropTypes.bool,
+    onScroll: PropTypes.func,
   }
 
   constructor(props) {
@@ -113,11 +114,16 @@ export class ScrollableContent extends React.Component {
         autoHeightMin={this.props.autoHeightMin}
         autoHeightMax={this.props.autoHeightMax}
         onUpdate={this.props.onUpdate}
-        onMouseEnter={this._handleMouseEnter}
-        onMouseLeave={this._handleMouseLeave}>
+        onScroll={this._handleScroll}>
         {this.props.children}
       </Scrollbars>
     )
+  }
+
+  _handleScroll = event => {
+    if (this.props.onScroll) {
+      this.props.onScroll(event)
+    }
   }
 
   getClientHeight = () => {
