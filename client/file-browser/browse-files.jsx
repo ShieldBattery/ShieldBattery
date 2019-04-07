@@ -291,8 +291,9 @@ export default class Files extends React.Component {
           key={folder.path}
         />
       )),
-      files.map((file, i) => {
-        if (this.props.fileTypes[file.extension]) {
+      files
+        .filter(file => this.props.fileTypes[file.extension])
+        .map((file, i) => {
           const { icon } = this.props.fileTypes[file.extension]
           return (
             <FileEntry
@@ -303,10 +304,7 @@ export default class Files extends React.Component {
               key={file.path}
             />
           )
-        } else {
-          return null
-        }
-      }),
+        }),
     )
     const _rowRenderer = ({ index, style }) => {
       const file = entries.get(index)
