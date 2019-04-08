@@ -3,10 +3,12 @@ import keyedReducer from '../reducers/keyed-reducer'
 import { FILE_BROWSER_CHANGE_PATH, FILE_BROWSER_GET_BEGIN, FILE_BROWSER_GET } from '../actions'
 
 export const Folder = new Record({
+  type: 'folder',
   name: '',
   path: '',
 })
 export const File = new Record({
+  type: 'file',
   name: '',
   path: '',
   extension: '',
