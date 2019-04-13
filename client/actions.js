@@ -91,10 +91,10 @@ export const DIALOG_CLOSE = 'DIALOG_CLOSE'
 // We have clicked on a folder inside the file browser
 export const FILE_BROWSER_CHANGE_PATH = 'FILE_BROWSER_CHANGE_PATH'
 // We are starting the process of getting the list of files (and folders) from a user's computer
-export const FILE_BROWSER_GET_BEGIN = 'FILE_BROWSER_GET_BEGIN'
+export const FILE_BROWSER_GET_LIST_BEGIN = 'FILE_BROWSER_GET_LIST_BEGIN'
 // We have received a response to our files retrieval (error or the list of the files for that
 // particular folder)
-export const FILE_BROWSER_GET = 'FILE_BROWSER_GET'
+export const FILE_BROWSER_GET_LIST = 'FILE_BROWSER_GET_LIST'
 
 // We are starting the process of getting the state of a particular lobby
 export const LOBBIES_GET_STATE_BEGIN = 'LOBBIES_GET_STATE_BEGIN'

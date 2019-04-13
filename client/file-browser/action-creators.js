@@ -1,10 +1,14 @@
 import readFolder from './get-files'
-import { FILE_BROWSER_CHANGE_PATH, FILE_BROWSER_GET_BEGIN, FILE_BROWSER_GET } from '../actions'
+import {
+  FILE_BROWSER_CHANGE_PATH,
+  FILE_BROWSER_GET_LIST_BEGIN,
+  FILE_BROWSER_GET_LIST,
+} from '../actions'
 
 export function getFiles(browseId, path) {
   return dispatch => {
     dispatch({
-      type: FILE_BROWSER_GET_BEGIN,
+      type: FILE_BROWSER_GET_LIST_BEGIN,
       payload: {
         browseId,
         path,
@@ -12,7 +16,7 @@ export function getFiles(browseId, path) {
     })
 
     dispatch({
-      type: FILE_BROWSER_GET,
+      type: FILE_BROWSER_GET_LIST,
       payload: readFolder(path),
       meta: {
         browseId,

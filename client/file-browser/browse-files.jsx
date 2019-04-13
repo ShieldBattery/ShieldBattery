@@ -129,7 +129,7 @@ class PathBreadcrumbs extends React.Component {
   }
 
   render() {
-    const pieces = this.props.path.split('\\')
+    const pieces = this.props.path.split(pathApi.sep)
     if (pieces[pieces.length - 1] === '') {
       // Remove the last entry if it's empty (due to a trailing slash)
       pieces.pop()
@@ -137,7 +137,7 @@ class PathBreadcrumbs extends React.Component {
     const { elems } = pieces.reduce(
       (r, piece, i) => {
         const isLast = i === pieces.length - 1
-        r.curPath += (i === 0 ? '' : '\\') + piece
+        r.curPath += (i === 0 ? '' : pathApi.sep) + piece
         // Save the value at the current time so the function doesn't always use the last value
         const navPath = r.curPath
         r.elems.push(
@@ -165,17 +165,23 @@ export default class Files extends React.Component {
     focusedPath: window.localStorage.getItem(this.props.browseId + FOCUSED_KEY),
   }
 
-  focusTimeout = null
-  browserRef = React.createRef()
   contentRef = React.createRef()
   listRef = React.createRef()
+
+  // Focus *something* when browser is opened, because if we don't, whatever was focused before
+  // the browser was opened will still have focus and will mess with our keyboard events.
+  _focusBrowser = elem => {
+    if (elem) Promise.resolve().then(() => elem.focus())
+  }
 
   getEntries = memoize(
     props => {
       const { browseId, fileBrowser, root, fileTypes } = props
       const { path, files, folders } = fileBrowser[browseId]
       const isRootFolder = path === root
-      const upOneDir = isRootFolder ? new List([]) : new List([{ type: 'up', path: path + '\\..' }])
+      const upOneDir = isRootFolder
+        ? new List([])
+        : new List([{ type: 'up', path: `${path}${pathApi.sep}..` }])
       const filteredFiles = files.filter(f => fileTypes[f.extension])
       return upOneDir.concat(folders, filteredFiles)
     },
@@ -211,13 +217,6 @@ export default class Files extends React.Component {
       this.props.dispatch(getFiles(browseId, path))
     }
 
-    // Focus *something* when browser is opened, because if we don't, whatever was focused before
-    // the browser was opened will still have focus and will mess with our keyboard events.
-    this.focusTimeout = setTimeout(() => {
-      this.browserRef.current.focus()
-      this.focusTimeout = null
-    }, 0)
-
     window.addEventListener('beforeunload', this._saveToLocalStorage)
   }
 
@@ -252,9 +251,6 @@ export default class Files extends React.Component {
   }
 
   componentWillUnmount() {
-    if (this.focusTimeout) {
-      clearTimeout(this.focusTimeout)
-    }
     // Saves the focused path to the local storage if the component had time to unmount. If it
     // didn't, eg. the page was refreshed, the 'beforeunload' event listener will handle it.
     this._saveToLocalStorage()
@@ -345,9 +341,9 @@ export default class Files extends React.Component {
   render() {
     const { rootFolderName, title, root, error } = this.props
     const { path } = this.props.fileBrowser[this.props.browseId]
-    const displayedPath = `${rootFolderName}\\${pathApi.relative(root, path)}`
+    const displayedPath = `${rootFolderName}${pathApi.sep}${pathApi.relative(root, path)}`
     return (
-      <div ref={this.browserRef} tabIndex='-1' className={styles.root}>
+      <div ref={this._focusBrowser} tabIndex='-1' className={styles.root}>
         <div className={styles.topBar}>
           <div className={styles.title}>
             <h3 className={styles.contentTitle}>{title}</h3>
@@ -381,7 +377,7 @@ export default class Files extends React.Component {
 
   onUpLevelClick = () => {
     const { path } = this.props.fileBrowser[this.props.browseId]
-    const prevPath = path.lastIndexOf('\\') !== -1 ? path.slice(0, path.lastIndexOf('\\')) : ''
+    const prevPath = pathApi.parse(path).dir
     this.props.dispatch(changePath(this.props.browseId, prevPath))
   }
 
@@ -408,7 +404,7 @@ export default class Files extends React.Component {
     const { path, files, folders } = this.props.fileBrowser[this.props.browseId]
     const { focusedPath } = this.state
 
-    if (focusedPath === path + '\\..') {
+    if (focusedPath === `${path}${pathApi.sep}..`) {
       this.onUpLevelClick()
       return
     }
