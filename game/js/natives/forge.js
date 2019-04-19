@@ -1,21 +1,29 @@
 import { EventEmitter } from 'events'
 
+import dxVertDepalettizing from './shaders/directx/vs_depalettizing.hlsl'
+import dxPixelDepalettizing from './shaders/directx/ps_depalettizing.hlsl'
+import dxPixelScaling from './shaders/directx/ps_scaling.hlsl'
+import glVertDepalettizing from './shaders/opengl/vs_depalettizing.glsl'
+import glVertScaling from './shaders/opengl/vs_scaling.glsl'
+import glFragDepalettizing from './shaders/opengl/fs_depalettizing.glsl'
+import glFragScaling from './shaders/opengl/fs_scaling.glsl'
+
 const forge = process._linkedBinding('shieldbattery_forge').instance
 
 const dxVertShaders = {
-  depalettizing: require('./shaders/directx/vs_depalettizing.hlsl'),
+  depalettizing: dxVertDepalettizing,
 }
 const dxPixelShaders = {
-  depalettizing: require('./shaders/directx/ps_depalettizing.hlsl'),
-  scaling: require('./shaders/directx/ps_scaling.hlsl'),
+  depalettizing: dxPixelDepalettizing,
+  scaling: dxPixelScaling,
 }
 const glVertShaders = {
-  depalettizing: require('./shaders/opengl/vs_depalettizing.glsl'),
-  scaling: require('./shaders/opengl/vs_scaling.glsl'),
+  depalettizing: glVertDepalettizing,
+  scaling: glVertScaling,
 }
 const glFragShaders = {
-  depalettizing: require('./shaders/opengl/fs_depalettizing.glsl'),
-  scaling: require('./shaders/opengl/fs_scaling.glsl'),
+  depalettizing: glFragDepalettizing,
+  scaling: glFragScaling,
 }
 
 forge.setShaders(dxVertShaders, dxPixelShaders, glVertShaders, glFragShaders)

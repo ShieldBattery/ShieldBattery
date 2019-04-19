@@ -12,10 +12,10 @@
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com)",
   "dependencies": {
-    "@babel/polyfill": "^7.4.0",
+    "@babel/polyfill": "^7.4.3",
     "deep-equal": "^1.0.1",
     "devtron": "^1.4.0",
-    "electron-is-dev": "^1.0.1",
+    "electron-is-dev": "^1.1.0",
     "electron-localshortcut": "^3.1.0",
     "electron-updater": "^4.0.6",
     "mkdirp": "^0.5.1",
@@ -25,7 +25,7 @@
     "winreg": "^1.2.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.4.0",
+    "@babel/core": "^7.4.3",
     "@babel/plugin-proposal-class-properties": "^7.4.0",
     "@babel/plugin-proposal-decorators": "^7.4.0",
     "@babel/plugin-proposal-do-expressions": "^7.2.0",
@@ -35,14 +35,14 @@
     "@babel/plugin-proposal-function-sent": "^7.2.0",
     "@babel/plugin-proposal-json-strings": "^7.2.0",
     "@babel/plugin-proposal-logical-assignment-operators": "^7.2.0",
-    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.2.0",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.4.3",
     "@babel/plugin-proposal-numeric-separator": "^7.2.0",
     "@babel/plugin-proposal-optional-chaining": "^7.2.0",
     "@babel/plugin-proposal-pipeline-operator": "^7.3.2",
     "@babel/plugin-proposal-throw-expressions": "^7.2.0",
     "@babel/plugin-syntax-dynamic-import": "^7.2.0",
     "@babel/plugin-syntax-import-meta": "^7.2.0",
-    "@babel/preset-env": "^7.4.2",
+    "@babel/preset-env": "^7.4.3",
     "@babel/register": "^7.4.0"
   }
 }
