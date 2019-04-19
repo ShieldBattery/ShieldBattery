@@ -11,6 +11,10 @@
   height: 100%;
 }
 
+.root:focus {
+  outline: none;
+}
+
 .topBar {
   composes: shadow4dp;
   background: blue800;
@@ -78,9 +82,11 @@
 .filesScrollableView {
 }
 
-.fileList {
-  padding-top: 8px;
-  padding-bottom: 8px;
+.fileList,
+.fileList > div {
+  &:focus {
+    outline: none;
+  }
 }
 
 .entry {
@@ -94,6 +100,10 @@
 .entry:hover {
   cursor: pointer;
   background-color: rgba(255, 255, 255, 0.08);
+}
+
+.entry.focused {
+  background-color: rgba(255, 255, 255, 0.24);
 }
 
 .entryIcon {

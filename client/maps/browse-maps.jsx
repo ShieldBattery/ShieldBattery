@@ -3,12 +3,12 @@ import { connect } from 'react-redux'
 import path from 'path'
 
 import { selectLocalMap } from './action-creators'
-import BrowseFiles from '../replays/browse-files.jsx'
+import BrowseFiles from '../file-browser/browse-files.jsx'
 
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 @connect(state => ({ maps: state.maps, settings: state.settings }))
-export default class Replays extends React.Component {
+export default class Maps extends React.Component {
   render() {
     if (!this.props.settings.local.starcraftPath) {
       return null

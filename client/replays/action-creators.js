@@ -4,37 +4,10 @@ import { List } from 'immutable'
 import cuid from 'cuid'
 import ReplayParser from 'jssuh'
 import logger from '../logging/logger'
-import readFolder from './get-files'
 import activeGameManager from '../active-game/active-game-manager-instance'
 import { openSimpleDialog } from '../dialogs/dialog-action-creator'
 import { Slot } from '../lobbies/lobby-reducer'
-import {
-  REPLAYS_CHANGE_PATH,
-  REPLAYS_GET_BEGIN,
-  REPLAYS_GET,
-  REPLAYS_START_REPLAY,
-} from '../actions'
-
-export function getFiles(browseId, path) {
-  return dispatch => {
-    dispatch({
-      type: REPLAYS_GET_BEGIN,
-      payload: {
-        browseId,
-        path,
-      },
-    })
-
-    dispatch({
-      type: REPLAYS_GET,
-      payload: readFolder(path),
-      meta: {
-        browseId,
-        path,
-      },
-    })
-  }
-}
+import { REPLAYS_START_REPLAY } from '../actions'
 
 function getReplayHeader(filePath) {
   return new Promise((resolve, reject) => {
@@ -102,15 +75,5 @@ export function startReplay(replay) {
         )
       },
     )
-  }
-}
-
-export function changePath(browseId, path) {
-  return {
-    type: REPLAYS_CHANGE_PATH,
-    payload: {
-      browseId,
-      path,
-    },
   }
 }

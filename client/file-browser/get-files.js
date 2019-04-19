@@ -20,6 +20,9 @@ export default async function readFolder(folderPath) {
         isFolder: s.isDirectory(),
         name,
         path: targetPath,
+        extension: !s.isDirectory()
+          ? targetPath.substr(targetPath.lastIndexOf('.') + 1).toLowerCase()
+          : '',
         date: s.mtime,
       }
     })

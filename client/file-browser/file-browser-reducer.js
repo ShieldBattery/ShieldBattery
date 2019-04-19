@@ -1,19 +1,21 @@
 import { List, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
-  REPLAYS_CHANGE_PATH,
-  REPLAYS_GET_BEGIN,
-  REPLAYS_GET,
-  REPLAYS_START_REPLAY,
+  FILE_BROWSER_CHANGE_PATH,
+  FILE_BROWSER_GET_LIST_BEGIN,
+  FILE_BROWSER_GET_LIST,
 } from '../actions'
 
 export const Folder = new Record({
+  type: 'folder',
   name: '',
   path: '',
 })
-export const Replay = new Record({
+export const File = new Record({
+  type: 'file',
   name: '',
   path: '',
+  extension: '',
   date: null,
 })
 export const FileBrowseState = new Record({
@@ -30,11 +32,11 @@ export const FileStates = new Record({
 })
 
 export default keyedReducer(new FileStates(), {
-  [REPLAYS_GET_BEGIN](state, action) {
+  [FILE_BROWSER_GET_LIST_BEGIN](state, action) {
     return state.setIn([action.payload.browseId, 'isRequesting'], true)
   },
 
-  [REPLAYS_GET](state, action) {
+  [FILE_BROWSER_GET_LIST](state, action) {
     if (action.error) {
       return state.update(action.meta.browseId, prev =>
         prev.set('isRequesting', false).set('lastError', action.payload),
@@ -45,7 +47,7 @@ export default keyedReducer(new FileStates(), {
       .filter(e => e.isFolder)
       .map(e => new Folder(e))
       .sort((a, b) => a.name.localeCompare(b.name))
-    let files = action.payload.filter(e => !e.isFolder).map(e => new Replay(e))
+    let files = action.payload.filter(e => !e.isFolder).map(e => new File(e))
     if (action.meta.browseId === 'replays') {
       files = files.sort((a, b) => b.date - a.date)
     } else {
@@ -61,11 +63,7 @@ export default keyedReducer(new FileStates(), {
     )
   },
 
-  [REPLAYS_START_REPLAY](state, action) {
-    return state
-  },
-
-  [REPLAYS_CHANGE_PATH](state, action) {
+  [FILE_BROWSER_CHANGE_PATH](state, action) {
     return state.setIn([action.payload.browseId, 'path'], action.payload.path)
   },
 })

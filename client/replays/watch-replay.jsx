@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import path from 'path'
 import { remote } from 'electron'
 
-import BrowseFiles from './browse-files.jsx'
+import BrowseFiles from '../file-browser/browse-files.jsx'
 import { startReplay } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 
