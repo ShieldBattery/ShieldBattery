@@ -22,9 +22,9 @@ const Container = styled.header`
   background-color: ${blue800};
   position: relative;
   z-index: ${zIndexAppBar};
+  user-select: none;
 
   -webkit-app-region: drag;
-  -webkit-user-select: none;
 `
 
 const LeftSide = styled.div`
@@ -40,8 +40,8 @@ const Content = styled.div`
 `
 
 const selectable = css`
+  user-select: text;
   -webkit-app-region: no-drag;
-  -webkit-user-select: initial;
 `
 
 export const AppBarTitle = styled(Title)`

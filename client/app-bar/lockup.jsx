@@ -10,8 +10,7 @@ const Container = styled.div`
   flex-direction: row;
   align-items: center;
   padding-left: 8px;
-
-  -webkit-user-select: none;
+  user-select: none;
 `
 
 const Logo = styled.img`
