@@ -1,5 +1,6 @@
 use std::time::{Instant, Duration};
 
+use futures::future::Either;
 use quick_error::{quick_error, ResultExt};
 use serde::{Serialize, Deserialize};
 use tokio::prelude::*;
@@ -45,6 +46,9 @@ fn app_websocket_connection(
                 .map_err(|_| ());
             let (sink, stream) = client.split();
             let stream_done = stream
+                .map_err(|e| {
+                    error!("Error reading websocket stream: {}", e);
+                })
                 .filter_map(|message| {
                     match message {
                         OwnedMessage::Text(text) => {
@@ -65,24 +69,21 @@ fn app_websocket_connection(
                         _ => None,
                     }
                 })
-                .map_err(|e| {
-                    error!("Error reading websocket stream: {}", e);
-                })
                 .select(recv_messages)
                 .fold((senders, sink), |(senders, sink), message| {
                     match message {
                         AsyncMessage::WebSocket(ws) => {
                             debug!("Sending message: {:?}", ws);
-                            let future = sink.send(ws).map(move |x| (senders, x))
-                                .map_err(|e| {
-                                    error!("Error sending to websocket stream: {}", e);
-                                });
-                            Box::new(future) as
-                                Box<dyn Future<Item = _, Error = _> + Send>
+                            let future = sink.send(ws)
+                                .map_err(|e| error!("Error sending to websocket sink: {}", e))
+                                .map(move |x| (senders, x));
+                            Either::A(future)
                         }
-                        other => Box::new({
-                            senders.send(other).map(move |x| (x, sink))
-                        }),
+                        other => {
+                            let future = senders.send(other)
+                                .map(move |x| (x, sink));
+                            Either::B(future)
+                        }
                     }
                 })
                 .map(|_| ());
@@ -94,8 +95,6 @@ pub fn websocket_connection_future(
     senders: &AsyncSenders,
     recv_messages: mpsc::Receiver<OwnedMessage>,
 ) -> impl Future<Item = (), Error = ()> {
-    use futures::future::Either;
-
     // Reconnect if the connection gets lost.
     // This ends up being pretty bad anyway, since
     // 1) We just connect to another process on the local system, so ideally the connection
@@ -143,7 +142,8 @@ pub fn websocket_connection_future(
                     let connection = app_websocket_connection(current_recv, &senders);
                     connection.map(|()| lock)
                 })
-        }).map(|_| ());
+        })
+        .map(|_| ());
     // Buffer messages if there isn't a connection active
     let buffer = Vec::new();
     let forward_messages_to_current_connection = recv_messages
