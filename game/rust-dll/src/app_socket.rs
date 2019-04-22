@@ -11,7 +11,7 @@ use websocket::r#async::client::{ClientNew, TcpStream};
 use crate::{AsyncSenders, AsyncMessage, box_future};
 use crate::game_state::{GameStateMessage};
 
-fn connect_to_client() -> ClientNew<TcpStream> {
+fn connect_to_app() -> ClientNew<TcpStream> {
     let args = crate::parse_args();
     let url = format!("ws://127.0.0.1:{}", args.server_port);
     info!("Connecting to {} ...", url);
@@ -25,72 +25,68 @@ fn connect_to_client() -> ClientNew<TcpStream> {
 
 // Executes a single connection until it is closed for whatever reason.
 // All errors are handled before the future resolves.
-fn client_websocket_connection(
+fn app_websocket_connection(
     recv_messages: mpsc::Receiver<OwnedMessage>,
     senders: &AsyncSenders,
 ) -> impl Future<Item = (), Error = ()> {
     let senders = senders.clone();
-    connect_to_client()
-        .then(|result| {
-            match result {
-                Ok((client, _headers)) => {
-                    info!("Connected to Shieldbattery client");
-                    let recv_messages = recv_messages
-                        .map(|x| AsyncMessage::WebSocket(x))
-                        .map_err(|_| ());
-                    let (sink, stream) = client.split();
-                    let stream_done = stream
-                        .filter_map(|message| {
-                            match message {
-                                OwnedMessage::Text(text) => {
-                                    match handle_client_message(text) {
-                                        Ok(o) => Some(o),
-                                        Err(e) => {
-                                            error!("Error handling message: {}", e);
-                                            None
-                                        }
-                                    }
+    connect_to_app()
+        .or_else(|e| {
+            error!("Couldn't connect to Shieldbattery: {}", e);
+            box_future(
+                Delay::new(Instant::now() + Duration::from_millis(1000))
+                    .then(|_| Err(())) // We don't care about timer errors?
+            )
+        })
+        .and_then(|(client, _headers)| {
+            info!("Connected to Shieldbattery app");
+            let recv_messages = recv_messages
+                .map(|x| AsyncMessage::WebSocket(x))
+                .map_err(|_| ());
+            let (sink, stream) = client.split();
+            let stream_done = stream
+                .filter_map(|message| {
+                    match message {
+                        OwnedMessage::Text(text) => {
+                            match handle_app_message(text) {
+                                Ok(o) => Some(o),
+                                Err(e) => {
+                                    error!("Error handling message: {}", e);
+                                    None
                                 }
-                                OwnedMessage::Ping(ping) => {
-                                    Some(AsyncMessage::WebSocket(OwnedMessage::Pong(ping)))
-                                }
-                                OwnedMessage::Close(e) => {
-                                    Some(AsyncMessage::WebSocket(OwnedMessage::Close(e)))
-                                }
-                                _ => None,
                             }
-                        })
-                        .map_err(|e| {
-                            error!("Error reading websocket stream: {}", e);
-                        })
-                        .select(recv_messages)
-                        .fold((senders, sink), |(senders, sink), message| {
-                            match message {
-                                AsyncMessage::WebSocket(ws) => {
-                                    debug!("Sending message: {:?}", ws);
-                                    let future = sink.send(ws).map(move |x| (senders, x))
-                                        .map_err(|e| {
-                                            error!("Error sending to websocket stream: {}", e);
-                                        });
-                                    Box::new(future) as
-                                        Box<dyn Future<Item = _, Error = _> + Send>
-                                }
-                                other => Box::new({
-                                    senders.send(other).map(move |x| (x, sink))
-                                }),
-                            }
-                        })
-                        .map(|_| ());
-                    Box::new(stream_done)
-                }
-                Err(e) => {
-                    error!("Couldn't connect to Shieldbattery: {}", e);
-                    box_future(
-                        Delay::new(Instant::now() + Duration::from_millis(1000))
-                            .map_err(|_| ()) // We don't care about timer errors?
-                    )
-                }
-            }
+                        }
+                        OwnedMessage::Ping(ping) => {
+                            Some(AsyncMessage::WebSocket(OwnedMessage::Pong(ping)))
+                        }
+                        OwnedMessage::Close(e) => {
+                            Some(AsyncMessage::WebSocket(OwnedMessage::Close(e)))
+                        }
+                        _ => None,
+                    }
+                })
+                .map_err(|e| {
+                    error!("Error reading websocket stream: {}", e);
+                })
+                .select(recv_messages)
+                .fold((senders, sink), |(senders, sink), message| {
+                    match message {
+                        AsyncMessage::WebSocket(ws) => {
+                            debug!("Sending message: {:?}", ws);
+                            let future = sink.send(ws).map(move |x| (senders, x))
+                                .map_err(|e| {
+                                    error!("Error sending to websocket stream: {}", e);
+                                });
+                            Box::new(future) as
+                                Box<dyn Future<Item = _, Error = _> + Send>
+                        }
+                        other => Box::new({
+                            senders.send(other).map(move |x| (x, sink))
+                        }),
+                    }
+                })
+                .map(|_| ());
+            stream_done
         })
 }
 
@@ -144,7 +140,7 @@ pub fn websocket_connection_future(
                 .and_then(move |mut locked| {
                     *locked = Some(current_send);
                     let lock = locked.unlock();
-                    let connection = client_websocket_connection(current_recv, &senders);
+                    let connection = app_websocket_connection(current_recv, &senders);
                     connection.map(|()| lock)
                 })
         }).map(|_| ());
@@ -177,7 +173,7 @@ pub fn websocket_connection_future(
         .map_err(|_| ())
 }
 
-fn handle_client_message<'a>(
+fn handle_app_message<'a>(
     text: String,
 ) -> Result<AsyncMessage, HandleMessageError> {
     let message: Message = serde_json::from_str(&text)

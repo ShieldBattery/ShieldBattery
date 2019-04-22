@@ -1,3 +1,4 @@
+import { Map } from 'immutable'
 import log from '../logging/logger'
 import activeGameManager from './active-game-manager-instance'
 import { mergeLocalSettings } from '../settings/action-creators'
@@ -27,7 +28,7 @@ class GameServer {
       log.verbose(`Sending game command to ${id}: ${command}`)
       const socket = this.idToSocket.get(id)
       if (socket) {
-        this.sendCommand(socket, command, payload)
+        this._sendCommand(socket, command, payload)
       } else {
         // Is this an bad error or something that commonly occurs? Guessing that it's common.
         log.verbose(`No game connection for ${id}`)
@@ -35,24 +36,23 @@ class GameServer {
     })
 
     server.on('connection', (socket, request) => {
-      const gameIdIndex = request.rawHeaders.indexOf('x-game-id')
-      if (gameIdIndex !== -1) {
-        const gameId = request.rawHeaders[gameIdIndex + 1]
+      const gameId = request.headers['x-game-id']
+      if (gameId !== -1) {
         log.verbose('game websocket connected')
         socket.on('close', () => {
           log.verbose('game websocket disconnected')
-          this.idToSocket.delete(gameId)
+          this.idToSocket = this.idToSocket.delete(gameId)
         })
         socket.on('message', message => {
           this.onMessage(gameId, message)
         })
-        this.idToSocket.set(gameId, socket)
+        this.idToSocket = this.idToSocket.set(gameId, socket)
         activeGameManager.handleGameConnected(gameId)
       }
     })
   }
 
-  sendCommand(socket, command, payload) {
+  _sendCommand(socket, command, payload) {
     socket.send(
       JSON.stringify({
         command,
@@ -91,6 +91,10 @@ function makeGameServer() {
     return null
   }
 
+  // Requiring index.js explicitly as the ws library "helpfully" has a separate browser .js file
+  // in package.json which just errors to tell that it can only be used with node.
+  // And Webpack "helpfully" loads the browser-intended files from package.json when used with
+  // Electron.
   const WebSocket = require('ws/index.js')
   const http = require('http')
   const httpServer = http

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bw;
 
-// Structures of messages that are used to communicate with the electron client.
+// Structures of messages that are used to communicate with the electron app.
 
 #[derive(Deserialize)]
 pub struct Settings {

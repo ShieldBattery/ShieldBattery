@@ -1,10 +1,10 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate whack;
 
+mod app_socket;
+mod app_messages;
 mod bw;
 mod cancel_token;
-mod client_socket;
-mod client_messages;
 mod forge;
 mod game_state;
 mod network_manager;
@@ -126,7 +126,7 @@ pub extern fn OnInject() {
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}[{}:{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S%.3f]"),
                 record.file().unwrap_or(""),
                 record.line().unwrap_or(0),
                 record.level(),
@@ -401,7 +401,7 @@ where F: Future<Item = I, Error = E> + Send + 'static
 
 // Decide what to do with events from game thread.
 fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item = (), Error = ()> {
-    use crate::client_messages::{WindowMove};
+    use crate::app_messages::{WindowMove};
 
     let (send, recv) = tokio::sync::mpsc::unbounded_channel();
     *SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
@@ -410,7 +410,7 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
         .filter_map(|message| {
             match message {
                 GameThreadMessage::WindowMove(x, y) => {
-                    client_socket::encode_message("/game/windowMove", WindowMove {
+                    app_socket::encode_message("/game/windowMove", WindowMove {
                         x,
                         y,
                     }).map(AsyncMessage::WebSocket)
@@ -460,7 +460,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             canceler: Arc::new(Mutex::new(Some(canceler))),
         };
         let websocket_connection =
-            client_socket::websocket_connection_future(&senders, websocket_recv);
+            app_socket::websocket_connection_future(&senders, websocket_recv);
         let game_state = game_state::create_future(
             &senders,
             game_state_recv,

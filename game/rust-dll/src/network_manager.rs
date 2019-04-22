@@ -9,9 +9,9 @@ use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::app_messages;
+use crate::app_messages::Route as RouteInput;
 use crate::cancel_token::{CancelToken, Canceler};
-use crate::client_messages;
-use crate::client_messages::Route as RouteInput;
 use crate::rally_point::{RallyPoint, RallyPointError, RouteId, PlayerId};
 use crate::snp::{self, SnpMessage};
 use crate::{box_future};
@@ -27,7 +27,7 @@ pub enum NetworkManagerMessage {
     RoutesReady(Result<Vec<Arc<Route>>>),
     PingResult((String, u16), Result<RallyPointServer>),
     StartKeepAlive(Arc<Route>),
-    SetGameInfo(Arc<client_messages::GameSetupInfo>),
+    SetGameInfo(Arc<app_messages::GameSetupInfo>),
 }
 
 quick_error! {
@@ -74,7 +74,7 @@ struct ReadyNetwork {
 #[derive(Default)]
 struct IncompleteNetwork {
     routes: Option<Vec<Arc<Route>>>,
-    game_info: Option<Arc<client_messages::GameSetupInfo>>,
+    game_info: Option<Arc<app_messages::GameSetupInfo>>,
     // This existing means that storm side is active
     snp_send_messages: Option<snp::SendMessages>,
 }
@@ -99,7 +99,7 @@ struct Ping {
     retry_count: u8,
     waiters: Vec<oneshot::Sender<Result<RallyPointServer>>>,
     canceler: Canceler,
-    input: client_messages::RallyPointServer,
+    input: app_messages::RallyPointServer,
 }
 
 #[derive(Debug, Clone)]
@@ -181,7 +181,7 @@ impl State {
 
     fn pick_server(
         &mut self,
-        input: &client_messages::RallyPointServer,
+        input: &app_messages::RallyPointServer,
     ) -> BoxedFuture<RallyPointServer> {
         let key = match (&input.address6, &input.address4) {
             (&Some(ref a), _) => (a.clone(), input.port),
@@ -435,7 +435,7 @@ impl State {
 // Select ip4/6 address based on which finishses the ping faster
 fn ping_server(
     rally_point: &RallyPoint,
-    input: &client_messages::RallyPointServer,
+    input: &app_messages::RallyPointServer,
 ) -> BoxedFuture<RallyPointServer> {
     fn ping_server_string(
         rally_point: &RallyPoint,
@@ -541,7 +541,7 @@ impl NetworkManager {
 
     pub fn set_game_info(
         &self,
-        info: Arc<client_messages::GameSetupInfo>,
+        info: Arc<app_messages::GameSetupInfo>,
     ) -> impl Future<Item = (), Error = NetworkError> {
         self.send_messages.clone()
             .send(NetworkManagerMessage::SetGameInfo(info))

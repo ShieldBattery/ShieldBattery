@@ -17,12 +17,12 @@ use crate::{
     AsyncSenders, box_future, BoxedFuture, GameThreadRequest, GameThreadRequestType,
     GameThreadResults,
 };
-use crate::bw;
-use crate::client_socket;
-use crate::client_messages::{
+use crate::app_socket;
+use crate::app_messages::{
     self, GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults,
     GAME_STATUS_ERROR, Route,
 };
+use crate::bw;
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::forge;
 use crate::network_manager::{NetworkManager, NetworkError};
@@ -345,7 +345,7 @@ impl GameState {
         let finished = lobby_ready
             .and_then(|()| {
                 forge::end_wnd_proc();
-                client_socket::send_message(ws_send, "/game/start", ())
+                app_socket::send_message(ws_send, "/game/start", ())
                     .map_err(|_| GameInitError::Closed)
             }).and_then(move |ws_send| {
                 let start_game_request = GameThreadRequestType::StartGame;
@@ -354,7 +354,7 @@ impl GameState {
                     .map_err(|_| GameInitError::Closed);
                 game_done.join(results)
             }).and_then(|(ws_send, results)| {
-                client_socket::send_message(ws_send, "/game/end", results)
+                app_socket::send_message(ws_send, "/game/end", results)
                     .map(|_| ())
                     .map_err(|_| GameInitError::Closed)
             });
@@ -384,12 +384,12 @@ impl GameState {
                         error!("{}", msg);
 
                         let message = SetupProgress {
-                            status: crate::client_messages::SetupProgressInfo {
+                            status: crate::app_messages::SetupProgressInfo {
                                 state: GAME_STATUS_ERROR,
                                 extra: Some(msg),
                             },
                         };
-                        client_socket::send_message(ws_send, "/game/setupProgress", message)
+                        app_socket::send_message(ws_send, "/game/setupProgress", message)
                             .map(|_| ())
                     })
                     .then(|_| {
@@ -738,7 +738,7 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
         None => return box_future(future::err(GameInitError::MissingMapInfo("name"))),
     };
     let tileset = match info.map.tileset {
-        Some(ref s) => match client_messages::bw_tileset_from_str(&s) {
+        Some(ref s) => match app_messages::bw_tileset_from_str(&s) {
             Some(s) => s as u16,
             None => return box_future(future::err(GameInitError::UnknownTileset(s.clone()))),
         },
