@@ -13,6 +13,7 @@ use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
 use winapi::um::sysinfoapi::GetTickCount;
 
 use crate::bw::{self, storm};
+use crate::game_thread::{GameThreadMessage, game_thread_message};
 use crate::windows::{self, OwnedHandle};
 
 // 'SBAT'
@@ -262,7 +263,7 @@ struct RawReceivedMessage {
 }
 
 fn send_snp_message(message: SnpMessage) {
-    crate::game_thread_message(crate::GameThreadMessage::Snp(message));
+    game_thread_message(GameThreadMessage::Snp(message));
 }
 
 extern "stdcall" fn unbind() -> i32 {

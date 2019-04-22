@@ -7,6 +7,7 @@ mod bw;
 mod cancel_token;
 mod forge;
 mod game_state;
+mod game_thread;
 mod network_manager;
 mod rally_point;
 mod snp;
@@ -25,6 +26,7 @@ use tokio::sync::mpsc::Sender;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 
 use crate::game_state::{GameStateMessage};
+use crate::game_thread::{GameThreadMessage};
 
 const WAIT_DEBUGGER: bool = false;
 
@@ -159,10 +161,6 @@ pub unsafe extern "stdcall" fn SnpBind(
 
 lazy_static! {
     static ref PATCHER: whack::Patcher = whack::Patcher::new();
-    static ref SEND_FROM_GAME_THREAD:
-        Mutex<Option<tokio::sync::mpsc::UnboundedSender<GameThreadMessage>>> = Mutex::new(None);
-    static ref GAME_RECEIVE_REQUESTS:
-        Mutex<Option<std::sync::mpsc::Receiver<GameThreadRequest>>> = Mutex::new(None);
 }
 
 unsafe fn patch_game() {
@@ -177,7 +175,7 @@ unsafe fn patch_game() {
     bw::init_vars(&mut exe);
     exe.hook_opt(bw::WinMain, entry_point_hook);
     exe.hook(bw::GameInit, process_init_hook);
-    exe.hook_opt(bw::OnSNetPlayerJoined, player_joined);
+    exe.hook_opt(bw::OnSNetPlayerJoined, game_thread::player_joined);
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
@@ -201,12 +199,6 @@ unsafe fn create_event_hook(
         }
     }
     orig(security, init_state, manual_reset, name)
-}
-
-fn player_joined(info: *mut c_void, orig: &Fn(*mut c_void)) {
-    // We could get storm id from the event info, but it's not used anywhere atm
-    game_thread_message(GameThreadMessage::PlayerJoined);
-    orig(info);
 }
 
 fn entry_point_hook(
@@ -234,9 +226,6 @@ fn entry_point_hook(
 }
 
 fn initialize() {
-    // TODO call SetDllDirectoryW to make sure d3dcompiler_47.dll gets found if needed
-    // (Would just using LoadLibrary to load it be better as it doesn't poke with global state?)
-
     // Spawn a thread to handle the connection to Shieldbattery client.
     // It'll send a message over the channel once shieldbattery setup is done and BW can be let
     // to initialize itself.
@@ -262,80 +251,7 @@ fn wait_async_exit() -> ! {
 // after its entry point. From here on we init the remaining parts ourselves and wait
 // for commands from the client.
 fn process_init_hook() {
-    run_main_thread_event_loop()
-}
-
-fn run_main_thread_event_loop() -> ! {
-    debug!("Main thread reached event loop");
-    let mut receive_requests = GAME_RECEIVE_REQUESTS.lock().unwrap();
-    let receive_requests = receive_requests.take().expect("Channel to receive requests not set?");
-    while let Ok(msg) = receive_requests.recv() {
-        unsafe {
-            handle_game_request(msg.request_type);
-        }
-        let _ = msg.done.send(());
-    }
-    // We can't return from here, as it would put us back in middle of BW's initialization code
-    wait_async_exit();
-}
-
-unsafe fn handle_game_request(request: GameThreadRequestType) {
-    use self::GameThreadRequestType::*;
-    match request {
-        Initialize => init_bw(),
-        RunWndProc => forge::run_wnd_proc(),
-        StartGame => {
-            forge::game_started();
-            *bw::game_state = 3; // Playing
-            bw::game_loop();
-            let results = game_results();
-            game_thread_message(GameThreadMessage::Results(results));
-            forge::hide_window();
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-enum PlayerLoseType {
-    UnknownChecksumMismatch,
-    UnknownDisconnect,
-}
-
-pub struct GameThreadResults {
-    // Index by ingame player id
-    victory_state: [u8; 8],
-    // Index by storm id
-    player_has_left: [bool; 8],
-    player_lose_type: Option<PlayerLoseType>,
-    time_ms: u32,
-}
-
-unsafe fn game_results() -> GameThreadResults {
-    GameThreadResults {
-        victory_state: *bw::victory_state,
-        player_has_left: {
-            let mut arr = [false; 8];
-            for i in 0..8 {
-                arr[i] = bw::player_has_left[i] != 0;
-            }
-            arr
-        },
-        player_lose_type: match *bw::player_lose_type {
-            1 => Some(PlayerLoseType::UnknownChecksumMismatch),
-            2 => Some(PlayerLoseType::UnknownDisconnect),
-            _ => None,
-        },
-        // Assuming fastest speed
-        time_ms: (*bw::frame_count).saturating_mul(42),
-    }
-}
-
-// Does the rest of initialization that is being done in main thread before running forge's
-// window proc.
-unsafe fn init_bw() {
-    *bw::is_brood_war = 1;
-    bw::init_sprites();
-    debug!("Process initialized");
+    game_thread::run_event_loop()
 }
 
 enum AsyncMessage {
@@ -404,7 +320,7 @@ fn handle_messages_from_game_thread(senders: &AsyncSenders) -> impl Future<Item 
     use crate::app_messages::{WindowMove};
 
     let (send, recv) = tokio::sync::mpsc::unbounded_channel();
-    *SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
+    *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
     let senders = senders.clone();
     recv.map_err(|_| ())
         .filter_map(|message| {
@@ -453,7 +369,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
         let (game_state_send, game_state_recv) = tokio::sync::mpsc::channel(128);
         let (game_requests_send, game_requests_recv) = std::sync::mpsc::channel();
         let (cancel_token, canceler) = cancel_token::CancelToken::new();
-        *GAME_RECEIVE_REQUESTS.lock().unwrap() = Some(game_requests_recv);
+        *crate::game_thread::GAME_RECEIVE_REQUESTS.lock().unwrap() = Some(game_requests_recv);
         let senders = AsyncSenders {
             game_state: game_state_send,
             websocket: websocket_send,
@@ -503,41 +419,4 @@ fn try_parse_args() -> Option<Args> {
         server_port,
         user_data_path,
     })
-}
-
-// Game thread sends something to async tasks
-enum GameThreadMessage {
-    WindowMove(i32, i32),
-    Snp(snp::SnpMessage),
-    PlayerJoined,
-    Results(GameThreadResults),
-}
-
-// Async tasks request game thread to do some work
-pub struct GameThreadRequest {
-    request_type: GameThreadRequestType,
-    // These requests probably won't have any reason to return values on success.
-    // If a single one does, it can send a GameThreadMessage.
-    done: tokio::sync::oneshot::Sender<()>,
-}
-
-enum GameThreadRequestType {
-    Initialize,
-    RunWndProc,
-    StartGame,
-}
-
-/// Sends a message from game thread to the async system.
-fn game_thread_message(message: GameThreadMessage) {
-    // Hopefully waiting on a future (that should immediatly resolve)
-    // on the main thread isn't unnecessarily slow.
-    // Could use std::sync::mpsc channel if it is.
-    let mut send_global = SEND_FROM_GAME_THREAD.lock().unwrap();
-    if let Some(send) = send_global.take() {
-        if let Ok(send) = send.send(message).wait() {
-            *send_global = Some(send);
-        }
-    } else {
-        debug!("Game thread messaging not active");
-    }
 }

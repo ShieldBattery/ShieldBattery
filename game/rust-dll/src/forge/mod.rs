@@ -23,7 +23,7 @@ use winapi::um::unknwnbase::IUnknown;
 use winapi::um::wingdi::{GetDeviceCaps, BITSPIXEL, BITMAP};
 use winapi::um::winuser::*;
 
-use crate::{game_thread_message, GameThreadMessage};
+use crate::game_thread::{game_thread_message, GameThreadMessage};
 
 use self::renderer::Renderer;
 

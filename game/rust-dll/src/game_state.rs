@@ -13,10 +13,7 @@ use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{
-    AsyncSenders, box_future, BoxedFuture, GameThreadRequest, GameThreadRequestType,
-    GameThreadResults,
-};
+use crate::{AsyncSenders, box_future, BoxedFuture};
 use crate::app_socket;
 use crate::app_messages::{
     self, GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults,
@@ -25,6 +22,7 @@ use crate::app_messages::{
 use crate::bw;
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::forge;
+use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
 use crate::network_manager::{NetworkManager, NetworkError};
 use crate::snp;
 use crate::storm;
@@ -565,7 +563,7 @@ impl PlayerState {
     }
 
     fn received_results(&mut self, game_results: GameThreadResults, local_user: &LocalUser) {
-        use crate::PlayerLoseType;
+        use crate::game_thread::PlayerLoseType;
 
         #[derive(Copy, Clone, Eq, PartialEq)]
         #[repr(u8)]
@@ -952,11 +950,7 @@ fn start_game_request(
     sender: &std::sync::mpsc::Sender<GameThreadRequest>,
     request_type: GameThreadRequestType,
 ) -> impl Future<Item = oneshot::Receiver<()>, Error = ()> {
-    let (done, wait_done) = oneshot::channel();
-    let request = GameThreadRequest {
-        done,
-        request_type,
-    };
+    let (request, wait_done) = GameThreadRequest::new(request_type);
     sender.send(request).into_future().map_err(|_| ())
         .map(|_| wait_done)
 }
