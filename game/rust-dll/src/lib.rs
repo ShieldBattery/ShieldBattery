@@ -17,6 +17,7 @@ mod storm;
 mod udp;
 mod windows;
 
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -32,20 +33,51 @@ use crate::game_thread::{GameThreadMessage};
 
 const WAIT_DEBUGGER: bool = false;
 
-fn log_file() -> std::fs::File {
+fn remove_lines(file: &mut File, limit: usize, truncate_to: usize) -> std::io::Result<()> {
+    use std::io::{Seek, BufReader, BufRead, SeekFrom};
+
+    assert!(limit >= truncate_to);
+    // This implementation is obviously somewhat inefficient but does the job.
+    // Maybe there's a library to do this?
+    let mut buffered = BufReader::new(&mut *file);
+    buffered.seek(SeekFrom::Start(0))?;
+    let line_count = buffered.lines().take_while(|x| x.is_ok()).count();
+    if line_count > limit {
+        let mut buffered = BufReader::new(&mut *file);
+        buffered.seek(SeekFrom::Start(0))?;
+        let mut buf = String::new();
+        for _ in 0..(line_count - truncate_to) {
+            buffered.read_line(&mut buf)?;
+        }
+        // Read the remaining lines and write them back after clearing the file
+        let mut rest = Vec::new();
+        // Sanity limit at 16MB to not read some dumb 2GB log file to memory at once
+        buffered.take(16_000_000).read_to_end(&mut rest)?;
+        file.seek(SeekFrom::Start(0))?;
+        file.set_len(0)?;
+        file.write_all(&rest)?;
+    }
+    file.seek(SeekFrom::End(0))?;
+    Ok(())
+}
+
+fn log_file() -> File {
     use std::os::windows::fs::OpenOptionsExt;
     let args = parse_args();
     let dir = args.user_data_path.join("logs");
     let mut options = std::fs::OpenOptions::new();
     let options = options
+        .read(true)
         .write(true)
         .create(true)
-        .append(true)
         .share_mode(1); // FILE_SHARE_READ
     for i in 0..20 {
         let filename = dir.join(format!("shieldbattery.{}.log", i));
-        // TODO shorten long files
-        if let Ok(file) = options.open(filename) {
+        if let Ok(mut file) = options.open(filename) {
+            let result = remove_lines(&mut file, 10000, 5000);
+            if let Err(e) = result {
+                let _ = writeln!(&mut file, "Couldn't truncate lines: {}", e);
+            }
             return file;
         }
     }
@@ -138,6 +170,7 @@ pub extern fn OnInject() {
             ))
         })
         .level(log::LevelFilter::Debug)
+        .level_for("tokio_reactor", log::LevelFilter::Warn) // Too spammy otherwise
         .chain(log_file())
         .apply();
 
