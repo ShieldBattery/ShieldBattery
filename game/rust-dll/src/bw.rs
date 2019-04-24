@@ -94,6 +94,13 @@ whack_vars!(init_vars, 0x00400000,
 
 pub mod storm {
     use super::*;
+
+    #[repr(C)]
+    pub struct SCode {
+        pub whatever: [u8; 0x4c],
+        pub code_offsets: [*mut u8; 0xa1],
+    }
+
     whack_hooks!(stdcall, 0x15000000,
         0x1503DE90 => InitializeSnpList();
         0x150380A0 => UnloadSnp(u32);
@@ -103,6 +110,7 @@ pub mod storm {
         0x1505E630 => snp_list_initialized: u32;
         // Not actually a full entry, just next/prev pointers
         0x1505AD6C => snp_list: SnpListEntry;
+        0x1505EC04 => surface_copy_code: *mut SCode;
     );
 }
 

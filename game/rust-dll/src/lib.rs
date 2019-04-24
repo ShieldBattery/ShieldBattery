@@ -269,6 +269,20 @@ unsafe fn patch_game() {
     exe.hook_opt(bw::CenterScreenOnOwnStartLocation, observing::center_screen_on_start_location);
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
+
+    // Check for a rare-but-dumb storm bug where the codegen for unrolled memcpy/blitting
+    // does an OOB string read and ends up generating broken code.
+    // (This data is initialized in storm's DllMain, so it has run already)
+    let surface_copy_code_ptr = *bw::storm::surface_copy_code;
+    if !surface_copy_code_ptr.is_null() {
+        let surface_copy_code = (*surface_copy_code_ptr).code_offsets[0xa0];
+        if *surface_copy_code.add(1) != 6 {
+            for i in 0..0xa0 {
+                *surface_copy_code.add(i * 0x10 + 0x1) = 0x6;
+                *surface_copy_code.add(i * 0x10 + 0x9) = 0x7;
+            }
+        }
+    }
 }
 
 unsafe fn create_event_hook(
