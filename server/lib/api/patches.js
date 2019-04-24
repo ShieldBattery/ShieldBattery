@@ -23,8 +23,8 @@ function patchPath(hash, filename) {
 }
 
 async function uploadPatch(ctx, next) {
-  const { hash, filename, description } = ctx.request.body.fields
-  const { path } = ctx.request.body.files.diff
+  const { hash, filename, description } = ctx.request.body
+  const { path } = ctx.request.files.diff
 
   if (!hash) {
     throw new httpErrors.BadRequest('hash must be specified')
