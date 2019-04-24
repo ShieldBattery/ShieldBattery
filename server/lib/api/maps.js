@@ -26,8 +26,8 @@ function uploadPermissionCheck() {
 }
 
 async function upload(ctx, next) {
-  const { timestamp, hash, extension: anyCaseExtension, filename } = ctx.request.body.fields
-  const { path } = ctx.request.body.files.data
+  const { timestamp, hash, extension: anyCaseExtension, filename } = ctx.request.body
+  const { path } = ctx.request.files.data
   if (await mapExists(hash)) {
     ctx.status = 201
     ctx.body = {}
