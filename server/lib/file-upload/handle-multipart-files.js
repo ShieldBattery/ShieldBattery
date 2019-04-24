@@ -10,7 +10,7 @@ export default async function handleMultipartFiles(ctx, next) {
     try {
       await next()
     } finally {
-      for (const { path } of Object.values(ctx.request.body.files)) {
+      for (const { path } of Object.values(ctx.request.files)) {
         fs.unlink(path, e => {})
       }
     }
