@@ -890,35 +890,6 @@ fn client_to_screen(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT)
     }
 }
 
-fn screen_to_client(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT) -> u32) -> u32 {
-    if with_forge(|forge| forge.is_forge_window(window)) {
-        // TODO(tec27): I don't think BW even actually uses this, and this implementation is
-        // wrong given our different window types. Figure out if BW calls this, and if not, delete
-        // it.
-
-        unimplemented!();
-        /*
-        Logger::Logf(LogLevel::Verbose, "ScreenToClient(%d, %d)", lpPoint->x, lpPoint->y);
-        RECT window_rect;
-        RECT client_rect;
-        GetWindowRect(hWnd, &window_rect);
-        GetClientRect(hWnd, &client_rect);
-        LONG border_size_x = ((window_rect.right - window_rect.left) - client_rect.right) / 2;
-        int border_size_y = GetSystemMetrics(SM_CYCAPTION);
-        lpPoint->x += window_rect.left + border_size_x;
-        lpPoint->y += window_rect.top + border_size_y;
-        assert((window_rect.bottom - window_rect.top) ==
-            (client_rect.bottom + border_size_y + border_size_x));
-
-        BOOL result = ScreenToClient(hWnd, lpPoint);
-        Logger::Logf(LogLevel::Verbose, "=> (%d, %d)", lpPoint->x, lpPoint->y);
-        return result;
-        */
-    } else {
-        orig(window, point)
-    }
-}
-
 unsafe fn get_client_rect(window: HWND, out: *mut RECT, orig: &Fn(HWND, *mut RECT) -> u32) -> u32 {
     if with_forge(|forge| forge.is_forge_window(window)) {
         (*out) = RECT {
@@ -1129,7 +1100,6 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
     starcraft.import_hook_opt(&b"kernel32"[..], GetProcAddress, get_proc_address);
     starcraft.import_hook_opt(&b"user32"[..], IsIconic, is_iconic);
     starcraft.import_hook_opt(&b"user32"[..], ClientToScreen, client_to_screen);
-    starcraft.import_hook_opt(&b"user32"[..], ScreenToClient, screen_to_client);
     starcraft.import_hook_opt(&b"user32"[..], GetClientRect, get_client_rect);
     starcraft.import_hook(&b"user32"[..], GetCursorPos, get_cursor_pos);
     starcraft.import_hook_opt(&b"user32"[..], SetCursorPos, set_cursor_pos);
