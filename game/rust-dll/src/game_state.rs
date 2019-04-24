@@ -21,6 +21,7 @@ use crate::app_messages::{
 };
 use crate::bw;
 use crate::cancel_token::{CancelToken, Canceler};
+use crate::chat::StormPlayerId;
 use crate::forge;
 use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
 use crate::network_manager::{NetworkManager, NetworkError};
@@ -29,20 +30,39 @@ use crate::storm;
 use crate::windows;
 
 pub struct GameState {
-    settings_set: bool,
-    local_user: Option<LocalUser>,
-    routes_set: bool,
+    init_state: InitState,
     network: NetworkManager,
     senders: AsyncSenders,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
-    chat_ally_override: Option<Vec<StormPlayerId>>,
     running_game: Option<Canceler>,
-    player_state: Option<PlayerState>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct StormPlayerId(u8);
+enum InitState {
+    WaitingForInput(IncompleteInit),
+    Started(InitInProgress),
+}
+
+struct IncompleteInit {
+    local_user: Option<LocalUser>,
+    settings_set: bool,
+    routes_set: bool,
+}
+
+impl IncompleteInit {
+    fn init_if_ready(&mut self, info: &Arc<GameSetupInfo>) -> Result<InitInProgress, GameInitError> {
+        if !self.settings_set {
+            return Err(GameInitError::SettingsNotSet);
+        }
+        if !self.routes_set {
+            return Err(GameInitError::RoutesNotSet);
+        }
+        if self.local_user.is_none() {
+            return Err(GameInitError::LocalUserNotSet);
+        }
+        Ok(InitInProgress::new(info.clone(), Arc::new(self.local_user.take().unwrap())))
+    }
+}
 
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
@@ -97,6 +117,9 @@ impl GameSetupInfo {
 quick_error! {
     #[derive(Debug, Clone)]
     pub enum GameInitError {
+        InitInProgress {
+            description("Game init is already in progress")
+        }
         SettingsNotSet {
             description("Settings not set")
         }
@@ -182,34 +205,44 @@ impl GameState {
         send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
     ) -> GameState {
         GameState {
-            settings_set: false,
-            local_user: None,
-            routes_set: false,
+            init_state: InitState::WaitingForInput(IncompleteInit {
+                settings_set: false,
+                local_user: None,
+                routes_set: false,
+            }),
             network: NetworkManager::new(),
             senders,
             init_main_thread,
             send_main_thread_requests,
-            chat_ally_override: None,
             running_game: None,
-            player_state: None,
         }
     }
 
     fn set_settings(&mut self, settings: &Settings) {
-        // TODO check that game is not yet setup
-        crate::forge::init(&settings.local);
-        self.settings_set = true;
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            crate::forge::init(&settings.local);
+            state.settings_set = true;
+        } else {
+            error!("Received settings after game was started");
+        }
     }
 
     fn set_local_user(&mut self, user: LocalUser) {
-        // TODO check that game is not yet setup
-        self.local_user = Some(user);
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            state.local_user = Some(user);
+        } else {
+            error!("Received local user after game was started");
+        }
     }
 
     fn set_routes(&mut self, routes: Vec<Route>) -> BoxedFuture<(), ()> {
-        // TODO check that game is not yet setup
-        self.routes_set = true;
-        box_future(self.network.set_routes(routes).or_else(|_| Ok(())))
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            state.routes_set = true;
+            box_future(self.network.set_routes(routes).or_else(|_| Ok(())))
+        } else {
+            error!("Received routes after game was started");
+            box_future(Err(()).into_future())
+        }
     }
 
     fn send_game_request(
@@ -230,16 +263,6 @@ impl GameState {
         &mut self,
         info: GameSetupInfo,
     ) -> BoxedFuture<(), GameInitError> {
-        if !self.settings_set {
-            return box_future(Err(GameInitError::SettingsNotSet).into_future());
-        }
-        let local_user = match self.local_user {
-            Some(ref s) => s.clone(),
-            None => return box_future(Err(GameInitError::LocalUserNotSet).into_future()),
-        };
-        if !self.routes_set {
-            return box_future(Err(GameInitError::RoutesNotSet).into_future());
-        }
         let game_type = match info.game_type() {
             Some(s) => s,
             None => {
@@ -247,24 +270,38 @@ impl GameState {
                 return box_future(Err(err).into_future());
             }
         };
-        let is_observer = info.slots.iter().find(|x| x.name == local_user.name)
-            .map(|slot| slot.is_observer())
-            .unwrap_or(false);
-        if is_observer {
-            unimplemented!("Override chat allies");
-        } else {
-            self.chat_ally_override = None;
-        }
 
+        // The complete initialization logic is split between futures in this function
+        // and self.init_state updating itself in response to network events,
+        // both places poking bw's state as well..
+        // It may probably be better to move everything to InitInProgress and have this
+        // function just initialize it?
+        // For now it's worth noting that until the `init_state.wait_for_players` future
+        // completes, InitInProgress will update bw's player state and setting observer
+        // chat override.
         let info = Arc::new(info);
+        let mut init_state = match self.init_state {
+            InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
+                Ok(o) => o,
+                Err(e) => return box_future(Err(e).into_future()),
+            }
+            InitState::Started(_) => {
+                return box_future(Err(GameInitError::InitInProgress).into_future());
+            }
+        };
+        let local_user = init_state.local_user.clone();
+        let players_joined = init_state.wait_for_players();
+        let results = init_state.wait_for_results();
+        self.init_state = InitState::Started(init_state);
+
         self.init_main_thread.send(()).expect("Main thread should be waiting for a wakeup");
         let init_request = GameThreadRequestType::Initialize;
-        let is_host = local_user.name == info.host.name;
         let info2 = info.clone();
         // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
         // ready to start the game - remaining initialization is done from other threads.
         // Could possibly aim to keep all of BW initialization in the main thread, but this
         // system has worked fine so far.
+        let is_host = local_user.name == info.host.name;
         let pre_network_init = self.send_game_request(init_request)
             .map_err(|()| GameInitError::Closed)
             .and_then(move |()| {
@@ -304,10 +341,6 @@ impl GameState {
             });
         let info2 = info.clone();
         let info3 = info.clone();
-        let mut player_state = PlayerState::new(info.clone());
-        let players_joined = player_state.wait_for_players();
-        let results = player_state.wait_for_results();
-        self.player_state = Some(player_state);
         let send_messages_to_state = self.senders.game_state.clone();
         let lobby_ready = in_lobby
             .and_then(move |_| {
@@ -406,22 +439,18 @@ impl GameState {
             }
             Snp(snp) => box_future(self.network.send_snp_message(snp)),
             InLobby | PlayerJoined => {
-                if let Some(ref mut state) = self.player_state {
+                if let InitState::Started(ref mut state) = self.init_state {
                     state.player_joined();
                 } else {
-                    warn!("Player joined before player state was set");
+                    warn!("Player joined before init was started");
                 }
                 box_future(future::ok(()))
             }
             Results(results) => {
-                if let Some(ref mut player_state) = self.player_state {
-                    if let Some(ref local_user) = self.local_user {
-                        player_state.received_results(results, local_user);
-                    } else {
-                        warn!("Received results before local user was set");
-                    }
+                if let InitState::Started(ref mut state) = self.init_state {
+                    state.received_results(results);
                 } else {
-                    warn!("Received results before player state was set");
+                    warn!("Received results before init was started");
                 }
                 box_future(future::ok(()))
             }
@@ -429,10 +458,11 @@ impl GameState {
     }
 }
 
-struct PlayerState {
+struct InitInProgress {
     on_all_players_joined: Vec<oneshot::Sender<Result<(), GameInitError>>>,
     all_players_joined: bool,
     setup_info: Arc<GameSetupInfo>,
+    local_user: Arc<LocalUser>,
     joined_players: Vec<JoinedPlayer>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
 }
@@ -440,16 +470,17 @@ struct PlayerState {
 #[derive(Debug)]
 struct JoinedPlayer {
     name: String,
-    storm_id: u8,
+    storm_id: StormPlayerId,
     player_id: Option<u8>,
 }
 
-impl PlayerState {
-    fn new(setup_info: Arc<GameSetupInfo>) -> PlayerState {
-        PlayerState {
+impl InitInProgress {
+    fn new(setup_info: Arc<GameSetupInfo>, local_user: Arc<LocalUser>) -> InitInProgress {
+        InitInProgress {
             on_all_players_joined: Vec::new(),
             all_players_joined: false,
             setup_info,
+            local_user,
             joined_players: Vec::new(),
             waiting_for_result: Vec::new(),
         }
@@ -462,13 +493,36 @@ impl PlayerState {
             Ok(false) => return,
         };
         self.all_players_joined = true;
+
+        // Change ally chat for observers to be observer chat.
+        let is_observer = self.setup_info.slots.iter().find(|x| x.name == self.local_user.name)
+            .map(|slot| slot.is_observer())
+            .unwrap_or(false);
+        if is_observer {
+            let observer_storm_ids = self.setup_info.slots.iter()
+                .filter(|x| x.is_observer())
+                .filter_map(|slot| {
+                    match self.joined_players.iter().find(|joined| slot.name == joined.name) {
+                        Some(s) => Some(s.storm_id),
+                        None => {
+                            error!("Couldn't find storm id for observer {}", slot.name);
+                            None
+                        }
+                    }
+                })
+                .collect::<Vec<_>>();
+            crate::chat::set_ally_override(&observer_storm_ids);
+        } else {
+            crate::chat::clear_ally_override();
+        }
+
         for sender in self.on_all_players_joined.drain(..) {
             let _ = sender.send(result.clone());
         }
     }
 
     // Waits until players have joined.
-    // self.player_wait_state gets signaled whenever game thread sends a join notification,
+    // self.player_joined gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
     fn wait_for_players(
         &mut self,
@@ -504,7 +558,7 @@ impl PlayerState {
         storm_names: &[Option<String>],
     ) -> Result<(), GameInitError> {
         for (storm_id, name) in storm_names.iter().enumerate() {
-            let storm_id = storm_id as u8;
+            let storm_id = StormPlayerId(storm_id as u8);
             let name = match name {
                 Some(ref s) => &**s,
                 None => continue,
@@ -525,7 +579,7 @@ impl PlayerState {
                             bw_name.to_str() == Ok(name)
                         });
                         if let Some(bw_slot) = bw_slot {
-                            bw::players[bw_slot].storm_id = storm_id as u32;
+                            bw::players[bw_slot].storm_id = storm_id.0 as u32;
                             player_id = Some(bw_slot as u8);
                         } else {
                             return Err(GameInitError::UnexpectedPlayer(name.into()));
@@ -534,7 +588,7 @@ impl PlayerState {
                     if self.joined_players.iter().any(|x| x.player_id == player_id) {
                         return Err(GameInitError::UnexpectedPlayer(name.into()));
                     }
-                    debug!("Player {} received storm id {}", name, storm_id);
+                    debug!("Player {} received storm id {}", name, storm_id.0);
                     self.joined_players.push(JoinedPlayer {
                         name: name.into(),
                         storm_id,
@@ -562,7 +616,7 @@ impl PlayerState {
         }
     }
 
-    fn received_results(&mut self, game_results: GameThreadResults, local_user: &LocalUser) {
+    fn received_results(&mut self, game_results: GameThreadResults) {
         use crate::game_thread::PlayerLoseType;
 
         #[derive(Copy, Clone, Eq, PartialEq)]
@@ -576,19 +630,19 @@ impl PlayerState {
 
         let mut results = vec![GameResult::Playing; 8];
         let local_storm_id = self.joined_players.iter()
-            .find(|x| x.name == local_user.name)
-            .map(|x| x.storm_id)
+            .find(|x| x.name == self.local_user.name)
+            .map(|x| x.storm_id.0)
             .unwrap_or_else(|| {
                 panic!(
                     "Local user ({}) was not in joined players? ({:?})",
-                    local_user.name, self.joined_players,
+                    self.local_user.name, self.joined_players,
                 );
             }) as usize;
 
 
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
-                let storm_id = player.storm_id as usize;
+                let storm_id = player.storm_id.0 as usize;
                 results[storm_id] = match game_results.victory_state[player_id as usize] {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
@@ -625,7 +679,7 @@ impl PlayerState {
         let results = self.joined_players.iter()
             .filter_map(|player| {
                 if player.player_id.is_some() {
-                    Some((player.name.clone(), results[player.storm_id as usize] as u8))
+                    Some((player.name.clone(), results[player.storm_id.0 as usize] as u8))
                 } else {
                     None
                 }

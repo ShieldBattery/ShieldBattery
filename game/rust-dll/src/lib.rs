@@ -5,10 +5,12 @@ mod app_socket;
 mod app_messages;
 mod bw;
 mod cancel_token;
+mod chat;
 mod forge;
 mod game_state;
 mod game_thread;
 mod network_manager;
+mod observing;
 mod rally_point;
 mod snp;
 mod storm;
@@ -164,6 +166,8 @@ lazy_static! {
 }
 
 unsafe fn patch_game() {
+    use observing::{self, with_replay_flag_if_obs};
+
     whack_export!(pub extern "system" CreateEventA(*mut c_void, u32, u32, *const i8) -> *mut c_void);
 
     let mut active_patcher = PATCHER.lock().unwrap();
@@ -176,9 +180,60 @@ unsafe fn patch_game() {
     exe.hook_opt(bw::WinMain, entry_point_hook);
     exe.hook(bw::GameInit, process_init_hook);
     exe.hook_opt(bw::OnSNetPlayerJoined, game_thread::player_joined);
+    exe.hook_opt(bw::ChatCommand, chat::chat_command_hook);
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
+
+    exe.hook_closure(
+        bw::MinimapCtrl_InitButton,
+        |a, orig: &Fn(_)| with_replay_flag_if_obs(|| orig(a)),
+    );
+    exe.hook_closure(
+        bw::MinimapCtrl_ShowAllianceDialog,
+        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
+    );
+    exe.hook_closure(
+        bw::DrawMinimap,
+        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
+    );
+    // Bw force refreshes the minimap every second?? why
+    // And of course the DrawMinimap call in it is inlined so it has to be hooked separately.
+    exe.hook_closure(
+        bw::Minimap_TimerRefresh,
+        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
+    );
+    exe.hook_closure(
+        bw::RedrawScreen,
+        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
+    );
+    exe.hook_closure(
+        bw::AllianceDialog_EventHandler,
+        |a, b, orig: &Fn(_, _) -> _| with_replay_flag_if_obs(|| orig(a, b)),
+    );
+    exe.hook_closure(
+        bw::GameScreenLeftClick,
+        |a, orig: &Fn(_)| with_replay_flag_if_obs(|| orig(a)),
+    );
+    exe.hook_closure(
+        bw::PlaySoundAtPos,
+        |a, b, c, d, orig: &Fn(_, _, _, _)| with_replay_flag_if_obs(|| orig(a, b, c, d)),
+    );
+    exe.hook_closure(
+        bw::DrawResourceCounts,
+        |a, b, orig: &Fn(_, _)| with_replay_flag_if_obs(|| orig(a, b)),
+    );
+    exe.hook_opt(bw::ProcessCommands, observing::process_commands_hook);
+    exe.hook_opt(bw::Command_Sync, observing::sync_command_hook);
+    exe.hook_opt(bw::ChatMessage, observing::chat_message_hook);
+    exe.hook_opt(bw::LoadDialog, observing::load_dialog_hook);
+    exe.hook_opt(bw::InitUiVariables, observing::init_ui_variables_hook);
+    exe.hook_opt(bw::UpdateCommandCard, observing::update_command_card_hook);
+    exe.hook_opt(bw::CmdBtn_EventHandler, observing::cmdbtn_event_handler_hook);
+    exe.hook_opt(bw::DrawCommandButton, observing::draw_command_button_hook);
+    exe.hook_opt(bw::GetGluAllString, observing::get_gluall_string_hook);
+    exe.hook_opt(bw::UpdateNetTimeoutPlayers, observing::update_net_timeout_players);
+    exe.hook_opt(bw::CenterScreenOnOwnStartLocation, observing::center_screen_on_start_location);
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
 }
