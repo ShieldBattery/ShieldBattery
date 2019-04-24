@@ -214,6 +214,7 @@ unsafe fn patch_game() {
     exe.hook(bw::GameInit, process_init_hook);
     exe.hook_opt(bw::OnSNetPlayerJoined, game_thread::player_joined);
     exe.hook_opt(bw::ChatCommand, chat::chat_command_hook);
+    exe.hook_opt(bw::ScrollScreen, scroll_screen);
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
@@ -282,6 +283,12 @@ unsafe fn patch_game() {
                 *surface_copy_code.add(i * 0x10 + 0x9) = 0x7;
             }
         }
+    }
+}
+
+fn scroll_screen(orig: &Fn()) {
+    if !forge::input_disabled() {
+        orig();
     }
 }
 

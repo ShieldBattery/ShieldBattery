@@ -1249,3 +1249,7 @@ pub fn hide_window() {
         }
     }
 }
+
+pub fn input_disabled() -> bool {
+    with_forge(|forge| forge.input_disabled)
+}

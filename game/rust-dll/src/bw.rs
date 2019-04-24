@@ -8,6 +8,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004E08A5 => GameInit();
     0x004C4980 => OnSNetPlayerJoined(*mut c_void);
     0x0047F8F0 => ChatCommand(*const u8);
+    0x0047F0E0 => ScrollScreen();
 
     0x004A5230 => MinimapCtrl_InitButton(@eax *mut Control);
     0x004913D0 => MinimapCtrl_ShowAllianceDialog();
