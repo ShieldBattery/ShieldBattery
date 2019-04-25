@@ -59,6 +59,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
 
     0x004CDE70 => add_to_replay_data(@eax *mut ReplayData, @ebx *const u8, @edi u32, u32);
     0x0048D0C0 => display_message(@edi *const u8, @eax u32);
+    0x004207B0 => clean_up_for_exit(@ebx u32);
 );
 
 whack_vars!(init_vars, 0x00400000,

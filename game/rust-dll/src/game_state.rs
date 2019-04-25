@@ -366,6 +366,10 @@ impl GameState {
             }).and_then(move |ws_send| {
                 let start_game_request = GameThreadRequestType::StartGame;
                 let game_done = send_game_request(&game_request_send, start_game_request)
+                    .and_then(move |()| {
+                        let cleanup_request = GameThreadRequestType::ExitCleanup;
+                        send_game_request(&game_request_send, cleanup_request)
+                    })
                     .map(|()| ws_send)
                     .map_err(|_| GameInitError::Closed);
                 game_done.join(results)

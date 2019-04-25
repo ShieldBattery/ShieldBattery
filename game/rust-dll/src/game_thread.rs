@@ -41,6 +41,7 @@ pub enum GameThreadRequestType {
     Initialize,
     RunWndProc,
     StartGame,
+    ExitCleanup,
 }
 
 // Game thread sends something to async tasks
@@ -100,6 +101,8 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             game_thread_message(GameThreadMessage::Results(results));
             forge::hide_window();
         }
+        // Saves registry settings etc.
+        ExitCleanup => bw::clean_up_for_exit(0),
     }
 }
 
