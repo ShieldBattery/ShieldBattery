@@ -23,11 +23,6 @@ impl Renderer {
         }
     }
 
-    pub fn uses_swap_buffers(&self) -> bool {
-        // TODO change if opengl support
-        false
-    }
-
     pub fn render(&mut self) {
         let renderer = match self.renderer {
             Some(ref mut s) => s,

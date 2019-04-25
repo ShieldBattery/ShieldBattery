@@ -201,26 +201,7 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
             let mut orig_wnd_proc = None;
             with_forge(|forge| {
                 orig_wnd_proc = forge.orig_wnd_proc;
-                let settings = &forge.settings;
                 let activate = wparam != 0;
-                if forge.game_started && forge.renderer.uses_swap_buffers() &&
-                    settings.display_mode == DisplayMode::FullScreen
-                {
-                    // Since we avoid Windows' SwapBuffer full-screen heuristics, it doesn't keep
-                    // the task bar from appearing over our app, so we have to try to solve this
-                    // ourselves. This is non-ideal, as it can make it hard to get out of the game
-                    // (e.g. it breaks Win+D), so if we can find some other, better solution to
-                    // this that would be great =/
-                    if let Some(ref window) = forge.window {
-                        let topmost = if activate {
-                            HWND_TOPMOST
-                        } else {
-                            HWND_NOTOPMOST
-                        };
-                        let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
-                        SetWindowPos(window.handle, topmost, 0, 0, 0, 0, flags);
-                    }
-                }
                 forge.window_active = activate;
                 if activate {
                     // Window is now active
@@ -288,17 +269,6 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                 SetForegroundWindow(window);
 
                 with_forge(|forge| {
-                    let fullscreen_gl = forge.renderer.uses_swap_buffers() &&
-                        forge.settings.display_mode == DisplayMode::FullScreen;
-                    if fullscreen_gl {
-                        // Since we avoid Windows' SwapBuffer full-screen heuristics, it doesn't
-                        // keep the task bar from appearing over our app, so we have to try to
-                        // solve this ourselves. This is non-ideal, as it can make it hard to get
-                        // out of the game (e.g. it breaks Win+D), so if we can find some other,
-                        // better solution to this that would be great =/
-                        let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
-                        SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, flags);
-                    }
                     // Clip the cursor
                     forge.perform_scaled_clip_cursor(&RECT {
                         left: 0,
@@ -414,11 +384,7 @@ unsafe fn create_window(
         };
         let style = match settings.display_mode {
             DisplayMode::FullScreen | DisplayMode::BorderlessWindow => {
-                if forge.renderer.uses_swap_buffers() {
-                    WS_CAPTION | WS_VISIBLE
-                } else {
-                    WS_POPUP | WS_VISIBLE
-                }
+                WS_POPUP | WS_VISIBLE
             }
             DisplayMode::Window => WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
         };
@@ -467,13 +433,6 @@ unsafe fn create_window(
     );
     ShowWindow(window, SW_HIDE);
     with_forge(|forge| {
-        let is_borderless = match forge.settings.display_mode {
-            DisplayMode::FullScreen | DisplayMode::BorderlessWindow => true,
-            DisplayMode::Window => false,
-        };
-        if forge.renderer.uses_swap_buffers() && is_borderless {
-            unimplemented!("set opengl window region");
-        }
         forge.window = Some(Window::new(window, left, top, width, height, &forge.settings));
     });
     window
