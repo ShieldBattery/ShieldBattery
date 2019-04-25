@@ -741,7 +741,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "shieldbattery-rust"
+name = "shieldbattery"
 version = "0.1.0"
 dependencies = [
  "backtrace 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",

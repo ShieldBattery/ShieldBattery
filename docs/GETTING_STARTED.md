@@ -17,8 +17,7 @@ get the new changes.
 
 #### Python 2.7.x
 
-ShieldBattery uses [gyp](https://gyp.gsrc.io/) for generating the game client project files, which
-requires a working [Python 2.7.x](http://www.python.org/download/) install. Install this before
+Building some of the Javascript dependencies require a working [Python 2.7.x](http://www.python.org/download/) install. Install this before
 attempting to follow further steps.
 
 ### JavaScript
@@ -35,23 +34,26 @@ Install the latest version of it from their [downloads page](https://yarnpkg.com
 
 ### C++
 
-Building the C++ code requires Visual Studio 2015 or higher. The easiest/cheapest way to get this
-is through the
+Visual Studio 2015 or higher is required to build various C++ parts and to link the Rust DLL.
+The easiest/cheapest way to get this is through the
 [Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
-Once Visual Studio is installed, you can generate project files by running the `vcbuild.bat` script in the
-[`game` directory](../game). If you plan on building inside of Visual Studio, you can run this with the
-`nobuild` flag to speed things up. Note that this script will also install JS dependencies for the game
-side of things.
+### Rust
 
-`vcbuild.bat` will generate `game.sln` in the same folder; open this with Visual Studio to be
-able to edit and build the C++ code. Note that Debug builds add significant startup time to the
-applications, while Release builds add significant compile time. Pick your poison based on your needs at the
-time.
+The code that runs within BW process is a DLL written in [Rust](https://rust-lang.org). The
+simplest way to get things built is to use the [rustup toolchain installer](https://rustup.rs).
 
-If you should ever need to add or remove files to the projects, make the changes in `game.gyp` and
-then re-run the build script to regenerate projects. This will ensure everyone can get to the same project
-state as you, once your changes are merged.
+After installing rustup, run `rustup override add stable-i686-pc-windows-msvc` in the
+shieldbattery directory, which sets the default compiler for ShieldBattery to a 32-bit one, as the
+DLL cannot be built or injected to BW as 64-bit.
+
+To build the DLL, run `build.bat` in [`game` directory](../game), which will also copy the
+resulting DLL and other necessary support files to `game/dist`, where the JavaScript code expects
+them to be. The build defaults to the quicker debug build, to build the optimized version run
+`build.bat release`.
+
+If the required minimum Rust version is changed (1.33 as of this writing), you can update the Rust
+toolchain by running `rustup update`.
 
 ### Server software
 

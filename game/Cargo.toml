@@ -1,10 +1,10 @@
 [package]
-name = "shieldbattery-rust"
+name = "shieldbattery"
 version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "shieldbattery_rust"
+name = "shieldbattery"
 crate-type = ["cdylib"]
 
 [profile.dev]
