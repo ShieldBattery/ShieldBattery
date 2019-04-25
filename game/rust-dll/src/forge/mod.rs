@@ -766,8 +766,86 @@ fn get_monitor_size() -> (i32, i32) {
     }
 }
 
+// This is an inline function in Microsoft headers, so winapi doesn't have it.
+fn is_win8_point1_or_greater() -> bool {
+    use winapi::um::winbase::VerifyVersionInfoW;
+    use winapi::um::winnt::{
+        VerSetConditionMask, OSVERSIONINFOEXW,
+        VER_MINORVERSION, VER_MAJORVERSION, VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL,
+    };
+    unsafe {
+        let mut info = OSVERSIONINFOEXW {
+            dwOSVersionInfoSize: mem::size_of::<OSVERSIONINFOEXW>() as u32,
+            dwMajorVersion: 0x6,
+            dwMinorVersion: 0x3,
+            wServicePackMajor: 0,
+            ..mem::zeroed()
+        };
+        let condition_mask = VerSetConditionMask(
+            VerSetConditionMask(
+                VerSetConditionMask(
+                    0,
+                    VER_MAJORVERSION,
+                    VER_GREATER_EQUAL,
+                ),
+                VER_MINORVERSION,
+                VER_GREATER_EQUAL,
+            ),
+            VER_SERVICEPACKMAJOR,
+            VER_GREATER_EQUAL,
+        );
+        VerifyVersionInfoW(
+            &mut info,
+            VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR,
+            condition_mask,
+        ) != 0
+    }
+}
+
 fn set_dpi_aware() {
-    // TODO
+    unsafe {
+        if is_win8_point1_or_greater() {
+            match crate::windows::load_library("shcore.dll") {
+                Ok(shcore) => {
+                    match shcore.proc_address("SetProcessDpiAwareness") {
+                        Ok(func) => {
+                            const PROCESS_PER_MONITOR_DPI_AWARE: u32 = 2;
+                            let func: unsafe extern "system" fn(u32) -> i32 = mem::transmute(func);
+                            let result = func(PROCESS_PER_MONITOR_DPI_AWARE);
+                            if result == 0 {
+                                return;
+                            } else {
+                                let err = io::Error::from_raw_os_error(result);
+                                error!("SetProcessDpiAwareness failed: {}", err);
+                            }
+                        }
+                        Err(e) => {
+                            error!("Couldn't find SetProcessDpiAwareness: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Couldn't load shcore.dll: {}", e);
+                }
+            }
+        }
+        match crate::windows::load_library("user32.dll") {
+            Ok(user32) => {
+                match user32.proc_address("SetProcessDPIAware") {
+                    Ok(func) => {
+                        let func: unsafe extern "system" fn() -> u32 = mem::transmute(func);
+                        func();
+                    }
+                    Err(e) => {
+                        error!("Couldn't find SetProcessDPIAware: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Couldn't load user32.dll: {}", e);
+            }
+        }
+    }
 }
 
 fn render_screen(orig: &Fn()) {
