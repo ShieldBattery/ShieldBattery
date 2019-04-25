@@ -37,9 +37,9 @@ websocket = "0.22.3"
 [dependencies.winapi]
 version = "0.3.3"
 features = [
-    "dsound", "debugapi", "d3d11", "dxgi", "errhandlingapi", "handleapi", "libloaderapi",
-    "memoryapi", "processthreadsapi", "stringapiset", "synchapi", "sysinfoapi", "unknwnbase",
-    "winuser", "wingdi", "winsock2", "ws2def", "ws2ipdef",
+    "combaseapi", "dsound", "debugapi", "d3d11", "dxgi", "errhandlingapi", "handleapi",
+    "knownfolders", "libloaderapi", "memoryapi", "processthreadsapi", "shlobj", "stringapiset",
+    "synchapi", "sysinfoapi", "unknwnbase", "winuser", "wingdi", "winsock2", "ws2def", "ws2ipdef",
 ]
 
 [dependencies.whack]
