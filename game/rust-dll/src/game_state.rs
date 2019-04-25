@@ -13,14 +13,14 @@ use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{AsyncSenders, box_future, BoxedFuture};
+use crate::{box_future, BoxedFuture};
 use crate::app_socket;
 use crate::app_messages::{
     self, GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults,
     GAME_STATUS_ERROR, Route,
 };
 use crate::bw;
-use crate::cancel_token::{CancelToken, Canceler};
+use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::chat::StormPlayerId;
 use crate::forge;
 use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
@@ -32,11 +32,15 @@ use crate::windows;
 pub struct GameState {
     init_state: InitState,
     network: NetworkManager,
-    senders: AsyncSenders,
+    ws_send: app_socket::SendMessages,
+    internal_send: self::SendMessages,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
     running_game: Option<Canceler>,
+    async_stop: SharedCanceler,
 }
+
+pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
 enum InitState {
     WaitingForInput(IncompleteInit),
@@ -199,25 +203,6 @@ quick_error! {
 }
 
 impl GameState {
-    fn new(
-        senders: AsyncSenders,
-        init_main_thread: std::sync::mpsc::Sender<()>,
-        send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
-    ) -> GameState {
-        GameState {
-            init_state: InitState::WaitingForInput(IncompleteInit {
-                settings_set: false,
-                local_user: None,
-                routes_set: false,
-            }),
-            network: NetworkManager::new(),
-            senders,
-            init_main_thread,
-            send_main_thread_requests,
-            running_game: None,
-        }
-    }
-
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             crate::forge::init(&settings.local);
@@ -341,7 +326,7 @@ impl GameState {
             });
         let info2 = info.clone();
         let info3 = info.clone();
-        let send_messages_to_state = self.senders.game_state.clone();
+        let send_messages_to_state = self.internal_send.clone();
         let lobby_ready = in_lobby
             .and_then(move |_| {
                 debug!("In lobby, setting up slots");
@@ -371,7 +356,7 @@ impl GameState {
                 }
                 Ok(())
             });
-        let ws_send = self.senders.websocket.clone();
+        let ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
         let finished = lobby_ready
             .and_then(|()| {
@@ -407,8 +392,8 @@ impl GameState {
             }
             SetRoutes(routes) => self.set_routes(routes),
             SetupGame(info) => {
-                let ws_send = self.senders.websocket.clone();
-                let exit_sender = self.senders.clone();
+                let ws_send = self.ws_send.clone();
+                let async_stop = self.async_stop.clone();
                 let task = self.init_game(info)
                     .or_else(|e| {
                         let msg = format!("Failed to init game: {}", e);
@@ -427,10 +412,10 @@ impl GameState {
                         debug!("Game setup & play task ended");
                         tokio::timer::Delay::new(Instant::now() + Duration::from_millis(10000))
                     })
-                    .then(|_| {
+                    .then(move |_| {
                         warn!("Didn't receive close command, exiting automatically");
-                        exit_sender.send(crate::AsyncMessage::Stop)
-                            .map(|_| ())
+                        async_stop.cancel();
+                        Ok(())
                     });
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
@@ -975,14 +960,31 @@ unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
 }
 
 pub fn create_future(
-    senders: &AsyncSenders,
+    ws_send: app_socket::SendMessages,
+    async_stop: SharedCanceler,
     messages: mpsc::Receiver<GameStateMessage>,
-    main_thread: std::sync::mpsc::Sender<()>,
+    init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
 ) -> BoxedFuture<(), ()> {
-    let mut game_state = GameState::new(senders.clone(), main_thread, send_main_thread_requests);
+    let (internal_send, internal_recv) = mpsc::channel(8);
+    let mut game_state = GameState {
+        init_state: InitState::WaitingForInput(IncompleteInit {
+            settings_set: false,
+            local_user: None,
+            routes_set: false,
+        }),
+        network: NetworkManager::new(),
+        ws_send,
+        internal_send,
+        init_main_thread,
+        send_main_thread_requests,
+        running_game: None,
+        async_stop,
+    };
     let future = messages
         .map_err(|_| ())
+        .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
+        .select(internal_recv.map_err(|_| ()))
         .for_each(move |message| {
             game_state.handle_message(message)
         });

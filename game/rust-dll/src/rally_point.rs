@@ -13,7 +13,7 @@ use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{BoxedFuture, box_future};
-use crate::cancel_token::{CancelableSender, cancelable_channel};
+use crate::cancel_token::{CancelToken, Canceler, CancelableSender, cancelable_channel};
 use crate::udp::{self, UdpSend, UdpRecv};
 
 quick_error! {
@@ -81,6 +81,8 @@ struct State {
     send_requests: mpsc::Sender<Request>,
     send_bytes: mpsc::Sender<(Bytes, SocketAddrV6, Option<mpsc::Sender<RallyPointError>>)>,
     pings: HashMap<(u32, SocketAddrV6), Ping>,
+    #[allow(dead_code)]
+    end_recv_task: Canceler,
 }
 
 struct Ping {
@@ -345,8 +347,13 @@ impl State {
             Err(e) => return Err(RallyPointError::Bind(e)),
         };
         let (send_bytes, recv_bytes) = mpsc::channel(16);
-        let task = udp_task(udp_send, udp_recv, send_requests.clone(), recv_bytes);
-        tokio::spawn(task);
+        // Send task closes from send_bytes dropping, but recv task will not notice
+        // recv_requests dropping if it doesn't receive anyhing, so use an explicit canceler.
+        let (cancel_token, end_recv_task) = CancelToken::new();
+        let send_task = udp_send_task(udp_send, recv_bytes);
+        let recv_task = udp_recv_task(udp_recv, send_requests.clone());
+        tokio::spawn(send_task);
+        tokio::spawn(cancel_token.bind(recv_task));
         Ok(State {
             joins: HashMap::default(),
             active_routes: HashMap::default(),
@@ -354,32 +361,17 @@ impl State {
             send_requests,
             send_bytes,
             pings: HashMap::default(),
+            end_recv_task,
         })
     }
 }
 
-fn udp_task(
+fn udp_send_task(
     udp_send: UdpSend,
-    udp_recv: UdpRecv,
-    send_requests: mpsc::Sender<Request>,
     recv_bytes: mpsc::Receiver<(Bytes, SocketAddrV6, Option<mpsc::Sender<RallyPointError>>)>,
 ) -> impl Future<Item = (), Error = ()> {
-    let recv_future = udp_recv
-        .map_err(|e| {
-            error!("UDP recv error: {}", e);
-        })
-        .filter_map(|(bytes, addr)| {
-            match decode_message(&bytes) {
-                Some(o) => Some((o, addr)),
-                None => None,
-            }
-        })
-        .map(|msg| Request::ServerMessage(msg.0, msg.1))
-        .forward(send_requests.sink_map_err(|_| ()))
-        .map(|_| ());
     let send_future = recv_bytes
         .map_err(|_| ())
-        .chain(Err(()).into_future().into_stream())
         .fold(udp_send, |udp_send, (bytes, addr, report_error)| {
             udp_send.send_recoverable((bytes, addr.into()))
                 .or_else(move |(e, udp)| {
@@ -394,9 +386,27 @@ fn udp_task(
                 })
         })
         .map(|_| ());
-    let task = send_future.join(recv_future)
-        .map(|((), ())| ());
-    task
+    send_future
+}
+
+fn udp_recv_task(
+    udp_recv: UdpRecv,
+    send_requests: mpsc::Sender<Request>,
+) -> impl Future<Item = (), Error = ()> {
+    let recv_future = udp_recv
+        .map_err(|e| {
+            error!("UDP recv error: {}", e);
+        })
+        .filter_map(|(bytes, addr)| {
+            match decode_message(&bytes) {
+                Some(o) => Some((o, addr)),
+                None => None,
+            }
+        })
+        .map(|msg| Request::ServerMessage(msg.0, msg.1))
+        .forward(send_requests.sink_map_err(|_| ()))
+        .map(|_| ());
+    recv_future
 }
 
 fn resend_interval() -> impl Stream<Item = (), Error = ()> {

@@ -1,6 +1,6 @@
 use std::time::{Instant, Duration};
 
-use futures::future::Either;
+use futures::future::{self, Either};
 use quick_error::{quick_error, ResultExt};
 use serde::{Serialize, Deserialize};
 use tokio::prelude::*;
@@ -9,8 +9,11 @@ use tokio::timer::Delay;
 use websocket::{self, OwnedMessage};
 use websocket::r#async::client::{ClientNew, TcpStream};
 
-use crate::{AsyncSenders, AsyncMessage, box_future};
-use crate::game_state::{GameStateMessage};
+use crate::{box_future};
+use crate::cancel_token::SharedCanceler;
+use crate::game_state::{self, GameStateMessage};
+
+pub type SendMessages = mpsc::Sender<websocket::OwnedMessage>;
 
 fn connect_to_app() -> ClientNew<TcpStream> {
     let args = crate::parse_args();
@@ -28,9 +31,11 @@ fn connect_to_app() -> ClientNew<TcpStream> {
 // All errors are handled before the future resolves.
 fn app_websocket_connection(
     recv_messages: mpsc::Receiver<OwnedMessage>,
-    senders: &AsyncSenders,
+    game_send: &game_state::SendMessages,
+    async_stop: &SharedCanceler,
 ) -> impl Future<Item = (), Error = ()> {
-    let senders = senders.clone();
+    let game_send = game_send.clone();
+    let async_stop = async_stop.clone();
     connect_to_app()
         .or_else(|e| {
             error!("Couldn't connect to Shieldbattery: {}", e);
@@ -39,12 +44,12 @@ fn app_websocket_connection(
                     .then(|_| Err(())) // We don't care about timer errors?
             )
         })
-        .and_then(|(client, _headers)| {
+        .and_then(move |(client, _headers)| {
             info!("Connected to Shieldbattery app");
             let recv_messages = recv_messages
-                .map(|x| AsyncMessage::WebSocket(x))
+                .map(|x| MessageResult::WebSocket(x))
                 .map_err(|_| ());
-            let (sink, stream) = client.split();
+            let (ws_sink, stream) = client.split();
             let stream_done = stream
                 .map_err(|e| {
                     error!("Error reading websocket stream: {}", e);
@@ -61,28 +66,33 @@ fn app_websocket_connection(
                             }
                         }
                         OwnedMessage::Ping(ping) => {
-                            Some(AsyncMessage::WebSocket(OwnedMessage::Pong(ping)))
+                            Some(MessageResult::WebSocket(OwnedMessage::Pong(ping)))
                         }
                         OwnedMessage::Close(e) => {
-                            Some(AsyncMessage::WebSocket(OwnedMessage::Close(e)))
+                            Some(MessageResult::WebSocket(OwnedMessage::Close(e)))
                         }
                         _ => None,
                     }
                 })
                 .select(recv_messages)
-                .fold((senders, sink), |(senders, sink), message| {
+                .fold((game_send, ws_sink), move |(game_send, ws_sink), message| {
                     match message {
-                        AsyncMessage::WebSocket(ws) => {
+                        MessageResult::WebSocket(ws) => {
                             debug!("Sending message: {:?}", ws);
-                            let future = sink.send(ws)
+                            let future = ws_sink.send(ws)
                                 .map_err(|e| error!("Error sending to websocket sink: {}", e))
-                                .map(move |x| (senders, x));
+                                .map(move |x| (game_send, x));
                             Either::A(future)
                         }
-                        other => {
-                            let future = senders.send(other)
-                                .map(move |x| (x, sink));
-                            Either::B(future)
+                        MessageResult::Game(msg) => {
+                            let future = game_send.send(msg)
+                                .map_err(|_| ())
+                                .map(move |x| (x, ws_sink));
+                            Either::B(box_future(future))
+                        }
+                        MessageResult::Stop => {
+                            async_stop.cancel();
+                            Either::B(box_future(future::ok((game_send, ws_sink))))
                         }
                     }
                 })
@@ -92,7 +102,8 @@ fn app_websocket_connection(
 }
 
 pub fn websocket_connection_future(
-    senders: &AsyncSenders,
+    game_send: &game_state::SendMessages,
+    async_stop: &SharedCanceler,
     recv_messages: mpsc::Receiver<OwnedMessage>,
 ) -> impl Future<Item = (), Error = ()> {
     // Reconnect if the connection gets lost.
@@ -124,7 +135,8 @@ pub fn websocket_connection_future(
     // weren't confirmed flushed), but I'm hoping Rust async libraries improve/stabilize before
     // that, and for now this should do and have same guarantees as the older c++/js code.
 
-    let senders = senders.clone();
+    let game_send = game_send.clone();
+    let async_stop = async_stop.clone();
     let (send1, send2) = futures::sync::BiLock::new(None);
     let repeat_connection = futures::stream::repeat(())
         .fold(send1, move |send, ()| {
@@ -134,12 +146,14 @@ pub fn websocket_connection_future(
                     futures::stream::iter_ok(vec)
                 });
 
-            let senders = senders.clone();
+            let game_send = game_send.clone();
+            let async_stop = async_stop.clone();
             send.lock()
                 .and_then(move |mut locked| {
                     *locked = Some(current_send);
                     let lock = locked.unlock();
-                    let connection = app_websocket_connection(current_recv, &senders);
+                    let connection =
+                        app_websocket_connection(current_recv, &game_send, &async_stop);
                     connection.map(|()| lock)
                 })
         })
@@ -173,9 +187,15 @@ pub fn websocket_connection_future(
         .map_err(|_| ())
 }
 
+enum MessageResult {
+    WebSocket(websocket::OwnedMessage),
+    Game(GameStateMessage),
+    Stop,
+}
+
 fn handle_app_message<'a>(
     text: String,
-) -> Result<AsyncMessage, HandleMessageError> {
+) -> Result<MessageResult, HandleMessageError> {
     let message: Message = serde_json::from_str(&text)
         .context(("Invalid message", &*text))?;
     let payload = message.payload
@@ -185,24 +205,24 @@ fn handle_app_message<'a>(
         "settings" => {
             let settings = serde_json::from_value(payload)
                 .context(("Invalid settings", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetSettings(settings)))
+            Ok(MessageResult::Game(GameStateMessage::SetSettings(settings)))
         }
         "localUser" => {
             let user = serde_json::from_value(payload)
                 .context(("Invalid local user", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetLocalUser(user)))
+            Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
         "routes" => {
             let routes = serde_json::from_value(payload)
                 .context(("Invalid routes", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetRoutes(routes)))
+            Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
         }
         "setupGame" => {
             let setup = serde_json::from_value(payload)
                 .context(("Invalid game setup", &*text))?;
-            Ok(AsyncMessage::Game(GameStateMessage::SetupGame(setup)))
+            Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
-        "quit" => Ok(AsyncMessage::Stop),
+        "quit" => Ok(MessageResult::Stop),
         _ => {
             Err(HandleMessageError::UnknownCommand(message.command))
         }

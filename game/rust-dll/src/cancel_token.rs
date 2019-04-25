@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use tokio::prelude::*;
 use tokio::sync::oneshot;
 
@@ -19,6 +21,21 @@ use tokio::sync::oneshot;
 // receiver is dropped.
 pub struct CancelToken(oneshot::Receiver<()>);
 pub struct Canceler(oneshot::Sender<()>);
+
+/// Allows sharing the canceler - any of the owners can cancel immediately,
+/// and of course dropping all owners also causes a cancelation.
+#[derive(Clone)]
+pub struct SharedCanceler(Arc<Mutex<Option<Canceler>>>);
+
+impl SharedCanceler {
+    pub fn new(canceler: Canceler) -> SharedCanceler {
+        SharedCanceler(Arc::new(Mutex::new(Some(canceler))))
+    }
+
+    pub fn cancel(&self) {
+        *self.0.lock().unwrap() = None;
+    }
+}
 
 pub struct CancelableSender<T> {
     sender: oneshot::Sender<T>,
