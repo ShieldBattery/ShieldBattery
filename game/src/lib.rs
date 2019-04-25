@@ -201,7 +201,7 @@ lazy_static! {
 }
 
 unsafe fn patch_game() {
-    use observing::{self, with_replay_flag_if_obs};
+    use observing::{with_replay_flag_if_obs};
 
     whack_export!(pub extern "system" CreateEventA(*mut c_void, u32, u32, *const i8) -> *mut c_void);
     whack_export!(pub extern "system" DeleteFileA(*const i8) -> u32);

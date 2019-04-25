@@ -503,7 +503,6 @@ pub struct PlayerId(u32);
 
 impl RouteId {
     pub fn from_string(val: &str) -> RouteId {
-        use byteorder::{ReadBytesExt, LE};
         RouteId(val.as_bytes().read_u64::<LE>().unwrap_or(0))
     }
 }
