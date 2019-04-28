@@ -97,6 +97,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             forge::game_started();
             *bw::game_state = 3; // Playing
             bw::game_loop();
+            debug!("Game loop ended");
             let results = game_results();
             game_thread_message(GameThreadMessage::Results(results));
             forge::hide_window();

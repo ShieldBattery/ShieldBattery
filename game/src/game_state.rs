@@ -78,6 +78,7 @@ pub enum GameStateMessage {
     InLobby,
     PlayerJoined,
     Results(GameThreadResults),
+    CleanupQuit,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -366,10 +367,6 @@ impl GameState {
             }).and_then(move |ws_send| {
                 let start_game_request = GameThreadRequestType::StartGame;
                 let game_done = send_game_request(&game_request_send, start_game_request)
-                    .and_then(move |()| {
-                        let cleanup_request = GameThreadRequestType::ExitCleanup;
-                        send_game_request(&game_request_send, cleanup_request)
-                    })
                     .map(|()| ws_send)
                     .map_err(|_| GameInitError::Closed);
                 game_done.join(results)
@@ -417,6 +414,11 @@ impl GameState {
                         tokio::timer::Delay::new(Instant::now() + Duration::from_millis(10000))
                     })
                     .then(move |_| {
+                        // The app is supposed to send a CleanupQuit command to acknowledge
+                        // that it received /game/end, or simple quit on error, but maybe it died?
+                        //
+                        // TODO(neive): Would be nice to do CleanupQuit if we finished game
+                        // succesfully even if the app didn't end up replying to us?
                         warn!("Didn't receive close command, exiting automatically");
                         async_stop.cancel();
                         Ok(())
@@ -441,6 +443,18 @@ impl GameState {
                 } else {
                     warn!("Received results before init was started");
                 }
+                box_future(future::ok(()))
+            }
+            CleanupQuit => {
+                let cleanup_request = GameThreadRequestType::ExitCleanup;
+                let async_stop = self.async_stop.clone();
+                let task = self.send_game_request(cleanup_request)
+                    .then(move |_| {
+                        debug!("BW cleanup done, exiting..");
+                        async_stop.cancel();
+                        Ok(())
+                    });
+                tokio::spawn(task);
                 box_future(future::ok(()))
             }
         }

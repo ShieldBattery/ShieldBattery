@@ -223,6 +223,7 @@ fn handle_app_message<'a>(
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
         "quit" => Ok(MessageResult::Stop),
+        "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         _ => {
             Err(HandleMessageError::UnknownCommand(message.command))
         }
