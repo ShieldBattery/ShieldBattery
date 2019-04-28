@@ -43,7 +43,7 @@ if not exist %scriptroot%\dist\ICSharpCode.SharpZipLib.dll xcopy "%scriptroot%\.
 cargo build %cargoflags%
 if errorlevel 1 goto exit
 
-if %cargoflags%==--release (
+if [%cargoflags%]==[--release] (
   xcopy "%scriptroot%\target\i686-pc-windows-msvc\release\shieldbattery.dll" "%scriptroot%\dist" /y /f /c
 ) else (
   xcopy "%scriptroot%\target\i686-pc-windows-msvc\debug\shieldbattery.dll" "%scriptroot%\dist" /y /f /c
