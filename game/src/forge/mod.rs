@@ -278,7 +278,10 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                     });
                     if let Some(ref window) = forge.window {
                         // Move the cursor to the middle of the window
-                        SetCursorPos(window.width / 2, window.height / 2);
+                        SetCursorPos(
+                            window.client_x + window.width / 2,
+                            window.client_y + window.height / 2,
+                        );
                     }
                 });
                 ShowCursor(1);
@@ -967,7 +970,7 @@ unsafe fn set_cursor_pos(x: i32, y: i32, orig: &Fn(i32, i32) -> u32) -> u32 {
                 window.client_y;
             Some((x, y))
         } else {
-            Some((x, y))
+            None
         }
     });
     match pos {
