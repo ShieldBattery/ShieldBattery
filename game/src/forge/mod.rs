@@ -44,7 +44,7 @@ mod hooks {
     whack_export!(pub extern "system" ScreenToClient(HWND, *mut POINT) -> u32);
     whack_export!(pub extern "system" GetClientRect(HWND, *mut RECT) -> u32);
     whack_export!(pub extern "system" GetCursorPos(*mut POINT) -> u32);
-    whack_export!(pub extern "system" SetCursorPos(i32, i32) -> u32);
+    whack_export!(pub extern "system" SetCursorPos(i32, i32) -> i32);
     whack_export!(pub extern "system" ClipCursor(*const RECT) -> i32);
     whack_export!(pub extern "system" SetCapture(HWND) -> HWND);
     whack_export!(pub extern "system" ReleaseCapture() -> u32);
@@ -169,7 +169,7 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                     forge.perform_scaled_clip_cursor(&clip_rect);
                     forge.should_clip_cursor = false;
                 }
-                forge.screen_to_game_pos(x, y)
+                forge.client_to_game_pos(x, y)
             });
             lparam = (fake_x as u16 as isize) | ((fake_y as u16 as isize) << 16);
         }
@@ -276,13 +276,8 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                         right: 640,
                         bottom: 480,
                     });
-                    if let Some(ref window) = forge.window {
-                        // Move the cursor to the middle of the window
-                        SetCursorPos(
-                            window.client_x + window.width / 2,
-                            window.client_y + window.height / 2,
-                        );
-                    }
+                    // Move the cursor to the middle of the window
+                    forge.set_cursor_to_game_pos(320, 240);
                 });
                 ShowCursor(1);
             }
@@ -541,7 +536,7 @@ impl Forge {
     }
 
     fn release_held_key_message(&self, key: i32) -> Option<(u32, usize, isize)> {
-        let (x, y) = self.screen_to_game_pos(self.real_cursor_pos.0, self.real_cursor_pos.1);
+        let (x, y) = self.client_to_game_pos(self.real_cursor_pos.0, self.real_cursor_pos.1);
         let mouse_lparam = (x as u16 as isize) | ((y as u16 as isize) << 16);
         unsafe {
             if GetAsyncKeyState(key) as u16 & 0x8000 != 0 {
@@ -559,7 +554,13 @@ impl Forge {
         None
     }
 
-    fn screen_to_game_pos(&self, x: i16, y: i16) -> (i16, i16) {
+    /// Converts window's client area -relative coordinates to BW's screen coordinates.
+    ///
+    /// That is, depending on mouse scaling, X coordinates may be converted from
+    /// (0..640) range to (0..640) (Sensitivity same as normal 1.16.1),
+    /// (0..window_width) to (0..640) (Sensitivity same as in desktop),
+    /// or to something in between those extremes.
+    fn client_to_game_pos(&self, x: i16, y: i16) -> (i16, i16) {
         match self.window {
             Some(ref w) => {
                 let x = ((x as f64 * 640.0 / w.mouse_resolution_width as f64) + 0.5) as i16;
@@ -567,6 +568,33 @@ impl Forge {
                 (x, y)
             }
             None => (0, 0),
+        }
+    }
+
+    fn game_pos_to_screen(&self, x: i32, y: i32) -> (i32, i32) {
+        match self.window {
+            Some(ref w) => {
+                let x = ((x as f64 * w.mouse_resolution_width as f64 / 640.0) + 0.5) as i32 +
+                    w.client_x;
+                let y = ((y as f64 * w.mouse_resolution_height as f64 / 480.0) + 0.5) as i32 +
+                    w.client_y;
+                (x, y)
+            }
+            None => (0, 0),
+        }
+    }
+
+    /// Calls winapi SetCursorPos, input coordinates are from BW's point of view.
+    ///
+    /// Return value is also equivalent to what SetCursorPos returns (0 fail, 1 success).
+    fn set_cursor_to_game_pos(&self, x: i32, y: i32) -> i32 {
+        // if we're not actually in the game yet, just ignore any requests to reposition the cursor
+        if !self.game_started {
+            return 1;
+        }
+        let (x, y) = self.game_pos_to_screen(x, y);
+        unsafe {
+            SetCursorPos(x, y)
         }
     }
 }
@@ -660,9 +688,6 @@ struct Window {
     handle: HWND,
     client_x: i32,
     client_y: i32,
-    // Client area width/height
-    width: i32,
-    height: i32,
     mouse_resolution_width: i32,
     mouse_resolution_height: i32,
 }
@@ -684,8 +709,6 @@ impl Window {
             handle,
             client_x,
             client_y,
-            width,
-            height,
             mouse_resolution_width,
             mouse_resolution_height,
         }
@@ -947,36 +970,17 @@ unsafe fn get_client_rect(window: HWND, out: *mut RECT, orig: &Fn(HWND, *mut REC
 unsafe fn get_cursor_pos(val: *mut POINT) -> u32 {
     // BW thinks its running full screen in 640x480, so we give it our mouse_resolution-scaled coords
     let (x, y) = with_forge(|forge| {
-        forge.screen_to_game_pos(forge.real_cursor_pos.0, forge.real_cursor_pos.1)
+        forge.client_to_game_pos(forge.real_cursor_pos.0, forge.real_cursor_pos.1)
     });
     (*val).x = x as i32;
     (*val).y = y as i32;
     1
 }
 
-unsafe fn set_cursor_pos(x: i32, y: i32, orig: &Fn(i32, i32) -> u32) -> u32 {
-    let pos = with_forge(|forge| {
-        // if we're not actually in the game yet, just ignore any requests to reposition the cursor
-        if !forge.game_started {
-            return None;
-        }
-        if let Some(ref window) = forge.window {
-            // BW thinks its running full screen in 640x480, so we take the coords it gives us
-            // and scale by our mouse resolution, then tack on the additional top/left space it
-            // doesn't know about
-            let x = ((x as f64 * window.mouse_resolution_width as f64 / 640.0) + 0.5) as i32 +
-                window.client_x;
-            let y = ((y as f64 * window.mouse_resolution_height as f64 / 480.0) + 0.5) as i32 +
-                window.client_y;
-            Some((x, y))
-        } else {
-            None
-        }
-    });
-    match pos {
-        Some((x, y)) => orig(x, y),
-        None => 1,
-    }
+unsafe fn set_cursor_pos(x: i32, y: i32) -> i32 {
+    with_forge(|forge| {
+        forge.set_cursor_to_game_pos(x, y)
+    })
 }
 
 unsafe fn clip_cursor(rect: *const RECT) -> i32 {
@@ -1142,7 +1146,7 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
     starcraft.import_hook_opt(&b"user32"[..], ClientToScreen, client_to_screen);
     starcraft.import_hook_opt(&b"user32"[..], GetClientRect, get_client_rect);
     starcraft.import_hook(&b"user32"[..], GetCursorPos, get_cursor_pos);
-    starcraft.import_hook_opt(&b"user32"[..], SetCursorPos, set_cursor_pos);
+    starcraft.import_hook(&b"user32"[..], SetCursorPos, set_cursor_pos);
     starcraft.import_hook(&b"user32"[..], ClipCursor, clip_cursor);
     starcraft.import_hook(&b"user32"[..], SetCapture, set_capture);
     starcraft.import_hook(&b"user32"[..], ReleaseCapture, release_capture);
@@ -1163,7 +1167,7 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
     let mouse_sensitivity = settings.get("mouseSensitivity")
         .and_then(|x| x.as_u64())
-        .filter(|&x| x < MOUSE_SETTING_MAX as u64)
+        .filter(|&x| x <= MOUSE_SETTING_MAX as u64)
         .map(|x| x as u8)
         .unwrap_or_else(|| {
             warn!("Using default mouse sensitivity");
