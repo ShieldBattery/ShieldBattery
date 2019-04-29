@@ -27,13 +27,29 @@ fn connect_to_app() -> ClientNew<TcpStream> {
         .async_connect_insecure()
 }
 
-// Executes a single connection until it is closed for whatever reason.
-// All errors are handled before the future resolves.
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+enum ConnectionEndReason {
+    SocketClosed,
+    MpscChannelClosed,
+}
+
+/// Executes a single connection until it is closed for whatever reason.
+/// All errors are handled before the future resolves, and either the
+/// stream or message channel being closed will cause the future to
+/// resolve to a success.
 fn app_websocket_connection(
     recv_messages: mpsc::Receiver<OwnedMessage>,
     game_send: &game_state::SendMessages,
     async_stop: &SharedCanceler,
-) -> impl Future<Item = (), Error = ()> {
+) -> impl Future<Item = ConnectionEndReason, Error = ()> {
+    // To terminate the select() below, chain errors to both input streams,
+    // but we want those errors to be a success for the returned future.
+    #[derive(Eq, PartialEq, Copy, Clone, Debug)]
+    enum WasCloseErr {
+        Yes(ConnectionEndReason),
+        No,
+    }
+
     let game_send = game_send.clone();
     let async_stop = async_stop.clone();
     connect_to_app()
@@ -48,11 +64,22 @@ fn app_websocket_connection(
             info!("Connected to Shieldbattery app");
             let recv_messages = recv_messages
                 .map(|x| MessageResult::WebSocket(x))
-                .map_err(|_| ());
+                .map_err(|_| WasCloseErr::No)
+                .chain({
+                    Err(WasCloseErr::Yes(ConnectionEndReason::MpscChannelClosed))
+                        .into_future()
+                        .into_stream()
+                });
             let (ws_sink, stream) = client.split();
             let stream_done = stream
                 .map_err(|e| {
                     error!("Error reading websocket stream: {}", e);
+                    WasCloseErr::No
+                })
+                .chain({
+                    Err(WasCloseErr::Yes(ConnectionEndReason::SocketClosed))
+                        .into_future()
+                        .into_stream()
                 })
                 .filter_map(|message| {
                     match message {
@@ -80,13 +107,16 @@ fn app_websocket_connection(
                         MessageResult::WebSocket(ws) => {
                             debug!("Sending message: {:?}", ws);
                             let future = ws_sink.send(ws)
-                                .map_err(|e| error!("Error sending to websocket sink: {}", e))
+                                .map_err(|e| {
+                                    error!("Error sending to websocket sink: {}", e);
+                                    WasCloseErr::No
+                                })
                                 .map(move |x| (game_send, x));
                             Either::A(future)
                         }
                         MessageResult::Game(msg) => {
                             let future = game_send.send(msg)
-                                .map_err(|_| ())
+                                .map_err(|_| WasCloseErr::No)
                                 .map(move |x| (x, ws_sink));
                             Either::B(box_future(future))
                         }
@@ -96,7 +126,16 @@ fn app_websocket_connection(
                         }
                     }
                 })
-                .map(|_| ());
+                .map(|_| ())
+                .then(|result| match result {
+                    Ok(()) => {
+                        // Wait, both input streams closed before either's chained error
+                        // was received?? Just tell websocket was first.
+                        Ok(ConnectionEndReason::SocketClosed)
+                    }
+                    Err(WasCloseErr::Yes(reason)) => Ok(reason),
+                    Err(WasCloseErr::No) => Err(()),
+                });
             stream_done
         })
 }
@@ -116,6 +155,9 @@ pub fn websocket_connection_future(
     // program, but at that point we have no way to know what port it binds to, and it would
     // just tell us quit as it doesn't know about us/doesn't track game state across
     // closing/reopening.
+    // 4) The app currently just thinks that a new connection means to start again from
+    // configuration, to which this obviously just replies with an error and gets killed by
+    // the app.
     //
     // Point 2) could be solved by resending what didn't end up being sent succesfully -
     // maybe messages should have an seq/id field so the receiving end doesn't handle them twice,
@@ -154,10 +196,16 @@ pub fn websocket_connection_future(
                     let lock = locked.unlock();
                     let connection =
                         app_websocket_connection(current_recv, &game_send, &async_stop);
-                    connection.map(|()| lock)
+                    connection
+                        .then(|result| match result {
+                            Ok(ConnectionEndReason::SocketClosed) | Err(()) => Ok(lock),
+                            // Ends the repeat
+                            Ok(ConnectionEndReason::MpscChannelClosed) => Err(()),
+                        })
                 })
         })
-        .map(|_| ());
+        .map(|_| ())
+        .or_else(|()| Ok(()));
     // Buffer messages if there isn't a connection active
     let buffer = Vec::new();
     let forward_messages_to_current_connection = recv_messages
