@@ -77,6 +77,8 @@ fn log_file() -> File {
         let filename = dir.join(format!("shieldbattery.{}.log", i));
         if let Ok(mut file) = options.open(filename) {
             let result = remove_lines(&mut file, 10000, 5000);
+            // Add blank lines to make start of the session a bit clearer.
+            let _ = write!(&mut file, "\n--------------------------------------------\n");
             if let Err(e) = result {
                 let _ = writeln!(&mut file, "Couldn't truncate lines: {}", e);
             }
@@ -176,6 +178,7 @@ pub extern fn OnInject() {
         .chain(log_file())
         .apply();
 
+    info!("Logging started");
     std::panic::set_hook(Box::new(panic_hook));
     unsafe {
         patch_game();
