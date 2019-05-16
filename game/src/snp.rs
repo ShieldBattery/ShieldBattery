@@ -6,14 +6,14 @@ use std::sync::{Arc, Mutex};
 use bytes::Bytes;
 use lazy_static::lazy_static;
 use libc::{c_void, sockaddr};
-use winapi::um::libloaderapi::{GetModuleFileNameA};
-use winapi::um::synchapi::{SetEvent};
 use winapi::shared::ntdef::HANDLE;
 use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
+use winapi::um::libloaderapi::GetModuleFileNameA;
+use winapi::um::synchapi::SetEvent;
 use winapi::um::sysinfoapi::GetTickCount;
 
 use crate::bw::{self, storm};
-use crate::game_thread::{GameThreadMessage, game_thread_message};
+use crate::game_thread::{game_thread_message, GameThreadMessage};
 use crate::windows::{self, OwnedHandle};
 
 // 'SBAT'
@@ -117,7 +117,7 @@ fn init_list_entry() -> bw::SnpListEntry {
             max_player_count: 8,
             // Matches UDP LAN
             turn_delay: 2,
-        }
+        },
     };
     let self_module = windows::module_from_address(init_list_entry as *mut c_void);
     if let Some((_, module)) = self_module {
@@ -130,7 +130,10 @@ fn init_list_entry() -> bw::SnpListEntry {
                 list_entry.file_path.len() as u32,
             );
             if n == 0 {
-                panic!("GetModuleFileNameA failed: {}", std::io::Error::last_os_error());
+                panic!(
+                    "GetModuleFileNameA failed: {}",
+                    std::io::Error::last_os_error()
+                );
             }
         }
     } else {
@@ -187,12 +190,7 @@ fn sockaddr_to_std_ip(address: sockaddr) -> Ipv4Addr {
     unsafe {
         let addr: SOCKADDR_IN = mem::transmute(address);
         let octets = addr.sin_addr.S_un.S_un_b();
-        Ipv4Addr::new(
-            octets.s_b1,
-            octets.s_b2,
-            octets.s_b3,
-            octets.s_b4,
-        )
+        Ipv4Addr::new(octets.s_b1, octets.s_b2, octets.s_b3, octets.s_b4)
     }
 }
 
@@ -327,8 +325,8 @@ unsafe extern "stdcall" fn initialize(
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
         // without having to synchronize storm unbinding SNP.
-        let receive_event = OwnedHandle::duplicate(receive_event)
-            .expect("Handle duplication failed");
+        let receive_event =
+            OwnedHandle::duplicate(receive_event).expect("Handle duplication failed");
         send_snp_message(SnpMessage::CreateNetworkHandler(SendMessages {
             signal_handle: Arc::new(receive_event),
         }));

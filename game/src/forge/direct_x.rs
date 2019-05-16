@@ -6,22 +6,22 @@ use std::ptr::null_mut;
 
 use lazy_static::lazy_static;
 use libc::c_void;
-use winapi::Interface;
-use winapi::shared::windef::{HWND, RECT};
 use winapi::shared::dxgi::*;
 use winapi::shared::dxgiformat::*;
 use winapi::shared::dxgitype::*;
+use winapi::shared::windef::{HWND, RECT};
 use winapi::shared::winerror::S_OK;
-use winapi::um::d3dcommon::*;
 use winapi::um::d3d11::*;
+use winapi::um::d3dcommon::*;
 use winapi::um::unknwnbase::IUnknown;
-use winapi::um::winuser::GetClientRect;
 use winapi::um::wingdi::PALETTEENTRY;
+use winapi::um::winuser::GetClientRect;
+use winapi::Interface;
 
 use crate::windows;
 
-use super::Settings;
 use super::renderer::RenderApi;
+use super::Settings;
 
 pub struct Error {
     err: io::Error,
@@ -128,7 +128,11 @@ pub struct Renderer {
     ddraw_height: u32,
 }
 
-fn create_device_and_swap_chain(window: HWND, width: u32, height: u32) -> Result<(Device, SwapChain)> {
+fn create_device_and_swap_chain(
+    window: HWND,
+    width: u32,
+    height: u32,
+) -> Result<(Device, SwapChain)> {
     unsafe {
         let swap_chain_desc = DXGI_SWAP_CHAIN_DESC {
             BufferDesc: DXGI_MODE_DESC {
@@ -161,9 +165,9 @@ fn create_device_and_swap_chain(window: HWND, width: u32, height: u32) -> Result
             null_mut(),
             D3D_DRIVER_TYPE_HARDWARE,
             null_mut(), // software
-            0, // flags
+            0,          // flags
             null_mut(), // feature level
-            0, // feature level count
+            0,          // feature level count
             D3D11_SDK_VERSION,
             &swap_chain_desc,
             &mut swap_chain,
@@ -172,7 +176,10 @@ fn create_device_and_swap_chain(window: HWND, width: u32, height: u32) -> Result
             &mut context,
         );
         if result == S_OK {
-            Ok((Device(ComPtr(device), ComPtr(context)), SwapChain(ComPtr(swap_chain))))
+            Ok((
+                Device(ComPtr(device), ComPtr(context)),
+                SwapChain(ComPtr(swap_chain)),
+            ))
         } else {
             Err(Error::from_code(result))
         }
@@ -203,8 +210,7 @@ impl Device {
     ) -> Result<ShaderResourceView> {
         unsafe {
             let mut view = null_mut();
-            let result =
-                (**self.0).CreateShaderResourceView(*texture.0 as *mut _, desc, &mut view);
+            let result = (**self.0).CreateShaderResourceView(*texture.0 as *mut _, desc, &mut view);
             if result == S_OK {
                 Ok(ShaderResourceView(ComPtr(view)))
             } else {
@@ -259,8 +265,7 @@ impl Device {
         desc: &[D3D11_INPUT_ELEMENT_DESC],
     ) -> Result<VertexShader> {
         unsafe {
-            let blob = compile_blob(code, "VS_Main", "vs_4_0")
-                .context("Compiling shader")?;
+            let blob = compile_blob(code, "VS_Main", "vs_4_0").context("Compiling shader")?;
             let mut shader = null_mut();
             let result = (**self.0).CreateVertexShader(
                 (**blob.0).GetBufferPointer(),
@@ -289,8 +294,7 @@ impl Device {
 
     fn create_pixel_shader(&self, code: &[u8]) -> Result<PixelShader> {
         unsafe {
-            let blob = compile_blob(code, "PS_Main", "ps_4_0")
-                .context("Compiling shader")?;
+            let blob = compile_blob(code, "PS_Main", "ps_4_0").context("Compiling shader")?;
             let mut shader = null_mut();
             let result = (**self.0).CreatePixelShader(
                 (**blob.0).GetBufferPointer(),
@@ -339,11 +343,7 @@ impl SwapChain {
     fn back_buffer_texture(&self) -> Result<Texture2d> {
         unsafe {
             let mut texture = null_mut();
-            let result = (**self.0).GetBuffer(
-                0,
-                &ID3D11Texture2D::uuidof(),
-                &mut texture,
-            );
+            let result = (**self.0).GetBuffer(0, &ID3D11Texture2D::uuidof(), &mut texture);
             if result == S_OK {
                 Ok(Texture2d(ComPtr(texture as *mut ID3D11Texture2D)))
             } else {
@@ -379,9 +379,11 @@ impl Renderer {
             TopLeftX: 0.0,
             TopLeftY: 0.0,
         };
-        let back_buffer = swap_chain.back_buffer_texture()
+        let back_buffer = swap_chain
+            .back_buffer_texture()
             .context("Accessing back buffer texture")?;
-        let back_buffer_view = device.create_render_target_view(&back_buffer)
+        let back_buffer_view = device
+            .create_render_target_view(&back_buffer)
             .context("Creating render target view for back buffer")?;
         let output_rect = settings.get_output_size(&client_rect, ddraw_width, ddraw_height);
         let final_viewport = D3D11_VIEWPORT {
@@ -392,12 +394,10 @@ impl Renderer {
             TopLeftX: output_rect.left as f32,
             TopLeftY: output_rect.top as f32,
         };
-        let shaders = Shaders::init(&device)
-            .context("Creating shaders")?;
-        let textures = Textures::init(&device, ddraw_width, ddraw_height)
-            .context("Creating textures")?;
-        let vertices = Vertices::init(&device)
-            .context("Creating vertices")?;
+        let shaders = Shaders::init(&device).context("Creating shaders")?;
+        let textures =
+            Textures::init(&device, ddraw_width, ddraw_height).context("Creating textures")?;
+        let vertices = Vertices::init(&device).context("Creating vertices")?;
         Ok(Renderer {
             device,
             swap_chain,
@@ -413,8 +413,13 @@ impl Renderer {
     }
 
     unsafe fn try_render(&mut self, pixels: &[u8]) -> Result<()> {
-        assert_eq!(pixels.len(), self.ddraw_width as usize * self.ddraw_height as usize);
-        let mapped = self.device.map_texture(&self.textures.bw_screen_texture)
+        assert_eq!(
+            pixels.len(),
+            self.ddraw_width as usize * self.ddraw_height as usize
+        );
+        let mapped = self
+            .device
+            .map_texture(&self.textures.bw_screen_texture)
             .context("Couldn't map BW screen texture")?;
 
         let mut ptr = mapped.0.pData as *mut u8;
@@ -442,7 +447,11 @@ impl Renderer {
         (**self.device.1).RSSetViewports(1, viewports.as_ptr());
         (**self.device.1).IASetInputLayout(*self.shaders.depalettized_vertex.1);
         (**self.device.1).IASetVertexBuffers(
-            0, 1, &*self.vertices.vertex_buffer.0, strides.as_ptr(), offsets.as_ptr()
+            0,
+            1,
+            &*self.vertices.vertex_buffer.0,
+            strides.as_ptr(),
+            offsets.as_ptr(),
         );
         (**self.device.1).IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         (**self.device.1).VSSetShader(*self.shaders.depalettized_vertex.0, null_mut(), 0);
@@ -481,19 +490,24 @@ struct Vertex {
 
 impl Vertices {
     fn init(device: &Device) -> Result<Vertices> {
-        let vertices = &[Vertex {
-            pos: (-1.0, -1.0),
-            texcoord: (0.0, 1.0),
-        }, Vertex {
-            pos: (-1.0, 1.0),
-            texcoord: (0.0, 0.0),
-        }, Vertex {
-            pos: (1.0, -1.0),
-            texcoord: (1.0, 1.0),
-        }, Vertex {
-            pos: (1.0, 1.0),
-            texcoord: (1.0, 0.0),
-        }];
+        let vertices = &[
+            Vertex {
+                pos: (-1.0, -1.0),
+                texcoord: (0.0, 1.0),
+            },
+            Vertex {
+                pos: (-1.0, 1.0),
+                texcoord: (0.0, 0.0),
+            },
+            Vertex {
+                pos: (1.0, -1.0),
+                texcoord: (1.0, 1.0),
+            },
+            Vertex {
+                pos: (1.0, 1.0),
+                texcoord: (1.0, 0.0),
+            },
+        ];
         let vertex_size = mem::size_of::<Vertex>() as u32;
         assert_eq!(vertex_size, 0x10);
         let desc = D3D11_BUFFER_DESC {
@@ -509,50 +523,53 @@ impl Vertices {
             SysMemPitch: 0,
             SysMemSlicePitch: 0,
         };
-        let vertex_buffer = device.create_vertex_buffer(&desc, &data)
+        let vertex_buffer = device
+            .create_vertex_buffer(&desc, &data)
             .context("Creating vertex buffer")?;
-        Ok(Vertices {
-            vertex_buffer,
-        })
+        Ok(Vertices { vertex_buffer })
     }
 }
 
 impl Shaders {
     fn init(device: &Device) -> Result<Shaders> {
-        let input_desc = &[D3D11_INPUT_ELEMENT_DESC {
-            SemanticName: "POSITION\0".as_ptr() as *const i8,
-            SemanticIndex: 0,
-            Format: DXGI_FORMAT_R32G32_FLOAT,
-            InputSlot: 0,
-            AlignedByteOffset: 0,
-            InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-            InstanceDataStepRate: 0,
-        }, D3D11_INPUT_ELEMENT_DESC {
-            SemanticName: "TEXCOORD\0".as_ptr() as *const i8,
-            SemanticIndex: 0,
-            Format: DXGI_FORMAT_R32G32_FLOAT,
-            InputSlot: 0,
-            AlignedByteOffset: 8,
-            InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-            InstanceDataStepRate: 0,
-        }];
-        let depalettized_vertex = device.create_vertex_shader(
-            include_bytes!("shaders/directx/vs_depalettizing.hlsl"),
-            input_desc,
-        ).context("Creating depalettized vertex shader")?;
-        let depalettized_pixel =
-            device.create_pixel_shader(include_bytes!("shaders/directx/ps_depalettizing.hlsl"))
-                .context("Creating depalettized pixel shader")?;
-        let scaling_pixel =
-            device.create_pixel_shader(include_bytes!("shaders/directx/ps_scaling.hlsl"))
-                .context("Creating scaling pixel shader")?;
+        let input_desc = &[
+            D3D11_INPUT_ELEMENT_DESC {
+                SemanticName: "POSITION\0".as_ptr() as *const i8,
+                SemanticIndex: 0,
+                Format: DXGI_FORMAT_R32G32_FLOAT,
+                InputSlot: 0,
+                AlignedByteOffset: 0,
+                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
+                InstanceDataStepRate: 0,
+            },
+            D3D11_INPUT_ELEMENT_DESC {
+                SemanticName: "TEXCOORD\0".as_ptr() as *const i8,
+                SemanticIndex: 0,
+                Format: DXGI_FORMAT_R32G32_FLOAT,
+                InputSlot: 0,
+                AlignedByteOffset: 8,
+                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
+                InstanceDataStepRate: 0,
+            },
+        ];
+        let depalettized_vertex = device
+            .create_vertex_shader(
+                include_bytes!("shaders/directx/vs_depalettizing.hlsl"),
+                input_desc,
+            )
+            .context("Creating depalettized vertex shader")?;
+        let depalettized_pixel = device
+            .create_pixel_shader(include_bytes!("shaders/directx/ps_depalettizing.hlsl"))
+            .context("Creating depalettized pixel shader")?;
+        let scaling_pixel = device
+            .create_pixel_shader(include_bytes!("shaders/directx/ps_scaling.hlsl"))
+            .context("Creating scaling pixel shader")?;
         Ok(Shaders {
             depalettized_vertex,
             depalettized_pixel,
             scaling_pixel,
         })
     }
-
 }
 
 impl Textures {
@@ -572,15 +589,17 @@ impl Textures {
             CPUAccessFlags: 0,
             MiscFlags: 0,
         };
-        let rendered_texture = device.create_texture2d(&texture_desc)
+        let rendered_texture = device
+            .create_texture2d(&texture_desc)
             .context("Creating rendered texture")?;
 
         let view_desc = view_desc_from_texture2d_desc(&texture_desc);
-        let rendered_texture_view =
-            device.create_shader_resource_view(&rendered_texture, &view_desc)
-                .context("Creating rendered texture shader resource view")?;
+        let rendered_texture_view = device
+            .create_shader_resource_view(&rendered_texture, &view_desc)
+            .context("Creating rendered texture shader resource view")?;
 
-        let depalettized_view = device.create_render_target_view(&rendered_texture)
+        let depalettized_view = device
+            .create_render_target_view(&rendered_texture)
             .context("Creating render target view for render texture")?;
 
         let texture_desc = D3D11_TEXTURE2D_DESC {
@@ -598,11 +617,13 @@ impl Textures {
             CPUAccessFlags: D3D11_CPU_ACCESS_WRITE,
             MiscFlags: 0,
         };
-        let bw_screen_texture = device.create_texture2d(&texture_desc)
+        let bw_screen_texture = device
+            .create_texture2d(&texture_desc)
             .context("Creating BW screen texture")?;
 
         let view_desc = view_desc_from_texture2d_desc(&texture_desc);
-        let bw_screen_view = device.create_shader_resource_view(&bw_screen_texture, &view_desc)
+        let bw_screen_view = device
+            .create_shader_resource_view(&bw_screen_texture, &view_desc)
             .context("Creating BW screen texture shader resource view")?;
 
         let texture_desc = D3D11_TEXTURE2D_DESC {
@@ -620,11 +641,13 @@ impl Textures {
             CPUAccessFlags: D3D11_CPU_ACCESS_WRITE,
             MiscFlags: 0,
         };
-        let palette_texture = device.create_texture2d(&texture_desc)
+        let palette_texture = device
+            .create_texture2d(&texture_desc)
             .context("Creating palette texture")?;
 
         let view_desc = view_desc_from_texture2d_desc(&texture_desc);
-        let palette_view = device.create_shader_resource_view(&palette_texture, &view_desc)
+        let palette_view = device
+            .create_shader_resource_view(&palette_texture, &view_desc)
             .context("Creating palette texture shader resource view")?;
 
         let sampler_desc = D3D11_SAMPLER_DESC {
@@ -639,7 +662,8 @@ impl Textures {
             MaxLOD: D3D11_FLOAT32_MAX,
             BorderColor: [0.0; 4],
         };
-        let sampler = device.create_sampler_state(&sampler_desc)
+        let sampler = device
+            .create_sampler_state(&sampler_desc)
             .context("Creating sampler state")?;
 
         Ok(Textures {

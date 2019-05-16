@@ -1,8 +1,8 @@
 use std::mem;
-use std::time::{Duration, Instant};
 use std::ptr::null_mut;
+use std::time::{Duration, Instant};
 
-use winapi::shared::windef::{HWND};
+use winapi::shared::windef::HWND;
 use winapi::um::wingdi::PALETTEENTRY;
 
 use super::direct_x;
@@ -23,7 +23,7 @@ pub trait RenderApi {
 
 fn device_display_frequency() -> Option<u32> {
     use winapi::um::wingdi::DEVMODEW;
-    use winapi::um::winuser::{ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW};
+    use winapi::um::winuser::{EnumDisplaySettingsW, ENUM_CURRENT_SETTINGS};
     unsafe {
         let mut devmode = DEVMODEW {
             dmSize: mem::size_of::<DEVMODEW>() as u16,
@@ -33,7 +33,10 @@ fn device_display_frequency() -> Option<u32> {
         if success != 0 {
             Some(devmode.dmDisplayFrequency).filter(|&x| x > 1)
         } else {
-            warn!("Couldn't get display settings: {}", std::io::Error::last_os_error());
+            warn!(
+                "Couldn't get display settings: {}",
+                std::io::Error::last_os_error()
+            );
             None
         }
     }
@@ -43,9 +46,7 @@ impl Renderer {
     pub fn new() -> Renderer {
         // If we can't get display frequency, or it is below 60hz for some reason,
         // still assume 60hz.
-        let display_frequency = device_display_frequency()
-            .unwrap_or(60)
-            .max(60);
+        let display_frequency = device_display_frequency().unwrap_or(60).max(60);
         Renderer {
             renderer: None,
             indirect_draw: None,

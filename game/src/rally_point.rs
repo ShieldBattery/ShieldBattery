@@ -1,20 +1,23 @@
-use std::collections::{HashSet, hash_map::{Entry, HashMap}};
+use std::collections::{
+    hash_map::{Entry, HashMap},
+    HashSet,
+};
 
 use std::io;
 use std::net::{SocketAddr, SocketAddrV6};
-use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
-use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use bytes::{Bytes};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use bytes::Bytes;
 use futures::future::{self, Either};
 use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{BoxedFuture, box_future};
-use crate::cancel_token::{CancelToken, Canceler, CancelableSender, cancelable_channel};
-use crate::udp::{self, UdpSend, UdpRecv};
+use crate::cancel_token::{cancelable_channel, CancelToken, CancelableSender, Canceler};
+use crate::udp::{self, UdpRecv, UdpSend};
+use crate::{box_future, BoxedFuture};
 
 quick_error! {
     #[derive(Debug)]
@@ -93,7 +96,7 @@ struct Ping {
 fn to_ipv6_addr(addr: &SocketAddr) -> SocketAddrV6 {
     match addr {
         SocketAddr::V6(v6) => *v6,
-        SocketAddr::V4(v4) => SocketAddrV6::new(v4.ip().to_ipv6_mapped(), v4.port(), 0,0),
+        SocketAddr::V4(v4) => SocketAddrV6::new(v4.ip().to_ipv6_mapped(), v4.port(), 0, 0),
     }
 }
 
@@ -102,7 +105,8 @@ fn send_bytes_future(
     message: Bytes,
     to: SocketAddrV6,
 ) -> impl Future<Item = (), Error = ()> + 'static {
-    send_bytes.clone()
+    send_bytes
+        .clone()
         .send((message, to, None))
         .map(|_| ())
         .map_err(|_| ())
@@ -128,35 +132,37 @@ impl State {
                 let key = route_key(&address, &route);
                 let (send_done, recv_done) = oneshot::channel();
                 let (send_error, recv_error) = mpsc::channel(1);
-                self.joins.insert(key.clone(), JoinState {
-                    done: send_done,
-                    player_id: player,
-                });
+                self.joins.insert(
+                    key.clone(),
+                    JoinState {
+                        done: send_done,
+                        player_id: player,
+                    },
+                );
                 self.joined_servers.insert(address);
                 let send_requests = resend_interval()
                     .map(move |()| (message.clone(), address, Some(send_error.clone())))
                     .forward(self.send_bytes.clone().sink_map_err(|_| ()))
                     .map(|_| ())
                     .map_err(|_| ());
-                let send_errored = recv_error.into_future()
-                    .then(|result| match result {
-                        Ok((Some(s), _)) => Either::A(future::err(s)),
-                        _ => Either::B(future::empty()),
-                    });
+                let send_errored = recv_error.into_future().then(|result| match result {
+                    Ok((Some(s), _)) => Either::A(future::err(s)),
+                    _ => Either::B(future::empty()),
+                });
                 let wait_for_result = recv_done
                     .map_err(|_| RallyPointError::NotActive)
                     .timeout(timeout)
-                    .map_err(|e| {
-                        e.into_inner().unwrap_or_else(|| RallyPointError::Timeout)
-                    })
+                    .map_err(|e| e.into_inner().unwrap_or_else(|| RallyPointError::Timeout))
                     .flatten();
-                let result = wait_for_result.select2(send_errored)
+                let result = wait_for_result
+                    .select2(send_errored)
                     .map(|ok| ok.split().0)
                     .map_err(|err| err.split().0);
                 let result = done.send_result(result);
 
                 let send_self_requests = self.send_requests.clone();
-                let task = result.select(send_requests)
+                let task = result
+                    .select(send_requests)
                     .then(move |_| send_self_requests.send(Request::CleanupJoin(key)))
                     .map(|_| ())
                     .map_err(|_| ());
@@ -168,28 +174,31 @@ impl State {
                 let (send_error, recv_error) = mpsc::channel(1);
                 let id = ping_id();
                 let now = Instant::now();
-                self.pings.insert((id, address), Ping {
-                    start: now,
-                    done: send_done,
-                });
+                self.pings.insert(
+                    (id, address),
+                    Ping {
+                        start: now,
+                        done: send_done,
+                    },
+                );
                 let message = ping_message(id);
 
-                let send = self.send_bytes.clone()
+                let send = self
+                    .send_bytes
+                    .clone()
                     .send((message, address, Some(send_error)))
                     .map(|_| ())
                     .map_err(|_| ());
-                let send_errored = recv_error.into_future()
-                    .then(|result| match result {
-                        Ok((Some(s), _)) => Either::A(future::err(s)),
-                        _ => Either::B(future::empty()),
-                    });
+                let send_errored = recv_error.into_future().then(|result| match result {
+                    Ok((Some(s), _)) => Either::A(future::err(s)),
+                    _ => Either::B(future::empty()),
+                });
                 let wait_for_result = recv_done
                     .map_err(|_| RallyPointError::NotActive)
                     .timeout(PING_TIMEOUT)
-                    .map_err(|e| {
-                        e.into_inner().unwrap_or_else(|| RallyPointError::Timeout)
-                    });
-                let result = wait_for_result.select2(send_errored)
+                    .map_err(|e| e.into_inner().unwrap_or_else(|| RallyPointError::Timeout));
+                let result = wait_for_result
+                    .select2(send_errored)
                     .map(|ok| ok.split().0)
                     .map_err(|err| err.split().0);
                 let result = done.send_result(result);
@@ -204,7 +213,9 @@ impl State {
             }
             ExternalRequest::Forward(route, player, data, address) => {
                 let message = forward_message(&route, player, &data);
-                let send = self.send_bytes.clone()
+                let send = self
+                    .send_bytes
+                    .clone()
                     .send((message, address, None))
                     .map(|_| ())
                     .map_err(|_| ());
@@ -226,7 +237,9 @@ impl State {
             ExternalRequest::KeepAlive(route, player, address) => {
                 // I don't think there's any way to confirm the route is actually still alive
                 let message = keep_alive_message(&route, player);
-                let send = self.send_bytes.clone()
+                let send = self
+                    .send_bytes
+                    .clone()
                     .send((message, address, None))
                     .map(|_| ())
                     .map_err(|_| ());
@@ -244,7 +257,11 @@ impl State {
         }
     }
 
-    fn server_message(&mut self, message: ServerMessage, addr: SocketAddrV6) -> BoxedFuture<(), ()> {
+    fn server_message(
+        &mut self,
+        message: ServerMessage,
+        addr: SocketAddrV6,
+    ) -> BoxedFuture<(), ()> {
         match message {
             ServerMessage::JoinRouteSuccess(route) => {
                 let key = route_key(&addr, &route);
@@ -257,18 +274,21 @@ impl State {
                             // We'd like to ack this, but we don't have a player ID so tough luck
                             return box_future(Ok(()).into_future());
                         }
-                    }
+                    },
                 };
                 let ack = join_route_success_ack(&route, player_id);
                 let send_ack = send_bytes_future(&self.send_bytes, ack, addr);
                 if let Entry::Occupied(entry) = join_entry {
                     let (_, join_state) = entry.remove_entry();
-                    self.active_routes.insert(key, ActiveRoute {
-                        player_id,
-                        ready: false,
-                        waiting_for_ready: Vec::new(),
-                        on_data: Vec::new(),
-                    });
+                    self.active_routes.insert(
+                        key,
+                        ActiveRoute {
+                            player_id,
+                            ready: false,
+                            waiting_for_ready: Vec::new(),
+                            on_data: Vec::new(),
+                        },
+                    );
                     let _ = join_state.done.send(Ok(()));
                 }
                 box_future(send_ack)
@@ -302,7 +322,10 @@ impl State {
                     let send_ack = send_bytes_future(&self.send_bytes, ack, addr);
                     box_future(send_ack)
                 } else {
-                    debug!("Route ready received for route {:?} which wasn't active", key);
+                    debug!(
+                        "Route ready received for route {:?} which wasn't active",
+                        key
+                    );
                     box_future(future::ok(()))
                 }
             }
@@ -315,13 +338,17 @@ impl State {
                     for (i, send) in route.on_data.iter_mut().enumerate() {
                         match send.try_send(bytes.clone()) {
                             Ok(()) => (),
-                            Err(err) => if err.is_closed() {
-                                closed_indices.push(i);
-                            } else {
-                                let future = send.clone().send(err.into_inner())
-                                    .map(|_| ())
-                                    .map_err(|_| ());
-                                send_futures.push(future);
+                            Err(err) => {
+                                if err.is_closed() {
+                                    closed_indices.push(i);
+                                } else {
+                                    let future = send
+                                        .clone()
+                                        .send(err.into_inner())
+                                        .map(|_| ())
+                                        .map_err(|_| ());
+                                    send_futures.push(future);
+                                }
                             }
                         }
                     }
@@ -373,12 +400,16 @@ fn udp_send_task(
     let send_future = recv_bytes
         .map_err(|_| ())
         .fold(udp_send, |udp_send, (bytes, addr, report_error)| {
-            udp_send.send_recoverable((bytes, addr.into()))
+            udp_send
+                .send_recoverable((bytes, addr.into()))
                 .or_else(move |(e, udp)| {
                     if let Some(report) = report_error {
                         error!("UDP send error: {}", e);
-                        box_future(report.send(RallyPointError::Send(e, addr.into()))
-                            .then(|_| Ok(udp)))
+                        box_future(
+                            report
+                                .send(RallyPointError::Send(e, addr.into()))
+                                .then(|_| Ok(udp)),
+                        )
                     } else {
                         error!("UDP send error: {}", e);
                         box_future(Ok(udp).into_future())
@@ -397,11 +428,9 @@ fn udp_recv_task(
         .map_err(|e| {
             error!("UDP recv error: {}", e);
         })
-        .filter_map(|(bytes, addr)| {
-            match decode_message(&bytes) {
-                Some(o) => Some((o, addr)),
-                None => None,
-            }
+        .filter_map(|(bytes, addr)| match decode_message(&bytes) {
+            Some(o) => Some((o, addr)),
+            None => None,
         })
         .map(|msg| Request::ServerMessage(msg.0, msg.1))
         .forward(send_requests.sink_map_err(|_| ()))
@@ -428,27 +457,21 @@ pub fn init() -> RallyPoint {
     // Separate channel for internal communication, so that dropping RallyPoint
     // will cause main_future to stop.
     let (internal_send_requests, internal_recv_requests) = mpsc::channel(16);
-    let mut state = State::new(&addr, internal_send_requests)
-        .expect("Couldn't bind rally-point");
-    let main_future = recv_requests.map_err(|_| ())
+    let mut state = State::new(&addr, internal_send_requests).expect("Couldn't bind rally-point");
+    let main_future = recv_requests
+        .map_err(|_| ())
         .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
         .select(internal_recv_requests.map_err(|_| ()))
-        .for_each(move |request| {
-            match request {
-                Request::External(req) => {
-                    state.external_request(req)
-                }
-                Request::ServerMessage(msg, from) => {
-                    state.server_message(msg, from)
-                }
-                Request::CleanupJoin(key) => {
-                    state.joins.remove(&key);
-                    box_future(Ok(()).into_future())
-                }
-                Request::CleanupPing(key) => {
-                    state.pings.remove(&key);
-                    box_future(Ok(()).into_future())
-                }
+        .for_each(move |request| match request {
+            Request::External(req) => state.external_request(req),
+            Request::ServerMessage(msg, from) => state.server_message(msg, from),
+            Request::CleanupJoin(key) => {
+                state.joins.remove(&key);
+                box_future(Ok(()).into_future())
+            }
+            Request::CleanupPing(key) => {
+                state.pings.remove(&key);
+                box_future(Ok(()).into_future())
             }
         })
         .then(|_| {
@@ -456,9 +479,7 @@ pub fn init() -> RallyPoint {
             Ok(())
         });
     tokio::spawn(main_future);
-    RallyPoint {
-        send_requests
-    }
+    RallyPoint { send_requests }
 }
 
 /// Messages sent from server to players
@@ -474,9 +495,19 @@ enum ServerMessage {
 type ResponseSender<T> = CancelableSender<Result<T, RallyPointError>>;
 
 enum ExternalRequest {
-    JoinRoute(RouteId, PlayerId, SocketAddrV6, Duration, ResponseSender<()>),
+    JoinRoute(
+        RouteId,
+        PlayerId,
+        SocketAddrV6,
+        Duration,
+        ResponseSender<()>,
+    ),
     Ping(SocketAddrV6, ResponseSender<Duration>),
-    WaitRouteReady(RouteId, SocketAddrV6, oneshot::Sender<Result<(), RallyPointError>>),
+    WaitRouteReady(
+        RouteId,
+        SocketAddrV6,
+        oneshot::Sender<Result<(), RallyPointError>>,
+    ),
     KeepAlive(RouteId, PlayerId, SocketAddrV6),
     ListenData(RouteId, SocketAddrV6, mpsc::Sender<Bytes>),
     Forward(RouteId, PlayerId, Bytes, SocketAddrV6),
@@ -525,11 +556,12 @@ impl RallyPoint {
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::JoinRoute(route_id, player_id, address, timeout, send);
-        let future = self.send_requests.clone().send(Request::External(request))
+        let future = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map_err(|_| RallyPointError::NotActive)
-            .and_then(|_| {
-                recv.map_err(|_| RallyPointError::NotActive).flatten()
-            });
+            .and_then(|_| recv.map_err(|_| RallyPointError::NotActive).flatten());
         future
     }
 
@@ -541,11 +573,12 @@ impl RallyPoint {
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::Ping(address, send);
-        let future = self.send_requests.clone().send(Request::External(request))
+        let future = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map_err(|_| RallyPointError::NotActive)
-            .and_then(|_| {
-                recv.map_err(|_| RallyPointError::NotActive).flatten()
-            });
+            .and_then(|_| recv.map_err(|_| RallyPointError::NotActive).flatten());
         future
     }
 
@@ -557,11 +590,12 @@ impl RallyPoint {
         let (send, recv) = oneshot::channel();
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::WaitRouteReady(*route, address, send);
-        let future = self.send_requests.clone().send(Request::External(request))
+        let future = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map_err(|_| RallyPointError::NotActive)
-            .and_then(|_| {
-                recv.map_err(|_| RallyPointError::NotActive).flatten()
-            });
+            .and_then(|_| recv.map_err(|_| RallyPointError::NotActive).flatten());
         future
     }
 
@@ -573,7 +607,10 @@ impl RallyPoint {
     ) -> impl Future<Item = (), Error = RallyPointError> {
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::KeepAlive(*route, player_id, address);
-        let future = self.send_requests.clone().send(Request::External(request))
+        let future = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map(|_| ())
             .map_err(|_| RallyPointError::NotActive);
         future
@@ -587,7 +624,10 @@ impl RallyPoint {
         let address = to_ipv6_addr(&address);
         let (send, recv) = mpsc::channel(32);
         let request = ExternalRequest::ListenData(*route, address, send);
-        let stream = self.send_requests.clone().send(Request::External(request))
+        let stream = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map(|_| ())
             .map_err(|_| RallyPointError::NotActive)
             .into_stream()
@@ -605,7 +645,10 @@ impl RallyPoint {
     ) -> impl Future<Item = (), Error = RallyPointError> {
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::Forward(*route, player, data, address);
-        let future = self.send_requests.clone().send(Request::External(request))
+        let future = self
+            .send_requests
+            .clone()
+            .send(Request::External(request))
             .map(|_| ())
             .map_err(|_| RallyPointError::NotActive);
         future
@@ -652,7 +695,10 @@ fn decode_message(bytes: &Bytes) -> Option<ServerMessage> {
     if read.is_empty() {
         Some(message)
     } else {
-        warn!("Rally-point message {:?} contained additional data, ignoring", message);
+        warn!(
+            "Rally-point message {:?} contained additional data, ignoring",
+            message
+        );
         None
     }
 }

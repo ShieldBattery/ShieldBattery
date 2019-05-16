@@ -1,15 +1,15 @@
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use futures::future::{self, Either};
 use quick_error::{quick_error, ResultExt};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use tokio::prelude::*;
 use tokio::sync::mpsc;
 use tokio::timer::Delay;
-use websocket::{self, OwnedMessage};
 use websocket::r#async::client::{ClientNew, TcpStream};
+use websocket::{self, OwnedMessage};
 
-use crate::{box_future};
+use crate::box_future;
 use crate::cancel_token::SharedCanceler;
 use crate::game_state::{self, GameStateMessage};
 
@@ -21,7 +21,8 @@ fn connect_to_app() -> ClientNew<TcpStream> {
     info!("Connecting to {} ...", url);
     let mut headers = websocket::header::Headers::new();
     headers.append_raw("x-game-id", args.game_id.into());
-    websocket::ClientBuilder::new(&url).unwrap()
+    websocket::ClientBuilder::new(&url)
+        .unwrap()
         .origin("BROODWARS".into())
         .custom_headers(&headers)
         .async_connect_insecure()
@@ -56,8 +57,8 @@ fn app_websocket_connection(
         .or_else(|e| {
             error!("Couldn't connect to Shieldbattery: {}", e);
             box_future(
-                Delay::new(Instant::now() + Duration::from_millis(1000))
-                    .then(|_| Err(())) // We don't care about timer errors?
+                // We don't care about timer errors?
+                Delay::new(Instant::now() + Duration::from_millis(1000)).then(|_| Err(())),
             )
         })
         .and_then(move |(client, _headers)| {
@@ -81,32 +82,30 @@ fn app_websocket_connection(
                         .into_future()
                         .into_stream()
                 })
-                .filter_map(|message| {
-                    match message {
-                        OwnedMessage::Text(text) => {
-                            match handle_app_message(text) {
-                                Ok(o) => Some(o),
-                                Err(e) => {
-                                    error!("Error handling message: {}", e);
-                                    None
-                                }
-                            }
+                .filter_map(|message| match message {
+                    OwnedMessage::Text(text) => match handle_app_message(text) {
+                        Ok(o) => Some(o),
+                        Err(e) => {
+                            error!("Error handling message: {}", e);
+                            None
                         }
-                        OwnedMessage::Ping(ping) => {
-                            Some(MessageResult::WebSocket(OwnedMessage::Pong(ping)))
-                        }
-                        OwnedMessage::Close(e) => {
-                            Some(MessageResult::WebSocket(OwnedMessage::Close(e)))
-                        }
-                        _ => None,
+                    },
+                    OwnedMessage::Ping(ping) => {
+                        Some(MessageResult::WebSocket(OwnedMessage::Pong(ping)))
                     }
+                    OwnedMessage::Close(e) => {
+                        Some(MessageResult::WebSocket(OwnedMessage::Close(e)))
+                    }
+                    _ => None,
                 })
                 .select(recv_messages)
-                .fold((game_send, ws_sink), move |(game_send, ws_sink), message| {
-                    match message {
+                .fold(
+                    (game_send, ws_sink),
+                    move |(game_send, ws_sink), message| match message {
                         MessageResult::WebSocket(ws) => {
                             debug!("Sending message: {:?}", ws);
-                            let future = ws_sink.send(ws)
+                            let future = ws_sink
+                                .send(ws)
                                 .map_err(|e| {
                                     error!("Error sending to websocket sink: {}", e);
                                     WasCloseErr::No
@@ -115,7 +114,8 @@ fn app_websocket_connection(
                             Either::A(future)
                         }
                         MessageResult::Game(msg) => {
-                            let future = game_send.send(msg)
+                            let future = game_send
+                                .send(msg)
                                 .map_err(|_| WasCloseErr::No)
                                 .map(move |x| (x, ws_sink));
                             Either::B(box_future(future))
@@ -124,8 +124,8 @@ fn app_websocket_connection(
                             async_stop.cancel();
                             Either::B(box_future(future::ok((game_send, ws_sink))))
                         }
-                    }
-                })
+                    },
+                )
                 .map(|_| ())
                 .then(|result| match result {
                     Ok(()) => {
@@ -183,26 +183,21 @@ pub fn websocket_connection_future(
     let repeat_connection = futures::stream::repeat(())
         .fold(send1, move |send, ()| {
             let (current_send, current_recv) = mpsc::channel(8);
-            let current_send = current_send
-                .with_flat_map(|vec: Vec<OwnedMessage>| {
-                    futures::stream::iter_ok(vec)
-                });
+            let current_send =
+                current_send.with_flat_map(|vec: Vec<OwnedMessage>| futures::stream::iter_ok(vec));
 
             let game_send = game_send.clone();
             let async_stop = async_stop.clone();
-            send.lock()
-                .and_then(move |mut locked| {
-                    *locked = Some(current_send);
-                    let lock = locked.unlock();
-                    let connection =
-                        app_websocket_connection(current_recv, &game_send, &async_stop);
-                    connection
-                        .then(|result| match result {
-                            Ok(ConnectionEndReason::SocketClosed) | Err(()) => Ok(lock),
-                            // Ends the repeat
-                            Ok(ConnectionEndReason::MpscChannelClosed) => Err(()),
-                        })
+            send.lock().and_then(move |mut locked| {
+                *locked = Some(current_send);
+                let lock = locked.unlock();
+                let connection = app_websocket_connection(current_recv, &game_send, &async_stop);
+                connection.then(|result| match result {
+                    Ok(ConnectionEndReason::SocketClosed) | Err(()) => Ok(lock),
+                    // Ends the repeat
+                    Ok(ConnectionEndReason::MpscChannelClosed) => Err(()),
                 })
+            })
         })
         .map(|_| ())
         .or_else(|()| Ok(()));
@@ -211,26 +206,25 @@ pub fn websocket_connection_future(
     let forward_messages_to_current_connection = recv_messages
         .map_err(|_| ())
         .fold((send2, buffer), move |(send, mut buffer), msg| {
-            send.lock()
-                .and_then(move |mut locked| {
-                    if let Some(send) = locked.take() {
-                        buffer.push(msg);
-                        let future = send.send(buffer)
-                            .then(|result| {
-                                match result {
-                                    Ok(send) => *locked = Some(send),
-                                    Err(_) => *locked = None,
-                                };
-                                Ok((locked.unlock(), Vec::new()))
-                            });
-                        Either::A(future)
-                    } else {
-                        Either::B(Ok((locked.unlock(), buffer)).into_future())
-                    }
-                })
+            send.lock().and_then(move |mut locked| {
+                if let Some(send) = locked.take() {
+                    buffer.push(msg);
+                    let future = send.send(buffer).then(|result| {
+                        match result {
+                            Ok(send) => *locked = Some(send),
+                            Err(_) => *locked = None,
+                        };
+                        Ok((locked.unlock(), Vec::new()))
+                    });
+                    Either::A(future)
+                } else {
+                    Either::B(Ok((locked.unlock(), buffer)).into_future())
+                }
+            })
         })
         .map(|_| ());
-    repeat_connection.select(forward_messages_to_current_connection)
+    repeat_connection
+        .select(forward_messages_to_current_connection)
         .map(|_| ())
         .map_err(|_| ())
 }
@@ -241,40 +235,30 @@ enum MessageResult {
     Stop,
 }
 
-fn handle_app_message<'a>(
-    text: String,
-) -> Result<MessageResult, HandleMessageError> {
-    let message: Message = serde_json::from_str(&text)
-        .context(("Invalid message", &*text))?;
-    let payload = message.payload
-        .unwrap_or_else(|| serde_json::Value::Null);
+fn handle_app_message<'a>(text: String) -> Result<MessageResult, HandleMessageError> {
+    let message: Message = serde_json::from_str(&text).context(("Invalid message", &*text))?;
+    let payload = message.payload.unwrap_or_else(|| serde_json::Value::Null);
     debug!("Received message: '{}':\n'{}'", message.command, payload);
     match &*message.command {
         "settings" => {
-            let settings = serde_json::from_value(payload)
-                .context(("Invalid settings", &*text))?;
+            let settings = serde_json::from_value(payload).context(("Invalid settings", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetSettings(settings)))
         }
         "localUser" => {
-            let user = serde_json::from_value(payload)
-                .context(("Invalid local user", &*text))?;
+            let user = serde_json::from_value(payload).context(("Invalid local user", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
         "routes" => {
-            let routes = serde_json::from_value(payload)
-                .context(("Invalid routes", &*text))?;
+            let routes = serde_json::from_value(payload).context(("Invalid routes", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
         }
         "setupGame" => {
-            let setup = serde_json::from_value(payload)
-                .context(("Invalid game setup", &*text))?;
+            let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
-        _ => {
-            Err(HandleMessageError::UnknownCommand(message.command))
-        }
+        _ => Err(HandleMessageError::UnknownCommand(message.command)),
     }
 }
 
@@ -299,14 +283,8 @@ struct Message {
     payload: Option<serde_json::Value>,
 }
 
-pub fn encode_message<T: Serialize>(
-    command: &str,
-    data: T,
-) -> Option<OwnedMessage> {
-    fn inner<T: Serialize>(
-        command: &str,
-        data: T,
-    ) -> Result<OwnedMessage, serde_json::Error> {
+pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<OwnedMessage> {
+    fn inner<T: Serialize>(command: &str, data: T) -> Result<OwnedMessage, serde_json::Error> {
         let payload = serde_json::to_value(data)?;
         let message = Message {
             command: command.into(),

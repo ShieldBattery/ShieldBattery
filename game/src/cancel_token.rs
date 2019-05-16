@@ -55,9 +55,12 @@ impl CancelToken {
     }
 
     pub fn bind<F, I>(self, future: F) -> impl Future<Item = I, Error = ()>
-    where F: Future<Item = I, Error = ()>
+    where
+        F: Future<Item = I, Error = ()>,
     {
-        self.0.then(|_| Err(())).select(future)
+        self.0
+            .then(|_| Err(()))
+            .select(future)
             .map(|x| x.0)
             .map_err(|_| ())
     }
@@ -72,14 +75,8 @@ impl Canceler {
 pub fn cancelable_channel<T>() -> (CancelableSender<T>, CancelableReceiver<T>) {
     let (token, canceler) = CancelToken::new();
     let (sender, receiver) = oneshot::channel();
-    let sender = CancelableSender {
-        sender,
-        token,
-    };
-    let receiver = CancelableReceiver {
-        receiver,
-        canceler,
-    };
+    let sender = CancelableSender { sender, token };
+    let receiver = CancelableReceiver { receiver, canceler };
     (sender, receiver)
 }
 
@@ -87,15 +84,19 @@ impl<A, B> CancelableSender<Result<A, B>> {
     /// Creates a future which sends the result of inner future over channel on success,
     /// and cancels immediately on receiver drop.
     pub fn send_result<F>(self, future: F) -> impl Future<Item = (), Error = ()>
-    where F: Future<Item = A, Error = B>,
+    where
+        F: Future<Item = A, Error = B>,
     {
         let sender = self.sender;
-        self.token.0.map_err(|_| ()).select(
-            future.then(|result| {
+        self.token
+            .0
+            .map_err(|_| ())
+            .select(future.then(|result| {
                 let _ = sender.send(result);
                 Ok(())
-            })
-        ).map(|_| ()).map_err(|_| ())
+            }))
+            .map(|_| ())
+            .map_err(|_| ())
     }
 }
 

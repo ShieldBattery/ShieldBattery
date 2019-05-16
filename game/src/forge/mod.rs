@@ -6,21 +6,21 @@ use std::ffi::CStr;
 use std::io;
 use std::mem;
 use std::ptr::null_mut;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 use libc::c_void;
 
 use winapi::shared::guiddef::GUID;
 use winapi::shared::minwindef::{ATOM, FARPROC, HINSTANCE, HMODULE};
-use winapi::shared::windef::{HDC, HMENU, HWND, POINT, RECT, HBITMAP, HGDIOBJ};
+use winapi::shared::windef::{HBITMAP, HDC, HGDIOBJ, HMENU, HWND, POINT, RECT};
 use winapi::um::dsound::{
-    IDirectSound, IDirectSoundVtbl, IDirectSoundBuffer,
-    DSBUFFERDESC, DS_OK, DSBCAPS_GLOBALFOCUS, DSBCAPS_PRIMARYBUFFER
+    IDirectSound, IDirectSoundBuffer, IDirectSoundVtbl, DSBCAPS_GLOBALFOCUS, DSBCAPS_PRIMARYBUFFER,
+    DSBUFFERDESC, DS_OK,
 };
 use winapi::um::unknwnbase::IUnknown;
-use winapi::um::wingdi::{GetDeviceCaps, BITSPIXEL, BITMAP};
+use winapi::um::wingdi::{GetDeviceCaps, BITMAP, BITSPIXEL};
 use winapi::um::winuser::*;
 
 use crate::game_thread::{game_thread_message, GameThreadMessage};
@@ -29,8 +29,8 @@ use self::renderer::Renderer;
 
 mod hooks {
     use super::{
-        HWND, HMENU, HINSTANCE, WNDCLASSEXA, ATOM, HMODULE, FARPROC, POINT, RECT, c_void,
-        HGDIOBJ, HBITMAP, HDC,
+        c_void, ATOM, FARPROC, HBITMAP, HDC, HGDIOBJ, HINSTANCE, HMENU, HMODULE, HWND, POINT, RECT,
+        WNDCLASSEXA,
     };
     whack_export!(pub extern "system" CreateWindowExA(
         u32, *const i8, *const i8, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
@@ -84,10 +84,9 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                 return HTCLIENT;
             }
         }
-        WM_NCLBUTTONDOWN | WM_NCLBUTTONUP | WM_NCMOUSEMOVE | WM_NCPAINT | WM_ACTIVATE |
-            WM_CAPTURECHANGED | WM_KILLFOCUS | WM_PAINT | WM_SETFOCUS | WM_SHOWWINDOW |
-            WM_SIZE | WM_WINDOWPOSCHANGED | WM_WINDOWPOSCHANGING =>
-        {
+        WM_NCLBUTTONDOWN | WM_NCLBUTTONUP | WM_NCMOUSEMOVE | WM_NCPAINT | WM_ACTIVATE
+        | WM_CAPTURECHANGED | WM_KILLFOCUS | WM_PAINT | WM_SETFOCUS | WM_SHOWWINDOW | WM_SIZE
+        | WM_WINDOWPOSCHANGED | WM_WINDOWPOSCHANGING => {
             return DefWindowProcA(window, msg, wparam, lparam);
         }
         WM_DISPLAYCHANGE => {
@@ -149,23 +148,21 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
             }
             return 0;
         }
-        WM_LBUTTONDBLCLK | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONDBLCLK |
-            WM_MBUTTONDOWN | WM_MBUTTONUP | WM_RBUTTONDBLCLK | WM_RBUTTONDOWN | WM_RBUTTONUP |
-            WM_XBUTTONDBLCLK | WM_XBUTTONDOWN | WM_XBUTTONUP | WM_MOUSEMOVE =>
-        {
+        WM_LBUTTONDBLCLK | WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONDBLCLK | WM_MBUTTONDOWN
+        | WM_MBUTTONUP | WM_RBUTTONDBLCLK | WM_RBUTTONDOWN | WM_RBUTTONUP | WM_XBUTTONDBLCLK
+        | WM_XBUTTONDOWN | WM_XBUTTONUP | WM_MOUSEMOVE => {
             let x = (lparam & 0xffff) as i16;
             let y = (lparam >> 16) as i16;
             let (fake_x, fake_y) = with_forge(|forge| {
                 // cache the actual mouse position for GetCursorPos
                 forge.real_cursor_pos = (x, y);
                 if forge.should_clip_cursor {
-                    let clip_rect = forge.stored_cursor_rect
-                        .unwrap_or_else(|| RECT {
-                            left: 0,
-                            top: 0,
-                            right: 640,
-                            bottom: 480,
-                        });
+                    let clip_rect = forge.stored_cursor_rect.unwrap_or_else(|| RECT {
+                        left: 0,
+                        top: 0,
+                        right: 640,
+                        bottom: 480,
+                    });
                     forge.perform_scaled_clip_cursor(&clip_rect);
                     forge.should_clip_cursor = false;
                 }
@@ -249,7 +246,12 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                 key_input.u.ki_mut().dwFlags |= KEYEVENTF_KEYUP;
                 SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
                 // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
-                SetTimer(window, FOREGROUND_HOTKEY_ID as usize, FOREGROUND_HOTKEY_TIMEOUT, None);
+                SetTimer(
+                    window,
+                    FOREGROUND_HOTKEY_ID as usize,
+                    FOREGROUND_HOTKEY_TIMEOUT,
+                    None,
+                );
             }
             return 0;
         }
@@ -284,10 +286,10 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
         }
         WM_SETCURSOR => {
             if (lparam & 0xffff) != HTCLIENT {
-              return DefWindowProcA(window, msg, wparam, lparam);
+                return DefWindowProcA(window, msg, wparam, lparam);
             } else {
-              SetCursor(null_mut());
-              return 0;
+                SetCursor(null_mut());
+                return 0;
             }
         }
         _ => (),
@@ -339,7 +341,18 @@ unsafe fn create_window(
     instance: HINSTANCE,
     param: *mut c_void,
     orig: &Fn(
-        u32, *const i8, *const i8, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
+        u32,
+        *const i8,
+        *const i8,
+        u32,
+        i32,
+        i32,
+        i32,
+        i32,
+        HWND,
+        HMENU,
+        HINSTANCE,
+        *mut c_void,
     ) -> HWND,
 ) -> HWND {
     let class = c_str_opt(class_name);
@@ -353,8 +366,18 @@ unsafe fn create_window(
     };
     if !is_bw_window {
         return orig(
-            ex_style, class_name, window_name, style, x, y, width, height,
-            parent, menu, instance, param,
+            ex_style,
+            class_name,
+            window_name,
+            style,
+            x,
+            y,
+            width,
+            height,
+            parent,
+            menu,
+            instance,
+            param,
         );
     }
     // Access the global Forge instance to get setup parameters, but release the lock
@@ -373,17 +396,17 @@ unsafe fn create_window(
                 let width = settings.width;
                 let height = settings.height;
                 let work_area = windows_work_area();
-                let left = settings.window_x
+                let left = settings
+                    .window_x
                     .unwrap_or_else(|| ((work_area.right - work_area.left) - width) / 2);
-                let top = settings.window_y
+                let top = settings
+                    .window_y
                     .unwrap_or_else(|| ((work_area.bottom - work_area.top) - height) / 2);
                 (left, top, width, height)
             }
         };
         let style = match settings.display_mode {
-            DisplayMode::FullScreen | DisplayMode::BorderlessWindow => {
-                WS_POPUP | WS_VISIBLE
-            }
+            DisplayMode::FullScreen | DisplayMode::BorderlessWindow => WS_POPUP | WS_VISIBLE,
             DisplayMode::Window => WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU,
         };
         (style, area)
@@ -425,13 +448,22 @@ unsafe fn create_window(
     SetWindowPos(
         window,
         HWND_BOTTOM,
-        window_rect.left, window_rect.top,
-        window_width, window_height,
+        window_rect.left,
+        window_rect.top,
+        window_width,
+        window_height,
         SWP_NOACTIVATE | SWP_HIDEWINDOW,
     );
     ShowWindow(window, SW_HIDE);
     with_forge(|forge| {
-        forge.window = Some(Window::new(window, left, top, width, height, &forge.settings));
+        forge.window = Some(Window::new(
+            window,
+            left,
+            top,
+            width,
+            height,
+            &forge.settings,
+        ));
     });
     window
 }
@@ -452,21 +484,24 @@ struct Forge {
     input_disabled: bool,
     bw_window_active: bool,
     window_active: bool,
-    real_create_sound_buffer: Option<unsafe extern "system" fn(
-        *mut IDirectSound, *const DSBUFFERDESC, *mut *mut IDirectSoundBuffer, *mut IUnknown
-    ) -> i32>,
+    real_create_sound_buffer: Option<
+        unsafe extern "system" fn(
+            *mut IDirectSound,
+            *const DSBUFFERDESC,
+            *mut *mut IDirectSoundBuffer,
+            *mut IUnknown,
+        ) -> i32,
+    >,
     active_bitmap: Option<HBITMAP>,
     captured_window: Option<HWND>,
 }
 
 // Since it stores HBITMAP
-unsafe impl Send for Forge { }
+unsafe impl Send for Forge {}
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
-    let thread_id = unsafe {
-        winapi::um::processthreadsapi::GetCurrentThreadId() as usize
-    };
+    let thread_id = unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize };
     if LOCKING_THREAD.load(Ordering::Relaxed) == thread_id {
         panic!("Forge object is being locked recursively");
     }
@@ -486,8 +521,8 @@ impl Forge {
             None => return 1,
         };
         if !self.game_started {
-          // if we're not actually in the game yet, just ignore any requests to lock the cursor
-          return 1;
+            // if we're not actually in the game yet, just ignore any requests to lock the cursor
+            return 1;
         }
         // BW thinks its running full screen 640x480, so it will request a 640x480 clip
         // Instead, we'll request a mouse_resolution-sized rect at the top-left of our client area
@@ -500,9 +535,7 @@ impl Forge {
             right: ((rect.right as f64 * x_scale + 0.5) as i32).wrapping_add(window.client_x),
             bottom: ((rect.bottom as f64 * y_scale + 0.5) as i32).wrapping_add(window.client_y),
         };
-        unsafe {
-            ClipCursor(&actual_rect)
-        }
+        unsafe { ClipCursor(&actual_rect) }
     }
 
     fn is_forge_window(&self, window: HWND) -> bool {
@@ -545,9 +578,7 @@ impl Forge {
                     VK_RBUTTON => (WM_RBUTTONUP, 0, mouse_lparam),
                     VK_MBUTTON => (WM_MBUTTONUP, 0, mouse_lparam),
                     // lparam could be better, but bw shouldn't even look at it..
-                    other => {
-                        (WM_KEYUP, other as usize, 0xc0000001u32 as isize)
-                    }
+                    other => (WM_KEYUP, other as usize, 0xc0000001u32 as isize),
                 });
             }
         }
@@ -574,10 +605,10 @@ impl Forge {
     fn game_pos_to_screen(&self, x: i32, y: i32) -> (i32, i32) {
         match self.window {
             Some(ref w) => {
-                let x = ((x as f64 * w.mouse_resolution_width as f64 / 640.0) + 0.5) as i32 +
-                    w.client_x;
-                let y = ((y as f64 * w.mouse_resolution_height as f64 / 480.0) + 0.5) as i32 +
-                    w.client_y;
+                let x = ((x as f64 * w.mouse_resolution_width as f64 / 640.0) + 0.5) as i32
+                    + w.client_x;
+                let y = ((y as f64 * w.mouse_resolution_height as f64 / 480.0) + 0.5) as i32
+                    + w.client_y;
                 (x, y)
             }
             None => (0, 0),
@@ -593,9 +624,7 @@ impl Forge {
             return 1;
         }
         let (x, y) = self.game_pos_to_screen(x, y);
-        unsafe {
-            SetCursorPos(x, y)
-        }
+        unsafe { SetCursorPos(x, y) }
     }
 }
 
@@ -665,12 +694,12 @@ impl Settings {
 
             // Center the frame in the screen
             if result.right < client_rect.right {
-              result.left = ((client_rect.right - result.right) as f32 / 2.0 + 0.5) as i32;
-              result.right += result.left;
+                result.left = ((client_rect.right - result.right) as f32 / 2.0 + 0.5) as i32;
+                result.right += result.left;
             }
             if result.bottom < client_rect.bottom {
-              result.top = ((client_rect.bottom - result.bottom) as f32 / 2.0 + 0.5) as i32;
-              result.bottom += result.top;
+                result.top = ((client_rect.bottom - result.bottom) as f32 / 2.0 + 0.5) as i32;
+                result.bottom += result.top;
             }
         }
         result
@@ -692,7 +721,7 @@ struct Window {
     mouse_resolution_height: i32,
 }
 
-unsafe impl Send for Window { }
+unsafe impl Send for Window {}
 
 impl Window {
     pub fn new(
@@ -732,7 +761,10 @@ impl Window {
             mouse_width = (width - (delta * settings.mouse_sensitivity as f64)) + 0.5;
             mouse_height = (mouse_width * 3.0 / 4.0) + 0.5;
         }
-        debug!("Mouse Resolution: {}x{}", mouse_width as i32, mouse_height as i32);
+        debug!(
+            "Mouse Resolution: {}x{}",
+            mouse_width as i32, mouse_height as i32
+        );
         (mouse_width as i32, mouse_height as i32)
     }
 }
@@ -746,17 +778,15 @@ fn windows_work_area() -> RECT {
 }
 
 fn get_monitor_size() -> (i32, i32) {
-    unsafe {
-        (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
-    }
+    unsafe { (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)) }
 }
 
 // This is an inline function in Microsoft headers, so winapi doesn't have it.
 fn is_win8_point1_or_greater() -> bool {
     use winapi::um::winbase::VerifyVersionInfoW;
     use winapi::um::winnt::{
-        VerSetConditionMask, OSVERSIONINFOEXW,
-        VER_MINORVERSION, VER_MAJORVERSION, VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL,
+        VerSetConditionMask, OSVERSIONINFOEXW, VER_GREATER_EQUAL, VER_MAJORVERSION,
+        VER_MINORVERSION, VER_SERVICEPACKMAJOR,
     };
     unsafe {
         let mut info = OSVERSIONINFOEXW {
@@ -768,11 +798,7 @@ fn is_win8_point1_or_greater() -> bool {
         };
         let condition_mask = VerSetConditionMask(
             VerSetConditionMask(
-                VerSetConditionMask(
-                    0,
-                    VER_MAJORVERSION,
-                    VER_GREATER_EQUAL,
-                ),
+                VerSetConditionMask(0, VER_MAJORVERSION, VER_GREATER_EQUAL),
                 VER_MINORVERSION,
                 VER_GREATER_EQUAL,
             ),
@@ -791,41 +817,37 @@ fn set_dpi_aware() {
     unsafe {
         if is_win8_point1_or_greater() {
             match crate::windows::load_library("shcore.dll") {
-                Ok(shcore) => {
-                    match shcore.proc_address("SetProcessDpiAwareness") {
-                        Ok(func) => {
-                            const PROCESS_PER_MONITOR_DPI_AWARE: u32 = 2;
-                            let func: unsafe extern "system" fn(u32) -> i32 = mem::transmute(func);
-                            let result = func(PROCESS_PER_MONITOR_DPI_AWARE);
-                            if result == 0 {
-                                return;
-                            } else {
-                                let err = io::Error::from_raw_os_error(result);
-                                error!("SetProcessDpiAwareness failed: {}", err);
-                            }
-                        }
-                        Err(e) => {
-                            error!("Couldn't find SetProcessDpiAwareness: {}", e);
+                Ok(shcore) => match shcore.proc_address("SetProcessDpiAwareness") {
+                    Ok(func) => {
+                        const PROCESS_PER_MONITOR_DPI_AWARE: u32 = 2;
+                        let func: unsafe extern "system" fn(u32) -> i32 = mem::transmute(func);
+                        let result = func(PROCESS_PER_MONITOR_DPI_AWARE);
+                        if result == 0 {
+                            return;
+                        } else {
+                            let err = io::Error::from_raw_os_error(result);
+                            error!("SetProcessDpiAwareness failed: {}", err);
                         }
                     }
-                }
+                    Err(e) => {
+                        error!("Couldn't find SetProcessDpiAwareness: {}", e);
+                    }
+                },
                 Err(e) => {
                     error!("Couldn't load shcore.dll: {}", e);
                 }
             }
         }
         match crate::windows::load_library("user32.dll") {
-            Ok(user32) => {
-                match user32.proc_address("SetProcessDPIAware") {
-                    Ok(func) => {
-                        let func: unsafe extern "system" fn() -> u32 = mem::transmute(func);
-                        func();
-                    }
-                    Err(e) => {
-                        error!("Couldn't find SetProcessDPIAware: {}", e);
-                    }
+            Ok(user32) => match user32.proc_address("SetProcessDPIAware") {
+                Ok(func) => {
+                    let func: unsafe extern "system" fn() -> u32 = mem::transmute(func);
+                    func();
                 }
-            }
+                Err(e) => {
+                    error!("Couldn't find SetProcessDPIAware: {}", e);
+                }
+            },
             Err(e) => {
                 error!("Couldn't load user32.dll: {}", e);
             }
@@ -893,7 +915,8 @@ unsafe extern "system" fn direct_sound_create(
         if result != DS_OK {
             debug!(
                 "DirectSound creation failed: {} / {}",
-                result, io::Error::from_raw_os_error(result),
+                result,
+                io::Error::from_raw_os_error(result),
             );
             return Ok(result);
         }
@@ -978,9 +1001,7 @@ unsafe fn get_cursor_pos(val: *mut POINT) -> u32 {
 }
 
 unsafe fn set_cursor_pos(x: i32, y: i32) -> i32 {
-    with_forge(|forge| {
-        forge.set_cursor_to_game_pos(x, y)
-    })
+    with_forge(|forge| forge.set_cursor_to_game_pos(x, y))
 }
 
 unsafe fn clip_cursor(rect: *const RECT) -> i32 {
@@ -1104,7 +1125,10 @@ unsafe fn get_bitmap_bits(
     };
     let dc = GetDC(window);
     if dc.is_null() {
-        error!("GetBitmapBitsHook couldn't access default DC: {}", io::Error::last_os_error());
+        error!(
+            "GetBitmapBitsHook couldn't access default DC: {}",
+            io::Error::last_os_error()
+        );
         // BW actually doesn't check the return value D:
         return 0;
     }
@@ -1119,7 +1143,11 @@ unsafe fn get_bitmap_bits(
     let pixel_mask = ((1 << bpp as u64) - 1) as u32;
     let bytes_per_pixel = bpp / 8;
     let mut buffer = vec![0; size as usize * bytes_per_pixel as usize];
-    let bytes_read = orig(bitmap, size * bytes_per_pixel, buffer.as_mut_ptr() as *mut c_void);
+    let bytes_read = orig(
+        bitmap,
+        size * bytes_per_pixel,
+        buffer.as_mut_ptr() as *mut c_void,
+    );
 
     let mut bw_buffer = bits as *mut u8;
     let mut pos = 0;
@@ -1152,7 +1180,11 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
     starcraft.import_hook(&b"user32"[..], ReleaseCapture, release_capture);
     starcraft.import_hook_opt(&b"user32"[..], ShowWindow, show_window);
     starcraft.import_hook_opt(&b"user32"[..], GetKeyState, get_key_state);
-    starcraft.import_hook_opt(&b"gdi32"[..], CreateCompatibleBitmap, create_compatible_bitmap);
+    starcraft.import_hook_opt(
+        &b"gdi32"[..],
+        CreateCompatibleBitmap,
+        create_compatible_bitmap,
+    );
     starcraft.import_hook_opt(&b"gdi32"[..], DeleteObject, gdi_delete_object);
     starcraft.import_hook_opt(&b"gdi32"[..], GetObjectA, gdi_get_object);
     starcraft.import_hook_opt(&b"gdi32"[..], GetBitmapBits, get_bitmap_bits);
@@ -1165,7 +1197,8 @@ pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
-    let mouse_sensitivity = settings.get("mouseSensitivity")
+    let mouse_sensitivity = settings
+        .get("mouseSensitivity")
         .and_then(|x| x.as_u64())
         .filter(|&x| x <= MOUSE_SETTING_MAX as u64)
         .map(|x| x as u8)
@@ -1173,7 +1206,8 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
             warn!("Using default mouse sensitivity");
             0
         });
-    let display_mode = settings.get("displayMode")
+    let display_mode = settings
+        .get("displayMode")
         .and_then(|x| x.as_u64())
         .and_then(|s| match s {
             0 => Some(DisplayMode::FullScreen),
@@ -1183,24 +1217,39 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
                 warn!("Unknown display mode {}", x);
                 None
             }
-        }).unwrap_or_else(|| {
+        })
+        .unwrap_or_else(|| {
             warn!("Using default display mode");
             DisplayMode::FullScreen
         });
-    let window_x = settings.get("gameWinX").and_then(|x| x.as_i64()).map(|x| x as i32);
-    let window_y = settings.get("gameWinY").and_then(|x| x.as_i64()).map(|x| x as i32);
-    let width = settings.get("width").and_then(|x| x.as_i64()).filter(|&x| x > 0 && x < 100_000)
+    let window_x = settings
+        .get("gameWinX")
+        .and_then(|x| x.as_i64())
+        .map(|x| x as i32);
+    let window_y = settings
+        .get("gameWinY")
+        .and_then(|x| x.as_i64())
+        .map(|x| x as i32);
+    let width = settings
+        .get("width")
+        .and_then(|x| x.as_i64())
+        .filter(|&x| x > 0 && x < 100_000)
         .unwrap_or_else(|| {
             warn!("Using default window width");
             640
         });
-    let height = settings.get("height").and_then(|x| x.as_i64()).filter(|&x| x > 0 && x < 100_000)
+    let height = settings
+        .get("height")
+        .and_then(|x| x.as_i64())
+        .filter(|&x| x > 0 && x < 100_000)
         .unwrap_or_else(|| {
             warn!("Using default window height");
             480
         });
 
-    let maintain_aspect_ratio = settings.get("maintainAspectRatio").and_then(|x| x.as_bool())
+    let maintain_aspect_ratio = settings
+        .get("maintainAspectRatio")
+        .and_then(|x| x.as_bool())
         .unwrap_or_else(|| {
             warn!("Using default value for maintainAspectRatio");
             true
@@ -1255,11 +1304,9 @@ pub unsafe fn run_wnd_proc() {
 }
 
 pub fn end_wnd_proc() {
-    let handle = with_forge(|forge| {
-        match forge.window {
-            Some(ref s) => s.handle,
-            None => panic!("Cannot stop running window procedure without a window"),
-        }
+    let handle = with_forge(|forge| match forge.window {
+        Some(ref s) => s.handle,
+        None => panic!("Cannot stop running window procedure without a window"),
     });
     unsafe {
         PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
@@ -1267,11 +1314,9 @@ pub fn end_wnd_proc() {
 }
 
 pub fn game_started() {
-    let handle = with_forge(|forge| {
-        match forge.window {
-            Some(ref s) => Some(s.handle),
-            None => None,
-        }
+    let handle = with_forge(|forge| match forge.window {
+        Some(ref s) => Some(s.handle),
+        None => None,
     });
     if let Some(handle) = handle {
         unsafe {
@@ -1281,11 +1326,9 @@ pub fn game_started() {
 }
 
 pub fn hide_window() {
-    let handle = with_forge(|forge| {
-        match forge.window {
-            Some(ref s) => Some(s.handle),
-            None => None,
-        }
+    let handle = with_forge(|forge| match forge.window {
+        Some(ref s) => Some(s.handle),
+        None => None,
     });
     if let Some(handle) = handle {
         unsafe {

@@ -9,22 +9,21 @@
 /// mio::net::UdpSocket, but I'm concerned that it would end up being a maintenance burden to
 /// keep up to date when mio/miow/tokio change, as it would end up being comparatively complex
 /// and hard to follow.
-
 use std::io;
 use std::mem;
-use std::net::{UdpSocket, SocketAddr, SocketAddrV6};
+use std::net::{SocketAddr, SocketAddrV6, UdpSocket};
 use std::os::windows::io::FromRawSocket;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use bytes::{Bytes};
+use bytes::Bytes;
 use futures::prelude::*;
-use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use winapi::shared::ws2def::{AF_INET6, IPPROTO_IPV6, SOCK_DGRAM};
+use winapi::shared::ws2ipdef::{IPV6_V6ONLY, SOCKADDR_IN6_LH};
 use winapi::um::winsock2::{
     bind, setsockopt, socket, WSAGetLastError, WSAStartup, INVALID_SOCKET, WSADATA,
 };
-use winapi::shared::ws2def::{AF_INET6, IPPROTO_IPV6, SOCK_DGRAM};
-use winapi::shared::ws2ipdef::{IPV6_V6ONLY, SOCKADDR_IN6_LH};
 
 pub struct UdpSend {
     thread_sender: std::sync::mpsc::Sender<(Bytes, SocketAddrV6)>,
@@ -40,7 +39,7 @@ pub struct UdpRecv {
 fn to_ipv6_addr(addr: &SocketAddr) -> SocketAddrV6 {
     match addr {
         SocketAddr::V6(v6) => *v6,
-        SocketAddr::V4(v4) => SocketAddrV6::new(v4.ip().to_ipv6_mapped(), v4.port(), 0,0),
+        SocketAddr::V4(v4) => SocketAddrV6::new(v4.ip().to_ipv6_mapped(), v4.port(), 0, 0),
     }
 }
 
@@ -98,11 +97,16 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
         while let Ok((val, addr)) = recv.recv() {
             let val: Bytes = val;
             let result = match socket.send_to(&val, addr) {
-                Ok(len) => if val.len() == len {
-                    Ok(())
-                } else {
-                    Err(io::Error::new(io::ErrorKind::Other, "Failed to send all of the data"))
-                },
+                Ok(len) => {
+                    if val.len() == len {
+                        Ok(())
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::Other,
+                            "Failed to send all of the data",
+                        ))
+                    }
+                }
                 Err(e) => Err(e),
             };
             if let Err(_) = send_result.try_send(result) {
@@ -173,9 +177,7 @@ impl Sink for UdpSend {
                 self.pending_results += 1;
                 Ok(AsyncSink::Ready)
             }
-            Err(e) => {
-                Err(io::Error::new(io::ErrorKind::Other, e))
-            }
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
         }
     }
 
@@ -215,7 +217,7 @@ impl UdpSend {
 
 pub struct SendRecoverable {
     socket: Option<UdpSend>,
-    val: Option<(Bytes, SocketAddr)>
+    val: Option<(Bytes, SocketAddr)>,
 }
 
 impl Future for SendRecoverable {
@@ -245,4 +247,3 @@ impl Future for SendRecoverable {
         }
     }
 }
-

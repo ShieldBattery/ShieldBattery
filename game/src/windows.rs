@@ -9,8 +9,8 @@ use scopeguard::defer;
 use winapi::shared::minwindef::{FARPROC, HMODULE};
 use winapi::um::handleapi::{CloseHandle, DuplicateHandle};
 use winapi::um::libloaderapi::{FreeLibrary, GetModuleFileNameW, GetModuleHandleExW};
-use winapi::um::winuser::{MessageBoxW};
 use winapi::um::winnt::HANDLE;
+use winapi::um::winuser::MessageBoxW;
 
 /// Convert a rust string to a winapi-usable 0-terminated unicode u16 Vec
 pub fn winapi_str<T: AsRef<OsStr>>(input: T) -> Vec<u16> {
@@ -52,7 +52,10 @@ pub fn ansi_codepage_cstring<T: AsRef<OsStr>>(input: T) -> Result<Vec<u8>, Vec<u
         );
         assert!(buffer[length as usize - 1] == 0);
         if used_default_char != 0 {
-            warn!("Couldn't losslessly convert '{}' to ANSI codepage", os_str.to_string_lossy());
+            warn!(
+                "Couldn't losslessly convert '{}' to ANSI codepage",
+                os_str.to_string_lossy()
+            );
             Err(buffer)
         } else {
             Ok(buffer)
@@ -105,7 +108,6 @@ impl Drop for OwnedHandle {
         }
     }
 }
-
 
 pub fn module_from_address(address: *mut c_void) -> Option<(OsString, HMODULE)> {
     unsafe {
@@ -217,7 +219,7 @@ pub unsafe fn unprotect_memory(
     length: usize,
 ) -> Result<MemoryProtectionGuard, io::Error> {
     use winapi::um::memoryapi::VirtualProtect;
-    use winapi::um::winnt::{PAGE_EXECUTE_READWRITE};
+    use winapi::um::winnt::PAGE_EXECUTE_READWRITE;
     let mut old = 0;
     let ok = VirtualProtect(addr as *mut _, length, PAGE_EXECUTE_READWRITE, &mut old);
     match ok {

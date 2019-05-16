@@ -1,4 +1,4 @@
-use std::collections::hash_map::{HashMap, Entry};
+use std::collections::hash_map::{Entry, HashMap};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -11,10 +11,10 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages;
 use crate::app_messages::Route as RouteInput;
+use crate::box_future;
 use crate::cancel_token::{CancelToken, Canceler};
-use crate::rally_point::{RallyPoint, RallyPointError, RouteId, PlayerId};
+use crate::rally_point::{PlayerId, RallyPoint, RallyPointError, RouteId};
 use crate::snp::{self, SnpMessage};
-use crate::{box_future};
 
 pub struct NetworkManager {
     send_messages: mpsc::Sender<NetworkManagerMessage>,
@@ -129,7 +129,8 @@ impl NetworkState {
 
 impl State {
     fn join_routes(&mut self, setup: Vec<RouteInput>) -> BoxedFuture<Vec<Arc<Route>>> {
-        let futures = setup.into_iter()
+        let futures = setup
+            .into_iter()
             .map(|route| {
                 let route = Arc::new(route);
                 let route1 = route.clone();
@@ -146,13 +147,12 @@ impl State {
                             "Picked server {:?} for route {:?} ({})",
                             server, route_id, route1.route_id,
                         );
-                        rally_point.join_route(server.address, route_id, player_id, timeout)
+                        rally_point
+                            .join_route(server.address, route_id, player_id, timeout)
                             .map(move |()| {
                                 debug!(
                                     "Connected to {} for id {} [{:?}]",
-                                    route1.server.desc,
-                                    route1.for_player,
-                                    route_id,
+                                    route1.server.desc, route1.for_player, route_id,
                                 );
                                 let route = Route {
                                     route_id: route_id,
@@ -166,7 +166,8 @@ impl State {
                     })
                     .and_then(move |(rally_point, route)| {
                         let route = Arc::new(route);
-                        let ready = rally_point.wait_route_ready(&route.route_id, &route.address)
+                        let ready = rally_point
+                            .wait_route_ready(&route.route_id, &route.address)
                             .map_err(|e| NetworkError::RallyPoint(Arc::new(e)));
                         send_messages
                             .send(NetworkManagerMessage::StartKeepAlive(route.clone()))
@@ -175,7 +176,8 @@ impl State {
                             .map(|()| route)
                             .inspect(|route| debug!("Route [{:?}] is ready", route.route_id))
                     })
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         box_future(future::join_all(futures))
     }
 
@@ -195,23 +197,26 @@ impl State {
             let entry = self.pings.pings_in_progress.entry(key.clone());
             let send_messages = &self.send_messages;
             let rally_point = &self.rally_point;
-            entry.or_insert_with(|| {
-                let sender = send_messages.clone();
-                let ping_task = ping_server(rally_point, input)
-                    .then(|result| {
-                        sender.send(NetworkManagerMessage::PingResult(key, result))
+            entry
+                .or_insert_with(|| {
+                    let sender = send_messages.clone();
+                    let ping_task = ping_server(rally_point, input).then(|result| {
+                        sender
+                            .send(NetworkManagerMessage::PingResult(key, result))
                             .map(|_| ())
                             .map_err(|_| ())
                     });
-                let (cancel_token, canceler) = CancelToken::new();
-                tokio::spawn(cancel_token.bind(ping_task));
-                Ping {
-                    retry_count: 3,
-                    waiters: Vec::new(),
-                    canceler,
-                    input: input.clone(),
-                }
-            }).waiters.push(send);
+                    let (cancel_token, canceler) = CancelToken::new();
+                    tokio::spawn(cancel_token.bind(ping_task));
+                    Ping {
+                        retry_count: 3,
+                        waiters: Vec::new(),
+                        canceler,
+                        input: input.clone(),
+                    }
+                })
+                .waiters
+                .push(send);
             box_future(recv.map_err(|_| NetworkError::NotActive).flatten())
         }
     }
@@ -222,19 +227,19 @@ impl State {
             if result.is_ok() || ping.get().retry_count == 0 {
                 let (_, ping) = ping.remove_entry();
                 for send in ping.waiters {
-                    let _  = send.send(result.clone());
+                    let _ = send.send(result.clone());
                 }
                 self.pings.results.insert(key, result);
             } else {
                 let ping = ping.get_mut();
                 ping.retry_count -= 1;
                 let sender = self.send_messages.clone();
-                let ping_task = ping_server(&self.rally_point, &ping.input)
-                    .then(|result| {
-                        sender.send(NetworkManagerMessage::PingResult(key, result))
-                            .map(|_| ())
-                            .map_err(|_| ())
-                    });
+                let ping_task = ping_server(&self.rally_point, &ping.input).then(|result| {
+                    sender
+                        .send(NetworkManagerMessage::PingResult(key, result))
+                        .map(|_| ())
+                        .map_err(|_| ())
+                });
                 let (cancel_token, canceler) = CancelToken::new();
                 ping.canceler = canceler;
                 tokio::spawn(cancel_token.bind(ping_task));
@@ -297,10 +302,9 @@ impl State {
                 SnpMessage::Send(targets, data) => {
                     if let NetworkState::Ready(ref network) = self.network {
                         let data: Bytes = data.into();
-                        let sends = targets.iter()
-                            .filter_map(|addr| {
-                                network.ip_to_routes.get(&addr)
-                            })
+                        let sends = targets
+                            .iter()
+                            .filter_map(|addr| network.ip_to_routes.get(&addr))
                             .map(|route| {
                                 self.rally_point.forward(
                                     &route.route_id,
@@ -332,7 +336,8 @@ impl State {
                 let task = tokio::timer::Interval::new(Instant::now(), Duration::from_millis(500))
                     .map_err(|_| ())
                     .for_each(move |_| {
-                        rally_point.keep_alive(&route.route_id, route.player_id, &route.address)
+                        rally_point
+                            .keep_alive(&route.route_id, route.player_id, &route.address)
                             .map_err(|_| ())
                     });
                 let (cancel_token, canceler) = CancelToken::new();
@@ -376,17 +381,18 @@ impl State {
         //   (even though they might differ due to NAT, LAN, etc.)
         // - Allowing us to easily get references to active rally-point routes
         let host = game_info.slots.iter().find(|x| x.id == game_info.host.id);
-        let rest = game_info.slots.iter()
+        let rest = game_info
+            .slots
+            .iter()
             .filter(|x| x.is_human() || x.is_observer())
             .filter(|x| x.id != game_info.host.id);
-        let ip_to_routes = host.into_iter()
+        let ip_to_routes = host
+            .into_iter()
             .chain(rest)
             .enumerate()
             .filter_map(|(i, player)| {
                 match routes.iter().find(|x| x.lobby_player_id == player.id) {
-                    Some(route) => {
-                        Some((Ipv4Addr::new(10, 27, 27, i as u8), route.clone()))
-                    }
+                    Some(route) => Some((Ipv4Addr::new(10, 27, 27, i as u8), route.clone())),
                     None => {
                         // There won't be a route for current player
                         None
@@ -395,10 +401,13 @@ impl State {
             })
             .collect::<HashMap<_, _>>();
         // Create the task which receives packets and forwards them to Storm
-        let streams_done = ip_to_routes.iter()
+        let streams_done = ip_to_routes
+            .iter()
             .map(|(&ip, route)| {
                 let snp_send = snp_send_messages.clone();
-                let stream = self.rally_point.listen_route_data(&route.route_id, &route.address)
+                let stream = self
+                    .rally_point
+                    .listen_route_data(&route.route_id, &route.address)
                     .for_each(move |message| {
                         let message = snp::ReceivedMessage {
                             from: ip,
@@ -415,16 +424,13 @@ impl State {
                 stream
             })
             .collect::<Vec<_>>();
-        let recv_task = future::join_all(streams_done)
-            .map(|_| ());
+        let recv_task = future::join_all(streams_done).map(|_| ());
 
         let (cancel_token, canceler) = CancelToken::new();
         self.cancel_child_tasks.push(canceler);
         tokio::spawn(cancel_token.bind(recv_task));
 
-        let ready = ReadyNetwork {
-            ip_to_routes,
-        };
+        let ready = ReadyNetwork { ip_to_routes };
         self.network = NetworkState::Ready(ready);
         for waiting in self.waiting_for_network.drain(..) {
             let _ = waiting.send(Ok(()));
@@ -443,33 +449,31 @@ fn ping_server(
         port: u16,
     ) -> impl Future<Item = RallyPointServer, Error = NetworkError> {
         match input {
-            Some(s) => {
-                match s.parse::<IpAddr>() {
-                    Ok(ip) => {
-                        let addr = SocketAddr::new(ip, port);
-                        let future = rally_point.ping_server(addr)
-                            .map(move |ping| {
-                                RallyPointServer {
-                                    address: addr,
-                                    ping,
-                                }
-                            })
-                            .map_err(|e| {
-                                error!("Rally error {}", e);
-                                NetworkError::ServerUnreachable
-                            });
-                        Either::A(future)
-                    }
-                    Err(_) => Either::B(future::err(NetworkError::NoServerAddress)),
+            Some(s) => match s.parse::<IpAddr>() {
+                Ok(ip) => {
+                    let addr = SocketAddr::new(ip, port);
+                    let future = rally_point
+                        .ping_server(addr)
+                        .map(move |ping| RallyPointServer {
+                            address: addr,
+                            ping,
+                        })
+                        .map_err(|e| {
+                            error!("Rally error {}", e);
+                            NetworkError::ServerUnreachable
+                        });
+                    Either::A(future)
                 }
-            }
+                Err(_) => Either::B(future::err(NetworkError::NoServerAddress)),
+            },
             None => Either::B(future::err(NetworkError::NoServerAddress)),
         }
     }
 
     let future4 = ping_server_string(rally_point, &input.address4, input.port);
     let future6 = ping_server_string(rally_point, &input.address6, input.port);
-    let future = future4.select(future6)
+    let future = future4
+        .select(future6)
         .map(|(result, _next)| result)
         .or_else(|(_, next)| next);
     box_future(future)
@@ -488,7 +492,8 @@ impl NetworkManager {
             keep_routes_alive: Vec::new(),
             pings: PingState::default(),
         };
-        let task = receive_messages.map_err(|_| ())
+        let task = receive_messages
+            .map_err(|_| ())
             .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
             .select(internal_receive_messages.map_err(|_| ()))
             .for_each(move |message| {
@@ -500,9 +505,7 @@ impl NetworkManager {
                 Ok(())
             });
         tokio::spawn(task);
-        NetworkManager {
-            send_messages,
-        }
+        NetworkManager { send_messages }
     }
 
     /// The main async future of NetworkManager.
@@ -513,7 +516,8 @@ impl NetworkManager {
     /// signaled automatically.
     pub fn wait_network_ready(&self) -> impl Future<Item = (), Error = NetworkError> {
         let (send, recv) = oneshot::channel();
-        self.send_messages.clone()
+        self.send_messages
+            .clone()
             .send(NetworkManagerMessage::WaitNetworkReady(send))
             .map_err(|_| NetworkError::NotActive)
             .and_then(|_| recv.map_err(|_| NetworkError::NotActive).flatten())
@@ -523,17 +527,16 @@ impl NetworkManager {
         &self,
         routes: Vec<RouteInput>,
     ) -> impl Future<Item = (), Error = NetworkError> {
-        self.send_messages.clone()
+        self.send_messages
+            .clone()
             .send(NetworkManagerMessage::Routes(routes))
             .map(|_| ())
             .map_err(|_| NetworkError::NotActive)
     }
 
-    pub fn send_snp_message(
-        &self,
-        message: SnpMessage,
-    ) -> impl Future<Item = (), Error = ()> {
-        self.send_messages.clone()
+    pub fn send_snp_message(&self, message: SnpMessage) -> impl Future<Item = (), Error = ()> {
+        self.send_messages
+            .clone()
             .send(NetworkManagerMessage::Snp(message))
             .map(|_| ())
             .map_err(|_| ())
@@ -543,7 +546,8 @@ impl NetworkManager {
         &self,
         info: Arc<app_messages::GameSetupInfo>,
     ) -> impl Future<Item = (), Error = NetworkError> {
-        self.send_messages.clone()
+        self.send_messages
+            .clone()
             .send(NetworkManagerMessage::SetGameInfo(info))
             .map(|_| ())
             .map_err(|_| NetworkError::NotActive)

@@ -1,9 +1,9 @@
 use libc::c_void;
 use winapi::shared::guiddef::GUID;
-use winapi::shared::windef::{HDC, HWND, SIZE, RECT};
+use winapi::shared::windef::{HDC, HWND, RECT, SIZE};
 use winapi::um::unknwnbase::IUnknown;
-use winapi::um::winnt::HANDLE;
 use winapi::um::wingdi::PALETTEENTRY;
+use winapi::um::winnt::HANDLE;
 
 const DD_OK: i32 = 0;
 const DDERR_UNSUPPORTED: i32 = winapi::shared::winerror::E_NOTIMPL;
@@ -69,12 +69,11 @@ pub struct DDDEVICEIDENTIFIER2;
 #[allow(bad_style)]
 pub struct DDCAPS;
 
-pub type LPDDENUMMODESCALLBACK2 = Option<unsafe extern "system" fn(
-    *const DDSURFACEDESC2, *mut c_void
-) -> i32>;
-pub type LPDDENUMSURFACESCALLBACK7 = Option<unsafe extern "system" fn(
-    *mut IDirectDrawSurface7, *const DDSURFACEDESC2, *mut c_void
-) -> i32>;
+pub type LPDDENUMMODESCALLBACK2 =
+    Option<unsafe extern "system" fn(*const DDSURFACEDESC2, *mut c_void) -> i32>;
+pub type LPDDENUMSURFACESCALLBACK7 = Option<
+    unsafe extern "system" fn(*mut IDirectDrawSurface7, *const DDSURFACEDESC2, *mut c_void) -> i32,
+>;
 
 fn ddraw_log() -> bool {
     // Should probably just make the logger filter this is not wanted
@@ -414,7 +413,8 @@ impl Drop for IndirectDraw {
 unsafe fn mark_ddraw_dirty(this: *mut IndirectDraw) {
     if !(*this).dirty {
         (*this).dirty = true;
-        let primary_surface = (*this).primary_surface
+        let primary_surface = (*this)
+            .primary_surface
             .expect("Marked dirty without primary surface");
         ((*(*primary_surface).vtable).AddRef)(primary_surface as *mut IDirectDrawSurface7);
     }
@@ -680,7 +680,10 @@ impl Drop for IndirectDrawSurface {
 }
 
 impl IndirectDrawSurface {
-    unsafe fn new(owner: *mut IndirectDraw, desc: *const DDSURFACEDESC2) -> *mut IndirectDrawSurface {
+    unsafe fn new(
+        owner: *mut IndirectDraw,
+        desc: *const DDSURFACEDESC2,
+    ) -> *mut IndirectDrawSurface {
         ((*(*owner).vtable).AddRef)(owner as *mut IDirectDraw7);
         let mut desc = *desc;
         if desc.dwFlags & DDSD_WIDTH == 0 {

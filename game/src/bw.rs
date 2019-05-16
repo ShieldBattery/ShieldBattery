@@ -255,7 +255,11 @@ pub struct SnpFunctions {
         unsafe extern "stdcall" fn(u32, *const u8, *const u8, *mut SnpGameInfo) -> i32,
     pub func6: *mut c_void,
     pub initialize: unsafe extern "stdcall" fn(
-        *const ClientInfo, *mut c_void, *mut c_void, *mut c_void, HANDLE
+        *const ClientInfo,
+        *mut c_void,
+        *mut c_void,
+        *mut c_void,
+        HANDLE,
     ) -> i32,
     pub func8: *mut c_void,
     pub enum_devices: unsafe extern "stdcall" fn(*mut *mut c_void) -> i32,
@@ -265,13 +269,25 @@ pub struct SnpFunctions {
     pub receive_server_packet:
         unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *mut c_void, *mut u32) -> i32,
     pub func13: *mut c_void, // SelectGame
-    pub send_packet:
-        unsafe extern "stdcall" fn(u32, *const *const sockaddr, *const u8, u32) -> i32,
+    pub send_packet: unsafe extern "stdcall" fn(u32, *const *const sockaddr, *const u8, u32) -> i32,
     pub send_command: unsafe extern "stdcall" fn(
-        *const u8, *const u8, *mut c_void, *mut c_void, *const u8
+        *const u8,
+        *const u8,
+        *mut c_void,
+        *mut c_void,
+        *const u8,
     ) -> i32,
     pub broadcast_game: unsafe extern "stdcall" fn(
-        *const u8, *const u8, *const u8, i32, u32, i32, i32, i32, *mut c_void, u32,
+        *const u8,
+        *const u8,
+        *const u8,
+        i32,
+        u32,
+        i32,
+        i32,
+        i32,
+        *mut c_void,
+        u32,
     ) -> i32,
     pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
     pub free_device_data: unsafe extern "stdcall" fn(*mut c_void) -> i32,

@@ -1,7 +1,6 @@
-/// Hooks and other code that is running on the game/main thread (As opposed to async threads).
-
-use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
+/// Hooks and other code that is running on the game/main thread (As opposed to async threads).
+use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -11,10 +10,10 @@ use crate::forge;
 use crate::snp;
 
 lazy_static! {
-    pub static ref SEND_FROM_GAME_THREAD:
-        Mutex<Option<tokio::sync::mpsc::UnboundedSender<GameThreadMessage>>> = Mutex::new(None);
-    pub static ref GAME_RECEIVE_REQUESTS:
-        Mutex<Option<Receiver<GameThreadRequest>>> = Mutex::new(None);
+    pub static ref SEND_FROM_GAME_THREAD: Mutex<Option<tokio::sync::mpsc::UnboundedSender<GameThreadMessage>>> =
+        Mutex::new(None);
+    pub static ref GAME_RECEIVE_REQUESTS: Mutex<Option<Receiver<GameThreadRequest>>> =
+        Mutex::new(None);
 }
 
 // Async tasks request game thread to do some work
@@ -27,13 +26,10 @@ pub struct GameThreadRequest {
 
 impl GameThreadRequest {
     pub fn new(
-        request_type: GameThreadRequestType
+        request_type: GameThreadRequestType,
     ) -> (GameThreadRequest, tokio::sync::oneshot::Receiver<()>) {
         let (done, wait_done) = tokio::sync::oneshot::channel();
-        (GameThreadRequest {
-            request_type,
-            done,
-        }, wait_done)
+        (GameThreadRequest { request_type, done }, wait_done)
     }
 }
 
@@ -77,7 +73,9 @@ pub fn game_thread_message(message: GameThreadMessage) {
 pub fn run_event_loop() -> ! {
     debug!("Main thread reached event loop");
     let mut receive_requests = GAME_RECEIVE_REQUESTS.lock().unwrap();
-    let receive_requests = receive_requests.take().expect("Channel to receive requests not set?");
+    let receive_requests = receive_requests
+        .take()
+        .expect("Channel to receive requests not set?");
     while let Ok(msg) = receive_requests.recv() {
         unsafe {
             handle_game_request(msg.request_type);

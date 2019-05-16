@@ -56,9 +56,8 @@ pub unsafe fn chat_message_hook(
             // Write "\x1f{player}: \x02{message}"
             // 0x1f is the neutral cyan color and 0x02 is the regular chat message one.
             write!(&mut pos, "\x1f")?;
-            let name = CStr::from_ptr(
-                bw::storm_players[storm_player as usize].name.as_ptr() as *const i8
-            );
+            let name =
+                CStr::from_ptr(bw::storm_players[storm_player as usize].name.as_ptr() as *const i8);
             pos.write_all(name.to_bytes())?;
             write!(&mut pos, ": ")?;
             pos.write_all(&[msg_color])?;
@@ -79,7 +78,7 @@ pub unsafe fn chat_message_hook(
         );
 
         if storm_player == *bw::local_storm_id {
-          // Switch the message to be green to show it's player's own message
+            // Switch the message to be green to show it's player's own message
             let _ = format(&mut buf[..], 0x07);
         }
         bw::display_message(buf.as_ptr(), 0);
@@ -88,7 +87,6 @@ pub unsafe fn chat_message_hook(
         orig(storm_player, message, length)
     }
 }
-
 
 pub unsafe fn load_dialog_hook(
     dialog: *mut bw::Dialog,
@@ -196,7 +194,10 @@ pub unsafe fn update_net_timeout_players(orig: &Fn()) {
     for storm_id in 0..8 {
         let is_obs = !actual_players.iter().any(|x| x.storm_id == storm_id);
         if is_obs {
-            match bw_players.iter().position(|x| x.player_type != bw::PLAYER_TYPE_HUMAN) {
+            match bw_players
+                .iter()
+                .position(|x| x.player_type != bw::PLAYER_TYPE_HUMAN)
+            {
                 Some(pos) => {
                     overwritten_player_id_to_storm[pos] = Some(storm_id);
                     bw_players[pos].storm_id = storm_id;
@@ -235,7 +236,6 @@ pub unsafe fn update_net_timeout_players(orig: &Fn()) {
         bw::players[i] = player.clone();
     }
 }
-
 
 pub unsafe fn update_command_card_hook(orig: &Fn()) {
     if is_local_player_observer() && !(*bw::primary_selected).is_null() {

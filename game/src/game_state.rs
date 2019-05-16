@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::Arc;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use futures::future::{self, Either};
@@ -13,21 +13,21 @@ use quick_error::quick_error;
 use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
-use crate::{box_future, BoxedFuture};
-use crate::app_socket;
 use crate::app_messages::{
-    self, GameSetupInfo, LocalUser, PlayerInfo, SetupProgress, Settings, GameResults,
-    GAME_STATUS_ERROR, Route,
+    self, GameResults, GameSetupInfo, LocalUser, PlayerInfo, Route, Settings, SetupProgress,
+    GAME_STATUS_ERROR,
 };
+use crate::app_socket;
 use crate::bw;
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::chat::StormPlayerId;
 use crate::forge;
 use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
-use crate::network_manager::{NetworkManager, NetworkError};
+use crate::network_manager::{NetworkError, NetworkManager};
 use crate::snp;
 use crate::storm;
 use crate::windows;
+use crate::{box_future, BoxedFuture};
 
 pub struct GameState {
     init_state: InitState,
@@ -54,7 +54,10 @@ struct IncompleteInit {
 }
 
 impl IncompleteInit {
-    fn init_if_ready(&mut self, info: &Arc<GameSetupInfo>) -> Result<InitInProgress, GameInitError> {
+    fn init_if_ready(
+        &mut self,
+        info: &Arc<GameSetupInfo>,
+    ) -> Result<InitInProgress, GameInitError> {
         if !self.settings_set {
             return Err(GameInitError::SettingsNotSet);
         }
@@ -64,7 +67,10 @@ impl IncompleteInit {
         if self.local_user.is_none() {
             return Err(GameInitError::LocalUserNotSet);
         }
-        Ok(InitInProgress::new(info.clone(), Arc::new(self.local_user.take().unwrap())))
+        Ok(InitInProgress::new(
+            info.clone(),
+            Arc::new(self.local_user.take().unwrap()),
+        ))
     }
 }
 
@@ -95,7 +101,6 @@ impl GameType {
     pub fn is_ums(&self) -> bool {
         self.primary == 0xa
     }
-
 }
 
 impl GameSetupInfo {
@@ -112,10 +117,7 @@ impl GameSetupInfo {
             "topVBottom" => (0xf, self.game_sub_type?),
             _ => return None,
         };
-        Some(GameType {
-            primary,
-            subtype,
-        })
+        Some(GameType { primary, subtype })
     }
 }
 
@@ -245,10 +247,7 @@ impl GameState {
         start_game_request(&self.send_main_thread_requests, request_type)
     }
 
-    fn init_game(
-        &mut self,
-        info: GameSetupInfo,
-    ) -> BoxedFuture<(), GameInitError> {
+    fn init_game(&mut self, info: GameSetupInfo) -> BoxedFuture<(), GameInitError> {
         let game_type = match info.game_type() {
             Some(s) => s,
             None => {
@@ -270,7 +269,7 @@ impl GameState {
             InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
                 Ok(o) => o,
                 Err(e) => return box_future(Err(e).into_future()),
-            }
+            },
             InitState::Started(_) => {
                 return box_future(Err(GameInitError::InitInProgress).into_future());
             }
@@ -280,7 +279,9 @@ impl GameState {
         let results = init_state.wait_for_results();
         self.init_state = InitState::Started(init_state);
 
-        self.init_main_thread.send(()).expect("Main thread should be waiting for a wakeup");
+        self.init_main_thread
+            .send(())
+            .expect("Main thread should be waiting for a wakeup");
         let init_request = GameThreadRequestType::Initialize;
         let info2 = info.clone();
         // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
@@ -288,39 +289,40 @@ impl GameState {
         // Could possibly aim to keep all of BW initialization in the main thread, but this
         // system has worked fine so far.
         let is_host = local_user.name == info.host.name;
-        let pre_network_init = self.send_game_request(init_request)
+        let pre_network_init = self
+            .send_game_request(init_request)
             .map_err(|()| GameInitError::Closed)
-            .and_then(move |()| {
-                unsafe {
-                    remaining_game_init(&local_user);
-                    if is_host {
-                        create_lobby(&info2, game_type)
-                    } else {
-                        Ok(())
-                    }
+            .and_then(move |()| unsafe {
+                remaining_game_init(&local_user);
+                if is_host {
+                    create_lobby(&info2, game_type)
+                } else {
+                    Ok(())
                 }
             });
         // This future won't be ready until we tell WndProc to stop right before starting game
         // Also we want it to run after game thread init request, but no explicit ordering
         // is necessary since Game requests uses the non-async std::sync::mpsc.
-        let wnd_proc_started = self.start_game_request(GameThreadRequestType::RunWndProc)
+        let wnd_proc_started = self
+            .start_game_request(GameThreadRequestType::RunWndProc)
             .map_err(|()| GameInitError::Closed);
 
         let network_ready = self.network.wait_network_ready();
-        let network_ready = self.network.set_game_info(info.clone())
+        let network_ready = self
+            .network
+            .set_game_info(info.clone())
             .and_then(|_| network_ready)
             .map_err(|e| GameInitError::NetworkInit(e))
             .inspect(|_| debug!("Network ready"));
         let info2 = info.clone();
-        let in_lobby = pre_network_init.join3(network_ready, wnd_proc_started)
+        let in_lobby = pre_network_init
+            .join3(network_ready, wnd_proc_started)
             .and_then(move |((), (), _wnd_proc_done)| {
                 // Could carry wnd_proc_done around, but it should be fine to drop
                 // as we end wnd proc and then send a new request to game thread without
                 // any additional BW state poking from async side.
                 if !is_host {
-                    unsafe {
-                        Either::A(join_lobby(&info2, game_type))
-                    }
+                    unsafe { Either::A(join_lobby(&info2, game_type)) }
                 } else {
                     Either::B(Ok(()).into_future())
                 }
@@ -334,19 +336,21 @@ impl GameState {
                 unsafe {
                     setup_slots(&info2.slots, game_type);
                 }
-                send_messages_to_state.send(GameStateMessage::InLobby)
+                send_messages_to_state
+                    .send(GameStateMessage::InLobby)
                     .map_err(|_| GameInitError::Closed)
             })
             .and_then(move |_| {
                 let tickle_lobby_network =
                     tokio::timer::Interval::new(Instant::now(), Duration::from_millis(100))
-                    .for_each(|_| unsafe {
-                        bw::maybe_receive_turns();
-                        Ok(())
-                    })
-                    .map(|_| panic!("Interval generation ended???"))
-                    .map_err(|_| GameInitError::Closed);
-                tickle_lobby_network.select(players_joined)
+                        .for_each(|_| unsafe {
+                            bw::maybe_receive_turns();
+                            Ok(())
+                        })
+                        .map(|_| panic!("Interval generation ended???"))
+                        .map_err(|_| GameInitError::Closed);
+                tickle_lobby_network
+                    .select(players_joined)
                     .map(|_| ())
                     .map_err(|x| x.0)
             })
@@ -364,13 +368,15 @@ impl GameState {
                 forge::end_wnd_proc();
                 app_socket::send_message(ws_send, "/game/start", ())
                     .map_err(|_| GameInitError::Closed)
-            }).and_then(move |ws_send| {
+            })
+            .and_then(move |ws_send| {
                 let start_game_request = GameThreadRequestType::StartGame;
                 let game_done = send_game_request(&game_request_send, start_game_request)
                     .map(|()| ws_send)
                     .map_err(|_| GameInitError::Closed);
                 game_done.join(results)
-            }).and_then(|(ws_send, results)| {
+            })
+            .and_then(|(ws_send, results)| {
                 app_socket::send_message(ws_send, "/game/end", results)
                     .map(|_| ())
                     .map_err(|_| GameInitError::Closed)
@@ -395,7 +401,8 @@ impl GameState {
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
-                let task = self.init_game(info)
+                let task = self
+                    .init_game(info)
                     .or_else(|e| {
                         let msg = format!("Failed to init game: {}", e);
                         error!("{}", msg);
@@ -448,12 +455,11 @@ impl GameState {
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
                 let async_stop = self.async_stop.clone();
-                let task = self.send_game_request(cleanup_request)
-                    .then(move |_| {
-                        debug!("BW cleanup done, exiting..");
-                        async_stop.cancel();
-                        Ok(())
-                    });
+                let task = self.send_game_request(cleanup_request).then(move |_| {
+                    debug!("BW cleanup done, exiting..");
+                    async_stop.cancel();
+                    Ok(())
+                });
                 tokio::spawn(task);
                 box_future(future::ok(()))
             }
@@ -498,14 +504,25 @@ impl InitInProgress {
         self.all_players_joined = true;
 
         // Change ally chat for observers to be observer chat.
-        let is_observer = self.setup_info.slots.iter().find(|x| x.name == self.local_user.name)
+        let is_observer = self
+            .setup_info
+            .slots
+            .iter()
+            .find(|x| x.name == self.local_user.name)
             .map(|slot| slot.is_observer())
             .unwrap_or(false);
         if is_observer {
-            let observer_storm_ids = self.setup_info.slots.iter()
+            let observer_storm_ids = self
+                .setup_info
+                .slots
+                .iter()
                 .filter(|x| x.is_observer())
                 .filter_map(|slot| {
-                    match self.joined_players.iter().find(|joined| slot.name == joined.name) {
+                    match self
+                        .joined_players
+                        .iter()
+                        .find(|joined| slot.name == joined.name)
+                    {
                         Some(s) => Some(s.storm_id),
                         None => {
                             error!("Couldn't find storm id for observer {}", slot.name);
@@ -527,9 +544,7 @@ impl InitInProgress {
     // Waits until players have joined.
     // self.player_joined gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
-    fn wait_for_players(
-        &mut self,
-    ) -> BoxedFuture<(), GameInitError> {
+    fn wait_for_players(&mut self) -> BoxedFuture<(), GameInitError> {
         if self.all_players_joined {
             box_future(future::ok(()))
         } else {
@@ -606,9 +621,17 @@ impl InitInProgress {
     }
 
     fn has_all_players(&self) -> bool {
-        let waiting_for = self.setup_info.slots.iter()
+        let waiting_for = self
+            .setup_info
+            .slots
+            .iter()
             .filter(|s| s.is_human() || s.is_observer())
-            .filter(|s| !self.joined_players.iter().any(|player| s.name == player.name))
+            .filter(|s| {
+                !self
+                    .joined_players
+                    .iter()
+                    .any(|player| s.name == player.name)
+            })
             .map(|s| &s.name)
             .collect::<Vec<_>>();
         if waiting_for.is_empty() {
@@ -632,7 +655,9 @@ impl InitInProgress {
         }
 
         let mut results = vec![GameResult::Playing; 8];
-        let local_storm_id = self.joined_players.iter()
+        let local_storm_id = self
+            .joined_players
+            .iter()
             .find(|x| x.name == self.local_user.name)
             .map(|x| x.storm_id.0)
             .unwrap_or_else(|| {
@@ -642,7 +667,6 @@ impl InitInProgress {
                 );
             }) as usize;
 
-
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
                 let storm_id = player.storm_id.0 as usize;
@@ -650,11 +674,13 @@ impl InitInProgress {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
                     3 => GameResult::Victory,
-                    _ => if storm_id == local_storm_id {
-                        GameResult::Defeat
-                    } else {
-                        GameResult::Playing
-                    },
+                    _ => {
+                        if storm_id == local_storm_id {
+                            GameResult::Defeat
+                        } else {
+                            GameResult::Playing
+                        }
+                    }
                 };
             }
         }
@@ -679,14 +705,20 @@ impl InitInProgress {
             None => (),
         }
 
-        let results = self.joined_players.iter()
+        let results = self
+            .joined_players
+            .iter()
             .filter_map(|player| {
                 if player.player_id.is_some() {
-                    Some((player.name.clone(), results[player.storm_id.0 as usize] as u8))
+                    Some((
+                        player.name.clone(),
+                        results[player.storm_id.0 as usize] as u8,
+                    ))
                 } else {
                     None
                 }
-            }).collect();
+            })
+            .collect();
         let message = Arc::new(GameResults {
             results,
             // Assuming fastest speed
@@ -702,7 +734,10 @@ unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, GameI
     let map_dir = match map_path.parent() {
         Some(s) => s.into(),
         None => {
-            warn!("Assuming map '{}' is in current working directory", map_path.display());
+            warn!(
+                "Assuming map '{}' is in current working directory",
+                map_path.display()
+            );
             match std::env::current_dir() {
                 Ok(o) => o,
                 Err(_) => return Err(GameInitError::MapNotFound),
@@ -724,7 +759,12 @@ unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, GameI
     extern "stdcall" fn dummy(_a: *mut bw::MapListEntry, _b: *const u8, _c: u32) -> u32 {
         0
     }
-    bw::get_maps_list(0x28, (*bw::current_map_folder_path).as_ptr(), "\0".as_ptr(), dummy);
+    bw::get_maps_list(
+        0x28,
+        (*bw::current_map_folder_path).as_ptr(),
+        "\0".as_ptr(),
+        dummy,
+    );
     let mut current_map = *bw::map_list_root;
     while current_map as isize > 0 {
         let name = CStr::from_ptr((*current_map).name.as_ptr() as *const i8);
@@ -800,8 +840,11 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
         None => return box_future(future::err(GameInitError::MissingMapInfo("tileset"))),
     };
     let max_player_count = info.slots.len() as u8;
-    let active_player_count =
-        info.slots.iter().filter(|x| x.is_human() || x.is_observer()).count() as u8;
+    let active_player_count = info
+        .slots
+        .iter()
+        .filter(|x| x.is_human() || x.is_observer())
+        .count() as u8;
 
     // This info isn't used ingame (with exception of game_type?),
     // but it is written in the header of replays/saves.
@@ -825,7 +868,11 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
         for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
             *out = *val;
         }
-        for (out, val) in game_info.map_name.iter_mut().zip(map_name.as_bytes().iter()) {
+        for (out, val) in game_info
+            .map_name
+            .iter_mut()
+            .zip(map_name.as_bytes().iter())
+        {
             *out = *val;
         }
         game_info
@@ -833,14 +880,15 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
     let map_path: Bytes = match windows::ansi_codepage_cstring(&info.map_path) {
         Ok(o) => o.into(),
         Err(_) => {
-            return box_future(future::err(GameInitError::NonAnsiPath((&info.map_path).into())));
+            return box_future(future::err(GameInitError::NonAnsiPath(
+                (&info.map_path).into(),
+            )));
         }
     };
     let future = tokio::timer::Interval::new(Instant::now(), Duration::from_millis(10))
         .map_err(|_| GameInitError::Closed)
         .and_then(move |_| {
-            try_join_lobby_once(game_info.clone(), map_path.clone())
-                .then(|result| Ok(result))
+            try_join_lobby_once(game_info.clone(), map_path.clone()).then(|result| Ok(result))
         })
         // Retries by returning None, proceeds with Some
         .filter_map(|result| match result {
@@ -856,7 +904,10 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
             bw::init_game_network();
             // Run through a turn once, so that we ensure Storm has init'd its names
             bw::maybe_receive_turns();
-            debug!("Storm player names at join: {:?}", storm::SNetGetPlayerNames());
+            debug!(
+                "Storm player names at join: {:?}",
+                storm::SNetGetPlayerNames()
+            );
             Ok(())
         });
     box_future(future)
@@ -949,16 +1000,21 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
 
 unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
     let storm_names = storm::SNetGetPlayerNames();
-    let storm_ids_to_init = info.slots.iter()
+    let storm_ids_to_init = info
+        .slots
+        .iter()
         .filter(|s| s.is_human() || s.is_observer())
         .map(|s| {
-            storm_names.iter().position(|x| match x {
-                Some(name) => name == &s.name,
-                None => false,
-            }).unwrap_or_else(|| {
-                // Okay, this really should not have passed has_all_players
-                panic!("No storm id for player {}", s.name);
-            })
+            storm_names
+                .iter()
+                .position(|x| match x {
+                    Some(name) => name == &s.name,
+                    None => false,
+                })
+                .unwrap_or_else(|| {
+                    // Okay, this really should not have passed has_all_players
+                    panic!("No storm id for player {}", s.name);
+                })
         });
     for id in storm_ids_to_init {
         bw::init_network_player_info(id as u32, 0, 1, 5);
@@ -1003,9 +1059,7 @@ pub fn create_future(
         .map_err(|_| ())
         .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
         .select(internal_recv.map_err(|_| ()))
-        .for_each(move |message| {
-            game_state.handle_message(message)
-        });
+        .for_each(move |message| game_state.handle_message(message));
     box_future(future)
 }
 
@@ -1014,8 +1068,7 @@ fn send_game_request(
     sender: &std::sync::mpsc::Sender<GameThreadRequest>,
     request_type: GameThreadRequestType,
 ) -> impl Future<Item = (), Error = ()> {
-    start_game_request(sender, request_type)
-        .and_then(|wait_done| wait_done.map_err(|_| ()))
+    start_game_request(sender, request_type).and_then(|wait_done| wait_done.map_err(|_| ()))
 }
 
 /// Sends a request to game thread and only waits until it has been sent,
@@ -1025,13 +1078,15 @@ fn start_game_request(
     request_type: GameThreadRequestType,
 ) -> impl Future<Item = oneshot::Receiver<()>, Error = ()> {
     let (request, wait_done) = GameThreadRequest::new(request_type);
-    sender.send(request).into_future().map_err(|_| ())
+    sender
+        .send(request)
+        .into_future()
+        .map_err(|_| ())
         .map(|_| wait_done)
 }
 
 unsafe fn remaining_game_init(local_user: &LocalUser) {
-    let name = windows::ansi_codepage_cstring(&local_user.name)
-        .unwrap_or_else(|e| e);
+    let name = windows::ansi_codepage_cstring(&local_user.name).unwrap_or_else(|e| e);
     for (&input, out) in name.iter().zip(bw::local_player_name.iter_mut()) {
         *out = input;
     }

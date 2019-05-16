@@ -1,8 +1,10 @@
-#[macro_use] extern crate log;
-#[macro_use] extern crate whack;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate whack;
 
-mod app_socket;
 mod app_messages;
+mod app_socket;
 mod bw;
 mod cancel_token;
 mod chat;
@@ -30,13 +32,13 @@ use tokio::prelude::*;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 use winapi::um::winnt::HANDLE;
 
-use crate::game_state::{GameStateMessage};
-use crate::game_thread::{GameThreadMessage};
+use crate::game_state::GameStateMessage;
+use crate::game_thread::GameThreadMessage;
 
 const WAIT_DEBUGGER: bool = false;
 
 fn remove_lines(file: &mut File, limit: usize, truncate_to: usize) -> io::Result<()> {
-    use io::{Seek, BufReader, BufRead, SeekFrom};
+    use io::{BufRead, BufReader, Seek, SeekFrom};
 
     assert!(limit >= truncate_to);
     // This implementation is obviously somewhat inefficient but does the job.
@@ -68,17 +70,16 @@ fn log_file() -> File {
     let args = parse_args();
     let dir = args.user_data_path.join("logs");
     let mut options = std::fs::OpenOptions::new();
-    let options = options
-        .read(true)
-        .write(true)
-        .create(true)
-        .share_mode(1); // FILE_SHARE_READ
+    let options = options.read(true).write(true).create(true).share_mode(1); // FILE_SHARE_READ
     for i in 0..20 {
         let filename = dir.join(format!("shieldbattery.{}.log", i));
         if let Ok(mut file) = options.open(filename) {
             let result = remove_lines(&mut file, 10000, 5000);
             // Add blank lines to make start of the session a bit clearer.
-            let _ = write!(&mut file, "\n--------------------------------------------\n");
+            let _ = write!(
+                &mut file,
+                "\n--------------------------------------------\n"
+            );
             if let Err(e) = result {
                 let _ = writeln!(&mut file, "Couldn't truncate lines: {}", e);
             }
@@ -161,7 +162,7 @@ fn panic_hook(info: &std::panic::PanicInfo) {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern fn OnInject() {
+pub extern "C" fn OnInject() {
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -187,10 +188,7 @@ pub extern fn OnInject() {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "stdcall" fn SnpBind(
-    index: u32,
-    functions: *mut *const bw::SnpFunctions,
-) -> u32 {
+pub unsafe extern "stdcall" fn SnpBind(index: u32, functions: *mut *const bw::SnpFunctions) -> u32 {
     // we only have one provider, so any index over that is an error
     if index > 0 || functions.is_null() {
         return 0;
@@ -204,7 +202,7 @@ lazy_static! {
 }
 
 unsafe fn patch_game() {
-    use observing::{with_replay_flag_if_obs};
+    use observing::with_replay_flag_if_obs;
 
     whack_export!(pub extern "system" CreateEventA(*mut c_void, u32, u32, *const i8) -> *mut c_void);
     whack_export!(pub extern "system" DeleteFileA(*const i8) -> u32);
@@ -228,55 +226,56 @@ unsafe fn patch_game() {
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
 
-    exe.hook_closure(
-        bw::MinimapCtrl_InitButton,
-        |a, orig: &Fn(_)| with_replay_flag_if_obs(|| orig(a)),
-    );
-    exe.hook_closure(
-        bw::MinimapCtrl_ShowAllianceDialog,
-        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
-    );
-    exe.hook_closure(
-        bw::DrawMinimap,
-        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
-    );
+    exe.hook_closure(bw::MinimapCtrl_InitButton, |a, orig: &Fn(_)| {
+        with_replay_flag_if_obs(|| orig(a))
+    });
+    exe.hook_closure(bw::MinimapCtrl_ShowAllianceDialog, |orig: &Fn()| {
+        with_replay_flag_if_obs(|| orig())
+    });
+    exe.hook_closure(bw::DrawMinimap, |orig: &Fn()| {
+        with_replay_flag_if_obs(|| orig())
+    });
     // Bw force refreshes the minimap every second?? why
     // And of course the DrawMinimap call in it is inlined so it has to be hooked separately.
-    exe.hook_closure(
-        bw::Minimap_TimerRefresh,
-        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
-    );
-    exe.hook_closure(
-        bw::RedrawScreen,
-        |orig: &Fn()| with_replay_flag_if_obs(|| orig()),
-    );
+    exe.hook_closure(bw::Minimap_TimerRefresh, |orig: &Fn()| {
+        with_replay_flag_if_obs(|| orig())
+    });
+    exe.hook_closure(bw::RedrawScreen, |orig: &Fn()| {
+        with_replay_flag_if_obs(|| orig())
+    });
     exe.hook_closure(
         bw::AllianceDialog_EventHandler,
         |a, b, orig: &Fn(_, _) -> _| with_replay_flag_if_obs(|| orig(a, b)),
     );
-    exe.hook_closure(
-        bw::GameScreenLeftClick,
-        |a, orig: &Fn(_)| with_replay_flag_if_obs(|| orig(a)),
-    );
-    exe.hook_closure(
-        bw::PlaySoundAtPos,
-        |a, b, c, d, orig: &Fn(_, _, _, _)| with_replay_flag_if_obs(|| orig(a, b, c, d)),
-    );
-    exe.hook_closure(
-        bw::DrawResourceCounts,
-        |a, b, orig: &Fn(_, _)| with_replay_flag_if_obs(|| orig(a, b)),
-    );
+    exe.hook_closure(bw::GameScreenLeftClick, |a, orig: &Fn(_)| {
+        with_replay_flag_if_obs(|| orig(a))
+    });
+    exe.hook_closure(bw::PlaySoundAtPos, |a, b, c, d, orig: &Fn(_, _, _, _)| {
+        with_replay_flag_if_obs(|| orig(a, b, c, d))
+    });
+    exe.hook_closure(bw::DrawResourceCounts, |a, b, orig: &Fn(_, _)| {
+        with_replay_flag_if_obs(|| orig(a, b))
+    });
     exe.hook_opt(bw::ProcessCommands, observing::process_commands_hook);
     exe.hook_opt(bw::Command_Sync, observing::sync_command_hook);
     exe.hook_opt(bw::ChatMessage, observing::chat_message_hook);
     exe.hook_opt(bw::LoadDialog, observing::load_dialog_hook);
     exe.hook_opt(bw::InitUiVariables, observing::init_ui_variables_hook);
     exe.hook_opt(bw::UpdateCommandCard, observing::update_command_card_hook);
-    exe.hook_opt(bw::CmdBtn_EventHandler, observing::cmdbtn_event_handler_hook);
+    exe.hook_opt(
+        bw::CmdBtn_EventHandler,
+        observing::cmdbtn_event_handler_hook,
+    );
     exe.hook_opt(bw::DrawCommandButton, observing::draw_command_button_hook);
     exe.hook_opt(bw::GetGluAllString, observing::get_gluall_string_hook);
-    exe.hook_opt(bw::UpdateNetTimeoutPlayers, observing::update_net_timeout_players);
-    exe.hook_opt(bw::CenterScreenOnOwnStartLocation, observing::center_screen_on_start_location);
+    exe.hook_opt(
+        bw::UpdateNetTimeoutPlayers,
+        observing::update_net_timeout_players,
+    );
+    exe.hook_opt(
+        bw::CenterScreenOnOwnStartLocation,
+        observing::center_screen_on_start_location,
+    );
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
     exe.import_hook_opt(&b"kernel32"[..], DeleteFileA, delete_file_hook);
@@ -373,10 +372,12 @@ fn get_documents_path() -> Result<PathBuf, io::Error> {
 fn initial_number(path: &OsStr) -> u32 {
     use std::os::windows::ffi::OsStrExt;
     // Trickery to parse the initial number without assuming UTF-8 filename..
-    path
-        .encode_wide()
+    path.encode_wide()
         .take_while(|&x| x >= b'0' as u16 && x <= b'9' as u16)
-        .fold(0, |old, new| old.wrapping_mul(10).wrapping_add((new - b'0' as u16) as u32))
+        .fold(0, |old, new| {
+            old.wrapping_mul(10)
+                .wrapping_add((new - b'0' as u16) as u32)
+        })
 }
 
 #[test]
@@ -386,7 +387,10 @@ fn test_initial_number() {
     assert_eq!(initial_number(OsStr::new("a234sd")), 0);
     assert_eq!(initial_number(OsStr::new("1")), 1);
     assert_eq!(initial_number(OsStr::new("001241.rep")), 1241);
-    assert_ne!(initial_number(OsStr::new("100000000000000000001241.rep")), 0);
+    assert_ne!(
+        initial_number(OsStr::new("100000000000000000001241.rep")),
+        0
+    );
 }
 
 unsafe fn create_file_hook(
@@ -403,7 +407,15 @@ unsafe fn create_file_hook(
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
 
     if ascii_path_filename(CStr::from_ptr(filename).to_bytes()) != b"LastReplay.rep" {
-        return orig(filename, access, share_mode, security_attributes, creation_disposition, flags, template);
+        return orig(
+            filename,
+            access,
+            share_mode,
+            security_attributes,
+            creation_disposition,
+            flags,
+            template,
+        );
     }
 
     let documents_path = match get_documents_path() {
@@ -416,7 +428,11 @@ unsafe fn create_file_hook(
     let replay_folder = documents_path.join("Starcraft\\maps\\replays\\Auto");
     if !replay_folder.is_dir() {
         if let Err(e) = std::fs::create_dir_all(&replay_folder) {
-            error!("Couldn't create replay folder '{}': {}", replay_folder.display(), e);
+            error!(
+                "Couldn't create replay folder '{}': {}",
+                replay_folder.display(),
+                e
+            );
             return INVALID_HANDLE_VALUE;
         }
     }
@@ -424,7 +440,11 @@ unsafe fn create_file_hook(
     let entries = match std::fs::read_dir(&replay_folder) {
         Ok(o) => o,
         Err(e) => {
-            error!("Couldn't read replay folder '{}': {}", replay_folder.display(), e);
+            error!(
+                "Couldn't read replay folder '{}': {}",
+                replay_folder.display(),
+                e
+            );
             return INVALID_HANDLE_VALUE;
         }
     };
@@ -433,7 +453,11 @@ unsafe fn create_file_hook(
         let entry = match entry {
             Ok(o) => o,
             Err(e) => {
-                error!("Couldn't read replay folder '{}': {}", replay_folder.display(), e);
+                error!(
+                    "Couldn't read replay folder '{}': {}",
+                    replay_folder.display(),
+                    e
+                );
                 return INVALID_HANDLE_VALUE;
             }
         };
@@ -444,7 +468,11 @@ unsafe fn create_file_hook(
             }
         }
     }
-    let filename = format!("{:04}_{}.rep", count + 1, chrono::Local::now().format("%Y-%m-%d"));
+    let filename = format!(
+        "{:04}_{}.rep",
+        count + 1,
+        chrono::Local::now().format("%Y-%m-%d")
+    );
     CreateFileW(
         windows::winapi_str(replay_folder.join(filename)).as_ptr(),
         access,
@@ -513,7 +541,8 @@ type BoxedFuture<I, E> = Box<dyn Future<Item = I, Error = E> + Send + 'static>;
 
 // When Box<dyn Future> is needed, type inference works nicer when going through this function
 fn box_future<F, I, E>(future: F) -> BoxedFuture<I, E>
-where F: Future<Item = I, Error = E> + Send + 'static
+where
+    F: Future<Item = I, Error = E> + Send + 'static,
 {
     Box::new(future)
 }
@@ -523,8 +552,8 @@ fn handle_messages_from_game_thread(
     ws_send: app_socket::SendMessages,
     game_send: game_state::SendMessages,
 ) -> impl Future<Item = (), Error = ()> {
+    use crate::app_messages::WindowMove;
     use futures::future::Either;
-    use crate::app_messages::{WindowMove};
 
     enum ReplyType {
         WebSocket(websocket::OwnedMessage),
@@ -534,31 +563,27 @@ fn handle_messages_from_game_thread(
     let (send, recv) = tokio::sync::mpsc::unbounded_channel();
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
     recv.map_err(|_| ())
-        .filter_map(|message| {
-            match message {
-                GameThreadMessage::WindowMove(x, y) => {
-                    app_socket::encode_message("/game/windowMove", WindowMove {
-                        x,
-                        y,
-                    }).map(ReplyType::WebSocket)
-                }
-                GameThreadMessage::Snp(snp) => {
-                    Some(ReplyType::Game(GameStateMessage::Snp(snp)))
-                }
-                GameThreadMessage::PlayerJoined => {
-                    Some(ReplyType::Game(GameStateMessage::PlayerJoined))
-                }
-                GameThreadMessage::Results(results) => {
-                    Some(ReplyType::Game(GameStateMessage::Results(results)))
-                }
+        .filter_map(|message| match message {
+            GameThreadMessage::WindowMove(x, y) => {
+                app_socket::encode_message("/game/windowMove", WindowMove { x, y })
+                    .map(ReplyType::WebSocket)
+            }
+            GameThreadMessage::Snp(snp) => Some(ReplyType::Game(GameStateMessage::Snp(snp))),
+            GameThreadMessage::PlayerJoined => {
+                Some(ReplyType::Game(GameStateMessage::PlayerJoined))
+            }
+            GameThreadMessage::Results(results) => {
+                Some(ReplyType::Game(GameStateMessage::Results(results)))
             }
         })
         .fold((ws_send, game_send), |(ws_send, game_send), message| {
             match message {
                 ReplyType::WebSocket(msg) => Either::A(ws_send.send(msg).map(|x| (x, game_send))),
                 ReplyType::Game(msg) => Either::B(game_send.send(msg).map(|x| (ws_send, x))),
-            }.map_err(|_| ())
-        }).map(|_| ())
+            }
+            .map_err(|_| ())
+        })
+        .map(|_| ())
 }
 
 fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
@@ -611,11 +636,8 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
         let (cancel_token, canceler) = cancel_token::CancelToken::new();
         *crate::game_thread::GAME_RECEIVE_REQUESTS.lock().unwrap() = Some(game_requests_recv);
         let canceler = cancel_token::SharedCanceler::new(canceler);
-        let websocket_connection = app_socket::websocket_connection_future(
-            &game_state_send,
-            &canceler,
-            websocket_recv
-        );
+        let websocket_connection =
+            app_socket::websocket_connection_future(&game_state_send, &canceler, websocket_recv);
         let game_state = game_state::create_future(
             websocket_send.clone(),
             canceler,
@@ -623,17 +645,14 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             main_thread,
             game_requests_send,
         );
-        let messages_from_game = handle_messages_from_game_thread(
-            websocket_send,
-            game_state_send,
-        );
-        let main_task = game_state.join3(websocket_connection, messages_from_game)
+        let messages_from_game = handle_messages_from_game_thread(websocket_send, game_state_send);
+        let main_task = game_state
+            .join3(websocket_connection, messages_from_game)
             .map(|_| ());
-        cancel_token.bind(main_task)
-            .then(|_| {
-                debug!("Main async task ended");
-                Ok(())
-            })
+        cancel_token.bind(main_task).then(|_| {
+            debug!("Main async task ended");
+            Ok(())
+        })
     }));
     info!("Async thread end");
     std::process::exit(0);
