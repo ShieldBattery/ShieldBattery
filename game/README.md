@@ -31,6 +31,26 @@ library](https://tokio.rs/docs/overview/). Note that the Future API is changing 
 'futures 0.1', and the code should be updated to it likely some time later this year, depending
 how the necessary libraries become available.
 
+A common pattern that the async modules use to handle their mutable state is to have a task
+that takes input messages over a channel and updates the state based on those messages. The public
+API is just a struct that is able to send those messages, usually the messages contain a reply
+channel which receives the result. E.g. in `rally_point.rs`, `struct RallyPoint` is just a structure
+which sends messages (`ExternalMessage`) to the task started in `fn init()` with internal state
+`struct State`. If the task itself needs to run some async code and update state based on that,
+it will need to spawn a child task which sends an state-updating message back to parent once it
+has the necessary result (`Request::{ServerMessage, CleanupJoin, CleanupPing}` in `rally_point`
+are messages which update the state but are only sent from the task itself).
+
+When there's no need to update such long-lived mutable state, the async code can be written
+just as a chain of `and_then` futures (in future they should be convertible easily to `await`s),
+which is pretty easy to follow.
+On the other hand, the horrifying `fn init_game` in `game_state.rs` creates a task which, while
+mostly still sequence of futures without state updating, has three futures (`wait_for_players()`,
+`wait_for_results()`, `wait_network_ready()`) which become ready based on state updating based on
+multiple events, and as such the relevant code for them is found outside `init_game` function.
+It's tougher to follow, even though technically BW still has pretty strict sequence how
+the initialization plays out :/
+
 ### BW
 We mostly let BW do its own thing, and intercept it with hooks, possibly sending messages to
 async side from those hooks. Hooks are initialized in `patch_game` in `lib.rs`.
