@@ -2,16 +2,9 @@
 
 ## Developer setup
 
-ShieldBattery is a combination of C++ and JavaScript, and split between multiple server and client
+ShieldBattery is a combination of C++, Rust and JavaScript, and split between multiple server and client
 pieces. Even if you only plan on developing JavaScript changes, you'll need to install the C++
 dependencies in order to properly test things.
-
-### Repository setup
-
-We use a git submodule for the node dependency, which needs to be initialized after a fresh
-repository clone. Run `git submodule init` followed by `git submodule update` to make this happen.
-Whenever the node dependency has been updated, you'll then need to re-run `git submodule update` to
-get the new changes.
 
 ### General environment setup
 
@@ -23,9 +16,8 @@ attempting to follow further steps.
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (8.1.4 at the time of
-writing). The version you install does not need to match the version that the game client's
-submodule is tagged to.
+to install a version of it, generally the current version is a good choice (11.7.0 at the time of
+writing).
 
 #### Yarn
 
