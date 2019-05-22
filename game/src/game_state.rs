@@ -300,8 +300,7 @@ impl GameState {
                     Ok(())
                 }
             });
-        // This future won't be ready until we tell WndProc to stop right before starting game
-        // Also we want it to run after game thread init request, but no explicit ordering
+        // We want this to run after game thread init request, but no explicit ordering
         // is necessary since Game requests uses the non-async std::sync::mpsc.
         let wnd_proc_started = self
             .start_game_request(GameThreadRequestType::RunWndProc)

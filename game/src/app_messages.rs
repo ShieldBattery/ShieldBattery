@@ -58,7 +58,7 @@ pub struct GameSetupInfo {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapInfo {
-    // This object is literally completely different between playing a game and wathing a replay
+    // This object is literally completely different between playing a game and watching a replay
     pub is_replay: Option<bool>,
     pub hash: Option<String>,
     pub height: Option<u32>,

@@ -1,6 +1,7 @@
 ## Game DLL structure
 
-The code of ShieldBattery DLL has two major parts: Asynchronous code and BW-synchronous code/hooks.
+The code of the game DLL has two major parts: asynchronous code that focuses on handling
+network traffic, and 'synchronous' code that executes inside of hooks into BW's code.
 They currently are mixed in `src/` directory, but it may be worth separating one/both of them in
 separate modules, even though most of the files aren't 100% async or 100% BW.
 
@@ -10,16 +11,16 @@ of our logic. The effective entry point for async code is `async_thread` in `lib
 following files contain rest of the async side:
 
 - `app_messages.rs` Definitions for messages sent to/from app, and helper code for parsing them.
-- `app_socket.rs` Task for handling the websocket connection to app.
+- `app_socket.rs` Task for handling the websocket connection to the ShieldBattery app.
 - `cancel_token.rs` Helper code for cleaning up tasks when their parent gets dropped.
 - `game_state.rs` The most complex part of this DLL, manages game initialization. It may
     handle other game-related async functionality in future, but right now we don't have any :)
-    Rest of the async code avoids directly calling BW functions at all
+    The rest of the async code avoids directly calling BW functions at all
     (as the BW thread is doing its own thing simultaneously, which could be bad),
     but we do it in `GameState::init_game` as the older C++/JS code worked the same, and during
     game initialization the BW thread is set to run windows message loop via forge.
     It is a bit sketchy and hard to follow anyway.
-- `network_manager.rs` Links the rally-point and BW+SNP sides together, and reports results to
+- `network_manager.rs` Links the rally-point and BW sides together, and reports results to
     GameState
 - `rally_point.rs` Implementation of rally-point-player in Rust.
 - `udp.rs` Custom async UDP implementation since the existing ones were bad. Hacky and does not scale,
