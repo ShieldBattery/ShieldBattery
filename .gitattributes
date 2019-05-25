@@ -22,7 +22,3 @@
 *.dbproj merge=union
 
 *.bat eol=crlf
-
-# Github Linguist attributes - https://github.com/github/linguist#overrides
-game/deps/* linguist-vendored
-game/tools/* linguist-vendored

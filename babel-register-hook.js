@@ -1,6 +1,6 @@
 // Since our project structure doesn't play well with the new, and annoying, babel 7 philosophy,
 // we must do these shenanigans to make everything work again. Note: this file is only necessary
-// in non-root folders that have a package.json in it (eg. app, game, server)
+// in non-root folders that have a package.json in it (eg. app, server)
 
 require('@babel/register')({
   // Babel won't by default look for the `babel.config.js` outside the "working directory" anymore

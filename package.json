@@ -12,7 +12,7 @@
     "app": "cross-env SB_HOT=1 electron app",
     "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive --harmony test/",
     "build": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
-    "buildgame": "game/vcbuild.bat && cd game && yarn run build",
+    "buildgame": "game/build.bat release sign",
     "clean": "rimraf app/dist && rimraf app/styles",
     "dist": "yarn run clean && yarn run build && yarn run buildgame && build --win --ia32 --x64 -p always -c prod.yml",
     "diststaging": "yarn run clean && cross-env SB_SERVER=https\\://dev.shieldbattery.net yarn run build && yarn run buildgame && build --win --ia32 --x64 -p always -c staging.yml",
@@ -23,7 +23,7 @@
     "postinstall": "cross-env-test SB_SERVER_ONLY=1 || electron-builder install-app-deps",
     "posttest": "yarn run lint",
     "test": "cross-env BABEL_ENV=node mocha -R spec --require @babel/register --recursive --harmony test/ && cd server && yarn test",
-    "yarnall": "cd app && yarn && cd ../game && yarn && cd ../server && yarn && cd .. && yarn"
+    "yarnall": "cd app && yarn && cd ../server && yarn && cd .. && yarn"
   },
   "repository": {
     "type": "git",
@@ -86,7 +86,8 @@
     "scm-extractor": "^1.0.6",
     "styled-components": "^4.2.0",
     "thenify": "^3.2.1",
-    "whatwg-fetch": "^3.0.0"
+    "whatwg-fetch": "^3.0.0",
+    "ws": "^6.2.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.4.3",

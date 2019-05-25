@@ -4,7 +4,6 @@
 appId: net.shieldbattery.client
 extraResources:
 - game/dist/**
-- "!game/dist/**/*.map"
 files:
 - "!**/*.map"
 - "!build/**/*"

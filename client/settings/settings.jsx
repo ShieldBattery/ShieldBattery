@@ -94,10 +94,6 @@ class SettingsForm extends React.Component {
           disabled={!this.isFullscreen()}
           inputProps={{ tabIndex: 0 }}
         />
-        <Select {...bindCustom('renderer')} label='Renderer' tabIndex={0}>
-          <Option value={0} text='DirectX' />
-          <Option value={1} text='OpenGL' />
-        </Select>
         <Slider
           {...bindCustom('sensitivity')}
           label='Mouse sensitivity'
@@ -170,7 +166,6 @@ export default class Settings extends React.Component {
       displayMode: local.displayMode,
       maintainAspectRatio: local.maintainAspectRatio,
       path: local.starcraftPath,
-      renderer: local.renderer,
       sensitivity: local.mouseSensitivity,
       windowSize: this.getDefaultWindowSizeValue(local),
     }
@@ -221,7 +216,6 @@ export default class Settings extends React.Component {
       displayMode: values.displayMode,
       mouseSensitivity: values.sensitivity,
       maintainAspectRatio: values.maintainAspectRatio,
-      renderer: values.renderer,
       starcraftPath,
     }
     this.props.dispatch(mergeLocalSettings(newSettings))

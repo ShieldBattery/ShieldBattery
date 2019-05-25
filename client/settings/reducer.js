@@ -7,7 +7,6 @@ export const LocalSettings = new Record({
   displayMode: 0,
   mouseSensitivity: 0,
   maintainAspectRatio: true,
-  renderer: 0,
   starcraftPath: null,
   gameWinX: null,
   gameWinY: null,

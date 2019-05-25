@@ -5,7 +5,7 @@ import thenify from 'thenify'
 import log from './logger'
 import { findInstallPath } from './find-install-path'
 
-const VERSION = 3
+const VERSION = 4
 
 const readFileAsync = thenify(fs.readFile)
 const writeFileAsync = thenify(fs.writeFile)
@@ -113,6 +113,10 @@ export default class LocalSettings extends EventEmitter {
       newSettings.winWidth = -1
       newSettings.winHeight = -1
       newSettings.winMaximized = false
+    }
+    if (!settings.version || settings.version < 4) {
+      log.verbose('Found settings version 3, migrating to version 4')
+      delete newSettings.renderer
     }
 
     newSettings.version = VERSION
