@@ -27,10 +27,10 @@ class GameServer {
     activeGameManager.on('gameCommand', (id, command, payload) => {
       log.verbose(`Sending game command to ${id}: ${command}`)
       const socket = this.idToSocket.get(id)
-      if (socket) {
+      if (socket && socket.readyState === socket.OPEN) {
         this._sendCommand(socket, command, payload)
       } else {
-        // Is this an bad error or something that commonly occurs? Guessing that it's common.
+        // Is this a bad error or something that commonly occurs? Guessing that it's common.
         log.verbose(`No game connection for ${id}`)
       }
     })
@@ -40,7 +40,7 @@ class GameServer {
       if (gameId !== -1) {
         log.verbose('game websocket connected')
         const pingInterval = setInterval(() => {
-          socket.ping()
+          if (socket.readyState === socket.OPEN) socket.ping()
         }, 20000)
         socket.on('close', () => {
           log.verbose('game websocket disconnected')

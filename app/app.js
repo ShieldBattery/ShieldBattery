@@ -232,6 +232,7 @@ async function createWindow(localSettings, curSession) {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
+      nodeIntegration: true,
       session: curSession,
     },
   })
