@@ -227,7 +227,7 @@ async function createWindow(localSettings, curSession) {
     // icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
 
     acceptFirstMouse: true,
-    backgroundColor: '#303030',
+    backgroundColor: '#212121',
     frame: false,
     show: false,
     title: 'ShieldBattery',
