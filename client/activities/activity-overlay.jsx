@@ -129,7 +129,7 @@ export default class ActivityOverlay extends React.Component {
 
     return (
       <Container key={'overlay'}>
-        <KeyListener onKeyDown={this.onKeyDown} />
+        <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <Scrim onClick={this.onScrimClick} />
         <Overlay>{this.getOverlayComponent()}</Overlay>
       </Container>

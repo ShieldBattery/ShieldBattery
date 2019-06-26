@@ -33,9 +33,10 @@ export default class HotkeyedActivityButton extends React.Component {
     }
 
     return (
-      <KeyListener onKeyDown={this.onKeyDown}>
+      <>
+        <KeyListener onKeyDown={this.onKeyDown} />
         <ActivityButton {...activityButtonProps} />
-      </KeyListener>
+      </>
     )
   }
 

@@ -36,26 +36,23 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <KeyListener onKeyDown={this.onKeyDown}>
-        <div role='dialog' className={styles.contents}>
-          <div className={styles.titleBar}>
-            <h3 className={styles.title}>{title}</h3>
-            {closeButton}
-          </div>
-          {scrolledDown ? <div className={styles.titleDivider} /> : null}
-          <ScrollableContent
-            autoHeight={true}
-            autoHeightMin={'100px'}
-            autoHeightMax={'calc(80vh - 132px)'}
-            onUpdate={this.onScrollUpdate}>
-            <div className={styles.body}>{this.props.children}</div>
-          </ScrollableContent>
-          {scrolledUp && buttons && buttons.length ? (
-            <div className={styles.actionsDivider} />
-          ) : null}
-          {buttons && buttons.length ? <div className={styles.actions}>{buttons}</div> : null}
+      <div role='dialog' className={styles.contents}>
+        <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
+        <div className={styles.titleBar}>
+          <h3 className={styles.title}>{title}</h3>
+          {closeButton}
         </div>
-      </KeyListener>
+        {scrolledDown ? <div className={styles.titleDivider} /> : null}
+        <ScrollableContent
+          autoHeight={true}
+          autoHeightMin={'100px'}
+          autoHeightMax={'calc(80vh - 132px)'}
+          onUpdate={this.onScrollUpdate}>
+          <div className={styles.body}>{this.props.children}</div>
+        </ScrollableContent>
+        {scrolledUp && buttons && buttons.length ? <div className={styles.actionsDivider} /> : null}
+        {buttons && buttons.length ? <div className={styles.actions}>{buttons}</div> : null}
+      </div>
     )
   }
 

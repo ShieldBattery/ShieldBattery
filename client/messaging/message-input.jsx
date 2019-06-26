@@ -20,7 +20,8 @@ export default class MessageInput extends React.Component {
     const { className } = this.props
     const { message } = this.state
     return (
-      <KeyListener onKeyPress={this.onKeyPress}>
+      <>
+        <KeyListener onKeyPress={this.onKeyPress} />
         <TextField
           ref={this._setRef}
           className={className}
@@ -33,7 +34,7 @@ export default class MessageInput extends React.Component {
           onEnterKeyDown={this.onEnterKeyDown}
           onChange={this.onChange}
         />
-      </KeyListener>
+      </>
     )
   }
 
