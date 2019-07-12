@@ -3,7 +3,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { isValidMatchmakingType } from '../../../app/common/constants'
 import { MATCHMAKING } from '../../../app/common/flags'
-import { mapInfo } from '../maps/store'
+import { getMapInfo } from '../models/maps'
 import { featureEnabled } from '../flags/feature-enabled'
 import {
   getMapPoolHistory,
@@ -61,7 +61,7 @@ async function getHistory(ctx, next) {
   const pools = await Promise.all(
     mapPoolHistory.map(async m => ({
       startDate: +m.startDate,
-      maps: await mapInfo(...m.maps),
+      maps: await getMapInfo(...m.maps),
     })),
   )
 
@@ -102,7 +102,7 @@ async function getCurrent(ctx, next) {
   }
   ctx.body = {
     ...mapPool,
-    maps: await mapInfo(...mapPool.maps),
+    maps: await getMapInfo(...mapPool.maps),
   }
 }
 

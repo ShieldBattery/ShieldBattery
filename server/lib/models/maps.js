@@ -1,30 +1,49 @@
 import db from '../db'
+import transact from '../db/transaction'
 import { tilesetIdToName } from '../../../app/common/maps'
+import { getUrl } from '../file-upload'
+import { mapPath, imagePath } from '../maps/store'
 
 class MapInfo {
-  constructor(info) {
-    this.format = info.extension
-    this.tileset = tilesetIdToName(info.tileset)
-    this.name = info.title
-    this.description = info.description
-    this.slots = info.players_melee
-    this.umsSlots = info.players_ums
-    this.umsForces = info.lobby_init_data.forces
-    this.width = info.width
-    this.height = info.height
+  constructor(props) {
+    this.hash = props.hash
+    this.format = props.extension
+    this.tileset = tilesetIdToName(props.tileset)
+    this.name = props.title
+    this.description = props.description
+    this.slots = props.players_melee
+    this.umsSlots = props.players_ums
+    this.umsForces = props.lobby_init_data.forces
+    this.width = props.width
+    this.height = props.height
+    this.mapUrl = null
+    this.imageUrl = null
   }
 }
 
-export async function addMap(hashStr, extension, filename, mapData, timestamp) {
-  const { client, done } = await db()
-  try {
-    const query =
-      'INSERT INTO maps ' +
-      '(hash, extension, filename, title, description, width, height, tileset, ' +
-      'players_melee, players_ums, upload_time, modified_time, lobby_init_data) ' +
-      'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)'
-    const hash = Buffer.from(hashStr, 'hex')
+const createMapInfo = async info => {
+  const map = new MapInfo(info)
+
+  return {
+    ...map,
+    mapUrl: await getUrl(mapPath(map.hash, map.format)),
+    imageUrl: await getUrl(imagePath(map.hash)),
+  }
+}
+
+// transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
+// is rejected, the transaction will be rolled back.
+export async function addMap(mapData, extension, filename, modifiedDate, transactionFn) {
+  return await transact(async client => {
+    const query = `
+      INSERT INTO maps
+      (hash, extension, filename, title, description, width, height, tileset,
+      players_melee, players_ums, upload_time, modified_time, lobby_init_data)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `
     const {
+      hash,
       title,
       description,
       width,
@@ -34,15 +53,10 @@ export async function addMap(hashStr, extension, filename, mapData, timestamp) {
       umsPlayers,
       lobbyInitData,
     } = mapData
-    // Filename is varchar(32)
-    // The filename is meant to just be potentially useful information that would be otherwise
-    // lost on uploads (maybe there's a reason to search by it?), bw doesn't accept filenames
-    // longer than 32 chars anyways, so just cut it silently.
-    const limitedFilename = filename.slice(0, 32)
     const params = [
-      hash,
+      Buffer.from(hash, 'hex'),
       extension,
-      limitedFilename,
+      filename,
       title,
       description,
       width,
@@ -51,74 +65,53 @@ export async function addMap(hashStr, extension, filename, mapData, timestamp) {
       meleePlayers,
       umsPlayers,
       new Date(),
-      timestamp,
+      modifiedDate,
       lobbyInitData,
     ]
-    await client.query(query, params)
-  } finally {
-    done()
-  }
+
+    const [result] = await Promise.all([client.query(query, params), transactionFn()])
+
+    return createMapInfo(result.rows[0])
+  })
 }
 
-export async function mapExists(hashStr) {
-  let hash
-  try {
-    hash = Buffer.from(hashStr, 'hex')
-  } catch (e) {
-    return false
-  }
-  const { client, done } = await db()
-  try {
-    const result = await client.query('SELECT 1 FROM maps WHERE hash = $1', [hash])
-    return result.rows.length !== 0
-  } finally {
-    done()
-  }
-}
-
-// Returns an array of map info objects, ordered in the same way as they were passed in.
-// An array entry is null if a map doesn't exist in the db.
-export async function mapInfo(...hashStr) {
-  const hashes = hashStr.map(s => '\\x' + s)
-  const { client, done } = await db()
-  try {
-    const query =
-      'SELECT hash, extension, title, description, width, height, players_melee, ' +
-      'players_ums, tileset, lobby_init_data ' +
-      'FROM maps WHERE hash = ANY($1)'
-    const result = await client.query(query, [hashes])
-    if (result.rows.length === 0) {
-      return null
-    } else {
-      return hashStr.map(hash => {
-        const info = result.rows.find(x => x.hash.toString('hex') === hash)
-        return info ? new MapInfo(info) : null
-      })
-    }
-  } finally {
-    done()
-  }
-}
-
-export async function searchMaps(searchStr) {
+export async function getMapInfo(...hashes) {
   const query = `
-    SELECT hash, extension, title, description, width, height, tileset, players_melee, players_ums,
-        lobby_init_data
+    SELECT *
     FROM maps
-    WHERE title ILIKE $1
+    WHERE hash IN $1
   `
-  const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
-  const params = [`%${escapedStr}%`]
+  // TODO(2Pac): Do we need to escape hashes here?
+  const params = [hashes.map(s => '\\x' + s)]
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0
-      ? result.rows.map(map => ({
-          hash: map.hash.toString('hex'),
-          mapInfo: new MapInfo(map),
-        }))
-      : []
+    return result.rows.length > 0 ? result.rows.map(createMapInfo) : []
+  } finally {
+    done()
+  }
+}
+
+export async function listMaps(limit, pageNumber, searchStr) {
+  const whereClause = searchStr ? 'WHERE title ILIKE $3' : ''
+  const query = `
+    SELECT *
+    FROM maps
+    ${whereClause}
+    LIMIT $1
+    OFFSET $2
+  `
+  const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
+  const params = [limit, pageNumber]
+  if (searchStr) {
+    params.push(`%${escapedStr}%`)
+  }
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows.length > 0 ? result.rows.map(createMapInfo) : []
   } finally {
     done()
   }

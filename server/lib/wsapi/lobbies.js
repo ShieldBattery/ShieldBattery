@@ -8,7 +8,7 @@ import routeCreator from '../rally-point/route-creator'
 import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
-import { mapInfo } from '../maps/store'
+import { getMapInfo } from '../models/maps'
 import CancelToken from '../../../app/common/async/cancel-token'
 import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
@@ -149,7 +149,7 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapData = (await mapInfo(map))[0]
+    const mapData = (await getMapInfo(map))[0]
     if (!mapData) {
       throw new errors.BadRequest('invalid map')
     }
