@@ -2,7 +2,7 @@ import React from 'react'
 import { Range } from 'immutable'
 import { connect } from 'react-redux'
 import { createLobby, navigateToLobby } from './action-creators'
-import { getMapsList, hostLocalMap } from '../maps/action-creators'
+import { getMapsList } from '../maps/action-creators'
 import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
@@ -12,7 +12,6 @@ import { isTeamType } from '../../app/common/lobbies'
 import { MAP_UPLOADING } from '../../app/common/flags'
 import styles from './create-lobby.css'
 
-import LoadingIndicator from '../progress/dots.jsx'
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
@@ -116,15 +115,10 @@ class CreateLobbyForm extends React.Component {
 
   render() {
     const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
-    let mapListContents = maps.list.map(hash => (
+    const mapListContents = maps.list.map(hash => (
       <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
     ))
-    if (maps.localMapHash) {
-      const text = maps.byHash.get(maps.localMapHash).name
-      mapListContents = mapListContents.unshift(
-        <Option key={'localMap'} value={maps.localMapHash} text={text} />,
-      )
-    }
+
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <TextField
@@ -170,9 +164,6 @@ class CreateLobbyForm extends React.Component {
 
 @connect(state => ({ maps: state.maps }))
 export default class CreateLobby extends React.Component {
-  state = {
-    defaultMap: null,
-  }
   _autoFocusTimer = null
   _form = null
   _setForm = elem => {
@@ -183,26 +174,13 @@ export default class CreateLobby extends React.Component {
     this._input = elem
   }
 
-  componentWillMount() {
-    const { maps } = this.props
-    if (maps.localMapHash) {
-      this.setState({ defaultMap: maps.localMapHash })
-    } else if (maps.list.size) {
-      this.setState({ defaultMap: maps.list.get(0) })
-    }
-  }
-
   componentWillReceiveProps(nextProps) {
     const { maps: curMaps } = this.props
     const { maps: nextMaps } = nextProps
-    if (nextMaps.localMapHash && nextMaps.localMapHash !== curMaps.localMapHash) {
-      this.setState({ defaultMap: nextMaps.localMapHash })
-    } else if (!nextMaps.localMapHash && !curMaps.list.size && nextMaps.list.size) {
-      this.setState({ defaultMap: nextMaps.list.get(0) })
-    }
+
     if (!curMaps.lastError && nextMaps.lastError) {
       this.props.dispatch(closeOverlay())
-      this.props.dispatch(openSnackbar('There was a problem loading the maps list'))
+      this.props.dispatch(openSnackbar({ message: 'There was a problem loading the maps list' }))
     }
   }
 
@@ -227,7 +205,7 @@ export default class CreateLobby extends React.Component {
     const { maps } = this.props
 
     const model = {
-      map: this.state.defaultMap,
+      map: maps.list.get(0),
       gameType: 'melee',
     }
 
@@ -243,12 +221,6 @@ export default class CreateLobby extends React.Component {
           maps={maps}
         />
         <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
-        {maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null}
-        {maps.isUploading ? (
-          <div className={styles.loadingArea}>
-            <LoadingIndicator />
-          </div>
-        ) : null}
       </div>
     )
   }
@@ -259,15 +231,11 @@ export default class CreateLobby extends React.Component {
 
   onSubmit = () => {
     const { name, map, gameType, gameSubType } = this._form.getModel()
-    const { localMapHash, localMapPath } = this.props.maps
     const subType = isTeamType(gameType) ? gameSubType : undefined
-    if (map === localMapHash) {
-      this.props.dispatch(hostLocalMap(localMapPath, name, map, gameType, subType))
-    } else {
-      this.props.dispatch(createLobby(name, map, gameType, subType))
-      this.props.dispatch(navigateToLobby(name))
-      this.props.dispatch(closeOverlay())
-    }
+
+    this.props.dispatch(createLobby(name, map, gameType, subType))
+    this.props.dispatch(navigateToLobby(name))
+    this.props.dispatch(closeOverlay())
   }
 
   onMapBrowse = () => {

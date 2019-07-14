@@ -23,11 +23,13 @@ class MapInfo {
 
 const createMapInfo = async info => {
   const map = new MapInfo(info)
+  const hashString = map.hash.toString('hex')
 
   return {
     ...map,
-    mapUrl: await getUrl(mapPath(map.hash, map.format)),
-    imageUrl: await getUrl(imagePath(map.hash)),
+    hash: hashString,
+    mapUrl: await getUrl(mapPath(hashString, map.format)),
+    imageUrl: await getUrl(imagePath(hashString)),
   }
 }
 
@@ -79,15 +81,27 @@ export async function getMapInfo(...hashes) {
   const query = `
     SELECT *
     FROM maps
-    WHERE hash IN $1
+    WHERE hash = ANY($1)
   `
-  // TODO(2Pac): Do we need to escape hashes here?
-  const params = [hashes.map(s => '\\x' + s)]
+  const params = [hashes.map(h => Buffer.from(h, 'hex'))]
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows.map(createMapInfo) : []
+    return Promise.all(result.rows.map(createMapInfo))
+  } finally {
+    done()
+  }
+}
+
+async function getMapsCount() {
+  const query = 'SELECT COUNT(*) FROM maps'
+  const params = []
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows[0]
   } finally {
     done()
   }
@@ -102,16 +116,19 @@ export async function listMaps(limit, pageNumber, searchStr) {
     LIMIT $1
     OFFSET $2
   `
-  const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
   const params = [limit, pageNumber]
   if (searchStr) {
+    const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
     params.push(`%${escapedStr}%`)
   }
+
+  const total = await getMapsCount()
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows.map(createMapInfo) : []
+    const maps = await Promise.all(result.rows.map(createMapInfo))
+    return { total: parseInt(total.count, 10), maps }
   } finally {
     done()
   }

@@ -8,13 +8,14 @@ import bl from 'bl'
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(extension, filename, modifiedDate, path) {
+export async function storeMap(path, extension, filename, modifiedDate) {
   const { mapData, imageStream } = await mapParseWorker(path, extension)
   const { hash } = mapData
 
   let map = (await getMapInfo(hash))[0]
   if (map) {
     // Means the map already exists and we don't have to upload it twice
+    // TODO(2Pac): Handle the case when two different users try to upload the same map
     return map
   }
 

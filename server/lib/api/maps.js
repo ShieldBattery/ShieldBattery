@@ -25,8 +25,8 @@ function uploadPermissionCheck() {
 }
 
 async function upload(ctx, next) {
-  const { filename, modifiedDate, extension } = ctx.request.body
-  const { path } = ctx.request.files.map
+  const { extension, filename, modifiedDate } = ctx.request.body
+  const { path } = ctx.request.files.file
 
   if (!path) {
     throw new httpErrors.BadRequest('map file must be specified')
@@ -39,7 +39,7 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
-  const map = await storeMap(lowerCaseExtension, filename, modifiedDate, path)
+  const map = await storeMap(path, lowerCaseExtension, filename, modifiedDate)
   ctx.body = {
     map,
   }
@@ -63,11 +63,11 @@ async function list(ctx, next) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
-  const maps = await listMaps(limit, page, query)
+  const { total, maps } = await listMaps(limit, page, query)
   ctx.body = {
     maps,
-    page: 0,
-    limit: maps.length,
-    total: maps.length,
+    page,
+    limit,
+    total,
   }
 }
