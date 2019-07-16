@@ -10,7 +10,10 @@ export function openOverlay(overlayType) {
 }
 
 export function closeOverlay() {
-  return {
-    type: ACTIVITY_OVERLAY_CLOSE,
+  return (dispatch, getState) => {
+    dispatch({
+      type: ACTIVITY_OVERLAY_CLOSE,
+      meta: getState().activityOverlay.overlayType,
+    })
   }
 }

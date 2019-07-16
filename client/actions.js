@@ -213,14 +213,15 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
+// We are starting the process of uploading a local map to the server
+export const LOCAL_MAPS_UPLOAD_BEGIN = 'LOCAL_MAPS_UPLOAD_BEGIN'
+// The server has responded with success/failure to us uploading the local map
+export const LOCAL_MAPS_UPLOAD = 'LOCAL_MAPS_UPLOAD'
+
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
-// We are starting the process of uploading a map to the server
-export const MAPS_UPLOAD_BEGIN = 'MAPS_UPLOAD_BEGIN'
-// The server has responded with success/failure to us uploading the map
-export const MAPS_UPLOAD = 'MAPS_UPLOAD'
 
 // We are starting the process of accepting the match
 export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'

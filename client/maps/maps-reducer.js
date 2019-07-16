@@ -1,6 +1,6 @@
 import { List, Map, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import { MAPS_LIST_GET_BEGIN, MAPS_LIST_GET, MAPS_UPLOAD_BEGIN, MAPS_UPLOAD } from '../actions'
+import { MAPS_LIST_GET_BEGIN, MAPS_LIST_GET } from '../actions'
 
 export const MapRecord = new Record({
   name: null,
@@ -19,9 +19,6 @@ export const Maps = new Record({
   list: new List(),
   byHash: new Map(),
   lastError: null,
-
-  isUploading: false,
-  uploadError: null,
 })
 
 export default keyedReducer(new Maps(), {
@@ -43,17 +40,5 @@ export default keyedReducer(new Maps(), {
       .set('list', list)
       .set('byHash', byHash)
       .set('lastError', null)
-  },
-
-  [MAPS_UPLOAD_BEGIN](state, action) {
-    return state.set('isUploading', true)
-  },
-
-  [MAPS_UPLOAD](state, action) {
-    if (action.error) {
-      return state.set('isUploading', false).set('uploadError', action.payload)
-    }
-
-    return state.set('isUploading', false).set('uploadError', null)
   },
 })

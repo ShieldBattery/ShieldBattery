@@ -3,9 +3,11 @@ import { connect } from 'react-redux'
 import path from 'path'
 import styled from 'styled-components'
 
-import { uploadMap } from './action-creators'
 import BrowseFiles from '../file-browser/browse-files.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import { closeOverlay } from '../activities/action-creators'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { uploadMap } from './action-creators'
 
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
@@ -17,14 +19,26 @@ const LoadingArea = styled.div`
   height: 100%;
 `
 
-@connect(state => ({ maps: state.maps, settings: state.settings }))
+@connect(state => ({ localMaps: state.maps, settings: state.settings }))
 export default class Maps extends React.Component {
+  componentDidUpdate(prevProps) {
+    const { localMaps: prevMaps } = prevProps
+    const { localMaps: curMaps } = this.props
+
+    if (!prevMaps.uploadError && curMaps.uploadError) {
+      this.props.dispatch(closeOverlay())
+      this.props.dispatch(
+        openSnackbar({ message: 'There was a problem uploading the map', time: TIMING_LONG }),
+      )
+    }
+  }
+
   render() {
-    if (!this.props.settings.local.starcraftPath) {
+    if (!this.props.settings.local.starcraftPath || this.props.localMaps.lastError) {
       return null
     }
 
-    if (this.props.maps.isUploading) {
+    if (this.props.localMaps.isUploading) {
       return (
         <LoadingArea>
           <LoadingIndicator />
