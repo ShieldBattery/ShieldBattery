@@ -1,8 +1,6 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { Range } from 'immutable'
 import { connect } from 'react-redux'
-import styles from './create-lobby.css'
 import styled from 'styled-components'
 
 import { openOverlay, closeOverlay } from '../activities/action-creators'
@@ -25,12 +23,55 @@ import form from '../forms/form.jsx'
 import Select from '../material/select/select.jsx'
 import TextField from '../material/text-field.jsx'
 
+const Container = styled.div`
+  padding: 16px;
+`
+
 const LoadingArea = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   height: 100%;
+`
+
+const GameTypeAndSubType = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+
+  & > * {
+    width: calc(50% - 20px);
+  }
+`
+
+const RecentMapsContainer = styled.div`
+  /* display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  flex-wrap: wrap;*/
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  grid-column-gap: 4px;
+  grid-row-gap: 4px;
+
+  &::before {
+    content: '';
+    width: 0;
+    padding-bottom: 100%;
+    grid-row: 1 / 1;
+    grid-column: 1 / 1;
+  }
+
+  & > *:first-child {
+    grid-row: 1 / 1;
+    grid-column: 1 / 1;
+  }
+`
+
+const MapThumbnail = styled.div`
+  background-color: white;
 `
 
 const lobbyNameValidator = composeValidators(
@@ -142,39 +183,15 @@ class CreateLobbyForm extends React.Component {
             tabIndex: 0,
           }}
         />
-        <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
-          {GAME_TYPES.map(type => (
-            <Option key={type} value={type} text={gameTypeToString(type)} />
-          ))}
-        </Select>
-        {this.renderSubTypeSelection()}
+        <GameTypeAndSubType>
+          <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
+            {GAME_TYPES.map(type => (
+              <Option key={type} value={type} text={gameTypeToString(type)} />
+            ))}
+          </Select>
+          {this.renderSubTypeSelection()}
+        </GameTypeAndSubType>
       </form>
-    )
-  }
-}
-
-class RecentMaps extends React.Component {
-  static propTypes = {
-    recentMaps: PropTypes.array,
-    selectedMap: PropTypes.string,
-    onMapSelect: PropTypes.func.isRequired,
-  }
-
-  render() {
-    const { recentMaps, selectedMap, onMapSelect } = this.props
-
-    if (!recentMaps || recentMaps.length < 1) return null
-
-    return (
-      <ul>
-        {recentMaps
-          .slice(0, 5)
-          .map(m =>
-            <li onClick={() => onMapSelect(m.hash)}>m.title</li>(
-              m.hash === selectedMap ? <span>V</span> : null,
-            ),
-          )}
-      </ul>
     )
   }
 }
@@ -218,6 +235,23 @@ export default class CreateLobby extends React.Component {
     this._input.focus()
   }
 
+  renderRecentMaps() {
+    const { recentMaps } = this.props
+    const { selectedMap } = this.state
+
+    return Range(0, 5).map(i => <MapThumbnail key={i} />)
+
+    /* if (!recentMaps || recentMaps.list.size < 1) return null
+
+    return recentMaps.list
+      .slice(0, 5)
+      .map(m =>
+        <MapThumbnail onClick={() => this.onMapSelect(m.hash)}>m.title</MapThumbnail>(
+          m.hash === selectedMap ? <span>V</span> : null,
+        ),
+      )*/
+  }
+
   render() {
     const { lobbyPreferences } = this.props
 
@@ -237,7 +271,7 @@ export default class CreateLobby extends React.Component {
     }
 
     return (
-      <div className={styles.root}>
+      <Container>
         <h3>Create lobby</h3>
         <CreateLobbyForm
           ref={this._setForm}
@@ -246,18 +280,13 @@ export default class CreateLobby extends React.Component {
           onSubmit={this.onSubmit}
           selectedMap={recentMaps.byHash.get(selectedMap)}
         />
-        <RecentMaps
-          recentMaps={recentMaps.list.toArray()}
-          selectedMap={selectedMap}
-          onMapSelect={this.onMapSelect}
-        />
-        <div className={styles.selectMap}>
-          {MAP_UPLOADING ? (
-            <RaisedButton className={styles.mapBrowse} label='Browse' onClick={this.onMapBrowse} />
-          ) : null}
-        </div>
+        <div>Select map</div>
+        <RecentMapsContainer>
+          {this.renderRecentMaps()}
+          {MAP_UPLOADING ? <RaisedButton label='Browse' onClick={this.onMapBrowse} /> : null}
+        </RecentMapsContainer>
         <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
-      </div>
+      </Container>
     )
   }
 
