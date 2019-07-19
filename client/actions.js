@@ -206,6 +206,15 @@ export const LOBBY_UPDATE_SLOT_DELETED = 'LOBBY_UPDATE_SLOT_DELETED'
 // Our status has changed, ie. one of our clients either joined or left the lobby
 export const LOBBY_UPDATE_STATUS = 'LOBBY_UPDATE_STATUS'
 
+// We are beginning to retrieve the lobby preferences from the server
+export const LOBBY_PREFERENCES_GET_BEGIN = 'LOBBY_PREFERENCES_GET_BEGIN'
+// The server has responded with success/failure to our retrieval of lobby preferences
+export const LOBBY_PREFERENCES_GET = 'LOBBY_PREFERENCES_GET'
+// We are beginning to update the lobby preferences to the server
+export const LOBBY_PREFERENCES_UPDATE_BEGIN = 'LOBBY_PREFERENCES_UPDATE_BEGIN'
+// The server has responded with success/failure to us updating the lobby preferences
+export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
+
 // We are starting the process of saving the settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'
 // The server has responded with success/failure to our settings saving

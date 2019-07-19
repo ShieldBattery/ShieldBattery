@@ -1,3 +1,4 @@
+import fetch from '../network/fetch'
 import siteSocket from '../network/site-socket'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import { push } from 'connected-react-router'
@@ -34,6 +35,10 @@ import {
   LOBBY_SET_RACE,
   LOBBY_START_COUNTDOWN_BEGIN,
   LOBBY_START_COUNTDOWN,
+  LOBBY_PREFERENCES_GET_BEGIN,
+  LOBBY_PREFERENCES_GET,
+  LOBBY_PREFERENCES_UPDATE_BEGIN,
+  LOBBY_PREFERENCES_UPDATE,
 } from '../actions'
 
 export const createLobby = (name, map, gameType, gameSubType, allowObservers = true) =>
@@ -121,6 +126,41 @@ export function getLobbyState(lobbyName) {
       type: LOBBIES_GET_STATE,
       payload: siteSocket.invoke('/lobbies/getLobbyState', { lobbyName }),
       meta: { lobbyName, requestTime },
+    })
+  }
+}
+
+const LOBBY_PREFERENCES_STALE_TIME = 1000
+function shouldGetLobbyPreferences(preferences) {
+  return (
+    !preferences.isRequesting && Date.now() - preferences.lastUpdated > LOBBY_PREFERENCES_STALE_TIME
+  )
+}
+
+function getLobbyPreferences() {
+  return (dispatch, getState) => {
+    dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN })
+    dispatch({ type: LOBBY_PREFERENCES_GET, payload: fetch('/api/1/lobbyPreferences') })
+  }
+}
+
+export function getLobbyPreferencesIfNeeded() {
+  return (dispatch, getState) => {
+    if (shouldGetLobbyPreferences(getState().lobbyPreferences)) {
+      dispatch(getLobbyPreferences())
+    }
+  }
+}
+
+export function updateLobbyPreferences(preferences) {
+  return dispatch => {
+    dispatch({ type: LOBBY_PREFERENCES_UPDATE_BEGIN })
+    dispatch({
+      type: LOBBY_PREFERENCES_UPDATE,
+      payload: fetch('/api/1/lobbyPreferences', {
+        method: 'post',
+        body: JSON.stringify(preferences),
+      }),
     })
   }
 }

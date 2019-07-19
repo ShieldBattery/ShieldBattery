@@ -1,22 +1,37 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { Range } from 'immutable'
 import { connect } from 'react-redux'
-import { createLobby, navigateToLobby } from './action-creators'
-import { getMapsList } from '../maps/action-creators'
+import styles from './create-lobby.css'
+import styled from 'styled-components'
+
 import { openOverlay, closeOverlay } from '../activities/action-creators'
-import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../app/common/constants'
 import gameTypeToString from './game-type-to-string'
 import { isTeamType } from '../../app/common/lobbies'
 import { MAP_UPLOADING } from '../../app/common/flags'
-import styles from './create-lobby.css'
+import {
+  createLobby,
+  navigateToLobby,
+  getLobbyPreferencesIfNeeded,
+  updateLobbyPreferences,
+} from './action-creators'
 
+import LoadingIndicator from '../progress/dots.jsx'
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
 import Select from '../material/select/select.jsx'
 import TextField from '../material/text-field.jsx'
+
+const LoadingArea = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+`
 
 const lobbyNameValidator = composeValidators(
   required('Enter a lobby name'),
@@ -27,13 +42,11 @@ const lobbyNameValidator = composeValidators(
   name: lobbyNameValidator,
 })
 class CreateLobbyForm extends React.Component {
-  _lastMapHash = null
   _lastGameType = null
   _lastGameSubType = null
 
   _updateLastValues() {
     const { getInputValue } = this.props
-    this._lastMapHash = getInputValue('map')
     this._lastGameType = getInputValue('gameType')
     this._lastGameSubType = getInputValue('gameSubType')
   }
@@ -47,18 +60,17 @@ class CreateLobbyForm extends React.Component {
   }
 
   componentWillUpdate(nextProps) {
-    const { getInputValue, setInputValue, maps } = nextProps
+    const { getInputValue, setInputValue, selectedMap: nextSelectedMap } = nextProps
     const nextGameType = getInputValue('gameType')
     const nextGameSubType = getInputValue('gameSubType')
-    const nextMapHash = getInputValue('map')
 
-    if (!nextMapHash) return
+    if (!nextSelectedMap) return
 
-    if (nextGameType !== this._lastGameType || nextMapHash !== this._lastMapHash) {
+    if (nextGameType !== this._lastGameType || nextSelectedMap !== this.props.selectedMap) {
       if (!isTeamType(nextGameType)) return
 
-      // Ensure gameSubType is always set, and always within a valid range for the current map
-      const { slots } = maps.byHash.get(nextMapHash)
+      // Ensure `gameSubType` is always set, and always within a valid range for the current map
+      const { slots } = nextSelectedMap
       if (nextGameType === 'topVBottom') {
         if (
           nextGameType !== this._lastGameType ||
@@ -82,18 +94,17 @@ class CreateLobbyForm extends React.Component {
   }
 
   renderSubTypeSelection() {
-    const { bindCustom, getInputValue, maps } = this.props
+    const { bindCustom, getInputValue, selectedMap } = this.props
 
     const gameType = getInputValue('gameType')
     if (!isTeamType(gameType)) {
       return null
     }
-    const mapHash = getInputValue('map')
-    if (!mapHash) {
+    if (!selectedMap) {
       return null
     }
 
-    const { slots } = maps.byHash.get(mapHash)
+    const { slots } = selectedMap
     if (gameType === 'topVBottom') {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
@@ -114,10 +125,7 @@ class CreateLobbyForm extends React.Component {
   }
 
   render() {
-    const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
-    const mapListContents = maps.list.map(hash => (
-      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
-    ))
+    const { onSubmit, bindInput, bindCustom, inputRef } = this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
@@ -134,23 +142,6 @@ class CreateLobbyForm extends React.Component {
             tabIndex: 0,
           }}
         />
-        <div className={styles.selectMap}>
-          <Select
-            className={styles.mapList}
-            {...bindCustom('map')}
-            label='Map'
-            tabIndex={0}
-            disabled={!mapListContents.size}>
-            {mapListContents}
-          </Select>
-          {MAP_UPLOADING ? (
-            <RaisedButton
-              className={styles.mapBrowse}
-              label='Browse'
-              onClick={this.props.onMapBrowse}
-            />
-          ) : null}
-        </div>
         <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
           {GAME_TYPES.map(type => (
             <Option key={type} value={type} text={gameTypeToString(type)} />
@@ -162,7 +153,33 @@ class CreateLobbyForm extends React.Component {
   }
 }
 
-@connect(state => ({ maps: state.maps }))
+class RecentMaps extends React.Component {
+  static propTypes = {
+    recentMaps: PropTypes.array,
+    selectedMap: PropTypes.string,
+    onMapSelect: PropTypes.func.isRequired,
+  }
+
+  render() {
+    const { recentMaps, selectedMap, onMapSelect } = this.props
+
+    if (!recentMaps || recentMaps.length < 1) return null
+
+    return (
+      <ul>
+        {recentMaps
+          .slice(0, 5)
+          .map(m =>
+            <li onClick={() => onMapSelect(m.hash)}>m.title</li>(
+              m.hash === selectedMap ? <span>V</span> : null,
+            ),
+          )}
+      </ul>
+    )
+  }
+}
+
+@connect(state => ({ lobbyPreferences: state.lobbyPreferences }))
 export default class CreateLobby extends React.Component {
   _autoFocusTimer = null
   _form = null
@@ -173,20 +190,13 @@ export default class CreateLobby extends React.Component {
   _setInput = elem => {
     this._input = elem
   }
-
-  componentWillReceiveProps(nextProps) {
-    const { maps: curMaps } = this.props
-    const { maps: nextMaps } = nextProps
-
-    if (!curMaps.lastError && nextMaps.lastError) {
-      this.props.dispatch(closeOverlay())
-      this.props.dispatch(openSnackbar({ message: 'There was a problem loading the maps list' }))
-    }
+  state = {
+    selectedMap: this.props.lobbyPreferences.selectedMap,
   }
 
   componentDidMount() {
     this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
-    this.props.dispatch(getMapsList())
+    this.props.dispatch(getLobbyPreferencesIfNeeded())
   }
 
   componentWillUnmount() {
@@ -194,6 +204,13 @@ export default class CreateLobby extends React.Component {
       clearTimeout(this._autoFocusTimer)
       this._autoFocusTimer = null
     }
+    this.props.dispatch(
+      updateLobbyPreferences({
+        ...this._form.getModel(),
+        recentMaps: this.props.lobbyPreferences.recentMaps.list.toArray(),
+        selectedMap: this.state.selectedMap,
+      }),
+    )
   }
 
   _doAutoFocus() {
@@ -202,11 +219,21 @@ export default class CreateLobby extends React.Component {
   }
 
   render() {
-    const { maps } = this.props
+    const { lobbyPreferences } = this.props
 
+    if (lobbyPreferences.isRequesting) {
+      return (
+        <LoadingArea>
+          <LoadingIndicator />
+        </LoadingArea>
+      )
+    }
+
+    const { name, gameType, gameSubType, recentMaps, selectedMap } = lobbyPreferences
     const model = {
-      map: maps.list.get(0),
-      gameType: 'melee',
+      name,
+      gameType: gameType || 'melee',
+      gameSubType,
     }
 
     return (
@@ -217,12 +244,31 @@ export default class CreateLobby extends React.Component {
           inputRef={this._setInput}
           model={model}
           onSubmit={this.onSubmit}
-          onMapBrowse={this.onMapBrowse}
-          maps={maps}
+          selectedMap={recentMaps.byHash.get(selectedMap)}
         />
+        <RecentMaps
+          recentMaps={recentMaps.list.toArray()}
+          selectedMap={selectedMap}
+          onMapSelect={this.onMapSelect}
+        />
+        <div className={styles.selectMap}>
+          {MAP_UPLOADING ? (
+            <RaisedButton className={styles.mapBrowse} label='Browse' onClick={this.onMapBrowse} />
+          ) : null}
+        </div>
         <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
       </div>
     )
+  }
+
+  onMapBrowse = () => {
+    this.props.dispatch(openOverlay('browseMaps'))
+  }
+
+  onMapSelect = map => {
+    this.setState({
+      selectedMap: map,
+    })
   }
 
   onCreateClick = () => {
@@ -230,15 +276,12 @@ export default class CreateLobby extends React.Component {
   }
 
   onSubmit = () => {
-    const { name, map, gameType, gameSubType } = this._form.getModel()
+    const { selectedMap } = this.state
+    const { name, gameType, gameSubType } = this._form.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
-    this.props.dispatch(createLobby(name, map, gameType, subType))
+    this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
     this.props.dispatch(navigateToLobby(name))
     this.props.dispatch(closeOverlay())
-  }
-
-  onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseMaps'))
   }
 }
