@@ -6,7 +6,7 @@ class LobbyPreferences {
     this.gameType = props.game_type
     this.gameSubType = props.game_sub_type
     this.recentMaps = (props.recent_maps || []).map(m => m.toString('hex'))
-    this.selectedMap = props.selected_map
+    this.selectedMap = props.selected_map ? props.selected_map.toString('hex') : null
   }
 }
 

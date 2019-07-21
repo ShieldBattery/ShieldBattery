@@ -139,8 +139,14 @@ function shouldGetLobbyPreferences(preferences) {
 
 function getLobbyPreferences() {
   return (dispatch, getState) => {
+    const { selectedMap } = getState().localMaps
+
     dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN })
-    dispatch({ type: LOBBY_PREFERENCES_GET, payload: fetch('/api/1/lobbyPreferences') })
+    dispatch({
+      type: LOBBY_PREFERENCES_GET,
+      payload: fetch('/api/1/lobbyPreferences'),
+      meta: { selectedMap },
+    })
   }
 }
 

@@ -5,7 +5,6 @@ import {
   LOBBY_PREFERENCES_GET_BEGIN,
   LOBBY_PREFERENCES_GET,
   LOBBY_PREFERENCES_UPDATE,
-  LOCAL_MAPS_UPLOAD,
 } from '../actions'
 
 export const RecentMaps = new Record({
@@ -49,6 +48,14 @@ export default keyedReducer(new LobbyPreferences(), {
       return state.set('isRequesting', false).set('lastError', action.payload)
     }
 
+    const { selectedMap } = action.meta
+
+    if (selectedMap && !state.recentMaps.byHash.has(selectedMap.hash)) {
+      const recentMaps = [selectedMap, ...action.payload.recentMaps]
+
+      return createPreferences({ ...action.payload, recentMaps, selectedMap: selectedMap.hash })
+    }
+
     return createPreferences(action.payload)
   },
 
@@ -58,14 +65,5 @@ export default keyedReducer(new LobbyPreferences(), {
     }
 
     return createPreferences(action.payload)
-  },
-
-  [LOCAL_MAPS_UPLOAD](state, action) {
-    const recentMaps = new RecentMaps({
-      list: state.recentMaps.list.pop().insert(0, action.payload),
-      byHash: state.recentMaps.byHash.set(action.payload.hash, action.payload),
-    })
-
-    return state.set('recentMaps', recentMaps).set('selectedMap', action.payload.hash)
   },
 })

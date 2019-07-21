@@ -55,12 +55,9 @@ async function upsertPreferences(ctx, next) {
     recentMaps.slice(0, 5),
     selectedMap,
   )
-  const recentMapInfos = await Promise.all(preferences.recentMaps.map(m => getMapInfo(m)))
-  const selectedMapInfo = preferences.selectedMap ? await getMapInfo(preferences.selectedMap) : null
   ctx.body = {
     ...preferences,
-    recentMaps: recentMapInfos,
-    selectedMap: selectedMapInfo,
+    recentMaps: await getMapInfo(...preferences.recentMaps),
   }
 }
 
@@ -71,11 +68,8 @@ async function getPreferences(ctx, next) {
     throw new httpErrors.NotFound('no lobby preferences found for this user')
   }
 
-  const recentMapInfos = await Promise.all(preferences.recentMaps.map(m => getMapInfo(m)))
-  const selectedMapInfo = preferences.selectedMap ? await getMapInfo(preferences.selectedMap) : null
   ctx.body = {
     ...preferences,
-    recentMaps: recentMapInfos,
-    selectedMap: selectedMapInfo,
+    recentMaps: await getMapInfo(...preferences.recentMaps),
   }
 }

@@ -5,21 +5,21 @@ import { openOverlay } from '../activities/action-creators'
 import {
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
-  LOCAL_MAPS_UPLOAD_BEGIN,
-  LOCAL_MAPS_UPLOAD,
+  LOCAL_MAPS_SELECT_BEGIN,
+  LOCAL_MAPS_SELECT,
 } from '../actions'
 
-export function uploadMap(path) {
-  return dispatch => {
-    dispatch({ type: LOCAL_MAPS_UPLOAD_BEGIN })
-    dispatch({
-      type: LOCAL_MAPS_UPLOAD,
-      payload: upload(path, '/api/1/maps').then(map => {
-        dispatch(openOverlay('createLobby'))
+export function selectLocalMap(path) {
+  return async dispatch => {
+    dispatch({ type: LOCAL_MAPS_SELECT_BEGIN })
 
-        return map
-      }),
+    // Have to use `await` here so the "create lobby" overlay is not opened before this action's
+    // reducer gets called and sets the selected map
+    await dispatch({
+      type: LOCAL_MAPS_SELECT,
+      payload: upload(path, '/api/1/maps'),
     })
+    dispatch(openOverlay('createLobby'))
   }
 }
 

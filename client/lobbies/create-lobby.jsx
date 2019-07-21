@@ -46,16 +46,13 @@ const GameTypeAndSubType = styled.div`
 `
 
 const RecentMapsContainer = styled.div`
-  /* display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  flex-wrap: wrap;*/
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
   grid-column-gap: 4px;
   grid-row-gap: 4px;
 
+  // A trick to keep grid items at 1:1 aspect ratio while having variable widths
   &::before {
     content: '';
     width: 0;
@@ -208,7 +205,7 @@ export default class CreateLobby extends React.Component {
     this._input = elem
   }
   state = {
-    selectedMap: this.props.lobbyPreferences.selectedMap,
+    selectedMap: null,
   }
 
   componentDidMount() {
@@ -216,18 +213,30 @@ export default class CreateLobby extends React.Component {
     this.props.dispatch(getLobbyPreferencesIfNeeded())
   }
 
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.selectedMap !== this.props.lobbyPreferences.selectedMap) {
+      this.setState({ selectedMap: this.props.lobbyPreferences.selectedMap })
+    }
+  }
+
   componentWillUnmount() {
+    const {
+      lobbyPreferences: { recentMaps },
+    } = this.props
+    const { selectedMap } = this.state
+
+    this.props.dispatch(
+      updateLobbyPreferences({
+        ...this._form.getModel(),
+        recentMaps: recentMaps.list.toArray(),
+        selectedMap,
+      }),
+    )
+
     if (this._autoFocusTimer) {
       clearTimeout(this._autoFocusTimer)
       this._autoFocusTimer = null
     }
-    this.props.dispatch(
-      updateLobbyPreferences({
-        ...this._form.getModel(),
-        recentMaps: this.props.lobbyPreferences.recentMaps.list.toArray(),
-        selectedMap: this.state.selectedMap,
-      }),
-    )
   }
 
   _doAutoFocus() {
@@ -291,7 +300,7 @@ export default class CreateLobby extends React.Component {
   }
 
   onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseMaps'))
+    this.props.dispatch(openOverlay('browseLocalMaps'))
   }
 
   onMapSelect = map => {

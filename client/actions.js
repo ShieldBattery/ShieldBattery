@@ -222,10 +222,11 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
-// We are starting the process of uploading a local map to the server
-export const LOCAL_MAPS_UPLOAD_BEGIN = 'LOCAL_MAPS_UPLOAD_BEGIN'
-// The server has responded with success/failure to us uploading the local map
-export const LOCAL_MAPS_UPLOAD = 'LOCAL_MAPS_UPLOAD'
+// We are starting the process of selecting a local map when creating a lobby (usually means
+// uploading the map)
+export const LOCAL_MAPS_SELECT_BEGIN = 'LOCAL_MAPS_SELECT_BEGIN'
+// The server has responded with success/failure to us selecting the local map
+export const LOCAL_MAPS_SELECT = 'LOCAL_MAPS_SELECT'
 
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
