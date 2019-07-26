@@ -88,7 +88,12 @@ export async function getMapInfo(...hashes) {
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return Promise.all(result.rows.map(createMapInfo))
+
+    if (result.rows.length < 1) return null
+
+    const getInfo = hash => result.rows.find(m => m.hash.toString('hex') === hash)
+    // Filter out the non-existing maps and preserve the order of the input array
+    return Promise.all(hashes.filter(getInfo).map(h => createMapInfo(getInfo(h))))
   } finally {
     done()
   }
