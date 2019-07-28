@@ -9,7 +9,7 @@ import JoinLobby from '../lobbies/join-lobby.jsx'
 
 import { closeOverlay } from './action-creators'
 
-import { dialogScrim, grey800 } from '../styles/colors'
+import { dialogScrim, grey850 } from '../styles/colors'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
@@ -55,7 +55,7 @@ const Overlay = styled.div`
   width: 60%;
   min-width: 448px;
   max-width: 768px;
-  background-color: ${grey800};
+  background-color: ${grey850};
   z-index: ${zIndexSideNav};
 
   -webkit-app-region: no-drag;
