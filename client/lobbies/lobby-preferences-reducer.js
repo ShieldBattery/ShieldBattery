@@ -53,7 +53,7 @@ export default keyedReducer(new LobbyPreferences(), {
     if (selectedMap) {
       const recentMaps = state.recentMaps.byHash.has(selectedMap.hash)
         ? action.payload.recentMaps
-        : [selectedMap, ...action.payload.recentMaps]
+        : [selectedMap, ...action.payload.recentMaps].slice(0, 5)
 
       return createPreferences({ ...action.payload, recentMaps, selectedMap: selectedMap.hash })
     }

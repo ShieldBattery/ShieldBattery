@@ -8,7 +8,6 @@ import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../app/common/constants'
 import gameTypeToString from './game-type-to-string'
 import { isTeamType } from '../../app/common/lobbies'
-import { MAP_UPLOADING } from '../../app/common/flags'
 import {
   createLobby,
   navigateToLobby,
@@ -17,15 +16,16 @@ import {
 } from './action-creators'
 
 import LoadingIndicator from '../progress/dots.jsx'
+import MapSelect from '../maps/map-select.jsx'
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
 import Select from '../material/select/select.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
-const Container = styled.div`
-  padding: 16px;
-`
+import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { Headline, Subheading } from '../styles/typography'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -33,6 +33,40 @@ const LoadingArea = styled.div`
   align-items: center;
   justify-content: center;
   height: 100%;
+`
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+`
+
+const TitleBar = styled.div`
+  margin: 24px;
+
+  & > h3 {
+    margin: 0;
+  }
+`
+
+const Contents = styled.div`
+  flex-grow: 1;
+`
+
+const ContentsBody = styled.div`
+  padding: 0 24px;
+`
+
+const ScrollDivider = styled.div`
+  width: 100%;
+  height: 1px;
+  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
+  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
+  background-color: ${colorDividers};
+`
+
+const Actions = styled.div`
+  margin: 16px 24px;
 `
 
 const GameTypeAndSubType = styled.div`
@@ -45,30 +79,8 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
-const RecentMapsContainer = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  grid-column-gap: 4px;
-  grid-row-gap: 4px;
-
-  // A trick to keep grid items at 1:1 aspect ratio while having variable widths
-  &::before {
-    content: '';
-    width: 0;
-    padding-bottom: 100%;
-    grid-row: 1 / 1;
-    grid-column: 1 / 1;
-  }
-
-  & > *:first-child {
-    grid-row: 1 / 1;
-    grid-column: 1 / 1;
-  }
-`
-
-const MapThumbnail = styled.div`
-  background-color: white;
+const Underline = styled(Subheading)`
+  color: ${colorTextSecondary};
 `
 
 const lobbyNameValidator = composeValidators(
@@ -82,11 +94,13 @@ const lobbyNameValidator = composeValidators(
 class CreateLobbyForm extends React.Component {
   _lastGameType = null
   _lastGameSubType = null
+  _lastSelectedMap = null
 
   _updateLastValues() {
     const { getInputValue } = this.props
     this._lastGameType = getInputValue('gameType')
     this._lastGameSubType = getInputValue('gameSubType')
+    this._lastSelectedMap = getInputValue('selectedMap')
   }
 
   componentDidMount() {
@@ -98,17 +112,18 @@ class CreateLobbyForm extends React.Component {
   }
 
   componentWillUpdate(nextProps) {
-    const { getInputValue, setInputValue, selectedMap: nextSelectedMap } = nextProps
+    const { getInputValue, setInputValue, recentMaps } = nextProps
     const nextGameType = getInputValue('gameType')
     const nextGameSubType = getInputValue('gameSubType')
+    const nextSelectedMap = getInputValue('selectedMap')
 
     if (!nextSelectedMap) return
 
-    if (nextGameType !== this._lastGameType || nextSelectedMap !== this.props.selectedMap) {
+    if (nextGameType !== this._lastGameType || nextSelectedMap !== this._lastSelectedMap) {
       if (!isTeamType(nextGameType)) return
 
       // Ensure `gameSubType` is always set, and always within a valid range for the current map
-      const { slots } = nextSelectedMap
+      const { slots } = recentMaps.byHash.get(nextSelectedMap)
       if (nextGameType === 'topVBottom') {
         if (
           nextGameType !== this._lastGameType ||
@@ -132,17 +147,18 @@ class CreateLobbyForm extends React.Component {
   }
 
   renderSubTypeSelection() {
-    const { bindCustom, getInputValue, selectedMap } = this.props
+    const { bindCustom, getInputValue, recentMaps } = this.props
 
     const gameType = getInputValue('gameType')
     if (!isTeamType(gameType)) {
       return null
     }
+    const selectedMap = getInputValue('selectedMap')
     if (!selectedMap) {
       return null
     }
 
-    const { slots } = selectedMap
+    const { slots } = recentMaps.byHash.get(selectedMap)
     if (gameType === 'topVBottom') {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
@@ -163,7 +179,7 @@ class CreateLobbyForm extends React.Component {
   }
 
   render() {
-    const { onSubmit, bindInput, bindCustom, inputRef } = this.props
+    const { onSubmit, bindInput, bindCustom, inputRef, recentMaps, onMapBrowse } = this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
@@ -188,6 +204,14 @@ class CreateLobbyForm extends React.Component {
           </Select>
           {this.renderSubTypeSelection()}
         </GameTypeAndSubType>
+        <Underline>Select map</Underline>
+        <MapSelect
+          {...bindCustom('selectedMap')}
+          maps={recentMaps.byHash.valueSeq().toArray()}
+          maxSelections={1}
+          thumbnailSize='large'
+          canBrowseMaps={true}
+          onMapBrowse={onMapBrowse}></MapSelect>
       </form>
     )
   }
@@ -204,39 +228,41 @@ export default class CreateLobby extends React.Component {
   _setInput = elem => {
     this._input = elem
   }
+
   state = {
-    selectedMap: null,
+    scrolledUp: false,
+    scrolledDown: false,
   }
 
-  componentDidMount() {
-    this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
-    this.props.dispatch(getLobbyPreferencesIfNeeded())
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.selectedMap !== this.props.lobbyPreferences.selectedMap) {
-      this.setState({ selectedMap: this.props.lobbyPreferences.selectedMap })
-    }
-  }
-
-  componentWillUnmount() {
+  _savePreferences = () => {
     const {
       lobbyPreferences: { recentMaps },
     } = this.props
-    const { selectedMap } = this.state
 
     this.props.dispatch(
       updateLobbyPreferences({
         ...this._form.getModel(),
         recentMaps: recentMaps.list.toArray(),
-        selectedMap,
       }),
     )
+  }
 
+  componentDidMount() {
+    this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
+    this.props.dispatch(getLobbyPreferencesIfNeeded())
+    window.addEventListener('beforeunload', this._savePreferences)
+  }
+
+  componentWillUnmount() {
     if (this._autoFocusTimer) {
       clearTimeout(this._autoFocusTimer)
       this._autoFocusTimer = null
     }
+
+    // Saves the lobby preferences if the component had time to unmount. If it didn't, eg. the page
+    // was refreshed, the 'beforeunload' event listener will handle it.
+    this._savePreferences()
+    window.removeEventListener('beforeunload', this._savePreferences)
   }
 
   _doAutoFocus() {
@@ -244,25 +270,9 @@ export default class CreateLobby extends React.Component {
     this._input.focus()
   }
 
-  renderRecentMaps() {
-    const { recentMaps } = this.props
-    const { selectedMap } = this.state
-
-    return Range(0, 5).map(i => <MapThumbnail key={i} />)
-
-    /* if (!recentMaps || recentMaps.list.size < 1) return null
-
-    return recentMaps.list
-      .slice(0, 5)
-      .map(m =>
-        <MapThumbnail onClick={() => this.onMapSelect(m.hash)}>m.title</MapThumbnail>(
-          m.hash === selectedMap ? <span>V</span> : null,
-        ),
-      )*/
-  }
-
   render() {
     const { lobbyPreferences } = this.props
+    const { scrolledUp, scrolledDown } = this.state
 
     if (lobbyPreferences.isRequesting) {
       return (
@@ -277,36 +287,49 @@ export default class CreateLobby extends React.Component {
       name,
       gameType: gameType || 'melee',
       gameSubType,
+      selectedMap,
     }
 
     return (
       <Container>
-        <h3>Create lobby</h3>
-        <CreateLobbyForm
-          ref={this._setForm}
-          inputRef={this._setInput}
-          model={model}
-          onSubmit={this.onSubmit}
-          selectedMap={recentMaps.byHash.get(selectedMap)}
-        />
-        <div>Select map</div>
-        <RecentMapsContainer>
-          {this.renderRecentMaps()}
-          {MAP_UPLOADING ? <RaisedButton label='Browse' onClick={this.onMapBrowse} /> : null}
-        </RecentMapsContainer>
-        <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
+        <TitleBar>
+          <Headline>Create lobby</Headline>
+        </TitleBar>
+        <Contents>
+          {scrolledDown ? <ScrollDivider position='top' /> : null}
+          <ScrollableContent onUpdate={this.onScrollUpdate}>
+            <ContentsBody>
+              <CreateLobbyForm
+                ref={this._setForm}
+                inputRef={this._setInput}
+                model={model}
+                onSubmit={this.onSubmit}
+                recentMaps={recentMaps}
+                onMapBrowse={this.onMapBrowse}
+              />
+            </ContentsBody>
+          </ScrollableContent>
+          {scrolledUp ? <ScrollDivider position='bottom' /> : null}
+        </Contents>
+        <Actions>
+          <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
+        </Actions>
       </Container>
     )
   }
 
-  onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseLocalMaps'))
+  onScrollUpdate = values => {
+    const { scrollTop, scrollHeight, clientHeight } = values
+    const scrolledUp = scrollTop + clientHeight < scrollHeight
+    const scrolledDown = scrollTop > 0
+
+    if (scrolledUp !== this.state.scrolledUp || scrolledDown !== this.state.scrolledDown) {
+      this.setState({ scrolledUp, scrolledDown })
+    }
   }
 
-  onMapSelect = map => {
-    this.setState({
-      selectedMap: map,
-    })
+  onMapBrowse = () => {
+    this.props.dispatch(openOverlay('browseLocalMaps'))
   }
 
   onCreateClick = () => {
@@ -314,8 +337,7 @@ export default class CreateLobby extends React.Component {
   }
 
   onSubmit = () => {
-    const { selectedMap } = this.state
-    const { name, gameType, gameSubType } = this._form.getModel()
+    const { name, gameType, gameSubType, selectedMap } = this._form.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
