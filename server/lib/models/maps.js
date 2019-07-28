@@ -89,7 +89,7 @@ export async function getMapInfo(...hashes) {
   try {
     const result = await client.query(query, params)
 
-    if (result.rows.length < 1) return null
+    if (result.rows.length < 1) return []
 
     const getInfo = hash => result.rows.find(m => m.hash.toString('hex') === hash)
     // Filter out the non-existing maps and preserve the order of the input array
