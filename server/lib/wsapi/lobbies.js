@@ -15,7 +15,7 @@ import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
 import {
   isValidLobbyName,
   isValidGameType,
-  isValidSubGameType,
+  isValidGameSubType,
   validRace,
 } from '../../../app/common/constants'
 import {
@@ -139,7 +139,7 @@ export class LobbyApi {
       name: isValidLobbyName,
       map: nonEmptyString,
       gameType: isValidGameType,
-      gameSubType: isValidSubGameType,
+      gameSubType: isValidGameSubType,
     }),
   )
   async create(data, next) {

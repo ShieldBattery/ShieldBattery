@@ -56,7 +56,7 @@ export function isValidGameType(type) {
   return GAME_TYPES.includes(type)
 }
 
-export function isValidSubGameType(type) {
+export function isValidGameSubType(type) {
   return type => !type || (type >= 1 && type <= 7)
 }
 
