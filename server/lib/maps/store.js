@@ -19,11 +19,11 @@ export async function storeMap(path, extension, filename, modifiedDate) {
     return map
   }
 
-  map = await addMap(mapData, extension, filename, modifiedDate, () => {
+  map = await addMap(mapData, extension, filename, modifiedDate, async () => {
     if (imageStream) {
-      writeFile(imagePath(hash), imageStream)
+      await writeFile(imagePath(hash), imageStream)
     }
-    writeFile(mapPath(hash, extension), fs.createReadStream(path))
+    await writeFile(mapPath(hash, extension), fs.createReadStream(path))
   })
 
   return map
