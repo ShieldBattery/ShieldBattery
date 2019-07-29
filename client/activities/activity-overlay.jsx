@@ -105,6 +105,11 @@ const Container = styled.div`
 
 @connect(state => ({ activityOverlay: state.activityOverlay }))
 export default class ActivityOverlay extends React.Component {
+  _focusable = null
+  _setFocusable = elem => {
+    this._focusable = elem
+  }
+
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
       case 'findMatch':
@@ -138,12 +143,18 @@ export default class ActivityOverlay extends React.Component {
 
   render() {
     return (
-      <TransitionGroup
-        transitionName={transitionNames}
-        transitionEnterTimeout={350}
-        transitionLeaveTimeout={250}>
-        {this.renderOverlay()}
-      </TransitionGroup>
+      <>
+        <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />
+        <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
+          <TransitionGroup
+            transitionName={transitionNames}
+            transitionEnterTimeout={350}
+            transitionLeaveTimeout={250}>
+            {this.renderOverlay()}
+          </TransitionGroup>
+        </span>
+        <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />
+      </>
     )
   }
 
@@ -158,5 +169,10 @@ export default class ActivityOverlay extends React.Component {
     }
 
     return false
+  }
+
+  onFocusTrap = () => {
+    // Focus was about to leave the activity area, redirect it back to the activity
+    this._focusable.focus()
   }
 }
