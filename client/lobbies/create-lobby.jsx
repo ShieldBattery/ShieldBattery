@@ -87,9 +87,11 @@ const lobbyNameValidator = composeValidators(
   required('Enter a lobby name'),
   maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`),
 )
+const selectedMapValidator = required('Select a map to play')
 
 @form({
   name: lobbyNameValidator,
+  selectedMap: selectedMapValidator,
 })
 class CreateLobbyForm extends React.Component {
   _lastGameType = null

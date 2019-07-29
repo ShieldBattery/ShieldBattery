@@ -35,7 +35,7 @@ export function debounce(validator, delay) {
 }
 
 export function required(msg) {
-  return val => (val !== undefined && val !== '' ? null : msg)
+  return val => (val !== undefined && val !== null && val !== '' ? null : msg)
 }
 
 export function minLength(length, msg) {

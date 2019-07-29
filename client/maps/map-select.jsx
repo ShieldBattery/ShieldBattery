@@ -12,7 +12,7 @@ import BrowseIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { shadow2dp, shadow8dp } from '../material/shadows'
-import { grey800, colorTextSecondary } from '../styles/colors'
+import { grey800, colorError, colorTextSecondary } from '../styles/colors'
 import { Subheading } from '../styles/typography'
 
 const SPACE = 'Space'
@@ -22,6 +22,10 @@ const Container = styled.div`
   &:focus {
     outline: none;
   }
+`
+
+const ErrorText = styled(Subheading)`
+  color: ${colorError};
 `
 
 // TODO(2Pac): Make this into a general image list component and move it to material folder
@@ -91,6 +95,7 @@ export default class MapSelect extends React.Component {
   static propTypes = {
     maps: PropTypes.array,
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(List)]),
+    errorText: PropTypes.string,
     onChange: PropTypes.func,
     canBrowseMaps: PropTypes.bool,
     onMapBrowse: PropTypes.func,
@@ -121,7 +126,7 @@ export default class MapSelect extends React.Component {
   }
 
   render() {
-    const { maps, value, thumbnailSize, canBrowseMaps } = this.props
+    const { maps, value, errorText, thumbnailSize, canBrowseMaps } = this.props
     const { isFocused, focusedIndex } = this.state
 
     const isSelected = m =>
@@ -141,6 +146,7 @@ export default class MapSelect extends React.Component {
     return (
       <Container tabIndex={0} onFocus={this.onFocus} onBlur={this.onBlur}>
         <KeyListener onKeyDown={this.onKeyDown} />
+        {errorText ? <ErrorText>{errorText}</ErrorText> : null}
         <ImageList
           columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
           padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
