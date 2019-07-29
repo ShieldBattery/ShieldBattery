@@ -331,7 +331,9 @@ class Select extends React.Component {
   }
 
   onKeyPress = event => {
-    if (!this.state.isOpened && this.state.isFocused) {
+    if (!this.state.isFocused) return false
+
+    if (!this.state.isOpened) {
       if (!this.state.isClosing && (event.which === SPACE || event.which === ENTER)) {
         this.onOpen()
         return true
