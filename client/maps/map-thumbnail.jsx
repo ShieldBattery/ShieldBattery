@@ -27,10 +27,12 @@ const Overlay = styled.div`
   justify-content: center;
   align-items: center;
   background-color: ${props => {
-    const opacity = props.isSelected ? '0.36' : '0'
+    let opacity = 0
+    if (props.isFocused) opacity = '0.12'
+    if (props.isSelected) opacity = '0.36'
     const style = `rgba(255, 229, 127, ${opacity})` /* amberA100 */
 
-    return props.isSelected ? style + ' !important' : style
+    return props.isSelected || props.isFocused ? style + ' !important' : style
   }};
   transition: background-color 150ms ${fastOutSlowIn};
 
@@ -67,19 +69,24 @@ export default class MapThumbnail extends React.Component {
     map: PropTypes.object.isRequired,
     showMapName: PropTypes.bool,
     isSelected: PropTypes.bool,
+    isFocused: PropTypes.bool,
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
   }
 
   render() {
-    const { map, showMapName, isSelected, selectedIcon } = this.props
+    const { map, showMapName, isSelected, selectedIcon, isFocused } = this.props
 
     return (
       <Container>
         <picture>
           <MapImage src={map.imageUrl} alt={map.name} />
         </picture>
-        <Overlay isSelected={isSelected} showMapName={showMapName} onClick={this.onMapClick}>
+        <Overlay
+          isSelected={isSelected}
+          isFocused={isFocused}
+          showMapName={showMapName}
+          onClick={this.onMapClick}>
           {isSelected && selectedIcon ? selectedIcon : null}
         </Overlay>
         {showMapName ? (
