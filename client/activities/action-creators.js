@@ -1,4 +1,4 @@
-import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE } from '../actions.js'
+import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK } from '../actions'
 
 export function openOverlay(overlayType) {
   return {
@@ -15,5 +15,11 @@ export function closeOverlay() {
       type: ACTIVITY_OVERLAY_CLOSE,
       meta: { overlayType: getState().activityOverlay.overlayType },
     })
+  }
+}
+
+export function goBack() {
+  return {
+    type: ACTIVITY_OVERLAY_GO_BACK,
   }
 }
