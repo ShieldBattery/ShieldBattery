@@ -144,7 +144,11 @@ export default class MapSelect extends React.Component {
     ))
 
     return (
-      <Container tabIndex={0} onFocus={this.onFocus} onBlur={this.onBlur}>
+      <Container
+        tabIndex={0}
+        onMouseDown={this.onMouseDown}
+        onFocus={this.onFocus}
+        onBlur={this.onBlur}>
         <KeyListener onKeyDown={this.onKeyDown} />
         {errorText ? <ErrorText>{errorText}</ErrorText> : null}
         <ImageList
@@ -189,7 +193,12 @@ export default class MapSelect extends React.Component {
     }
   }
 
-  onFocus = event => {
+  onMouseDown = event => {
+    // Only allow component to be focused with the keyboard; prevent focusing it on a mouse click
+    event.preventDefault()
+  }
+
+  onFocus = () => {
     this.setState({ isFocused: true, focusedIndex: 0 })
   }
 
