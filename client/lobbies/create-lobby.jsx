@@ -155,12 +155,12 @@ class CreateLobbyForm extends React.Component {
     if (!isTeamType(gameType)) {
       return null
     }
-    const selectedMap = getInputValue('selectedMap')
+    const selectedMap = recentMaps.byHash.get(getInputValue('selectedMap'))
     if (!selectedMap) {
       return null
     }
 
-    const { slots } = recentMaps.byHash.get(selectedMap)
+    const { slots } = selectedMap
     if (gameType === 'topVBottom') {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
