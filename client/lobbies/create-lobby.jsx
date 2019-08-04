@@ -15,6 +15,7 @@ import {
   updateLobbyPreferences,
 } from './action-creators'
 
+import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MapSelect from '../maps/map-select.jsx'
 import Option from '../material/select/option.jsx'
@@ -26,6 +27,8 @@ import TextField from '../material/text-field.jsx'
 
 import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
+
+const ENTER = 'Enter'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -294,6 +297,7 @@ export default class CreateLobby extends React.Component {
 
     return (
       <Container>
+        <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
           <Headline>Create lobby</Headline>
         </TitleBar>
@@ -345,5 +349,14 @@ export default class CreateLobby extends React.Component {
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
     this.props.dispatch(navigateToLobby(name))
     this.props.dispatch(closeOverlay())
+  }
+
+  onKeyDown = event => {
+    if (event.code === ENTER) {
+      this.onCreateClick()
+      return true
+    }
+
+    return false
   }
 }

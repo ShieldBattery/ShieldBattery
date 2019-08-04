@@ -105,7 +105,7 @@ class Select extends React.Component {
   render() {
     return (
       <span className={this.props.className}>
-        <KeyListener onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} />
+        <KeyListener onKeyDown={this.onKeyDown} />
         {this.renderSelect()}
         {this.renderOverlay()}
       </span>
@@ -330,7 +330,7 @@ class Select extends React.Component {
     }
   }
 
-  onKeyPress = event => {
+  onKeyDown = event => {
     if (!this.state.isFocused) return false
 
     if (!this.state.isOpened) {
@@ -339,21 +339,6 @@ class Select extends React.Component {
         return true
       }
     } else {
-      if (event.which === ENTER) {
-        if (this.state.activeIndex >= 0) {
-          const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
-          this.onOptionChanged(activeChild.props.value)
-          return true
-        }
-      }
-    }
-
-    return false
-  }
-
-  onKeyDown = event => {
-    // Only handle things that can't be handled with keypress
-    if (this.state.isOpened) {
       if (event.which === ESCAPE) {
         this.onClose()
         return true
@@ -364,6 +349,12 @@ class Select extends React.Component {
         this._moveActiveIndexBy(1)
         return true
       } else if (event.which === TAB) {
+        if (this.state.activeIndex >= 0) {
+          const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
+          this.onOptionChanged(activeChild.props.value)
+          return true
+        }
+      } else if (event.which === ENTER) {
         if (this.state.activeIndex >= 0) {
           const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
           this.onOptionChanged(activeChild.props.value)
