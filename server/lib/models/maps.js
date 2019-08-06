@@ -16,6 +16,7 @@ class MapInfo {
     this.umsForces = props.lobby_init_data.forces
     this.width = props.width
     this.height = props.height
+    this.uploadedBy = props.uploaded_by
     this.mapUrl = null
     this.imageUrl = null
   }
@@ -35,15 +36,21 @@ const createMapInfo = async info => {
 
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
 // is rejected, the transaction will be rolled back.
-export async function addMap(mapData, extension, filename, modifiedDate, transactionFn) {
+export async function addMap(mapParams, transactionFn) {
   return await transact(async client => {
     const query = `
-      INSERT INTO maps
-      (hash, extension, filename, title, description, width, height, tileset,
-      players_melee, players_ums, upload_time, modified_time, lobby_init_data)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *
+      WITH m AS (
+        INSERT INTO maps
+        (hash, extension, filename, title, description, width, height, tileset,
+        players_melee, players_ums, upload_time, modified_time, lobby_init_data,
+        uploaded_by, visibility)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *
+      )
+      SELECT m.*, u.name AS uploaded_by FROM m INNER JOIN users AS u
+      ON m.uploaded_by = u.id
     `
+    const { mapData, extension, filename, modifiedDate, uploadedBy, visibility } = mapParams
     const {
       hash,
       title,
@@ -69,6 +76,8 @@ export async function addMap(mapData, extension, filename, modifiedDate, transac
       new Date(),
       modifiedDate,
       lobbyInitData,
+      uploadedBy,
+      visibility,
     ]
 
     const [result] = await Promise.all([client.query(query, params), transactionFn()])
@@ -79,8 +88,9 @@ export async function addMap(mapData, extension, filename, modifiedDate, transac
 
 export async function getMapInfo(...hashes) {
   const query = `
-    SELECT *
-    FROM maps
+    SELECT m.*, u.name AS uploaded_by
+    FROM maps AS m INNER JOIN users AS u
+    ON m.uploaded_by = u.id
     WHERE hash = ANY($1)
   `
   const params = [hashes.map(h => Buffer.from(h, 'hex'))]
@@ -115,8 +125,9 @@ async function getMapsCount() {
 export async function listMaps(limit, pageNumber, searchStr) {
   const whereClause = searchStr ? 'WHERE title ILIKE $3' : ''
   const query = `
-    SELECT *
-    FROM maps
+    SELECT m.*, u.name AS uploaded_by
+    FROM maps AS m INNER JOIN users AS u
+    ON m.uploaded_by = u.id
     ${whereClause}
     LIMIT $1
     OFFSET $2

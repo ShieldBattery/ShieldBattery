@@ -8,7 +8,7 @@ import bl from 'bl'
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(path, extension, filename, modifiedDate) {
+export async function storeMap(path, extension, filename, modifiedDate, uploadedBy, visibility) {
   const { mapData, imageStream } = await mapParseWorker(path, extension)
   const { hash } = mapData
 
@@ -19,7 +19,8 @@ export async function storeMap(path, extension, filename, modifiedDate) {
     return map
   }
 
-  map = await addMap(mapData, extension, filename, modifiedDate, async () => {
+  const mapParams = { mapData, extension, filename, modifiedDate, uploadedBy, visibility }
+  map = await addMap(mapParams, async () => {
     if (imageStream) {
       await writeFile(imagePath(hash), imageStream)
     }

@@ -3,26 +3,18 @@ import { storeMap } from '../maps/store'
 import { listMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
+import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function(router) {
   router
     .get('/', ensureLoggedIn, list)
-    .post('/', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
+    .post('/', featureEnabled(MAP_UPLOADING), ensureLoggedIn, handleMultipartFiles, upload)
+    .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
-
-function uploadPermissionCheck() {
-  if (!MAP_UPLOADING) {
-    return checkAllPermissions('manageMaps')
-  } else {
-    return async (ctx, next) => {
-      await next()
-    }
-  }
-}
 
 async function upload(ctx, next) {
   const { extension, filename, modifiedDate } = ctx.request.body
@@ -39,7 +31,15 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
-  const map = await storeMap(path, lowerCaseExtension, filename, modifiedDate)
+  const visibility = ctx.request.path.endsWith('/official') ? 'OFFICIAL' : 'PRIVATE'
+  const map = await storeMap(
+    path,
+    lowerCaseExtension,
+    filename,
+    modifiedDate,
+    ctx.session.userId,
+    visibility,
+  )
   ctx.body = {
     map,
   }
