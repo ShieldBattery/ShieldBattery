@@ -196,6 +196,7 @@ export default class MapSelect extends React.Component {
   onMouseDown = event => {
     // Only allow component to be focused with the keyboard; prevent focusing it on a mouse click
     event.preventDefault()
+    this.setState({ isFocused: false, focusedIndex: -1 })
   }
 
   onFocus = () => {
