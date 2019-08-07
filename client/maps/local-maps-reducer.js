@@ -25,6 +25,6 @@ export default keyedReducer(new LocalMaps(), {
   },
 
   [ACTIVITY_OVERLAY_CLOSE](state, action) {
-    return action.meta.overlayType === 'browseLocalMaps' ? new LocalMaps() : state
+    return new LocalMaps()
   },
 })
