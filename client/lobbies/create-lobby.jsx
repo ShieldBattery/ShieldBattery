@@ -237,17 +237,28 @@ export default class CreateLobby extends React.Component {
   state = {
     scrolledUp: false,
     scrolledDown: false,
+    hosted: false,
   }
 
   _savePreferences = () => {
     const {
       lobbyPreferences: { recentMaps },
     } = this.props
+    const { hosted } = this.state
+
+    let orderedRecentMaps = recentMaps.list
+    // If the selected map is actually hosted, we move it to the front of the recent maps list
+    if (hosted) {
+      const { selectedMap } = this._form.getModel()
+      orderedRecentMaps = orderedRecentMaps
+        .delete(orderedRecentMaps.indexOf(selectedMap))
+        .unshift(selectedMap)
+    }
 
     this.props.dispatch(
       updateLobbyPreferences({
         ...this._form.getModel(),
-        recentMaps: recentMaps.list.toArray(),
+        recentMaps: orderedRecentMaps.toArray(),
       }),
     )
   }
@@ -346,6 +357,7 @@ export default class CreateLobby extends React.Component {
     const { name, gameType, gameSubType, selectedMap } = this._form.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
+    this.setState({ hosted: true })
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
     this.props.dispatch(navigateToLobby(name))
     this.props.dispatch(closeOverlay())
