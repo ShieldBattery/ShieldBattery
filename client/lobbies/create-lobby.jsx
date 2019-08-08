@@ -233,22 +233,21 @@ export default class CreateLobby extends React.Component {
   _setInput = elem => {
     this._input = elem
   }
+  isHosted = false
 
   state = {
     scrolledUp: false,
     scrolledDown: false,
-    hosted: false,
   }
 
   _savePreferences = () => {
     const {
       lobbyPreferences: { recentMaps },
     } = this.props
-    const { hosted } = this.state
 
     let orderedRecentMaps = recentMaps.list
     // If the selected map is actually hosted, we move it to the front of the recent maps list
-    if (hosted) {
+    if (this.isHosted) {
       const { selectedMap } = this._form.getModel()
       orderedRecentMaps = orderedRecentMaps
         .delete(orderedRecentMaps.indexOf(selectedMap))
@@ -354,10 +353,11 @@ export default class CreateLobby extends React.Component {
   }
 
   onSubmit = () => {
+    this.isHosted = true
+
     const { name, gameType, gameSubType, selectedMap } = this._form.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
-    this.setState({ hosted: true })
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
     this.props.dispatch(navigateToLobby(name))
     this.props.dispatch(closeOverlay())
