@@ -2,6 +2,7 @@
 @echo off
 
 SETLOCAL
+set startdir=%CD%
 set scriptroot=%~dp0
 
 @rem Arguments
@@ -40,6 +41,7 @@ if not exist %scriptroot%\dist\ICSharpCode.SharpZipLib.dll xcopy "%scriptroot%\.
 
 
 @rem build the DLL
+cd "%scriptroot%"
 cargo build %cargoflags%
 if errorlevel 1 goto exit
 
@@ -58,3 +60,4 @@ if errorlevel 1 (
 :skipsign
 
 :exit
+cd "%startdir%"
