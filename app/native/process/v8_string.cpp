@@ -1,6 +1,7 @@
 #include "v8_string.h"
 
 #include <node.h>
+#include <nan.h>
 #include <string>
 #include <utility>
 
@@ -14,8 +15,9 @@ namespace proc {
 wstring ToWstring(const Local<String>& v8_str) {
   wstring result;
   result.resize(v8_str->Length());
-  v8_str->Write(reinterpret_cast<uint16_t*>(&result[0]));
-  return std::move(result);
+  Nan::DecodeWrite(reinterpret_cast<char*>(&result[0]), v8_str->Length() * 2, v8_str,
+    Nan::Encoding::UCS2);
+  return result;
 }
 
 }  // namespace proc
