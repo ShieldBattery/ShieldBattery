@@ -1,4 +1,3 @@
-import config from '../../config'
 import fs from 'fs'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
@@ -72,7 +71,7 @@ export default class LocalFsStore {
     const full = this._getFullPath(filename)
     try {
       await access(full)
-      return `${config.canonicalHost}/files/${path.posix.normalize(filename)}`
+      return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}`
     } catch (_) {
       return null
     }

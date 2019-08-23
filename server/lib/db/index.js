@@ -1,5 +1,4 @@
 import pg from 'pg'
-import config from '../../config.js'
 
 // Our DATETIME columns are all in UTC, so we mark the strings postgres returns this way so the
 // parsed dates are correct
@@ -9,8 +8,8 @@ pg.types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+
 // zones work correctly
 pg.defaults.parseInputDatesAsUTC = true
 
-const connectionString = config.db.connString
-if (!connectionString) throw new Error('db.connString must be set in config.js')
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) throw new Error('DATABASE_URL must be set')
 
 const pool = new pg.Pool({ connectionString })
 

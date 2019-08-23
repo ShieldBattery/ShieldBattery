@@ -3,18 +3,17 @@ import path from 'path'
 import createMailgun from 'mailgun-js'
 import handlebars from 'handlebars'
 import thenify from 'thenify'
-import config from '../../config.js'
 
 const asyncReadFile = thenify(fs.readFile)
 
-const enabled = !!config.mailgun
+const enabled = !!process.env.SB_MAILGUN_KEY
 
-const FROM = enabled ? config.mailgun.from : ''
-const HOST = config.canonicalHost
+const FROM = enabled ? process.env.SB_MAILGUN_FROM : ''
+const HOST = process.env.SB_CANONICAL_HOST
 const mailgun = enabled
   ? createMailgun({
-      apiKey: config.mailgun.apiKey,
-      domain: config.mailgun.domain,
+      apiKey: process.env.SB_MAILGUN_KEY,
+      domain: process.env.SB_MAILGUN_DOMAIN,
     })
   : null
 

@@ -94,8 +94,8 @@ For more documentation, check out the [redis docs](http://redis.io/documentation
 
 ### Configuring the ShieldBattery server
 
-Inside the `server` folder, copy `config.example.js` and `database.example.json` to `config.js` and
-`database.json`, respectively. Edit these files as you see fit to match your local configuration.
+Inside the `server` folder, copy `sample.env` to a file named `.env`. Edit this file sas you see fit
+to match your local configuration.
 
 ### Installing dependencies
 
@@ -126,18 +126,19 @@ well.
 
 ### Set up map system
 
-The server needs access to some of BW's data files in order to generate map images. Download an mpq editor,
-such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download "listfiles" from
-that website as well, which you'll need to use in the mpq editor. Use the mpq editor to extract BW's data
-files from `stardat.mpq`, `broodat.mpq`, in that order, having `broodat.mpq` overwrite any conflicting files
-from `stardat.mpq`. The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files
-to a directory (keeping the directory structure), and set `config.bwData` in server's `config.js` to that
-directory.
+The server needs access to some of BW's data files in order to generate map images. Download an mpq
+editor, such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download
+"listfiles" from that website as well, which you'll need to use in the mpq editor. Use the mpq
+editor to extract BW's data files from `stardat.mpq`, `broodat.mpq`, in that order, having
+`broodat.mpq` overwrite any conflicting files from `stardat.mpq`. The necessary directories in
+.mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
+structure), and set `config.bwData` in server's `config.js` to that directory.
 
-Set `config.fileStore` in the `config.js` to the directory that you wish to use for uploaded maps and their
-images (see example in `config.example.js`). Now you can use the admin panel and "Mass map upload" feature to
-upload any map(s) from your hard disk to the server. If you wish to upload official maps, you can download
-them from [here](https://drive.google.com/file/d/0B76qCUchMgsnb0dla2V2NEdDVTQ/).
+Set `config.fileStore` in the `config.js` to the directory that you wish to use for uploaded maps
+and their images (see example in `config.example.js`). Now you can use the admin panel and
+"Mass map upload" feature to upload any map(s) from your hard disk to the server. If you wish to
+upload official maps, you can download them from
+[here](https://drive.google.com/file/d/0B76qCUchMgsnb0dla2V2NEdDVTQ/).
 
 ### Run the server
 
@@ -157,10 +158,11 @@ node index.js
 #### Overriding the server URL (optional)
 
 It is possible to override the server's URL with environment variables. Two levels of environment variables:
+
 - **Build time**: `SB_SERVER` set in the environment that runs the webpack dev server will pick the
-"default" server for that build. If none is set, the default will be, in `NODE_ENV=production`,
-`https://shieldbattery.net`, or otherwise, the canonical URL set in your local server config.
+  "default" server for that build. If none is set, the default will be, in `NODE_ENV=production`,
+  `https://shieldbattery.net`, or otherwise, the canonical URL set in your local server config.
 - **Run time**: `SB_SERVER` set in the environment that runs the app (`yarn run app` or just running the
-actual packaged executable).
+  actual packaged executable).
 
 Note: run time takes precedence over build time.

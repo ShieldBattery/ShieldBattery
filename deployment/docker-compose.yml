@@ -1,0 +1,192 @@
+version: '3.7'
+
+volumes:
+  # Leaving these volume configs empty means they'll use the default driver (usually `local`), which
+  # is fine in most cases
+  app_logs:
+  certs:
+  db_data:
+  nginx_conf:
+  nginx_dhparam:
+  nginx_html:
+  nginx_vhost:
+  redis_data:
+  uploaded_files:
+
+networks:
+  frontend:
+  backend:
+
+services:
+  app_server:
+    image: shieldbattery/shieldbattery:${SB_VERSION:-latest}
+    restart: always
+    # Required for proper handling of kernel signals (eg. ctrl-c); for more info, see:
+    # https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md#handling-kernel-signals
+    init: true
+    ports:
+      # rally-point route creator server
+      - '14099:14099'
+    environment:
+      # This controls what addresses nginx_proxy will forward to this
+      - VIRTUAL_HOST=${SB_VIRTUAL_HOST}
+      - VIRTUAL_PORT=5555
+      - LETSENCRYPT_HOST=${SB_VIRTUAL_HOST}
+      - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB:-shieldbattery}
+      - SB_HTTP_PORT=5555
+      - SB_HTTPS_REVERSE_PROXY=true
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - 'SB_ROUTE_CREATOR_HOST=::'
+      - SB_ROUTE_CREATOR_PORT=14099
+      - 'SB_FILE_STORE={"filesystem":{"path":"uploaded_files"}}'
+      - SB_SPRITE_DATA=bw_sprite_data
+      - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
+      - SB_SESSION_SECRET=${SB_SESSION_SECRET}
+      - SB_SESSION_TTL=${SB_SESSION_TTL}
+      - SB_LOG_LEVELS=${SB_LOG_LEVELS}
+      - SB_ANALYTICS_ID=${SB_ANALYTICS_ID}
+      - SB_FEEDBACK_URL=${SB_FEEDBACK_URL}
+      - SB_RALLY_POINT_SECRET=${SB_RALLY_POINT_SECRET}
+      - SB_RALLY_POINT_SERVERS=${SB_RALLY_POINT_SERVERS}
+      - SB_MAILGUN_KEY=${SB_MAILGUN_KEY}
+      - SB_MAILGUN_DOMAIN=${SB_MAILGUN_DOMAIN}
+      - SB_MAILGUN_FROM=${SB_MAILGUN_FROM}
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - app_logs:/home/node/shieldbattery/server/logs:rw
+      - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
+      - type: bind
+        source: ./bw_sprite_data
+        target: /home/node/shieldbattery/server/bw_sprite_data
+        read_only: true
+      - type: bind
+        source: ./published_artifacts
+        target: /home/node/shieldbattery/server/public/published_artifacts
+        read_only: true
+
+    # NOTE: `depends_on` only waits for the services listed below to start; it doesn't wait for them
+    # to actually be "ready" (whatever "ready" means for a particular service). If you need to
+    # control the startup of services more granularly, use the `wait-for-it.sh` script available in
+    # this image. The reason why we're not waiting for `db` service to actually be ready here is
+    # because we're waiting for the `migration` service to start, and `migration` service won't
+    # start until the `db` service is ready.
+    depends_on:
+      - db
+      - migration
+      - nginx_proxy
+      - proxy_gen
+      - redis
+
+  nginx_proxy:
+    image: nginx:stable-alpine
+    container_name: nginx_proxy
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    labels:
+      - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy'
+    networks:
+      - frontend
+    volumes:
+      - certs:/etc/nginx/certs:ro
+      - nginx_conf:/etc/nginx/conf.d
+      - nginx_dhparam:/etc/nginx/dhparam
+      - nginx_html:/usr/share/nginx/html
+      - nginx_vhost:/etc/nginx/vhost.d
+
+  # This generates reverse proxy configurations for nginx, setup taken from:
+  # https://github.com/nginx-proxy/docker-letsencrypt-nginx-proxy-companion/blob/master/docs/Docker-Compose.md
+  # (the three container setup)
+  proxy_gen:
+    image: jwilder/docker-gen:0.7.0
+    restart: always
+    command: -notify-sighup nginx_proxy -watch /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
+    environment:
+      - ENABLE_IPV6=true
+    labels:
+      - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.docker_gen'
+    networks:
+      - frontend
+    volumes:
+      - certs:/etc/nginx/certs:ro
+      - nginx_conf:/etc/nginx/conf.d
+      - nginx_dhparam:/etc/nginx/dhparam
+      - nginx_html:/usr/share/nginx/html
+      - nginx_vhost:/etc/nginx/vhost.d
+      - ./docker-nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    depends_on:
+      - nginx_proxy
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion:stable
+    restart: always
+    environment:
+      - DEFAULT_EMAIL=${SB_LETSENCRYPT_EMAIL}
+    networks:
+      - frontend
+    volumes:
+      - certs:/etc/nginx/certs:rw
+      - nginx_html:/usr/share/nginx/html
+      - nginx_vhost:/etc/nginx/vhost.d
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - nginx_proxy
+      - proxy_gen
+
+  redis:
+    image: redis:5.0.5-alpine
+    restart: always
+    command: ['redis-server', '--appendonly', 'yes']
+    networks:
+      - backend
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres:12-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_SUPER_PASSWORD:?missing POSTGRES_SUPER_PASSWORD}
+      - POSTGRES_DB=postgres
+      - SB_DB=${SB_DB:-shieldbattery}
+      - SB_DB_USER=${SB_DB_USER:-shieldbattery}
+      - SB_DB_PASSWORD=${SB_DB_PASSWORD:?missing SB_DB_PASSWORD}
+    networks:
+      - backend
+    volumes:
+      - ./db/init-scripts:/docker-entrypoint-initdb.d:ro
+      - db_data:/var/lib/postgresql/data
+
+  # This is a service used to run the server migrations before the server actually starts. It uses
+  # the same image as the server, but overrides its startup command to only run migrations and exit.
+  migration:
+    image: shieldbattery/shieldbattery:${SB_VERSION:-latest}
+    init: true
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_SUPER_PASSWORD}
+      - POSTGRES_DB=postgres
+      - SB_DB=${SB_DB:-shieldbattery}
+      - SB_DB_USER=${SB_DB_USER:-shieldbattery}
+      - SB_DB_PASSWORD=${SB_DB_PASSWORD}
+      - SB_SESSION_SECRET=${SB_SESSION_SECRET}
+      - SB_SESSION_TTL=${SB_SESSION_TTL}
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB:-shieldbattery}
+    # TODO(tec27): These scripts also touch redis so we should probably wait for it as well, but
+    # it's kind of a pain with this script so I haven't. General assumption is that by the time we
+    # get to that point, redis will be ready anyway (or the redis library will wait properly), but
+    # I guess we'll see?
+    command: ['./tools/wait-for-it.sh', 'db:5432', '--', 'bash', '-c', './server/update_server.sh']
+    networks:
+      - backend
+    depends_on:
+      - db
+      - redis

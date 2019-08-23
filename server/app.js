@@ -1,7 +1,3 @@
-import config from './config'
-import webpack from 'webpack'
-import webpackConfig from './webpack.config.js'
-
 import childProcess from 'child_process'
 import dns from 'dns'
 import http from 'http'
@@ -34,25 +30,25 @@ import routeCreator from './lib/rally-point/route-creator'
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 
-if (!config.canonicalHost) {
-  throw new Error('Configuration must contain canonicalHost')
+if (!process.env.SB_CANONICAL_HOST) {
+  throw new Error('SB_CANONICAL_HOST must be specified')
 }
-if (
-  !config.rallyPoint ||
-  !config.rallyPoint.secret ||
-  !(config.rallyPoint.local || config.rallyPoint.remote)
-) {
-  throw new Error('Configuration must contain rally-point settings')
+if (!process.env.SB_RALLY_POINT_SECRET || !process.env.SB_RALLY_POINT_SERVERS) {
+  throw new Error('SB_RALLY_POINT_SECRET and SB_RALLY_POINT_SERVERS must be specified')
 }
-if (config.rallyPoint.local) {
+const rallyPointSecret = process.env.SB_RALLY_POINT_SECRET
+const rallyPointServers = JSON.parse(process.env.SB_RALLY_POINT_SERVERS)
+if (!(rallyPointServers.local || rallyPointServers.remote)) {
+  throw new Error('SB_RALLY_POINT_SERVERS is invalid')
+}
+if (rallyPointServers.local) {
   if (!isDev) {
     throw new Error('local rally-point is only available in development mode')
   }
 
-  if (!net.isIPv6(config.rallyPoint.local.address)) {
+  if (!net.isIPv6(rallyPointServers.local.address)) {
     throw new Error('local rally-point address must be IPv6-formatted')
   }
-
   log.info('Creating local rally-point process')
   const rallyPoint = childProcess.fork(
     path.join(__dirname, 'lib', 'rally-point', 'run-local-server.js'),
@@ -70,17 +66,18 @@ if (config.rallyPoint.local) {
     })
 }
 
-if (!config.fileStore || !config.fileStore.filesystem) {
-  throw new Error('Configuration must contain file storage settings')
+if (!process.env.SB_FILE_STORE) {
+  throw new Error('SB_FILE_STORE must be specified')
 }
-setStore(new LocalFileStore(config.fileStore.filesystem))
+const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
+setStore(new LocalFileStore(fileStoreSettings.filesystem))
 
 const asyncLookup = thenify(dns.lookup)
-const rallyPointServers = config.rallyPoint.local
-  ? [config.rallyPoint.local]
-  : config.rallyPoint.remote
+const rallyPointServersArray = rallyPointServers.local
+  ? [rallyPointServers.local]
+  : rallyPointServers.remote
 const resolvedRallyPointServers = Promise.all(
-  rallyPointServers.map(async s => {
+  rallyPointServersArray.map(async s => {
     let v6
     try {
       v6 = await asyncLookup(s.address, { family: 6 })
@@ -114,19 +111,27 @@ const resolvedRallyPointServers = Promise.all(
   }),
 )
 
-const routeCreatorConfig = config.rallyPoint.routeCreator || {}
+const routeCreatorConfig = {
+  host: process.env.SB_ROUTE_CREATOR_HOST || '::',
+  port: Number(process.env.SB_ROUTE_CREATOR_PORT || 0),
+}
 const initRouteCreatorPromise = routeCreator.initialize(
-  routeCreatorConfig.host || '::',
-  routeCreatorConfig.port || 0,
-  config.rallyPoint.secret,
+  routeCreatorConfig.host,
+  routeCreatorConfig.port,
+  rallyPointSecret,
 )
 
 const app = new Koa()
-const port = config.httpPort
-const compiler = webpack(webpackConfig)
+const port = process.env.SB_HTTP_PORT
 
-app.keys = [config.sessionSecret]
-app.proxy = config.httpsReverseProxy
+function getWebpackCompiler() {
+  const webpack = require('webpack').default
+  const webpackConfig = require('./webpack.config.js').default
+  return webpack(webpackConfig)
+}
+
+app.keys = [process.env.SB_SESSION_SECRET]
+app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
 
 app.on('error', err => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
@@ -170,10 +175,10 @@ import createRoutes from './routes'
     const koaWebpack = require('koa-webpack')
 
     const middleware = await koaWebpack({
-      compiler,
+      compiler: getWebpackCompiler(),
       devMiddleware: {
         logLevel: 'warn',
-        publicPath: webpackConfig.output.publicPath,
+        publicPath: require('./webpack.config.js').default.output.publicPath,
       },
     })
 
@@ -184,9 +189,9 @@ import createRoutes from './routes'
 
   createRoutes(app, nydus, userSockets)
 
-  compiler.run = thenify(compiler.run)
-  const compilePromise = isDev ? Promise.resolve() : compiler.run()
-  if (!isDev) {
+  const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
+  const compilePromise = needToBuild ? thenify(getWebpackCompiler().run)() : Promise.resolve()
+  if (needToBuild) {
     log.info('In production mode, building assets...')
   }
 

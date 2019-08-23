@@ -5,7 +5,6 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import { isValidEmail } from '../../../app/common/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
-import config from '../../config.js'
 
 export default function(router) {
   router
@@ -75,8 +74,8 @@ async function acceptInvite(ctx, next) {
         email: invite.email,
         escapedEmail: encodeURIComponent(invite.email),
         token: invite.token,
-        feedbackUrl: config.feedbackUrl,
-        installerUrl: `${config.canonicalHost}/installer.msi`,
+        feedbackUrl: process.env.SB_FEEDBACK_URL,
+        installerUrl: `${process.env.SB_CANONICAL_HOST}/installer.msi`,
       },
     })
 

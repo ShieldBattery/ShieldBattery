@@ -5,7 +5,6 @@ import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
 import isDev from './lib/env/is-dev'
-import config from './config'
 
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
@@ -44,7 +43,10 @@ export default function applyRoutes(app, nydus, userSockets) {
   }
 
   router.get('/config', async (ctx, next) => {
-    ctx.body = { analyticsId: config.analyticsId, feedbackUrl: config.feedbackUrl }
+    ctx.body = {
+      analyticsId: process.env.SB_ANALYTICS_ID,
+      feedbackUrl: process.env.SB_FEEDBACK_URL,
+    }
     ctx.type = 'application/json'
   })
 
@@ -69,8 +71,8 @@ export default function applyRoutes(app, nydus, userSockets) {
       }
       await ctx.render('index', {
         initData,
-        analyticsId: config.analyticsId,
-        feedbackUrl: config.feedbackUrl,
+        analyticsId: process.env.SB_ANALYTICS_ID,
+        feedbackUrl: process.env.SB_FEEDBACK_URL,
       })
     },
   )

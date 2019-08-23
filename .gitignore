@@ -3,5 +3,6 @@ app/native/*/*.node
 app/styles/
 dist/
 node_modules/
+server/.env
 npm-debug.log
 yarn-error.log

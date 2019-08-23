@@ -1,0 +1,16 @@
+.git/
+app/
+assets/
+!app/common/
+dist/
+docs/
+game/
+node_modules/
+server/.env
+server/config.js
+server/database.json
+server/logs/
+server/node_modules/
+server/uploaded_files/
+server/yarn-error.log
+yarn-error.log
