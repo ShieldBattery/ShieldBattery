@@ -26,8 +26,18 @@ function getLocalTime(date) {
   return hour + ':' + minute + ' ' + (isPm ? 'PM' : 'AM')
 }
 
+const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
 export const ChatTimestamp = props => (
-  <span className={styles.timestamp}>{getLocalTime(new Date(props.time))}</span>
+  <span title={longTimestamp.format(props.time)} className={styles.timestamp}>
+    {getLocalTime(new Date(props.time))}
+  </span>
 )
 ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
