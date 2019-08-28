@@ -26,6 +26,11 @@ export const NewChannelOwnerMessage = new Record({
   time: 0,
   newOwner: null,
 })
+export const NewDayMessage = new Record({
+  id: null,
+  type: 'newDay',
+  time: 0,
+})
 export const SelfJoinChannelMessage = new Record({
   id: null,
   type: 'selfJoinChannel',

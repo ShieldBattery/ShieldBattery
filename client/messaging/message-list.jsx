@@ -7,6 +7,7 @@ import {
   JoinChannelMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
+  NewDayMessage,
   SelfJoinChannelMessage,
   UserOnlineMessage,
   UserOfflineMessage,
@@ -32,6 +33,8 @@ class PureMessageList extends React.Component {
         return <ChatMessage key={id} user={msg.from} time={msg.time} text={msg.text} />
       case 'newOwner':
         return <NewChannelOwnerMessage key={id} record={msg} />
+      case 'newDay':
+        return <NewDayMessage key={id} record={msg} />
       case 'selfJoinChannel':
         return <SelfJoinChannelMessage key={id} record={msg} />
       case 'userOnline':

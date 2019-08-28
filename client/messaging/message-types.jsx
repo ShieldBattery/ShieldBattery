@@ -53,6 +53,25 @@ export class NewChannelOwnerMessage extends BaseMessage {
   }
 }
 
+const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
+  year: 'numeric',
+  month: 'long',
+  day: '2-digit',
+})
+
+export class NewDayMessage extends BaseMessage {
+  render() {
+    const { time } = this.props.record
+    return (
+      <InfoMessageLayout className={styles.separatedInfoMessage}>
+        <span>
+          Day changed to <span className={styles.infoImportant}>{newDayFormat.format(time)}</span>
+        </span>
+      </InfoMessageLayout>
+    )
+  }
+}
+
 export class SelfJoinChannelMessage extends BaseMessage {
   render() {
     const { channel } = this.props.record

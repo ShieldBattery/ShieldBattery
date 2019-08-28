@@ -24,6 +24,7 @@ import {
   JoinChannelMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
+  NewDayMessage,
   SelfJoinChannelMessage,
   UserOnlineMessage,
   UserOfflineMessage,
@@ -78,6 +79,14 @@ export const ChatState = new Record({
   // Note that the keys for this map are always lower-case
   byName: new Map(),
 })
+
+function isSameDay(d1, d2) {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  )
+}
 
 function updateUserState(user, addTo, removeFirst, removeSecond) {
   const addToUpdated = SortedUsers.insert(addTo, user)
@@ -304,15 +313,41 @@ export default keyedReducer(new ChatState(), {
 
     return updateMessages(updated, channel, messages => {
       return new List(
-        newMessages.map(
-          msg =>
+        newMessages.reduce((acc, msg, i, array) => {
+          const m = []
+
+          if (i === 0 && updated.byName.get(lowerCaseChannel).hasLoadedHistory) {
+            m.push(
+              new NewDayMessage({
+                id: cuid(),
+                time: msg.sent,
+              }),
+            )
+          } else if (i > 0) {
+            const prevMsgDate = new Date(array[i - 1].sent)
+            const currMsgDate = new Date(msg.sent)
+
+            if (!isSameDay(prevMsgDate, currMsgDate)) {
+              m.push(
+                new NewDayMessage({
+                  id: cuid(),
+                  time: msg.sent,
+                }),
+              )
+            }
+          }
+
+          m.push(
             new ChatMessage({
               id: msg.id,
               time: msg.sent,
               from: msg.user,
               text: msg.data.text,
             }),
-        ),
+          )
+
+          return [...acc, ...m]
+        }, []),
       ).concat(messages)
     })
   },
