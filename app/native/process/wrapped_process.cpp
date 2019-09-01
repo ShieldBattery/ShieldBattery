@@ -682,7 +682,7 @@ void WrappedProcess::Init() {
   SetPrototypeMethod(tpl, "terminate", Terminate);
   SetPrototypeMethod(tpl, "waitForExit", WaitForExit);
 
-  constructor.Reset(tpl->GetFunction());
+  constructor.Reset(Nan::GetFunction(tpl).ToLocalChecked());
 }
 
 void WrappedProcess::New(const FunctionCallbackInfo<Value>& info) {
@@ -732,7 +732,7 @@ void InjectDllAfter(uv_work_t* req, int status) {
   }
 
   Local<Value> argv[] = { err };
-  context->callback.Call(Nan::New<Object>(context->self), 1, argv);
+  Nan::Call(context->callback, Nan::New<Object>(context->self), 1, argv);
 
   context->self.Reset();
   delete context;
@@ -808,7 +808,7 @@ void WaitForExitAfter(uv_work_t* req, int status) {
   }
 
   Local<Value> argv[] = { err, code };
-  context->callback.Call(Nan::New<Object>(context->self), 2, argv);
+  Nan::Call(context->callback, Nan::New<Object>(context->self), 2, argv);
 
   context->self.Reset();
   delete context;

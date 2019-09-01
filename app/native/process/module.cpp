@@ -68,7 +68,7 @@ void LaunchAfter(uv_work_t* req, int status) {
   }
 
   Local<Value> argv[] = { err, proc };
-  context->callback.Call(GetCurrentContext()->Global(), 2, argv);
+  Nan::Call(context->callback, GetCurrentContext()->Global(), 2, argv);
   delete context;
 }
 
@@ -79,12 +79,14 @@ void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
   LaunchContext* context = new LaunchContext();
   context->app_path = ToWstring(To<String>(info[0]).ToLocalChecked());
   context->arguments = ToWstring(To<String>(info[1]).ToLocalChecked());
-  context->launch_suspended = To<Boolean>(info[2]).ToLocalChecked()->BooleanValue();
+  context->launch_suspended = To<bool>(info[2]).FromJust();
   context->current_dir = ToWstring(To<String>(info[3]).ToLocalChecked());
 
   Local<Array> js_env = info[4].As<Array>();
   for (uint32_t i = 0; i < js_env->Length(); i++) {
-    context->environment.push_back(ToWstring(To<String>(js_env->Get(i)).ToLocalChecked()));
+    context->environment.push_back(
+      ToWstring(To<String>(Nan::Get(js_env, i).ToLocalChecked()).ToLocalChecked())
+    );
   }
 
   context->callback.Reset(info[5].As<Function>());
@@ -98,8 +100,7 @@ void Initialize(Local<Object> exports, Local<Value> unused) {
   HandleScope scope;
   WrappedProcess::Init();
 
-  exports->Set(Nan::New("launchProcess").ToLocalChecked(),
-      Nan::New<FunctionTemplate>(LaunchProcess)->GetFunction());
+  Nan::SetMethod(exports, "launchProcess", LaunchProcess);
 }
 
 }  // namespace proc
