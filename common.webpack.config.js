@@ -4,7 +4,8 @@
 import path from 'path'
 import webpack from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import UglifyJsPlugin from 'uglifyjs-webpack-plugin'
+import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin'
+import TerserJSPlugin from 'terser-webpack-plugin'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version
@@ -18,7 +19,6 @@ export default function({
   hotUrl,
   globalDefines = {},
   envDefines = {},
-  minify,
 }) {
   const postCssOpts = JSON.stringify({
     config: {
@@ -89,7 +89,7 @@ export default function({
     },
     optimization: {
       noEmitOnErrors: true,
-      runtimeChunk: false,
+      minimizer: isProd ? [new TerserJSPlugin({}), new OptimizeCSSAssetsPlugin({})] : [],
     },
     plugins: [
       ...webpackOpts.plugins,
@@ -131,19 +131,6 @@ export default function({
         filename: '../styles/site.css',
       }),
     ])
-
-    if (minify) {
-      config.optimization.minimizer = [
-        // we specify a custom UglifyJsPlugin here to get source maps in production
-        new UglifyJsPlugin({
-          sourceMap: true,
-          uglifyOptions: {
-            compress: { warnings: false },
-            output: { comments: false },
-          },
-        }),
-      ]
-    }
 
     config.devtool = 'hidden-source-map'
   }
