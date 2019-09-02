@@ -70,5 +70,4 @@ module.exports = makeConfig({
   envDefines: {
     SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
   },
-  minify: false,
 })

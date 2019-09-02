@@ -46,5 +46,4 @@ export default makeConfig({
   globalDefines: {
     IS_ELECTRON: false,
   },
-  minify: true,
 })
