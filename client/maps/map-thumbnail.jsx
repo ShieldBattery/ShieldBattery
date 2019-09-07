@@ -96,7 +96,7 @@ export default class MapThumbnail extends React.Component {
         ) : null}
         {showMapName ? (
           <NameContainer>
-            <MapName>{map.name}</MapName>
+            <MapName title={map.name}>{map.name}</MapName>
           </NameContainer>
         ) : null}
       </Container>
