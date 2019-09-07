@@ -1,10 +1,11 @@
 import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK } from '../actions'
 
-export function openOverlay(overlayType) {
+export function openOverlay(overlayType, initData = {}) {
   return {
     type: ACTIVITY_OVERLAY_OPEN,
     payload: {
       overlayType,
+      initData,
     },
   }
 }

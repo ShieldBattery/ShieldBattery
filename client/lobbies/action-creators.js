@@ -130,31 +130,13 @@ export function getLobbyState(lobbyName) {
   }
 }
 
-const LOBBY_PREFERENCES_STALE_TIME = 1000
-function shouldGetLobbyPreferences(preferences) {
-  return (
-    !preferences.isRequesting && Date.now() - preferences.lastUpdated > LOBBY_PREFERENCES_STALE_TIME
-  )
-}
-
-function getLobbyPreferences() {
-  return (dispatch, getState) => {
-    const { selectedMap } = getState().localMaps
-
+export function getLobbyPreferences() {
+  return dispatch => {
     dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN })
     dispatch({
       type: LOBBY_PREFERENCES_GET,
       payload: fetch('/api/1/lobbyPreferences'),
-      meta: { selectedMap },
     })
-  }
-}
-
-export function getLobbyPreferencesIfNeeded() {
-  return (dispatch, getState) => {
-    if (shouldGetLobbyPreferences(getState().lobbyPreferences)) {
-      dispatch(getLobbyPreferences())
-    }
   }
 }
 

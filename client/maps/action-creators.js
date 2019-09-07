@@ -13,13 +13,12 @@ export function selectLocalMap(path) {
   return async dispatch => {
     dispatch({ type: LOCAL_MAPS_SELECT_BEGIN })
 
-    // Have to use `await` here so the "create lobby" overlay is not opened before this action's
-    // reducer gets called and sets the selected map
-    await dispatch({
+    dispatch({
       type: LOCAL_MAPS_SELECT,
-      payload: upload(path, '/api/1/maps'),
+      payload: upload(path, '/api/1/maps').then(({ map }) => {
+        dispatch(openOverlay('createLobby', { map }))
+      }),
     })
-    dispatch(openOverlay('createLobby'))
   }
 }
 

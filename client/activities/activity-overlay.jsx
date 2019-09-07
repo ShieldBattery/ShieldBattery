@@ -113,17 +113,17 @@ export default class ActivityOverlay extends React.Component {
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
       case 'findMatch':
-        return <FindMatch />
+        return FindMatch
       case 'createLobby':
-        return <CreateLobby />
+        return CreateLobby
       case 'joinLobby':
-        return <JoinLobby />
+        return JoinLobby
       case 'watchReplay':
-        return <WatchReplay />
+        return WatchReplay
       case 'browseLocalMaps':
-        return <BrowseLocalMaps />
+        return BrowseLocalMaps
       default:
-        return <span />
+        throw new Error('Unknown overlay type: ' + this.props.activityOverlay.overlayType)
     }
   }
 
@@ -132,11 +132,13 @@ export default class ActivityOverlay extends React.Component {
       return null
     }
 
+    const OverlayComponent = this.getOverlayComponent()
+    const overlayComponent = <OverlayComponent initData={this.props.activityOverlay.initData} />
     return (
       <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <Scrim onClick={this.onScrimClick} />
-        <Overlay>{this.getOverlayComponent()}</Overlay>
+        <Overlay>{overlayComponent}</Overlay>
       </Container>
     )
   }

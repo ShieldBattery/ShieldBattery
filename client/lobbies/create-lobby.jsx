@@ -1,5 +1,6 @@
 import React from 'react'
-import { Range } from 'immutable'
+import PropTypes from 'prop-types'
+import { Map, Range } from 'immutable'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
@@ -11,9 +12,10 @@ import { isTeamType } from '../../app/common/lobbies'
 import {
   createLobby,
   navigateToLobby,
-  getLobbyPreferencesIfNeeded,
+  getLobbyPreferences,
   updateLobbyPreferences,
 } from './action-creators'
+import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
 
 import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
@@ -224,6 +226,10 @@ class CreateLobbyForm extends React.Component {
 
 @connect(state => ({ lobbyPreferences: state.lobbyPreferences }))
 export default class CreateLobby extends React.Component {
+  static propTypes = {
+    initData: PropTypes.instanceOf(Map),
+  }
+
   _autoFocusTimer = null
   _form = null
   _setForm = elem => {
@@ -238,12 +244,11 @@ export default class CreateLobby extends React.Component {
   state = {
     scrolledUp: false,
     scrolledDown: false,
+    recentMaps: new RecentMaps(),
   }
 
   _savePreferences = () => {
-    const {
-      lobbyPreferences: { recentMaps },
-    } = this.props
+    const { recentMaps } = this.state
 
     let orderedRecentMaps = recentMaps.list
     // If the selected map is actually hosted, we move it to the front of the recent maps list
@@ -264,8 +269,29 @@ export default class CreateLobby extends React.Component {
 
   componentDidMount() {
     this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
-    this.props.dispatch(getLobbyPreferencesIfNeeded())
+    this.props.dispatch(getLobbyPreferences())
     window.addEventListener('beforeunload', this._savePreferences)
+  }
+
+  componentDidUpdate(prevProps) {
+    const { isRequesting: prevIsRequesting } = prevProps.lobbyPreferences
+    const { isRequesting, recentMaps } = this.props.lobbyPreferences
+    const { initData } = this.props
+    const initialMap = initData.get('map')
+
+    if (prevIsRequesting && !isRequesting) {
+      let newRecentMaps = recentMaps
+
+      if (initialMap && !recentMaps.byHash.has(initialMap.hash)) {
+        newRecentMaps = recentMapsFromJs(
+          [initialMap, ...recentMaps.byHash.valueSeq().toArray()].slice(0, 5),
+        )
+      }
+
+      this.setState({
+        recentMaps: newRecentMaps,
+      })
+    }
   }
 
   componentWillUnmount() {
@@ -286,8 +312,8 @@ export default class CreateLobby extends React.Component {
   }
 
   render() {
-    const { lobbyPreferences } = this.props
-    const { scrolledUp, scrolledDown } = this.state
+    const { initData, lobbyPreferences } = this.props
+    const { scrolledUp, scrolledDown, recentMaps } = this.state
 
     if (lobbyPreferences.isRequesting) {
       return (
@@ -297,7 +323,9 @@ export default class CreateLobby extends React.Component {
       )
     }
 
-    const { name, gameType, gameSubType, recentMaps, selectedMap } = lobbyPreferences
+    const { name, gameType, gameSubType } = lobbyPreferences
+    const initialMap = initData.get('map')
+    const selectedMap = (initialMap && initialMap.hash) || lobbyPreferences.selectedMap
     const model = {
       name,
       gameType: gameType || 'melee',

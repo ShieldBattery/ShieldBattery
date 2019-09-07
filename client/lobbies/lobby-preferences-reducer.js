@@ -18,21 +18,21 @@ export const LobbyPreferences = new Record({
   recentMaps: new RecentMaps(),
   selectedMap: null,
 
-  lastUpdated: 0,
   isRequesting: false,
   lastError: null,
 })
 
-function createPreferences(preferences) {
-  const recentMaps = new RecentMaps({
-    list: new List(preferences.recentMaps.map(m => m.hash)),
-    byHash: new Map(preferences.recentMaps.map(m => [m.hash, new MapRecord(m)])),
+export function recentMapsFromJs(recentMaps) {
+  return new RecentMaps({
+    list: new List(recentMaps.map(m => m.hash)),
+    byHash: new Map(recentMaps.map(m => [m.hash, new MapRecord(m)])),
   })
+}
 
+function createPreferences(preferences) {
   return new LobbyPreferences({
     ...preferences,
-    recentMaps,
-    lastUpdated: Date.now(),
+    recentMaps: recentMapsFromJs(preferences.recentMaps),
     isRequesting: false,
     lastError: null,
   })
@@ -46,16 +46,6 @@ export default keyedReducer(new LobbyPreferences(), {
   [LOBBY_PREFERENCES_GET](state, action) {
     if (action.error) {
       return state.set('isRequesting', false).set('lastError', action.payload)
-    }
-
-    const { selectedMap } = action.meta
-
-    if (selectedMap) {
-      const recentMaps = state.recentMaps.byHash.has(selectedMap.hash)
-        ? action.payload.recentMaps
-        : [selectedMap, ...action.payload.recentMaps].slice(0, 5)
-
-      return createPreferences({ ...action.payload, recentMaps, selectedMap: selectedMap.hash })
     }
 
     return createPreferences(action.payload)
