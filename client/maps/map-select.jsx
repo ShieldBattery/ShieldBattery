@@ -136,6 +136,7 @@ export default class MapSelect extends React.Component {
         key={map.hash}
         map={map}
         showMapName={true}
+        canHover={true}
         isSelected={isSelected(map)}
         isFocused={isFocused && focusedIndex === i}
         selectedIcon={<SelectedIcon />}

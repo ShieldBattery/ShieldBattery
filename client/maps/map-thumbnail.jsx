@@ -8,6 +8,8 @@ import { Subheading, singleLine } from '../styles/typography'
 
 const Container = styled.div`
   position: relative;
+  width: 100%;
+  height: 100%;
   border-radius: 2px;
   overflow: hidden;
 `
@@ -68,6 +70,7 @@ export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
     showMapName: PropTypes.bool,
+    canHover: PropTypes.bool,
     isSelected: PropTypes.bool,
     isFocused: PropTypes.bool,
     selectedIcon: PropTypes.element,
@@ -75,20 +78,22 @@ export default class MapThumbnail extends React.Component {
   }
 
   render() {
-    const { map, showMapName, isSelected, selectedIcon, isFocused } = this.props
+    const { map, showMapName, canHover, isSelected, selectedIcon, isFocused } = this.props
 
     return (
       <Container>
         <picture>
           <MapImage src={map.imageUrl} alt={map.name} />
         </picture>
-        <Overlay
-          isSelected={isSelected}
-          isFocused={isFocused}
-          showMapName={showMapName}
-          onClick={this.onMapClick}>
-          {isSelected && selectedIcon ? selectedIcon : null}
-        </Overlay>
+        {canHover ? (
+          <Overlay
+            isSelected={isSelected}
+            isFocused={isFocused}
+            showMapName={showMapName}
+            onClick={this.onMapClick}>
+            {isSelected && selectedIcon ? selectedIcon : null}
+          </Overlay>
+        ) : null}
         {showMapName ? (
           <NameContainer>
             <MapName>{map.name}</MapName>
