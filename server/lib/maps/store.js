@@ -1,69 +1,51 @@
 import childProcess from 'child_process'
 import fs from 'fs'
-import { Seq } from 'immutable'
 import config from '../../config.js'
-import * as db from '../models/maps'
-import { writeFile, getUrl } from '../file-upload'
+import { addMap, getMapInfo } from '../models/maps'
+import { writeFile } from '../file-upload'
 import bl from 'bl'
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(hash, extension, origFilename, timestamp, mapMpqPath) {
-  // Maybe this function should revert everything it had done on error?
-  // Shouldn't matter that much as the maps can be reuploaded as long as the database query
-  // doesn't succeed (And that's the last thing this function does), but if there's a hash
-  // collision, and the colliding maps are uploaded simultaneously, the actual file might differ
-  // from the metadata stored in db.
-  const { mapData, imageStream } = await mapParseWorker(mapMpqPath, extension, hash)
+export async function storeMap(path, extension, filename, modifiedDate) {
+  const { mapData, imageStream } = await mapParseWorker(path, extension)
+  const { hash } = mapData
 
-  await Promise.all([
-    imageStream ? writeFile(imagePath(hash), imageStream) : Promise.resolve(),
-    writeFile(mapPath(hash, extension), fs.createReadStream(mapMpqPath)),
-    db.addMap(hash, extension, origFilename, mapData, timestamp),
-  ])
+  let map = (await getMapInfo(hash))[0]
+  if (map) {
+    // Means the map already exists and we don't have to upload it twice
+    // TODO(2Pac): Handle the case when two different users try to upload the same map
+    return map
+  }
+
+  map = await addMap(mapData, extension, filename, modifiedDate, async () => {
+    if (imageStream) {
+      await writeFile(imagePath(hash), imageStream)
+    }
+    await writeFile(mapPath(hash, extension), fs.createReadStream(path))
+  })
+
+  return map
 }
 
-export async function formatMapInfo(mapInfos, hashes) {
-  return Promise.all(
-    new Seq(mapInfos).zip(hashes).map(async ([info, hash]) => {
-      if (!info) {
-        return null
-      } else {
-        return {
-          hash,
-          mapUrl: await getUrl(mapPath(hash, info.format)),
-          imageUrl: await getUrl(imagePath(hash)),
-          ...info,
-        }
-      }
-    }),
-  )
-}
-
-export async function mapInfo(...hashes) {
-  const dbInfo = await db.mapInfo(...hashes)
-  return formatMapInfo(dbInfo, hashes)
-}
-
-function mapPath(hash, extension) {
+export function mapPath(hash, extension) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
   return `maps/${firstByte}/${secondByte}/${hash}.${extension}`
 }
 
-function imagePath(hash) {
+export function imagePath(hash) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
   return `map_images/${firstByte}/${secondByte}/${hash}.jpg`
 }
 
-async function mapParseWorker(path, extension, hash) {
+async function mapParseWorker(path, extension) {
   const bwDataPath = config.bwData ? config.bwData : ''
   const { messages, binaryData } = await runChildProcess('lib/maps/map-parse-worker', [
     path,
     extension,
-    hash,
     bwDataPath,
   ])
   console.assert(messages.length === 1)

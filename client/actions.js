@@ -7,6 +7,7 @@ export const ACTIVE_GAME_STATUS = 'ACTIVE_GAME_STATUS'
 
 export const ACTIVITY_OVERLAY_OPEN = 'ACTIVITY_OVERLAY_OPEN'
 export const ACTIVITY_OVERLAY_CLOSE = 'ACTIVITY_OVERLAY_CLOSE'
+export const ACTIVITY_OVERLAY_GO_BACK = 'ACTIVITY_OVERLAY_GO_BACK'
 
 export const ADMIN_BAN_USER_BEGIN = 'ADMIN_BAN_USER_BEGIN'
 export const ADMIN_BAN_USER = 'ADMIN_BAN_USER'
@@ -206,6 +207,15 @@ export const LOBBY_UPDATE_SLOT_DELETED = 'LOBBY_UPDATE_SLOT_DELETED'
 // Our status has changed, ie. one of our clients either joined or left the lobby
 export const LOBBY_UPDATE_STATUS = 'LOBBY_UPDATE_STATUS'
 
+// We are beginning to retrieve the lobby preferences from the server
+export const LOBBY_PREFERENCES_GET_BEGIN = 'LOBBY_PREFERENCES_GET_BEGIN'
+// The server has responded with success/failure to our retrieval of lobby preferences
+export const LOBBY_PREFERENCES_GET = 'LOBBY_PREFERENCES_GET'
+// We are beginning to update the lobby preferences to the server
+export const LOBBY_PREFERENCES_UPDATE_BEGIN = 'LOBBY_PREFERENCES_UPDATE_BEGIN'
+// The server has responded with success/failure to us updating the lobby preferences
+export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
+
 // We are starting the process of saving the settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'
 // The server has responded with success/failure to our settings saving
@@ -213,12 +223,12 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
-// We have selected a map from local pc, or an error occured
-export const MAPS_BROWSE_SELECT = 'MAPS_BROWSE_SELECT'
-// We have started to host a map from local pc, possibly uploading it
-export const MAPS_HOST_LOCAL_BEGIN = 'MAPS_HOST_LOCAL_BEGIN'
-// Local map hosting either failed or the map was succesfully uploaded
-export const MAPS_HOST_LOCAL = 'MAPS_HOST_LOCAL'
+// We are starting the process of selecting a local map when creating a lobby (usually means
+// uploading the map)
+export const LOCAL_MAPS_SELECT_BEGIN = 'LOCAL_MAPS_SELECT_BEGIN'
+// The server has responded with success/failure to us selecting the local map
+export const LOCAL_MAPS_SELECT = 'LOCAL_MAPS_SELECT'
+
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)

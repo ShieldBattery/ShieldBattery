@@ -75,6 +75,13 @@ export default function({
               loader: 'react-svg-loader',
               options: {
                 jsx: true,
+                svgo: {
+                  plugins: [
+                    {
+                      removeViewBox: false,
+                    },
+                  ],
+                },
               },
             },
           ],

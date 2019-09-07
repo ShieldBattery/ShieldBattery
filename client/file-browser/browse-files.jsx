@@ -339,13 +339,14 @@ export default class Files extends React.Component {
   }
 
   render() {
-    const { rootFolderName, title, root, error } = this.props
+    const { rootFolderName, title, titleButton, root, error } = this.props
     const { path } = this.props.fileBrowser[this.props.browseId]
     const displayedPath = `${rootFolderName}${pathApi.sep}${pathApi.relative(root, path)}`
     return (
       <div ref={this._focusBrowser} tabIndex='-1' className={styles.root}>
         <div className={styles.topBar}>
           <div className={styles.title}>
+            {titleButton ? titleButton : null}
             <h3 className={styles.contentTitle}>{title}</h3>
           </div>
           <div className={styles.breadcrumbsAndActions}>

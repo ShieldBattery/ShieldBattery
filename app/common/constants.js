@@ -48,6 +48,18 @@ export function isValidChannelName(channel) {
   return channel && channel.length <= CHANNEL_MAXLENGTH && CHANNEL_PATTERN.test(channel)
 }
 
+export function isValidLobbyName(name) {
+  return typeof name === 'string' && name.length > 0 && name.length <= LOBBY_NAME_MAXLENGTH
+}
+
+export function isValidGameType(type) {
+  return GAME_TYPES.includes(type)
+}
+
+export function isValidGameSubType(type) {
+  return type => !type || (type >= 1 && type <= 7)
+}
+
 export function isValidMatchmakingType(type) {
   return MATCHMAKING_TYPES.includes(type)
 }

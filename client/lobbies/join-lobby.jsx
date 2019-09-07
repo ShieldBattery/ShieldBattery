@@ -30,7 +30,9 @@ class ListEntry extends React.Component {
           <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
           <span className={styles.openSlots}>{lobby.openSlotCount} slots open</span>
         </div>
-        <MapThumbnail map={lobby.map} shouldDisplayMapName={true} />
+        <div className={styles.map}>
+          <MapThumbnail map={lobby.map} showMapName={true} canHover={false} />
+        </div>
       </div>
     )
   }

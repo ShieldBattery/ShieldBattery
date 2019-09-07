@@ -1,42 +1,113 @@
 import React from 'react'
-import { Range } from 'immutable'
+import PropTypes from 'prop-types'
+import { Map, Range } from 'immutable'
 import { connect } from 'react-redux'
-import { createLobby, navigateToLobby } from './action-creators'
-import { getMapsList, hostLocalMap } from '../maps/action-creators'
+import styled from 'styled-components'
+
 import { openOverlay, closeOverlay } from '../activities/action-creators'
-import { openSnackbar } from '../snackbars/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../app/common/constants'
 import gameTypeToString from './game-type-to-string'
 import { isTeamType } from '../../app/common/lobbies'
-import { MAP_UPLOADING } from '../../app/common/flags'
-import styles from './create-lobby.css'
+import {
+  createLobby,
+  navigateToLobby,
+  getLobbyPreferences,
+  updateLobbyPreferences,
+} from './action-creators'
+import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
 
+import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import MapSelect from '../maps/map-select.jsx'
 import Option from '../material/select/option.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import form from '../forms/form.jsx'
 import Select from '../material/select/select.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
+
+import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { Headline, Subheading } from '../styles/typography'
+
+const ENTER = 'Enter'
+
+const LoadingArea = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+`
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+`
+
+const TitleBar = styled.div`
+  margin: 24px;
+
+  & > h3 {
+    margin: 0;
+  }
+`
+
+const Contents = styled.div`
+  flex-grow: 1;
+`
+
+const ContentsBody = styled.div`
+  padding: 0 24px;
+`
+
+const ScrollDivider = styled.div`
+  width: 100%;
+  height: 1px;
+  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
+  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
+  background-color: ${colorDividers};
+`
+
+const Actions = styled.div`
+  margin: 16px 24px;
+`
+
+const GameTypeAndSubType = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+
+  & > * {
+    width: calc(50% - 20px);
+  }
+`
+
+const Underline = styled(Subheading)`
+  color: ${colorTextSecondary};
+`
 
 const lobbyNameValidator = composeValidators(
   required('Enter a lobby name'),
   maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`),
 )
+const selectedMapValidator = required('Select a map to play')
 
 @form({
   name: lobbyNameValidator,
+  selectedMap: selectedMapValidator,
 })
 class CreateLobbyForm extends React.Component {
-  _lastMapHash = null
   _lastGameType = null
   _lastGameSubType = null
+  _lastSelectedMap = null
 
   _updateLastValues() {
     const { getInputValue } = this.props
-    this._lastMapHash = getInputValue('map')
     this._lastGameType = getInputValue('gameType')
     this._lastGameSubType = getInputValue('gameSubType')
+    this._lastSelectedMap = getInputValue('selectedMap')
   }
 
   componentDidMount() {
@@ -48,18 +119,18 @@ class CreateLobbyForm extends React.Component {
   }
 
   componentWillUpdate(nextProps) {
-    const { getInputValue, setInputValue, maps } = nextProps
+    const { getInputValue, setInputValue, recentMaps } = nextProps
     const nextGameType = getInputValue('gameType')
     const nextGameSubType = getInputValue('gameSubType')
-    const nextMapHash = getInputValue('map')
+    const nextSelectedMap = getInputValue('selectedMap')
 
-    if (!nextMapHash) return
+    if (!nextSelectedMap) return
 
-    if (nextGameType !== this._lastGameType || nextMapHash !== this._lastMapHash) {
+    if (nextGameType !== this._lastGameType || nextSelectedMap !== this._lastSelectedMap) {
       if (!isTeamType(nextGameType)) return
 
-      // Ensure gameSubType is always set, and always within a valid range for the current map
-      const { slots } = maps.byHash.get(nextMapHash)
+      // Ensure `gameSubType` is always set, and always within a valid range for the current map
+      const { slots } = recentMaps.byHash.get(nextSelectedMap)
       if (nextGameType === 'topVBottom') {
         if (
           nextGameType !== this._lastGameType ||
@@ -83,18 +154,18 @@ class CreateLobbyForm extends React.Component {
   }
 
   renderSubTypeSelection() {
-    const { bindCustom, getInputValue, maps } = this.props
+    const { bindCustom, getInputValue, recentMaps } = this.props
 
     const gameType = getInputValue('gameType')
     if (!isTeamType(gameType)) {
       return null
     }
-    const mapHash = getInputValue('map')
-    if (!mapHash) {
+    const selectedMap = recentMaps.byHash.get(getInputValue('selectedMap'))
+    if (!selectedMap) {
       return null
     }
 
-    const { slots } = maps.byHash.get(mapHash)
+    const { slots } = selectedMap
     if (gameType === 'topVBottom') {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
@@ -115,16 +186,8 @@ class CreateLobbyForm extends React.Component {
   }
 
   render() {
-    const { onSubmit, bindInput, bindCustom, maps, inputRef } = this.props
-    let mapListContents = maps.list.map(hash => (
-      <Option key={hash} value={hash} text={maps.byHash.get(hash).name} />
-    ))
-    if (maps.localMapHash) {
-      const text = maps.byHash.get(maps.localMapHash).name
-      mapListContents = mapListContents.unshift(
-        <Option key={'localMap'} value={maps.localMapHash} text={text} />,
-      )
-    }
+    const { onSubmit, bindInput, bindCustom, inputRef, recentMaps, onMapBrowse } = this.props
+
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <TextField
@@ -140,39 +203,33 @@ class CreateLobbyForm extends React.Component {
             tabIndex: 0,
           }}
         />
-        <div className={styles.selectMap}>
-          <Select
-            className={styles.mapList}
-            {...bindCustom('map')}
-            label='Map'
-            tabIndex={0}
-            disabled={!mapListContents.size}>
-            {mapListContents}
+        <GameTypeAndSubType>
+          <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
+            {GAME_TYPES.map(type => (
+              <Option key={type} value={type} text={gameTypeToString(type)} />
+            ))}
           </Select>
-          {MAP_UPLOADING ? (
-            <RaisedButton
-              className={styles.mapBrowse}
-              label='Browse'
-              onClick={this.props.onMapBrowse}
-            />
-          ) : null}
-        </div>
-        <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
-          {GAME_TYPES.map(type => (
-            <Option key={type} value={type} text={gameTypeToString(type)} />
-          ))}
-        </Select>
-        {this.renderSubTypeSelection()}
+          {this.renderSubTypeSelection()}
+        </GameTypeAndSubType>
+        <Underline>Select map</Underline>
+        <MapSelect
+          {...bindCustom('selectedMap')}
+          maps={recentMaps.byHash.valueSeq().toArray()}
+          maxSelections={1}
+          thumbnailSize='large'
+          canBrowseMaps={true}
+          onMapBrowse={onMapBrowse}></MapSelect>
       </form>
     )
   }
 }
 
-@connect(state => ({ maps: state.maps }))
+@connect(state => ({ lobbyPreferences: state.lobbyPreferences }))
 export default class CreateLobby extends React.Component {
-  state = {
-    defaultMap: null,
+  static propTypes = {
+    initData: PropTypes.instanceOf(Map),
   }
+
   _autoFocusTimer = null
   _form = null
   _setForm = elem => {
@@ -182,33 +239,59 @@ export default class CreateLobby extends React.Component {
   _setInput = elem => {
     this._input = elem
   }
+  isHosted = false
 
-  componentWillMount() {
-    const { maps } = this.props
-    if (maps.localMapHash) {
-      this.setState({ defaultMap: maps.localMapHash })
-    } else if (maps.list.size) {
-      this.setState({ defaultMap: maps.list.get(0) })
-    }
+  state = {
+    scrolledUp: false,
+    scrolledDown: false,
+    recentMaps: new RecentMaps(),
   }
 
-  componentWillReceiveProps(nextProps) {
-    const { maps: curMaps } = this.props
-    const { maps: nextMaps } = nextProps
-    if (nextMaps.localMapHash && nextMaps.localMapHash !== curMaps.localMapHash) {
-      this.setState({ defaultMap: nextMaps.localMapHash })
-    } else if (!nextMaps.localMapHash && !curMaps.list.size && nextMaps.list.size) {
-      this.setState({ defaultMap: nextMaps.list.get(0) })
+  _savePreferences = () => {
+    const { recentMaps } = this.state
+
+    let orderedRecentMaps = recentMaps.list
+    // If the selected map is actually hosted, we move it to the front of the recent maps list
+    if (this.isHosted) {
+      const { selectedMap } = this._form.getModel()
+      orderedRecentMaps = orderedRecentMaps
+        .delete(orderedRecentMaps.indexOf(selectedMap))
+        .unshift(selectedMap)
     }
-    if (!curMaps.lastError && nextMaps.lastError) {
-      this.props.dispatch(closeOverlay())
-      this.props.dispatch(openSnackbar('There was a problem loading the maps list'))
-    }
+
+    this.props.dispatch(
+      updateLobbyPreferences({
+        ...this._form.getModel(),
+        recentMaps: orderedRecentMaps.toArray(),
+      }),
+    )
   }
 
   componentDidMount() {
     this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
-    this.props.dispatch(getMapsList())
+    this.props.dispatch(getLobbyPreferences())
+    window.addEventListener('beforeunload', this._savePreferences)
+  }
+
+  componentDidUpdate(prevProps) {
+    const { isRequesting: prevIsRequesting } = prevProps.lobbyPreferences
+    const { isRequesting, recentMaps } = this.props.lobbyPreferences
+    const { initData } = this.props
+    const initialMap = initData.get('map')
+
+    if (prevIsRequesting && !isRequesting) {
+      let newRecentMaps = recentMaps
+
+      if (initialMap && !recentMaps.byHash.has(initialMap.hash)) {
+        newRecentMaps = recentMapsFromJs(
+          [initialMap, ...recentMaps.byHash.valueSeq().toArray()].slice(0, 5),
+        )
+      }
+
+      this.setState({
+        recentMaps: newRecentMaps,
+      })
+    }
   }
 
   componentWillUnmount() {
@@ -216,6 +299,11 @@ export default class CreateLobby extends React.Component {
       clearTimeout(this._autoFocusTimer)
       this._autoFocusTimer = null
     }
+
+    // Saves the lobby preferences if the component had time to unmount. If it didn't, eg. the page
+    // was refreshed, the 'beforeunload' event listener will handle it.
+    this._savePreferences()
+    window.removeEventListener('beforeunload', this._savePreferences)
   }
 
   _doAutoFocus() {
@@ -224,33 +312,68 @@ export default class CreateLobby extends React.Component {
   }
 
   render() {
-    const { maps } = this.props
+    const { initData, lobbyPreferences } = this.props
+    const { scrolledUp, scrolledDown, recentMaps } = this.state
 
+    if (lobbyPreferences.isRequesting) {
+      return (
+        <LoadingArea>
+          <LoadingIndicator />
+        </LoadingArea>
+      )
+    }
+
+    const { name, gameType, gameSubType } = lobbyPreferences
+    const initialMap = initData.get('map')
+    const selectedMap = (initialMap && initialMap.hash) || lobbyPreferences.selectedMap
     const model = {
-      map: this.state.defaultMap,
-      gameType: 'melee',
+      name,
+      gameType: gameType || 'melee',
+      gameSubType,
+      selectedMap,
     }
 
     return (
-      <div className={styles.root}>
-        <h3>Create lobby</h3>
-        <CreateLobbyForm
-          ref={this._setForm}
-          inputRef={this._setInput}
-          model={model}
-          onSubmit={this.onSubmit}
-          onMapBrowse={this.onMapBrowse}
-          maps={maps}
-        />
-        <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
-        {maps.uploadError ? <div>{'Uploading the map failed :('}</div> : null}
-        {maps.isUploading ? (
-          <div className={styles.loadingArea}>
-            <LoadingIndicator />
-          </div>
-        ) : null}
-      </div>
+      <Container>
+        <KeyListener onKeyDown={this.onKeyDown} />
+        <TitleBar>
+          <Headline>Create lobby</Headline>
+        </TitleBar>
+        <Contents>
+          {scrolledDown ? <ScrollDivider position='top' /> : null}
+          <ScrollableContent onUpdate={this.onScrollUpdate}>
+            <ContentsBody>
+              <CreateLobbyForm
+                ref={this._setForm}
+                inputRef={this._setInput}
+                model={model}
+                onSubmit={this.onSubmit}
+                recentMaps={recentMaps}
+                onMapBrowse={this.onMapBrowse}
+              />
+            </ContentsBody>
+          </ScrollableContent>
+          {scrolledUp ? <ScrollDivider position='bottom' /> : null}
+        </Contents>
+        <Actions>
+          <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
+        </Actions>
+      </Container>
     )
+  }
+
+  onScrollUpdate = values => {
+    const { scrollTop, scrollHeight, clientHeight } = values
+    const scrolledUp = scrollTop + clientHeight < scrollHeight
+    const scrolledDown = scrollTop > 0
+
+    if (scrolledUp !== this.state.scrolledUp || scrolledDown !== this.state.scrolledDown) {
+      this.setState({ scrolledUp, scrolledDown })
+    }
+  }
+
+  onMapBrowse = () => {
+    this.props.dispatch(openOverlay('browseLocalMaps'))
   }
 
   onCreateClick = () => {
@@ -258,19 +381,22 @@ export default class CreateLobby extends React.Component {
   }
 
   onSubmit = () => {
-    const { name, map, gameType, gameSubType } = this._form.getModel()
-    const { localMapHash, localMapPath } = this.props.maps
+    this.isHosted = true
+
+    const { name, gameType, gameSubType, selectedMap } = this._form.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
-    if (map === localMapHash) {
-      this.props.dispatch(hostLocalMap(localMapPath, name, map, gameType, subType))
-    } else {
-      this.props.dispatch(createLobby(name, map, gameType, subType))
-      this.props.dispatch(navigateToLobby(name))
-      this.props.dispatch(closeOverlay())
-    }
+
+    this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
+    this.props.dispatch(navigateToLobby(name))
+    this.props.dispatch(closeOverlay())
   }
 
-  onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseMaps'))
+  onKeyDown = event => {
+    if (event.code === ENTER) {
+      this.onCreateClick()
+      return true
+    }
+
+    return false
   }
 }

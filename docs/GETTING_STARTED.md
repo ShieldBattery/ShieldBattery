@@ -49,7 +49,7 @@ toolchain by running `rustup update`.
 
 ### Server software
 
-Along with nodejs, the server requires [PostgreSQL v9.4+](http://postgresql.org), and
+Along with nodejs, the server requires [PostgreSQL v9.5+](http://postgresql.org), and
 [redis](http://redis.io).
 
 #### PostgreSQL

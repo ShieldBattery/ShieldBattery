@@ -9,17 +9,17 @@ import JoinLobby from '../lobbies/join-lobby.jsx'
 
 import { closeOverlay } from './action-creators'
 
-import { dialogScrim, grey800 } from '../styles/colors'
+import { dialogScrim, grey850 } from '../styles/colors'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 
-const { FindMatch, CreateLobby, WatchReplay, BrowseMaps } = IS_ELECTRON
+const { FindMatch, CreateLobby, WatchReplay, BrowseLocalMaps } = IS_ELECTRON
   ? {
       FindMatch: require('../matchmaking/find-match.jsx').default,
       CreateLobby: require('../lobbies/create-lobby.jsx').default,
       WatchReplay: require('../replays/watch-replay.jsx').default,
-      BrowseMaps: require('../maps/browse-maps.jsx').default,
+      BrowseLocalMaps: require('../maps/browse-local-maps.jsx').default,
     }
   : {}
 
@@ -55,7 +55,7 @@ const Overlay = styled.div`
   width: 60%;
   min-width: 448px;
   max-width: 768px;
-  background-color: ${grey800};
+  background-color: ${grey850};
   z-index: ${zIndexSideNav};
 
   -webkit-app-region: no-drag;
@@ -105,20 +105,25 @@ const Container = styled.div`
 
 @connect(state => ({ activityOverlay: state.activityOverlay }))
 export default class ActivityOverlay extends React.Component {
+  _focusable = null
+  _setFocusable = elem => {
+    this._focusable = elem
+  }
+
   getOverlayComponent() {
     switch (this.props.activityOverlay.overlayType) {
       case 'findMatch':
-        return <FindMatch />
+        return FindMatch
       case 'createLobby':
-        return <CreateLobby />
+        return CreateLobby
       case 'joinLobby':
-        return <JoinLobby />
+        return JoinLobby
       case 'watchReplay':
-        return <WatchReplay />
-      case 'browseMaps':
-        return <BrowseMaps />
+        return WatchReplay
+      case 'browseLocalMaps':
+        return BrowseLocalMaps
       default:
-        return <span />
+        throw new Error('Unknown overlay type: ' + this.props.activityOverlay.overlayType)
     }
   }
 
@@ -127,23 +132,31 @@ export default class ActivityOverlay extends React.Component {
       return null
     }
 
+    const OverlayComponent = this.getOverlayComponent()
+    const overlayComponent = <OverlayComponent initData={this.props.activityOverlay.initData} />
     return (
       <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <Scrim onClick={this.onScrimClick} />
-        <Overlay>{this.getOverlayComponent()}</Overlay>
+        <Overlay>{overlayComponent}</Overlay>
       </Container>
     )
   }
 
   render() {
     return (
-      <TransitionGroup
-        transitionName={transitionNames}
-        transitionEnterTimeout={350}
-        transitionLeaveTimeout={250}>
-        {this.renderOverlay()}
-      </TransitionGroup>
+      <>
+        <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />
+        <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
+          <TransitionGroup
+            transitionName={transitionNames}
+            transitionEnterTimeout={350}
+            transitionLeaveTimeout={250}>
+            {this.renderOverlay()}
+          </TransitionGroup>
+        </span>
+        <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />
+      </>
     )
   }
 
@@ -158,5 +171,10 @@ export default class ActivityOverlay extends React.Component {
     }
 
     return false
+  }
+
+  onFocusTrap = () => {
+    // Focus was about to leave the activity area, redirect it back to the activity
+    this._focusable.focus()
   }
 }

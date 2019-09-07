@@ -8,11 +8,16 @@ import routeCreator from '../rally-point/route-creator'
 import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
-import { mapInfo } from '../maps/store'
+import { getMapInfo } from '../models/maps'
 import CancelToken from '../../../app/common/async/cancel-token'
 import createDeferred from '../../../app/common/async/deferred'
 import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
-import { LOBBY_NAME_MAXLENGTH, GAME_TYPES, validRace } from '../../../app/common/constants'
+import {
+  isValidLobbyName,
+  isValidGameType,
+  isValidGameSubType,
+  validRace,
+} from '../../../app/common/constants'
 import {
   isUms,
   getLobbySlots,
@@ -31,9 +36,6 @@ const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
-const validLobbyName = str => nonEmptyString(str) && str.length <= LOBBY_NAME_MAXLENGTH
-const validGameType = str => nonEmptyString(str) && GAME_TYPES.includes(str)
-const validGameSubType = type => !type || (type >= 1 && type <= 7)
 
 const Countdown = new Record({
   timer: null,
@@ -134,10 +136,10 @@ export class LobbyApi {
   @Api(
     '/create',
     validateBody({
-      name: validLobbyName,
+      name: isValidLobbyName,
       map: nonEmptyString,
-      gameType: validGameType,
-      gameSubType: validGameSubType,
+      gameType: isValidGameType,
+      gameSubType: isValidGameSubType,
     }),
   )
   async create(data, next) {
@@ -149,7 +151,7 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapData = (await mapInfo(map))[0]
+    const mapData = (await getMapInfo(map))[0]
     if (!mapData) {
       throw new errors.BadRequest('invalid map')
     }
@@ -194,7 +196,7 @@ export class LobbyApi {
   @Api(
     '/join',
     validateBody({
-      name: validLobbyName,
+      name: isValidLobbyName,
     }),
   )
   async join(data, next) {

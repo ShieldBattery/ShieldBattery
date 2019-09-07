@@ -10,7 +10,7 @@ const { parseAndHashMap } = require('../../../app/common/maps')
 
 // A map parsing script that runs in a separate process
 
-const [path, extension, hash, bwDataPath] = process.argv.slice(2)
+const [path, extension, bwDataPath] = process.argv.slice(2)
 
 function createLobbyInitData(chk) {
   const raceIdToName = {
@@ -85,10 +85,7 @@ process.once('message', msg => {
   console.assert(msg === 'init')
   process.send('init')
   parseAndHashMap(path, extension)
-    .then(({ hash: calculatedHash, map }) => {
-      if (hash !== calculatedHash) {
-        throw new Error("Data doesn't match the hash")
-      }
+    .then(({ hash, map }) => {
       return generateImage(map, bwDataPath).then(image => {
         const imagePromise = new Promise((resolve, reject) => {
           if (image) {
@@ -104,6 +101,7 @@ process.once('message', msg => {
         const sendPromise = new Promise(resolve =>
           process.send(
             {
+              hash,
               title: map.title,
               description: map.description,
               width: map.size[0],
