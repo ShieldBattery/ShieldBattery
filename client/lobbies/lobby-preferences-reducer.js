@@ -19,6 +19,7 @@ export const LobbyPreferences = new Record({
   selectedMap: null,
 
   isRequesting: false,
+  // NOTE(2Pac): We don't actually display this anywhere since it's not that useful to the user
   lastError: null,
 })
 
@@ -40,7 +41,7 @@ function createPreferences(preferences) {
 
 export default keyedReducer(new LobbyPreferences(), {
   [LOBBY_PREFERENCES_GET_BEGIN](state, action) {
-    return state.set('isRequesting', true)
+    return state.set('isRequesting', true).set('lastError', false)
   },
 
   [LOBBY_PREFERENCES_GET](state, action) {

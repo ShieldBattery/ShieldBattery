@@ -10,7 +10,7 @@ import {
 import { upsertLobbyPreferences, getLobbyPreferences } from '../models/lobby-preferences'
 import { getMapInfo } from '../models/maps'
 
-const throttle = createThrottle('accountcreation', {
+const throttle = createThrottle('lobbypreferences', {
   rate: 20,
   burst: 40,
   window: 60000,
