@@ -68,8 +68,11 @@ async function getPreferences(ctx, next) {
     throw new httpErrors.NotFound('no lobby preferences found for this user')
   }
 
+  const { selectedMap } = preferences
+  const recentMaps = await getMapInfo(...preferences.recentMaps)
   ctx.body = {
     ...preferences,
-    recentMaps: await getMapInfo(...preferences.recentMaps),
+    recentMaps,
+    selectedMap: recentMaps.map(m => m.hash).includes(selectedMap) ? selectedMap : '',
   }
 }
