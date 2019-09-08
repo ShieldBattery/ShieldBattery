@@ -6,11 +6,32 @@ import { MAP_UPLOADING } from '../../../app/common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
+
+const mapsListThrottle = createThrottle('mapslist', {
+  rate: 30,
+  burst: 50,
+  window: 60000,
+})
+
+const mapsUploadThrottle = createThrottle('mapsupload', {
+  rate: 10,
+  burst: 20,
+  window: 60000,
+})
 
 export default function(router) {
   router
-    .get('/', ensureLoggedIn, list)
-    .post('/', featureEnabled(MAP_UPLOADING), ensureLoggedIn, handleMultipartFiles, upload)
+    .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
+    .post(
+      '/',
+      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      featureEnabled(MAP_UPLOADING),
+      ensureLoggedIn,
+      handleMultipartFiles,
+      upload,
+    )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
 }
 
