@@ -4,8 +4,9 @@ import { List } from 'immutable'
 import styled from 'styled-components'
 
 import { MAP_UPLOADING } from '../../app/common/flags'
+import ImageList from '../material/image-list.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'
-import MapThumbnail from '../maps/map-thumbnail.jsx'
+import MapThumbnail from './map-thumbnail.jsx'
 
 import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
 import BrowseIcon from '../icons/material/ic_terrain_black_24px.svg'
@@ -26,28 +27,6 @@ const Container = styled.div`
 
 const ErrorText = styled(Subheading)`
   color: ${colorError};
-`
-
-// TODO(2Pac): Make this into a general image list component and move it to material folder
-export const ImageList = styled.div`
-  display: grid;
-  grid-template-columns: ${props => `repeat(${props.columnCount}, 1fr)`};
-  grid-auto-rows: 1fr;
-  grid-gap: ${props => `${props.padding}px`};
-
-  // A trick to keep grid items at 1:1 aspect ratio while having variable widths
-  &::before {
-    content: '';
-    width: 0;
-    padding-bottom: 100%;
-    grid-row: 1 / 1;
-    grid-column: 1 / 1;
-  }
-
-  & > *:first-child {
-    grid-row: 1 / 1;
-    grid-column: 1 / 1;
-  }
 `
 
 const BrowseButton = styled.div`

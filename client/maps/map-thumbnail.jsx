@@ -3,8 +3,10 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
+
+import ImageIcon from '../icons/material/baseline-image-24px.svg'
 
 const Container = styled.div`
   position: relative;
@@ -19,6 +21,24 @@ const MapImage = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
+`
+
+const NoImage = styled.div`
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background-color: ${grey800};
+
+  & > svg {
+    width: 90px;
+    height: 90px;
+    margin-bottom: 48px;
+    opacity: 0.5;
+  }
 `
 
 const Overlay = styled.div`
@@ -82,9 +102,15 @@ export default class MapThumbnail extends React.Component {
 
     return (
       <Container>
-        <picture>
-          <MapImage src={map.imageUrl} alt={map.name} />
-        </picture>
+        {map.imageUrl ? (
+          <picture>
+            <MapImage src={map.imageUrl} alt={map.name} />
+          </picture>
+        ) : (
+          <NoImage>
+            <ImageIcon />
+          </NoImage>
+        )}
         {canHover ? (
           <Overlay
             isSelected={isSelected}

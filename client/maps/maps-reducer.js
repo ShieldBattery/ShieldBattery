@@ -15,20 +15,21 @@ export const MapRecord = new Record({
   umsSlots: -1,
 })
 export const Maps = new Record({
-  isFetching: false,
   list: new List(),
   byHash: new Map(),
+
+  isRequesting: false,
   lastError: null,
 })
 
 export default keyedReducer(new Maps(), {
   [MAPS_LIST_GET_BEGIN](state, action) {
-    return state.set('isFetching', true)
+    return state.set('isRequesting', true)
   },
 
   [MAPS_LIST_GET](state, action) {
     if (action.error) {
-      return state.set('isFetching', false).set('lastError', action.payload)
+      return state.set('isRequesting', false).set('lastError', action.payload)
     }
 
     // TODO(tec27): handle pagination
@@ -36,9 +37,9 @@ export default keyedReducer(new Maps(), {
     const byHash = new Map(action.payload.maps.map(m => [m.hash, new MapRecord(m)]))
 
     return state
-      .set('isFetching', false)
       .set('list', list)
       .set('byHash', byHash)
+      .set('isRequesting', false)
       .set('lastError', null)
   },
 })

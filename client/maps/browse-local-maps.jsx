@@ -27,7 +27,7 @@ const BackButton = styled(IconButton)`
 `
 
 @connect(state => ({ localMaps: state.localMaps, settings: state.settings }))
-export default class Maps extends React.Component {
+export default class LocalMaps extends React.Component {
   componentDidUpdate(prevProps) {
     const { localMaps: prevMaps } = prevProps
     const { localMaps: curMaps } = this.props

@@ -373,7 +373,7 @@ export default class CreateLobby extends React.Component {
   }
 
   onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseLocalMaps'))
+    this.props.dispatch(openOverlay('browseServerMaps'))
   }
 
   onCreateClick = () => {

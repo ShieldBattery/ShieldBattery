@@ -22,6 +22,10 @@ export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?s
 
 export const GAME_TYPES = ['melee', 'ffa', 'topVBottom', 'teamMelee', 'teamFfa', 'ums', 'oneVOne']
 
+export const MAP_VISIBILITY_OFFICIAL = 'OFFICIAL'
+export const MAP_VISIBILITY_PRIVATE = 'PRIVATE'
+export const MAP_VISIBILITY_PUBLIC = 'PUBLIC'
+
 export function isValidUsername(username) {
   return (
     username &&
