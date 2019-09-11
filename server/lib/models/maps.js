@@ -70,7 +70,8 @@ export async function addMap(mapParams, transactionFn) {
         umsPlayers,
         lobbyInitData,
       ]
-      const result = await client.query(query, params)
+      // Run the `transactionFn` only if a new map is added
+      const [result] = await Promise.all([client.query(query, params), transactionFn()])
       map = await createMapInfo(result.rows[0])
     }
 
@@ -82,7 +83,7 @@ export async function addMap(mapParams, transactionFn) {
     `
     const params = [Buffer.from(hash, 'hex'), uploadedBy, visibility]
 
-    await Promise.all([client.query(query, params), transactionFn()])
+    await client.query(query, params)
     return map
   })
 }
