@@ -38,8 +38,8 @@ export default function(router) {
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
 
 async function upload(ctx, next) {
-  const { extension, filename, modifiedDate } = ctx.request.body
   const { path } = ctx.request.files.file
+  const { extension } = ctx.request.body
 
   if (!path) {
     throw new httpErrors.BadRequest('map file must be specified')
@@ -53,14 +53,7 @@ async function upload(ctx, next) {
   }
 
   const visibility = ctx.request.path.endsWith('/official') ? 'OFFICIAL' : 'PRIVATE'
-  const map = await storeMap(
-    path,
-    lowerCaseExtension,
-    filename,
-    modifiedDate,
-    ctx.session.userId,
-    visibility,
-  )
+  const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
   ctx.body = {
     map,
   }
