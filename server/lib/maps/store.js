@@ -1,25 +1,19 @@
 import childProcess from 'child_process'
 import fs from 'fs'
 import config from '../../config.js'
-import { addMap, getMapInfo } from '../models/maps'
+import { addMap } from '../models/maps'
 import { writeFile } from '../file-upload'
 import bl from 'bl'
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(path, extension, filename, modifiedDate) {
+export async function storeMap(path, extension, uploadedBy, visibility) {
   const { mapData, imageStream } = await mapParseWorker(path, extension)
   const { hash } = mapData
 
-  let map = (await getMapInfo(hash))[0]
-  if (map) {
-    // Means the map already exists and we don't have to upload it twice
-    // TODO(2Pac): Handle the case when two different users try to upload the same map
-    return map
-  }
-
-  map = await addMap(mapData, extension, filename, modifiedDate, async () => {
+  const mapParams = { mapData, extension, uploadedBy, visibility }
+  const map = await addMap(mapParams, async () => {
     if (imageStream) {
       await writeFile(imagePath(hash), imageStream)
     }

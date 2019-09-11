@@ -3,30 +3,43 @@ import { storeMap } from '../maps/store'
 import { listMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
+import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
+
+const mapsListThrottle = createThrottle('mapslist', {
+  rate: 30,
+  burst: 50,
+  window: 60000,
+})
+
+const mapsUploadThrottle = createThrottle('mapsupload', {
+  rate: 10,
+  burst: 20,
+  window: 60000,
+})
 
 export default function(router) {
   router
-    .get('/', ensureLoggedIn, list)
-    .post('/', ensureLoggedIn, uploadPermissionCheck(), handleMultipartFiles, upload)
+    .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
+    .post(
+      '/',
+      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      featureEnabled(MAP_UPLOADING),
+      ensureLoggedIn,
+      handleMultipartFiles,
+      upload,
+    )
+    .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
 
-function uploadPermissionCheck() {
-  if (!MAP_UPLOADING) {
-    return checkAllPermissions('manageMaps')
-  } else {
-    return async (ctx, next) => {
-      await next()
-    }
-  }
-}
-
 async function upload(ctx, next) {
-  const { extension, filename, modifiedDate } = ctx.request.body
   const { path } = ctx.request.files.file
+  const { extension } = ctx.request.body
 
   if (!path) {
     throw new httpErrors.BadRequest('map file must be specified')
@@ -39,7 +52,8 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
-  const map = await storeMap(path, lowerCaseExtension, filename, modifiedDate)
+  const visibility = ctx.request.path.endsWith('/official') ? 'OFFICIAL' : 'PRIVATE'
+  const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
   ctx.body = {
     map,
   }

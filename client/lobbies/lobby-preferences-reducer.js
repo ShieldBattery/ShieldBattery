@@ -41,7 +41,7 @@ function createPreferences(preferences) {
 
 export default keyedReducer(new LobbyPreferences(), {
   [LOBBY_PREFERENCES_GET_BEGIN](state, action) {
-    return state.set('isRequesting', true).set('lastError', false)
+    return new LobbyPreferences({ isRequesting: true })
   },
 
   [LOBBY_PREFERENCES_GET](state, action) {

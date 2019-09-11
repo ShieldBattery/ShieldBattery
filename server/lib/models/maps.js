@@ -35,15 +35,9 @@ const createMapInfo = async info => {
 
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
 // is rejected, the transaction will be rolled back.
-export async function addMap(mapData, extension, filename, modifiedDate, transactionFn) {
+export async function addMap(mapParams, transactionFn) {
   return await transact(async client => {
-    const query = `
-      INSERT INTO maps
-      (hash, extension, filename, title, description, width, height, tileset,
-      players_melee, players_ums, upload_time, modified_time, lobby_init_data)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *
-    `
+    const { mapData, extension, uploadedBy, visibility } = mapParams
     const {
       hash,
       title,
@@ -55,25 +49,42 @@ export async function addMap(mapData, extension, filename, modifiedDate, transac
       umsPlayers,
       lobbyInitData,
     } = mapData
-    const params = [
-      Buffer.from(hash, 'hex'),
-      extension,
-      filename,
-      title,
-      description,
-      width,
-      height,
-      tileset,
-      meleePlayers,
-      umsPlayers,
-      new Date(),
-      modifiedDate,
-      lobbyInitData,
-    ]
 
-    const [result] = await Promise.all([client.query(query, params), transactionFn()])
+    let map = (await getMapInfo(hash))[0]
+    if (!map) {
+      const query = `
+        INSERT INTO maps (hash, extension, title, description, width, height, tileset,
+          players_melee, players_ums, lobby_init_data)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *;
+      `
+      const params = [
+        Buffer.from(hash, 'hex'),
+        extension,
+        title,
+        description,
+        width,
+        height,
+        tileset,
+        meleePlayers,
+        umsPlayers,
+        lobbyInitData,
+      ]
+      // Run the `transactionFn` only if a new map is added
+      const [result] = await Promise.all([client.query(query, params), transactionFn()])
+      map = await createMapInfo(result.rows[0])
+    }
 
-    return createMapInfo(result.rows[0])
+    const query = `
+      INSERT INTO uploaded_maps (map_hash, uploaded_by, upload_date, visibility)
+      VALUES ($1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3)
+      ON CONFLICT (map_hash, uploaded_by)
+      DO NOTHING;
+    `
+    const params = [Buffer.from(hash, 'hex'), uploadedBy, visibility]
+
+    await client.query(query, params)
+    return map
   })
 }
 
