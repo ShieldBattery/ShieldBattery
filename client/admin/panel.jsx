@@ -27,7 +27,7 @@ class AdminDashboard extends React.Component {
     const uploadLink =
       perms.manageMaps && IS_ELECTRON ? (
         <li>
-          <Link to='/admin/map-upload'>Mass map upload</Link>
+          <Link to='/admin/map-upload'>Upload official maps</Link>
         </li>
       ) : null
     const managePatchesLink =
