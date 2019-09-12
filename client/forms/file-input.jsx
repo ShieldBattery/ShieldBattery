@@ -34,10 +34,11 @@ export default class FileInput extends React.Component {
       onChange: this.onInputChange,
     }
 
+    const hasFiles = this.props.value && this.props.value.length
     return (
       <Container>
         <input ref={this._setInput} {...internalInputProps} />
-        {this.props.value ? (
+        {hasFiles ? (
           <ClearButton icon={<ClearIcon />} title='Clear files' onClick={this.onClearClick} />
         ) : null}
       </Container>
