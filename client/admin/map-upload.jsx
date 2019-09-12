@@ -9,7 +9,7 @@ import RaisedButton from '../material/raised-button.jsx'
 import FileInput from '../forms/file-input.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
-import ErrorIcon from '../icons/material/ic_close_black_24px.svg'
+import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 
 import { colorError, colorSuccess, colorTextSecondary, grey800 } from '../styles/colors'
@@ -118,6 +118,8 @@ export default class UploadMap extends React.Component {
     this._form = elem
   }
 
+  // TODO(2Pac): This should probably be moved to the FileInput component itself and made more
+  // controllable
   renderSelectedFiles() {
     const { selectedFiles: files, results } = this.state
     if (!files.size) return null
