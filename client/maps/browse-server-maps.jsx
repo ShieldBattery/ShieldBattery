@@ -124,6 +124,7 @@ function tabToVisibility(tab) {
 export default class Maps extends React.Component {
   state = {
     activeTab: TAB_OFFICIAL_MAPS,
+    scrolledDown: false,
   }
 
   componentDidMount() {
@@ -168,7 +169,7 @@ export default class Maps extends React.Component {
 
   render() {
     const { maps } = this.props
-    const { activeTab } = this.state
+    const { activeTab, scrolledDown } = this.state
 
     if (maps.lastError) {
       return <span>Something went wrong: {maps.lastError}</span>
@@ -186,7 +187,7 @@ export default class Maps extends React.Component {
           <TabItem text='Community maps' />
         </Tabs>
         <Contents>
-          <ScrollDivider position='top' />
+          {scrolledDown ? <ScrollDivider position='top' /> : null}
           <ScrollableContent onUpdate={this.onScrollUpdate}>
             <ContentsBody>{this.renderMaps()}</ContentsBody>
           </ScrollableContent>
@@ -207,6 +208,15 @@ export default class Maps extends React.Component {
         </ActionsContainer>
       </Container>
     )
+  }
+
+  onScrollUpdate = values => {
+    const { scrollTop } = values
+    const scrolledDown = scrollTop > 0
+
+    if (scrolledDown !== this.state.scrolledDown) {
+      this.setState({ scrolledDown })
+    }
   }
 
   onBackClick = () => {
