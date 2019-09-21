@@ -29,6 +29,12 @@ const ErrorText = styled(Subheading)`
   color: ${colorError};
 `
 
+const StyledSelectedIcon = styled(SelectedIcon)`
+  path:last-child {
+    stroke: #000;
+  }
+`
+
 const BrowseButton = styled.div`
   display: flex;
   flex-direction: column;
@@ -118,7 +124,7 @@ export default class MapSelect extends React.Component {
         canHover={true}
         isSelected={isSelected(map)}
         isFocused={isFocused && focusedIndex === i}
-        selectedIcon={<SelectedIcon />}
+        selectedIcon={<StyledSelectedIcon />}
         onClick={() => this.onMapSelect(map.hash)}
       />
     ))
