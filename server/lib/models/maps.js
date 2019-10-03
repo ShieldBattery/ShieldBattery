@@ -153,7 +153,7 @@ async function _getMaps(condition, params, limit, pageNumber, searchStr) {
   `
 
   const total = await getMapsCount(whereCondition, params)
-  params.push(limit, pageNumber)
+  params.push(limit, pageNumber * limit)
 
   const { client, done } = await db()
   try {
