@@ -78,7 +78,7 @@ async function list(ctx, next) {
     page = 0
   }
 
-  if (q && !ctx.session.permissions.manageMapPools) {
+  if (q && !ctx.session.permissions.manageMaps) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 

@@ -1,15 +1,17 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
+import { List, Map } from 'immutable'
 import styled from 'styled-components'
 
 import { goBack } from '../activities/action-creators'
-import { getMapsList } from './action-creators'
+import { clearMapsList, getMapsList } from './action-creators'
 import { openOverlay } from '../activities/action-creators'
 
 import FloatingActionButton from '../material/floating-action-button.jsx'
 import IconButton from '../material/icon-button.jsx'
 import ImageList from '../material/image-list.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
+import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
@@ -26,16 +28,8 @@ import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
-import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
-
-const LoadingArea = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-`
 
 const Container = styled.div`
   display: flex;
@@ -64,6 +58,10 @@ const Contents = styled.div`
 
 const ContentsBody = styled.div`
   padding: 0 24px;
+`
+
+const ErrorText = styled(Subheading)`
+  color: ${colorError};
 `
 
 const ScrollDivider = styled.div`
@@ -120,49 +118,72 @@ function tabToVisibility(tab) {
   }
 }
 
+// A pure component that just renders the map elements, to avoid re-rendering all of them if some
+// other state (eg. `loading`) changes.
+class MapList extends React.PureComponent {
+  static propTypes = {
+    list: PropTypes.instanceOf(List),
+    byHash: PropTypes.instanceOf(Map),
+    onMapSelect: PropTypes.func,
+  }
+
+  render() {
+    const { list, byHash } = this.props
+
+    return list.map((hash, i) => (
+      <MapThumbnail
+        key={hash}
+        map={byHash.get(hash)}
+        showMapName={true}
+        canHover={true}
+        onClick={() => this.onClick(hash)}
+      />
+    ))
+  }
+
+  onClick = hash => {
+    if (this.props.onMapSelect) {
+      this.props.onMapSelect(hash)
+    }
+  }
+}
+
+const MAPS_LIMIT = 30
+
 @connect(state => ({ maps: state.maps }))
 export default class Maps extends React.Component {
   state = {
     activeTab: TAB_OFFICIAL_MAPS,
     scrolledDown: false,
+    currentPage: 0,
   }
 
-  componentDidMount() {
-    this.props.dispatch(getMapsList(tabToVisibility(this.state.activeTab)))
+  infiniteList = null
+  _setInfiniteListRef = elem => {
+    this.infiniteList = elem
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (prevState.activeTab !== this.state.activeTab) {
-      this.props.dispatch(getMapsList(tabToVisibility(this.state.activeTab)))
+    const { activeTab } = this.state
+
+    if (prevState.activeTab !== activeTab) {
+      // Since we're using the same instance of the InfiniteList component to render maps, gotta
+      // reset it each time we change tabs
+      this.infiniteList.reset()
+      this.props.dispatch(clearMapsList())
+      this.setState({ currentPage: 0 })
     }
   }
 
   renderMaps() {
     const { maps } = this.props
 
-    if (maps.isRequesting) {
-      return (
-        <LoadingArea>
-          <LoadingIndicator />
-        </LoadingArea>
-      )
-    }
-
-    if (maps.list.size < 1) return <Subheading>There are no maps.</Subheading>
-
-    const mapElements = maps.list.map((hash, i) => (
-      <MapThumbnail
-        key={hash}
-        map={maps.byHash.get(hash)}
-        showMapName={true}
-        canHover={true}
-        onClick={() => this.onMapSelect(hash)}
-      />
-    ))
+    if (maps.total === -1) return null
+    if (maps.total === 0) return <Subheading>There are no maps.</Subheading>
 
     return (
       <ImageList columnCount={3} padding={4}>
-        {mapElements}
+        <MapList list={maps.list} byHash={maps.byHash} onMapSelect={this.onMapSelect} />
       </ImageList>
     )
   }
@@ -170,10 +191,6 @@ export default class Maps extends React.Component {
   render() {
     const { maps } = this.props
     const { activeTab, scrolledDown } = this.state
-
-    if (maps.lastError) {
-      return <span>Something went wrong: {maps.lastError}</span>
-    }
 
     return (
       <Container>
@@ -189,7 +206,19 @@ export default class Maps extends React.Component {
         <Contents>
           {scrolledDown ? <ScrollDivider position='top' /> : null}
           <ScrollableContent onUpdate={this.onScrollUpdate}>
-            <ContentsBody>{this.renderMaps()}</ContentsBody>
+            <ContentsBody>
+              {maps.lastError ? (
+                <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
+              ) : (
+                <InfiniteScrollList
+                  ref={this._setInfiniteListRef}
+                  isLoading={maps.isRequesting}
+                  root={this.imageList}
+                  onLoadMoreData={this.onLoadMoreMaps}>
+                  {this.renderMaps()}
+                </InfiniteScrollList>
+              )}
+            </ContentsBody>
           </ScrollableContent>
           <ScrollDivider position='bottom' />
         </Contents>
@@ -217,6 +246,13 @@ export default class Maps extends React.Component {
     if (scrolledDown !== this.state.scrolledDown) {
       this.setState({ scrolledDown })
     }
+  }
+
+  onLoadMoreMaps = () => {
+    const { activeTab, currentPage } = this.state
+
+    this.props.dispatch(getMapsList(tabToVisibility(activeTab), MAPS_LIMIT, currentPage))
+    this.setState({ currentPage: currentPage + 1 })
   }
 
   onBackClick = () => {
