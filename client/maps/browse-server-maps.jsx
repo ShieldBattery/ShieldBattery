@@ -213,7 +213,6 @@ export default class Maps extends React.Component {
                 <InfiniteScrollList
                   ref={this._setInfiniteListRef}
                   isLoading={maps.isRequesting}
-                  root={this.imageList}
                   onLoadMoreData={this.onLoadMoreMaps}>
                   {this.renderMaps()}
                 </InfiniteScrollList>
