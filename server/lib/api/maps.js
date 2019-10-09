@@ -57,7 +57,9 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
-  const visibility = ctx.request.path.endsWith('/official') ? 'OFFICIAL' : 'PRIVATE'
+  const visibility = ctx.request.path.endsWith('/official')
+    ? MAP_VISIBILITY_OFFICIAL
+    : MAP_VISIBILITY_PRIVATE
   const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
   ctx.body = {
     map,

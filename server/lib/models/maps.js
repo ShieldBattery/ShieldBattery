@@ -177,7 +177,8 @@ export async function getOfficialMaps(limit, pageNumber, searchStr) {
 
 export function getPrivateMaps(userId, limit, pageNumber, searchStr) {
   return _getMaps(
-    `WHERE visibility = '${MAP_VISIBILITY_PRIVATE}' AND uploaded_by = $1`,
+    `WHERE visibility IN ('${MAP_VISIBILITY_PRIVATE}', '${MAP_VISIBILITY_PUBLIC}')
+      AND uploaded_by = $1`,
     [userId],
     limit,
     pageNumber,
