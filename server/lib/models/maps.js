@@ -1,6 +1,11 @@
 import db from '../db'
 import transact from '../db/transaction'
 import { tilesetIdToName } from '../../../app/common/maps'
+import {
+  MAP_VISIBILITY_OFFICIAL,
+  MAP_VISIBILITY_PRIVATE,
+  MAP_VISIBILITY_PUBLIC,
+} from '../../../app/common/constants'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
 
@@ -110,9 +115,14 @@ export async function getMapInfo(...hashes) {
   }
 }
 
-async function getMapsCount() {
-  const query = 'SELECT COUNT(*) FROM maps'
-  const params = []
+async function getMapsCount(whereCondition, whereParams) {
+  const query = `
+    SELECT COUNT(DISTINCT(hash))
+    FROM maps AS m LEFT JOIN uploaded_maps AS um
+    ON m.hash = um.map_hash
+    ${whereCondition}
+  `
+  const params = [].concat(whereParams)
 
   const { client, done } = await db()
   try {
@@ -123,22 +133,27 @@ async function getMapsCount() {
   }
 }
 
-export async function listMaps(limit, pageNumber, searchStr) {
-  const whereClause = searchStr ? 'WHERE title ILIKE $3' : ''
-  const query = `
-    SELECT *
-    FROM maps
-    ${whereClause}
-    LIMIT $1
-    OFFSET $2
-  `
-  const params = [limit, pageNumber]
+async function _getMaps(condition, params, limit, pageNumber, searchStr) {
+  // TODO(2Pac): Consider maybe using a query builder to get out of this mess
+  const searchCondition = searchStr ? ` AND title ILIKE $${params.length + 1}` : ''
   if (searchStr) {
     const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
     params.push(`%${escapedStr}%`)
   }
+  const whereCondition = condition + searchCondition
+  const query = `
+    SELECT m.*
+    FROM maps AS m LEFT JOIN uploaded_maps AS um
+    ON m.hash = um.map_hash
+    ${whereCondition}
+    GROUP BY hash
+    ORDER BY title
+    LIMIT $${params.length + 1}
+    OFFSET $${params.length + 2}
+  `
 
-  const total = await getMapsCount()
+  const total = await getMapsCount(whereCondition, params)
+  params.push(limit, pageNumber * limit)
 
   const { client, done } = await db()
   try {
@@ -148,4 +163,30 @@ export async function listMaps(limit, pageNumber, searchStr) {
   } finally {
     done()
   }
+}
+
+export async function getOfficialMaps(limit, pageNumber, searchStr) {
+  return _getMaps(
+    `WHERE visibility = '${MAP_VISIBILITY_OFFICIAL}'`,
+    [],
+    limit,
+    pageNumber,
+    searchStr,
+  )
+}
+
+export function getPrivateMaps(userId, limit, pageNumber, searchStr) {
+  return _getMaps(
+    `WHERE visibility IN ('${MAP_VISIBILITY_PRIVATE}', '${MAP_VISIBILITY_PUBLIC}')
+      AND uploaded_by = $1`,
+    [userId],
+    limit,
+    pageNumber,
+    searchStr,
+  )
+}
+
+export function getPublicMaps(limit, pageNumber, searchStr) {
+  // TODO(2Pac): Return the name of the uploader for public maps
+  return _getMaps(`WHERE visibility = '${MAP_VISIBILITY_PUBLIC}'`, [], limit, pageNumber, searchStr)
 }

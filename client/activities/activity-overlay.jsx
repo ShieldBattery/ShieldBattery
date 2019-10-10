@@ -14,12 +14,13 @@ import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 
-const { FindMatch, CreateLobby, WatchReplay, BrowseLocalMaps } = IS_ELECTRON
+const { FindMatch, CreateLobby, WatchReplay, BrowseLocalMaps, BrowseServerMaps } = IS_ELECTRON
   ? {
       FindMatch: require('../matchmaking/find-match.jsx').default,
       CreateLobby: require('../lobbies/create-lobby.jsx').default,
       WatchReplay: require('../replays/watch-replay.jsx').default,
       BrowseLocalMaps: require('../maps/browse-local-maps.jsx').default,
+      BrowseServerMaps: require('../maps/browse-server-maps.jsx').default,
     }
   : {}
 
@@ -122,6 +123,8 @@ export default class ActivityOverlay extends React.Component {
         return WatchReplay
       case 'browseLocalMaps':
         return BrowseLocalMaps
+      case 'browseServerMaps':
+        return BrowseServerMaps
       default:
         throw new Error('Unknown overlay type: ' + this.props.activityOverlay.overlayType)
     }

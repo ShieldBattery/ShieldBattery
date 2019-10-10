@@ -229,6 +229,7 @@ export const LOCAL_MAPS_SELECT_BEGIN = 'LOCAL_MAPS_SELECT_BEGIN'
 // The server has responded with success/failure to us selecting the local map
 export const LOCAL_MAPS_SELECT = 'LOCAL_MAPS_SELECT'
 
+export const MAPS_LIST_CLEAR = 'MAPS_LIST_CLEAR'
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)

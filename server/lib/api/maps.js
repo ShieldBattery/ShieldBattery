@@ -1,8 +1,13 @@
 import httpErrors from 'http-errors'
 import { storeMap } from '../maps/store'
-import { listMaps } from '../models/maps'
+import { getOfficialMaps, getPrivateMaps, getPublicMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
+import {
+  MAP_VISIBILITY_OFFICIAL,
+  MAP_VISIBILITY_PRIVATE,
+  MAP_VISIBILITY_PUBLIC,
+} from '../../../app/common/constants'
 import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -52,7 +57,9 @@ async function upload(ctx, next) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
-  const visibility = ctx.request.path.endsWith('/official') ? 'OFFICIAL' : 'PRIVATE'
+  const visibility = ctx.request.path.endsWith('/official')
+    ? MAP_VISIBILITY_OFFICIAL
+    : MAP_VISIBILITY_PRIVATE
   const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
   ctx.body = {
     map,
@@ -60,7 +67,7 @@ async function upload(ctx, next) {
 }
 
 async function list(ctx, next) {
-  const { query } = ctx.query
+  const { q, visibility } = ctx.query
   let { limit, page } = ctx.query
 
   limit = parseInt(limit, 10)
@@ -73,11 +80,26 @@ async function list(ctx, next) {
     page = 0
   }
 
-  if (query && !ctx.session.permissions.manageMapPools) {
+  if (q && !ctx.session.permissions.manageMaps) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
-  const { total, maps } = await listMaps(limit, page, query)
+  let result
+  switch (visibility) {
+    case MAP_VISIBILITY_OFFICIAL:
+      result = await getOfficialMaps(limit, page, q)
+      break
+    case MAP_VISIBILITY_PRIVATE:
+      result = await getPrivateMaps(ctx.session.userId, limit, page, q)
+      break
+    case MAP_VISIBILITY_PUBLIC:
+      result = await getPublicMaps(limit, page, q)
+      break
+    default:
+      throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
+  }
+
+  const { total, maps } = result
   ctx.body = {
     maps,
     page,

@@ -53,9 +53,9 @@ exports.down = async function(db) {
 
   await db.runSql(`
     ALTER TABLE maps
-    ADD COLUMN filename varchar(32) NOT NULL,
-    ADD COLUMN upload_time timestamp without time zone NOT NULL,
-    ADD COLUMN modified_time timestamp without time zone NOT NULL;
+    ADD COLUMN filename varchar(32),
+    ADD COLUMN upload_time timestamp without time zone,
+    ADD COLUMN modified_time timestamp without time zone;
   `)
 }
 
