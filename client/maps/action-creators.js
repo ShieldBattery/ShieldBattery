@@ -1,7 +1,6 @@
 import fetch from '../network/fetch'
 import upload from './upload'
 
-import { openOverlay } from '../activities/action-creators'
 import {
   MAPS_LIST_CLEAR,
   MAPS_LIST_GET_BEGIN,
@@ -10,14 +9,16 @@ import {
   LOCAL_MAPS_SELECT,
 } from '../actions'
 
-export function selectLocalMap(path) {
+export function selectLocalMap(path, onMapSelect) {
   return async dispatch => {
     dispatch({ type: LOCAL_MAPS_SELECT_BEGIN })
 
     dispatch({
       type: LOCAL_MAPS_SELECT,
       payload: upload(path, '/api/1/maps').then(({ map }) => {
-        dispatch(openOverlay('createLobby', { map }))
+        if (onMapSelect) {
+          onMapSelect(map)
+        }
       }),
     })
   }

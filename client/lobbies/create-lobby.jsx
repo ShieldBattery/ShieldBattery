@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Map, Range } from 'immutable'
+import { Range } from 'immutable'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
@@ -227,7 +227,7 @@ class CreateLobbyForm extends React.Component {
 @connect(state => ({ lobbyPreferences: state.lobbyPreferences }))
 export default class CreateLobby extends React.Component {
   static propTypes = {
-    initData: PropTypes.instanceOf(Map),
+    map: PropTypes.object,
   }
 
   _autoFocusTimer = null
@@ -276,8 +276,7 @@ export default class CreateLobby extends React.Component {
   componentDidUpdate(prevProps) {
     const { isRequesting: prevIsRequesting } = prevProps.lobbyPreferences
     const { isRequesting, recentMaps } = this.props.lobbyPreferences
-    const { initData } = this.props
-    const initialMap = initData.get('map')
+    const { map: initialMap } = this.props
 
     if (prevIsRequesting && !isRequesting) {
       let newRecentMaps = recentMaps
@@ -312,7 +311,7 @@ export default class CreateLobby extends React.Component {
   }
 
   render() {
-    const { initData, lobbyPreferences } = this.props
+    const { map: initialMap, lobbyPreferences } = this.props
     const { scrolledUp, scrolledDown, recentMaps } = this.state
 
     if (lobbyPreferences.isRequesting) {
@@ -324,7 +323,6 @@ export default class CreateLobby extends React.Component {
     }
 
     const { name, gameType, gameSubType } = lobbyPreferences
-    const initialMap = initData.get('map')
     const selectedMap = (initialMap && initialMap.hash) || lobbyPreferences.selectedMap
     const model = {
       name,
@@ -373,7 +371,11 @@ export default class CreateLobby extends React.Component {
   }
 
   onMapBrowse = () => {
-    this.props.dispatch(openOverlay('browseServerMaps'))
+    this.props.dispatch(openOverlay('browseServerMaps', { onMapSelect: this.onMapSelect }))
+  }
+
+  onMapSelect = map => {
+    this.props.dispatch(openOverlay('createLobby', { map }))
   }
 
   onCreateClick = () => {
