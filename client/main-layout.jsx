@@ -45,6 +45,7 @@ import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import FindMatchIcon from './icons/material/ic_cake_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
 import LogoutIcon from './icons/material/ic_power_settings_new_black_24px.svg'
+import MapsIcon from './icons/material/ic_terrain_black_24px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
 
@@ -71,6 +72,7 @@ import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
+const KEY_M = keycode('m')
 const KEY_R = keycode('r')
 const KEY_S = keycode('s')
 
@@ -87,6 +89,11 @@ const ContentLayout = styled.div`
 
 const AdminLink = styled.p`
   width: 100%;
+`
+
+const StyledMapsIcon = styled(MapsIcon)`
+  width: 36px;
+  height: 36px;
 `
 
 let activeGameRoute
@@ -310,6 +317,14 @@ class MainLayout extends React.Component {
             altKey={true}
           />,
           <HotkeyedActivityButton
+            key='maps'
+            icon={<StyledMapsIcon />}
+            label='Maps'
+            onClick={this.onMapsClick}
+            keycode={KEY_M}
+            altKey={true}
+          />,
+          <HotkeyedActivityButton
             key='replays'
             icon={<ReplaysIcon />}
             label='Replays'
@@ -443,6 +458,14 @@ class MainLayout extends React.Component {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
+    }
+  }
+
+  onMapsClick = () => {
+    if (!isPsiHealthy(this.props)) {
+      this.props.dispatch(openDialog('psiHealth'))
+    } else {
+      this.props.dispatch(openOverlay('browseServerMaps'))
     }
   }
 

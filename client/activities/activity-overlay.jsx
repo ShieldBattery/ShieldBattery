@@ -65,20 +65,22 @@ const Overlay = styled.div`
 const Container = styled.div`
   &.enter ${Overlay} {
     transform: translate3d(100%, 0, 0);
-    transition: transform 350ms ${linearOutSlowIn};
   }
 
   &.enter ${Scrim} {
     opacity: 0;
-    transition: opacity 250ms ${fastOutSlowIn};
   }
 
   &.enterActive ${Overlay} {
     transform: translate3d(0, 0, 0);
+    /* transition rule should always be put in the active class as there's a bug that can happen
+    if it's not; see this issue: https://github.com/reactjs/react-transition-group/issues/10 */
+    transition: transform 350ms ${linearOutSlowIn};
   }
 
   &.enterActive ${Scrim} {
     opacity: 0.42;
+    transition: opacity 250ms ${fastOutSlowIn};
   }
 
   &.leave {
@@ -87,20 +89,20 @@ const Container = styled.div`
 
   &.leave ${Overlay} {
     transform: translate3d(0, 0, 0);
-    transition: transform 250ms ${fastOutLinearIn};
   }
 
   &.leave ${Scrim} {
     opacity: 0.42;
-    transition: opacity 200ms ${fastOutSlowIn};
   }
 
   &.leaveActive ${Overlay} {
     transform: translate3d(100%, 0, 0);
+    transition: transform 250ms ${fastOutLinearIn};
   }
 
   &.leaveActive ${Scrim} {
     opacity: 0;
+    transition: opacity 200ms ${fastOutSlowIn};
   }
 `
 
@@ -136,7 +138,7 @@ export default class ActivityOverlay extends React.Component {
     }
 
     const OverlayComponent = this.getOverlayComponent()
-    const overlayComponent = <OverlayComponent initData={this.props.activityOverlay.initData} />
+    const overlayComponent = <OverlayComponent {...this.props.activityOverlay.initData.toJS()} />
     return (
       <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />

@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import path from 'path'
 import styled from 'styled-components'
@@ -28,6 +29,10 @@ const BackButton = styled(IconButton)`
 
 @connect(state => ({ localMaps: state.localMaps, settings: state.settings }))
 export default class LocalMaps extends React.Component {
+  static propTypes = {
+    onMapSelect: PropTypes.func,
+  }
+
   componentDidUpdate(prevProps) {
     const { localMaps: prevMaps } = prevProps
     const { localMaps: curMaps } = this.props
@@ -54,8 +59,8 @@ export default class LocalMaps extends React.Component {
     }
 
     const fileTypes = {
-      scm: { icon: <MapIcon />, onSelect: this.onSelectMap },
-      scx: { icon: <MapIcon />, onSelect: this.onSelectMap },
+      scm: { icon: <MapIcon />, onSelect: this.onMapSelect },
+      scx: { icon: <MapIcon />, onSelect: this.onMapSelect },
     }
     const root = path.join(this.props.settings.local.starcraftPath, 'Maps')
     const props = {
@@ -72,8 +77,8 @@ export default class LocalMaps extends React.Component {
     return <BrowseFiles {...props} />
   }
 
-  onSelectMap = map => {
-    this.props.dispatch(selectLocalMap(map.path))
+  onMapSelect = map => {
+    this.props.dispatch(selectLocalMap(map.path, this.props.onMapSelect))
   }
 
   onBackClick = () => {

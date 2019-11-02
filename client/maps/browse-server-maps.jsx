@@ -60,6 +60,10 @@ const ContentsBody = styled.div`
   padding: 0 24px;
 `
 
+const Underline = styled(Subheading)`
+  color: ${colorTextSecondary};
+`
+
 const ErrorText = styled(Subheading)`
   color: ${colorError};
 `
@@ -124,18 +128,19 @@ class MapList extends React.PureComponent {
   static propTypes = {
     list: PropTypes.instanceOf(List),
     byHash: PropTypes.instanceOf(Map),
+    canHover: PropTypes.bool,
     onMapSelect: PropTypes.func,
   }
 
   render() {
-    const { list, byHash } = this.props
+    const { list, byHash, canHover } = this.props
 
     return list.map((hash, i) => (
       <MapThumbnail
         key={hash}
         map={byHash.get(hash)}
         showMapName={true}
-        canHover={true}
+        canHover={canHover}
         onClick={() => this.onClick(hash)}
       />
     ))
@@ -152,8 +157,13 @@ const MAPS_LIMIT = 30
 
 @connect(state => ({ maps: state.maps }))
 export default class Maps extends React.Component {
+  static propTypes = {
+    uploadedMap: PropTypes.object,
+    onMapSelect: PropTypes.func,
+  }
+
   state = {
-    activeTab: TAB_OFFICIAL_MAPS,
+    activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
     scrolledDown: false,
     currentPage: 0,
   }
@@ -161,6 +171,10 @@ export default class Maps extends React.Component {
   infiniteList = null
   _setInfiniteListRef = elem => {
     this.infiniteList = elem
+  }
+
+  componentWillUnmount() {
+    this.props.dispatch(clearMapsList())
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -175,6 +189,22 @@ export default class Maps extends React.Component {
     }
   }
 
+  renderUploadedMap() {
+    const { uploadedMap } = this.props
+    const { activeTab } = this.state
+
+    if (!uploadedMap || activeTab !== TAB_MY_MAPS) return null
+
+    return (
+      <>
+        <Underline>Uploaded map</Underline>
+        <ImageList columnCount={3} padding={4}>
+          <MapThumbnail map={uploadedMap} showMapName={true} />
+        </ImageList>
+      </>
+    )
+  }
+
   renderMaps() {
     const { maps } = this.props
 
@@ -183,7 +213,12 @@ export default class Maps extends React.Component {
 
     return (
       <ImageList columnCount={3} padding={4}>
-        <MapList list={maps.list} byHash={maps.byHash} onMapSelect={this.onMapSelect} />
+        <MapList
+          list={maps.list}
+          byHash={maps.byHash}
+          canHover={!!this.props.onMapSelect}
+          onMapSelect={this.onMapSelect}
+        />
       </ImageList>
     )
   }
@@ -210,12 +245,16 @@ export default class Maps extends React.Component {
               {maps.lastError ? (
                 <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
               ) : (
-                <InfiniteScrollList
-                  ref={this._setInfiniteListRef}
-                  isLoading={maps.isRequesting}
-                  onLoadMoreData={this.onLoadMoreMaps}>
-                  {this.renderMaps()}
-                </InfiniteScrollList>
+                <>
+                  {this.renderUploadedMap()}
+                  <Underline>All maps</Underline>
+                  <InfiniteScrollList
+                    ref={this._setInfiniteListRef}
+                    isLoading={maps.isRequesting}
+                    onLoadMoreData={this.onLoadMoreMaps}>
+                    {this.renderMaps()}
+                  </InfiniteScrollList>
+                </>
               )}
             </ContentsBody>
           </ScrollableContent>
@@ -262,11 +301,21 @@ export default class Maps extends React.Component {
     this.setState({ activeTab: value })
   }
 
-  onMapSelect = map => {
-    this.props.dispatch(openOverlay('createLobby', { map: this.props.maps.byHash.get(map) }))
+  onMapSelect = mapHash => {
+    if (this.props.onMapSelect) {
+      this.props.onMapSelect(this.props.maps.byHash.get(mapHash))
+    }
+  }
+
+  onMapUploaded = map => {
+    this.props.dispatch(openOverlay('browseServerMaps', { uploadedMap: map }))
   }
 
   onBrowseLocalMapsClick = () => {
-    this.props.dispatch(openOverlay('browseLocalMaps'))
+    this.props.dispatch(
+      openOverlay('browseLocalMaps', {
+        onMapSelect: this.props.onMapSelect || this.onMapUploaded,
+      }),
+    )
   }
 }
