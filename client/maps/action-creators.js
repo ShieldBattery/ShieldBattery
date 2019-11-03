@@ -9,6 +9,8 @@ import {
   LOCAL_MAPS_SELECT,
 } from '../actions'
 
+const MAPS_LIMIT = 30
+
 export function selectLocalMap(path, onMapSelect) {
   return async dispatch => {
     dispatch({ type: LOCAL_MAPS_SELECT_BEGIN })
@@ -24,11 +26,12 @@ export function selectLocalMap(path, onMapSelect) {
   }
 }
 
-export function getMapsList(visibility, limit, pageNumber) {
-  return dispatch => {
+export function getMapsList(visibility) {
+  return (dispatch, getState) => {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
 
-    const reqUrl = `/api/1/maps?visibility=${visibility}&limit=${limit}&page=${pageNumber}`
+    const { maps } = getState()
+    const reqUrl = `/api/1/maps?visibility=${visibility}&limit=${MAPS_LIMIT}&page=${maps.page}`
     dispatch({ type: MAPS_LIST_GET, payload: fetch(reqUrl) })
   }
 }

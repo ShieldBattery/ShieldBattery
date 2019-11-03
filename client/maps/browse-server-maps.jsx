@@ -153,8 +153,6 @@ class MapList extends React.PureComponent {
   }
 }
 
-const MAPS_LIMIT = 30
-
 @connect(state => ({ maps: state.maps }))
 export default class Maps extends React.Component {
   static propTypes = {
@@ -165,7 +163,6 @@ export default class Maps extends React.Component {
   state = {
     activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
     scrolledDown: false,
-    currentPage: 0,
   }
 
   infiniteList = null
@@ -185,7 +182,6 @@ export default class Maps extends React.Component {
       // reset it each time we change tabs
       this.infiniteList.reset()
       this.props.dispatch(clearMapsList())
-      this.setState({ currentPage: 0 })
     }
   }
 
@@ -287,10 +283,9 @@ export default class Maps extends React.Component {
   }
 
   onLoadMoreMaps = () => {
-    const { activeTab, currentPage } = this.state
+    const { activeTab } = this.state
 
-    this.props.dispatch(getMapsList(tabToVisibility(activeTab), MAPS_LIMIT, currentPage))
-    this.setState({ currentPage: currentPage + 1 })
+    this.props.dispatch(getMapsList(tabToVisibility(activeTab)))
   }
 
   onBackClick = () => {

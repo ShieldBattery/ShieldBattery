@@ -17,6 +17,7 @@ export const MapRecord = new Record({
 export const Maps = new Record({
   list: new List(),
   byHash: new Map(),
+  page: 0,
   total: -1,
 
   isRequesting: false,
@@ -41,6 +42,7 @@ export default keyedReducer(new Maps(), {
     return state
       .set('list', list)
       .set('byHash', byHash)
+      .set('page', state.page + 1)
       .set('total', total)
       .set('isRequesting', false)
       .set('lastError', null)
