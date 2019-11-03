@@ -4,15 +4,13 @@ import { connect } from 'react-redux'
 import path from 'path'
 import styled from 'styled-components'
 
+import ActivityBackButton from '../activities/activity-back-button.jsx'
 import BrowseFiles from '../file-browser/browse-files.jsx'
-import IconButton from '../material/icon-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import { closeOverlay } from '../activities/action-creators'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { selectLocalMap } from './action-creators'
-import { goBack } from '../activities/action-creators'
 
-import ArrowBack from '../icons/material/baseline-arrow_back-24px.svg'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 const LoadingArea = styled.div`
@@ -21,10 +19,6 @@ const LoadingArea = styled.div`
   align-items: center;
   justify-content: center;
   height: 100%;
-`
-
-const BackButton = styled(IconButton)`
-  margin-right: 16px;
 `
 
 @connect(state => ({ localMaps: state.localMaps, settings: state.settings }))
@@ -66,9 +60,7 @@ export default class LocalMaps extends React.Component {
     const props = {
       browseId: 'maps',
       title: 'Local Maps',
-      titleButton: (
-        <BackButton icon={<ArrowBack />} title='Click to go back' onClick={this.onBackClick} />
-      ),
+      titleButton: <ActivityBackButton />,
       rootFolderName: 'Maps',
       root,
       fileTypes,
@@ -79,9 +71,5 @@ export default class LocalMaps extends React.Component {
 
   onMapSelect = map => {
     this.props.dispatch(selectLocalMap(map.path, this.props.onMapSelect))
-  }
-
-  onBackClick = () => {
-    this.props.dispatch(goBack())
   }
 }

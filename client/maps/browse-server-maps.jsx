@@ -4,10 +4,10 @@ import { connect } from 'react-redux'
 import { List, Map } from 'immutable'
 import styled from 'styled-components'
 
-import { goBack } from '../activities/action-creators'
 import { clearMapsList, getMapsList } from './action-creators'
 import { openOverlay } from '../activities/action-creators'
 
+import ActivityBackButton from '../activities/activity-back-button.jsx'
 import FloatingActionButton from '../material/floating-action-button.jsx'
 import IconButton from '../material/icon-button.jsx'
 import ImageList from '../material/image-list.jsx'
@@ -21,7 +21,6 @@ import {
   MAP_VISIBILITY_PUBLIC,
 } from '../../app/common/constants'
 
-import BackIcon from '../icons/material/baseline-arrow_back-24px.svg'
 import FilterIcon from '../icons/material/baseline-filter_list-24px.svg'
 import FolderIcon from '../icons/material/baseline-folder_open-24px.svg'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
@@ -46,10 +45,6 @@ const TitleBar = styled.div`
   & > h3 {
     margin: 0;
   }
-`
-
-const BackButton = styled(IconButton)`
-  margin-right: 16px;
 `
 
 const Contents = styled.div`
@@ -226,7 +221,7 @@ export default class Maps extends React.Component {
     return (
       <Container>
         <TitleBar>
-          <BackButton icon={<BackIcon />} title='Click to go back' onClick={this.onBackClick} />
+          <ActivityBackButton />
           <Headline>Select map</Headline>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
@@ -286,10 +281,6 @@ export default class Maps extends React.Component {
     const { activeTab } = this.state
 
     this.props.dispatch(getMapsList(tabToVisibility(activeTab)))
-  }
-
-  onBackClick = () => {
-    this.props.dispatch(goBack())
   }
 
   onTabChange = value => {
