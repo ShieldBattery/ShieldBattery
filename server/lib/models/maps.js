@@ -355,7 +355,7 @@ export async function addMapToFavorites(mapId, userId) {
   }
 }
 
-export async function removeMapToFavorites(mapId, userId) {
+export async function removeMapFromFavorites(mapId, userId) {
   const query = `
     DELETE FROM favorited_maps
     WHERE map_id = $1 AND favorited_by = $2;

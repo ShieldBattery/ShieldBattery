@@ -5,8 +5,9 @@ import keyedReducer from '../reducers/keyed-reducer'
 export const Dialog = new Record({
   isDialogOpened: false,
   dialogType: null,
-  simpleTitle: '',
-  simpleContent: '',
+  title: '',
+  content: '',
+  action: null,
 })
 
 export default keyedReducer(new Dialog(), {
@@ -14,8 +15,9 @@ export default keyedReducer(new Dialog(), {
     return new Dialog({
       isDialogOpened: true,
       dialogType: action.payload.dialogType,
-      simpleTitle: action.payload.simpleTitle,
-      simpleContent: action.payload.simpleContent,
+      title: action.payload.title,
+      content: action.payload.content,
+      action: action.payload.action,
     })
   },
 
