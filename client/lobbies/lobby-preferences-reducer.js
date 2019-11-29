@@ -9,7 +9,7 @@ import {
 
 export const RecentMaps = new Record({
   list: new List(),
-  byHash: new Map(),
+  byId: new Map(),
 })
 export const LobbyPreferences = new Record({
   name: null,
@@ -25,8 +25,8 @@ export const LobbyPreferences = new Record({
 
 export function recentMapsFromJs(recentMaps) {
   return new RecentMaps({
-    list: new List(recentMaps.map(m => m.hash)),
-    byHash: new Map(recentMaps.map(m => [m.hash, new MapRecord(m)])),
+    list: new List(recentMaps.map(m => m.id)),
+    byId: new Map(recentMaps.map(m => [m.id, new MapRecord(m)])),
   })
 }
 

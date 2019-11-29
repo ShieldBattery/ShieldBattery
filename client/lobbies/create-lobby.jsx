@@ -130,7 +130,7 @@ class CreateLobbyForm extends React.Component {
       if (!isTeamType(nextGameType)) return
 
       // Ensure `gameSubType` is always set, and always within a valid range for the current map
-      const { slots } = recentMaps.byHash.get(nextSelectedMap)
+      const { slots } = recentMaps.byId.get(nextSelectedMap)
       if (nextGameType === 'topVBottom') {
         if (
           nextGameType !== this._lastGameType ||
@@ -160,7 +160,7 @@ class CreateLobbyForm extends React.Component {
     if (!isTeamType(gameType)) {
       return null
     }
-    const selectedMap = recentMaps.byHash.get(getInputValue('selectedMap'))
+    const selectedMap = recentMaps.byId.get(getInputValue('selectedMap'))
     if (!selectedMap) {
       return null
     }
@@ -214,7 +214,7 @@ class CreateLobbyForm extends React.Component {
         <Underline>Select map</Underline>
         <MapSelect
           {...bindCustom('selectedMap')}
-          maps={recentMaps.byHash.valueSeq().toArray()}
+          maps={recentMaps.byId.valueSeq().toArray()}
           maxSelections={1}
           thumbnailSize='large'
           canBrowseMaps={true}
@@ -281,9 +281,9 @@ export default class CreateLobby extends React.Component {
     if (prevIsRequesting && !isRequesting) {
       let newRecentMaps = recentMaps
 
-      if (initialMap && !recentMaps.byHash.has(initialMap.hash)) {
+      if (initialMap && !recentMaps.byId.has(initialMap.id)) {
         newRecentMaps = recentMapsFromJs(
-          [initialMap, ...recentMaps.byHash.valueSeq().toArray()].slice(0, 5),
+          [initialMap, ...recentMaps.byId.valueSeq().toArray()].slice(0, 5),
         )
       }
 
@@ -323,7 +323,7 @@ export default class CreateLobby extends React.Component {
     }
 
     const { name, gameType, gameSubType } = lobbyPreferences
-    const selectedMap = (initialMap && initialMap.hash) || lobbyPreferences.selectedMap
+    const selectedMap = (initialMap && initialMap.id) || lobbyPreferences.selectedMap
     const model = {
       name,
       gameType: gameType || 'melee',

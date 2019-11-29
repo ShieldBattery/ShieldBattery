@@ -69,8 +69,8 @@ const eventToAction = {
   init: (name, event) => {
     clearCountdownTimer()
     // TODO(tec27): handle errors on this?
-    const { hash, format, mapUrl } = event.lobby.map
-    mapStore.downloadMap(hash, format, mapUrl)
+    const { hash, mapData, mapUrl } = event.lobby.map
+    mapStore.downloadMap(hash, mapData.format, mapUrl)
     rallyPointManager.refreshPings()
 
     return {

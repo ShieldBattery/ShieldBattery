@@ -101,7 +101,9 @@ export default class ActiveGameManager extends EventEmitter {
     const game = this.activeGame
     this._setStatus(GAME_STATUS_CONFIGURING)
     const { map } = game.config.setup
-    game.config.setup.mapPath = map.path ? map.path : this.mapStore.getPath(map.hash, map.format)
+    game.config.setup.mapPath = map.path
+      ? map.path
+      : this.mapStore.getPath(map.hash, map.mapData.format)
 
     this.emit('gameCommand', id, 'localUser', game.config.localUser)
     this.emit('gameCommand', id, 'settings', game.config.settings)

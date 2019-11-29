@@ -73,6 +73,6 @@ async function getPreferences(ctx, next) {
   ctx.body = {
     ...preferences,
     recentMaps,
-    selectedMap: recentMaps.map(m => m.hash).includes(selectedMap) ? selectedMap : '',
+    selectedMap: recentMaps.map(m => m.id).includes(selectedMap) ? selectedMap : null,
   }
 }

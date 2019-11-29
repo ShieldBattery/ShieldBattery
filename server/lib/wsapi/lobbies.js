@@ -151,11 +151,11 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapData = (await getMapInfo(map))[0]
-    if (!mapData) {
+    const mapInfo = (await getMapInfo(map))[0]
+    if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
     }
-    checkSubTypeValidity(gameType, gameSubType, mapData.slots)
+    checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
 
     let numSlots
     switch (gameType) {
@@ -169,12 +169,12 @@ export class LobbyApi {
         numSlots = 8
         break
       default:
-        numSlots = mapData.slots
+        numSlots = mapInfo.mapData.slots
     }
 
     const lobby = Lobbies.create(
       name,
-      mapData,
+      mapInfo,
       gameType,
       gameSubType,
       numSlots,
