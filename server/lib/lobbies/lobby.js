@@ -187,14 +187,14 @@ function createInitialTeams(map, gameType, gameSubType, numSlots) {
   // distribute each of the slots into their respective teams. This distribution of slots shouldn't
   // change at all during the lifetime of a lobby, except when creating/deleting observer slots,
   // which will be handled separately
-  const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.umsForces)
+  const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.mapData.umsForces)
   let slots
   if (!isUms(gameType)) {
     slots = Range(0, numSlots)
       .map(() => Slots.createOpen())
       .toList()
   } else {
-    slots = fromJS(map.umsForces).flatMap(force =>
+    slots = fromJS(map.mapData.umsForces).flatMap(force =>
       force.get('players').map(player => {
         const playerId = player.get('id')
         const playerRace = player.get('race')
@@ -207,9 +207,9 @@ function createInitialTeams(map, gameType, gameSubType, numSlots) {
     )
   }
 
-  const teamNames = getTeamNames(gameType, gameSubType, map.umsForces)
+  const teamNames = getTeamNames(gameType, gameSubType, map.mapData.umsForces)
   let slotIndex = 0
-  return Range(0, numTeams(gameType, gameSubType, map.umsForces))
+  return Range(0, numTeams(gameType, gameSubType, map.mapData.umsForces))
     .map(teamIndex => {
       let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
       let hiddenSlots
@@ -219,7 +219,7 @@ function createInitialTeams(map, gameType, gameSubType, numSlots) {
       if (isUms(gameType)) {
         // Player type 5 means regular computer and 6 means human
         const isHiddenSlot = player => player.typeId !== 5 && player.typeId !== 6
-        teamId = map.umsForces[teamIndex].teamId
+        teamId = map.mapData.umsForces[teamIndex].teamId
         hiddenSlots = teamSlots.filter(isHiddenSlot)
         teamSlots = teamSlots.filterNot(isHiddenSlot)
       } else {

@@ -12,9 +12,14 @@ import {
   hasOpposingSides,
 } from '../../../app/common/lobbies'
 
+const BigGameHunters = {
+  name: 'Big Game Hunters.scm',
+  mapData: {},
+}
+
 const BOXER_LOBBY = Lobbies.create(
   '5v3 Comp Stomp Pros Only',
-  'Big Game Hunters.scm',
+  BigGameHunters,
   'melee',
   0,
   4,
@@ -23,7 +28,7 @@ const BOXER_LOBBY = Lobbies.create(
 
 const BOXER_LOBBY_WITH_OBSERVERS = Lobbies.create(
   '5v3 Comp Stomp Pros Only',
-  'Big Game Hunters.scm',
+  BigGameHunters,
   'melee',
   0,
   4,
@@ -55,7 +60,7 @@ const evaluateSummarizedJson = (lobby, openSlotCount) => {
   const id = lobby.host.id
   expect(parsed).to.eql({
     name: '5v3 Comp Stomp Pros Only',
-    map: 'Big Game Hunters.scm',
+    map: BigGameHunters,
     gameType: 'melee',
     gameSubType: 0,
     host: { name: 'Slayers`Boxer', id },
@@ -95,14 +100,14 @@ describe('Lobbies - melee', () => {
     expect(t1).to.eql(0)
     expect(s1).to.eql(1)
 
-    const fullLobby = Lobbies.create('Full', 'Lost Temple.scm', 'melee', 0, 1, 'pachi')
+    const fullLobby = Lobbies.create('Full', BigGameHunters, 'melee', 0, 1, 'pachi')
     const [t2, s2] = Lobbies.findAvailableSlot(fullLobby)
     expect(t2).to.eql(-1)
     expect(s2).to.eql(-1)
 
     let fullLobbyWithObservers = Lobbies.create(
       'Full',
-      'Lost Temple.scm',
+      BigGameHunters,
       'melee',
       0,
       1,
@@ -365,14 +370,7 @@ describe('Lobbies - melee', () => {
   })
 })
 
-const TEAM_LOBBY = Lobbies.create(
-  '2v6 BGH',
-  'Big Game Hunters.scm',
-  'topVBottom',
-  2,
-  8,
-  'Slayers`Boxer',
-)
+const TEAM_LOBBY = Lobbies.create('2v6 BGH', BigGameHunters, 'topVBottom', 2, 8, 'Slayers`Boxer')
 
 describe('Lobbies - Top vs bottom', () => {
   it('should create the lobby correctly', () => {
@@ -462,7 +460,7 @@ describe('Lobbies - Top vs bottom', () => {
 
 const TEAM_MELEE_2 = Lobbies.create(
   '4v4 Team Melee',
-  'Lost Temple.scm',
+  BigGameHunters,
   'teamMelee',
   2,
   8,
@@ -470,7 +468,7 @@ const TEAM_MELEE_2 = Lobbies.create(
 )
 const TEAM_MELEE_3 = Lobbies.create(
   '3v3v2 Team Melee',
-  'Lost Temple.scm',
+  BigGameHunters,
   'teamMelee',
   3,
   8,
@@ -478,7 +476,7 @@ const TEAM_MELEE_3 = Lobbies.create(
 )
 const TEAM_MELEE_4 = Lobbies.create(
   '2v2v2v2 Team Melee',
-  'Blue Storm.scx',
+  BigGameHunters,
   'teamMelee',
   4,
   8,
@@ -841,108 +839,116 @@ describe('Lobbies - Team melee', () => {
 })
 
 const UMS_MAP_1 = {
-  umsForces: [
-    {
-      name: 'Force Player',
-      teamId: 1,
-      players: [
-        { id: 0, race: 'z', typeId: 6, computer: false },
-        { id: 1, race: 'z', typeId: 6, computer: false },
-        { id: 2, race: 'z', typeId: 6, computer: false },
-        { id: 3, race: 'z', typeId: 6, computer: false },
-        { id: 4, race: 'z', typeId: 6, computer: false },
-        { id: 5, race: 'z', typeId: 6, computer: false },
-      ],
-    },
-    {
-      name: 'Force Computer',
-      teamId: 2,
-      players: [{ id: 7, race: 'z', typeId: 5, computer: true }],
-    },
-    {
-      name: 'Force Computer',
-      teamId: 3,
-      players: [{ id: 6, race: 'z', typeId: 5, computer: true }],
-    },
-  ],
+  mapData: {
+    umsForces: [
+      {
+        name: 'Force Player',
+        teamId: 1,
+        players: [
+          { id: 0, race: 'z', typeId: 6, computer: false },
+          { id: 1, race: 'z', typeId: 6, computer: false },
+          { id: 2, race: 'z', typeId: 6, computer: false },
+          { id: 3, race: 'z', typeId: 6, computer: false },
+          { id: 4, race: 'z', typeId: 6, computer: false },
+          { id: 5, race: 'z', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Force Computer',
+        teamId: 2,
+        players: [{ id: 7, race: 'z', typeId: 5, computer: true }],
+      },
+      {
+        name: 'Force Computer',
+        teamId: 3,
+        players: [{ id: 6, race: 'z', typeId: 5, computer: true }],
+      },
+    ],
+  },
 }
 const UMS_MAP_2 = {
-  umsForces: [
-    {
-      name: 'tappavat',
-      teamId: 1,
-      players: [{ id: 1, race: 't', typeId: 6, computer: false }],
-    },
-    {
-      name: 'tapettavat',
-      teamId: 2,
-      players: [
-        { id: 0, race: 't', typeId: 5, computer: true },
-        { id: 3, race: 'z', typeId: 5, computer: true },
-        { id: 4, race: 'z', typeId: 5, computer: true },
-        { id: 5, race: 'z', typeId: 5, computer: true },
-        { id: 6, race: 't', typeId: 5, computer: true },
-        { id: 7, race: 'z', typeId: 5, computer: true },
-      ],
-    },
-    {
-      name: 'portitossi',
-      teamId: 4,
-      players: [{ id: 2, race: 'p', typeId: 5, computer: true }],
-    },
-  ],
+  mapData: {
+    umsForces: [
+      {
+        name: 'tappavat',
+        teamId: 1,
+        players: [{ id: 1, race: 't', typeId: 6, computer: false }],
+      },
+      {
+        name: 'tapettavat',
+        teamId: 2,
+        players: [
+          { id: 0, race: 't', typeId: 5, computer: true },
+          { id: 3, race: 'z', typeId: 5, computer: true },
+          { id: 4, race: 'z', typeId: 5, computer: true },
+          { id: 5, race: 'z', typeId: 5, computer: true },
+          { id: 6, race: 't', typeId: 5, computer: true },
+          { id: 7, race: 'z', typeId: 5, computer: true },
+        ],
+      },
+      {
+        name: 'portitossi',
+        teamId: 4,
+        players: [{ id: 2, race: 'p', typeId: 5, computer: true }],
+      },
+    ],
+  },
 }
 const UMS_MAP_3 = {
-  umsForces: [
-    {
-      name: 'Players',
-      teamId: 1,
-      players: [
-        { id: 0, race: 'any', typeId: 6, computer: false },
-        { id: 1, race: 'any', typeId: 6, computer: false },
-      ],
-    },
-    {
-      name: 'Observers',
-      teamId: 2,
-      players: [
-        { id: 2, race: 'p', typeId: 6, computer: false },
-        { id: 3, race: 't', typeId: 6, computer: false },
-      ],
-    },
-  ],
+  mapData: {
+    umsForces: [
+      {
+        name: 'Players',
+        teamId: 1,
+        players: [
+          { id: 0, race: 'any', typeId: 6, computer: false },
+          { id: 1, race: 'any', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Observers',
+        teamId: 2,
+        players: [
+          { id: 2, race: 'p', typeId: 6, computer: false },
+          { id: 3, race: 't', typeId: 6, computer: false },
+        ],
+      },
+    ],
+  },
 }
 const UMS_MAP_4 = {
-  umsForces: [
-    {
-      name: 'Team I',
-      teamId: 1,
-      players: [
-        { id: 0, race: 't', typeId: 6, computer: false },
-        { id: 1, race: 't', typeId: 6, computer: false },
-        { id: 2, race: 't', typeId: 6, computer: false },
-      ],
-    },
-    {
-      name: 'Team II',
-      teamId: 2,
-      players: [
-        { id: 3, race: 't', typeId: 6, computer: false },
-        { id: 4, race: 't', typeId: 6, computer: false },
-        { id: 5, race: 't', typeId: 6, computer: false },
-      ],
-    },
-    {
-      name: 'Map by Cygnus',
-      teamId: 3,
-      players: [{ id: 6, race: 't', typeId: 7, computer: true }],
-    },
-    {
-      name: 'Force 4',
-      teamId: 4,
-      players: [{ id: 7, race: 't', typeId: 7, computer: true }],
-    },
-  ],
+  mapData: {
+    umsForces: [
+      {
+        name: 'Team I',
+        teamId: 1,
+        players: [
+          { id: 0, race: 't', typeId: 6, computer: false },
+          { id: 1, race: 't', typeId: 6, computer: false },
+          { id: 2, race: 't', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Team II',
+        teamId: 2,
+        players: [
+          { id: 3, race: 't', typeId: 6, computer: false },
+          { id: 4, race: 't', typeId: 6, computer: false },
+          { id: 5, race: 't', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Map by Cygnus',
+        teamId: 3,
+        players: [{ id: 6, race: 't', typeId: 7, computer: true }],
+      },
+      {
+        name: 'Force 4',
+        teamId: 4,
+        players: [{ id: 7, race: 't', typeId: 7, computer: true }],
+      },
+    ],
+  },
 }
 const UMS_LOBBY_1 = Lobbies.create('Sunken Defence', UMS_MAP_1, 'ums', 0, 8, 'Slayers`Boxer')
 const UMS_LOBBY_2 = Lobbies.create('tappavat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer')

@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { storeMap } from '../maps/store'
-import { getOfficialMaps, getPrivateMaps, getPublicMaps } from '../models/maps'
+import { getMaps } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import {
@@ -41,6 +41,7 @@ export default function(router) {
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
+const VISIBILITIES = [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC]
 
 async function upload(ctx, next) {
   const { path } = ctx.request.files.file
@@ -80,25 +81,22 @@ async function list(ctx, next) {
     page = 0
   }
 
+  if (!VISIBILITIES.includes(visibility)) {
+    throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
+  }
+
   if (q && !ctx.session.permissions.manageMaps) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
-  let result
-  switch (visibility) {
-    case MAP_VISIBILITY_OFFICIAL:
-      result = await getOfficialMaps(limit, page, q)
-      break
-    case MAP_VISIBILITY_PRIVATE:
-      result = await getPrivateMaps(ctx.session.userId, limit, page, q)
-      break
-    case MAP_VISIBILITY_PUBLIC:
-      result = await getPublicMaps(limit, page, q)
-      break
-    default:
-      throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
+  const visibilityArray = [visibility]
+  let uploadedBy = null
+  if (visibility === MAP_VISIBILITY_PRIVATE) {
+    visibilityArray.push(MAP_VISIBILITY_PUBLIC)
+    uploadedBy = ctx.session.userId
   }
 
+  const result = await getMaps(visibilityArray, limit, page, uploadedBy, q)
   const { total, maps } = result
   ctx.body = {
     maps,

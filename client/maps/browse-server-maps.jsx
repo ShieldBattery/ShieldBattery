@@ -122,28 +122,28 @@ function tabToVisibility(tab) {
 class MapList extends React.PureComponent {
   static propTypes = {
     list: PropTypes.instanceOf(List),
-    byHash: PropTypes.instanceOf(Map),
+    byId: PropTypes.instanceOf(Map),
     canHover: PropTypes.bool,
     onMapSelect: PropTypes.func,
   }
 
   render() {
-    const { list, byHash, canHover } = this.props
+    const { list, byId, canHover } = this.props
 
-    return list.map((hash, i) => (
+    return list.map((id, i) => (
       <MapThumbnail
-        key={hash}
-        map={byHash.get(hash)}
+        key={id}
+        map={byId.get(id)}
         showMapName={true}
         canHover={canHover}
-        onClick={() => this.onClick(hash)}
+        onClick={() => this.onClick(id)}
       />
     ))
   }
 
-  onClick = hash => {
+  onClick = id => {
     if (this.props.onMapSelect) {
-      this.props.onMapSelect(hash)
+      this.props.onMapSelect(id)
     }
   }
 }
@@ -206,7 +206,7 @@ export default class Maps extends React.Component {
       <ImageList columnCount={3} padding={4}>
         <MapList
           list={maps.list}
-          byHash={maps.byHash}
+          byId={maps.byId}
           canHover={!!this.props.onMapSelect}
           onMapSelect={this.onMapSelect}
         />
@@ -287,9 +287,9 @@ export default class Maps extends React.Component {
     this.setState({ activeTab: value })
   }
 
-  onMapSelect = mapHash => {
+  onMapSelect = id => {
     if (this.props.onMapSelect) {
-      this.props.onMapSelect(this.props.maps.byHash.get(mapHash))
+      this.props.onMapSelect(this.props.maps.byId.get(id))
     }
   }
 

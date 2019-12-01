@@ -5,7 +5,7 @@ class MapPool {
     this.id = props.id
     this.type = props.matchmaking_type
     this.startDate = props.start_date
-    this.maps = props.maps.map(m => m.toString('hex'))
+    this.maps = props.maps || []
   }
 }
 
@@ -29,13 +29,12 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
   }
 }
 
-export async function addMapPool(matchmakingType, maps, startDate) {
+export async function addMapPool(matchmakingType, mapIds, startDate) {
   const query = `
     INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
     VALUES ($1, $2, $3)
   `
-  const mapsHashes = maps.map(m => Buffer.from(m, 'hex'))
-  const params = [matchmakingType, startDate, mapsHashes]
+  const params = [matchmakingType, startDate, mapIds]
 
   const { client, done } = await db()
   try {

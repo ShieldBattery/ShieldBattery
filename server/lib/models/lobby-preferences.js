@@ -5,8 +5,8 @@ class LobbyPreferences {
     this.name = props.name
     this.gameType = props.game_type
     this.gameSubType = props.game_sub_type
-    this.recentMaps = (props.recent_maps || []).map(m => m.toString('hex'))
-    this.selectedMap = props.selected_map ? props.selected_map.toString('hex') : null
+    this.recentMaps = props.recent_maps || []
+    this.selectedMap = props.selected_map
   }
 }
 
@@ -27,9 +27,7 @@ export async function upsertLobbyPreferences(
     WHERE lobby_preferences.user_id = $1
     RETURNING *;
   `
-  const recentMapsHashes = recentMaps ? recentMaps.map(m => Buffer.from(m, 'hex')) : null
-  const selectedMapHash = selectedMap ? Buffer.from(selectedMap, 'hex') : null
-  const params = [userId, name, gameType, gameSubType, recentMapsHashes, selectedMapHash]
+  const params = [userId, name, gameType, gameSubType, recentMaps, selectedMap]
 
   const { client, done } = await db()
   try {

@@ -1,26 +1,36 @@
 import db from '../db'
 import transact from '../db/transaction'
 import { tilesetIdToName } from '../../../app/common/maps'
-import {
-  MAP_VISIBILITY_OFFICIAL,
-  MAP_VISIBILITY_PRIVATE,
-  MAP_VISIBILITY_PUBLIC,
-} from '../../../app/common/constants'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
 
+// This model contains information from three separate tables (`maps`, `uploaded_maps` and `users`)
+// and should always be fully constructed, so pieces of code that use it don't have to be defensive
+// about which parts of the model are actually filled in.
 class MapInfo {
   constructor(props) {
-    this.hash = props.hash
-    this.format = props.extension
-    this.tileset = tilesetIdToName(props.tileset)
-    this.name = props.title
+    this.id = props.id
+    this.hash = props.map_hash
+    this.name = props.name
     this.description = props.description
-    this.slots = props.players_melee
-    this.umsSlots = props.players_ums
-    this.umsForces = props.lobby_init_data.forces
-    this.width = props.width
-    this.height = props.height
+    this.uploadedBy = {
+      id: props.uploaded_by,
+      name: props.uploaded_by_name,
+    }
+    this.uploadDate = props.upload_date
+    this.visibility = props.visibility
+    // This is StarCraft-specific map data that we get from parsing the map file
+    this.mapData = {
+      format: props.extension,
+      tileset: tilesetIdToName(props.tileset),
+      originalName: props.original_name,
+      originalDescription: props.original_description,
+      slots: props.players_melee,
+      umsSlots: props.players_ums,
+      umsForces: props.lobby_init_data.forces,
+      width: props.width,
+      height: props.height,
+    }
     this.mapUrl = null
     this.imageUrl = null
   }
@@ -30,12 +40,11 @@ const createMapInfo = async info => {
   const map = new MapInfo(info)
   const hashString = map.hash.toString('hex')
 
-  return {
-    ...map,
-    hash: hashString,
-    mapUrl: await getUrl(mapPath(hashString, map.format)),
-    imageUrl: await getUrl(imagePath(hashString)),
-  }
+  map.hash = hashString
+  map.mapUrl = await getUrl(mapPath(hashString, map.mapData.format))
+  map.imageUrl = await getUrl(imagePath(hashString))
+
+  return map
 }
 
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
@@ -55,13 +64,12 @@ export async function addMap(mapParams, transactionFn) {
       lobbyInitData,
     } = mapData
 
-    let map = (await getMapInfo(hash))[0]
-    if (!map) {
+    const exists = await mapExists(hash)
+    if (!exists) {
       const query = `
         INSERT INTO maps (hash, extension, title, description, width, height, tileset,
           players_melee, players_ums, lobby_init_data)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING *;
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
       `
       const params = [
         Buffer.from(hash, 'hex'),
@@ -76,30 +84,76 @@ export async function addMap(mapParams, transactionFn) {
         lobbyInitData,
       ]
       // Run the `transactionFn` only if a new map is added
-      const [result] = await Promise.all([client.query(query, params), transactionFn()])
-      map = await createMapInfo(result.rows[0])
+      await Promise.all([client.query(query, params), transactionFn()])
     }
 
-    const query = `
-      INSERT INTO uploaded_maps (map_hash, uploaded_by, upload_date, visibility)
-      VALUES ($1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3)
+    // Have to do this as a separate query because it's possible this query will do nothing (if the
+    // uploaded map already exists), in which case we couldn't use `RETURNING` statement to do this
+    // as a part of a sub-query.
+    const insertQuery = `
+      INSERT INTO uploaded_maps
+        (id, map_hash, uploaded_by, upload_date, visibility, name, description)
+      VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5)
       ON CONFLICT (map_hash, uploaded_by)
       DO NOTHING;
     `
-    const params = [Buffer.from(hash, 'hex'), uploadedBy, visibility]
+    let params = [Buffer.from(hash, 'hex'), uploadedBy, visibility, title, description]
+    await client.query(insertQuery, params)
 
-    await client.query(query, params)
-    return map
+    const query = `
+      SELECT
+        um.*,
+        m.*,
+        m.title AS original_name,
+        m.description AS original_description,
+        u.name AS uploaded_by_name
+      FROM uploaded_maps AS um
+      INNER JOIN users AS u
+      ON um.uploaded_by = u.id
+      INNER JOIN maps AS m
+      ON um.map_hash = m.hash
+      WHERE um.map_hash = $1 AND um.uploaded_by = $2;
+    `
+    params = [Buffer.from(hash, 'hex'), uploadedBy]
+
+    const result = await client.query(query, params)
+    return createMapInfo(result.rows[0])
   })
 }
 
-export async function getMapInfo(...hashes) {
+export async function mapExists(hash) {
   const query = `
-    SELECT *
+    SELECT 1
     FROM maps
-    WHERE hash = ANY($1)
+    WHERE hash = $1
   `
-  const params = [hashes.map(h => Buffer.from(h, 'hex'))]
+  const params = [Buffer.from(hash, 'hex')]
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return result.rows.length > 0
+  } finally {
+    done()
+  }
+}
+
+export async function getMapInfo(...mapIds) {
+  const query = `
+    SELECT
+      um.*,
+      m.*,
+      m.title AS original_name,
+      m.description AS original_description,
+      u.name AS uploaded_by_name
+    FROM uploaded_maps AS um
+    INNER JOIN users AS u
+    ON um.uploaded_by = u.id
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
+    WHERE um.id = ANY($1)
+  `
+  const params = [mapIds]
 
   const { client, done } = await db()
   try {
@@ -107,86 +161,71 @@ export async function getMapInfo(...hashes) {
 
     if (result.rows.length < 1) return []
 
-    const getInfo = hash => result.rows.find(m => m.hash.toString('hex') === hash)
+    const getInfo = mapId => result.rows.find(m => m.id === mapId)
     // Filter out the non-existing maps and preserve the order of the input array
-    return Promise.all(hashes.filter(getInfo).map(h => createMapInfo(getInfo(h))))
+    return Promise.all(mapIds.filter(getInfo).map(id => createMapInfo(getInfo(id))))
   } finally {
     done()
   }
 }
 
-async function getMapsCount(whereCondition, whereParams) {
+async function getMapsCount(whereCondition, params) {
   const query = `
-    SELECT COUNT(DISTINCT(hash))
-    FROM maps AS m LEFT JOIN uploaded_maps AS um
-    ON m.hash = um.map_hash
+    SELECT COUNT(id)
+    FROM uploaded_maps
     ${whereCondition}
   `
-  const params = [].concat(whereParams)
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return result.rows[0]
+    return parseInt(result.rows[0].count, 10)
   } finally {
     done()
   }
 }
 
-async function _getMaps(condition, params, limit, pageNumber, searchStr) {
-  // TODO(2Pac): Consider maybe using a query builder to get out of this mess
-  const searchCondition = searchStr ? ` AND title ILIKE $${params.length + 1}` : ''
+export async function getMaps(visibilityArray, limit, pageNumber, userId, searchStr) {
+  let whereCondition = 'WHERE visibility = ANY($1)'
+  const params = [visibilityArray]
+
+  if (userId) {
+    whereCondition += ` AND uploaded_by = $${params.length + 1}`
+    params.push(userId)
+  }
+
   if (searchStr) {
+    whereCondition += ` AND um.name ILIKE $${params.length + 1}`
     const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
     params.push(`%${escapedStr}%`)
   }
-  const whereCondition = condition + searchCondition
+
   const query = `
-    SELECT m.*
-    FROM maps AS m LEFT JOIN uploaded_maps AS um
-    ON m.hash = um.map_hash
+    SELECT
+      um.*,
+      m.*,
+      m.title AS original_name,
+      m.description AS original_description,
+      u.name AS uploaded_by_name
+    FROM uploaded_maps AS um
+    INNER JOIN users AS u
+    ON um.uploaded_by = u.id
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
     ${whereCondition}
-    GROUP BY hash
-    ORDER BY title
+    ORDER BY um.name
     LIMIT $${params.length + 1}
     OFFSET $${params.length + 2}
   `
-
   const total = await getMapsCount(whereCondition, params)
   params.push(limit, pageNumber * limit)
 
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    const maps = await Promise.all(result.rows.map(createMapInfo))
-    return { total: parseInt(total.count, 10), maps }
+    const maps = await Promise.all(result.rows.map(info => createMapInfo(info)))
+    return { total, maps }
   } finally {
     done()
   }
-}
-
-export async function getOfficialMaps(limit, pageNumber, searchStr) {
-  return _getMaps(
-    `WHERE visibility = '${MAP_VISIBILITY_OFFICIAL}'`,
-    [],
-    limit,
-    pageNumber,
-    searchStr,
-  )
-}
-
-export function getPrivateMaps(userId, limit, pageNumber, searchStr) {
-  return _getMaps(
-    `WHERE visibility IN ('${MAP_VISIBILITY_PRIVATE}', '${MAP_VISIBILITY_PUBLIC}')
-      AND uploaded_by = $1`,
-    [userId],
-    limit,
-    pageNumber,
-    searchStr,
-  )
-}
-
-export function getPublicMaps(limit, pageNumber, searchStr) {
-  // TODO(2Pac): Return the name of the uploader for public maps
-  return _getMaps(`WHERE visibility = '${MAP_VISIBILITY_PUBLIC}'`, [], limit, pageNumber, searchStr)
 }

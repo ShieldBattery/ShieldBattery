@@ -115,17 +115,17 @@ export default class MapSelect extends React.Component {
     const { isFocused, focusedIndex } = this.state
 
     const isSelected = m =>
-      value && (typeof value === 'string' ? value === m.hash : value.includes(m.hash))
+      value && (typeof value === 'string' ? value === m.id : value.includes(m.id))
     const mapElements = maps.map((map, i) => (
       <MapThumbnail
-        key={map.hash}
+        key={map.id}
         map={map}
         showMapName={true}
         canHover={true}
         isSelected={isSelected(map)}
         isFocused={isFocused && focusedIndex === i}
         selectedIcon={<StyledSelectedIcon />}
-        onClick={() => this.onMapSelect(map.hash)}
+        onClick={() => this.onMapSelect(map.id)}
       />
     ))
 
@@ -201,7 +201,7 @@ export default class MapSelect extends React.Component {
 
     if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= maps.length) {
       if (focusedIndex === maps.length) this.onMapBrowse(event)
-      else this.onMapSelect(maps[focusedIndex].hash)
+      else this.onMapSelect(maps[focusedIndex].id)
       return true
     } else if (event.code === TAB) {
       if (focusedIndex === (event.shiftKey ? 0 : maps.length)) {
