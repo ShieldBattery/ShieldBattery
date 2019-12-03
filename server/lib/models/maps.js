@@ -31,6 +31,7 @@ class MapInfo {
       width: props.width,
       height: props.height,
     }
+    this.isFavorited = !!props.favorited
     this.mapUrl = null
     this.imageUrl = null
   }
@@ -101,18 +102,23 @@ export async function addMap(mapParams, transactionFn) {
     await client.query(insertQuery, params)
 
     const query = `
-      SELECT
-        um.*,
-        m.*,
-        m.title AS original_name,
-        m.description AS original_description,
-        u.name AS uploaded_by_name
-      FROM uploaded_maps AS um
-      INNER JOIN users AS u
-      ON um.uploaded_by = u.id
-      INNER JOIN maps AS m
-      ON um.map_hash = m.hash
-      WHERE um.map_hash = $1 AND um.uploaded_by = $2;
+      WITH maps AS (
+        SELECT
+          um.*,
+          m.*,
+          m.title AS original_name,
+          m.description AS original_description,
+          u.name AS uploaded_by_name
+        FROM uploaded_maps AS um
+        INNER JOIN users AS u
+        ON um.uploaded_by = u.id
+        INNER JOIN maps AS m
+        ON um.map_hash = m.hash
+        WHERE um.map_hash = $1 AND um.uploaded_by = $2
+      )
+      SELECT maps.*, fav.map_id AS favorited
+      FROM maps LEFT JOIN favorited_maps AS fav
+      ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
     `
     params = [Buffer.from(hash, 'hex'), uploadedBy]
 
@@ -140,18 +146,23 @@ export async function mapExists(hash) {
 
 export async function getMapInfo(...mapIds) {
   const query = `
-    SELECT
-      um.*,
-      m.*,
-      m.title AS original_name,
-      m.description AS original_description,
-      u.name AS uploaded_by_name
-    FROM uploaded_maps AS um
-    INNER JOIN users AS u
-    ON um.uploaded_by = u.id
-    INNER JOIN maps AS m
-    ON um.map_hash = m.hash
-    WHERE um.id = ANY($1)
+    WITH maps AS (
+      SELECT
+        um.*,
+        m.*,
+        m.title AS original_name,
+        m.description AS original_description,
+        u.name AS uploaded_by_name
+      FROM uploaded_maps AS um
+      INNER JOIN users AS u
+      ON um.uploaded_by = u.id
+      INNER JOIN maps AS m
+      ON um.map_hash = m.hash
+      WHERE um.id = ANY($1)
+    )
+    SELECT maps.*, fav.map_id AS favorited
+    FROM maps LEFT JOIN favorited_maps AS fav
+    ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
   `
   const params = [mapIds]
 
@@ -201,21 +212,26 @@ export async function getMaps(visibilityArray, limit, pageNumber, userId, search
   }
 
   const query = `
-    SELECT
-      um.*,
-      m.*,
-      m.title AS original_name,
-      m.description AS original_description,
-      u.name AS uploaded_by_name
-    FROM uploaded_maps AS um
-    INNER JOIN users AS u
-    ON um.uploaded_by = u.id
-    INNER JOIN maps AS m
-    ON um.map_hash = m.hash
-    ${whereCondition}
-    ORDER BY um.name
-    LIMIT $${params.length + 1}
-    OFFSET $${params.length + 2}
+    WITH maps AS (
+      SELECT
+        um.*,
+        m.*,
+        m.title AS original_name,
+        m.description AS original_description,
+        u.name AS uploaded_by_name
+      FROM uploaded_maps AS um
+      INNER JOIN users AS u
+      ON um.uploaded_by = u.id
+      INNER JOIN maps AS m
+      ON um.map_hash = m.hash
+      ${whereCondition}
+      ORDER BY um.name
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
+    )
+    SELECT maps.*, fav.map_id AS favorited
+    FROM maps LEFT JOIN favorited_maps AS fav
+    ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
   `
   const total = await getMapsCount(whereCondition, params)
   params.push(limit, pageNumber * limit)
@@ -225,6 +241,38 @@ export async function getMaps(visibilityArray, limit, pageNumber, userId, search
     const result = await client.query(query, params)
     const maps = await Promise.all(result.rows.map(info => createMapInfo(info)))
     return { total, maps }
+  } finally {
+    done()
+  }
+}
+
+export async function addMapToFavorites(mapId, userId) {
+  const query = `
+    INSERT INTO favorited_maps (map_id, favorited_by)
+    VALUES ($1, $2)
+    ON CONFLICT (map_id, favorited_by)
+    DO NOTHING;
+  `
+  const params = [mapId, userId]
+
+  const { client, done } = await db()
+  try {
+    await client.query(query, params)
+  } finally {
+    done()
+  }
+}
+
+export async function removeMapToFavorites(mapId, userId) {
+  const query = `
+    DELETE FROM favorited_maps
+    WHERE map_id = $1 AND favorited_by = $2;
+  `
+  const params = [mapId, userId]
+
+  const { client, done } = await db()
+  try {
+    await client.query(query, params)
   } finally {
     done()
   }

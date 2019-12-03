@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { storeMap } from '../maps/store'
-import { getMaps } from '../models/maps'
+import { getMaps, addMapToFavorites, removeMapFromFavorites } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import {
@@ -38,6 +38,18 @@ export default function(router) {
       upload,
     )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
+    .post(
+      '/favorites/:mapId',
+      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      addToFavorites,
+    )
+    .delete(
+      '/favorites/:mapId',
+      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      removeFromFavorites,
+    )
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
@@ -104,4 +116,14 @@ async function list(ctx, next) {
     limit,
     total,
   }
+}
+
+async function addToFavorites(ctx, next) {
+  await addMapToFavorites(ctx.params.mapId, ctx.session.userId)
+  ctx.status = 204
+}
+
+async function removeFromFavorites(ctx, next) {
+  await removeMapFromFavorites(ctx.params.mapId, ctx.session.userId)
+  ctx.status = 204
 }
