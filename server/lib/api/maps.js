@@ -1,6 +1,6 @@
 import httpErrors from 'http-errors'
 import { storeMap } from '../maps/store'
-import { getMaps } from '../models/maps'
+import { getMaps, addMapToFavorites, removeMapFromFavorites } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import {
@@ -20,7 +20,7 @@ const mapsListThrottle = createThrottle('mapslist', {
   window: 60000,
 })
 
-const mapsUploadThrottle = createThrottle('mapsupload', {
+const mapUpsertThrottle = createThrottle('mapupsert', {
   rate: 10,
   burst: 20,
   window: 60000,
@@ -31,13 +31,25 @@ export default function(router) {
     .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
     .post(
       '/',
-      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
       featureEnabled(MAP_UPLOADING),
       ensureLoggedIn,
       handleMultipartFiles,
       upload,
     )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
+    .post(
+      '/favorites/:mapId',
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      addToFavorites,
+    )
+    .delete(
+      '/favorites/:mapId',
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      removeFromFavorites,
+    )
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
@@ -89,6 +101,7 @@ async function list(ctx, next) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
+  const favoritedBy = ctx.session.userId
   const visibilityArray = [visibility]
   let uploadedBy = null
   if (visibility === MAP_VISIBILITY_PRIVATE) {
@@ -96,7 +109,7 @@ async function list(ctx, next) {
     uploadedBy = ctx.session.userId
   }
 
-  const result = await getMaps(visibilityArray, limit, page, uploadedBy, q)
+  const result = await getMaps(visibilityArray, limit, page, favoritedBy, uploadedBy, q)
   const { total, maps } = result
   ctx.body = {
     maps,
@@ -104,4 +117,14 @@ async function list(ctx, next) {
     limit,
     total,
   }
+}
+
+async function addToFavorites(ctx, next) {
+  await addMapToFavorites(ctx.params.mapId, ctx.session.userId)
+  ctx.status = 204
+}
+
+async function removeFromFavorites(ctx, next) {
+  await removeMapFromFavorites(ctx.params.mapId, ctx.session.userId)
+  ctx.status = 204
 }

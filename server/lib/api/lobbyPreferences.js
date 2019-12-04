@@ -57,7 +57,7 @@ async function upsertPreferences(ctx, next) {
   )
   ctx.body = {
     ...preferences,
-    recentMaps: await getMapInfo(...preferences.recentMaps),
+    recentMaps: await getMapInfo(preferences.recentMaps, ctx.session.userId),
   }
 }
 
@@ -69,7 +69,7 @@ async function getPreferences(ctx, next) {
   }
 
   const { selectedMap } = preferences
-  const recentMaps = await getMapInfo(...preferences.recentMaps)
+  const recentMaps = await getMapInfo(preferences.recentMaps, ctx.session.userId)
   ctx.body = {
     ...preferences,
     recentMaps,
