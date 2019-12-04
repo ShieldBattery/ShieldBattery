@@ -248,6 +248,43 @@ export async function getMaps(
   }
 }
 
+export async function updateMap(mapId, name, description, visibility) {
+  let setStatement = 'SET'
+  const params = []
+
+  if (name) {
+    setStatement += ` name = $${params.length + 1},`
+    params.push(name)
+  }
+  if (description) {
+    setStatement += ` description = $${params.length + 1},`
+    params.push(description)
+  }
+  if (visibility) {
+    setStatement += ` visibility = $${params.length + 1},`
+    params.push(visibility)
+  }
+  // Remove the trailing comma
+  setStatement = setStatement.slice(0, -1)
+
+  // NOTE(2Pac): This query will fail if there's nothing to update.
+  const query = `
+    UPDATE uploaded_maps
+    ${setStatement}
+    WHERE id = $${params.length + 1}
+    RETURNING *;
+  `
+  params.push(mapId)
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return createMapInfo(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
 export async function addMapToFavorites(mapId, userId) {
   const query = `
     INSERT INTO favorited_maps (map_id, favorited_by)

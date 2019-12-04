@@ -1,6 +1,12 @@
 import httpErrors from 'http-errors'
 import { storeMap } from '../maps/store'
-import { getMaps, addMapToFavorites, removeMapFromFavorites } from '../models/maps'
+import {
+  getMaps,
+  getMapInfo,
+  updateMap,
+  addMapToFavorites,
+  removeMapFromFavorites,
+} from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../app/common/flags'
 import {
@@ -19,10 +25,19 @@ const mapsListThrottle = createThrottle('mapslist', {
   burst: 50,
   window: 60000,
 })
-
-const mapUpsertThrottle = createThrottle('mapupsert', {
+const mapUploadThrottle = createThrottle('mapupload', {
   rate: 10,
   burst: 20,
+  window: 60000,
+})
+const mapUpdateThrottle = createThrottle('mapupdate', {
+  rate: 20,
+  burst: 60,
+  window: 60000,
+})
+const mapFavoriteThrottle = createThrottle('mapfavorite', {
+  rate: 30,
+  burst: 70,
   window: 60000,
 })
 
@@ -31,22 +46,28 @@ export default function(router) {
     .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
     .post(
       '/',
-      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapUploadThrottle, ctx => ctx.session.userId),
       featureEnabled(MAP_UPLOADING),
       ensureLoggedIn,
       handleMultipartFiles,
       upload,
     )
+    .patch(
+      '/:mapId',
+      throttleMiddleware(mapUpdateThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      update,
+    )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
     .post(
       '/favorites/:mapId',
-      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapFavoriteThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       addToFavorites,
     )
     .delete(
       '/favorites/:mapId',
-      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapFavoriteThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       removeFromFavorites,
     )
@@ -74,6 +95,39 @@ async function upload(ctx, next) {
     ? MAP_VISIBILITY_OFFICIAL
     : MAP_VISIBILITY_PRIVATE
   const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
+  ctx.body = {
+    map,
+  }
+}
+
+// TODO(2Pac): Allow updating the map file itself
+async function update(ctx, next) {
+  const { mapId } = ctx.params
+  const { name, description, visibility } = ctx.request.body
+
+  if (!name && !description && !visibility) {
+    ctx.status = 204
+
+    return
+  }
+  if (visibility && !VISIBILITIES.includes(visibility)) {
+    throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
+  }
+
+  let map = (await getMapInfo([mapId]))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+
+  if (map.visibility === MAP_VISIBILITY_OFFICIAL && !ctx.session.permissions.manageMaps) {
+    throw new httpErrors.Forbidden('Not enough permissions')
+  }
+  // Admins can update maps of other users (in case the name contains a dirty word, like 'protoss')
+  if (map.uploadedBy !== ctx.session.userId && !ctx.session.permissions.manageMaps) {
+    throw new httpErrors.Forbidden("Can't update maps of other users")
+  }
+
+  map = await updateMap(mapId, name, description, visibility)
   ctx.body = {
     map,
   }
