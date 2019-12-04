@@ -102,23 +102,18 @@ export async function addMap(mapParams, transactionFn) {
     await client.query(insertQuery, params)
 
     const query = `
-      WITH maps AS (
-        SELECT
-          um.*,
-          m.*,
-          m.title AS original_name,
-          m.description AS original_description,
-          u.name AS uploaded_by_name
-        FROM uploaded_maps AS um
-        INNER JOIN users AS u
-        ON um.uploaded_by = u.id
-        INNER JOIN maps AS m
-        ON um.map_hash = m.hash
-        WHERE um.map_hash = $1 AND um.uploaded_by = $2
-      )
-      SELECT maps.*, fav.map_id AS favorited
-      FROM maps LEFT JOIN favorited_maps AS fav
-      ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
+      SELECT
+        um.*,
+        m.*,
+        m.title AS original_name,
+        m.description AS original_description,
+        u.name AS uploaded_by_name
+      FROM uploaded_maps AS um
+      INNER JOIN users AS u
+      ON um.uploaded_by = u.id
+      INNER JOIN maps AS m
+      ON um.map_hash = m.hash
+      WHERE um.map_hash = $1 AND um.uploaded_by = $2;
     `
     params = [Buffer.from(hash, 'hex'), uploadedBy]
 
@@ -131,7 +126,7 @@ export async function mapExists(hash) {
   const query = `
     SELECT 1
     FROM maps
-    WHERE hash = $1
+    WHERE hash = $1;
   `
   const params = [Buffer.from(hash, 'hex')]
 
@@ -144,7 +139,7 @@ export async function mapExists(hash) {
   }
 }
 
-export async function getMapInfo(...mapIds) {
+export async function getMapInfo(mapIds, userId) {
   const query = `
     WITH maps AS (
       SELECT
@@ -162,9 +157,9 @@ export async function getMapInfo(...mapIds) {
     )
     SELECT maps.*, fav.map_id AS favorited
     FROM maps LEFT JOIN favorited_maps AS fav
-    ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
+    ON fav.map_id = maps.id AND fav.favorited_by = $2;
   `
-  const params = [mapIds]
+  const params = [mapIds, userId]
 
   const { client, done } = await db()
   try {
@@ -184,7 +179,7 @@ async function getMapsCount(whereCondition, params) {
   const query = `
     SELECT COUNT(id)
     FROM uploaded_maps
-    ${whereCondition}
+    ${whereCondition};
   `
 
   const { client, done } = await db()
@@ -196,13 +191,20 @@ async function getMapsCount(whereCondition, params) {
   }
 }
 
-export async function getMaps(visibilityArray, limit, pageNumber, userId, searchStr) {
+export async function getMaps(
+  visibilityArray,
+  limit,
+  pageNumber,
+  favoritedBy,
+  uploadedBy,
+  searchStr,
+) {
   let whereCondition = 'WHERE visibility = ANY($1)'
   const params = [visibilityArray]
 
-  if (userId) {
+  if (uploadedBy) {
     whereCondition += ` AND uploaded_by = $${params.length + 1}`
-    params.push(userId)
+    params.push(uploadedBy)
   }
 
   if (searchStr) {
@@ -225,16 +227,16 @@ export async function getMaps(visibilityArray, limit, pageNumber, userId, search
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
       ${whereCondition}
-      ORDER BY um.name
-      LIMIT $${params.length + 1}
-      OFFSET $${params.length + 2}
     )
     SELECT maps.*, fav.map_id AS favorited
     FROM maps LEFT JOIN favorited_maps AS fav
-    ON maps.id = fav.map_id AND maps.uploaded_by = fav.favorited_by;
+    ON fav.map_id = maps.id AND fav.favorited_by = $${params.length + 1}
+    ORDER BY maps.name
+    LIMIT $${params.length + 2}
+    OFFSET $${params.length + 3};
   `
   const total = await getMapsCount(whereCondition, params)
-  params.push(limit, pageNumber * limit)
+  params.push(favoritedBy, limit, pageNumber * limit)
 
   const { client, done } = await db()
   try {

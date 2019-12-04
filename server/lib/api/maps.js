@@ -20,7 +20,7 @@ const mapsListThrottle = createThrottle('mapslist', {
   window: 60000,
 })
 
-const mapsUploadThrottle = createThrottle('mapsupload', {
+const mapUpsertThrottle = createThrottle('mapupsert', {
   rate: 10,
   burst: 20,
   window: 60000,
@@ -31,7 +31,7 @@ export default function(router) {
     .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
     .post(
       '/',
-      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
       featureEnabled(MAP_UPLOADING),
       ensureLoggedIn,
       handleMultipartFiles,
@@ -40,13 +40,13 @@ export default function(router) {
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
     .post(
       '/favorites/:mapId',
-      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       addToFavorites,
     )
     .delete(
       '/favorites/:mapId',
-      throttleMiddleware(mapsUploadThrottle, ctx => ctx.session.userId),
+      throttleMiddleware(mapUpsertThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       removeFromFavorites,
     )
@@ -101,6 +101,7 @@ async function list(ctx, next) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
+  const favoritedBy = ctx.session.userId
   const visibilityArray = [visibility]
   let uploadedBy = null
   if (visibility === MAP_VISIBILITY_PRIVATE) {
@@ -108,7 +109,7 @@ async function list(ctx, next) {
     uploadedBy = ctx.session.userId
   }
 
-  const result = await getMaps(visibilityArray, limit, page, uploadedBy, q)
+  const result = await getMaps(visibilityArray, limit, page, favoritedBy, uploadedBy, q)
   const { total, maps } = result
   ctx.body = {
     maps,

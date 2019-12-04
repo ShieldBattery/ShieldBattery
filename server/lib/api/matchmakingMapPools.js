@@ -61,7 +61,7 @@ async function getHistory(ctx, next) {
   const pools = await Promise.all(
     mapPoolHistory.map(async m => ({
       startDate: +m.startDate,
-      maps: await getMapInfo(...m.maps),
+      maps: await getMapInfo(m.maps, ctx.session.userId),
     })),
   )
 
@@ -102,7 +102,7 @@ async function getCurrent(ctx, next) {
   }
   ctx.body = {
     ...mapPool,
-    maps: await getMapInfo(...mapPool.maps),
+    maps: await getMapInfo(mapPool.maps, ctx.session.userId),
   }
 }
 

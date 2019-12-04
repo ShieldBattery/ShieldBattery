@@ -151,7 +151,7 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapInfo = (await getMapInfo(map))[0]
+    const mapInfo = (await getMapInfo([map], user.session.userId))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
     }
