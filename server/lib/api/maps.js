@@ -1,5 +1,5 @@
 import httpErrors from 'http-errors'
-import { storeMap } from '../maps/store'
+import { storeMap, removeMap } from '../maps/store'
 import {
   getMaps,
   getMapInfo,
@@ -41,6 +41,12 @@ const mapFavoriteThrottle = createThrottle('mapfavorite', {
   window: 60000,
 })
 
+const mapRemoveThrottle = createThrottle('mapremove', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
 export default function(router) {
   router
     .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
@@ -57,6 +63,12 @@ export default function(router) {
       throttleMiddleware(mapUpdateThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       update,
+    )
+    .delete(
+      '/:mapId',
+      throttleMiddleware(mapRemoveThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      remove,
     )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
     .post(
@@ -141,6 +153,24 @@ async function update(ctx, next) {
   ctx.body = {
     map,
   }
+}
+
+async function remove(ctx, next) {
+  const { mapId } = ctx.params
+
+  const map = (await getMapInfo([mapId]))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+  if (map.visibility === MAP_VISIBILITY_OFFICIAL && !ctx.session.permissions.manageMaps) {
+    throw new httpErrors.Forbidden('Not enough permissions')
+  }
+  if (map.visibility !== MAP_VISIBILITY_OFFICIAL && map.uploadedBy.id !== ctx.session.userId) {
+    throw new httpErrors.Forbidden("Can't remove maps of other users")
+  }
+
+  await removeMap(mapId)
+  ctx.status = 204
 }
 
 async function list(ctx, next) {

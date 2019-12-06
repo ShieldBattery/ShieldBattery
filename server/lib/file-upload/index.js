@@ -23,6 +23,10 @@ export async function writeFile(filename, data) {
   }
 }
 
+export async function deleteFile(filename) {
+  return store.delete(filename)
+}
+
 export async function getUrl(filename) {
   return store.url(filename)
 }
