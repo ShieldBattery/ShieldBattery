@@ -248,7 +248,7 @@ export async function getMaps(
   }
 }
 
-export async function updateMap(mapId, name, description, visibility) {
+export async function updateMap(mapId, favoritedBy, name, description, visibility) {
   let setStatement = 'SET'
   const params = []
 
@@ -269,12 +269,28 @@ export async function updateMap(mapId, name, description, visibility) {
 
   // NOTE(2Pac): This query will fail if there's nothing to update.
   const query = `
-    UPDATE uploaded_maps
-    ${setStatement}
-    WHERE id = $${params.length + 1}
-    RETURNING *;
+    WITH update AS (
+      UPDATE uploaded_maps
+      ${setStatement}
+      WHERE id = $${params.length + 1}
+      RETURNING *
+    )
+    SELECT
+      um.*,
+      m.*,
+      m.title AS original_name,
+      m.description AS original_description,
+      u.name AS uploaded_by_name,
+      fav.map_id AS favorited
+    FROM update AS um
+    INNER JOIN users AS u
+    ON um.uploaded_by = u.id
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
+    LEFT JOIN favorited_maps AS fav
+    ON fav.map_id = um.id AND fav.favorited_by = $${params.length + 2}
   `
-  params.push(mapId)
+  params.push(mapId, favoritedBy)
 
   const { client, done } = await db()
   try {

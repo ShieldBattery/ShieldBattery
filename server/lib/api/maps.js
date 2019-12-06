@@ -119,15 +119,23 @@ async function update(ctx, next) {
     throw new httpErrors.NotFound('Map not found')
   }
 
-  if (map.visibility === MAP_VISIBILITY_OFFICIAL && !ctx.session.permissions.manageMaps) {
-    throw new httpErrors.Forbidden('Not enough permissions')
+  if (visibility === MAP_VISIBILITY_OFFICIAL) {
+    throw new httpErrors.Forbidden("Can't change visibility to 'OFFICIAL'")
+  }
+  if (map.visibility === MAP_VISIBILITY_OFFICIAL) {
+    if (!ctx.session.permissions.manageMaps) {
+      throw new httpErrors.Forbidden('Not enough permissions')
+    }
+    if (visibility !== map.visibility) {
+      throw new httpErrors.Forbidden("Can't change visibility of 'OFFICIAL' maps")
+    }
   }
   // Admins can update maps of other users (in case the name contains a dirty word, like 'protoss')
   if (map.uploadedBy !== ctx.session.userId && !ctx.session.permissions.manageMaps) {
     throw new httpErrors.Forbidden("Can't update maps of other users")
   }
 
-  map = await updateMap(mapId, name, description, visibility)
+  map = await updateMap(mapId, ctx.session.userId, name, description, visibility)
   ctx.body = {
     map,
   }
