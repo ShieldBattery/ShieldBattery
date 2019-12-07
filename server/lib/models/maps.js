@@ -51,7 +51,7 @@ const createMapInfo = async info => {
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
 // is rejected, the transaction will be rolled back.
 export async function addMap(mapParams, transactionFn) {
-  return await transact(async client => {
+  return transact(async client => {
     const { mapData, extension, uploadedBy, visibility } = mapParams
     const {
       hash,
@@ -305,7 +305,7 @@ export async function updateMap(mapId, favoritedBy, name, description, visibilit
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
 // is rejected, the transaction will be rolled back.
 export async function deleteMap(mapId, transactionFn) {
-  return await transact(async client => {
+  return transact(async client => {
     let query = `
       WITH fav AS (
         DELETE FROM favorited_maps
@@ -330,8 +330,8 @@ export async function deleteMap(mapId, transactionFn) {
 
     const result = await client.query(query, [])
     // The `transactionFn` will run only for maps that were actually deleted
-    return Promise.all(
-      result.rows.map(m => [m.hash.toString('hex'), m.extension]).forEach(m => transactionFn(m)),
+    await Promise.all(
+      result.rows.map(m => [m.hash.toString('hex'), m.extension]).map(transactionFn),
     )
   })
 }

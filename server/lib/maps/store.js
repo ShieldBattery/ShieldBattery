@@ -25,8 +25,7 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
 
 export async function removeMap(mapId) {
   await deleteMap(mapId, async ([hash, extension]) => {
-    await deleteFile(imagePath(hash))
-    await deleteFile(mapPath(hash, extension))
+    await Promise.all([deleteFile(imagePath(hash)), deleteFile(mapPath(hash, extension))])
   })
 }
 
