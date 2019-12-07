@@ -105,18 +105,20 @@ async function update(ctx, next) {
   const { mapId } = ctx.params
   const { name, description, visibility } = ctx.request.body
 
+  let map = (await getMapInfo([mapId], ctx.session.userId))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+
   if (!name && !description && !visibility) {
-    ctx.status = 204
+    ctx.body = {
+      map,
+    }
 
     return
   }
   if (visibility && !VISIBILITIES.includes(visibility)) {
     throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
-  }
-
-  let map = (await getMapInfo([mapId]))[0]
-  if (!map) {
-    throw new httpErrors.NotFound('Map not found')
   }
 
   if (visibility === MAP_VISIBILITY_OFFICIAL) {
@@ -126,12 +128,12 @@ async function update(ctx, next) {
     if (!ctx.session.permissions.manageMaps) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (visibility !== map.visibility) {
+    if (visibility && visibility !== map.visibility) {
       throw new httpErrors.Forbidden("Can't change visibility of 'OFFICIAL' maps")
     }
   }
   // Admins can update maps of other users (in case the name contains a dirty word, like 'protoss')
-  if (map.uploadedBy !== ctx.session.userId && !ctx.session.permissions.manageMaps) {
+  if (map.uploadedBy.id !== ctx.session.userId && !ctx.session.permissions.manageMaps) {
     throw new httpErrors.Forbidden("Can't update maps of other users")
   }
 
