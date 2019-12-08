@@ -2,6 +2,7 @@ import config from '../../config'
 import fs from 'fs'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
+import log from '../logging/logger.js'
 import path from 'path'
 import thenify from 'thenify'
 import util from 'util'
@@ -59,11 +60,11 @@ export default class LocalFsStore {
   async delete(filename) {
     const full = this._getFullPath(filename)
     try {
-      await access(full)
       // TODO(2Pac): Delete the directory tree as well, if it's empty
       await unlinkAsync(full)
-    } catch (ignored) {
-      // File most likely doesn't exist so there's nothing to delete
+    } catch (err) {
+      // File most likely doesn't exist so there's nothing to delete; just log the error and move on
+      log.error({ err }, 'error deleting the file')
     }
   }
 
