@@ -51,7 +51,7 @@ const createMapInfo = async info => {
 // transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
 // is rejected, the transaction will be rolled back.
 export async function addMap(mapParams, transactionFn) {
-  return await transact(async client => {
+  return transact(async client => {
     const { mapData, extension, uploadedBy, visibility } = mapParams
     const {
       hash,
@@ -84,8 +84,9 @@ export async function addMap(mapParams, transactionFn) {
         umsPlayers,
         lobbyInitData,
       ]
+      await client.query(query, params)
       // Run the `transactionFn` only if a new map is added
-      await Promise.all([client.query(query, params), transactionFn()])
+      await transactionFn()
     }
 
     // Have to do this as a separate query because it's possible this query will do nothing (if the
@@ -299,6 +300,40 @@ export async function updateMap(mapId, favoritedBy, name, description, visibilit
   } finally {
     done()
   }
+}
+
+// transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
+// is rejected, the transaction will be rolled back.
+export async function deleteMap(mapId, transactionFn) {
+  return transact(async client => {
+    let query = `
+      WITH fav AS (
+        DELETE FROM favorited_maps
+        WHERE map_id = $1
+      )
+      DELETE FROM uploaded_maps
+      WHERE id = $1;
+    `
+    const params = [mapId]
+
+    await client.query(query, params)
+
+    // Delete all maps that no one is referencing anymore, if any
+    query = `
+      DELETE FROM maps AS m
+      WHERE m.hash NOT IN (
+        SELECT map_hash
+        FROM uploaded_maps
+      )
+      RETURNING *;
+    `
+
+    const result = await client.query(query, [])
+    // The `transactionFn` will run only for maps that were actually deleted
+    await Promise.all(
+      result.rows.map(m => [m.hash.toString('hex'), m.extension]).map(transactionFn),
+    )
+  })
 }
 
 export async function addMapToFavorites(mapId, userId) {
