@@ -96,7 +96,7 @@ export async function addMap(mapParams, transactionFn) {
       INSERT INTO uploaded_maps
         (id, map_hash, uploaded_by, upload_date, visibility, name, description)
       VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5)
-      ON CONFLICT (map_hash, uploaded_by)
+      ON CONFLICT (map_hash, uploaded_by, visibility)
       DO NOTHING;
     `
     let params = [Buffer.from(hash, 'hex'), uploadedBy, visibility, title, description]
@@ -105,18 +105,24 @@ export async function addMap(mapParams, transactionFn) {
     const query = `
       SELECT
         um.*,
-        m.*,
+        m.extension,
         m.title AS original_name,
         m.description AS original_description,
+        m.width,
+        m.height,
+        m.tileset,
+        m.players_melee,
+        m.players_ums,
+        m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
       INNER JOIN users AS u
       ON um.uploaded_by = u.id
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
-      WHERE um.map_hash = $1 AND um.uploaded_by = $2;
+      WHERE um.map_hash = $1 AND um.uploaded_by = $2 AND um.visibility = $3;
     `
-    params = [Buffer.from(hash, 'hex'), uploadedBy]
+    params = [Buffer.from(hash, 'hex'), uploadedBy, visibility]
 
     const result = await client.query(query, params)
     return createMapInfo(result.rows[0])
@@ -145,9 +151,15 @@ export async function getMapInfo(mapIds, userId) {
     WITH maps AS (
       SELECT
         um.*,
-        m.*,
+        m.extension,
         m.title AS original_name,
         m.description AS original_description,
+        m.width,
+        m.height,
+        m.tileset,
+        m.players_melee,
+        m.players_ums,
+        m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
       INNER JOIN users AS u
@@ -218,9 +230,15 @@ export async function getMaps(
     WITH maps AS (
       SELECT
         um.*,
-        m.*,
+        m.extension,
         m.title AS original_name,
         m.description AS original_description,
+        m.width,
+        m.height,
+        m.tileset,
+        m.players_melee,
+        m.players_ums,
+        m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
       INNER JOIN users AS u
@@ -278,9 +296,15 @@ export async function updateMap(mapId, favoritedBy, name, description, visibilit
     )
     SELECT
       um.*,
-      m.*,
+      m.extension,
       m.title AS original_name,
       m.description AS original_description,
+      m.width,
+      m.height,
+      m.tileset,
+      m.players_melee,
+      m.players_ums,
+      m.lobby_init_data,
       u.name AS uploaded_by_name,
       fav.map_id AS favorited
     FROM update AS um
