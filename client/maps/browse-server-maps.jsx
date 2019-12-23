@@ -151,6 +151,7 @@ class MapList extends React.PureComponent {
 @connect(state => ({ maps: state.maps }))
 export default class Maps extends React.Component {
   static propTypes = {
+    title: PropTypes.string.isRequired,
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
     onLocalMapSelect: PropTypes.func,
@@ -216,14 +217,14 @@ export default class Maps extends React.Component {
   }
 
   render() {
-    const { maps } = this.props
+    const { title, maps } = this.props
     const { activeTab, scrolledDown } = this.state
 
     return (
       <Container>
         <TitleBar>
           <ActivityBackButton />
-          <Headline>Select map</Headline>
+          <Headline>{title}</Headline>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='Official maps' />

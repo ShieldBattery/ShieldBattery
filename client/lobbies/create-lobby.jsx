@@ -372,6 +372,7 @@ export default class CreateLobby extends React.Component {
 
   onMapBrowse = () => {
     const serverMapsProps = {
+      title: 'Select map',
       onMapSelect: this.onMapSelect,
       onLocalMapSelect: this.onMapSelect,
     }

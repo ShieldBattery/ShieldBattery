@@ -2,24 +2,31 @@ import { List, Map, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK } from '../actions'
 
-const OverlayStateBase = new Record({
+const OverlayRecord = new Record({
   overlayType: null,
   initData: new Map(),
+})
+const OverlayStateBase = new Record({
   history: new List(),
 })
 export class OverlayState extends OverlayStateBase {
+  get current() {
+    return this.history.last()
+  }
   get isOverlayOpened() {
-    return this.overlayType != null
+    return this.history.size > 0
   }
 }
 
 export default keyedReducer(new OverlayState(), {
   [ACTIVITY_OVERLAY_OPEN](state, action) {
     const { overlayType, initData } = action.payload
-    return state
-      .set('overlayType', overlayType)
-      .set('initData', new Map(Object.entries(initData)))
-      .update('history', h => h.push(overlayType))
+    const overlayRecord = new OverlayRecord({
+      overlayType,
+      initData: new Map(Object.entries(initData)),
+    })
+
+    return state.update('history', h => h.push(overlayRecord))
   },
 
   [ACTIVITY_OVERLAY_CLOSE](state, action) {
@@ -27,9 +34,6 @@ export default keyedReducer(new OverlayState(), {
   },
 
   [ACTIVITY_OVERLAY_GO_BACK](state, action) {
-    const updatedState = state.update('history', h => h.pop())
-    return updatedState.history.size > 0
-      ? updatedState.set('overlayType', updatedState.history.last()).set('initData', new Map())
-      : updatedState.delete('overlayType')
+    return state.update('history', h => h.pop())
   },
 })

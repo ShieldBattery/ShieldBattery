@@ -11,11 +11,8 @@ export function openOverlay(overlayType, initData = {}) {
 }
 
 export function closeOverlay() {
-  return (dispatch, getState) => {
-    dispatch({
-      type: ACTIVITY_OVERLAY_CLOSE,
-      meta: { overlayType: getState().activityOverlay.overlayType },
-    })
+  return {
+    type: ACTIVITY_OVERLAY_CLOSE,
   }
 }
 

@@ -114,7 +114,9 @@ export default class ActivityOverlay extends React.Component {
   }
 
   getOverlayComponent() {
-    switch (this.props.activityOverlay.overlayType) {
+    const { activityOverlay } = this.props
+
+    switch (activityOverlay.current.overlayType) {
       case 'findMatch':
         return FindMatch
       case 'createLobby':
@@ -128,17 +130,18 @@ export default class ActivityOverlay extends React.Component {
       case 'browseServerMaps':
         return BrowseServerMaps
       default:
-        throw new Error('Unknown overlay type: ' + this.props.activityOverlay.overlayType)
+        throw new Error('Unknown overlay type: ' + activityOverlay.current.overlayType)
     }
   }
 
   renderOverlay() {
-    if (!this.props.activityOverlay.isOverlayOpened) {
+    const { activityOverlay } = this.props
+    if (!activityOverlay.isOverlayOpened) {
       return null
     }
 
     const OverlayComponent = this.getOverlayComponent()
-    const overlayComponent = <OverlayComponent {...this.props.activityOverlay.initData.toJS()} />
+    const overlayComponent = <OverlayComponent {...activityOverlay.current.initData.toJS()} />
     return (
       <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />

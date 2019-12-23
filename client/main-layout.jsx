@@ -462,7 +462,11 @@ class MainLayout extends React.Component {
   }
 
   onLocalMapSelect = map => {
-    this.props.dispatch(openOverlay('browseServerMaps', { uploadedMap: map }))
+    const serverMapsProps = {
+      title: 'Maps',
+      uploadedMap: map,
+    }
+    this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
   }
 
   onMapsClick = () => {
@@ -470,6 +474,7 @@ class MainLayout extends React.Component {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
       const serverMapsProps = {
+        title: 'Maps',
         onLocalMapSelect: this.onLocalMapSelect,
       }
       this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
