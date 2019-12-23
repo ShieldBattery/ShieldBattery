@@ -153,6 +153,7 @@ export default class Maps extends React.Component {
   static propTypes = {
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
+    onLocalMapSelect: PropTypes.func,
   }
 
   state = {
@@ -293,15 +294,10 @@ export default class Maps extends React.Component {
     }
   }
 
-  onMapUploaded = map => {
-    this.props.dispatch(openOverlay('browseServerMaps', { uploadedMap: map }))
-  }
-
   onBrowseLocalMapsClick = () => {
-    this.props.dispatch(
-      openOverlay('browseLocalMaps', {
-        onMapSelect: this.props.onMapSelect || this.onMapUploaded,
-      }),
-    )
+    const localMapsProps = {
+      onMapSelect: this.props.onLocalMapSelect,
+    }
+    this.props.dispatch(openOverlay('browseLocalMaps', localMapsProps))
   }
 }

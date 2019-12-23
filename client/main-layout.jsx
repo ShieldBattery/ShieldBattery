@@ -461,11 +461,18 @@ class MainLayout extends React.Component {
     }
   }
 
+  onLocalMapSelect = map => {
+    this.props.dispatch(openOverlay('browseServerMaps', { uploadedMap: map }))
+  }
+
   onMapsClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
     } else {
-      this.props.dispatch(openOverlay('browseServerMaps'))
+      const serverMapsProps = {
+        onLocalMapSelect: this.onLocalMapSelect,
+      }
+      this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
     }
   }
 
