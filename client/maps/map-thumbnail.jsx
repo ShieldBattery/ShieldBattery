@@ -2,11 +2,15 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
+import MapActions, { MapActionButton } from './map-actions.jsx'
+
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextSecondary, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
+import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
+import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
 const Container = styled.div`
   position: relative;
@@ -70,14 +74,22 @@ const Overlay = styled.div`
   }
 `
 
-const NameContainer = styled.div`
+const FavoriteActionIcon = styled(MapActionButton)`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  pointer-events: ${props => (props.isFavoriting ? 'none' : 'auto')};
+`
+
+const TextProtection = styled.div`
   position: absolute;
   bottom: 0;
   width: 100%;
   height: 48px;
-  padding: 0 16px;
+  padding: 0 12px 0 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background-color: rgba(0, 0, 0, 0.6);
 `
 
@@ -90,15 +102,32 @@ export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
     showMapName: PropTypes.bool,
-    canHover: PropTypes.bool,
+    isFavoriting: PropTypes.bool,
     isSelected: PropTypes.bool,
     isFocused: PropTypes.bool,
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
+    onToggleFavorite: PropTypes.func,
+    onRemove: PropTypes.func,
   }
 
   render() {
-    const { map, showMapName, canHover, isSelected, selectedIcon, isFocused } = this.props
+    const {
+      map,
+      showMapName,
+      isFavoriting,
+      isSelected,
+      selectedIcon,
+      isFocused,
+      onClick,
+      onToggleFavorite,
+      onRemove,
+    } = this.props
+
+    const mapActions = []
+    if (onRemove) {
+      mapActions.push(['Remove', onRemove])
+    }
 
     return (
       <Container>
@@ -111,27 +140,30 @@ export default class MapThumbnail extends React.Component {
             <ImageIcon />
           </NoImage>
         )}
-        {canHover ? (
+        {onClick ? (
           <Overlay
             isSelected={isSelected}
             isFocused={isFocused}
             showMapName={showMapName}
-            onClick={this.onMapClick}>
+            onClick={onClick}>
             {isSelected && selectedIcon ? selectedIcon : null}
           </Overlay>
         ) : null}
+        {onToggleFavorite ? (
+          <FavoriteActionIcon
+            disabled={isFavoriting}
+            icon={map.isFavorited ? <FavoritedIcon /> : <UnfavoritedIcon />}
+            title={map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={onToggleFavorite}
+          />
+        ) : null}
         {showMapName ? (
-          <NameContainer>
+          <TextProtection>
             <MapName title={map.name}>{map.name}</MapName>
-          </NameContainer>
+            {mapActions.length > 0 ? <MapActions mapActions={mapActions} /> : null}
+          </TextProtection>
         ) : null}
       </Container>
     )
-  }
-
-  onMapClick = event => {
-    if (this.props.onClick) {
-      this.props.onClick()
-    }
   }
 }

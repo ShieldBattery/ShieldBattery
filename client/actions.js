@@ -229,11 +229,20 @@ export const LOCAL_MAPS_SELECT_BEGIN = 'LOCAL_MAPS_SELECT_BEGIN'
 // The server has responded with success/failure to us selecting the local map
 export const LOCAL_MAPS_SELECT = 'LOCAL_MAPS_SELECT'
 
+// Clear the list of maps from the client
 export const MAPS_LIST_CLEAR = 'MAPS_LIST_CLEAR'
 // We are beginning to retrieve the list of maps from the server
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
+// We are starting the process of removing a map
+export const MAPS_REMOVE_BEGIN = 'MAPS_REMOVE_BEGIN'
+// The server has responded with success/failure to us removing a map
+export const MAPS_REMOVE = 'MAPS_REMOVE'
+// We are starting the process of toggling a favorite status of a map
+export const MAPS_TOGGLE_FAVORITE_BEGIN = 'MAPS_TOGGLE_FAVORITE_BEGIN'
+// The server has responded with success/failure of us toggling a favorite status of a map
+export const MAPS_TOGGLE_FAVORITE = 'MAPS_TOGGLE_FAVORITE'
 
 // We are starting the process of accepting the match
 export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'

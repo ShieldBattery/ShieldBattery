@@ -66,6 +66,7 @@ import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
+import { removeMap } from './maps/action-creators'
 
 import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 
@@ -469,6 +470,10 @@ class MainLayout extends React.Component {
     this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
   }
 
+  onRemoveMap = map => {
+    this.props.dispatch(removeMap(map))
+  }
+
   onMapsClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
@@ -476,6 +481,7 @@ class MainLayout extends React.Component {
       const serverMapsProps = {
         title: 'Maps',
         onLocalMapSelect: this.onLocalMapSelect,
+        onRemoveMap: this.onRemoveMap,
       }
       this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
     }

@@ -1,11 +1,11 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { List, Map } from 'immutable'
+import { List, Map, Set } from 'immutable'
 import styled from 'styled-components'
 
-import { clearMapsList, getMapsList } from './action-creators'
 import { openOverlay } from '../activities/action-creators'
+import { clearMapsList, getMapsList, toggleFavoriteMap } from './action-creators'
 
 import ActivityBackButton from '../activities/activity-back-button.jsx'
 import FloatingActionButton from '../material/floating-action-button.jsx'
@@ -123,38 +123,56 @@ class MapList extends React.PureComponent {
   static propTypes = {
     list: PropTypes.instanceOf(List),
     byId: PropTypes.instanceOf(Map),
-    canHover: PropTypes.bool,
+    user: PropTypes.object.isRequired,
+    canManageMaps: PropTypes.bool.isRequired,
+    favoriteStatusRequests: PropTypes.instanceOf(Set),
     onMapSelect: PropTypes.func,
+    onToggleFavoriteMap: PropTypes.func,
+    onRemoveMap: PropTypes.func,
   }
 
   render() {
-    const { list, byId, canHover } = this.props
+    const {
+      list,
+      byId,
+      user,
+      canManageMaps,
+      favoriteStatusRequests,
+      onMapSelect,
+      onToggleFavoriteMap,
+      onRemoveMap,
+    } = this.props
 
-    return list.map((id, i) => (
-      <MapThumbnail
-        key={id}
-        map={byId.get(id)}
-        showMapName={true}
-        canHover={canHover}
-        onClick={() => this.onClick(id)}
-      />
-    ))
-  }
+    return list.map((id, i) => {
+      const map = byId.get(id)
+      const canRemoveMap =
+        onRemoveMap &&
+        ((map.visibility !== MAP_VISIBILITY_PRIVATE && canManageMaps) ||
+          (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id === user.id))
 
-  onClick = id => {
-    if (this.props.onMapSelect) {
-      this.props.onMapSelect(id)
-    }
+      return (
+        <MapThumbnail
+          key={id}
+          map={map}
+          showMapName={true}
+          isFavoriting={favoriteStatusRequests.has(map.id)}
+          onClick={onMapSelect ? () => onMapSelect(map) : undefined}
+          onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
+          onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
+        />
+      )
+    })
   }
 }
 
-@connect(state => ({ maps: state.maps }))
+@connect(state => ({ auth: state.auth, maps: state.maps }))
 export default class Maps extends React.Component {
   static propTypes = {
     title: PropTypes.string.isRequired,
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
     onLocalMapSelect: PropTypes.func,
+    onRemoveMap: PropTypes.func,
   }
 
   state = {
@@ -182,38 +200,60 @@ export default class Maps extends React.Component {
     }
   }
 
+  _renderMaps(header, maps) {
+    const {
+      auth,
+      maps: { favoriteStatusRequests },
+      onMapSelect,
+      onRemoveMap,
+    } = this.props
+
+    return (
+      <>
+        <Underline>{header}</Underline>
+        <ImageList columnCount={3} padding={4}>
+          <MapList
+            list={maps.list}
+            byId={maps.byId}
+            user={auth.user}
+            canManageMaps={auth.permissions.manageMaps}
+            favoriteStatusRequests={favoriteStatusRequests}
+            onMapSelect={onMapSelect}
+            onToggleFavoriteMap={this.onToggleFavoriteMap}
+            onRemoveMap={onRemoveMap}
+          />
+        </ImageList>
+      </>
+    )
+  }
+
   renderUploadedMap() {
     const { uploadedMap } = this.props
     const { activeTab } = this.state
 
     if (!uploadedMap || activeTab !== TAB_MY_MAPS) return null
 
-    return (
-      <>
-        <Underline>Uploaded map</Underline>
-        <ImageList columnCount={3} padding={4}>
-          <MapThumbnail map={uploadedMap} showMapName={true} />
-        </ImageList>
-      </>
-    )
+    const uploadedMapRecord = {
+      list: new List([uploadedMap.hash]),
+      byId: new Map([[uploadedMap.hash, uploadedMap]]),
+    }
+    return this._renderMaps('Uploaded map', uploadedMapRecord)
   }
 
-  renderMaps() {
+  renderAllMaps() {
     const { maps } = this.props
 
     if (maps.total === -1) return null
-    if (maps.total === 0) return <Subheading>There are no maps.</Subheading>
+    if (maps.total === 0) {
+      return (
+        <>
+          <Underline>All maps</Underline>
+          <Subheading>There are no maps.</Subheading>
+        </>
+      )
+    }
 
-    return (
-      <ImageList columnCount={3} padding={4}>
-        <MapList
-          list={maps.list}
-          byId={maps.byId}
-          canHover={!!this.props.onMapSelect}
-          onMapSelect={this.onMapSelect}
-        />
-      </ImageList>
-    )
+    return this._renderMaps('All maps', maps)
   }
 
   render() {
@@ -240,12 +280,11 @@ export default class Maps extends React.Component {
               ) : (
                 <>
                   {this.renderUploadedMap()}
-                  <Underline>All maps</Underline>
                   <InfiniteScrollList
                     ref={this._setInfiniteListRef}
                     isLoading={maps.isRequesting}
                     onLoadMoreData={this.onLoadMoreMaps}>
-                    {this.renderMaps()}
+                    {this.renderAllMaps()}
                   </InfiniteScrollList>
                 </>
               )}
@@ -289,10 +328,8 @@ export default class Maps extends React.Component {
     this.setState({ activeTab: value })
   }
 
-  onMapSelect = id => {
-    if (this.props.onMapSelect) {
-      this.props.onMapSelect(this.props.maps.byId.get(id))
-    }
+  onToggleFavoriteMap = map => {
+    this.props.dispatch(toggleFavoriteMap(map))
   }
 
   onBrowseLocalMapsClick = () => {
