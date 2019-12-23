@@ -1,9 +1,10 @@
 import httpErrors from 'http-errors'
-import { storeMap, removeMap } from '../maps/store'
+import { storeMap } from '../maps/store'
 import {
   getMaps,
   getMapInfo,
   updateMap,
+  removeMap,
   addMapToFavorites,
   removeMapFromFavorites,
 } from '../models/maps'
@@ -162,10 +163,13 @@ async function remove(ctx, next) {
   if (!map) {
     throw new httpErrors.NotFound('Map not found')
   }
-  if (map.visibility === MAP_VISIBILITY_OFFICIAL && !ctx.session.permissions.manageMaps) {
+  if (
+    (map.visibility === MAP_VISIBILITY_OFFICIAL || map.visibility === MAP_VISIBILITY_PUBLIC) &&
+    !ctx.session.permissions.manageMaps
+  ) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
-  if (map.visibility !== MAP_VISIBILITY_OFFICIAL && map.uploadedBy.id !== ctx.session.userId) {
+  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
     throw new httpErrors.Forbidden("Can't remove maps of other users")
   }
 

@@ -89,22 +89,19 @@ export async function addMap(mapParams, transactionFn) {
       await transactionFn()
     }
 
-    // Have to do this as a separate query because it's possible this query will do nothing (if the
-    // uploaded map already exists), in which case we couldn't use `RETURNING` statement to do this
-    // as a part of a sub-query.
-    const insertQuery = `
-      INSERT INTO uploaded_maps
-        (id, map_hash, uploaded_by, upload_date, visibility, name, description)
-      VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5)
-      ON CONFLICT (map_hash, uploaded_by, visibility)
-      DO NOTHING;
-    `
-    let params = [Buffer.from(hash, 'hex'), uploadedBy, visibility, title, description]
-    await client.query(insertQuery, params)
-
     const query = `
+      WITH ins AS (
+        INSERT INTO uploaded_maps AS um
+          (id, map_hash, uploaded_by, upload_date, visibility, name, description)
+        VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5)
+        ON CONFLICT (map_hash, uploaded_by, visibility)
+        DO UPDATE
+        SET removed_at = NULL
+        WHERE um.map_hash = $1 AND um.uploaded_by = $2 AND um.visibility = $3
+        RETURNING *
+      )
       SELECT
-        um.*,
+        ins.*,
         m.extension,
         m.title AS original_name,
         m.description AS original_description,
@@ -115,14 +112,13 @@ export async function addMap(mapParams, transactionFn) {
         m.players_ums,
         m.lobby_init_data,
         u.name AS uploaded_by_name
-      FROM uploaded_maps AS um
+      FROM ins
       INNER JOIN users AS u
-      ON um.uploaded_by = u.id
+      ON ins.uploaded_by = u.id
       INNER JOIN maps AS m
-      ON um.map_hash = m.hash
-      WHERE um.map_hash = $1 AND um.uploaded_by = $2 AND um.visibility = $3;
+      ON ins.map_hash = m.hash;
     `
-    params = [Buffer.from(hash, 'hex'), uploadedBy, visibility]
+    const params = [Buffer.from(hash, 'hex'), uploadedBy, visibility, title, description]
 
     const result = await client.query(query, params)
     return createMapInfo(result.rows[0])
@@ -212,7 +208,7 @@ export async function getMaps(
   uploadedBy,
   searchStr,
 ) {
-  let whereCondition = 'WHERE visibility = ANY($1)'
+  let whereCondition = 'WHERE removed_at IS NULL AND visibility = ANY($1)'
   const params = [visibilityArray]
 
   if (uploadedBy) {
@@ -326,38 +322,20 @@ export async function updateMap(mapId, favoritedBy, name, description, visibilit
   }
 }
 
-// transactionFn is a function() => Promise, which will be awaited inside the DB transaction. If it
-// is rejected, the transaction will be rolled back.
-export async function deleteMap(mapId, transactionFn) {
-  return transact(async client => {
-    let query = `
-      WITH fav AS (
-        DELETE FROM favorited_maps
-        WHERE map_id = $1
-      )
-      DELETE FROM uploaded_maps
-      WHERE id = $1;
-    `
-    const params = [mapId]
+export async function removeMap(mapId) {
+  const query = `
+    UPDATE uploaded_maps
+    SET removed_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+    WHERE id = $1;
+  `
+  const params = [mapId]
 
+  const { client, done } = await db()
+  try {
     await client.query(query, params)
-
-    // Delete all maps that no one is referencing anymore, if any
-    query = `
-      DELETE FROM maps AS m
-      WHERE m.hash NOT IN (
-        SELECT map_hash
-        FROM uploaded_maps
-      )
-      RETURNING *;
-    `
-
-    const result = await client.query(query, [])
-    // The `transactionFn` will run only for maps that were actually deleted
-    await Promise.all(
-      result.rows.map(m => [m.hash.toString('hex'), m.extension]).map(transactionFn),
-    )
-  })
+  } finally {
+    done()
+  }
 }
 
 export async function addMapToFavorites(mapId, userId) {

@@ -1,8 +1,8 @@
 import childProcess from 'child_process'
 import fs from 'fs'
 import config from '../../config.js'
-import { addMap, deleteMap } from '../models/maps'
-import { writeFile, deleteFile } from '../file-upload'
+import { addMap } from '../models/maps'
+import { writeFile } from '../file-upload'
 import bl from 'bl'
 
 // Takes both a parsed chk which it pulls metadata from,
@@ -21,12 +21,6 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
   })
 
   return map
-}
-
-export async function removeMap(mapId) {
-  await deleteMap(mapId, async ([hash, extension]) => {
-    await Promise.all([deleteFile(imagePath(hash)), deleteFile(mapPath(hash, extension))])
-  })
 }
 
 export function mapPath(hash, extension) {
