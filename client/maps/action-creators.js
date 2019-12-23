@@ -1,6 +1,5 @@
 import fetch from '../network/fetch'
 import upload from './upload'
-import { MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC } from '../../app/common/constants'
 
 import {
   LOCAL_MAPS_SELECT_BEGIN,
