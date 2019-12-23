@@ -50,6 +50,9 @@ export default function({
   const config = {
     ...webpackOpts,
     mode: isProd ? 'production' : 'development',
+    // NOTE(2Pac): This is required because some libraries might not use their `browser` field
+    // properly.
+    node: { fs: 'empty' },
     context: __dirname,
     module: {
       rules: [
@@ -119,7 +122,7 @@ export default function({
 
   if (!isProd) {
     // Allow __filename usage in our files in dev
-    config.node = { __filename: true, __dirname: true }
+    config.node = { ...config.node, __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
 
     if (hotUrl) {
