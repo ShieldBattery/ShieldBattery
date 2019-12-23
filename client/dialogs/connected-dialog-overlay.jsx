@@ -4,7 +4,6 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import styles from '../material/dialog.css'
 
 import Portal from '../material/portal.jsx'
-import ConfirmationDialog from './confirmation-dialog.jsx'
 import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import PsiHealthCheckupDialog from '../network/psi-health.jsx'
@@ -38,8 +37,6 @@ class ConnectedDialogOverlay extends React.Component {
         return { component: ChangelogDialog, modal: false }
       case 'channel':
         return { component: JoinChannelDialog, modal: false }
-      case 'confirmation':
-        return { component: ConfirmationDialog, modal: false }
       case 'download':
         return { component: DownloadDialog, modal: false }
       case 'psiHealth':
@@ -69,9 +66,8 @@ class ConnectedDialogOverlay extends React.Component {
         <DialogComponent
           key='dialog'
           onCancel={this.onCancel}
-          title={dialog.title}
-          content={dialog.content}
-          action={dialog.action}
+          simpleTitle={dialog.simpleTitle}
+          simpleContent={dialog.simpleContent}
         />
       )
     }

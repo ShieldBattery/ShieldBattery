@@ -3,17 +3,15 @@ import upload from './upload'
 import { MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC } from '../../app/common/constants'
 
 import {
+  LOCAL_MAPS_SELECT_BEGIN,
+  LOCAL_MAPS_SELECT,
   MAPS_LIST_CLEAR,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
-  MAPS_MAP_DELETE_BEGIN,
-  MAPS_MAP_DELETE,
-  MAPS_MAP_UPDATE_BEGIN,
-  MAPS_MAP_UPDATE,
+  MAPS_REMOVE_BEGIN,
+  MAPS_REMOVE,
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
-  LOCAL_MAPS_SELECT_BEGIN,
-  LOCAL_MAPS_SELECT,
 } from '../actions'
 
 const MAPS_LIMIT = 30
@@ -56,35 +54,13 @@ export function toggleFavoriteMap(map) {
   }
 }
 
-function changeMapVisibility(map, visibility) {
+export function removeMap(map) {
   return dispatch => {
-    dispatch({ type: MAPS_MAP_UPDATE_BEGIN, meta: { map } })
+    dispatch({ type: MAPS_REMOVE_BEGIN, meta: { map } })
 
-    const reqUrl = `/api/1/maps/${map.id}`
     dispatch({
-      type: MAPS_MAP_UPDATE,
-      payload: fetch(reqUrl, { method: 'PATCH', body: JSON.stringify({ visibility }) }),
-      meta: { map },
-    })
-  }
-}
-
-export function makeMapPublic(map) {
-  return changeMapVisibility(map, MAP_VISIBILITY_PUBLIC)
-}
-
-export function makeMapPrivate(map) {
-  return changeMapVisibility(map, MAP_VISIBILITY_PRIVATE)
-}
-
-export function deleteMap(map) {
-  return dispatch => {
-    dispatch({ type: MAPS_MAP_DELETE_BEGIN, meta: { map } })
-
-    const reqUrl = `/api/1/maps/${map.id}`
-    dispatch({
-      type: MAPS_MAP_DELETE,
-      payload: fetch(reqUrl, { method: 'DELETE' }),
+      type: MAPS_REMOVE,
+      payload: fetch(`/api/1/maps/${map.id}`, { method: 'DELETE' }),
       meta: { map },
     })
   }

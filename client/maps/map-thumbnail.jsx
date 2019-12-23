@@ -108,9 +108,7 @@ export default class MapThumbnail extends React.Component {
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
     onToggleFavorite: PropTypes.func,
-    onMakePublic: PropTypes.func,
-    onMakePrivate: PropTypes.func,
-    onDelete: PropTypes.func,
+    onRemove: PropTypes.func,
   }
 
   render() {
@@ -123,20 +121,12 @@ export default class MapThumbnail extends React.Component {
       isFocused,
       onClick,
       onToggleFavorite,
-      onMakePublic,
-      onMakePrivate,
-      onDelete,
+      onRemove,
     } = this.props
 
     const mapActions = []
-    if (onMakePublic) {
-      mapActions.push(['Make public', onMakePublic])
-    }
-    if (onMakePrivate) {
-      mapActions.push(['Make private', onMakePrivate])
-    }
-    if (onDelete) {
-      mapActions.push(['Delete', onDelete])
+    if (onRemove) {
+      mapActions.push(['Remove', onRemove])
     }
 
     return (

@@ -4,8 +4,7 @@ import {
   MAPS_LIST_CLEAR,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
-  MAPS_MAP_DELETE,
-  MAPS_MAP_UPDATE,
+  MAPS_REMOVE,
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
 } from '../actions'
@@ -87,28 +86,18 @@ export default keyedReducer(new Maps(), {
       .set('favoriteStatusRequests', state.favoriteStatusRequests.delete(map.id))
   },
 
-  [MAPS_MAP_DELETE](state, action) {
+  [MAPS_REMOVE](state, action) {
     if (action.error) {
       // TODO(2Pac): Notify the user somehow that this failed?
       return state
     }
 
     const { map } = action.meta
-    const deletedMapIndex = state.list.findIndex(m => m === map.id)
+    const removedMapIndex = state.list.findIndex(m => m === map.id)
     return state
-      .deleteIn(['list', deletedMapIndex])
+      .deleteIn(['list', removedMapIndex])
       .deleteIn(['byId', map.id])
       .set('total', state.total - 1)
-  },
-
-  [MAPS_MAP_UPDATE](state, action) {
-    if (action.error) {
-      // TODO(2Pac): Notify the user somehow that this failed?
-      return state
-    }
-
-    const { map } = action.payload
-    return state.setIn(['byId', map.id], map)
   },
 
   [MAPS_LIST_CLEAR](state, action) {

@@ -128,9 +128,7 @@ class MapList extends React.PureComponent {
     favoriteStatusRequests: PropTypes.instanceOf(Set),
     onMapSelect: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
-    onMakeMapPublic: PropTypes.func,
-    onMakeMapPrivate: PropTypes.func,
-    onDeleteMap: PropTypes.func,
+    onRemoveMap: PropTypes.func,
   }
 
   render() {
@@ -142,25 +140,15 @@ class MapList extends React.PureComponent {
       favoriteStatusRequests,
       onMapSelect,
       onToggleFavoriteMap,
-      onMakeMapPublic,
-      onMakeMapPrivate,
-      onDeleteMap,
+      onRemoveMap,
     } = this.props
 
     return list.map((id, i) => {
       const map = byId.get(id)
-      const canMakePublic =
-        onMakeMapPublic &&
-        map.visibility === MAP_VISIBILITY_PRIVATE &&
-        map.uploadedBy.id === user.id
-      const canMakePrivate =
-        onMakeMapPrivate &&
-        map.visibility === MAP_VISIBILITY_PUBLIC &&
-        map.uploadedBy.id === user.id
-      const canDeleteMap =
-        onDeleteMap &&
-        ((map.visibility === MAP_VISIBILITY_OFFICIAL && canManageMaps) ||
-          (map.visibility !== MAP_VISIBILITY_OFFICIAL && map.uploadedBy.id === user.id))
+      const canRemoveMap =
+        onRemoveMap &&
+        ((map.visibility !== MAP_VISIBILITY_PRIVATE && canManageMaps) ||
+          (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id === user.id))
 
       return (
         <MapThumbnail
@@ -170,9 +158,7 @@ class MapList extends React.PureComponent {
           isFavoriting={favoriteStatusRequests.has(map.id)}
           onClick={onMapSelect ? () => onMapSelect(map) : undefined}
           onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
-          onMakePublic={canMakePublic ? () => onMakeMapPublic(map) : undefined}
-          onMakePrivate={canMakePrivate ? () => onMakeMapPrivate(map) : undefined}
-          onDelete={canDeleteMap ? () => onDeleteMap(map) : undefined}
+          onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
         />
       )
     })
@@ -186,9 +172,7 @@ export default class Maps extends React.Component {
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
     onLocalMapSelect: PropTypes.func,
-    onMakeMapPublic: PropTypes.func,
-    onMakeMapPrivate: PropTypes.func,
-    onDeleteMap: PropTypes.func,
+    onRemoveMap: PropTypes.func,
   }
 
   state = {
@@ -221,9 +205,7 @@ export default class Maps extends React.Component {
       auth,
       maps: { favoriteStatusRequests },
       onMapSelect,
-      onMakeMapPublic,
-      onMakeMapPrivate,
-      onDeleteMap,
+      onRemoveMap,
     } = this.props
 
     return (
@@ -238,9 +220,7 @@ export default class Maps extends React.Component {
             favoriteStatusRequests={favoriteStatusRequests}
             onMapSelect={onMapSelect}
             onToggleFavoriteMap={this.onToggleFavoriteMap}
-            onMakeMapPublic={onMakeMapPublic}
-            onMakeMapPrivate={onMakeMapPrivate}
-            onDeleteMap={onDeleteMap}
+            onRemoveMap={onRemoveMap}
           />
         </ImageList>
       </>

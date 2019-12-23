@@ -5,12 +5,12 @@ import styles from './simple-dialog.css'
 
 export default class SimpleDialog extends React.Component {
   render() {
-    const { title, content, onCancel } = this.props
+    const { simpleTitle, simpleContent, onCancel } = this.props
     const buttons = [<FlatButton label={'Okay'} key={'okay'} color={'accent'} onClick={onCancel} />]
 
     return (
-      <Dialog title={title} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
-        <p className={styles.bodyText}>{content}</p>
+      <Dialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
+        <p className={styles.bodyText}>{simpleContent}</p>
       </Dialog>
     )
   }

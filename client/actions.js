@@ -235,14 +235,10 @@ export const MAPS_LIST_CLEAR = 'MAPS_LIST_CLEAR'
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
-// We are starting the process of deleting a map
-export const MAPS_MAP_DELETE_BEGIN = 'MAPS_MAP_DELETE_BEGIN'
-// The server has responded with success/failure to us deleting a map
-export const MAPS_MAP_DELETE = 'MAPS_MAP_DELETE'
-// We are starting the process of updating a map
-export const MAPS_MAP_UPDATE_BEGIN = 'MAPS_MAP_UPDATE_BEGIN'
-// The server has responded with success/failure to us updating a map
-export const MAPS_MAP_UPDATE = 'MAPS_MAP_UPDATE'
+// We are starting the process of removing a map
+export const MAPS_REMOVE_BEGIN = 'MAPS_REMOVE_BEGIN'
+// The server has responded with success/failure to us removing a map
+export const MAPS_REMOVE = 'MAPS_REMOVE'
 // We are starting the process of toggling a favorite status of a map
 export const MAPS_TOGGLE_FAVORITE_BEGIN = 'MAPS_TOGGLE_FAVORITE_BEGIN'
 // The server has responded with success/failure of us toggling a favorite status of a map

@@ -57,7 +57,7 @@ import WhisperNavEntry from './whispers/nav-entry.jsx'
 import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
 import { cancelFindMatch } from './matchmaking/action-creators'
-import { openDialog, openConfirmationDialog } from './dialogs/dialog-action-creator'
+import { openDialog } from './dialogs/dialog-action-creator'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
 import { leaveChannel } from './chat/action-creators'
@@ -66,7 +66,7 @@ import { closeWhisperSession } from './whispers/action-creators'
 import { isPsiHealthy } from './network/is-psi-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
-import { makeMapPublic, makeMapPrivate, deleteMap } from './maps/action-creators'
+import { removeMap } from './maps/action-creators'
 
 import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
 
@@ -470,6 +470,10 @@ class MainLayout extends React.Component {
     this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
   }
 
+  onRemoveMap = map => {
+    this.props.dispatch(removeMap(map))
+  }
+
   onMapsClick = () => {
     if (!isPsiHealthy(this.props)) {
       this.props.dispatch(openDialog('psiHealth'))
@@ -477,6 +481,7 @@ class MainLayout extends React.Component {
       const serverMapsProps = {
         title: 'Maps',
         onLocalMapSelect: this.onLocalMapSelect,
+        onRemoveMap: this.onRemoveMap,
       }
       this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
     }
