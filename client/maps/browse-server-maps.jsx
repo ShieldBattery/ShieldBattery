@@ -228,14 +228,16 @@ export default class Maps extends React.Component {
   }
 
   renderUploadedMap() {
-    const { uploadedMap } = this.props
+    const { uploadedMap, maps } = this.props
     const { activeTab } = this.state
 
-    if (!uploadedMap || activeTab !== TAB_MY_MAPS) return null
+    if (!uploadedMap || activeTab !== TAB_MY_MAPS || !maps.list.includes(uploadedMap.id)) {
+      return null
+    }
 
     const uploadedMapRecord = {
-      list: new List([uploadedMap.hash]),
-      byId: new Map([[uploadedMap.hash, uploadedMap]]),
+      list: new List([uploadedMap.id]),
+      byId: maps.byId.filter(m => m.id === uploadedMap.id),
     }
     return this._renderMaps('Uploaded map', uploadedMapRecord)
   }
