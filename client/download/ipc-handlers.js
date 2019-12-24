@@ -1,5 +1,5 @@
 import { dispatch } from '../dispatch-registry'
-import { openDialog } from '../dialogs/dialog-action-creator'
+import { openDialog } from '../dialogs/action-creators'
 import {
   UPDATER_NEW_VERSION_FOUND,
   UPDATER_NEW_VERSION_DOWNLOADED,

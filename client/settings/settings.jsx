@@ -10,7 +10,7 @@ import Select from '../material/select/select.jsx'
 import Slider from '../material/slider.jsx'
 import TextField from '../material/text-field.jsx'
 import { minLength } from '../forms/validators'
-import { closeDialog } from '../dialogs/dialog-action-creator'
+import { closeDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
 
 const screen = IS_ELECTRON ? require('electron').screen : null

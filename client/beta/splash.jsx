@@ -13,7 +13,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import ChatImage from './chat.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 
-import { openDialog } from '../dialogs/dialog-action-creator'
+import { openDialog } from '../dialogs/action-creators'
 import { grey850, grey900, colorTextSecondary } from '../styles/colors'
 
 const SplashContainer = styled.div`

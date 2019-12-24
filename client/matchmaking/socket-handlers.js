@@ -8,7 +8,7 @@ import {
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
-import { openDialog, closeDialog } from '../dialogs/dialog-action-creator'
+import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../app/common/constants'
 
 const acceptMatchState = {

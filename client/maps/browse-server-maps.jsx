@@ -4,6 +4,7 @@ import { connect } from 'react-redux'
 import { List, Map, Set } from 'immutable'
 import styled from 'styled-components'
 
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { openOverlay } from '../activities/action-creators'
 import { clearMapsList, getMapsList, toggleFavoriteMap } from './action-creators'
 
@@ -100,6 +101,10 @@ const PositionedFloatingActionButton = styled(FloatingActionButton)`
   left: calc(50% - 28px);
 `
 
+const MapPreview = styled.img`
+  width: 100%;
+`
+
 const TAB_OFFICIAL_MAPS = 0
 const TAB_MY_MAPS = 1
 const TAB_COMMUNITY_MAPS = 2
@@ -127,6 +132,7 @@ class MapList extends React.PureComponent {
     canManageMaps: PropTypes.bool.isRequired,
     favoriteStatusRequests: PropTypes.instanceOf(Set),
     onMapSelect: PropTypes.func,
+    onMapPreview: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
     onRemoveMap: PropTypes.func,
   }
@@ -139,6 +145,7 @@ class MapList extends React.PureComponent {
       canManageMaps,
       favoriteStatusRequests,
       onMapSelect,
+      onMapPreview,
       onToggleFavoriteMap,
       onRemoveMap,
     } = this.props
@@ -157,6 +164,7 @@ class MapList extends React.PureComponent {
           showMapName={true}
           isFavoriting={favoriteStatusRequests.has(map.id)}
           onClick={onMapSelect ? () => onMapSelect(map) : undefined}
+          onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
           onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
           onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
         />
@@ -219,6 +227,7 @@ export default class Maps extends React.Component {
             canManageMaps={auth.permissions.manageMaps}
             favoriteStatusRequests={favoriteStatusRequests}
             onMapSelect={onMapSelect}
+            onMapPreview={this.onMapPreview}
             onToggleFavoriteMap={this.onToggleFavoriteMap}
             onRemoveMap={onRemoveMap}
           />
@@ -328,6 +337,12 @@ export default class Maps extends React.Component {
 
   onTabChange = value => {
     this.setState({ activeTab: value })
+  }
+
+  onMapPreview = map => {
+    this.props.dispatch(
+      openSimpleDialog(map.name, <MapPreview src={map.imageUrl} alt={map.name} />),
+    )
   }
 
   onToggleFavoriteMap = map => {

@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
-import { closeDialog } from '../dialogs/dialog-action-creator'
+import { closeDialog } from '../dialogs/action-creators'
 import { acceptMatch } from './action-creators'
 
 import RaisedButton from '../material/raised-button.jsx'

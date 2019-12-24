@@ -13,7 +13,7 @@ import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import DownloadDialog from '../download/download-dialog.jsx'
 import UpdateDialog from '../download/update-dialog.jsx'
 import AcceptMatch from '../matchmaking/accept-match.jsx'
-import { closeDialog } from './dialog-action-creator'
+import { closeDialog } from './action-creators'
 
 const transitionNames = {
   enter: styles.enter,

@@ -1,4 +1,4 @@
-import { openDialog } from '../dialogs/dialog-action-creator'
+import { openDialog } from '../dialogs/action-creators'
 import { shouldShowChangelog } from './should-show-changelog'
 
 export function openChangelogIfNecessary() {

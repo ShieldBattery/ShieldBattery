@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import Dialog from '../material/dialog.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
-import { openDialog, closeDialog } from '../dialogs/dialog-action-creator'
+import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import {
   isPsiHealthy,

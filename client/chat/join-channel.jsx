@@ -6,7 +6,7 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 
-import { closeDialog } from '../dialogs/dialog-action-creator'
+import { closeDialog } from '../dialogs/action-creators'
 import { navigateToChannel } from './action-creators'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../app/common/constants'
 

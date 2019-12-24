@@ -5,7 +5,7 @@ import cuid from 'cuid'
 import ReplayParser from 'jssuh'
 import logger from '../logging/logger'
 import activeGameManager from '../active-game/active-game-manager-instance'
-import { openSimpleDialog } from '../dialogs/dialog-action-creator'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { Slot } from '../lobbies/lobby-reducer'
 import { REPLAYS_START_REPLAY } from '../actions'
 

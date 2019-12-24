@@ -6,7 +6,7 @@ import form from '../forms/form.jsx'
 import TextField from '../material/text-field.jsx'
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
 
-import { closeDialog } from '../dialogs/dialog-action-creator'
+import { closeDialog } from '../dialogs/action-creators'
 import { navigateToWhisper } from './action-creators'
 import {
   USERNAME_MINLENGTH,

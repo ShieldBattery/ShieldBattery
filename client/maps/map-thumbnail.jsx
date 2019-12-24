@@ -11,6 +11,7 @@ import { Subheading, singleLine } from '../styles/typography'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
+import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
 
 const Container = styled.div`
   position: relative;
@@ -74,6 +75,12 @@ const Overlay = styled.div`
   }
 `
 
+const MapPreviewIcon = styled(MapActionButton)`
+  position: absolute;
+  top: 8px;
+  left: 8px;
+`
+
 const FavoriteActionIcon = styled(MapActionButton)`
   position: absolute;
   top: 8px;
@@ -107,6 +114,7 @@ export default class MapThumbnail extends React.Component {
     isFocused: PropTypes.bool,
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
+    onMapPreview: PropTypes.func,
     onToggleFavorite: PropTypes.func,
     onRemove: PropTypes.func,
   }
@@ -120,6 +128,7 @@ export default class MapThumbnail extends React.Component {
       selectedIcon,
       isFocused,
       onClick,
+      onPreview,
       onToggleFavorite,
       onRemove,
     } = this.props
@@ -148,6 +157,9 @@ export default class MapThumbnail extends React.Component {
             onClick={onClick}>
             {isSelected && selectedIcon ? selectedIcon : null}
           </Overlay>
+        ) : null}
+        {onPreview ? (
+          <MapPreviewIcon icon={<ZoomInIcon />} title={'Show map preview'} onClick={onPreview} />
         ) : null}
         {onToggleFavorite ? (
           <FavoriteActionIcon
