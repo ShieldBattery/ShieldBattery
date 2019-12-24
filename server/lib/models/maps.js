@@ -200,16 +200,9 @@ async function getMapsCount(whereCondition, params) {
   }
 }
 
-export async function getMaps(
-  visibilityArray,
-  limit,
-  pageNumber,
-  favoritedBy,
-  uploadedBy,
-  searchStr,
-) {
-  let whereCondition = 'WHERE removed_at IS NULL AND visibility = ANY($1)'
-  const params = [visibilityArray]
+export async function getMaps(visibility, limit, pageNumber, favoritedBy, uploadedBy, searchStr) {
+  let whereCondition = 'WHERE removed_at IS NULL AND visibility = $1'
+  const params = [visibility]
 
   if (uploadedBy) {
     whereCondition += ` AND uploaded_by = $${params.length + 1}`
@@ -258,6 +251,43 @@ export async function getMaps(
     const result = await client.query(query, params)
     const maps = await Promise.all(result.rows.map(info => createMapInfo(info)))
     return { total, maps }
+  } finally {
+    done()
+  }
+}
+
+// TODO(2Pac): If it becomes a problem, add paging to this
+export async function getFavoritedMaps(favoritedBy) {
+  const query = `
+    SELECT
+      um.*,
+      m.extension,
+      m.title AS original_name,
+      m.description AS original_description,
+      m.width,
+      m.height,
+      m.tileset,
+      m.players_melee,
+      m.players_ums,
+      m.lobby_init_data,
+      u.name AS uploaded_by_name,
+      true AS favorited
+    FROM favorited_maps AS fm
+    INNER JOIN uploaded_maps AS um
+    ON fm.map_id = um.id
+    INNER JOIN users AS u
+    ON um.uploaded_by = u.id
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
+    WHERE removed_at IS NULL AND favorited_by = $1
+    ORDER BY favorited_date DESC NULLS LAST;
+  `
+  const params = [favoritedBy]
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query, params)
+    return await Promise.all(result.rows.map(info => createMapInfo(info)))
   } finally {
     done()
   }
@@ -340,8 +370,8 @@ export async function removeMap(mapId) {
 
 export async function addMapToFavorites(mapId, userId) {
   const query = `
-    INSERT INTO favorited_maps (map_id, favorited_by)
-    VALUES ($1, $2)
+    INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
+    VALUES ($1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
     ON CONFLICT (map_id, favorited_by)
     DO NOTHING;
   `

@@ -3,6 +3,7 @@ import { storeMap } from '../maps/store'
 import {
   getMaps,
   getMapInfo,
+  getFavoritedMaps,
   updateMap,
   removeMap,
   addMapToFavorites,
@@ -199,18 +200,20 @@ async function list(ctx, next) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
 
-  const favoritedBy = ctx.session.userId
-  const visibilityArray = [visibility]
   let uploadedBy = null
   if (visibility === MAP_VISIBILITY_PRIVATE) {
-    visibilityArray.push(MAP_VISIBILITY_PUBLIC)
     uploadedBy = ctx.session.userId
   }
 
-  const result = await getMaps(visibilityArray, limit, page, favoritedBy, uploadedBy, q)
-  const { total, maps } = result
+  const favoritedBy = ctx.session.userId
+  const [mapsResult, favoritedMaps] = await Promise.all([
+    getMaps(visibility, limit, page, favoritedBy, uploadedBy, q),
+    visibility === MAP_VISIBILITY_PRIVATE ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
+  ])
+  const { total, maps } = mapsResult
   ctx.body = {
     maps,
+    favoritedMaps,
     page,
     limit,
     total,

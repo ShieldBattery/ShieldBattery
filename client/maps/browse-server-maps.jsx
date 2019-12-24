@@ -251,15 +251,26 @@ export default class Maps extends React.Component {
     return this._renderMaps('Uploaded map', uploadedMapRecord)
   }
 
+  renderFavoritedMaps() {
+    const { maps } = this.props
+    const { activeTab } = this.state
+
+    if (activeTab !== TAB_MY_MAPS || maps.favoritedMaps.list.size < 1) return null
+
+    return this._renderMaps('Favorited maps', maps.favoritedMaps)
+  }
+
   renderAllMaps() {
     const { maps } = this.props
+    const { activeTab } = this.state
 
     if (maps.total === -1) return null
     if (maps.total === 0) {
+      const text = activeTab === TAB_MY_MAPS ? 'You have not uploaded any map' : 'There are no maps'
       return (
         <>
           <Underline>All maps</Underline>
-          <Subheading>There are no maps.</Subheading>
+          <Subheading>{text}</Subheading>
         </>
       )
     }
@@ -291,6 +302,7 @@ export default class Maps extends React.Component {
               ) : (
                 <>
                   {this.renderUploadedMap()}
+                  {this.renderFavoritedMaps()}
                   <InfiniteScrollList
                     ref={this._setInfiniteListRef}
                     isLoading={maps.isRequesting}

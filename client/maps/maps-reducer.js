@@ -35,11 +35,17 @@ export const MapRecord = new Record({
   mapUrl: null,
   imageUrl: null,
 })
+const FavoritedMaps = new Record({
+  list: new List(),
+  byId: new Map(),
+})
 export const Maps = new Record({
   list: new List(),
   byId: new Map(),
   page: 0,
   total: -1,
+
+  favoritedMaps: new FavoritedMaps(),
 
   isRequesting: false,
   favoriteStatusRequests: new Set(),
@@ -52,7 +58,7 @@ export default keyedReducer(new Maps(), {
   },
 
   [MAPS_LIST_GET](state, action) {
-    const { maps, total } = action.payload
+    const { maps, total, favoritedMaps } = action.payload
 
     if (action.error) {
       return state.set('isRequesting', false).set('lastError', action.payload)
@@ -66,6 +72,8 @@ export default keyedReducer(new Maps(), {
       .set('byId', byId)
       .set('page', state.page + 1)
       .set('total', total)
+      .setIn(['favoritedMaps', 'list'], new List(favoritedMaps.map(m => m.id)))
+      .setIn(['favoritedMaps', 'byId'], new Map(favoritedMaps.map(m => [m.id, new MapRecord(m)])))
       .set('isRequesting', false)
       .set('lastError', null)
   },
@@ -83,6 +91,7 @@ export default keyedReducer(new Maps(), {
 
     return state
       .setIn(['byId', map.id, 'isFavorited'], !map.isFavorited)
+      .setIn(['favoritedMaps', 'byId', map.id, 'isFavorited'], !map.isFavorited)
       .set('favoriteStatusRequests', state.favoriteStatusRequests.delete(map.id))
   },
 
@@ -94,10 +103,20 @@ export default keyedReducer(new Maps(), {
 
     const { map } = action.meta
     const removedMapIndex = state.list.findIndex(m => m === map.id)
-    return state
+
+    let updated = state
       .deleteIn(['list', removedMapIndex])
       .deleteIn(['byId', map.id])
       .set('total', state.total - 1)
+
+    const favoritedMapIndex = state.favoritedMaps.list.findIndex(m => m === map.id)
+    if (favoritedMapIndex > -1) {
+      updated = updated
+        .deleteIn(['favoritedMaps', 'list', favoritedMapIndex])
+        .deleteIn(['favoritedMaps', 'byId', map.id])
+    }
+
+    return updated
   },
 
   [MAPS_LIST_CLEAR](state, action) {
