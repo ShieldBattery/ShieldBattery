@@ -11,12 +11,11 @@ export default function() {
     return
   }
 
-  const appName = app.getName()
   let getMainWindow
   const socket =
     process.platform === 'win32'
-      ? `\\\\.\\pipe\\${sanitize(process.env.USERNAME)}-${appName}-singleInstance`
-      : path.join(os.tempdir(), appName + '.sock')
+      ? `\\\\.\\pipe\\${sanitize(process.env.USERNAME)}-${app.name}-singleInstance`
+      : path.join(os.tempdir(), app.name + '.sock')
 
   const client = net
     .connect(socket, () => {
