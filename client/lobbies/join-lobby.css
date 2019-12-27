@@ -6,7 +6,7 @@
   padding: 16px;
 }
 
-.title {
+.header {
   composes: title;
   margin-top: 8px;
 }
