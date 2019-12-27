@@ -27,8 +27,16 @@ const forgotPasswordSuccessThrottle = createThrottle('forgotpasssuccess', {
 
 export default function(router) {
   router
-    .post('/user', throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip), recoverUsername)
-    .post('/password', throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip), resetPassword)
+    .post(
+      '/user',
+      throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip),
+      recoverUsername,
+    )
+    .post(
+      '/password',
+      throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip),
+      resetPassword,
+    )
 }
 
 async function recoverUsername(ctx, next) {

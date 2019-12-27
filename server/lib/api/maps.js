@@ -51,7 +51,12 @@ const mapRemoveThrottle = createThrottle('mapremove', {
 
 export default function(router) {
   router
-    .get('/', throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId), ensureLoggedIn, list)
+    .get(
+      '/',
+      throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      list,
+    )
     .post(
       '/',
       throttleMiddleware(mapUploadThrottle, ctx => ctx.session.userId),
