@@ -84,6 +84,7 @@
     "redux-promise": "^0.6.0",
     "redux-thunk": "^2.3.0",
     "regenerator-runtime": "^0.13.3",
+    "request": "^2.88.0",
     "scm-extractor": "^1.0.6",
     "styled-components": "^4.4.1",
     "thenify": "^3.2.1",
