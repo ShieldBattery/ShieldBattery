@@ -345,7 +345,7 @@ export default class Files extends React.Component {
     return (
       <div ref={this._focusBrowser} tabIndex='-1' className={styles.root}>
         <div className={styles.topBar}>
-          <div className={styles.title}>
+          <div className={styles.titleContainer}>
             {titleButton ? titleButton : null}
             <h3 className={styles.contentTitle}>{title}</h3>
           </div>

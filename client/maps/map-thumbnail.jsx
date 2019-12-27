@@ -76,13 +76,14 @@ const Overlay = styled.div`
 `
 
 const MapPreviewIcon = styled(MapActionButton)`
-  position: absolute;
+  // TODO(2Pac): Need to move button stuff to styled-components ASAP
+  position: absolute !important;
   top: 8px;
   left: 8px;
 `
 
 const FavoriteActionIcon = styled(MapActionButton)`
-  position: absolute;
+  position: absolute !important;
   top: 8px;
   right: 8px;
   pointer-events: ${props => (props.isFavoriting ? 'none' : 'auto')};

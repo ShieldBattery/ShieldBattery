@@ -63,7 +63,10 @@ export default class ActiveGameManager extends EventEmitter {
 
     const gameId = cuid()
     const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
-      .then(proc => proc.waitForExit(), err => this.handleGameLaunchError(gameId, err))
+      .then(
+        proc => proc.waitForExit(),
+        err => this.handleGameLaunchError(gameId, err),
+      )
       .then(
         code => this.handleGameExit(gameId, code),
         err => this.handleGameExitWaitError(gameId, err),

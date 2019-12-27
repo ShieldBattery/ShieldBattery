@@ -80,7 +80,7 @@ export default class JoinLobby extends React.Component {
   render() {
     return (
       <div className={styles.root}>
-        <p className={styles.title}>Join Lobby</p>
+        <p className={styles.header}>Join Lobby</p>
         {this.renderList()}
       </div>
     )

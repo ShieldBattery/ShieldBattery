@@ -13,7 +13,7 @@ import { minLength } from '../forms/validators'
 import { closeDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
 
-const screen = IS_ELECTRON ? require('electron').screen : null
+const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size
 
 const SUPPORTED_WINDOW_SIZES = [

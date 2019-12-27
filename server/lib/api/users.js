@@ -41,7 +41,11 @@ const sendVerificationThrottle = createThrottle('sendverification', {
 
 export default function(router, { nydus }) {
   router
-    .post('/', throttleMiddleware(accountCreationThrottle, ctx => ctx.ip), createUser)
+    .post(
+      '/',
+      throttleMiddleware(accountCreationThrottle, ctx => ctx.ip),
+      createUser,
+    )
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
     .put('/:id', function*(next) {
       // TODO(tec27): update a user

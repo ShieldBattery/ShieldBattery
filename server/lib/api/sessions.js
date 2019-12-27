@@ -22,7 +22,11 @@ export default function(router) {
   router
     .get('/', getCurrentSession)
     .delete('/', endSession)
-    .post('/', throttleMiddleware(loginThrottle, ctx => ctx.ip), startNewSession)
+    .post(
+      '/',
+      throttleMiddleware(loginThrottle, ctx => ctx.ip),
+      startNewSession,
+    )
 }
 
 async function getCurrentSession(ctx, next) {

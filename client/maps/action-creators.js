@@ -1,6 +1,4 @@
 import fetch from '../network/fetch'
-import upload from './upload'
-
 import {
   LOCAL_MAPS_SELECT_BEGIN,
   LOCAL_MAPS_SELECT,
@@ -12,6 +10,8 @@ import {
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
 } from '../actions'
+
+const upload = IS_ELECTRON ? require('./upload') : null
 
 const MAPS_LIMIT = 30
 
