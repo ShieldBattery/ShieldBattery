@@ -36,9 +36,10 @@ export default function({
       {
         loader: 'css-loader',
         options: {
-          modules: true,
+          modules: {
+            localIdentName: !isProd ? '[name]__[local]__[hash:base64:5]' : '[hash:base64]',
+          },
           importLoaders: 1,
-          localIdentName: !isProd ? '[name]__[local]__[hash:base64:5]' : '[hash:base64]',
         },
       },
       // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
