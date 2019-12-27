@@ -1,6 +1,6 @@
 /* global styles that will be imported at the root of our JS app */
 @value colorTextPrimary, colorTextFaint, colorBackground from './colors.css';
-@value amberA200, amberA400 from './colors.css';
+@value amberA200, amberA400, grey800, grey900 from './colors.css';
 
 * {
   box-sizing: border-box;
@@ -50,4 +50,16 @@ a:hover, a:active {
 
 svg {
   fill: currentColor;
+}
+
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px grey900 inset !important;
+  -webkit-text-fill-color: colorTextPrimary !important;
+  caret-color: #fff !important;
+}
+
+:global(.cardLayer) input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px grey800 inset !important;
+  -webkit-text-fill-color: colorTextPrimary !important;
+  caret-color: #fff !important;
 }

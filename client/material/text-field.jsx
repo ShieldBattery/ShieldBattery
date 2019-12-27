@@ -1,13 +1,88 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
 import uniqueId from '../dom/unique-id'
-import styles from './text-field.css'
+import styled from 'styled-components'
 
 import FloatingLabel from './input-floating-label.jsx'
 import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
+
+import { colorTextPrimary, colorTextFaint } from '../styles/colors'
+
+const InputContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+  width: 100%;
+  height: 56px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px 4px 0 0;
+  contain: layout paint style;
+
+  ${props =>
+    !props.disabled
+      ? `
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.12);
+        }
+      `
+      : ''}
+
+  ${props =>
+    props.focused
+      ? `
+        background-color: rgba(255, 255, 255, 0.24) !important;
+      `
+      : ''}
+
+  & input[type='text'],
+  & input[type='password'],
+  & input[type='datetime'],
+  & input[type='datetime-local'],
+  & input[type='date'],
+  & input[type='month'],
+  & input[type='time'],
+  & input[type='week'],
+  & input[type='number'],
+  & input[type='email'],
+  & input[type='url'],
+  & input[type='search'],
+  & input[type='tel'],
+  & input[type='color'] {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+  }
+`
+
+const StyledInput = styled.input`
+  flex-grow: 1;
+  order: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: ${props => (props.floatingLabel ? '20px 12px 6px' : '12px')};
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: none;
+  color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
+  line-height: inherit;
+  -ms-flex-preferred-size: inherit;
+
+  &:focus {
+    outline: none;
+  }
+
+  &:invalid {
+    outline: none;
+    box-shadow: none;
+  }
+`
 
 // A single-line Material text field, supporting with and without floating labels
 export default class TextField extends React.Component {
@@ -19,12 +94,12 @@ export default class TextField extends React.Component {
     errorText: PropTypes.string,
     floatingLabel: PropTypes.bool,
     label: PropTypes.string,
+    disabled: PropTypes.bool,
     onBlur: PropTypes.func,
     onChange: PropTypes.func,
     onFocus: PropTypes.func,
     onKeyDown: PropTypes.func,
     onEnterKeyDown: PropTypes.func,
-    className: PropTypes.oneOfType([PropTypes.string, PropTypes.array, PropTypes.object]),
     inputProps: PropTypes.object,
   }
 
@@ -32,6 +107,7 @@ export default class TextField extends React.Component {
     type: 'text',
     allowErrors: true,
     floatingLabel: false,
+    disabled: false,
   }
 
   id = uniqueId()
@@ -44,18 +120,24 @@ export default class TextField extends React.Component {
   }
 
   render() {
-    const { allowErrors, errorText, value, name, type, inputProps } = this.props
-    const classes = classnames(styles.textField, this.props.className, {
-      [styles.disabled]: this.props.disabled,
-    })
+    const {
+      allowErrors,
+      errorText,
+      value,
+      name,
+      type,
+      disabled,
+      floatingLabel,
+      inputProps,
+    } = this.props
 
     const internalInputProps = {
       ref: this.setInput,
       id: this.id,
-      className: styles.input,
       value,
       type,
       name,
+      disabled,
       onBlur: this.onInputBlur,
       onChange: this.onInputChange,
       onFocus: this.onInputFocus,
@@ -63,36 +145,40 @@ export default class TextField extends React.Component {
     }
 
     return (
-      <div className={classes}>
-        {this.renderLabel()}
-        <input {...inputProps} {...internalInputProps} />
-        <InputUnderline
-          focused={this.state.isFocused}
-          error={!!errorText}
-          disabled={this.props.disabled}
-        />
+      <div className={this.props.className}>
+        <InputContainer disabled={disabled} focused={this.state.isFocused}>
+          {this.renderLabel()}
+          <StyledInput floatingLabel={floatingLabel} {...inputProps} {...internalInputProps} />
+          <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
+        </InputContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
       </div>
     )
   }
 
   renderLabel() {
-    const { label, floatingLabel, value, disabled, errorText } = this.props
+    const { label, floatingLabel, value, errorText, disabled } = this.props
+    const { isFocused } = this.state
+
     if (!label) {
       return null
     } else if (floatingLabel) {
       return (
         <FloatingLabel
           htmlFor={this.id}
-          text={label}
           hasValue={!!value}
-          focused={this.state.isFocused}
-          disabled={disabled}
+          focused={isFocused}
           error={!!errorText}
-        />
+          disabled={disabled}>
+          {label}
+        </FloatingLabel>
       )
     } else {
-      return <Label htmlFor={this.id} text={label} hasValue={!!value} />
+      return (
+        <Label htmlFor={this.id} hasValue={!!value} disabled={disabled}>
+          {label}
+        </Label>
+      )
     }
   }
 

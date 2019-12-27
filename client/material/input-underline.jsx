@@ -1,19 +1,51 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import styles from './input-underline.css'
+import styled from 'styled-components'
+
+import { fastOutSlowInShort } from './curves'
+import { amberA400, colorError, colorDividers } from '../styles/colors'
+
+const UnderlineContainer = styled.div`
+  order: 3;
+  pointer-events: none;
+  width: 100%;
+  margin: 0;
+  color: ${props => (props.error ? colorError : amberA400)};
+  position: relative;
+`
+
+const Underline = styled.hr`
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-bottom: 2px solid ${colorDividers};
+  ${props => (props.error ? `border-color: ${colorError}` : '')};
+`
+
+const FocusedUnderline = styled(Underline)`
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  margin-top: 0px;
+  color: inherit;
+  border-bottom-width: 2px;
+  border-color: currentColor;
+  transform: ${props => (props.focused ? 'scaleX(1)' : 'scaleX(0)')};
+  ${fastOutSlowInShort};
+`
 
 const InputUnderline = props => {
-  const classes = classnames(styles.container, {
-    [styles.focused]: props.focused,
-    [styles.error]: props.error,
-    [styles.disabled]: props.disabled,
-  })
+  const { focused, error, disabled } = props
+
+  if (disabled) {
+    return null
+  }
+
   return (
-    <div className={classes}>
-      <hr className={styles.underline} />
-      <hr className={styles.focusUnderline} />
-    </div>
+    <UnderlineContainer error={error}>
+      <Underline error={error} />
+      <FocusedUnderline focused={focused} />
+    </UnderlineContainer>
   )
 }
 

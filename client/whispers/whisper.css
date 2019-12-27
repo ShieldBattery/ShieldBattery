@@ -22,20 +22,21 @@
 }
 
 .messages {
-  height: calc(100% - 44px);
-}
-
-.chatInput {
-  margin: -1px 0 0 0;
-  padding: 0 16px;
+  height: calc(100% - 56px - 16px); /* chat input height + margin */
+  margin: 0 0 -1px 0;
   /* Without this, Chrome flashes a frame+ of a pure white border when added */
-  border-top: 1px solid rgba(0, 0, 0, 0);
+  border-bottom: 1px solid rgba(0, 0, 0, 0);
   transition: border 250ms fastOutSlowIn;
 }
 
-.chatInputScrollBorder {
-  composes: chatInput;
-  border-top: 1px solid colorDividers;
+.messagesScrollBorder {
+  composes: messages;
+  border-bottom: 1px solid colorDividers;
+}
+
+.chatInput {
+  margin: 8px 0;
+  padding: 0 16px;
 }
 
 .navCloseButton {
