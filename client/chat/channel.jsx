@@ -99,11 +99,11 @@ class Channel extends React.Component {
 
   render() {
     const { channel, onSendChatMessage } = this.props
-    const inputClass = this.state.isScrolledUp ? styles.chatInputScrollBorder : styles.chatInput
+    const messagesClass = this.state.isScrolledUp ? styles.messagesScrollBorder : styles.messages
     return (
       <div className={styles.container}>
         <div className={styles.messagesAndInput}>
-          <div className={styles.messages}>
+          <div className={messagesClass}>
             <MessageList
               ref={this._setMessageListRef}
               loading={channel.loadingHistory}
@@ -112,7 +112,7 @@ class Channel extends React.Component {
               onScrollUpdate={this.onScrollUpdate}
             />
           </div>
-          <MessageInput className={inputClass} onSend={onSendChatMessage} />
+          <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
         </div>
         <UserList users={this.props.channel.users} />
       </div>

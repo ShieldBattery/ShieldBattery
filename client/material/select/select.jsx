@@ -167,12 +167,12 @@ class Select extends React.Component {
     return (
       <FloatingLabel
         htmlFor={this.id}
-        text={this.props.label}
         hasValue={this.hasValue()}
         focused={this.state.isFocused}
         disabled={this.props.disabled}
-        error={!!this.props.errorText}
-      />
+        error={!!this.props.errorText}>
+        {this.props.label}
+      </FloatingLabel>
     )
   }
 
