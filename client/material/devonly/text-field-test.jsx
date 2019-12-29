@@ -3,6 +3,8 @@ import styled from 'styled-components'
 
 import Card from '../card.jsx'
 import TextField from '../text-field.jsx'
+import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
+import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
 
 import { grey850 } from '../../styles/colors'
 
@@ -30,6 +32,8 @@ export default class TextFieldTest extends React.Component {
     value7: '',
     value8: '',
     value9: '',
+    value10: '',
+    value11: '',
     changeError: null,
   }
 
@@ -97,13 +101,29 @@ export default class TextFieldTest extends React.Component {
             name='8'
             value={this.state.value8}
             floatingLabel={true}
-            label='No errors'
-            allowErrors={false}
+            label='With leading icon'
+            leadingIcon={<LeadingIcon />}
             onChange={this.onChange}
           />
           <TextField
             name='9'
             value={this.state.value9}
+            floatingLabel={true}
+            label='With trailing icon'
+            trailingIcon={<TrailingIcon />}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='10'
+            value={this.state.value10}
+            floatingLabel={true}
+            label='No errors'
+            allowErrors={false}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='11'
+            value={this.state.value11}
             floatingLabel={false}
             label='No errors, no float'
             allowErrors={false}

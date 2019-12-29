@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import uniqueId from '../dom/unique-id'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
 import FloatingLabel from './input-floating-label.jsx'
 import InputError from './input-error.jsx'
@@ -82,6 +82,34 @@ const StyledInput = styled.input`
     outline: none;
     box-shadow: none;
   }
+
+  ${props => (props.leadingIcon ? 'padding-left: 48px' : '')};
+  ${props => (props.trailingIcon ? 'padding-right: 48px' : '')};
+`
+
+const iconStyle = css`
+  position: absolute;
+  top: 50%;
+  transform: translate3d(0, -50%, 0);
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+
+  & > svg {
+    width: 24px;
+    height: 24px;
+    color: ${colorTextFaint};
+  }
+`
+
+const LeadingIcon = styled.span`
+  ${iconStyle}
+  left: 12px;
+`
+
+const TrailingIcon = styled.span`
+  ${iconStyle}
+  right: 12px;
 `
 
 // A single-line Material text field, supporting with and without floating labels
@@ -95,6 +123,8 @@ export default class TextField extends React.Component {
     floatingLabel: PropTypes.bool,
     label: PropTypes.string,
     disabled: PropTypes.bool,
+    leadingIcon: PropTypes.element,
+    trailingIcon: PropTypes.element,
     onBlur: PropTypes.func,
     onChange: PropTypes.func,
     onFocus: PropTypes.func,
@@ -128,6 +158,8 @@ export default class TextField extends React.Component {
       type,
       disabled,
       floatingLabel,
+      leadingIcon,
+      trailingIcon,
       inputProps,
     } = this.props
 
@@ -148,7 +180,15 @@ export default class TextField extends React.Component {
       <div className={this.props.className}>
         <InputContainer disabled={disabled} focused={this.state.isFocused}>
           {this.renderLabel()}
-          <StyledInput floatingLabel={floatingLabel} {...inputProps} {...internalInputProps} />
+          {leadingIcon ? <LeadingIcon>{leadingIcon}</LeadingIcon> : null}
+          <StyledInput
+            floatingLabel={!!floatingLabel}
+            leadingIcon={!!leadingIcon}
+            trailingIcon={!!trailingIcon}
+            {...inputProps}
+            {...internalInputProps}
+          />
+          {trailingIcon ? <TrailingIcon>{trailingIcon}</TrailingIcon> : null}
           <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
         </InputContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
@@ -157,7 +197,7 @@ export default class TextField extends React.Component {
   }
 
   renderLabel() {
-    const { label, floatingLabel, value, errorText, disabled } = this.props
+    const { label, floatingLabel, value, errorText, disabled, leadingIcon } = this.props
     const { isFocused } = this.state
 
     if (!label) {
@@ -169,13 +209,14 @@ export default class TextField extends React.Component {
           hasValue={!!value}
           focused={isFocused}
           error={!!errorText}
-          disabled={disabled}>
+          disabled={disabled}
+          leadingIcon={!!leadingIcon}>
           {label}
         </FloatingLabel>
       )
     } else {
       return (
-        <Label htmlFor={this.id} hasValue={!!value} disabled={disabled}>
+        <Label htmlFor={this.id} hasValue={!!value} disabled={disabled} leadingIcon={!!leadingIcon}>
           {label}
         </Label>
       )

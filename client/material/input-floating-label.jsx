@@ -6,7 +6,7 @@ import { amberA400, colorTextFaint, colorTextSecondary, colorError } from '../st
 
 const FloatingLabel = styled.label`
   position: absolute;
-  left: 12px;
+  left: ${props => (props.leadingIcon ? '48px' : '12px')};
   top: 50%;
   z-index: 1;
   color: ${props => {
@@ -48,6 +48,7 @@ FloatingLabel.propTypes = {
   focused: PropTypes.bool,
   error: PropTypes.bool,
   disabled: PropTypes.bool,
+  leadingIcon: PropTypes.bool,
 }
 
 export default FloatingLabel
