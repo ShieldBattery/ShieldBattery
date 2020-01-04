@@ -1,14 +1,7 @@
 @value dialogScrim from '../styles/colors.css';
 @value fastOutSlowIn from './curve-constants.css';
-@value zIndexDialogScrim from './zindex.css';
 
 .portal {
-  position: relative;
-  /*
-    Since portals are a top-level element inside the body, we create a new stacking context so
-    they're stacked correctly alongside the rest of the application.
-  */
-  z-index: 0;
 }
 
 .scrim {
@@ -17,7 +10,6 @@
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: zIndexDialogScrim;
 
   background-color: rgba(33, 33, 33, 0.42); /* #212121 at 42% opacity */
   /*
