@@ -4,13 +4,14 @@ import uniqueId from '../dom/unique-id'
 import styled, { css } from 'styled-components'
 
 import FloatingLabel from './input-floating-label.jsx'
+import Input from './input.jsx'
 import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
 
-import { colorTextPrimary, colorTextFaint } from '../styles/colors'
+import { colorTextFaint } from '../styles/colors'
 
-const InputContainer = styled.div`
+const TextFieldContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -57,34 +58,6 @@ const InputContainer = styled.div`
     -moz-appearance: none;
     -webkit-appearance: none;
   }
-`
-
-const StyledInput = styled.input`
-  flex-grow: 1;
-  order: 2;
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: ${props => (props.floatingLabel ? '20px 12px 6px' : '12px')};
-  border: none;
-  border-radius: 0;
-  outline: none;
-  background: none;
-  color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
-  line-height: inherit;
-  -ms-flex-preferred-size: inherit;
-
-  &:focus {
-    outline: none;
-  }
-
-  &:invalid {
-    outline: none;
-    box-shadow: none;
-  }
-
-  ${props => (props.leadingIcon ? 'padding-left: 48px' : '')};
-  ${props => (props.trailingIcon ? 'padding-right: 48px' : '')};
 `
 
 const iconStyle = css`
@@ -178,10 +151,10 @@ export default class TextField extends React.Component {
 
     return (
       <div className={this.props.className}>
-        <InputContainer disabled={disabled} focused={this.state.isFocused}>
+        <TextFieldContainer disabled={disabled} focused={this.state.isFocused}>
           {this.renderLabel()}
           {leadingIcon ? <LeadingIcon>{leadingIcon}</LeadingIcon> : null}
-          <StyledInput
+          <Input
             floatingLabel={!!floatingLabel}
             leadingIcon={!!leadingIcon}
             trailingIcon={!!trailingIcon}
@@ -190,7 +163,7 @@ export default class TextField extends React.Component {
           />
           {trailingIcon ? <TrailingIcon>{trailingIcon}</TrailingIcon> : null}
           <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
-        </InputContainer>
+        </TextFieldContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
       </div>
     )

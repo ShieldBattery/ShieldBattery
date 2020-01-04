@@ -34,7 +34,7 @@ export default class SlotActions extends React.Component {
   render() {
     const { slotActions } = this.props
     const actions = slotActions.map(([text, handler], i) => (
-      <SlotAction key={i} text={text} onClick={handler} />
+      <MenuItem key={i} text={text} onClick={handler} />
     ))
 
     return (
@@ -135,40 +135,6 @@ export class SlotActionsContents extends React.Component {
           {children}
         </div>
       </div>
-    )
-  }
-}
-
-export class SlotAction extends React.Component {
-  static propTypes = {
-    text: PropTypes.string.isRequired,
-    onClick: PropTypes.func,
-  }
-
-  state = {
-    active: false,
-  }
-
-  onMouseEnter = () => {
-    this.setState({ active: true })
-  }
-
-  onMouseLeave = () => {
-    this.setState({ active: false })
-  }
-
-  render() {
-    const { text, onClick } = this.props
-    const { active } = this.state
-
-    return (
-      <MenuItem
-        text={text}
-        onClick={onClick}
-        active={active}
-        onMouseEnter={this.onMouseEnter}
-        onMouseLeave={this.onMouseLeave}
-      />
     )
   }
 }

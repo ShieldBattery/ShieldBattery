@@ -1,26 +1,59 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
+
 import MenuItem from '../menu/item.jsx'
+
+// TODO(2Pac): Add a library like "polished" or something so this kind of thing is not necessary
+const amberA400 = '255, 196, 0'
+
+const StyledMenuItem = styled(MenuItem)`
+  &:hover {
+    background-color: ${props => {
+      if (props.selected) {
+        return `rgba(${amberA400}, 0.2)`
+      }
+      if (props.focused) {
+        return 'rgba(255, 255, 255, 0.24)'
+      }
+
+      return 'rgba(255, 255, 255, 0.08)'
+    }};
+  }
+
+  &:active {
+    background-color: rgba(${amberA400}, 0.24);
+  }
+
+  ${props => {
+    if (props.selected) {
+      return `background-color: rgba(${amberA400}, 0.16)`
+    }
+    if (props.focused) {
+      return 'background-color: rgba(255, 255, 255, 0.24)'
+    }
+
+    return ''
+  }};
+`
 
 class Option extends React.Component {
   static propTypes = {
     text: PropTypes.string.isRequired,
     value: PropTypes.any.isRequired,
-    active: PropTypes.bool,
+    focused: PropTypes.bool,
+    selected: PropTypes.bool,
     onOptionSelected: PropTypes.func,
   }
 
-  constructor(props) {
-    super(props)
-    this._clickHandler = ::this.onClick
-  }
-
   render() {
-    const { text, active } = this.props
-    return <MenuItem onClick={this._clickHandler} text={text} active={active} />
+    const { text, focused, selected } = this.props
+    return (
+      <StyledMenuItem onClick={this.onClick} text={text} focused={focused} selected={selected} />
+    )
   }
 
-  onClick() {
+  onClick = () => {
     if (this.props.onOptionSelected) {
       this.props.onOptionSelected(this.props.value)
     }

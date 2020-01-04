@@ -65,40 +65,6 @@ const MapActionsContents = styled.div`
   }
 `
 
-class MapAction extends React.Component {
-  static propTypes = {
-    text: PropTypes.string.isRequired,
-    onClick: PropTypes.func,
-  }
-
-  state = {
-    active: false,
-  }
-
-  render() {
-    const { text, onClick } = this.props
-    const { active } = this.state
-
-    return (
-      <MenuItem
-        text={text}
-        onClick={onClick}
-        active={active}
-        onMouseEnter={this.onMouseEnter}
-        onMouseLeave={this.onMouseLeave}
-      />
-    )
-  }
-
-  onMouseEnter = () => {
-    this.setState({ active: true })
-  }
-
-  onMouseLeave = () => {
-    this.setState({ active: false })
-  }
-}
-
 class MapActionsOverlay extends React.Component {
   static propTypes = {
     open: PropTypes.bool.isRequired,
@@ -166,7 +132,7 @@ export default class MapActions extends React.Component {
   render() {
     const { mapActions } = this.props
     const actions = mapActions.map(([text, handler], i) => (
-      <MapAction key={i} text={text} onClick={handler} />
+      <MenuItem key={i} text={text} onClick={handler} />
     ))
 
     return (

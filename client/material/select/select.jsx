@@ -1,26 +1,22 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import TransitionGroup from 'react-addons-css-transition-group'
-import classnames from 'classnames'
 import keycode from 'keycode'
-import styles from './select.css'
+import styled from 'styled-components'
 
-import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 import FloatingLabel from '../input-floating-label.jsx'
+import { InputWrapper } from '../input.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
 import KeyListener from '../../keyboard/key-listener.jsx'
+import Menu from '../menu/menu.jsx'
 import Portal from '../portal.jsx'
 import WindowListener from '../../dom/window-listener.jsx'
 
-const transitionNames = {
-  appear: styles.enter,
-  appearActive: styles.enterActive,
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
-}
+import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
+
+import { fastOutSlowIn } from '../curve-constants'
+import { zIndexMenuBackdrop } from '../zindex'
+import { amberA400, colorTextFaint } from '../../styles/colors'
 
 const SPACE = keycode('space')
 const ENTER = keycode('enter')
@@ -29,11 +25,75 @@ const ESCAPE = keycode('escape')
 const UP = keycode('up')
 const DOWN = keycode('down')
 
-const CLOSE_TIME = 200
+const CLOSE_TIME = 120
 
 const VERT_PADDING = 8
 const OPTION_HEIGHT = 48
 const OPTIONS_SHOWN = (256 - 16) / OPTION_HEIGHT
+
+const SelectContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+  width: 100%;
+  height: 56px;
+  padding: 0;
+  cursor: ${props => (props.disabled ? 'default' : 'pointer')};
+  font-size: 16px;
+  line-height: 24px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px 4px 0 0;
+  contain: layout paint style;
+
+  &:focus {
+    outline: none;
+  }
+
+  ${props =>
+    !props.disabled
+      ? `
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.12);
+        }
+      `
+      : ''}
+
+  ${props =>
+    props.focused
+      ? `
+        background-color: rgba(255, 255, 255, 0.24) !important;
+      `
+      : ''}
+`
+
+const DisplayValue = styled(InputWrapper)`
+  display: flex;
+  align-items: center;
+  // I have no idea why, but using flex to center the input value is 1 pixel off from using the
+  // <input> element itself (<input> element probably doesn't center the text, but does
+  // something else). In any case, this margin here is to ensure pixel perfect alignment between
+  // <select> and <input> elements.
+  margin-top: 1px;
+`
+
+const Icon = styled.span`
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  pointer-events: none;
+  transform: translate3d(0, -50%, 0) ${props => (props.open ? 'rotate(180deg)' : '')};
+  transition: transform 150ms ${fastOutSlowIn};
+
+  & > svg {
+    width: 24px;
+    height: 24px;
+    color: ${props => (props.focused ? amberA400 : colorTextFaint)};
+  }
+`
 
 class Select extends React.Component {
   static propTypes = {
@@ -59,27 +119,15 @@ class Select extends React.Component {
     activeIndex: -1,
   }
   _overlayTop = 0
-  _lastMouseY = -1
   _closeTimer = null
-  _root = null
-  _setRoot = elem => {
-    this._root = elem
-  }
-  _overlay = null
-  _setOverlay = elem => {
-    this._overlay = elem
-  }
+  _root = React.createRef()
+  _overlay = React.createRef()
 
   componentDidUpdate(prevProps, prevState) {
-    if (!prevState.isOpened && this._overlay) {
-      // update the scroll position to center (or at least attempt to) the selected value
-      const valueIndex = this._getValueIndex()
-      const firstDisplayed = this._getFirstDisplayedOptionIndex(
-        valueIndex,
-        React.Children.count(this.props.children),
-      )
-      this._overlay.scrollTop = firstDisplayed * OPTION_HEIGHT
-      this._lastMouseY = -1
+    if (!prevState.isOpened && this._overlay.current) {
+      // update the scroll position to the selected value
+      const firstDisplayed = this._getFirstDisplayedOptionIndex()
+      this._overlay.current.scrollTop(firstDisplayed * OPTION_HEIGHT)
     }
   }
 
@@ -88,11 +136,12 @@ class Select extends React.Component {
   }
 
   calculateOverlayPosition() {
-    const rect = this._root.getBoundingClientRect()
+    const rect = this._root.current.getBoundingClientRect()
     const overlayPosition = {
       top: rect.top,
       left: rect.left,
       width: rect.width,
+      height: rect.height,
     }
 
     return overlayPosition
@@ -104,15 +153,17 @@ class Select extends React.Component {
 
   render() {
     return (
-      <span className={this.props.className}>
+      <div className={this.props.className}>
         <KeyListener onKeyDown={this.onKeyDown} />
         {this.renderSelect()}
         {this.renderOverlay()}
-      </span>
+      </div>
     )
   }
 
   renderSelect() {
+    const { allowErrors, errorText, label, disabled } = this.props
+
     let displayValue
     if (this.hasValue()) {
       React.Children.forEach(this.props.children, child => {
@@ -126,36 +177,28 @@ class Select extends React.Component {
         }
       })
     }
-    if (displayValue === undefined || displayValue === '') {
-      displayValue = '\xA0' // &nbsp; to ensure the height is the same, with or without text
-    }
-
-    const classes = classnames(styles.select, {
-      [styles.focused]: this.state.isFocused,
-      [styles.disabled]: this.props.disabled,
-    })
 
     return (
-      <div className={classes} onClick={this.onOpen}>
-        {this.renderLabel()}
-        <span
-          ref={this._setRoot}
-          className={styles.valueContainer}
-          tabIndex={this.props.disabled ? undefined : this.props.tabIndex || 0}
-          onFocus={this.onFocus}
-          onBlur={this.onBlur}>
-          <span className={styles.value}>{displayValue}</span>
-          <span className={styles.icon}>
-            <ArrowDropDownIcon />
-          </span>
-        </span>
-        <InputUnderline
+      <>
+        <SelectContainer
+          ref={this._root}
+          disabled={disabled}
           focused={this.state.isFocused}
-          error={!!this.props.errorText}
-          disabled={this.props.disabled}
-        />
-        {this.props.allowErrors ? <InputError error={this.props.errorText} /> : null}
-      </div>
+          tabIndex={disabled ? undefined : this.props.tabIndex || 0}
+          onFocus={this.onFocus}
+          onBlur={this.onBlur}
+          onClick={this.onOpen}>
+          {this.renderLabel()}
+          <DisplayValue as='span' floatingLabel={!!label} disabled={disabled} trailingIcon={true}>
+            {displayValue}
+          </DisplayValue>
+          <Icon open={this.state.isOpened} focused={this.state.isFocused}>
+            <ArrowDropDownIcon />
+          </Icon>
+          <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
+        </SelectContainer>
+        {allowErrors ? <InputError error={errorText} /> : null}
+      </>
     )
   }
 
@@ -181,25 +224,18 @@ class Select extends React.Component {
     const renderContents = () => {
       if (!isOpened && !isClosing) return null
 
-      const valueIndex = this._getValueIndex()
-      const firstDisplayed = this._getFirstDisplayedOptionIndex(
-        valueIndex,
-        React.Children.count(this.props.children),
-      )
-      const valueOffset = (valueIndex - firstDisplayed) * OPTION_HEIGHT
-
       const overlayStyle = {
-        // Subtract the padding so the select-option perfectly overlaps with select-value
-        top: pos.top - 14 - valueOffset,
-        left: pos.left - 16 + 2,
-        minWidth: pos.width + 32,
-        transformOrigin: `0 ${valueOffset + 24}px`,
+        top: pos.top + pos.height,
+        left: pos.left,
+        width: pos.width,
       }
       this._overlayTop = overlayStyle.top
 
+      const valueIndex = this._getValueIndex()
       const options = React.Children.map(this.props.children, (child, i) => {
         return React.cloneElement(child, {
-          active: i === this.state.activeIndex,
+          focused: i === this.state.activeIndex,
+          selected: i === valueIndex,
           onOptionSelected: this.onOptionChanged,
         })
       })
@@ -208,29 +244,15 @@ class Select extends React.Component {
         <span>
           <WindowListener event='resize' listener={this.recalcOverlayPosition} />
           <WindowListener event='scroll' listener={this.recalcOverlayPosition} />
-          <TransitionGroup
-            transitionName={transitionNames}
-            transitionAppear={true}
-            transitionAppearTimeout={200}
-            transitionEnterTimeout={200}
-            transitionLeaveTimeout={CLOSE_TIME}>
-            {isOpened && !isClosing ? (
-              <div
-                key='overlay'
-                ref={this._setOverlay}
-                className={styles.overlay}
-                style={overlayStyle}
-                onMouseMove={this.onMouseMove}>
-                {options}
-              </div>
-            ) : null}
-          </TransitionGroup>
+          <Menu ref={this._overlay} open={isOpened && !isClosing} overlayStyle={overlayStyle}>
+            {options}
+          </Menu>
         </span>
       )
     }
 
     return (
-      <Portal onDismiss={this.onClose} open={isOpened}>
+      <Portal onDismiss={this.onClose} open={isOpened} scrimZIndex={zIndexMenuBackdrop}>
         {renderContents}
       </Portal>
     )
@@ -253,45 +275,28 @@ class Select extends React.Component {
     return valueIndex
   }
 
-  _getFirstDisplayedOptionIndex(valueIndex, numValues) {
-    const midpoint = Math.ceil(OPTIONS_SHOWN / 2) - 1
-    if (valueIndex <= midpoint || numValues < OPTIONS_SHOWN) {
+  _getFirstDisplayedOptionIndex() {
+    const valueIndex = this._getValueIndex()
+    const numValues = React.Children.count(this.props.children)
+    const lastVisibleIndex = OPTIONS_SHOWN - 1
+    if (valueIndex <= lastVisibleIndex || numValues < OPTIONS_SHOWN) {
       return 0
     }
-    return Math.min(numValues - OPTIONS_SHOWN, valueIndex - midpoint)
+    return Math.min(numValues - OPTIONS_SHOWN, valueIndex - lastVisibleIndex)
   }
 
   focus() {
-    this._root.focus()
+    this._root.current.focus()
   }
 
   blur() {
-    this._root.blur()
+    this._root.current.blur()
   }
 
   recalcOverlayPosition = () => {
     this.setState({
       overlayPosition: this.calculateOverlayPosition(),
     })
-  }
-
-  onMouseMove = event => {
-    if (event.clientY === this._lastMouseY) {
-      // mouse move must have been caused by a scroll (but the mouse didn't actually move),
-      // ignore it
-      return
-    }
-
-    this._lastMouseY = event.clientY
-    let localY = event.clientY - (this._overlayTop + VERT_PADDING)
-    localY += this._overlay.scrollTop
-    const numOptions = React.Children.count(this.props.children)
-    const itemIndex = Math.min(numOptions - 1, Math.max(0, Math.floor(localY / OPTION_HEIGHT)))
-    if (itemIndex !== this.state.activeIndex) {
-      this.setState({
-        activeIndex: itemIndex,
-      })
-    }
   }
 
   _moveActiveIndexBy(delta) {
@@ -315,7 +320,7 @@ class Select extends React.Component {
 
     // Adjust scroll position to keep the item in view
     const curTopIndex = Math.ceil(
-      Math.max(0, this._overlay.scrollTop - VERT_PADDING) / OPTION_HEIGHT,
+      Math.max(0, this._overlay.current.getScrollTop() - VERT_PADDING) / OPTION_HEIGHT,
     )
     const curBottomIndex = curTopIndex + OPTIONS_SHOWN - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
@@ -323,10 +328,10 @@ class Select extends React.Component {
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this._overlay.scrollTop = VERT_PADDING + OPTION_HEIGHT * newIndex
+      this._overlay.current.scrollTop(VERT_PADDING + OPTION_HEIGHT * newIndex)
     } else {
       // Make the new index the bottom item
-      this._overlay.scrollTop = OPTION_HEIGHT * (newIndex + 1 - OPTIONS_SHOWN)
+      this._overlay.current.scrollTop(OPTION_HEIGHT * (newIndex + 1 - OPTIONS_SHOWN))
     }
   }
 

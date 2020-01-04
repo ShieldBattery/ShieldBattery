@@ -4,7 +4,6 @@ import TransitionGroup from 'react-addons-css-transition-group'
 import Avatar from '../avatars/avatar.jsx'
 import styles from './self-profile-overlay.css'
 
-import MenuItem from '../material/menu/item.jsx'
 import Popover from '../material/popover.jsx'
 
 const transitionNames = {
@@ -89,42 +88,6 @@ export class SelfProfileContents extends React.Component {
           {children}
         </div>
       </div>
-    )
-  }
-}
-
-export class ProfileAction extends React.Component {
-  static propTypes = {
-    text: PropTypes.string.isRequired,
-    icon: PropTypes.node.isRequired,
-    onClick: PropTypes.func,
-  }
-
-  state = {
-    active: false,
-  }
-
-  onMouseEnter = () => {
-    this.setState({ active: true })
-  }
-
-  onMouseLeave = () => {
-    this.setState({ active: false })
-  }
-
-  render() {
-    const { text, icon, onClick } = this.props
-    const { active } = this.state
-
-    return (
-      <MenuItem
-        text={text}
-        icon={icon}
-        onClick={onClick}
-        active={active}
-        onMouseEnter={this.onMouseEnter}
-        onMouseLeave={this.onMouseLeave}
-      />
     )
   }
 }

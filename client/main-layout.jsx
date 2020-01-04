@@ -27,12 +27,13 @@ import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
+import MenuItem from './material/menu/item.jsx'
 import ProfileNavEntry from './profile/nav-entry.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
-import SelfProfileOverlay, { ProfileAction } from './profile/self-profile-overlay.jsx'
+import SelfProfileOverlay from './profile/self-profile-overlay.jsx'
 import Whisper from './whispers/whisper.jsx'
 import WhispersTitle from './whispers/app-bar-title.jsx'
 
@@ -184,18 +185,10 @@ class MainLayout extends React.Component {
         anchor={this._profileEntryRef}
         user={this.props.auth.user.name}>
         {window._sbFeedbackUrl ? (
-          <ProfileAction
-            icon={<FeedbackIcon />}
-            text='Send feedback'
-            onClick={this.onFeedbackClick}
-          />
+          <MenuItem icon={<FeedbackIcon />} text='Send feedback' onClick={this.onFeedbackClick} />
         ) : null}
-        <ProfileAction
-          icon={<ChangelogIcon />}
-          text='View changelog'
-          onClick={this.onChangelogClick}
-        />
-        <ProfileAction icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
+        <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
+        <MenuItem icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
       </SelfProfileOverlay>
     )
   }

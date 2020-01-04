@@ -4,6 +4,8 @@ import ReactDOM from 'react-dom'
 import TransitionGroup from 'react-addons-css-transition-group'
 import styles from './portal.css'
 
+import { zIndexDialogScrim } from './zindex'
+
 const transitionNames = {
   appear: styles.enter,
   appearActive: styles.enterActive,
@@ -25,6 +27,7 @@ export default class Portal extends React.Component {
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func,
     scrim: PropTypes.bool,
+    scrimZIndex: PropTypes.number,
     propagateClicks: PropTypes.bool,
   }
 
@@ -53,8 +56,8 @@ export default class Portal extends React.Component {
   }
 
   render() {
-    const { open, scrim, propagateClicks, children } = this.props
-    const scrimStyle = { opacity: scrim ? 1 : 0 }
+    const { open, scrim, scrimZIndex, propagateClicks, children } = this.props
+    const scrimStyle = { opacity: scrim ? 1 : 0, zIndex: scrimZIndex || zIndexDialogScrim }
     if (propagateClicks) {
       scrimStyle.visibility = scrim ? 'visible' : 'hidden'
     }

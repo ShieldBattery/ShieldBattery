@@ -25,15 +25,6 @@ html, body, :global(#app), :global(#app) > div {
   position: relative;
 }
 
-/*
-  We create a new stacking context for each top-level element inside the body (basically only #app
-  and portals) so that all of their children with z-index are stacked correctly. This is mostly
-  necessary to make "nested" portals work, eg. having a Select component inside a Dialog.
-*/
-:global(#app) {
-  z-index: 0;
-}
-
 [disabled] {
   color: colorTextFaint;
 }
