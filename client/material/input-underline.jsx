@@ -7,11 +7,14 @@ import { amberA400, colorError, colorDividers } from '../styles/colors'
 
 const UnderlineContainer = styled.div`
   order: 3;
-  pointer-events: none;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
   width: 100%;
   margin: 0;
+  pointer-events: none;
   color: ${props => (props.error ? colorError : amberA400)};
-  position: relative;
 `
 
 const Underline = styled.hr`

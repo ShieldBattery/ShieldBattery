@@ -4,7 +4,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 
 import FloatingLabel from '../input-floating-label.jsx'
-import { InputWrapper } from '../input.jsx'
+import InputBase from '../input-base.jsx'
 import InputError from '../input-error.jsx'
 import InputUnderline from '../input-underline.jsx'
 import KeyListener from '../../keyboard/key-listener.jsx'
@@ -67,7 +67,7 @@ const SelectContainer = styled.div`
       : ''}
 `
 
-const DisplayValue = styled(InputWrapper)`
+const DisplayValue = styled(InputBase)`
   display: flex;
   align-items: center;
   // I have no idea why, but using flex to center the input value is 1 pixel off from using the

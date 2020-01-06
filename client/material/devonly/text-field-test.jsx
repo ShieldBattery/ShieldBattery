@@ -34,6 +34,11 @@ export default class TextFieldTest extends React.Component {
     value9: '',
     value10: '',
     value11: '',
+    value12: '',
+    value13: '',
+    value14: '',
+    value15: '',
+    value16: '',
     changeError: null,
   }
 
@@ -127,6 +132,42 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={false}
             label='No errors, no float'
             allowErrors={false}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='13'
+            value={this.state.value13}
+            floatingLabel={true}
+            label='Multi-line'
+            multiline={true}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='14'
+            value={this.state.value14}
+            floatingLabel={true}
+            label='Text area'
+            multiline={true}
+            rows={4}
+            maxRows={4}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='15'
+            value={this.state.value15}
+            floatingLabel={false}
+            label='Multi-line, no float'
+            multiline={true}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='16'
+            value={this.state.value16}
+            floatingLabel={false}
+            label='Text area, no float'
+            multiline={true}
+            rows={4}
+            maxRows={4}
             onChange={this.onChange}
           />
         </StyledCard>
