@@ -7,7 +7,7 @@ import { amberA400, colorTextFaint, colorTextSecondary, colorError } from '../st
 const FloatingLabel = styled.label`
   position: absolute;
   left: ${props => (props.leadingIcon ? '48px' : '12px')};
-  top: 50%;
+  top: 0;
   z-index: 1;
   color: ${props => {
     if (props.error) {
@@ -25,8 +25,8 @@ const FloatingLabel = styled.label`
   pointer-events: none;
   transform: ${props =>
     props.hasValue || props.focused
-      ? 'translate3d(0, -22px, 0) scale(0.75)'
-      : 'translate3d(0, -50%, 0)'};
+      ? 'translate3d(0, 7px, 0) scale(0.75)'
+      : 'translate3d(0, 16px, 0)'};
   transform-origin: left top;
   ${fastOutSlowInShort};
 

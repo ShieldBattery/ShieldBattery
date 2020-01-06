@@ -73,12 +73,11 @@ export const FieldRow = styled.div`
 
 export const RowEdge = styled.div`
   flex: 1 1 24%;
+  align-self: flex-start;
+  display: flex;
+  justify-content: flex-end;
   max-width: 24%;
-  max-height: 100%;
-
-  & > * {
-    float: right;
-  }
+  height: 56px;
 `
 
 export const ForgotActionButton = styled(FlatButton)`
