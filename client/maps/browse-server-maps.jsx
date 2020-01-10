@@ -134,6 +134,7 @@ class MapList extends React.PureComponent {
     onMapSelect: PropTypes.func,
     onMapPreview: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
+    onMapDetails: PropTypes.func,
     onRemoveMap: PropTypes.func,
   }
 
@@ -147,6 +148,7 @@ class MapList extends React.PureComponent {
       onMapSelect,
       onMapPreview,
       onToggleFavoriteMap,
+      onMapDetails,
       onRemoveMap,
     } = this.props
 
@@ -166,6 +168,7 @@ class MapList extends React.PureComponent {
           onClick={onMapSelect ? () => onMapSelect(map) : undefined}
           onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
           onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
+          onMapDetails={onMapDetails ? () => onMapDetails(map) : undefined}
           onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
         />
       )
@@ -180,6 +183,7 @@ export default class Maps extends React.Component {
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
     onLocalMapSelect: PropTypes.func,
+    onMapDetails: PropTypes.func,
     onRemoveMap: PropTypes.func,
   }
 
@@ -212,6 +216,7 @@ export default class Maps extends React.Component {
       auth,
       maps: { favoriteStatusRequests },
       onMapSelect,
+      onMapDetails,
       onRemoveMap,
     } = this.props
 
@@ -228,6 +233,7 @@ export default class Maps extends React.Component {
             onMapSelect={onMapSelect}
             onMapPreview={this.onMapPreview}
             onToggleFavoriteMap={this.onToggleFavoriteMap}
+            onMapDetails={onMapDetails}
             onRemoveMap={onRemoveMap}
           />
         </ImageList>

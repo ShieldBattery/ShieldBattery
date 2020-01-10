@@ -467,6 +467,10 @@ class MainLayout extends React.Component {
     )
   }
 
+  onMapDetails = map => {
+    this.props.dispatch(openDialog('mapDetails', { mapId: map.id }))
+  }
+
   onRemoveMap = map => {
     this.props.dispatch(removeMap(map))
   }
@@ -474,6 +478,7 @@ class MainLayout extends React.Component {
   serverMapsProps = {
     title: 'Maps',
     onLocalMapSelect: this.onLocalMapSelect,
+    onMapDetails: this.onMapDetails,
     onRemoveMap: this.onRemoveMap,
   }
 

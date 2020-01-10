@@ -293,7 +293,7 @@ export async function getFavoritedMaps(favoritedBy) {
   }
 }
 
-export async function updateMap(mapId, favoritedBy, name, description, visibility) {
+export async function updateMap(mapId, favoritedBy, name, description) {
   let setStatement = 'SET'
   const params = []
 
@@ -305,14 +305,9 @@ export async function updateMap(mapId, favoritedBy, name, description, visibilit
     setStatement += ` description = $${params.length + 1},`
     params.push(description)
   }
-  if (visibility) {
-    setStatement += ` visibility = $${params.length + 1},`
-    params.push(visibility)
-  }
   // Remove the trailing comma
   setStatement = setStatement.slice(0, -1)
 
-  // NOTE(2Pac): This query will fail if there's nothing to update.
   const query = `
     WITH update AS (
       UPDATE uploaded_maps

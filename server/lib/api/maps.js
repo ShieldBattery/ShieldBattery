@@ -57,6 +57,12 @@ export default function(router) {
       ensureLoggedIn,
       list,
     )
+    .get(
+      '/:mapId',
+      throttleMiddleware(mapsListThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      getDetails,
+    )
     .post(
       '/',
       throttleMiddleware(mapUploadThrottle, ctx => ctx.session.userId),
@@ -94,94 +100,6 @@ export default function(router) {
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
 const VISIBILITIES = [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC]
-
-async function upload(ctx, next) {
-  const { path } = ctx.request.files.file
-  const { extension } = ctx.request.body
-
-  if (!path) {
-    throw new httpErrors.BadRequest('map file must be specified')
-  } else if (!extension) {
-    throw new httpErrors.BadRequest('extension must be specified')
-  }
-
-  const lowerCaseExtension = extension.toLowerCase()
-  if (!SUPPORTED_EXTENSIONS.includes(lowerCaseExtension)) {
-    throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
-  }
-
-  const visibility = ctx.request.path.endsWith('/official')
-    ? MAP_VISIBILITY_OFFICIAL
-    : MAP_VISIBILITY_PRIVATE
-  const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
-  ctx.body = {
-    map,
-  }
-}
-
-// TODO(2Pac): Allow updating the map file itself
-async function update(ctx, next) {
-  const { mapId } = ctx.params
-  const { name, description, visibility } = ctx.request.body
-
-  let map = (await getMapInfo([mapId], ctx.session.userId))[0]
-  if (!map) {
-    throw new httpErrors.NotFound('Map not found')
-  }
-
-  if (!name && !description && !visibility) {
-    ctx.body = {
-      map,
-    }
-
-    return
-  }
-  if (visibility && !VISIBILITIES.includes(visibility)) {
-    throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
-  }
-
-  if (visibility === MAP_VISIBILITY_OFFICIAL) {
-    throw new httpErrors.Forbidden("Can't change visibility to 'OFFICIAL'")
-  }
-  if (map.visibility === MAP_VISIBILITY_OFFICIAL) {
-    if (!ctx.session.permissions.manageMaps) {
-      throw new httpErrors.Forbidden('Not enough permissions')
-    }
-    if (visibility && visibility !== map.visibility) {
-      throw new httpErrors.Forbidden("Can't change visibility of 'OFFICIAL' maps")
-    }
-  }
-  // Admins can update maps of other users (in case the name contains a dirty word, like 'protoss')
-  if (map.uploadedBy.id !== ctx.session.userId && !ctx.session.permissions.manageMaps) {
-    throw new httpErrors.Forbidden("Can't update maps of other users")
-  }
-
-  map = await updateMap(mapId, ctx.session.userId, name, description, visibility)
-  ctx.body = {
-    map,
-  }
-}
-
-async function remove(ctx, next) {
-  const { mapId } = ctx.params
-
-  const map = (await getMapInfo([mapId]))[0]
-  if (!map) {
-    throw new httpErrors.NotFound('Map not found')
-  }
-  if (
-    (map.visibility === MAP_VISIBILITY_OFFICIAL || map.visibility === MAP_VISIBILITY_PUBLIC) &&
-    !ctx.session.permissions.manageMaps
-  ) {
-    throw new httpErrors.Forbidden('Not enough permissions')
-  }
-  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
-    throw new httpErrors.Forbidden("Can't remove maps of other users")
-  }
-
-  await removeMap(mapId)
-  ctx.status = 204
-}
 
 async function list(ctx, next) {
   const { q, visibility } = ctx.query
@@ -223,6 +141,95 @@ async function list(ctx, next) {
     limit,
     total,
   }
+}
+
+async function getDetails(ctx, next) {
+  const { mapId } = ctx.params
+
+  const map = (await getMapInfo([mapId], ctx.session.userId))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+
+  ctx.body = {
+    map,
+  }
+}
+
+async function upload(ctx, next) {
+  const { path } = ctx.request.files.file
+  const { extension } = ctx.request.body
+
+  if (!path) {
+    throw new httpErrors.BadRequest('map file must be specified')
+  } else if (!extension) {
+    throw new httpErrors.BadRequest('extension must be specified')
+  }
+
+  const lowerCaseExtension = extension.toLowerCase()
+  if (!SUPPORTED_EXTENSIONS.includes(lowerCaseExtension)) {
+    throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
+  }
+
+  const visibility = ctx.request.path.endsWith('/official')
+    ? MAP_VISIBILITY_OFFICIAL
+    : MAP_VISIBILITY_PRIVATE
+  const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
+  ctx.body = {
+    map,
+  }
+}
+
+async function update(ctx, next) {
+  const { mapId } = ctx.params
+  const { name, description } = ctx.request.body
+
+  if (!name) {
+    throw new httpErrors.BadRequest("Map name can't be empty")
+  } else if (!description) {
+    throw new httpErrors.BadRequest("Map description can't be empty")
+  }
+
+  let map = (await getMapInfo([mapId], ctx.session.userId))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+
+  if (
+    [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PUBLIC].includes(map.visibility) &&
+    !ctx.session.permissions.manageMaps
+  ) {
+    throw new httpErrors.Forbidden('Not enough permissions')
+  }
+  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
+    throw new httpErrors.Forbidden("Can't update maps of other users")
+  }
+
+  map = await updateMap(mapId, ctx.session.userId, name, description)
+  ctx.body = {
+    map,
+  }
+}
+
+async function remove(ctx, next) {
+  const { mapId } = ctx.params
+
+  const map = (await getMapInfo([mapId]))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+  if (
+    (map.visibility === MAP_VISIBILITY_OFFICIAL || map.visibility === MAP_VISIBILITY_PUBLIC) &&
+    !ctx.session.permissions.manageMaps
+  ) {
+    throw new httpErrors.Forbidden('Not enough permissions')
+  }
+  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
+    throw new httpErrors.Forbidden("Can't remove maps of other users")
+  }
+
+  await removeMap(mapId)
+  ctx.status = 204
 }
 
 async function addToFavorites(ctx, next) {

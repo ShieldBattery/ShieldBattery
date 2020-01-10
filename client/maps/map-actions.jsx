@@ -24,16 +24,16 @@ const MapActionsContainer = styled.div`
   display: flex;
 `
 
-export const MapActionButton = styled(IconButton)`
-  min-height: 32px !important;
-  width: 32px !important;
+const MapActionButton = styled(IconButton)`
+  min-height: 40px !important;
+  width: 40px !important;
   padding: 0 !important;
-  line-height: 32px !important;
+  line-height: 40px !important;
   margin-left: 4px !important;
 
   & > span {
     color: ${colorTextSecondary} !important;
-    line-height: 32px !important;
+    line-height: 40px !important;
   }
 `
 
@@ -132,7 +132,7 @@ export default class MapActions extends React.Component {
   render() {
     const { mapActions } = this.props
     const actions = mapActions.map(([text, handler], i) => (
-      <MenuItem key={i} text={text} onClick={handler} />
+      <MenuItem key={i} text={text} onClick={() => this.onMapActionClick(handler)} />
     ))
 
     return (
@@ -141,7 +141,7 @@ export default class MapActions extends React.Component {
           icon={<MapActionsIcon />}
           title='Map actions'
           buttonRef={this._setMapActionsButtonRef}
-          onClick={this.onMapActionsClick}
+          onClick={this.onOpenMapActions}
         />
         <MapActionsOverlay
           open={this.state.mapActionsOverlayOpened}
@@ -153,7 +153,7 @@ export default class MapActions extends React.Component {
     )
   }
 
-  onMapActionsClick = type => {
+  onOpenMapActions = type => {
     this.setState({
       mapActionsOverlayOpened: true,
     })
@@ -163,5 +163,10 @@ export default class MapActions extends React.Component {
     this.setState({
       mapActionsOverlayOpened: false,
     })
+  }
+
+  onMapActionClick = handler => {
+    handler()
+    this.onCloseMapActionsOverlay()
   }
 }
