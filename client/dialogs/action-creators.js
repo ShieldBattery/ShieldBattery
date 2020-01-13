@@ -1,18 +1,17 @@
 import { DIALOG_OPEN, DIALOG_CLOSE } from '../actions'
 
-export function openDialog(dialogType, simpleTitle = undefined, simpleContent = undefined) {
+export function openDialog(dialogType, initData = {}) {
   return {
     type: DIALOG_OPEN,
     payload: {
       dialogType,
-      simpleTitle,
-      simpleContent,
+      initData,
     },
   }
 }
 
 export function openSimpleDialog(simpleTitle, simpleContent) {
-  return openDialog('simple', simpleTitle, simpleContent)
+  return openDialog('simple', { simpleTitle, simpleContent })
 }
 
 export function closeDialog() {

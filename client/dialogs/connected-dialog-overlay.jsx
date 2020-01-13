@@ -63,12 +63,7 @@ class ConnectedDialogOverlay extends React.Component {
     if (dialog.isDialogOpened) {
       const { component: DialogComponent } = this.getDialog(dialog.dialogType)
       dialogComponent = (
-        <DialogComponent
-          key='dialog'
-          onCancel={this.onCancel}
-          simpleTitle={dialog.simpleTitle}
-          simpleContent={dialog.simpleContent}
-        />
+        <DialogComponent key='dialog' onCancel={this.onCancel} {...dialog.initData.toJS()} />
       )
     }
 
