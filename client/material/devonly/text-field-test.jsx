@@ -140,6 +140,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={true}
             label='Multi-line'
             multiline={true}
+            maxRows={4}
             onChange={this.onChange}
           />
           <TextField
@@ -158,6 +159,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={false}
             label='Multi-line, no float'
             multiline={true}
+            maxRows={4}
             onChange={this.onChange}
           />
           <TextField

@@ -9,8 +9,7 @@ import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
 
-import { colorTextFaint, grey700, grey800, grey900 } from '../styles/colors'
-import { singleLine } from '../styles/typography'
+import { colorTextFaint } from '../styles/colors'
 
 const TextFieldContainer = styled.div`
   display: flex;
@@ -19,17 +18,22 @@ const TextFieldContainer = styled.div`
   position: relative;
   width: 100%;
   min-height: 56px;
-  max-height: ${props => (props.maxRows ? props.maxRows * 24 + 32 /* padding */ : 56)}px;
   font-size: 16px;
-  line-height: 24px;
+  line-height: 20px;
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 4px 4px 0 0;
   contain: layout paint style;
 
+  ${props => {
+    const spacing = props.floatingLabel ? 34 : 28 /* textfield padding + input margin */
+
+    return `max-height: ${props.maxRows ? props.maxRows * 20 + spacing : 56}px;`
+  }}
+
   ${props =>
     props.multiline
       ? `
-        padding: ${props.floatingLabel ? '23px 0 2px 12px' : '16px 0 2px 12px'};
+        padding: ${props.floatingLabel ? '25px 0 2px 12px' : '19px 0 2px 12px'};
       `
       : ''}
 
@@ -69,55 +73,10 @@ const TextFieldContainer = styled.div`
   }
 `
 
-const StyledInputContainer = styled(InputBase)`
-  ${props => {
-    if (props.multiline) {
-      const scrollbarColor = props.focused ? grey800 : grey700
-
-      return `
-        padding: 0;
-        padding-bottom: 7px;
-        padding-right: 12px;
-        overflow-y: auto;
-        resize: none;
-        cursor: auto;
-
-        &::-webkit-scrollbar {
-          width: 12px;
-        }
-
-        &::-webkit-scrollbar-track {
-          background-color: ${scrollbarColor};
-        }
-
-        &::-webkit-scrollbar-thumb {
-          width: 100%;
-          border-left: 2px solid ${scrollbarColor};
-          border-right: 2px solid ${scrollbarColor};
-          margin-left: auto;
-          margin-right: auto;
-          background-color: ${grey900};
-        }
-
-        ::-webkit-scrollbar-button:start:decrement,
-        ::-webkit-scrollbar-button:end:increment {
-          height: 2px;
-          background-color: ${scrollbarColor};
-        }
-      `
-    } else {
-      return `
-        height: 24px;
-        ${singleLine};
-      `
-    }
-  }}
-`
-
 const iconStyle = css`
   position: absolute;
-  top: 50%;
-  transform: translate3d(0, -50%, 0);
+  top: 0;
+  transform: translate3d(0, 16px, 0);
   width: 24px;
   height: 24px;
   pointer-events: none;
@@ -182,7 +141,6 @@ export default class TextField extends React.Component {
     disabled: false,
     multiline: false,
     rows: 1,
-    maxRows: 4,
   }
 
   id = uniqueId()
@@ -234,7 +192,7 @@ export default class TextField extends React.Component {
           maxRows={maxRows}>
           {this.renderLabel()}
           {leadingIcon ? <LeadingIcon>{leadingIcon}</LeadingIcon> : null}
-          <StyledInputContainer
+          <InputBase
             as={multiline ? 'textarea' : 'input'}
             rows={rows}
             focused={this.state.isFocused}
@@ -290,7 +248,7 @@ export default class TextField extends React.Component {
 
   autoSize = elem => {
     // Needed in order to lower the height when deleting text
-    elem.style.height = `${this.props.rows * 24 + 7 /* padding */}px`
+    elem.style.height = `${this.props.rows * 20 + 7 /* padding */}px`
     elem.style.height = `${elem.scrollHeight}px`
     // Textarea doesn't scroll completely to the end when adding a new line, just to the baseline of
     // the added text it seems, so we scroll automatically to the end here

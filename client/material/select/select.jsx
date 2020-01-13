@@ -41,7 +41,7 @@ const SelectContainer = styled.div`
   padding: 0;
   cursor: ${props => (props.disabled ? 'default' : 'pointer')};
   font-size: 16px;
-  line-height: 24px;
+  line-height: 20px;
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 4px 4px 0 0;
   contain: layout paint style;
@@ -70,11 +70,6 @@ const SelectContainer = styled.div`
 const DisplayValue = styled(InputBase)`
   display: flex;
   align-items: center;
-  // I have no idea why, but using flex to center the input value is 1 pixel off from using the
-  // <input> element itself (<input> element probably doesn't center the text, but does
-  // something else). In any case, this margin here is to ensure pixel perfect alignment between
-  // <select> and <input> elements.
-  margin-top: 1px;
 `
 
 const Icon = styled.span`

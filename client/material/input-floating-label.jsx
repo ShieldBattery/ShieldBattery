@@ -25,8 +25,8 @@ const FloatingLabel = styled.label`
   pointer-events: none;
   transform: ${props =>
     props.hasValue || props.focused
-      ? 'translate3d(0, 7px, 0) scale(0.75)'
-      : 'translate3d(0, 16px, 0)'};
+      ? 'translate3d(0, 9px, 0) scale(0.75)'
+      : 'translate3d(0, 19px, 0)'};
   transform-origin: left top;
   ${fastOutSlowInShort};
 

@@ -7,7 +7,7 @@ const Label = styled.label`
   position: absolute;
   left: ${props => (props.leadingIcon ? '48px' : '12px')};
   top: 0;
-  transform: translate3d(0, 16px, 0);
+  transform: translate3d(0, 19px, 0);
   z-index: 1;
   color: ${props => (props.disabled ? colorTextFaint : colorTextSecondary)};
   pointer-events: none;
