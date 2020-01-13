@@ -16,7 +16,7 @@ import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24p
 
 import { fastOutSlowIn } from '../curve-constants'
 import { zIndexMenuBackdrop } from '../zindex'
-import { amberA400, colorTextFaint } from '../../styles/colors'
+import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 
 const SPACE = keycode('space')
 const ENTER = keycode('enter')
@@ -91,7 +91,18 @@ const Icon = styled.span`
   & > svg {
     width: 24px;
     height: 24px;
-    color: ${props => (props.focused ? amberA400 : colorTextFaint)};
+    ${props => {
+      let color
+      if (props.disabled) {
+        color = colorTextFaint
+      } else if (props.focused) {
+        color = amberA400
+      } else {
+        color = colorTextPrimary
+      }
+
+      return `color: ${color}`
+    }};
   }
 `
 
@@ -192,7 +203,7 @@ class Select extends React.Component {
           <DisplayValue as='span' floatingLabel={!!label} disabled={disabled} trailingIcon={true}>
             {displayValue}
           </DisplayValue>
-          <Icon open={this.state.isOpened} focused={this.state.isFocused}>
+          <Icon open={this.state.isOpened} focused={this.state.isFocused} disabled={disabled}>
             <ArrowDropDownIcon />
           </Icon>
           <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
