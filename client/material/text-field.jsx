@@ -75,27 +75,26 @@ const TextFieldContainer = styled.div`
 
 const iconStyle = css`
   position: absolute;
-  top: 0;
-  transform: translate3d(0, 16px, 0);
-  width: 24px;
-  height: 24px;
-  pointer-events: none;
+  top: 4px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 
-  & > svg {
-    width: 24px;
-    height: 24px;
+  & svg {
     color: ${colorTextFaint};
   }
 `
 
 const LeadingIcon = styled.span`
   ${iconStyle}
-  left: 12px;
+  left: ${props => `calc(${props.index} * 48px + ${props.index + 1} * 4px)`};
 `
 
 const TrailingIcon = styled.span`
   ${iconStyle}
-  right: 12px;
+  right: ${props => `calc(${props.index} * 48px + ${props.index + 1} * 4px)`};
 `
 
 // A Material text field component with single-line, multi-line and text area variants, supporting
@@ -124,8 +123,8 @@ export default class TextField extends React.Component {
       }
       return null
     },
-    leadingIcon: PropTypes.element,
-    trailingIcon: PropTypes.element,
+    leadingIcons: PropTypes.arrayOf(PropTypes.element),
+    trailingIcons: PropTypes.arrayOf(PropTypes.element),
     onBlur: PropTypes.func,
     onChange: PropTypes.func,
     onFocus: PropTypes.func,
@@ -141,6 +140,8 @@ export default class TextField extends React.Component {
     disabled: false,
     multiline: false,
     rows: 1,
+    leadingIcons: [],
+    trailingIcons: [],
   }
 
   id = uniqueId()
@@ -164,8 +165,8 @@ export default class TextField extends React.Component {
       multiline,
       rows,
       maxRows,
-      leadingIcon,
-      trailingIcon,
+      leadingIcons,
+      trailingIcons,
       inputProps,
     } = this.props
 
@@ -182,6 +183,20 @@ export default class TextField extends React.Component {
       onKeyDown: this.onKeyDown,
     }
 
+    const leadingIconsElements = leadingIcons.map((leadingIcon, index) => (
+      <LeadingIcon key={index} index={index}>
+        {leadingIcon}
+      </LeadingIcon>
+    ))
+    const trailingIconsElements = trailingIcons
+      .slice() // Don't mutate the original array
+      .reverse()
+      .map((trailingIcon, index) => (
+        <TrailingIcon key={index} index={index}>
+          {trailingIcon}
+        </TrailingIcon>
+      ))
+
     return (
       <div className={this.props.className}>
         <TextFieldContainer
@@ -191,19 +206,19 @@ export default class TextField extends React.Component {
           multiline={multiline}
           maxRows={maxRows}>
           {this.renderLabel()}
-          {leadingIcon ? <LeadingIcon>{leadingIcon}</LeadingIcon> : null}
+          {leadingIcons.length > 0 ? leadingIconsElements : null}
           <InputBase
             as={multiline ? 'textarea' : 'input'}
             rows={rows}
             focused={this.state.isFocused}
             floatingLabel={!!floatingLabel}
             multiline={multiline}
-            leadingIcon={!!leadingIcon}
-            trailingIcon={!!trailingIcon}
+            leadingIconsLength={leadingIcons.length}
+            trailingIconsLength={trailingIcons.length}
             {...inputProps}
             {...internalInputProps}
           />
-          {trailingIcon ? <TrailingIcon>{trailingIcon}</TrailingIcon> : null}
+          {trailingIcons.length > 0 ? trailingIconsElements : null}
           <InputUnderline focused={this.state.isFocused} error={!!errorText} disabled={disabled} />
         </TextFieldContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
@@ -212,7 +227,7 @@ export default class TextField extends React.Component {
   }
 
   renderLabel() {
-    const { label, floatingLabel, value, errorText, disabled, leadingIcon } = this.props
+    const { label, floatingLabel, value, errorText, disabled, leadingIcons } = this.props
     const { isFocused } = this.state
 
     if (!label) {
@@ -225,13 +240,17 @@ export default class TextField extends React.Component {
           focused={isFocused}
           error={!!errorText}
           disabled={disabled}
-          leadingIcon={!!leadingIcon}>
+          leadingIconsLength={leadingIcons.length}>
           {label}
         </FloatingLabel>
       )
     } else {
       return (
-        <Label htmlFor={this.id} hasValue={!!value} disabled={disabled} leadingIcon={!!leadingIcon}>
+        <Label
+          htmlFor={this.id}
+          hasValue={!!value}
+          disabled={disabled}
+          leadingIconsLength={leadingIcons.length}>
           {label}
         </Label>
       )

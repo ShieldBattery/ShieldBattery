@@ -26,8 +26,18 @@ export const InputBase = styled(Subheading)`
     box-shadow: none;
   }
 
-  ${props => (props.leadingIcon ? 'padding-left: 48px' : '')};
-  ${props => (props.trailingIcon ? 'padding-right: 48px' : '')};
+  ${props =>
+    props.leadingIconsLength
+      ? `padding-left:
+          calc(${props.leadingIconsLength} * 48px + ${props.leadingIconsLength + 1} * 4px)
+        `
+      : ''};
+  ${props =>
+    props.trailingIconsLength
+      ? `padding-right:
+          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px)
+        `
+      : ''};
   ${props => {
     if (props.multiline) {
       const scrollbarColor = props.focused ? grey800 : grey700
@@ -76,8 +86,8 @@ InputBase.propTypes = {
   floatingLabel: PropTypes.bool,
   disabled: PropTypes.bool,
   multiline: PropTypes.bool,
-  leadingIcon: PropTypes.bool,
-  trailingIcon: PropTypes.bool,
+  leadingIconsLength: PropTypes.number,
+  trailingIconsLength: PropTypes.number,
 }
 
 export default InputBase

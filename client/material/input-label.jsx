@@ -5,7 +5,10 @@ import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 
 const Label = styled.label`
   position: absolute;
-  left: ${props => (props.leadingIcon ? '48px' : '12px')};
+  left: ${props =>
+    props.leadingIconsLength
+      ? `calc(${props.leadingIconsLength} * 48px + ${props.leadingIconsLength + 1} * 4px)`
+      : '12px'};
   top: 0;
   transform: translate3d(0, 19px, 0);
   z-index: 1;
@@ -19,7 +22,7 @@ Label.propTypes = {
   htmlFor: PropTypes.string,
   hasValue: PropTypes.bool,
   disabled: PropTypes.bool,
-  leadingIcon: PropTypes.bool,
+  leadingIconsLength: PropTypes.number,
 }
 
 export default Label

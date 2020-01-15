@@ -2,7 +2,9 @@ import React from 'react'
 import styled from 'styled-components'
 
 import Card from '../card.jsx'
+import IconButton from '../icon-button.jsx'
 import TextField from '../text-field.jsx'
+
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
 
@@ -39,6 +41,7 @@ export default class TextFieldTest extends React.Component {
     value14: '',
     value15: '',
     value16: '',
+    value17: '',
     changeError: null,
   }
 
@@ -107,36 +110,74 @@ export default class TextFieldTest extends React.Component {
             value={this.state.value8}
             floatingLabel={true}
             label='With leading icon'
-            leadingIcon={<LeadingIcon />}
+            leadingIcons={[<LeadingIcon />]}
             onChange={this.onChange}
           />
           <TextField
             name='9'
             value={this.state.value9}
             floatingLabel={true}
-            label='With trailing icon'
-            trailingIcon={<TrailingIcon />}
+            label='With leading icon buttons'
+            leadingIcons={[
+              <IconButton
+                icon={<LeadingIcon />}
+                title='Leading action 1'
+                onClick={this.onActionClick}
+              />,
+              <IconButton
+                icon={<LeadingIcon />}
+                title='Leading action 2'
+                onClick={this.onActionClick}
+              />,
+            ]}
             onChange={this.onChange}
           />
           <TextField
             name='10'
             value={this.state.value10}
             floatingLabel={true}
-            label='No errors'
-            allowErrors={false}
+            label='With trailing icon'
+            trailingIcons={[<TrailingIcon />]}
             onChange={this.onChange}
           />
           <TextField
             name='11'
             value={this.state.value11}
-            floatingLabel={false}
-            label='No errors, no float'
+            floatingLabel={true}
+            label='With trailing icon buttons'
+            trailingIcons={[
+              <IconButton
+                icon={<TrailingIcon />}
+                title='Trailing action 1'
+                onClick={this.onActionClick}
+              />,
+              <IconButton
+                icon={<TrailingIcon />}
+                title='Trailing action 2'
+                onClick={this.onActionClick}
+              />,
+            ]}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='12'
+            value={this.state.value12}
+            floatingLabel={true}
+            label='No errors'
             allowErrors={false}
             onChange={this.onChange}
           />
           <TextField
             name='13'
             value={this.state.value13}
+            floatingLabel={false}
+            label='No errors, no float'
+            allowErrors={false}
+            onChange={this.onChange}
+          />
+          <TextField
+            name='14'
+            value={this.state.value14}
             floatingLabel={true}
             label='Multi-line'
             multiline={true}
@@ -144,8 +185,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='14'
-            value={this.state.value14}
+            name='15'
+            value={this.state.value15}
             floatingLabel={true}
             label='Text area'
             multiline={true}
@@ -154,8 +195,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='15'
-            value={this.state.value15}
+            name='16'
+            value={this.state.value16}
             floatingLabel={false}
             label='Multi-line, no float'
             multiline={true}
@@ -163,8 +204,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='16'
-            value={this.state.value16}
+            name='17'
+            value={this.state.value17}
             floatingLabel={false}
             label='Text area, no float'
             multiline={true}
@@ -186,5 +227,9 @@ export default class TextFieldTest extends React.Component {
       [valueKey]: value,
       changeError: name === '4' && value ? 'Omg error' : null,
     })
+  }
+
+  onActionClick = () => {
+    console.log('Action clicked')
   }
 }
