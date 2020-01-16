@@ -303,7 +303,10 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
     }
 }
 
-fn register_class(class: *const WNDCLASSEXA, orig: &Fn(*const WNDCLASSEXA) -> ATOM) -> ATOM {
+fn register_class(
+    class: *const WNDCLASSEXA,
+    orig: unsafe extern fn(*const WNDCLASSEXA) -> ATOM,
+) -> ATOM {
     unsafe {
         let name = c_str_opt((*class).lpszClassName);
         let is_bw_class = match name {
@@ -340,7 +343,7 @@ unsafe fn create_window(
     menu: HMENU,
     instance: HINSTANCE,
     param: *mut c_void,
-    orig: &Fn(
+    orig: unsafe extern fn(
         u32,
         *const i8,
         *const i8,
@@ -855,8 +858,10 @@ fn set_dpi_aware() {
     }
 }
 
-fn render_screen(orig: &Fn()) {
-    orig();
+fn render_screen(orig: unsafe extern fn()) {
+    unsafe {
+        orig();
+    }
     with_forge(|forge| {
         if forge.game_started {
             forge.renderer.render();
@@ -864,18 +869,18 @@ fn render_screen(orig: &Fn()) {
     });
 }
 
-fn get_system_metrics(index: i32, orig: &Fn(i32) -> i32) -> i32 {
+fn get_system_metrics(index: i32, orig: unsafe extern fn(i32) -> i32) -> i32 {
     match index {
         SM_CXSCREEN | SM_CXFULLSCREEN => 640,
         SM_CYSCREEN | SM_CYFULLSCREEN => 480,
-        _ => orig(index),
+        _ => unsafe { orig(index) },
     }
 }
 
 unsafe fn get_proc_address(
     module: HMODULE,
     name: *const i8,
-    orig: &Fn(HMODULE, *const i8) -> FARPROC,
+    orig: unsafe extern fn(HMODULE, *const i8) -> FARPROC,
 ) -> FARPROC {
     match CStr::from_ptr(name).to_str() {
         Ok("DirectDrawCreate") => {
@@ -950,7 +955,7 @@ unsafe extern "system" fn create_sound_buffer(
     }
 }
 
-fn is_iconic(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
+unsafe fn is_iconic(window: HWND, orig: unsafe extern fn(HWND) -> u32) -> u32 {
     if with_forge(|forge| forge.is_forge_window(window)) {
         0
     } else {
@@ -958,7 +963,7 @@ fn is_iconic(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
     }
 }
 
-fn is_window_visible(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
+unsafe fn is_window_visible(window: HWND, orig: unsafe extern fn(HWND) -> u32) -> u32 {
     if with_forge(|forge| forge.is_forge_window(window)) {
         1
     } else {
@@ -966,7 +971,11 @@ fn is_window_visible(window: HWND, orig: &Fn(HWND) -> u32) -> u32 {
     }
 }
 
-fn client_to_screen(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT) -> u32) -> u32 {
+unsafe fn client_to_screen(
+    window: HWND,
+    point: *mut POINT,
+    orig: unsafe extern fn(HWND, *mut POINT) -> u32,
+) -> u32 {
     if with_forge(|forge| forge.is_forge_window(window)) {
         // We want BW to think its full screen, and therefore any coordinates it wants in
         // screenspace would be the same as the ones its passing in
@@ -976,7 +985,11 @@ fn client_to_screen(window: HWND, point: *mut POINT, orig: &Fn(HWND, *mut POINT)
     }
 }
 
-unsafe fn get_client_rect(window: HWND, out: *mut RECT, orig: &Fn(HWND, *mut RECT) -> u32) -> u32 {
+unsafe fn get_client_rect(
+    window: HWND,
+    out: *mut RECT,
+    orig: unsafe extern fn(HWND, *mut RECT) -> u32,
+) -> u32 {
     if with_forge(|forge| forge.is_forge_window(window)) {
         (*out) = RECT {
             left: 0,
@@ -1037,7 +1050,7 @@ unsafe fn release_capture() -> u32 {
     1
 }
 
-fn show_window(window: HWND, show: i32, orig: &Fn(HWND, i32) -> u32) -> u32 {
+unsafe fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
     // We handle the window showing around here, Brood War.
     if with_forge(|forge| forge.is_forge_window(window)) {
         1
@@ -1046,9 +1059,11 @@ fn show_window(window: HWND, show: i32, orig: &Fn(HWND, i32) -> u32) -> u32 {
     }
 }
 
-fn get_key_state(key: i32, orig: &Fn(i32) -> i32) -> i32 {
+fn get_key_state(key: i32, orig: unsafe extern fn(i32) -> i32) -> i32 {
     if with_forge(|forge| forge.window_active) {
-        orig(key)
+        unsafe {
+            orig(key)
+        }
     } else {
         // This will get run at least from WM_NCACTIVATE handler's key
         // releasing code, as bw checks the state of modifier keys.
@@ -1058,11 +1073,11 @@ fn get_key_state(key: i32, orig: &Fn(i32) -> i32) -> i32 {
     }
 }
 
-fn create_compatible_bitmap(
+unsafe fn create_compatible_bitmap(
     dc: HDC,
     width: i32,
     height: i32,
-    orig: &Fn(HDC, i32, i32) -> HBITMAP,
+    orig: unsafe extern fn(HDC, i32, i32) -> HBITMAP,
 ) -> HBITMAP {
     // We have to track the one bitmap BW creates, so we can tell BW it's 8 bits per pixel when it
     // calls GetObject on it.
@@ -1078,7 +1093,7 @@ fn create_compatible_bitmap(
     result
 }
 
-fn gdi_delete_object(object: HGDIOBJ, orig: &Fn(HGDIOBJ) -> u32) -> u32 {
+unsafe fn gdi_delete_object(object: HGDIOBJ, orig: unsafe extern fn(HGDIOBJ) -> u32) -> u32 {
     with_forge(|forge| {
         if forge.active_bitmap == Some(object as *mut _) {
             forge.active_bitmap = None;
@@ -1091,7 +1106,7 @@ unsafe fn gdi_get_object(
     object: HGDIOBJ,
     size: u32,
     out: *mut c_void,
-    orig: &Fn(HGDIOBJ, u32, *mut c_void) -> u32,
+    orig: unsafe extern fn(HGDIOBJ, u32, *mut c_void) -> u32,
 ) -> u32 {
     let result = orig(object, size, out);
     if result != 0 && with_forge(|forge| forge.active_bitmap == Some(object as *mut _)) {
@@ -1107,7 +1122,7 @@ unsafe fn get_bitmap_bits(
     bitmap: HBITMAP,
     size: u32,
     bits: *mut c_void,
-    orig: &Fn(HBITMAP, u32, *mut c_void) -> u32,
+    orig: unsafe extern fn(HBITMAP, u32, *mut c_void) -> u32,
 ) -> u32 {
     // BW 1.16.1 calls GetBitmapBits only when drawing korean text.
     // (It uses Gdi32 DrawText to draw it to a bitmap DC, and then reads it from there)
@@ -1163,7 +1178,7 @@ unsafe fn get_bitmap_bits(
     bytes_read / bytes_per_pixel
 }
 
-pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
+pub unsafe fn init_hooks(patcher: &mut whack::Patcher) {
     use self::hooks::*;
     let mut starcraft = patcher.patch_exe(0x0040_0000);
     starcraft.import_hook_opt(&b"user32"[..], CreateWindowExA, create_window);

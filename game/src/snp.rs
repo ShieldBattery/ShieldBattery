@@ -153,7 +153,7 @@ pub unsafe fn init_snp_list_hook() {
     }
 }
 
-pub unsafe fn unload_snps(_clear_list: u32, orig: &Fn(u32)) {
+pub unsafe fn unload_snps(_clear_list: u32, orig: unsafe extern fn(u32)) {
     // Never pass clear_list = true, as we initialized the list and Storm can't free the memory
     orig(0);
     if *storm::snp_list_initialized != 0 {
@@ -163,7 +163,7 @@ pub unsafe fn unload_snps(_clear_list: u32, orig: &Fn(u32)) {
     }
 }
 
-pub unsafe fn init_hooks(patcher: &mut whack::ActivePatcher) {
+pub unsafe fn init_hooks(patcher: &mut whack::Patcher) {
     let mut storm = patcher.patch_library("storm", 0x1500_0000);
     storm::init_vars(&mut storm);
     storm.hook(storm::InitializeSnpList, init_snp_list_hook);

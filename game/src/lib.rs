@@ -24,6 +24,7 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 use std::ptr::null_mut;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
@@ -198,7 +199,7 @@ pub unsafe extern "stdcall" fn SnpBind(index: u32, functions: *mut *const bw::Sn
 }
 
 lazy_static! {
-    static ref PATCHER: whack::Patcher = whack::Patcher::new();
+    static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
 }
 
 unsafe fn patch_game() {
@@ -226,34 +227,34 @@ unsafe fn patch_game() {
     exe.replace(bw::INIT_SPRITES_RENDER_ONE, &[0x90, 0x90, 0x90, 0x90, 0x90]);
     exe.replace(bw::INIT_SPRITES_RENDER_TWO, &[0x90, 0x90, 0x90, 0x90, 0x90]);
 
-    exe.hook_closure(bw::MinimapCtrl_InitButton, |a, orig: &Fn(_)| {
+    exe.hook_closure(bw::MinimapCtrl_InitButton, |a, orig| {
         with_replay_flag_if_obs(|| orig(a))
     });
-    exe.hook_closure(bw::MinimapCtrl_ShowAllianceDialog, |orig: &Fn()| {
+    exe.hook_closure(bw::MinimapCtrl_ShowAllianceDialog, |orig| {
         with_replay_flag_if_obs(|| orig())
     });
-    exe.hook_closure(bw::DrawMinimap, |orig: &Fn()| {
+    exe.hook_closure(bw::DrawMinimap, |orig| {
         with_replay_flag_if_obs(|| orig())
     });
     // Bw force refreshes the minimap every second?? why
     // And of course the DrawMinimap call in it is inlined so it has to be hooked separately.
-    exe.hook_closure(bw::Minimap_TimerRefresh, |orig: &Fn()| {
+    exe.hook_closure(bw::Minimap_TimerRefresh, |orig| {
         with_replay_flag_if_obs(|| orig())
     });
-    exe.hook_closure(bw::RedrawScreen, |orig: &Fn()| {
+    exe.hook_closure(bw::RedrawScreen, |orig| {
         with_replay_flag_if_obs(|| orig())
     });
     exe.hook_closure(
         bw::AllianceDialog_EventHandler,
-        |a, b, orig: &Fn(_, _) -> _| with_replay_flag_if_obs(|| orig(a, b)),
+        |a, b, orig| with_replay_flag_if_obs(|| orig(a, b)),
     );
-    exe.hook_closure(bw::GameScreenLeftClick, |a, orig: &Fn(_)| {
+    exe.hook_closure(bw::GameScreenLeftClick, |a, orig| {
         with_replay_flag_if_obs(|| orig(a))
     });
-    exe.hook_closure(bw::PlaySoundAtPos, |a, b, c, d, orig: &Fn(_, _, _, _)| {
+    exe.hook_closure(bw::PlaySoundAtPos, |a, b, c, d, orig| {
         with_replay_flag_if_obs(|| orig(a, b, c, d))
     });
-    exe.hook_closure(bw::DrawResourceCounts, |a, b, orig: &Fn(_, _)| {
+    exe.hook_closure(bw::DrawResourceCounts, |a, b, orig| {
         with_replay_flag_if_obs(|| orig(a, b))
     });
     exe.hook_opt(bw::ProcessCommands, observing::process_commands_hook);
@@ -296,9 +297,11 @@ unsafe fn patch_game() {
     }
 }
 
-fn scroll_screen(orig: &Fn()) {
+fn scroll_screen(orig: unsafe extern fn()) {
     if !forge::input_disabled() {
-        orig();
+        unsafe {
+            orig();
+        }
     }
 }
 
@@ -307,7 +310,7 @@ unsafe fn create_event_hook(
     init_state: u32,
     manual_reset: u32,
     name: *const i8,
-    orig: &Fn(*mut c_void, u32, u32, *const i8) -> *mut c_void,
+    orig: unsafe extern fn(*mut c_void, u32, u32, *const i8) -> *mut c_void,
 ) -> *mut c_void {
     use winapi::um::errhandlingapi::SetLastError;
     if !name.is_null() {
@@ -340,7 +343,7 @@ fn test_ascii_path_filename() {
     assert_eq!(ascii_path_filename(b"\\/\\"), b"");
 }
 
-unsafe fn delete_file_hook(filename: *const i8, orig: &Fn(*const i8) -> u32) -> u32 {
+unsafe fn delete_file_hook(filename: *const i8, orig: unsafe extern fn(*const i8) -> u32) -> u32 {
     if ascii_path_filename(CStr::from_ptr(filename).to_bytes()) == b"LastReplay.rep" {
         // Before saving the last replay BW first tries to delete it, which can fail.
         // We no-op it since we're saving the last replay ourselves.
@@ -401,7 +404,7 @@ unsafe fn create_file_hook(
     creation_disposition: u32,
     flags: u32,
     template: *mut c_void,
-    orig: &Fn(*const i8, u32, u32, *mut c_void, u32, u32, *mut c_void) -> HANDLE,
+    orig: unsafe extern fn(*const i8, u32, u32, *mut c_void, u32, u32, *mut c_void) -> HANDLE,
 ) -> HANDLE {
     use winapi::um::fileapi::CreateFileW;
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -484,16 +487,16 @@ unsafe fn create_file_hook(
     )
 }
 
-fn entry_point_hook(
+unsafe fn entry_point_hook(
     a1: *mut c_void,
     a2: *mut c_void,
     a3: *const u8,
     a4: i32,
-    orig: &Fn(*mut c_void, *mut c_void, *const u8, i32) -> i32,
+    orig: unsafe extern fn(*mut c_void, *mut c_void, *const u8, i32) -> i32,
 ) -> i32 {
     if WAIT_DEBUGGER {
         let start = Instant::now();
-        while unsafe { winapi::um::debugapi::IsDebuggerPresent() == 0 } {
+        while winapi::um::debugapi::IsDebuggerPresent() == 0 {
             std::thread::sleep(Duration::from_millis(10));
             if start.elapsed().as_secs() > 100 {
                 std::process::exit(0);
