@@ -24,7 +24,7 @@ pub fn clear_ally_override() {
     *ALLY_OVERRIDE.lock().unwrap() = None;
 }
 
-pub unsafe fn chat_command_hook(text: *const u8, orig: &Fn(*const u8)) {
+pub unsafe fn chat_command_hook(text: *const u8, orig: unsafe extern fn(*const u8)) {
     if *bw::chat_message_type == bw::CHAT_MESSAGE_ALLIES {
         if let Some(player_override) = *ALLY_OVERRIDE.lock().unwrap() {
             *bw::chat_message_recipients = player_override;

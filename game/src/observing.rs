@@ -9,7 +9,7 @@ pub unsafe fn process_commands_hook(
     data: *const u8,
     len: u32,
     replay: u32,
-    orig: &Fn(*const u8, u32, u32),
+    orig: unsafe extern fn(*const u8, u32, u32),
 ) {
     if replay == 0 && *bw::current_command_player >= 8 {
         // Replace anything sent by observers with a keep alive command, I'm quite sure there will
@@ -23,7 +23,10 @@ pub unsafe fn process_commands_hook(
 
 // Don't validate sync commands when observing. As the sync contains visibility info, observers
 // are out of sync from everyone else, as their vision settings are not sent to other players.
-pub unsafe fn sync_command_hook(data: *const u8, orig: &Fn(*const u8) -> u32) -> u32 {
+pub unsafe fn sync_command_hook(
+    data: *const u8,
+    orig: unsafe extern fn(*const u8) -> u32,
+) -> u32 {
     if is_local_player_observer() {
         1
     } else {
@@ -35,7 +38,7 @@ pub unsafe fn chat_message_hook(
     storm_player: u32,
     message: *const u8,
     length: u32,
-    orig: &Fn(u32, *const u8, u32) -> u32,
+    orig: unsafe extern fn(u32, *const u8, u32) -> u32,
 ) -> u32 {
     use std::io::Write;
     if bw::storm_id_to_human_id[storm_player as usize] >= 8 {
@@ -94,7 +97,7 @@ pub unsafe fn load_dialog_hook(
     event_handler: *mut c_void,
     source_file: *const u8,
     source_line: u32,
-    orig: &Fn(*mut bw::Dialog, *mut c_void, *mut c_void, *const u8, u32),
+    orig: unsafe extern fn(*mut bw::Dialog, *mut c_void, *mut c_void, *const u8, u32),
 ) {
     orig(dialog, base, event_handler, source_file, source_line);
     if !is_local_player_observer() {
@@ -122,7 +125,7 @@ pub unsafe fn load_dialog_hook(
     }
 }
 
-pub unsafe fn init_ui_variables_hook(orig: &Fn()) {
+pub unsafe fn init_ui_variables_hook(orig: unsafe extern fn()) {
     orig();
     if is_local_player_observer() {
         *bw::replay_visions = 0xff;
@@ -136,7 +139,7 @@ pub unsafe fn init_ui_variables_hook(orig: &Fn()) {
 pub unsafe fn cmdbtn_event_handler_hook(
     control: *mut bw::Control,
     event: *mut bw::UiEvent,
-    orig: &Fn(*mut bw::Control, *mut bw::UiEvent) -> u32,
+    orig: unsafe extern fn(*mut bw::Control, *mut bw::UiEvent) -> u32,
 ) -> u32 {
     if !is_local_player_observer() {
         orig(control, event)
@@ -153,7 +156,10 @@ pub unsafe fn cmdbtn_event_handler_hook(
     }
 }
 
-pub unsafe fn get_gluall_string_hook(string_id: u32, orig: &Fn(u32) -> *const u8) -> *const u8 {
+pub unsafe fn get_gluall_string_hook(
+    string_id: u32,
+    orig: unsafe extern fn(u32) -> *const u8,
+) -> *const u8 {
     // Replace "Replay players" text in the alliance dialog when observing
     if string_id == 0xb6 && is_local_player_observer() {
         "Players\0".as_ptr()
@@ -162,7 +168,7 @@ pub unsafe fn get_gluall_string_hook(string_id: u32, orig: &Fn(u32) -> *const u8
     }
 }
 
-pub unsafe fn update_net_timeout_players(orig: &Fn()) {
+pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
     unsafe fn find_timeout_dialog_player_label(bw_player: u8) -> Option<*mut bw::Control> {
         if (*bw::timeout_bin).is_null() {
             return None;
@@ -237,7 +243,7 @@ pub unsafe fn update_net_timeout_players(orig: &Fn()) {
     }
 }
 
-pub unsafe fn update_command_card_hook(orig: &Fn()) {
+pub unsafe fn update_command_card_hook(orig: unsafe extern fn()) {
     if is_local_player_observer() && !(*bw::primary_selected).is_null() {
         *bw::local_nation_id = (**bw::primary_selected).player as u32;
         orig();
@@ -252,7 +258,7 @@ pub unsafe fn draw_command_button_hook(
     x: i32,
     y: i32,
     area: *mut c_void,
-    orig: &Fn(*mut bw::Control, i32, i32, *mut c_void),
+    orig: unsafe extern fn(*mut bw::Control, i32, i32, *mut c_void),
 ) {
     // Need to disable replay flag being set from DrawScreenHook if observing
     let was_replay = *bw::is_replay;
@@ -266,7 +272,7 @@ pub unsafe fn draw_command_button_hook(
 pub unsafe fn center_screen_on_start_location(
     unit: *mut bw::PreplacedUnit,
     other: *mut c_void,
-    orig: &Fn(*mut bw::PreplacedUnit, *mut c_void) -> u32,
+    orig: unsafe extern fn(*mut bw::PreplacedUnit, *mut c_void) -> u32,
 ) -> u32 {
     let was_replay = *bw::is_replay;
     if is_local_player_observer() && bw::players[(*unit).player as usize].player_type != 0 {

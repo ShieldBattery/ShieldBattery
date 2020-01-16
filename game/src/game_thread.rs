@@ -48,7 +48,7 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
 }
 
-pub fn player_joined(info: *mut c_void, orig: &Fn(*mut c_void)) {
+pub unsafe fn player_joined(info: *mut c_void, orig: unsafe extern fn(*mut c_void)) {
     // We could get storm id from the event info, but it's not used anywhere atm
     game_thread_message(GameThreadMessage::PlayerJoined);
     orig(info);
