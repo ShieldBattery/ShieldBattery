@@ -4,13 +4,14 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 use bytes::Bytes;
-use futures::future::{self, Either};
+use futures::pin_mut;
+use futures::future::{Either};
+use futures::prelude::*;
 use libc::c_void;
 use quick_error::quick_error;
-use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
@@ -27,7 +28,6 @@ use crate::network_manager::{NetworkError, NetworkManager};
 use crate::snp;
 use crate::storm;
 use crate::windows;
-use crate::{box_future, BoxedFuture};
 
 pub struct GameState {
     init_state: InitState,
@@ -223,36 +223,40 @@ impl GameState {
         }
     }
 
-    fn set_routes(&mut self, routes: Vec<Route>) -> BoxedFuture<(), ()> {
+    fn set_routes(&mut self, routes: Vec<Route>) -> impl Future<Output = ()> {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             state.routes_set = true;
-            box_future(self.network.set_routes(routes).or_else(|_| Ok(())))
+            // TODO log error
+            self.network.set_routes(routes).map(|_| ()).boxed()
         } else {
             error!("Received routes after game was started");
-            box_future(Err(()).into_future())
+            future::ready(()).boxed()
         }
     }
 
     fn send_game_request(
         &mut self,
         request_type: GameThreadRequestType,
-    ) -> impl Future<Item = (), Error = ()> {
+    ) -> impl Future<Output = ()> {
         send_game_request(&self.send_main_thread_requests, request_type)
     }
 
     fn start_game_request(
         &mut self,
         request_type: GameThreadRequestType,
-    ) -> impl Future<Item = oneshot::Receiver<()>, Error = ()> {
+    ) -> Result<oneshot::Receiver<()>, ()> {
         start_game_request(&self.send_main_thread_requests, request_type)
     }
 
-    fn init_game(&mut self, info: GameSetupInfo) -> BoxedFuture<(), GameInitError> {
+    fn init_game(
+        &mut self,
+        info: GameSetupInfo,
+    ) -> impl Future<Output = Result<(), GameInitError>> {
         let game_type = match info.game_type() {
             Some(s) => s,
             None => {
                 let err = GameInitError::UnknownGameType(info.game_type, info.game_sub_type);
-                return box_future(Err(err).into_future());
+                return future::err(err).boxed();
             }
         };
 
@@ -268,10 +272,10 @@ impl GameState {
         let mut init_state = match self.init_state {
             InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
                 Ok(o) => o,
-                Err(e) => return box_future(Err(e).into_future()),
+                Err(e) => return future::err(e).boxed(),
             },
             InitState::Started(_) => {
-                return box_future(Err(GameInitError::InitInProgress).into_future());
+                return future::err(GameInitError::InitInProgress).boxed();
             }
         };
         let local_user = init_state.local_user.clone();
@@ -291,20 +295,23 @@ impl GameState {
         let is_host = local_user.name == info.host.name;
         let pre_network_init = self
             .send_game_request(init_request)
-            .map_err(|()| GameInitError::Closed)
+            .map(Ok)
             .and_then(move |()| unsafe {
                 remaining_game_init(&local_user);
-                if is_host {
+                let result = if is_host {
                     create_lobby(&info2, game_type)
                 } else {
                     Ok(())
-                }
+                };
+                future::ready(result)
             });
         // We want this to run after game thread init request, but no explicit ordering
         // is necessary since Game requests uses the non-async std::sync::mpsc.
         let wnd_proc_started = self
             .start_game_request(GameThreadRequestType::RunWndProc)
             .map_err(|()| GameInitError::Closed);
+        // TODO refactor
+        let wnd_proc_started = future::ready(wnd_proc_started);
 
         let network_ready = self.network.wait_network_ready();
         let network_ready = self
@@ -312,97 +319,93 @@ impl GameState {
             .set_game_info(info.clone())
             .and_then(|_| network_ready)
             .map_err(|e| GameInitError::NetworkInit(e))
-            .inspect(|_| debug!("Network ready"));
+            .inspect_ok(|_| debug!("Network ready"));
         let info2 = info.clone();
-        let in_lobby = pre_network_init
-            .join3(network_ready, wnd_proc_started)
+        let in_lobby = future::try_join3(pre_network_init, network_ready, wnd_proc_started)
             .and_then(move |((), (), _wnd_proc_done)| {
                 // Could carry wnd_proc_done around, but it should be fine to drop
                 // as we end wnd proc and then send a new request to game thread without
                 // any additional BW state poking from async side.
                 if !is_host {
-                    unsafe { Either::A(join_lobby(&info2, game_type)) }
+                    unsafe { Either::Left(join_lobby(&info2, game_type)) }
                 } else {
-                    Either::B(Ok(()).into_future())
+                    Either::Right(future::ok(()))
                 }
-            });
+            }).boxed();
         let info2 = info.clone();
         let info3 = info.clone();
-        let send_messages_to_state = self.internal_send.clone();
+        let mut send_messages_to_state = self.internal_send.clone();
         let lobby_ready = in_lobby
             .and_then(move |_| {
                 debug!("In lobby, setting up slots");
                 unsafe {
                     setup_slots(&info2.slots, game_type);
                 }
-                send_messages_to_state
-                    .send(GameStateMessage::InLobby)
-                    .map_err(|_| GameInitError::Closed)
+                async move {
+                    send_messages_to_state.send(GameStateMessage::InLobby).await
+                        .map_err(|_| GameInitError::Closed)
+                }
             })
             .and_then(move |_| {
                 let tickle_lobby_network =
-                    tokio::timer::Interval::new(Instant::now(), Duration::from_millis(100))
+                    tokio::time::interval(Duration::from_millis(100))
                         .for_each(|_| unsafe {
                             bw::maybe_receive_turns();
-                            Ok(())
+                            future::ready(())
                         })
-                        .map(|_| panic!("Interval generation ended???"))
-                        .map_err(|_| GameInitError::Closed);
-                tickle_lobby_network
-                    .select(players_joined)
-                    .map(|_| ())
-                    .map_err(|x| x.0)
+                        .map(|()| Ok(()));
+                future::select(
+                    tickle_lobby_network,
+                    players_joined,
+                ).map(|x| x.factor_first().0)
             })
             .and_then(move |()| {
                 debug!("All players have joined");
                 unsafe {
                     do_lobby_game_init(&info3);
                 }
-                Ok(())
-            });
-        let ws_send = self.ws_send.clone();
+                future::ok(())
+            })
+            .boxed();
+        let mut ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
-        let finished = lobby_ready
-            .and_then(|()| {
-                forge::end_wnd_proc();
-                app_socket::send_message(ws_send, "/game/start", ())
-                    .map_err(|_| GameInitError::Closed)
-            })
-            .and_then(move |ws_send| {
-                let start_game_request = GameThreadRequestType::StartGame;
-                let game_done = send_game_request(&game_request_send, start_game_request)
-                    .map(|()| ws_send)
-                    .map_err(|_| GameInitError::Closed);
-                game_done.join(results)
-            })
-            .and_then(|(ws_send, results)| {
-                app_socket::send_message(ws_send, "/game/end", results)
-                    .map(|_| ())
-                    .map_err(|_| GameInitError::Closed)
-            });
-        box_future(finished)
+        let finished = async move {
+            lobby_ready.await?;
+            forge::end_wnd_proc();
+            app_socket::send_message(&mut ws_send, "/game/start", ()).await
+                .map_err(|_| GameInitError::Closed)?;
+
+            let start_game_request = GameThreadRequestType::StartGame;
+            let request_done = send_game_request(&game_request_send, start_game_request);
+            request_done.await;
+            let results = results.await?;
+            app_socket::send_message(&mut ws_send, "/game/end", results).await
+                .map_err(|_| GameInitError::Closed)?;
+            Ok(())
+        };
+        finished.boxed()
     }
 
     // Message handler, so ideally only return futures that are about sending
     // messages to other tasks.
-    fn handle_message(&mut self, message: GameStateMessage) -> BoxedFuture<(), ()> {
+    fn handle_message(&mut self, message: GameStateMessage) -> impl Future<Output = ()> {
         use self::GameStateMessage::*;
         match message {
             SetSettings(settings) => {
                 self.set_settings(&settings);
-                box_future(future::ok(()))
+                future::ready(()).boxed()
             }
             SetLocalUser(user) => {
                 self.set_local_user(user);
-                box_future(future::ok(()))
+                future::ready(()).boxed()
             }
-            SetRoutes(routes) => self.set_routes(routes),
+            SetRoutes(routes) => self.set_routes(routes).boxed(),
             SetupGame(info) => {
-                let ws_send = self.ws_send.clone();
+                let mut ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
                 let task = self
                     .init_game(info)
-                    .or_else(|e| {
+                    .or_else(move |e| {
                         let msg = format!("Failed to init game: {}", e);
                         error!("{}", msg);
 
@@ -412,12 +415,19 @@ impl GameState {
                                 extra: Some(msg),
                             },
                         };
-                        app_socket::send_message(ws_send, "/game/setupProgress", message)
-                            .map(|_| ())
+                        async move {
+                            let _ = app_socket::send_message(
+                                &mut ws_send,
+                                "/game/setupProgress",
+                                message,
+                            );
+                            let result: Result<(), ()> = Ok(());
+                            result
+                        }
                     })
                     .then(|_| {
                         debug!("Game setup & play task ended");
-                        tokio::timer::Delay::new(Instant::now() + Duration::from_millis(10000))
+                        tokio::time::delay_for(Duration::from_millis(10000))
                     })
                     .then(move |_| {
                         // The app is supposed to send a CleanupQuit command to acknowledge
@@ -427,21 +437,24 @@ impl GameState {
                         // succesfully even if the app didn't end up replying to us?
                         warn!("Didn't receive close command, exiting automatically");
                         async_stop.cancel();
-                        Ok(())
+                        future::ready(())
                     });
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
-                tokio::spawn(cancel_token.bind(task));
-                box_future(future::ok(()))
+                tokio::spawn(async move {
+                    pin_mut!(task);
+                    cancel_token.bind(task).await
+                });
+                future::ready(()).boxed()
             }
-            Snp(snp) => box_future(self.network.send_snp_message(snp)),
+            Snp(snp) => self.network.send_snp_message(snp).map(|_| ()).boxed(),
             InLobby | PlayerJoined => {
                 if let InitState::Started(ref mut state) = self.init_state {
                     state.player_joined();
                 } else {
                     warn!("Player joined before init was started");
                 }
-                box_future(future::ok(()))
+                future::ready(()).boxed()
             }
             Results(results) => {
                 if let InitState::Started(ref mut state) = self.init_state {
@@ -449,7 +462,7 @@ impl GameState {
                 } else {
                     warn!("Received results before init was started");
                 }
-                box_future(future::ok(()))
+                future::ready(()).boxed()
             }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
@@ -457,10 +470,10 @@ impl GameState {
                 let task = self.send_game_request(cleanup_request).then(move |_| {
                     debug!("BW cleanup done, exiting..");
                     async_stop.cancel();
-                    Ok(())
+                    future::ready(())
                 });
                 tokio::spawn(task);
-                box_future(future::ok(()))
+                future::ready(()).boxed()
             }
         }
     }
@@ -543,17 +556,20 @@ impl InitInProgress {
     // Waits until players have joined.
     // self.player_joined gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
-    fn wait_for_players(&mut self) -> BoxedFuture<(), GameInitError> {
+    fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
         if self.all_players_joined {
-            box_future(future::ok(()))
+            future::ok(()).boxed()
         } else {
             let (send_done, recv_done) = oneshot::channel();
             self.on_all_players_joined.push(send_done);
-            box_future(recv_done.map_err(|_| GameInitError::Closed).flatten())
+            recv_done
+                .map_err(|_| GameInitError::Closed)
+                .and_then(|inner| future::ready(inner))
+                .boxed()
         }
     }
 
-    fn wait_for_results(&mut self) -> impl Future<Item = Arc<GameResults>, Error = GameInitError> {
+    fn wait_for_results(&mut self) -> impl Future<Output = Result<Arc<GameResults>, GameInitError>> {
         let (send_done, recv_done) = oneshot::channel();
         self.waiting_for_result.push(send_done);
         recv_done.map_err(|_| GameInitError::Closed)
@@ -818,25 +834,23 @@ unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), 
     Ok(())
 }
 
-unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(), GameInitError> {
-    let map_width = match info.map.width {
-        Some(s) => s as u16,
-        None => return box_future(future::err(GameInitError::MissingMapInfo("width"))),
-    };
-    let map_height = match info.map.height {
-        Some(s) => s as u16,
-        None => return box_future(future::err(GameInitError::MissingMapInfo("height"))),
+unsafe fn join_lobby(
+    info: &GameSetupInfo,
+    game_type: GameType,
+) -> impl Future<Output = Result<(), GameInitError>> {
+    let map_data = match info.map.map_data {
+        Some(ref s) => s,
+        None => return future::err(GameInitError::MissingMapInfo("map data")).boxed(),
     };
     let map_name = match info.map.name {
         Some(ref s) => s,
-        None => return box_future(future::err(GameInitError::MissingMapInfo("name"))),
+        None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
     };
-    let tileset = match info.map.tileset {
-        Some(ref s) => match app_messages::bw_tileset_from_str(&s) {
-            Some(s) => s as u16,
-            None => return box_future(future::err(GameInitError::UnknownTileset(s.clone()))),
-        },
-        None => return box_future(future::err(GameInitError::MissingMapInfo("tileset"))),
+    let tileset = match app_messages::bw_tileset_from_str(&map_data.tileset) {
+        Some(s) => s as u16,
+        None => {
+            return future::err(GameInitError::UnknownTileset(map_data.tileset.clone())).boxed();
+        }
     };
     let max_player_count = info.slots.len() as u8;
     let active_player_count = info
@@ -850,8 +864,8 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
     let game_info = {
         let mut game_info = bw::JoinableGameInfo {
             index: 1,
-            map_width,
-            map_height,
+            map_width: map_data.width,
+            map_height: map_data.height,
             active_player_count,
             max_player_count,
             game_speed: 6, // Fastest
@@ -879,43 +893,33 @@ unsafe fn join_lobby(info: &GameSetupInfo, game_type: GameType) -> BoxedFuture<(
     let map_path: Bytes = match windows::ansi_codepage_cstring(&info.map_path) {
         Ok(o) => o.into(),
         Err(_) => {
-            return box_future(future::err(GameInitError::NonAnsiPath(
+            return future::err(GameInitError::NonAnsiPath(
                 (&info.map_path).into(),
-            )));
+            )).boxed();
         }
     };
-    let future = tokio::timer::Interval::new(Instant::now(), Duration::from_millis(10))
-        .map_err(|_| GameInitError::Closed)
-        .and_then(move |_| {
-            try_join_lobby_once(game_info.clone(), map_path.clone()).then(|result| Ok(result))
-        })
-        // Retries by returning None, proceeds with Some
-        .filter_map(|result| match result {
-            Ok(()) => Some(()),
-            Err(e) => {
-                debug!("Storm join error: {:08x}", e);
-                None
+    async move {
+        let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
+        while let Some(_) = repeat_interval.next().await {
+            match try_join_lobby_once(game_info.clone(), map_path.clone()).await {
+                Ok(()) => break,
+                Err(e) => debug!("Storm join error: {:08x}", e),
             }
-        })
-        .into_future()
-        .map_err(|e| e.0)
-        .and_then(|_| {
-            bw::init_game_network();
-            // Run through a turn once, so that we ensure Storm has init'd its names
-            bw::maybe_receive_turns();
-            debug!(
-                "Storm player names at join: {:?}",
-                storm::SNetGetPlayerNames()
-            );
-            Ok(())
-        });
-    box_future(future)
+        }
+        bw::init_game_network();
+        bw::maybe_receive_turns();
+        debug!(
+            "Storm player names at join: {:?}",
+            storm::SNetGetPlayerNames()
+        );
+        Ok(())
+    }.boxed()
 }
 
 unsafe fn try_join_lobby_once(
     mut game_info: bw::JoinableGameInfo,
     map_path: Bytes,
-) -> impl Future<Item = (), Error = u32> {
+) -> impl Future<Output = Result<(), u32>> {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
     // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
     // that won't work out well (although did it work out "well" in the normal network interface? Not
@@ -938,7 +942,7 @@ unsafe fn try_join_lobby_once(
         bw::init_team_game_playable_slots();
         let _ = send.send(Ok(()));
     });
-    recv.map_err(|_| !(0u32)).flatten()
+    recv.map_err(|_| !(0u32)).and_then(|res| future::ready(res))
 }
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
@@ -1038,7 +1042,7 @@ pub fn create_future(
     messages: mpsc::Receiver<GameStateMessage>,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
-) -> BoxedFuture<(), ()> {
+) -> impl Future<Output = ()> {
     let (internal_send, internal_recv) = mpsc::channel(8);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
@@ -1054,20 +1058,31 @@ pub fn create_future(
         running_game: None,
         async_stop,
     };
-    let future = messages
-        .map_err(|_| ())
-        .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
-        .select(internal_recv.map_err(|_| ()))
-        .for_each(move |message| game_state.handle_message(message));
-    box_future(future)
+    let future = stream::select(
+            // Chain an error to exit try_for_each as soon as messages ends
+            messages.map(|x| Ok(x))
+                .chain(future::err(()).into_stream()),
+            internal_recv.map(|x| Ok(x)),
+        )
+        .try_for_each(move |message| {
+            game_state.handle_message(message).map(Ok)
+        })
+        .map(|_| ());
+    future
 }
 
 /// Sends a request to game thread and waits for it to finish
 fn send_game_request(
     sender: &std::sync::mpsc::Sender<GameThreadRequest>,
     request_type: GameThreadRequestType,
-) -> impl Future<Item = (), Error = ()> {
-    start_game_request(sender, request_type).and_then(|wait_done| wait_done.map_err(|_| ()))
+) -> impl Future<Output = ()> {
+    // (Error means that game thread closed)
+    let result = start_game_request(sender, request_type);
+    async move {
+        if let Ok(wait_done) = result {
+            let _ = wait_done.await;
+        };
+    }
 }
 
 /// Sends a request to game thread and only waits until it has been sent,
@@ -1075,13 +1090,11 @@ fn send_game_request(
 fn start_game_request(
     sender: &std::sync::mpsc::Sender<GameThreadRequest>,
     request_type: GameThreadRequestType,
-) -> impl Future<Item = oneshot::Receiver<()>, Error = ()> {
+) -> Result<oneshot::Receiver<()>, ()> {
     let (request, wait_done) = GameThreadRequest::new(request_type);
-    sender
-        .send(request)
-        .into_future()
-        .map_err(|_| ())
-        .map(|_| wait_done)
+
+    sender.send(request).map_err(|_| ())?;
+    Ok(wait_done)
 }
 
 unsafe fn remaining_game_init(local_user: &LocalUser) {

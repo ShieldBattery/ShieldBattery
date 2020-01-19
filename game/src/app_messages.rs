@@ -61,13 +61,19 @@ pub struct MapInfo {
     // This object is literally completely different between playing a game and watching a replay
     pub is_replay: Option<bool>,
     pub hash: Option<String>,
-    pub height: Option<u32>,
-    pub width: Option<u32>,
-    pub ums_slots: Option<u8>,
-    pub slots: Option<u8>,
-    pub tileset: Option<String>,
+    pub map_data: Option<MapData>,
     pub name: Option<String>,
     pub path: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapData {
+    pub height: u16,
+    pub width: u16,
+    pub ums_slots: u8,
+    pub slots: u8,
+    pub tileset: String,
 }
 
 pub fn bw_tileset_from_str(val: &str) -> Option<u8> {

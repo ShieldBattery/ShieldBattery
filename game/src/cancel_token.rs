@@ -1,24 +1,27 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::task::{self, Poll};
 
-use tokio::prelude::*;
+use futures::prelude::*;
 use tokio::sync::oneshot;
 
-// `CancelToken` is a future resolves to `Err(Canceled)`, if its corresponding `Canceler`
-// is dropped.
-//
-// The idea is to bind canceler in some future that receives the result, and send cancel token
-// to the task that calculates it. That task can then do `cancel_token.bind(cancelable_part)`
-// to stop cancelable_part if the receiving future gets dropped.
-//
-// Obviously this concept isn't necessary at all if all the work is contained in the result future
-// itself without any inter-task-communication, but that won't really work with state that is
-// shared with tasks. Or, in other words, CancelToken is only used to cancel tasks that are
-// spawned to a executor; if there's no need to spawn anything, canceling will happen
-// automatically.
-//
-// Since it's common to use oneshot channels to send results between these kinds of tasks,
-// a `cancelable_channel` function is also provided which cancels the sender's side if
-// receiver is dropped.
+/// `CancelToken` is a future resolves to `Err(Canceled)`, if its corresponding `Canceler`
+/// is dropped.
+///
+/// The idea is to bind canceler in some future that receives the result, and send cancel token
+/// to the task that calculates it. That task can then do `cancel_token.bind(cancelable_part)`
+/// to stop cancelable_part if the receiving future gets dropped.
+///
+/// Obviously this concept isn't necessary at all if all the work is contained in the result
+/// future itself without any inter-task-communication, but that won't really work with state
+/// that is shared with tasks. Or, in other words, CancelToken is only used to cancel tasks that
+/// are spawned to a executor; if there's no need to spawn anything, canceling will happen
+/// automatically.
+///
+/// Since it's common to use oneshot channels to send results between these kinds of tasks,
+/// a `cancelable_channel` function is also provided which cancels the sender's side if
+/// receiver is dropped.
 pub struct CancelToken(oneshot::Receiver<()>);
 pub struct Canceler(oneshot::Sender<()>);
 
@@ -54,15 +57,14 @@ impl CancelToken {
         (CancelToken(recv), Canceler(send))
     }
 
-    pub fn bind<F, I>(self, future: F) -> impl Future<Item = I, Error = ()>
+    pub fn bind<F, I>(self, future: F) -> impl Future<Output = Result<I, ()>>
     where
-        F: Future<Item = I, Error = ()>,
+        F: Future<Output = I> + Unpin,
     {
-        self.0
-            .then(|_| Err(()))
-            .select(future)
-            .map(|x| x.0)
-            .map_err(|_| ())
+        future::select(
+            self.0.then(|_| future::err(())),
+            future.map(Ok),
+        ).map(|x| x.factor_first().0)
     }
 }
 
@@ -80,30 +82,27 @@ pub fn cancelable_channel<T>() -> (CancelableSender<T>, CancelableReceiver<T>) {
     (sender, receiver)
 }
 
-impl<A, B> CancelableSender<Result<A, B>> {
+impl<A> CancelableSender<A> {
     /// Creates a future which sends the result of inner future over channel on success,
     /// and cancels immediately on receiver drop.
-    pub fn send_result<F>(self, future: F) -> impl Future<Item = (), Error = ()>
+    pub fn send_result<F>(self, future: F) -> impl Future<Output = ()>
     where
-        F: Future<Item = A, Error = B>,
+        F: Future<Output = A> + Unpin,
     {
         let sender = self.sender;
-        self.token
-            .0
-            .map_err(|_| ())
-            .select(future.then(|result| {
+        future::select(
+            self.token.0,
+            future.then(|result| {
                 let _ = sender.send(result);
-                Ok(())
-            }))
-            .map(|_| ())
-            .map_err(|_| ())
+                future::ready(())
+            }),
+        ).map(|_| ())
     }
 }
 
 impl<T> Future for CancelableReceiver<T> {
-    type Item = T;
-    type Error = ();
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.receiver.poll().map_err(|_| ())
+    type Output = Result<T, ()>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Self::Output> {
+        Pin::new(&mut self.receiver).poll(cx).map_err(|_| ())
     }
 }

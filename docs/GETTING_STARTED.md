@@ -44,7 +44,7 @@ resulting DLL and other necessary support files to `game/dist`, where the JavaSc
 them to be. The build defaults to the quicker debug build, to build the optimized version run
 `build.bat release`.
 
-If the required minimum Rust version is changed (1.33 as of this writing), you can update the Rust
+If the required minimum Rust version is changed (1.40 as of this writing), you can update the Rust
 toolchain by running `rustup update`.
 
 ### Server software

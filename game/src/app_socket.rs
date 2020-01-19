@@ -1,31 +1,32 @@
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
-use futures::future::{self, Either};
+use futures::prelude::*;
 use quick_error::{quick_error, ResultExt};
 use serde::{Deserialize, Serialize};
-use tokio::prelude::*;
+use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tokio::timer::Delay;
-use websocket::r#async::client::{ClientNew, TcpStream};
-use websocket::{self, OwnedMessage};
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::tungstenite::handshake::client::Response as HandshakeResponse;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 
-use crate::box_future;
 use crate::cancel_token::SharedCanceler;
 use crate::game_state::{self, GameStateMessage};
 
-pub type SendMessages = mpsc::Sender<websocket::OwnedMessage>;
+pub type SendMessages = mpsc::Sender<WsMessage>;
 
-fn connect_to_app() -> ClientNew<TcpStream> {
+type WebSocketStream = tokio_tungstenite::WebSocketStream<TcpStream>;
+
+async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungstenite::Error> {
     let args = crate::parse_args();
-    let url = format!("ws://127.0.0.1:{}", args.server_port);
+    let url = url::Url::parse(&format!("ws://127.0.0.1:{}", args.server_port)).unwrap();
     info!("Connecting to {} ...", url);
-    let mut headers = websocket::header::Headers::new();
-    headers.append_raw("x-game-id", args.game_id.into());
-    websocket::ClientBuilder::new(&url)
-        .unwrap()
-        .origin("BROODWARS".into())
-        .custom_headers(&headers)
-        .async_connect_insecure()
+    tokio_tungstenite::connect_async(tungstenite::handshake::client::Request {
+        url,
+        extra_headers: Some(vec![
+            ("Origin".into(), "BROODWARS".into()),
+            ("x-game-id".into(), args.game_id.into()),
+        ]),
+    }).await
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
@@ -39,10 +40,11 @@ enum ConnectionEndReason {
 /// stream or message channel being closed will cause the future to
 /// resolve to a success.
 fn app_websocket_connection(
-    recv_messages: mpsc::Receiver<OwnedMessage>,
+    client: WebSocketStream,
+    recv_messages: mpsc::Receiver<WsMessage>,
     game_send: &game_state::SendMessages,
     async_stop: &SharedCanceler,
-) -> impl Future<Item = ConnectionEndReason, Error = ()> {
+) -> impl Future<Output = ConnectionEndReason> {
     // To terminate the select() below, chain errors to both input streams,
     // but we want those errors to be a success for the returned future.
     #[derive(Eq, PartialEq, Copy, Clone, Debug)]
@@ -51,186 +53,108 @@ fn app_websocket_connection(
         No,
     }
 
-    let game_send = game_send.clone();
+    let mut game_send = game_send.clone();
     let async_stop = async_stop.clone();
-    connect_to_app()
-        .or_else(|e| {
-            error!("Couldn't connect to Shieldbattery: {}", e);
-            box_future(
-                // We don't care about timer errors?
-                Delay::new(Instant::now() + Duration::from_millis(1000)).then(|_| Err(())),
-            )
-        })
-        .and_then(move |(client, _headers)| {
-            info!("Connected to Shieldbattery app");
+    future::ready(())
+        .then(|()| {
             let recv_messages = recv_messages
-                .map(|x| MessageResult::WebSocket(x))
-                .map_err(|_| WasCloseErr::No)
+                .map(|x| Ok(MessageResult::WebSocket(x)))
                 .chain({
-                    Err(WasCloseErr::Yes(ConnectionEndReason::MpscChannelClosed))
-                        .into_future()
+                    future::err(WasCloseErr::Yes(ConnectionEndReason::MpscChannelClosed))
                         .into_stream()
                 });
-            let (ws_sink, stream) = client.split();
-            let stream_done = stream
-                .map_err(|e| {
-                    error!("Error reading websocket stream: {}", e);
-                    WasCloseErr::No
-                })
-                .chain({
-                    Err(WasCloseErr::Yes(ConnectionEndReason::SocketClosed))
-                        .into_future()
-                        .into_stream()
-                })
-                .filter_map(|message| match message {
-                    OwnedMessage::Text(text) => match handle_app_message(text) {
-                        Ok(o) => Some(o),
-                        Err(e) => {
-                            error!("Error handling message: {}", e);
-                            None
-                        }
-                    },
-                    OwnedMessage::Ping(ping) => {
-                        Some(MessageResult::WebSocket(OwnedMessage::Pong(ping)))
-                    }
-                    OwnedMessage::Close(e) => {
-                        Some(MessageResult::WebSocket(OwnedMessage::Close(e)))
-                    }
-                    _ => None,
-                })
-                .select(recv_messages)
-                .fold(
-                    (game_send, ws_sink),
-                    move |(game_send, ws_sink), message| match message {
+            let (mut ws_sink, stream) = client.split();
+            let mut streams = stream::select(
+                stream
+                    .map_err(|e| {
+                        error!("Error reading websocket stream: {}", e);
+                        WasCloseErr::No
+                    })
+                    .chain({
+                        future::err(WasCloseErr::Yes(ConnectionEndReason::SocketClosed))
+                            .into_stream()
+                    })
+                    .try_filter_map(|message| {
+                        let filtered = match message {
+                            WsMessage::Text(text) => match handle_app_message(text) {
+                                Ok(o) => Some(o),
+                                Err(e) => {
+                                    error!("Error handling message: {}", e);
+                                    None
+                                }
+                            },
+                            WsMessage::Ping(ping) => {
+                                Some(MessageResult::WebSocket(WsMessage::Pong(ping)))
+                            }
+                            WsMessage::Close(e) => {
+                                Some(MessageResult::WebSocket(WsMessage::Close(e)))
+                            }
+                            _ => None,
+                        };
+                        future::ok(filtered)
+                    }),
+                recv_messages,
+            );
+            async move {
+                while let Some(message) = streams.next().await {
+                    match message? {
                         MessageResult::WebSocket(ws) => {
                             debug!("Sending message: {:?}", ws);
-                            let future = ws_sink
-                                .send(ws)
-                                .map_err(|e| {
-                                    error!("Error sending to websocket sink: {}", e);
-                                    WasCloseErr::No
-                                })
-                                .map(move |x| (game_send, x));
-                            Either::A(future)
+                            if let Err(e) = ws_sink.send(ws).await {
+                                error!("Error sending to websocket sink: {}", e);
+                                return Err(WasCloseErr::No);
+                            }
                         }
                         MessageResult::Game(msg) => {
-                            let future = game_send
-                                .send(msg)
-                                .map_err(|_| WasCloseErr::No)
-                                .map(move |x| (x, ws_sink));
-                            Either::B(box_future(future))
+                            game_send.send(msg).await.map_err(|_| WasCloseErr::No)?;
                         }
                         MessageResult::Stop => {
                             async_stop.cancel();
-                            Either::B(box_future(future::ok((game_send, ws_sink))))
                         }
-                    },
-                )
-                .map(|_| ())
-                .then(|result| match result {
+                    }
+                }
+                Ok(())
+            }.map(|result| {
+                match result {
                     Ok(()) => {
                         // Wait, both input streams closed before either's chained error
                         // was received?? Just tell websocket was first.
-                        Ok(ConnectionEndReason::SocketClosed)
+                        ConnectionEndReason::SocketClosed
                     }
-                    Err(WasCloseErr::Yes(reason)) => Ok(reason),
-                    Err(WasCloseErr::No) => Err(()),
-                });
-            stream_done
+                    Err(WasCloseErr::Yes(reason)) => reason,
+                    Err(WasCloseErr::No) => ConnectionEndReason::MpscChannelClosed,
+                }
+            }).boxed()
         })
 }
 
 pub fn websocket_connection_future(
     game_send: &game_state::SendMessages,
     async_stop: &SharedCanceler,
-    recv_messages: mpsc::Receiver<OwnedMessage>,
-) -> impl Future<Item = (), Error = ()> {
-    // Reconnect if the connection gets lost.
-    // This ends up being pretty bad anyway, since
-    // 1) We just connect to another process on the local system, so ideally the connection
-    // never drops.
-    // 2) We cannot tell if the messages that were sent right before connection was lost were
-    // received, so this just ends up hoping they were (though they likely were not).
-    // 3) A realistic reason for the reconnection would be user closing and reopening the client
-    // program, but at that point we have no way to know what port it binds to, and it would
-    // just tell us quit as it doesn't know about us/doesn't track game state across
-    // closing/reopening.
-    // 4) The app currently just thinks that a new connection means to start again from
-    // configuration, to which this obviously just replies with an error and gets killed by
-    // the app.
-    //
-    // Point 2) could be solved by resending what didn't end up being sent succesfully -
-    // maybe messages should have an seq/id field so the receiving end doesn't handle them twice,
-    // but for now let's just keep hoping that the connection during stateful part (init) is
-    // stable, and sending window move/etc misc info is less important.
-    //
-    // Implementing this just by using future combinators as is done below ends up being ugly,
-    // we have to create one subtask that creates connections, and another which sits between it
-    // and the outer world, as there isn't a ready-made way to rescue mspc::Sender from a task
-    // which ends due to receiving end being dropped. (It kind of does make sense for future
-    // APIs to not expose any way to do that, considering that there again isn't any guarantee
-    // how many of the sent messages got handled).
-    //
-    // The better solution would be to create a proper
-    // ReconnectingWebSocketStream: futures::Stream<OwnedMessage> + futures::Sink<OwnedMessage>
-    // (And a stream combinator that does buffering/forwarding/doesn't lose messages that
-    // weren't confirmed flushed), but I'm hoping Rust async libraries improve/stabilize before
-    // that, and for now this should do and have same guarantees as the older c++/js code.
-
+    recv_messages: mpsc::Receiver<WsMessage>,
+) -> impl Future<Output = ()> {
     let game_send = game_send.clone();
     let async_stop = async_stop.clone();
-    let (send1, send2) = futures::sync::BiLock::new(None);
-    let repeat_connection = futures::stream::repeat(())
-        .fold(send1, move |send, ()| {
-            let (current_send, current_recv) = mpsc::channel(8);
-            let current_send =
-                current_send.with_flat_map(|vec: Vec<OwnedMessage>| futures::stream::iter_ok(vec));
-
-            let game_send = game_send.clone();
-            let async_stop = async_stop.clone();
-            send.lock().and_then(move |mut locked| {
-                *locked = Some(current_send);
-                let lock = locked.unlock();
-                let connection = app_websocket_connection(current_recv, &game_send, &async_stop);
-                connection.then(|result| match result {
-                    Ok(ConnectionEndReason::SocketClosed) | Err(()) => Ok(lock),
-                    // Ends the repeat
-                    Ok(ConnectionEndReason::MpscChannelClosed) => Err(()),
-                })
-            })
-        })
-        .map(|_| ())
-        .or_else(|()| Ok(()));
-    // Buffer messages if there isn't a connection active
-    let buffer = Vec::new();
-    let forward_messages_to_current_connection = recv_messages
-        .map_err(|_| ())
-        .fold((send2, buffer), move |(send, mut buffer), msg| {
-            send.lock().and_then(move |mut locked| {
-                if let Some(send) = locked.take() {
-                    buffer.push(msg);
-                    let future = send.send(buffer).then(|result| {
-                        match result {
-                            Ok(send) => *locked = Some(send),
-                            Err(_) => *locked = None,
-                        };
-                        Ok((locked.unlock(), Vec::new()))
-                    });
-                    Either::A(future)
-                } else {
-                    Either::B(Ok((locked.unlock(), buffer)).into_future())
+    async move {
+        // Retry as long as this fails to connect.
+        loop {
+            let (client, _response) = match connect_to_app().await {
+                Ok(o) => o,
+                Err(e) => {
+                    error!("Couldn't connect to Shieldbattery: {}", e);
+                    tokio::time::delay_for(Duration::from_millis(1000)).await;
+                    continue;
                 }
-            })
-        })
-        .map(|_| ());
-    repeat_connection
-        .select(forward_messages_to_current_connection)
-        .map(|_| ())
-        .map_err(|_| ())
+            };
+            info!("Connected to Shieldbattery app");
+            app_websocket_connection(client, recv_messages, &game_send, &async_stop).await;
+            return;
+        }
+    }
 }
 
 enum MessageResult {
-    WebSocket(websocket::OwnedMessage),
+    WebSocket(WsMessage),
     Game(GameStateMessage),
     Stop,
 }
@@ -283,15 +207,15 @@ struct Message {
     payload: Option<serde_json::Value>,
 }
 
-pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<OwnedMessage> {
-    fn inner<T: Serialize>(command: &str, data: T) -> Result<OwnedMessage, serde_json::Error> {
+pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<WsMessage> {
+    fn inner<T: Serialize>(command: &str, data: T) -> Result<WsMessage, serde_json::Error> {
         let payload = serde_json::to_value(data)?;
         let message = Message {
             command: command.into(),
             payload: Some(payload),
         };
         let string = serde_json::to_string(&message)?;
-        Ok(OwnedMessage::Text(string))
+        Ok(WsMessage::Text(string))
     }
     match inner(command, data) {
         Ok(o) => Some(o),
@@ -302,14 +226,16 @@ pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<OwnedMessa
     }
 }
 
-pub fn send_message<T: serde::Serialize>(
-    send: mpsc::Sender<OwnedMessage>,
+pub fn send_message<'a, T: serde::Serialize>(
+    send: &'a mut mpsc::Sender<WsMessage>,
     command: &str,
     data: T,
-) -> impl Future<Item = mpsc::Sender<OwnedMessage>, Error = ()> {
+) -> impl Future<Output = Result<(), ()>> + 'a {
     let message = encode_message(command, data);
-    match message {
-        Some(o) => box_future(send.send(o).map_err(|_| ())),
-        None => box_future(Err(()).into_future()),
+    async move {
+        match message {
+            Some(o) => send.send(o).await.map_err(|_| ()),
+            None => Err(()),
+        }
     }
 }
