@@ -56,15 +56,9 @@ pub unsafe fn player_joined(info: *mut c_void, orig: unsafe extern fn(*mut c_voi
 
 /// Sends a message from game thread to the async system.
 pub fn game_thread_message(message: GameThreadMessage) {
-    use futures::{Future, Sink};
-    // Hopefully waiting on a future (that should immediatly resolve)
-    // on the main thread isn't unnecessarily slow.
-    // Could use std::sync::mpsc channel if it is.
-    let mut send_global = SEND_FROM_GAME_THREAD.lock().unwrap();
-    if let Some(send) = send_global.take() {
-        if let Ok(send) = send.send(message).wait() {
-            *send_global = Some(send);
-        }
+    let send_global = SEND_FROM_GAME_THREAD.lock().unwrap();
+    if let Some(ref send) = *send_global {
+        let _ = send.send(message);
     } else {
         debug!("Game thread messaging not active");
     }

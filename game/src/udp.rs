@@ -13,8 +13,10 @@ use std::io;
 use std::mem;
 use std::net::{SocketAddr, SocketAddrV6, UdpSocket};
 use std::os::windows::io::FromRawSocket;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::task::{self, Poll};
 
 use bytes::Bytes;
 use futures::prelude::*;
@@ -92,7 +94,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
     debug!("UDP socket bound to {:?}", socket.local_addr());
     let socket2 = socket.try_clone()?;
     let (send, recv) = std::sync::mpsc::channel();
-    let (mut send_result, recv_result) = unbounded_channel();
+    let (send_result, recv_result) = unbounded_channel();
     std::thread::spawn(move || {
         while let Ok((val, addr)) = recv.recv() {
             let val: Bytes = val;
@@ -109,7 +111,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
                 }
                 Err(e) => Err(e),
             };
-            if let Err(_) = send_result.try_send(result) {
+            if let Err(_) = send_result.send(result) {
                 break;
             }
         }
@@ -122,7 +124,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
     };
     let closed = Arc::new(AtomicBool::new(false));
     let closed2 = closed.clone();
-    let (mut send, recv) = unbounded_channel();
+    let (send, recv) = unbounded_channel();
     std::thread::spawn(move || {
         let mut buf = vec![0; 1024];
         loop {
@@ -130,10 +132,13 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
                 break;
             }
             let result = match socket2.recv_from(&mut buf) {
-                Ok((n, addr)) => Ok(((&buf[..n]).into(), to_ipv6_addr(&addr))),
+                Ok((n, addr)) => {
+                    let bytes = Bytes::copy_from_slice(&buf[..n]);
+                    Ok((bytes, to_ipv6_addr(&addr)))
+                }
                 Err(e) => Err(e),
             };
-            if let Err(_) = send.try_send(result) {
+            if let Err(_) = send.send(result) {
                 break;
             }
         }
@@ -153,97 +158,54 @@ impl Drop for UdpRecv {
 }
 
 impl Stream for UdpRecv {
-    type Item = (Bytes, SocketAddrV6);
-    type Error = io::Error;
+    type Item = Result<(Bytes, SocketAddrV6), io::Error>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, io::Error> {
-        match self.thread_receiver.poll() {
-            Ok(Async::Ready(Some(Ok(data)))) => Ok(Async::Ready(Some(data))),
-            Ok(Async::Ready(Some(Err(e)))) => Err(e),
-            Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
-        }
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.thread_receiver).poll_next(cx)
     }
 }
 
-impl Sink for UdpSend {
-    type SinkItem = (Bytes, SocketAddr);
-    type SinkError = io::Error;
+impl Sink<(Bytes, SocketAddr)> for UdpSend {
+    type Error = io::Error;
 
-    fn start_send(&mut self, data: Self::SinkItem) -> StartSend<Self::SinkItem, io::Error> {
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut task::Context) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn start_send(mut self: Pin<&mut Self>, data: (Bytes, SocketAddr)) -> Result<(), io::Error> {
         match self.thread_sender.send((data.0, to_ipv6_addr(&data.1))) {
             Ok(()) => {
                 self.pending_results += 1;
-                Ok(AsyncSink::Ready)
+                Ok(())
             }
             Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
         }
     }
 
-    fn poll_complete(&mut self) -> Poll<(), io::Error> {
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut task::Context,
+    ) -> Poll<Result<(), io::Error>> {
         while self.pending_results != 0 {
-            match self.results.poll() {
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
-                Ok(Async::Ready(Some(Ok(())))) => {
+            match Pin::new(&mut self.results).poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Some(Ok(()))) => {
                     self.pending_results -= 1;
                 }
-                Ok(Async::Ready(Some(Err(e)))) => {
+                Poll::Ready(Some(Err(e))) => {
                     self.pending_results -= 1;
-                    return Err(e);
+                    return Poll::Ready(Err(e));
                 }
-                Ok(Async::Ready(None)) => {
+                Poll::Ready(None) => {
                     let err = io::Error::new(io::ErrorKind::Other, "Child thread has closed");
-                    return Err(err);
-                }
-                Err(e) => {
-                    return Err(io::Error::new(io::ErrorKind::Other, e));
+                    return Poll::Ready(Err(err));
                 }
             }
         }
-        Ok(Async::Ready(()))
+        Poll::Ready(Ok(()))
     }
-}
 
-impl UdpSend {
-    /// Allows recovering the UdpSend even on errors.
-    pub fn send_recoverable(self, val: (Bytes, SocketAddr)) -> SendRecoverable {
-        SendRecoverable {
-            socket: Some(self),
-            val: Some(val),
-        }
-    }
-}
-
-pub struct SendRecoverable {
-    socket: Option<UdpSend>,
-    val: Option<(Bytes, SocketAddr)>,
-}
-
-impl Future for SendRecoverable {
-    type Item = UdpSend;
-    type Error = (io::Error, UdpSend);
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let mut socket = self.socket.take().expect("Poll called after end");
-        if let Some(val) = self.val.take() {
-            match socket.start_send(val) {
-                Ok(AsyncSink::Ready) => (),
-                Ok(AsyncSink::NotReady(val)) => {
-                    self.val = Some(val);
-                    self.socket = Some(socket);
-                    return Ok(Async::NotReady);
-                }
-                Err(e) => return Err((e, socket)),
-            }
-        }
-        match socket.poll_complete() {
-            Ok(Async::Ready(())) => Ok(Async::Ready(socket)),
-            Ok(Async::NotReady) => {
-                self.socket = Some(socket);
-                Ok(Async::NotReady)
-            }
-            Err(e) => Err((e, socket)),
-        }
+    fn poll_close(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), io::Error>> {
+        self.poll_flush(cx)
     }
 }

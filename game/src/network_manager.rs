@@ -1,17 +1,16 @@
 use std::collections::hash_map::{Entry, HashMap};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 use bytes::Bytes;
-use futures::future::{self, Either};
+use futures::prelude::*;
+use futures::pin_mut;
 use quick_error::quick_error;
-use tokio::prelude::*;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages;
 use crate::app_messages::Route as RouteInput;
-use crate::box_future;
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::rally_point::{PlayerId, RallyPoint, RallyPointError, RouteId};
 use crate::snp::{self, SnpMessage};
@@ -50,7 +49,6 @@ quick_error! {
 }
 
 type Result<T> = std::result::Result<T, NetworkError>;
-type BoxedFuture<T> = crate::BoxedFuture<T, NetworkError>;
 
 #[derive(Debug)]
 pub struct Route {
@@ -128,70 +126,68 @@ impl NetworkState {
 }
 
 impl State {
-    fn join_routes(&mut self, setup: Vec<RouteInput>) -> BoxedFuture<Vec<Arc<Route>>> {
+    fn join_routes(
+        &mut self,
+        setup: Vec<RouteInput>,
+    ) -> impl Future<Output = Result<Vec<Arc<Route>>>> {
         let futures = setup
             .into_iter()
             .map(|route| {
                 let route = Arc::new(route);
                 let route1 = route.clone();
-                let send_messages = self.send_messages.clone();
+                let mut send_messages = self.send_messages.clone();
                 let rally_point = self.rally_point.clone();
-                self.pick_server(&route.server)
-                    .and_then(move |server| {
-                        let route_id = RouteId::from_string(&route1.route_id);
-                        let player_id = PlayerId::from_u32(route1.player_id);
-                        let timeout = Duration::from_millis(5000);
-                        // Route id logged twice since we move from string to u64 here,
-                        // have one line where they both are shown to connect them in case.
-                        debug!(
-                            "Picked server {:?} for route {:?} ({})",
-                            server, route_id, route1.route_id,
-                        );
-                        rally_point
-                            .join_route(server.address, route_id, player_id, timeout)
-                            .map(move |()| {
-                                debug!(
-                                    "Connected to {} for id {} [{:?}]",
-                                    route1.server.desc, route1.for_player, route_id,
-                                );
-                                let route = Route {
-                                    route_id: route_id,
-                                    player_id: player_id,
-                                    lobby_player_id: route1.for_player.clone(),
-                                    address: server.address,
-                                };
-                                (rally_point, route)
-                            })
-                            .map_err(|e| NetworkError::RallyPoint(Arc::new(e)))
-                    })
-                    .and_then(move |(rally_point, route)| {
-                        let route = Arc::new(route);
-                        let ready = rally_point
-                            .wait_route_ready(&route.route_id, &route.address)
-                            .map_err(|e| NetworkError::RallyPoint(Arc::new(e)));
-                        send_messages
-                            .send(NetworkManagerMessage::StartKeepAlive(route.clone()))
-                            .map_err(|_| NetworkError::NotActive)
-                            .and_then(move |_| ready)
-                            .map(|()| route)
-                            .inspect(|route| debug!("Route [{:?}] is ready", route.route_id))
-                    })
+                let server_future = self.pick_server(&route.server);
+                async move {
+                    let server = server_future.await?;
+                    let route_id = RouteId::from_string(&route1.route_id);
+                    let player_id = PlayerId::from_u32(route1.player_id);
+                    let timeout = Duration::from_millis(5000);
+                    // Route id logged twice since we move from string to u64 here,
+                    // have one line where they both are shown to connect them in case.
+                    debug!(
+                        "Picked server {:?} for route {:?} ({})",
+                        server, route_id, route1.route_id,
+                    );
+                    rally_point
+                        .join_route(server.address, route_id, player_id, timeout).await
+                        .map_err(|e| NetworkError::RallyPoint(Arc::new(e)))?;
+
+                    debug!(
+                        "Connected to {} for id {} [{:?}]",
+                        route1.server.desc, route1.for_player, route_id,
+                    );
+                    let route = Arc::new(Route {
+                        route_id: route_id,
+                        player_id: player_id,
+                        lobby_player_id: route1.for_player.clone(),
+                        address: server.address,
+                    });
+                    rally_point
+                        .wait_route_ready(&route.route_id, &route.address).await
+                        .map_err(|e| NetworkError::RallyPoint(Arc::new(e)))?;
+                    send_messages
+                        .send(NetworkManagerMessage::StartKeepAlive(route.clone())).await
+                        .map_err(|_| NetworkError::NotActive)?;
+                    debug!("Route [{:?}] is ready", route.route_id);
+                    Ok(route)
+                }
             })
             .collect::<Vec<_>>();
-        box_future(future::join_all(futures))
+        future::try_join_all(futures)
     }
 
     fn pick_server(
         &mut self,
         input: &app_messages::RallyPointServer,
-    ) -> BoxedFuture<RallyPointServer> {
+    ) -> impl Future<Output = Result<RallyPointServer>> {
         let key = match (&input.address6, &input.address4) {
             (&Some(ref a), _) => (a.clone(), input.port),
             (_, &Some(ref a)) => (a.clone(), input.port),
-            (&None, &None) => return box_future(future::err(NetworkError::NoServerAddress)),
+            (&None, &None) => return future::err(NetworkError::NoServerAddress).boxed(),
         };
         if let Some(server) = self.pings.results.get(&key) {
-            box_future(future::result(server.clone()))
+            future::ready(server.clone()).boxed()
         } else {
             let (send, recv) = oneshot::channel();
             let entry = self.pings.pings_in_progress.entry(key.clone());
@@ -199,15 +195,18 @@ impl State {
             let rally_point = &self.rally_point;
             entry
                 .or_insert_with(|| {
-                    let sender = send_messages.clone();
-                    let ping_task = ping_server(rally_point, input).then(|result| {
-                        sender
-                            .send(NetworkManagerMessage::PingResult(key, result))
-                            .map(|_| ())
-                            .map_err(|_| ())
-                    });
+                    let mut sender = send_messages.clone();
                     let (cancel_token, canceler) = CancelToken::new();
-                    tokio::spawn(cancel_token.bind(ping_task));
+                    let ping = ping_server(rally_point, input);
+                    let cancelable = async move {
+                        let result = ping.await;
+                        let task = async move {
+                            sender.send(NetworkManagerMessage::PingResult(key, result)).await
+                        };
+                        pin_mut!(task);
+                        let _ = cancel_token.bind(task).await;
+                    };
+                    tokio::spawn(cancelable);
                     Ping {
                         retry_count: 3,
                         waiters: Vec::new(),
@@ -217,7 +216,9 @@ impl State {
                 })
                 .waiters
                 .push(send);
-            box_future(recv.map_err(|_| NetworkError::NotActive).flatten())
+            recv.map_err(|_| NetworkError::NotActive)
+                .and_then(|x| future::ready(x))
+                .boxed()
         }
     }
 
@@ -233,16 +234,19 @@ impl State {
             } else {
                 let ping = ping.get_mut();
                 ping.retry_count -= 1;
-                let sender = self.send_messages.clone();
-                let ping_task = ping_server(&self.rally_point, &ping.input).then(|result| {
-                    sender
-                        .send(NetworkManagerMessage::PingResult(key, result))
-                        .map(|_| ())
-                        .map_err(|_| ())
-                });
+                let mut sender = self.send_messages.clone();
+                let ping_result = ping_server(&self.rally_point, &ping.input);
                 let (cancel_token, canceler) = CancelToken::new();
+                let cancelable = async move {
+                    let result = ping_result.await;
+                    let task = async move {
+                        sender.send(NetworkManagerMessage::PingResult(key, result)).await
+                    };
+                    pin_mut!(task);
+                    let _ = cancel_token.bind(task).await;
+                };
                 ping.canceler = canceler;
-                tokio::spawn(cancel_token.bind(ping_task));
+                tokio::spawn(cancelable);
             }
         }
     }
@@ -256,15 +260,18 @@ impl State {
         match message {
             NetworkManagerMessage::Routes(setup) => {
                 let future = self.join_routes(setup);
-                let send = self.send_messages.clone();
-                let task = future.then(|result| {
-                    send.send(NetworkManagerMessage::RoutesReady(result))
-                        .map(|_| ())
-                        .map_err(|_| ())
-                });
+                let mut send = self.send_messages.clone();
                 let (cancel_token, canceler) = CancelToken::new();
+                let cancelable = async move {
+                    let task = async move {
+                        let result = future.await;
+                        let _ = send.send(NetworkManagerMessage::RoutesReady(result)).await;
+                    };
+                    pin_mut!(task);
+                    let _ = cancel_token.bind(task).await;
+                };
                 self.cancel_child_tasks.push(canceler);
-                tokio::spawn(cancel_token.bind(task));
+                tokio::spawn(cancelable);
             }
             NetworkManagerMessage::PingResult(key, result) => {
                 self.handle_ping_result(key, result);
@@ -314,7 +321,7 @@ impl State {
                                 )
                             })
                             .collect::<Vec<_>>();
-                        let task = future::join_all(sends)
+                        let task = future::try_join_all(sends)
                             .map_err(|e| error!("Send error {}", e))
                             .map(|_| ());
                         let (cancel_token, canceler) = CancelToken::new();
@@ -333,16 +340,24 @@ impl State {
             }
             NetworkManagerMessage::StartKeepAlive(route) => {
                 let rally_point = self.rally_point.clone();
-                let task = tokio::timer::Interval::new(Instant::now(), Duration::from_millis(500))
-                    .map_err(|_| ())
-                    .for_each(move |_| {
-                        rally_point
-                            .keep_alive(&route.route_id, route.player_id, &route.address)
-                            .map_err(|_| ())
-                    });
                 let (cancel_token, canceler) = CancelToken::new();
+                let cancelable = async move {
+                    let task = async move {
+                        let mut interval = tokio::time::interval(Duration::from_millis(500));
+                        while let Some(_) = interval.next().await {
+                            let result = rally_point
+                                .keep_alive(&route.route_id, route.player_id, &route.address)
+                                .await;
+                            if result.is_err() {
+                                break;
+                            }
+                        }
+                    };
+                    pin_mut!(task);
+                    let _ = cancel_token.bind(task).await;
+                };
                 self.keep_routes_alive.push(canceler);
-                tokio::spawn(cancel_token.bind(task));
+                tokio::spawn(cancelable);
                 // TODO when should this stop?
                 // Doesn't hurt to keep them active but old code stopped them once storm
                 // became active.
@@ -408,13 +423,13 @@ impl State {
                 let stream = self
                     .rally_point
                     .listen_route_data(&route.route_id, &route.address)
-                    .for_each(move |message| {
+                    .try_for_each(move |message| {
                         let message = snp::ReceivedMessage {
                             from: ip,
                             data: message,
                         };
                         snp_send.send(message);
-                        Ok(())
+                        future::ok(())
                     })
                     .map_err(move |e| {
                         // I don't think there's much sense to kill network for this
@@ -442,19 +457,19 @@ impl State {
 fn ping_server(
     rally_point: &RallyPoint,
     input: &app_messages::RallyPointServer,
-) -> BoxedFuture<RallyPointServer> {
+) -> impl Future<Output = Result<RallyPointServer>> {
     fn ping_server_string(
         rally_point: &RallyPoint,
         input: &Option<String>,
         port: u16,
-    ) -> impl Future<Item = RallyPointServer, Error = NetworkError> {
+    ) -> impl Future<Output = Result<RallyPointServer>> {
         match input {
             Some(s) => match s.parse::<IpAddr>() {
                 Ok(ip) => {
                     let addr = SocketAddr::new(ip, port);
                     let future = rally_point
                         .ping_server(addr)
-                        .map(move |ping| RallyPointServer {
+                        .map_ok(move |ping| RallyPointServer {
                             address: addr,
                             ping,
                         })
@@ -462,21 +477,17 @@ fn ping_server(
                             error!("Rally error {}", e);
                             NetworkError::ServerUnreachable
                         });
-                    Either::A(future)
+                    future.boxed()
                 }
-                Err(_) => Either::B(future::err(NetworkError::NoServerAddress)),
+                Err(_) => future::err(NetworkError::NoServerAddress).boxed(),
             },
-            None => Either::B(future::err(NetworkError::NoServerAddress)),
+            None => future::err(NetworkError::NoServerAddress).boxed(),
         }
     }
 
     let future4 = ping_server_string(rally_point, &input.address4, input.port);
     let future6 = ping_server_string(rally_point, &input.address6, input.port);
-    let future = future4
-        .select(future6)
-        .map(|(result, _next)| result)
-        .or_else(|(_, next)| next);
-    box_future(future)
+    future::select_ok(vec![future4, future6]).map_ok(|x| x.0)
 }
 
 impl NetworkManager {
@@ -492,17 +503,17 @@ impl NetworkManager {
             keep_routes_alive: Vec::new(),
             pings: PingState::default(),
         };
-        let task = receive_messages
-            .map_err(|_| ())
-            .chain(Err(()).into_future().into_stream()) // Chain an error to end the future.
-            .select(internal_receive_messages.map_err(|_| ()))
-            .for_each(move |message| {
+        let task = stream::select(
+                receive_messages.map(Ok)
+                    .chain(future::err(()).into_stream()),
+                internal_receive_messages.map(Ok),
+            )
+            .try_for_each(move |message| {
                 state.handle_message(message);
-                Ok(())
+                future::ok(())
             })
-            .then(|_| {
+            .map(|_| {
                 debug!("Route manager task ended");
-                Ok(())
             });
         tokio::spawn(task);
         NetworkManager { send_messages }
@@ -514,42 +525,45 @@ impl NetworkManager {
     /// calling BW functions that use network is fine, messages sent here will be forwarded
     /// through rally-point, and received messages will be pushed to snp's queue + handle
     /// signaled automatically.
-    pub fn wait_network_ready(&self) -> impl Future<Item = (), Error = NetworkError> {
+    pub fn wait_network_ready(&self) -> impl Future<Output = Result<()>> {
         let (send, recv) = oneshot::channel();
-        self.send_messages
-            .clone()
-            .send(NetworkManagerMessage::WaitNetworkReady(send))
-            .map_err(|_| NetworkError::NotActive)
-            .and_then(|_| recv.map_err(|_| NetworkError::NotActive).flatten())
+        let mut sender = self.send_messages.clone();
+        async move {
+            sender.send(NetworkManagerMessage::WaitNetworkReady(send)).await
+                .map_err(|_| NetworkError::NotActive)?;
+            let result = recv.await
+                .map_err(|_| NetworkError::NotActive)?;
+            result
+        }
     }
 
     pub fn set_routes(
         &self,
         routes: Vec<RouteInput>,
-    ) -> impl Future<Item = (), Error = NetworkError> {
-        self.send_messages
-            .clone()
-            .send(NetworkManagerMessage::Routes(routes))
-            .map(|_| ())
-            .map_err(|_| NetworkError::NotActive)
+    ) -> impl Future<Output = Result<()>> {
+        let mut send = self.send_messages.clone();
+        async move {
+            send.send(NetworkManagerMessage::Routes(routes)).await
+                .map_err(|_| NetworkError::NotActive)
+        }
     }
 
-    pub fn send_snp_message(&self, message: SnpMessage) -> impl Future<Item = (), Error = ()> {
-        self.send_messages
-            .clone()
-            .send(NetworkManagerMessage::Snp(message))
-            .map(|_| ())
-            .map_err(|_| ())
+    pub fn send_snp_message(&self, message: SnpMessage) -> impl Future<Output = Result<()>> {
+        let mut send = self.send_messages.clone();
+        async move {
+            send.send(NetworkManagerMessage::Snp(message)).await
+                .map_err(|_| NetworkError::NotActive)
+        }
     }
 
     pub fn set_game_info(
         &self,
         info: Arc<app_messages::GameSetupInfo>,
-    ) -> impl Future<Item = (), Error = NetworkError> {
-        self.send_messages
-            .clone()
-            .send(NetworkManagerMessage::SetGameInfo(info))
-            .map(|_| ())
-            .map_err(|_| NetworkError::NotActive)
+    ) -> impl Future<Output = Result<()>> {
+        let mut send = self.send_messages.clone();
+        async move {
+            send.send(NetworkManagerMessage::SetGameInfo(info)).await
+                .map_err(|_| NetworkError::NotActive)
+        }
     }
 }

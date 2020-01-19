@@ -29,7 +29,6 @@ use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
 use libc::c_void;
-use tokio::prelude::*;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 use winapi::um::winnt::HANDLE;
 
@@ -39,7 +38,7 @@ use crate::game_thread::GameThreadMessage;
 const WAIT_DEBUGGER: bool = false;
 
 fn remove_lines(file: &mut File, limit: usize, truncate_to: usize) -> io::Result<()> {
-    use io::{BufRead, BufReader, Seek, SeekFrom};
+    use io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 
     assert!(limit >= truncate_to);
     // This implementation is obviously somewhat inefficient but does the job.
@@ -67,7 +66,9 @@ fn remove_lines(file: &mut File, limit: usize, truncate_to: usize) -> io::Result
 }
 
 fn log_file() -> File {
+    use std::io::Write;
     use std::os::windows::fs::OpenOptionsExt;
+
     let args = parse_args();
     let dir = args.user_data_path.join("logs");
     let mut options = std::fs::OpenOptions::new();
@@ -540,56 +541,45 @@ fn process_init_hook() {
     game_thread::run_event_loop()
 }
 
-type BoxedFuture<I, E> = Box<dyn Future<Item = I, Error = E> + Send + 'static>;
-
-// When Box<dyn Future> is needed, type inference works nicer when going through this function
-fn box_future<F, I, E>(future: F) -> BoxedFuture<I, E>
-where
-    F: Future<Item = I, Error = E> + Send + 'static,
-{
-    Box::new(future)
-}
-
-// Decide what to do with events from game thread.
-fn handle_messages_from_game_thread(
-    ws_send: app_socket::SendMessages,
-    game_send: game_state::SendMessages,
-) -> impl Future<Item = (), Error = ()> {
+/// Task that registers itself to receive messages from game thread and forwards them
+/// to the arguments given to function.
+async fn handle_messages_from_game_thread(
+    mut ws_send: app_socket::SendMessages,
+    mut game_send: game_state::SendMessages,
+) {
     use crate::app_messages::WindowMove;
-    use futures::future::Either;
+    use futures::prelude::*;
 
-    enum ReplyType {
-        WebSocket(websocket::OwnedMessage),
-        Game(GameStateMessage),
-    }
-
-    let (send, recv) = tokio::sync::mpsc::unbounded_channel();
+    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
-    recv.map_err(|_| ())
-        .filter_map(|message| match message {
+    while let Some(message) = recv.next().await {
+        let result = match message {
             GameThreadMessage::WindowMove(x, y) => {
-                app_socket::encode_message("/game/windowMove", WindowMove { x, y })
-                    .map(ReplyType::WebSocket)
+                let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y });
+                if let Some(msg) = msg {
+                    ws_send.send(msg).await.map_err(|_| ())
+                } else {
+                    Ok(())
+                }
             }
-            GameThreadMessage::Snp(snp) => Some(ReplyType::Game(GameStateMessage::Snp(snp))),
+            GameThreadMessage::Snp(snp) => {
+                game_send.send(GameStateMessage::Snp(snp)).await.map_err(|_| ())
+            }
             GameThreadMessage::PlayerJoined => {
-                Some(ReplyType::Game(GameStateMessage::PlayerJoined))
+                game_send.send(GameStateMessage::PlayerJoined).await.map_err(|_| ())
             }
             GameThreadMessage::Results(results) => {
-                Some(ReplyType::Game(GameStateMessage::Results(results)))
+                game_send.send(GameStateMessage::Results(results)).await.map_err(|_| ())
             }
-        })
-        .fold((ws_send, game_send), |(ws_send, game_send), message| {
-            match message {
-                ReplyType::WebSocket(msg) => Either::A(ws_send.send(msg).map(|x| (x, game_send))),
-                ReplyType::Game(msg) => Either::B(game_send.send(msg).map(|x| (ws_send, x))),
-            }
-            .map_err(|_| ())
-        })
-        .map(|_| ())
+        };
+        if result.is_err() {
+            break;
+        }
+    }
 }
 
 fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
+    use futures::prelude::*;
     // Main async tasks are:
     //
     // 1) Client program websocket
@@ -632,7 +622,8 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  listening to it, which practically is just a child task of the network manager task, but
     //  not the main task which receives messages from game_state.
     //  Not sure if that's the smartest way to do that.
-    tokio::run(future::lazy(|| {
+    let mut runtime = tokio::runtime::Runtime::new().unwrap();
+    runtime.block_on(future::lazy(|_| ()).then(|()| {
         let (websocket_send, websocket_recv) = tokio::sync::mpsc::channel(32);
         let (game_state_send, game_state_recv) = tokio::sync::mpsc::channel(128);
         let (game_requests_send, game_requests_recv) = std::sync::mpsc::channel();
@@ -649,13 +640,11 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             game_requests_send,
         );
         let messages_from_game = handle_messages_from_game_thread(websocket_send, game_state_send);
-        let main_task = game_state
-            .join3(websocket_connection, messages_from_game)
+        let main_task = future::join3(game_state, websocket_connection, messages_from_game)
             .map(|_| ());
-        cancel_token.bind(main_task).then(|_| {
+        cancel_token.bind(main_task.boxed()).inspect(|_| {
             debug!("Main async task ended");
-            Ok(())
-        })
+        }).map(|_| ())
     }));
     info!("Async thread end");
     std::process::exit(0);
