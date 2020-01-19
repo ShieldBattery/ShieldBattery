@@ -1,3 +1,5 @@
+#![recursion_limit="1024"] // Required for futures::select
+
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -630,8 +632,11 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
         let (cancel_token, canceler) = cancel_token::CancelToken::new();
         *crate::game_thread::GAME_RECEIVE_REQUESTS.lock().unwrap() = Some(game_requests_recv);
         let canceler = cancel_token::SharedCanceler::new(canceler);
-        let websocket_connection =
-            app_socket::websocket_connection_future(&game_state_send, &canceler, websocket_recv);
+        let websocket_connection = app_socket::websocket_connection_future(
+            game_state_send.clone(),
+            canceler.clone(),
+            websocket_recv,
+        );
         let game_state = game_state::create_future(
             websocket_send.clone(),
             canceler,

@@ -1,5 +1,6 @@
 use std::time::{Duration};
 
+use futures::select;
 use futures::prelude::*;
 use quick_error::{quick_error, ResultExt};
 use serde::{Deserialize, Serialize};
@@ -39,117 +40,86 @@ enum ConnectionEndReason {
 /// All errors are handled before the future resolves, and either the
 /// stream or message channel being closed will cause the future to
 /// resolve to a success.
-fn app_websocket_connection(
+async fn app_websocket_connection(
     client: WebSocketStream,
     recv_messages: mpsc::Receiver<WsMessage>,
-    game_send: &game_state::SendMessages,
-    async_stop: &SharedCanceler,
-) -> impl Future<Output = ConnectionEndReason> {
-    // To terminate the select() below, chain errors to both input streams,
-    // but we want those errors to be a success for the returned future.
-    #[derive(Eq, PartialEq, Copy, Clone, Debug)]
-    enum WasCloseErr {
-        Yes(ConnectionEndReason),
-        No,
+    mut game_send: game_state::SendMessages,
+    async_stop: SharedCanceler,
+) -> ConnectionEndReason {
+    let (mut ws_sink, ws_stream) = client.split();
+    let mut ws_stream = ws_stream.fuse();
+    let mut recv_messages = recv_messages.fuse();
+    'handle_messages: loop {
+        let message = select! {
+            x = recv_messages.next() => match x {
+                Some(s) => MessageResult::WebSocket(s),
+                None => return ConnectionEndReason::MpscChannelClosed,
+            },
+            x = ws_stream.next() => match x {
+                Some(Ok(message)) => match message {
+                    WsMessage::Text(text) => match handle_app_message(text) {
+                        Ok(o) => o,
+                        Err(e) => {
+                            error!("Error handling message: {}", e);
+                            continue 'handle_messages;
+                        }
+                    },
+                    WsMessage::Ping(ping) => MessageResult::WebSocket(WsMessage::Pong(ping)),
+                    WsMessage::Close(e) => MessageResult::WebSocket(WsMessage::Close(e)),
+                    _ => continue 'handle_messages,
+                },
+                Some(Err(e)) => {
+                    error!("Error reading websocket stream: {}", e);
+                    return ConnectionEndReason::SocketClosed;
+                }
+                None => return ConnectionEndReason::SocketClosed,
+            },
+        };
+        match message {
+            MessageResult::WebSocket(ws) => {
+                debug!("Sending message: {:?}", ws);
+                if let Err(e) = ws_sink.send(ws).await {
+                    error!("Error sending to websocket sink: {}", e);
+                    return ConnectionEndReason::SocketClosed;
+                }
+            }
+            MessageResult::Game(msg) => {
+                if game_send.send(msg).await.is_err() {
+                    return ConnectionEndReason::MpscChannelClosed;
+                }
+            }
+            MessageResult::Stop => {
+                async_stop.cancel();
+            }
+        }
     }
-
-    let mut game_send = game_send.clone();
-    let async_stop = async_stop.clone();
-    future::ready(())
-        .then(|()| {
-            let recv_messages = recv_messages
-                .map(|x| Ok(MessageResult::WebSocket(x)))
-                .chain({
-                    future::err(WasCloseErr::Yes(ConnectionEndReason::MpscChannelClosed))
-                        .into_stream()
-                });
-            let (mut ws_sink, stream) = client.split();
-            let mut streams = stream::select(
-                stream
-                    .map_err(|e| {
-                        error!("Error reading websocket stream: {}", e);
-                        WasCloseErr::No
-                    })
-                    .chain({
-                        future::err(WasCloseErr::Yes(ConnectionEndReason::SocketClosed))
-                            .into_stream()
-                    })
-                    .try_filter_map(|message| {
-                        let filtered = match message {
-                            WsMessage::Text(text) => match handle_app_message(text) {
-                                Ok(o) => Some(o),
-                                Err(e) => {
-                                    error!("Error handling message: {}", e);
-                                    None
-                                }
-                            },
-                            WsMessage::Ping(ping) => {
-                                Some(MessageResult::WebSocket(WsMessage::Pong(ping)))
-                            }
-                            WsMessage::Close(e) => {
-                                Some(MessageResult::WebSocket(WsMessage::Close(e)))
-                            }
-                            _ => None,
-                        };
-                        future::ok(filtered)
-                    }),
-                recv_messages,
-            );
-            async move {
-                while let Some(message) = streams.next().await {
-                    match message? {
-                        MessageResult::WebSocket(ws) => {
-                            debug!("Sending message: {:?}", ws);
-                            if let Err(e) = ws_sink.send(ws).await {
-                                error!("Error sending to websocket sink: {}", e);
-                                return Err(WasCloseErr::No);
-                            }
-                        }
-                        MessageResult::Game(msg) => {
-                            game_send.send(msg).await.map_err(|_| WasCloseErr::No)?;
-                        }
-                        MessageResult::Stop => {
-                            async_stop.cancel();
-                        }
-                    }
-                }
-                Ok(())
-            }.map(|result| {
-                match result {
-                    Ok(()) => {
-                        // Wait, both input streams closed before either's chained error
-                        // was received?? Just tell websocket was first.
-                        ConnectionEndReason::SocketClosed
-                    }
-                    Err(WasCloseErr::Yes(reason)) => reason,
-                    Err(WasCloseErr::No) => ConnectionEndReason::MpscChannelClosed,
-                }
-            }).boxed()
-        })
 }
 
-pub fn websocket_connection_future(
-    game_send: &game_state::SendMessages,
-    async_stop: &SharedCanceler,
+pub async fn websocket_connection_future(
+    game_send: game_state::SendMessages,
+    async_stop: SharedCanceler,
     recv_messages: mpsc::Receiver<WsMessage>,
-) -> impl Future<Output = ()> {
-    let game_send = game_send.clone();
-    let async_stop = async_stop.clone();
-    async move {
-        // Retry as long as this fails to connect.
-        loop {
-            let (client, _response) = match connect_to_app().await {
-                Ok(o) => o,
-                Err(e) => {
-                    error!("Couldn't connect to Shieldbattery: {}", e);
-                    tokio::time::delay_for(Duration::from_millis(1000)).await;
-                    continue;
-                }
-            };
-            info!("Connected to Shieldbattery app");
-            app_websocket_connection(client, recv_messages, &game_send, &async_stop).await;
-            return;
-        }
+) {
+    // Retry as long as this fails to connect.
+    // Return once connection succeeds once (even if it ends prematurely).
+    // The app cannot handle reconnections at the moment, trying to
+    // start again from game init phase, following by killing the process
+    // if this tells that the game is already ininited.
+    // So better to just let this task die than the entire process die
+    // if the connection between two local processes drops for some
+    // inexplicable reason.
+    loop {
+        let (client, _response) = match connect_to_app().await {
+            Ok(o) => o,
+            Err(e) => {
+                error!("Couldn't connect to Shieldbattery: {}", e);
+                tokio::time::delay_for(Duration::from_millis(1000)).await;
+                continue;
+            }
+        };
+        info!("Connected to Shieldbattery app");
+        app_websocket_connection(client, recv_messages, game_send, async_stop).await;
+        return;
     }
 }
 
