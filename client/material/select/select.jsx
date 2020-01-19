@@ -62,7 +62,7 @@ const SelectContainer = styled.div`
   ${props =>
     props.focused
       ? `
-        background-color: rgba(255, 255, 255, 0.24) !important;
+        background-color: rgba(255, 255, 255, 0.16) !important;
       `
       : ''}
 `

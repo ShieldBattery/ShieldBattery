@@ -40,20 +40,27 @@ const BrowseButton = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: ${props => (props.isFocused ? 'rgba(66, 66, 66, 0.02)' : grey800)};
+  background-color: ${grey800};
   border-radius: 2px;
   ${props => (props.isFocused ? shadow8dp : shadow2dp)};
   transition: background-color 150ms ${fastOutSlowIn};
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: rgba(255, 255, 255, 0.12);
     cursor: pointer;
   }
 
   &:active {
-    background-color: rgba(255, 255, 255, 0.02);
+    background-color: rgba(255, 255, 255, 0.16);
     ${shadow8dp};
   }
+
+  ${props =>
+    props.isFocused
+      ? `
+        background-color: rgba(255, 255, 255, 0.16) !important;
+      `
+      : ''}
 
   & > svg {
     width: 90px;
