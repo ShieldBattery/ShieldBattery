@@ -108,12 +108,20 @@ pub async fn websocket_connection_future(
     // So better to just let this task die than the entire process die
     // if the connection between two local processes drops for some
     // inexplicable reason.
+    let mut retries = 30;
     loop {
         let (client, _response) = match connect_to_app().await {
             Ok(o) => o,
             Err(e) => {
                 error!("Couldn't connect to Shieldbattery: {}", e);
                 tokio::time::delay_for(Duration::from_millis(1000)).await;
+                retries -= 1;
+                if retries == 0 {
+                    // Normally the app initiates game quitting, so if we fail
+                    // to connect to it we'll have to quit now.
+                    error!("Didn't manage to connect to app, exiting");
+                    async_stop.cancel();
+                }
                 continue;
             }
         };
