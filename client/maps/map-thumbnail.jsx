@@ -2,7 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import MapActions, { MapActionButton } from './map-actions.jsx'
+import IconButton from '../material/icon-button.jsx'
+import MapActions from './map-actions.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextSecondary, grey800 } from '../styles/colors'
@@ -75,18 +76,26 @@ const Overlay = styled.div`
   }
 `
 
-const MapPreviewIcon = styled(MapActionButton)`
+const MapPreviewIcon = styled(IconButton)`
   // TODO(2Pac): Need to move button stuff to styled-components ASAP
   position: absolute !important;
-  top: 8px;
-  left: 8px;
+  top: 4px;
+  left: 4px;
+
+  & svg {
+    color: ${colorTextSecondary} !important;
+  }
 `
 
-const FavoriteActionIcon = styled(MapActionButton)`
+const FavoriteActionIcon = styled(IconButton)`
   position: absolute !important;
-  top: 8px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
   pointer-events: ${props => (props.isFavoriting ? 'none' : 'auto')};
+
+  & svg {
+    color: ${colorTextSecondary} !important;
+  }
 `
 
 const TextProtection = styled.div`
@@ -94,7 +103,7 @@ const TextProtection = styled.div`
   bottom: 0;
   width: 100%;
   height: 48px;
-  padding: 0 12px 0 16px;
+  padding: 0 4px 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -117,6 +126,7 @@ export default class MapThumbnail extends React.Component {
     onClick: PropTypes.func,
     onMapPreview: PropTypes.func,
     onToggleFavorite: PropTypes.func,
+    onMapDetails: PropTypes.func,
     onRemove: PropTypes.func,
   }
 
@@ -131,16 +141,20 @@ export default class MapThumbnail extends React.Component {
       onClick,
       onPreview,
       onToggleFavorite,
+      onMapDetails,
       onRemove,
     } = this.props
 
     const mapActions = []
+    if (onMapDetails) {
+      mapActions.push(['View map details', onMapDetails])
+    }
     if (onRemove) {
       mapActions.push(['Remove', onRemove])
     }
 
     return (
-      <Container>
+      <Container className={this.props.className}>
         {map.imageUrl ? (
           <picture>
             <MapImage src={map.imageUrl} alt={map.name} draggable={false} />

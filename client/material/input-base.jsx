@@ -26,18 +26,6 @@ export const InputBase = styled(Subheading)`
     box-shadow: none;
   }
 
-  ${props =>
-    props.leadingIconsLength
-      ? `padding-left:
-          calc(${props.leadingIconsLength} * 48px + ${props.leadingIconsLength + 1} * 4px)
-        `
-      : ''};
-  ${props =>
-    props.trailingIconsLength
-      ? `padding-right:
-          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px)
-        `
-      : ''};
   ${props => {
     if (props.multiline) {
       const scrollbarColor = props.focused ? grey800 : grey700
@@ -45,7 +33,6 @@ export const InputBase = styled(Subheading)`
       return `
         padding: 0;
         padding-bottom: 7px;
-        padding-right: ${props.trailingIcon ? '48px' : '12px'};
         overflow-y: auto;
         resize: none;
         cursor: auto;
@@ -79,6 +66,25 @@ export const InputBase = styled(Subheading)`
         ${singleLine};
       `
     }
+  }}
+  ${props =>
+    props.leadingIconsLength
+      ? `padding-left:
+          calc(${props.leadingIconsLength} * 48px + ${props.leadingIconsLength + 1} * 4px)
+        `
+      : ''};
+  ${props => {
+    if (props.trailingIconsLength) {
+      return props.multiline
+        ? `padding-right:
+          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px + 12px)
+        `
+        : `padding-right:
+          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px)
+        `
+    }
+
+    return ''
   }}
 `
 

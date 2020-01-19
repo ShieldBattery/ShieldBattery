@@ -2,6 +2,8 @@ import fetch from '../network/fetch'
 import {
   LOCAL_MAPS_SELECT_BEGIN,
   LOCAL_MAPS_SELECT,
+  MAPS_DETAILS_GET_BEGIN,
+  MAPS_DETAILS_GET,
   MAPS_LIST_CLEAR,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
@@ -9,9 +11,11 @@ import {
   MAPS_REMOVE,
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
+  MAPS_UPDATE_BEGIN,
+  MAPS_UPDATE,
 } from '../actions'
 
-const upload = IS_ELECTRON ? require('./upload') : null
+const upload = IS_ELECTRON ? require('./upload').default : null
 
 const MAPS_LIMIT = 30
 
@@ -68,5 +72,26 @@ export function removeMap(map) {
 export function clearMapsList() {
   return {
     type: MAPS_LIST_CLEAR,
+  }
+}
+
+export function getMapDetails(mapId) {
+  return dispatch => {
+    dispatch({ type: MAPS_DETAILS_GET_BEGIN })
+    dispatch({ type: MAPS_DETAILS_GET, payload: fetch(`/api/1/maps/${mapId}`) })
+  }
+}
+
+export function updateMap(mapId, name, description) {
+  return dispatch => {
+    dispatch({ type: MAPS_UPDATE_BEGIN })
+
+    dispatch({
+      type: MAPS_UPDATE,
+      payload: fetch(`/api/1/maps/${mapId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, description }),
+      }),
+    })
   }
 }

@@ -9,8 +9,6 @@ import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
 
-import { colorTextFaint } from '../styles/colors'
-
 const TextFieldContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -81,10 +79,6 @@ const iconStyle = css`
   display: flex;
   justify-content: center;
   align-items: center;
-
-  & svg {
-    color: ${colorTextFaint};
-  }
 `
 
 const LeadingIcon = styled.span`
@@ -94,7 +88,10 @@ const LeadingIcon = styled.span`
 
 const TrailingIcon = styled.span`
   ${iconStyle}
-  right: ${props => `calc(${props.index} * 48px + ${props.index + 1} * 4px)`};
+  ${props =>
+    props.multiline
+      ? `right: calc(${props.index} * 48px + ${props.index + 1} * 4px + 12px)`
+      : `right: calc(${props.index} * 48px + ${props.index + 1} * 4px)`}
 `
 
 // A Material text field component with single-line, multi-line and text area variants, supporting
@@ -192,7 +189,7 @@ export default class TextField extends React.Component {
       .slice() // Don't mutate the original array
       .reverse()
       .map((trailingIcon, index) => (
-        <TrailingIcon key={index} index={index}>
+        <TrailingIcon key={index} index={index} multiline={multiline}>
           {trailingIcon}
         </TrailingIcon>
       ))
@@ -270,7 +267,7 @@ export default class TextField extends React.Component {
     elem.style.height = `${this.props.rows * 20 + 7 /* padding */}px`
     elem.style.height = `${elem.scrollHeight}px`
     // Textarea doesn't scroll completely to the end when adding a new line, just to the baseline of
-    // the added text it seems, so we scroll automatically to the end here
+    // the added text it seems, so we scroll manually to the end here
     elem.scrollTop = elem.scrollHeight
   }
 

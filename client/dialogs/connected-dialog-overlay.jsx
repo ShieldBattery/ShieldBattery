@@ -13,6 +13,7 @@ import ChangelogDialog from '../changelog/changelog-dialog.jsx'
 import DownloadDialog from '../download/download-dialog.jsx'
 import UpdateDialog from '../download/update-dialog.jsx'
 import AcceptMatch from '../matchmaking/accept-match.jsx'
+import MapDetailsDialog from '../maps/map-details.jsx'
 import { closeDialog } from './action-creators'
 
 const transitionNames = {
@@ -39,6 +40,8 @@ class ConnectedDialogOverlay extends React.Component {
         return { component: JoinChannelDialog, modal: false }
       case 'download':
         return { component: DownloadDialog, modal: false }
+      case 'mapDetails':
+        return { component: MapDetailsDialog, modal: false }
       case 'psiHealth':
         return { component: PsiHealthCheckupDialog, modal: false }
       case 'settings':
