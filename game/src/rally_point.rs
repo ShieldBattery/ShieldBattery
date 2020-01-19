@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use bytes::Bytes;
-use futures::pin_mut;
+use futures::{select, pin_mut};
 use futures::future::{Either};
 use futures::prelude::*;
 use quick_error::quick_error;
@@ -490,30 +490,31 @@ pub fn init() -> RallyPoint {
     // will cause main_future to stop.
     let (internal_send_requests, internal_recv_requests) = mpsc::channel(16);
     let mut state = State::new(&addr, internal_send_requests).expect("Couldn't bind rally-point");
-    let main_future = stream::select(
-            // Chain an error to exit try_for_each as soon as recv_requests ends
-            recv_requests.map(|x| Ok(x))
-                .chain(future::err(()).into_stream()),
-            internal_recv_requests.map(|x| Ok(x)),
-        )
-        .try_for_each(move |request| {
-            let handled = match request {
-                Request::External(req) => state.external_request(req).boxed(),
-                Request::ServerMessage(msg, from) => state.server_message(msg, from).boxed(),
+    let mut recv_requests = recv_requests.fuse();
+    let mut internal_recv_requests = internal_recv_requests.fuse();
+    let main_future = async move {
+        loop {
+            let request = select! {
+                x = recv_requests.next() => x,
+                x = internal_recv_requests.next() => x,
+            };
+            let request = match request {
+                Some(s) => s,
+                None => break,
+            };
+            match request {
+                Request::External(req) => state.external_request(req).await,
+                Request::ServerMessage(msg, from) => state.server_message(msg, from).await,
                 Request::CleanupJoin(key) => {
                     state.joins.remove(&key);
-                    future::ready(()).boxed()
                 }
                 Request::CleanupPing(key) => {
                     state.pings.remove(&key);
-                    future::ready(()).boxed()
                 }
             };
-            handled.map(Ok)
-        })
-        .map(|_| {
-            debug!("Rally-point task ended");
-        });
+        }
+        debug!("Rally-point task ended");
+    };
     tokio::spawn(main_future);
     RallyPoint { send_requests }
 }

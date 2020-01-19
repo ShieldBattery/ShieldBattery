@@ -5,7 +5,7 @@ use std::time::{Duration};
 
 use bytes::Bytes;
 use futures::prelude::*;
-use futures::pin_mut;
+use futures::{pin_mut, select};
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
 
@@ -422,21 +422,27 @@ impl State {
                 let snp_send = snp_send_messages.clone();
                 let stream = self
                     .rally_point
-                    .listen_route_data(&route.route_id, &route.address)
-                    .try_for_each(move |message| {
-                        let message = snp::ReceivedMessage {
-                            from: ip,
-                            data: message,
-                        };
-                        snp_send.send(message);
-                        future::ok(())
-                    })
-                    .map_err(move |e| {
-                        // I don't think there's much sense to kill network for this
-                        // error, should never happen and if it does then try to keep going.
-                        error!("Rally-point receive stream error for ip {:?}: {}", ip, e);
-                    });
-                stream
+                    .listen_route_data(&route.route_id, &route.address);
+                async move {
+                    pin_mut!(stream);
+                    while let Some(message) = stream.next().await {
+                        match message {
+                            Ok(message) => {
+                                let message = snp::ReceivedMessage {
+                                    from: ip,
+                                    data: message,
+                                };
+                                snp_send.send(message);
+                            }
+                            Err(e) => {
+                                // I don't think there's much sense to kill network
+                                // for this error, should never happen and if it does
+                                // then try to keep going.
+                                error!("Rally-point receive stream error for ip {:?}: {}", ip, e);
+                            }
+                        }
+                    }
+                }
             })
             .collect::<Vec<_>>();
         let recv_task = future::join_all(streams_done).map(|_| ());
@@ -503,18 +509,21 @@ impl NetworkManager {
             keep_routes_alive: Vec::new(),
             pings: PingState::default(),
         };
-        let task = stream::select(
-                receive_messages.map(Ok)
-                    .chain(future::err(()).into_stream()),
-                internal_receive_messages.map(Ok),
-            )
-            .try_for_each(move |message| {
-                state.handle_message(message);
-                future::ok(())
-            })
-            .map(|_| {
-                debug!("Route manager task ended");
-            });
+        let task = async move {
+            let mut internal_receive_messages = internal_receive_messages.fuse();
+            let mut receive_messages = receive_messages.fuse();
+            loop {
+                let message = select! {
+                    x = receive_messages.next() => x,
+                    x = internal_receive_messages.next() => x,
+                };
+                match message {
+                    Some(m) => state.handle_message(m),
+                    None => break,
+                }
+            }
+            debug!("Route manager task ended");
+        };
         tokio::spawn(task);
         NetworkManager { send_messages }
     }

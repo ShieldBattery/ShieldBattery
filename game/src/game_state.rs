@@ -7,8 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration};
 
 use bytes::Bytes;
-use futures::pin_mut;
-use futures::future::{Either};
+use futures::{pin_mut, select};
 use futures::prelude::*;
 use libc::c_void;
 use quick_error::quick_error;
@@ -241,13 +240,8 @@ impl GameState {
         send_game_request(&self.send_main_thread_requests, request_type)
     }
 
-    fn start_game_request(
-        &mut self,
-        request_type: GameThreadRequestType,
-    ) -> Result<oneshot::Receiver<()>, ()> {
-        start_game_request(&self.send_main_thread_requests, request_type)
-    }
-
+    /// On success returns after the game is finished and results have been forwarded
+    /// to the app.
     fn init_game(
         &mut self,
         info: GameSetupInfo,
@@ -279,111 +273,78 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
-        let players_joined = init_state.wait_for_players();
+        let mut players_joined = init_state.wait_for_players().fuse();
         let results = init_state.wait_for_results();
         self.init_state = InitState::Started(init_state);
+
+        let mut send_messages_to_state = self.internal_send.clone();
+        let game_request_send = self.send_main_thread_requests.clone();
+        let mut ws_send = self.ws_send.clone();
+
+        let network_ready_future = self.network.wait_network_ready();
+        let net_game_info_set_future = self.network.set_game_info(info.clone());
 
         self.init_main_thread
             .send(())
             .expect("Main thread should be waiting for a wakeup");
-        let init_request = GameThreadRequestType::Initialize;
-        let info2 = info.clone();
-        // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
-        // ready to start the game - remaining initialization is done from other threads.
-        // Could possibly aim to keep all of BW initialization in the main thread, but this
-        // system has worked fine so far.
-        let is_host = local_user.name == info.host.name;
-        let pre_network_init = self
-            .send_game_request(init_request)
-            .map(Ok)
-            .and_then(move |()| unsafe {
+        async move {
+            // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
+            // ready to start the game - remaining initialization is done from other threads.
+            // Could possibly aim to keep all of BW initialization in the main thread, but this
+            // system has worked fine so far.
+            let is_host = local_user.name == info.host.name;
+            let init_done =
+                send_game_request(&game_request_send, GameThreadRequestType::Initialize);
+            init_done.await;
+            unsafe {
                 remaining_game_init(&local_user);
-                let result = if is_host {
-                    create_lobby(&info2, game_type)
-                } else {
-                    Ok(())
-                };
-                future::ready(result)
-            });
-        // We want this to run after game thread init request, but no explicit ordering
-        // is necessary since Game requests uses the non-async std::sync::mpsc.
-        let wnd_proc_started = self
-            .start_game_request(GameThreadRequestType::RunWndProc)
-            .map_err(|()| GameInitError::Closed);
-        // TODO refactor
-        let wnd_proc_started = future::ready(wnd_proc_started);
-
-        let network_ready = self.network.wait_network_ready();
-        let network_ready = self
-            .network
-            .set_game_info(info.clone())
-            .and_then(|_| network_ready)
-            .map_err(|e| GameInitError::NetworkInit(e))
-            .inspect_ok(|_| debug!("Network ready"));
-        let info2 = info.clone();
-        let in_lobby = future::try_join3(pre_network_init, network_ready, wnd_proc_started)
-            .and_then(move |((), (), _wnd_proc_done)| {
-                // Could carry wnd_proc_done around, but it should be fine to drop
-                // as we end wnd proc and then send a new request to game thread without
-                // any additional BW state poking from async side.
-                if !is_host {
-                    unsafe { Either::Left(join_lobby(&info2, game_type)) }
-                } else {
-                    Either::Right(future::ok(()))
+                if is_host {
+                    create_lobby(&info, game_type)?;
                 }
-            }).boxed();
-        let info2 = info.clone();
-        let info3 = info.clone();
-        let mut send_messages_to_state = self.internal_send.clone();
-        let lobby_ready = in_lobby
-            .and_then(move |_| {
-                debug!("In lobby, setting up slots");
+            }
+            start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
+                .map_err(|()| GameInitError::Closed)?;
+            net_game_info_set_future.await
+                .map_err(|e| GameInitError::NetworkInit(e))?;
+            network_ready_future.await
+                .map_err(|e| GameInitError::NetworkInit(e))?;
+            debug!("Network ready");
+            if !is_host {
                 unsafe {
-                    setup_slots(&info2.slots, game_type);
+                    join_lobby(&info, game_type).await?;
                 }
-                async move {
-                    send_messages_to_state.send(GameStateMessage::InLobby).await
-                        .map_err(|_| GameInitError::Closed)
-                }
-            })
-            .and_then(move |_| {
-                let tickle_lobby_network =
-                    tokio::time::interval(Duration::from_millis(100))
-                        .for_each(|_| unsafe {
-                            bw::maybe_receive_turns();
-                            future::ready(())
-                        })
-                        .map(|()| Ok(()));
-                future::select(
-                    tickle_lobby_network,
-                    players_joined,
-                ).map(|x| x.factor_first().0)
-            })
-            .and_then(move |()| {
-                debug!("All players have joined");
+            }
+            debug!("In lobby, setting up slots");
+            unsafe {
+                setup_slots(&info.slots, game_type);
+            }
+            send_messages_to_state.send(GameStateMessage::InLobby).await
+                .map_err(|_| GameInitError::Closed)?;
+            loop {
                 unsafe {
-                    do_lobby_game_init(&info3);
+                    bw::maybe_receive_turns();
                 }
-                future::ok(())
-            })
-            .boxed();
-        let mut ws_send = self.ws_send.clone();
-        let game_request_send = self.send_main_thread_requests.clone();
-        let finished = async move {
-            lobby_ready.await?;
+                select! {
+                    _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
+                    _ = players_joined => break,
+                }
+            }
+            debug!("All players have joined");
+            unsafe {
+                do_lobby_game_init(&info);
+            }
             forge::end_wnd_proc();
             app_socket::send_message(&mut ws_send, "/game/start", ()).await
                 .map_err(|_| GameInitError::Closed)?;
 
             let start_game_request = GameThreadRequestType::StartGame;
-            let request_done = send_game_request(&game_request_send, start_game_request);
-            request_done.await;
+            let game_done = send_game_request(&game_request_send, start_game_request);
+            game_done.await;
             let results = results.await?;
             app_socket::send_message(&mut ws_send, "/game/end", results).await
                 .map_err(|_| GameInitError::Closed)?;
             Ok(())
-        };
-        finished.boxed()
+        }.boxed()
     }
 
     // Message handler, so ideally only return futures that are about sending
@@ -393,19 +354,19 @@ impl GameState {
         match message {
             SetSettings(settings) => {
                 self.set_settings(&settings);
-                future::ready(()).boxed()
             }
             SetLocalUser(user) => {
                 self.set_local_user(user);
-                future::ready(()).boxed()
             }
-            SetRoutes(routes) => self.set_routes(routes).boxed(),
+            SetRoutes(routes) => {
+                return self.set_routes(routes).boxed();
+            }
             SetupGame(info) => {
                 let mut ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
-                let task = self
-                    .init_game(info)
-                    .or_else(move |e| {
+                let game_done = self.init_game(info);
+                let task = async move {
+                    if let Err(e) = game_done.await {
                         let msg = format!("Failed to init game: {}", e);
                         error!("{}", msg);
 
@@ -415,46 +376,38 @@ impl GameState {
                                 extra: Some(msg),
                             },
                         };
-                        async move {
-                            let _ = app_socket::send_message(
-                                &mut ws_send,
-                                "/game/setupProgress",
-                                message,
-                            );
-                            let result: Result<(), ()> = Ok(());
-                            result
-                        }
-                    })
-                    .then(|_| {
-                        debug!("Game setup & play task ended");
-                        tokio::time::delay_for(Duration::from_millis(10000))
-                    })
-                    .then(move |_| {
-                        // The app is supposed to send a CleanupQuit command to acknowledge
-                        // that it received /game/end, or simple quit on error, but maybe it died?
-                        //
-                        // TODO(neive): Would be nice to do CleanupQuit if we finished game
-                        // succesfully even if the app didn't end up replying to us?
-                        warn!("Didn't receive close command, exiting automatically");
-                        async_stop.cancel();
-                        future::ready(())
-                    });
+                        let _ = app_socket::send_message(
+                            &mut ws_send,
+                            "/game/setupProgress",
+                            message,
+                        ).await;
+                    }
+                    debug!("Game setup & play task ended");
+                    tokio::time::delay_for(Duration::from_millis(10000)).await;
+                    // The app is supposed to send a CleanupQuit command to acknowledge
+                    // that it received /game/end, or simple quit on error, but maybe it died?
+                    //
+                    // TODO(neive): Would be nice to do CleanupQuit if we finished game
+                    // succesfully even if the app didn't end up replying to us?
+                    warn!("Didn't receive close command, exiting automatically");
+                    async_stop.cancel();
+                };
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
                 tokio::spawn(async move {
                     pin_mut!(task);
                     cancel_token.bind(task).await
                 });
-                future::ready(()).boxed()
             }
-            Snp(snp) => self.network.send_snp_message(snp).map(|_| ()).boxed(),
+            Snp(snp) => {
+                return self.network.send_snp_message(snp).map(|_| ()).boxed();
+            }
             InLobby | PlayerJoined => {
                 if let InitState::Started(ref mut state) = self.init_state {
                     state.player_joined();
                 } else {
                     warn!("Player joined before init was started");
                 }
-                future::ready(()).boxed()
             }
             Results(results) => {
                 if let InitState::Started(ref mut state) = self.init_state {
@@ -462,20 +415,20 @@ impl GameState {
                 } else {
                     warn!("Received results before init was started");
                 }
-                future::ready(()).boxed()
             }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
                 let async_stop = self.async_stop.clone();
-                let task = self.send_game_request(cleanup_request).then(move |_| {
+                let cleanup_done = self.send_game_request(cleanup_request);
+                let task = async move {
+                    cleanup_done.await;
                     debug!("BW cleanup done, exiting..");
                     async_stop.cancel();
-                    future::ready(())
-                });
+                };
                 tokio::spawn(task);
-                future::ready(()).boxed()
             }
         }
+        future::ready(()).boxed()
     }
 }
 
@@ -916,10 +869,10 @@ unsafe fn join_lobby(
     }.boxed()
 }
 
-unsafe fn try_join_lobby_once(
+async unsafe fn try_join_lobby_once(
     mut game_info: bw::JoinableGameInfo,
     map_path: Bytes,
-) -> impl Future<Output = Result<(), u32>> {
+) -> Result<(), u32> {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
     // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
     // that won't work out well (although did it work out "well" in the normal network interface? Not
@@ -942,7 +895,12 @@ unsafe fn try_join_lobby_once(
         bw::init_team_game_playable_slots();
         let _ = send.send(Ok(()));
     });
-    recv.map_err(|_| !(0u32)).and_then(|res| future::ready(res))
+
+    match recv.await {
+        Ok(storm_result) => storm_result,
+        // Thread died??
+        Err(_) => Err(!0u32),
+    }
 }
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
@@ -1036,13 +994,13 @@ unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
     *bw::lobby_state = 9;
 }
 
-pub fn create_future(
+pub async fn create_future(
     ws_send: app_socket::SendMessages,
     async_stop: SharedCanceler,
     messages: mpsc::Receiver<GameStateMessage>,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
-) -> impl Future<Output = ()> {
+) {
     let (internal_send, internal_recv) = mpsc::channel(8);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
@@ -1058,17 +1016,18 @@ pub fn create_future(
         running_game: None,
         async_stop,
     };
-    let future = stream::select(
-            // Chain an error to exit try_for_each as soon as messages ends
-            messages.map(|x| Ok(x))
-                .chain(future::err(()).into_stream()),
-            internal_recv.map(|x| Ok(x)),
-        )
-        .try_for_each(move |message| {
-            game_state.handle_message(message).map(Ok)
-        })
-        .map(|_| ());
-    future
+    let mut internal_recv = internal_recv.fuse();
+    let mut messages = messages.fuse();
+    loop {
+        let message = select! {
+            x = messages.next() => x,
+            x = internal_recv.next() => x,
+        };
+        match message {
+            Some(m) => game_state.handle_message(m).await,
+            None => break,
+        }
+    }
 }
 
 /// Sends a request to game thread and waits for it to finish
