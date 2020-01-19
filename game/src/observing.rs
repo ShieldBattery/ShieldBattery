@@ -131,7 +131,7 @@ pub unsafe fn init_ui_variables_hook(orig: unsafe extern fn()) {
         *bw::replay_visions = 0xff;
         *bw::player_visions = 0xff;
         // To allies (=observers)
-        *bw::chat_dialog_recipent = 9;
+        (*bw::game).chat_dialog_recipient = 9;
         // Could also set the race, it currently just does an overflow read to zerg.
     }
 }
@@ -234,7 +234,7 @@ pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
                 // noticed the color changing, I doubt they would care.
                 (*ctrl).label = bw::storm_players[storm_id as usize].name.as_ptr();
                 (*ctrl).custom_value = 10usize as *mut c_void;
-                bw::player_minimap_color[10] = *bw::resource_minimap_color;
+                (*bw::game).player_minimap_color[10] = *bw::resource_minimap_color;
             }
         }
     }

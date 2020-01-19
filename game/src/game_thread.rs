@@ -116,28 +116,28 @@ pub struct GameThreadResults {
 
 unsafe fn game_results() -> GameThreadResults {
     GameThreadResults {
-        victory_state: *bw::victory_state,
+        victory_state: (*bw::game).victory_state,
         player_has_left: {
             let mut arr = [false; 8];
             for i in 0..8 {
-                arr[i] = bw::player_has_left[i] != 0;
+                arr[i] = (*bw::game).player_has_left[i] != 0;
             }
             arr
         },
-        player_lose_type: match *bw::player_lose_type {
+        player_lose_type: match (*bw::game).player_lose_type {
             1 => Some(PlayerLoseType::UnknownChecksumMismatch),
             2 => Some(PlayerLoseType::UnknownDisconnect),
             _ => None,
         },
         // Assuming fastest speed
-        time_ms: (*bw::frame_count).saturating_mul(42),
+        time_ms: (*bw::game).frame_count.saturating_mul(42),
     }
 }
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
 unsafe fn init_bw() {
-    *bw::is_brood_war = 1;
+    (*bw::game).is_bw = 1;
     bw::init_sprites();
     debug!("Process initialized");
 }
