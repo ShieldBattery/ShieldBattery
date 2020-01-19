@@ -18,6 +18,7 @@ import OpenSlot from './open-slot.jsx'
 import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
 
 class JoinMessage extends React.Component {
   static propTypes = {
@@ -191,14 +192,14 @@ class ChatList extends React.Component {
   }
 
   _shouldAutoScroll = true
-  _elem = null
-  _setElem = elem => {
-    this._elem = elem
+  _scrollbar = null
+  _setScrollbarRef = elem => {
+    this._scrollbar = elem
   }
 
   maybeScrollToBottom() {
     if (this._shouldAutoScroll) {
-      this._elem.scrollTop = this._elem.scrollHeight
+      this._scrollbar.scrollTop(this._scrollbar.getScrollHeight())
     }
   }
 
@@ -211,8 +212,8 @@ class ChatList extends React.Component {
   }
 
   componentWillUpdate() {
-    const node = this._elem
-    this._shouldAutoScroll = node.scrollTop + node.offsetHeight >= node.scrollHeight
+    const node = this._scrollbar
+    this._shouldAutoScroll = node.getScrollTop() + node.getClientHeight() >= node.getScrollHeight()
   }
 
   componentDidUpdate() {
@@ -251,9 +252,12 @@ class ChatList extends React.Component {
 
   render() {
     return (
-      <div ref={this._setElem} className={styles.chat}>
+      <ScrollableContent
+        ref={this._setScrollbarRef}
+        className={styles.chat}
+        viewClassName={styles.chatView}>
         {this.props.messages.map(msg => this.renderMessage(msg))}
-      </div>
+      </ScrollableContent>
     )
   }
 }

@@ -83,6 +83,12 @@ const Container = styled.div`
   flex-direction: column;
 `
 
+const Layout = styled.div`
+  display: flex;
+  flex-grow: 1;
+  height: calc(100% - 64px);
+`
+
 const ContentLayout = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
@@ -349,7 +355,7 @@ class MainLayout extends React.Component {
       <Container>
         <AppBar>{appBarTitle}</AppBar>
         {!auth.emailVerified ? <EmailVerificationNotification user={auth.user} /> : null}
-        <div className={styles.layout}>
+        <Layout>
           <LeftNav footer={footer}>
             {this.renderActiveGameNav()}
             {this.renderLobbyNav()}
@@ -377,7 +383,7 @@ class MainLayout extends React.Component {
           <ActivityOverlay />
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
-        </div>
+        </Layout>
       </Container>
     )
   }
