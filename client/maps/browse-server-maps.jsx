@@ -185,7 +185,6 @@ export default class Maps extends React.Component {
 
   state = {
     activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
-    scrolledDown: false,
   }
 
   infiniteList = null
@@ -266,7 +265,16 @@ export default class Maps extends React.Component {
 
     if (maps.total === -1) return null
     if (maps.total === 0) {
-      const text = activeTab === TAB_MY_MAPS ? 'You have not uploaded any map' : 'There are no maps'
+      let text
+      if (activeTab === TAB_OFFICIAL_MAPS) {
+        text = 'No official maps have been uploaded yet.'
+      } else if (activeTab === TAB_MY_MAPS) {
+        text =
+          "You haven't uploaded any maps. You can upload a map by clicking on the browse" +
+          ' button below.'
+      } else if (activeTab === TAB_COMMUNITY_MAPS) {
+        text = 'No maps by the community have been made public yet.'
+      }
       return (
         <>
           <Underline>All maps</Underline>
@@ -280,7 +288,7 @@ export default class Maps extends React.Component {
 
   render() {
     const { title, maps } = this.props
-    const { activeTab, scrolledDown } = this.state
+    const { activeTab } = this.state
 
     return (
       <Container>
@@ -294,8 +302,8 @@ export default class Maps extends React.Component {
           <TabItem text='Community maps' />
         </Tabs>
         <Contents>
-          {scrolledDown ? <ScrollDivider position='top' /> : null}
-          <ScrollableContent onUpdate={this.onScrollUpdate}>
+          <ScrollDivider position='top' />
+          <ScrollableContent>
             <ContentsBody>
               {maps.lastError ? (
                 <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
@@ -330,15 +338,6 @@ export default class Maps extends React.Component {
         </ActionsContainer>
       </Container>
     )
-  }
-
-  onScrollUpdate = values => {
-    const { scrollTop } = values
-    const scrolledDown = scrollTop > 0
-
-    if (scrolledDown !== this.state.scrolledDown) {
-      this.setState({ scrolledDown })
-    }
   }
 
   onLoadMoreMaps = () => {
