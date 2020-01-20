@@ -171,20 +171,17 @@ export default (validations = {}) => Wrapped => {
     }
 
     getInputValue = name => this.state.model[name]
-    setInputValue = (name, value, cb) => {
-      this.setState(
-        state => ({
-          model: {
-            ...state.model,
-            [name]: value,
-          },
-          dirty: {
-            ...state.dirty,
-            [name]: true,
-          },
-        }),
-        cb,
-      )
+    setInputValue = (name, value) => {
+      this.setState({
+        model: {
+          ...this.state.model,
+          [name]: value,
+        },
+        dirty: {
+          ...this.state.dirty,
+          [name]: true,
+        },
+      })
     }
 
     getModel() {

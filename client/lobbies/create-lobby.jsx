@@ -102,6 +102,14 @@ class CreateLobbyForm extends React.Component {
   _lastGameType = null
   _lastSelectedMap = null
 
+  componentDidMount() {
+    this.updateGameSubType()
+  }
+
+  componentDidUpdate() {
+    this.updateGameSubType()
+  }
+
   renderSubTypeSelection() {
     const { bindCustom, getInputValue, recentMaps } = this.props
 
@@ -155,11 +163,7 @@ class CreateLobbyForm extends React.Component {
           }}
         />
         <GameTypeAndSubType>
-          <Select
-            {...bindCustom('gameType')}
-            label='Game type'
-            tabIndex={0}
-            onChange={this.onGameTypeChange}>
+          <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
             {GAME_TYPES.map(type => (
               <Option key={type} value={type} text={gameTypeToString(type)} />
             ))}
@@ -173,8 +177,7 @@ class CreateLobbyForm extends React.Component {
           maxSelections={1}
           thumbnailSize='large'
           canBrowseMaps={true}
-          onMapBrowse={onMapBrowse}
-          onChange={this.onSelectedMapChange}></MapSelect>
+          onMapBrowse={onMapBrowse}></MapSelect>
       </form>
     )
   }
@@ -182,52 +185,25 @@ class CreateLobbyForm extends React.Component {
   updateGameSubType = () => {
     const { getInputValue, setInputValue, recentMaps } = this.props
     const gameType = getInputValue('gameType')
-    const gameSubType = getInputValue('gameSubType')
     const selectedMap = getInputValue('selectedMap')
+    const map = recentMaps.byId.get(selectedMap)
 
-    if (!selectedMap) return
+    if (!selectedMap || !map) return
 
+    // Ensure the `gameSubType` is always set to a default value when the `gameType` and/or the
+    // `selectedMap` changes.
     if (this._lastGameType !== gameType || this._lastSelectedMap !== selectedMap) {
+      this._lastGameType = gameType
+      this._lastSelectedMap = selectedMap
+
       if (!isTeamType(gameType)) return
 
-      // Ensure `gameSubType` is always set, and always within a valid range for the current map
-      const {
-        mapData: { slots },
-      } = recentMaps.byId.get(selectedMap)
       if (gameType === 'topVBottom') {
-        if (
-          gameType !== this._lastGameType ||
-          !gameSubType ||
-          gameSubType < 1 ||
-          gameSubType >= slots
-        ) {
-          setInputValue('gameSubType', Math.ceil(slots / 2))
-        }
+        setInputValue('gameSubType', Math.ceil(map.mapData.slots / 2))
       } else {
-        if (
-          gameType !== this._lastGameType ||
-          !gameSubType ||
-          gameSubType < 2 ||
-          gameSubType > Math.min(slots, 4)
-        ) {
-          setInputValue('gameSubType', 2)
-        }
+        setInputValue('gameSubType', 2)
       }
     }
-  }
-
-  onGameTypeChange = gameType => {
-    const { getInputValue, setInputValue } = this.props
-
-    this._lastGameType = getInputValue('gameType')
-    setInputValue('gameType', gameType, this.updateGameSubType)
-  }
-
-  onSelectedMapChange = selectedMap => {
-    const { getInputValue, setInputValue } = this.props
-
-    this._lastGameType = getInputValue('selectedMap')
-    setInputValue('selectedMap', selectedMap, this.updateGameSubType)
   }
 }
 
