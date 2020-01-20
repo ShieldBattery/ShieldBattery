@@ -251,7 +251,6 @@ export default class CreateLobby extends React.Component {
   }
 
   componentDidMount() {
-    this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
     this.props.dispatch(getLobbyPreferences())
     window.addEventListener('beforeunload', this._savePreferences)
   }
@@ -273,6 +272,8 @@ export default class CreateLobby extends React.Component {
       this.setState({
         recentMaps: newRecentMaps,
       })
+
+      this._autoFocusTimer = setTimeout(() => this._doAutoFocus(), 450)
     }
   }
 
