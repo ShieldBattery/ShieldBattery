@@ -75,6 +75,7 @@ const MapDescription = styled(Subheading)`
   margin: 0;
   padding-right: ${props => (props.canEdit ? '68px' : '16px')};
   letter-spacing: 0.5px;
+  white-space: pre-wrap;
   overflow-wrap: break-word;
 `
 
