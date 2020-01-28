@@ -1,30 +1,59 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import Button from './button.jsx'
-import styles from './button.css'
+import styled from 'styled-components'
+
+import Button, { ButtonContent, Label } from './button.jsx'
+import Card from './card.jsx'
+
+import { amberA400, blue400 } from '../styles/colors'
+
+const FlatButtonContents = styled(ButtonContent).attrs(props => ({
+  primary: props.color === 'primary',
+  accent: props.color === 'accent',
+}))`
+  ${props => {
+    if (props.disabled) return ''
+
+    if (props.primary) {
+      return `
+        & ${Label} {
+          color: ${blue400};
+        }
+      `
+    } else if (props.accent) {
+      return `
+        & ${Label} {
+          color: ${amberA400};
+        }
+      `
+    }
+
+    return ''
+  }}
+
+  ${props => {
+    if (props.disabled) return ''
+
+    return `
+      &:active {
+        background-color: rgba(255, 255, 255, 0.16);
+      }
+
+      ${Card} &:active {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+    `
+  }}
+`
 
 // A button with no elevation
-export default class FlatButton extends React.Component {
-  static propTypes = {
-    ...Button.propTypes,
-    color: PropTypes.oneOf(['primary', 'accent', 'normal']),
-  }
+const FlatButton = React.forwardRef((props, ref) => {
+  return <Button ref={ref} {...props} contentComponent={FlatButtonContents} />
+})
 
-  render() {
-    const classes = classnames(styles.flat, this.props.className, {
-      [styles.primary]: this.props.color === 'primary',
-      [styles.accent]: this.props.color === 'accent',
-    })
-
-    return <Button ref='button' {...this.props} className={classes} />
-  }
-
-  focus() {
-    this.refs.button.focus()
-  }
-
-  blur() {
-    this.refs.button.blur()
-  }
+FlatButton.propTypes = {
+  ...Button.propTypes,
+  color: PropTypes.oneOf(['primary', 'accent', 'normal']),
 }
+
+export default FlatButton

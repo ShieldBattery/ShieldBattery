@@ -22,7 +22,6 @@ import { ConditionalRoute } from './navigation/custom-routes.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import EmailVerificationNotification from './auth/email-verification-notification.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
-import IconButton from './material/icon-button.jsx'
 import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import LobbyView from './lobbies/view.jsx'
@@ -31,6 +30,7 @@ import MenuItem from './material/menu/item.jsx'
 import ProfileNavEntry from './profile/nav-entry.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
+import SubheaderButton from './material/left-nav/subheader-button.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import SelfProfileOverlay from './profile/self-profile-overlay.jsx'
@@ -235,10 +235,9 @@ class MainLayout extends React.Component {
       />
     ))
     const joinChannelButton = (
-      <IconButton
+      <SubheaderButton
         icon={<AddIcon />}
         title='Join a channel'
-        className={styles.subheaderButton}
         onClick={this.onJoinChannelClick}
       />
     )
@@ -252,10 +251,9 @@ class MainLayout extends React.Component {
       />
     ))
     const addWhisperButton = (
-      <IconButton
+      <SubheaderButton
         icon={<AddIcon />}
         title='Start a whisper'
-        className={styles.subheaderButton}
         onClick={this.onAddWhisperClick}
       />
     )

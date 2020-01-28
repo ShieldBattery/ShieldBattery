@@ -1,44 +1,55 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
+import { darken } from 'polished'
 
-import Button from './button.jsx'
+import Button, { ButtonCommon, Label } from './button.jsx'
 
-import { reset } from './button-reset'
-import { fastOutSlowInShort } from './curves'
 import { shadow6dp } from './shadows'
 import { amberA400 } from '../styles/colors'
 
-const StyledButton = styled(Button)`
-  ${reset};
-  ${fastOutSlowInShort};
+const FloatingActionButtonContents = styled(ButtonCommon)`
   ${shadow6dp};
   width: 56px;
   height: 56px;
   background-color: ${amberA400};
   border-radius: 50%;
 
-  & > span {
-    color: #000;
+  & ${Label} {
+    color: rgba(0, 0, 0, 0.87);
   }
 
-  &:hover {
-    background-color: #ebb000; /* amberA400 darkened 8% */
-  }
+  ${props => {
+    if (props.disabled) return ''
 
-  &:active {
-    background-color: #d69b00; /* amberA400 darkened 16% */
-  }
+    return `
+      &:hover {
+        background-color: ${darken(0.04, amberA400)};
+      }
+
+      &:active {
+        background-color: ${darken(0.08, amberA400)}
+      }
+    `
+  }}
 `
 
-export default class FloatingActionButton extends React.Component {
-  static propTypes = {
-    icon: PropTypes.element.isRequired,
-  }
+// A floating action button that displays just an SVG icon
+const FloatingActionButton = React.forwardRef((props, ref) => {
+  const { icon, ...otherProps } = props
 
-  render() {
-    const { icon, ...otherProps } = this.props
+  return (
+    <Button
+      ref={ref}
+      {...otherProps}
+      label={icon}
+      contentComponent={FloatingActionButtonContents}
+    />
+  )
+})
 
-    return <StyledButton {...otherProps} label={icon} />
-  }
+FloatingActionButton.propTypes = {
+  icon: PropTypes.element.isRequired,
 }
+
+export default FloatingActionButton
