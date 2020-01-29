@@ -7,7 +7,7 @@ import Card from './card.jsx'
 
 import { colorTextPrimary, colorTextFaint } from '../styles/colors'
 
-const IconButtonContents = styled(ButtonCommon)`
+export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;
   min-height: 48px;
   border-radius: 50%;

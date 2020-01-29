@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
 import { replace } from 'connected-react-router'
 import keycode from 'keycode'
-import styles from './main-layout.css'
 import styled from 'styled-components'
 
 import ActiveGame from './active-game/view.jsx'
@@ -70,6 +69,8 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
+import { colorError } from './styles/colors'
+import { Body2 } from './styles/typography'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -89,7 +90,7 @@ const Layout = styled.div`
   height: calc(100% - 64px);
 `
 
-const ContentLayout = styled.div`
+const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
@@ -97,6 +98,12 @@ const ContentLayout = styled.div`
 
 const AdminLink = styled.p`
   width: 100%;
+`
+
+const DevIndicator = styled(Body2)`
+  width: 100%;
+  color: ${colorError};
+  text-transform: uppercase;
 `
 
 const StyledMapsIcon = styled(MapsIcon)`
@@ -258,11 +265,7 @@ class MainLayout extends React.Component {
       />
     )
     const footer = [
-      DEV_INDICATOR ? (
-        <span key='dev' className={styles.devIndicator}>
-          Dev Mode
-        </span>
-      ) : null,
+      DEV_INDICATOR ? <DevIndicator key='dev'>Dev Mode</DevIndicator> : null,
       isAdmin(auth) ? (
         <AdminLink key='adminPanel'>
           <Link to='/admin'>Admin</Link>
@@ -363,7 +366,7 @@ class MainLayout extends React.Component {
             <Subheader button={addWhisperButton}>Whispers</Subheader>
             <Section>{whisperNav}</Section>
           </LeftNav>
-          <ContentLayout>
+          <Content>
             <Switch>
               {activeGameRoute}
               <ConditionalRoute path='/admin' filters={[IsAdminFilter]} component={AdminPanel} />
@@ -375,7 +378,7 @@ class MainLayout extends React.Component {
                   can't actually have a 404 page, but I don't think we really need one? */}
               <Index transitionFn={replace} />
             </Switch>
-          </ContentLayout>
+          </Content>
           <ActivityBar>{activityButtons}</ActivityBar>
           {this.renderProfileOverlay()}
           <ActivityOverlay />
