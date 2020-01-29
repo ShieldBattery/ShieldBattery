@@ -43,7 +43,6 @@ pub enum GameThreadRequestType {
 pub enum GameThreadMessage {
     WindowMove(i32, i32),
     Snp(snp::SnpMessage),
-    PlayerJoined,
     Results(GameThreadResults),
 }
 

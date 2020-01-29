@@ -23,7 +23,6 @@ use crate::forge;
 use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
 use crate::network_manager::{NetworkError, NetworkManager};
 use crate::snp;
-use crate::storm;
 use crate::windows;
 
 pub struct GameState {
@@ -276,7 +275,36 @@ impl GameState {
                 .map_err(|_| GameInitError::Closed)?;
             loop {
                 unsafe {
-                    with_bw(|bw| bw.maybe_receive_turns());
+                    let mut someone_left = false;
+                    let mut new_players = false;
+                    with_bw(|bw| {
+                        let flags_before = bw.storm_player_flags();
+                        bw.maybe_receive_turns();
+                        let flags_after = bw.storm_player_flags();
+                        let flags = flags_before.iter().zip(flags_after.iter());
+                        for (i, (&old, &new)) in flags.enumerate() {
+                            if old == 0 && new != 0 {
+                                bw.init_network_player_info(i as u32);
+                                new_players = true;
+                            }
+                            if old != 0 && new == 0 {
+                                someone_left = true;
+                            }
+                        }
+                        if someone_left {
+                            // No idea what to do here, launching is probably going to fail
+                            // but log the error so that investigation will be easier.
+                            error!(
+                                "A player that was joined has left??? Before: {:x?} After: {:x?}",
+                                flags_before, flags_after,
+                            );
+                        }
+                    });
+
+                    if new_players {
+                        send_messages_to_state.send(GameStateMessage::PlayerJoined).await
+                            .map_err(|_| GameInitError::Closed)?;
+                    }
                 }
                 select! {
                     _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
@@ -484,7 +512,7 @@ impl InitInProgress {
 
     // Return Ok(true) on done, Ok(false) on keep waiting
     unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
-        let storm_names = storm::SNetGetPlayerNames();
+        let storm_names = with_bw(|bw| storm_player_names(bw));
         self.update_bw_slots(&storm_names)?;
         if self.has_all_players() {
             Ok(true)
@@ -735,7 +763,13 @@ unsafe fn join_lobby(
         with_bw(|bw| {
             bw.init_game_network();
             bw.maybe_receive_turns();
-            let player_names = storm::SNetGetPlayerNames();
+            let storm_flags = bw.storm_player_flags();
+            for (i, &flags) in storm_flags.iter().enumerate() {
+                if flags != 0 {
+                    bw.init_network_player_info(i as u32);
+                }
+            }
+            let player_names = storm_player_names(bw);
             debug!("Storm player names at join: {:?}", player_names);
         });
         Ok(())
@@ -822,28 +856,22 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
     }
 }
 
-unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
-    let storm_names = storm::SNetGetPlayerNames();
-    let storm_ids_to_init = info
-        .slots
-        .iter()
-        .filter(|s| s.is_human() || s.is_observer())
-        .map(|s| {
-            storm_names
-                .iter()
-                .position(|x| match x {
-                    Some(name) => name == &s.name,
-                    None => false,
-                })
-                .unwrap_or_else(|| {
-                    // Okay, this really should not have passed has_all_players
-                    panic!("No storm id for player {}", s.name);
-                })
-        })
-        .map(|id| id as u32)
-        .collect::<Vec<_>>();
+unsafe fn storm_player_names(bw: &dyn bw::Bw) -> Vec<Option<String>> {
+    let storm_players = bw.storm_players();
+    storm_players.iter().map(|player| {
+        let name_len = player.name.iter().position(|&c| c == 0).unwrap_or(player.name.len());
+        if name_len != 0 {
+            Some(String::from_utf8_lossy(&player.name[..name_len]).into())
+        } else {
+            None
+        }
+    }).collect::<Vec<_>>()
+}
 
-    with_bw(|bw| bw.do_lobby_game_init(&storm_ids_to_init, info.seed));
+unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
+    with_bw(|bw| {
+        bw.do_lobby_game_init(info.seed)
+    });
 }
 
 pub async fn create_future(

@@ -281,9 +281,6 @@ async fn handle_messages_from_game_thread(
             GameThreadMessage::Snp(snp) => {
                 game_send.send(GameStateMessage::Snp(snp)).await.map_err(|_| ())
             }
-            GameThreadMessage::PlayerJoined => {
-                game_send.send(GameStateMessage::PlayerJoined).await.map_err(|_| ())
-            }
             GameThreadMessage::Results(results) => {
                 game_send.send(GameStateMessage::Results(results)).await.map_err(|_| ())
             }

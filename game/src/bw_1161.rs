@@ -43,11 +43,11 @@ impl bw::Bw for Bw1161 {
         init_game_network();
     }
 
-    unsafe fn do_lobby_game_init(&self, storm_ids: &[u32], seed: u32) {
-        for &id in storm_ids {
-            init_network_player_info(id, 0, 1, 5);
-        }
+    unsafe fn init_network_player_info(&self, storm_player_id: u32) {
+        init_network_player_info(storm_player_id, 0, 1, 5);
+    }
 
+    unsafe fn do_lobby_game_init(&self, seed: u32) {
         update_nation_and_human_ids(*local_storm_id);
         *lobby_state = 8;
         let data = bw::LobbyGameInitData {
@@ -105,12 +105,19 @@ impl bw::Bw for Bw1161 {
     unsafe fn players(&self) -> *mut bw::Player {
         (*players).as_mut_ptr()
     }
+
+    unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
+        (*storm_players)[..].into()
+    }
+
+    unsafe fn storm_player_flags(&self) -> Vec<u32> {
+        (*storm_player_flags)[..].into()
+    }
 }
 
 whack_hooks!(stdcall, 0x00400000,
     0x004E0AE0 => WinMain(*mut c_void, *mut c_void, *const u8, i32) -> i32;
     0x004E08A5 => GameInit();
-    0x004C4980 => OnSNetPlayerJoined(*mut c_void);
     0x0047F8F0 => ChatCommand(*const u8);
     0x0047F0E0 => ScrollScreen();
 
@@ -179,6 +186,7 @@ whack_vars!(init_vars, 0x00400000,
     0x00596904 => game_state: u32;
     0x0057F1DA => chat_message_recipients: u8;
     0x0068C144 => chat_message_type: u8;
+    0x0057F0B8 => storm_player_flags: [u32; 8];
 
     0x00596BBC => replay_data: *mut bw::ReplayData;
     0x006D0F18 => replay_visions: u32;
@@ -236,7 +244,6 @@ unsafe fn patch_game() {
     init_vars(&mut exe);
     exe.hook_opt(WinMain, crate::entry_point_hook);
     exe.hook(GameInit, crate::process_init_hook);
-    exe.hook_opt(OnSNetPlayerJoined, player_joined);
     exe.hook_opt(ChatCommand, chat_command_hook);
     exe.hook_opt(ScrollScreen, scroll_screen);
     // Rendering during InitSprites is useless and wastes a bunch of time, so we no-op it
@@ -603,10 +610,4 @@ pub unsafe fn chat_command_hook(text: *const u8, orig: unsafe extern fn(*const u
         }
     }
     orig(text);
-}
-
-pub unsafe fn player_joined(info: *mut c_void, orig: unsafe extern fn(*mut c_void)) {
-    // We could get storm id from the event info, but it's not used anywhere atm
-    crate::game_thread::game_thread_message(crate::game_thread::GameThreadMessage::PlayerJoined);
-    orig(info);
 }

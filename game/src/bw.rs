@@ -33,7 +33,11 @@ pub trait Bw: Sync + Send {
     unsafe fn remaining_game_init(&self, local_player_name: &str);
     unsafe fn maybe_receive_turns(&self);
     unsafe fn init_game_network(&self);
-    unsafe fn do_lobby_game_init(&self, storm_ids: &[u32], seed: u32);
+    unsafe fn do_lobby_game_init(&self, seed: u32);
+
+    /// Inits player's info from storm to starcraft.
+    /// Called once player has joined and is visible to storm.
+    unsafe fn init_network_player_info(&self, storm_player_id: u32);
     unsafe fn create_lobby(
         &self,
         map_path: &Path,
@@ -47,6 +51,12 @@ pub trait Bw: Sync + Send {
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
     unsafe fn players(&self) -> *mut Player;
+
+    /// Note: Size is unspecified, but will not change between calls.
+    /// (Remastered has 12 storm players)
+    unsafe fn storm_players(&self) -> Vec<StormPlayer>;
+    /// Size unspecified.
+    unsafe fn storm_player_flags(&self) -> Vec<u32>;
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -122,7 +132,8 @@ pub struct Player {
     pub name: [u8; 25],
 }
 
-#[repr(C, packed)]
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct StormPlayer {
     pub state: u8,
     pub unk1: u8,
