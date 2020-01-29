@@ -3,9 +3,8 @@ use std::sync::mpsc::Receiver;
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
-use libc::c_void;
 
-use crate::bw;
+use crate::bw::{with_bw};
 use crate::forge;
 use crate::snp;
 
@@ -48,12 +47,6 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
 }
 
-pub unsafe fn player_joined(info: *mut c_void, orig: unsafe extern fn(*mut c_void)) {
-    // We could get storm id from the event info, but it's not used anywhere atm
-    game_thread_message(GameThreadMessage::PlayerJoined);
-    orig(info);
-}
-
 /// Sends a message from game thread to the async system.
 pub fn game_thread_message(message: GameThreadMessage) {
     let send_global = SEND_FROM_GAME_THREAD.lock().unwrap();
@@ -87,15 +80,16 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         RunWndProc => forge::run_wnd_proc(),
         StartGame => {
             forge::game_started();
-            *bw::game_state = 3; // Playing
-            bw::game_loop();
+            with_bw(|bw| bw.run_game_loop());
             debug!("Game loop ended");
             let results = game_results();
             game_thread_message(GameThreadMessage::Results(results));
             forge::hide_window();
         }
         // Saves registry settings etc.
-        ExitCleanup => bw::clean_up_for_exit(0),
+        ExitCleanup => {
+            with_bw(|bw| bw.clean_up_for_exit());
+        }
     }
 }
 
@@ -115,29 +109,32 @@ pub struct GameThreadResults {
 }
 
 unsafe fn game_results() -> GameThreadResults {
+    let game = with_bw(|bw| bw.game());
     GameThreadResults {
-        victory_state: (*bw::game).victory_state,
+        victory_state: (*game).victory_state,
         player_has_left: {
             let mut arr = [false; 8];
             for i in 0..8 {
-                arr[i] = (*bw::game).player_has_left[i] != 0;
+                arr[i] = (*game).player_has_left[i] != 0;
             }
             arr
         },
-        player_lose_type: match (*bw::game).player_lose_type {
+        player_lose_type: match (*game).player_lose_type {
             1 => Some(PlayerLoseType::UnknownChecksumMismatch),
             2 => Some(PlayerLoseType::UnknownDisconnect),
             _ => None,
         },
         // Assuming fastest speed
-        time_ms: (*bw::game).frame_count.saturating_mul(42),
+        time_ms: (*game).frame_count.saturating_mul(42),
     }
 }
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
 unsafe fn init_bw() {
-    (*bw::game).is_bw = 1;
-    bw::init_sprites();
+    with_bw(|bw| {
+        bw.init_sprites();
+        (*bw.game()).is_bw = 1;
+    });
     debug!("Process initialized");
 }

@@ -2,14 +2,12 @@ use std::ffi::CStr;
 use std::mem;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
-use std::ptr::null_mut;
 use std::sync::Arc;
 use std::time::{Duration};
 
 use bytes::Bytes;
 use futures::{pin_mut, select};
 use futures::prelude::*;
-use libc::c_void;
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
 
@@ -18,7 +16,7 @@ use crate::app_messages::{
     GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw;
+use crate::bw::{self, GameType, with_bw};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::chat::StormPlayerId;
 use crate::forge;
@@ -86,22 +84,6 @@ pub enum GameStateMessage {
     CleanupQuit,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-struct GameType {
-    primary: u8,
-    subtype: u8,
-}
-
-impl GameType {
-    pub fn as_u32(self) -> u32 {
-        self.primary as u32 | ((self.subtype as u32) << 16)
-    }
-
-    pub fn is_ums(&self) -> bool {
-        self.primary == 0xa
-    }
-}
-
 impl GameSetupInfo {
     fn game_type(&self) -> Option<GameType> {
         let (primary, subtype) = match &*self.game_type {
@@ -138,9 +120,6 @@ quick_error! {
         Closed {
             description("Game is being closed")
         }
-        MapNotFound {
-            description("Map was not found")
-        }
         GameInitAlreadyInProgress {
             description("Cannot have two game inits active at once")
         }
@@ -164,7 +143,7 @@ quick_error! {
             description("Unknown tileset")
             display("Unknown tileset '{}'", name)
         }
-        Bw(e: BwError) {
+        Bw(e: bw::LobbyCreateError) {
             description("BW error")
             display("BW error: {}", e)
         }
@@ -176,31 +155,6 @@ quick_error! {
             description("Missing map info")
             display("Missing map info '{}'", desc)
         }
-    }
-}
-
-quick_error! {
-    #[derive(Debug, Clone)]
-    pub enum BwError {
-        Unknown {}
-        Invalid {}                 // This scenario is intended for use with a StarCraft Expansion Set.
-        WrongGameType {}           // This map can only be played with the "Use Map Settings" game type.
-        LadderBadAuth {}           // You must select an authenticated ladder map to start a ladder game.
-        AlreadyExists {}           // A game by that name already exists!
-        TooManyNames {}            // Unable to create game because there are too many games already running on this network.
-        BadParameters {}           // An error occurred while trying to create the game.
-        InvalidPlayerCount {}      // The selected scenario is not valid.
-        UnsupportedGameType {}     // The selected map does not support the selected game type and options.
-        MissingSaveGamePassword {} // You must enter a password to start a saved game.
-        MissingReplayPassword {}   // You must enter a password to start a replay.
-        IsDirectory {}             // (Changes the directory)
-        NoHumanSlots {}            // This map does not have a slot for a human participant.
-        NoComputerSlots {}         // You must have at least one computer opponent.
-        InvalidLeagueMap {}        // You must select an official league map to start a league game.
-        GameTypeUnavailable {}     // Unable to create game because the selected game type is currently unavailable.
-        NotEnoughSlots {}          // The selected map does not have enough player slots for the selected game type.
-        LeagueMissingBroodwar {}   // Brood War is required to play league games.
-        LeagueBadAuth {}           // You must select an authenticated ladder map to start a ladder game.
     }
 }
 
@@ -297,7 +251,7 @@ impl GameState {
                 send_game_request(&game_request_send, GameThreadRequestType::Initialize);
             init_done.await;
             unsafe {
-                remaining_game_init(&local_user);
+                with_bw(|bw| bw.remaining_game_init(&local_user.name));
                 if is_host {
                     create_lobby(&info, game_type)?;
                 }
@@ -322,7 +276,7 @@ impl GameState {
                 .map_err(|_| GameInitError::Closed)?;
             loop {
                 unsafe {
-                    bw::maybe_receive_turns();
+                    with_bw(|bw| bw.maybe_receive_turns());
                 }
                 select! {
                     _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
@@ -543,6 +497,7 @@ impl InitInProgress {
         &mut self,
         storm_names: &[Option<String>],
     ) -> Result<(), GameInitError> {
+        let players = with_bw(|bw| bw.players());
         for (storm_id, name) in storm_names.iter().enumerate() {
             let storm_id = StormPlayerId(storm_id as u8);
             let name = match name {
@@ -560,12 +515,13 @@ impl InitInProgress {
                     if slot.is_observer() {
                         player_id = None;
                     } else {
-                        let bw_slot = (*bw::players).iter_mut().position(|x| {
-                            let bw_name = CStr::from_ptr(x.name.as_ptr() as *const i8);
+                        let bw_slot = (0..12).find(|&i| {
+                            let player = players.add(i);
+                            let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
                             bw_name.to_str() == Ok(name)
                         });
                         if let Some(bw_slot) = bw_slot {
-                            bw::players[bw_slot].storm_id = storm_id.0 as u32;
+                            (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
                             player_id = Some(bw_slot as u8);
                         } else {
                             return Err(GameInitError::UnexpectedPlayer(name.into()));
@@ -698,93 +654,10 @@ impl InitInProgress {
     }
 }
 
-unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, GameInitError> {
-    let map_dir = match map_path.parent() {
-        Some(s) => s.into(),
-        None => {
-            warn!(
-                "Assuming map '{}' is in current working directory",
-                map_path.display()
-            );
-            match std::env::current_dir() {
-                Ok(o) => o,
-                Err(_) => return Err(GameInitError::MapNotFound),
-            }
-        }
-    };
-    let map_file = match map_path.file_name() {
-        Some(s) => s,
-        None => return Err(GameInitError::MapNotFound),
-    };
-    let map_file = windows::ansi_codepage_cstring(&map_file)
-        .map_err(|_| GameInitError::NonAnsiPath(map_file.into()))?;
-    let map_dir = windows::ansi_codepage_cstring(&map_dir)
-        .map_err(|_| GameInitError::NonAnsiPath(map_dir.into()))?;
-    for (i, &val) in map_dir.iter().enumerate() {
-        bw::current_map_folder_path[i] = val;
-    }
-
-    extern "stdcall" fn dummy(_a: *mut bw::MapListEntry, _b: *const u8, _c: u32) -> u32 {
-        0
-    }
-    bw::get_maps_list(
-        0x28,
-        (*bw::current_map_folder_path).as_ptr(),
-        "\0".as_ptr(),
-        dummy,
-    );
-    let mut current_map = *bw::map_list_root;
-    while current_map as isize > 0 {
-        let name = CStr::from_ptr((*current_map).name.as_ptr() as *const i8);
-        if name.to_bytes_with_nul() == &map_file[..] {
-            return Ok(current_map);
-        }
-        current_map = (*current_map).next;
-    }
-    Err(GameInitError::MapNotFound)
-}
-
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
-    let map = find_map_entry(Path::new(&info.map_path))?;
-    // Password must be null for replays to work
-    let name = windows::ansi_codepage_cstring(&info.name)
-        .unwrap_or_else(|_| (&b"Shieldbattery\0"[..]).into());
-    let password = null_mut();
-    let map_folder_path = (*bw::current_map_folder_path).as_ptr();
-    let speed = 6; // Fastest
-    let result = bw::select_map_or_directory(
-        name.as_ptr(),
-        password,
-        game_type.as_u32(),
-        speed,
-        map_folder_path,
-        map,
-    );
-    if result != 0 {
-        return Err(GameInitError::Bw(match result {
-            0x8000_0001 => BwError::Invalid,
-            0x8000_0002 => BwError::WrongGameType,
-            0x8000_0003 => BwError::LadderBadAuth,
-            0x8000_0004 => BwError::AlreadyExists,
-            0x8000_0005 => BwError::TooManyNames,
-            0x8000_0006 => BwError::BadParameters,
-            0x8000_0007 => BwError::InvalidPlayerCount,
-            0x8000_0008 => BwError::UnsupportedGameType,
-            0x8000_0009 => BwError::MissingSaveGamePassword,
-            0x8000_000a => BwError::MissingReplayPassword,
-            0x8000_000b => BwError::IsDirectory,
-            0x8000_000c => BwError::NoHumanSlots,
-            0x8000_000d => BwError::NoComputerSlots,
-            0x8000_000e => BwError::InvalidLeagueMap,
-            0x8000_000f => BwError::GameTypeUnavailable,
-            0x8000_0010 => BwError::NotEnoughSlots,
-            0x8000_0011 => BwError::LeagueMissingBroodwar,
-            0x8000_0012 => BwError::LeagueBadAuth,
-            _ => BwError::Unknown,
-        }));
-    }
-    bw::init_game_network();
-    Ok(())
+    let map_path = Path::new(&info.map_path);
+    with_bw(|bw| bw.create_lobby(map_path, &info.name, game_type))
+        .map_err(|e| GameInitError::Bw(e))
 }
 
 unsafe fn join_lobby(
@@ -859,12 +732,12 @@ unsafe fn join_lobby(
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
         }
-        bw::init_game_network();
-        bw::maybe_receive_turns();
-        debug!(
-            "Storm player names at join: {:?}",
-            storm::SNetGetPlayerNames()
-        );
+        with_bw(|bw| {
+            bw.init_game_network();
+            bw.maybe_receive_turns();
+            let player_names = storm::SNetGetPlayerNames();
+            debug!("Storm player names at join: {:?}", player_names);
+        });
         Ok(())
     }.boxed()
 }
@@ -881,19 +754,8 @@ async unsafe fn try_join_lobby_once(
     let (send, recv) = oneshot::channel();
     std::thread::spawn(move || {
         snp::spoof_game("shieldbattery", Ipv4Addr::new(10, 27, 27, 0));
-        let ok = bw::join_game(&mut game_info);
-        if ok == 0 {
-            let _ = send.send(Err(storm::SErrGetLastError()));
-            return;
-        }
-        let mut out = [0u32; 8];
-        let ok = bw::init_map_from_path(map_path.as_ptr(), out.as_mut_ptr() as *mut c_void, 0);
-        if ok == 0 {
-            let _ = send.send(Err(storm::SErrGetLastError()));
-            return;
-        }
-        bw::init_team_game_playable_slots();
-        let _ = send.send(Ok(()));
+        let result = with_bw(|bw| bw.join_lobby(&mut game_info, &map_path));
+        let _ = send.send(result);
     });
 
     match recv.await {
@@ -904,8 +766,9 @@ async unsafe fn try_join_lobby_once(
 }
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
+    let players = with_bw(|bw| bw.players());
     for i in 0..8 {
-        bw::players[i] = bw::Player {
+        *players.add(i) = bw::Player {
             player_id: i as u32,
             storm_id: 255,
             player_type: match slots.len() < i {
@@ -939,7 +802,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
         for (i, &byte) in slot.name.as_bytes().iter().take(24).enumerate() {
             name[i] = byte;
         }
-        bw::players[slot_id] = bw::Player {
+        *players.add(slot_id) = bw::Player {
             player_id: slot_id as u32,
             storm_id: match slot.is_human() {
                 true => 27,
@@ -976,22 +839,11 @@ unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
                     // Okay, this really should not have passed has_all_players
                     panic!("No storm id for player {}", s.name);
                 })
-        });
-    for id in storm_ids_to_init {
-        bw::init_network_player_info(id as u32, 0, 1, 5);
-    }
+        })
+        .map(|id| id as u32)
+        .collect::<Vec<_>>();
 
-    bw::update_nation_and_human_ids(*bw::local_storm_id);
-    *bw::lobby_state = 8;
-    let data = bw::LobbyGameInitData {
-        game_init_command: 0x48,
-        random_seed: info.seed,
-        // TODO(tec27): deal with player bytes if we ever allow save games
-        player_bytes: [8; 8],
-    };
-    // We ask bw to handle lobby game init packet that was sent by host (storm id 0)
-    bw::on_lobby_game_init(0, &data);
-    *bw::lobby_state = 9;
+    with_bw(|bw| bw.do_lobby_game_init(&storm_ids_to_init, info.seed));
 }
 
 pub async fn create_future(
@@ -1054,15 +906,4 @@ fn start_game_request(
 
     sender.send(request).map_err(|_| ())?;
     Ok(wait_done)
-}
-
-unsafe fn remaining_game_init(local_user: &LocalUser) {
-    let name = windows::ansi_codepage_cstring(&local_user.name).unwrap_or_else(|e| e);
-    for (&input, out) in name.iter().zip(bw::local_player_name.iter_mut()) {
-        *out = input;
-    }
-    // The old code waits for rally-point being bound here, but I don't really
-    // see much reason to do that?
-    bw::choose_network_provider(snp::PROVIDER_ID);
-    *bw::is_multiplayer = 1;
 }

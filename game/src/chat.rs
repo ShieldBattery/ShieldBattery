@@ -2,8 +2,6 @@ use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 
-use crate::bw;
-
 lazy_static! {
     static ref ALLY_OVERRIDE: Mutex<Option<u8>> = Mutex::new(None);
 }
@@ -24,11 +22,6 @@ pub fn clear_ally_override() {
     *ALLY_OVERRIDE.lock().unwrap() = None;
 }
 
-pub unsafe fn chat_command_hook(text: *const u8, orig: unsafe extern fn(*const u8)) {
-    if *bw::chat_message_type == bw::CHAT_MESSAGE_ALLIES {
-        if let Some(player_override) = *ALLY_OVERRIDE.lock().unwrap() {
-            *bw::chat_message_recipients = player_override;
-        }
-    }
-    orig(text);
+pub fn get_ally_override() -> Option<u8> {
+    ALLY_OVERRIDE.lock().unwrap().clone()
 }
