@@ -17,7 +17,6 @@ mod game_thread;
 mod network_manager;
 mod rally_point;
 mod snp;
-mod storm;
 mod udp;
 mod windows;
 

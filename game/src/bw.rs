@@ -57,6 +57,8 @@ pub trait Bw: Sync + Send {
     unsafe fn storm_players(&self) -> Vec<StormPlayer>;
     /// Size unspecified.
     unsafe fn storm_player_flags(&self) -> Vec<u32>;
+
+    unsafe fn storm_set_last_error(&self, error: u32);
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

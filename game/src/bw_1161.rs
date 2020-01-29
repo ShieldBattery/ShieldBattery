@@ -2,6 +2,7 @@
 
 mod observing;
 mod snp;
+mod storm;
 
 use std::io;
 use std::ffi::{CStr, OsStr};
@@ -75,7 +76,6 @@ impl bw::Bw for Bw1161 {
         game_info: &mut bw::JoinableGameInfo,
         map_path: &[u8],
     ) -> Result<(), u32> {
-        use crate::storm;
         let ok = join_game(game_info);
         if ok == 0 {
             return Err(storm::SErrGetLastError());
@@ -112,6 +112,10 @@ impl bw::Bw for Bw1161 {
 
     unsafe fn storm_player_flags(&self) -> Vec<u32> {
         (*storm_player_flags)[..].into()
+    }
+
+    unsafe fn storm_set_last_error(&self, error: u32) {
+        storm::SErrSetLastError(error);
     }
 }
 
@@ -199,28 +203,6 @@ whack_vars!(init_vars, 0x00400000,
     0x0057EE7C => storm_id_to_human_id: [u32; 8];
     0x00512678 => current_command_player: u32;
 );
-
-pub mod storm {
-    use crate::bw;
-
-    #[repr(C)]
-    pub struct SCode {
-        pub whatever: [u8; 0x4c],
-        pub code_offsets: [*mut u8; 0xa1],
-    }
-
-    whack_hooks!(stdcall, 0x15000000,
-        0x1503DE90 => InitializeSnpList();
-        0x150380A0 => UnloadSnp(u32);
-    );
-
-    whack_vars!(init_vars, 0x15000000,
-        0x1505E630 => snp_list_initialized: u32;
-        // Not actually a full entry, just next/prev pointers
-        0x1505AD6C => snp_list: bw::SnpListEntry;
-        0x1505EC04 => surface_copy_code: *mut SCode;
-    );
-}
 
 // Misc non-function-level patches
 pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
