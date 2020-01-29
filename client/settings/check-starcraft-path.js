@@ -30,6 +30,17 @@ async function checkHash(path, validHashes) {
   return validHashes.includes(hash)
 }
 
+export async function checkRemasteredPath(dirPath) {
+  const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
+
+  try {
+    await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
+    return true
+  } catch (err) {
+    return false
+  }
+}
+
 // Returns whether or not a StarCraft path is valid, along with whether or not the versions of
 // files contained in it are the expected versions. A path is valid if it contains:
 //   - StarCraft.exe
@@ -45,6 +56,9 @@ async function checkHash(path, validHashes) {
 // be checked for other copies. If downgradePath contains files that match the correct hashes, this
 // will be counted as having the correct version, but `downgradePath` will be true.
 export async function checkStarcraftPath(dirPath, downgradePath) {
+  if (await checkRemasteredPath(dirPath)) {
+    return { path: true, version: true, downgradePath: false }
+  }
   const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {

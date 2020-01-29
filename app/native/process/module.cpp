@@ -40,6 +40,7 @@ struct LaunchContext {
   wstring app_path;
   wstring arguments;
   bool launch_suspended;
+  bool debugger_launch;
   wstring current_dir;
   vector<wstring> environment;
   Callback callback;
@@ -51,7 +52,7 @@ void LaunchWork(uv_work_t* req) {
   LaunchContext* context = reinterpret_cast<LaunchContext*>(req->data);
 
   context->process = new Process(context->app_path, context->arguments, context->launch_suspended,
-      context->current_dir, context->environment);
+      context->debugger_launch, context->current_dir, context->environment);
 }
 
 void LaunchAfter(uv_work_t* req, int status) {
@@ -73,8 +74,8 @@ void LaunchAfter(uv_work_t* req, int status) {
 }
 
 void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
-  assert(info.Length() == 6);
-  assert(info[5]->IsFunction());
+  assert(info.Length() == 7);
+  assert(info[6]->IsFunction());
 
   LaunchContext* context = new LaunchContext();
   context->app_path = ToWstring(To<String>(info[0]).ToLocalChecked());
@@ -89,7 +90,9 @@ void LaunchProcess(const FunctionCallbackInfo<Value>& info) {
     );
   }
 
-  context->callback.Reset(info[5].As<Function>());
+  context->debugger_launch = To<bool>(info[5]).FromJust();
+
+  context->callback.Reset(info[6].As<Function>());
   context->req.data = context;
   uv_queue_work(uv_default_loop(), &context->req, LaunchWork, LaunchAfter);
 

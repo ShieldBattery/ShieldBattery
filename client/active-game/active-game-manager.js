@@ -5,7 +5,7 @@ import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
-import { checkStarcraftPath } from '../settings/check-starcraft-path'
+import { checkStarcraftPath, checkRemasteredPath } from '../settings/check-starcraft-path'
 import getDowngradePath from './get-downgrade-path'
 import log from '../logging/logger'
 import {
@@ -231,24 +231,36 @@ async function doLaunch(gameId, serverPort, settings) {
     throw new Error('No Starcraft path set')
   }
   const downgradePath = getDowngradePath()
-  const checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
-  if (!checkResult.path || !checkResult.version) {
-    throw new Error(
-      `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
-        JSON.stringify(checkResult),
-    )
+  const isRemastered = await checkRemasteredPath(starcraftPath)
+  let checkResult = null
+  if (!isRemastered) {
+    checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
+    if (!checkResult.path || !checkResult.version) {
+      throw new Error(
+        `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
+          JSON.stringify(checkResult),
+      )
+    }
   }
 
   const userDataPath = remote.app.getPath('userData')
-  const appPath = path.join(
-    checkResult.downgradePath ? downgradePath : starcraftPath,
-    'starcraft.exe',
-  )
+  let appPath
+  if (isRemastered) {
+    appPath = path.join(starcraftPath, 'x86/starcraft.exe')
+  } else {
+    appPath = path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
+  }
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
+  let args = `${appPath} ${gameId} ${serverPort} "${userDataPath}"`
+  if (isRemastered) {
+    // SCR uses -launch as an argument to skip bnet launcher.
+    // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.
+    args += ' -launch'
+  }
   const proc = await launchProcess({
     appPath,
-    args: `${gameId} ${serverPort} "${userDataPath}"`,
-    launchSuspended: true,
+    args,
+    launchSuspended: !isRemastered,
     currentDir: starcraftPath,
     environment: [
       // Prevent Windows Game Explorer from trying to make a network connection on process launch,
@@ -257,6 +269,7 @@ async function doLaunch(gameId, serverPort, settings) {
       // forge.
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
     ],
+    debuggerLaunch: isRemastered,
   })
   log.verbose('Process launched')
 
@@ -266,6 +279,12 @@ async function doLaunch(gameId, serverPort, settings) {
   // Remove the error dump if it's older than 2 weeks, as can be really large
   await removeIfOld(errorDumpPath, 2 * 24 * 3600 * 1000)
   try {
+    // Note: if debuggerLaunch is true (remastered), injection happens on main thread that stays
+    // suspended until proc.resume() below, while otherwise the OnInject has finished running
+    // before injectDll resolves.
+    // This shouldn't really change anything, but worth noticing to anyone looking at this code.
+    // Could be possibly fixed if someone wants to refactor injection to add something in the
+    // inject_proc asm that synchronizes the launching process without needing an extra thread.
     await proc.injectDll(injectPath, 'OnInject', errorDumpPath)
   } catch (err) {
     silentTerminate(proc)

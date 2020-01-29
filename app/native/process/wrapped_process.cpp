@@ -1,3 +1,4 @@
+#define _WIN32_WINNT 0x601 // Win7; Needed for Wow64GetThreadSelectorEntry
 #include "wrapped_process.h"
 
 #include <node.h>
@@ -5,10 +6,15 @@
 #include <DbgHelp.h>
 #include <nan.h>
 #include <TlHelp32.h>
+#include <windows.h>
+#include <stdio.h>
 #include <array>
+#include <condition_variable>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "v8_string.h"
@@ -25,6 +31,7 @@ using Nan::Undefined;
 using Nan::Utf8String;
 using std::array;
 using std::string;
+using std::tuple;
 using std::unique_ptr;
 using std::vector;
 using std::wstring;
@@ -36,8 +43,27 @@ using v8::Object;
 using v8::String;
 using v8::Value;
 
+//#define DEBUG_MSG(fmt, ...) { char buf__[256]; snprintf(buf__, sizeof(buf__), fmt, __VA_ARGS__); DebugMsg(buf__); }
+#define DEBUG_MSG(fmt, ...) { }
+
 namespace sbat {
 namespace proc {
+
+// I'd rather have the code just work and debug logging not be necessary than write all
+// the code needed for sending log messages to JS side.
+void DebugMsg(char *msg) {
+  static FILE *out;
+  if (out == nullptr) {
+    char path[256];
+    ExpandEnvironmentStringsA("%TEMP%\\sbdebug.txt", path, 256);
+    out = fopen(path, "w");
+  }
+  if (out != nullptr) {
+    fputs(msg, out);
+    fputs("\n", out);
+    fflush(out);
+  }
+}
 
 WinHandle::WinHandle(HANDLE handle)
   : handle_(handle) {
@@ -392,11 +418,56 @@ const byte inject_proc[] = {
   0xC2, 0x04, 0x00                      // RETN 4
 };
 
+// Using WaitForDebugEvent requires calling it from same thread as
+// CreateProcessW was called, so we need another thread separate
+// from libuv threads.
+//
+// There's no function to clean the one thread that will be started.
+// Shouldn't matter.
+static std::thread *worker_thread = nullptr;
+static std::once_flag worker_thread_init;
+// Maybe having separate worker/parent ones isn't necessary, but
+// I don't really want to think about this more than this.
+static std::mutex worker_lock;
+static std::mutex parent_lock;
+static std::condition_variable worker_signal;
+static std::condition_variable parent_signal;
+static unique_ptr<std::function<void()>> thread_queue_task;
+
+static void WorkerThread() {
+  std::unique_lock<std::mutex> lock(worker_lock);
+  while (true) {
+    if (thread_queue_task.get() == nullptr) {
+      worker_signal.wait(lock);
+      continue;
+    }
+    std::function<void()> *task = thread_queue_task.get();
+    lock.unlock();
+    (*task)();
+    parent_signal.notify_one();
+    lock.lock();
+    thread_queue_task.reset(nullptr);
+  }
+}
+
+// Blocks until the work is complete.
+void DoWorkOnWorkerThread(std::function<void()> task) {
+  std::call_once(worker_thread_init, [](){ worker_thread = new std::thread(WorkerThread); });
+  {
+    std::lock_guard<std::mutex> lock(worker_lock);
+    thread_queue_task.reset(new std::function<void()>(task));
+  }
+  std::unique_lock<std::mutex> lock(parent_lock);
+  worker_signal.notify_one();
+  parent_signal.wait(lock);
+}
+
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
-  const wstring& current_dir, const vector<wstring>& environment)
+  bool debugger_launch, const wstring& current_dir, const vector<wstring>& environment)
   : process_handle_(),
   thread_handle_(),
-  error_() {
+  error_(),
+  debugger_launch_(debugger_launch) {
 
   wchar_t* env_strings = GetEnvironmentStringsW();
   if (env_strings == nullptr) {
@@ -436,17 +507,25 @@ Process::Process(const wstring& app_path, const wstring& arguments, bool launch_
   vector<wchar_t> arguments_writable(arguments.length() + 1);
   std::copy(arguments.begin(), arguments.end(), arguments_writable.begin());
 
-  PROCESS_INFORMATION process_info;
-  if (!CreateProcessW(app_path.c_str(), &arguments_writable[0], nullptr, nullptr, false,
-    launch_suspended ? CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT : CREATE_UNICODE_ENVIRONMENT,
-    &env_param[0], current_dir.c_str(),
-    &startup_info, &process_info)) {
-    error_ = WindowsError("Process -> CreateProcessW", GetLastError());
-    return;
+  auto flags = CREATE_UNICODE_ENVIRONMENT;
+  if (launch_suspended) {
+    flags |= CREATE_SUSPENDED;
   }
+  if (debugger_launch) {
+    flags |= DEBUG_PROCESS;
+  }
+  PROCESS_INFORMATION process_info;
+  DoWorkOnWorkerThread([&]() {
+    if (!CreateProcessW(app_path.c_str(), &arguments_writable[0], nullptr, nullptr, false, flags,
+      &env_param[0], current_dir.c_str(),
+      &startup_info, &process_info)) {
+      error_ = WindowsError("Process -> CreateProcessW", GetLastError());
+      return;
+    }
 
-  process_handle_.Reset(process_info.hProcess);
-  thread_handle_.Reset(process_info.hThread);
+    process_handle_.Reset(process_info.hProcess);
+    thread_handle_.Reset(process_info.hThread);
+  });
 }
 
 Process::~Process() {
@@ -494,6 +573,413 @@ WindowsError Process::NtForceLdrInitializeThunk() {
   return WindowsError();
 }
 
+// Receives the address of Process Environment Block for a process.
+static WindowsError NtApi_GetPebAddress(HANDLE process, HANDLE thread, uintptr_t *result) {
+  WOW64_CONTEXT context = { 0 };
+  context.ContextFlags = WOW64_CONTEXT_SEGMENTS;
+  auto ok = Wow64GetThreadContext(thread, &context);
+  if (ok == 0) {
+    return WindowsError("NtApi_GetPebAddress -> GetThreadContext", GetLastError());
+  }
+  WOW64_LDT_ENTRY entry = { 0 };
+  ok = Wow64GetThreadSelectorEntry(thread, context.SegFs, &entry);
+  if (ok == 0) {
+    return WindowsError("NtApi_GetPebAddress -> GetThreadSelectorEntry", GetLastError());
+  }
+  byte entry_bytes[8];
+  memcpy(&entry_bytes, &entry, 8);
+  uint32_t teb = static_cast<uint32_t>(entry_bytes[2]) |
+    (static_cast<uint32_t>(entry_bytes[3]) << 8) |
+    (static_cast<uint32_t>(entry_bytes[4]) << 16) |
+    (static_cast<uint32_t>(entry_bytes[7]) << 24);
+
+  uint32_t addr = 0;
+  SIZE_T bytes_read = 0;
+  ok = ReadProcessMemory(process, (void *)((uintptr_t)teb + 0x30), &addr, 4, &bytes_read);
+  if (ok == 0 || bytes_read != 4) {
+    return WindowsError("NtApi_GetPebAddress -> ReadProcessMemory", GetLastError());
+  } else {
+    *result = addr;
+    return WindowsError();
+  }
+}
+
+struct UnicodeString {
+  uint16_t size;
+  uint16_t capacity;
+  uint32_t pointer;
+};
+
+struct LdrDataTableEntry32 {
+  uint32_t reserved1[2];
+  uint32_t links[2];
+  uint32_t reserved2[2];
+  uint32_t dll_base;
+  uint32_t entry;
+  uint32_t reserved3;
+  UnicodeString dll_name;
+};
+
+// Effectively GetModuleHandle(NULL) but for a another process,
+// works early during process initialization. (Haven't actually confirmed if this
+// trickery is necessary or if the Toolhelp32 APIs could be still used)
+//
+// Can return base == 0 without error if the process needs to initialize further.
+static WindowsError NtApi_ExeBase(HANDLE process, HANDLE thread, uintptr_t *base) {
+  *base = 0;
+
+  uintptr_t peb_address = 0;
+  WindowsError error = NtApi_GetPebAddress(process, thread, &peb_address);
+  if (error.is_error()) {
+    return error;
+  }
+
+  uint32_t peb[0x10];
+  SIZE_T bytes_read = 0;
+  auto ok = ReadProcessMemory(process, (void *)peb_address, peb, 0x40, &bytes_read);
+  if (ok == 0 || bytes_read != 0x40) {
+    return WindowsError("NtApi_ExeBase -> ReadProcessMemory", GetLastError());
+  }
+  uint32_t peb_ldr = peb[0x3];
+  if (peb_ldr == 0) {
+    DEBUG_MSG("PEB LDR IS ZERO %s", "");
+    // Not ready
+    return WindowsError();
+  }
+  uint32_t module = 0;
+  ok = ReadProcessMemory(process, (void *)((uintptr_t)peb_ldr + 0x14), &module, 4, &bytes_read);
+  if (ok == 0 || bytes_read != 4) {
+    return WindowsError("NtApi_ExeBase -> ReadProcessMemory(2)", GetLastError());
+  }
+  while (module != 0 && module != peb_ldr + 0x14) {
+    LdrDataTableEntry32 entry = { 0 };
+    ok = ReadProcessMemory(process, (void *)(uintptr_t)(module - 8), &entry, sizeof(entry), &bytes_read);
+    if (ok == 0 || bytes_read != sizeof(entry)) {
+      return WindowsError("NtApi_ExeBase -> ReadProcessMemory(3)", GetLastError());
+    }
+    if (entry.dll_base == 0) {
+      DEBUG_MSG("E BASE IS ZERO %s", "");
+      // Not ready
+      return WindowsError();
+    }
+    vector<uint16_t> dll_name;
+    // UNICODE_STRING.size is in bytes, not including last null character
+    dll_name.resize(entry.dll_name.size / 2);
+    ok = ReadProcessMemory(process, (void *)(uintptr_t)entry.dll_name.pointer, dll_name.data(),
+        entry.dll_name.size, &bytes_read);
+    if (ok == 0 || bytes_read != entry.dll_name.size) {
+      return WindowsError("NtApi_ExeBase -> ReadProcessMemory(4)", GetLastError());
+    }
+    vector<byte> dll_name_ascii;
+    for (uint16_t val : dll_name) {
+      dll_name_ascii.push_back(val);
+    }
+    dll_name_ascii.push_back(0);
+    DEBUG_MSG("Name is %s, %08x %08x %08x", dll_name_ascii.data(), entry.dll_base, entry.entry, entry.reserved3);
+    // Lazy u16 compare case insensitive L".exe"
+    if (
+        (dll_name.size() > 4) &&
+        ((dll_name[dll_name.size() - 1] | 0x20) == 'e') &&
+        ((dll_name[dll_name.size() - 2] | 0x20) == 'x') &&
+        ((dll_name[dll_name.size() - 3] | 0x20) == 'e') &&
+        (dll_name[dll_name.size() - 4] == '.')
+    ) {
+      *base = entry.dll_base;
+      return WindowsError();
+    }
+    module = entry.links[0];
+  }
+  return WindowsError();
+}
+
+static WindowsError TryHideDebugger(HANDLE process, HANDLE thread, bool *was_hidden) {
+  uintptr_t address = 0;
+  WindowsError error = NtApi_GetPebAddress(process, thread, &address);
+  if (error.is_error()) {
+    // This can fail if initialization is too early, just return success + false
+    *was_hidden = false;
+    return WindowsError();
+  }
+  SIZE_T bytes_written;
+  uint8_t zero = 0;
+  BOOL success = WriteProcessMemory(process, (void *)(address + 2), &zero, 1, &bytes_written);
+  if (!success || bytes_written != 1) {
+    return WindowsError("TryHideDebugger -> WriteProcessMemory", GetLastError());
+  }
+  *was_hidden = true;
+  return WindowsError();
+}
+
+static WindowsError IsEipInRange(HANDLE thread, uintptr_t start, unsigned int len, bool *result) {
+  *result = false;
+  WOW64_CONTEXT context = { 0 };
+  context.ContextFlags = WOW64_CONTEXT_INTEGER | WOW64_CONTEXT_CONTROL;
+  auto ok = Wow64GetThreadContext(thread, &context);
+  if (ok == 0) {
+    return WindowsError("IsEipInRange -> GetThreadContext", GetLastError());
+  }
+  DEBUG_MSG("Checking %08x vs %08llx", context.Eip, start);
+  *result = context.Eip >= start && context.Eip < start + len;
+  return WindowsError();
+}
+
+static uint32_t ReadU32(const vector<byte> &bytes, uintptr_t offset) {
+  if (offset > bytes.size() - 4) {
+    return 0;
+  }
+  uint32_t value = 0;
+  memcpy(&value, &bytes[offset], 4);
+  return value;
+}
+
+static uint16_t ReadU16(const vector<byte> &bytes, uintptr_t offset) {
+  if (offset > bytes.size() - 2) {
+    return 0;
+  }
+  uint16_t value = 0;
+  memcpy(&value, &bytes[offset], 2);
+  return value;
+}
+
+WindowsError Process::FirstTlsCallback(uintptr_t base, uintptr_t *out) {
+  vector<byte> image;
+  auto error = ReadModuleImage(base, &image);
+  if (error.is_error()) {
+    return error;
+  }
+  auto pe_header = ReadU32(image, 0x3c);
+  auto tls_section_rva = ReadU32(image, pe_header + 0xc0);
+  auto tls_section_length = ReadU32(image, pe_header + 0xc4);
+  if (tls_section_rva == 0 || tls_section_length < 0x10) {
+    return WindowsError("No TLS Callbacks", 1);
+  }
+  auto callbacks = ReadU32(image, tls_section_rva + 0xc);
+  if (callbacks == 0) {
+    return WindowsError("No TLS Callbacks", 1);
+  }
+  auto first_cb = ReadU32(image, callbacks - base);
+  if (first_cb == 0) {
+    return WindowsError("No TLS Callbacks", 1);
+  } else {
+    *out = first_cb;
+    return WindowsError();
+  }
+}
+
+WindowsError Process::ReadModuleImage(uintptr_t base, vector<byte> *out) {
+  vector<byte> buffer;
+  buffer.resize(0x1000);
+  byte *data = buffer.data();
+  WindowsError error = ReadMemoryTo((void *)base, data, 0x1000);
+  if (error.is_error()) {
+    return error;
+  }
+
+  auto pe_header = ReadU32(buffer, 0x3c);
+  auto section_count = ReadU16(buffer, pe_header + 6);
+  for (uint16_t i = 0; i < section_count; i++) {
+    auto address = ReadU32(buffer, pe_header + 0xf8 + 0x28 * i + 0xc);
+    auto size = ReadU32(buffer, pe_header + 0xf8 + 0x28 * i + 0x8);
+    if (buffer.size() < address + size) {
+      buffer.resize(address + size);
+    }
+    byte *data = buffer.data();
+    auto error = ReadMemoryTo((void *)(uintptr_t)(base + address), data + address, size);
+    if (error.is_error()) {
+      DEBUG_MSG("Failed to read %08x : %x", address, size);
+      return error;
+    }
+  }
+  *out = std::move(buffer);
+  return WindowsError();
+}
+
+WindowsError Process::ReadMemory(void *address, size_t length, vector<byte> *out) {
+  vector<byte> buffer;
+  buffer.resize(length);
+  auto error = ReadMemoryTo(address, buffer.data(), length);
+  if (error.is_error()) {
+    return error;
+  } else {
+    *out = std::move(buffer);
+    return WindowsError();
+  }
+}
+
+WindowsError Process::ReadMemoryTo(void *address, byte *out, size_t length) {
+  SIZE_T bytes_read = 0;
+  auto ok = ReadProcessMemory(process_handle_.get(), address, out, length, &bytes_read);
+  if (ok == 0 || bytes_read != length) {
+    return WindowsError("ReadMemoryTo", GetLastError());
+  } else {
+    return WindowsError();
+  }
+}
+
+// This does not work with Wine :(
+// Returns TLS callback entry that was hooked and which can be then jumped to.
+WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
+  *tls_callback_entry = nullptr;
+  bool debugger_hidden = false;
+  DEBUG_EVENT debug_event = { 0 };
+  // Address, length for additional patch asm that gets injected over TLS callback
+  uintptr_t exe_patch_region_start = 0;
+  unsigned int exe_patch_region_len = 0;
+  // Address, original code for the TLS callback that was written over
+  void *tls_callback_address = nullptr;
+  vector<uint8_t> tls_callback_orig;
+  WindowsError error;
+  while (true) {
+    if (!debugger_hidden) {
+      error = TryHideDebugger(process_handle_.get(), thread_handle_.get(), &debugger_hidden);
+      if (error.is_error()) {
+        return error;
+      }
+    }
+    // After the TLS callback has been patched, we just want the execution to get
+    // stuck on the infinite loop of the patch, even if there aren't debug events.
+    unsigned debug_wait_timeout = exe_patch_region_len == 0 ? INFINITE : 5;
+    uint32_t debug_event_ok = WaitForDebugEvent(&debug_event, debug_wait_timeout);
+    if (debug_event_ok == 0) {
+      auto error = GetLastError();
+      if (error != ERROR_SEM_TIMEOUT) {
+        return WindowsError("DebugUntilTlsCallback -> WaitForDebugEvent", error);
+      }
+    }
+    DEBUG_MSG("DEBUG EVENT %x", debug_event.dwDebugEventCode);
+    if (debug_event.dwDebugEventCode == 1) {
+      auto record = &debug_event.u.Exception.ExceptionRecord;
+      DEBUG_MSG("EXCEPTION %08x @ %08llx", record->ExceptionCode, (uintptr_t)record->ExceptionAddress);
+    } else if (debug_event.dwDebugEventCode == 6) {
+      DEBUG_MSG("DLL %08llx", (uintptr_t)debug_event.u.LoadDll.lpBaseOfDll);
+    }
+    // Check if the thread has reached patch infloop
+    if (exe_patch_region_len != 0) {
+      bool is_at_infloop = false;
+      error = IsEipInRange(thread_handle_.get(), exe_patch_region_start, exe_patch_region_len,
+          &is_at_infloop);
+      if (error.is_error()) {
+        return error;
+      }
+      if (is_at_infloop) {
+        // Break while(true) {}
+        // If we got a debug event that wasn't for this thread, let that thread continue.
+        if (GetThreadId(thread_handle_.get()) != debug_event.dwThreadId) {
+          ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, 0x00010002);
+        }
+        DEBUG_MSG("Ready to inject %s", "");
+        break;
+      }
+    } else {
+      // If process intialization has gotten far enough that windows has loaded the
+      // main executable it in memory (It isn't initially loaded), find its TLS
+      // callbacks and patch over them
+      uintptr_t base = 0;
+      size_t size = 0;
+      error = NtApi_ExeBase(process_handle_.get(), thread_handle_.get(), &base);
+      if (error.is_error()) {
+        return error;
+      }
+      if (base != 0) {
+        DEBUG_MSG("GOT EXE BASE %08llx", base);
+        uintptr_t tls_address = 0;
+        error = FirstTlsCallback(base, &tls_address);
+        if (error.is_error()) {
+          return error;
+        }
+        DEBUG_MSG("TLS CB AT %08llx", tls_address);
+        const byte infloop_inject[] = {
+          0x83, 0x7c, 0xe4, 0x08, 0x01,   // cmp dword [esp + 8], 1
+          0x74, 0x06,                     // je loop
+                                          // back:
+          0x31, 0xc0,                     // xor eax, eax
+          0x40,                           // inc eax
+          0xc2, 0x0c, 0x00,               // ret 0xc
+                                          // loop:
+          0xf3, 0x90,                     // pause
+          0xeb, 0xfc,                     // jmp ~pause
+          0xeb, 0xf4,                     // jmp back
+        };
+        // Leaking this allocation since it's hard to guarantee no thread is executing this.
+        void *infloop_address = VirtualAllocEx(process_handle_.get(), nullptr,
+            sizeof(infloop_inject), MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+        if (infloop_address == nullptr) {
+          return WindowsError("DebugUntilTlsCallback -> VirtualAllocEx", GetLastError());
+        }
+        SIZE_T bytes_written;
+        BOOL success = WriteProcessMemory(process_handle_.get(), infloop_address, infloop_inject,
+          sizeof(infloop_inject), &bytes_written);
+        if (!success || bytes_written != sizeof(infloop_inject)) {
+          return WindowsError("DebugUntilTlsCallback -> WriteProcessMemory(Infloop inject)", GetLastError());
+        }
+        byte tls_entry_inject[] = {
+          0xb8, 0x00, 0x00, 0x00, 0x00, // mov eax, X
+          0xff, 0xe0, // jmp eax
+        };
+        memcpy(tls_entry_inject + 1, &infloop_address, 4);
+        vector<byte> orig;
+        error = ReadMemory((void *)tls_address, sizeof(tls_entry_inject), &orig);
+        if (error.is_error()) {
+          return error;
+        }
+        success = WriteProcessMemory(process_handle_.get(), (void *)tls_address, tls_entry_inject,
+          sizeof(tls_entry_inject), &bytes_written);
+        if (!success || bytes_written != sizeof(tls_entry_inject)) {
+          return WindowsError("DebugUntilTlsCallback -> WriteProcessMemory(TLS entry inject)", GetLastError());
+        }
+        tls_callback_address = (void *)tls_address;
+        tls_callback_orig = orig;
+        // The region we want the execution to get stuck is only 4 last bytes of infloop_inject
+        exe_patch_region_start = (uintptr_t)infloop_address + sizeof(infloop_inject) - 4;
+        exe_patch_region_len = 4;
+        DEBUG_MSG("TLS CB INFLOOP %08llx", exe_patch_region_start);
+      }
+    }
+    ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, 0x00010002);
+  }
+  // mov edi, edi - nop over 'jmp ~pause'
+  const byte nop[] = { 0x89, 0xff };
+  SIZE_T bytes_written;
+  BOOL success = WriteProcessMemory(process_handle_.get(), (void *)(exe_patch_region_start + 2),
+    nop, sizeof(nop), &bytes_written);
+  if (!success || bytes_written != sizeof(nop)) {
+    return WindowsError("DebugUntilTlsCallback -> WriteProcessMemory(Nop)", GetLastError());
+  }
+  success = WriteProcessMemory(process_handle_.get(), tls_callback_address, &tls_callback_orig[0],
+    tls_callback_orig.size(), &bytes_written);
+  if (!success || bytes_written != tls_callback_orig.size()) {
+    return WindowsError("DebugUntilTlsCallback -> WriteProcessMemory(Restore TLS)", GetLastError());
+  }
+  *tls_callback_entry = tls_callback_address;
+  return WindowsError("(No error)", 0);
+}
+
+// Sets up a stack frame on thread to call `remote_proc` with `arg` returning to `ret`
+static WindowsError SetupCall(HANDLE process, HANDLE thread, void *remote_proc, void *arg,
+    void *ret) {
+  WOW64_CONTEXT context = { 0 };
+  context.ContextFlags = WOW64_CONTEXT_INTEGER | WOW64_CONTEXT_CONTROL;
+  auto ok = Wow64GetThreadContext(thread, &context);
+  if (ok == 0) {
+    return WindowsError("SetupCall -> GetThreadContext", GetLastError());
+  }
+  uint32_t stack_data[2] = { (uint32_t)(uintptr_t)ret, (uint32_t)(uintptr_t)arg };
+  context.Esp -= 8;
+  context.Eip = (uint32_t)(uintptr_t)remote_proc;
+  DEBUG_MSG("Overriding Eip to %08x", context.Eip);
+  SIZE_T bytes_written;
+  BOOL success = WriteProcessMemory(process, (void *)(uintptr_t)context.Esp, &stack_data, 8,
+      &bytes_written);
+  if (!success || bytes_written != 8) {
+    return WindowsError("SetupCall -> WriteProcessMemory", GetLastError());
+  }
+  ok = Wow64SetThreadContext(thread, &context);
+  if (ok == 0) {
+    return WindowsError("SetupCall -> SetThreadContext", GetLastError());
+  }
+  return WindowsError();
+}
+
 WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name,
   const string& error_dump_path) {
   if (has_errors()) {
@@ -507,8 +993,19 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   }
   strcpy_s(context.inject_proc_name, inject_function_name.c_str());
 
-  // Force Windows to init the data structures necessary to get remote function addresses
-  NtForceLdrInitializeThunk();
+  void *tls_callback_entry = nullptr;
+  if (debugger_launch_) {
+    WindowsError result;
+    DoWorkOnWorkerThread([this, &tls_callback_entry, &result]() {
+      result = DebugUntilTlsCallback(&tls_callback_entry);
+    });
+    if (result.is_error()) {
+      return result;
+    }
+  } else {
+    // Force Windows to init the data structures necessary to get remote function addresses
+    NtForceLdrInitializeThunk();
+  }
 
   uintptr_t temp_ptr;
   WindowsError result = GetRemoteFuncAddress(process_handle_.get(), "kernel32.dll", "LoadLibraryW",
@@ -562,35 +1059,53 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
     return WindowsError("InjectDll -> WriteProcessMemory(Proc)", GetLastError());
   }
 
-  WinHandle thread_handle(CreateRemoteThread(process_handle_.get(), NULL, 0,
-    reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc), remote_context.get(), 0, nullptr));
-  if (thread_handle.get() == nullptr) {
-    return WindowsError("InjectDll -> CreateRemoteThread", GetLastError());
-  }
-
-  uint32_t wait_result = WaitForSingleObject(thread_handle.get(), 15000);
-  if (wait_result == WAIT_TIMEOUT) {
-    auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
-    if (err.is_error()) {
-      return err;
+  if (debugger_launch_) {
+    result = SetupCall(process_handle_.get(), thread_handle_.get(), remote_proc,
+        remote_context.get(), tls_callback_entry);
+    // Will have to leak this as there's no synchronization to guarantee we aren't
+    // executing the remote proc whenever we'd want to free this.
+    remote_context.forget();
+    if (result.is_error()) {
+      return result;
     }
-    return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
-  } else if (wait_result == WAIT_FAILED) {
-    return WindowsError("InjectDll -> WaitForSingleObject", GetLastError());
-  }
-
-  DWORD exit_code;
-  uint32_t exit_result = GetExitCodeThread(thread_handle.get(), &exit_code);
-  if (exit_result == 0) {
-    return WindowsError("InjectDll -> GetExitCodeThread", GetLastError());
-  }
-
-  if (exit_code != 0) {
-    auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
-    if (err.is_error()) {
-      return err;
+    DoWorkOnWorkerThread([this]() {
+      auto process_id = GetProcessId(this->process_handle_.get());
+      auto thread_id = GetThreadId(this->thread_handle_.get());
+      ContinueDebugEvent(process_id, thread_id, 0x00010002);
+      DebugActiveProcessStop(process_id);
+      DEBUG_MSG("Stopped debugging pid %d", process_id);
+    });
+  } else {
+    WinHandle thread_handle(CreateRemoteThread(process_handle_.get(), NULL, 0,
+      reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_proc), remote_context.get(), 0, nullptr));
+    if (thread_handle.get() == nullptr) {
+      return WindowsError("InjectDll -> CreateRemoteThread", GetLastError());
     }
-    return WindowsError("InjectDll -> injection proc exit code (error dump saved)", exit_code);
+
+    uint32_t wait_result = WaitForSingleObject(thread_handle.get(), 15000);
+    if (wait_result == WAIT_TIMEOUT) {
+      auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
+      if (err.is_error()) {
+        return err;
+      }
+      return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
+    } else if (wait_result == WAIT_FAILED) {
+      return WindowsError("InjectDll -> WaitForSingleObject", GetLastError());
+    }
+
+    DWORD exit_code;
+    uint32_t exit_result = GetExitCodeThread(thread_handle.get(), &exit_code);
+    if (exit_result == 0) {
+      return WindowsError("InjectDll -> GetExitCodeThread", GetLastError());
+    }
+
+    if (exit_code != 0) {
+      auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
+      if (err.is_error()) {
+        return err;
+      }
+      return WindowsError("InjectDll -> injection proc exit code (error dump saved)", exit_code);
+    }
   }
   return WindowsError("(No error)", 0);
 }
@@ -600,8 +1115,13 @@ WindowsError Process::Resume() {
     return error();
   }
 
-  if (ResumeThread(thread_handle_.get()) == -1) {
-    return WindowsError("Process Resume -> ResumeThread", GetLastError());
+  // Debugger launch doesn't keep the thread suspended after injection code is run, so
+  // this ends up just being a nop. (It could, but would require adding synchronization
+  // asm since the injection happens on the main thread.)
+  if (!debugger_launch_) {
+    if (ResumeThread(thread_handle_.get()) == -1) {
+      return WindowsError("Process Resume -> ResumeThread", GetLastError());
+    }
   }
 
   return WindowsError();
