@@ -1,20 +1,31 @@
 #![allow(bad_style)]
 
 use std::mem;
-use std::ptr::null_mut;
 
 use lazy_static::lazy_static;
 
+use crate::bw;
 use crate::windows;
 
+#[repr(C)]
+pub struct SCode {
+    pub whatever: [u8; 0x4c],
+    pub code_offsets: [*mut u8; 0xa1],
+}
+
+whack_hooks!(stdcall, 0x15000000,
+    0x1503DE90 => InitializeSnpList();
+    0x150380A0 => UnloadSnp(u32);
+);
+
+whack_vars!(init_vars, 0x15000000,
+    0x1505E630 => snp_list_initialized: u32;
+    // Not actually a full entry, just next/prev pointers
+    0x1505AD6C => snp_list: bw::SnpListEntry;
+    0x1505EC04 => surface_copy_code: *mut SCode;
+);
+
 lazy_static! {
-    static ref SNET_GET_PLAYER_NAMES: unsafe extern "stdcall" fn(*mut *const i8) = unsafe {
-        let storm = windows::load_library("storm").expect("Couldn't load storm");
-        let func = storm
-            .proc_address_ordinal(144)
-            .expect("Couldn't find SNetGetPlayerNames");
-        mem::transmute(func)
-    };
     static ref SERR_GET_LAST_ERROR: unsafe extern "stdcall" fn() -> u32 = unsafe {
         let storm = windows::load_library("storm").expect("Couldn't load storm");
         let func = storm
@@ -37,19 +48,4 @@ pub unsafe fn SErrGetLastError() -> u32 {
 
 pub unsafe fn SErrSetLastError(error: u32) {
     SERR_SET_LAST_ERROR(error);
-}
-
-pub unsafe fn SNetGetPlayerNames() -> Vec<Option<String>> {
-    let mut buffer: [*const i8; 8] = [null_mut(); 8];
-    SNET_GET_PLAYER_NAMES(buffer.as_mut_ptr());
-    buffer
-        .iter()
-        .map(|&ptr| {
-            if ptr.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(ptr).to_string_lossy().into())
-            }
-        })
-        .collect()
 }

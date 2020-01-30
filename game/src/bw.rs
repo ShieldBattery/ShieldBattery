@@ -1,124 +1,113 @@
-#![allow(non_upper_case_globals, non_camel_case_types)]
+use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use libc::{c_void, sockaddr};
+use quick_error::quick_error;
 use winapi::shared::ntdef::HANDLE;
 
-whack_hooks!(stdcall, 0x00400000,
-    0x004E0AE0 => WinMain(*mut c_void, *mut c_void, *const u8, i32) -> i32;
-    0x004E08A5 => GameInit();
-    0x004C4980 => OnSNetPlayerJoined(*mut c_void);
-    0x0047F8F0 => ChatCommand(*const u8);
-    0x0047F0E0 => ScrollScreen();
-
-    0x004A5230 => MinimapCtrl_InitButton(@eax *mut Control);
-    0x004913D0 => MinimapCtrl_ShowAllianceDialog();
-    0x004A5200 => DrawMinimap();
-    0x004A4E00 => Minimap_TimerRefresh();
-    0x0041CA00 => RedrawScreen();
-    0x00491310 => AllianceDialog_EventHandler(@ecx *mut Control, @edx *mut UiEvent) -> u32;
-    0x0046FEA0 => GameScreenLeftClick(@ecx *mut c_void);
-    0x0048EC10 => PlaySoundAtPos(@ebx u32, u32, u32, u32);
-    0x004865D0 => ProcessCommands(@eax *const u8, u32, u32);
-    0x0047CDD0 => Command_Sync(@edi *const u8) -> u32;
-    0x00485F50 => ChatMessage(@ecx u32, @edx *const u8, u32) -> u32;
-    0x004194E0 => LoadDialog(@eax *mut Dialog, @ebx *mut c_void, *mut c_void, *const u8, u32);
-    0x004EE180 => InitUiVariables();
-    0x00458120 => DrawStatusScreen();
-    0x004591D0 => UpdateCommandCard();
-    0x004598D0 => CmdBtn_EventHandler(@ecx *mut Control, @edx *mut UiEvent) -> u32;
-    0x00458900 => DrawCommandButton(@ecx *mut Control, @edx i32, i32, *mut c_void);
-    0x004E5640 => DrawResourceCounts(@ecx *mut Control, @edx *mut c_void);
-    0x004DDD30 => GetGluAllString(u32) -> *const u8;
-    0x004A2D60 => UpdateNetTimeoutPlayers();
-    0x004CB190 =>
-        CenterScreenOnOwnStartLocation(@eax *mut PreplacedUnit, @ecx *mut c_void) -> u32;
-);
-
-whack_funcs!(stdcall, init_funcs, 0x00400000,
-    0x004D7390 => init_sprites();
-    0x004D3CC0 => choose_network_provider(@ebx u32);
-    0x004A8050 => select_map_or_directory(
-        // game_name, password, game_type, speed, directory, map entry
-        *const u8, *const u8, u32, u32, *const u8, @eax *mut MapListEntry
-    ) -> u32;
-    0x004A73C0 => get_maps_list(
-        // flags, directory, last_map_name, callback(entry, name, flags) -> listbox_index
-        u32, *const u8, *const u8,
-        @eax unsafe extern "stdcall" fn(*mut MapListEntry, *const u8, u32) -> u32,
-    );
-    0x004D4130 => init_game_network();
-    0x00472110 => on_lobby_game_init(@eax u32, @edx *const LobbyGameInitData);
-    0x004A8D40 => update_nation_and_human_ids(@esi u32);
-    0x00470D10 => init_network_player_info(u32, u32, u32, u32);
-    0x004E0710 => game_loop();
-    0x004D3B50 => join_game(@ebx *mut JoinableGameInfo) -> u32;
-    0x004BF5D0 => init_map_from_path(*const u8, *mut c_void, u32) -> u32;
-    0x00470150 => init_team_game_playable_slots();
-    0x00486580 => maybe_receive_turns();
-    0x004F3280 => send_multiplayer_chat_message(@eax *const u8);
-
-    0x004CDE70 => add_to_replay_data(@eax *mut ReplayData, @ebx *const u8, @edi u32, u32);
-    0x0048D0C0 => display_message(@edi *const u8, @eax u32);
-    0x004207B0 => clean_up_for_exit(@ebx u32);
-);
-
-whack_vars!(init_vars, 0x00400000,
-    0x0058F440 => is_brood_war: u8;
-    0x0057EE9C => local_player_name: [u8; 25];
-    0x0057F0B4 => is_multiplayer: u8;
-    0x0059BB70 => current_map_folder_path: [u8; 260];
-    0x0051A27C => map_list_root: *mut MapListEntry;
-    0x0057EEE0 => players: [Player; 12];
-    0x0066FE20 => storm_players: [StormPlayer; 8];
-    0x0051268C => local_storm_id: u32;
-    0x0066FBFA => lobby_state: u8;
-    0x0057F23C => frame_count: u32;
-    0x0058D700 => victory_state: [u8; 8];
-    0x00581D61 => player_lose_type: u8;
-    0x00581D62 => player_has_left: [u8; 8];
-    0x00596904 => game_state: u32;
-    0x0057F1DA => chat_message_recipients: u8;
-    0x0068C144 => chat_message_type: u8;
-
-    0x00596BBC => replay_data: *mut ReplayData;
-    0x006D0F18 => replay_visions: u32;
-    0x0057F0B0 => player_visions: u32;
-    0x00581D60 => chat_dialog_recipent: u32;
-    0x00581DD6 => player_minimap_color: [u8; 12];
-    0x006CEB39 => resource_minimap_color: u8;
-    0x006D5BC4 => timeout_bin: *mut Dialog;
-    0x00512684 => local_nation_id: u32;
-    0x006D0F14 => is_replay: u32;
-    0x00597248 => primary_selected: *mut Unit;
-    0x0057EE7C => storm_id_to_human_id: [u32; 8];
-    0x00512678 => current_command_player: u32;
-);
-
-pub mod storm {
-    use super::*;
-
-    #[repr(C)]
-    pub struct SCode {
-        pub whatever: [u8; 0x4c],
-        pub code_offsets: [*mut u8; 0xa1],
-    }
-
-    whack_hooks!(stdcall, 0x15000000,
-        0x1503DE90 => InitializeSnpList();
-        0x150380A0 => UnloadSnp(u32);
-    );
-
-    whack_vars!(init_vars, 0x15000000,
-        0x1505E630 => snp_list_initialized: u32;
-        // Not actually a full entry, just next/prev pointers
-        0x1505AD6C => snp_list: SnpListEntry;
-        0x1505EC04 => surface_copy_code: *mut SCode;
-    );
+/// Gets access to the object that is used for actually manipulating Broodwar state.
+pub fn with_bw<F: FnOnce(&dyn Bw) -> R, R>(callback: F) -> R {
+    let locked = BW_IMPL.read().unwrap();
+    let inner = locked.as_ref().unwrap();
+    callback(&**inner)
 }
 
-// Misc non-function-level patches
-pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
-pub const INIT_SPRITES_RENDER_TWO: usize = 0x0047AFB1;
+pub fn set_bw_impl(bw: Box<dyn Bw>) {
+    *BW_IMPL.write().unwrap() = Some(bw);
+}
+
+lazy_static::lazy_static! {
+    static ref BW_IMPL: RwLock<Option<Box<dyn Bw>>> = RwLock::new(None);
+}
+
+/// The interface to Broodwar.
+///
+/// Has mainly specialized functions that can only be sensibly called from
+/// one point in code, but also some functions returning pointers to internal
+/// structures that are more versatile.
+pub trait Bw: Sync + Send {
+    unsafe fn patch_game(&self);
+    unsafe fn run_game_loop(&self);
+    unsafe fn clean_up_for_exit(&self);
+    unsafe fn init_sprites(&self);
+    unsafe fn remaining_game_init(&self, local_player_name: &str);
+    unsafe fn maybe_receive_turns(&self);
+    unsafe fn init_game_network(&self);
+    unsafe fn do_lobby_game_init(&self, seed: u32);
+
+    /// Inits player's info from storm to starcraft.
+    /// Called once player has joined and is visible to storm.
+    unsafe fn init_network_player_info(&self, storm_player_id: u32);
+    unsafe fn create_lobby(
+        &self,
+        map_path: &Path,
+        lobby_name: &str,
+        game_type: GameType,
+    ) -> Result<(), LobbyCreateError>;
+    unsafe fn join_lobby(
+        &self,
+        game_info: &mut JoinableGameInfo,
+        map_path: &[u8],
+    ) -> Result<(), u32>;
+    unsafe fn game(&self) -> *mut Game;
+    unsafe fn players(&self) -> *mut Player;
+
+    /// Note: Size is unspecified, but will not change between calls.
+    /// (Remastered has 12 storm players)
+    unsafe fn storm_players(&self) -> Vec<StormPlayer>;
+    /// Size unspecified.
+    unsafe fn storm_player_flags(&self) -> Vec<u32>;
+
+    unsafe fn storm_set_last_error(&self, error: u32);
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct GameType {
+    pub primary: u8,
+    pub subtype: u8,
+}
+
+impl GameType {
+    pub fn as_u32(self) -> u32 {
+        self.primary as u32 | ((self.subtype as u32) << 16)
+    }
+
+    pub fn is_ums(&self) -> bool {
+        self.primary == 0xa
+    }
+}
+
+quick_error! {
+    #[derive(Debug, Clone)]
+    pub enum LobbyCreateError {
+        Unknown {}
+        Invalid {}                 // This scenario is intended for use with a StarCraft Expansion Set.
+        WrongGameType {}           // This map can only be played with the "Use Map Settings" game type.
+        LadderBadAuth {}           // You must select an authenticated ladder map to start a ladder game.
+        AlreadyExists {}           // A game by that name already exists!
+        TooManyNames {}            // Unable to create game because there are too many games already running on this network.
+        BadParameters {}           // An error occurred while trying to create the game.
+        InvalidPlayerCount {}      // The selected scenario is not valid.
+        UnsupportedGameType {}     // The selected map does not support the selected game type and options.
+        MissingSaveGamePassword {} // You must enter a password to start a saved game.
+        MissingReplayPassword {}   // You must enter a password to start a replay.
+        IsDirectory {}             // (Changes the directory)
+        NoHumanSlots {}            // This map does not have a slot for a human participant.
+        NoComputerSlots {}         // You must have at least one computer opponent.
+        InvalidLeagueMap {}        // You must select an official league map to start a league game.
+        GameTypeUnavailable {}     // Unable to create game because the selected game type is currently unavailable.
+        NotEnoughSlots {}          // The selected map does not have enough player slots for the selected game type.
+        LeagueMissingBroodwar {}   // Brood War is required to play league games.
+        LeagueBadAuth {}           // You must select an authenticated ladder map to start a ladder game.
+        MapNotFound {
+            description("Map was not found")
+        }
+        NonAnsiPath(path: PathBuf) {
+            description("A path cannot be passed to BW")
+            display("Path '{}' cannot be passed to BW", path.display())
+        }
+    }
+}
 
 pub const GAME_STATE_ACTIVE: u32 = 0x04;
 
@@ -145,7 +134,8 @@ pub struct Player {
     pub name: [u8; 25],
 }
 
-#[repr(C, packed)]
+#[repr(C)]
+#[derive(Copy, Clone)]
 pub struct StormPlayer {
     pub state: u8,
     pub unk1: u8,
@@ -167,6 +157,104 @@ pub struct PreplacedUnit {
 pub struct Unit {
     pub whatever: [u8; 0x4c],
     pub player: u8,
+}
+
+#[repr(C)]
+pub struct Supplies {
+    pub provided: [u32; 0xc],
+    pub used: [u32; 0xc],
+    pub max: [u32; 0xc],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Location {
+    pub area: Rect32,
+    pub unk: u16,
+    pub flags: u16,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Rect32 {
+    pub left: i32,
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+}
+
+#[repr(C, packed)]
+pub struct Game {
+    pub minerals: [u32; 0xc],
+    pub gas: [u32; 0xc],
+    pub dc60: [u8; 0x84],
+    pub map_width_tiles: u16,
+    pub map_height_tiles: u16,
+    pub dce8: [u8; 0x4],
+    pub tileset: u16,
+    pub bgm_song: u16,
+    pub dcf0: u8,
+    pub active_net_players: u8,
+    pub player_race: u8,
+    pub custom_singleplayer: u8,
+    pub dcf4: [u8; 0x8],
+    pub visions: [u32; 0xc],
+    pub player_randomization: [u32; 0x8],
+    pub frame_count: u32,
+    pub saved_elapsed_seconds: u32,
+    pub campaign_mission: u16,
+    pub next_scenario: [u8; 0x20],
+    pub selected_singleplayer_race: u8,
+    pub dc177: [u8; 0x15],
+    pub unit_availability: [[u8; 0xe4]; 0xc],
+    pub dcc3c: [u8; 0x10],
+    pub map_path: [u8; 0x104],
+    pub map_title: [u8; 0x20],
+    pub selection_hotkeys: [[[u32; 0xc]; 0x12]; 0x8],
+    pub dc2870: [u8; 0x400],
+    pub chat_dialog_recipient: u8,
+    pub player_lose_type: u8,
+    pub player_has_left: [u8; 0x8],
+    pub self_alliance_colors: [u8; 0xc],
+    pub player_color_palette: [[u8; 0x8]; 0xc],
+    pub player_minimap_color: [u8; 0xc],
+    pub dc2cf2: [u8; 0x362],
+    pub supplies: [Supplies; 0x3],
+    pub dc3204: [u8; 0x30],
+    pub all_units_count: [[u32; 0xc]; 0xe4],
+    pub completed_units_count: [[u32; 0xc]; 0xe4],
+    pub unit_kills: [[u32; 0xc]; 0xe4],
+    pub deaths: [[u32; 0xc]; 0xe4],
+    pub tech_availability_sc: [[u8; 0x18]; 0xc],
+    pub tech_level_sc: [[u8; 0x18]; 0xc],
+    pub dcdf74: [u8; 0x24],
+    pub upgrade_limit_sc: [[u8; 0x2e]; 0xc],
+    pub upgrade_level_sc: [[u8; 0x2e]; 0xc],
+    pub dce3e8: [u8; 0xd8],
+    pub player_forces: [u8; 0x8],
+    pub force_flags: [u8; 0x4],
+    pub force_names: [[u8; 0x1e]; 0x4],
+    pub alliances: [[u8; 0xc]; 0xc],
+    pub dce5d4: [u8; 0x34],
+    pub elapsed_seconds: u32,
+    pub dce60c: [u8; 0x4],
+    pub victory_state: [u8; 0x8],
+    pub computers_in_leaderboard: u32,
+    pub dce61c: [u8; 0x554],
+    pub locations: [Location; 0xff],
+    pub dcff5c: [u8; 0x4],
+    pub tech_availability_bw: [[u8; 0x14]; 0xc],
+    pub tech_level_bw: [[u8; 0x14]; 0xc],
+    pub dc10140: [u8; 0x48],
+    pub upgrade_limit_bw: [[u8; 0xf]; 0xc],
+    pub upgrade_level_bw: [[u8; 0xf]; 0xc],
+    pub dc102f0: [u8; 0x60],
+    pub is_bw: u8,
+    pub dc10351: [u8; 0x9],
+    pub scr_init_color_rgba: [[u8; 4]; 8],
+    pub scr_unk1037a: [u8; 0x10],
+    pub scr_player_color_preference: [u8; 0x10],
+    pub padding: [u8; 0x7366],
 }
 
 #[repr(C)]
@@ -415,4 +503,5 @@ fn struct_sizes() {
     assert_eq!(size_of::<Control>(), 0x36);
     assert_eq!(size_of::<Dialog>(), 0x46);
     assert_eq!(size_of::<UiEvent>(), 0x12);
+    assert_eq!(size_of::<Game>(), 0x17700);
 }
