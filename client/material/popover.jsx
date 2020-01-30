@@ -1,14 +1,18 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import keycode from 'keycode'
-import styles from './popover.css'
+import styled from 'styled-components'
 
 import KeyListener from '../keyboard/key-listener.jsx'
 import Portal from './portal.jsx'
 import WindowListener from '../dom/window-listener.jsx'
-import { fastOutSlowIn } from '../material/curve-constants.css'
 
-const ESCAPE = keycode('esc')
+import { fastOutSlowIn } from './curve-constants'
+import { shadow6dp } from './shadows'
+import { zIndexMenu } from './zindex'
+import { CardLayer } from '../styles/colors'
+
+const ESCAPE = 'ESCAPE'
+
 const OPEN_DELAY = 125
 const OPEN_DURATION = 175
 const CLOSE_DURATION = 100
@@ -18,6 +22,32 @@ const TIMINGS = {
   openDuration: OPEN_DURATION,
   closeDuration: CLOSE_DURATION,
 }
+
+const Container = styled.div`
+  background-color: transparent;
+  position: fixed;
+  z-index: ${zIndexMenu};
+`
+
+const ScaleHorizontal = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+`
+
+const ScaleVertical = styled.div`
+  width: 100%;
+  height: 100%;
+`
+
+const Background = styled(CardLayer)`
+  width: 100%;
+  height: 100%;
+  ${shadow6dp};
+  border-radius: 2px;
+`
 
 export default class Popover extends React.Component {
   static propTypes = {
@@ -48,6 +78,9 @@ export default class Popover extends React.Component {
     // The horizontal side of the Popover that should sit adjacent to the anchor element ('left' or
     // 'right'). Defaults to left.
     popoverOriginHorizontal: PropTypes.oneOf(['left', 'right']),
+    // Popover has a default transition that can be used to open/close its contents; if you wish to
+    // use a different transition, you can disable the default one and implement your own.
+    disableScaleTransition: PropTypes.bool,
   }
 
   static defaultProps = {
@@ -57,6 +90,7 @@ export default class Popover extends React.Component {
     anchorOffsetHorizontal: 0,
     popoverOriginVertical: 'top',
     popoverOriginHorizontal: 'left',
+    disableScaleTransition: false,
   }
 
   state = {
@@ -88,7 +122,7 @@ export default class Popover extends React.Component {
   }
 
   onKeyDown = event => {
-    if (event.keyCode !== ESCAPE) return false
+    if (event.code !== ESCAPE) return false
 
     if (this.props.onDismiss && this.state.open && !this.closing) {
       this.props.onDismiss()
@@ -227,7 +261,7 @@ export default class Popover extends React.Component {
   }
 
   render() {
-    const { onDismiss, children, anchor } = this.props
+    const { onDismiss, children, anchor, disableScaleTransition } = this.props
     const { open, popoverPosition: pos } = this.state
 
     if (!anchor) return null
@@ -255,14 +289,16 @@ export default class Popover extends React.Component {
           <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           {open ? (
-            <div key={'popover'} className={styles.popover} style={popoverStyle}>
-              <div className={styles.scaleHorizontal} style={this.state.scaleHorizontalStyle}>
-                <div className={styles.scaleVertical} style={this.state.scaleVerticalStyle}>
-                  <div className={styles.background} style={this.state.backgroundStyle} />
-                </div>
-              </div>
+            <Container key={'popover'} style={popoverStyle}>
+              {disableScaleTransition ? null : (
+                <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
+                  <ScaleVertical style={this.state.scaleVerticalStyle}>
+                    <Background style={this.state.backgroundStyle} />
+                  </ScaleVertical>
+                </ScaleHorizontal>
+              )}
               {children(state, TIMINGS)}
-            </div>
+            </Container>
           ) : null}
         </span>
       )

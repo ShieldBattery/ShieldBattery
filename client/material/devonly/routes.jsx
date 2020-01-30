@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
 import DevButtons from './buttons-test.jsx'
-import DevOverflow from './overflow-test.jsx'
+import DevMenu from './menu-test.jsx'
 import DevPopover from './popover-test.jsx'
 import DevSelects from './selects-test.jsx'
 import DevSliders from './slider-test.jsx'
@@ -18,7 +18,7 @@ class DevMaterialDashboard extends React.Component {
           <Link to={baseUrl + '/button'}>Button component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/overflow'}>Overflow component</Link>
+          <Link to={baseUrl + '/menu'}>Menu component</Link>
         </li>
         <li>
           <Link to={baseUrl + '/popover'}>Popover component</Link>
@@ -47,7 +47,7 @@ export default props => {
         render={() => <DevMaterialDashboard baseUrl={baseUrl} />}
       />
       <Route path={baseUrl + '/button'} component={DevButtons} />
-      <Route path={baseUrl + '/overflow'} component={DevOverflow} />
+      <Route path={baseUrl + '/menu'} component={DevMenu} />
       <Route path={baseUrl + '/popover'} component={DevPopover} />
       <Route path={baseUrl + '/select'} component={DevSelects} />
       <Route path={baseUrl + '/slider'} component={DevSliders} />

@@ -6,8 +6,6 @@ import Select from '../select/select.jsx'
 import Option from '../select/option.jsx'
 import TextField from '../text-field.jsx'
 
-import { grey850 } from '../../styles/colors'
-
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -18,7 +16,6 @@ const Container = styled.div`
 const StyledCard = styled(Card)`
   width: 100%;
   max-width: 640px;
-  background-color: ${grey850};
 `
 
 export default class SelectsTest extends React.Component {

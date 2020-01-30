@@ -14,12 +14,15 @@ const Item = styled.div`
   cursor: pointer;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: ${props =>
+      props.focused ? 'rgba(255, 255, 255, 0.24)' : 'rgba(255, 255, 255, 0.08)'};
   }
 
   &:active {
     background-color: rgba(255, 255, 255, 0.24);
   }
+
+  ${props => (props.focused ? 'background-color: rgba(255, 255, 255, 0.24)' : '')};
 `
 
 const ItemText = styled(Subheading)`
@@ -38,13 +41,14 @@ export default class MenuItem extends React.Component {
   static propTypes = {
     text: PropTypes.string.isRequired,
     icon: PropTypes.node,
+    focused: PropTypes.bool,
     onClick: PropTypes.func,
   }
 
   render() {
-    const { className, icon, onClick, text } = this.props
+    const { text, icon, focused, onClick } = this.props
     return (
-      <Item className={className} onClick={onClick}>
+      <Item className={this.props.className} focused={focused} onClick={onClick}>
         {icon ? <ItemIcon>{icon}</ItemIcon> : null}
         <ItemText as='span'>{text}</ItemText>
       </Item>

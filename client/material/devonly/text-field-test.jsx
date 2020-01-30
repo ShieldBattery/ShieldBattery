@@ -8,8 +8,6 @@ import TextField from '../text-field.jsx'
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
 
-import { grey850 } from '../../styles/colors'
-
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -20,7 +18,6 @@ const Container = styled.div`
 const StyledCard = styled(Card)`
   width: 100%;
   max-width: 640px;
-  background-color: ${grey850};
 `
 
 export default class TextFieldTest extends React.Component {
