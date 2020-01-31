@@ -12,8 +12,8 @@ import SlotActions from './slot-actions.jsx'
 const StyledAvatar = styled(Avatar)`
   flex-grow: 0;
   flex-shrink: 0;
-  width: 24px !important;
-  height: 24px !important;
+  width: 24px;
+  height: 24px;
   margin-right: 16px;
 `
 

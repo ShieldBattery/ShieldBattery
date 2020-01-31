@@ -7,6 +7,7 @@ import Dialog from '../material/dialog.jsx'
 import form from '../forms/form.jsx'
 import IconButton from '../material/icon-button.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'
+import { Label } from '../material/button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
@@ -80,14 +81,12 @@ const MapDescription = styled(Subheading)`
 `
 
 const EditButton = styled(IconButton)`
-  position: absolute !important;
+  position: absolute;
   top: 0;
   right: 16px;
-  width: 48px;
-  height: 48px;
 
-  & > span {
-    color: ${colorTextSecondary} !important;
+  & ${Label} {
+    color: ${colorTextSecondary};
   }
 `
 

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import IconButton from '../material/icon-button.jsx'
+import { Label } from '../material/button.jsx'
 import MapActions from './map-actions.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
@@ -77,24 +78,23 @@ const Overlay = styled.div`
 `
 
 const MapPreviewIcon = styled(IconButton)`
-  // TODO(2Pac): Need to move button stuff to styled-components ASAP
-  position: absolute !important;
+  position: absolute;
   top: 4px;
   left: 4px;
 
-  & svg {
-    color: ${colorTextSecondary} !important;
+  & ${Label} {
+    color: ${colorTextSecondary};
   }
 `
 
 const FavoriteActionIcon = styled(IconButton)`
-  position: absolute !important;
+  position: absolute;
   top: 4px;
   right: 4px;
   pointer-events: ${props => (props.isFavoriting ? 'none' : 'auto')};
 
-  & svg {
-    color: ${colorTextSecondary} !important;
+  & ${Label} {
+    color: ${colorTextSecondary};
   }
 `
 
