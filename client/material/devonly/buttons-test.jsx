@@ -15,6 +15,7 @@ import { grey850 } from '../../styles/colors'
 const Container = styled.div`
   display: flex;
   justify-content: center;
+  height: auto !important;
   padding: 16px !important;
 `
 
@@ -28,7 +29,7 @@ const StyledCard = styled(Card)`
   background-color: ${grey850};
 `
 
-export default class TextFieldTest extends React.Component {
+export default class ButtonsTest extends React.Component {
   render() {
     return (
       <Container>

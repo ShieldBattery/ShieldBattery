@@ -84,7 +84,7 @@ export default class Button extends React.Component {
       onMouseDown: e => this._handleMouseDown(e),
     }
 
-    const Component = this.props.contentComponent || ButtonContent
+    const Component = this.props.contentComponent || ButtonCommon
     return (
       <Component
         ref={this._setRef}

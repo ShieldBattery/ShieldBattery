@@ -6,6 +6,7 @@ import styled from 'styled-components'
 
 import Card from '../material/card.jsx'
 import ConnectedDialogOverlay from '../dialogs/connected-dialog-overlay.jsx'
+import { Label } from '../material/button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import TopLinks from './top-links.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
@@ -77,7 +78,7 @@ const SplashButton = styled(RaisedButton)`
   height: 54px;
   margin: 0px;
 
-  & > span {
+  & ${Label} {
     font-size: 18px;
     font-weight: 400;
   }
