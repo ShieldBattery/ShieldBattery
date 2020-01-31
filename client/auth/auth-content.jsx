@@ -1,6 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 
+import { Label } from '../material/button.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import TextField from '../material/text-field.jsx'
 import CheckBox from '../material/check-box.jsx'
@@ -55,9 +56,7 @@ export const AuthBottomAction = styled.div`
 `
 
 export const BottomActionButton = styled(FlatButton)`
-  // TODO(2Pac): Do this properly (by generating this css here and sending it as a prop to the
-  // Button) once the Button gets rewritten as a styled component
-  & > span {
+  & ${Label} {
     color: ${colorTextSecondary};
     font-weight: 400;
   }
@@ -81,9 +80,7 @@ export const RowEdge = styled.div`
 `
 
 export const ForgotActionButton = styled(FlatButton)`
-  // TODO(2Pac): Do this properly (by generating this css here and sending it as a prop to the
-  // Button) once the Button gets rewritten as a styled component
-  & > span {
+  & ${Label} {
     color: ${colorTextSecondary};
     font-weight: 400;
     font-size: 12px;

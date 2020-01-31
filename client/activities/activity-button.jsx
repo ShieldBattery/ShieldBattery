@@ -1,6 +1,46 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styles from './activity-bar.css'
+import styled from 'styled-components'
+
+import { ButtonCommon } from '../material/button.jsx'
+
+import { colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { buttonText } from '../styles/typography'
+
+const Container = styled(ButtonCommon)`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 96px;
+  padding: 8px;
+  margin-top: 8px;
+  color: ${colorTextSecondary};
+
+  ${props => {
+    if (props.disabled) {
+      return `color: ${colorTextFaint};`
+    }
+
+    return `
+      &:hover {
+        color: ${colorTextPrimary};
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+
+      &:active {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+    `
+  }}
+`
+
+const Label = styled.span`
+  ${buttonText};
+  font-size: 11px;
+  margin-top: 8px;
+`
 
 export default class ActivityButton extends React.Component {
   static propTypes = {
@@ -14,10 +54,10 @@ export default class ActivityButton extends React.Component {
     const { label, icon, disabled, onClick } = this.props
 
     return (
-      <button className={styles.button} disabled={disabled} onClick={onClick}>
-        <div className={styles.buttonIcon}>{icon}</div>
-        <span className={styles.buttonLabel}>{label}</span>
-      </button>
+      <Container disabled={disabled} onClick={onClick}>
+        <div>{icon}</div>
+        <Label>{label}</Label>
+      </Container>
     )
   }
 }

@@ -39,7 +39,7 @@ export default class LoadingTest extends React.Component {
   }
 
   componentWillUnmount() {
-    this.clearInterval(this._timer)
+    clearInterval(this._timer)
   }
 
   render() {

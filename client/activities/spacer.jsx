@@ -1,6 +1,5 @@
-import React from 'react'
-import styles from './activity-bar.css'
+import styled from 'styled-components'
 
-export default function() {
-  return <div className={styles.spacer} />
-}
+export default styled.div`
+  flex-grow: 1;
+`

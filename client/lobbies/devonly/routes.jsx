@@ -1,8 +1,9 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import Lobby from './lobby-test.jsx'
-import Loading from './loading-test.jsx'
+import LobbyTest from './lobby-test.jsx'
+import LoadingTest from './loading-test.jsx'
+import RacePickerTest from './race-picker-test.jsx'
 
 class DevLobbiesDashboard extends React.Component {
   render() {
@@ -16,6 +17,9 @@ class DevLobbiesDashboard extends React.Component {
         <li>
           <Link to={baseUrl + '/loading'}>Loading component</Link>
         </li>
+        <li>
+          <Link to={baseUrl + '/race-picker'}>Race picker component</Link>
+        </li>
       </ul>
     )
   }
@@ -26,8 +30,9 @@ export default props => {
   return (
     <Switch>
       <Route path={baseUrl} exact={true} render={() => <DevLobbiesDashboard baseUrl={baseUrl} />} />
-      <Route path={baseUrl + '/lobby'} component={Lobby} />
-      <Route path={baseUrl + '/loading'} component={Loading} />
+      <Route path={baseUrl + '/lobby'} component={LobbyTest} />
+      <Route path={baseUrl + '/loading'} component={LoadingTest} />
+      <Route path={baseUrl + '/race-picker'} component={RacePickerTest} />
     </Switch>
   )
 }

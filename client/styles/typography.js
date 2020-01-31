@@ -11,6 +11,13 @@ export const textSizeDisplay4 = '112px'
 export const textSizeCaption = '12px'
 export const textSizeButton = '14px'
 
+export const buttonText = css`
+  font-size: ${textSizeButton};
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+`
+
 export const Display4 = styled.h1`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay4};

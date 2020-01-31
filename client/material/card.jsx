@@ -1,16 +1,14 @@
-import React from 'react'
-import classnames from 'classnames'
-import styles from './card.css'
+import styled from 'styled-components'
 
-class Card extends React.Component {
-  render() {
-    const classes = classnames(styles.card, this.props.className)
-    return (
-      <div className={classes} style={this.props.style}>
-        {this.props.children}
-      </div>
-    )
-  }
-}
+import { shadow2dp } from './shadows'
+import { CardLayer } from '../styles/colors'
+
+const Card = styled(CardLayer)`
+  ${shadow2dp};
+  border-radius: 2px;
+  /* TODO(tec27): there's probably places we don't want 16px padding (full bleed images), */
+  /* figure out a good way to handle that */
+  padding: 16px;
+`
 
 export default Card

@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import IconButton from '../material/icon-button.jsx'
 import Avatar from './avatar.jsx'
 
-const ButtonAvatar = styled(Avatar)`
+const StyledAvatar = styled(Avatar)`
   width: 24px;
   height: 24px;
   display: block;
@@ -34,7 +34,7 @@ export default class AvatarButton extends React.Component {
       <IconButton
         {...rest}
         buttonRef={buttonRef}
-        icon={<ButtonAvatar user={user} image={image} style={avatarStyle} />}
+        icon={<StyledAvatar user={user} image={image} style={avatarStyle} />}
       />
     )
   }

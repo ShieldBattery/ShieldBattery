@@ -1,26 +1,78 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import Button from './button.jsx'
-import styles from './button.css'
+import styled from 'styled-components'
+import { darken } from 'polished'
+
+import Button, { ButtonContent, Label } from './button.jsx'
+import Card from './card.jsx'
+
+import { shadowDef8dp } from './shadow-constants'
+import { shadow2dp } from './shadows'
+import { amberA400, blue500, blue600, blue700 } from '../styles/colors'
+
+const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
+  primary: props.color !== 'accent',
+  accent: props.color === 'accent',
+}))`
+  ${shadow2dp};
+
+  &:active {
+    box-shadow: ${shadowDef8dp};
+  }
+
+  ${props => {
+    if (props.disabled) {
+      return `
+        background-color: rgba(255, 255, 255, 0.12);
+        box-shadow: none !important;
+      `
+    } else if (props.primary) {
+      return `
+        background-color: ${blue500};
+
+        &:hover {
+          background-color: ${blue600};
+        }
+        ${props.focused ? `background-color: ${blue600}` : ''};
+
+        &:active {
+          background-color: ${blue700};
+        }
+      `
+    } else if (props.accent) {
+      return `
+        background-color: ${amberA400};
+
+        & ${Label} {
+          color: rgba(0, 0, 0, 0.87);
+        }
+
+        &:hover {
+          background-color: ${darken(0.04, amberA400)};
+        }
+        ${props.focused ? `background-color: ${darken(0.04, amberA400)}` : ''};
+
+        &:active {
+          background-color: ${darken(0.08, amberA400)};
+        }
+      `
+    }
+    return ''
+  }}
+
+  ${Card} & {
+    ${props => (props.disabled ? 'background-color: rgba(255, 255, 255, 0.08)' : '')};
+  }
+`
 
 // A button that has elevation, and raises further when pressed
-export default class RaisedButton extends React.Component {
-  static propTypes = {
-    ...Button.propTypes,
-    color: PropTypes.oneOf(['primary', 'accent']),
-  }
+const RaisedButton = React.forwardRef((props, ref) => {
+  return <Button ref={ref} {...props} contentComponent={RaisedButtonContent} />
+})
 
-  constructor(props) {
-    super(props)
-  }
-
-  render() {
-    const classes = classnames(styles.raised, this.props.className, {
-      [styles.primary]: this.props.color !== 'accent',
-      [styles.accent]: this.props.color === 'accent',
-    })
-
-    return <Button {...this.props} className={classes} />
-  }
+RaisedButton.propTypes = {
+  ...Button.propTypes,
+  color: PropTypes.oneOf(['primary', 'accent']),
 }
+
+export default RaisedButton

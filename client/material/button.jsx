@@ -1,14 +1,54 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import styles from './button.css'
+import styled from 'styled-components'
+
+import { reset } from './button-reset'
+import { fastOutSlowInShort } from './curves'
+import { colorTextPrimary, colorTextFaint } from '../styles/colors'
+import { buttonText } from '../styles/typography'
+
+export const ButtonCommon = styled.button`
+  ${reset};
+  display: inline-table;
+  min-height: 36px;
+  border-radius: 4px;
+  text-align: center;
+  ${fastOutSlowInShort};
+
+  ${props => {
+    if (props.disabled) return ''
+
+    return `
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+      ${props.focused ? 'background-color: rgba(255, 255, 255, 0.08)' : ''};
+    `
+  }}
+`
+
+export const ButtonContent = styled(ButtonCommon)`
+  min-width: 88px;
+  margin: 6px 0;
+  padding: 0 16px;
+`
+
+export const Label = styled.span`
+  ${buttonText};
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
+  line-height: 36px;
+  white-space: nowrap;
+`
 
 // Button with Material Design goodness. You don't want to use this directly, see FlatButton or
 // RaisedButton instead
 export default class Button extends React.Component {
   static propTypes = {
     label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]).isRequired,
-    labelClassName: PropTypes.string,
+    contentComponent: PropTypes.elementType,
     onBlur: PropTypes.func,
     onFocus: PropTypes.func,
     onClick: PropTypes.func,
@@ -16,14 +56,12 @@ export default class Button extends React.Component {
     buttonRef: PropTypes.func,
   }
 
-  constructor(props) {
-    super(props)
-    this.state = {
-      isKeyboardFocused: false,
-    }
-    this.mouseActive = false
-    this.clearMouseActive = null
+  state = {
+    isKeyboardFocused: false,
   }
+
+  mouseActive = false
+  clearMouseActive = null
   _ref = null
   _setRef = elem => {
     this._ref = elem
@@ -34,35 +72,29 @@ export default class Button extends React.Component {
 
   render() {
     const {
-      className,
       label,
-      labelClassName,
       buttonRef, // eslint-disable-line no-unused-vars
       ...otherProps
     } = this.props
 
-    const classes = classnames(className, {
-      [styles.focused]: this.state.isKeyboardFocused,
-    })
-    const labelClasses = classnames(styles.label, labelClassName)
-
     const buttonProps = {
-      className: classes,
       onBlur: e => this._handleBlur(e),
       onFocus: e => this._handleFocus(e),
       onClick: e => this._handleClick(e),
       onMouseDown: e => this._handleMouseDown(e),
     }
 
+    const Component = this.props.contentComponent || ButtonCommon
     return (
-      <button ref={this._setRef} {...otherProps} {...buttonProps}>
-        <span className={labelClasses}>{label}</span>
-      </button>
+      <Component
+        ref={this._setRef}
+        disabled={this.props.disabled}
+        focused={this.state.isKeyboardFocused}
+        {...otherProps}
+        {...buttonProps}>
+        <Label disabled={this.props.disabled}>{label}</Label>
+      </Component>
     )
-  }
-
-  isKeyboardFocused() {
-    return this.state.isKeyboardFocused
   }
 
   focus() {

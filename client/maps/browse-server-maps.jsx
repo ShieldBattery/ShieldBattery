@@ -13,6 +13,7 @@ import FloatingActionButton from '../material/floating-action-button.jsx'
 import IconButton from '../material/icon-button.jsx'
 import ImageList from '../material/image-list.jsx'
 import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
+import { Label } from '../material/button.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
@@ -86,8 +87,8 @@ const LeftActions = styled.div`
 `
 
 const ActionButton = styled(IconButton)`
-  & > span {
-    color: ${colorTextSecondary} !important;
+  & ${Label} {
+    color: ${colorTextSecondary};
   }
 
   ${LeftActions} > & {

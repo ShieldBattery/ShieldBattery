@@ -1,3 +1,5 @@
+import styled from 'styled-components'
+
 /* Primary color */
 export const blue50 = '#e3f2fd'
 export const blue100 = '#bbdefb'
@@ -46,3 +48,7 @@ export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 
 export const dialogScrim = '#121212'
+
+export const CardLayer = styled.div`
+  background-color: ${grey800};
+`

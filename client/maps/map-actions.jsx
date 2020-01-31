@@ -4,6 +4,7 @@ import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
 import IconButton from '../material/icon-button.jsx'
+import { Label } from '../material/button.jsx'
 import MenuItem from '../material/menu/item.jsx'
 import Popover from '../material/popover.jsx'
 import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
@@ -25,15 +26,15 @@ const MapActionsContainer = styled.div`
 `
 
 const MapActionButton = styled(IconButton)`
-  min-height: 40px !important;
-  width: 40px !important;
-  padding: 0 !important;
-  line-height: 40px !important;
-  margin-left: 4px !important;
+  min-height: 40px;
+  width: 40px;
+  padding: 0;
+  line-height: 40px;
+  margin-left: 4px;
 
-  & > span {
-    color: ${colorTextSecondary} !important;
-    line-height: 40px !important;
+  & ${Label} {
+    color: ${colorTextSecondary};
+    line-height: 40px;
   }
 `
 

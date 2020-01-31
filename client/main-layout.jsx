@@ -3,7 +3,6 @@ import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
 import { replace } from 'connected-react-router'
 import keycode from 'keycode'
-import styles from './main-layout.css'
 import styled from 'styled-components'
 
 import ActiveGame from './active-game/view.jsx'
@@ -22,7 +21,6 @@ import { ConditionalRoute } from './navigation/custom-routes.jsx'
 import Divider from './material/left-nav/divider.jsx'
 import EmailVerificationNotification from './auth/email-verification-notification.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
-import IconButton from './material/icon-button.jsx'
 import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
 import LobbyView from './lobbies/view.jsx'
@@ -31,6 +29,7 @@ import MenuItem from './material/menu/item.jsx'
 import ProfileNavEntry from './profile/nav-entry.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
+import SubheaderButton from './material/left-nav/subheader-button.jsx'
 import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
 import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import SelfProfileOverlay from './profile/self-profile-overlay.jsx'
@@ -70,6 +69,8 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
+import { colorError } from './styles/colors'
+import { Body2 } from './styles/typography'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -89,7 +90,7 @@ const Layout = styled.div`
   height: calc(100% - 64px);
 `
 
-const ContentLayout = styled.div`
+const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
@@ -97,6 +98,12 @@ const ContentLayout = styled.div`
 
 const AdminLink = styled.p`
   width: 100%;
+`
+
+const DevIndicator = styled(Body2)`
+  width: 100%;
+  color: ${colorError};
+  text-transform: uppercase;
 `
 
 const StyledMapsIcon = styled(MapsIcon)`
@@ -235,10 +242,9 @@ class MainLayout extends React.Component {
       />
     ))
     const joinChannelButton = (
-      <IconButton
+      <SubheaderButton
         icon={<AddIcon />}
         title='Join a channel'
-        className={styles.subheaderButton}
         onClick={this.onJoinChannelClick}
       />
     )
@@ -252,19 +258,14 @@ class MainLayout extends React.Component {
       />
     ))
     const addWhisperButton = (
-      <IconButton
+      <SubheaderButton
         icon={<AddIcon />}
         title='Start a whisper'
-        className={styles.subheaderButton}
         onClick={this.onAddWhisperClick}
       />
     )
     const footer = [
-      DEV_INDICATOR ? (
-        <span key='dev' className={styles.devIndicator}>
-          Dev Mode
-        </span>
-      ) : null,
+      DEV_INDICATOR ? <DevIndicator key='dev'>Dev Mode</DevIndicator> : null,
       isAdmin(auth) ? (
         <AdminLink key='adminPanel'>
           <Link to='/admin'>Admin</Link>
@@ -365,7 +366,7 @@ class MainLayout extends React.Component {
             <Subheader button={addWhisperButton}>Whispers</Subheader>
             <Section>{whisperNav}</Section>
           </LeftNav>
-          <ContentLayout>
+          <Content>
             <Switch>
               {activeGameRoute}
               <ConditionalRoute path='/admin' filters={[IsAdminFilter]} component={AdminPanel} />
@@ -377,7 +378,7 @@ class MainLayout extends React.Component {
                   can't actually have a 404 page, but I don't think we really need one? */}
               <Index transitionFn={replace} />
             </Switch>
-          </ContentLayout>
+          </Content>
           <ActivityBar>{activityButtons}</ActivityBar>
           {this.renderProfileOverlay()}
           <ActivityOverlay />
