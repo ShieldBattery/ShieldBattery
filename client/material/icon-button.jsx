@@ -2,20 +2,14 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Button, { ButtonCommon, Label } from './button.jsx'
+import Button, { ButtonCommon } from './button.jsx'
 import Card from './card.jsx'
-
-import { colorTextPrimary, colorTextFaint } from '../styles/colors'
 
 export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;
   min-height: 48px;
   border-radius: 50%;
   vertical-align: middle;
-
-  & ${Label} {
-    color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
-  }
 
   ${props => {
     if (props.disabled) return ''
