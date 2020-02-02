@@ -50,3 +50,7 @@ features = [
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"
 rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
+
+[dependencies.samase_scarf]
+git = "https://github.com/neivv/samase_scarf/"
+rev = "89d0b18"

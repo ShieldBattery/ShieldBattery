@@ -512,7 +512,7 @@ impl InitInProgress {
 
     // Return Ok(true) on done, Ok(false) on keep waiting
     unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
-        let storm_names = with_bw(|bw| storm_player_names(bw));
+        let storm_names = with_bw(|bw| storm_player_names(&**bw));
         self.update_bw_slots(&storm_names)?;
         if self.has_all_players() {
             Ok(true)
@@ -769,7 +769,7 @@ unsafe fn join_lobby(
                     bw.init_network_player_info(i as u32);
                 }
             }
-            let player_names = storm_player_names(bw);
+            let player_names = storm_player_names(&**bw);
             debug!("Storm player names at join: {:?}", player_names);
         });
         Ok(())
@@ -804,7 +804,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
     for i in 0..8 {
         *players.add(i) = bw::Player {
             player_id: i as u32,
-            storm_id: 255,
+            storm_id: u32::max_value(),
             player_type: match slots.len() < i {
                 true => bw::PLAYER_TYPE_OPEN,
                 false => bw::PLAYER_TYPE_NONE,
@@ -840,7 +840,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
             player_id: slot_id as u32,
             storm_id: match slot.is_human() {
                 true => 27,
-                false => 255,
+                false => u32::max_value(),
             },
             race: slot.bw_race(),
             player_type: if is_ums && !slot.is_human() {

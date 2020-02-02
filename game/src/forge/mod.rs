@@ -6,7 +6,7 @@ use std::ffi::CStr;
 use std::io;
 use std::mem;
 use std::ptr::null_mut;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
@@ -1212,6 +1212,10 @@ pub unsafe fn init_hooks(patcher: &mut whack::Patcher) {
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
+    if is_disabled() {
+        return;
+    }
+
     let mouse_sensitivity = settings
         .get("mouseSensitivity")
         .and_then(|x| x.as_u64())
@@ -1299,12 +1303,26 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
 const WM_END_WND_PROC_WORKER: u32 = WM_USER + 27;
 const WM_GAME_STARTED: u32 = WM_USER + 7;
 
+static DISABLED: AtomicBool = AtomicBool::new(false);
+static SCR_WINDOW: AtomicUsize = AtomicUsize::new(0);
+
+fn is_disabled() -> bool {
+    DISABLED.load(Ordering::Relaxed)
+}
+
+pub fn set_scr_window(window: *mut c_void) {
+    SCR_WINDOW.store(window as usize, Ordering::Relaxed);
+}
+
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
 /// here.
 ///
 /// Returns once `end_wnd_proc` is called.
 pub unsafe fn run_wnd_proc() {
+    // Note: Currently done even if forge itself is disabled and we use SCR's
+    // own window. Having run/end_wnd_proc go through the Bw trait
+    // and be separate for 1.16.1 and SCR would maybe be cleaner.
     let mut msg: MSG = mem::zeroed();
     while GetMessageA(&mut msg, null_mut(), 0, 0) != 0 {
         if msg.message == WM_END_WND_PROC_WORKER {
@@ -1319,16 +1337,25 @@ pub unsafe fn run_wnd_proc() {
 }
 
 pub fn end_wnd_proc() {
-    let handle = with_forge(|forge| match forge.window {
-        Some(ref s) => s.handle,
-        None => panic!("Cannot stop running window procedure without a window"),
-    });
+    let handle = if is_disabled() {
+        let handle = SCR_WINDOW.load(Ordering::Relaxed);
+        assert!(handle != 0);
+        handle as HWND
+    } else {
+        with_forge(|forge| match forge.window {
+            Some(ref s) => s.handle,
+            None => panic!("Cannot stop running window procedure without a window"),
+        })
+    };
     unsafe {
         PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
     }
 }
 
 pub fn game_started() {
+    if is_disabled() {
+        return;
+    }
     let handle = with_forge(|forge| match forge.window {
         Some(ref s) => Some(s.handle),
         None => None,
@@ -1341,6 +1368,9 @@ pub fn game_started() {
 }
 
 pub fn hide_window() {
+    if is_disabled() {
+        return;
+    }
     let handle = with_forge(|forge| match forge.window {
         Some(ref s) => Some(s.handle),
         None => None,
@@ -1353,5 +1383,16 @@ pub fn hide_window() {
 }
 
 pub fn input_disabled() -> bool {
+    if is_disabled() {
+        return false;
+    }
     with_forge(|forge| forge.input_disabled)
+}
+
+/// Disables forge, making all calls just return default values / do nothing
+///
+/// (This is nicer than having to handle forge potentially not existing at every
+/// with_forge(...) call?)
+pub fn disable() {
+    DISABLED.store(true, Ordering::Relaxed);
 }

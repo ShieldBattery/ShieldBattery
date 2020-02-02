@@ -177,6 +177,10 @@ pub fn load_library<T: AsRef<OsStr>>(name: T) -> Result<Library, io::Error> {
 pub struct Library(HMODULE);
 
 impl Library {
+    pub fn handle(&self) -> HMODULE {
+        self.0
+    }
+
     pub fn proc_address(&self, proc: &str) -> Result<FARPROC, io::Error> {
         use winapi::um::libloaderapi::GetProcAddress;
         unsafe {

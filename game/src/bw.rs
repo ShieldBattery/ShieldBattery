@@ -1,23 +1,23 @@
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use libc::{c_void, sockaddr};
 use quick_error::quick_error;
 use winapi::shared::ntdef::HANDLE;
 
 /// Gets access to the object that is used for actually manipulating Broodwar state.
-pub fn with_bw<F: FnOnce(&dyn Bw) -> R, R>(callback: F) -> R {
+pub fn with_bw<F: FnOnce(&Arc<dyn Bw>) -> R, R>(callback: F) -> R {
     let locked = BW_IMPL.read().unwrap();
     let inner = locked.as_ref().unwrap();
-    callback(&**inner)
+    callback(&*inner)
 }
 
-pub fn set_bw_impl(bw: Box<dyn Bw>) {
+pub fn set_bw_impl(bw: Arc<dyn Bw>) {
     *BW_IMPL.write().unwrap() = Some(bw);
 }
 
 lazy_static::lazy_static! {
-    static ref BW_IMPL: RwLock<Option<Box<dyn Bw>>> = RwLock::new(None);
+    static ref BW_IMPL: RwLock<Option<Arc<dyn Bw>>> = RwLock::new(None);
 }
 
 /// The interface to Broodwar.
@@ -26,7 +26,6 @@ lazy_static::lazy_static! {
 /// one point in code, but also some functions returning pointers to internal
 /// structures that are more versatile.
 pub trait Bw: Sync + Send {
-    unsafe fn patch_game(&self);
     unsafe fn run_game_loop(&self);
     unsafe fn clean_up_for_exit(&self);
     unsafe fn init_sprites(&self);
@@ -105,6 +104,9 @@ quick_error! {
         NonAnsiPath(path: PathBuf) {
             description("A path cannot be passed to BW")
             display("Path '{}' cannot be passed to BW", path.display())
+        }
+        Other(msg: String) {
+            display("{}", msg)
         }
     }
 }
@@ -404,6 +406,7 @@ pub struct SnpListEntry {
 }
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct SnpCapabilities {
     pub size: u32,
     pub unknown1: u32,
