@@ -1,17 +1,17 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
+import { rgba } from 'polished'
 
 import MenuItem from '../menu/item.jsx'
 
-// TODO(2Pac): Add a library like "polished" or something so this kind of thing is not necessary
-const amberA400 = '255, 196, 0'
+import { amberA400 } from '../../styles/colors'
 
 const StyledMenuItem = styled(MenuItem)`
   &:hover {
     background-color: ${props => {
       if (props.selected) {
-        return `rgba(${amberA400}, 0.2)`
+        return rgba(amberA400, 0.2)
       }
       if (props.focused) {
         return 'rgba(255, 255, 255, 0.24)'
@@ -22,12 +22,12 @@ const StyledMenuItem = styled(MenuItem)`
   }
 
   &:active {
-    background-color: rgba(${amberA400}, 0.24);
+    background-color: ${rgba(amberA400, 0.24)};
   }
 
   ${props => {
     if (props.selected) {
-      return `background-color: rgba(${amberA400}, 0.16)`
+      return `background-color: ${rgba(amberA400, 0.16)}`
     }
     if (props.focused) {
       return 'background-color: rgba(255, 255, 255, 0.24)'

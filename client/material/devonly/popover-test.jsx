@@ -1,107 +1,122 @@
 import React from 'react'
-import TransitionGroup from 'react-addons-css-transition-group'
-import styles from './popover-test.css'
+import { CSSTransition } from 'react-transition-group'
+import styled from 'styled-components'
 
 import IconButton from '../icon-button.jsx'
 import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
 import Popover from '../popover.jsx'
 
+import { fastOutSlowIn } from '../curve-constants'
+
 const transitionNames = {
-  appear: styles.enter,
-  appearActive: styles.enterActive,
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  appear: 'enter',
+  appearActive: 'enterActive',
+  enter: 'enter',
+  enterActive: 'enterActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
+
+const Container = styled.div`
+  width: 100%;
+  height: 100%;
+  padding: 16px !important;
+  padding-top: 64px !important;
+`
+
+const Content = styled.div`
+  position: relative;
+  max-width: 640px;
+  min-height: 512px;
+  margin: 0px auto;
+  padding-bottom: 32px;
+`
+
+const StyledIconButton = styled(IconButton)`
+  position: absolute;
+`
+
+const TopLeftButton = styled(StyledIconButton)`
+  top: 16px;
+  left: 16px;
+`
+
+const TopRightButton = styled(StyledIconButton)`
+  top: 16px;
+  right: 16px;
+`
+
+const BottomLeftButton = styled(StyledIconButton)`
+  bottom: 16px;
+  left: 16px;
+`
+
+const BottomRightButton = styled(StyledIconButton)`
+  bottom: 16px;
+  right: 16px;
+`
+
+const PopoverContents = styled.div`
+  min-width: 256px;
+  position: relative;
+  padding: 16px;
+
+  &.enter {
+    opacity: 0;
+    transform: translateY(-16px);
+    transition-property: all;
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  &.enterActive {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+
+  &.exit {
+    opacity: 1;
+    transition-property: all;
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  &.exitActive {
+    opacity: 0;
+  }
+`
 
 export default class OverflowTest extends React.Component {
   state = {
     open: false,
   }
 
-  _topLeft = null
-  _setTopLeft = elem => {
-    this._topLeft = elem
-  }
-  _topRight = null
-  _setTopRight = elem => {
-    this._topRight = elem
-  }
-  _bottomLeft = null
-  _setBottomLeft = elem => {
-    this._bottomLeft = elem
-  }
-  _bottomRight = null
-  _setBottomRight = elem => {
-    this._bottomRight = elem
-  }
+  _topLeft = React.createRef()
+  _topRight = React.createRef()
+  _bottomLeft = React.createRef()
+  _bottomRight = React.createRef()
 
   render() {
-    const containerStyle = {
-      width: '100%',
-      height: '100%',
-      padding: 16,
-      paddingTop: 64,
-    }
-    const contentStyle = {
-      maxWidth: 640,
-      minHeight: 512,
-      paddingBottom: 32,
-      margin: '0px auto',
-      position: 'relative',
-    }
-
-    const menu = {
-      position: 'absolute',
-    }
-    const topLeftStyle = {
-      ...menu,
-      top: 16,
-      left: 16,
-    }
-    const topRightStyle = {
-      ...menu,
-      top: 16,
-      right: 16,
-    }
-    const bottomLeftStyle = {
-      ...menu,
-      bottom: 16,
-      left: 16,
-    }
-    const bottomRightStyle = {
-      ...menu,
-      bottom: 16,
-      right: 16,
-    }
-
     const { open } = this.state
 
     return (
-      <div style={containerStyle}>
-        <div style={contentStyle}>
-          <IconButton
-            style={topLeftStyle}
-            buttonRef={this._setTopLeft}
+      <Container>
+        <Content>
+          <TopLeftButton
+            buttonRef={this._topLeft}
             icon={<VertMenuIcon />}
             onClick={this.onTopLeftClick}
           />
-          <IconButton
-            style={topRightStyle}
-            buttonRef={this._setTopRight}
+          <TopRightButton
+            buttonRef={this._topRight}
             icon={<VertMenuIcon />}
             onClick={this.onTopRightClick}
           />
-          <IconButton
-            style={bottomLeftStyle}
-            buttonRef={this._setBottomLeft}
+          <BottomLeftButton
+            buttonRef={this._bottomLeft}
             icon={<VertMenuIcon />}
             onClick={this.onBottomLeftClick}
           />
-          <IconButton
-            style={bottomRightStyle}
-            buttonRef={this._setBottomRight}
+          <BottomRightButton
+            buttonRef={this._bottomRight}
             icon={<VertMenuIcon />}
             onClick={this.onBottomRightClick}
           />
@@ -109,7 +124,7 @@ export default class OverflowTest extends React.Component {
           <Popover
             open={open === 'topLeft'}
             onDismiss={this.onDismiss}
-            anchor={this._topLeft}
+            anchor={this._topLeft.current}
             children={this.renderPopoverContents}
             anchorOriginVertical='top'
             anchorOriginHorizontal='left'
@@ -119,7 +134,7 @@ export default class OverflowTest extends React.Component {
           <Popover
             open={open === 'topRight'}
             onDismiss={this.onDismiss}
-            anchor={this._topRight}
+            anchor={this._topRight.current}
             children={this.renderPopoverContents}
             anchorOriginVertical='top'
             anchorOriginHorizontal='right'
@@ -129,7 +144,7 @@ export default class OverflowTest extends React.Component {
           <Popover
             open={open === 'bottomLeft'}
             onDismiss={this.onDismiss}
-            anchor={this._bottomLeft}
+            anchor={this._bottomLeft.current}
             children={this.renderPopoverContents}
             anchorOriginVertical='bottom'
             anchorOriginHorizontal='left'
@@ -139,15 +154,15 @@ export default class OverflowTest extends React.Component {
           <Popover
             open={open === 'bottomRight'}
             onDismiss={this.onDismiss}
-            anchor={this._bottomRight}
+            anchor={this._bottomRight.current}
             children={this.renderPopoverContents}
             anchorOriginVertical='bottom'
             anchorOriginHorizontal='right'
             popoverOriginVertical='bottom'
             popoverOriginHorizontal='right'
           />
-        </div>
-      </div>
+        </Content>
+      </Container>
     )
   }
 
@@ -166,20 +181,17 @@ export default class OverflowTest extends React.Component {
     }
 
     return (
-      <TransitionGroup
-        transitionName={transitionNames}
-        transitionAppear={true}
-        transitionAppearTimeout={openDelay + openDuration}
-        transitionEnterTimeout={openDuration}
-        transitionLeaveTimeout={closeDuration}>
-        {state === 'opening' || state === 'opened' ? (
-          <div className={styles.contents} style={style}>
-            <h2>Hello</h2>
-            <h3>World</h3>
-            <h4>How are you?</h4>
-          </div>
-        ) : null}
-      </TransitionGroup>
+      <CSSTransition
+        in={state === 'opening' || state === 'opened'}
+        classNames={transitionNames}
+        appear={true}
+        timeout={{ appear: openDelay + openDuration, enter: openDuration, exit: closeDuration }}>
+        <PopoverContents style={style}>
+          <h2>Hello</h2>
+          <h3>World</h3>
+          <h4>How are you?</h4>
+        </PopoverContents>
+      </CSSTransition>
     )
   }
 
