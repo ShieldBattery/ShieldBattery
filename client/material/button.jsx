@@ -53,7 +53,7 @@ export default class Button extends React.Component {
     onFocus: PropTypes.func,
     onClick: PropTypes.func,
     onMouseDown: PropTypes.func,
-    buttonRef: PropTypes.func,
+    buttonRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
   }
 
   state = {
@@ -62,11 +62,16 @@ export default class Button extends React.Component {
 
   mouseActive = false
   clearMouseActive = null
-  _ref = null
+  _ref = React.createRef()
   _setRef = elem => {
-    this._ref = elem
+    this._ref.current = elem
+
     if (this.props.buttonRef) {
-      this.props.buttonRef(elem)
+      if (typeof this.props.buttonRef === 'function') {
+        this.props.buttonRef(elem)
+      } else {
+        this.props.buttonRef.current = elem
+      }
     }
   }
 
