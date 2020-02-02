@@ -4,11 +4,10 @@ import styled from 'styled-components'
 import { darken } from 'polished'
 
 import Button, { ButtonContent, Label } from './button.jsx'
-import Card from './card.jsx'
 
 import { shadowDef8dp } from './shadow-constants'
 import { shadow2dp } from './shadows'
-import { amberA400, blue500, blue600, blue700 } from '../styles/colors'
+import { amberA400, blue500, blue600, blue700, CardLayer } from '../styles/colors'
 
 const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
   primary: props.color !== 'accent',
@@ -60,7 +59,7 @@ const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
     return ''
   }}
 
-  ${Card} & {
+  ${CardLayer} & {
     ${props => (props.disabled ? 'background-color: rgba(255, 255, 255, 0.08)' : '')};
   }
 `

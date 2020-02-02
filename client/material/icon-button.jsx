@@ -3,7 +3,8 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import Button, { ButtonCommon } from './button.jsx'
-import Card from './card.jsx'
+
+import { CardLayer } from '../styles/colors'
 
 export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;
@@ -19,7 +20,7 @@ export const IconButtonContents = styled(ButtonCommon)`
         background-color: rgba(255, 255, 255, 0.16);
       }
 
-      ${Card} &:active {
+      ${CardLayer} &:active {
         background-color: rgba(255, 255, 255, 0.1);
       }
     `

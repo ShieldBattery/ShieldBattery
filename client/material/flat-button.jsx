@@ -3,9 +3,8 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import Button, { ButtonContent, Label } from './button.jsx'
-import Card from './card.jsx'
 
-import { amberA400, blue400 } from '../styles/colors'
+import { amberA400, blue400, CardLayer } from '../styles/colors'
 
 const FlatButtonContents = styled(ButtonContent).attrs(props => ({
   primary: props.color === 'primary',
@@ -39,7 +38,7 @@ const FlatButtonContents = styled(ButtonContent).attrs(props => ({
         background-color: rgba(255, 255, 255, 0.16);
       }
 
-      ${Card} &:active {
+      ${CardLayer} &:active {
         background-color: rgba(255, 255, 255, 0.1);
       }
     `
