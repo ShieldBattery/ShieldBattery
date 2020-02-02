@@ -103,11 +103,11 @@ export default class Button extends React.Component {
   }
 
   focus() {
-    this._ref.focus()
+    this._ref.current.focus()
   }
 
   blur() {
-    this._ref.blur()
+    this._ref.current.blur()
   }
 
   _handleBlur(e) {
