@@ -9,7 +9,7 @@ const Item = styled.div`
   align-items: center;
   position: relative;
   width: auto;
-  height: 48px;
+  height: ${props => (props.dense ? '32px' : '48px')};
   padding: 0 12px;
   cursor: pointer;
 
@@ -42,13 +42,14 @@ export default class MenuItem extends React.Component {
     text: PropTypes.string.isRequired,
     icon: PropTypes.node,
     focused: PropTypes.bool,
+    dense: PropTypes.bool,
     onClick: PropTypes.func,
   }
 
   render() {
-    const { text, icon, focused, onClick } = this.props
+    const { text, icon, focused, dense, onClick } = this.props
     return (
-      <Item className={this.props.className} focused={focused} onClick={onClick}>
+      <Item className={this.props.className} focused={focused} dense={dense} onClick={onClick}>
         {icon ? <ItemIcon>{icon}</ItemIcon> : null}
         <ItemText as='span'>{text}</ItemText>
       </Item>
