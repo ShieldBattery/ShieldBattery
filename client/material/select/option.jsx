@@ -43,7 +43,7 @@ class Option extends React.Component {
     value: PropTypes.any.isRequired,
     focused: PropTypes.bool,
     selected: PropTypes.bool,
-    onOptionSelected: PropTypes.func,
+    onItemSelected: PropTypes.func,
   }
 
   render() {
@@ -54,8 +54,8 @@ class Option extends React.Component {
   }
 
   onClick = () => {
-    if (this.props.onOptionSelected) {
-      this.props.onOptionSelected(this.props.value)
+    if (this.props.onItemSelected) {
+      this.props.onItemSelected()
     }
   }
 }

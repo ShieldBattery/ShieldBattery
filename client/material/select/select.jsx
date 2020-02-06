@@ -229,14 +229,6 @@ class Select extends React.Component {
   }
 
   renderOverlay() {
-    const valueIndex = this._getValueIndex()
-    const options = React.Children.map(this.props.children, (child, i) => {
-      return React.cloneElement(child, {
-        selected: i === valueIndex,
-        onOptionSelected: this.onOptionChanged,
-      })
-    })
-
     const popoverProps = {
       open: this.state.isOpened,
       onDismiss: this.onClose,
@@ -250,7 +242,7 @@ class Select extends React.Component {
     }
     const overlayWidth = this._root.current && this._root.current.offsetWidth
     const menuProps = {
-      selectedIndex: this.hasValue ? valueIndex : -1,
+      selectedIndex: this.hasValue() ? this._getValueIndex() : -1,
       onItemSelected: this.onOptionChanged,
       renderTransition: content => (
         <CSSTransition
@@ -267,7 +259,7 @@ class Select extends React.Component {
 
     return (
       <Menu {...popoverProps} {...menuProps}>
-        {options}
+        {this.props.children}
       </Menu>
     )
   }
@@ -334,11 +326,11 @@ class Select extends React.Component {
     }
   }
 
-  onOptionChanged = value => {
+  onOptionChanged = index => {
     if (this.props.onChange) {
-      this.props.onChange(value)
+      const activeChild = React.Children.toArray(this.props.children)[index]
+      this.props.onChange(activeChild.props.value)
     }
-    this.setState({ value })
     this.onClose()
   }
 }

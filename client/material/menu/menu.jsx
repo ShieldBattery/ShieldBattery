@@ -121,7 +121,7 @@ export default class Menu extends React.Component {
   render() {
     const {
       children,
-      selectedIndex, // eslint-disable-line no-unused-vars
+      selectedIndex,
       renderTransition,
       onItemSelected, // eslint-disable-line no-unused-vars
       ...popoverProps
@@ -130,6 +130,8 @@ export default class Menu extends React.Component {
     const items = React.Children.map(children, (child, i) => {
       return React.cloneElement(child, {
         focused: i === this.state.activeIndex,
+        selected: i === selectedIndex,
+        onItemSelected: () => this.onItemSelected(i),
       })
     })
 
@@ -233,14 +235,12 @@ export default class Menu extends React.Component {
       return true
     } else if (event.code === TAB) {
       if (this.state.activeIndex >= 0) {
-        const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
-        this.onItemSelected(activeChild.props.value)
+        this.onItemSelected(this.state.activeIndex)
         return true
       }
     } else if (event.code === ENTER) {
       if (this.state.activeIndex >= 0) {
-        const activeChild = React.Children.toArray(this.props.children)[this.state.activeIndex]
-        this.onItemSelected(activeChild.props.value)
+        this.onItemSelected(this.state.activeIndex)
         return true
       }
     }
@@ -248,9 +248,9 @@ export default class Menu extends React.Component {
     return false
   }
 
-  onItemSelected = value => {
+  onItemSelected = index => {
     if (this.props.onItemSelected) {
-      this.props.onItemSelected(value)
+      this.props.onItemSelected(index)
     }
   }
 }

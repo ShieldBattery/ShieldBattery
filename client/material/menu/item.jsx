@@ -32,6 +32,8 @@ const ItemText = styled(Subheading)`
 
 const ItemIcon = styled.span`
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
   width: 24px;
   margin-right: 16px;
   overflow: hidden;
