@@ -2,6 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
+import MenuItemSymbol from './menu-item-symbol'
+
 import { Subheading, singleLine } from '../../styles/typography'
 
 const Item = styled.div`
@@ -47,6 +49,8 @@ export default class MenuItem extends React.Component {
     dense: PropTypes.bool,
     onClick: PropTypes.func,
   }
+
+  static [MenuItemSymbol] = true
 
   render() {
     const { text, icon, focused, dense, onClick } = this.props
