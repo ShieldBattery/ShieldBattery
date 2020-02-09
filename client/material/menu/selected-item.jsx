@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import MenuItem from './item.jsx'
+import MenuItemSymbol from './menu-item-symbol'
 
 import SelectedIcon from '../../icons/material/check-24px.svg'
 
@@ -16,6 +17,8 @@ class SelectedItem extends React.Component {
     selected: PropTypes.bool,
     onItemSelected: PropTypes.func,
   }
+
+  static [MenuItemSymbol] = true
 
   render() {
     const icon = this.props.selected ? <SelectedIcon /> : null

@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import KeyListener from '../../keyboard/key-listener.jsx'
 import Popover from '../popover.jsx'
 import { ScrollableContent } from '../scroll-bar.jsx'
+import MenuItemSymbol from './menu-item-symbol'
 
 import { fastOutSlowIn } from '../curve-constants'
 import { shadowDef6dp } from '../shadow-constants'
@@ -108,14 +109,18 @@ export default class Menu extends React.Component {
     }
   }
 
+  _getMenuItems() {
+    return React.Children.toArray(this.props.children).filter(child => child.type[MenuItemSymbol])
+  }
+
   _getFirstDisplayedItemIndex() {
     const { selectedIndex } = this.props
-    const numValues = React.Children.count(this.props.children)
+    const numItems = this._getMenuItems().length
     const lastVisibleIndex = ITEMS_SHOWN - 1
-    if (selectedIndex <= lastVisibleIndex || numValues < ITEMS_SHOWN) {
+    if (selectedIndex <= lastVisibleIndex || numItems < ITEMS_SHOWN) {
       return 0
     }
-    return Math.min(numValues - ITEMS_SHOWN, selectedIndex - lastVisibleIndex)
+    return Math.min(numItems - ITEMS_SHOWN, selectedIndex - lastVisibleIndex)
   }
 
   render() {
@@ -127,12 +132,21 @@ export default class Menu extends React.Component {
       ...popoverProps
     } = this.props
 
-    const items = React.Children.map(children, (child, i) => {
-      return React.cloneElement(child, {
-        focused: i === this.state.activeIndex,
-        selected: i === selectedIndex,
-        onItemSelected: () => this.onItemSelected(i),
+    let i = 0
+    const items = React.Children.map(children, child => {
+      // Leave the non-selectable elements (e.g. dividers, overlines, etc.) as they are
+      if (!child.type[MenuItemSymbol]) return child
+
+      // Define a block-scoped variable which will bind to the `onItemSelected` closure below
+      const index = i
+      const elem = React.cloneElement(child, {
+        focused: index === this.state.activeIndex,
+        selected: index === selectedIndex,
+        onItemSelected: () => this.onItemSelected(index),
       })
+      i++
+
+      return elem
     })
 
     return (
@@ -193,12 +207,12 @@ export default class Menu extends React.Component {
       newIndex = this.props.selectedIndex
     }
 
-    const numOptions = React.Children.count(this.props.children)
+    const numItems = this._getMenuItems().length
     newIndex += delta
     while (newIndex < 0) {
-      newIndex += numOptions
+      newIndex += numItems
     }
-    newIndex = newIndex % numOptions
+    newIndex = newIndex % numItems
 
     if (newIndex !== this.state.activeIndex) {
       this.setState({

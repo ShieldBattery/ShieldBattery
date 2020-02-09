@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { rgba } from 'polished'
 
 import MenuItem from '../menu/item.jsx'
+import MenuItemSymbol from '../menu/menu-item-symbol'
 
 import { amberA400 } from '../../styles/colors'
 
@@ -45,6 +46,8 @@ class Option extends React.Component {
     selected: PropTypes.bool,
     onItemSelected: PropTypes.func,
   }
+
+  static [MenuItemSymbol] = true
 
   render() {
     const { text, focused, selected } = this.props
