@@ -167,6 +167,10 @@ fn panic_hook(info: &std::panic::PanicInfo) {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn OnInject() {
+    std::panic::set_hook(Box::new(panic_hook));
+    unsafe {
+        crash_dump::init_crash_handler();
+    }
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -184,10 +188,6 @@ pub extern "C" fn OnInject() {
         .apply();
 
     info!("Logging started");
-    std::panic::set_hook(Box::new(panic_hook));
-    unsafe {
-        crash_dump::init_crash_handler();
-    }
     let args = parse_args();
     if args.is_scr {
         unsafe {

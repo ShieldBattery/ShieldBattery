@@ -502,7 +502,7 @@ impl bw::Bw for BwScr {
         game_type: bw::GameType,
     ) -> Result<(), bw::LobbyCreateError> {
         let mut game_input: scr::GameInput = mem::zeroed();
-        init_bw_string(&mut game_input.name, b"Shieldbattery");
+        init_bw_string(&mut game_input.name, lobby_name.as_bytes());
         init_bw_string(&mut game_input.password, b"");
         game_input.speed = 6;
         game_input.game_type_subtype = game_type.as_u32();
@@ -572,8 +572,8 @@ impl bw::Bw for BwScr {
 
     unsafe fn join_lobby(
         &self,
-        game_info: &mut bw::JoinableGameInfo,
-        map_path: &[u8],
+        _game_info: &mut bw::JoinableGameInfo,
+        _map_path: &[u8],
     ) -> Result<(), u32> {
         unimplemented!();
     }

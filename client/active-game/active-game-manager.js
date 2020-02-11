@@ -251,7 +251,7 @@ async function doLaunch(gameId, serverPort, settings) {
     appPath = path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
   }
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
-  let args = `${appPath} ${gameId} ${serverPort} "${userDataPath}"`
+  let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}"`
   if (isRemastered) {
     // SCR uses -launch as an argument to skip bnet launcher.
     // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.

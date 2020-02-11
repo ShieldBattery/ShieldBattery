@@ -9,7 +9,7 @@ use winapi::um::errhandlingapi::{SetUnhandledExceptionFilter};
 use winapi::um::fileapi::{CreateFileW, CREATE_ALWAYS};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::processthreadsapi::{
-    GetCurrentProcess, GetCurrentThreadId, GetCurrentProcessId,
+    TerminateProcess, GetCurrentProcess, GetCurrentThreadId, GetCurrentProcessId,
 };
 use winapi::um::winnt::{EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, HANDLE, GENERIC_WRITE};
 
@@ -47,10 +47,14 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     let args = crate::parse_args();
     let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
     let place = (*(*exception).ContextRecord).Eip;
+    let mut message = format!("Crash @ {:08x}", place);
     if let Err(e) = write_minidump(&minidump_path, exception) {
-        panic!("Crash @ {:08x}, couldn't write dump: {}", place, e);
+        message = format!("Crash @ {:08x}, couldn't write dump: {}", place, e);
     };
-    panic!("Crash @ {:08x}", place);
+
+    windows::message_box("Shieldbattery crash :(", &message);
+    TerminateProcess(GetCurrentProcess(), (*(*exception).ExceptionRecord).ExceptionCode);
+    loop {}
 }
 
 unsafe fn write_minidump(
