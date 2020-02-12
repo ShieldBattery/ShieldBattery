@@ -6,6 +6,7 @@ import glob from 'glob'
 import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
+import { REMASTERED } from '../../app/common/flags'
 import checkFileExists from '../../app/common/check-file-exists'
 
 const accessAsync = thenify(fs.access)
@@ -30,7 +31,7 @@ async function checkHash(path, validHashes) {
   return validHashes.includes(hash)
 }
 
-export async function checkRemasteredPath(dirPath) {
+async function checkRemasteredPath(dirPath) {
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
 
   try {
@@ -56,15 +57,17 @@ export async function checkRemasteredPath(dirPath) {
 // be checked for other copies. If downgradePath contains files that match the correct hashes, this
 // will be counted as having the correct version, but `downgradePath` will be true.
 export async function checkStarcraftPath(dirPath, downgradePath) {
-  if (await checkRemasteredPath(dirPath)) {
-    return { path: true, version: true, downgradePath: false }
+  if (REMASTERED) {
+    if (await checkRemasteredPath(dirPath)) {
+      return { path: true, version: true, downgradePath: false, remastered: true }
+    }
   }
   const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
     await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
   } catch (err) {
-    return { path: false, version: false, downgradePath: false }
+    return { path: false, version: false, downgradePath: false, remastered: false }
   }
 
   // Due to 1.19 version moving local.dll to a separate folder, we need to handle it separately
@@ -72,7 +75,7 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   if (!localDllValid) {
     const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
     if (matches.length < 1) {
-      return { path: false, version: false, downgradePath: false }
+      return { path: false, version: false, downgradePath: false, remastered: false }
     }
   }
 
@@ -82,7 +85,7 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   ])
 
   if (starcraftValid && stormValid && localDllValid) {
-    return { path: true, version: true, downgradePath: false }
+    return { path: true, version: true, downgradePath: false, remastered: false }
   }
 
   ;[starcraftValid, stormValid, localDllValid] = await Promise.all([
@@ -92,8 +95,8 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   ])
 
   if (starcraftValid && stormValid && localDllValid) {
-    return { path: true, version: true, downgradePath: true }
+    return { path: true, version: true, downgradePath: true, remastered: false }
   } else {
-    return { path: true, version: false, downgradePath: false }
+    return { path: true, version: false, downgradePath: false, remastered: false }
   }
 }

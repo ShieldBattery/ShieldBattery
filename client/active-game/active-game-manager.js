@@ -5,7 +5,7 @@ import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
-import { checkStarcraftPath, checkRemasteredPath } from '../settings/check-starcraft-path'
+import { checkStarcraftPath } from '../settings/check-starcraft-path'
 import getDowngradePath from './get-downgrade-path'
 import log from '../logging/logger'
 import {
@@ -231,17 +231,14 @@ async function doLaunch(gameId, serverPort, settings) {
     throw new Error('No Starcraft path set')
   }
   const downgradePath = getDowngradePath()
-  const isRemastered = await checkRemasteredPath(starcraftPath)
-  let checkResult = null
-  if (!isRemastered) {
-    checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
-    if (!checkResult.path || !checkResult.version) {
-      throw new Error(
-        `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
-          JSON.stringify(checkResult),
-      )
-    }
+  const checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
+  if (!checkResult.path || !checkResult.version) {
+    throw new Error(
+      `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
+        JSON.stringify(checkResult),
+    )
   }
+  const isRemastered = checkResult.remastered
 
   const userDataPath = remote.app.getPath('userData')
   let appPath

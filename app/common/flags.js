@@ -17,3 +17,5 @@ export const MULTI_CHANNEL = DEV()
 export const MAP_UPLOADING = DEV()
 // Allow matchmaking related features (find match, matchmaking map pools, preferences, etc.)
 export const MATCHMAKING = DEV()
+// Allow launching with remastered installation
+export const REMASTERED = DEV()
