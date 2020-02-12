@@ -220,7 +220,7 @@ unsafe fn patch_game() {
     );
 
     let mut active_patcher = crate::PATCHER.lock().unwrap();
-    crate::forge::init_hooks(&mut active_patcher);
+    crate::forge::init_hooks_1161(&mut active_patcher);
     snp::init_hooks(&mut active_patcher);
 
     let mut exe = active_patcher.patch_exe(0x0040_0000);

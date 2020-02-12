@@ -226,7 +226,6 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     };
     bw.clone().patch_game(image);
     bw::set_bw_impl(bw);
-    forge::disable();
 }
 
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);

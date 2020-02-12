@@ -2,12 +2,13 @@ mod direct_x;
 mod indirect_draw;
 mod renderer;
 
+use std::cell::Cell;
 use std::ffi::CStr;
 use std::io;
 use std::mem;
 use std::ptr::null_mut;
-use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Mutex};
 
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -60,6 +61,19 @@ mod hooks {
     );
 }
 
+mod scr_hooks {
+    use super::{
+        c_void, ATOM, HINSTANCE, HMENU, HWND, WNDCLASSEXW,
+    };
+    whack_hooks!(stdcall, 0,
+        !0 => CreateWindowExW(
+            u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
+        ) -> HWND;
+        !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
+        !0 => ShowWindow(HWND, i32) -> u32;
+    );
+}
+
 unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
     if val.is_null() {
         None
@@ -68,13 +82,33 @@ unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
     }
 }
 
+const FOREGROUND_HOTKEY_ID: i32 = 1337;
+const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
+
+// Currently no nicer way to prevent us from hooking winapi calls we ourselves make
+// with remastered :/
+thread_local! {
+    static DISABLE_SCR_HOOKS: Cell<i32> = Cell::new(0);
+}
+
+fn scr_hooks_disabled() -> bool {
+    DISABLE_SCR_HOOKS.with(|x| x.get()) != 0
+}
+
+fn with_scr_hooks_disabled<F: FnOnce() -> R, R>(func: F) -> R {
+    DISABLE_SCR_HOOKS.with(|x| {
+        x.set(x.get() + 1);
+        let ret = func();
+        x.set(x.get() - 1);
+        ret
+    })
+}
+
 unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam: isize) -> isize {
     if std::thread::panicking() {
         // Avoid recursive locking due to panics
         return DefWindowProcA(window, msg, wparam, lparam);
     }
-    const FOREGROUND_HOTKEY_ID: i32 = 1337;
-    const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
     let mut lparam = lparam;
     match msg {
@@ -227,63 +261,10 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
             return DefWindowProcA(window, msg, wparam, lparam);
         }
         WM_GAME_STARTED => {
-            with_forge(|forge| {
-                forge.game_started = true;
-            });
-            // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
-            // but will allow you to do so if you're handling a global hotkey. So... we register
-            // a global hotkey and then press it ourselves, then bring ourselves into the
-            // foreground while handling it.
-            RegisterHotKey(window, FOREGROUND_HOTKEY_ID, 0, VK_F22 as u32);
-            {
-                let mut key_input = INPUT {
-                    type_: INPUT_KEYBOARD,
-                    ..mem::zeroed()
-                };
-                key_input.u.ki_mut().wVk = VK_F22 as u16;
-                key_input.u.ki_mut().wScan = MapVirtualKeyA(VK_F22 as u32, 0) as u16;
-                SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
-                key_input.u.ki_mut().dwFlags |= KEYEVENTF_KEYUP;
-                SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
-                // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
-                SetTimer(
-                    window,
-                    FOREGROUND_HOTKEY_ID as usize,
-                    FOREGROUND_HOTKEY_TIMEOUT,
-                    None,
-                );
-            }
+            msg_game_started(window);
             return 0;
         }
-        WM_HOTKEY | WM_TIMER => {
-            if wparam as i32 == FOREGROUND_HOTKEY_ID {
-                // remove hotkey and timer
-                UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
-                KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
-
-                // Set the final window title for scene switchers to key off of. Note that this
-                // is different from BW's "typical" title so that people don't have to reconfigure
-                // scene switchers when moving between our service and others.
-                SetWindowTextA(window, "Brood War - ShieldBattery\0".as_ptr() as *const i8);
-
-                // Show the window and bring it to the front
-                ShowWindow(window, SW_SHOWNORMAL);
-                SetForegroundWindow(window);
-
-                with_forge(|forge| {
-                    // Clip the cursor
-                    forge.perform_scaled_clip_cursor(&RECT {
-                        left: 0,
-                        top: 0,
-                        right: 640,
-                        bottom: 480,
-                    });
-                    // Move the cursor to the middle of the window
-                    forge.set_cursor_to_game_pos(320, 240);
-                });
-                ShowCursor(1);
-            }
-        }
+        WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
         WM_SETCURSOR => {
             if (lparam & 0xffff) != HTCLIENT {
                 return DefWindowProcA(window, msg, wparam, lparam);
@@ -303,7 +284,102 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
     }
 }
 
-fn register_class(
+unsafe extern "system" fn wnd_proc_scr(
+    window: HWND,
+    msg: u32,
+    wparam: usize,
+    lparam: isize,
+) -> isize {
+    if std::thread::panicking() {
+        // Avoid recursive locking due to panics
+        return DefWindowProcA(window, msg, wparam, lparam);
+    }
+
+    let ret = with_scr_hooks_disabled(|| {
+        match msg {
+            WM_GAME_STARTED => {
+                msg_game_started(window);
+                return Some(0);
+            }
+            WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
+            _ => (),
+        }
+        None
+    });
+    if let Some(ret) = ret {
+        ret
+    } else {
+        let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
+        if let Some(orig_wnd_proc) = orig_wnd_proc {
+            orig_wnd_proc(window, msg, wparam, lparam)
+        } else {
+            DefWindowProcA(window, msg, wparam, lparam)
+        }
+    }
+}
+
+unsafe fn msg_game_started(window: HWND) {
+    with_forge(|forge| {
+        forge.game_started = true;
+    });
+    // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
+    // but will allow you to do so if you're handling a global hotkey. So... we register
+    // a global hotkey and then press it ourselves, then bring ourselves into the
+    // foreground while handling it.
+    RegisterHotKey(window, FOREGROUND_HOTKEY_ID, 0, VK_F22 as u32);
+    {
+        let mut key_input = INPUT {
+            type_: INPUT_KEYBOARD,
+            ..mem::zeroed()
+        };
+        key_input.u.ki_mut().wVk = VK_F22 as u16;
+        key_input.u.ki_mut().wScan = MapVirtualKeyA(VK_F22 as u32, 0) as u16;
+        SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
+        key_input.u.ki_mut().dwFlags |= KEYEVENTF_KEYUP;
+        SendInput(1, &mut key_input, mem::size_of::<INPUT>() as i32);
+        // Set a timer just in case the input doesn't get dispatched in a reasonable timeframe
+        SetTimer(
+            window,
+            FOREGROUND_HOTKEY_ID as usize,
+            FOREGROUND_HOTKEY_TIMEOUT,
+            None,
+        );
+    }
+}
+
+unsafe fn msg_timer(window: HWND, timer_id: i32) {
+    if timer_id as i32 == FOREGROUND_HOTKEY_ID {
+        // remove hotkey and timer
+        UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
+        KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
+
+        // Set the final window title for scene switchers to key off of. Note that this
+        // is different from BW's "typical" title so that people don't have to reconfigure
+        // scene switchers when moving between our service and others.
+        SetWindowTextA(window, "Brood War - ShieldBattery\0".as_ptr() as *const i8);
+
+        // Show the window and bring it to the front
+        ShowWindow(window, SW_SHOWNORMAL);
+        SetForegroundWindow(window);
+
+        with_forge(|forge| {
+            if !forge.is_scr() {
+                // Clip the cursor
+                forge.perform_scaled_clip_cursor(&RECT {
+                    left: 0,
+                    top: 0,
+                    right: 640,
+                    bottom: 480,
+                });
+                // Move the cursor to the middle of the window
+                forge.set_cursor_to_game_pos(320, 240);
+            }
+        });
+        ShowCursor(1);
+    }
+}
+
+fn register_class_a(
     class: *const WNDCLASSEXA,
     orig: unsafe extern fn(*const WNDCLASSEXA) -> ATOM,
 ) -> ATOM {
@@ -330,7 +406,7 @@ fn register_class(
     }
 }
 
-unsafe fn create_window(
+unsafe fn create_window_a(
     ex_style: u32,
     class_name: *const i8,
     window_name: *const i8,
@@ -459,7 +535,7 @@ unsafe fn create_window(
     );
     ShowWindow(window, SW_HIDE);
     with_forge(|forge| {
-        forge.window = Some(Window::new(
+        forge.set_window(Window::new(
             window,
             left,
             top,
@@ -497,12 +573,19 @@ struct Forge {
     >,
     active_bitmap: Option<HBITMAP>,
     captured_window: Option<HWND>,
+
+    /// SCR refers to the window class with ATOM returned by RegisterClassExW
+    /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
+    scr_window_class: Option<ATOM>,
 }
 
 // Since it stores HBITMAP
 unsafe impl Send for Forge {}
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
+static FORGE_WINDOW: AtomicUsize = AtomicUsize::new(0);
+static FORGE_INITED: AtomicBool = AtomicBool::new(false);
+
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
     let thread_id = unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize };
     if LOCKING_THREAD.load(Ordering::Relaxed) == thread_id {
@@ -516,7 +599,29 @@ fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
     result
 }
 
+/// SCR hooks can be called at surprising places while someone higher up
+/// call stack has locked forge, so this function exists to allow those
+/// hooks to ignore unrelated windows.
+fn is_forge_window(hwnd: HWND) -> bool {
+    FORGE_WINDOW.load(Ordering::Acquire) as *mut _ == hwnd
+}
+
+fn forge_inited() -> bool {
+    FORGE_INITED.load(Ordering::Acquire)
+}
+
 impl Forge {
+    fn is_scr(&self) -> bool {
+        // Could be a separate flag but this also does the trick =)
+        self.scr_window_class.is_some()
+    }
+
+    fn set_window(&mut self, window: Window) {
+        assert!(self.window.is_none());
+        FORGE_WINDOW.store(window.handle as usize, Ordering::Release);
+        self.window = Some(window);
+    }
+
     fn perform_scaled_clip_cursor(&mut self, rect: &RECT) -> i32 {
         self.input_disabled = false;
         let window = match self.window {
@@ -539,13 +644,6 @@ impl Forge {
             bottom: ((rect.bottom as f64 * y_scale + 0.5) as i32).wrapping_add(window.client_y),
         };
         unsafe { ClipCursor(&actual_rect) }
-    }
-
-    fn is_forge_window(&self, window: HWND) -> bool {
-        match self.window {
-            Some(ref w) => w.handle == window,
-            None => false,
-        }
     }
 
     fn release_clip_cursor(&mut self) -> i32 {
@@ -956,7 +1054,7 @@ unsafe extern "system" fn create_sound_buffer(
 }
 
 unsafe fn is_iconic(window: HWND, orig: unsafe extern fn(HWND) -> u32) -> u32 {
-    if with_forge(|forge| forge.is_forge_window(window)) {
+    if is_forge_window(window) {
         0
     } else {
         orig(window)
@@ -964,7 +1062,7 @@ unsafe fn is_iconic(window: HWND, orig: unsafe extern fn(HWND) -> u32) -> u32 {
 }
 
 unsafe fn is_window_visible(window: HWND, orig: unsafe extern fn(HWND) -> u32) -> u32 {
-    if with_forge(|forge| forge.is_forge_window(window)) {
+    if is_forge_window(window) {
         1
     } else {
         orig(window)
@@ -976,7 +1074,7 @@ unsafe fn client_to_screen(
     point: *mut POINT,
     orig: unsafe extern fn(HWND, *mut POINT) -> u32,
 ) -> u32 {
-    if with_forge(|forge| forge.is_forge_window(window)) {
+    if is_forge_window(window) {
         // We want BW to think its full screen, and therefore any coordinates it wants in
         // screenspace would be the same as the ones its passing in
         1
@@ -990,7 +1088,7 @@ unsafe fn get_client_rect(
     out: *mut RECT,
     orig: unsafe extern fn(HWND, *mut RECT) -> u32,
 ) -> u32 {
-    if with_forge(|forge| forge.is_forge_window(window)) {
+    if is_forge_window(window) {
         (*out) = RECT {
             left: 0,
             top: 0,
@@ -1050,12 +1148,14 @@ unsafe fn release_capture() -> u32 {
     1
 }
 
-unsafe fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
+fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
     // We handle the window showing around here, Brood War.
-    if with_forge(|forge| forge.is_forge_window(window)) {
-        1
-    } else {
-        orig(window, show)
+    unsafe {
+        if is_forge_window(window) && !scr_hooks_disabled() {
+            1
+        } else {
+            orig(window, show)
+        }
     }
 }
 
@@ -1178,11 +1278,118 @@ unsafe fn get_bitmap_bits(
     bytes_read / bytes_per_pixel
 }
 
-pub unsafe fn init_hooks(patcher: &mut whack::Patcher) {
+fn register_class_w(
+    class: *const WNDCLASSEXW,
+    orig: unsafe extern fn(*const WNDCLASSEXW) -> ATOM,
+) -> ATOM {
+    unsafe {
+        let os_string;
+        let class_name = (*class).lpszClassName;
+        let name = match class_name.is_null() {
+            true => None,
+            false => {
+                let len = (0..).find(|&x| *class_name.add(x) == 0).unwrap();
+                let slice = std::slice::from_raw_parts(class_name, len);
+                os_string = crate::windows::os_string_from_winapi(slice);
+                Some(os_string.to_string_lossy())
+            }
+        };
+        debug!("RegisterClassExW with name {:?}", name);
+        let is_bw_class = match name {
+            None => false,
+            Some(s) => s == "OsWindow",
+        };
+        if !is_bw_class {
+            return orig(class);
+        }
+        let orig_wnd_proc = (*class).lpfnWndProc;
+        let rewritten = WNDCLASSEXW {
+            lpfnWndProc: Some(wnd_proc_scr),
+            ..*class
+        };
+        let result = orig(&rewritten);
+        with_forge(|forge| {
+            forge.orig_wnd_proc = orig_wnd_proc;
+            forge.scr_window_class = Some(result);
+        });
+        result
+    }
+}
+
+/// Stores the window handle.
+fn create_window_w(
+    ex_style: u32,
+    class_name: *const u16,
+    window_name: *const u16,
+    style: u32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    parent: HWND,
+    menu: HMENU,
+    instance: HINSTANCE,
+    param: *mut c_void,
+    orig: unsafe extern fn(
+        u32,
+        *const u16,
+        *const u16,
+        u32,
+        i32,
+        i32,
+        i32,
+        i32,
+        HWND,
+        HMENU,
+        HINSTANCE,
+        *mut c_void,
+    ) -> HWND,
+) -> HWND {
+    unsafe {
+        let window = orig(
+            ex_style,
+            class_name,
+            window_name,
+            style,
+            x,
+            y,
+            width,
+            height,
+            parent,
+            menu,
+            instance,
+            param,
+        );
+        // A thread panicking inside with_forge can create a window, so don't try
+        // locking forge during panics.
+        if forge_inited() && !std::thread::panicking() {
+            with_forge(|forge| {
+                if let Some(bw_class) = forge.scr_window_class {
+                    if class_name as usize == bw_class as usize {
+                        debug!("Created main window {:p}", window);
+                        // This maybe should do SetWindowPos like the 1161 hook does,
+                        // but trusting that the x/y/w/h are fine for now.
+                        forge.set_window(Window::new(
+                            window,
+                            x,
+                            y,
+                            width,
+                            height,
+                            &forge.settings,
+                        ));
+                    }
+                }
+            });
+        }
+        window
+    }
+}
+
+pub unsafe fn init_hooks_1161(patcher: &mut whack::Patcher) {
     use self::hooks::*;
     let mut starcraft = patcher.patch_exe(0x0040_0000);
-    starcraft.import_hook_opt(&b"user32"[..], CreateWindowExA, create_window);
-    starcraft.import_hook_opt(&b"user32"[..], RegisterClassExA, register_class);
+    starcraft.import_hook_opt(&b"user32"[..], CreateWindowExA, create_window_a);
+    starcraft.import_hook_opt(&b"user32"[..], RegisterClassExA, register_class_a);
     starcraft.import_hook_opt(&b"user32"[..], GetSystemMetrics, get_system_metrics);
     starcraft.import_hook_opt(&b"kernel32"[..], GetProcAddress, get_proc_address);
     starcraft.import_hook_opt(&b"user32"[..], IsIconic, is_iconic);
@@ -1211,11 +1418,36 @@ pub unsafe fn init_hooks(patcher: &mut whack::Patcher) {
     storm.import_hook_opt(&b"user32"[..], IsWindowVisible, is_window_visible);
 }
 
-pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
-    if is_disabled() {
-        return;
-    }
+pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
+    use self::scr_hooks::*;
+    // 1161 init can hook just starcraft/storm import table, unfortunately
+    // that method won't work with SCR, we'll just GetProcAddress the
+    // required functions and hook them instead.
+    // May cause some unintended hooks if some another third-party DLL that
+    // is part of this same process also calls these functions, but ideally
+    // we'd only have the hooks act on main window HWND.
+    //
+    // Also this will mean that when we call these functions, those calls also get hooked,
+    // so the hooks need to be able to handle that (The hooking library is unfortunately
+    // not much of a help here, we'll have to set global bools)
+    //
+    // TODO It is wrong to assume that GetProcAddress(LoadLibrary("user32"), ...)
+    // actually returns functions that are in user32, the patcher should be pathing
+    // whichever DLL that the GetProcAddress returns functions for.
+    let user32 = crate::windows::load_library("user32").unwrap();
+    let mut patcher = patcher.patch_library("user32", 0);
+    let user32_base = user32.handle() as usize;
 
+    // TODO possibly port keyboard hooks as well.
+    let address = user32.proc_address("CreateWindowExW").unwrap() as usize;
+    patcher.hook_closure_address(CreateWindowExW, create_window_w, address - user32_base);
+    let address = user32.proc_address("RegisterClassExW").unwrap() as usize;
+    patcher.hook_closure_address(RegisterClassExW, register_class_w, address - user32_base);
+    let address = user32.proc_address("ShowWindow").unwrap() as usize;
+    patcher.hook_closure_address(ShowWindow, show_window, address - user32_base);
+}
+
+pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
     let mouse_sensitivity = settings
         .get("mouseSensitivity")
         .and_then(|x| x.as_u64())
@@ -1297,22 +1529,13 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         real_create_sound_buffer: None,
         active_bitmap: None,
         captured_window: None,
+        scr_window_class: None,
     });
+    FORGE_INITED.store(true, Ordering::Release);
 }
 
 const WM_END_WND_PROC_WORKER: u32 = WM_USER + 27;
 const WM_GAME_STARTED: u32 = WM_USER + 7;
-
-static DISABLED: AtomicBool = AtomicBool::new(false);
-static SCR_WINDOW: AtomicUsize = AtomicUsize::new(0);
-
-fn is_disabled() -> bool {
-    DISABLED.load(Ordering::Relaxed)
-}
-
-pub fn set_scr_window(window: *mut c_void) {
-    SCR_WINDOW.store(window as usize, Ordering::Relaxed);
-}
 
 /// Starts running the windows event loop -- we'll need that to run in order to get
 /// lobby properly set up. The ingame message loop is run by BW, this doesn't have to be called
@@ -1337,25 +1560,16 @@ pub unsafe fn run_wnd_proc() {
 }
 
 pub fn end_wnd_proc() {
-    let handle = if is_disabled() {
-        let handle = SCR_WINDOW.load(Ordering::Relaxed);
-        assert!(handle != 0);
-        handle as HWND
-    } else {
-        with_forge(|forge| match forge.window {
-            Some(ref s) => s.handle,
-            None => panic!("Cannot stop running window procedure without a window"),
-        })
-    };
+    let handle = with_forge(|forge| match forge.window {
+        Some(ref s) => s.handle,
+        None => panic!("Cannot stop running window procedure without a window"),
+    });
     unsafe {
         PostMessageA(handle, WM_END_WND_PROC_WORKER, 0, 0);
     }
 }
 
 pub fn game_started() {
-    if is_disabled() {
-        return;
-    }
     let handle = with_forge(|forge| match forge.window {
         Some(ref s) => Some(s.handle),
         None => None,
@@ -1368,9 +1582,6 @@ pub fn game_started() {
 }
 
 pub fn hide_window() {
-    if is_disabled() {
-        return;
-    }
     let handle = with_forge(|forge| match forge.window {
         Some(ref s) => Some(s.handle),
         None => None,
@@ -1383,16 +1594,5 @@ pub fn hide_window() {
 }
 
 pub fn input_disabled() -> bool {
-    if is_disabled() {
-        return false;
-    }
     with_forge(|forge| forge.input_disabled)
-}
-
-/// Disables forge, making all calls just return default values / do nothing
-///
-/// (This is nicer than having to handle forge potentially not existing at every
-/// with_forge(...) call?)
-pub fn disable() {
-    DISABLED.store(true, Ordering::Relaxed);
 }

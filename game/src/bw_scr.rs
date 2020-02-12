@@ -5,18 +5,14 @@ use std::mem;
 use std::path::Path;
 use std::ptr::{null};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use libc::c_void;
 use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
-use winapi::shared::minwindef::{ATOM};
-use winapi::um::winuser::{WNDCLASSEXW};
 
 use crate::bw;
 use crate::snp;
-use crate::windows;
 
 const NET_PLAYER_COUNT: usize = 12;
 
@@ -381,27 +377,18 @@ impl BwScr {
             // but patch_game() is called even before that, so overwrite the
             // list at GameInit hook.
             self.init_snp();
-            crate::initialize();
             crate::process_init_hook();
+        }, address);
+        // This function being run while Windows loader lock is held, crate::initialize
+        // cannot be called so hook the exe's entry point and call it from there.
+        let address = pe_entry_point_offset(base as *const u8);
+        exe.hook_closure_address(EntryPoint, move |orig| {
+            crate::initialize();
+            orig();
         }, address);
 
         drop(exe);
-
-        let user32 = windows::load_library("user32").unwrap();
-        let mut patcher = active_patcher.patch_library("user32", 0);
-        let address = user32.proc_address("CreateWindowExW").unwrap();
-        patcher.hook_closure_address(
-            CreateWindowExW,
-            create_window_hook,
-            address as usize - user32.handle() as usize,
-        );
-        let address = user32.proc_address("RegisterClassExW").unwrap();
-        patcher.hook_closure_address(
-            RegisterClassExW,
-            register_class_hook,
-            address as usize - user32.handle() as usize,
-        );
-
+        crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
     }
 
@@ -626,10 +613,7 @@ impl bw::Bw for BwScr {
 
 whack_hooks!(stdcall, 0,
     !0 => GameInit();
-    !0 => CreateWindowExW(
-        u32, *const u16, *const u16, u32, i32, i32, i32, i32, usize, usize, usize, *mut c_void,
-    ) -> *mut c_void;
-    !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
+    !0 => EntryPoint();
 );
 
 // Inline asm is only on nightly rust, so..
@@ -667,88 +651,11 @@ unsafe fn init_bw_string(out: &mut scr::BwString, value: &[u8]) {
     }
 }
 
-// SCR refers to the window class with ATOM returned by RegisterClassExW
-// (And the class is named OsWindow instead of 1.16.1 SWarClass)
-static BW_WINDOW_CLASS: AtomicUsize = AtomicUsize::new(!0);
-
-fn register_class_hook(
-    class: *const WNDCLASSEXW,
-    orig: unsafe extern fn(*const WNDCLASSEXW) -> ATOM,
-) -> ATOM {
-    unsafe {
-        let os_string;
-        let class_name = (*class).lpszClassName;
-        let name = match class_name.is_null() {
-            true => None,
-            false => {
-                let len = (0..).find(|&x| *class_name.add(x) == 0).unwrap();
-                let slice = std::slice::from_raw_parts(class_name, len);
-                os_string = windows::os_string_from_winapi(slice);
-                Some(os_string.to_string_lossy())
-            }
-        };
-        debug!("RegisterClassExW with name {:?}", name);
-        let is_bw_class = match name {
-            None => false,
-            Some(s) => s == "OsWindow",
-        };
-        let result = orig(class);
-        if is_bw_class {
-            BW_WINDOW_CLASS.store(result as usize, Ordering::Relaxed);
-        }
-        result
-    }
-}
-
-/// Stores the window handle.
-fn create_window_hook(
-    ex_style: u32,
-    class_name: *const u16,
-    window_name: *const u16,
-    style: u32,
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-    parent: usize,
-    menu: usize,
-    instance: usize,
-    param: *mut c_void,
-    orig: unsafe extern fn(
-        u32,
-        *const u16,
-        *const u16,
-        u32,
-        i32,
-        i32,
-        i32,
-        i32,
-        usize,
-        usize,
-        usize,
-        *mut c_void,
-    ) -> *mut c_void,
-) -> *mut c_void {
-    unsafe {
-        let result = orig(
-            ex_style,
-            class_name,
-            window_name,
-            style,
-            x,
-            y,
-            width,
-            height,
-            parent,
-            menu,
-            instance,
-            param,
-        );
-        let bw_class = BW_WINDOW_CLASS.load(Ordering::Relaxed);
-        if class_name as usize == bw_class {
-            debug!("Created main window {:p}", result);
-            crate::forge::set_scr_window(result);
-        }
-        result
-    }
+/// Returns the entry point of a binary, read from the PE header.
+///
+/// Adding the returned offset to `binary` would produce function pointer
+/// to the entry.
+unsafe fn pe_entry_point_offset(binary: *const u8) -> usize {
+    let pe_header = binary.add(*(binary.add(0x3c) as *const u32) as usize);
+    *(pe_header.add(0x28) as *const u32) as usize
 }
