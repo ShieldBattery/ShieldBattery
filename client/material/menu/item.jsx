@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import MenuItemSymbol from './menu-item-symbol'
+import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu.jsx'
 
 import { Subheading, singleLine } from '../../styles/typography'
 
@@ -11,7 +12,7 @@ const Item = styled.div`
   align-items: center;
   position: relative;
   width: auto;
-  height: ${props => (props.dense ? '32px' : '48px')};
+  height: ${props => (props.dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
   padding: 0 12px;
   cursor: pointer;
 

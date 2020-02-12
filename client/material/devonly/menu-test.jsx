@@ -47,6 +47,7 @@ export default class MenuTest extends React.Component {
   _menu3 = React.createRef()
   _menu4 = React.createRef()
   _menu5 = React.createRef()
+  _menu6 = React.createRef()
 
   render() {
     const { open } = this.state
@@ -57,8 +58,13 @@ export default class MenuTest extends React.Component {
           <RaisedButton buttonRef={this._menu1} label='Open menu' onClick={this.onMenu1Open} />
           <RaisedButton buttonRef={this._menu2} label='Scrollable' onClick={this.onMenu2Open} />
           <RaisedButton buttonRef={this._menu3} label='Dense' onClick={this.onMenu3Open} />
-          <RaisedButton buttonRef={this._menu4} label='Selection menu' onClick={this.onMenu4Open} />
-          <RaisedButton buttonRef={this._menu5} label='Mixed' onClick={this.onMenu5Open} />
+          <RaisedButton
+            buttonRef={this._menu4}
+            label='Scrollable dense'
+            onClick={this.onMenu4Open}
+          />
+          <RaisedButton buttonRef={this._menu5} label='Selection menu' onClick={this.onMenu5Open} />
+          <RaisedButton buttonRef={this._menu6} label='Mixed' onClick={this.onMenu6Open} />
 
           <Menu
             open={open === 'menu1'}
@@ -101,14 +107,15 @@ export default class MenuTest extends React.Component {
             anchorOriginHorizontal='left'
             anchorOffsetVertical={36}
             popoverOriginVertical='top'
-            popoverOriginHorizontal='left'>
-            <MenuItem text='Menu item 1' dense={true} onClick={this.onDismiss} />
-            <MenuItem text='Menu item 2' dense={true} onClick={this.onDismiss} />
-            <MenuItem text='Menu item 3' dense={true} onClick={this.onDismiss} />
-            <MenuItem text='Menu item 4' dense={true} onClick={this.onDismiss} />
-            <MenuItem text='Menu item 5' dense={true} onClick={this.onDismiss} />
+            popoverOriginHorizontal='left'
+            dense={true}>
+            <MenuItem text='Menu item 1' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 2' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 3' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 4' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 5' onClick={this.onDismiss} />
           </Menu>
-          <Menu
+          <StyledMenu
             open={open === 'menu4'}
             onDismiss={this.onDismiss}
             anchor={this._menu4.current}
@@ -117,15 +124,24 @@ export default class MenuTest extends React.Component {
             anchorOffsetVertical={36}
             popoverOriginVertical='top'
             popoverOriginHorizontal='left'
-            selectedIndex={this.state.selectedIndex}
-            onItemSelected={this.onSelected}>
-            <SelectedMenuItem text='Menu item 1' dense={true} />
-            <SelectedMenuItem text='Menu item 2' dense={true} />
-            <SelectedMenuItem text='Menu item 3' dense={true} />
-            <SelectedMenuItem text='Menu item 4' dense={true} />
-            <SelectedMenuItem text='Menu item 5' dense={true} />
-          </Menu>
-          <StyledMenu
+            dense={true}>
+            <MenuItem text='Menu item 1' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 2' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 3' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 4' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 5' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 6' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 7' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 8' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 9' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 10' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 11' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 12' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 13' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 14' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 15' onClick={this.onDismiss} />
+          </StyledMenu>
+          <Menu
             open={open === 'menu5'}
             onDismiss={this.onDismiss}
             anchor={this._menu5.current}
@@ -134,15 +150,34 @@ export default class MenuTest extends React.Component {
             anchorOffsetVertical={36}
             popoverOriginVertical='top'
             popoverOriginHorizontal='left'
+            dense={true}
+            selectedIndex={this.state.selectedIndex}
+            onItemSelected={this.onSelected}>
+            <SelectedMenuItem text='Menu item 1' />
+            <SelectedMenuItem text='Menu item 2' />
+            <SelectedMenuItem text='Menu item 3' />
+            <SelectedMenuItem text='Menu item 4' />
+            <SelectedMenuItem text='Menu item 5' />
+          </Menu>
+          <StyledMenu
+            open={open === 'menu6'}
+            onDismiss={this.onDismiss}
+            anchor={this._menu6.current}
+            anchorOriginVertical='top'
+            anchorOriginHorizontal='left'
+            anchorOffsetVertical={36}
+            popoverOriginVertical='top'
+            popoverOriginHorizontal='left'
+            dense={true}
             selectedIndex={this.state.selectedIndex}
             onItemSelected={this.onSelected}>
             <Overline>Subheading</Overline>
-            <SelectedMenuItem text='Menu item 1' dense={true} />
-            <SelectedMenuItem text='Menu item 2' dense={true} />
-            <SelectedMenuItem text='Menu item 3' dense={true} />
+            <SelectedMenuItem text='Menu item 1' />
+            <SelectedMenuItem text='Menu item 2' />
+            <SelectedMenuItem text='Menu item 3' />
             <Divider />
-            <MenuItem text='Menu item 4' dense={true} onClick={this.onDismiss} />
-            <MenuItem text='Menu item 5' dense={true} onClick={this.onDismiss} />
+            <MenuItem text='Menu item 4' onClick={this.onDismiss} />
+            <MenuItem text='Menu item 5' onClick={this.onDismiss} />
           </StyledMenu>
         </StyledCard>
       </Container>
@@ -170,5 +205,8 @@ export default class MenuTest extends React.Component {
   }
   onMenu5Open = () => {
     this.setState({ open: 'menu5' })
+  }
+  onMenu6Open = () => {
+    this.setState({ open: 'menu6' })
   }
 }

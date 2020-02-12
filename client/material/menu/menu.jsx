@@ -29,15 +29,19 @@ const UP = 'ArrowUp'
 const DOWN = 'ArrowDown'
 
 const MENU_MIN_HEIGHT = 48
+const MENU_MIN_HEIGHT_DENSE = 32
 const MENU_MAX_HEIGHT = 256
+const MENU_MAX_HEIGHT_DENSE = 272
+export const ITEM_HEIGHT = 48
+export const ITEM_HEIGHT_DENSE = 32
 const VERT_PADDING = 8
-const ITEM_HEIGHT = 48
 const ITEMS_SHOWN = (MENU_MAX_HEIGHT - VERT_PADDING * 2) / ITEM_HEIGHT
+const ITEMS_SHOWN_DENSE = (MENU_MAX_HEIGHT_DENSE - VERT_PADDING * 2) / ITEM_HEIGHT_DENSE
 
 export const Overlay = styled(CardLayer)`
   min-width: 160px;
-  min-height: ${MENU_MIN_HEIGHT}px;
-  max-height: ${MENU_MAX_HEIGHT}px;
+  min-height: ${props => (props.dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT)}px;
+  max-height: ${props => (props.dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT)}px;
   box-shadow: ${shadowDef6dp};
   z-index: ${zIndexMenu};
   border-radius: 2px;
@@ -81,6 +85,7 @@ export default class Menu extends React.Component {
   static propTypes = {
     ...Popover.propTypes,
     children: PropTypes.array,
+    dense: PropTypes.bool,
     selectedIndex: PropTypes.number,
     // Use this function to implement a custom CSS transitions for opening/closing the menu. Will be
     // called with the menu content.
@@ -114,18 +119,20 @@ export default class Menu extends React.Component {
   }
 
   _getFirstDisplayedItemIndex() {
-    const { selectedIndex } = this.props
+    const { dense, selectedIndex } = this.props
     const numItems = this._getMenuItems().length
-    const lastVisibleIndex = ITEMS_SHOWN - 1
-    if (selectedIndex <= lastVisibleIndex || numItems < ITEMS_SHOWN) {
+    const itemsShown = dense ? ITEMS_SHOWN_DENSE : ITEMS_SHOWN
+    const lastVisibleIndex = itemsShown - 1
+    if (selectedIndex <= lastVisibleIndex || numItems < itemsShown) {
       return 0
     }
-    return Math.min(numItems - ITEMS_SHOWN, selectedIndex - lastVisibleIndex)
+    return Math.min(numItems - itemsShown, selectedIndex - lastVisibleIndex)
   }
 
   render() {
     const {
       children,
+      dense,
       selectedIndex,
       renderTransition,
       onItemSelected, // eslint-disable-line no-unused-vars
@@ -140,6 +147,7 @@ export default class Menu extends React.Component {
       // Define a block-scoped variable which will bind to the `onItemSelected` closure below
       const index = i
       const elem = React.cloneElement(child, {
+        dense,
         focused: index === this.state.activeIndex,
         selected: index === selectedIndex,
         onItemSelected: () => this.onItemSelected(index),
@@ -166,8 +174,8 @@ export default class Menu extends React.Component {
             <ScrollableContent
               ref={this._overlay}
               autoHeight={true}
-              autoHeightMin={MENU_MIN_HEIGHT}
-              autoHeightMax={MENU_MAX_HEIGHT}>
+              autoHeightMin={dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT}
+              autoHeightMax={dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT}>
               <Padding />
               {items}
               <Padding />
@@ -188,6 +196,7 @@ export default class Menu extends React.Component {
                   <Overlay
                     key='menu'
                     className={this.props.className}
+                    dense={dense}
                     transitionDuration={transitionDuration}
                     transitionDelay={transitionDelay}>
                     {content}
@@ -202,6 +211,8 @@ export default class Menu extends React.Component {
   }
 
   _moveActiveIndexBy(delta) {
+    const { dense } = this.props
+
     let newIndex = this.state.activeIndex
     if (newIndex === -1) {
       newIndex = this.props.selectedIndex
@@ -220,20 +231,23 @@ export default class Menu extends React.Component {
       })
     }
 
+    const itemHeight = dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT
+    const itemsShown = dense ? ITEMS_SHOWN_DENSE : ITEMS_SHOWN
+
     // Adjust scroll position to keep the item in view
     const curTopIndex = Math.ceil(
-      Math.max(0, this._overlay.current.getScrollTop() - VERT_PADDING) / ITEM_HEIGHT,
+      Math.max(0, this._overlay.current.getScrollTop() - VERT_PADDING) / itemHeight,
     )
-    const curBottomIndex = curTopIndex + ITEMS_SHOWN - 1 // accounts for partially shown options
+    const curBottomIndex = curTopIndex + itemsShown - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
       // New index is in view, no need to adjust scroll position
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this._overlay.current.scrollTop(ITEM_HEIGHT * newIndex)
+      this._overlay.current.scrollTop(itemHeight * newIndex)
     } else {
       // Make the new index the bottom item
-      this._overlay.current.scrollTop(ITEM_HEIGHT * (newIndex + 1 - ITEMS_SHOWN))
+      this._overlay.current.scrollTop(itemHeight * (newIndex + 1 - itemsShown))
     }
   }
 
