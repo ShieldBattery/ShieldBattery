@@ -50,6 +50,7 @@ export async function launchProcess({
   currentDir = '',
   environment = [],
   debuggerLaunch = false,
+  logCallback = null,
 }) {
   const joinedArgs = typeof args === 'string' ? args : args.join(' ')
   const cProcess = await $launchProcess(
@@ -59,6 +60,7 @@ export async function launchProcess({
     currentDir,
     environment,
     debuggerLaunch,
+    logCallback,
   )
   return new Process(cProcess)
 }

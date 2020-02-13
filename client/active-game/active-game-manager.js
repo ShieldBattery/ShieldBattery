@@ -267,6 +267,7 @@ async function doLaunch(gameId, serverPort, settings) {
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
     ],
     debuggerLaunch: isRemastered,
+    logCallback: msg => log.verbose(`[Inject] ${msg}`),
   })
   log.verbose('Process launched')
 

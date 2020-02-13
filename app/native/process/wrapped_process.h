@@ -3,6 +3,9 @@
 #include <node.h>
 #include <nan.h>
 
+#include <string>
+#include <functional>
+
 namespace sbat {
 namespace proc {
 
@@ -60,7 +63,8 @@ class Process {
 public:
   Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,
     bool debugger_launch, const std::wstring& current_dir,
-    const std::vector<std::wstring>& environment);
+    const std::vector<std::wstring>& environment,
+    std::function<void(const std::string &)> log_callback);
   ~Process();
   bool has_errors() const;
   WindowsError error() const;
@@ -78,6 +82,11 @@ private:
   WindowsError ReadMemoryTo(void *address, byte *out, size_t length);
   WindowsError FirstTlsCallback(uintptr_t base, uintptr_t *out);
   WindowsError ReadModuleImage(uintptr_t base, std::vector<byte> *out);
+
+  WindowsError NtApi_ExeBase(uintptr_t *base);
+  WindowsError SetupCall(void *remote_proc, void *arg, void *ret);
+
+  void LogMessage(const char *fmt, ...);
   // Disable copying
   Process(const Process&) = delete;
   Process& operator=(const Process&) = delete;
@@ -86,6 +95,7 @@ private:
   WinHandle thread_handle_;
   WindowsError error_;
   bool debugger_launch_;
+  std::function<void(const std::string &)> log_callback_;
 };
 
 class WrappedProcess : public Nan::ObjectWrap {

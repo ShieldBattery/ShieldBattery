@@ -43,28 +43,8 @@ using v8::Object;
 using v8::String;
 using v8::Value;
 
-//#define DEBUG_MSG(fmt, ...) { char buf__[256]; snprintf(buf__, sizeof(buf__), fmt, __VA_ARGS__); DebugMsg(buf__); }
-#define DEBUG_MSG(fmt, ...) { }
-
 namespace sbat {
 namespace proc {
-
-// I'd rather have the code just work and debug logging not be necessary than write all
-// the code needed for sending log messages to JS side.
-void DebugMsg(char *msg) {
-  static FILE *out;
-  if (out == nullptr) {
-    char path[256];
-    ExpandEnvironmentStringsA("%TEMP%\\sbdebug.txt", path, 256);
-    out = fopen(path, "w");
-  }
-  if (out != nullptr) {
-    fputs(msg, out);
-    fputs("\n", out);
-    fflush(out);
-  }
-}
-
 WinHandle::WinHandle(HANDLE handle)
   : handle_(handle) {
 }
@@ -164,7 +144,7 @@ static WindowsError GetRemoteModuleHandle(uint32_t process_id, const string& mod
   MODULEENTRY32 mod_entry = {};
   WinHandle tlh(CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id));
   uint32_t tries = 1;
-  while (tlh.get() == INVALID_HANDLE_VALUE && GetLastError() == ERROR_BAD_LENGTH && tries < 100) {
+  while (tlh.get() == INVALID_HANDLE_VALUE && tries < 100) {
     Sleep(10);
     tlh.Reset(CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, process_id));
     tries++;
@@ -463,11 +443,13 @@ void DoWorkOnWorkerThread(std::function<void()> task) {
 }
 
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
-  bool debugger_launch, const wstring& current_dir, const vector<wstring>& environment)
+  bool debugger_launch, const wstring& current_dir, const vector<wstring>& environment,
+  std::function<void(const std::string &)> log_callback)
   : process_handle_(),
   thread_handle_(),
   error_(),
-  debugger_launch_(debugger_launch) {
+  debugger_launch_(debugger_launch),
+  log_callback_(log_callback) {
 
   wchar_t* env_strings = GetEnvironmentStringsW();
   if (env_strings == nullptr) {
@@ -537,6 +519,15 @@ bool Process::has_errors() const {
 
 WindowsError Process::error() const {
   return error_;
+}
+
+void Process::LogMessage(const char *fmt, ...) {
+  char buf[256];
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, args);
+  log_callback_(string(buf));
+  va_end(args);
 }
 
 // Workaround for injecting into suspended processes, where the necessary NT header structures are
@@ -625,7 +616,9 @@ struct LdrDataTableEntry32 {
 // trickery is necessary or if the Toolhelp32 APIs could be still used)
 //
 // Can return base == 0 without error if the process needs to initialize further.
-static WindowsError NtApi_ExeBase(HANDLE process, HANDLE thread, uintptr_t *base) {
+WindowsError Process::NtApi_ExeBase(uintptr_t *base) {
+  HANDLE process = process_handle_.get();
+  HANDLE thread = thread_handle_.get();
   *base = 0;
 
   uintptr_t peb_address = 0;
@@ -642,7 +635,6 @@ static WindowsError NtApi_ExeBase(HANDLE process, HANDLE thread, uintptr_t *base
   }
   uint32_t peb_ldr = peb[0x3];
   if (peb_ldr == 0) {
-    DEBUG_MSG("PEB LDR IS ZERO %s", "");
     // Not ready
     return WindowsError();
   }
@@ -658,7 +650,6 @@ static WindowsError NtApi_ExeBase(HANDLE process, HANDLE thread, uintptr_t *base
       return WindowsError("NtApi_ExeBase -> ReadProcessMemory(3)", GetLastError());
     }
     if (entry.dll_base == 0) {
-      DEBUG_MSG("E BASE IS ZERO %s", "");
       // Not ready
       return WindowsError();
     }
@@ -675,7 +666,7 @@ static WindowsError NtApi_ExeBase(HANDLE process, HANDLE thread, uintptr_t *base
       dll_name_ascii.push_back(val);
     }
     dll_name_ascii.push_back(0);
-    DEBUG_MSG("Name is %s, %08x %08x %08x", dll_name_ascii.data(), entry.dll_base, entry.entry, entry.reserved3);
+    LogMessage("Found module %s, %08x %08x %08x", dll_name_ascii.data(), entry.dll_base, entry.entry, entry.reserved3);
     // Lazy u16 compare case insensitive L".exe"
     if (
         (dll_name.size() > 4) &&
@@ -718,7 +709,6 @@ static WindowsError IsEipInRange(HANDLE thread, uintptr_t start, unsigned int le
   if (ok == 0) {
     return WindowsError("IsEipInRange -> GetThreadContext", GetLastError());
   }
-  DEBUG_MSG("Checking %08x vs %08llx", context.Eip, start);
   *result = context.Eip >= start && context.Eip < start + len;
   return WindowsError();
 }
@@ -786,7 +776,7 @@ WindowsError Process::ReadModuleImage(uintptr_t base, vector<byte> *out) {
     byte *data = buffer.data();
     auto error = ReadMemoryTo((void *)(uintptr_t)(base + address), data + address, size);
     if (error.is_error()) {
-      DEBUG_MSG("Failed to read %08x : %x", address, size);
+      LogMessage("Failed to read %08x : %x", address, size);
       return error;
     }
   }
@@ -846,12 +836,10 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
         return WindowsError("DebugUntilTlsCallback -> WaitForDebugEvent", error);
       }
     }
-    DEBUG_MSG("DEBUG EVENT %x", debug_event.dwDebugEventCode);
+    //LogMessage("DEBUG EVENT %x", debug_event.dwDebugEventCode);
     if (debug_event.dwDebugEventCode == 1) {
       auto record = &debug_event.u.Exception.ExceptionRecord;
-      DEBUG_MSG("EXCEPTION %08x @ %08llx", record->ExceptionCode, (uintptr_t)record->ExceptionAddress);
-    } else if (debug_event.dwDebugEventCode == 6) {
-      DEBUG_MSG("DLL %08llx", (uintptr_t)debug_event.u.LoadDll.lpBaseOfDll);
+      LogMessage("Exception %08x @ %08llx", record->ExceptionCode, (uintptr_t)record->ExceptionAddress);
     }
     // Check if the thread has reached patch infloop
     if (exe_patch_region_len != 0) {
@@ -867,7 +855,7 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
         if (GetThreadId(thread_handle_.get()) != debug_event.dwThreadId) {
           ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, 0x00010002);
         }
-        DEBUG_MSG("Ready to inject %s", "");
+        LogMessage("Ready to inject");
         break;
       }
     } else {
@@ -876,18 +864,18 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
       // callbacks and patch over them
       uintptr_t base = 0;
       size_t size = 0;
-      error = NtApi_ExeBase(process_handle_.get(), thread_handle_.get(), &base);
+      error = NtApi_ExeBase(&base);
       if (error.is_error()) {
         return error;
       }
       if (base != 0) {
-        DEBUG_MSG("GOT EXE BASE %08llx", base);
+        LogMessage("Got exe base %08llx", base);
         uintptr_t tls_address = 0;
         error = FirstTlsCallback(base, &tls_address);
         if (error.is_error()) {
           return error;
         }
-        DEBUG_MSG("TLS CB AT %08llx", tls_address);
+        LogMessage("TLS callback at %08llx", tls_address);
         const byte infloop_inject[] = {
           0x83, 0x7c, 0xe4, 0x08, 0x01,   // cmp dword [esp + 8], 1
           0x74, 0x06,                     // je loop
@@ -932,7 +920,7 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
         // The region we want the execution to get stuck is only 4 last bytes of infloop_inject
         exe_patch_region_start = (uintptr_t)infloop_address + sizeof(infloop_inject) - 4;
         exe_patch_region_len = 4;
-        DEBUG_MSG("TLS CB INFLOOP %08llx", exe_patch_region_start);
+        LogMessage("TLS callback infloop at %08llx", exe_patch_region_start);
       }
     }
     ContinueDebugEvent(debug_event.dwProcessId, debug_event.dwThreadId, 0x00010002);
@@ -955,8 +943,9 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
 }
 
 // Sets up a stack frame on thread to call `remote_proc` with `arg` returning to `ret`
-static WindowsError SetupCall(HANDLE process, HANDLE thread, void *remote_proc, void *arg,
-    void *ret) {
+WindowsError Process::SetupCall(void *remote_proc, void *arg, void *ret) {
+  HANDLE process = process_handle_.get();
+  HANDLE thread = thread_handle_.get();
   WOW64_CONTEXT context = { 0 };
   context.ContextFlags = WOW64_CONTEXT_INTEGER | WOW64_CONTEXT_CONTROL;
   auto ok = Wow64GetThreadContext(thread, &context);
@@ -966,7 +955,7 @@ static WindowsError SetupCall(HANDLE process, HANDLE thread, void *remote_proc, 
   uint32_t stack_data[2] = { (uint32_t)(uintptr_t)ret, (uint32_t)(uintptr_t)arg };
   context.Esp -= 8;
   context.Eip = (uint32_t)(uintptr_t)remote_proc;
-  DEBUG_MSG("Overriding Eip to %08x", context.Eip);
+  LogMessage("Overriding Eip to %08x", context.Eip);
   SIZE_T bytes_written;
   BOOL success = WriteProcessMemory(process, (void *)(uintptr_t)context.Esp, &stack_data, 8,
       &bytes_written);
@@ -1060,8 +1049,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
   }
 
   if (debugger_launch_) {
-    result = SetupCall(process_handle_.get(), thread_handle_.get(), remote_proc,
-        remote_context.get(), tls_callback_entry);
+    result = SetupCall(remote_proc, remote_context.get(), tls_callback_entry);
     // Will have to leak this as there's no synchronization to guarantee we aren't
     // executing the remote proc whenever we'd want to free this.
     remote_context.forget();
@@ -1073,7 +1061,7 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
       auto thread_id = GetThreadId(this->thread_handle_.get());
       ContinueDebugEvent(process_id, thread_id, 0x00010002);
       DebugActiveProcessStop(process_id);
-      DEBUG_MSG("Stopped debugging pid %d", process_id);
+      LogMessage("Stopped debugging pid %d", process_id);
     });
   } else {
     WinHandle thread_handle(CreateRemoteThread(process_handle_.get(), NULL, 0,
