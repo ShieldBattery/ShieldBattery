@@ -1,4 +1,3 @@
-use std::mem;
 use std::ptr::null_mut;
 
 use lazy_static::lazy_static;
@@ -6,7 +5,7 @@ use libc::c_void;
 use winapi::um::libloaderapi::GetModuleFileNameA;
 
 use crate::bw;
-use crate::snp::{PROVIDER_ID, SNP_PACKET_SIZE};
+use crate::snp::{CAPABILITIES, PROVIDER_ID};
 use crate::windows;
 
 use super::storm;
@@ -54,32 +53,7 @@ fn init_list_entry() -> bw::SnpListEntry {
         // Name/Description don't matter since we don't show the normal network UI
         name: [0; 128],
         description: [0; 128],
-        capabilities: bw::SnpCapabilities {
-            size: mem::size_of::<bw::SnpCapabilities>() as u32,
-            // As far as I can see, only the 1 bit matters here, and seems to affect how storm
-            // allocates for packet data. Only UDP LAN sets it. Doesn't look particularly useful
-            // to us. All of the network modes set at least 0x20000000 though, so we'll set it as
-            // well.
-            unknown1: 0x20000000,
-            // minus 16 because Storm normally does that (overhead?)
-            max_packet_size: SNP_PACKET_SIZE - 16,
-            unknown3: 16,
-            displayed_player_count: 256,
-            // This value is related to timeouts in some way (it's always used alongside
-            // GetTickCount, and always as the divisor). The value here matches the one used by
-            // UDP LAN and new (post-lan-lat-changes) BNet.
-            unknown5: 100000,
-            // This value is seemingly related to timeouts as well (and does not affect action
-            // latency under normal conditions). The value chosen here sits between UDP LAN
-            // (50, minimum) and BNet (500).
-            player_latency: 384,
-            // This is not really an accurate naming, it's more related to the rate at which
-            // packets will be sent. This value matches UDP LAN and new (post-lan-lat-changes)
-            // BNet.
-            max_player_count: 8,
-            // Matches UDP LAN
-            turn_delay: 2,
-        },
+        capabilities: CAPABILITIES.clone(),
     };
     let self_module = windows::module_from_address(init_list_entry as *mut c_void);
     if let Some((_, module)) = self_module {

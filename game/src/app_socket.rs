@@ -19,15 +19,15 @@ type WebSocketStream = tokio_tungstenite::WebSocketStream<TcpStream>;
 
 async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungstenite::Error> {
     let args = crate::parse_args();
-    let url = url::Url::parse(&format!("ws://127.0.0.1:{}", args.server_port)).unwrap();
+    let url = format!("ws://127.0.0.1:{}", args.server_port);
     info!("Connecting to {} ...", url);
-    tokio_tungstenite::connect_async(tungstenite::handshake::client::Request {
-        url,
-        extra_headers: Some(vec![
-            ("Origin".into(), "BROODWARS".into()),
-            ("x-game-id".into(), args.game_id.into()),
-        ]),
-    }).await
+    let request = http::Request::builder()
+        .uri(url)
+        .header("Origin", "BROODWARS")
+        .header("x-game-id", &args.game_id)
+        .body(())
+        .expect("Couldn't build HTTP request for app connection");
+    tokio_tungstenite::connect_async(request).await
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]

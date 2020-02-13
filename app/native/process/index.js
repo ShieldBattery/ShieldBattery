@@ -39,6 +39,9 @@ class Process {
   }
 }
 
+// debuggerLaunch is not related to actually debugging the launched process.
+// Instead, it is a way to inject DLL earlier than the "normal" method,
+// using Windows's debugging APIs.
 const $launchProcess = thenify(native.launchProcess)
 export async function launchProcess({
   appPath,
@@ -46,6 +49,8 @@ export async function launchProcess({
   launchSuspended = true,
   currentDir = '',
   environment = [],
+  debuggerLaunch = false,
+  logCallback = null,
 }) {
   const joinedArgs = typeof args === 'string' ? args : args.join(' ')
   const cProcess = await $launchProcess(
@@ -54,6 +59,8 @@ export async function launchProcess({
     launchSuspended,
     currentDir,
     environment,
+    debuggerLaunch,
+    logCallback,
   )
   return new Process(cProcess)
 }

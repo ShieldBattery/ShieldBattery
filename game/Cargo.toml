@@ -23,6 +23,7 @@ bytes = "0.5"
 chrono = "0.4.6"
 fern = "0.5"
 futures = "0.3"
+http = "0.2"
 lazy_static = "1.3"
 libc = "0.2.50"
 log = "0.4"
@@ -32,12 +33,8 @@ scopeguard = "1.0"
 serde = { version = "1.0.89", features = ["derive", "rc"] }
 serde_json = "1.0.39"
 tokio = { version = "0.2", features = ["net", "rt-threaded", "stream", "sync", "time"] }
-tungstenite = { version = "0.9", default-features = false }
-url = "2.0"
-
-[dependencies.tokio-tungstenite]
-git = "https://github.com/snapview/tokio-tungstenite"
-rev = "308d9680c0e59dd1e8651659a775c05df937934e"
+tungstenite = { version = "0.10", default-features = false }
+tokio-tungstenite = "0.10"
 
 [dependencies.winapi]
 version = "0.3.3"
@@ -50,3 +47,7 @@ features = [
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"
 rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
+
+[dependencies.samase_scarf]
+git = "https://github.com/neivv/samase_scarf/"
+rev = "30ccb70"

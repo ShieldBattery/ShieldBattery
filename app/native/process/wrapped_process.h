@@ -3,6 +3,9 @@
 #include <node.h>
 #include <nan.h>
 
+#include <string>
+#include <functional>
+
 namespace sbat {
 namespace proc {
 
@@ -46,6 +49,7 @@ public:
 
   bool has_errors() const { return alloc_ == nullptr; }
   void* get() const { return alloc_; }
+  void forget() { alloc_ = nullptr; }
 private:
   // Disable copying
   ScopedVirtualAlloc(const ScopedVirtualAlloc&) = delete;
@@ -58,7 +62,9 @@ private:
 class Process {
 public:
   Process(const std::wstring& app_path, const std::wstring& arguments, bool launch_suspended,
-    const std::wstring& current_dir, const std::vector<std::wstring>& environment);
+    bool debugger_launch, const std::wstring& current_dir,
+    const std::vector<std::wstring>& environment,
+    std::function<void(const std::string &)> log_callback);
   ~Process();
   bool has_errors() const;
   WindowsError error() const;
@@ -71,6 +77,16 @@ public:
   WindowsError GetExitCode(uint32_t* exit_code);
 private:
   WindowsError NtForceLdrInitializeThunk();
+  WindowsError DebugUntilTlsCallback(void **tls_callback_entry);
+  WindowsError ReadMemory(void *address, size_t length, std::vector<byte> *out);
+  WindowsError ReadMemoryTo(void *address, byte *out, size_t length);
+  WindowsError FirstTlsCallback(uintptr_t base, uintptr_t *out);
+  WindowsError ReadModuleImage(uintptr_t base, std::vector<byte> *out);
+
+  WindowsError NtApi_ExeBase(uintptr_t *base);
+  WindowsError SetupCall(void *remote_proc, void *arg, void *ret);
+
+  void LogMessage(const char *fmt, ...);
   // Disable copying
   Process(const Process&) = delete;
   Process& operator=(const Process&) = delete;
@@ -78,6 +94,8 @@ private:
   WinHandle process_handle_;
   WinHandle thread_handle_;
   WindowsError error_;
+  bool debugger_launch_;
+  std::function<void(const std::string &)> log_callback_;
 };
 
 class WrappedProcess : public Nan::ObjectWrap {

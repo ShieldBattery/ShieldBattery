@@ -54,6 +54,33 @@ pub static SNP_FUNCTIONS: bw::SnpFunctions = bw::SnpFunctions {
     get_reply_target,
 };
 
+pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
+    size: mem::size_of::<bw::SnpCapabilities>() as u32,
+    // As far as I can see, only the 1 bit matters here, and seems to affect how storm
+    // allocates for packet data. Only UDP LAN sets it. Doesn't look particularly useful
+    // to us. All of the network modes set at least 0x20000000 though, so we'll set it as
+    // well.
+    unknown1: 0x20000000,
+    // minus 16 because Storm normally does that (overhead?)
+    max_packet_size: SNP_PACKET_SIZE - 16,
+    unknown3: 16,
+    displayed_player_count: 256,
+    // This value is related to timeouts in some way (it's always used alongside
+    // GetTickCount, and always as the divisor). The value here matches the one used by
+    // UDP LAN and new (post-lan-lat-changes) BNet.
+    unknown5: 100000,
+    // This value is seemingly related to timeouts as well (and does not affect action
+    // latency under normal conditions). The value chosen here sits between UDP LAN
+    // (50, minimum) and BNet (500).
+    player_latency: 384,
+    // This is not really an accurate naming, it's more related to the rate at which
+    // packets will be sent. This value matches UDP LAN and new (post-lan-lat-changes)
+    // BNet.
+    max_player_count: 8,
+    // Matches UDP LAN
+    turn_delay: 2,
+};
+
 static mut STORM_VISIBLE_SPOOFED_GAME: Option<bw::SnpGameInfo> = None;
 
 struct State {
@@ -226,6 +253,7 @@ unsafe extern "stdcall" fn initialize(
     _module_data: *mut c_void,
     receive_event: HANDLE,
 ) -> i32 {
+    debug!("SNP initialize");
     with_state(|state| {
         state.is_bound = true;
         state.spoofed_game = None;
@@ -234,8 +262,16 @@ unsafe extern "stdcall" fn initialize(
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
         // without having to synchronize storm unbinding SNP.
+        let receive_event = if crate::is_scr() {
+            // SCR seems to have changed from a raw winapi HANDLE to a wrapper class,
+            // leading it to be passed as *mut HANDLE
+            *(receive_event as *mut HANDLE)
+        } else {
+            receive_event
+        };
+
         let receive_event =
-            OwnedHandle::duplicate(receive_event).expect("Handle duplication failed");
+            OwnedHandle::duplicate(receive_event).expect("SNP event handle duplication failed");
         send_snp_message(SnpMessage::CreateNetworkHandler(SendMessages {
             signal_handle: Arc::new(receive_event),
         }));

@@ -9,8 +9,10 @@ mod app_messages;
 mod app_socket;
 mod bw;
 mod bw_1161;
+mod bw_scr;
 mod cancel_token;
 mod chat;
+mod crash_dump;
 mod forge;
 mod game_state;
 mod game_thread;
@@ -22,13 +24,16 @@ mod windows;
 
 use std::fs::File;
 use std::io;
-use std::path::PathBuf;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::mem;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use lazy_static::lazy_static;
 use libc::c_void;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
+use winapi::um::winnt::EXCEPTION_POINTERS;
 
 use crate::game_state::GameStateMessage;
 use crate::game_thread::GameThreadMessage;
@@ -98,8 +103,6 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     use std::fmt::Write;
 
     fn backtrace() -> String {
-        use std::path::Path;
-
         let mut backtrace = String::new();
         backtrace::trace(|frame| {
             let ip = frame.ip();
@@ -136,10 +139,11 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     }
 
     let mut msg = String::new();
-    match info.location() {
-        Some(s) => writeln!(msg, "Panic at {}:{}", s.file(), s.line()).unwrap(),
-        None => writeln!(msg, "Panic at unknown location").unwrap(),
-    }
+    let location = match info.location() {
+        Some(s) => format!("{}:{}", s.file(), s.line()),
+        None => format!("unknown location"),
+    };
+    writeln!(msg, "Panic at {}", location).unwrap();
     let payload = info.payload();
     let panic_msg = match payload.downcast_ref::<&str>() {
         Some(s) => s,
@@ -153,8 +157,8 @@ fn panic_hook(info: &std::panic::PanicInfo) {
         write!(msg, "Backtrace:\n{}", backtrace()).unwrap();
     }
     error!("{}", msg);
-    // TODO Probs remove this once things work
-    windows::message_box("Shieldbattery panic", &msg);
+    // TODO Probs tell how to report, where to get log file etc
+    windows::message_box("Shieldbattery crash :(", &format!("{}\n{}", location, panic_msg));
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
     }
@@ -163,6 +167,10 @@ fn panic_hook(info: &std::panic::PanicInfo) {
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn OnInject() {
+    std::panic::set_hook(Box::new(panic_hook));
+    unsafe {
+        crash_dump::init_crash_handler();
+    }
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -180,11 +188,85 @@ pub extern "C" fn OnInject() {
         .apply();
 
     info!("Logging started");
-    std::panic::set_hook(Box::new(panic_hook));
-    bw::set_bw_impl(Box::new(bw_1161::Bw1161));
-    unsafe {
-        bw::with_bw(|bw| bw.patch_game());
+    let args = parse_args();
+    if args.is_scr {
+        unsafe {
+            // Waiting for debugger this early may not work as expected,
+            // but probably still better than somewhere after SCR's main has started.
+            // Debugging SCR is difficult anyway.
+            if crate::WAIT_DEBUGGER {
+                debug!("Waiting for debugger");
+                let start = std::time::Instant::now();
+                while winapi::um::debugapi::IsDebuggerPresent() == 0 {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    if start.elapsed().as_secs() > 100 {
+                        std::process::exit(0);
+                    }
+                }
+                debug!("Debugger ok");
+            }
+            let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
+            init_helper(scr_init, crash_dump::cdecl_crash_dump);
+        }
+    } else {
+        let bw = Arc::new(bw_1161::Bw1161);
+        unsafe {
+            bw.patch_game();
+        }
+        bw::set_bw_impl(bw);
     }
+}
+
+unsafe extern "C" fn scr_init(image: *mut u8) {
+    IS_SCR.store(true, Ordering::Relaxed);
+    debug!("SCR init");
+    let bw = match bw_scr::BwScr::new() {
+        Ok(o) => Arc::new(o),
+        Err(e) => panic!("StarCraft version not supported: Couldn't find '{}'", e),
+    };
+    bw.clone().patch_game(image);
+    bw::set_bw_impl(bw);
+}
+
+static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
+static IS_SCR: AtomicBool = AtomicBool::new(false);
+
+fn is_scr() -> bool {
+    IS_SCR.load(Ordering::Relaxed)
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub unsafe extern "system" fn DllMain(
+    instance: usize,
+    ul_reason_for_call: u32,
+    _reserved: *mut c_void,
+) -> u32
+{
+    // DLL_PROCESS_ATTACH
+    if ul_reason_for_call == 1 {
+        SELF_HANDLE.store(instance, Ordering::Relaxed);
+    }
+    1
+}
+
+type InitHelperOnDone = unsafe extern "C" fn(*mut u8);
+type InitHelperOnCrash = unsafe extern "C" fn(*mut EXCEPTION_POINTERS) -> !;
+type InitHelperFn = unsafe extern "C" fn(InitHelperOnDone, InitHelperOnCrash);
+unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
+    let self_handle = SELF_HANDLE.load(Ordering::Relaxed);
+    assert_ne!(self_handle, 0);
+    let dll_path = windows::module_name(self_handle as *mut _)
+        .and_then(|path| {
+            Path::new(&path).parent()
+                .map(|path| path.join("sb_init.dll"))
+        })
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
+    let dll = windows::load_library(&dll_path)?;
+    let address = dll.proc_address("sb_init")?;
+    // Leak the DLL as it should be kept alive for entire process
+    mem::forget(dll);
+    Ok(mem::transmute(address))
 }
 
 /// 1.16.1 calls LoadLibrary + GetProcAddress(SnpBind) on this dll to get networking functions.
@@ -201,30 +283,6 @@ pub unsafe extern "stdcall" fn SnpBind(index: u32, functions: *mut *const bw::Sn
 
 lazy_static! {
     static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
-}
-
-unsafe fn entry_point_hook(
-    a1: *mut c_void,
-    a2: *mut c_void,
-    a3: *const u8,
-    a4: i32,
-    orig: unsafe extern fn(*mut c_void, *mut c_void, *const u8, i32) -> i32,
-) -> i32 {
-    if WAIT_DEBUGGER {
-        let start = Instant::now();
-        while winapi::um::debugapi::IsDebuggerPresent() == 0 {
-            std::thread::sleep(Duration::from_millis(10));
-            if start.elapsed().as_secs() > 100 {
-                std::process::exit(0);
-            }
-        }
-    }
-    // In addition to just setting up a connection to the client,
-    // initialize will also get the game settings and wait for startup command from the
-    // Shieldbattery client. As such, relatively lot will happen before we let BW execute even a
-    // single line of its original code.
-    initialize();
-    orig(a1, a2, a3, a4)
 }
 
 fn initialize() {
@@ -369,6 +427,7 @@ struct Args {
     game_id: String,
     server_port: u16,
     user_data_path: PathBuf,
+    is_scr: bool,
 }
 
 fn parse_args() -> Args {
@@ -380,12 +439,20 @@ fn parse_args() -> Args {
 
 fn try_parse_args() -> Option<Args> {
     let mut args = std::env::args_os();
+    // Skip over exe path
+    args.next()?;
     let game_id = args.next()?.into_string().ok()?;
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
+    let is_scr = args.next()
+        .and_then(|x| x.into_string().ok())
+        .filter(|x| x == "-launch")
+        .is_some();
+
     Some(Args {
         game_id,
         server_port,
         user_data_path,
+        is_scr,
     })
 }

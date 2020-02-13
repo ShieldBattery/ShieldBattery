@@ -19,10 +19,6 @@ use crate::windows;
 pub struct Bw1161;
 
 impl bw::Bw for Bw1161 {
-    unsafe fn patch_game(&self) {
-        patch_game();
-    }
-
     unsafe fn run_game_loop(&self) {
         *game_state = 3; // Playing
         game_loop();
@@ -116,6 +112,12 @@ impl bw::Bw for Bw1161 {
 
     unsafe fn storm_set_last_error(&self, error: u32) {
         storm::SErrSetLastError(error);
+    }
+}
+
+impl Bw1161 {
+    pub unsafe fn patch_game(&self) {
+        patch_game();
     }
 }
 
@@ -218,13 +220,13 @@ unsafe fn patch_game() {
     );
 
     let mut active_patcher = crate::PATCHER.lock().unwrap();
-    crate::forge::init_hooks(&mut active_patcher);
+    crate::forge::init_hooks_1161(&mut active_patcher);
     snp::init_hooks(&mut active_patcher);
 
     let mut exe = active_patcher.patch_exe(0x0040_0000);
     init_funcs(&mut exe);
     init_vars(&mut exe);
-    exe.hook_opt(WinMain, crate::entry_point_hook);
+    exe.hook_opt(WinMain, entry_point_hook);
     exe.hook(GameInit, crate::process_init_hook);
     exe.hook_opt(ChatCommand, chat_command_hook);
     exe.hook_opt(ScrollScreen, scroll_screen);
@@ -592,4 +594,28 @@ pub unsafe fn chat_command_hook(text: *const u8, orig: unsafe extern fn(*const u
         }
     }
     orig(text);
+}
+
+unsafe fn entry_point_hook(
+    a1: *mut c_void,
+    a2: *mut c_void,
+    a3: *const u8,
+    a4: i32,
+    orig: unsafe extern fn(*mut c_void, *mut c_void, *const u8, i32) -> i32,
+) -> i32 {
+    if crate::WAIT_DEBUGGER {
+        let start = std::time::Instant::now();
+        while winapi::um::debugapi::IsDebuggerPresent() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            if start.elapsed().as_secs() > 100 {
+                std::process::exit(0);
+            }
+        }
+    }
+    // In addition to just setting up a connection to the client,
+    // initialize will also get the game settings and wait for startup command from the
+    // Shieldbattery client. As such, relatively lot will happen before we let BW execute even a
+    // single line of its original code.
+    crate::initialize();
+    orig(a1, a2, a3, a4)
 }
