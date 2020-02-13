@@ -836,7 +836,6 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
         return WindowsError("DebugUntilTlsCallback -> WaitForDebugEvent", error);
       }
     }
-    //LogMessage("DEBUG EVENT %x", debug_event.dwDebugEventCode);
     if (debug_event.dwDebugEventCode == 1) {
       auto record = &debug_event.u.Exception.ExceptionRecord;
       LogMessage("Exception %08x @ %08llx", record->ExceptionCode, (uintptr_t)record->ExceptionAddress);
