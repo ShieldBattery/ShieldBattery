@@ -55,7 +55,7 @@
     "glob": "^7.1.6",
     "history": "^4.10.1",
     "immutable": "^4.0.0-rc.12",
-    "jssuh": "^1.1.0",
+    "jssuh": "^1.4.0",
     "keycode": "^2.2.0",
     "memoize-one": "^5.1.1",
     "mkdirp": "^0.5.1",
