@@ -19,6 +19,9 @@ import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 import WindowControls from './app-bar/window-controls.jsx'
 
+import GlobalStyle from './styles/global'
+import ResetStyle from './styles/reset'
+
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
 class App extends React.Component {
@@ -53,6 +56,8 @@ class App extends React.Component {
       // NOTE(2Pac): These are only the top-level routes. More specific routes are declared where
       // they are used, as per react-router's new philosophy.
       <React.Fragment>
+        <ResetStyle />
+        <GlobalStyle />
         <WindowControls />
         <Switch>
           <Route path='/splash' component={Splash} />

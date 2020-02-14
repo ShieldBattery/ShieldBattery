@@ -1,5 +1,3 @@
-import './styles/reset.css'
-import './styles/global.css'
 import 'core-js/stable'
 import 'regenerator-runtime/runtime'
 import log from './logging/logger'

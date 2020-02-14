@@ -1,13 +1,96 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import keycode from 'keycode'
-import KeyListener from '../keyboard/key-listener.jsx'
-import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
+import styled from 'styled-components'
+
 import IconButton from '../material/icon-button.jsx'
+import KeyListener from '../keyboard/key-listener.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
-import styles from './dialog.css'
+
+import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
+
+import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constants'
+import { shadowDef8dp } from './shadow-constants'
+import { zIndexDialog } from './zindex'
+import { colorDividers, CardLayer } from '../styles/colors'
+import { Headline } from '../styles/typography'
 
 const ESCAPE = keycode('esc')
+
+const Contents = styled(CardLayer)`
+  position: fixed;
+  display: table;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 80%;
+  height: auto;
+  max-width: 768px;
+  max-height: 80%;
+  margin: auto;
+  z-index: ${zIndexDialog};
+  border-radius: 2px;
+  box-shadow: ${shadowDef8dp};
+
+  &.enter {
+    transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
+    opacity: 0;
+  }
+
+  &.enterActive {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    transition: transform 350ms ${linearOutSlowIn}, opacity 250ms ${fastOutSlowIn};
+  }
+
+  &.exit {
+    pointer-events: none;
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+
+  &.exitActive {
+    transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
+    opacity: 0;
+    transition: transform 250ms ${fastOutLinearIn}, opacity 200ms ${fastOutSlowIn} 50ms;
+  }
+`
+
+const TitleBar = styled.div`
+  display: flex;
+  align-items: center;
+`
+
+const Title = styled(Headline)`
+  flex-grow: 1;
+  margin: 0;
+  padding: 24px 24px 20px;
+`
+
+const CloseButton = styled(IconButton)`
+  flex-shrink: 0;
+  margin-right: 12px;
+`
+
+const ScrollDivider = styled.div`
+  width: 100%;
+  height: 1px;
+  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
+  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
+  background-color: ${colorDividers};
+`
+
+const Body = styled.div`
+  padding: 0 24px 24px;
+`
+
+const Actions = styled.div`
+  padding: 8px 4px 0;
+  margin-bottom: 2px;
+  width: 100%;
+  text-align: right;
+`
 
 class Dialog extends React.Component {
   static propTypes = {
@@ -27,8 +110,7 @@ class Dialog extends React.Component {
     const { scrolledUp, scrolledDown } = this.state
 
     const closeButton = showCloseButton ? (
-      <IconButton
-        className={styles.closeButton}
+      <CloseButton
         icon={<CloseDialogIcon />}
         title='Close dialog'
         onClick={this.onCloseButtonClick}
@@ -36,23 +118,23 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <div role='dialog' className={styles.contents}>
+      <Contents role='dialog'>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
-        <div className={styles.titleBar}>
-          <h3 className={styles.title}>{title}</h3>
+        <TitleBar>
+          <Title>{title}</Title>
           {closeButton}
-        </div>
-        {scrolledDown ? <div className={styles.titleDivider} /> : null}
+        </TitleBar>
+        {scrolledDown ? <ScrollDivider position='top' /> : null}
         <ScrollableContent
           autoHeight={true}
           autoHeightMin={'100px'}
           autoHeightMax={'calc(80vh - 132px)'}
           onUpdate={this.onScrollUpdate}>
-          <div className={styles.body}>{this.props.children}</div>
+          <Body>{this.props.children}</Body>
         </ScrollableContent>
-        {scrolledUp && buttons && buttons.length ? <div className={styles.actionsDivider} /> : null}
-        {buttons && buttons.length ? <div className={styles.actions}>{buttons}</div> : null}
-      </div>
+        {scrolledUp && buttons && buttons.length ? <ScrollDivider position='bottom' /> : null}
+        {buttons && buttons.length ? <Actions>{buttons}</Actions> : null}
+      </Contents>
     )
   }
 

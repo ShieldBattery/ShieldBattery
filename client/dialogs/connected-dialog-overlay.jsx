@@ -1,7 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import TransitionGroup from 'react-addons-css-transition-group'
-import styles from '../material/dialog.css'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 
 import Portal from '../material/portal.jsx'
 import SimpleDialog from './simple-dialog.jsx'
@@ -17,10 +16,12 @@ import MapDetailsDialog from '../maps/map-details.jsx'
 import { closeDialog } from './action-creators'
 
 const transitionNames = {
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  appear: 'enter',
+  appearActive: 'enterActive',
+  enter: 'enter',
+  enterActive: 'enterActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
 
 @connect(state => ({ dialog: state.dialog }))
@@ -66,19 +67,16 @@ class ConnectedDialogOverlay extends React.Component {
     if (dialog.isDialogOpened) {
       const { component: DialogComponent } = this.getDialog(dialog.dialogType)
       dialogComponent = (
-        <DialogComponent key='dialog' onCancel={this.onCancel} {...dialog.initData.toJS()} />
+        <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
+          <DialogComponent key='dialog' onCancel={this.onCancel} {...dialog.initData.toJS()} />
+        </CSSTransition>
       )
     }
 
     return [
       <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
       <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
-        <TransitionGroup
-          transitionName={transitionNames}
-          transitionEnterTimeout={350}
-          transitionLeaveTimeout={250}>
-          {dialogComponent}
-        </TransitionGroup>
+        <TransitionGroup>{dialogComponent}</TransitionGroup>
       </span>,
       <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
     ]

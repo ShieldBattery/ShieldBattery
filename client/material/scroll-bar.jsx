@@ -1,22 +1,82 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Scrollbars } from 'react-custom-scrollbars'
-import styles from './scroll-bar.css'
+import styled from 'styled-components'
+
+import { grey700, grey800, grey900, CardLayer } from '../styles/colors'
+
+const Track = styled.div`
+  background-color: ${grey800};
+  border-radius: 2px;
+  cursor: pointer;
+
+  ${CardLayer} & {
+    background-color: ${grey700};
+  }
+`
+
+const TrackHorizontal = styled(Track)`
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  min-height: 12px;
+`
+
+const TrackVertical = styled(Track)`
+  top: 0px;
+  bottom: 0px;
+  right: 0px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  min-width: 12px;
+`
+
+const Thumb = styled.div`
+  cursor: pointer;
+  border-radius: inherit;
+  background-color: ${grey900};
+`
+
+const ThumbHorizontal = styled(Thumb)`
+  height: 100%;
+  /* leaves space around the edges but still allows those edges to be draggable */
+  border-top: 2px solid ${grey800};
+  border-bottom: 2px solid ${grey800};
+
+  ${CardLayer} & {
+    border-top-color: ${grey700};
+    border-bottom-color: ${grey700};
+  }
+`
+
+const ThumbVertical = styled(Thumb)`
+  width: 100%;
+  /* leaves space around the edges but still allows those edges to be draggable */
+  border-left: 2px solid ${grey800};
+  border-right: 2px solid ${grey800};
+  margin-left: auto;
+  margin-right: auto;
+
+  ${CardLayer} & {
+    border-left-color: ${grey700};
+    border-right-color: ${grey700};
+  }
+`
 
 function renderTrackHorizontal({ style }) {
-  return <div className={styles.trackHorizontal} style={style} />
+  return <TrackHorizontal style={style} />
 }
 
 function renderTrackVertical({ style }) {
-  return <div className={styles.trackVertical} style={style} />
+  return <TrackVertical style={style} />
 }
 
 function renderThumbHorizontal({ style }) {
-  return <div className={styles.thumbHorizontal} style={style} />
+  return <ThumbHorizontal style={style} />
 }
 
 function renderThumbVertical({ style }) {
-  return <div className={styles.thumbVertical} style={style} />
+  return <ThumbVertical style={style} />
 }
 
 export class ScrollableContent extends React.Component {
