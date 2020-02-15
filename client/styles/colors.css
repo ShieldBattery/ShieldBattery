@@ -46,7 +46,3 @@
 @value colorSuccess: #66bb6a;
 
 @value dialogScrim: #121212;
-
-:global(.cardLayer) {
-  background-color: grey800;
-}

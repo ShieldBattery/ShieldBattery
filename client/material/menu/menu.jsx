@@ -83,8 +83,6 @@ const Padding = styled.div`
 // dynamic positioning, i.e. adjust the positioning automatically if they go outside the viewport.
 export default class Menu extends React.Component {
   static propTypes = {
-    ...Popover.propTypes,
-    children: PropTypes.array,
     dense: PropTypes.bool,
     selectedIndex: PropTypes.number,
     // Use this function to implement a custom CSS transitions for opening/closing the menu. Will be
