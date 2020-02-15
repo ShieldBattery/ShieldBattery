@@ -8,7 +8,7 @@ import WindowListener from '../dom/window-listener.jsx'
 
 import { fastOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'
-import { zIndexMenu } from './zindex'
+import { zIndexMenu, zIndexMenuBackdrop } from './zindex'
 import { CardLayer } from '../styles/colors'
 
 const ESCAPE = 'ESCAPE'
@@ -305,7 +305,7 @@ export default class Popover extends React.Component {
     }
 
     return (
-      <Portal onDismiss={onDismiss} open={open}>
+      <Portal onDismiss={onDismiss} open={open} scrimZIndex={zIndexMenuBackdrop}>
         {renderContents}
       </Portal>
     )
