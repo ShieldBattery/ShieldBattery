@@ -7,6 +7,7 @@ use std::ptr::{null};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use lazy_static::lazy_static;
 use libc::c_void;
 use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
@@ -30,8 +31,6 @@ pub struct BwScr {
     local_storm_id: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
-    snp_definitions: Value<*mut u8>,
-    snp_definitions_size: u32,
     local_player_name: Value<*mut u8>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
@@ -48,6 +47,7 @@ pub struct BwScr {
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
     mainmenu_entry_hook: scarf::VirtualAddress,
+    load_snp_list: scarf::VirtualAddress,
     starcraft_tls_index: SendPtr<*mut u32>,
 }
 
@@ -59,8 +59,20 @@ mod scr {
     use libc::c_void;
 
     #[repr(C)]
+    pub struct SnpLoadFuncs {
+        pub identify: unsafe extern "stdcall" fn(
+            u32, // snp index
+            *mut u32, // id
+            *mut *const u8, // name
+            *mut *const u8, // description
+            *mut *const crate::bw::SnpCapabilities,
+        ) -> u32,
+        pub bind: unsafe extern "stdcall" fn(u32, *mut *const usize) -> u32,
+    }
+
+    #[repr(C)]
     pub struct LobbyDialogVtable {
-        pub unknown: [usize; 0x2a],
+        pub unknown: [usize; 0x2b],
         // Actually thiscall, but that isn't available in stable Rust (._.)
         // And the callback is a dummy function anyway
         // Argument is a pointer to some BnetCreatePopup class
@@ -117,7 +129,7 @@ mod scr {
 }
 
 static LOBBY_DIALOG_VTABLE: scr::LobbyDialogVtable = scr::LobbyDialogVtable {
-    unknown: [0; 0x2a],
+    unknown: [0; 0x2b],
     create_callback: lobby_create_callback,
     safety_padding: [0; 0x10],
 };
@@ -323,12 +335,10 @@ impl BwScr {
         let net_player_to_unique = start.net_player_to_unique.clone()
             .ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
-        let snp_definitions = analysis.snp_definitions().ok_or("SNP definitions")?;
-        let snp_definitions_size = snp_definitions.entry_size;
-        let snp_definitions = snp_definitions.snp_definitions;
         let local_player_name = analysis.local_player_name().ok_or("Local player name")?;
-        let init_storm_networking = analysis.init_storm_networking()
-            .ok_or("init_storm_networking")?;
+        let init = analysis.init_storm_networking();
+        let init_storm_networking = init.init_storm_networking.ok_or("init_storm_networking")?;
+        let load_snp_list = init.load_snp_list.ok_or("load_snp_list")?;
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
@@ -347,8 +357,6 @@ impl BwScr {
             local_storm_id: Value::new(local_storm_id),
             net_player_to_game: Value::new(net_player_to_game),
             net_player_to_unique: Value::new(net_player_to_unique),
-            snp_definitions: Value::new(snp_definitions),
-            snp_definitions_size,
             local_player_name: Value::new(local_player_name),
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             maybe_receive_turns: unsafe { mem::transmute(maybe_receive_turns.0) },
@@ -359,6 +367,7 @@ impl BwScr {
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
+            load_snp_list,
             mainmenu_entry_hook,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
         })
@@ -376,7 +385,6 @@ impl BwScr {
             // BW initializes its internal SNP list with a static constructor,
             // but patch_game() is called even before that, so overwrite the
             // list at GameInit hook.
-            self.init_snp();
             crate::process_init_hook();
         }, address);
         // This function being run while Windows loader lock is held, crate::initialize
@@ -386,6 +394,9 @@ impl BwScr {
             crate::initialize();
             orig();
         }, address);
+
+        let address = self.load_snp_list.0 as usize - base;
+        exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
 
         drop(exe);
         crate::forge::init_hooks_scr(&mut active_patcher);
@@ -415,28 +426,6 @@ impl BwScr {
                 }
             }
         }
-    }
-
-    unsafe fn init_snp(&self) {
-        let snp_data = self.snp_definitions.resolve();
-        *(snp_data as *mut u32) = snp::PROVIDER_ID;
-        *(snp_data.add(0xc) as *mut *const bw::SnpCapabilities) = &snp::CAPABILITIES;
-        let func_count = (self.snp_definitions_size - 0x10) as usize / 4;
-
-        // Initialize funcs with nullptr addresses, similar to what is done
-        // in snp::SNP_FUNCTIONS. SCR has more functions than before.
-        // SCR seems to have good default behaviour if the function pointer is
-        // null, so assuming that we don't have to make things crash at
-        // unimplemented functions.
-        for i in 1..func_count {
-            *(snp_data.add(0x10 + i * 4) as *mut usize) = 0;
-        }
-        std::ptr::copy_nonoverlapping(
-            &snp::SNP_FUNCTIONS,
-            snp_data.add(0x10) as *mut bw::SnpFunctions,
-            1,
-        );
-        *(snp_data.add(0x10) as *mut u32) = self.snp_definitions_size - 0x10;
     }
 }
 
@@ -611,9 +600,70 @@ impl bw::Bw for BwScr {
     }
 }
 
+fn load_snp_list_hook(
+    _callbacks: *mut scr::SnpLoadFuncs,
+    _count: u32,
+    orig: unsafe extern fn(*mut scr::SnpLoadFuncs, u32) -> u32,
+) -> u32 {
+    let mut funcs = scr::SnpLoadFuncs {
+        identify: snp_load_identify,
+        bind: snp_load_bind,
+    };
+    unsafe {
+        orig(&mut funcs, 1)
+    }
+}
+
+unsafe extern "stdcall" fn snp_load_identify(
+    snp_index: u32,
+    id: *mut u32,
+    name: *mut *const u8,
+    description: *mut *const u8,
+    caps: *mut *const crate::bw::SnpCapabilities,
+) -> u32 {
+    if snp_index > 0 {
+        return 0;
+    }
+    *id = snp::PROVIDER_ID;
+    *name = b"Shieldbattery\0".as_ptr();
+    *description = b"=)\0".as_ptr();
+    *caps = &snp::CAPABILITIES;
+    1
+}
+
+lazy_static! {
+    static ref SNP_FUNCTIONS: Vec<usize> = {
+        // So far the function struct has always been 0x20 words
+        // (0x80 bytes on x86)
+        // Keeping functions that aren't in 1.16.1 null seems to be ok.
+        let mut out = vec![0usize; 0x20];
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                &snp::SNP_FUNCTIONS,
+                out.as_mut_ptr() as *mut bw::SnpFunctions,
+                1,
+            );
+            out[0] = 0x20 * mem::size_of::<usize>();
+        }
+        out
+    };
+}
+
+unsafe extern "stdcall" fn snp_load_bind(
+    snp_index: u32,
+    funcs: *mut *const usize,
+) -> u32 {
+    if snp_index > 0 {
+        return 0;
+    }
+    *funcs = SNP_FUNCTIONS.as_ptr();
+    1
+}
+
 whack_hooks!(stdcall, 0,
     !0 => GameInit();
     !0 => EntryPoint();
+    !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
 );
 
 // Inline asm is only on nightly rust, so..
