@@ -1,6 +1,6 @@
 import db from '../db'
 import transact from '../db/transaction'
-import { tilesetIdToName } from '../../../app/common/maps'
+import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../app/common/maps'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
 
@@ -187,7 +187,9 @@ export async function getMapInfo(mapIds, userId) {
 async function getMapsCount(whereCondition, params) {
   const query = `
     SELECT COUNT(id)
-    FROM uploaded_maps
+    FROM uploaded_maps AS um
+    INNER JOIN maps AS m
+    ON um.map_hash = m.hash
     ${whereCondition};
   `
 
@@ -200,7 +202,27 @@ async function getMapsCount(whereCondition, params) {
   }
 }
 
-export async function getMaps(visibility, limit, pageNumber, favoritedBy, uploadedBy, searchStr) {
+function getOrderByStatement(sort) {
+  const sortByArray = ['name']
+  if (sort === SORT_BY_NUM_OF_PLAYERS) {
+    sortByArray.unshift('players_ums')
+  } else if (sort === SORT_BY_DATE) {
+    sortByArray.unshift('upload_date DESC')
+  }
+
+  return `ORDER BY ${sortByArray.join(', ')}`
+}
+
+export async function getMaps(
+  visibility,
+  sort,
+  filters = {},
+  limit,
+  pageNumber,
+  favoritedBy,
+  uploadedBy,
+  searchStr,
+) {
   let whereCondition = 'WHERE removed_at IS NULL AND visibility = $1'
   const params = [visibility]
 
@@ -209,11 +231,23 @@ export async function getMaps(visibility, limit, pageNumber, favoritedBy, upload
     params.push(uploadedBy)
   }
 
+  if (filters.numPlayers) {
+    whereCondition += ` AND players_ums = ANY($${params.length + 1})`
+    params.push(filters.numPlayers)
+  }
+
+  if (filters.tileset) {
+    whereCondition += ` AND tileset = ANY($${params.length + 1})`
+    params.push(filters.tileset)
+  }
+
   if (searchStr) {
     whereCondition += ` AND um.name ILIKE $${params.length + 1}`
     const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
     params.push(`%${escapedStr}%`)
   }
+
+  const orderByStatement = getOrderByStatement(sort)
 
   const query = `
     WITH maps AS (
@@ -239,10 +273,11 @@ export async function getMaps(visibility, limit, pageNumber, favoritedBy, upload
     SELECT maps.*, fav.map_id AS favorited
     FROM maps LEFT JOIN favorited_maps AS fav
     ON fav.map_id = maps.id AND fav.favorited_by = $${params.length + 1}
-    ORDER BY maps.name
+    ${orderByStatement}
     LIMIT $${params.length + 2}
     OFFSET $${params.length + 3};
   `
+  // Have to calculate this before adding more stuff into the params
   const total = await getMapsCount(whereCondition, params)
   params.push(favoritedBy, limit, pageNumber * limit)
 
@@ -257,7 +292,8 @@ export async function getMaps(visibility, limit, pageNumber, favoritedBy, upload
 }
 
 // TODO(2Pac): If it becomes a problem, add paging to this
-export async function getFavoritedMaps(favoritedBy) {
+export async function getFavoritedMaps(favoritedBy, sort) {
+  const orderByStatement = getOrderByStatement(sort)
   const query = `
     SELECT
       um.*,
@@ -280,7 +316,7 @@ export async function getFavoritedMaps(favoritedBy) {
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
     WHERE removed_at IS NULL AND favorited_by = $1
-    ORDER BY favorited_date DESC NULLS LAST;
+    ${orderByStatement};
   `
   const params = [favoritedBy]
 
