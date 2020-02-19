@@ -1,9 +1,9 @@
-import React from 'react'
 import styled from 'styled-components'
 
 import { Label } from '../material/button.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import TextField from '../material/text-field.jsx'
+import PasswordTextField from '../material/password-text-field.jsx'
 import CheckBox from '../material/check-box.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
@@ -92,6 +92,10 @@ export const Spacer = styled.div`
 `
 
 export const AuthTextField = styled(TextField)`
+  flex-grow: 1;
+`
+
+export const AuthPasswordTextField = styled(PasswordTextField)`
   flex-grow: 1;
 `
 

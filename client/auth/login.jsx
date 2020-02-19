@@ -24,6 +24,7 @@ import {
   ForgotActionButton,
   Spacer,
   AuthTextField,
+  AuthPasswordTextField,
   AuthCheckBox,
 } from './auth-content.jsx'
 
@@ -81,11 +82,10 @@ class LoginForm extends React.Component {
 
         <FieldRow>
           <RowEdge />
-          <AuthTextField
+          <AuthPasswordTextField
             {...bindInput('password')}
             label='Password'
             floatingLabel={true}
-            type='password'
             inputProps={{
               tabIndex: 1,
               autoCapitalize: 'off',

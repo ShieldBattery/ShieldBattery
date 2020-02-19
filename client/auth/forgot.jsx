@@ -21,6 +21,7 @@ import {
   BottomActionButton,
   FieldRow,
   AuthTextField,
+  AuthPasswordTextField,
 } from './auth-content.jsx'
 
 import {
@@ -289,21 +290,19 @@ class ResetPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <AuthTextField
+          <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
             label='New password'
             floatingLabel={true}
-            type='password'
           />
         </FieldRow>
         <FieldRow>
-          <AuthTextField
+          <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
             label='Confirm new password'
             floatingLabel={true}
-            type='password'
           />
         </FieldRow>
         <FieldRow>

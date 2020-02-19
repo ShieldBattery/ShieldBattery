@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import Card from '../card.jsx'
 import IconButton from '../icon-button.jsx'
 import TextField from '../text-field.jsx'
+import PasswordTextField from '../password-text-field.jsx'
 
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
@@ -39,6 +40,7 @@ export default class TextFieldTest extends React.Component {
     value15: '',
     value16: '',
     value17: '',
+    value18: '',
     changeError: null,
   }
 
@@ -172,9 +174,16 @@ export default class TextFieldTest extends React.Component {
             allowErrors={false}
             onChange={this.onChange}
           />
-          <TextField
+          <PasswordTextField
             name='14'
             value={this.state.value14}
+            floatingLabel={true}
+            label='Password text field'
+            onChange={this.onChange}
+          />
+          <TextField
+            name='15'
+            value={this.state.value15}
             floatingLabel={true}
             label='Multi-line'
             multiline={true}
@@ -182,8 +191,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='15'
-            value={this.state.value15}
+            name='16'
+            value={this.state.value16}
             floatingLabel={true}
             label='Text area'
             multiline={true}
@@ -192,8 +201,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='16'
-            value={this.state.value16}
+            name='17'
+            value={this.state.value17}
             floatingLabel={false}
             label='Multi-line, no float'
             multiline={true}
@@ -201,8 +210,8 @@ export default class TextFieldTest extends React.Component {
             onChange={this.onChange}
           />
           <TextField
-            name='17'
-            value={this.state.value17}
+            name='18'
+            value={this.state.value18}
             floatingLabel={false}
             label='Text area, no float'
             multiline={true}

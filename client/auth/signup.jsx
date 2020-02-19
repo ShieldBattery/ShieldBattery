@@ -21,6 +21,7 @@ import {
   BottomActionButton,
   FieldRow,
   AuthTextField,
+  AuthPasswordTextField,
 } from './auth-content.jsx'
 
 import {
@@ -125,22 +126,20 @@ class SignupForm extends React.Component {
         </FieldRow>
 
         <FieldRow>
-          <AuthTextField
+          <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
             label='Password'
             floatingLabel={true}
-            type='password'
           />
         </FieldRow>
 
         <FieldRow>
-          <AuthTextField
+          <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
             label='Confirm password'
             floatingLabel={true}
-            type='password'
           />
         </FieldRow>
 
