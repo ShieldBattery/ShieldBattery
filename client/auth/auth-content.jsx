@@ -101,22 +101,15 @@ export const AuthCheckBox = styled(CheckBox)`
   max-height: 100%;
 `
 
-export const Content = styled.div`
+export const AuthContentContainer = styled.div`
   opacity: 1;
   transition: opacity 150ms ${fastOutSlowIn};
-`
 
-export const ContentLoading = styled(Content)`
-  pointer-events: none;
-  opacity: 0;
+  ${props =>
+    props.isLoading
+      ? `
+        pointer-events: none;
+        opacity: 0;
+      `
+      : ''}}
 `
-
-export class AuthContentContainer extends React.Component {
-  render() {
-    return this.props.isLoading ? (
-      <ContentLoading>{this.props.children}</ContentLoading>
-    ) : (
-      <Content>{this.props.children}</Content>
-    )
-  }
-}
