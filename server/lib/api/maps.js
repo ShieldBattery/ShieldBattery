@@ -113,12 +113,12 @@ async function list(ctx, next) {
   }
 
   numPlayers = JSON.parse(numPlayers)
-  if (!Array.isArray(numPlayers) && numPlayers.some(n => n < 2 || n > 8)) {
+  if (!Array.isArray(numPlayers) || numPlayers.some(n => n < 2 || n > 8)) {
     throw new httpErrors.BadRequest('Invalid filter for number of players: ' + numPlayers)
   }
 
   tileset = JSON.parse(tileset)
-  if (!Array.isArray(tileset) && tileset.some(n => n < 0 || n > 7)) {
+  if (!Array.isArray(tileset) || tileset.some(n => n < 0 || n > 7)) {
     throw new httpErrors.BadRequest('Invalid filter for tileset: ' + tileset)
   }
 
