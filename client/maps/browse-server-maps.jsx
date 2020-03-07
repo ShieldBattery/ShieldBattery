@@ -9,11 +9,9 @@ import { openOverlay } from '../activities/action-creators'
 import { clearMapsList, getMapsList, toggleFavoriteMap } from './action-creators'
 
 import ActivityBackButton from '../activities/activity-back-button.jsx'
-import FloatingActionButton from '../material/floating-action-button.jsx'
-import IconButton from '../material/icon-button.jsx'
+import Footer from './browser-footer.jsx'
 import ImageList from '../material/image-list.jsx'
 import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
-import { Label } from '../material/button.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
@@ -22,12 +20,7 @@ import {
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../app/common/constants'
-
-import FilterIcon from '../icons/material/baseline-filter_list-24px.svg'
-import FolderIcon from '../icons/material/baseline-folder_open-24px.svg'
-import SearchIcon from '../icons/material/baseline-search-24px.svg'
-import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
-import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
+import { SORT_BY_NAME } from '../../app/common/maps'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
@@ -73,35 +66,6 @@ const ScrollDivider = styled.div`
   background-color: ${colorDividers};
 `
 
-const ActionsContainer = styled.div`
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 56px;
-  padding: 16px;
-`
-
-const LeftActions = styled.div`
-  flex-shrink: 0;
-`
-
-const ActionButton = styled(IconButton)`
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
-
-  ${LeftActions} > & {
-    margin-right: 8px;
-  }
-`
-
-const PositionedFloatingActionButton = styled(FloatingActionButton)`
-  position: absolute;
-  top: -28px;
-  left: calc(50% - 28px);
-`
-
 const MapPreview = styled.img`
   width: 100%;
 `
@@ -122,6 +86,12 @@ function tabToVisibility(tab) {
       throw new Error('Invalid tab value')
   }
 }
+
+const THUMBNAIL_SIZES = [
+  { columnCount: 4, padding: 4 },
+  { columnCount: 3, padding: 4 },
+  { columnCount: 2, padding: 4 },
+]
 
 // A pure component that just renders the map elements, to avoid re-rendering all of them if some
 // other state (eg. `loading`) changes.
@@ -190,6 +160,10 @@ export default class Maps extends React.Component {
 
   state = {
     activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
+    thumbnailSize: 1,
+    sortOption: SORT_BY_NAME,
+    numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
+    tilesetFilter: new Set([0, 1, 2, 3, 4, 5, 6, 7]),
   }
 
   infiniteList = null
@@ -220,11 +194,14 @@ export default class Maps extends React.Component {
       onMapDetails,
       onRemoveMap,
     } = this.props
+    const { thumbnailSize } = this.state
 
     return (
       <>
         <Underline>{header}</Underline>
-        <ImageList columnCount={3} padding={4}>
+        <ImageList
+          columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
+          padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           <MapList
             list={maps.list}
             byId={maps.byId}
@@ -295,7 +272,7 @@ export default class Maps extends React.Component {
 
   render() {
     const { title, maps } = this.props
-    const { activeTab } = this.state
+    const { activeTab, thumbnailSize, numPlayersFilter, tilesetFilter, sortOption } = this.state
 
     return (
       <Container>
@@ -330,27 +307,31 @@ export default class Maps extends React.Component {
           </ScrollableContent>
           <ScrollDivider position='bottom' />
         </Contents>
-        <ActionsContainer>
-          <PositionedFloatingActionButton
-            title='Browse local maps'
-            icon={<FolderIcon />}
-            onClick={this.onBrowseLocalMapsClick}
-          />
-          <LeftActions>
-            <ActionButton icon={<SizeIcon />} title='View size' />
-            <ActionButton icon={<FilterIcon />} title='Filter options' />
-            <ActionButton icon={<SortIcon />} title='Sort maps' />
-          </LeftActions>
-          <ActionButton icon={<SearchIcon />} title='Search' />
-        </ActionsContainer>
+        <Footer
+          onBrowseLocalMaps={this.onBrowseLocalMaps}
+          thumbnailSize={thumbnailSize}
+          onSizeChange={this.onThumbnailSizeChange}
+          numPlayersFilter={numPlayersFilter}
+          tilesetFilter={tilesetFilter}
+          onFilterApply={this.onFilterApply}
+          sortOption={sortOption}
+          onSortChange={this.onSortOptionChange}
+        />
       </Container>
     )
   }
 
   onLoadMoreMaps = () => {
-    const { activeTab } = this.state
+    const { activeTab, sortOption, numPlayersFilter, tilesetFilter } = this.state
 
-    this.props.dispatch(getMapsList(tabToVisibility(activeTab)))
+    this.props.dispatch(
+      getMapsList(
+        tabToVisibility(activeTab),
+        sortOption,
+        numPlayersFilter.toArray(),
+        tilesetFilter.toArray(),
+      ),
+    )
   }
 
   onTabChange = value => {
@@ -367,10 +348,48 @@ export default class Maps extends React.Component {
     this.props.dispatch(toggleFavoriteMap(map))
   }
 
-  onBrowseLocalMapsClick = () => {
+  onBrowseLocalMaps = () => {
     const localMapsProps = {
       onMapSelect: this.props.onLocalMapSelect,
     }
     this.props.dispatch(openOverlay('browseLocalMaps', localMapsProps))
+  }
+
+  onThumbnailSizeChange = size => {
+    if (this.state.thumbnailSize !== size) {
+      this.setState({ thumbnailSize: size })
+    }
+  }
+
+  onFilterApply = (numPlayersFilter, tilesetFilter) => {
+    const { activeTab, sortOption } = this.state
+
+    this.setState({ numPlayersFilter, tilesetFilter })
+    this.props.dispatch(clearMapsList())
+    this.props.dispatch(
+      getMapsList(
+        tabToVisibility(activeTab),
+        sortOption,
+        numPlayersFilter.toArray(),
+        tilesetFilter.toArray(),
+      ),
+    )
+  }
+
+  onSortOptionChange = sortOption => {
+    const { activeTab, numPlayersFilter, tilesetFilter } = this.state
+
+    if (this.state.sortOption !== sortOption) {
+      this.setState({ sortOption })
+      this.props.dispatch(clearMapsList())
+      this.props.dispatch(
+        getMapsList(
+          tabToVisibility(activeTab),
+          sortOption,
+          numPlayersFilter.toArray(),
+          tilesetFilter.toArray(),
+        ),
+      )
+    }
   }
 }

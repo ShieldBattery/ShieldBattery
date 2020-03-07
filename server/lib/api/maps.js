@@ -16,6 +16,7 @@ import {
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../../app/common/constants'
+import { SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../app/common/maps'
 import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -100,10 +101,26 @@ export default function(router) {
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
 const VISIBILITIES = [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC]
+const SORT_ORDERS = [SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE]
 
 async function list(ctx, next) {
   const { q, visibility } = ctx.query
-  let { limit, page } = ctx.query
+  let { sort, numPlayers, tileset, limit, page } = ctx.query
+
+  sort = parseInt(sort, 10)
+  if (!SORT_ORDERS.includes(sort)) {
+    throw new httpErrors.BadRequest('Invalid sort order option: ' + sort)
+  }
+
+  numPlayers = JSON.parse(numPlayers)
+  if (!Array.isArray(numPlayers) || numPlayers.some(n => n < 2 || n > 8)) {
+    throw new httpErrors.BadRequest('Invalid filter for number of players: ' + numPlayers)
+  }
+
+  tileset = JSON.parse(tileset)
+  if (!Array.isArray(tileset) || tileset.some(n => n < 0 || n > 7)) {
+    throw new httpErrors.BadRequest('Invalid filter for tileset: ' + tileset)
+  }
 
   limit = parseInt(limit, 10)
   if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
@@ -130,8 +147,10 @@ async function list(ctx, next) {
 
   const favoritedBy = ctx.session.userId
   const [mapsResult, favoritedMaps] = await Promise.all([
-    getMaps(visibility, limit, page, favoritedBy, uploadedBy, q),
-    visibility === MAP_VISIBILITY_PRIVATE ? getFavoritedMaps(favoritedBy) : Promise.resolve([]),
+    getMaps(visibility, sort, { numPlayers, tileset }, limit, page, favoritedBy, uploadedBy, q),
+    visibility === MAP_VISIBILITY_PRIVATE
+      ? getFavoritedMaps(favoritedBy, sort)
+      : Promise.resolve([]),
   ])
   const { total, maps } = mapsResult
   ctx.body = {

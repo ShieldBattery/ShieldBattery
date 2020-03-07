@@ -34,12 +34,15 @@ export function selectLocalMap(path, onMapSelect) {
   }
 }
 
-export function getMapsList(visibility) {
+export function getMapsList(visibility, sort, numPlayers, tileset) {
   return (dispatch, getState) => {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
 
     const { maps } = getState()
-    const reqUrl = `/api/1/maps?visibility=${visibility}&limit=${MAPS_LIMIT}&page=${maps.page}`
+    const reqUrl =
+      `/api/1/maps?visibility=${visibility}&sort=${sort}` +
+      `&numPlayers=${JSON.stringify(numPlayers)}&tileset=${JSON.stringify(tileset)}` +
+      `&limit=${MAPS_LIMIT}&page=${maps.page}`
     dispatch({ type: MAPS_LIST_GET, payload: fetch(reqUrl) })
   }
 }
