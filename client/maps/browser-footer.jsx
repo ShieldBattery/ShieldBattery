@@ -149,13 +149,6 @@ class FilterOverlay extends React.Component {
             transitionDuration = closeDuration
           }
 
-          // TODO(2Pac): There is a weird artifact when closing this overlay, where after the
-          // `closeDuration` expires, the overlay element loses the `.exit` class set by CSS
-          // transition, resulting in overlay contents flashing for a split second before the
-          // Popover component  manages to remove the contents from DOM. It's also important to note
-          // that this only happens when clicking on an apply button, which does a "lengthy"
-          // operation (fetches the map list), so there's probably some weird timing issue involved.
-
           return (
             <>
               <KeyListener onKeyDown={this.onKeyDown} />
@@ -204,7 +197,10 @@ class FilterOverlay extends React.Component {
   }
 }
 
-export default class BrowserFooter extends React.Component {
+// This has to be a pure component to prevent re-rendering when the map browser updates some of its
+// state unrelated to this component. Not making it pure can mess with the rendering of the popover
+// component which is defined here; specifically, it can cancel the CSS transition at weird times.
+export default class BrowserFooter extends React.PureComponent {
   static propTypes = {
     thumbnailSize: PropTypes.number.isRequired,
     sortOption: PropTypes.number.isRequired,
@@ -321,7 +317,7 @@ export default class BrowserFooter extends React.Component {
           onDismiss={this.onDismiss}
           onApply={this.onFilterApply}
           anchor={this._filterButtonRef.current}>
-          <Overline>Type</Overline>
+          <Overline>Number of players</Overline>
           <ColumnGroup>{numPlayersItems}</ColumnGroup>
           <Overline>Tileset</Overline>
           <ColumnGroup>{tilesetItems}</ColumnGroup>
