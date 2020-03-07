@@ -2,10 +2,12 @@
 
 A modern way to play StarCraft: Brood War.
 
-## IRC
+## Discord
 
-The ShieldBattery developers frequent `#shieldbattery-dev` on QuakeNet, feel free to stop in with
+The ShieldBattery developers frequent the Discord server at the link below, feel free to stop in with
 questions, comments, or just to hang out!
+
+https://discord.gg/TdKEvyz
 
 ## Developer setup
 
