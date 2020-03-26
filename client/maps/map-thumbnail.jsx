@@ -4,7 +4,8 @@ import styled from 'styled-components'
 
 import IconButton from '../material/icon-button.jsx'
 import { Label } from '../material/button.jsx'
-import MapActions from './map-actions.jsx'
+import Menu from '../material/menu/menu.jsx'
+import MenuItem from '../material/menu/item.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextSecondary, grey800 } from '../styles/colors'
@@ -12,6 +13,7 @@ import { Subheading, singleLine } from '../styles/typography'
 
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
+import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
 
@@ -115,6 +117,19 @@ const MapName = styled(Subheading)`
   ${singleLine};
 `
 
+const MapActionButton = styled(IconButton)`
+  min-height: 40px;
+  width: 40px;
+  padding: 0;
+  line-height: 40px;
+  margin-left: 4px;
+
+  & ${Label} {
+    color: ${colorTextSecondary};
+    line-height: 40px;
+  }
+`
+
 export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
@@ -128,6 +143,43 @@ export default class MapThumbnail extends React.Component {
     onToggleFavorite: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemove: PropTypes.func,
+  }
+
+  state = {
+    actionsOverlayOpen: false,
+  }
+
+  _actionsButtonRef = React.createRef()
+
+  renderActionsMenu(mapActions) {
+    if (mapActions.length < 1) {
+      return null
+    }
+
+    const actions = mapActions.map(([text, handler], i) => (
+      <MenuItem key={i} text={text} onClick={() => this.onMapActionClick(handler)} />
+    ))
+
+    return (
+      <>
+        <MapActionButton
+          icon={<MapActionsIcon />}
+          title='Map actions'
+          buttonRef={this._actionsButtonRef}
+          onClick={this.onActionsOverlayOpen}
+        />
+        <Menu
+          open={this.state.actionsOverlayOpen}
+          onDismiss={this.onActionsOverlayClose}
+          anchor={this._actionsButtonRef.current}
+          anchorOriginVertical='top'
+          anchorOriginHorizontal='right'
+          popoverOriginVertical='top'
+          popoverOriginHorizontal='right'>
+          {actions}
+        </Menu>
+      </>
+    )
   }
 
   render() {
@@ -187,10 +239,23 @@ export default class MapThumbnail extends React.Component {
         {showMapName ? (
           <TextProtection>
             <MapName title={map.name}>{map.name}</MapName>
-            {mapActions.length > 0 ? <MapActions mapActions={mapActions} /> : null}
+            {this.renderActionsMenu(mapActions)}
           </TextProtection>
         ) : null}
       </Container>
     )
+  }
+
+  onActionsOverlayOpen = () => {
+    this.setState({ actionsOverlayOpen: true })
+  }
+
+  onActionsOverlayClose = () => {
+    this.setState({ actionsOverlayOpen: false })
+  }
+
+  onMapActionClick = handler => {
+    handler()
+    this.onActionsOverlayClose()
   }
 }
