@@ -4,6 +4,7 @@ import {
   MAPS_LIST_CLEAR,
   MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
+  MAPS_UPDATE,
   MAPS_REMOVE,
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
@@ -93,6 +94,12 @@ export default keyedReducer(new Maps(), {
       .setIn(['byId', map.id, 'isFavorited'], !map.isFavorited)
       .setIn(['favoritedMaps', 'byId', map.id, 'isFavorited'], !map.isFavorited)
       .set('favoriteStatusRequests', state.favoriteStatusRequests.delete(map.id))
+  },
+
+  [MAPS_UPDATE](state, action) {
+    const { map } = action.payload
+
+    return state.setIn(['byId', map.id], map).setIn(['favoritedMaps', 'byId', map.id], map)
   },
 
   [MAPS_REMOVE](state, action) {
