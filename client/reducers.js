@@ -15,6 +15,7 @@ export { default as lobbyPreferences } from './lobbies/lobby-preferences-reducer
 export { default as lobbyState } from './lobbies/lobby-state-reducer'
 export { default as localMaps } from './maps/local-maps-reducer'
 export { default as mapDetails } from './maps/map-details-reducer'
+export { default as mapPreferences } from './maps/map-preferences-reducer'
 export { default as maps } from './maps/maps-reducer'
 export { default as matchmaking } from './matchmaking/matchmaking-reducer'
 export { default as network } from './network/network-reducer'

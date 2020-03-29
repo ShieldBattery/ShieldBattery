@@ -252,6 +252,15 @@ export const MAPS_UPDATE_BEGIN = 'MAPS_UPDATE_BEGIN'
 // The server has responded with success/failure to us updating a map
 export const MAPS_UPDATE = 'MAPS_UPDATE'
 
+// We are beginning to retrieve the map preferences from the server
+export const MAPS_PREFERENCES_GET_BEGIN = 'MAPS_PREFERENCES_GET_BEGIN'
+// The server has responded with success/failure to our retrieval of map preferences
+export const MAPS_PREFERENCES_GET = 'MAPS_PREFERENCES_GET'
+// We are beginning to update the map preferences to the server
+export const MAPS_PREFERENCES_UPDATE_BEGIN = 'MAPS_PREFERENCES_UPDATE_BEGIN'
+// The server has responded with success/failure to us updating the map preferences
+export const MAPS_PREFERENCES_UPDATE = 'MAPS_PREFERENCES_UPDATE'
+
 // We are starting the process of accepting the match
 export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'
 // The server has responded with success/failure to us accepting the match
