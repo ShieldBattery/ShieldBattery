@@ -11,6 +11,17 @@ import HidePasswordIcon from '../icons/material/visibility_off-24px.svg'
 import { colorTextSecondary } from '../styles/colors'
 
 const VisibilityButton = styled(IconButton)`
+  ${props => {
+    return props.dense
+      ? `
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
+        padding: 0;
+      `
+      : ''
+  }}
+
   & ${Label} {
     color: ${colorTextSecondary};
   }
@@ -28,6 +39,7 @@ export default class PasswordTextField extends React.Component {
       <VisibilityButton
         icon={visible ? <ShowPasswordIcon /> : <HidePasswordIcon />}
         title={visible ? 'Hide password' : 'Show password'}
+        dense={this.props.dense}
         onClick={this.onToggleVisibility}
       />
     )

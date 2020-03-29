@@ -4,6 +4,9 @@ import styled from 'styled-components'
 import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
+export const TEXTAREA_BOTTOM_PADDING = 7
+export const TEXTAREA_BOTTOM_PADDING_DENSE = 1
+
 export const InputBase = styled(Subheading)`
   flex-grow: 1;
   order: 2;
@@ -29,10 +32,11 @@ export const InputBase = styled(Subheading)`
   ${props => {
     if (props.multiline) {
       const scrollbarColor = props.focused ? grey800 : grey700
+      const paddingBottom = props.dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
 
       return `
         padding: 0;
-        padding-bottom: 7px;
+        padding-bottom: ${paddingBottom}px;
         overflow-y: auto;
         resize: none;
         cursor: auto;
@@ -67,29 +71,29 @@ export const InputBase = styled(Subheading)`
       `
     }
   }}
-  ${props =>
-    props.leadingIconsLength
-      ? `padding-left:
-          calc(${props.leadingIconsLength} * 48px + ${props.leadingIconsLength + 1} * 4px)
-        `
-      : ''};
   ${props => {
-    if (props.trailingIconsLength) {
-      return props.multiline
-        ? `padding-right:
-          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px + 12px)
-        `
-        : `padding-right:
-          calc(${props.trailingIconsLength} * 48px + ${props.trailingIconsLength + 1} * 4px)
-        `
-    }
+    if (!props.leadingIconsLength) return ''
 
-    return ''
+    const iconWidth = props.dense ? 32 : 48
+    const padding = props.leadingIconsLength * iconWidth + (props.leadingIconsLength + 1) * 4
+
+    return `padding-left: ${padding}px`
+  }}
+  ${props => {
+    if (!props.trailingIconsLength) return ''
+
+    const iconWidth = props.dense ? 32 : 48
+    const multilinePadding = props.multiline ? 12 : 0
+    const padding =
+      props.trailingIconsLength * iconWidth + (props.trailingIconsLength + 1) * 4 + multilinePadding
+
+    return `padding-right: ${padding}px`
   }}
 `
 
 InputBase.propTypes = {
   floatingLabel: PropTypes.bool,
+  dense: PropTypes.bool,
   disabled: PropTypes.bool,
   multiline: PropTypes.bool,
   leadingIconsLength: PropTypes.number,

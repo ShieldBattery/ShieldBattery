@@ -4,10 +4,20 @@ import uniqueId from '../dom/unique-id'
 import styled, { css } from 'styled-components'
 
 import FloatingLabel from './input-floating-label.jsx'
-import InputBase from './input-base.jsx'
+import InputBase, { TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base.jsx'
 import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
+
+import { colorTextSecondary } from '../styles/colors'
+
+// NOTE(2Pac): You might notice that this component (and others that are used here) might have some
+// weird values used for paddings and margins, like 1px, or 7px. This is fine. It's mostly caused by
+// the intrinsic weirdness of the <input> element itself and the way its implemented in the browser.
+// Like, its vertical centering of the text might be off by 1 pixel than what it is for labels that
+// we use flex to center with here. To ensure the pixel-perfect alignment of some elements, certain
+// numbers had to be fudged a bit which was ascertained by using custom browser extensions to
+// measure the distance in pixels.
 
 const TextFieldContainer = styled.div`
   display: flex;
@@ -15,7 +25,7 @@ const TextFieldContainer = styled.div`
   align-items: flex-start;
   position: relative;
   width: 100%;
-  min-height: 56px;
+  min-height: ${props => (props.dense ? '40px' : '56px')};
   font-size: 16px;
   line-height: 20px;
   background-color: rgba(255, 255, 255, 0.1);
@@ -24,16 +34,20 @@ const TextFieldContainer = styled.div`
 
   ${props => {
     const spacing = props.floatingLabel ? 34 : 28 /* textfield padding + input margin */
+    const height = props.dense ? 40 : 56
 
-    return `max-height: ${props.maxRows ? props.maxRows * 20 + spacing : 56}px;`
+    return `max-height: ${props.maxRows ? props.maxRows * 20 + spacing : height}px;`
   }}
 
-  ${props =>
-    props.multiline
-      ? `
-        padding: ${props.floatingLabel ? '25px 0 2px 12px' : '19px 0 2px 12px'};
-      `
-      : ''}
+  ${props => {
+    if (!props.multiline) return ''
+
+    if (props.floatingLabel) {
+      return props.dense ? 'padding: 17px 0 2px 12px' : 'padding: 25px 0 2px 12px'
+    } else {
+      return props.dense ? 'padding: 11px 0 2px 12px' : 'padding: 19px 0 2px 12px'
+    }
+  }}
 
   ${props =>
     !props.disabled
@@ -74,24 +88,33 @@ const TextFieldContainer = styled.div`
 const iconStyle = css`
   position: absolute;
   top: 4px;
-  width: 48px;
-  height: 48px;
+  width: ${props => (props.dense ? '32px' : '48px')};
+  height: ${props => (props.dense ? '32px' : '48px')};
   display: flex;
   justify-content: center;
   align-items: center;
+  color: ${colorTextSecondary};
 `
 
 const LeadingIcon = styled.span`
   ${iconStyle}
-  left: ${props => `calc(${props.index} * 48px + ${props.index + 1} * 4px)`};
+  left: ${props => {
+    const iconWidth = props.dense ? 32 : 48
+    const leftOffset = props.index * iconWidth + (props.index + 1) * 4
+
+    return `${leftOffset}px`
+  }}
 `
 
 const TrailingIcon = styled.span`
   ${iconStyle}
-  ${props =>
-    props.multiline
-      ? `right: calc(${props.index} * 48px + ${props.index + 1} * 4px + 12px)`
-      : `right: calc(${props.index} * 48px + ${props.index + 1} * 4px)`}
+  right: ${props => {
+    const iconWidth = props.dense ? 32 : 48
+    const multilinePadding = props.multiline ? 12 : 0
+    const rightOffset = props.index * iconWidth + (props.index + 1) * 4 + multilinePadding
+
+    return `${rightOffset}px`
+  }}
 `
 
 // A Material text field component with single-line, multi-line and text area variants, supporting
@@ -104,6 +127,7 @@ export default class TextField extends React.Component {
     allowErrors: PropTypes.bool,
     errorText: PropTypes.string,
     floatingLabel: PropTypes.bool,
+    dense: PropTypes.bool,
     label: PropTypes.string,
     disabled: PropTypes.bool,
     multiline: PropTypes.bool,
@@ -134,6 +158,7 @@ export default class TextField extends React.Component {
     type: 'text',
     allowErrors: true,
     floatingLabel: false,
+    dense: false,
     disabled: false,
     multiline: false,
     rows: 1,
@@ -159,6 +184,7 @@ export default class TextField extends React.Component {
       type,
       disabled,
       floatingLabel,
+      dense,
       multiline,
       rows,
       maxRows,
@@ -181,7 +207,7 @@ export default class TextField extends React.Component {
     }
 
     const leadingIconsElements = leadingIcons.map((leadingIcon, index) => (
-      <LeadingIcon key={index} index={index}>
+      <LeadingIcon key={index} index={index} dense={dense}>
         {leadingIcon}
       </LeadingIcon>
     ))
@@ -189,7 +215,7 @@ export default class TextField extends React.Component {
       .slice() // Don't mutate the original array
       .reverse()
       .map((trailingIcon, index) => (
-        <TrailingIcon key={index} index={index} multiline={multiline}>
+        <TrailingIcon key={index} index={index} dense={dense} multiline={multiline}>
           {trailingIcon}
         </TrailingIcon>
       ))
@@ -199,7 +225,8 @@ export default class TextField extends React.Component {
         <TextFieldContainer
           disabled={disabled}
           focused={this.state.isFocused}
-          floatingLabel={!!floatingLabel}
+          floatingLabel={floatingLabel}
+          dense={dense}
           multiline={multiline}
           maxRows={maxRows}>
           {this.renderLabel()}
@@ -208,7 +235,8 @@ export default class TextField extends React.Component {
             as={multiline ? 'textarea' : 'input'}
             rows={rows}
             focused={this.state.isFocused}
-            floatingLabel={!!floatingLabel}
+            floatingLabel={floatingLabel}
+            dense={dense}
             multiline={multiline}
             leadingIconsLength={leadingIcons.length}
             trailingIconsLength={trailingIcons.length}
@@ -224,7 +252,7 @@ export default class TextField extends React.Component {
   }
 
   renderLabel() {
-    const { label, floatingLabel, value, errorText, disabled, leadingIcons } = this.props
+    const { label, floatingLabel, dense, value, errorText, disabled, leadingIcons } = this.props
     const { isFocused } = this.state
 
     if (!label) {
@@ -234,6 +262,7 @@ export default class TextField extends React.Component {
         <FloatingLabel
           htmlFor={this.id}
           hasValue={!!value}
+          dense={dense}
           focused={isFocused}
           error={!!errorText}
           disabled={disabled}
@@ -246,6 +275,7 @@ export default class TextField extends React.Component {
         <Label
           htmlFor={this.id}
           hasValue={!!value}
+          dense={dense}
           disabled={disabled}
           leadingIconsLength={leadingIcons.length}>
           {label}
@@ -263,8 +293,9 @@ export default class TextField extends React.Component {
   }
 
   autoSize = elem => {
+    const padding = this.props.dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
     // Needed in order to lower the height when deleting text
-    elem.style.height = `${this.props.rows * 20 + 7 /* padding */}px`
+    elem.style.height = `${this.props.rows * 20 + padding}px`
     elem.style.height = `${elem.scrollHeight}px`
     // Textarea doesn't scroll completely to the end when adding a new line, just to the baseline of
     // the added text it seems, so we scroll manually to the end here
