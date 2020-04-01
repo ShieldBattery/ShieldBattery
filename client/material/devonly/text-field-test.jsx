@@ -2,9 +2,13 @@ import React from 'react'
 import styled from 'styled-components'
 
 import Card from '../card.jsx'
+import CheckBox from '../check-box.jsx'
 import IconButton from '../icon-button.jsx'
+import { Label } from '../button.jsx'
 import TextField from '../text-field.jsx'
 import PasswordTextField from '../password-text-field.jsx'
+
+import { colorTextSecondary } from '../../styles/colors'
 
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
@@ -19,6 +23,23 @@ const Container = styled.div`
 const StyledCard = styled(Card)`
   width: 100%;
   max-width: 640px;
+`
+
+const SecondaryIconButton = styled(IconButton)`
+  & ${Label} {
+    color: ${colorTextSecondary};
+  }
+`
+
+const DenseIconButton = styled(IconButton)`
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+
+  & ${Label} {
+    color: ${colorTextSecondary};
+  }
 `
 
 export default class TextFieldTest extends React.Component {
@@ -42,6 +63,7 @@ export default class TextFieldTest extends React.Component {
     value17: '',
     value18: '',
     changeError: null,
+    dense: false,
   }
 
   render() {
@@ -49,10 +71,12 @@ export default class TextFieldTest extends React.Component {
       <Container>
         <StyledCard>
           <h3>Type some things</h3>
+          <CheckBox checked={this.state.dense} label='Dense' onChange={this.onDenseChange} />
           <TextField
             name='1'
             value={this.state.value1}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Label'
             onChange={this.onChange}
           />
@@ -60,6 +84,7 @@ export default class TextFieldTest extends React.Component {
             name='2'
             value={this.state.value2}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Disabled'
             disabled={true}
             onChange={this.onChange}
@@ -68,6 +93,7 @@ export default class TextFieldTest extends React.Component {
             name='3'
             value={this.state.value3}
             floatingLabel={false}
+            dense={this.state.dense}
             label='No float'
             onChange={this.onChange}
           />
@@ -75,6 +101,7 @@ export default class TextFieldTest extends React.Component {
             name='4'
             value={this.state.value4}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Error on change'
             errorText={this.state.changeError}
             onChange={this.onChange}
@@ -83,6 +110,7 @@ export default class TextFieldTest extends React.Component {
             name='5'
             value={this.state.value5}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Permanent error'
             errorText='hi'
             onChange={this.onChange}
@@ -91,6 +119,7 @@ export default class TextFieldTest extends React.Component {
             name='6'
             value={'hi'}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Disabled with value'
             disabled={true}
             onChange={this.onChange}
@@ -99,6 +128,7 @@ export default class TextFieldTest extends React.Component {
             name='7'
             value={this.state.value7}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Disabled with error'
             disabled={true}
             errorText={'hi'}
@@ -108,6 +138,7 @@ export default class TextFieldTest extends React.Component {
             name='8'
             value={this.state.value8}
             floatingLabel={true}
+            dense={this.state.dense}
             label='With leading icon'
             leadingIcons={[<LeadingIcon />]}
             onChange={this.onChange}
@@ -116,25 +147,42 @@ export default class TextFieldTest extends React.Component {
             name='9'
             value={this.state.value9}
             floatingLabel={true}
+            dense={this.state.dense}
             label='With leading icon buttons'
-            leadingIcons={[
-              <IconButton
-                icon={<LeadingIcon />}
-                title='Leading action 1'
-                onClick={this.onActionClick}
-              />,
-              <IconButton
-                icon={<LeadingIcon />}
-                title='Leading action 2'
-                onClick={this.onActionClick}
-              />,
-            ]}
+            leadingIcons={
+              this.state.dense
+                ? [
+                    <DenseIconButton
+                      icon={<LeadingIcon />}
+                      title='Leading action 1'
+                      onClick={this.onActionClick}
+                    />,
+                    <DenseIconButton
+                      icon={<LeadingIcon />}
+                      title='Leading action 2'
+                      onClick={this.onActionClick}
+                    />,
+                  ]
+                : [
+                    <SecondaryIconButton
+                      icon={<LeadingIcon />}
+                      title='Leading action 1'
+                      onClick={this.onActionClick}
+                    />,
+                    <SecondaryIconButton
+                      icon={<LeadingIcon />}
+                      title='Leading action 2'
+                      onClick={this.onActionClick}
+                    />,
+                  ]
+            }
             onChange={this.onChange}
           />
           <TextField
             name='10'
             value={this.state.value10}
             floatingLabel={true}
+            dense={this.state.dense}
             label='With trailing icon'
             trailingIcons={[<TrailingIcon />]}
             onChange={this.onChange}
@@ -143,25 +191,42 @@ export default class TextFieldTest extends React.Component {
             name='11'
             value={this.state.value11}
             floatingLabel={true}
+            dense={this.state.dense}
             label='With trailing icon buttons'
-            trailingIcons={[
-              <IconButton
-                icon={<TrailingIcon />}
-                title='Trailing action 1'
-                onClick={this.onActionClick}
-              />,
-              <IconButton
-                icon={<TrailingIcon />}
-                title='Trailing action 2'
-                onClick={this.onActionClick}
-              />,
-            ]}
+            trailingIcons={
+              this.state.dense
+                ? [
+                    <DenseIconButton
+                      icon={<TrailingIcon />}
+                      title='Trailing action 1'
+                      onClick={this.onActionClick}
+                    />,
+                    <DenseIconButton
+                      icon={<TrailingIcon />}
+                      title='Trailing action 2'
+                      onClick={this.onActionClick}
+                    />,
+                  ]
+                : [
+                    <SecondaryIconButton
+                      icon={<TrailingIcon />}
+                      title='Trailing action 1'
+                      onClick={this.onActionClick}
+                    />,
+                    <SecondaryIconButton
+                      icon={<TrailingIcon />}
+                      title='Trailing action 2'
+                      onClick={this.onActionClick}
+                    />,
+                  ]
+            }
             onChange={this.onChange}
           />
           <TextField
             name='12'
             value={this.state.value12}
             floatingLabel={true}
+            dense={this.state.dense}
             label='No errors'
             allowErrors={false}
             onChange={this.onChange}
@@ -170,6 +235,7 @@ export default class TextFieldTest extends React.Component {
             name='13'
             value={this.state.value13}
             floatingLabel={false}
+            dense={this.state.dense}
             label='No errors, no float'
             allowErrors={false}
             onChange={this.onChange}
@@ -178,6 +244,7 @@ export default class TextFieldTest extends React.Component {
             name='14'
             value={this.state.value14}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Password text field'
             onChange={this.onChange}
           />
@@ -185,6 +252,7 @@ export default class TextFieldTest extends React.Component {
             name='15'
             value={this.state.value15}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Multi-line'
             multiline={true}
             maxRows={4}
@@ -194,6 +262,7 @@ export default class TextFieldTest extends React.Component {
             name='16'
             value={this.state.value16}
             floatingLabel={true}
+            dense={this.state.dense}
             label='Text area'
             multiline={true}
             rows={4}
@@ -204,6 +273,7 @@ export default class TextFieldTest extends React.Component {
             name='17'
             value={this.state.value17}
             floatingLabel={false}
+            dense={this.state.dense}
             label='Multi-line, no float'
             multiline={true}
             maxRows={4}
@@ -213,6 +283,7 @@ export default class TextFieldTest extends React.Component {
             name='18'
             value={this.state.value18}
             floatingLabel={false}
+            dense={this.state.dense}
             label='Text area, no float'
             multiline={true}
             rows={4}
@@ -222,6 +293,10 @@ export default class TextFieldTest extends React.Component {
         </StyledCard>
       </Container>
     )
+  }
+
+  onDenseChange = event => {
+    this.setState({ dense: event.target.checked })
   }
 
   onChange = event => {
