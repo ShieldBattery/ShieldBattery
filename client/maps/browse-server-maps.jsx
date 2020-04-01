@@ -6,12 +6,19 @@ import styled from 'styled-components'
 
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { openOverlay } from '../activities/action-creators'
-import { clearMapsList, getMapsList, toggleFavoriteMap } from './action-creators'
+import {
+  clearMapsList,
+  getMapsList,
+  toggleFavoriteMap,
+  getMapPreferences,
+  updateMapPreferences,
+} from './action-creators'
 
 import ActivityBackButton from '../activities/activity-back-button.jsx'
 import Footer from './browser-footer.jsx'
 import ImageList from '../material/image-list.jsx'
 import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
+import LoadingIndicator from '../progress/dots.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
@@ -24,6 +31,14 @@ import { SORT_BY_NAME } from '../../app/common/maps'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
+
+const LoadingArea = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+`
 
 const Container = styled.div`
   display: flex;
@@ -82,6 +97,19 @@ function tabToVisibility(tab) {
       return MAP_VISIBILITY_PRIVATE
     case TAB_COMMUNITY_MAPS:
       return MAP_VISIBILITY_PUBLIC
+    default:
+      throw new Error('Invalid tab value')
+  }
+}
+
+function visibilityToTab(visibility) {
+  switch (visibility) {
+    case MAP_VISIBILITY_OFFICIAL:
+      return TAB_OFFICIAL_MAPS
+    case MAP_VISIBILITY_PRIVATE:
+      return TAB_MY_MAPS
+    case MAP_VISIBILITY_PUBLIC:
+      return TAB_COMMUNITY_MAPS
     default:
       throw new Error('Invalid tab value')
   }
@@ -147,7 +175,7 @@ class MapList extends React.PureComponent {
   }
 }
 
-@connect(state => ({ auth: state.auth, maps: state.maps }))
+@connect(state => ({ auth: state.auth, maps: state.maps, mapPreferences: state.mapPreferences }))
 export default class Maps extends React.Component {
   static propTypes = {
     title: PropTypes.string.isRequired,
@@ -164,6 +192,7 @@ export default class Maps extends React.Component {
     sortOption: SORT_BY_NAME,
     numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
     tilesetFilter: new Set([0, 1, 2, 3, 4, 5, 6, 7]),
+    hasInitializedState: false,
   }
 
   infiniteList = null
@@ -171,12 +200,52 @@ export default class Maps extends React.Component {
     this.infiniteList = elem
   }
 
-  componentWillUnmount() {
-    this.props.dispatch(clearMapsList())
+  _savePreferences = () => {
+    const { activeTab, thumbnailSize, sortOption, numPlayersFilter, tilesetFilter } = this.state
+
+    this.props.dispatch(
+      updateMapPreferences({
+        visibility: tabToVisibility(activeTab),
+        thumbnailSize,
+        sortOption,
+        numPlayers: numPlayersFilter.toArray(),
+        tileset: tilesetFilter.toArray(),
+      }),
+    )
+  }
+
+  componentDidMount() {
+    this.props.dispatch(getMapPreferences())
+    window.addEventListener('beforeunload', this._savePreferences)
   }
 
   componentDidUpdate(prevProps, prevState) {
+    const {
+      mapPreferences: {
+        isRequesting,
+        visibility,
+        thumbnailSize,
+        sortOption,
+        numPlayersFilter,
+        tilesetFilter,
+        lastError,
+      },
+    } = this.props
     const { activeTab } = this.state
+
+    if (prevProps.mapPreferences.isRequesting && !isRequesting) {
+      this.setState({ hasInitializedState: true })
+
+      if (!lastError) {
+        this.setState({
+          activeTab: visibilityToTab(visibility),
+          thumbnailSize,
+          sortOption,
+          numPlayersFilter: new Set(numPlayersFilter),
+          tilesetFilter: new Set(tilesetFilter),
+        })
+      }
+    }
 
     if (prevState.activeTab !== activeTab) {
       // Since we're using the same instance of the InfiniteList component to render maps, gotta
@@ -184,6 +253,15 @@ export default class Maps extends React.Component {
       this.infiniteList.reset()
       this.props.dispatch(clearMapsList())
     }
+  }
+
+  componentWillUnmount() {
+    this.props.dispatch(clearMapsList())
+
+    // Saves the map preferences if the component had time to unmount. If it didn't, eg. the page
+    // was refreshed, the 'beforeunload' event listener will handle it.
+    this._savePreferences()
+    window.removeEventListener('beforeunload', this._savePreferences)
   }
 
   _renderMaps(header, maps) {
@@ -271,8 +349,28 @@ export default class Maps extends React.Component {
   }
 
   render() {
-    const { title, maps } = this.props
-    const { activeTab, thumbnailSize, numPlayersFilter, tilesetFilter, sortOption } = this.state
+    const { title, maps, mapPreferences } = this.props
+    const {
+      activeTab,
+      thumbnailSize,
+      numPlayersFilter,
+      tilesetFilter,
+      sortOption,
+      hasInitializedState,
+    } = this.state
+
+    if (mapPreferences.isRequesting) {
+      return (
+        <LoadingArea>
+          <LoadingIndicator />
+        </LoadingArea>
+      )
+    }
+
+    // We don't want to render the `BrowserFooter` until we initialize the state by fetching the map
+    // preferences, because some its state is initialized with the fetched one. Hopefully this won't
+    // be necessary anymore once Suspense finally comes?
+    if (!hasInitializedState) return null
 
     return (
       <Container>

@@ -13,6 +13,10 @@ import {
   MAPS_TOGGLE_FAVORITE,
   MAPS_UPDATE_BEGIN,
   MAPS_UPDATE,
+  MAPS_PREFERENCES_GET_BEGIN,
+  MAPS_PREFERENCES_GET,
+  MAPS_PREFERENCES_UPDATE_BEGIN,
+  MAPS_PREFERENCES_UPDATE,
 } from '../actions'
 
 const upload = IS_ELECTRON ? require('./upload').default : null
@@ -94,6 +98,29 @@ export function updateMap(mapId, name, description) {
       payload: fetch(`/api/1/maps/${mapId}`, {
         method: 'PATCH',
         body: JSON.stringify({ name, description }),
+      }),
+    })
+  }
+}
+
+export function getMapPreferences() {
+  return dispatch => {
+    dispatch({ type: MAPS_PREFERENCES_GET_BEGIN })
+    dispatch({
+      type: MAPS_PREFERENCES_GET,
+      payload: fetch('/api/1/mapPreferences'),
+    })
+  }
+}
+
+export function updateMapPreferences(preferences) {
+  return dispatch => {
+    dispatch({ type: MAPS_PREFERENCES_UPDATE_BEGIN })
+    dispatch({
+      type: MAPS_PREFERENCES_UPDATE,
+      payload: fetch('/api/1/mapPreferences', {
+        method: 'post',
+        body: JSON.stringify(preferences),
       }),
     })
   }
