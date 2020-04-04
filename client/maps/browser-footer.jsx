@@ -438,10 +438,7 @@ export default class BrowserFooter extends React.PureComponent {
   }
 
   onSearchChange = event => {
-    const searchQuery = event.target.value
-
-    this.setState({ searchQuery })
-    this.props.onSearchChange(searchQuery)
+    this.props.onSearchChange(event.target.value)
   }
 
   onSearchFocus = () => {
