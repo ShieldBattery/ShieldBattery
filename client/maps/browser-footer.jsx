@@ -13,6 +13,7 @@ import { Label } from '../material/button.jsx'
 import Menu from '../material/menu/menu.jsx'
 import Popover from '../material/popover.jsx'
 import SelectedMenuItem from '../material/menu/selected-item.jsx'
+import TextField from '../material/text-field.jsx'
 
 import FilterIcon from '../icons/material/baseline-filter_list-24px.svg'
 import FolderIcon from '../icons/material/baseline-folder_open-24px.svg'
@@ -21,6 +22,7 @@ import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
 import { fastOutSlowIn } from '../material/curve-constants'
+import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
 import { Subheading } from '../styles/typography'
 
@@ -35,6 +37,7 @@ const transitionNames = {
 
 const ENTER = 'Enter'
 const ESCAPE = 'Escape'
+const F = 'KeyF'
 
 const Container = styled.div`
   position: relative;
@@ -114,6 +117,11 @@ const FilterActions = styled.div`
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
+`
+
+const SearchInput = styled(TextField)`
+  width: ${props => (props.isFocused ? '250px' : '200px')};
+  ${fastOutSlowInShort};
 `
 
 class FilterOverlay extends React.Component {
@@ -206,22 +214,26 @@ export default class BrowserFooter extends React.PureComponent {
     sortOption: PropTypes.number.isRequired,
     numPlayersFilter: PropTypes.instanceOf(Set).isRequired,
     tilesetFilter: PropTypes.instanceOf(Set).isRequired,
+    searchQuery: PropTypes.string.isRequired,
     onBrowseLocalMaps: PropTypes.func.isRequired,
     onSizeChange: PropTypes.func.isRequired,
     onFilterApply: PropTypes.func.isRequired,
     onSortChange: PropTypes.func.isRequired,
+    onSearchChange: PropTypes.func.isRequired,
   }
 
   state = {
     open: false,
     tempNumPlayersFilter: new Set(this.props.numPlayersFilter),
     tempTilesetFilter: new Set(this.props.tilesetFilter),
+    searchFocused: false,
   }
 
   _sizeButtonRef = React.createRef()
   _filterButtonRef = React.createRef()
   _sortButtonRef = React.createRef()
   _filterApplyButtonRef = React.createRef()
+  _searchInputRef = React.createRef()
 
   componentDidUpdate(prevProps, prevState) {
     if (!prevState.open && this.state.open === 'filterOverlay') {
@@ -230,8 +242,8 @@ export default class BrowserFooter extends React.PureComponent {
   }
 
   render() {
-    const { thumbnailSize, sortOption, onBrowseLocalMaps } = this.props
-    const { open, tempNumPlayersFilter, tempTilesetFilter } = this.state
+    const { thumbnailSize, sortOption, searchQuery, onBrowseLocalMaps } = this.props
+    const { open, tempNumPlayersFilter, tempTilesetFilter, searchFocused } = this.state
 
     const numPlayersItems = [
       [2, '2 players'],
@@ -270,6 +282,7 @@ export default class BrowserFooter extends React.PureComponent {
 
     return (
       <Container>
+        <KeyListener onKeyDown={this.onKeyDown} />
         <PositionedFloatingActionButton
           title='Browse local maps'
           icon={<FolderIcon />}
@@ -295,7 +308,18 @@ export default class BrowserFooter extends React.PureComponent {
             onClick={this.onSortMenuOpen}
           />
         </LeftActions>
-        <ActionButton icon={<SearchIcon />} title='Search' />
+        <SearchInput
+          ref={this._searchInputRef}
+          value={searchQuery}
+          label='Search'
+          dense={true}
+          allowErrors={false}
+          isFocused={searchFocused}
+          onChange={this.onSearchChange}
+          onFocus={this.onSearchFocus}
+          onBlur={this.onSearchBlur}
+          leadingIcons={[<SearchIcon />]}
+        />
 
         <Menu
           open={open === 'sizeMenu'}
@@ -411,5 +435,32 @@ export default class BrowserFooter extends React.PureComponent {
 
     this.props.onFilterApply(tempNumPlayersFilter, tempTilesetFilter)
     this.onDismiss()
+  }
+
+  onSearchChange = event => {
+    const searchQuery = event.target.value
+
+    this.setState({ searchQuery })
+    this.props.onSearchChange(searchQuery)
+  }
+
+  onSearchFocus = () => {
+    this.setState({ searchFocused: true })
+  }
+
+  onSearchBlur = () => {
+    this.setState({ searchFocused: false })
+  }
+
+  onKeyDown = event => {
+    if (event.code === F && event.ctrlKey) {
+      this._searchInputRef.current.focus()
+      return true
+    } else if (event.code === ESCAPE && this.state.searchFocused) {
+      this._searchInputRef.current.blur()
+      return true
+    }
+
+    return false
   }
 }
