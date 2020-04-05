@@ -265,11 +265,12 @@ export default class Maps extends React.Component {
     this._savePreferences()
     window.removeEventListener('beforeunload', this._savePreferences)
 
-    this.getMapsDebounced.cancel()
+    this._resetDebounced.cancel()
   }
 
   // This method should be called every time a tab changes or a new/different filter is applied
   _reset() {
+    this._resetDebounced.cancel()
     this.props.dispatch(clearMapsList())
     // Since we're using the same instance of the InfiniteList component to render maps, gotta
     // reset it each time we change tabs, or apply different filters. Also, make sure to do it
@@ -416,7 +417,7 @@ export default class Maps extends React.Component {
                   <InfiniteScrollList
                     ref={this._setInfiniteListRef}
                     isLoading={maps.isRequesting}
-                    onLoadMoreData={this.onLoadMoreData}>
+                    onLoadMoreData={this.onLoadMoreMaps}>
                     {this.renderAllMaps()}
                   </InfiniteScrollList>
                 </>
@@ -505,23 +506,11 @@ export default class Maps extends React.Component {
     }
   }
 
-  getMapsDebounced = debounce(searchQuery => {
-    const { activeTab, sortOption, numPlayersFilter, tilesetFilter } = this.state
-
-    this.props.dispatch(
-      getMapsList(
-        tabToVisibility(activeTab),
-        sortOption,
-        numPlayersFilter.toArray(),
-        tilesetFilter.toArray(),
-        searchQuery,
-      ),
-    )
-  }, 450)
+  _resetDebounced = debounce(this._reset, 450)
 
   onSearchChange = searchQuery => {
-    this.setState({ searchQuery })
+    this.setState(() => ({ searchQuery }), this._resetDebounced)
+    // TODO(2Pac): Display something else when a user starts typing and before the search starts?
     this.props.dispatch(clearMapsList())
-    this.getMapsDebounced(searchQuery)
   }
 }
