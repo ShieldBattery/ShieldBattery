@@ -21,8 +21,6 @@ import {
 
 const upload = IS_ELECTRON ? require('./upload').default : null
 
-const MAPS_LIMIT = 30
-
 export function selectLocalMap(path, onMapSelect) {
   return async dispatch => {
     dispatch({ type: LOCAL_MAPS_SELECT_BEGIN })
@@ -38,15 +36,14 @@ export function selectLocalMap(path, onMapSelect) {
   }
 }
 
-export function getMapsList(visibility, sort, numPlayers, tileset) {
-  return (dispatch, getState) => {
+export function getMapsList(visibility, limit, page, sort, numPlayers, tileset) {
+  return dispatch => {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
 
-    const { maps } = getState()
     const reqUrl =
       `/api/1/maps?visibility=${visibility}&sort=${sort}` +
       `&numPlayers=${JSON.stringify(numPlayers)}&tileset=${JSON.stringify(tileset)}` +
-      `&limit=${MAPS_LIMIT}&page=${maps.page}`
+      `&limit=${limit}&page=${page}`
     dispatch({ type: MAPS_LIST_GET, payload: fetch(reqUrl) })
   }
 }

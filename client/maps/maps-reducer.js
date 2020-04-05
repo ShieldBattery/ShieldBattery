@@ -43,7 +43,6 @@ const FavoritedMaps = new Record({
 export const Maps = new Record({
   list: new List(),
   byId: new Map(),
-  page: 0,
   total: -1,
 
   favoritedMaps: new FavoritedMaps(),
@@ -71,7 +70,6 @@ export default keyedReducer(new Maps(), {
     return state
       .set('list', list)
       .set('byId', byId)
-      .set('page', state.page + 1)
       .set('total', total)
       .setIn(['favoritedMaps', 'list'], new List(favoritedMaps.map(m => m.id)))
       .setIn(['favoritedMaps', 'byId'], new Map(favoritedMaps.map(m => [m.id, new MapRecord(m)])))

@@ -32,6 +32,8 @@ import { SORT_BY_NAME } from '../../app/common/maps'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
 
+const MAPS_LIMIT = 30
+
 const LoadingArea = styled.div`
   display: flex;
   flex-direction: row;
@@ -188,6 +190,7 @@ export default class Maps extends React.Component {
 
   state = {
     activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
+    currentPage: 0,
     thumbnailSize: 1,
     sortOption: SORT_BY_NAME,
     numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
@@ -248,10 +251,7 @@ export default class Maps extends React.Component {
     }
 
     if (prevState.activeTab !== activeTab) {
-      // Since we're using the same instance of the InfiniteList component to render maps, gotta
-      // reset it each time we change tabs
-      this.infiniteList.reset()
-      this.props.dispatch(clearMapsList())
+      this._reset()
     }
   }
 
@@ -262,6 +262,19 @@ export default class Maps extends React.Component {
     // was refreshed, the 'beforeunload' event listener will handle it.
     this._savePreferences()
     window.removeEventListener('beforeunload', this._savePreferences)
+  }
+
+  // This method should be called every time a tab changes or a new/different filter is applied
+  _reset() {
+    this.props.dispatch(clearMapsList())
+    // Since we're using the same instance of the InfiniteList component to render maps, gotta
+    // reset it each time we change tabs, or apply different filters. Also, make sure to do it
+    // after resetting the `currentPage` to 0, since the infinite list will start to load maps
+    // with whatever is currently saved in state.
+    this.setState(
+      () => ({ currentPage: 0 }),
+      () => this.infiniteList.reset(),
+    )
   }
 
   _renderMaps(header, maps) {
@@ -420,16 +433,22 @@ export default class Maps extends React.Component {
   }
 
   onLoadMoreMaps = () => {
-    const { activeTab, sortOption, numPlayersFilter, tilesetFilter } = this.state
+    const { maps } = this.props
+    const { activeTab, currentPage, sortOption, numPlayersFilter, tilesetFilter } = this.state
+
+    if (maps.total > -1 && maps.total <= MAPS_LIMIT * currentPage) return
 
     this.props.dispatch(
       getMapsList(
         tabToVisibility(activeTab),
+        MAPS_LIMIT,
+        currentPage,
         sortOption,
         numPlayersFilter.toArray(),
         tilesetFilter.toArray(),
       ),
     )
+    this.setState(state => ({ currentPage: state.currentPage + 1 }))
   }
 
   onTabChange = value => {
@@ -460,34 +479,12 @@ export default class Maps extends React.Component {
   }
 
   onFilterApply = (numPlayersFilter, tilesetFilter) => {
-    const { activeTab, sortOption } = this.state
-
-    this.setState({ numPlayersFilter, tilesetFilter })
-    this.props.dispatch(clearMapsList())
-    this.props.dispatch(
-      getMapsList(
-        tabToVisibility(activeTab),
-        sortOption,
-        numPlayersFilter.toArray(),
-        tilesetFilter.toArray(),
-      ),
-    )
+    this.setState(() => ({ numPlayersFilter, tilesetFilter }), this._reset)
   }
 
   onSortOptionChange = sortOption => {
-    const { activeTab, numPlayersFilter, tilesetFilter } = this.state
-
     if (this.state.sortOption !== sortOption) {
-      this.setState({ sortOption })
-      this.props.dispatch(clearMapsList())
-      this.props.dispatch(
-        getMapsList(
-          tabToVisibility(activeTab),
-          sortOption,
-          numPlayersFilter.toArray(),
-          tilesetFilter.toArray(),
-        ),
-      )
+      this.setState(() => ({ sortOption }), this._reset)
     }
   }
 }
