@@ -10,6 +10,7 @@
   right: 0;
   bottom: 0;
   text-align: center;
+  z-index: zIndexSnackbar;
 }
 
 .snackbar {
@@ -26,7 +27,6 @@
 
   border-radius: 2px;
   background-color: grey900;
-  z-index: zIndexSnackbar;
 }
 
 .message {
