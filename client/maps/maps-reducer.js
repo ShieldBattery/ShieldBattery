@@ -88,10 +88,17 @@ export default keyedReducer(new Maps(), {
       return state.set('favoriteStatusRequests', state.favoriteStatusRequests.delete(map.id))
     }
 
-    return state
+    const updated = state
       .setIn(['byId', map.id, 'isFavorited'], !map.isFavorited)
-      .setIn(['favoritedMaps', 'byId', map.id, 'isFavorited'], !map.isFavorited)
       .set('favoriteStatusRequests', state.favoriteStatusRequests.delete(map.id))
+
+    return map.isFavorited
+      ? updated
+          .deleteIn(['favoritedMaps', 'list', updated.favoritedMaps.list.indexOf(map.id)])
+          .deleteIn(['favoritedMaps', 'byId', map.id])
+      : updated
+          .updateIn(['favoritedMaps', 'list'], list => list.push(map.id))
+          .setIn(['favoritedMaps', 'byId', map.id], updated.byId.get(map.id))
   },
 
   [MAPS_UPDATE](state, action) {

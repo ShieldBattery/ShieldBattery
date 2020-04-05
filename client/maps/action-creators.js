@@ -1,4 +1,5 @@
 import fetch from '../network/fetch'
+import { openSnackbar } from '../snackbars/action-creators'
 import {
   LOCAL_MAPS_SELECT_BEGIN,
   LOCAL_MAPS_SELECT,
@@ -55,7 +56,13 @@ export function toggleFavoriteMap(map) {
     const reqUrl = `/api/1/maps/favorites/${map.id}`
     dispatch({
       type: MAPS_TOGGLE_FAVORITE,
-      payload: fetch(reqUrl, { method: map.isFavorited ? 'DELETE' : 'POST' }),
+      payload: fetch(reqUrl, { method: map.isFavorited ? 'DELETE' : 'POST' }).then(() => {
+        dispatch(
+          openSnackbar({
+            message: map.isFavorited ? 'Removed from favorites' : 'Saved to favorites',
+          }),
+        )
+      }),
       meta: { map },
     })
   }
