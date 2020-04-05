@@ -145,11 +145,12 @@ async function list(ctx, next) {
     uploadedBy = ctx.session.userId
   }
 
+  const filters = { numPlayers, tileset }
   const favoritedBy = ctx.session.userId
   const [mapsResult, favoritedMaps] = await Promise.all([
-    getMaps(visibility, sort, { numPlayers, tileset }, limit, page, favoritedBy, uploadedBy, q),
+    getMaps(visibility, sort, filters, limit, page, favoritedBy, uploadedBy, q),
     visibility === MAP_VISIBILITY_PRIVATE
-      ? getFavoritedMaps(favoritedBy, sort)
+      ? getFavoritedMaps(favoritedBy, sort, filters, q)
       : Promise.resolve([]),
   ])
   const { total, maps } = mapsResult

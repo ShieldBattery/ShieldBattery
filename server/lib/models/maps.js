@@ -292,7 +292,26 @@ export async function getMaps(
 }
 
 // TODO(2Pac): If it becomes a problem, add paging to this
-export async function getFavoritedMaps(favoritedBy, sort) {
+export async function getFavoritedMaps(favoritedBy, sort, filters = {}, searchStr) {
+  let whereCondition = 'WHERE removed_at IS NULL AND favorited_by = $1'
+  const params = [favoritedBy]
+
+  if (filters.numPlayers) {
+    whereCondition += ` AND players_ums = ANY($${params.length + 1})`
+    params.push(filters.numPlayers)
+  }
+
+  if (filters.tileset) {
+    whereCondition += ` AND tileset = ANY($${params.length + 1})`
+    params.push(filters.tileset)
+  }
+
+  if (searchStr) {
+    whereCondition += ` AND um.name ILIKE $${params.length + 1}`
+    const escapedStr = searchStr.replace(/[_%\\]/g, '\\$&')
+    params.push(`%${escapedStr}%`)
+  }
+
   const orderByStatement = getOrderByStatement(sort)
   const query = `
     SELECT
@@ -315,10 +334,9 @@ export async function getFavoritedMaps(favoritedBy, sort) {
     ON um.uploaded_by = u.id
     INNER JOIN maps AS m
     ON um.map_hash = m.hash
-    WHERE removed_at IS NULL AND favorited_by = $1
+    ${whereCondition}
     ${orderByStatement};
   `
-  const params = [favoritedBy]
 
   const { client, done } = await db()
   try {
