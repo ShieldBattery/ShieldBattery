@@ -37,14 +37,14 @@ export function selectLocalMap(path, onMapSelect) {
   }
 }
 
-export function getMapsList(visibility, limit, page, sort, numPlayers, tileset) {
+export function getMapsList(visibility, limit, page, sort, numPlayers, tileset, searchQuery) {
   return dispatch => {
     dispatch({ type: MAPS_LIST_GET_BEGIN })
 
     const reqUrl =
       `/api/1/maps?visibility=${visibility}&sort=${sort}` +
       `&numPlayers=${JSON.stringify(numPlayers)}&tileset=${JSON.stringify(tileset)}` +
-      `&limit=${limit}&page=${page}`
+      `&q=${searchQuery}&limit=${limit}&page=${page}`
     dispatch({ type: MAPS_LIST_GET, payload: fetch(reqUrl) })
   }
 }

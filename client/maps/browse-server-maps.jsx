@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { List, Map, Set } from 'immutable'
+import debounce from 'lodash.debounce'
 import styled from 'styled-components'
 
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -195,6 +196,7 @@ export default class Maps extends React.Component {
     sortOption: SORT_BY_NAME,
     numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
     tilesetFilter: new Set([0, 1, 2, 3, 4, 5, 6, 7]),
+    searchQuery: '',
     hasInitializedState: false,
   }
 
@@ -262,10 +264,13 @@ export default class Maps extends React.Component {
     // was refreshed, the 'beforeunload' event listener will handle it.
     this._savePreferences()
     window.removeEventListener('beforeunload', this._savePreferences)
+
+    this._resetDebounced.cancel()
   }
 
   // This method should be called every time a tab changes or a new/different filter is applied
   _reset() {
+    this._resetDebounced.cancel()
     this.props.dispatch(clearMapsList())
     // Since we're using the same instance of the InfiniteList component to render maps, gotta
     // reset it each time we change tabs, or apply different filters. Also, make sure to do it
@@ -336,12 +341,14 @@ export default class Maps extends React.Component {
 
   renderAllMaps() {
     const { maps } = this.props
-    const { activeTab } = this.state
+    const { activeTab, searchQuery } = this.state
 
     if (maps.total === -1) return null
     if (maps.total === 0) {
       let text
-      if (activeTab === TAB_OFFICIAL_MAPS) {
+      if (searchQuery) {
+        text = 'No results.'
+      } else if (activeTab === TAB_OFFICIAL_MAPS) {
         text = 'No official maps have been uploaded yet.'
       } else if (activeTab === TAB_MY_MAPS) {
         text =
@@ -369,6 +376,7 @@ export default class Maps extends React.Component {
       numPlayersFilter,
       tilesetFilter,
       sortOption,
+      searchQuery,
       hasInitializedState,
     } = this.state
 
@@ -427,6 +435,8 @@ export default class Maps extends React.Component {
           onFilterApply={this.onFilterApply}
           sortOption={sortOption}
           onSortChange={this.onSortOptionChange}
+          searchQuery={searchQuery}
+          onSearchChange={this.onSearchChange}
         />
       </Container>
     )
@@ -434,7 +444,14 @@ export default class Maps extends React.Component {
 
   onLoadMoreMaps = () => {
     const { maps } = this.props
-    const { activeTab, currentPage, sortOption, numPlayersFilter, tilesetFilter } = this.state
+    const {
+      activeTab,
+      currentPage,
+      sortOption,
+      numPlayersFilter,
+      tilesetFilter,
+      searchQuery,
+    } = this.state
 
     if (maps.total > -1 && maps.total <= MAPS_LIMIT * currentPage) return
 
@@ -446,6 +463,7 @@ export default class Maps extends React.Component {
         sortOption,
         numPlayersFilter.toArray(),
         tilesetFilter.toArray(),
+        searchQuery,
       ),
     )
     this.setState(state => ({ currentPage: state.currentPage + 1 }))
@@ -486,5 +504,13 @@ export default class Maps extends React.Component {
     if (this.state.sortOption !== sortOption) {
       this.setState(() => ({ sortOption }), this._reset)
     }
+  }
+
+  _resetDebounced = debounce(this._reset, 450)
+
+  onSearchChange = searchQuery => {
+    this.setState(() => ({ searchQuery }), this._resetDebounced)
+    // TODO(2Pac): Display something else when a user starts typing and before the search starts?
+    this.props.dispatch(clearMapsList())
   }
 }

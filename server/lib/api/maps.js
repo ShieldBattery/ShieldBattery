@@ -136,10 +136,6 @@ async function list(ctx, next) {
     throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
   }
 
-  if (q && !ctx.session.permissions.manageMaps) {
-    throw new httpErrors.Forbidden('Not enough permissions')
-  }
-
   let uploadedBy = null
   if (visibility === MAP_VISIBILITY_PRIVATE) {
     uploadedBy = ctx.session.userId
