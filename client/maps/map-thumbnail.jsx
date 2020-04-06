@@ -118,6 +118,7 @@ const MapName = styled(Subheading)`
 `
 
 const MapActionButton = styled(IconButton)`
+  flex-shrink: 0;
   min-height: 40px;
   width: 40px;
   padding: 0;
