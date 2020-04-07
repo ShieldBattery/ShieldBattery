@@ -9,7 +9,7 @@ import { List } from 'immutable'
 import { List as VirtualizedList } from 'react-virtualized'
 
 import styles from './browse-files.css'
-import { changePath, getFiles } from './action-creators'
+import { changePath, clearFiles, getFiles } from './action-creators'
 
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
@@ -161,6 +161,20 @@ class PathBreadcrumbs extends React.Component {
 
 @connect(state => ({ fileBrowser: state.fileBrowser }))
 export default class Files extends React.Component {
+  static propTypes = {
+    browseId: PropTypes.string.isRequired,
+    root: PropTypes.string.isRequired,
+    rootFolderName: PropTypes.string,
+    title: PropTypes.string,
+    titleButton: PropTypes.element,
+    fileTypes: PropTypes.object.isRequired,
+  }
+
+  static defaultProps = {
+    rootFolderName: 'Files',
+    title: 'Files',
+  }
+
   state = {
     focusedPath: window.localStorage.getItem(this.props.browseId + FOCUSED_KEY),
   }
@@ -208,14 +222,12 @@ export default class Files extends React.Component {
   componentDidMount() {
     const { browseId, root } = this.props
     const { focusedPath } = this.state
-    const { path } = this.props.fileBrowser[browseId]
-    if (path === '') {
-      const initialPath = focusedPath ? pathApi.parse(focusedPath).dir : root
+    const initialPath =
+      focusedPath && focusedPath.toLowerCase().startsWith(root.toLowerCase())
+        ? pathApi.parse(focusedPath).dir
+        : root
 
-      this.props.dispatch(changePath(browseId, initialPath))
-    } else {
-      this.props.dispatch(getFiles(browseId, path))
-    }
+    this.props.dispatch(changePath(browseId, initialPath))
 
     window.addEventListener('beforeunload', this._saveToLocalStorage)
   }
@@ -251,6 +263,7 @@ export default class Files extends React.Component {
   }
 
   componentWillUnmount() {
+    this.props.dispatch(clearFiles(this.props.browseId))
     // Saves the focused path to the local storage if the component had time to unmount. If it
     // didn't, eg. the page was refreshed, the 'beforeunload' event listener will handle it.
     this._saveToLocalStorage()

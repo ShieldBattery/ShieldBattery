@@ -2,6 +2,7 @@ import { List, Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   FILE_BROWSER_CHANGE_PATH,
+  FILE_BROWSER_CLEAR_FILES,
   FILE_BROWSER_GET_LIST_BEGIN,
   FILE_BROWSER_GET_LIST,
 } from '../actions'
@@ -65,5 +66,9 @@ export default keyedReducer(new FileStates(), {
 
   [FILE_BROWSER_CHANGE_PATH](state, action) {
     return state.setIn([action.payload.browseId, 'path'], action.payload.path)
+  },
+
+  [FILE_BROWSER_CLEAR_FILES](state, action) {
+    return state.set(action.payload.browseId, new FileBrowseState())
   },
 })

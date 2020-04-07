@@ -22,7 +22,7 @@ export default class Replays extends React.Component {
     const props = {
       browseId: 'replays',
       title: 'Local Replays',
-      rootFolderName: 'replays',
+      rootFolderName: 'Replays',
       root: getReplayFolder(),
       fileTypes,
     }
