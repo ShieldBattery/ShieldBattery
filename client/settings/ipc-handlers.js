@@ -1,8 +1,10 @@
 import { dispatch } from '../dispatch-registry'
 import getDowngradePath from '../active-game/get-downgrade-path'
-import { handleCheckStarcraftPathResult, maybeAttemptDowngrade } from '../network/is-psi-healthy'
+import {
+  handleCheckStarcraftPathResult,
+  maybeAttemptDowngrade,
+} from '../starcraft/is-starcraft-healthy'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
-import {} from '../actions'
 import {
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
@@ -10,7 +12,7 @@ import {
   SETTINGS_MERGE_ERROR,
 } from '../../app/common/ipc-constants'
 
-const { checkStarcraftPath } = IS_ELECTRON ? require('./check-starcraft-path') : null
+const { checkStarcraftPath } = IS_ELECTRON ? require('../starcraft/check-starcraft-path') : null
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

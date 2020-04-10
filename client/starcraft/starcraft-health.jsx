@@ -1,25 +1,44 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import styled from 'styled-components'
+
 import Dialog from '../material/dialog.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import {
-  isPsiHealthy,
+  isStarcraftHealthy,
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
   forceAttemptDowngrade,
-} from './is-psi-healthy'
+} from './is-starcraft-healthy'
 import getDowngradePath from '../active-game/get-downgrade-path'
-import styles from './psi-health.css'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
+import { Subheading } from '../styles/typography'
+
+const LoadingArea = styled.div`
+  width: 100%;
+  text-align: center;
+  padding-top: 24px;
+  padding-bottom: 24px;
+`
+
+const ErrorMessage = styled(Subheading)`
+  margin-top: 24px;
+  margin-bottom: 24px;
+`
+
+const HeaderText = styled(Subheading)`
+  margin-top: 0;
+`
 
 @connect(state => ({ starcraft: state.starcraft }))
-export default class PsiHealthCheckupDialog extends React.Component {
+export default class StarcraftHealthCheckupDialog extends React.Component {
   componentDidUpdate(prevProps) {
-    if (isPsiHealthy(this.props)) {
+    if (isStarcraftHealthy(this.props)) {
       this.props.dispatch(
         openSnackbar({
           message: 'Your local installation is now free of problems.',
@@ -67,9 +86,9 @@ export default class PsiHealthCheckupDialog extends React.Component {
             ShieldBattery is attempting to identify the version of your installed StarCraft
             client&hellip;
           </p>
-          <div className={styles.loadingArea}>
+          <LoadingArea>
             <LoadingIndicator />
-          </div>
+          </LoadingArea>
         </div>
       )
     }
@@ -107,9 +126,9 @@ export default class PsiHealthCheckupDialog extends React.Component {
           ShieldBattery was unable to make your version of StarCraft compatible with the service.
           The error message was:
         </p>
-        <p className={styles.errorMessage}>
+        <ErrorMessage as='p'>
           {lastDowngradeError.body ? lastDowngradeError.body.error : lastDowngradeError.message}
-        </p>
+        </ErrorMessage>
         <p>
           This may be a temporary error. Click the button below to try again, or consider
           reinstalling the{' '}
@@ -129,9 +148,9 @@ export default class PsiHealthCheckupDialog extends React.Component {
         title={'Installation problems detected'}
         onCancel={this.props.onCancel}
         showCloseButton={true}>
-        <p className={styles.headerText}>
+        <HeaderText as='p'>
           The following problems need to be corrected before you can play games on ShieldBattery:
-        </p>
+        </HeaderText>
         {this.renderInstallPathInfo()}
         {this.renderStarcraftVersionInfo()}
       </Dialog>

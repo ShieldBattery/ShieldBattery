@@ -5,7 +5,7 @@ import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
-import { checkStarcraftPath } from '../settings/check-starcraft-path'
+import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import getDowngradePath from './get-downgrade-path'
 import log from '../logging/logger'
 import {
@@ -143,7 +143,7 @@ export default class ActiveGameManager extends EventEmitter {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    // TODO(tec27): this needs to be handled differently (psi should really be reporting these
+    // TODO(tec27): this needs to be handled differently (game should really be reporting these
     // directly to the server)
     log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
     this.emit('gameResults', { results, time })
