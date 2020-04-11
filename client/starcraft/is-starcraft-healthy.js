@@ -1,5 +1,3 @@
-// TODO(tec27): Rename this file and the main function
-
 import logger from '../logging/logger'
 import {
   STARCRAFT_DOWNGRADE_BEGIN,
@@ -9,12 +7,8 @@ import {
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
-const checkStarcraftPath = IS_ELECTRON
-  ? require('../settings/check-starcraft-path').checkStarcraftPath
-  : null
-const patchStarcraftDir = IS_ELECTRON
-  ? require('../settings/patch-starcraft').patchStarcraftDir
-  : null
+const checkStarcraftPath = IS_ELECTRON ? require('./check-starcraft-path').checkStarcraftPath : null
+const patchStarcraftDir = IS_ELECTRON ? require('./patch-starcraft').patchStarcraftDir : null
 
 export function hasValidStarcraftPath({ starcraft }) {
   return starcraft.pathValid
@@ -24,7 +18,7 @@ export function hasValidStarcraftVersion({ starcraft }) {
   return starcraft.versionValid
 }
 
-export function isPsiHealthy({ starcraft }) {
+export function isStarcraftHealthy({ starcraft }) {
   return hasValidStarcraftPath({ starcraft }) && hasValidStarcraftVersion({ starcraft })
 }
 

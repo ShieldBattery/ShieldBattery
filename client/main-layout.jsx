@@ -63,7 +63,7 @@ import { openOverlay } from './activities/action-creators'
 import { leaveChannel } from './chat/action-creators'
 import { leaveLobby } from './lobbies/action-creators'
 import { closeWhisperSession } from './whispers/action-creators'
-import { isPsiHealthy } from './network/is-psi-healthy'
+import { isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
@@ -434,8 +434,8 @@ class MainLayout extends React.Component {
     if (!MATCHMAKING) {
       this.props.dispatch(openSnackbar({ message: 'Not implemented yet. Coming soon!' }))
     } else {
-      if (!isPsiHealthy(this.props)) {
-        this.props.dispatch(openDialog('psiHealth'))
+      if (!isStarcraftHealthy(this.props)) {
+        this.props.dispatch(openDialog('starcraftHealth'))
       } else {
         this.props.dispatch(openOverlay('findMatch'))
       }
@@ -447,16 +447,16 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick = () => {
-    if (!isPsiHealthy(this.props)) {
-      this.props.dispatch(openDialog('psiHealth'))
+    if (!isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
     }
   }
 
   onJoinLobbyClick = () => {
-    if (!isPsiHealthy(this.props)) {
-      this.props.dispatch(openDialog('psiHealth'))
+    if (!isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
     }
@@ -484,16 +484,16 @@ class MainLayout extends React.Component {
   }
 
   onMapsClick = () => {
-    if (!isPsiHealthy(this.props)) {
-      this.props.dispatch(openDialog('psiHealth'))
+    if (!isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('browseServerMaps', this.serverMapsProps))
     }
   }
 
   onReplaysClick = () => {
-    if (!isPsiHealthy(this.props)) {
-      this.props.dispatch(openDialog('psiHealth'))
+    if (!isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('watchReplay'))
     }

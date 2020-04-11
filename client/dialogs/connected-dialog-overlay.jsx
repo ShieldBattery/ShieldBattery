@@ -5,7 +5,7 @@ import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import Portal from '../material/portal.jsx'
 import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
-import PsiHealthCheckupDialog from '../network/psi-health.jsx'
+import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health.jsx'
 import JoinChannelDialog from '../chat/join-channel.jsx'
 import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import ChangelogDialog from '../changelog/changelog-dialog.jsx'
@@ -43,12 +43,12 @@ class ConnectedDialogOverlay extends React.Component {
         return { component: DownloadDialog, modal: false }
       case 'mapDetails':
         return { component: MapDetailsDialog, modal: false }
-      case 'psiHealth':
-        return { component: PsiHealthCheckupDialog, modal: false }
       case 'settings':
         return { component: Settings, modal: false }
       case 'simple':
         return { component: SimpleDialog, modal: false }
+      case 'starcraftHealth':
+        return { component: StarcraftHealthCheckupDialog, modal: false }
       case 'updateAvailable':
         return { component: UpdateDialog, modal: true }
       case 'whispers':
