@@ -1,5 +1,8 @@
 # Adding New StarCraft Patches
 
+**UPDATE:** _This guide is not applicable anymore and the feature has been turned off as it's
+currently not necessary._
+
 When StarCraft gets updated and we're not ready to support the new version (e.g. because we haven't
 updated out offsets/hooks yet, etc.), we have a built-in mechanism to transparently downgrade newer
 clients to a version of our choosing. This is done without affecting their installed client, merely

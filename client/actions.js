@@ -310,6 +310,9 @@ export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
 // An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
 // current path is a version we are compatible with
 export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
+// An updated StarCraft remastered status, stating whether or not the current path setting contains
+// a StarCraft:Remastered version or not
+export const STARCRAFT_REMASTERED_STATUS = 'STARCRAFT_REMASTERED_STATUS'
 
 // The server has finished subscribing this particular client to the things it needs to be in (e.g.
 // lobbies) and giving it initial data

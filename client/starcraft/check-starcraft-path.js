@@ -6,8 +6,9 @@ import glob from 'glob'
 import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
-import { REMASTERED } from '../../app/common/flags'
+import { REMASTERED, DOWNGRADE } from '../../app/common/flags'
 import checkFileExists from '../../app/common/check-file-exists'
+import getDowngradePath from '../downgrade/get-downgrade-path'
 
 const accessAsync = thenify(fs.access)
 const globAsync = thenify(glob)
@@ -42,24 +43,19 @@ async function checkRemasteredPath(dirPath) {
   }
 }
 
-// Returns whether or not a StarCraft path is valid, along with whether or not the versions of
-// files contained in it are the expected versions. A path is valid if it contains:
-//   - StarCraft.exe
-//   - storm.dll
-//   - local.dll
-//   - stardat.mpq
-//   - broodat.mpq
-//
-// Any such directory might not be the correct version, but *should* be patchable to a usable
-// version of the game.
-//
-// If the versions of the files contained in that directory are not valid, the downgradePath will
-// be checked for other copies. If downgradePath contains files that match the correct hashes, this
-// will be counted as having the correct version, but `downgradePath` will be true.
-export async function checkStarcraftPath(dirPath, downgradePath) {
+// Given a path, returns an object with the following information:
+//  - is this a valid StarCraft path
+//  - does this path contain a supported StarCraft version
+//  - is this a StarCraft:Remastered path
+//  - are we using the downgrade path to launch StarCraft
+export async function checkStarcraftPath(dirPath) {
+  const result = { path: false, version: false, remastered: false, downgradePath: false }
+
   if (REMASTERED) {
     if (await checkRemasteredPath(dirPath)) {
-      return { path: true, version: true, downgradePath: false, remastered: true }
+      // NOTE(2Pac): For now we're assuming that every SC:R version is supported since we're
+      // updating our offsets for each new patch dynamically thanks to neive's magic.
+      return { ...result, path: true, version: true, remastered: true }
     }
   }
   const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
@@ -67,7 +63,7 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   try {
     await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
   } catch (err) {
-    return { path: false, version: false, downgradePath: false, remastered: false }
+    return result
   }
 
   // Due to 1.19 version moving local.dll to a separate folder, we need to handle it separately
@@ -75,7 +71,7 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   if (!localDllValid) {
     const matches = await globAsync(`${dirPath}/locales/*/local.dll`)
     if (matches.length < 1) {
-      return { path: false, version: false, downgradePath: false, remastered: false }
+      return result
     }
   }
 
@@ -85,18 +81,22 @@ export async function checkStarcraftPath(dirPath, downgradePath) {
   ])
 
   if (starcraftValid && stormValid && localDllValid) {
-    return { path: true, version: true, downgradePath: false, remastered: false }
+    return { ...result, path: true, version: true }
   }
 
-  ;[starcraftValid, stormValid, localDllValid] = await Promise.all([
-    checkHash(path.join(downgradePath, 'starcraft.exe'), EXE_HASHES_1161),
-    checkHash(path.join(downgradePath, 'storm.dll'), STORM_HASHES_1161),
-    checkFileExists(path.join(downgradePath, 'local.dll')),
-  ])
+  if (DOWNGRADE) {
+    const downgradePath = getDowngradePath()
 
-  if (starcraftValid && stormValid && localDllValid) {
-    return { path: true, version: true, downgradePath: true, remastered: false }
-  } else {
-    return { path: true, version: false, downgradePath: false, remastered: false }
+    ;[starcraftValid, stormValid, localDllValid] = await Promise.all([
+      checkHash(path.join(downgradePath, 'starcraft.exe'), EXE_HASHES_1161),
+      checkHash(path.join(downgradePath, 'storm.dll'), STORM_HASHES_1161),
+      checkFileExists(path.join(downgradePath, 'local.dll')),
+    ])
+
+    if (starcraftValid && stormValid && localDllValid) {
+      return { ...result, path: true, version: true, downgradePath: true }
+    }
   }
+
+  return { ...result, path: true }
 }

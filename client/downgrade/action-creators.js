@@ -1,5 +1,5 @@
 import logger from '../logging/logger'
-import { handleCheckStarcraftPathResult } from '../starcraft/is-starcraft-healthy'
+import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
 import { STARCRAFT_DOWNGRADE_BEGIN, STARCRAFT_DOWNGRADE } from '../actions'
 
 const checkStarcraftPath = IS_ELECTRON
@@ -29,7 +29,7 @@ export function forceAttemptDowngrade(starcraftPath, downgradePath) {
     dispatch({ type: STARCRAFT_DOWNGRADE, payload: patchPromise })
 
     patchPromise
-      .then(() => checkStarcraftPath(starcraftPath, downgradePath))
+      .then(() => checkStarcraftPath(starcraftPath))
       .then(result => dispatch(handleCheckStarcraftPathResult(result)))
       .catch(() => {})
 

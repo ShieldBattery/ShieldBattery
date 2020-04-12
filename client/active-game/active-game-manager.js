@@ -8,6 +8,7 @@ import thenify from 'thenify'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 import log from '../logging/logger'
+import { REMASTERED, DOWNGRADE } from '../../app/common/flags'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -230,22 +231,19 @@ async function doLaunch(gameId, serverPort, settings) {
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }
-  const downgradePath = getDowngradePath()
-  const checkResult = await checkStarcraftPath(starcraftPath, downgradePath)
+  const checkResult = await checkStarcraftPath(starcraftPath)
   if (!checkResult.path || !checkResult.version) {
-    throw new Error(
-      `StarCraft path [${starcraftPath}, ${downgradePath}] not valid: ` +
-        JSON.stringify(checkResult),
-    )
+    throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
-  const isRemastered = checkResult.remastered
+  const useDowngradePath = DOWNGRADE && checkResult.downgrade
+  const isRemastered = REMASTERED && checkResult.remastered
 
   const userDataPath = remote.app.getPath('userData')
   let appPath
   if (isRemastered) {
     appPath = path.join(starcraftPath, 'x86/starcraft.exe')
   } else {
-    appPath = path.join(checkResult.downgradePath ? downgradePath : starcraftPath, 'starcraft.exe')
+    appPath = path.join(useDowngradePath ? getDowngradePath() : starcraftPath, 'starcraft.exe')
   }
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}"`

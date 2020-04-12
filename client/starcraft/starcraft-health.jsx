@@ -17,6 +17,7 @@ import { forceAttemptDowngrade } from '../downgrade/action-creators'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
+import { DOWNGRADE } from '../../app/common/flags'
 import { Subheading } from '../styles/typography'
 
 const LoadingArea = styled.div`
@@ -110,11 +111,16 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
             </span>{' '}
             and restart ShieldBattery.
           </p>
-          <p>
-            If you already have the latest version and are seeing this error, it may be a temporary
-            failure. Click the button below to try again, or contact an administrator for help.
-          </p>
-          <RaisedButton label={'Try again'} onClick={this.onTryAgainClick} />
+          {DOWNGRADE ? (
+            <>
+              <p>
+                If you already have the latest version and are seeing this error, it may be a
+                temporary failure. Click the button below to try again, or contact an administrator
+                for help.
+              </p>
+              <RaisedButton label={'Try again'} onClick={this.onTryAgainClick} />
+            </>
+          ) : null}
         </div>
       )
     }
