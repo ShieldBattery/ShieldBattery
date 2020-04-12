@@ -304,9 +304,6 @@ export const STARCRAFT_DOWNGRADE_BEGIN = 'STARCRAFT_DOWNGRADE_BEGIN'
 // The process of downgrading an existing StarCraft installation has succeeded or failed. On
 // success, it is *likely* that the StarCraft path is now valid
 export const STARCRAFT_DOWNGRADE = 'STARCRAFT_DOWNGRADE'
-// An updated downgrade path usage status, stating whether or not we're set to use an alternate
-// downgraded version of StarCraft for launching
-export const STARCRAFT_DOWNGRADE_PATH_USAGE = 'STARCRAFT_DOWNGRADE_PATH_USAGE'
 // An updated StarCraft path validity status, stating whether or not the current path setting
 // contains an accessible starcraft.exe
 export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'

@@ -6,7 +6,7 @@ import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import thenify from 'thenify'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
-import getDowngradePath from './get-downgrade-path'
+import getDowngradePath from '../downgrade/get-downgrade-path'
 import log from '../logging/logger'
 import {
   GAME_STATUS_UNKNOWN,

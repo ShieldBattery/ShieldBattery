@@ -12,9 +12,9 @@ import {
   isStarcraftHealthy,
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
-  forceAttemptDowngrade,
 } from './is-starcraft-healthy'
-import getDowngradePath from '../active-game/get-downgrade-path'
+import { forceAttemptDowngrade } from '../downgrade/action-creators'
+import getDowngradePath from '../downgrade/get-downgrade-path'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
 import { Subheading } from '../styles/typography'
@@ -35,7 +35,7 @@ const HeaderText = styled(Subheading)`
   margin-top: 0;
 `
 
-@connect(state => ({ starcraft: state.starcraft }))
+@connect(state => ({ downgrade: state.downgrade, starcraft: state.starcraft }))
 export default class StarcraftHealthCheckupDialog extends React.Component {
   componentDidUpdate(prevProps) {
     if (isStarcraftHealthy(this.props)) {
@@ -76,7 +76,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
       return null
     }
 
-    const { downgradeInProgress, lastDowngradeError } = this.props.starcraft
+    const { downgradeInProgress, lastDowngradeError } = this.props.downgrade
 
     // Wait for the downgrade to finish/fail
     if (downgradeInProgress) {

@@ -1,9 +1,7 @@
 import { dispatch } from '../dispatch-registry'
-import getDowngradePath from '../active-game/get-downgrade-path'
-import {
-  handleCheckStarcraftPathResult,
-  maybeAttemptDowngrade,
-} from '../starcraft/is-starcraft-healthy'
+import getDowngradePath from '../downgrade/get-downgrade-path'
+import { handleCheckStarcraftPathResult } from '../starcraft/is-starcraft-healthy'
+import { maybeAttemptDowngrade } from '../downgrade/action-creators'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
 import {
   SETTINGS_CHANGED,
