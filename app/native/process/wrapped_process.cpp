@@ -151,6 +151,10 @@ static WindowsError GetRemoteModuleHandle(uint32_t process_id, const string& mod
   }
 
   if (tlh.get() == INVALID_HANDLE_VALUE) {
+    auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
+    if (err.is_error()) {
+      return err;
+    }
     return WindowsError("GetRemoteModuleHandle -> CreateToolhelp32Snapshot", GetLastError());
   }
 
