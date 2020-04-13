@@ -1,10 +1,9 @@
 import { dispatch } from '../dispatch-registry'
-import getDowngradePath from '../active-game/get-downgrade-path'
-import {
-  handleCheckStarcraftPathResult,
-  maybeAttemptDowngrade,
-} from '../starcraft/is-starcraft-healthy'
+import getDowngradePath from '../downgrade/get-downgrade-path'
+import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
+import { maybeAttemptDowngrade } from '../downgrade/action-creators'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
+import { DOWNGRADE } from '../../app/common/flags'
 import {
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
@@ -34,11 +33,11 @@ export default function registerModule({ ipcRenderer }) {
 
       lastPath = settings.starcraftPath
       lastPathWasValid = false
-      checkStarcraftPath(settings.starcraftPath, getDowngradePath()).then(result => {
+      checkStarcraftPath(settings.starcraftPath).then(result => {
         lastPathWasValid = result.path && result.version
         dispatch(handleCheckStarcraftPathResult(result))
 
-        if (result.path && !result.version) {
+        if (DOWNGRADE && result.path && !result.version) {
           dispatch(maybeAttemptDowngrade(settings.starcraftPath, getDowngradePath()))
         }
       })
