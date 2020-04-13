@@ -46,7 +46,7 @@ async function checkRemasteredPath(dirPath) {
 // Given a path, returns an object with the following information:
 //  - is this a valid StarCraft path
 //  - does this path contain a supported StarCraft version
-//  - is this a StarCraft:Remastered path
+//  - is this a StarCraft:Remastered version of the game
 //  - are we using the downgrade path to launch StarCraft
 export async function checkStarcraftPath(dirPath) {
   const result = { path: false, version: false, remastered: false, downgradePath: false }

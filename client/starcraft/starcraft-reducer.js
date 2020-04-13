@@ -2,8 +2,8 @@ import { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   STARCRAFT_PATH_VALIDITY,
-  STARCRAFT_VERSION_VALIDITY,
   STARCRAFT_REMASTERED_STATUS,
+  STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
 export const StarcraftStatus = new Record({

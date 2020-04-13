@@ -1,7 +1,7 @@
 import {
   STARCRAFT_PATH_VALIDITY,
-  STARCRAFT_VERSION_VALIDITY,
   STARCRAFT_REMASTERED_STATUS,
+  STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
 
 export function handleCheckStarcraftPathResult(result) {
