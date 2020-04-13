@@ -518,7 +518,7 @@ void Process::LogMessage(const char *fmt, ...) {
 // not initialized. By creating a dummy thread that just returns, we get Windows to fill out all the
 // things we need, while not actually advancing the threads we want to keep at bay.
 WindowsError Process::NtForceLdrInitializeThunk() {
-  byte injected_code[] = {0xC3 /* RET */};
+  byte injected_code[] = {0xC2, 0x04, 0x00 /* RET 4 */};
   ScopedVirtualAlloc remote_proc(process_handle_.get(), nullptr, sizeof(injected_code), MEM_COMMIT,
       PAGE_EXECUTE_READWRITE);
   if (remote_proc.has_errors()) {
