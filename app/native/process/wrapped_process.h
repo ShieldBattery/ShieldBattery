@@ -75,6 +75,7 @@ public:
   WindowsError Terminate();
   WindowsError WaitForExit(uint32_t max_wait_ms = INFINITE, bool* timed_out = nullptr);
   WindowsError GetExitCode(uint32_t* exit_code);
+  void CreateMiniDump(const std::string& error_dump_path);
 private:
   WindowsError NtForceLdrInitializeThunk();
   WindowsError DebugUntilTlsCallback(void **tls_callback_entry);

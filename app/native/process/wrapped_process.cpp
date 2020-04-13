@@ -122,22 +122,6 @@ ScopedVirtualAlloc::~ScopedVirtualAlloc() {
   }
 }
 
-static WindowsError CreateMiniDump(HANDLE process, const string& path) {
-  HANDLE handle = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
-    FILE_ATTRIBUTE_NORMAL, NULL);
-  if (handle == INVALID_HANDLE_VALUE) {
-    return WindowsError("CreateMiniDump -> CreateFile", GetLastError());
-  }
-  WinHandle file(handle);
-
-  BOOL success = MiniDumpWriteDump(process, GetProcessId(process), file.get(),
-    MiniDumpWithFullMemory, NULL, NULL, NULL);
-  if (!success) {
-    return WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
-  }
-  return WindowsError();
-}
-
 static WindowsError GetRemoteModuleHandle(uint32_t process_id, const string& module,
     HMODULE* handle_out) {
   *handle_out = nullptr;
@@ -1071,10 +1055,6 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
 
     uint32_t wait_result = WaitForSingleObject(thread_handle.get(), 15000);
     if (wait_result == WAIT_TIMEOUT) {
-      auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
-      if (err.is_error()) {
-        return err;
-      }
       return WindowsError("InjectDll -> WaitForSingleObject", WAIT_TIMEOUT);
     } else if (wait_result == WAIT_FAILED) {
       return WindowsError("InjectDll -> WaitForSingleObject", GetLastError());
@@ -1087,10 +1067,6 @@ WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_fu
     }
 
     if (exit_code != 0) {
-      auto err = CreateMiniDump(process_handle_.get(), error_dump_path);
-      if (err.is_error()) {
-        return err;
-      }
       return WindowsError("InjectDll -> injection proc exit code (error dump saved)", exit_code);
     }
   }
@@ -1157,6 +1133,30 @@ WindowsError Process::GetExitCode(uint32_t* exit_code) {
   }
 
   return WindowsError();
+}
+
+void Process::CreateMiniDump(const string& error_dump_path) {
+  HANDLE handle = CreateFileA(error_dump_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL,
+    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  WindowsError err = WindowsError();
+
+  if (handle == INVALID_HANDLE_VALUE) {
+    err = WindowsError("CreateMiniDump -> CreateFile", GetLastError());
+  }
+  WinHandle file(handle);
+
+  BOOL success = MiniDumpWriteDump(process_handle_.get(), GetProcessId(process_handle_.get()),
+    file.get(), MiniDumpWithFullMemory, NULL, NULL, NULL);
+  if (!success) {
+    err = WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
+  }
+
+  if (err.is_error()) {
+    LogMessage("Failed writing the minidump file with the following error: %s",
+        err.message().c_str());
+  } else {
+    LogMessage("Successfully written the minidump file at: %s", error_dump_path.c_str());
+  }
 }
 
 WrappedProcess::WrappedProcess() : process_(nullptr) {
@@ -1235,6 +1235,8 @@ void InjectDllAfter(uv_work_t* req, int status) {
 
   Local<Value> err = Null();
   if (context->error.is_error()) {
+    context->process->CreateMiniDump(context->error_dump_file);
+
     err = Exception::Error(Nan::New(context->error.message().c_str()).ToLocalChecked());
   }
 
