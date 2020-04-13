@@ -952,8 +952,7 @@ WindowsError Process::SetupCall(void *remote_proc, void *arg, void *ret) {
   return WindowsError();
 }
 
-WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name,
-  const string& error_dump_path) {
+WindowsError Process::InjectDll(const wstring& dll_path, const string& inject_function_name) {
   if (has_errors()) {
     return error();
   }
@@ -1137,13 +1136,15 @@ WindowsError Process::GetExitCode(uint32_t* exit_code) {
 
 void Process::CreateMiniDump(const string& error_dump_path) {
   HANDLE handle = CreateFileA(error_dump_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL,
-    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  WinHandle file(handle);
   WindowsError err = WindowsError();
 
   if (handle == INVALID_HANDLE_VALUE) {
     err = WindowsError("CreateMiniDump -> CreateFile", GetLastError());
+
+    return;
   }
-  WinHandle file(handle);
 
   BOOL success = MiniDumpWriteDump(process_handle_.get(), GetProcessId(process_handle_.get()),
     file.get(), MiniDumpWithFullMemory, NULL, NULL, NULL);
@@ -1225,8 +1226,7 @@ struct InjectDllContext {
 void InjectDllWork(uv_work_t* req) {
   InjectDllContext* context = reinterpret_cast<InjectDllContext*>(req->data);
 
-  context->error = context->process->InjectDll(context->dll_path, context->inject_func,
-      context->error_dump_file);
+  context->error = context->process->InjectDll(context->dll_path, context->inject_func);
 }
 
 void InjectDllAfter(uv_work_t* req, int status) {

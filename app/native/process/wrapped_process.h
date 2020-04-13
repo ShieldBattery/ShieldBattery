@@ -69,8 +69,7 @@ public:
   bool has_errors() const;
   WindowsError error() const;
 
-  WindowsError InjectDll(const std::wstring& dll_path, const std::string& inject_function_name,
-    const std::string& error_dump_path);
+  WindowsError InjectDll(const std::wstring& dll_path, const std::string& inject_function_name);
   WindowsError Resume();
   WindowsError Terminate();
   WindowsError WaitForExit(uint32_t max_wait_ms = INFINITE, bool* timed_out = nullptr);
