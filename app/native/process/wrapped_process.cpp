@@ -1142,21 +1142,20 @@ void Process::CreateMiniDump(const string& error_dump_path) {
 
   if (handle == INVALID_HANDLE_VALUE) {
     err = WindowsError("CreateMiniDump -> CreateFile", GetLastError());
-
-    return;
   }
 
-  BOOL success = MiniDumpWriteDump(process_handle_.get(), GetProcessId(process_handle_.get()),
-    file.get(), MiniDumpWithFullMemory, NULL, NULL, NULL);
-  if (!success) {
-    err = WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
+  if (!err.is_error()) {
+    BOOL success = MiniDumpWriteDump(process_handle_.get(), GetProcessId(process_handle_.get()),
+      file.get(), MiniDumpWithFullMemory, NULL, NULL, NULL);
+    if (!success) {
+      err = WindowsError("CreateMiniDump -> MiniDumpWriteDump", GetLastError());
+    }
   }
 
   if (err.is_error()) {
-    LogMessage("Failed writing the minidump file with the following error: %s",
-        err.message().c_str());
+    LogMessage("Failed saving the minidump: %s", err.message().c_str());
   } else {
-    LogMessage("Successfully written the minidump file at: %s", error_dump_path.c_str());
+    LogMessage("Successfully saved the minidump at: %s", error_dump_path.c_str());
   }
 }
 
