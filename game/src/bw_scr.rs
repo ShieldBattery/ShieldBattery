@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use std::mem;
 use std::path::Path;
 use std::ptr::{null};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use lazy_static::lazy_static;
@@ -150,44 +149,22 @@ unsafe extern "stdcall" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
 /// (It isn't that slow performance-wise, and who knows if a future patch
 /// moves data around even in middle of game to be a nuisance)
 ///
-/// This wrapper exists to unnsafely implement Send and Sync for
-/// scarf::Operand.
-///
-/// In general this should not be done as the Operand is a recursive structure
-/// containing more Rc<Operand>s, and simultaneously calling rc.clone() from
-/// multiple threads is a data race. Rust also isn't flexible enough to have
-/// operands use single-threaded Rc during analysis and returned values use
-/// thread-safe Arc :l
-///
-/// This structure should only be used to resolve the Operand to a value in
-/// BW's memory, and the resolve function should be careful to not clone
-/// anything (it won't need to).
-///
 /// Note: It is fine to over/underestimate size of an integer type, e.g.
 /// using Value<u32> instead of Value<u8> won't corrupt unrelated values.
 /// Though using a smaller size than what the value internally is will
 /// truncate any read data to that size.
 /// (So maybe using Value<u32> always would be fine?)
 struct Value<T> {
-    op: Rc<scarf::Operand>,
+    op: scarf::Operand<'static>,
     phantom: PhantomData<T>,
 }
 
 impl<T> Value<T> {
-    fn new(op: Rc<scarf::Operand>) -> Value<T> {
+    fn new(ctx: scarf::OperandCtx<'static>, op: scarf::Operand<'_>) -> Value<T> {
         Value {
-            op,
+            op: ctx.copy_operand(op),
             phantom: Default::default(),
         }
-    }
-}
-
-/// Dropping should also not be done as it decrements the unsynchronized
-/// refcount. It really shouldn't be happening anyway since BwScr is
-/// stored in a global which isn't overwritten ever.
-impl<T> Drop for Value<T> {
-    fn drop(&mut self) {
-        panic!("Why is this being dropped");
     }
 }
 
@@ -213,7 +190,7 @@ impl BwValue for u32 {
 
 impl<T: BwValue> Value<T> {
     unsafe fn resolve(&self) -> T {
-        T::from_usize(resolve_operand(&self.op))
+        T::from_usize(resolve_operand(self.op))
     }
 
     /// Writes over the value.
@@ -229,9 +206,9 @@ impl<T: BwValue> Value<T> {
     unsafe fn write(&self, value: T) {
         use samase_scarf::scarf::{MemAccessSize, OperandType};
         let value = T::to_usize(value);
-        match self.op.ty {
+        match self.op.ty() {
             OperandType::Memory(ref mem) => {
-                let addr = resolve_operand(&mem.address);
+                let addr = resolve_operand(mem.address);
                 match mem.size {
                     MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
                     MemAccessSize::Mem16 => *(addr as *mut u16) = value as u16,
@@ -244,12 +221,15 @@ impl<T: BwValue> Value<T> {
     }
 }
 
-unsafe fn resolve_operand(op: &Rc<scarf::Operand>) -> usize {
+unsafe impl<T> Send for Value<T> {}
+unsafe impl<T> Sync for Value<T> {}
+
+unsafe fn resolve_operand(op: scarf::Operand<'_>) -> usize {
     use samase_scarf::scarf::{ArithOpType, MemAccessSize, OperandType};
-    match op.ty {
+    match *op.ty() {
         OperandType::Constant(c) => c as usize,
         OperandType::Memory(ref mem) => {
-            let addr = resolve_operand(&mem.address);
+            let addr = resolve_operand(mem.address);
             match mem.size {
                 MemAccessSize::Mem8 => (addr as *const u8).read_unaligned() as usize,
                 MemAccessSize::Mem16 => (addr as *const u16).read_unaligned() as usize,
@@ -258,8 +238,8 @@ unsafe fn resolve_operand(op: &Rc<scarf::Operand>) -> usize {
             }
         }
         OperandType::Arithmetic(ref arith) => {
-            let left = resolve_operand(&arith.left);
-            let right = resolve_operand(&arith.right);
+            let left = resolve_operand(arith.left);
+            let right = resolve_operand(arith.right);
             match arith.ty {
                 ArithOpType::Add => left.wrapping_add(right),
                 ArithOpType::Sub => left.wrapping_sub(right),
@@ -279,9 +259,6 @@ unsafe fn resolve_operand(op: &Rc<scarf::Operand>) -> usize {
         _ => panic!("Unimplemented resolve: {}", op),
     }
 }
-
-unsafe impl<T> Send for Value<T> {}
-unsafe impl<T> Sync for Value<T> {}
 
 impl BwScr {
     /// On failure returns a description of address that couldn't be found
@@ -343,21 +320,22 @@ impl BwScr {
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
         debug!("Found all necessary BW data");
+        let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
         Ok(BwScr {
-            game: Value::new(game),
-            players: Value::new(players),
-            storm_players: Value::new(storm_players.0),
-            storm_player_flags: Value::new(storm_player_flags),
-            lobby_state: Value::new(lobby_state),
-            is_multiplayer: Value::new(is_multiplayer),
-            game_state: Value::new(game_state),
-            sprites_inited: Value::new(sprites_inited),
-            local_player_id: Value::new(local_player_id),
-            local_unique_player_id: Value::new(local_unique_player_id),
-            local_storm_id: Value::new(local_storm_id),
-            net_player_to_game: Value::new(net_player_to_game),
-            net_player_to_unique: Value::new(net_player_to_unique),
-            local_player_name: Value::new(local_player_name),
+            game: Value::new(ctx, game),
+            players: Value::new(ctx, players),
+            storm_players: Value::new(ctx, storm_players.0),
+            storm_player_flags: Value::new(ctx, storm_player_flags),
+            lobby_state: Value::new(ctx, lobby_state),
+            is_multiplayer: Value::new(ctx, is_multiplayer),
+            game_state: Value::new(ctx, game_state),
+            sprites_inited: Value::new(ctx, sprites_inited),
+            local_player_id: Value::new(ctx, local_player_id),
+            local_unique_player_id: Value::new(ctx, local_unique_player_id),
+            local_storm_id: Value::new(ctx, local_storm_id),
+            net_player_to_game: Value::new(ctx, net_player_to_game),
+            net_player_to_unique: Value::new(ctx, net_player_to_unique),
+            local_player_name: Value::new(ctx, local_player_name),
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             maybe_receive_turns: unsafe { mem::transmute(maybe_receive_turns.0) },
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
