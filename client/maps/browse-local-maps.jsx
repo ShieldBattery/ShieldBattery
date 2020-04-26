@@ -7,7 +7,6 @@ import styled from 'styled-components'
 import ActivityBackButton from '../activities/activity-back-button.jsx'
 import BrowseFiles from '../file-browser/browse-files.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
-import { closeOverlay } from '../activities/action-creators'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { selectLocalMap } from './action-creators'
 
@@ -32,7 +31,6 @@ export default class LocalMaps extends React.Component {
     const { localMaps: curMaps } = this.props
 
     if (!prevMaps.lastError && curMaps.lastError) {
-      this.props.dispatch(closeOverlay())
       this.props.dispatch(
         openSnackbar({ message: 'There was a problem uploading the map', time: TIMING_LONG }),
       )
@@ -40,7 +38,7 @@ export default class LocalMaps extends React.Component {
   }
 
   render() {
-    if (!this.props.settings.local.starcraftPath || this.props.localMaps.lastError) {
+    if (!this.props.settings.local.starcraftPath) {
       return null
     }
 
