@@ -57,7 +57,7 @@ export class TabItem extends React.Component {
     text: PropTypes.string.isRequired,
     value: PropTypes.number,
     active: PropTypes.bool,
-    onTabClick: PropTypes.func,
+    onClick: PropTypes.func,
   }
 
   render() {
@@ -71,8 +71,8 @@ export class TabItem extends React.Component {
   }
 
   onTabClick = () => {
-    if (this.props.onTabClick) {
-      this.props.onTabClick(this.props.value)
+    if (this.props.onClick) {
+      this.props.onClick(this.props.value)
     }
   }
 }
@@ -80,7 +80,7 @@ export class TabItem extends React.Component {
 export default class Tabs extends React.Component {
   static propTypes = {
     activeTab: PropTypes.number.isRequired,
-    onTabChange: PropTypes.func,
+    onChange: PropTypes.func,
   }
 
   state = {
@@ -120,7 +120,7 @@ export default class Tabs extends React.Component {
       return React.cloneElement(child, {
         value: i,
         active: i === this.props.activeTab,
-        onTabClick: this.onTabChange,
+        onClick: this.onTabChange,
       })
     })
 

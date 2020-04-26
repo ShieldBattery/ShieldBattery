@@ -6,6 +6,7 @@ import DevMenu from './menu-test.jsx'
 import DevPopover from './popover-test.jsx'
 import DevSelects from './selects-test.jsx'
 import DevSliders from './slider-test.jsx'
+import DevSteppers from './stepper-test.jsx'
 import DevTextFields from './text-field-test.jsx'
 
 class DevMaterialDashboard extends React.Component {
@@ -30,6 +31,9 @@ class DevMaterialDashboard extends React.Component {
           <Link to={baseUrl + '/slider'}>Slider component</Link>
         </li>
         <li>
+          <Link to={baseUrl + '/stepper'}>Stepper component</Link>
+        </li>
+        <li>
           <Link to={baseUrl + '/textfield'}>Textfield component</Link>
         </li>
       </ul>
@@ -51,6 +55,7 @@ export default props => {
       <Route path={baseUrl + '/popover'} component={DevPopover} />
       <Route path={baseUrl + '/select'} component={DevSelects} />
       <Route path={baseUrl + '/slider'} component={DevSliders} />
+      <Route path={baseUrl + '/stepper'} component={DevSteppers} />
       <Route path={baseUrl + '/textfield'} component={DevTextFields} />
     </Switch>
   )
