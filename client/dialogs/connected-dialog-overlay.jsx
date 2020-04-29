@@ -6,6 +6,7 @@ import Portal from '../material/portal.jsx'
 import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health.jsx'
+import StarcraftPathDialog from '../settings/starcraft-path-dialog.jsx'
 import JoinChannelDialog from '../chat/join-channel.jsx'
 import CreateWhisperSessionDialog from '../whispers/create-whisper.jsx'
 import ChangelogDialog from '../changelog/changelog-dialog.jsx'
@@ -13,7 +14,9 @@ import DownloadDialog from '../download/download-dialog.jsx'
 import UpdateDialog from '../download/update-dialog.jsx'
 import AcceptMatch from '../matchmaking/accept-match.jsx'
 import MapDetailsDialog from '../maps/map-details.jsx'
+
 import { closeDialog } from './action-creators'
+import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 const transitionNames = {
   appear: 'enter',
@@ -24,7 +27,7 @@ const transitionNames = {
   exitActive: 'exitActive',
 }
 
-@connect(state => ({ dialog: state.dialog }))
+@connect(state => ({ dialog: state.dialog, starcraft: state.starcraft }))
 class ConnectedDialogOverlay extends React.Component {
   _focusable = null
   _setFocusable = elem => {
@@ -44,11 +47,15 @@ class ConnectedDialogOverlay extends React.Component {
       case 'mapDetails':
         return { component: MapDetailsDialog, modal: false }
       case 'settings':
-        return { component: Settings, modal: false }
+        return isStarcraftHealthy(this.props)
+          ? { component: Settings, modal: false }
+          : { component: StarcraftPathDialog, modal: false }
       case 'simple':
         return { component: SimpleDialog, modal: false }
       case 'starcraftHealth':
         return { component: StarcraftHealthCheckupDialog, modal: false }
+      case 'starcraftPath':
+        return { component: StarcraftPathDialog, modal: false }
       case 'updateAvailable':
         return { component: UpdateDialog, modal: true }
       case 'whispers':
