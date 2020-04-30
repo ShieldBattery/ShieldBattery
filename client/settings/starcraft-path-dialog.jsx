@@ -11,11 +11,13 @@ import TextField from '../material/text-field.jsx'
 
 import { openDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
-import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 
 import { colorError } from '../styles/colors'
 import { Subheading } from '../styles/typography'
 
+const checkStarcraftPath = IS_ELECTRON
+  ? require('../starcraft/check-starcraft-path').checkStarcraftPath
+  : null
 const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
 const dialog = IS_ELECTRON ? require('electron').remote.dialog : null
 
