@@ -1,5 +1,6 @@
 import { Record } from 'immutable'
-import { LOCAL_SETTINGS_SET, LOCAL_SETTINGS_UPDATE } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
+import { LOCAL_SETTINGS_SET_BEGIN, LOCAL_SETTINGS_SET, LOCAL_SETTINGS_UPDATE } from '../actions'
 
 export const LocalSettings = new Record({
   width: -1,
@@ -10,6 +11,8 @@ export const LocalSettings = new Record({
   starcraftPath: null,
   gameWinX: null,
   gameWinY: null,
+
+  lastError: null,
 })
 
 export const Settings = new Record({
@@ -17,26 +20,30 @@ export const Settings = new Record({
   global: null,
 })
 
-export function localSettingsReducer(state = new LocalSettings(), action) {
-  if (action.type === LOCAL_SETTINGS_UPDATE) {
-    if (action.error) {
-      // TODO(tec27): deal with the error
-    } else {
-      return new LocalSettings(action.payload)
-    }
-  } else if (action.type === LOCAL_SETTINGS_SET) {
+export const localSettingsReducer = keyedReducer(new LocalSettings(), {
+  [LOCAL_SETTINGS_SET_BEGIN](state, action) {
+    return state.set('lastError', null)
+  },
+
+  [LOCAL_SETTINGS_SET](state, action) {
     // LOCAL_SETTINGS_UPDATE will update the settings if they change. Only handle the errors here
     if (action.error) {
-      // TODO(2Pac): deal with the error
+      return state.set('lastError', action.error)
     }
-  }
 
-  return state
-}
+    return state
+  },
 
-export function globalSettingsReducer(state = null, action) {
-  return state
-}
+  [LOCAL_SETTINGS_UPDATE](state, action) {
+    if (action.error) {
+      // TODO(tec27): deal with the error
+    }
+
+    return new LocalSettings(action.payload)
+  },
+})
+
+export const globalSettingsReducer = keyedReducer(null, {})
 
 export default function settingsReducer(state = new Settings(), action) {
   return state.withMutations(state => {

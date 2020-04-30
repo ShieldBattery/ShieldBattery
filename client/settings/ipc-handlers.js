@@ -11,7 +11,9 @@ import {
   SETTINGS_MERGE_ERROR,
 } from '../../app/common/ipc-constants'
 
-const { checkStarcraftPath } = IS_ELECTRON ? require('../starcraft/check-starcraft-path') : null
+const checkStarcraftPath = IS_ELECTRON
+  ? require('../starcraft/check-starcraft-path').checkStarcraftPath
+  : null
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

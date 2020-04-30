@@ -1,17 +1,26 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import styled from 'styled-components'
+
+import CheckBox from '../material/check-box.jsx'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
-import Option from '../material/select/option.jsx'
 import form from '../forms/form.jsx'
+import IconButton from '../material/icon-button.jsx'
+import { Label } from '../material/button.jsx'
+import Option from '../material/select/option.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
-import CheckBox from '../material/check-box.jsx'
 import Select from '../material/select/select.jsx'
 import Slider from '../material/slider.jsx'
-import TextField from '../material/text-field.jsx'
-import { minLength } from '../forms/validators'
-import { closeDialog } from '../dialogs/action-creators'
+
+import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
+
+import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
+import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
+
+import { colorTextSecondary, colorError } from '../styles/colors'
+import { Body1, Subheading } from '../styles/typography'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size
@@ -36,10 +45,52 @@ function filterWindowSizes(width, height) {
 
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 
-@form({
-  path: minLength(1, 'StarCraft path is required'),
-})
-class SettingsForm extends React.Component {
+const TitleActionContainer = styled.div`
+  display: flex;
+  align-items: center;
+`
+
+const TitleActionText = styled(Body1)`
+  color: ${colorTextSecondary};
+`
+
+const TitleActionButton = styled(IconButton)`
+  flex-shrink: 0;
+  min-height: 40px;
+  width: 40px;
+  margin-right: 24px;
+  margin-left: 4px;
+  line-height: 40px;
+
+  & ${Label} {
+    color: ${colorTextSecondary};
+  }
+`
+
+const ErrorText = styled(Subheading)`
+  color: ${colorError};
+`
+
+@form()
+class SettingsRemasteredForm extends React.Component {
+  render() {
+    const { bindCustom, onSubmit } = this.props
+
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
+          <Option value={0} text='Fullscreen' />
+          <Option value={1} text='Borderless Window' />
+          <Option value={2} text='Windowed' />
+        </Select>
+      </form>
+    )
+  }
+}
+
+@form()
+class Settings1161Form extends React.Component {
   isFullscreen() {
     return this.props.getInputValue('displayMode') === 0
   }
@@ -62,7 +113,7 @@ class SettingsForm extends React.Component {
   }
 
   render() {
-    const { bindCheckable, bindCustom, bindInput, onSubmit, resolution } = this.props
+    const { bindCheckable, bindCustom, onSubmit, resolution } = this.props
 
     const windowSizeProps = this.isFullscreen()
       ? {
@@ -102,45 +153,22 @@ class SettingsForm extends React.Component {
           max={10}
           step={1}
         />
-        <TextField
-          {...bindInput('path')}
-          label='StarCraft folder path'
-          floatingLabel={true}
-          inputProps={{
-            tabIndex: 0,
-            autoCapitalize: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}
-        />
       </form>
     )
   }
 }
 
-@connect(state => ({ settings: state.settings }))
+@connect(state => ({ settings: state.settings, starcraft: state.starcraft }))
 export default class Settings extends React.Component {
-  _focusTimeout = null
-  _form = null
-  _setForm = elem => {
-    this._form = elem
-  }
+  _form = React.createRef()
+  _saveButton = React.createRef()
   // NOTE(tec27): Slight optimizaton, since getting the resolution is IPC'd. We assume it will
   // never change while this form is up. I think this is mostly true (and at worst, you just close
   // Settings and re-open it and you're fine)
   _resolution = getResolution()
 
   componentDidMount() {
-    this._focusTimeout = setTimeout(() => {
-      this.refs.save.focus()
-      this._focusTimeout = null
-    }, 0)
-  }
-
-  componentWillUnmount() {
-    if (this._focusTimeout) {
-      clearTimeout(this._focusTimeout)
-    }
+    this._saveButton.current.focus()
   }
 
   getDefaultWindowSizeValue(localSettings) {
@@ -165,15 +193,26 @@ export default class Settings extends React.Component {
     const formModel = {
       displayMode: local.displayMode,
       maintainAspectRatio: local.maintainAspectRatio,
-      path: local.starcraftPath,
       sensitivity: local.mouseSensitivity,
       windowSize: this.getDefaultWindowSizeValue(local),
     }
 
+    const isRemastered = isStarcraftRemastered(this.props)
+    const starcraftVersionText = isRemastered ? 'StarCraft: Remastered' : 'StarCraft v1.16.1'
+    const titleAction = (
+      <TitleActionContainer>
+        <TitleActionText>{starcraftVersionText}</TitleActionText>
+        <TitleActionButton
+          icon={<SetPathIcon />}
+          title='Change StarCraft path'
+          onClick={this.onSetPathClick}
+        />
+      </TitleActionContainer>
+    )
     const buttons = [
       <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
       <FlatButton
-        ref='save'
+        ref={this._saveButton}
         label='Save'
         key='save'
         color='accent'
@@ -183,20 +222,31 @@ export default class Settings extends React.Component {
 
     const defaultWindowSize = this.getDefaultWindowSizeValue(local)
     return (
-      <Dialog title={'Settings'} buttons={buttons} onCancel={onCancel}>
-        <SettingsForm
-          ref={this._setForm}
-          resolution={this._resolution}
-          defaultWindowSize={defaultWindowSize}
-          model={formModel}
-          onSubmit={this.onSubmit}
-        />
+      <Dialog title={'Settings'} titleAction={titleAction} buttons={buttons} onCancel={onCancel}>
+        {isRemastered ? (
+          <SettingsRemasteredForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
+        ) : (
+          <Settings1161Form
+            ref={this._form}
+            resolution={this._resolution}
+            defaultWindowSize={defaultWindowSize}
+            model={formModel}
+            onSubmit={this.onSubmit}
+          />
+        )}
+        {local.lastError ? (
+          <ErrorText>There was an issue saving the settings. Please try again.</ErrorText>
+        ) : null}
       </Dialog>
     )
   }
 
+  onSetPathClick = () => {
+    this.props.dispatch(openDialog('starcraftPath'))
+  }
+
   onSettingsSave = () => {
-    this._form.submit()
+    this._form.current.submit()
   }
 
   onSettingsCancel = () => {
@@ -204,21 +254,19 @@ export default class Settings extends React.Component {
   }
 
   onSubmit = () => {
-    const values = this._form.getModel()
+    const values = this._form.current.getModel()
     const windowSize = values.windowSize || {}
-    let starcraftPath = values.path
-    if (starcraftPath.endsWith('.exe')) {
-      starcraftPath = starcraftPath.slice(0, starcraftPath.lastIndexOf('\\'))
-    }
     const newSettings = {
       width: windowSize.width,
       height: windowSize.height,
       displayMode: values.displayMode,
       mouseSensitivity: values.sensitivity,
       maintainAspectRatio: values.maintainAspectRatio,
-      starcraftPath,
     }
     this.props.dispatch(mergeLocalSettings(newSettings))
-    this.props.dispatch(closeDialog())
+
+    if (!this.props.settings.local.lastError) {
+      this.props.dispatch(closeDialog())
+    }
   }
 }

@@ -96,6 +96,7 @@ class Dialog extends React.Component {
   static propTypes = {
     onCancel: PropTypes.func,
     title: PropTypes.string.isRequired,
+    titleAction: PropTypes.element,
     showCloseButton: PropTypes.bool,
     buttons: PropTypes.arrayOf(PropTypes.element),
   }
@@ -106,7 +107,7 @@ class Dialog extends React.Component {
   }
 
   render() {
-    const { title, showCloseButton, buttons } = this.props
+    const { title, titleAction, showCloseButton, buttons } = this.props
     const { scrolledUp, scrolledDown } = this.state
 
     const closeButton = showCloseButton ? (
@@ -122,6 +123,7 @@ class Dialog extends React.Component {
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <TitleBar>
           <Title>{title}</Title>
+          {titleAction}
           {closeButton}
         </TitleBar>
         {scrolledDown ? <ScrollDivider position='top' /> : null}
