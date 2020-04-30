@@ -34,9 +34,19 @@ const BackgroundVideo = styled.video`
   right: 0;
   width: 100%;
   height: 860px;
-  object-fit: fill;
+  object-fit: cover;
   filter: blur(8px);
-  opacity: 0.5;
+`
+
+const BackgroundVideoScrim = styled.div`
+  position: absolute;
+  width: 100%;
+  /*
+    This should be at least BackgroundVideo's height + blur distance, I added a bit extra to be
+    safe
+  */
+  height: 880px;
+  background: linear-gradient(to bottom, rgba(33, 33, 33, 0.5) 50%, rgba(33, 33, 33, 1) 100%);
 `
 
 const LogoLockup = styled.div`
@@ -120,7 +130,7 @@ const FeatureBody = styled.div`
   }
 
   & > p + p {
-    margin-top: 32px;
+    margin-top: 20px;
   }
 `
 
@@ -246,8 +256,9 @@ export default class Splash extends React.Component {
       <ScrollableContent>
         <SplashContainer>
           <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
-            <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/webm' />
+            <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/mp4' />
           </BackgroundVideo>
+          <BackgroundVideoScrim />
           <TopLinks />
           <LogoLockup>
             <Logo src={makeServerUrl('/images/shieldbattery-128.png')} />
