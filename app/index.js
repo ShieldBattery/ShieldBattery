@@ -1,6 +1,35 @@
 process.env.BABEL_ENV = 'app'
 
-require('../babel-register-hook')
+require('@babel/register')({
+  env: {
+    app: {
+      presets: [
+        [
+          '@babel/preset-env',
+          {
+            targets: { electron: '7.1' },
+          },
+        ],
+      ],
+    },
+    node: {
+      presets: [
+        [
+          '@babel/preset-env',
+          {
+            targets: { node: 'current' },
+          },
+        ],
+      ],
+    },
+  },
+
+  plugins: [
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-function-bind'],
+  ],
+})
 require('core-js/stable')
 require('regenerator-runtime/runtime')
 

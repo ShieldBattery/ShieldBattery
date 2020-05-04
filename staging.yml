@@ -3,18 +3,14 @@
 # "region")
 appId: net.shieldbattery.client.dev
 extraResources:
-- game/dist/**
+  - game/dist/**
 files:
-- "!**/*.map"
-- "!build/**/*"
-# Devtron and its deps bring in a *ton* of space hogging files, but aren't used in the packed app,
-# so we manually strip them out. Bleh.
-- "!node_modules/accessibility-developer-tools/**/*"
-- "!node_modules/devtron/**/*"
-- "!node_modules/highlight.js/**/*"
-- "!node_modules/humanize-plus/**/*"
+  - '**/*'
+  - 'dist/bundle.js'
+  - '!**/*.map'
+  - '!build/**/*'
 nsis:
-  artifactName: "${productName}-setup-${version}.${ext}"
+  artifactName: '${productName}-setup-${version}.${ext}'
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
 win:
@@ -26,4 +22,4 @@ win:
 productName: ShieldBattery-Dev
 publish:
   provider: generic
-  url: "https://dev.shieldbattery.net/published_artifacts/${os}/"
+  url: 'https://dev.shieldbattery.net/published_artifacts/${os}/'

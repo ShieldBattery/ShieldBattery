@@ -133,6 +133,7 @@ export default function({
 
     if (hotUrl) {
       config.entry = [hotUrl, config.entry]
+      config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
     } else {
       // webpack-hot-client doesn't allow string entries for no fucking apparent reason at all.
       config.entry = [config.entry]

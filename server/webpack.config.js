@@ -1,8 +1,7 @@
 import makeConfig from '../common.webpack.config.js'
-import babelConfig from '../babel.config.js'
 import path from 'path'
 
-const TARGET_BROWSERS = 'last 2 versions'
+const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, not op_mini all'
 
 const webpackOpts = {
   // Relative to the root directory
@@ -24,20 +23,22 @@ const babelOpts = {
   cacheDirectory: true,
   // Note that these need to be installed in the root package.json, not the server one
   presets: [
-    '@babel/react',
+    '@babel/preset-react',
     [
-      '@babel/env',
+      '@babel/preset-env',
       {
         targets: { browsers: TARGET_BROWSERS },
         modules: false,
-        useBuiltIns: 'entry',
-        corejs: '3.0.0',
+        useBuiltIns: 'usage',
+        corejs: 3,
       },
     ],
   ],
-  plugins: babelConfig.plugins.concat(
-    process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
-  ),
+  plugins: [
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-function-bind'],
+  ].concat(process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : []),
 }
 
 export default makeConfig({

@@ -3,18 +3,14 @@
 # "region")
 appId: net.shieldbattery.client
 extraResources:
-- game/dist/**
+  - game/dist/**
 files:
-- "!**/*.map"
-- "!build/**/*"
-# Devtron and its deps bring in a *ton* of space hogging files, but aren't used in the packed app,
-# so we manually strip them out. Bleh.
-- "!node_modules/accessibility-developer-tools/**/*"
-- "!node_modules/devtron/**/*"
-- "!node_modules/highlight.js/**/*"
-- "!node_modules/humanize-plus/**/*"
+  - '**/*'
+  - 'dist/bundle.js'
+  - '!**/*.map'
+  - '!build/**/*'
 nsis:
-  artifactName: "${productName}-setup-${version}.${ext}"
+  artifactName: '${productName}-setup-${version}.${ext}'
 win:
   certificateSubjectName: Travis Collins
   icon: icon.ico
@@ -24,4 +20,4 @@ win:
 productName: ShieldBattery
 publish:
   provider: generic
-  url: "https://shieldbattery.net/published_artifacts/${os}/"
+  url: 'https://shieldbattery.net/published_artifacts/${os}/'

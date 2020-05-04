@@ -53,7 +53,9 @@ if [%cargoflags%]==[--release] (
 )
 
 if not defined sign goto skipsign
-signtool sign /n "Travis Collins" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /t "http://timestamp.comodoca.com/authenticode" /fd SHA256 "%scriptroot%\dist\shieldbattery.dll" > %temp%\sign.txt 2>&1
+@rem TODO(tec27): Make this find signtool better, this location works for me but I doubt it does for everyone.
+"%ProgramFiles(x86)%\Microsoft SDKs\Windows\v7.1A\Bin\signtool.exe" sign /n "Travis Collins" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /t "http://timestamp.comodoca.com/authenticode" /fd SHA256 "%scriptroot%\dist\shieldbattery.dll" > %temp%\sign_sbdll.txt 2>&1
+"%ProgramFiles(x86)%\Microsoft SDKs\Windows\v7.1A\Bin\signtool.exe" sign /n "Travis Collins" /d "ShieldBattery Game Client" /du "https://shieldbattery.net" /t "http://timestamp.comodoca.com/authenticode" /fd SHA256 "%scriptroot%\dist\sb_init.dll" > %temp%\sign_init.txt 2>&1
 if errorlevel 1 (
   echo Signing the DLL failed.
   goto exit

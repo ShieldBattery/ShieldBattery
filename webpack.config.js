@@ -1,9 +1,7 @@
 // Can't use ES6 imports in this file because this won't be running through Babel
 require('@babel/register')
 const makeConfig = require('./common.webpack.config.js').default
-const babelPlugins = require('./babel.config.js').plugins
 const path = require('path')
-const webpack = require('webpack')
 
 const webpackOpts = {
   target: 'electron-renderer',
@@ -14,27 +12,29 @@ const webpackOpts = {
     publicPath: 'http://localhost:5566/dist/',
     libraryTarget: 'commonjs2',
   },
-  plugins: [new webpack.HotModuleReplacementPlugin()],
+  plugins: [],
 }
 
 const babelOpts = {
   babelrc: false,
   cacheDirectory: true,
   presets: [
-    '@babel/react',
+    '@babel/preset-react',
     [
-      '@babel/env',
+      '@babel/preset-env',
       {
-        targets: { electron: '1.7' },
+        targets: { electron: '7.1' },
         modules: false,
-        useBuiltIns: 'entry',
-        corejs: '3.0.0',
+        useBuiltIns: 'usage',
+        corejs: 3,
       },
     ],
   ],
-  plugins: babelPlugins.concat(
-    process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : [],
-  ),
+  plugins: [
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-function-bind'],
+  ].concat(process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : []),
 }
 
 const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
