@@ -1,28 +1,14 @@
 process.env.BABEL_ENV = 'app'
 
 require('@babel/register')({
-  env: {
-    app: {
-      presets: [
-        [
-          '@babel/preset-env',
-          {
-            targets: { electron: '7.1' },
-          },
-        ],
-      ],
-    },
-    node: {
-      presets: [
-        [
-          '@babel/preset-env',
-          {
-            targets: { node: 'current' },
-          },
-        ],
-      ],
-    },
-  },
+  presets: [
+    [
+      '@babel/preset-env',
+      {
+        targets: { electron: '7.1' },
+      },
+    ],
+  ],
 
   plugins: [
     ['@babel/plugin-proposal-decorators', { legacy: true }],

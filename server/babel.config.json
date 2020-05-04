@@ -1,26 +1,12 @@
 {
-  "env": {
-    "app": {
-      "presets": [
-        [
-          "@babel/preset-env",
-          {
-            "targets": { "electron": "7.1" }
-          }
-        ]
-      ]
-    },
-    "node": {
-      "presets": [
-        [
-          "@babel/preset-env",
-          {
-            "targets": { "node": "current" }
-          }
-        ]
-      ]
-    }
-  },
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": { "node": "current" }
+      }
+    ]
+  ],
 
   "plugins": [
     ["@babel/plugin-proposal-decorators", { "legacy": true }],

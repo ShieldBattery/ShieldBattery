@@ -29,7 +29,5 @@
     "thenify": "^3.2.1",
     "winreg": "^1.2.2"
   },
-  "devDependencies": {
-    "devtron": "^1.4.0"
-  }
+  "devDependencies": {}
 }

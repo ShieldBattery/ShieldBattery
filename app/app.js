@@ -56,27 +56,8 @@ function applyOriginFilter(curSession, baseUrl) {
   })
 }
 
-function addDevtron() {
-  if (!isDev) {
-    return
-  }
-
-  try {
-    const devtronAlreadyAdded =
-      BrowserWindow.getDevToolsExtensions &&
-      {}.hasOwnProperty.call(BrowserWindow.getDevToolsExtensions(), 'devtron')
-
-    if (!devtronAlreadyAdded) {
-      BrowserWindow.addDevToolsExtension(require('devtron').path)
-    }
-  } catch (err) {
-    console.error('Error adding devtron: ' + err)
-  }
-}
-
 async function installDevExtensions() {
   if (isDev) {
-    addDevtron()
     const installer = require('electron-devtools-installer')
     const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS']
     // Apparently there's no way to upgrade extensions in Electron, so we're always forcing a
