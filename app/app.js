@@ -213,6 +213,7 @@ async function createWindow(localSettings, curSession) {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
+      // TODO(tec27): Figure out a path to turning this off as it's a security risk
       nodeIntegration: true,
       session: curSession,
     },
@@ -265,10 +266,14 @@ async function createWindow(localSettings, curSession) {
       }
     })
 
-  mainWindow.webContents.on('new-window', (event, url) => {
-    event.preventDefault()
-    shell.openExternal(url)
-  })
+  mainWindow.webContents
+    .on('new-window', (event, url) => {
+      event.preventDefault()
+      shell.openExternal(url)
+    })
+    .on('will-navigate', event => {
+      event.preventDefault()
+    })
 
   mainWindow.loadURL(
     url.format({
