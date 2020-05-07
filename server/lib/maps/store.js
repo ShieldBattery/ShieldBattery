@@ -1,9 +1,10 @@
 import childProcess from 'child_process'
 import fs from 'fs'
-import config from '../../config.js'
 import { addMap } from '../models/maps'
 import { writeFile } from '../file-upload'
 import bl from 'bl'
+
+const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
@@ -36,16 +37,15 @@ export function imagePath(hash) {
 }
 
 async function mapParseWorker(path, extension) {
-  const bwDataPath = config.bwData ? config.bwData : ''
   const { messages, binaryData } = await runChildProcess('lib/maps/map-parse-worker', [
     path,
     extension,
-    bwDataPath,
+    BW_DATA_PATH,
   ])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
-    imageStream: config.bwData ? binaryData : null,
+    imageStream: BW_DATA_PATH ? binaryData : null,
   }
 }
 

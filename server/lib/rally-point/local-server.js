@@ -1,8 +1,8 @@
-import config from '../../config'
 import createServer from 'rally-point-server'
 
-const port = config.rallyPoint.local.port
-const secret = config.rallyPoint.secret
+const secret = process.env.SB_RALLY_POINT_SECRET
+const settings = JSON.parse(process.env.SB_RALLY_POINT_SERVERS)
+const { port } = settings.local
 
 const server = createServer('::', port, secret)
 server.bind().then(() => {

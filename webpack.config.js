@@ -47,9 +47,9 @@ const SB_SERVER = (() => {
     return 'https://shieldbattery.net'
   }
   try {
-    const serverConfig = require('./server/config.js').default
-    if (serverConfig.canonicalHost) {
-      return serverConfig.canonicalHost
+    require('dotenv').config({ path: './server/.env' })
+    if (process.env.SB_CANONICAL_HOST) {
+      return process.env.SB_CANONICAL_HOST
     }
   } catch (err) {
     // Intentionally empty, just means the server config isn't there/is broken for some reason

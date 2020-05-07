@@ -22,4 +22,4 @@ win:
 productName: ShieldBattery-Dev
 publish:
   provider: generic
-  url: 'https://dev.shieldbattery.net/published_artifacts/${os}/'
+  url: 'https://dev.shieldbattery.net/published_artifacts/${os}'

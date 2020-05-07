@@ -1,3 +1,0 @@
-{
-  "dev": "postgres://postgres_user:password1234@localhost/shieldbattery"
-}

@@ -1,5 +1,10 @@
-import makeConfig from '../common.webpack.config.js'
-import path from 'path'
+require('@babel/register')({
+  // This is necessary to make babel compile stuff outside the "working directory".
+  // See this issue for more info: https://github.com/babel/babel/issues/8321
+  ignore: [/node_modules/],
+})
+const makeConfig = require('../common.webpack.config.js').default
+const path = require('path')
 
 const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, not op_mini all'
 
@@ -41,7 +46,7 @@ const babelOpts = {
   ].concat(process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : []),
 }
 
-export default makeConfig({
+module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
   globalDefines: {

@@ -1,8 +1,9 @@
 import bunyan from 'bunyan'
-import config from '../../config.js'
 import path from 'path'
 
 import responseSerializer from './response-serializer'
+
+const logLevels = JSON.parse(process.env.SB_LOG_LEVELS)
 
 export default bunyan.createLogger({
   name: 'manner-pylon',
@@ -13,12 +14,13 @@ export default bunyan.createLogger({
   },
 
   streams: [
-    { stream: process.stdout, level: config.logLevels.console },
+    { stream: process.stdout, level: logLevels.console },
     {
       type: 'rotating-file',
       path: path.join(path.resolve(__dirname, '..', '..'), 'logs', 'manner-pylon.log'),
       period: '1d',
       count: 7,
+      level: logLevels.file,
     },
   ],
 })
