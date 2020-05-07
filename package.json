@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@exponent/electron-cookies": "^2.0.0",
+    "babel-plugin-styled-components": "^1.10.7",
     "bw-chk": "^1.1.0",
     "classnames": "^2.2.6",
     "concat-stream": "^2.0.0",
