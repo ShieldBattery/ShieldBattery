@@ -6,7 +6,7 @@ import path from 'path'
 import isDev from 'electron-is-dev'
 import { app } from 'electron'
 import { getUserDataPath } from './user-data-path'
-import { ensureSingleInstance } from './single-instance'
+import ensureSingleInstance from './single-instance'
 
 // Set a proper app name, since our build setup makes the one in our package.json innaccurate
 app.name = path.basename(getUserDataPath())
