@@ -30,7 +30,7 @@ class Lockup extends React.Component {
   render() {
     return (
       <Container>
-        <Logo src={makeServerUrl('/images/logo.svg')} />
+        <Logo src={makeServerUrl('/images/logo-no-bg.svg')} />
         <LogoText>
           Shield<strong>Battery</strong>
         </LogoText>
