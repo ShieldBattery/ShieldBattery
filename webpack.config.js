@@ -79,7 +79,7 @@ const electronWeb = makeConfig({
 const mainWebpackOpts = {
   target: 'electron-main',
   entry: {
-    'bundle-main': './app/app.js',
+    'bundle-main': './app/startup.js',
     // Since this is required via Electron's remote stuff, the module needs to exist somewhere. And
     // this also forces Webpack to process the file and copy the .node file over to outputs
     process: './app/native/process/index.js',
