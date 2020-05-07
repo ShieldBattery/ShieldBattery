@@ -30,6 +30,9 @@ import routeCreator from './lib/rally-point/route-creator'
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 
+import setupWebsockets from './websockets'
+import createRoutes from './routes'
+
 if (!process.env.SB_CANONICAL_HOST) {
   throw new Error('SB_CANONICAL_HOST must be specified')
 }
@@ -125,8 +128,8 @@ const app = new Koa()
 const port = process.env.SB_HTTP_PORT
 
 function getWebpackCompiler() {
-  const webpack = require('webpack').default
-  const webpackConfig = require('./webpack.config.js').default
+  const webpack = require('webpack')
+  const webpackConfig = require('./webpack.config.js')
   return webpack(webpackConfig)
 }
 
@@ -165,10 +168,8 @@ app
 
 const mainServer = http.createServer(app.callback())
 
-import setupWebsockets from './websockets'
 const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
-import createRoutes from './routes'
 // Wrapping this in IIFE so we can use top-level `await` (until node implements it natively)
 ;(async () => {
   if (isDev) {
@@ -178,7 +179,7 @@ import createRoutes from './routes'
       compiler: getWebpackCompiler(),
       devMiddleware: {
         logLevel: 'warn',
-        publicPath: require('./webpack.config.js').default.output.publicPath,
+        publicPath: require('./webpack.config.js').output.publicPath,
       },
     })
 
