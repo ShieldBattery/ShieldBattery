@@ -52,9 +52,9 @@ async function getCurrentSession(ctx, next) {
 const bcryptCompare = thenify(bcrypt.compare)
 async function startNewSession(ctx, next) {
   if (ctx.session.userId) {
-    const { userId, userName, email, permissions, emailVerified } = ctx.session
+    const { userId, userName, permissions, emailVerified } = ctx.session
     ctx.body = {
-      user: { id: userId, name: userName, email },
+      user: { id: userId, name: userName },
       permissions,
       emailVerified,
     }

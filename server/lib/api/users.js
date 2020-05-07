@@ -53,22 +53,14 @@ export default function(router, { nydus }) {
     })
     .post('/:username/password', resetPassword)
     .post(
-      '/:id/emailVerification',
-      throttleMiddleware(emailVerificationThrottle, ctx => {
-        const { id } = ctx.params
-        const { email } = ctx.request.body
-        return `${id}|${email}`
-      }),
+      '/emailVerification',
+      throttleMiddleware(emailVerificationThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       (ctx, next) => verifyEmail(ctx, next, nydus),
     )
     .post(
-      '/:id/sendVerification',
-      throttleMiddleware(sendVerificationThrottle, ctx => {
-        const { id } = ctx.params
-        const { email } = ctx.request.body
-        return `${id}|${email}`
-      }),
+      '/sendVerification',
+      throttleMiddleware(sendVerificationThrottle, ctx => ctx.session.userId),
       ensureLoggedIn,
       sendVerificationEmail,
     )
@@ -119,7 +111,7 @@ async function createUser(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(code, result.user.id, email)
+  await sendAccountVerificationEmail(code, email)
   ctx.body = result
 }
 
@@ -147,21 +139,24 @@ async function resetPassword(ctx, next) {
 }
 
 async function verifyEmail(ctx, next, nydus) {
-  const { id } = ctx.params
   const { code } = ctx.query
-  const { email } = ctx.request.body
 
-  if (!id || !code || !isValidEmail(email)) {
+  if (!code) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
-  const emailVerified = await useEmailVerificationCode(id, email, code)
+  const user = await users.find(ctx.session.userId)
+  if (!user) {
+    throw new httpErrors.BadRequest('User not found')
+  }
+
+  const emailVerified = await useEmailVerificationCode(user.id, user.email, code)
   if (!emailVerified) {
     throw new httpErrors.BadRequest('Email verification code is invalid')
   }
 
   // Update all of the user's sessions to indicate that their email is now indeed verified.
-  updateAllSessions(ctx, { emailVerified: true })
+  await updateAllSessions(ctx, { emailVerified: true })
 
   // Last thing to do is to notify all of the user's opened sockets that their email is now verified
   // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
@@ -173,20 +168,18 @@ async function verifyEmail(ctx, next, nydus) {
 }
 
 async function sendVerificationEmail(ctx, next) {
-  const { id } = ctx.params
-  const { email } = ctx.request.body
-
-  if (!id || !isValidEmail(email)) {
-    throw new httpErrors.BadRequest('Invalid parameters')
+  const user = await users.find(ctx.session.userId)
+  if (!user) {
+    throw new httpErrors.BadRequest('User not found')
   }
 
-  const emailVerificationsCount = await getEmailVerificationsCount(id, email)
+  const emailVerificationsCount = await getEmailVerificationsCount(user.id, user.email)
   if (emailVerificationsCount > 10) {
     throw new httpErrors.Conflict('Email is over verification limit')
   }
 
   const code = cuid()
-  await addEmailVerificationCode(id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(code, id, email)
+  await addEmailVerificationCode(user.id, user.email, code, ctx.ip)
+  await sendAccountVerificationEmail(code, user.email)
   ctx.status = 204
 }

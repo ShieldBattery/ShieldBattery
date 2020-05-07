@@ -109,26 +109,14 @@ export function resetPassword(username, code, password) {
   )
 }
 
-export function verifyEmail(userId, token, email) {
-  const url = `/api/1/users/${encodeURIComponent(
-    userId,
-  )}/emailVerification?code=${encodeURIComponent(token)}`
+export function verifyEmail(token) {
+  const url = `/api/1/users/emailVerification?code=${encodeURIComponent(token)}`
 
-  return idRequest(AUTH_VERIFY_EMAIL, () =>
-    fetch(url, {
-      method: 'post',
-      body: JSON.stringify({ email }),
-    }),
-  )
+  return idRequest(AUTH_VERIFY_EMAIL, () => fetch(url, { method: 'post' }))
 }
 
-export function sendVerificationEmail(userId, email) {
-  const url = `/api/1/users/${encodeURIComponent(userId)}/sendVerification`
+export function sendVerificationEmail() {
+  const url = '/api/1/users/sendVerification'
 
-  return idRequest(AUTH_SEND_VERIFICATION_EMAIL, () =>
-    fetch(url, {
-      method: 'post',
-      body: JSON.stringify({ email }),
-    }),
-  )
+  return idRequest(AUTH_SEND_VERIFICATION_EMAIL, () => fetch(url, { method: 'post' }))
 }
