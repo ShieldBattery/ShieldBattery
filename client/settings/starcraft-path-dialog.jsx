@@ -9,8 +9,9 @@ import RaisedButton from '../material/raised-button.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
 
-import { openDialog } from '../dialogs/action-creators'
+import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
+import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 import { colorError } from '../styles/colors'
 import { Subheading } from '../styles/typography'
@@ -101,7 +102,7 @@ class StarcraftPathForm extends React.Component {
   }
 }
 
-@connect(state => ({ settings: state.settings }))
+@connect(state => ({ settings: state.settings, starcraft: state.starcraft }))
 export default class StarcraftPath extends React.Component {
   _form = React.createRef()
   _saveButton = React.createRef()
@@ -143,7 +144,11 @@ export default class StarcraftPath extends React.Component {
   }
 
   onSettingsCancel = () => {
-    this.props.dispatch(openDialog('settings'))
+    if (isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog('settings'))
+    } else {
+      this.props.dispatch(closeDialog())
+    }
   }
 
   onSubmit = () => {
