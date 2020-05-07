@@ -13,7 +13,7 @@ const FloatingLabel = styled.label`
     const leftOffset = props.leadingIconsLength * iconWidth + (props.leadingIconsLength + 1) * 4
 
     return `${leftOffset}px`
-  }}
+  }};
   top: 0;
   z-index: 1;
   color: ${props => {

@@ -43,9 +43,9 @@ const TextFieldContainer = styled.div`
     if (!props.multiline) return ''
 
     if (props.floatingLabel) {
-      return props.dense ? 'padding: 17px 0 2px 12px' : 'padding: 25px 0 2px 12px'
+      return props.dense ? 'padding: 17px 0 2px 12px' : 'padding: 25px 0 2px 12px;'
     } else {
-      return props.dense ? 'padding: 11px 0 2px 12px' : 'padding: 19px 0 2px 12px'
+      return props.dense ? 'padding: 11px 0 2px 12px' : 'padding: 19px 0 2px 12px;'
     }
   }}
 
@@ -103,7 +103,7 @@ const LeadingIcon = styled.span`
     const leftOffset = props.index * iconWidth + (props.index + 1) * 4
 
     return `${leftOffset}px`
-  }}
+  }};
 `
 
 const TrailingIcon = styled.span`
@@ -114,7 +114,7 @@ const TrailingIcon = styled.span`
     const rightOffset = props.index * iconWidth + (props.index + 1) * 4 + multilinePadding
 
     return `${rightOffset}px`
-  }}
+  }};
 `
 
 // A Material text field component with single-line, multi-line and text area variants, supporting

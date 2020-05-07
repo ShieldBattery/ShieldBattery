@@ -77,7 +77,7 @@ export const InputBase = styled(Subheading)`
     const iconWidth = props.dense ? 32 : 48
     const padding = props.leadingIconsLength * iconWidth + (props.leadingIconsLength + 1) * 4
 
-    return `padding-left: ${padding}px`
+    return `padding-left: ${padding}px;`
   }}
   ${props => {
     if (!props.trailingIconsLength) return ''
@@ -87,7 +87,7 @@ export const InputBase = styled(Subheading)`
     const padding =
       props.trailingIconsLength * iconWidth + (props.trailingIconsLength + 1) * 4 + multilinePadding
 
-    return `padding-right: ${padding}px`
+    return `padding-right: ${padding}px;`
   }}
 `
 

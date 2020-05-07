@@ -1,39 +1,34 @@
 import React from 'react'
-import { makeServerUrl } from '../network/server-url'
 import styled from 'styled-components'
 
-import { standardIncrement } from '../material/units'
-import { Title, singleLine } from '../styles/typography'
+import Logo from '../logos/logo-no-bg.svg'
+import LogoText from '../logos/logotext-white-156x24.svg'
 
 const Container = styled.div`
+  height: 100%;
   display: flex;
-  flex-direction: row;
   align-items: center;
-  padding-left: 8px;
+
+  padding: 8px 0px 8px 8px;
   user-select: none;
 `
 
-const Logo = styled.img`
-  width: 64px;
-  height: 64px;
-  padding-right: 8px;
+const SizedLogo = styled(Logo)`
+  width: 56px;
+  height: auto;
 `
 
-const LogoText = styled(Title)`
-  ${singleLine};
-  line-height: ${standardIncrement};
-  font-weight: 400;
-  margin: 0;
+const SizedLogoText = styled(LogoText)`
+  margin-left: 8px;
+  margin-top: 2px;
 `
 
 class Lockup extends React.Component {
   render() {
     return (
-      <Container>
-        <Logo src={makeServerUrl('/images/logo-no-bg.svg')} />
-        <LogoText>
-          Shield<strong>Battery</strong>
-        </LogoText>
+      <Container aria-label='ShieldBattery'>
+        <SizedLogo />
+        <SizedLogoText />
       </Container>
     )
   }
