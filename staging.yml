@@ -15,7 +15,7 @@ files:
   - from: 'dist/'
     to: './'
     filter:
-      - '**/bundle-main.js'
+      - 'index.js'
   - from: 'dist/'
     to: './native/'
     filter:

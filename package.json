@@ -9,7 +9,7 @@
     "node": ">= 7.0.0"
   },
   "scripts": {
-    "app": "cross-env SB_HOT=1 electron app/index.js",
+    "app": "cross-env SB_HOT=1 electron app",
     "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive --harmony test/",
     "build": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
     "buildgame": "game/build.bat release sign",
