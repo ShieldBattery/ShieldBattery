@@ -164,7 +164,3 @@ In the current version of our `docker-compose.yml` file, we've utilized a [third
 Docker also offers a way to perform a health check when trying to run a container which can make it easier to spot when a service falls down. Not sure what we could be testing here off the top of my head, but it's good to have an option and be mindful of it in future.
 
 To read more about this option in Docker documentation, check out [this link](https://docs.docker.com/compose/compose-file/#healthcheck) and [this link](https://docs.docker.com/engine/reference/builder/#healthcheck)
-
-### Setup map system
-
-TODO(2pac)
