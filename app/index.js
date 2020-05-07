@@ -16,8 +16,6 @@ require('@babel/register')({
     ['@babel/plugin-proposal-function-bind'],
   ],
 })
-require('core-js/stable')
-require('regenerator-runtime/runtime')
 
 const path = require('path')
 const isDev = require('electron-is-dev')

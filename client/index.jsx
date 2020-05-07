@@ -1,5 +1,3 @@
-import 'core-js/stable'
-import 'regenerator-runtime/runtime'
 import log from './logging/logger'
 import { makeServerUrl } from './network/server-url'
 

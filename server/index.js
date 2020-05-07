@@ -7,6 +7,4 @@ require('@babel/register')({
   // See this issue for more info: https://github.com/babel/babel/issues/8321
   ignore: [/node_modules/],
 })
-require('core-js/stable')
-require('regenerator-runtime/runtime')
 require('./app.js')
