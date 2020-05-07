@@ -19,6 +19,7 @@ export default function({
   hotUrl,
   globalDefines = {},
   envDefines = {},
+  extraRules = [],
 }) {
   const postCssOpts = JSON.stringify({
     config: {
@@ -101,6 +102,7 @@ export default function({
             aliasFields: ['main'],
           },
         },
+        ...extraRules,
       ],
     },
     optimization: {
@@ -139,6 +141,12 @@ export default function({
       config.entry = [config.entry]
     }
   } else {
+    if (config.target === 'electron-main') {
+      // Disable webpack processing of these since electron-main scripts can actually make use of
+      // the path (and does for loading things like icons/sounds out of the ASAR)
+      config.node = { __filename: false, __dirname: false }
+    }
+
     config.plugins = config.plugins.concat([
       new webpack.DefinePlugin({
         // We only define the exact field here to avoid overwriting all of process.env

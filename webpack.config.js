@@ -3,7 +3,9 @@ require('@babel/register')
 const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
 
-const webpackOpts = {
+// Configuration for the web part of the electron process (the client/ scripts
+// compiled for electron)
+const webWebpackOpts = {
   target: 'electron-renderer',
   entry: './client/index.jsx',
   output: {
@@ -15,7 +17,7 @@ const webpackOpts = {
   plugins: [],
 }
 
-const babelOpts = {
+const webBabelOpts = {
   babelrc: false,
   cacheDirectory: true,
   presets: [
@@ -61,9 +63,9 @@ const SB_SERVER = (() => {
 
 console.log('Using a server of ' + SB_SERVER + ' by default')
 
-module.exports = makeConfig({
-  webpack: webpackOpts,
-  babel: babelOpts,
+const electronWeb = makeConfig({
+  webpack: webWebpackOpts,
+  babel: webBabelOpts,
   hotUrl,
   globalDefines: {
     IS_ELECTRON: true,
@@ -72,3 +74,61 @@ module.exports = makeConfig({
     SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
   },
 })
+
+// Configuration for the main process scripts of Electron (the app/ scripts)
+const mainWebpackOpts = {
+  target: 'electron-main',
+  entry: {
+    'bundle-main': './app/app.js',
+    // Since this is required via Electron's remote stuff, the module needs to exist somewhere. And
+    // this also forces Webpack to process the file and copy the .node file over to outputs
+    process: './app/native/process/index.js',
+  },
+  output: {
+    filename: '[name].js',
+    path: path.join(__dirname, 'app', 'dist'),
+    libraryTarget: 'commonjs2',
+  },
+  plugins: [],
+}
+
+const mainBabelOpts = {
+  babelrc: false,
+  cacheDirectory: true,
+  presets: [
+    [
+      '@babel/preset-env',
+      {
+        targets: { electron: '7.1' },
+        modules: false,
+        useBuiltIns: 'usage',
+        corejs: 3,
+      },
+    ],
+  ],
+  plugins: [
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-function-bind'],
+  ],
+}
+
+const electronMain = makeConfig({
+  webpack: mainWebpackOpts,
+  babel: mainBabelOpts,
+  extraRules: [
+    {
+      test: /\.node$/,
+      use: [
+        {
+          loader: 'native-addon-loader',
+          options: {
+            name: './[name]-[hash].[ext]',
+          },
+        },
+      ],
+    },
+  ],
+})
+
+module.exports = process.env.NODE_ENV === 'production' ? [electronWeb, electronMain] : electronWeb

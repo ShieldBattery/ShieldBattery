@@ -1,11 +1,11 @@
-process.env.BABEL_ENV = 'app'
-
 require('@babel/register')({
   presets: [
     [
       '@babel/preset-env',
       {
         targets: { electron: '7.1' },
+        useBuiltIns: 'usage',
+        corejs: 3,
       },
     ],
   ],

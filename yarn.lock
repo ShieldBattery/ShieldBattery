@@ -6223,6 +6223,13 @@ nanomatch@^1.2.9:
     snapdragon "^0.8.1"
     to-regex "^3.0.1"
 
+native-addon-loader@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/native-addon-loader/-/native-addon-loader-2.0.1.tgz#38a75ff1dd8a259f891a4e3cc8b0a94a544acc52"
+  integrity sha512-tAaKULhDUmHYNZNKAWlvEky0x+y17+6jbtscXpf0WeWCPRP1nR2h3sA128rWRwj0YbpXVaPhPeJT0ejN7bJtyw==
+  dependencies:
+    loader-utils "^1.2.3"
+
 natural-compare@^1.4.0:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/natural-compare/-/natural-compare-1.4.0.tgz#4abebfeed7541f2c27acfb29bdbbd15c8d5ba4f7"

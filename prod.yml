@@ -5,10 +5,22 @@ appId: net.shieldbattery.client
 extraResources:
   - game/dist/**
 files:
-  - '**/*'
-  - 'dist/bundle.js'
   - '!**/*.map'
   - '!build/**/*'
+  - '!node_modules/**/*'
+  - 'index.html'
+  - 'assets/**/*'
+  - 'dist/bundle.js'
+  - 'styles/**/*'
+  - from: 'dist/'
+    to: './'
+    filter:
+      - '**/bundle-main.js'
+  - from: 'dist/'
+    to: './native/'
+    filter:
+      - '**/process.js'
+      - '**/*.node'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
