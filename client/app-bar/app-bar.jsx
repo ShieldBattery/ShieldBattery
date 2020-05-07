@@ -60,7 +60,7 @@ const UserCount = styled(ActiveUserCount)`
   display: inline-block;
   float: right;
   margin-top: ${windowControlsHeight};
-  padding-right: 8px;
+  padding-right: 16px;
   line-height: calc(${standardIncrement} - ${windowControlsHeight});
   vertical-align: middle;
 
