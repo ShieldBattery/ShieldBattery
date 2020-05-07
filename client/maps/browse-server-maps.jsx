@@ -23,12 +23,14 @@ import LoadingIndicator from '../progress/dots.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
+
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../app/common/constants'
 import { SORT_BY_NAME } from '../../app/common/maps'
+import { MAP_UPLOADING } from '../../app/common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
@@ -351,9 +353,10 @@ export default class Maps extends React.Component {
       } else if (activeTab === TAB_OFFICIAL_MAPS) {
         text = 'No official maps have been uploaded yet.'
       } else if (activeTab === TAB_MY_MAPS) {
-        text =
-          "You haven't uploaded any maps. You can upload a map by clicking on the browse" +
-          ' button below.'
+        text = MAP_UPLOADING
+          ? "You haven't uploaded any maps. You can upload a map by clicking on the browse button" +
+            ' below.'
+          : 'Uploading private maps is currently disabled. It should become available really soon.'
       } else if (activeTab === TAB_COMMUNITY_MAPS) {
         text = 'No maps by the community have been made public yet.'
       }

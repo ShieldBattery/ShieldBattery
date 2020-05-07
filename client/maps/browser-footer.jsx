@@ -21,6 +21,8 @@ import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
+import { MAP_UPLOADING } from '../../app/common/flags'
+
 import { fastOutSlowIn } from '../material/curve-constants'
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
@@ -283,11 +285,13 @@ export default class BrowserFooter extends React.PureComponent {
     return (
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
-        <PositionedFloatingActionButton
-          title='Browse local maps'
-          icon={<FolderIcon />}
-          onClick={onBrowseLocalMaps}
-        />
+        {MAP_UPLOADING ? (
+          <PositionedFloatingActionButton
+            title='Browse local maps'
+            icon={<FolderIcon />}
+            onClick={onBrowseLocalMaps}
+          />
+        ) : null}
         <LeftActions>
           <ActionButton
             buttonRef={this._sizeButtonRef}

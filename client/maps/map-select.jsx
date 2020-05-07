@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import { List } from 'immutable'
 import styled from 'styled-components'
 
-import { MAP_UPLOADING } from '../../app/common/flags'
 import ImageList from '../material/image-list.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
@@ -148,7 +147,7 @@ export default class MapSelect extends React.Component {
           columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
           padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           {mapElements}
-          {MAP_UPLOADING && canBrowseMaps ? (
+          {canBrowseMaps ? (
             <BrowseButton
               onClick={this.onMapBrowse}
               isFocused={isFocused && focusedIndex === maps.length}>
