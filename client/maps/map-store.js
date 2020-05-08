@@ -8,12 +8,11 @@ import HashThrough from '../../app/common/hash-through'
 import log from '../logging/logger'
 
 const asyncStat = thenify(fs.stat)
-const asyncMkdirp = thenify(mkdirp)
 
 export default class MapStore {
   constructor(basePath) {
     this.basePath = basePath
-    this._dirCreated = asyncMkdirp(basePath)
+    this._dirCreated = mkdirp(basePath)
 
     this._activeDownloads = new Map()
   }
@@ -69,7 +68,7 @@ export default class MapStore {
         }
       }
 
-      await asyncMkdirp(path.dirname(mapPath))
+      await mkdirp(path.dirname(mapPath))
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject).on('finish', resolve)
