@@ -1,7 +1,7 @@
 import { getPermissions, updatePermissions } from '../models/permissions'
 import { checkAllPermissions } from '../permissions/check-permissions'
 
-export default function(router) {
+export default function (router) {
   router
     .get('/:userId', checkAllPermissions('editPermissions'), doGetPermissions)
     .post('/:userId', checkAllPermissions('editPermissions'), doUpdatePermissions)

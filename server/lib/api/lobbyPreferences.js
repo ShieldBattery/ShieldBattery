@@ -16,7 +16,7 @@ const throttle = createThrottle('lobbypreferences', {
   window: 60000,
 })
 
-export default function(router, userSockets) {
+export default function (router, userSockets) {
   router
     .post(
       '/',

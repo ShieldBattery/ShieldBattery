@@ -2,7 +2,7 @@ import httpErrors from 'http-errors'
 import redis from '../redis'
 import sessionStore from './session-store'
 
-export default async function(ctx, updatedValues) {
+export default async function (ctx, updatedValues) {
   if (!ctx.session.userId) {
     throw new httpErrors.Unauthorized()
   }

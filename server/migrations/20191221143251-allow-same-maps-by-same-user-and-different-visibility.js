@@ -7,7 +7,7 @@
 // dedicated `id` column which we're now using as a primary key for the uploaded maps, which in turn
 // makes it easier for us to support the use-case of the same user uploading a same map with
 // different visibilities.
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     ALTER TABLE uploaded_maps
     DROP CONSTRAINT uploaded_maps_map_hash_uploaded_by_key,
@@ -15,7 +15,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql(`
     ALTER TABLE uploaded_maps
     DROP CONSTRAINT uploaded_maps_map_hash_uploaded_by_visibility_key,

@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   // We empty out the `maps` table because any map that doesn't have a valid owner set is pretty
   // much useless in our application. We're not deleting the actual map/image files on disk, but
   // since the map upload feature was not even available on the production servers so far, it
@@ -42,7 +42,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql(`
     DROP INDEX visibility_index;
   `)

@@ -1,5 +1,5 @@
 // middleware to add some more secure headers to our responses
-export default function() {
+export default function () {
   return async function secureHeaders(ctx, next) {
     await next()
     // prevent framing of our page off our domain

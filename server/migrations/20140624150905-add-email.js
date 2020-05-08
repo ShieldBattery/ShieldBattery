@@ -1,4 +1,4 @@
-exports.up = function(db, callback) {
+exports.up = function (db, callback) {
   db.addColumn('users', 'email', { type: 'string', length: 100 }, fillExisting)
 
   function fillExisting(err) {
@@ -19,6 +19,6 @@ exports.up = function(db, callback) {
   }
 }
 
-exports.down = function(db, callback) {
+exports.down = function (db, callback) {
   db.removeColumn('users', 'email', callback)
 }

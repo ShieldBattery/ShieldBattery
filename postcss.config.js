@@ -1,4 +1,4 @@
-module.exports = function(ctx) {
+module.exports = function (ctx) {
   const cssNextOpts =
     ctx.options.target === 'electron-renderer'
       ? { browsers: 'last 2 Chrome versions' }

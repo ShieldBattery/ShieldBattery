@@ -3,7 +3,7 @@ import { dispatch } from '../dispatch-registry'
 
 import { ACTIVE_GAME_STATUS } from '../actions'
 
-export default function({ siteSocket }) {
+export default function ({ siteSocket }) {
   if (!activeGameManager) {
     return
   }

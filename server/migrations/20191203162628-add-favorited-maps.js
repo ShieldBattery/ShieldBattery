@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     CREATE TABLE favorited_maps (
       map_id uuid NOT NULL,
@@ -11,7 +11,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql(`
     DROP TABLE favorited_maps;
   `)

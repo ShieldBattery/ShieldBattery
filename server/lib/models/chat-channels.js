@@ -51,7 +51,7 @@ export async function getUsersForChannel(channelName) {
 }
 
 export async function addUserToChannel(userId, channelName, client = null) {
-  const fn = async function(client) {
+  const fn = async function (client) {
     let columns
     let values
     const params = [userId, channelName]
@@ -182,7 +182,7 @@ export async function getMessagesForChannel(channelName, userId, limit = 50, bef
 }
 
 export async function leaveChannel(userId, channelName) {
-  return await transact(async function(client) {
+  return await transact(async function (client) {
     let result = await client.query(
       'DELETE FROM joined_channels WHERE user_id = $1 AND channel_name = $2 RETURNING *',
       [userId, channelName],

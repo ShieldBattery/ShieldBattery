@@ -1,4 +1,4 @@
-exports.up = function(db, cb) {
+exports.up = function (db, cb) {
   db.runSql(
     `
       CREATE TABLE maps (
@@ -20,6 +20,6 @@ exports.up = function(db, cb) {
   )
 }
 
-exports.down = function(db, cb) {
+exports.down = function (db, cb) {
   db.dropTable('maps', cb)
 }

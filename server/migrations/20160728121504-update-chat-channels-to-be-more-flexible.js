@@ -1,4 +1,4 @@
-exports.up = function(db, cb) {
+exports.up = function (db, cb) {
   db.runSql(
     `
       CREATE TABLE channels (
@@ -59,7 +59,7 @@ exports.up = function(db, cb) {
   }
 }
 
-exports.down = function(db, cb) {
+exports.down = function (db, cb) {
   db.runSql(
     `ALTER TABLE joined_channels
       DROP CONSTRAINT fk_user_id,

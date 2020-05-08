@@ -87,6 +87,6 @@ class WebsocketServer {
   }
 }
 
-export default function(server, koaApp, sessionMiddleware) {
+export default function (server, koaApp, sessionMiddleware) {
   return new WebsocketServer(server, koaApp, sessionMiddleware)
 }

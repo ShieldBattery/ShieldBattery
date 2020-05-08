@@ -1,4 +1,4 @@
-exports.up = function(db) {
+exports.up = function (db) {
   return db
     .runSql('TRUNCATE user_ips;')
     .then(() => {
@@ -13,6 +13,6 @@ exports.up = function(db) {
     })
 }
 
-exports.down = function(db) {
+exports.down = function (db) {
   return db.runSql('ALTER TABLE user_ips DROP COLUMN user_ip_counter;')
 }

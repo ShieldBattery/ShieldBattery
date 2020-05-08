@@ -18,7 +18,7 @@ const loginThrottle = createThrottle('login', {
   window: 60000,
 })
 
-export default function(router) {
+export default function (router) {
   router
     .get('/', getCurrentSession)
     .delete('/', endSession)

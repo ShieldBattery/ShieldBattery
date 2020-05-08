@@ -1,4 +1,4 @@
-exports.up = function(db, callback) {
+exports.up = function (db, callback) {
   db.createTable(
     'permissions',
     {
@@ -20,6 +20,6 @@ exports.up = function(db, callback) {
   }
 }
 
-exports.down = function(db, callback) {
+exports.down = function (db, callback) {
   db.dropTable('permissions', callback)
 }

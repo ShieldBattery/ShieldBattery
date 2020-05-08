@@ -11,7 +11,7 @@
 //      but I reckon we won't really use that information anywhere.
 // Also, a few other tables that previously relied on old structure of map models have been updated
 // to the newer version.
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     ALTER TABLE uploaded_maps
     DROP CONSTRAINT uploaded_maps_pkey;
@@ -61,7 +61,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql(`
     ALTER TABLE uploaded_maps
     DROP CONSTRAINT uploaded_maps_pkey,

@@ -5,7 +5,7 @@ import redis from '../redis'
 const SESSION_TTL_SECONDS = Number(process.env.SB_SESSION_TTL)
 
 // This middleware must be placed *after* the session middleware in the chain of middlewares
-export default function() {
+export default function () {
   return async (ctx, next) => {
     await next()
 

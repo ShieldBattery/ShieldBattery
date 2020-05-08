@@ -25,7 +25,7 @@ const forgotPasswordSuccessThrottle = createThrottle('forgotpasssuccess', {
   window: 12 * 60 * 60 * 1000,
 })
 
-export default function(router) {
+export default function (router) {
   router
     .post(
       '/user',

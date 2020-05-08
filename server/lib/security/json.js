@@ -4,7 +4,7 @@ import isJson from 'koa-is-json'
 
 const jsonPrefix = ")]}',\n"
 
-export default function() {
+export default function () {
   return async function secureJson(ctx, next) {
     await next()
     if (isJson(ctx.body)) {

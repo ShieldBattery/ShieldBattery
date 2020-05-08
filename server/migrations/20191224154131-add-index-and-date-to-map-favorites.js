@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     CREATE INDEX favorited_by_index ON favorited_maps (favorited_by);
   `)
@@ -9,7 +9,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql(`
     ALTER TABLE favorited_maps
     DROP COLUMN favorited_date;

@@ -50,7 +50,7 @@ const mapRemoveThrottle = createThrottle('mapremove', {
   window: 60000,
 })
 
-export default function(router) {
+export default function (router) {
   router
     .get(
       '/',

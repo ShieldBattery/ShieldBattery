@@ -19,10 +19,7 @@ export default keyedReducer(new MapDetails(), {
       return state.set('isRequesting', false).set('lastError', action.payload)
     }
 
-    return state
-      .set('map', action.payload.map)
-      .set('isRequesting', false)
-      .set('lastError', null)
+    return state.set('map', action.payload.map).set('isRequesting', false).set('lastError', null)
   },
 
   [MAPS_UPDATE](state, action) {

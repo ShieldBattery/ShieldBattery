@@ -8,7 +8,7 @@ import {
   upsertMatchmakingPreferences,
 } from '../models/matchmaking-preferences'
 
-export default function(router, userSockets) {
+export default function (router, userSockets) {
   router
     .post('/:matchmakingType', featureEnabled(MATCHMAKING), ensureLoggedIn, upsertPreferences)
     .get('/:matchmakingType', featureEnabled(MATCHMAKING), ensureLoggedIn, getPreferences)

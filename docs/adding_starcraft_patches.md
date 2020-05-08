@@ -16,8 +16,8 @@ This generates a file that can be used with `bspatch` to receive a desired file.
 to clients, we have an admin-only service that accepts diff uploads, and stores them in the DB
 indexed by:
 
-  - hash of the new binary
-  - filename of the new binary (e.g. `starcraft.exe`)
+- hash of the new binary
+- filename of the new binary (e.g. `starcraft.exe`)
 
 Clients can request a patch file for a particular filename/hash combination through this same API
 endpoint, and if we have one, we hand them a URL to download the patch. If we don't, they get a 404.
@@ -28,13 +28,13 @@ To create a new diff, you need both the new version of the binary you want to su
 old version you want to be able to patch to. Say Blizzard releases StarCraft 1.19.0, and we want to
 be able to downgrade clients to 1.16.1:
 
-1) Collect the `starcraft.exe` from 1.19.0, name it `starcraft-1190.exe`
-2) Collect the `starcraft.exe` from 1.16.1, name it `starcraft-1161.exe`
-3) Place them in a directory with `bsdiff.exe`, or put `bsdiff.exe` on your `PATH`
-4) Run the following command: `bsdiff.exe starcraft-1190.exe starcraft-1161.exe starcraft-1190.diff`
-5) Upload the diff using the admin tool. The binary will be `starcraft-1190.exe`, the diff will be
-`starcraft-1190.diff`, the filename will be `starcraft.exe`, and the version description will be
-`1.19.0`.
+1. Collect the `starcraft.exe` from 1.19.0, name it `starcraft-1190.exe`
+2. Collect the `starcraft.exe` from 1.16.1, name it `starcraft-1161.exe`
+3. Place them in a directory with `bsdiff.exe`, or put `bsdiff.exe` on your `PATH`
+4. Run the following command: `bsdiff.exe starcraft-1190.exe starcraft-1161.exe starcraft-1190.diff`
+5. Upload the diff using the admin tool. The binary will be `starcraft-1190.exe`, the diff will be
+   `starcraft-1190.diff`, the filename will be `starcraft.exe`, and the version description will be
+   `1.19.0`.
 
 Repeat steps 1-5 with storm.dll, if it's changed (unlikely).
 

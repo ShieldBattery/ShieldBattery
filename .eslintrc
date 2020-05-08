@@ -2,21 +2,15 @@
   "parser": "babel-eslint",
   "parserOptions": {
     "ecmaFeatures": {
-      legacyDecorators: true
+      "legacyDecorators": true
     },
     "ecmaVersion": 6,
     "sourceType": "module"
   },
 
-  "extends": [
-    "prettier"
-  ],
+  "extends": ["prettier"],
 
-  "plugins": [
-    "babel",
-    "prettier",
-    "react"
-  ],
+  "plugins": ["babel", "prettier", "react"],
 
   "settings": {
     "react": {
@@ -45,7 +39,7 @@
     "camelcase": [2, { "properties": "always" }],
     "comma-dangle": 0,
     "comma-spacing": [2, { "before": false, "after": true }],
-    "comma-style": [2, "last", { "exceptions": { "VariableDeclaration": true }}],
+    "comma-style": [2, "last", { "exceptions": { "VariableDeclaration": true } }],
     "complexity": 0,
     "computed-property-spacing": 0,
     "consistent-return": 2,
@@ -62,7 +56,7 @@
     "generator-star-spacing": 0,
     "global-strict": 0,
     "guard-for-in": 0,
-    "handle-callback-err": [2, "^(err|error)$" ],
+    "handle-callback-err": [2, "^(err|error)$"],
     "key-spacing": [2, { "beforeColon": false, "afterColon": true }],
     "keyword-spacing": 2,
     "linebreak-style": [2, "unix"],
@@ -171,7 +165,7 @@
     "no-use-before-define": [2, "nofunc"],
     "no-var": 2,
     "no-void": 2,
-    "no-warning-comments": [2, { "terms": [ "fixme", "do not submit", "xxx" ], "location": "start" }],
+    "no-warning-comments": [2, { "terms": ["fixme", "do not submit", "xxx"], "location": "start" }],
     "no-with": 2,
     "object-curly-spacing": 0,
     "object-shorthand": 2,
@@ -191,7 +185,11 @@
     "space-in-parens": [2, "never"],
     "space-infix-ops": [2, { "int32Hint": true }],
     "space-unary-ops": [2, { "words": true, "nonwords": false }],
-    "spaced-comment": [2, "always", { "markers": ["global", "globals", "eslint", "eslint-disable", "*package", "!", ","] }],
+    "spaced-comment": [
+      2,
+      "always",
+      { "markers": ["global", "globals", "eslint", "eslint-disable", "*package", "!", ","] }
+    ],
     "spaced-line-comment": 0,
     "strict": 0,
     "use-isnan": 2,

@@ -1,4 +1,4 @@
-exports.up = function(db, cb) {
+exports.up = function (db, cb) {
   db.runSql(
     `
       CREATE TABLE whisper_sessions (
@@ -55,7 +55,7 @@ exports.up = function(db, cb) {
   }
 }
 
-exports.down = function(db, cb) {
+exports.down = function (db, cb) {
   db.dropTable('whisper_sessions', dropMessages)
 
   function dropMessages(err) {

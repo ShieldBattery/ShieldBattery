@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`CREATE TABLE matchmaking_preferences (
       user_id integer NOT NULL,
       matchmaking_type matchmaking_type NOT NULL,
@@ -11,7 +11,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql('DROP TABLE matchmaking_preferences')
 }
 

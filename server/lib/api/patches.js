@@ -8,7 +8,7 @@ import { writeFile, getUrl } from '../file-upload'
 import { addPatch, patchExists } from '../models/starcraft-patches'
 import { DOWNGRADE } from '../../../app/common/flags'
 
-export default function(router) {
+export default function (router) {
   router
     .post(
       '/',

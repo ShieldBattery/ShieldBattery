@@ -39,7 +39,7 @@ const sendVerificationThrottle = createThrottle('sendverification', {
   window: 12 * 60 * 60 * 1000,
 })
 
-export default function(router, { nydus }) {
+export default function (router, { nydus }) {
   router
     .post(
       '/',
@@ -47,7 +47,7 @@ export default function(router, { nydus }) {
       createUser,
     )
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
-    .put('/:id', function*(next) {
+    .put('/:id', function* (next) {
       // TODO(tec27): update a user
       throw new httpErrors.ImATeapot()
     })

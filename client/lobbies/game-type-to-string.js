@@ -1,4 +1,4 @@
-export default function(gameType) {
+export default function (gameType) {
   switch (gameType) {
     case 'melee':
       return 'Melee'

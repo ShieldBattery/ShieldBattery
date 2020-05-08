@@ -1,4 +1,4 @@
-exports.up = function(db, cb) {
+exports.up = function (db, cb) {
   db.runSql(
     `
       CREATE TABLE user_ips (
@@ -35,6 +35,6 @@ exports.up = function(db, cb) {
   }
 }
 
-exports.down = function(db, cb) {
+exports.down = function (db, cb) {
   db.dropTable('user_ips', cb)
 }

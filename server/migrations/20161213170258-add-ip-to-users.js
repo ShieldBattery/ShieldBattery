@@ -1,4 +1,4 @@
-exports.up = function(db, cb) {
+exports.up = function (db, cb) {
   db.runSql('ALTER TABLE users ADD COLUMN signup_ip_address inet;', createSignupIpAddressIndex)
 
   function createSignupIpAddressIndex(err) {
@@ -17,6 +17,6 @@ exports.up = function(db, cb) {
   }
 }
 
-exports.down = function(db, cb) {
+exports.down = function (db, cb) {
   db.runSql('ALTER TABLE users DROP COLUMN signup_ip_address;', cb)
 }

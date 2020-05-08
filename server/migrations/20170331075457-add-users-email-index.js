@@ -1,8 +1,8 @@
-exports.up = function(db) {
+exports.up = function (db) {
   return db.addIndex('users', 'users_email_index', 'email')
 }
 
-exports.down = function(db) {
+exports.down = function (db) {
   return db.removeIndex('users', 'users_email_index')
 }
 

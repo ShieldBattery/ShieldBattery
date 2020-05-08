@@ -2,7 +2,7 @@
 // base path that all methods should be mounted at.
 const MOUNT_PATH = Symbol('mountPath')
 export function Mount(path) {
-  return function(target) {
+  return function (target) {
     target.prototype[MOUNT_PATH] = path
   }
 }
@@ -12,7 +12,7 @@ export function Mount(path) {
 // the API instance), functions will be called directly (unbound).
 const API_METHODS = Symbol('apiMethods')
 export function Api(path, ...middleware) {
-  return function(target, key, descriptor) {
+  return function (target, key, descriptor) {
     target[API_METHODS] = target[API_METHODS] || new Map()
     target[API_METHODS].set(key, { path, middleware })
   }

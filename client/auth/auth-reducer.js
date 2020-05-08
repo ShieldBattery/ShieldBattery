@@ -51,10 +51,7 @@ function noOpOrError(state, action) {
 
 function emailVerified(state, action) {
   return state.withMutations(s =>
-    s
-      .set('authChangeInProgress', false)
-      .set('lastFailure', null)
-      .set('emailVerified', true),
+    s.set('authChangeInProgress', false).set('lastFailure', null).set('emailVerified', true),
   )
 }
 

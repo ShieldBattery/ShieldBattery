@@ -5,7 +5,7 @@ import path from 'path'
 import { app } from 'electron'
 import sanitize from 'sanitize-filename'
 
-export default function() {
+export default function () {
   // OS X doesn't have a single instance issue
   if (process.platform === 'darwin') {
     return

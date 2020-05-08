@@ -66,7 +66,7 @@ function Logger(baseFilename, actualOptions) {
   this._system('Version: ' + packageJson.version)
 }
 
-Logger.prototype._writeToLog = function(outStr) {
+Logger.prototype._writeToLog = function (outStr) {
   if (this._draining || !this._opened) {
     this._buffer.push(outStr)
   } else {
@@ -77,14 +77,14 @@ Logger.prototype._writeToLog = function(outStr) {
   }
 }
 
-Logger.prototype.log = function(level, msg) {
+Logger.prototype.log = function (level, msg) {
   if (!this._options.logLevels.includes(level)) {
     return
   }
   this._writeToLog(`[${new Date().toISOString()}]\t<${level}>\t${msg}\n`)
 }
 
-Logger.prototype._handleDrain = function() {
+Logger.prototype._handleDrain = function () {
   this._draining = true
   this._out.once('drain', () => {
     while (this._buffer.length) {
@@ -100,13 +100,13 @@ Logger.prototype._handleDrain = function() {
   })
 }
 
-possibleLevels.forEach(function(level) {
-  Logger.prototype[level] = function(msg) {
+possibleLevels.forEach(function (level) {
+  Logger.prototype[level] = function (msg) {
     this.log(level, msg)
   }
 })
 
-Logger.prototype._system = function(msg) {
+Logger.prototype._system = function (msg) {
   this.log('system', msg)
 }
 

@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
       ALTER TABLE permissions
       ADD COLUMN manage_map_pools boolean NOT NULL DEFAULT false;
@@ -14,7 +14,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql('ALTER TABLE permissions DROP COLUMN manage_map_pools;')
   await db.runSql('DROP TABLE matchmaking_map_pools;')
 }

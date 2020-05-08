@@ -210,7 +210,7 @@ const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddlewar
       log.info(`Webpack stats:\n${statStr}`)
     }
 
-    mainServer.listen(port, function() {
+    mainServer.listen(port, function () {
       log.info('Server listening on port ' + port)
     })
   } catch (err) {

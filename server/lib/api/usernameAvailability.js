@@ -10,7 +10,7 @@ const throttle = createThrottle('usernameavailability', {
   window: 60000,
 })
 
-export default function(router) {
+export default function (router) {
   router.get(
     '/:username',
     throttleMiddleware(throttle, ctx => ctx.ip),

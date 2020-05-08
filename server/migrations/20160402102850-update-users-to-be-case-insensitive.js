@@ -1,4 +1,4 @@
-exports.up = function(db, callback) {
+exports.up = function (db, callback) {
   const sql =
     'DELETE FROM users WHERE id IN (SELECT id FROM users as u1 ' +
     'WHERE 1 = (SELECT 1 FROM users as u2 WHERE LOWER(u1.name) = LOWER(u2.name) ' +
@@ -19,7 +19,7 @@ exports.up = function(db, callback) {
   }
 }
 
-exports.down = function(db, callback) {
+exports.down = function (db, callback) {
   const sql =
     'ALTER TABLE users ALTER COLUMN name TYPE varchar(32); ' +
     'ALTER TABLE users DROP CONSTRAINT name_length_check'

@@ -16,7 +16,7 @@ const pool = new pg.Pool({ connectionString })
 // TODO(tec27): I think it might be better to wrap the query functions instead of just wrapping the
 // client pool getter, but since I don't know how we'll be using this too much yet I'm just
 // keeping it simple for now
-export default function() {
+export default function () {
   return new Promise((resolve, reject) => {
     pool.connect((err, client, done) => {
       if (err) reject(err)

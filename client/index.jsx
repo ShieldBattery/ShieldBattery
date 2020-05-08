@@ -3,13 +3,13 @@ import { makeServerUrl } from './network/server-url'
 
 if (IS_ELECTRON) {
   process
-    .on('uncaughtException', function(err) {
+    .on('uncaughtException', function (err) {
       console.error(err.stack)
       log.error(err.stack)
       // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
       // dialog to user?
     })
-    .on('unhandledRejection', function(err) {
+    .on('unhandledRejection', function (err) {
       log.error(err.stack)
       if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
         // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error

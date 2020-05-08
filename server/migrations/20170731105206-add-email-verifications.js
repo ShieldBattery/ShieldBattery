@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     ALTER TABLE users
     ADD COLUMN email_verified boolean NOT NULL DEFAULT false;
@@ -17,7 +17,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql('ALTER TABLE users DROP COLUMN email_verified;')
   await db.runSql('DROP TABLE email_verifications;')
 }

@@ -13,7 +13,7 @@ const VERSION = packageJson.version
 const nodeEnv = process.env.NODE_ENV || 'development'
 const isProd = nodeEnv === 'production'
 
-export default function({
+export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
   hotUrl,

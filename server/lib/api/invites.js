@@ -6,7 +6,7 @@ import { isValidEmail } from '../../../app/common/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
 
-export default function(router) {
+export default function (router) {
   router
     .get('/', checkAllPermissions('acceptInvites'), listInvites)
     .put('/:email', checkAllPermissions('acceptInvites'), acceptInvite)

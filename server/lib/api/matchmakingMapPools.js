@@ -13,7 +13,7 @@ import {
   removeMapPool as removeMapPoolDb,
 } from '../models/matchmaking-map-pools'
 
-export default function(router) {
+export default function (router) {
   router
     .get(
       '/:matchmakingType',

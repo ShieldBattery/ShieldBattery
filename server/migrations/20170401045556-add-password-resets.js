@@ -1,4 +1,4 @@
-exports.up = function(db) {
+exports.up = function (db) {
   return db.runSql(`
     CREATE TABLE password_resets (
       user_id integer NOT NULL,
@@ -12,7 +12,7 @@ exports.up = function(db) {
   `)
 }
 
-exports.down = function(db) {
+exports.down = function (db) {
   return db.dropTable('password_resets')
 }
 

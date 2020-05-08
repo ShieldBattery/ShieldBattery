@@ -1,4 +1,4 @@
-exports.up = async function(db) {
+exports.up = async function (db) {
   await db.runSql(`
     CREATE TABLE lobby_preferences (
       user_id integer PRIMARY KEY,
@@ -11,7 +11,7 @@ exports.up = async function(db) {
   `)
 }
 
-exports.down = async function(db) {
+exports.down = async function (db) {
   await db.runSql('DROP TABLE lobby_preferences')
 }
 

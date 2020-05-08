@@ -7,10 +7,7 @@ import fetch from '../network/fetch'
 const asyncReadFile = thenify(fs.readFile)
 
 export default async function upload(filePath, apiPath) {
-  const extension = path
-    .extname(filePath)
-    .slice(1)
-    .toLowerCase()
+  const extension = path.extname(filePath).slice(1).toLowerCase()
   const file = await asyncReadFile(filePath)
 
   const formData = new FormData()
