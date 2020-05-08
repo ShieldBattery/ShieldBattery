@@ -213,6 +213,7 @@ async function createWindow(localSettings, curSession) {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
+      contextIsolation: true,
       // TODO(tec27): Figure out a path to turning this off as it's a security risk
       nodeIntegration: true,
       session: curSession,
