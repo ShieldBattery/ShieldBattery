@@ -1,17 +1,22 @@
 // This file should ONLY be imported for the Electron build
 
-import fs from 'fs'
+import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
 import glob from 'glob'
-import thenify from 'thenify'
 import logger from '../logging/logger'
 import getFileHash from '../../app/common/get-file-hash'
 import { REMASTERED, DOWNGRADE } from '../../app/common/flags'
 import checkFileExists from '../../app/common/check-file-exists'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 
-const accessAsync = thenify(fs.access)
-const globAsync = thenify(glob)
+function globAsync(...args) {
+  return new Promise((resolve, reject) => {
+    glob(...args, (err, files) => {
+      if (err) reject(err)
+      else resolve(files)
+    })
+  })
+}
 
 export const EXE_HASHES_1161 = ['ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46']
 export const STORM_HASHES_1161 = [
@@ -36,7 +41,9 @@ async function checkRemasteredPath(dirPath) {
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
 
   try {
-    await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
+    await Promise.all(
+      requiredFiles.map(f => fsPromises.access(path.join(dirPath, f), fs.constants.R_OK)),
+    )
     return true
   } catch (err) {
     return false
@@ -61,7 +68,9 @@ export async function checkStarcraftPath(dirPath) {
   const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
-    await Promise.all(requiredFiles.map(f => accessAsync(path.join(dirPath, f), fs.constants.R_OK)))
+    await Promise.all(
+      requiredFiles.map(f => fsPromises.access(path.join(dirPath, f), fs.constants.R_OK)),
+    )
   } catch (err) {
     return result
   }

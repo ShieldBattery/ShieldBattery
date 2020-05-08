@@ -2,13 +2,13 @@ extends layout
 
 block headScripts
   if initData
-    script(type='text/javascript').
+    script(type='text/javascript', nonce=cspNonce).
       window._sbInitData=!{JSON.stringify(initData)}
   if analyticsId
-    script(type='text/javascript').
+    script(type='text/javascript', nonce=cspNonce).
       window._sbAnalyticsId=!{JSON.stringify(analyticsId)}
   if feedbackUrl
-    script(type='text/javascript').
+    script(type='text/javascript', nonce=cspNonce).
       window._sbFeedbackUrl=!{JSON.stringify(feedbackUrl)}
 
 block content

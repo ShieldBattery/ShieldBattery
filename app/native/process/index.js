@@ -1,6 +1,5 @@
 // Uses dynamic require to avoid ever pulling this into the Web build
 const native = require('./win-process.node')
-import thenify from 'thenify'
 
 class Process {
   constructor(cProcess) {
@@ -39,10 +38,16 @@ class Process {
   }
 }
 
+const $launchProcess = (...args) =>
+  new Promise((resolve, reject) =>
+    native.launchProcess(...args, (err, proc) => {
+      if (err) reject(err)
+      else resolve(proc)
+    }),
+  )
 // debuggerLaunch is not related to actually debugging the launched process.
 // Instead, it is a way to inject DLL earlier than the "normal" method,
 // using Windows's debugging APIs.
-const $launchProcess = thenify(native.launchProcess)
 export async function launchProcess({
   appPath,
   args = [],

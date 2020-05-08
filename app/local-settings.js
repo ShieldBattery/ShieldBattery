@@ -1,15 +1,10 @@
-import fs from 'fs'
+import fs, { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
-import thenify from 'thenify'
 import log from './logger'
 import { findInstallPath } from './find-install-path'
 
 const VERSION = 4
-
-const readFileAsync = thenify(fs.readFile)
-const writeFileAsync = thenify(fs.writeFile)
-const unlinkAsync = thenify(fs.unlink)
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -38,11 +33,11 @@ export default class LocalSettings extends EventEmitter {
 
     this._initialized = (async () => {
       try {
-        this._settings = JSON.parse(await readFileAsync(this._filepath, { encoding: 'utf8' }))
+        this._settings = JSON.parse(await fsPromises.readFile(this._filepath, { encoding: 'utf8' }))
       } catch (err) {
         log.error('Error reading/parsing settings file: ' + err + ', creating')
         try {
-          await unlinkAsync(this._filepath)
+          await fsPromises.unlink(this._filepath)
         } catch (err) {
           // Ignored, probably just due to the file not existing
         }
@@ -50,10 +45,10 @@ export default class LocalSettings extends EventEmitter {
       // TODO(tec27): try to load the old settings location (in ProgramData)
       if (!this._settings) {
         this._settings = await this._createDefaults()
-        await writeFileAsync(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
+        await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       } else if (this._settings.version !== VERSION) {
         this._settings = await this._migrateOldSettings(this._settings)
-        await writeFileAsync(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
+        await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       }
 
       this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
@@ -78,7 +73,7 @@ export default class LocalSettings extends EventEmitter {
     const merged = Object.assign({}, this._settings, settings)
     if (!deepEqual(merged, this._settings)) {
       this._settings = merged
-      await writeFileAsync(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
+      await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       this._emitChange()
     }
   }
@@ -133,7 +128,7 @@ export default class LocalSettings extends EventEmitter {
 
   async _readFile() {
     await this._initialized
-    const contents = await readFileAsync(this._filepath, { encoding: 'utf8' })
+    const contents = await fsPromises.readFile(this._filepath, { encoding: 'utf8' })
     const newData = JSON.parse(contents)
     if (!deepEqual(newData, this._settings)) {
       this._settings = newData

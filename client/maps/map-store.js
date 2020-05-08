@@ -1,13 +1,10 @@
-import fs from 'fs'
+import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
 import mkdirp from 'mkdirp'
-import thenify from 'thenify'
 import { Map } from 'immutable'
 import request from 'request'
 import HashThrough from '../../app/common/hash-through'
 import log from '../logging/logger'
-
-const asyncStat = thenify(fs.stat)
 
 export default class MapStore {
   constructor(basePath) {
@@ -44,7 +41,7 @@ export default class MapStore {
 
     let exists = false
     try {
-      await asyncStat(mapPath)
+      await fsPromises.stat(mapPath)
       exists = true
     } catch (ignored) {
       // error just means the file doesn't exist (most likely)

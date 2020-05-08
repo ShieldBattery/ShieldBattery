@@ -26,7 +26,6 @@
     "mkdirp": "^1.0.4",
     "nan": "^2.14.1",
     "sanitize-filename": "^1.6.3",
-    "thenify": "^3.2.1",
     "winreg": "^1.2.2"
   },
   "devDependencies": {}

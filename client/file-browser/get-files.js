@@ -1,15 +1,12 @@
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
-import thenify from 'thenify'
 
-const readdirAsync = thenify(fs.readdir)
-const statAsync = thenify(fs.stat)
 export default async function readFolder(folderPath) {
-  const names = await readdirAsync(folderPath)
+  const names = await fsPromises.readdir(folderPath)
   const stats = await Promise.all(
     names.map(async name => {
       const targetPath = path.join(folderPath, name)
-      const stats = await statAsync(targetPath)
+      const stats = await fsPromises.stat(targetPath)
       return [name, targetPath, stats]
     }),
   )

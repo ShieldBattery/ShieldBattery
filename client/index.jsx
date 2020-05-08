@@ -41,9 +41,6 @@ import RedirectProvider from './navigation/redirect-provider.jsx'
 import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
-import { UPDATE_SERVER, UPDATE_SERVER_COMPLETE } from '../app/common/ipc-constants'
-
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
@@ -61,19 +58,10 @@ const rootElemPromise = new Promise((resolve, reject) => {
     }
   })
 })
-const updatedServerPromise = new Promise(resolve => {
-  if (!ipcRenderer) {
-    resolve()
-    return
-  }
-
-  ipcRenderer.once(UPDATE_SERVER_COMPLETE, () => resolve())
-  ipcRenderer.send(UPDATE_SERVER, makeServerUrl(''))
-})
 
 const initAudioPromise = audioManager ? audioManager.initialize() : Promise.resolve()
 
-Promise.all([rootElemPromise, updatedServerPromise])
+Promise.all([rootElemPromise])
   .then(async ([elem]) => {
     const initData = window._sbInitData
     if (initData && initData.auth) {

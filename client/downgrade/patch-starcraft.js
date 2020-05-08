@@ -3,7 +3,6 @@ import path from 'path'
 import glob from 'glob'
 import childProcess from 'child_process'
 import mkdirp from 'mkdirp'
-import thenify from 'thenify'
 import { EXE_HASHES_1161, STORM_HASHES_1161 } from '../starcraft/check-starcraft-path'
 import { streamEndPromise, streamFinishPromise } from '../../app/common/async/stream-promise'
 import getFileHash from '../../app/common/get-file-hash'
@@ -11,7 +10,14 @@ import checkFileExists from '../../app/common/check-file-exists'
 import { fetchJson, fetchReadableStream } from '../network/fetch'
 import { remote } from 'electron'
 
-const globAsync = thenify(glob)
+function globAsync(...args) {
+  return new Promise((resolve, reject) => {
+    glob(...args, (err, files) => {
+      if (err) reject(err)
+      else resolve(files)
+    })
+  })
+}
 
 const bspatchPath = path.resolve(remote.app.getAppPath(), '../game/dist/bspatch.exe')
 

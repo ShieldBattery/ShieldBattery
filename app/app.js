@@ -1,15 +1,17 @@
 import { getUserDataPath } from './user-data-path'
 getUserDataPath()
 
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 import localShortcut from 'electron-localshortcut'
 import path from 'path'
 import isDev from 'electron-is-dev'
 import logger from './logger'
+import fs from 'fs'
+import crypto from 'crypto'
+import { Readable } from 'stream'
 
 app.setAppUserModelId('net.shieldbattery.client')
 
-import url from 'url'
 import LocalSettings from './local-settings'
 import currentSession from './current-session'
 import SystemTray from './system-tray'
@@ -29,8 +31,6 @@ import {
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE,
   SETTINGS_MERGE_ERROR,
-  UPDATE_SERVER,
-  UPDATE_SERVER_COMPLETE,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MAXIMIZED_STATE,
@@ -39,22 +39,28 @@ import {
 
 autoUpdater.logger = logger
 
+// Set up our main file's protocol to enable the necessary features
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'shieldbattery',
+    privileges: {
+      // Ensure we have localStorage/cookies available
+      standard: true,
+      // Act like https
+      secure: true,
+      bypassCSP: false,
+      allowServiceWorkers: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+])
+
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow
 let systemTray
 
 export const getMainWindow = () => mainWindow
-
-function applyOriginFilter(curSession, baseUrl) {
-  // Modify the origin for all ShieldBattery server requests
-  const filter = {
-    urls: [`${baseUrl}/*`],
-  }
-  curSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-    details.requestHeaders.Origin = 'http://client.shieldbattery.net'
-    callback({ cancel: false, requestHeaders: details.requestHeaders })
-  })
-}
 
 async function installDevExtensions() {
   if (isDev) {
@@ -78,10 +84,6 @@ async function createLocalSettings() {
 function setupIpc(localSettings) {
   ipcMain.on(LOG_MESSAGE, (event, level, message) => {
     logger.log(level, message)
-  })
-  ipcMain.on(UPDATE_SERVER, (event, serverUrl) => {
-    applyOriginFilter(currentSession(), serverUrl)
-    event.sender.send(UPDATE_SERVER_COMPLETE)
   })
 
   ipcMain
@@ -184,6 +186,57 @@ function setupIpc(localSettings) {
   })
 }
 
+function setupCspProtocol(curSession) {
+  // Register a protocol that will perform two functions:
+  // - Return our index.html file with the proper style/script values filled out
+  // - Add fake headers to the response such that we set up CSP with a nonce (necessary for
+  //   styled-components to work properly), and unfortunately not really possible to do without
+  //   HTTP headers
+  curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
+    fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
+      if (err) {
+        const dataStream = new Readable()
+        dataStream.push('Error reading index.html')
+        dataStream.push(null)
+        cb({
+          statusCode: 500,
+          data: dataStream,
+        })
+        return
+      }
+
+      const nonce = crypto.randomBytes(16).toString('base64')
+      const isHot = !!process.env.SB_HOT
+      const result = data
+        .replace(
+          /%STYLESHEET_TAG%/g,
+          isHot ? '' : `<link rel="stylesheet" href="styles/site.css" nonce="${nonce}" />`,
+        )
+        .replace(/%SCRIPT_URL%/g, isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js')
+        .replace(/%CSP_NONCE%/g, nonce)
+
+      const dataStream = new Readable()
+      dataStream.push(result)
+      dataStream.push(null)
+
+      // If hot-reloading is on, we have to allow eval so it can work
+      const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
+
+      cb({
+        statusCode: 200,
+        headers: {
+          'content-type': 'text/html',
+          'content-security-policy':
+            `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
+            `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
+            "font-src 'self' https://fonts.gstatic.com;",
+        },
+        data: dataStream,
+      })
+    })
+  })
+}
+
 function registerHotkeys() {
   const isMac = process.platform === 'darwin'
   localShortcut.register(mainWindow, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I', () =>
@@ -213,10 +266,13 @@ async function createWindow(localSettings, curSession) {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
-      contextIsolation: true,
+      session: curSession,
       // TODO(tec27): Figure out a path to turning this off as it's a security risk
       nodeIntegration: true,
-      session: curSession,
+      // TODO(tec27): Ideally we'd turn these options on as well (note that these get turned on
+      // automatically if the page has a CSP set, which is why we turn it off here)
+      contextIsolation: false,
+      sandbox: false,
     },
   })
 
@@ -276,13 +332,7 @@ async function createWindow(localSettings, curSession) {
       event.preventDefault()
     })
 
-  mainWindow.loadURL(
-    url.format({
-      pathname: path.join(__dirname, 'index.html'),
-      protocol: 'file:',
-      slashes: true,
-    }),
-  )
+  mainWindow.loadURL('shieldbattery://app')
 
   registerHotkeys()
 
@@ -310,8 +360,9 @@ app.on('ready', async () => {
     const [, localSettings] = await Promise.all([devExtensionsPromise, localSettingsPromise])
 
     setupIpc(localSettings)
+    setupCspProtocol(currentSession())
     await createWindow(localSettings, currentSession())
-    systemTray = new SystemTray(mainWindow, ::app.quit)
+    systemTray = new SystemTray(mainWindow, () => app.quit())
 
     mainWindow.webContents.on('did-finish-load', () => {
       mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, mainWindow.isMaximized())

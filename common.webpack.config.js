@@ -119,6 +119,13 @@ export default function ({
       ),
       new webpack.DefinePlugin({
         ...globalDefines,
+
+        // This value will be set by Electron/our server in an inline script with a nonce value
+        // matching the CSP headers for the request. Having this define makes things work while
+        // hot reloading as well.
+        // eslint-disable-next-line camelcase
+        __webpack_nonce__: 'window.SB_CSP_NONCE',
+
         'process.webpackEnv': {
           NODE_ENV: JSON.stringify(nodeEnv),
           VERSION: `"${VERSION}"`,

@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import styled, { css } from 'styled-components'
+import styled, { css, createGlobalStyle } from 'styled-components'
 
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
@@ -15,11 +15,13 @@ const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 export const windowControlsHeight = IS_ELECTRON ? '32px' : '0px'
 
-const root = `
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: ${zIndexWindowControls};
+export const WindowControlsStyle = createGlobalStyle`
+  .sb-window-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: ${zIndexWindowControls};
+  }
 `
 
 const button = css`
@@ -97,7 +99,7 @@ export const SizeRight = styled.div`
   bottom: 0;
 `
 
-export default class WindowControls extends React.Component {
+export class WindowControls extends React.Component {
   controls = null
 
   componentWillUnmount() {
@@ -111,8 +113,7 @@ export default class WindowControls extends React.Component {
 
     if (!this.controls) {
       this.controls = document.createElement('div')
-      // We use inline style here so we don't have to create another DOM element
-      this.controls.setAttribute('style', root)
+      this.controls.classList.add('sb-window-controls')
       document.body.appendChild(this.controls)
     }
 

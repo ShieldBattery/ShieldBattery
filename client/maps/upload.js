@@ -1,14 +1,11 @@
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
-import thenify from 'thenify'
 
 import fetch from '../network/fetch'
 
-const asyncReadFile = thenify(fs.readFile)
-
 export default async function upload(filePath, apiPath) {
   const extension = path.extname(filePath).slice(1).toLowerCase()
-  const file = await asyncReadFile(filePath)
+  const file = await fsPromises.readFile(filePath)
 
   const formData = new FormData()
   formData.append('extension', extension)

@@ -1,11 +1,8 @@
-import fs from 'fs'
-import thenify from 'thenify'
-
-const accessAsync = thenify(fs.access)
+import fs, { promises as fsPromises } from 'fs'
 
 export default async function checkFileExists(path) {
   try {
-    await accessAsync(path, fs.constants.R_OK)
+    await fsPromises.access(path, fs.constants.R_OK)
     return true
   } catch (err) {
     return false

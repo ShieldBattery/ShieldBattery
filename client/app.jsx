@@ -17,7 +17,7 @@ import MainLayout from './main-layout.jsx'
 import Signup from './auth/signup.jsx'
 import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
-import WindowControls from './app-bar/window-controls.jsx'
+import { WindowControls, WindowControlsStyle } from './app-bar/window-controls.jsx'
 
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -58,6 +58,7 @@ class App extends React.Component {
       <React.Fragment>
         <ResetStyle />
         <GlobalStyle />
+        <WindowControlsStyle />
         <WindowControls />
         <Switch>
           <Route path='/splash' component={Splash} />

@@ -1,10 +1,9 @@
 import { remote } from 'electron'
 import path from 'path'
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
-import thenify from 'thenify'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 import log from '../logging/logger'
@@ -206,23 +205,20 @@ function silentTerminate(proc) {
 
 const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
 
-const statAsync = thenify(fs.stat)
-const unlinkAsync = thenify(fs.unlink)
 async function removeIfOld(path, maxAge) {
   try {
-    const stat = await statAsync(path)
+    const stat = await fsPromises.stat(path)
     if (Date.now() - stat.mtime > maxAge) {
-      await unlinkAsync(path)
+      await fsPromises.unlink(path)
     }
   } catch (e) {
     // We won't care the file doesn't exist/can't be touched
   }
 }
 
-const accessAsync = thenify(fs.access)
 async function doLaunch(gameId, serverPort, settings) {
   try {
-    await accessAsync(injectPath)
+    await fsPromises.access(injectPath)
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
   }

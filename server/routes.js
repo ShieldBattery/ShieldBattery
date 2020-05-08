@@ -6,6 +6,7 @@ import path from 'path'
 import fs from 'fs'
 import isDev from './lib/env/is-dev'
 import logger from './lib/logging/logger'
+import { getCspNonce } from './lib/security/csp'
 
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
@@ -74,6 +75,7 @@ export default function applyRoutes(app, nydus, userSockets) {
         initData,
         analyticsId: process.env.SB_ANALYTICS_ID,
         feedbackUrl: process.env.SB_FEEDBACK_URL,
+        cspNonce: getCspNonce(ctx),
       })
     },
   )

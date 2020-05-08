@@ -16,6 +16,7 @@ import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaError from 'koa-error'
 import logMiddleware from './lib/logging/log-middleware'
+import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import secureJson from './lib/security/json'
 import sessionMiddleware from './lib/session/middleware'
@@ -157,6 +158,7 @@ app
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)
+  .use(cors())
   .use(onlyWebClients(csrfCookie()))
   .use(onlyWebClients(new Csrf()))
   .use(secureHeaders())

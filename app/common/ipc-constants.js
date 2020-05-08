@@ -33,11 +33,6 @@ export const SETTINGS_EMIT_ERROR = 'SETTINGS_EMIT_ERROR'
 export const SETTINGS_MERGE = 'SETTINGS_MERGE'
 export const SETTINGS_MERGE_ERROR = 'SETTINGS_MERGE_ERROR'
 
-// The renderer has chosen a server to connect to (generally called when initializing the app)
-export const UPDATE_SERVER = 'UPDATE_SERVER'
-// The main process has finished updating the server
-export const UPDATE_SERVER_COMPLETE = 'UPDATE_SERVER_COMPLETE'
-
 export const WINDOW_CLOSE = 'WINDOW_CLOSE'
 export const WINDOW_MAXIMIZE = 'WINDOW_MAXIMIZE'
 export const WINDOW_MINIMIZE = 'WINDOW_MINIMIZE'

@@ -7,27 +7,13 @@
       href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:wght@300;400;500&display=swap"
       rel="stylesheet"
     />
-
-    <script type="text/javascript">
-      ;(function() {
-        if (!process.env.SB_HOT) {
-          const link = document.createElement('link')
-          link.rel = 'stylesheet'
-          link.href = 'styles/site.css'
-          document.querySelector('head').appendChild(link)
-        }
-      })()
-    </script>
+    %STYLESHEET_TAG%
   </head>
   <body class="electron">
     <div id="app"></div>
-    <script type="text/javascript">
-      ;(function() {
-        const script = document.createElement('script')
-        script.type = 'text/javascript'
-        script.src = process.env.SB_HOT ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js'
-        document.querySelector('body').appendChild(script)
-      })()
+    <script type="text/javascript" nonce="%CSP_NONCE%">
+      window.SB_CSP_NONCE = '%CSP_NONCE%'
     </script>
+    <script type="text/javascript" src="%SCRIPT_URL%" nonce="%CSP_NONCE%"></script>
   </body>
 </html>

@@ -1,9 +1,6 @@
 import { remote } from 'electron'
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
-import thenify from 'thenify'
-
-const readFileAsync = thenify(fs.readFile)
 
 const SOUND_PATH = path.join('assets', 'sounds')
 
@@ -40,7 +37,7 @@ export default class AudioManager {
     const appPath = remote.app.getAppPath()
     const promises = Object.keys(SOUND_FILES).map(async sound => {
       const filename = path.join(appPath, SOUND_PATH, SOUND_FILES[sound])
-      const buf = await readFileAsync(filename)
+      const buf = await fsPromises.readFile(filename)
       this._loadedSounds[sound] = await this._context.decodeAudioData(buf.buffer)
     })
 
