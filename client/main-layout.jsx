@@ -355,7 +355,7 @@ class MainLayout extends React.Component {
     return (
       <Container>
         <AppBar>{appBarTitle}</AppBar>
-        {!auth.emailVerified ? <EmailVerificationNotification user={auth.user} /> : null}
+        {!auth.emailVerified ? <EmailVerificationNotification /> : null}
         <Layout>
           <LeftNav footer={footer}>
             {this.renderActiveGameNav()}

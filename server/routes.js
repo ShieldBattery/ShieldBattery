@@ -64,7 +64,7 @@ export default function applyRoutes(app, nydus, userSockets) {
       const initData = {}
       if (ctx.session.userId) {
         initData.auth = {
-          user: { id: ctx.session.userId, name: ctx.session.userName, email: ctx.session.email },
+          user: { id: ctx.session.userId, name: ctx.session.userName },
           permissions: ctx.session.permissions,
           emailVerified: ctx.session.emailVerified,
         }
