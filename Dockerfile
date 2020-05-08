@@ -47,7 +47,10 @@ ENV SB_PREBUILT_ASSETS=true
 
 # Since we're executing some bash scripts (eg. `wait-for-it.sh`) before running the containers using
 # this image, we need to install it explicitly because alpine-based images don't have it by default.
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash logrotate
+
+# Set up log rotation
+COPY --from=builder /shieldbattery/server/deployment_files/logrotate.conf /etc/logrotate.d/shieldbattery
 
 # Set the user to `node` for any subsequent `RUN` and `CMD` instructions
 USER node
@@ -73,5 +76,4 @@ RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sp
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp
 
-# Slight optimization, see: https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md#cmd
-CMD cd server && node index.js | ./node_modules/.bin/bunyan
+CMD cd server && node index.js | ./node_modules/.bin/pino-tee warn ./logs/errors.log | tee ./logs/server.log

@@ -1,26 +1,13 @@
-import bunyan from 'bunyan'
-import path from 'path'
+import pino from 'pino'
+import { stdSerializers } from 'pino-http'
+import cuid from 'cuid'
 
-import responseSerializer from './response-serializer'
+export default pino(getLoggerOptions())
 
-const logLevels = JSON.parse(process.env.SB_LOG_LEVELS)
-
-export default bunyan.createLogger({
-  name: 'manner-pylon',
-  serializers: {
-    err: bunyan.stdSerializers.err,
-    req: bunyan.stdSerializers.req,
-    res: responseSerializer,
-  },
-
-  streams: [
-    { stream: process.stdout, level: logLevels.console },
-    {
-      type: 'rotating-file',
-      path: path.join(path.resolve(__dirname, '..', '..'), 'logs', 'manner-pylon.log'),
-      period: '1d',
-      count: 7,
-      level: logLevels.file,
-    },
-  ],
-})
+export function getLoggerOptions() {
+  return {
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    genReqId: cuid,
+    serializers: stdSerializers,
+  }
+}

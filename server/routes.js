@@ -5,6 +5,7 @@ import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
 import isDev from './lib/env/is-dev'
+import logger from './lib/logging/logger'
 
 const router = KoaRouter()
 const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
@@ -24,7 +25,7 @@ export default function applyRoutes(app, nydus, userSockets) {
     const subRouter = new KoaRouter()
     require('./lib/api/' + filename).default(subRouter, { nydus, userSockets })
     router.use(apiPath, subRouter.routes())
-    console.log('mounted ' + apiPath)
+    logger.info('mounted ' + apiPath)
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
