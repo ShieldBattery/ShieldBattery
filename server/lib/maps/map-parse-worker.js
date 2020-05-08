@@ -63,7 +63,7 @@ function generateImage(map, bwDataPath) {
     return map
       .image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
       .then(imageRgb => {
-        const rgbaBuffer = new Buffer(width * height * 4)
+        const rgbaBuffer = Buffer.alloc(width * height * 4)
         for (let i = 0; i < width * height; i++) {
           rgbaBuffer[i * 4] = imageRgb[i * 3]
           rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]

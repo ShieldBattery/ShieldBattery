@@ -19,7 +19,7 @@ export default class MapStore {
   }
 
   getPath(mapHash, mapFormat) {
-    const b64 = new Buffer(mapHash, 'hex').toString('base64')
+    const b64 = Buffer.from(mapHash, 'hex').toString('base64')
     // Goal of dirs is twofold:
     // - Avoid a huge number of files in a single directory
     // - Get the resulting filename under 32 characters (necessary because BW checks this =/)
