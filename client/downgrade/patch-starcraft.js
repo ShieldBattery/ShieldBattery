@@ -11,7 +11,6 @@ import checkFileExists from '../../app/common/check-file-exists'
 import { fetchJson, fetchReadableStream } from '../network/fetch'
 import { remote } from 'electron'
 
-const asyncMkdirp = thenify(mkdirp)
 const globAsync = thenify(glob)
 
 const bspatchPath = path.resolve(remote.app.getAppPath(), '../game/dist/bspatch.exe')
@@ -113,7 +112,7 @@ async function copyLocalDll(dirPath, downgradePath) {
 }
 
 export async function patchStarcraftDir(dirPath, outPath) {
-  await asyncMkdirp(outPath)
+  await mkdirp(outPath)
 
   await Promise.all([
     patchFile(dirPath, outPath, 'starcraft.exe', EXE_HASHES_1161),

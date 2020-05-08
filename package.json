@@ -61,7 +61,7 @@
     "keycode": "^2.2.0",
     "lodash.debounce": "^4.0.8",
     "memoize-one": "^5.1.1",
-    "mkdirp": "^0.5.1",
+    "mkdirp": "^1.0.4",
     "nydus": "^1.0.4",
     "nydus-client": "^1.0.2",
     "polished": "^3.4.2",

@@ -23,7 +23,7 @@
     "electron-is-dev": "^1.1.0",
     "electron-localshortcut": "^3.2.1",
     "electron-updater": "^4.2.0",
-    "mkdirp": "^0.5.1",
+    "mkdirp": "^1.0.4",
     "nan": "^2.14.0",
     "sanitize-filename": "^1.6.3",
     "thenify": "^3.2.1",
