@@ -9,6 +9,7 @@ import logger from './logger'
 import fs from 'fs'
 import crypto from 'crypto'
 import { Readable } from 'stream'
+import { URL } from 'url'
 
 app.setAppUserModelId('net.shieldbattery.client')
 
@@ -196,47 +197,57 @@ function setupCspProtocol(curSession) {
   //   styled-components to work properly), and unfortunately not really possible to do without
   //   HTTP headers
   curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
-    fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
-      if (err) {
+    console.log('got request for ' + req.url)
+    const url = new URL(req.url)
+
+    if (url.pathname === '/') {
+      fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
+        if (err) {
+          const dataStream = new Readable()
+          dataStream.push('Error reading index.html')
+          dataStream.push(null)
+          cb({
+            statusCode: 500,
+            data: dataStream,
+          })
+          return
+        }
+
+        const nonce = crypto.randomBytes(16).toString('base64')
+        const isHot = !!process.env.SB_HOT
+        const result = data
+          .replace(
+            /%STYLESHEET_TAG%/g,
+            isHot ? '' : `<link rel="stylesheet" href="styles/site.css" nonce="${nonce}" />`,
+          )
+          .replace(
+            /%SCRIPT_URL%/g,
+            isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js',
+          )
+          .replace(/%CSP_NONCE%/g, nonce)
+
         const dataStream = new Readable()
-        dataStream.push('Error reading index.html')
+        dataStream.push(result)
         dataStream.push(null)
+
+        // If hot-reloading is on, we have to allow eval so it can work
+        const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
+
         cb({
-          statusCode: 500,
+          statusCode: 200,
+          headers: {
+            'content-type': 'text/html',
+            'content-security-policy':
+              `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
+              `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
+              "font-src 'self' https://fonts.gstatic.com;",
+          },
           data: dataStream,
         })
-        return
-      }
-
-      const nonce = crypto.randomBytes(16).toString('base64')
-      const isHot = !!process.env.SB_HOT
-      const result = data
-        .replace(
-          /%STYLESHEET_TAG%/g,
-          isHot ? '' : `<link rel="stylesheet" href="styles/site.css" nonce="${nonce}" />`,
-        )
-        .replace(/%SCRIPT_URL%/g, isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js')
-        .replace(/%CSP_NONCE%/g, nonce)
-
-      const dataStream = new Readable()
-      dataStream.push(result)
-      dataStream.push(null)
-
-      // If hot-reloading is on, we have to allow eval so it can work
-      const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
-
-      cb({
-        statusCode: 200,
-        headers: {
-          'content-type': 'text/html',
-          'content-security-policy':
-            `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
-            `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
-            "font-src 'self' https://fonts.gstatic.com;",
-        },
-        data: dataStream,
       })
-    })
+    } else {
+      cb(fs.createReadStream(path.join(__dirname, url.pathname)))
+    }
   })
 }
 
