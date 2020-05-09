@@ -53,7 +53,7 @@ if (module.hot) {
       elem.setAttribute('nonce', __webpack_nonce__)
     }
 
-    appendChild(elem)
+    return appendChild(elem)
   }
 }
 
