@@ -7,8 +7,9 @@ import MenuItemSymbol from './menu-item-symbol'
 
 import SelectedIcon from '../../icons/material/check-24px.svg'
 
+// 10px is (12px - 2px of built-in padding in the icon)
 const StyledMenuItem = styled(MenuItem)`
-  padding-left: ${props => (props.selected ? '12px' : '52px')};
+  padding-left: ${props => (props.selected ? '10px' : '46px')};
 `
 
 class SelectedItem extends React.Component {

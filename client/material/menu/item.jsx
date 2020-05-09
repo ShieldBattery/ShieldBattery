@@ -38,7 +38,7 @@ const ItemIcon = styled.span`
   display: flex;
   align-items: center;
   width: 24px;
-  margin-right: 16px;
+  margin-right: 12px;
   overflow: hidden;
 `
 

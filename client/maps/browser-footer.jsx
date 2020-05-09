@@ -23,7 +23,6 @@ import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
 import { MAP_UPLOADING } from '../../app/common/flags'
 
-import { fastOutSlowIn } from '../material/curve-constants'
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
 import { Subheading } from '../styles/typography'
@@ -83,7 +82,7 @@ const FilterOverlayContents = styled.div`
     opacity: 1;
     transition-property: opacity;
     transition-duration: ${props => props.transitionDuration}ms;
-    transition-timing-function: ${fastOutSlowIn};
+    transition-timing-function: linear;
     transition-delay: ${props => props.transitionDelay}ms;
   }
 
@@ -95,7 +94,7 @@ const FilterOverlayContents = styled.div`
     opacity: 0;
     transition-property: opacity;
     transition-duration: ${props => props.transitionDuration}ms;
-    transition-timing-function: ${fastOutSlowIn};
+    transition-timing-function: linear;
   }
 `
 
