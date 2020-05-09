@@ -93,3 +93,7 @@ export const singleLine = css`
   overflow: hidden;
   text-overflow: ellipsis;
 `
+
+export const robotoCondensed = css`
+  font-family: 'Roboto Condensed', Roboto, sans-serif;
+`

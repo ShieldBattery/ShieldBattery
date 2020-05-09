@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 
 import AvatarButton from '../avatars/avatar-button.jsx'
 
-import { Body2, singleLine } from '../styles/typography'
+import { Body2, singleLine, robotoCondensed } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -31,12 +31,15 @@ const avatarStyle = css`
 `
 
 const User = styled(Body2)`
+  ${robotoCondensed}
   font-size: 24px;
+  font-weight: 700;
   margin-left: 12px;
   width: 140px;
   ${singleLine};
 `
 
+// TODO(tec27): Make this whole area clickable/hoverable
 export default class ProfileNavEntry extends React.Component {
   static propTypes = {
     onProfileEntryClick: PropTypes.func.isRequired,

@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { ButtonCommon } from '../material/button.jsx'
 
 import { colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors'
-import { buttonText } from '../styles/typography'
+import { buttonText, robotoCondensed } from '../styles/typography'
 
 const Container = styled(ButtonCommon)`
   display: flex;
@@ -38,7 +38,10 @@ const Container = styled(ButtonCommon)`
 
 const Label = styled.span`
   ${buttonText};
-  font-size: 11px;
+  ${robotoCondensed}
+  font-family: 'Roboto Condensed', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
   margin-top: 8px;
 `
 
