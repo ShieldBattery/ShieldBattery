@@ -25,6 +25,21 @@ const CarouselContentMask = styled.div`
   display: flex;
   flex-grow: 1;
   overflow: hidden;
+
+  ${props => {
+    const leftGradient = 'linear-gradient(to right, transparent 0%, #000 16%)'
+    const rightGradient = 'linear-gradient(to left, transparent 0%, #000 16%)'
+    const gradients = []
+
+    if (props.showLeft) {
+      gradients.push(leftGradient)
+    }
+    if (props.showRight) {
+      gradients.push(rightGradient)
+    }
+
+    return gradients.length > 0 ? `-webkit-mask-image: ${gradients.join(', ')}` : ''
+  }};
 `
 
 const CarouselContent = styled.div`
@@ -71,6 +86,7 @@ export default class Carousel extends React.Component {
   componentDidUpdate(prevProps) {
     const prevCount = React.Children.count(prevProps.children)
     const currCount = React.Children.count(this.props.children)
+
     if (prevCount !== currCount) {
       this._calcCarouselWidth()
     }
@@ -115,14 +131,16 @@ export default class Carousel extends React.Component {
     const contentStyle = { transform: `translateX(${translateWidth}px)` }
     // We count the children so we don't show the buttons while the items are loading
     const childrenCount = React.Children.count(this.props.children)
+    const showPrevButton = hasPrevItems && childrenCount > 0
+    const showNextButton = hasNextItems && childrenCount > 0
 
     return (
       <CarouselContainer ref={this._carouselRef} className={this.props.className}>
         <WindowListener event='resize' listener={this._calcCarouselWidth} />
-        {hasPrevItems && childrenCount > 0 ? (
+        {showPrevButton ? (
           <CarouselButton icon={<CarouselPrev />} title='Previous' onClick={this.onPrev} />
         ) : null}
-        <CarouselContentMask>
+        <CarouselContentMask showLeft={showPrevButton} showRight={showNextButton}>
           <CarouselContent ref={this._contentRef} style={contentStyle}>
             <InfiniteScrollList
               ref={this._infiniteListRef}
@@ -134,7 +152,7 @@ export default class Carousel extends React.Component {
             </InfiniteScrollList>
           </CarouselContent>
         </CarouselContentMask>
-        {hasNextItems && childrenCount > 0 ? (
+        {showNextButton ? (
           <CarouselButton icon={<CarouselNext />} title='Next' onClick={this.onNext} />
         ) : null}
       </CarouselContainer>
