@@ -1,6 +1,7 @@
 import React from 'react'
 import { Route, Switch } from 'react-router-dom'
 import ga from 'react-ga'
+import { StyleSheetManager } from 'styled-components'
 import { makeServerUrl } from './network/server-url'
 
 import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.jsx'
@@ -55,29 +56,31 @@ class App extends React.Component {
     return (
       // NOTE(2Pac): These are only the top-level routes. More specific routes are declared where
       // they are used, as per react-router's new philosophy.
-      <React.Fragment>
-        <ResetStyle />
-        <GlobalStyle />
-        <WindowControlsStyle />
-        <WindowControls />
-        <Switch>
-          <Route path='/splash' component={Splash} />
-          <Route path='/faq' component={Faq} />
-          <Route path='/download' component={DownloadPage} />
-          <LoginRoute path='/forgot-password' component={ForgotPassword} />
-          <LoginRoute path='/forgot-user' component={ForgotUser} />
-          <LoginRoute path='/login' component={Login} />
-          <LoginRoute path='/reset-password' component={ResetPassword} />
-          <LoginRoute path='/signup' component={Signup} />
-          <LoginRoute path='/verify-email' component={VerifyEmail} />
-          <LoginRoute path='/send-verification-email' component={SendVerificationEmail} />
-          {!IS_PRODUCTION ? <Route path='/dev' component={Dev} /> : null}
-          <ConditionalRoute
-            filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
-            component={MainLayout}
-          />
-        </Switch>
-      </React.Fragment>
+      <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
+        <React.Fragment>
+          <ResetStyle />
+          <GlobalStyle />
+          <WindowControlsStyle />
+          <WindowControls />
+          <Switch>
+            <Route path='/splash' component={Splash} />
+            <Route path='/faq' component={Faq} />
+            <Route path='/download' component={DownloadPage} />
+            <LoginRoute path='/forgot-password' component={ForgotPassword} />
+            <LoginRoute path='/forgot-user' component={ForgotUser} />
+            <LoginRoute path='/login' component={Login} />
+            <LoginRoute path='/reset-password' component={ResetPassword} />
+            <LoginRoute path='/signup' component={Signup} />
+            <LoginRoute path='/verify-email' component={VerifyEmail} />
+            <LoginRoute path='/send-verification-email' component={SendVerificationEmail} />
+            {!IS_PRODUCTION ? <Route path='/dev' component={Dev} /> : null}
+            <ConditionalRoute
+              filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
+              component={MainLayout}
+            />
+          </Switch>
+        </React.Fragment>
+      </StyleSheetManager>
     )
   }
 }
