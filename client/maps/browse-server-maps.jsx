@@ -396,6 +396,7 @@ export default class Maps extends React.Component {
     // be necessary anymore once Suspense finally comes?
     if (!hasInitializedState) return null
 
+    const hasMoreMaps = maps.total === -1 || maps.total > maps.list.size
     return (
       <Container>
         <TitleBar>
@@ -420,6 +421,7 @@ export default class Maps extends React.Component {
                   <InfiniteScrollList
                     ref={this._setInfiniteListRef}
                     isLoading={maps.isRequesting}
+                    hasMoreData={hasMoreMaps}
                     onLoadMoreData={this.onLoadMoreMaps}>
                     {this.renderAllMaps()}
                   </InfiniteScrollList>
@@ -446,7 +448,6 @@ export default class Maps extends React.Component {
   }
 
   onLoadMoreMaps = () => {
-    const { maps } = this.props
     const {
       activeTab,
       currentPage,
@@ -455,8 +456,6 @@ export default class Maps extends React.Component {
       tilesetFilter,
       searchQuery,
     } = this.state
-
-    if (maps.total > -1 && maps.total <= MAPS_LIMIT * currentPage) return
 
     this.props.dispatch(
       getMapsList(

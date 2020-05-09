@@ -42,6 +42,11 @@ class UserPermissionsForm extends React.Component {
           label='Manage StarCraft patches'
           inputProps={inputProps}
         />
+        <CheckBox
+          {...bindCheckable('manageMapPools')}
+          label='Manage matchmaking map pools'
+          inputProps={inputProps}
+        />
       </form>
     )
   }
