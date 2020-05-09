@@ -27,8 +27,8 @@ const CarouselContentMask = styled.div`
   overflow: hidden;
 
   ${props => {
-    const leftGradient = 'linear-gradient(to right, transparent 0%, #000 16%)'
-    const rightGradient = 'linear-gradient(to left, transparent 0%, #000 16%)'
+    const leftGradient = 'transparent 0%, #000 16%'
+    const rightGradient = '#000 84%, transparent 100%'
     const gradients = []
 
     if (props.showLeft) {
@@ -38,7 +38,9 @@ const CarouselContentMask = styled.div`
       gradients.push(rightGradient)
     }
 
-    return gradients.length > 0 ? `-webkit-mask-image: ${gradients.join(', ')}` : ''
+    return gradients.length > 0
+      ? `-webkit-mask-image: linear-gradient(90deg, ${gradients.join(', ')})`
+      : ''
   }};
 `
 
