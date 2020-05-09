@@ -56,6 +56,9 @@ protocol.registerSchemesAsPrivileged([
   },
 ])
 
+// TODO(tec27): Make process/native context-aware and then set this to true
+app.allowRendererProcessorReuse = false
+
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow
 let systemTray
