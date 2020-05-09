@@ -10,7 +10,6 @@ import MapThumbnail from './map-thumbnail.jsx'
 import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
 import BrowseIcon from '../icons/material/ic_terrain_black_24px.svg'
 
-import { fastOutSlowIn } from '../material/curve-constants'
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { grey800, colorError, colorTextSecondary } from '../styles/colors'
 import { Subheading } from '../styles/typography'
@@ -35,6 +34,7 @@ const StyledSelectedIcon = styled(SelectedIcon)`
 `
 
 const BrowseButton = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -42,29 +42,34 @@ const BrowseButton = styled.div`
   background-color: ${grey800};
   border-radius: 2px;
   ${props => (props.isFocused ? shadow8dp : shadow2dp)};
-  transition: background-color 150ms ${fastOutSlowIn};
 
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.12);
+  &:after {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    content: '';
+
+    background-color: white;
+    opacity: ${props => (props.isFocused ? '0.16 !important' : '0')};
+    transition: opacity 150ms linear;
+  }
+
+  &:hover:after {
+    opacity: 0.08;
     cursor: pointer;
   }
 
-  &:active {
-    background-color: rgba(255, 255, 255, 0.16);
+  &:active:after {
+    opacity: 0.12;
     ${shadow8dp};
   }
 
-  ${props =>
-    props.isFocused
-      ? `
-        background-color: rgba(255, 255, 255, 0.16) !important;
-      `
-      : ''}
-
   & > svg {
-    width: 90px;
-    height: 90px;
-    opacity: 0.5;
+    width: 96px;
+    height: 96px;
+    opacity: 0.6;
   }
 `
 
