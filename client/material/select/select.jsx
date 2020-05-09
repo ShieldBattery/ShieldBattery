@@ -13,7 +13,7 @@ import Menu, { Overlay } from '../menu/menu.jsx'
 import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../curve-constants'
-import { shadowDef8dp } from '../shadow-constants'
+import { shadowDef10dp } from '../shadow-constants'
 import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 
 const transitionNames = {
@@ -44,6 +44,7 @@ const SelectContainer = styled.div`
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 4px 4px 0 0;
   contain: layout paint style;
+  transition: background-color 150ms linear;
 
   &:focus {
     outline: none;
@@ -106,31 +107,31 @@ const StyledOverlay = styled(Overlay)`
 
   &.enter {
     opacity: 0;
-    transform: scale(0.95, 0.8);
+    transform: scale(1, 0.8);
     box-shadow: none;
   }
 
   &.enterActive {
     opacity: 1;
-    box-shadow: ${shadowDef8dp};
+    box-shadow: ${shadowDef10dp};
     transform: scale(1, 1);
-    transition: transform 120ms ${fastOutSlowIn}, opacity 30ms ${linearOutSlowIn},
-      box-shadow 30ms ${linearOutSlowIn};
+    transition: transform 120ms ${linearOutSlowIn}, opacity 66ms linear,
+      box-shadow 33ms ${linearOutSlowIn} 33ms;
   }
 
   &.exit {
     pointer-events: none;
     opacity: 1;
     transform: scale(1, 1);
-    box-shadow: ${shadowDef8dp};
+    box-shadow: ${shadowDef10dp};
   }
 
   &.exitActive {
     opacity: 0;
-    transform: scale(0.95, 0.9);
+    transform: scale(1, 0.6);
     box-shadow: none;
-    transition: transform 120ms ${fastOutSlowIn}, opacity 50ms ${fastOutLinearIn} 50ms,
-      box-shadow 30ms ${fastOutLinearIn};
+    transition: transform 120ms ${fastOutLinearIn}, opacity 66ms linear 33ms,
+      box-shadow 33ms ${fastOutLinearIn} 33ms;
   }
 `
 

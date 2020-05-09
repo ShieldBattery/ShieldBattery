@@ -28,15 +28,19 @@ const ESCAPE = 'Escape'
 const UP = 'ArrowUp'
 const DOWN = 'ArrowDown'
 
-const MENU_MIN_HEIGHT = 48
-const MENU_MIN_HEIGHT_DENSE = 32
-const MENU_MAX_HEIGHT = 256
-const MENU_MAX_HEIGHT_DENSE = 272
 export const ITEM_HEIGHT = 48
 export const ITEM_HEIGHT_DENSE = 32
 const VERT_PADDING = 8
-const ITEMS_SHOWN = (MENU_MAX_HEIGHT - VERT_PADDING * 2) / ITEM_HEIGHT
-const ITEMS_SHOWN_DENSE = (MENU_MAX_HEIGHT_DENSE - VERT_PADDING * 2) / ITEM_HEIGHT_DENSE
+const MENU_MIN_HEIGHT = 48
+const MENU_MIN_HEIGHT_DENSE = 32
+const ITEMS_SHOWN = 5
+const ITEMS_SHOWN_DENSE = 8
+// NOTE(tec27): We only add 1 instance of vertical padding here under the assumption that it is
+// less than half the item height in all cases. This means we're either exceed the max height and
+// have some items partially cut off, or we'll be within the max height and have padding visible
+// on both sides.
+const MENU_MAX_HEIGHT = ITEM_HEIGHT * (ITEMS_SHOWN + 0.5) + VERT_PADDING
+const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VERT_PADDING
 
 export const Overlay = styled(CardLayer)`
   min-width: 160px;
