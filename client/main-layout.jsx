@@ -96,7 +96,9 @@ const Content = styled.div`
   overflow-x: hidden;
 `
 
-const AdminLink = styled.p`
+const LinksContainer = styled.p`
+  display: flex;
+  justify-content: space-between;
   width: 100%;
 `
 
@@ -266,10 +268,11 @@ class MainLayout extends React.Component {
     )
     const footer = [
       DEV_INDICATOR ? <DevIndicator key='dev'>Dev Mode</DevIndicator> : null,
-      isAdmin(auth) ? (
-        <AdminLink key='adminPanel'>
-          <Link to='/admin'>Admin</Link>
-        </AdminLink>
+      isAdmin(auth) || DEV_INDICATOR ? (
+        <LinksContainer key='links'>
+          {isAdmin(auth) ? <Link to='/admin'>Admin</Link> : null}
+          {DEV_INDICATOR ? <Link to='/dev'>Dev routes</Link> : null}
+        </LinksContainer>
       ) : null,
       <ProfileNavEntry
         key='profileEntry'
