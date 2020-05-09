@@ -478,7 +478,11 @@ export default class Maps extends React.Component {
 
   onMapPreview = map => {
     this.props.dispatch(
-      openSimpleDialog(map.name, <MapPreview src={map.imageUrl} alt={map.name} />),
+      openSimpleDialog(
+        map.name,
+        <MapPreview src={map.imageUrl} alt={map.name} />,
+        false /* hasButton */,
+      ),
     )
   }
 

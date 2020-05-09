@@ -10,8 +10,8 @@ export function openDialog(dialogType, initData = {}) {
   }
 }
 
-export function openSimpleDialog(simpleTitle, simpleContent) {
-  return openDialog('simple', { simpleTitle, simpleContent })
+export function openSimpleDialog(simpleTitle, simpleContent, hasButton = true) {
+  return openDialog('simple', { simpleTitle, simpleContent, hasButton })
 }
 
 export function closeDialog() {
