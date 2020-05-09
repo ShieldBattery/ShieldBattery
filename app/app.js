@@ -197,7 +197,6 @@ function setupCspProtocol(curSession) {
   //   styled-components to work properly), and unfortunately not really possible to do without
   //   HTTP headers
   curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
-    console.log('got request for ' + req.url)
     const url = new URL(req.url)
 
     if (url.pathname === '/') {
