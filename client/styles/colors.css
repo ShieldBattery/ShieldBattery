@@ -17,17 +17,17 @@
 @value amberA700: #ffab00;
 
 /* Greys (for backgrounds) */
-@value grey50: #fafafa;
-@value grey100: #f5f5f5;
-@value grey200: #eeeeee;
-@value grey300: #e0e0e0;
-@value grey400: #bdbdbd;
-@value grey500: #9e9e9e;
-@value grey600: #757575;
-@value grey700: #616161;
-@value grey800: #424242;
-@value grey850: #303030;
-@value grey900: #212121;
+@value grey50: #F3FAFF;
+@value grey100: #E9F1FB;
+@value grey200: #DBE4F0;
+@value grey300: #C6D0DD;
+@value grey400: #AAB3C0;
+@value grey500: #9198A1;
+@value grey600: #68717C;
+@value grey700: #505762;
+@value grey800: #353D45;
+@value grey850: #252A31;
+@value grey900: #1B1E22;
 
 @value alphaDividers: 0.12;
 @value alphaDisabled: 0.5;
