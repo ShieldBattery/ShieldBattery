@@ -13,6 +13,11 @@ const compiler = webpack(config)
 const middleware = webpackDevMiddleware(compiler, {
   logLevel: 'warn',
   publicPath: config.output.publicPath,
+  headers: {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization',
+  },
 })
 app.use(middleware)
 app.use(webpackHotMiddleware(compiler, { log: console.log }))

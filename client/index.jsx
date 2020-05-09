@@ -1,5 +1,21 @@
+import React from 'react'
+import { render } from 'react-dom'
+import { Provider } from 'react-redux'
+import { ConnectedRouter } from 'connected-react-router'
+import { createBrowserHistory, createHashHistory } from 'history'
+
 import log from './logging/logger'
 import { makeServerUrl } from './network/server-url'
+import createStore from './create-store'
+import { registerDispatch } from './dispatch-registry'
+import { fromJS as authFromJS } from './auth/auth-records'
+import { getCurrentSession } from './auth/auther'
+import registerSocketHandlers from './network/socket-handlers'
+import App from './app.jsx'
+import RedirectProvider from './navigation/redirect-provider.jsx'
+import fetch from './network/fetch'
+import audioManager from './audio/audio-manager-instance'
+import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
 if (IS_ELECTRON) {
   process
@@ -25,22 +41,21 @@ if (IS_ELECTRON) {
   ElectronCookies.enable({ origin: makeServerUrl('') })
 }
 
-import React from 'react'
-import { render } from 'react-dom'
-import { Provider } from 'react-redux'
-import { ConnectedRouter } from 'connected-react-router'
-import { createBrowserHistory, createHashHistory } from 'history'
+if (module.hot) {
+  // Dumb hack to make HMR work with CSP. The HMR runtime blindly inserts scripts into the head
+  // without adding the nonce (even though they use the nonce for style-loader? sigh). Anyway, we
+  // hook `appendChild` on the head, check if it's trying to insert a script, and if so we add the
+  // appropriate attribute before doing it.
+  const appendChild = document.head.appendChild.bind(document.head)
+  document.head.appendChild = elem => {
+    if (elem.tagName === 'SCRIPT') {
+      // eslint-disable-next-line no-undef,camelcase
+      elem.setAttribute('nonce', __webpack_nonce__)
+    }
 
-import createStore from './create-store'
-import { registerDispatch } from './dispatch-registry'
-import { fromJS as authFromJS } from './auth/auth-records'
-import { getCurrentSession } from './auth/auther'
-import registerSocketHandlers from './network/socket-handlers'
-import App from './app.jsx'
-import RedirectProvider from './navigation/redirect-provider.jsx'
-import fetch from './network/fetch'
-import audioManager from './audio/audio-manager-instance'
-import { AUDIO_MANAGER_INITIALIZED } from './actions'
+    appendChild(elem)
+  }
+}
 
 const rootElemPromise = new Promise((resolve, reject) => {
   const elem = document.getElementById('app')
