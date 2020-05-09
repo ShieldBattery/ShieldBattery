@@ -48,7 +48,7 @@ if (module.hot) {
   // appropriate attribute before doing it.
   const appendChild = document.head.appendChild.bind(document.head)
   document.head.appendChild = elem => {
-    if (elem.tagName === 'SCRIPT') {
+    if (elem.tagName === 'SCRIPT' && new Error().stack.includes('at hotDownloadUpdateChunk')) {
       // eslint-disable-next-line no-undef,camelcase
       elem.setAttribute('nonce', __webpack_nonce__)
     }

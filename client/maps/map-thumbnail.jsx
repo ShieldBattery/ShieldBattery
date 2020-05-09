@@ -7,8 +7,7 @@ import { Label } from '../material/button.jsx'
 import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
-import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextSecondary, grey800 } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
@@ -53,7 +52,7 @@ const NoImage = styled.div`
 const Overlay = styled.div`
   position: absolute;
   width: 100%;
-  height: ${props => (props.showMapName ? 'calc(100% - 48px)' : '100%')};
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -65,7 +64,7 @@ const Overlay = styled.div`
 
     return props.isSelected || props.isFocused ? style + ' !important' : style
   }};
-  transition: background-color 150ms ${fastOutSlowIn};
+  transition: background-color 150ms linear;
 
   &:hover {
     background-color: rgba(255, 229, 127, 0.12); /* amberA100 */
@@ -109,11 +108,11 @@ const TextProtection = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.5);
 `
 
 const MapName = styled(Subheading)`
-  color: ${colorTextSecondary};
+  color: ${colorTextPrimary};
   ${singleLine};
 `
 
