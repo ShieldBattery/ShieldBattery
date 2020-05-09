@@ -37,20 +37,12 @@ const defaults = {
           'X-Shield-Battery-Client': 'true',
         }
   },
-  credentials: 'same-origin',
+  credentials: 'include',
 }
 export function fetchRaw(path, opts) {
   const serverUrl = path.startsWith('http') ? path : makeServerUrl(path)
   if (!opts) {
-    const compiledOpts =
-      path !== serverUrl
-        ? {
-            ...defaults,
-            // Include credentials for non-web clients because everything is cross-origin
-            credentials: 'include',
-          }
-        : defaults
-    return fetch(serverUrl, compiledOpts)
+    return fetch(serverUrl, defaults)
   }
 
   // We generally want to merge headers with our defaults, so we have to do this explicitly
@@ -64,17 +56,8 @@ export function fetchRaw(path, opts) {
     delete headers['Content-Type']
   }
 
-  const credentials =
-    path !== serverUrl
-      ? {
-          // Include credentials for non-web clients because everything is cross-origin
-          credentials: 'include',
-        }
-      : null
-
   return fetch(serverUrl, {
     ...defaults,
-    ...credentials,
     ...opts,
     headers,
   })

@@ -1,3 +1,5 @@
+import vary from 'vary'
+
 const CORS_MAX_AGE_SECONDS = 60 * 60 * 6
 
 // Koa Middleware to handle CORS headers and pre-flight requests such that our site and app are both
@@ -20,14 +22,37 @@ export function cors() {
 
     if (ctx.method !== 'OPTIONS') {
       // "Normal" requests
-      ctx.set('Access-Control-Allow-Origin', reqOrigin)
-      ctx.set('Access-Control-Allow-Credentials', 'true')
+      try {
+        ctx.set('Access-Control-Allow-Origin', reqOrigin)
+        ctx.set('Access-Control-Allow-Credentials', 'true')
+        return next()
+      } catch (err) {
+        // Ensure errors are still accessible to the requester
+        const errHeaders = err.headers || {}
+        const varyWithOrigin = vary.append(errHeaders.vary || errHeaders.Vary || '', 'Origin')
+        delete errHeaders.Vary
+
+        err.headers = {
+          ...errHeaders,
+          'Access-Control-Allow-Origin': reqOrigin,
+          'Access-Control-Allow-Credentials': true,
+          vary: varyWithOrigin,
+        }
+
+        throw err
+      }
     } else if (ctx.get('Access-Control-Request-Method')) {
       // Preflight requests
       ctx.set('Access-Control-Allow-Origin', reqOrigin)
       ctx.set('Access-Control-Allow-Credentials', 'true')
+      ctx.set('Access-Control-Allow-Methods', 'DELETE,GET,HEAD,PATCH,POST,PUT')
       ctx.set('Access-Control-Max-Age', CORS_MAX_AGE_SECONDS)
-      ctx.set('Access-Control-Allow-Headers', ctx.get('Access-Control-Request-Headers'))
+
+      if (ctx.get('Access-Control-Request-Headers')) {
+        ctx.vary('Access-Control-Request-Headers')
+        ctx.set('Access-Control-Allow-Headers', ctx.get('Access-Control-Request-Headers'))
+      }
+
       ctx.status = 204
       return undefined
     }
