@@ -1,6 +1,6 @@
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
-import KoaRouter from 'koa-router'
+import KoaRouter from '@koa/router'
 import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
