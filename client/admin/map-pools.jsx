@@ -187,12 +187,6 @@ export class MapPoolEditor extends React.Component {
     }
   }
 
-  _hasMoreMaps() {
-    const { searchResult } = this.props
-
-    return searchResult.total === -1 || searchResult.total > searchResult.list.size
-  }
-
   renderSearchMapsResult() {
     const {
       searchResult: { list, byId, total, isRequesting, lastError },
