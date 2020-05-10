@@ -25,6 +25,9 @@ const LoadingArea = styled.div`
 export default class InfiniteList extends React.Component {
   static propTypes = {
     isLoading: PropTypes.bool,
+    horizontal: PropTypes.bool,
+    // Whether the list has more data that could be requested
+    hasMoreData: PropTypes.bool,
     root: PropTypes.node,
     rootMargin: PropTypes.string,
     threshold: PropTypes.oneOfType([PropTypes.number, PropTypes.arrayOf(PropTypes.number)]),
@@ -35,10 +38,6 @@ export default class InfiniteList extends React.Component {
     root: null, // Means that the viewport will be used as a root origin
     rootMargin: '0px',
     threshold: 0, // As soon as one pixel is visible, the callback will be run
-  }
-
-  state = {
-    prevOffsetTop: null,
   }
 
   observer = null
@@ -72,7 +71,6 @@ export default class InfiniteList extends React.Component {
     if (this.observer) {
       this.observer.disconnect()
       this.observer.observe(this.target)
-      this.setState({ prevOffsetTop: null })
     }
   }
 
@@ -80,12 +78,12 @@ export default class InfiniteList extends React.Component {
     const { isLoading } = this.props
 
     return (
-      <div>
+      <>
         {this.props.children}
         <LoadingArea ref={this._setTargetRef}>
           {isLoading ? <LoadingIndicator /> : null}
         </LoadingArea>
-      </div>
+      </>
     )
   }
 
@@ -93,16 +91,8 @@ export default class InfiniteList extends React.Component {
     if (!this.props.onLoadMoreData) return
 
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const offsetTop = entry.target.offsetTop
-
-        if (this.state.prevOffsetTop === offsetTop) {
-          // Means we've reached the end and we can stop trying to load more data
-          return
-        }
-
+      if (entry.isIntersecting && this.props.hasMoreData) {
         this.props.onLoadMoreData()
-        this.setState({ prevOffsetTop: offsetTop })
       }
     })
   }

@@ -125,7 +125,7 @@ export default class Tabs extends React.Component {
     })
 
     return (
-      <Container ref={this._setRoot}>
+      <Container ref={this._setRoot} className={this.props.className}>
         <WindowListener event='resize' listener={this._calcIndicatorPosition} />
         {tabs}
         <ActiveIndicator indicatorWidth={indicatorWidth} indicatorPosition={indicatorPosition} />
