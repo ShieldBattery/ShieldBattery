@@ -14,9 +14,17 @@ import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 
-const { FindMatch, CreateLobby, WatchReplay, BrowseLocalMaps, BrowseServerMaps } = IS_ELECTRON
+const {
+  FindMatch,
+  BrowsePreferredMaps,
+  CreateLobby,
+  WatchReplay,
+  BrowseLocalMaps,
+  BrowseServerMaps,
+} = IS_ELECTRON
   ? {
       FindMatch: require('../matchmaking/find-match.jsx').default,
+      BrowsePreferredMaps: require('../matchmaking/browse-preferred-maps.jsx').default,
       CreateLobby: require('../lobbies/create-lobby.jsx').default,
       WatchReplay: require('../replays/watch-replay.jsx').default,
       BrowseLocalMaps: require('../maps/browse-local-maps.jsx').default,
@@ -119,6 +127,8 @@ export default class ActivityOverlay extends React.Component {
     switch (activityOverlay.current.overlayType) {
       case 'findMatch':
         return FindMatch
+      case 'browsePreferredMaps':
+        return BrowsePreferredMaps
       case 'createLobby':
         return CreateLobby
       case 'joinLobby':

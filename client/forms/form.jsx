@@ -48,6 +48,12 @@ export default (validations = {}) => Wrapped => {
       this._doOnSubmit = null
     }
 
+    onChange = () => {
+      if (!this.props.onChange) return
+
+      this.props.onChange()
+    }
+
     onSubmit = event => {
       if (!this.props.onSubmit) return
 
@@ -119,7 +125,7 @@ export default (validations = {}) => Wrapped => {
       }
     }
 
-    onChange = event => {
+    onInputChange = event => {
       const { name, value } = event.target
       this.setInputValue(name, value)
     }
@@ -138,7 +144,7 @@ export default (validations = {}) => Wrapped => {
       const value = this.state.model[name] != null ? this.state.model[name] : ''
       return {
         name,
-        onChange: this.onChange,
+        onChange: this.onInputChange,
         value,
         errorText: this.state.validationErrors[name],
       }
@@ -172,16 +178,19 @@ export default (validations = {}) => Wrapped => {
 
     getInputValue = name => this.state.model[name]
     setInputValue = (name, value) => {
-      this.setState({
-        model: {
-          ...this.state.model,
-          [name]: value,
-        },
-        dirty: {
-          ...this.state.dirty,
-          [name]: true,
-        },
-      })
+      this.setState(
+        () => ({
+          model: {
+            ...this.state.model,
+            [name]: value,
+          },
+          dirty: {
+            ...this.state.dirty,
+            [name]: true,
+          },
+        }),
+        this.onChange,
+      )
     }
 
     getModel() {

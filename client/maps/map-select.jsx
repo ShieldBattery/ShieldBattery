@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { List } from 'immutable'
+import { Map, List, Set } from 'immutable'
 import styled from 'styled-components'
 
 import ImageList from '../material/image-list.jsx'
@@ -33,12 +33,14 @@ const StyledSelectedIcon = styled(SelectedIcon)`
   }
 `
 
-const BrowseButton = styled.div`
+export const BrowseButton = styled.div`
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   background-color: ${grey800};
   border-radius: 2px;
   ${props => (props.isFocused ? shadow8dp : shadow2dp)};
@@ -89,13 +91,19 @@ const THUMBNAIL_SIZES = {
 // maps, without selection/form support, use the ImageList component directly.
 export default class MapSelect extends React.Component {
   static propTypes = {
-    maps: PropTypes.array,
+    list: PropTypes.instanceOf(List),
+    byId: PropTypes.instanceOf(Map),
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(List)]),
-    errorText: PropTypes.string,
-    onChange: PropTypes.func,
-    canBrowseMaps: PropTypes.bool,
-    onMapBrowse: PropTypes.func,
     maxSelections: PropTypes.number,
+    selectedIcon: PropTypes.element,
+    canBrowseMaps: PropTypes.bool,
+    allowUnselect: PropTypes.bool,
+    errorText: PropTypes.string,
+    favoriteStatusRequests: PropTypes.instanceOf(Set),
+    onChange: PropTypes.func,
+    onMapBrowse: PropTypes.func,
+    onMapPreview: PropTypes.func,
+    onToggleFavoriteMap: PropTypes.func,
     thumbnailSize: props => {
       if (typeof props.thumbnailSize !== 'string') {
         return new Error('`thumbnailSize` must be a string.')
@@ -111,9 +119,9 @@ export default class MapSelect extends React.Component {
   }
 
   static defaultProps = {
-    maps: [],
-    maxSelections: -1, // Means user can select as much maps as they want
+    maxSelections: -1, // Means user can select as many maps as they want
     thumbnailSize: 'large',
+    favoriteStatusRequests: new Set(),
   }
 
   state = {
@@ -122,23 +130,39 @@ export default class MapSelect extends React.Component {
   }
 
   render() {
-    const { maps, value, errorText, thumbnailSize, canBrowseMaps } = this.props
+    const {
+      list,
+      byId,
+      value,
+      errorText,
+      thumbnailSize,
+      canBrowseMaps,
+      favoriteStatusRequests,
+      selectedIcon,
+      onMapPreview,
+      onToggleFavoriteMap,
+    } = this.props
     const { isFocused, focusedIndex } = this.state
 
-    const isSelected = m =>
-      value && (typeof value === 'string' ? value === m.id : value.includes(m.id))
-    const mapElements = maps.map((map, i) => (
-      <MapThumbnail
-        key={map.id}
-        map={map}
-        showMapName={true}
-        canHover={true}
-        isSelected={isSelected(map)}
-        isFocused={isFocused && focusedIndex === i}
-        selectedIcon={<StyledSelectedIcon />}
-        onClick={() => this.onMapSelect(map.id)}
-      />
-    ))
+    const isSelected = m => (typeof value === 'string' ? value === m.id : value.includes(m.id))
+    const mapElements = list.map((id, i) => {
+      const map = byId.get(id)
+      return (
+        <MapThumbnail
+          key={id}
+          map={map}
+          showMapName={true}
+          canHover={true}
+          isSelected={isSelected(map)}
+          isFocused={isFocused && focusedIndex === i}
+          isFavoriting={favoriteStatusRequests.has(map.id)}
+          selectedIcon={selectedIcon || <StyledSelectedIcon />}
+          onClick={() => this.onMapSelect(map.id)}
+          onPreview={onMapPreview ? () => onMapPreview(map) : undefined}
+          onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
+        />
+      )
+    })
 
     return (
       <Container
@@ -155,7 +179,7 @@ export default class MapSelect extends React.Component {
           {canBrowseMaps ? (
             <BrowseButton
               onClick={this.onMapBrowse}
-              isFocused={isFocused && focusedIndex === maps.length}>
+              isFocused={isFocused && focusedIndex === list.length}>
               <BrowseIcon />
               <BrowseText>Browse maps</BrowseText>
             </BrowseButton>
@@ -165,20 +189,31 @@ export default class MapSelect extends React.Component {
     )
   }
 
-  onMapSelect = map => {
-    const { value, maxSelections, onChange } = this.props
+  onMapSelect = mapId => {
+    const { value, maxSelections, allowUnselect, onChange } = this.props
 
     if (!onChange) return
 
     if (typeof value === 'string') {
-      onChange(map)
+      if (allowUnselect && value === mapId) {
+        onChange('')
+      } else {
+        onChange(mapId)
+      }
     } else {
-      if (value.includes(map)) return
+      if (value.includes(mapId)) {
+        if (allowUnselect) {
+          const mapIndex = value.findIndex(m => m === mapId)
+          onChange(value.delete(mapIndex))
+        }
+
+        return
+      }
 
       const newValue =
         value.size >= maxSelections && maxSelections !== -1
-          ? value.pop().unshift(map)
-          : value.unshift(map)
+          ? value.shift().push(mapId)
+          : value.push(mapId)
 
       onChange(newValue)
     }
@@ -205,17 +240,17 @@ export default class MapSelect extends React.Component {
   }
 
   onKeyDown = event => {
-    const { maps } = this.props
+    const { list } = this.props
     const { isFocused, focusedIndex } = this.state
 
     if (!isFocused) return false
 
-    if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= maps.length) {
-      if (focusedIndex === maps.length) this.onMapBrowse(event)
-      else this.onMapSelect(maps[focusedIndex].id)
+    if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= list.size) {
+      if (focusedIndex === list.size) this.onMapBrowse(event)
+      else this.onMapSelect(list.get(focusedIndex))
       return true
     } else if (event.code === TAB) {
-      if (focusedIndex === (event.shiftKey ? 0 : maps.length)) {
+      if (focusedIndex === (event.shiftKey ? 0 : list.size)) {
         this.setState({ isFocused: false, focusedIndex: -1 })
         return false
       }

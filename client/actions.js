@@ -284,6 +284,10 @@ export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
 export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
 // The server has responded with success/failure to us starting to find game
 export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
+// We are starting the process of getting the current matchmaking map pool
+export const MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN = 'MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN'
+// The server has responded with success/failure to our request of the current matchmaking map pool
+export const MATCHMAKING_GET_CURRENT_MAP_POOL = 'MATCHMAKING_GET_CURRENT_MAP_POOL'
 // Some (or all) of the players have failed to accept the match
 export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
 // The accept match time has changed
