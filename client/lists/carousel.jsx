@@ -15,6 +15,7 @@ import { colorTextSecondary } from '../styles/colors'
 
 const BUTTON_WIDTH = 64
 const LOADER_WIDTH = 98
+const SCROLL_LEEWAY = 128
 
 const CarouselContainer = styled.div`
   display: flex;
@@ -172,7 +173,8 @@ export default class Carousel extends React.Component {
   onPrev = () => {
     const { translateWidth, stepWidth } = this.state
 
-    const delta = translateWidth + stepWidth > 0 ? Math.abs(translateWidth) : stepWidth
+    const delta =
+      translateWidth + stepWidth + SCROLL_LEEWAY > 0 ? Math.abs(translateWidth) : stepWidth
 
     this._animationId = window.requestAnimationFrame(() =>
       this.animatePosition(translateWidth, delta),
@@ -199,7 +201,7 @@ export default class Carousel extends React.Component {
       adjustment = BUTTON_WIDTH
     }
     const delta =
-      Math.abs(translateWidth) + stepWidth + carouselWidth > contentWidth
+      Math.abs(translateWidth) + stepWidth + carouselWidth + SCROLL_LEEWAY > contentWidth
         ? contentWidth - Math.abs(translateWidth) - carouselWidth - adjustment
         : stepWidth
 
