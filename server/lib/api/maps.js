@@ -108,17 +108,17 @@ async function list(ctx, next) {
   let { sort, numPlayers, tileset, limit, page } = ctx.query
 
   sort = parseInt(sort, 10)
-  if (!SORT_ORDERS.includes(sort)) {
+  if (sort && !SORT_ORDERS.includes(sort)) {
     throw new httpErrors.BadRequest('Invalid sort order option: ' + sort)
   }
 
-  numPlayers = JSON.parse(numPlayers)
-  if (!Array.isArray(numPlayers) || numPlayers.some(n => n < 2 || n > 8)) {
+  numPlayers = numPlayers && JSON.parse(numPlayers)
+  if (numPlayers && (!Array.isArray(numPlayers) || numPlayers.some(n => n < 2 || n > 8))) {
     throw new httpErrors.BadRequest('Invalid filter for number of players: ' + numPlayers)
   }
 
-  tileset = JSON.parse(tileset)
-  if (!Array.isArray(tileset) || tileset.some(n => n < 0 || n > 7)) {
+  tileset = tileset && JSON.parse(tileset)
+  if (tileset && (!Array.isArray(tileset) || tileset.some(n => n < 0 || n > 7))) {
     throw new httpErrors.BadRequest('Invalid filter for tileset: ' + tileset)
   }
 

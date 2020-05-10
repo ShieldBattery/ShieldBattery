@@ -26,7 +26,7 @@
   text-align: left;
 }
 
-.invitesTable th, td {
+.invitesTable th, .invitesTable td {
   width: 100px;
   max-width: 150px;
   overflow: hidden;

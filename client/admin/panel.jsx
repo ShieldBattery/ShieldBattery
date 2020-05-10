@@ -3,10 +3,12 @@ import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
 
 import AdminBetaInvites from './invites.jsx'
+import AdminMapPools from './map-pools.jsx'
 import { ConditionalRoute } from '../navigation/custom-routes.jsx'
 import { UserFind } from './user-profile.jsx'
 import {
   CanAcceptBetaInvitesFilter,
+  CanManageMapPoolsFilter,
   CanManageStarcraftPatchesFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
@@ -32,6 +34,11 @@ class AdminDashboard extends React.Component {
           <Link to='/admin/map-upload'>Upload official maps</Link>
         </li>
       ) : null
+    const mapPoolsLink = perms.manageMapPools ? (
+      <li>
+        <Link to='/admin/map-pools'>Manage matchmaking map pools</Link>
+      </li>
+    ) : null
     const managePatchesLink =
       perms.manageStarcraftPatches && IS_ELECTRON && DOWNGRADE ? (
         <li>
@@ -48,6 +55,7 @@ class AdminDashboard extends React.Component {
       <ul>
         {usersLink}
         {uploadLink}
+        {mapPoolsLink}
         {managePatchesLink}
         {invitesLink}
       </ul>
@@ -81,6 +89,11 @@ export default class Panel extends React.Component {
           />
         ) : null}
         {AdminMapUpload ? <Route path='/admin/map-upload' component={AdminMapUpload} /> : null}
+        <ConditionalRoute
+          path='/admin/map-pools'
+          filters={[CanManageMapPoolsFilter]}
+          component={AdminMapPools}
+        />
       </Switch>
     )
   }

@@ -1,4 +1,5 @@
 import db from '../db'
+import SQL from 'sql-template-strings'
 
 class MapPool {
   constructor(props) {
@@ -9,54 +10,73 @@ class MapPool {
   }
 }
 
-export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
-  const query = `
-    SELECT *
+async function getMapPoolsCount(type) {
+  const query = SQL`
+    SELECT COUNT(id)
     FROM matchmaking_map_pools
-    WHERE matchmaking_type = $1
-    ORDER BY start_date DESC
-    LIMIT $2
-    OFFSET $3
+    WHERE matchmaking_type = ${type};
   `
-  const params = [matchmakingType, limit, pageNumber * limit]
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
-    return result.rows.length > 0 ? result.rows.map(row => new MapPool(row)) : []
+    const result = await client.query(query)
+    return parseInt(result.rows[0].count, 10)
+  } finally {
+    done()
+  }
+}
+
+export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
+  const query = SQL`
+    SELECT *
+    FROM matchmaking_map_pools
+    WHERE matchmaking_type = ${matchmakingType}
+    ORDER BY start_date DESC
+    LIMIT ${limit}
+    OFFSET ${pageNumber * limit};
+  `
+
+  const { client, done } = await db()
+  try {
+    const [total, result] = await Promise.all([
+      getMapPoolsCount(matchmakingType),
+      client.query(query),
+    ])
+    const mapPools = result.rows.length > 0 ? result.rows.map(row => new MapPool(row)) : []
+    return { mapPools, total }
   } finally {
     done()
   }
 }
 
 export async function addMapPool(matchmakingType, mapIds, startDate) {
-  const query = `
+  const query = SQL`
     INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
-    VALUES ($1, $2, $3)
+    VALUES (${matchmakingType}, ${startDate}, ${mapIds})
+    RETURNING *;
   `
-  const params = [matchmakingType, startDate, mapIds]
 
   const { client, done } = await db()
   try {
-    await client.query(query, params)
+    const result = await client.query(query)
+    return new MapPool(result.rows[0])
   } finally {
     done()
   }
 }
 
 export async function getCurrentMapPool(matchmakingType) {
-  const query = `
+  const query = SQL`
     SELECT *
     FROM matchmaking_map_pools
-    WHERE matchmaking_type = $1 AND start_date <= $2
+    WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
     ORDER BY start_date DESC
-    LIMIT 1
+    LIMIT 1;
   `
-  const params = [matchmakingType, new Date()]
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
+    const result = await client.query(query)
     return result.rows.length > 0 ? new MapPool(result.rows[0]) : null
   } finally {
     done()
@@ -64,16 +84,15 @@ export async function getCurrentMapPool(matchmakingType) {
 }
 
 export async function getMapPoolById(mapPoolId) {
-  const query = `
+  const query = SQL`
     SELECT *
     FROM matchmaking_map_pools
-    WHERE id = $1
+    WHERE id = ${mapPoolId};
   `
-  const params = [mapPoolId]
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
+    const result = await client.query(query)
     return result.rows.length > 0 ? new MapPool(result.rows[0]) : null
   } finally {
     done()
@@ -81,15 +100,14 @@ export async function getMapPoolById(mapPoolId) {
 }
 
 export async function removeMapPool(mapPoolId) {
-  const query = `
+  const query = SQL`
     DELETE FROM matchmaking_map_pools
-    WHERE id = $1
+    WHERE id = ${mapPoolId};
   `
-  const params = [mapPoolId]
 
   const { client, done } = await db()
   try {
-    await client.query(query, params)
+    await client.query(query)
   } finally {
     done()
   }

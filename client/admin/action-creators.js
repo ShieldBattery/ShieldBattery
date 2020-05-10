@@ -11,6 +11,15 @@ import {
   ADMIN_GET_PERMISSIONS,
   ADMIN_ACCEPT_USER_BEGIN,
   ADMIN_ACCEPT_USER,
+  ADMIN_MAP_POOL_CLEAR_SEARCH,
+  ADMIN_MAP_POOL_CREATE_BEGIN,
+  ADMIN_MAP_POOL_CREATE,
+  ADMIN_MAP_POOL_DELETE_BEGIN,
+  ADMIN_MAP_POOL_DELETE,
+  ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
+  ADMIN_MAP_POOL_GET_HISTORY,
+  ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
+  ADMIN_MAP_POOL_SEARCH_MAPS,
   ADMIN_SET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
@@ -158,6 +167,75 @@ export function acceptUser(email) {
         body: JSON.stringify({ isAccepted: true }),
       }),
       meta: { email },
+    })
+  }
+}
+
+export function searchMaps(visibility, limit, page, query = '') {
+  return dispatch => {
+    dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN })
+
+    const reqUrl = `/api/1/maps?visibility=${visibility}&q=${query}&limit=${limit}&page=${page}`
+    dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS, payload: fetch(reqUrl) })
+  }
+}
+
+export function clearSearch() {
+  return {
+    type: ADMIN_MAP_POOL_CLEAR_SEARCH,
+  }
+}
+
+// TODO(2Pac): This can be cached
+export function getMapPoolHistory(type, limit, page) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
+      meta: { type },
+    })
+    dispatch({
+      type: ADMIN_MAP_POOL_GET_HISTORY,
+      payload: fetch(
+        `/api/1/matchmakingMapPools/${encodeURIComponent(type)}?limit=${limit}&page=${page}`,
+      ),
+      meta: { type },
+    })
+  }
+}
+
+export function createMapPool(type, maps, startDate = Date.now()) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MAP_POOL_CREATE_BEGIN,
+      meta: { type },
+    })
+
+    const params = { method: 'post', body: JSON.stringify({ maps, startDate }) }
+    dispatch({
+      type: ADMIN_MAP_POOL_CREATE,
+      payload: fetch(`/api/1/matchmakingMapPools/${encodeURIComponent(type)}`, params).then(
+        mapPool => {
+          dispatch(openSnackbar({ message: 'New map pool created' }))
+          return mapPool
+        },
+      ),
+      meta: { type, maps, startDate },
+    })
+  }
+}
+
+export function deleteMapPool(type, id) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MAP_POOL_DELETE_BEGIN,
+      meta: { type, id },
+    })
+    dispatch({
+      type: ADMIN_MAP_POOL_DELETE,
+      payload: fetch(`/api/1/matchmakingMapPools/${encodeURIComponent(id)}`, {
+        method: 'delete',
+      }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted' }))),
+      meta: { type, id },
     })
   }
 }
