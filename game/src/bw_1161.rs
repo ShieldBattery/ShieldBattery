@@ -515,27 +515,7 @@ unsafe fn create_lobby(
         map,
     );
     if result != 0 {
-        return Err(match result {
-            0x8000_0001 => bw::LobbyCreateError::Invalid,
-            0x8000_0002 => bw::LobbyCreateError::WrongGameType,
-            0x8000_0003 => bw::LobbyCreateError::LadderBadAuth,
-            0x8000_0004 => bw::LobbyCreateError::AlreadyExists,
-            0x8000_0005 => bw::LobbyCreateError::TooManyNames,
-            0x8000_0006 => bw::LobbyCreateError::BadParameters,
-            0x8000_0007 => bw::LobbyCreateError::InvalidPlayerCount,
-            0x8000_0008 => bw::LobbyCreateError::UnsupportedGameType,
-            0x8000_0009 => bw::LobbyCreateError::MissingSaveGamePassword,
-            0x8000_000a => bw::LobbyCreateError::MissingReplayPassword,
-            0x8000_000b => bw::LobbyCreateError::IsDirectory,
-            0x8000_000c => bw::LobbyCreateError::NoHumanSlots,
-            0x8000_000d => bw::LobbyCreateError::NoComputerSlots,
-            0x8000_000e => bw::LobbyCreateError::InvalidLeagueMap,
-            0x8000_000f => bw::LobbyCreateError::GameTypeUnavailable,
-            0x8000_0010 => bw::LobbyCreateError::NotEnoughSlots,
-            0x8000_0011 => bw::LobbyCreateError::LeagueMissingBroodwar,
-            0x8000_0012 => bw::LobbyCreateError::LeagueBadAuth,
-            _ => bw::LobbyCreateError::Unknown,
-        });
+        return Err(bw::LobbyCreateError::from_error_code(result));
     }
     init_game_network();
     Ok(())

@@ -111,6 +111,32 @@ quick_error! {
     }
 }
 
+impl LobbyCreateError {
+    pub fn from_error_code(code: u32) -> LobbyCreateError {
+        match code {
+            0x8000_0001 => LobbyCreateError::Invalid,
+            0x8000_0002 => LobbyCreateError::WrongGameType,
+            0x8000_0003 => LobbyCreateError::LadderBadAuth,
+            0x8000_0004 => LobbyCreateError::AlreadyExists,
+            0x8000_0005 => LobbyCreateError::TooManyNames,
+            0x8000_0006 => LobbyCreateError::BadParameters,
+            0x8000_0007 => LobbyCreateError::InvalidPlayerCount,
+            0x8000_0008 => LobbyCreateError::UnsupportedGameType,
+            0x8000_0009 => LobbyCreateError::MissingSaveGamePassword,
+            0x8000_000a => LobbyCreateError::MissingReplayPassword,
+            0x8000_000b => LobbyCreateError::IsDirectory,
+            0x8000_000c => LobbyCreateError::NoHumanSlots,
+            0x8000_000d => LobbyCreateError::NoComputerSlots,
+            0x8000_000e => LobbyCreateError::InvalidLeagueMap,
+            0x8000_000f => LobbyCreateError::GameTypeUnavailable,
+            0x8000_0010 => LobbyCreateError::NotEnoughSlots,
+            0x8000_0011 => LobbyCreateError::LeagueMissingBroodwar,
+            0x8000_0012 => LobbyCreateError::LeagueBadAuth,
+            _ => LobbyCreateError::Unknown,
+        }
+    }
+}
+
 pub const GAME_STATE_ACTIVE: u32 = 0x04;
 
 pub const PLAYER_TYPE_NONE: u8 = 0x0;
