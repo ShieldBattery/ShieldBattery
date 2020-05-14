@@ -38,7 +38,7 @@ pub struct BwScr {
         *mut scr::GameInput,
         *mut *const scr::LobbyDialogVtable,
         *mut scr::MapDirEntry,
-    ),
+    ) -> u32,
     game_loop: unsafe extern "C" fn(),
     init_sprites: unsafe extern "C" fn(),
     init_game_network: unsafe extern "C" fn(),
@@ -71,7 +71,7 @@ mod scr {
 
     #[repr(C)]
     pub struct LobbyDialogVtable {
-        pub unknown: [usize; 0x2b],
+        pub unknown: [usize; 0x2c],
         // Actually thiscall, but that isn't available in stable Rust (._.)
         // And the callback is a dummy function anyway
         // Argument is a pointer to some BnetCreatePopup class
@@ -95,15 +95,14 @@ mod scr {
     #[repr(C)]
     pub struct MapDirEntry {
         pub key: u32,
-        pub unk4: [u8; 0xc],
-        pub unk10: BwString,
+        pub unk4: [u8; 0x1c],
         pub filename: BwString,
         pub title: BwString,
         pub description: BwString,
         pub error_message: BwString,
-        pub unk9c: BwString,
-        pub unkb8: BwString,
-        pub unkd4: BwString,
+        pub unk90: BwString,
+        pub unkac: BwString,
+        pub unkc8: BwString,
         pub unk_linked_list: [usize; 0x3],
         pub loaded: u8,
         pub error: u32,
@@ -115,7 +114,6 @@ mod scr {
         pub unk112: [u8; 0xd2],
         pub path_directory: BwString,
         pub path_filename: BwString,
-        pub unk21c: [u8; 4],
     }
 
     #[repr(C)]
@@ -128,7 +126,7 @@ mod scr {
 }
 
 static LOBBY_DIALOG_VTABLE: scr::LobbyDialogVtable = scr::LobbyDialogVtable {
-    unknown: [0; 0x2b],
+    unknown: [0; 0x2c],
     create_callback: lobby_create_callback,
     safety_padding: [0; 0x10],
 };
@@ -490,14 +488,13 @@ impl bw::Bw for BwScr {
         }
 
         let mut entry: scr::MapDirEntry = mem::zeroed();
-        init_bw_string(&mut entry.unk10, b"");
         init_bw_string(&mut entry.filename, map_file.as_bytes());
         init_bw_string(&mut entry.title, b"");
         init_bw_string(&mut entry.description, b"");
         init_bw_string(&mut entry.error_message, b"");
-        init_bw_string(&mut entry.unk9c, b"");
-        init_bw_string(&mut entry.unkb8, b"");
-        init_bw_string(&mut entry.unkd4, b"");
+        init_bw_string(&mut entry.unk90, b"");
+        init_bw_string(&mut entry.unkac, b"");
+        init_bw_string(&mut entry.unkc8, b"");
         init_bw_string(&mut entry.path_directory, &map_dir);
         init_bw_string(&mut entry.path_filename, map_file.as_bytes());
         entry.unk_linked_list[1] = entry.unk_linked_list.as_ptr() as usize;
@@ -514,11 +511,16 @@ impl bw::Bw for BwScr {
         };
 
         let mut object: *const scr::LobbyDialogVtable = &LOBBY_DIALOG_VTABLE;
-        (self.select_map_entry)(&mut game_input, &mut object, &mut entry);
+        let result = (self.select_map_entry)(&mut game_input, &mut object, &mut entry);
         if entry.error != 0 {
             let error = std::ffi::CStr::from_ptr(entry.error_message.pointer as *const i8)
                 .to_string_lossy();
             return Err(bw::LobbyCreateError::Other(error.into()));
+        }
+        if result != 0 {
+            // The error check above should have already failed, but check return code
+            // as well, struct offsets may change and we may miss the error.
+            return Err(bw::LobbyCreateError::from_error_code(result));
         }
         (self.init_game_network)();
         Ok(())
