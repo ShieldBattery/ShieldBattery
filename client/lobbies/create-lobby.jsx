@@ -84,7 +84,7 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
-const Underline = styled(Subheading)`
+const Overline = styled(Subheading)`
   color: ${colorTextSecondary};
 `
 
@@ -170,14 +170,16 @@ class CreateLobbyForm extends React.Component {
           </Select>
           {this.renderSubTypeSelection()}
         </GameTypeAndSubType>
-        <Underline>Select map</Underline>
+        <Overline>Select map</Overline>
         <MapSelect
           {...bindCustom('selectedMap')}
-          maps={recentMaps.byId.valueSeq().toArray()}
+          list={recentMaps.list}
+          byId={recentMaps.byId}
           maxSelections={1}
           thumbnailSize='large'
           canBrowseMaps={true}
-          onMapBrowse={onMapBrowse}></MapSelect>
+          onMapBrowse={onMapBrowse}
+        />
       </form>
     )
   }

@@ -8,6 +8,9 @@ import RaceIcon from './race-icon.jsx'
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextFaint } from '../styles/colors'
 
+export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
+export const RACE_PICKER_SIZE_LARGE = 'LARGE'
+
 export const RaceButton = styled(Button)`
   display: inline-block;
   vertical-align: middle;
@@ -25,6 +28,18 @@ export const RaceButton = styled(Button)`
   &:active {
     background-color: transparent;
   }
+
+  ${props => {
+    if (props.size === RACE_PICKER_SIZE_LARGE) {
+      return `
+        width: 48px;
+        height: 48px;
+        min-height: 44px;
+      `
+    }
+
+    return ''
+  }};
 `
 
 export const StyledRaceIcon = styled(RaceIcon)`
@@ -61,22 +76,47 @@ export const StyledRaceIcon = styled(RaceIcon)`
       }
     `
   }}
+
+  ${props => {
+    if (props.size === RACE_PICKER_SIZE_LARGE) {
+      return `
+        width: 44px;
+        height: 44px;
+
+        & svg {
+          width: 44px;
+          height: 44px;
+        }
+      `
+    }
+
+    return ''
+  }};
 `
 
 export default class RacePicker extends React.Component {
   static propTypes = {
     race: PropTypes.oneOf(['r', 'p', 't', 'z']).isRequired,
+    size: PropTypes.oneOf([RACE_PICKER_SIZE_MEDIUM, RACE_PICKER_SIZE_LARGE]),
+    allowRandom: PropTypes.bool,
     onSetRace: PropTypes.func,
   }
 
+  static defaultProps = {
+    size: RACE_PICKER_SIZE_MEDIUM,
+    allowRandom: true,
+  }
+
   renderIcon(race) {
+    const { size } = this.props
     const activeRace = this.props.race
     const onClick = this.props.onSetRace ? () => this.props.onSetRace(race) : null
 
     return (
       <RaceButton
+        label={<StyledRaceIcon active={race === activeRace} race={race} size={size} />}
+        size={size}
         onClick={onClick}
-        label={<StyledRaceIcon active={race === activeRace} race={race} />}
       />
     )
   }
@@ -87,7 +127,7 @@ export default class RacePicker extends React.Component {
         {this.renderIcon('z')}
         {this.renderIcon('p')}
         {this.renderIcon('t')}
-        {this.renderIcon('r')}
+        {this.props.allowRandom ? this.renderIcon('r') : null}
       </div>
     )
   }

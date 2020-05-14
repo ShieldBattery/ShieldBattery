@@ -49,7 +49,7 @@ export function getMapsList(visibility, limit, page, sort, numPlayers, tileset, 
   }
 }
 
-export function toggleFavoriteMap(map) {
+export function toggleFavoriteMap(map, context = {}) {
   return dispatch => {
     dispatch({ type: MAPS_TOGGLE_FAVORITE_BEGIN, meta: { map } })
 
@@ -63,7 +63,7 @@ export function toggleFavoriteMap(map) {
           }),
         )
       }),
-      meta: { map },
+      meta: { map, context },
     })
   }
 }
