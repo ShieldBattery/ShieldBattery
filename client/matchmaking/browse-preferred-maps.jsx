@@ -145,14 +145,15 @@ class PreferredMapsForm extends React.Component {
 export default class PreferredMaps extends React.Component {
   static propTypes = {
     type: PropTypes.oneOf(MATCHMAKING_TYPES).isRequired,
-    preferredMaps: PropTypes.array,
+    preferredMaps: PropTypes.instanceOf(List),
+  }
+
+  static defaultProps = {
+    preferredMaps: new List(),
   }
 
   state = {
     selectionCount: -1,
-    // Putting this into state, so we don't send a new model to the form every time this component
-    // updates, which can screw up how form works
-    initialPreferredMaps: new List((this.props.preferredMaps || []).map(m => m.id)),
   }
 
   _form = React.createRef()
@@ -162,8 +163,7 @@ export default class PreferredMaps extends React.Component {
   }
 
   renderContents() {
-    const { maps, matchmaking, type } = this.props
-    const { initialPreferredMaps } = this.state
+    const { maps, matchmaking, type, preferredMaps } = this.props
     const mapPool = matchmaking.mapPoolTypes.get(type)
 
     if (!mapPool) return null
@@ -181,7 +181,7 @@ export default class PreferredMaps extends React.Component {
     }
 
     const model = {
-      preferredMaps: initialPreferredMaps,
+      preferredMaps,
     }
 
     return (
@@ -199,9 +199,10 @@ export default class PreferredMaps extends React.Component {
   }
 
   render() {
-    const { selectionCount, initialPreferredMaps } = this.state
+    const { preferredMaps } = this.props
+    const { selectionCount } = this.state
 
-    const selectCount = selectionCount === -1 ? initialPreferredMaps.size : selectionCount
+    const selectCount = selectionCount === -1 ? preferredMaps.size : selectionCount
     return (
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
@@ -258,7 +259,7 @@ export default class PreferredMaps extends React.Component {
     const mapPool = matchmaking.mapPoolTypes.get(type)
     const preferred = preferredMaps.map(mapId => mapPool.byId.get(mapId))
 
-    this.props.dispatch(openOverlay('findMatch', { initialPreferredMaps: preferred }))
+    this.props.dispatch(openOverlay('findMatch', { preferredMaps: preferred }))
   }
 
   onKeyDown = event => {
