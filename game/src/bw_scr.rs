@@ -47,6 +47,7 @@ pub struct BwScr {
     init_storm_networking: unsafe extern "C" fn(),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
+    lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 }
 
@@ -55,8 +56,6 @@ unsafe impl<T> Send for SendPtr<T> {}
 unsafe impl<T> Sync for SendPtr<T> {}
 
 mod scr {
-    use libc::c_void;
-
     #[repr(C)]
     pub struct SnpLoadFuncs {
         pub identify: unsafe extern "stdcall" fn(
@@ -71,12 +70,7 @@ mod scr {
 
     #[repr(C)]
     pub struct LobbyDialogVtable {
-        pub unknown: [usize; 0x2c],
-        // Actually thiscall, but that isn't available in stable Rust (._.)
-        // And the callback is a dummy function anyway
-        // Argument is a pointer to some BnetCreatePopup class
-        pub create_callback: unsafe extern "stdcall" fn(*mut c_void) -> u32,
-        pub safety_padding: [usize; 0x10],
+        pub functions: [usize; 0x50],
     }
 
     #[repr(C)]
@@ -125,12 +119,9 @@ mod scr {
     }
 }
 
-static LOBBY_DIALOG_VTABLE: scr::LobbyDialogVtable = scr::LobbyDialogVtable {
-    unknown: [0; 0x2c],
-    create_callback: lobby_create_callback,
-    safety_padding: [0; 0x10],
-};
-
+// Actually thiscall, but that isn't available in stable Rust (._.)
+// Luckily we don't care about ecx
+// Argument is a pointer to some BnetCreatePopup class
 unsafe extern "stdcall" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
     // Return 1001 = Error, 1003 = Ok but needs proxy, 1004 = Other error
     0
@@ -314,6 +305,9 @@ impl BwScr {
         let init = analysis.init_storm_networking();
         let init_storm_networking = init.init_storm_networking.ok_or("init_storm_networking")?;
         let load_snp_list = init.load_snp_list.ok_or("load_snp_list")?;
+        let lobby_create_callback_offset =
+            analysis.create_game_dialog_vtbl_on_multiplayer_create()
+                .ok_or("Lobby create callback vtable offset")?;
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
@@ -345,6 +339,7 @@ impl BwScr {
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
             load_snp_list,
             mainmenu_entry_hook,
+            lobby_create_callback_offset,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
         })
     }
@@ -510,7 +505,13 @@ impl bw::Bw for BwScr {
             0x2
         };
 
-        let mut object: *const scr::LobbyDialogVtable = &LOBBY_DIALOG_VTABLE;
+        let mut vtable = scr::LobbyDialogVtable {
+            functions: [0usize; 0x50],
+        };
+        vtable.functions[self.lobby_create_callback_offset / mem::size_of::<usize>()] =
+            lobby_create_callback as usize;
+
+        let mut object: *const scr::LobbyDialogVtable = &vtable;
         let result = (self.select_map_entry)(&mut game_input, &mut object, &mut entry);
         if entry.error != 0 {
             let error = std::ffi::CStr::from_ptr(entry.error_message.pointer as *const i8)
