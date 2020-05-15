@@ -74,6 +74,7 @@ mod scr_hooks {
         !0 => ShowWindow(HWND, i32) -> u32;
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
         !0 => SetWindowPos(HWND, HWND, i32, i32, i32, i32, u32) -> u32;
+        !0 => SetCursorPos(i32, i32) -> i32;
     );
 }
 
@@ -1159,6 +1160,20 @@ unsafe fn set_cursor_pos(x: i32, y: i32) -> i32 {
     with_forge(|forge| forge.set_cursor_to_game_pos(x, y))
 }
 
+fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern fn(i32, i32) -> i32) -> i32 {
+    // Unlike 1161, SCR is aware of the desktop resolution,
+    // so we just have to block this if the game hasn't started yet.
+    if !scr_hooks_disabled() {
+        let game_started = with_forge(|forge| forge.game_started);
+        if !game_started {
+            return 1;
+        }
+    }
+    unsafe {
+        orig(x, y)
+    }
+}
+
 unsafe fn clip_cursor(rect: *const RECT) -> i32 {
     with_forge(|forge| {
         if rect.is_null() {
@@ -1586,6 +1601,8 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     );
     let address = user32.proc_address("SetWindowPos").unwrap() as usize;
     patcher.hook_closure_address(SetWindowPos, set_window_pos, address - user32_base);
+    let address = user32.proc_address("SetCursorPos").unwrap() as usize;
+    patcher.hook_closure_address(SetCursorPos, scr_set_cursor_pos, address - user32_base);
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
