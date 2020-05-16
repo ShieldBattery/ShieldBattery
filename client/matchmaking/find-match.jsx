@@ -26,8 +26,8 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 
 import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
-import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body1, Headline, Subheading } from '../styles/typography'
+import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
+import { Body1, Headline, Subheading, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
 
@@ -88,6 +88,21 @@ const StyledRacePicker = styled(RacePicker)`
 const DescriptionText = styled(Body1)`
   color: ${colorTextSecondary};
   font-size: 12px;
+`
+
+const PreferredHeader = styled.div`
+  display: flex;
+  align-items: center;
+`
+
+const OutdatedIndicator = styled.span`
+  ${robotoCondensed};
+  margin-left: 16px;
+  padding: 0 4px;
+  color: ${amberA400};
+  text-transform: uppercase;
+  border: 1px solid ${amberA400};
+  border-radius: 4px;
 `
 
 const PreferredMapsContainer = styled.div`
@@ -192,19 +207,16 @@ class Find1vs1MatchForm extends React.Component {
           </>
         ) : null}
         <PreferredMapsContainer>
-          <Overline>Preferred maps</Overline>
+          <PreferredHeader>
+            <Overline>Preferred maps</Overline>
+            {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
+          </PreferredHeader>
           <DescriptionText>
             Select up to 2 maps to be used in the per-match map pool. Your selections will be
             combined with your opponent’s to form the 4 map pool. Any unused selections will be
             replaced with a random map choice for each match.
           </DescriptionText>
           <PreferredMaps>{preferredMapsItems}</PreferredMaps>
-          {mapPoolOutdated ? (
-            <DescriptionText>
-              NOTE: The map pool has changed since your last visit. Click on your preferred maps to
-              revise your selections.
-            </DescriptionText>
-          ) : null}
         </PreferredMapsContainer>
       </form>
     )
