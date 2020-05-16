@@ -11,7 +11,7 @@ const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, no
 const webpackOpts = {
   // Relative to the root directory
   name: 'server',
-  entry: './client/index.jsx',
+  entry: ['./client/index.jsx'],
   output: {
     filename: 'client.js',
     path: path.join(__dirname, 'public', 'scripts'),
@@ -53,4 +53,5 @@ module.exports = makeConfig({
   globalDefines: {
     IS_ELECTRON: false,
   },
+  hotInPlace: process.env.NODE_ENV !== 'production',
 })

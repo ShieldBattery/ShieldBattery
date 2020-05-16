@@ -25,7 +25,7 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
-class App extends React.Component {
+export default class App extends React.Component {
   initialized = false
   onUpdate = () => {
     if (!this.initialized) {
@@ -84,12 +84,3 @@ class App extends React.Component {
     )
   }
 }
-
-let ExportedApp = App
-
-if (!IS_PRODUCTION) {
-  const { hot } = require('react-hot-loader/root')
-  ExportedApp = hot(App)
-}
-
-export default ExportedApp

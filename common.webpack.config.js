@@ -16,7 +16,10 @@ const isProd = nodeEnv === 'production'
 export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
+  // Url to a hot-reloaded script being managed by a different process
   hotUrl,
+  // True if hot reloading is being managed by this process, for the normal production URL
+  hotInPlace = false,
   globalDefines = {},
   envDefines = {},
   extraRules = [],
@@ -140,8 +143,13 @@ export default function ({
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
 
-    if (hotUrl) {
-      config.entry = [hotUrl, config.entry]
+    if (hotUrl || hotInPlace) {
+      config.entry = ['react-hot-loader/patch'].concat(config.entry)
+
+      if (hotUrl) {
+        config.entry = [hotUrl].concat(config.entry)
+      }
+
       config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
       config.resolve = {
         ...(config.resolve || {}),
@@ -149,9 +157,6 @@ export default function ({
           'react-dom': '@hot-loader/react-dom',
         },
       }
-    } else {
-      // webpack-hot-client doesn't allow string entries for no fucking apparent reason at all.
-      config.entry = [config.entry]
     }
   } else {
     if (config.target === 'electron-main') {

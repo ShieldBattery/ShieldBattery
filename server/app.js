@@ -127,10 +127,16 @@ const initRouteCreatorPromise = routeCreator.initialize(
 const app = new Koa()
 const port = process.env.SB_HTTP_PORT
 
+let webpackCompiler
+
 function getWebpackCompiler() {
-  const webpack = require('webpack')
-  const webpackConfig = require('./webpack.config.js')
-  return webpack(webpackConfig)
+  if (!webpackCompiler) {
+    const webpack = require('webpack')
+    const webpackConfig = require('./webpack.config.js')
+    webpackCompiler = webpack(webpackConfig)
+  }
+
+  return webpackCompiler
 }
 
 app.keys = [process.env.SB_SESSION_SECRET]
@@ -154,7 +160,14 @@ process.on('unhandledRejection', err => {
 app
   .use(logMiddleware())
   .use(koaError()) // TODO(tec27): Customize error view
-  .use(koaCompress())
+  .use(
+    koaCompress({
+      // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved out
+      // there's almost zero way that compressing it with brotli during the request is going to be
+      // faster than just sending a slightly bigger gzipped version
+      br: false,
+    }),
+  )
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
   .use(koaBody())
   .use(sessionMiddleware)

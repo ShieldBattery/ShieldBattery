@@ -7,7 +7,7 @@ const path = require('path')
 // compiled for electron)
 const webWebpackOpts = {
   target: 'electron-renderer',
-  entry: './client/index.jsx',
+  entry: ['./client/index.jsx'],
   output: {
     filename: 'bundle.js',
     path: path.join(__dirname, 'app', 'dist'),
