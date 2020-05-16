@@ -19,7 +19,7 @@ export default class ActivityBackButton extends React.Component {
 
     if (activityOverlay.history.size < 2) return null
 
-    return <BackButton icon={<BackIcon />} title='Click to go back' onClick={this.onBackClick} />
+    return <BackButton icon={<BackIcon />} title='Back' onClick={this.onBackClick} />
   }
 
   onBackClick = () => {
