@@ -45,6 +45,7 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   day: '2-digit',
   hour: 'numeric',
   minute: '2-digit',
+  timeZoneName: 'short',
 })
 
 const ENTER = 'Enter'
@@ -119,13 +120,11 @@ const CreatePoolButton = styled(RaisedButton)`
 `
 
 const HistoryContainer = styled.table`
-  table-layout: fixed;
   width: 100%;
 
   th,
   td {
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
+    border: 5px solid transparent;
     padding: 5px 0px;
   }
 
@@ -135,12 +134,15 @@ const HistoryContainer = styled.table`
     font-weight: 500;
   }
 
-  th:first-child {
-    width: 200px;
+  td {
+    width: 1px;
+    vertical-align: top;
+    white-space: nowrap;
   }
 
-  td {
-    vertical-align: top;
+  th:first-child,
+  td:first-child {
+    border-left: none;
   }
 `
 
@@ -274,7 +276,7 @@ export class MapPoolEditor extends React.Component {
           <p>Use the search above to find maps and select them to be used in the map pool</p>
         )}
         <SectionTitle>Start date</SectionTitle>
-        <p>Choose a date and time when the map pool will start</p>
+        <p>Choose a date and time (in your local timezone) when the map pool will start</p>
         <DateInputContainer>
           <DateInput
             type='datetime-local'
