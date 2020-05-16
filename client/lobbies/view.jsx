@@ -56,7 +56,18 @@ export default class LobbyView extends React.Component {
     }
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
+    if (isLeavingLobby(prevProps, this.props)) {
+      prevProps.dispatch(push(this.props.hasActiveGame ? '/active-game' : '/'))
+      return
+    }
+
+    const routeLobby = prevProps.match.params.lobby
+    const nextRouteLobby = this.props.match.params.lobby
+    if (!prevProps.lobby.inLobby && routeLobby !== nextRouteLobby) {
+      prevProps.dispatch(getLobbyState(nextRouteLobby))
+    }
+
     if (this.props.lobby.inLobby) {
       this.props.dispatch(activateLobby())
     }
@@ -64,19 +75,6 @@ export default class LobbyView extends React.Component {
 
   componentWillUnmount() {
     this.props.dispatch(deactivateLobby())
-  }
-
-  componentWillReceiveProps(nextProps) {
-    if (isLeavingLobby(this.props, nextProps)) {
-      this.props.dispatch(push(nextProps.hasActiveGame ? '/active-game' : '/'))
-      return
-    }
-
-    const routeLobby = this.props.match.params.lobby
-    const nextRouteLobby = nextProps.match.params.lobby
-    if (!this.props.lobby.inLobby && routeLobby !== nextRouteLobby) {
-      this.props.dispatch(getLobbyState(nextRouteLobby))
-    }
   }
 
   render() {

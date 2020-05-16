@@ -10,8 +10,8 @@ export default class ActiveGameView extends React.Component {
     }
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (this.props.activeGame.isActive && !nextProps.activeGame.isActive) {
+  componentDidUpdate(prevProps) {
+    if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(tec27): redirect to game results page?
       this.props.dispatch(push('/'))
     }
