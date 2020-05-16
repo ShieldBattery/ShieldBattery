@@ -58,12 +58,15 @@ const LogoLockup = styled.div`
 `
 
 const Logo = styled.img`
+  width: 128px;
+  height: 128px;
   margin-right: 16px;
 `
 
 const StyledLogoText = styled(LogoText)`
   width: 320px;
   height: 50px;
+  margin-top: 6px; /* correct for baseline alignment */
 `
 
 // TODO(2Pac): Use proper typography css for this from some common place
@@ -261,7 +264,7 @@ export default class Splash extends React.Component {
           <BackgroundVideoScrim />
           <TopLinks />
           <LogoLockup>
-            <Logo src={makeServerUrl('/images/shieldbattery-128.png')} />
+            <Logo src={makeServerUrl('/images/logo.svg')} />
             <StyledLogoText />
           </LogoLockup>
           <TagLine>Play StarCraft: Brood War on the premier community-run platform</TagLine>
