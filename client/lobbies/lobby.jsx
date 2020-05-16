@@ -8,7 +8,7 @@ import {
   isTeamType,
   canRemoveObservers,
   canAddObservers,
-} from '../../app/common/lobbies'
+} from '../../common/lobbies'
 import styles from './view.css'
 
 import Card from '../material/card.jsx'

@@ -40,7 +40,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_MAXLENGTH,
   USERNAME_PATTERN,
-} from '../../app/common/constants'
+} from '../../common/constants'
 
 const emailValidator = composeValidators(
   required('Enter an email address'),

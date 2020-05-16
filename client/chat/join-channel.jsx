@@ -8,7 +8,7 @@ import { composeValidators, maxLength, regex, required } from '../forms/validato
 
 import { closeDialog } from '../dialogs/action-creators'
 import { navigateToChannel } from './action-creators'
-import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../app/common/constants'
+import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),

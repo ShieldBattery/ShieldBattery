@@ -28,9 +28,9 @@ import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
-} from '../../app/common/constants'
-import { SORT_BY_NAME } from '../../app/common/maps'
-import { MAP_UPLOADING } from '../../app/common/flags'
+} from '../../common/constants'
+import { SORT_BY_NAME } from '../../common/maps'
+import { MAP_UPLOADING } from '../../common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'

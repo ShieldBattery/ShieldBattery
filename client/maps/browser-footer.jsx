@@ -21,7 +21,7 @@ import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
-import { MAP_UPLOADING } from '../../app/common/flags'
+import { MAP_UPLOADING } from '../../common/flags'
 
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'

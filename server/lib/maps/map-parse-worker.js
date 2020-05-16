@@ -9,7 +9,7 @@ require('@babel/register')({
 const fs = require('fs')
 const Chk = require('bw-chk').default
 const jpeg = require('jpeg-js')
-const { parseAndHashMap } = require('../../../app/common/maps')
+const { parseAndHashMap } = require('../../../common/maps')
 
 // A map parsing script that runs in a separate process
 

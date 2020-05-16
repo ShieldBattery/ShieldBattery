@@ -11,11 +11,7 @@ import BanUsers from './bans.jsx'
 import PermissionsResult from './permissions.jsx'
 
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
-import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-} from '../../app/common/constants'
+import { USERNAME_MINLENGTH, USERNAME_MAXLENGTH, USERNAME_PATTERN } from '../../common/constants'
 
 @connect(state => ({ auth: state.auth }))
 export class UserProfile extends React.Component {

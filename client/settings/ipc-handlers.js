@@ -3,13 +3,13 @@ import getDowngradePath from '../downgrade/get-downgrade-path'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
 import { maybeAttemptDowngrade } from '../downgrade/action-creators'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
-import { DOWNGRADE } from '../../app/common/flags'
+import { DOWNGRADE } from '../../common/flags'
 import {
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE_ERROR,
-} from '../../app/common/ipc-constants'
+} from '../../common/ipc-constants'
 
 const checkStarcraftPath = IS_ELECTRON
   ? require('../starcraft/check-starcraft-path').checkStarcraftPath

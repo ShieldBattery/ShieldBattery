@@ -19,7 +19,7 @@ import { openOverlay } from '../activities/action-creators'
 import { getCurrentMapPool } from './action-creators'
 import { toggleFavoriteMap } from '../maps/action-creators'
 
-import { MATCHMAKING_TYPES } from '../../app/common/constants'
+import { MATCHMAKING_TYPES } from '../../common/constants'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Body1, Headline, Subheading } from '../styles/typography'

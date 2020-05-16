@@ -6,9 +6,9 @@ import styled from 'styled-components'
 
 import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { composeValidators, maxLength, required } from '../forms/validators'
-import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../app/common/constants'
+import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../common/constants'
 import gameTypeToString from './game-type-to-string'
-import { isTeamType } from '../../app/common/lobbies'
+import { isTeamType } from '../../common/lobbies'
 import {
   createLobby,
   navigateToLobby,

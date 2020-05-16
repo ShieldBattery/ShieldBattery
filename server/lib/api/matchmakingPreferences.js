@@ -1,7 +1,7 @@
 import httpErrors from 'http-errors'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { isValidMatchmakingType } from '../../../app/common/constants'
-import { MATCHMAKING } from '../../../app/common/flags'
+import { isValidMatchmakingType } from '../../../common/constants'
+import { MATCHMAKING } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
 import {
   getMatchmakingPreferences,

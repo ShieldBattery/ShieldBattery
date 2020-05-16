@@ -14,8 +14,7 @@
     "migrate-up": "db-migrate up",
     "migrate-down": "db-migrate down",
     "test": "cross-env BABEL_ENV=node mocha -R spec --require @babel/register --recursive test/",
-    "start": "node index.js | pino-pretty -c -t",
-    "defaults": "webpack-defaults"
+    "start": "node index.js | pino-pretty -c -t"
   },
   "keywords": [
     "starcraft",

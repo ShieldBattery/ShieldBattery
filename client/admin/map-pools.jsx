@@ -18,7 +18,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
 import TextField from '../material/text-field.jsx'
 
-import { MAP_VISIBILITY_OFFICIAL, MATCHMAKING_TYPE_1V1 } from '../../app/common/constants'
+import { MAP_VISIBILITY_OFFICIAL, MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
 import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
 import MapPoolActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'

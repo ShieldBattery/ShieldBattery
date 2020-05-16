@@ -15,7 +15,7 @@ import {
   canAddObservers,
   canRemoveObservers,
   getLobbySlotsWithIndexes,
-} from '../../../app/common/lobbies'
+} from '../../../common/lobbies'
 
 const Team = new Record({
   name: null,

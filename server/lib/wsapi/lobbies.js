@@ -9,15 +9,15 @@ import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
 import { getMapInfo } from '../models/maps'
-import CancelToken from '../../../app/common/async/cancel-token'
-import createDeferred from '../../../app/common/async/deferred'
-import rejectOnTimeout from '../../../app/common/async/reject-on-timeout'
+import CancelToken from '../../../common/async/cancel-token'
+import createDeferred from '../../../common/async/deferred'
+import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import {
   isValidLobbyName,
   isValidGameType,
   isValidGameSubType,
   validRace,
-} from '../../../app/common/constants'
+} from '../../../common/constants'
 import {
   isUms,
   getLobbySlots,
@@ -27,7 +27,7 @@ import {
   findSlotById,
   hasOpposingSides,
   getObserverTeam,
-} from '../../../app/common/lobbies'
+} from '../../../common/lobbies'
 
 const LOBBY_START_TIMEOUT = 30 * 1000
 

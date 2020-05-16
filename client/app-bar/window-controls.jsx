@@ -9,7 +9,7 @@ import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
 import { reset } from '../material/button-reset'
 import { zIndexWindowControls } from '../material/zindex'
 
-import { WINDOW_CLOSE, WINDOW_MAXIMIZE, WINDOW_MINIMIZE } from '../../app/common/ipc-constants'
+import { WINDOW_CLOSE, WINDOW_MAXIMIZE, WINDOW_MINIMIZE } from '../../common/ipc-constants'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 

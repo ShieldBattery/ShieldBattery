@@ -11,7 +11,7 @@ import {
   NEW_VERSION_FOUND,
   NEW_VERSION_GET_STATE,
   NEW_VERSION_UP_TO_DATE,
-} from '../../app/common/ipc-constants'
+} from '../../common/ipc-constants'
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

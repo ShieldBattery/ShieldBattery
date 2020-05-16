@@ -1,7 +1,7 @@
 import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
 import keyedReducer from '../reducers/keyed-reducer'
-import * as SortedList from '../../app/common/sorted-list'
+import * as SortedList from '../../common/sorted-list'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,

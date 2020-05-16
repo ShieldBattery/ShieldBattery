@@ -13,7 +13,7 @@ import {
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
 
-import { DOWNGRADE } from '../../app/common/flags'
+import { DOWNGRADE } from '../../common/flags'
 
 const AdminMapUpload = IS_ELECTRON ? require('./map-upload.jsx').default : null
 const AdminPatchUpload = IS_ELECTRON ? require('./patch-upload.jsx').default : null

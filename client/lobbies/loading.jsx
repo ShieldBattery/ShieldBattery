@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { getPlayerSlots } from '../../app/common/lobbies'
+import { getPlayerSlots } from '../../common/lobbies'
 import gameTypeToString from './game-type-to-string'
 import styles from './loading.css'
 import styled from 'styled-components'

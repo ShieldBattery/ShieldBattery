@@ -36,7 +36,7 @@ import {
   WINDOW_MAXIMIZE,
   WINDOW_MAXIMIZED_STATE,
   WINDOW_MINIMIZE,
-} from './common/ipc-constants'
+} from '../common/ipc-constants'
 
 autoUpdater.logger = logger
 

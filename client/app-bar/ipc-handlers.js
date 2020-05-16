@@ -1,4 +1,4 @@
-import { WINDOW_MAXIMIZED_STATE } from '../../app/common/ipc-constants'
+import { WINDOW_MAXIMIZED_STATE } from '../../common/ipc-constants'
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {

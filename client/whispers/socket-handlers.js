@@ -7,7 +7,7 @@ import {
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
 } from '../actions'
-import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
+import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 

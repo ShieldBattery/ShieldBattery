@@ -6,7 +6,7 @@ import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
-import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'

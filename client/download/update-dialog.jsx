@@ -5,7 +5,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import styles from './update.css'
 
-import { NEW_VERSION_RESTART } from '../../app/common/ipc-constants'
+import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
 
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'

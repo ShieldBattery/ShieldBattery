@@ -19,7 +19,7 @@ import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
 import { findMatch } from './action-creators'
 import { openOverlay, closeOverlay } from '../activities/action-creators'
 
-import { MATCHMAKING_TYPE_1V1 } from '../../app/common/constants'
+import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
 import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { Body1, Headline, Subheading } from '../styles/typography'

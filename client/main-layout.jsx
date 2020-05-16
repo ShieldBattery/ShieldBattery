@@ -68,7 +68,7 @@ import { openChangelogIfNecessary, openChangelog } from './changelog/action-crea
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
-import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../app/common/flags'
+import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
 import { colorError } from './styles/colors'
 import { Body2 } from './styles/typography'
 

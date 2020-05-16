@@ -18,7 +18,7 @@ import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 
-import { MULTI_CHANNEL } from '../../app/common/flags'
+import { MULTI_CHANNEL } from '../../common/flags'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8

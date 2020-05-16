@@ -7,8 +7,8 @@ import TextField from '../material/text-field.jsx'
 import styles from './patch-upload.css'
 
 import fetch from '../network/fetch'
-import HashThrough from '../../app/common/hash-through'
-import { streamEndPromise } from '../../app/common/async/stream-promise'
+import HashThrough from '../../common/hash-through'
+import { streamEndPromise } from '../../common/async/stream-promise'
 import fileReaderStream from 'filereader-stream'
 import { openSnackbar } from '../snackbars/action-creators'
 

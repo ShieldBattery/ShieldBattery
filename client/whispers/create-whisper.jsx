@@ -8,11 +8,7 @@ import { composeValidators, minLength, maxLength, regex, required } from '../for
 
 import { closeDialog } from '../dialogs/action-creators'
 import { navigateToWhisper } from './action-creators'
-import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-} from '../../app/common/constants'
+import { USERNAME_MINLENGTH, USERNAME_MAXLENGTH, USERNAME_PATTERN } from '../../common/constants'
 
 const usernameValidator = composeValidators(
   required('Enter a username'),

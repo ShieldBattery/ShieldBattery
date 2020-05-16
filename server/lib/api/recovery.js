@@ -4,7 +4,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findAllUsernamesWithEmail, findUser } from '../models/users'
 import { addPasswordResetCode } from '../models/password-resets'
-import { isValidUsername, isValidEmail } from '../../../app/common/constants'
+import { isValidUsername, isValidEmail } from '../../../common/constants'
 import sendMail from '../mail/mailer'
 
 const forgotUserPassThrottle = createThrottle('forgotuserpass', {

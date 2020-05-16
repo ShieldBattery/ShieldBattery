@@ -16,8 +16,8 @@ import {
 import { forceAttemptDowngrade } from '../downgrade/action-creators'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 
-import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
-import { DOWNGRADE } from '../../app/common/flags'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
+import { DOWNGRADE } from '../../common/flags'
 import { Subheading } from '../styles/typography'
 
 const LoadingArea = styled.div`

@@ -4,9 +4,9 @@ import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
 import glob from 'glob'
 import logger from '../logging/logger'
-import getFileHash from '../../app/common/get-file-hash'
-import { REMASTERED, DOWNGRADE } from '../../app/common/flags'
-import checkFileExists from '../../app/common/check-file-exists'
+import getFileHash from '../../common/get-file-hash'
+import { REMASTERED, DOWNGRADE } from '../../common/flags'
+import checkFileExists from '../../common/check-file-exists'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 
 function globAsync(...args) {

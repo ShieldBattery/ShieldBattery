@@ -10,8 +10,8 @@ import {
   MATCHMAKING_TYPES,
   isValidMatchmakingType,
   validRace,
-} from '../../../app/common/constants'
-import { MATCHMAKING } from '../../../app/common/flags'
+} from '../../../common/constants'
+import { MATCHMAKING } from '../../../common/flags'
 
 const Player = new Record({
   name: null,

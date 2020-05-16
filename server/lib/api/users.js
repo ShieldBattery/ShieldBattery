@@ -15,7 +15,7 @@ import {
   getEmailVerificationsCount,
   useEmailVerificationCode,
 } from '../models/email-verifications'
-import { isValidUsername, isValidEmail, isValidPassword } from '../../../app/common/constants'
+import { isValidUsername, isValidEmail, isValidPassword } from '../../../common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import updateAllSessions from '../session/update-all-sessions'

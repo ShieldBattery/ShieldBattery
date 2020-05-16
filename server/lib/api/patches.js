@@ -6,7 +6,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { writeFile, getUrl } from '../file-upload'
 import { addPatch, patchExists } from '../models/starcraft-patches'
-import { DOWNGRADE } from '../../../app/common/flags'
+import { DOWNGRADE } from '../../../common/flags'
 
 export default function (router) {
   router

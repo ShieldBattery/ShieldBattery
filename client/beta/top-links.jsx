@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import GithubLogo from './github.svg'
 
-import { STARCRAFT_DOWNLOAD_URL } from '../../app/common/constants'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { amberA400 } from '../styles/colors'
 
 const TopLinksList = styled.ul`

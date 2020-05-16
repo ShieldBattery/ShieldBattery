@@ -2,7 +2,7 @@ import httpErrors from 'http-errors'
 import cuid from 'cuid'
 import invites from '../models/invites'
 import { checkAllPermissions } from '../permissions/check-permissions'
-import { isValidEmail } from '../../../app/common/constants'
+import { isValidEmail } from '../../../common/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
 

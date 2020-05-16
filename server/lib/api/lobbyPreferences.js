@@ -2,11 +2,7 @@ import httpErrors from 'http-errors'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import {
-  isValidLobbyName,
-  isValidGameType,
-  isValidGameSubType,
-} from '../../../app/common/constants'
+import { isValidLobbyName, isValidGameType, isValidGameSubType } from '../../../common/constants'
 import { upsertLobbyPreferences, getLobbyPreferences } from '../models/lobby-preferences'
 import { getMapInfo } from '../models/maps'
 

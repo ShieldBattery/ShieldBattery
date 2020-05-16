@@ -5,7 +5,7 @@ import validateBody from '../websockets/validate-body'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/websocket-middleware'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { isValidUsername } from '../../../app/common/constants'
+import { isValidUsername } from '../../../common/constants'
 import users from '../models/users'
 import {
   addMessageToWhisper,

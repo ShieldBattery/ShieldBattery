@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 
-import { create, findIndex, insert } from '../../app/common/sorted-list'
+import { create, findIndex, insert } from '../../common/sorted-list'
 
 const alphaSort = (a, b) => a.localeCompare(b)
 

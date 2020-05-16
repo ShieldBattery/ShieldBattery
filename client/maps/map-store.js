@@ -3,7 +3,7 @@ import path from 'path'
 import mkdirp from 'mkdirp'
 import { Map } from 'immutable'
 import request from 'request'
-import HashThrough from '../../app/common/hash-through'
+import HashThrough from '../../common/hash-through'
 import log from '../logging/logger'
 
 export default class MapStore {

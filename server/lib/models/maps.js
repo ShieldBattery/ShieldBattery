@@ -1,6 +1,6 @@
 import db from '../db'
 import transact from '../db/transaction'
-import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../app/common/maps'
+import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
 

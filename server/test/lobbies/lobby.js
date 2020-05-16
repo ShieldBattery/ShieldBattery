@@ -10,7 +10,7 @@ import {
   findSlotById,
   humanSlotCount,
   hasOpposingSides,
-} from '../../../app/common/lobbies'
+} from '../../../common/lobbies'
 
 const BigGameHunters = {
   name: 'Big Game Hunters.scm',

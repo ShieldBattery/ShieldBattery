@@ -115,7 +115,7 @@ export default function ({
       // that just exports whatever Promise babel is using
       new webpack.NormalModuleReplacementPlugin(
         /[\\/]any-promise[\\/]/,
-        require.resolve('./app/common/promise.js'),
+        require.resolve('./common/promise.js'),
       ),
       new webpack.DefinePlugin({
         ...globalDefines,

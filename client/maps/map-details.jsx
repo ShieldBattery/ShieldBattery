@@ -24,7 +24,7 @@ import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
-} from '../../app/common/constants'
+} from '../../common/constants'
 import { required } from '../forms/validators'
 import { colorError, colorTextSecondary } from '../styles/colors'
 import { Display1, Subheading, Body1, singleLine } from '../styles/typography'

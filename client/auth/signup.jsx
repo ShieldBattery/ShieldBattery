@@ -41,7 +41,7 @@ import {
   EMAIL_MAXLENGTH,
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
-} from '../../app/common/constants'
+} from '../../common/constants'
 import { signUp } from './auther'
 
 const SignupBottomAction = styled(AuthBottomAction)`

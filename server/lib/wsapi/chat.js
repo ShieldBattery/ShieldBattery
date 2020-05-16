@@ -5,7 +5,7 @@ import validateBody from '../websockets/validate-body'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/websocket-middleware'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { isValidChannelName } from '../../../app/common/constants'
+import { isValidChannelName } from '../../../common/constants'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -15,7 +15,7 @@ import {
   getUsersForChannel,
   leaveChannel,
 } from '../models/chat-channels'
-import { MULTI_CHANNEL } from '../../../app/common/flags'
+import { MULTI_CHANNEL } from '../../../common/flags'
 
 const ChatState = new Record({
   channels: new Map(),

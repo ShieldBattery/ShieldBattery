@@ -5,7 +5,7 @@ import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 // prettier-ignore
 import {
   NETWORK_SITE_CONNECTED as IPC_NETWORK_SITE_CONNNECTED,
-} from '../../app/common/ipc-constants'
+} from '../../common/ipc-constants'
 
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'

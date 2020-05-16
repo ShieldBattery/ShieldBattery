@@ -22,7 +22,7 @@ import {
   LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
-import { NEW_CHAT_MESSAGE } from '../../app/common/ipc-constants'
+import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
@@ -30,7 +30,7 @@ import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
-import { getIngameLobbySlotsWithIndexes } from '../../app/common/lobbies'
+import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null

@@ -1,5 +1,5 @@
 import { LOCAL_SETTINGS_SET_BEGIN } from '../actions'
-import { SETTINGS_MERGE } from '../../app/common/ipc-constants'
+import { SETTINGS_MERGE } from '../../common/ipc-constants'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 

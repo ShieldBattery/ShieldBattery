@@ -7,7 +7,7 @@ import deepEqual from 'deep-equal'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import getDowngradePath from '../downgrade/get-downgrade-path'
 import log from '../logging/logger'
-import { REMASTERED, DOWNGRADE } from '../../app/common/flags'
+import { REMASTERED, DOWNGRADE } from '../../common/flags'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -16,7 +16,7 @@ import {
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
   statusToString,
-} from '../../app/common/game-status'
+} from '../../common/game-status'
 
 const { launchProcess } = remote.require('./native/process')
 

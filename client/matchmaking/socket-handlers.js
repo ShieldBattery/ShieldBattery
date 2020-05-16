@@ -9,7 +9,7 @@ import {
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
-import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../app/common/constants'
+import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 
 const acceptMatchState = {
   timer: null,

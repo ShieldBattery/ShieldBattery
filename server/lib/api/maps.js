@@ -10,13 +10,13 @@ import {
   removeMapFromFavorites,
 } from '../models/maps'
 import { checkAllPermissions } from '../permissions/check-permissions'
-import { MAP_UPLOADING } from '../../../app/common/flags'
+import { MAP_UPLOADING } from '../../../common/flags'
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
-} from '../../../app/common/constants'
-import { SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../app/common/maps'
+} from '../../../common/constants'
+import { SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { featureEnabled } from '../flags/feature-enabled'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import ensureLoggedIn from '../session/ensure-logged-in'
