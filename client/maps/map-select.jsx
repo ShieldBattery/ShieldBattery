@@ -8,7 +8,7 @@ import KeyListener from '../keyboard/key-listener.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 
 import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
-import BrowseIcon from '../icons/material/ic_terrain_black_24px.svg'
+import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { grey800, colorError, colorTextSecondary } from '../styles/colors'
@@ -67,12 +67,12 @@ export const BrowseButton = styled.div`
     opacity: 0.12;
     ${shadow8dp};
   }
+`
 
-  & > svg {
-    width: 96px;
-    height: 96px;
-    opacity: 0.6;
-  }
+const BrowseIcon = styled(MapIcon)`
+  width: 96px;
+  height: 96px;
+  opacity: 0.5;
 `
 
 const BrowseText = styled(Subheading)`

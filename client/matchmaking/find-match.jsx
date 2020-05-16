@@ -95,6 +95,22 @@ const PreferredMap = styled.div`
   }
 `
 
+const RandomContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  left: 0;
+  bottom: 16px;
+  width: 100%;
+`
+
+const RandomIcon = styled(BrowseIcon)`
+  width: 128px;
+  height: 128px;
+  opacity: 0.5;
+`
+
 // A wrapper around <RacePicker /> so it can be used in forms
 const RaceSelect = props => {
   const { value, onChange, ...restProps } = props
@@ -129,8 +145,10 @@ class Find1vs1MatchForm extends React.Component {
             <MapThumbnail map={map} showMapName={true} onClick={onBrowsePreferred} />
           ) : (
             <BrowseButton onClick={onBrowsePreferred}>
-              <BrowseIcon />
-              <Subheading>Random</Subheading>
+              <RandomContainer>
+                <RandomIcon />
+                <Subheading>Random map</Subheading>
+              </RandomContainer>
             </BrowseButton>
           )}
         </PreferredMap>
