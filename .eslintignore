@@ -6,10 +6,5 @@ app/build/*
 app/dist/*
 app/node_modules/*
 
-game/deps/*
-game/dist/*
-game/node_modules/*
-game/tools/*
-
 server/node_modules/*
 server/public/scripts/*
