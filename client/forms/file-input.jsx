@@ -49,9 +49,6 @@ export default class FileInput extends React.Component {
     if (this.props.onChange) {
       this.props.onChange(e.target.files)
     }
-    if (this.props.onFilesAdded) {
-      this.props.onFilesAdded(e.target.files)
-    }
   }
 
   onClearClick = e => {

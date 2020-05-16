@@ -67,14 +67,13 @@ const UPLOAD_STATUS_ERROR = 3
 @form()
 class UploadForm extends React.Component {
   render() {
-    const { onSubmit, bindCustom, onChange } = this.props
+    const { onSubmit, bindCustom } = this.props
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <FileInput
           {...bindCustom('files')}
           multiple={true}
           accept={'.scm,.scx'}
-          onFilesAdded={onChange}
           onFilesCleared={this.onFilesCleared}
         />
       </form>
@@ -154,7 +153,7 @@ export default class UploadMap extends React.Component {
             ref={this._setForm}
             model={model}
             onSubmit={this.onSubmit}
-            onChange={this.onFilesSelected}
+            onChange={this.onFormChange}
             onCleared={this.onFilesRemoved}
           />
           {this.renderSelectedFiles()}
@@ -166,7 +165,9 @@ export default class UploadMap extends React.Component {
     )
   }
 
-  onFilesSelected = files => {
+  onFormChange = () => {
+    const { files } = this._form.getModel()
+
     const initialUploadStatus = Array.from(files).map(file => [file.path, UPLOAD_STATUS_PENDING])
     this.setState({ selectedFiles: new List(files), results: new Map(initialUploadStatus) })
   }

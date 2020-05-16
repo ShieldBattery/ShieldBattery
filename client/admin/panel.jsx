@@ -14,7 +14,6 @@ import {
 } from './admin-route-filters.jsx'
 
 const AdminMapUpload = IS_ELECTRON ? require('./map-upload.jsx').default : null
-const AdminPatchUpload = IS_ELECTRON ? require('./patch-upload.jsx').default : null
 
 class AdminDashboard extends React.Component {
   render() {
@@ -72,13 +71,6 @@ export default class Panel extends React.Component {
           filters={[CanAcceptBetaInvitesFilter]}
           component={AdminBetaInvites}
         />
-        {AdminPatchUpload ? (
-          <ConditionalRoute
-            path='/admin/patch-upload'
-            filters={[CanManageStarcraftPatchesFilter]}
-            component={AdminPatchUpload}
-          />
-        ) : null}
         {AdminMapUpload ? <Route path='/admin/map-upload' component={AdminMapUpload} /> : null}
         <ConditionalRoute
           path='/admin/map-pools'
