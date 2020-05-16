@@ -187,6 +187,7 @@ const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddlewar
 ;(async () => {
   if (isDev) {
     const koaWebpack = require('koa-webpack')
+    const koaWebpackHot = require('koa-webpack-hot-middleware')
 
     const middleware = await koaWebpack({
       compiler: getWebpackCompiler(),
@@ -194,9 +195,13 @@ const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddlewar
         logLevel: 'warn',
         publicPath: require('./webpack.config.js').output.publicPath,
       },
+      // webpack-hot-client is not compatible with react-hot-loader, so we turn it off and set up
+      // our own webpack-hot-middleware instead
+      hotClient: false,
     })
 
     app.use(middleware)
+    app.use(koaWebpackHot(getWebpackCompiler()))
   }
 
   fileStoreMiddleware(app)

@@ -42,8 +42,8 @@ if (IS_ELECTRON) {
 }
 
 if (module.hot) {
-  // Dumb hack to make HMR work with CSP. The HMR runtime blindly inserts scripts into the head
-  // without adding the nonce (even though they use the nonce for style-loader? sigh). Anyway, we
+  // Dumb hack to make HMR work with CSP. The webpack-hot-middleware runtime blindly inserts scripts
+  // into the head without adding the nonce, with no real way to catch this easily. Anyway, we
   // hook `appendChild` on the head, check if it's trying to insert a script, and if so we add the
   // appropriate attribute before doing it.
   const appendChild = document.head.appendChild.bind(document.head)

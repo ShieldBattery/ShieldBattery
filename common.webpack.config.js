@@ -16,10 +16,6 @@ const isProd = nodeEnv === 'production'
 export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
-  // Url to a hot-reloaded script being managed by a different process
-  hotUrl,
-  // True if hot reloading is being managed by this process, for the normal production URL
-  hotInPlace = false,
   globalDefines = {},
   envDefines = {},
   extraRules = [],
@@ -138,26 +134,21 @@ export default function ({
     ],
   }
 
+  // NOTE(tec27): The production versions of these are fine/no-ops, so we can include these all the
+  // time
+  config.entry = ['react-hot-loader/patch'].concat(config.entry)
+  config.resolve = {
+    ...(config.resolve || {}),
+    alias: {
+      'react-dom': '@hot-loader/react-dom',
+    },
+  }
+
   if (!isProd) {
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
-
-    if (hotUrl || hotInPlace) {
-      config.entry = ['react-hot-loader/patch'].concat(config.entry)
-
-      if (hotUrl) {
-        config.entry = [hotUrl].concat(config.entry)
-      }
-
-      config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
-      config.resolve = {
-        ...(config.resolve || {}),
-        alias: {
-          'react-dom': '@hot-loader/react-dom',
-        },
-      }
-    }
+    config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
     if (config.target === 'electron-main') {
       // Disable webpack processing of these since electron-main scripts can actually make use of

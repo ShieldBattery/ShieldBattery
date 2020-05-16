@@ -23,6 +23,11 @@ const webpackOpts = {
     modules: [path.join(__dirname, 'node_modules'), 'node_modules'],
   },
 }
+
+if (process.env.NODE_ENV !== 'production') {
+  webpackOpts.entry.unshift('webpack-hot-middleware/client')
+}
+
 const babelOpts = {
   babelrc: false,
   cacheDirectory: true,
@@ -44,7 +49,8 @@ const babelOpts = {
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
     ['@babel/plugin-proposal-function-bind'],
-  ].concat(process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : []),
+    ['react-hot-loader/babel'],
+  ],
 }
 
 module.exports = makeConfig({
@@ -53,5 +59,4 @@ module.exports = makeConfig({
   globalDefines: {
     IS_ELECTRON: false,
   },
-  hotInPlace: process.env.NODE_ENV !== 'production',
 })

@@ -4,6 +4,8 @@ import ga from 'react-ga'
 import { StyleSheetManager } from 'styled-components'
 import { makeServerUrl } from './network/server-url'
 
+import { hot } from 'react-hot-loader/root'
+
 import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.jsx'
 import Faq from './beta/faq.jsx'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
@@ -25,7 +27,7 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 
-export default class App extends React.Component {
+class App extends React.Component {
   initialized = false
   onUpdate = () => {
     if (!this.initialized) {
@@ -84,3 +86,5 @@ export default class App extends React.Component {
     )
   }
 }
+
+export default hot(App)

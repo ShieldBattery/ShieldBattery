@@ -37,10 +37,15 @@ const webBabelOpts = {
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
     ['@babel/plugin-proposal-function-bind'],
-  ].concat(process.env.NODE_ENV !== 'production' ? ['react-hot-loader/babel'] : []),
+    ['react-hot-loader/babel'],
+  ],
 }
 
-const hotUrl = 'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
+if (process.env.NODE_ENV !== 'production') {
+  webWebpackOpts.entry.unshift(
+    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr',
+  )
+}
 
 const SB_SERVER = (() => {
   if (process.env.SB_SERVER) {
@@ -66,7 +71,6 @@ console.log('Using a server of ' + SB_SERVER + ' by default')
 const electronWeb = makeConfig({
   webpack: webWebpackOpts,
   babel: webBabelOpts,
-  hotUrl,
   globalDefines: {
     IS_ELECTRON: true,
   },
