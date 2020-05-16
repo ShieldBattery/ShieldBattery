@@ -1,9 +1,6 @@
 import { dispatch } from '../dispatch-registry'
-import getDowngradePath from '../downgrade/get-downgrade-path'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
-import { maybeAttemptDowngrade } from '../downgrade/action-creators'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
-import { DOWNGRADE } from '../../common/flags'
 import {
   SETTINGS_CHANGED,
   SETTINGS_EMIT,
@@ -38,10 +35,6 @@ export default function registerModule({ ipcRenderer }) {
       checkStarcraftPath(settings.starcraftPath).then(result => {
         lastPathWasValid = result.path && result.version
         dispatch(handleCheckStarcraftPathResult(result))
-
-        if (DOWNGRADE && result.path && !result.version) {
-          dispatch(maybeAttemptDowngrade(settings.starcraftPath, getDowngradePath()))
-        }
       })
     })
     .on(SETTINGS_EMIT_ERROR, (event, err) => {

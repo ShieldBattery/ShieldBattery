@@ -13,8 +13,6 @@ import {
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
 
-import { DOWNGRADE } from '../../common/flags'
-
 const AdminMapUpload = IS_ELECTRON ? require('./map-upload.jsx').default : null
 const AdminPatchUpload = IS_ELECTRON ? require('./patch-upload.jsx').default : null
 
@@ -39,12 +37,6 @@ class AdminDashboard extends React.Component {
         <Link to='/admin/map-pools'>Manage matchmaking map pools</Link>
       </li>
     ) : null
-    const managePatchesLink =
-      perms.manageStarcraftPatches && IS_ELECTRON && DOWNGRADE ? (
-        <li>
-          <Link to='/admin/patch-upload'>Upload StarCraft patch</Link>
-        </li>
-      ) : null
     const invitesLink = perms.acceptInvites ? (
       <li>
         <Link to='/admin/invites'>View beta invites</Link>
@@ -56,7 +48,6 @@ class AdminDashboard extends React.Component {
         {usersLink}
         {uploadLink}
         {mapPoolsLink}
-        {managePatchesLink}
         {invitesLink}
       </ul>
     )

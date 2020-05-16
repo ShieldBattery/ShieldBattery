@@ -19,5 +19,3 @@ export const MAP_UPLOADING = DEV()
 export const MATCHMAKING = DEV()
 // Allow launching with remastered installation
 export const REMASTERED = DEV()
-// Enable the downgrade functionality
-export const DOWNGRADE = OFF()

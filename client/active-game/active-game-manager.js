@@ -5,9 +5,8 @@ import { EventEmitter } from 'events'
 import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
-import getDowngradePath from '../downgrade/get-downgrade-path'
 import log from '../logging/logger'
-import { REMASTERED, DOWNGRADE } from '../../common/flags'
+import { REMASTERED } from '../../common/flags'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -231,7 +230,6 @@ async function doLaunch(gameId, serverPort, settings) {
   if (!checkResult.path || !checkResult.version) {
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
-  const useDowngradePath = DOWNGRADE && checkResult.downgrade
   const isRemastered = REMASTERED && checkResult.remastered
 
   const userDataPath = remote.app.getPath('userData')
@@ -239,7 +237,7 @@ async function doLaunch(gameId, serverPort, settings) {
   if (isRemastered) {
     appPath = path.join(starcraftPath, 'x86/starcraft.exe')
   } else {
-    appPath = path.join(useDowngradePath ? getDowngradePath() : starcraftPath, 'starcraft.exe')
+    appPath = path.join(starcraftPath, 'starcraft.exe')
   }
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}"`

@@ -312,11 +312,6 @@ export const SERVER_STATUS = 'SERVER_STATUS'
 export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'
 export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
 
-// The process of attempting to downgrade an existing StarCraft installation has begun
-export const STARCRAFT_DOWNGRADE_BEGIN = 'STARCRAFT_DOWNGRADE_BEGIN'
-// The process of downgrading an existing StarCraft installation has succeeded or failed. On
-// success, it is *likely* that the StarCraft path is now valid
-export const STARCRAFT_DOWNGRADE = 'STARCRAFT_DOWNGRADE'
 // An updated StarCraft path validity status, stating whether or not the current path setting
 // contains an accessible starcraft.exe
 export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
