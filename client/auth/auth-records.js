@@ -11,7 +11,6 @@ export const Permissions = new Record({
   editAllChannels: false,
   banUsers: false,
   manageMaps: false,
-  manageStarcraftPatches: false,
   manageMapPools: false,
 })
 export const Auth = new Record({

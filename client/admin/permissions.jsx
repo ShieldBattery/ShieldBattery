@@ -38,11 +38,6 @@ class UserPermissionsForm extends React.Component {
         <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
         <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
         <CheckBox
-          {...bindCheckable('manageStarcraftPatches')}
-          label='Manage StarCraft patches'
-          inputProps={inputProps}
-        />
-        <CheckBox
           {...bindCheckable('manageMapPools')}
           label='Manage matchmaking map pools'
           inputProps={inputProps}

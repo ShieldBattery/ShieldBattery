@@ -8,7 +8,6 @@ class Permissions {
     this.editAllChannels = props.edit_all_channels
     this.banUsers = props.ban_users
     this.manageMaps = props.manage_maps
-    this.manageStarcraftPatches = props.manage_starcraft_patches
     this.manageMapPools = props.manage_map_pools
   }
 }
@@ -25,7 +24,7 @@ export async function createPermissions(dbClient, userId) {
 export async function getPermissions(userId) {
   const query = `
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
-        manage_maps, manage_starcraft_patches, manage_map_pools
+        manage_maps, manage_map_pools
     FROM permissions
     WHERE user_id = $1
   `
@@ -43,8 +42,7 @@ export async function getPermissions(userId) {
 export async function updatePermissions(userId, perms) {
   const query = `
     UPDATE permissions SET edit_permissions = $2, debug = $3, accept_invites = $4,
-        edit_all_channels = $5, ban_users = $6, manage_maps = $7, manage_starcraft_patches = $8,
-        manage_map_pools = $9
+        edit_all_channels = $5, ban_users = $6, manage_maps = $7, manage_map_pools = $8
     WHERE user_id = $1
     RETURNING *
   `
@@ -56,7 +54,6 @@ export async function updatePermissions(userId, perms) {
     !!perms.editAllChannels,
     !!perms.banUsers,
     !!perms.manageMaps,
-    !!perms.manageStarcraftPatches,
     !!perms.manageMapPools,
   ]
 

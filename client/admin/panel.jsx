@@ -9,7 +9,6 @@ import { UserFind } from './user-profile.jsx'
 import {
   CanAcceptBetaInvitesFilter,
   CanManageMapPoolsFilter,
-  CanManageStarcraftPatchesFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
 
