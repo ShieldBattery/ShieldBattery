@@ -38,7 +38,7 @@ class RallyPointApi {
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
-    return await next(newData)
+    return next(newData)
   }
 
   _handleNewUser(user) {

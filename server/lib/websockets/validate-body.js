@@ -10,6 +10,6 @@ export default function validateBody(bodyValidators) {
       }
     }
 
-    return await next(data)
+    return next(data)
   }
 }

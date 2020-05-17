@@ -32,9 +32,9 @@ class User {
     // TODO(tec27): it's very strange that the return value changes here depending on whether its
     // an insert or an update, find a way to reconcile those
     if (!this._fromDb) {
-      return await this._insert()
+      return this._insert()
     } else {
-      return await this._update()
+      return this._update()
     }
   }
 
@@ -44,7 +44,7 @@ class User {
       'VALUES ($1, $2, $3, $4, $5) RETURNING id'
     const params = [this.name, this.email, this.password, this.created, this.signupIpAddress]
 
-    return await transact(async client => {
+    return transact(async client => {
       const result = await client.query(query, params)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')

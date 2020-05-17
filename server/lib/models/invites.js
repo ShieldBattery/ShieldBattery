@@ -53,15 +53,15 @@ async function _getInvites(condition, limit, pageNumber) {
 }
 
 async function getAllInvites(limit, pageNumber) {
-  return await _getInvites(null, limit, pageNumber)
+  return _getInvites(null, limit, pageNumber)
 }
 
 async function getUnacceptedInvites(limit, pageNumber) {
-  return await _getInvites('WHERE token IS NULL', limit, pageNumber)
+  return _getInvites('WHERE token IS NULL', limit, pageNumber)
 }
 
 async function getAcceptedInvites(limit, pageNumber) {
-  return await _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
+  return _getInvites('WHERE token IS NOT NULL', limit, pageNumber)
 }
 
 async function acceptInvite(client, email, token) {

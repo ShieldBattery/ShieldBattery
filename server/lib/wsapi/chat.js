@@ -204,7 +204,7 @@ export class ChatApi {
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
-    return await next(newData)
+    return next(newData)
   }
 
   async getChannel(data, next) {
@@ -214,7 +214,7 @@ export class ChatApi {
     // If the channel already exists in database, return its name with original casing; otherwise
     // return it as is
     const newData = data.set('channel', foundChannel ? foundChannel.name : channel)
-    return await next(newData)
+    return next(newData)
   }
 
   _publishTo(channel, event) {

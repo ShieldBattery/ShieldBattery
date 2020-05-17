@@ -176,7 +176,7 @@ export class WhispersApi {
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
 
-    return await next(newData)
+    return next(newData)
   }
 
   async noSelfMessaging(data, next) {
@@ -186,7 +186,7 @@ export class WhispersApi {
       throw new errors.BadRequest("can't whisper with yourself")
     }
 
-    return await next(data)
+    return next(data)
   }
 
   async getTarget(data, next) {
@@ -197,7 +197,7 @@ export class WhispersApi {
     }
 
     const newData = data.set('target', foundUser)
-    return await next(newData)
+    return next(newData)
   }
 
   _getUserStatus(user) {

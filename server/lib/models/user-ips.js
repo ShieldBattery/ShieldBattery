@@ -28,7 +28,7 @@ export async function updateOrInsertUserIp(userId, ipAddress) {
         if (result.rows.length > 0 && result.rows[0].last_used > anHourAgo) {
           // This user has already made a request with this IP address within the last hour, update
           // the previous entry
-          return await client.query(
+          return client.query(
             `UPDATE user_ips SET last_used = $1
             WHERE user_id = $2 AND ip_address = $3 AND user_ip_counter = $4 AND last_used < $5`,
             [
@@ -44,7 +44,7 @@ export async function updateOrInsertUserIp(userId, ipAddress) {
           // insert a new row with an increased counter (if the IP previously existed for this
           // user), or with counter = 0 otherwise
           const counter = result.rows.length > 0 ? result.rows[0].user_ip_counter + 1 : 0
-          return await client.query(
+          return client.query(
             `INSERT INTO user_ips (user_id, ip_address, first_used, last_used, user_ip_counter)
               VALUES ($1, $2, $3, $4, $5)`,
             [userId, ipAddress, curDate, curDate, counter],
