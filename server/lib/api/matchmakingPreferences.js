@@ -22,7 +22,7 @@ async function upsertPreferences(ctx, next) {
   const { matchmakingType, race, useAlternateRace, alternateRace, preferredMaps } = ctx.request.body
 
   if (!isValidMatchmakingType(matchmakingType)) {
-    throw new httpErrors.BadRequest('invalid active matchmaking type')
+    throw new httpErrors.BadRequest('invalid matchmaking type')
   } else if (!validRace(race)) {
     throw new httpErrors.BadRequest('invalid race')
   } else if (alternateRace && !isValidAlternateRace(alternateRace)) {
@@ -32,6 +32,10 @@ async function upsertPreferences(ctx, next) {
   }
 
   const currentMapPool = await getCurrentMapPool(matchmakingType)
+  if (!currentMapPool) {
+    throw new httpErrors.BadRequest('map pool must exist')
+  }
+
   const preferences = await upsertMatchmakingPreferences(
     ctx.session.userId,
     matchmakingType,
@@ -56,12 +60,15 @@ async function getPreferences(ctx, next) {
   }
 
   const preferences = await getMatchmakingPreferences(ctx.session.userId, matchmakingType)
-
   if (!preferences) {
     throw new httpErrors.NotFound('no matchmaking preferences for this user')
   }
 
   const currentMapPool = await getCurrentMapPool(preferences.matchmakingType)
+  if (!currentMapPool) {
+    throw new httpErrors.NotFound('map pool not found')
+  }
+
   const mapPoolOutdated = preferences.mapPoolId !== currentMapPool.id
   const preferredMaps = preferences.preferredMaps.filter(m => currentMapPool.maps.includes(m))
 
