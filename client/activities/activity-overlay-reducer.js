@@ -23,7 +23,7 @@ export default keyedReducer(new OverlayState(), {
     const { overlayType, initData } = action.payload
     const overlayRecord = new OverlayRecord({
       overlayType,
-      initData: new Map(Object.entries(initData)),
+      initData: new Map(initData),
     })
 
     return state.update('history', h => h.push(overlayRecord))

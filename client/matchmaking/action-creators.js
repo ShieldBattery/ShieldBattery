@@ -9,6 +9,10 @@ import {
   MATCHMAKING_FIND,
   MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
   MATCHMAKING_GET_CURRENT_MAP_POOL,
+  MATCHMAKING_PREFERENCES_GET_BEGIN,
+  MATCHMAKING_PREFERENCES_GET,
+  MATCHMAKING_PREFERENCES_UPDATE_BEGIN,
+  MATCHMAKING_PREFERENCES_UPDATE,
 } from '../actions'
 
 export const findMatch = (type, race, alternateRace, preferredMaps) =>
@@ -36,6 +40,31 @@ export function getCurrentMapPool(type) {
       type: MATCHMAKING_GET_CURRENT_MAP_POOL,
       payload: fetch('/api/1/matchmakingMapPools/' + encodeURIComponent(type) + '/current'),
       meta: { type },
+    })
+  }
+}
+
+// TODO(2Pac): This can be cached
+export function getMatchmakingPreferences(matchmakingType) {
+  return dispatch => {
+    dispatch({ type: MATCHMAKING_PREFERENCES_GET_BEGIN })
+    const query = matchmakingType ? `?matchmakingType=${matchmakingType}` : ''
+    dispatch({
+      type: MATCHMAKING_PREFERENCES_GET,
+      payload: fetch(`/api/1/matchmakingPreferences${query}`),
+    })
+  }
+}
+
+export function updateMatchmakingPreferences(preferences) {
+  return dispatch => {
+    dispatch({ type: MATCHMAKING_PREFERENCES_UPDATE_BEGIN })
+    dispatch({
+      type: MATCHMAKING_PREFERENCES_UPDATE,
+      payload: fetch('/api/1/matchmakingPreferences', {
+        method: 'post',
+        body: JSON.stringify(preferences),
+      }),
     })
   }
 }

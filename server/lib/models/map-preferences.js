@@ -1,5 +1,5 @@
 import db from '../db'
-import SQL from 'sql-template-strings'
+import sql from 'sql-template-strings'
 
 class MapPreferences {
   constructor(props) {
@@ -19,7 +19,7 @@ export async function upsertMapPreferences(
   numPlayersFilter = [],
   tilesetFilter = [],
 ) {
-  const query = SQL`
+  const query = sql`
     INSERT INTO map_preferences (
       user_id, visibility, thumbnail_size, sort_option, num_players_filter, tileset_filter
     )
@@ -45,7 +45,7 @@ export async function upsertMapPreferences(
 }
 
 export async function getMapPreferences(userId) {
-  const query = SQL`
+  const query = sql`
     SELECT *
     FROM map_preferences
     WHERE user_id = ${userId};

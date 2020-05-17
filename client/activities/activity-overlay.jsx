@@ -151,7 +151,7 @@ export default class ActivityOverlay extends React.Component {
     }
 
     const OverlayComponent = this.getOverlayComponent()
-    const overlayComponent = <OverlayComponent {...activityOverlay.current.initData.toJS()} />
+    const overlayComponent = <OverlayComponent {...activityOverlay.current.initData.toObject()} />
     return (
       <Container key={'overlay'}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
