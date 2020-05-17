@@ -1,4 +1,9 @@
-import React from 'react'
-import styles from './left-nav.css'
+import styled from 'styled-components'
 
-export default props => <ul className={styles.section}>{props.children}</ul>
+const Section = styled.ul`
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+`
+
+export default Section
