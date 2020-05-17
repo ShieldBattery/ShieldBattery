@@ -51,10 +51,19 @@ const CarouselItem = styled.div`
 const TOTAL_ITEMS_COUNT = 50
 const ITEMS_PER_PAGE = 10
 
-export default class ActivityButtonsTest extends React.Component {
+export default class CarouselTest extends React.Component {
   state = {
     page: 1,
     isLoading: false,
+  }
+
+  _timer = null
+
+  componentWillUnmount() {
+    if (this._timer) {
+      clearTimeout(this._timer)
+      this._timer = null
+    }
   }
 
   render() {
@@ -89,7 +98,10 @@ export default class ActivityButtonsTest extends React.Component {
     this.setState(
       () => ({ isLoading: true }),
       () => {
-        setTimeout(() => this.setState({ isLoading: false, page: this.state.page + 1 }), 3000)
+        this._timer = setTimeout(
+          () => this.setState({ isLoading: false, page: this.state.page + 1 }),
+          3000,
+        )
       },
     )
   }

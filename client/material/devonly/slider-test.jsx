@@ -1,35 +1,80 @@
 import React from 'react'
+import styled from 'styled-components'
+
 import Card from '../card.jsx'
-
 import Slider from '../slider.jsx'
-
 import Select from '../select/select.jsx'
 import Option from '../select/option.jsx'
-
 import TextField from '../text-field.jsx'
 
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+const StyledCard = styled(Card)`
+  width: 100%;
+  max-width: 640px;
+`
+
 export default class SliderTest extends React.Component {
+  state = {
+    value1: 0,
+    value2: 2,
+    value3: 40,
+    value4: 2,
+    value5: 0,
+    value6: 2,
+    value7: 2,
+  }
+
   render() {
-    const containerStyle = {
-      padding: 16,
-      paddingTop: 64,
-    }
-    const cardStyle = {
-      maxWidth: 640,
-      paddingBottom: 32,
-    }
     return (
-      <div style={containerStyle}>
-        <Card style={cardStyle}>
+      <Container>
+        <StyledCard>
           <h3>Slide some things</h3>
           <TextField floatingLabel={true} label='Label' />
-          <Slider min={0} max={4} defaultValue={0} step={1} />
-          <Slider min={0} max={4} defaultValue={2} step={1} label='Slide this' />
-          <Slider min={10} max={100} defaultvalue={40} step={5} />
-          <Slider min={0} max={4} defaultValue={2} step={1} /> {/* TODO: disabled */}
+          <Slider
+            min={0}
+            max={4}
+            value={this.state.value1}
+            step={1}
+            onChange={value => this.onChange('1', value)}
+          />
+          <Slider
+            min={0}
+            max={4}
+            value={this.state.value2}
+            step={1}
+            label='Slide this'
+            onChange={value => this.onChange('2', value)}
+          />
+          <Slider
+            min={10}
+            max={100}
+            value={this.state.value3}
+            step={5}
+            onChange={value => this.onChange('3', value)}
+          />
+          {/* TODO: disabled */}
+          <Slider
+            min={0}
+            max={4}
+            value={this.state.value4}
+            step={1}
+            onChange={value => this.onChange('4', value)}
+          />
           <TextField floatingLabel={true} label='Label 2' errorText='hi' />
-          <Slider min={0} max={7} step={1} /> {/* TODO: no default value */}
-          <Select defaultValue={2} label='First'>
+          {/* TODO: no default value */}
+          <Slider
+            min={0}
+            max={7}
+            value={this.state.value5}
+            step={1}
+            onChange={value => this.onChange('5', value)}
+          />
+          <Select value={2} label='First'>
             <Option value={1} text='Menu option 1' />
             <Option value={2} text='Menu option 2' />
             <Option value={3} text='Menu option 3' />
@@ -39,10 +84,27 @@ export default class SliderTest extends React.Component {
             <Option value={7} text='Menu option 7' />
             <Option value={8} text='Menu option 8' />
           </Select>
-          <Slider min={0} max={4} defaultValue={2} />
-          <Slider min={0} max={4} defaultValue={2} step={1} />
-        </Card>
-      </div>
+          <Slider
+            min={0}
+            max={4}
+            value={this.state.value6}
+            onChange={value => this.onChange('6', value)}
+          />
+          <Slider
+            min={0}
+            max={4}
+            value={this.state.value7}
+            step={1}
+            onChange={value => this.onChange('7', value)}
+          />
+        </StyledCard>
+      </Container>
     )
+  }
+
+  onChange = (name, value) => {
+    this.setState({
+      [`value${name}`]: value,
+    })
   }
 }
