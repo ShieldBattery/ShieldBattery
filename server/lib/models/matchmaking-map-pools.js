@@ -1,5 +1,5 @@
 import db from '../db'
-import SQL from 'sql-template-strings'
+import sql from 'sql-template-strings'
 
 class MapPool {
   constructor(props) {
@@ -11,7 +11,7 @@ class MapPool {
 }
 
 async function getMapPoolsCount(type) {
-  const query = SQL`
+  const query = sql`
     SELECT COUNT(id)
     FROM matchmaking_map_pools
     WHERE matchmaking_type = ${type};
@@ -27,7 +27,7 @@ async function getMapPoolsCount(type) {
 }
 
 export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
-  const query = SQL`
+  const query = sql`
     SELECT *
     FROM matchmaking_map_pools
     WHERE matchmaking_type = ${matchmakingType}
@@ -50,7 +50,7 @@ export async function getMapPoolHistory(matchmakingType, limit, pageNumber) {
 }
 
 export async function addMapPool(matchmakingType, mapIds, startDate) {
-  const query = SQL`
+  const query = sql`
     INSERT INTO matchmaking_map_pools (matchmaking_type, start_date, maps)
     VALUES (${matchmakingType}, ${startDate}, ${mapIds})
     RETURNING *;
@@ -66,7 +66,7 @@ export async function addMapPool(matchmakingType, mapIds, startDate) {
 }
 
 export async function getCurrentMapPool(matchmakingType) {
-  const query = SQL`
+  const query = sql`
     SELECT *
     FROM matchmaking_map_pools
     WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
@@ -84,7 +84,7 @@ export async function getCurrentMapPool(matchmakingType) {
 }
 
 export async function getMapPoolById(mapPoolId) {
-  const query = SQL`
+  const query = sql`
     SELECT *
     FROM matchmaking_map_pools
     WHERE id = ${mapPoolId};
@@ -100,7 +100,7 @@ export async function getMapPoolById(mapPoolId) {
 }
 
 export async function removeMapPool(mapPoolId) {
-  const query = SQL`
+  const query = sql`
     DELETE FROM matchmaking_map_pools
     WHERE id = ${mapPoolId};
   `

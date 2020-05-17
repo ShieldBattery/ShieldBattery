@@ -1,5 +1,5 @@
 import db from '../db'
-import SQL from 'sql-template-strings'
+import sql from 'sql-template-strings'
 
 class MatchmakingPreferences {
   constructor(props) {
@@ -21,7 +21,7 @@ export async function upsertMatchmakingPreferences(
   mapPoolId,
   preferredMaps,
 ) {
-  const query = SQL`
+  const query = sql`
     INSERT INTO matchmaking_preferences AS mp (user_id, matchmaking_type, race, use_alternate_race,
       alternate_race, map_pool_id, preferred_maps, updated_at)
     VALUES (${userId}, ${matchmakingType}, ${race}, ${useAlternateRace}, ${alternateRace},
@@ -45,12 +45,12 @@ export async function upsertMatchmakingPreferences(
 
 export async function getMatchmakingPreferences(userId, matchmakingType) {
   const query = matchmakingType
-    ? SQL`
+    ? sql`
       SELECT *
       FROM matchmaking_preferences
       WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType};
     `
-    : SQL`
+    : sql`
       SELECT *
       FROM matchmaking_preferences
       WHERE user_id = ${userId}
