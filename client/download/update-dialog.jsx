@@ -1,9 +1,10 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import styled from 'styled-components'
 import Dialog from '../material/dialog.jsx'
 import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
-import styles from './update.css'
+import { Title } from '../styles/typography'
 
 import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
 
@@ -11,6 +12,21 @@ import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+
+const Text = styled(Title)`
+  margin-top: 0;
+  margin-bottom: 24px;
+  font-weight: 400;
+`
+
+const LoadingContainer = styled.div`
+  width: 100%;
+  height: 80px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
 
 @connect(state => ({ update: state.update }))
 export default class UpdateDialog extends React.Component {
@@ -29,27 +45,27 @@ export default class UpdateDialog extends React.Component {
   renderInfo() {
     if (this.props.update.hasDownloadError) {
       return (
-        <p className={styles.text}>
+        <Text as='p'>
           There was an error downloading the latest update. Please restart and try again.
-        </p>
+        </Text>
       )
     } else if (this.props.update.readyToInstall) {
       return [
-        <p className={styles.text} key={'text'}>
+        <Text as='p' key={'text'}>
           A new update is downloaded and ready to install. Please restart the application to
           continue.
-        </p>,
+        </Text>,
         <RaisedButton key={'button'} onClick={this.onRestartClick} label={'Restart now'} />,
       ]
     } else {
       return [
-        <p className={styles.text} key={'text'}>
+        <Text as='p' key={'text'}>
           A new update is available and is downloading. Please wait for the download to complete in
           order to continue.
-        </p>,
-        <div key={'loading'} className={styles.loading}>
+        </Text>,
+        <LoadingContainer key={'loading'}>
           <LoadingIndicator />
-        </div>,
+        </LoadingContainer>,
       ]
     }
   }

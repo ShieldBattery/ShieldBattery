@@ -1,9 +1,18 @@
 import React from 'react'
-import styles from './submit-on-enter.css'
+import styled from 'styled-components'
+
+const SubmitOnEnterButton = styled.button`
+  position: absolute;
+  top: -10000px;
+  left: -10000px;
+  height: 0px;
+  width: 0px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  visibility: hidden;
+`
 
 // Place inside a form to make pressing enter on inputs submit the form
-export default class SubmitOnEnter extends React.Component {
-  render() {
-    return <button type='submit' value='Submit' className={styles.submit} />
-  }
-}
+export default () => <SubmitOnEnterButton type='submit' value='Submit' />
