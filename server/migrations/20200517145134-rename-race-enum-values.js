@@ -1,46 +1,12 @@
-// We rename the `race` enum in this migration to be more in line with what we use in the rest of
-// the app.
-exports.up = async function (db) {
-  await db.runSql(`
-    UPDATE pg_enum SET enumlabel = 'z'
-    WHERE enumlabel = 'zerg' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 't'
-    WHERE enumlabel = 'terran' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 'p'
-    WHERE enumlabel = 'protoss' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 'r'
-    WHERE enumlabel = 'random' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-  `)
-}
+// NOTE(tec27): The reasoning for this migration was not well-founded and it caused or would cause
+// a number of problems throughout the app, so it has been removed. The original migration also
+// failed to run if you were not a superuser, so for most users this migration never would have run
+// at all. Thus, instead of checking in a rollback migration, I've simply removed the contents. The
+// file is in place so that its history can be easily found if someone *did* run the migration, and
+// they can check out a previous version to roll it back.
+exports.up = async function (db) {}
 
-exports.down = async function (db) {
-  await db.runSql(`
-    UPDATE pg_enum SET enumlabel = 'zerg'
-    WHERE enumlabel = 'z' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 'terran'
-    WHERE enumlabel = 't' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 'protoss'
-    WHERE enumlabel = 'p' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-    UPDATE pg_enum SET enumlabel = 'random'
-    WHERE enumlabel = 'r' AND enumtypid = (
-      SELECT oid FROM pg_type WHERE typname = 'race'
-    );
-  `)
-}
+exports.down = async function (db) {}
 
 exports._meta = {
   version: 1,
