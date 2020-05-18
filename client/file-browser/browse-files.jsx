@@ -56,7 +56,7 @@ const ENTRY_HEIGHT = 60
 
 const EntryContainer = styled.div`
   width: 100%;
-  height: 60px;
+  height: ${ENTRY_HEIGHT}px;
   padding: 0 16px;
   display: flex;
   align-items: center;
