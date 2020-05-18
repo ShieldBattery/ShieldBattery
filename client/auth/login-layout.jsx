@@ -28,7 +28,6 @@ const Draggable = styled.div`
   height: 32px;
 
   -webkit-app-region: drag;
-  user-select: none;
 `
 
 const Contents = styled.div`
@@ -41,14 +40,12 @@ const Logo = styled.img`
   margin: 0 auto;
   width: 192px;
   height: 192px;
-  user-select: none;
 `
 
 const StyledLogoText = styled.div`
   display: block;
   margin: 0 auto 8px;
   text-align: center;
-  user-select: none;
 `
 
 class MainLayout extends React.Component {

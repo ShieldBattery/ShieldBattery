@@ -64,6 +64,7 @@ const MapName = styled(Display1)`
   padding-right: ${props => (props.canEdit ? '68px' : '16px')};
   line-height: 48px;
   letter-spacing: 0.25px;
+  user-select: text;
   ${singleLine};
 `
 
@@ -78,6 +79,7 @@ const MapDescription = styled(Subheading)`
   letter-spacing: 0.5px;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  user-select: text;
 `
 
 const EditButton = styled(IconButton)`

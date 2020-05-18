@@ -14,6 +14,12 @@ import {
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {
     box-sizing: border-box;
+    /**
+      Generally allowing selection feels "un-app-like". For certain components, selection makes
+      sense (e.g. predominantly text-based things, like chat boxes), but those are in the minority
+      for us, so we make them specifically note themselves as exceptions to the rule.
+    */
+    user-select: none;
   }
 
   html {

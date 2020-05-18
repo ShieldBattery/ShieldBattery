@@ -18,6 +18,11 @@
 
 .messages {
   padding: 8px 0 0;
+  user-select: contain;
+}
+
+.messages * {
+  user-select: text;
 }
 
 .message {

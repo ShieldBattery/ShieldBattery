@@ -22,7 +22,6 @@ const Container = styled.header`
   background-color: ${blue800};
   position: relative;
   z-index: ${zIndexAppBar};
-  user-select: none;
 
   -webkit-app-region: drag;
 `
@@ -39,17 +38,10 @@ const Content = styled.div`
   }
 `
 
-const selectable = css`
-  user-select: text;
-  -webkit-app-region: no-drag;
-`
-
 export const AppBarTitle = styled(Title)`
   ${singleLine};
   line-height: ${standardIncrement};
   margin: 0;
-
-  ${selectable};
 `
 
 const RightSide = styled.div`
@@ -63,8 +55,6 @@ const UserCount = styled(ActiveUserCount)`
   padding-right: 16px;
   line-height: calc(${standardIncrement} - ${windowControlsHeight});
   vertical-align: middle;
-
-  ${selectable};
 `
 
 class AppBar extends React.Component {

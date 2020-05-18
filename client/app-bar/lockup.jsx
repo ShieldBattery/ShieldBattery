@@ -10,7 +10,6 @@ const Container = styled.div`
   align-items: center;
 
   padding: 8px 0px 8px 8px;
-  user-select: none;
 `
 
 const SizedLogo = styled(Logo)`

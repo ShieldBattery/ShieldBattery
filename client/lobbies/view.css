@@ -172,6 +172,11 @@
 
 .chat {
   margin-top: 8px;
+  user-select: contain;
+}
+
+.chat * {
+  user-select: text;
 }
 
 .chatView {
