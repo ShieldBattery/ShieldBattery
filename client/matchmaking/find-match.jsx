@@ -129,7 +129,7 @@ const RandomContainer = styled.div`
   align-items: center;
   position: absolute;
   left: 0;
-  bottom: 16px;
+  top: 44px;
   width: 100%;
 `
 
