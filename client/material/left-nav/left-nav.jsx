@@ -5,8 +5,6 @@ import styled from 'styled-components'
 import { colorBackground } from '../../styles/colors'
 
 const Footer = styled.div`
-  padding: 0 12px;
-
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;

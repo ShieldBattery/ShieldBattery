@@ -12,7 +12,7 @@ const Container = styled.div`
   align-items: center;
   width: 100%;
   height: 88px;
-  padding: 16px 0px 20px 0px;
+  padding: 16px 12px 0px 0px;
 `
 
 const StyledAvatarButton = styled(AvatarButton)`

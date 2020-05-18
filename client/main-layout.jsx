@@ -96,14 +96,17 @@ const Content = styled.div`
   overflow-x: hidden;
 `
 
-const LinksContainer = styled.p`
+const LinksContainer = styled.div`
+  width: 100%;
+  padding: 0 12px;
+
   display: flex;
   justify-content: space-between;
-  width: 100%;
 `
 
 const DevIndicator = styled(Body2)`
   width: 100%;
+  padding: 0 12px 8px;
   color: ${colorError};
   text-transform: uppercase;
 `
