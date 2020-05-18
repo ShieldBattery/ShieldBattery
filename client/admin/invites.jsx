@@ -3,9 +3,43 @@ import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
 import queryString from 'query-string'
 import { Range } from 'immutable'
-import styles from './admin.css'
+import styled from 'styled-components'
 
+import { colorTextSecondary } from '../styles/colors'
 import { getInvites, acceptUser } from './action-creators'
+
+const Container = styled.div`
+  padding: 20px;
+`
+
+const Filter = styled.div`
+  padding-bottom: 20px;
+
+  & > a {
+    padding-right: 20px;
+  }
+`
+
+const InviteTable = styled.table`
+  text-align: left;
+
+  th,
+  td {
+    width: 100px;
+    max-width: 150px;
+    padding: 5px;
+
+    border: 5px solid transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: no-wrap;
+  }
+
+  th {
+    color: ${colorTextSecondary};
+    font-weight: 500;
+  }
+`
 
 const LIMIT = 25
 
@@ -70,7 +104,7 @@ export default class Invites extends React.Component {
     if (signups.size === 0) return null
 
     return (
-      <table className={styles.invitesTable}>
+      <InviteTable>
         <thead>
           <tr>
             <th>Email</th>
@@ -83,7 +117,7 @@ export default class Invites extends React.Component {
           </tr>
         </thead>
         <tbody>{signups.map(e => this.renderInviteeRow(byEmail.get(e)))}</tbody>
-      </table>
+      </InviteTable>
     )
   }
 
@@ -91,7 +125,7 @@ export default class Invites extends React.Component {
     const { lastError } = this.props.invites
     if (!lastError) return null
 
-    return <div className={styles.invitesError}>{lastError.message}</div>
+    return <div>{lastError.message}</div>
   }
 
   renderPaging() {
@@ -119,16 +153,16 @@ export default class Invites extends React.Component {
 
   render() {
     return (
-      <div className={styles.invites}>
+      <Container>
         {this.renderError()}
-        <div className={styles.filterInvites}>
+        <Filter>
           <Link to='/admin/invites'>All</Link>
           <Link to='/admin/invites?accepted=true'>Accepted</Link>
           <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
-        </div>
+        </Filter>
         {this.renderInvites()}
         {this.renderPaging()}
-      </div>
+      </Container>
     )
   }
 

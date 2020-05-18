@@ -1,14 +1,13 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import classnames from 'classnames'
 import memoize from 'memoize-one'
 import keycode from 'keycode'
 import pathApi from 'path'
 import { List } from 'immutable'
 import { List as VirtualizedList } from 'react-virtualized'
+import styled from 'styled-components'
 
-import styles from './browse-files.css'
 import { changePath, clearFiles, getFiles } from './action-creators'
 
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
@@ -20,6 +19,18 @@ import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import IconButton from '../material/icon-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
+import { shadow4dp } from '../material/shadows'
+import {
+  amberA400,
+  blue700,
+  blue800,
+  colorError,
+  colorDividers,
+  colorTextFaint,
+  colorTextPrimary,
+  colorTextSecondary,
+} from '../styles/colors'
+import { Headline, Title, Subheading, Caption } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -43,6 +54,39 @@ const BACKSPACE = keycode('backspace')
 const VERT_PADDING = 8
 const ENTRY_HEIGHT = 60
 
+const EntryContainer = styled.div`
+  width: 100%;
+  height: 60px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  background-color: ${props => (props.focused ? 'rgba(255, 255, 255, 0.24)' : 'transparent')};
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+  }
+`
+
+const EntryIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  margin-right: 16px;
+  padding: 8px;
+  flex-grow: 0;
+  flex-shrink: 0;
+
+  background: ${colorTextSecondary};
+  border-radius: 50%;
+  color: rgba(0, 0, 0, 0.54);
+`
+
+const InfoContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+`
+
 class UpOneDir extends React.PureComponent {
   static propTypes = {
     onClick: PropTypes.func.isRequired,
@@ -51,20 +95,23 @@ class UpOneDir extends React.PureComponent {
 
   render() {
     const { style, isFocused, onClick } = this.props
-    const upOneDirClasses = classnames(styles.entry, {
-      [styles.focused]: isFocused,
-    })
 
     return (
-      <div style={style} className={upOneDirClasses} onClick={onClick} key={'up-one-dir'}>
-        <div className={styles.entryIcon}>
+      <EntryContainer style={style} focused={isFocused} onClick={onClick} key={'up-one-dir'}>
+        <EntryIcon>
           <UpDirectory />
-        </div>
-        <div className={styles.name}>{'Up one directory'}</div>
-      </div>
+        </EntryIcon>
+        <Subheading as={'span'}>Up one directory</Subheading>
+      </EntryContainer>
     )
   }
 }
+
+const FolderEntryContainer = styled(EntryContainer)`
+  & ${EntryIcon} {
+    background: ${amberA400};
+  }
+`
 
 class FolderEntry extends React.PureComponent {
   static propTypes = {
@@ -75,22 +122,26 @@ class FolderEntry extends React.PureComponent {
 
   render() {
     const { folder, isFocused, style, onClick } = this.props
-    const classes = classnames(styles.entry, styles.folder, {
-      [styles.focused]: isFocused,
-    })
 
     return (
-      <div style={style} className={classes} onClick={() => onClick(folder)}>
-        <div className={styles.entryIcon}>
+      <FolderEntryContainer style={style} focused={isFocused} onClick={() => onClick(folder)}>
+        <EntryIcon>
           <Folder />
-        </div>
-        <div className={styles.info}>
-          <span className={styles.name}>{folder.name}</span>
-        </div>
-      </div>
+        </EntryIcon>
+        <InfoContainer>
+          <Subheading as={'span'}>{folder.name}</Subheading>
+        </InfoContainer>
+      </FolderEntryContainer>
     )
   }
 }
+
+const FileEntryContainer = styled(EntryContainer)`
+  & ${EntryIcon} {
+    background: ${blue700};
+    color: ${colorTextPrimary};
+  }
+`
 
 class FileEntry extends React.PureComponent {
   static propTypes = {
@@ -101,21 +152,38 @@ class FileEntry extends React.PureComponent {
 
   render() {
     const { file, isFocused, style, onClick, icon } = this.props
-    const classes = classnames(styles.entry, styles.file, {
-      [styles.focused]: isFocused,
-    })
 
     return (
-      <div style={style} className={classes} onClick={() => onClick(file)}>
-        <div className={styles.entryIcon}>{icon}</div>
-        <div className={styles.info}>
-          <span className={styles.name}>{file.name}</span>
-          <span className={styles.date}>{dateFormat.format(file.date)}</span>
-        </div>
-      </div>
+      <FileEntryContainer style={style} focused={isFocused} onClick={() => onClick(file)}>
+        <EntryIcon>{icon}</EntryIcon>
+        <InfoContainer>
+          <Subheading as={'span'}>{file.name}</Subheading>
+          <Caption as={'span'}>{dateFormat.format(file.date)}</Caption>
+        </InfoContainer>
+      </FileEntryContainer>
     )
   }
 }
+
+const BreadcrumbPiece = styled(Title)`
+  height: 48px;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 8px;
+  flex-grow: 0;
+  flex-shrink: 0;
+
+  font-weight: normal;
+  color: ${props => (props.active ? colorTextPrimary : colorTextSecondary)};
+  cursor: ${props => (props.active ? 'auto' : 'pointer')};
+`
+
+const BreadcrumbSeparator = styled(ChevronRight)`
+  display: inline-block;
+  flex-grow: 0;
+  flex-shrink: 0;
+  color: ${colorTextFaint};
+`
 
 class PathBreadcrumbs extends React.Component {
   static propTypes = {
@@ -141,14 +209,14 @@ class PathBreadcrumbs extends React.Component {
         // Save the value at the current time so the function doesn't always use the last value
         const navPath = r.curPath
         r.elems.push(
-          <span
+          <BreadcrumbPiece
             key={i}
-            className={isLast ? styles.breadcrumbActive : styles.breadcrumb}
+            active={isLast}
             onClick={isLast ? undefined : () => this.props.onNavigate(navPath)}>
             {piece}
-          </span>,
+          </BreadcrumbPiece>,
         )
-        r.elems.push(<ChevronRight key={i + '|'} className={styles.breadcrumbSeparator} />)
+        r.elems.push(<BreadcrumbSeparator key={i + '|'} />)
 
         return r
       },
@@ -158,6 +226,76 @@ class PathBreadcrumbs extends React.Component {
     return <div className={this.props.className}>{elems}</div>
   }
 }
+
+const Root = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  &:focus {
+    outline: none;
+  }
+`
+
+const TopBar = styled.div`
+  ${shadow4dp};
+  background: ${blue800};
+`
+
+const TitleContainer = styled.div`
+  width: 100%;
+  height: 64px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+`
+
+const ContentTitle = styled(Headline)`
+  margin: 0;
+`
+
+const BreadcrumbsAndActions = styled.div`
+  width: 100%;
+  height: 48px;
+  padding-right: 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`
+
+const StyledPathBreadcrumbs = styled(PathBreadcrumbs)`
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+`
+
+const ExternalError = styled.div`
+  padding: 8px;
+  color: ${colorError};
+  border-bottom: 1px solid ${colorDividers};
+`
+
+const FilesScrollableContent = styled(ScrollableContent)`
+  flex-grow: 1;
+  flex-shrink: 1;
+`
+
+const FilesVirtualizedList = styled(VirtualizedList)`
+  &:focus,
+  & > div:focus {
+    outline: none;
+  }
+`
+
+const LoadingContainer = styled.div`
+  height: 32px;
+  margin: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
 
 @connect(state => ({ fileBrowser: state.fileBrowser }))
 export default class Files extends React.Component {
@@ -274,9 +412,9 @@ export default class Files extends React.Component {
     const { isRequesting, lastError } = this.props.fileBrowser[this.props.browseId]
     if (isRequesting) {
       return (
-        <div className={styles.loading}>
+        <LoadingContainer>
           <LoadingIndicator />
-        </div>
+        </LoadingContainer>
       )
     }
 
@@ -336,14 +474,13 @@ export default class Files extends React.Component {
     return (
       <>
         <KeyListener onKeyDown={this.onKeyDown} />
-        <VirtualizedList
+        <FilesVirtualizedList
           ref={this.listRef}
           width={width}
           height={height - VERT_PADDING * 2}
           rowCount={entries.size}
           rowHeight={ENTRY_HEIGHT}
           rowRenderer={_rowRenderer}
-          className={styles.fileList}
           style={{ overflowX: false, overflowY: false }}
           containerStyle={{ marginTop: VERT_PADDING, marginBottom: VERT_PADDING }}
         />
@@ -356,30 +493,22 @@ export default class Files extends React.Component {
     const { path } = this.props.fileBrowser[this.props.browseId]
     const displayedPath = `${rootFolderName}${pathApi.sep}${pathApi.relative(root, path)}`
     return (
-      <div ref={this._focusBrowser} tabIndex='-1' className={styles.root}>
-        <div className={styles.topBar}>
-          <div className={styles.titleContainer}>
+      <Root ref={this._focusBrowser} tabIndex='-1'>
+        <TopBar>
+          <TitleContainer>
             {titleButton ? titleButton : null}
-            <h3 className={styles.contentTitle}>{title}</h3>
-          </div>
-          <div className={styles.breadcrumbsAndActions}>
-            <PathBreadcrumbs
-              className={styles.path}
-              path={displayedPath}
-              onNavigate={this.onBreadcrumbNavigate}
-            />
+            <ContentTitle>{title}</ContentTitle>
+          </TitleContainer>
+          <BreadcrumbsAndActions>
+            <StyledPathBreadcrumbs path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
             <IconButton icon={<Refresh />} onClick={this.onRefreshClick} title={'Refresh'} />
-          </div>
-        </div>
-        {error ? <div className={styles.externalError}>{error}</div> : null}
-        <ScrollableContent
-          ref={this.contentRef}
-          className={styles.filesScrollable}
-          viewClassName={styles.filesScrollableView}
-          onScroll={this.onScroll}>
+          </BreadcrumbsAndActions>
+        </TopBar>
+        {error ? <ExternalError>{error}</ExternalError> : null}
+        <FilesScrollableContent ref={this.contentRef} onScroll={this.onScroll}>
           {this.renderFiles()}
-        </ScrollableContent>
-      </div>
+        </FilesScrollableContent>
+      </Root>
     )
   }
 

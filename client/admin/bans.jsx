@@ -1,7 +1,8 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styles from './admin.css'
+import styled from 'styled-components'
 
+import { colorTextSecondary } from '../styles/colors'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import form from '../forms/form.jsx'
@@ -18,6 +19,29 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   hour: 'numeric',
   minute: '2-digit',
 })
+
+const BanTable = styled.table`
+  text-align: left;
+
+  th,
+  td {
+    width: 100px;
+    max-width: 150px;
+    padding: 5px;
+
+    border: 5px solid transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: no-wrap;
+  }
+
+  th {
+    color: ${colorTextSecondary};
+    font-weight: 500;
+  }
+`
+
+const BanHistory = styled.div``
 
 @form()
 class BanUserForm extends React.Component {
@@ -87,7 +111,7 @@ export default class BanUsers extends React.Component {
     if (bans.isEmpty()) return <p>This user has not been banned before.</p>
 
     return (
-      <table className={styles.invitesTable}>
+      <BanTable>
         <thead>
           <tr>
             <th>Start time</th>
@@ -97,7 +121,7 @@ export default class BanUsers extends React.Component {
           </tr>
         </thead>
         <tbody>{bans.map(b => this.renderBanRow(b))}</tbody>
-      </table>
+      </BanTable>
     )
   }
 
@@ -136,11 +160,11 @@ export default class BanUsers extends React.Component {
     }
 
     return (
-      <div className={styles.bans}>
+      <BanHistory>
         <h3>Ban history for {username}</h3>
         {this.renderBanHistory(user)}
         {this.renderBanUserForm(user)}
-      </div>
+      </BanHistory>
     )
   }
 

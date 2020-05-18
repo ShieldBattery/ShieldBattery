@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Route } from 'react-router-dom'
 import { push } from 'connected-react-router'
-import styles from './admin.css'
+import styled from 'styled-components'
 
 import FlatButton from '../material/flat-button.jsx'
 import form from '../forms/form.jsx'
@@ -12,6 +12,10 @@ import PermissionsResult from './permissions.jsx'
 
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
 import { USERNAME_MINLENGTH, USERNAME_MAXLENGTH, USERNAME_PATTERN } from '../../common/constants'
+
+const Container = styled.div`
+  padding: 0 20px;
+`
 
 @connect(state => ({ auth: state.auth }))
 export class UserProfile extends React.Component {
@@ -78,14 +82,14 @@ export class UserFind extends React.Component {
       username: this.props.match.params.username,
     }
     return (
-      <div className={styles.users}>
+      <Container>
         <div>
           <h3>Find user</h3>
           <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
           <FlatButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
         </div>
         <Route path='/admin/users/:username' component={UserProfile} />
-      </div>
+      </Container>
     )
   }
 

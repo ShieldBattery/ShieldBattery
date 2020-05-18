@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styles from './admin.css'
+import styled from 'styled-components'
 
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
@@ -8,6 +8,8 @@ import form from '../forms/form.jsx'
 import CheckBox from '../material/check-box.jsx'
 
 import { getPermissionsIfNeeded, setPermissions } from './action-creators'
+
+const Container = styled.div``
 
 @form()
 class UserPermissionsForm extends React.Component {
@@ -85,7 +87,7 @@ export default class PermissionsResult extends React.Component {
     const model = user.toObject()
 
     return (
-      <div className={styles.saveForm}>
+      <Container>
         <h3>Set permissions for {username}</h3>
         <UserPermissionsForm
           ref={this._setForm}
@@ -94,7 +96,7 @@ export default class PermissionsResult extends React.Component {
           onSubmit={this.onSubmit}
         />
         <FlatButton label='Save' color='accent' tabIndex={0} onClick={this.onSaveClick} />
-      </div>
+      </Container>
     )
   }
 
