@@ -1,7 +1,13 @@
 import React from 'react'
+import styled from 'styled-components'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
-import styles from './simple-dialog.css'
+import { Subheading } from '../styles/typography'
+
+const BodyText = styled(Subheading)`
+  margin-top: 0;
+  margin-bottom: 0;
+`
 
 export default class SimpleDialog extends React.Component {
   render() {
@@ -12,7 +18,7 @@ export default class SimpleDialog extends React.Component {
 
     return (
       <Dialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
-        <p className={styles.bodyText}>{simpleContent}</p>
+        <BodyText as='p'>{simpleContent}</BodyText>
       </Dialog>
     )
   }
