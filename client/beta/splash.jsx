@@ -25,6 +25,10 @@ const SplashContainer = styled.div`
   background-color: ${grey900};
   margin: 0px auto;
   overflow: auto;
+
+  & * {
+    user-select: text;
+  }
 `
 
 const BackgroundVideo = styled.video`

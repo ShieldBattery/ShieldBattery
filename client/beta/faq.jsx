@@ -214,7 +214,7 @@ const Splash = styled.div`
   background-color: ${grey900};
   overflow: auto;
 
-  & > * {
+  & * {
     user-select: text;
   }
 `
