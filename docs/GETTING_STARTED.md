@@ -52,7 +52,42 @@ toolchain by running `rustup update`.
 Along with nodejs, the server requires [PostgreSQL v9.5+](http://postgresql.org), and
 [redis](http://redis.io).
 
-#### PostgreSQL
+There are two ways to get these dependencies:
+
+- You can use our predefined Docker development setup. (**STRONGLY PREFERRED**)
+- You can install them on your system manually.
+
+#### Using the Docker setup
+
+If you don't already have `docker` and `docker-compose` installed, you'll need to follow the
+download/installation instructions [here](https://docs.docker.com/desktop/#download-and-install).
+
+Once it has been installed, create a `.env` file in the root directory of this repository, if you
+don't have one already (you can copy the `sample.env` file to get things going faster!). Add values
+for `POSTGRES_SUPER_PASSWORD` and `SB_DB_PASSWORD` to configure your new database.
+
+Configure the rest of your `.env` file to match what docker-compose will set up, namely:
+
+- `DATABASE_URL=postgres://shieldbattery:[SB_DB_PASSWORD]@shieldbattery_db_1/shieldbattery`
+- `SB_REDIS_HOST=shieldbattery_redis_1`
+- `SB_REDIS_PORT=6379`
+
+Then, from the root of this repository, run:
+
+```
+$ docker-compose up -d
+```
+
+If everything worked correctly, this should set up all the server dependencies, and you can run
+migrations and use them with our server. Be careful about pruning volumes while these containers
+aren't running, or you may accidentally remove your development data.
+
+#### Manually installing dependencies
+
+If for some reason you can't use the Docker setup, or would just prefer to manage your own
+servers, you can do that as well.
+
+##### PostgreSQL
 
 On Windows, use the installer available [here](http://www.postgresql.org/download/windows/). On
 Linux, this can generally be installed through the package manager for your OS. On Mac, use
@@ -77,7 +112,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 Note that these must be run on the database you've created for ShieldBattery (e.g. you should
 choose that DB first, with `\c <yourDBname>` or something similar).
 
-#### Redis
+##### Redis
 
 On Windows, use the installers provided by MSOpenTech; they can be found [here](https://github.com/MSOpenTech/redis/releases). Note that only 64-bit installers are provided.
 On Linux, this can generally be installed through the package manage for your OS. On Mac, use

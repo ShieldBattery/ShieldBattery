@@ -4,5 +4,6 @@ app/styles/
 dist/
 node_modules/
 server/.env
+.env
 npm-debug.log
 yarn-error.log
