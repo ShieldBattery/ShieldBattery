@@ -17,10 +17,8 @@ See our [getting started](./docs/GETTING_STARTED.md) guide for information on in
 
 ### Running the server
 
-From the `server` directory:
-
 ```
-yarn start
+yarn run start-server
 ```
 
 The server will automatically rebuild the necessary client JavaScript files as they change. If you make

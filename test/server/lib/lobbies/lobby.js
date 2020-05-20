@@ -3,14 +3,14 @@ import chaiImmutable from 'chai-immutable'
 
 chai.use(chaiImmutable)
 
-import * as Lobbies from '../../lib/lobbies/lobby'
-import * as Slots from '../../lib/lobbies/slot'
+import * as Lobbies from '../../../../server/lib/lobbies/lobby'
+import * as Slots from '../../../../server/lib/lobbies/slot'
 import {
   findSlotByName,
   findSlotById,
   humanSlotCount,
   hasOpposingSides,
-} from '../../../common/lobbies'
+} from '../../../../common/lobbies'
 
 const BigGameHunters = {
   name: 'Big Game Hunters.scm',

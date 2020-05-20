@@ -68,9 +68,9 @@ for `POSTGRES_SUPER_PASSWORD` and `SB_DB_PASSWORD` to configure your new databas
 
 Configure the rest of your `.env` file to match what docker-compose will set up, namely:
 
-- `DATABASE_URL=postgres://shieldbattery:[SB_DB_PASSWORD]@shieldbattery_db_1/shieldbattery`
-- `SB_REDIS_HOST=shieldbattery_redis_1`
-- `SB_REDIS_PORT=6379`
+- `DATABASE_URL=postgres://shieldbattery:[SB_DB_PASSWORD]@localhost:5433/shieldbattery`
+- `SB_REDIS_HOST=localhost`
+- `SB_REDIS_PORT=6380`
 
 Then, from the root of this repository, run:
 

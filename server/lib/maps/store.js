@@ -37,7 +37,7 @@ export function imagePath(hash) {
 }
 
 async function mapParseWorker(path, extension) {
-  const { messages, binaryData } = await runChildProcess('lib/maps/map-parse-worker', [
+  const { messages, binaryData } = await runChildProcess(require.resolve('./map-parse-worker'), [
     path,
     extension,
     BW_DATA_PATH,
