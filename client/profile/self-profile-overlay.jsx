@@ -94,6 +94,7 @@ const Header = styled.div`
   .enterActive & {
     opacity: 1;
     transform: translateY(0px);
+    pointer-events: none;
   }
 
   .leave & {
@@ -104,6 +105,7 @@ const Header = styled.div`
 
   .leaveActive & {
     opacity: 0;
+    pointer-events: none;
   }
 `
 
@@ -136,6 +138,7 @@ const Actions = styled.div`
   .enterActive & {
     opacity: 1;
     transform: translateY(0);
+    pointer-events: none;
   }
 
   .leave & {
@@ -146,6 +149,7 @@ const Actions = styled.div`
 
   .leaveActive & {
     opacity: 0;
+    pointer-events: none;
   }
 `
 

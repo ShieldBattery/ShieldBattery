@@ -81,6 +81,17 @@ export default class Popover extends React.Component {
     // Popover has a default transition that can be used to open/close its contents; if you wish to
     // use a different transition, you can disable the default one and implement your own.
     disableScaleTransition: PropTypes.bool,
+    // Whether to keep the Popover inside the visible window area (accounting for safe zone
+    // parameters) even if the anchor is outside of it. Note that this will only affect the anchor
+    // positioning, if the Popover is wide enough to exceed the window size across from the anchor,
+    // no repositioning/resizing will occur. Defaults to true.
+    keepInWindow: PropTypes.bool,
+    // An offset (in pixels) for how much space should be kept from the window's edge to be visible,
+    // used for the X coordinate. Defaults to 8.
+    safeZoneHorizontal: PropTypes.number,
+    // An offset (in pixels) for how much space should be kept from the window's edge to be visible,
+    // used for the Y coordinate. Defaults to 8.
+    safeZoneVertical: PropTypes.number,
   }
 
   static defaultProps = {
@@ -91,6 +102,9 @@ export default class Popover extends React.Component {
     popoverOriginVertical: 'top',
     popoverOriginHorizontal: 'left',
     disableScaleTransition: false,
+    keepInWindow: true,
+    safeZoneHorizontal: 8,
+    safeZoneVertical: 8,
   }
 
   state = {
@@ -164,6 +178,9 @@ export default class Popover extends React.Component {
       anchorOriginHorizontal,
       popoverOriginVertical,
       popoverOriginHorizontal,
+      keepInWindow,
+      safeZoneHorizontal,
+      safeZoneVertical,
     } = props
 
     const clientWidth = document.body.clientWidth
@@ -205,6 +222,26 @@ export default class Popover extends React.Component {
       } else if (anchorOriginHorizontal === 'right') {
         popoverPosition.right = clientWidth - (rect.left + rect.width)
       }
+    }
+
+    if (keepInWindow) {
+      popoverPosition.left =
+        popoverPosition.left !== undefined
+          ? Math.max(popoverPosition.left, safeZoneHorizontal)
+          : undefined
+      popoverPosition.right =
+        popoverPosition.right !== undefined
+          ? Math.max(popoverPosition.right, safeZoneHorizontal)
+          : undefined
+
+      popoverPosition.top =
+        popoverPosition.top !== undefined
+          ? Math.max(popoverPosition.top, safeZoneVertical)
+          : undefined
+      popoverPosition.bottom =
+        popoverPosition.bottom !== undefined
+          ? Math.max(popoverPosition.bottom, safeZoneVertical)
+          : undefined
     }
 
     return popoverPosition
