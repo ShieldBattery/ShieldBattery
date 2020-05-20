@@ -1,18 +1,20 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import TransitionGroup from 'react-addons-css-transition-group'
+import styled from 'styled-components'
 import Avatar from '../avatars/avatar.jsx'
-import styles from './self-profile-overlay.css'
 
 import Popover from '../material/popover.jsx'
+import { fastOutSlowIn } from '../material/curve-constants.js'
+import { Title, singleLine } from '../styles/typography'
 
 const transitionNames = {
-  appear: styles.enter,
-  appearActive: styles.enterActive,
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  appear: 'enter',
+  appearActive: 'enterActive',
+  enter: 'enter',
+  enterActive: 'enterActive',
+  leave: 'leave',
+  leaveActive: 'leaveActive',
 }
 
 export default class SelfProfileOverlay extends React.Component {
@@ -38,6 +40,8 @@ export default class SelfProfileOverlay extends React.Component {
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style
+          // TODO(tec27): We could probably use CSS custom properties for this instead of passing
+          // this style down
           if (state === 'opening') {
             style = {
               transitionDuration: `${openDuration}ms`,
@@ -69,6 +73,82 @@ export default class SelfProfileOverlay extends React.Component {
   }
 }
 
+const Contents = styled.div`
+  min-width: 256px;
+`
+
+const Header = styled.div`
+  position: relative;
+  padding-top: 24px;
+  text-align: center;
+
+  .enter & {
+    opacity: 0;
+    transform: translateY(-16px);
+    transition-property: all;
+    /* TODO(tec27): this should be linear for opacity, and probably linearOutSlowIn for
+       translation? */
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  .enterActive & {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+
+  .leave & {
+    opacity: 1;
+    transition-property: opacity;
+    transition-timing-function: linear;
+  }
+
+  .leaveActive & {
+    opacity: 0;
+  }
+`
+
+const StyledAvatar = styled(Avatar)`
+  width: 64px; /* FIXME FIXME needs important? */
+  height: 64px;
+  margin-bottom: 16px;
+`
+
+const Username = styled(Title)`
+  margin-top: 0;
+  margin-bottom: 0;
+  ${singleLine};
+`
+
+const Actions = styled.div`
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+
+  .enter & {
+    opacity: 0;
+    transform: translateY(-16px);
+    transition-property: all;
+    /* TODO(tec27): this should be linear for opacity, and probably linearOutSlowIn for
+       translation? */
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  .enterActive & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .leave & {
+    opacity: 1;
+    transition-property: opacity;
+    transition-timing-function: linear;
+  }
+
+  .leaveActive & {
+    opacity: 0;
+  }
+`
+
 export class SelfProfileContents extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
@@ -79,15 +159,13 @@ export class SelfProfileContents extends React.Component {
     const { user, children, style } = this.props
 
     return (
-      <div className={styles.contents}>
-        <div className={styles.header} style={style}>
-          <Avatar className={styles.avatar} user={user} />
-          <h3 className={styles.username}>{user}</h3>
-        </div>
-        <div className={styles.actions} style={style}>
-          {children}
-        </div>
-      </div>
+      <Contents>
+        <Header style={style}>
+          <StyledAvatar user={user} />
+          <Username>{user}</Username>
+        </Header>
+        <Actions style={style}>{children}</Actions>
+      </Contents>
     )
   }
 }
