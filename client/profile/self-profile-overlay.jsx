@@ -110,7 +110,7 @@ const Header = styled.div`
 `
 
 const StyledAvatar = styled(Avatar)`
-  width: 64px; /* FIXME FIXME needs important? */
+  width: 64px;
   height: 64px;
   margin-bottom: 16px;
 `

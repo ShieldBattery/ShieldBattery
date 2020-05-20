@@ -1,5 +1,0 @@
-@value row, itemsCenter, justifyCenter from '../styles/flex.css';
-
-.loadingArea {
-  composes: row itemsCenter justifyCenter;
-}

@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import styled from 'styled-components'
 import siteSocket from './site-socket'
-import styles from './site-connected-filter.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 
@@ -10,6 +10,12 @@ if (IS_ELECTRON) {
     'x-shield-battery-client': 'true',
   }
 }
+
+const LoadingArea = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
 
 @connect(state => ({ siteNetwork: state.network.site }))
 export default class SiteConnectedFilter extends React.Component {
@@ -28,9 +34,9 @@ export default class SiteConnectedFilter extends React.Component {
       return React.Children.only(this.props.children)
     } else {
       return (
-        <div className={styles.loadingArea}>
+        <LoadingArea>
           <LoadingIndicator />
-        </div>
+        </LoadingArea>
       )
     }
   }

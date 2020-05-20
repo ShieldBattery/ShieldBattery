@@ -1,18 +1,25 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 import CloseLobbyIcon from '../icons/material/ic_close_black_24px.svg'
 import Entry from '../material/left-nav/entry.jsx'
 import IconButton from '../material/icon-button.jsx'
-import styles from './nav-entry.css'
+
+const LeaveButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  line-height: 32px;
+  margin-right: 4px;
+
+  > span {
+    line-height: 32px;
+  }
+`
 
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
   const button = (
-    <IconButton
-      className={styles.leaveButton}
-      icon={<CloseLobbyIcon />}
-      title='Leave lobby'
-      onClick={onLeaveClick}
-    />
+    <LeaveButton icon={<CloseLobbyIcon />} title='Leave lobby' onClick={onLeaveClick} />
   )
   return (
     <Entry
