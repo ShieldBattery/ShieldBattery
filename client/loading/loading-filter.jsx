@@ -1,8 +1,14 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styles from './loading-filter.css'
+import styled from 'styled-components'
 
 import LoadingIndicator from '../progress/dots.jsx'
+
+const Container = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
 
 @connect(state => ({ loading: state.loading }))
 export default class LoadingFilter extends React.Component {
@@ -10,9 +16,9 @@ export default class LoadingFilter extends React.Component {
     // TODO(tec27): make a really awesome loading screen
     if (this.props.loading.toSeq().some(v => v)) {
       return (
-        <div className={styles.loadingArea}>
+        <Container>
           <LoadingIndicator />
-        </div>
+        </Container>
       )
     } else {
       return React.Children.only(this.props.children)

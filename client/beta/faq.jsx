@@ -1,8 +1,8 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
+import styled, { css } from 'styled-components'
 import { makeServerUrl } from '../network/server-url'
-import styles from './beta.css'
 
 import TopLinks from './top-links.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
@@ -10,6 +10,9 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
+import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
+import { Headline, Subheading, Display4 } from '../styles/typography'
+import { shadow4dp } from '../material/shadows'
 
 const questions = [
   {
@@ -135,17 +138,68 @@ const makeQuestionId = question => {
   return encodeURIComponent(question.replace(/\s/g, '-'))
 }
 
+const pageWidth = css`
+  width: 940px;
+  margin: 0px auto;
+`
+
+const QuestionSectionRoot = styled.div`
+  ${pageWidth};
+  padding: 48px 48px 48px 0;
+  border-bottom: 1px solid ${colorDividers};
+`
+
+const StyledQuestionIcon = styled(QuestionIcon)`
+  margin-left: 16px;
+  margin-right: 16px;
+
+  display: inline-block;
+  color: ${blue400};
+  vertical-align: middle;
+`
+
+const QuestionText = styled(Headline)`
+  margin: 0;
+  display: inline-block;
+
+  color: ${blue400};
+  line-height: 48px;
+  vertical-align: middle;
+`
+
+const AnswerText = styled(Subheading)`
+  margin: 8px 0 0 80px;
+  color: ${colorTextSecondary};
+  font-size: 20px;
+  line-height: 1.5;
+
+  & > p {
+    line-height: inherit;
+  }
+
+  & > p:first-child {
+    margin-top: 0;
+  }
+
+  & ul {
+    margin: 0;
+    padding: 0;
+  }
+
+  & li {
+    margin-left: 1em;
+  }
+`
+
 class QuestionSection extends React.PureComponent {
   render() {
     const { question, answer } = this.props
     return (
-      <div id={makeQuestionId(question)} className={styles.faqFeature}>
-        <div className={styles.faqText}>
-          <QuestionIcon className={styles.faqQuestionIcon} />
-          <h3 className={styles.faqQuestion}>{question}</h3>
-          <div className={styles.faqAnswer}>{answer}</div>
-        </div>
-      </div>
+      <QuestionSectionRoot id={makeQuestionId(question)}>
+        <StyledQuestionIcon />
+        <QuestionText>{question}</QuestionText>
+        <AnswerText>{answer}</AnswerText>
+      </QuestionSectionRoot>
     )
   }
 }
@@ -155,6 +209,59 @@ class FragmentLink extends React.PureComponent {
     return <Link to={`${this.props.to}#${this.props.fragment}`}>{this.props.children}</Link>
   }
 }
+
+const Splash = styled.div`
+  background-color: ${grey900};
+  overflow: auto;
+
+  & > * {
+    user-select: text;
+  }
+`
+
+const LogoContainer = styled.div`
+  ${pageWidth};
+  left: calc(50% - 940px / 2);
+  position: absolute;
+  pointer-events: none;
+`
+
+const Logo = styled.img`
+  margin-top: 8px;
+  float: left;
+  pointer-events: none;
+`
+
+const StyledLogoText = styled(LogoText)`
+  width: 464px;
+  margin-top: 80px;
+  float: right;
+  pointer-events: none;
+`
+
+const Intro = styled.div`
+  margin-top: 180px;
+  background-color: ${grey850};
+  ${shadow4dp};
+`
+
+const FaqHeader = styled(Display4)`
+  ${pageWidth};
+  padding: 64px 0 64px 472px;
+`
+
+const FaqToc = styled.div`
+  ${pageWidth};
+  padding: 48px 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  font-size: 20px;
+  line-height: 1.5;
+  border-bottom: 1px solid ${colorDividers};
+`
 
 @connect()
 export default class Faq extends React.Component {
@@ -183,16 +290,16 @@ export default class Faq extends React.Component {
   render() {
     return (
       <ScrollableContent>
-        <div className={styles.splash}>
-          <div className={styles.logoContainer}>
+        <Splash>
+          <LogoContainer>
             <TopLinks />
-            <img className={styles.logo} src={makeServerUrl('/images/splash-logo.png')} />
-            <LogoText className={styles.logotext} />
-          </div>
-          <div className={styles.intro}>
-            <h1 className={styles.faqHeader}>FAQ</h1>
-          </div>
-          <div id={'faqToc'} className={styles.faqToc}>
+            <Logo src={makeServerUrl('/images/splash-logo.png')} />
+            <StyledLogoText />
+          </LogoContainer>
+          <Intro>
+            <FaqHeader>FAQ</FaqHeader>
+          </Intro>
+          <FaqToc id={'faqToc'}>
             <h3>Frequently Asked Questions</h3>
             <ul>
               {questions.map((q, i) => (
@@ -203,11 +310,11 @@ export default class Faq extends React.Component {
                 </li>
               ))}
             </ul>
-          </div>
+          </FaqToc>
           {questions.map((q, i) => (
             <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
           ))}
-        </div>
+        </Splash>
       </ScrollableContent>
     )
   }
