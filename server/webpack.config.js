@@ -1,8 +1,4 @@
-require('@babel/register')({
-  // This is necessary to make babel compile stuff outside the "working directory".
-  // See this issue for more info: https://github.com/babel/babel/issues/8321
-  ignore: [/node_modules/],
-})
+require('@babel/register')
 const makeConfig = require('../common.webpack.config.js').default
 const path = require('path')
 
@@ -18,10 +14,6 @@ const webpackOpts = {
     publicPath: '/scripts/',
   },
   plugins: [],
-  resolve: {
-    // Look for modules and loaders in server's node_modules directory, instead of client's
-    modules: [path.join(__dirname, 'node_modules'), 'node_modules'],
-  },
 }
 
 if (process.env.NODE_ENV !== 'production') {

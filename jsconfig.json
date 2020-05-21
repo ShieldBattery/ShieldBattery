@@ -3,5 +3,5 @@
     "experimentalDecorators": true
   },
   "include": ["app/**/*", "client/**/*", "server/**/*", "test/**/*"],
-  "exclude": ["app/node_modules", "node_modules", "server/node_modules"]
+  "exclude": ["app/node_modules", "node_modules"]
 }

@@ -19,12 +19,15 @@
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "main": "index.js",
+  "engines": {
+    "node": ">= 10.0.0"
+  },
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
     "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive test/",
     "build-app-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
     "build-game": "game/build.bat release sign",
-    "build-web-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack ./server/webpack.config.js",
+    "build-web-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack --config ./server/webpack.config.js",
     "clean": "rimraf app/dist && rimraf app/styles",
     "dev": "cross-env BABEL_ENV=node node -r @babel/register electron-dev-server.js",
     "dist": "yarn run clean && yarn run build-app-client && yarn run build-game && electron-builder build --win --ia32 --x64 -p always -c prod.yml",
@@ -54,6 +57,8 @@
     "bw-chk": "^1.1.0",
     "canonical-host": "^0.0.5",
     "core-js": "^3.6.1",
+    "cross-env": "^7.0.2",
+    "cross-env-test": "^0.1.1",
     "cuid": "^2.1.8",
     "dotenv": "^8.2.0",
     "handlebars": "^4.5.3",
@@ -108,8 +113,6 @@
     "classnames": "^2.2.6",
     "concat-stream": "^2.0.0",
     "connected-react-router": "^6.6.1",
-    "cross-env": "^7.0.2",
-    "cross-env-test": "^0.1.1",
     "css-loader": "^3.4.0",
     "db-migrate": "^0.11.6",
     "db-migrate-pg": "^1.0.0",
@@ -174,8 +177,5 @@
     "webpack-hot-middleware": "^2.25.0",
     "whatwg-fetch": "^3.0.0",
     "ws": "^7.3.0"
-  },
-  "engines": {
-    "node": ">= 10.0.0"
   }
 }

@@ -33,24 +33,12 @@ Optionally, create an account on Docker's [official image repository](https://hu
 
 ### Run the deployment script
 
-There are two scripts that you can run, depending on which flavor of the server you are trying to deploy, `production` or `staging`. To deploy the `production` server, use:
+Use the included `deploy.bat` script to build the image. To run it, figure out what the desired
+version string is (this should usually match the package.json), then do:
 
 ```
-yarn run deploy
+.\deploy.bat <VERSION>
 ```
-
-And alternatively, to deploy the `staging` server, use:
-
-```
-yarn run deploystaging
-```
-
-These scripts will first build the game code and the electron application, after
-which the image will be created based on the `Dockerfile`. The built installer
-will need to be deployed separately from the Docker containers (e.g. uploaded
-to the server over SCP alongside where the containers are located). This is done
-to keep the images free of any environment-specific (staging/production/etc.)
-configuration.
 
 The name of the built image will be `shieldbattery/shieldbattery`, tagged with
 the following:

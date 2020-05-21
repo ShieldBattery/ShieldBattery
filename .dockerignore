@@ -1,7 +1,6 @@
 .git/
 app/
 assets/
-!app/common/
 dist/
 docs/
 game/
@@ -13,4 +12,5 @@ server/logs/
 server/node_modules/
 server/uploaded_files/
 server/yarn-error.log
+.env
 yarn-error.log

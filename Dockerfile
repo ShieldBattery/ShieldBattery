@@ -21,18 +21,17 @@ WORKDIR /shieldbattery
 # Copy the whole repository to the image, *except* the stuff marked in the `.dockerignore` file
 COPY . .
 
-# Install only the server and main dependencies (`app` dependencies should be built into the
-# Electron app) and install only production dependencies to make the image smaller. Note that we
-# specifically install non-production dependencies here so that we can use them to build the client
-# code. They will be pruned out in a later step.
-RUN cd server && yarn && cd .. && yarn
+# Install only the root folder's dependencies (`app` dependencies should be built into the
+# Electron app). Note that we specifically install non-production dependencies here so that we can
+# use them to build the client code. They will be pruned out in a later step.
+RUN yarn
 
-# Prebuild the server assets so we can simply copy them over
+# Prebuild the web client assets so we can simply copy them over
 ENV NODE_ENV=production
-RUN cd server && yarn run build-client && cd ..
+RUN yarn run build-web-client
 
 # Then prune the server deps to only the production ones
-RUN cd server && yarn && cd ..
+RUN yarn
 
 # Clone the `wait-for-it` repository which contains a script we'll copy over to our final image, and
 # use it to control our services startup order
@@ -59,12 +58,10 @@ USER node
 WORKDIR /home/node/shieldbattery
 
 # Copy just the sources the server needs
+COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
+COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
-COPY --chown=node:node --from=builder /shieldbattery/app ./app
-# This is a dumb hack to make our server's deps available to things in app/common/
-# TODO(tec27): This would ideally just be a symlink to save on image size, but gives a permission
-# error for reasons I don't understand, so for now we just copy it all twice
-COPY --chown=node:node --from=builder /shieldbattery/server/node_modules ./node_modules
+COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
 
 # Copy the installed dependencies from the first stage
 COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
@@ -76,4 +73,4 @@ RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sp
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp
 
-CMD cd server && node index.js | ./node_modules/.bin/pino-tee warn ./logs/errors.log | tee ./logs/server.log
+CMD node ./server/index.js | ./node_modules/.bin/pino-tee warn ./server/logs/errors.log | tee ./server/logs/server.log
