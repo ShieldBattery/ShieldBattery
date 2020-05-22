@@ -2,7 +2,6 @@ import { remote } from 'electron'
 import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
-import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
@@ -60,7 +59,7 @@ export default class ActiveGameManager extends EventEmitter {
       return null
     }
 
-    const gameId = cuid()
+    const gameId = config.setup.gameId
     const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
       .then(
         proc => proc.waitForExit(),
@@ -188,7 +187,7 @@ export default class ActiveGameManager extends EventEmitter {
   _setStatus(state, extra = null) {
     if (this.activeGame) {
       this.activeGame.status = { state, extra }
-      this.emit('gameStatus', this.getStatus())
+      this.emit('gameStatus', this.activeGame.id, this.getStatus())
       log.verbose(`Game status updated to '${statusToString(state)}' [${JSON.stringify(extra)}]`)
     }
   }

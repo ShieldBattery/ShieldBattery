@@ -2,16 +2,12 @@ import { List, Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
-import pickServer from '../rally-point/pick-server'
-import pingRegistry from '../rally-point/ping-registry'
-import routeCreator from '../rally-point/route-creator'
-import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
+import activityRegistry from '../games/gameplay-activity-registry'
+import gameCoordinator from '../games/game-coordinator'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
 import { getMapInfo } from '../models/maps'
-import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import {
   isValidLobbyName,
   isValidGameType,
@@ -29,8 +25,6 @@ import {
   getObserverTeam,
 } from '../../../common/lobbies'
 
-const LOBBY_START_TIMEOUT = 30 * 1000
-
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
@@ -40,24 +34,6 @@ const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const Countdown = new Record({
   timer: null,
 })
-
-function generateSeed() {
-  // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
-  // played, so we match BW's random seed method (time()) here
-  return (Date.now() / 1000) | 0
-}
-
-const LoadingData = new Record({
-  finishedUsers: new Set(),
-  cancelToken: null,
-  deferred: null,
-})
-
-export const LoadingDatas = {
-  isAllFinished(loadingData, players) {
-    return players.every(p => loadingData.finishedUsers.has(p.id))
-  },
-}
 
 const ListSubscription = new Record({
   onUnsubscribe: null,
@@ -88,7 +64,6 @@ export class LobbyApi {
     this.lobbyClients = new Map()
     this.lobbyBannedUsers = new Map()
     this.lobbyCountdowns = new Map()
-    this.pingPromises = new Map()
     this.loadingLobbies = new Map()
     this.subscribedSockets = new Map()
   }
@@ -646,7 +621,7 @@ export class LobbyApi {
     client.unsubscribe(LobbyApi._getClientPath(lobby, client))
     client.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
-    this._maybeCancelLoading(lobby)
+    gameCoordinator.maybeCancelLoading(this.loadingLobbies.get(lobby.name))
   }
 
   @Api('/startCountdown')
@@ -662,145 +637,76 @@ export class LobbyApi {
     this.ensureLobbyNotTransient(lobby)
 
     const lobbyName = lobby.name
-    const cancelToken = new CancelToken()
-    const gameStart = this._doGameStart(lobbyName, cancelToken)
-    // Swallow any errors from gameStart, they're all things we know about (and are handled by the
-    // combined catch below properly, so no point in getting unhandled rejection logs from them)
-    gameStart.catch(() => {})
-    rejectOnTimeout(gameStart, LOBBY_START_TIMEOUT + 5000).catch(() => {
-      cancelToken.cancel()
-      if (!this.lobbies.has(lobbyName)) {
-        return
-      }
-
-      const lobby = this.lobbies.get(lobbyName)
-      this._maybeCancelCountdown(lobby)
-      this._maybeCancelLoading(lobby)
-    })
-  }
-
-  async _doGameStart(lobbyName, cancelToken) {
     const timer = createDeferred()
     let timerId = setTimeout(() => timer.resolve(), 5000)
-    const countdown = new Countdown({ timer })
-    this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, countdown)
+    this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, new Countdown({ timer }))
 
-    let lobby = this.lobbies.get(lobbyName)
-    this._publishTo(lobby, {
-      type: 'startCountdown',
-    })
+    this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby.name)
-    lobby = null
 
     try {
       await timer
-      timerId = null
-      cancelToken.throwIfCancelling()
+      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+
+      await gameCoordinator.loadGame(
+        getHumanSlots(lobby),
+        setup => this._onGameSetup(lobby, setup),
+        (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
+        () => this._onLoadingCanceled(lobby),
+        players => this._onGameLoaded(lobby, players),
+      )
+    } catch (err) {
+      this._maybeCancelCountdown(lobby)
     } finally {
       if (timerId) {
         clearTimeout(timerId)
+        timerId = null
       }
     }
+  }
 
-    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-    lobby = this.lobbies.get(lobbyName)
-    const gameLoaded = createDeferred()
-    this.loadingLobbies = this.loadingLobbies.set(
-      lobbyName,
-      new LoadingData({
-        cancelToken,
-        deferred: gameLoaded,
-      }),
-    )
+  _onGameSetup(lobby, setup = {}) {
+    this.loadingLobbies = this.loadingLobbies.set(lobby.name, setup.gameId)
     this._publishTo(lobby, {
       type: 'setupGame',
-      setup: {
-        seed: generateSeed(),
-      },
+      setup,
     })
+  }
 
-    const humanPlayers = getHumanSlots(lobby)
-    const hasMultipleHumans = humanPlayers.size > 1
-    const pingPromise = !hasMultipleHumans
-      ? Promise.resolve()
-      : Promise.all(humanPlayers.map(p => pingRegistry.waitForPingResult(p.name)))
+  _onRoutesSet(lobby, playerName, routes) {
+    this._publishToClient(lobby, playerName, {
+      type: 'setRoutes',
+      routes,
+    })
+  }
 
-    await pingPromise
-    cancelToken.throwIfCancelling()
+  _onLoadingCanceled(lobby) {
+    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    this._publishTo(lobby, {
+      type: 'cancelLoading',
+    })
+    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+  }
 
-    let routeCreations
-    // TODO(tec27): pull this code out somewhere that its easily testable
-    if (hasMultipleHumans) {
-      // Generate all the pairings of human players to figure out the routes we need
-      const matchGen = []
-      let rest = humanPlayers
-      while (!rest.isEmpty()) {
-        const first = rest.first()
-        rest = rest.rest()
-        if (!rest.isEmpty()) {
-          matchGen.push([first, rest])
-        }
-      }
-      const needRoutes = matchGen.reduce((result, [p1, players]) => {
-        players.forEach(p2 => result.push([p1, p2]))
-        return result
-      }, [])
-      const pingsByPlayer = new Map(
-        humanPlayers.map(player => [player, pingRegistry.getPings(player.name)]),
-      )
+  _onGameLoaded(lobby, players) {
+    this._publishTo(lobby, { type: 'gameStarted' })
 
-      const routesToCreate = needRoutes.map(([p1, p2]) => ({
-        p1,
-        p2,
-        server: pickServer(pingsByPlayer.get(p1), pingsByPlayer.get(p2)),
-      }))
-
-      routeCreations = routesToCreate.map(({ p1, p2, server }) =>
-        server === -1
-          ? Promise.reject(new Error('No server match found'))
-          : routeCreator.createRoute(pingRegistry.servers[server]).then(result => ({
-              p1,
-              p2,
-              server: pingRegistry.servers[server],
-              result,
-            })),
-      )
-    } else {
-      routeCreations = []
-    }
-
-    const routes = await Promise.all(routeCreations)
-    cancelToken.throwIfCancelling()
-
-    // get a list of routes + player IDs per player, broadcast that to each player
-    const routesByPlayer = routes.reduce((result, route) => {
-      const {
-        p1,
-        p2,
-        server,
-        result: { routeId, p1Id, p2Id },
-      } = route
-      return result
-        .update(p1, new List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
-        .update(p2, new List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))
-    }, new Map())
-
-    for (const [player, routes] of routesByPlayer.entries()) {
-      this._publishToClient(lobby, player.name, {
-        type: 'setRoutes',
-        routes,
+    players
+      .map(p => activityRegistry.getClientForUser(p.name))
+      .forEach(client => {
+        const user = this.getUserByName(client.name)
+        this._publishToUser(lobby, user.name, {
+          type: 'status',
+          lobby: null,
+        })
+        user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
+        client.unsubscribe(LobbyApi._getPath(lobby))
+        client.unsubscribe(LobbyApi._getClientPath(lobby, client))
+        this.lobbyClients = this.lobbyClients.delete(client)
+        activityRegistry.unregisterClientForUser(user.name)
       })
-    }
-    if (!hasMultipleHumans) {
-      this._publishToClient(lobby, humanPlayers.first().name, {
-        type: 'setRoutes',
-        routes: [],
-      })
-    }
-    lobby = null
-
-    cancelToken.throwIfCancelling()
-    await gameLoaded
+    this.lobbies = this.lobbies.delete(lobby.name)
+    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
@@ -816,66 +722,6 @@ export class LobbyApi {
       type: 'cancelCountdown',
     })
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
-  }
-
-  // Cancels the loading state if the lobby was in it (no-op if it was not)
-  _maybeCancelLoading(lobby) {
-    if (!this.loadingLobbies.has(lobby.name)) {
-      return
-    }
-
-    const loadingData = this.loadingLobbies.get(lobby.name)
-    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
-    loadingData.cancelToken.cancel()
-    loadingData.deferred.reject(new Error('Game loading cancelled'))
-    this._publishTo(lobby, {
-      type: 'cancelLoading',
-    })
-    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
-  }
-
-  @Api('/gameLoaded')
-  async gameLoaded(data, next) {
-    const client = this.getClient(data)
-    const lobby = this.getLobbyForClient(client)
-    this.ensureLobbyLoading(lobby)
-    const [, , player] = findSlotByName(lobby, client.name)
-
-    let loadingData = this.loadingLobbies.get(lobby.name)
-    loadingData = loadingData.set('finishedUsers', loadingData.finishedUsers.add(player.id))
-    this.loadingLobbies = this.loadingLobbies.set(lobby.name, loadingData)
-
-    const players = getHumanSlots(lobby)
-    if (LoadingDatas.isAllFinished(loadingData, players)) {
-      // TODO(tec27): register this game in the DB for accepting results in another service
-      this._publishTo(lobby, { type: 'gameStarted' })
-
-      players
-        .map(p => activityRegistry.getClientForUser(p.name))
-        .forEach(client => {
-          const user = this.getUserByName(client.name)
-          this._publishToUser(lobby, user.name, {
-            type: 'status',
-            lobby: null,
-          })
-          user.unsubscribe(LobbyApi._getUserPath(lobby, user.name))
-          client.unsubscribe(LobbyApi._getPath(lobby))
-          client.unsubscribe(LobbyApi._getClientPath(lobby, client))
-          this.lobbyClients = this.lobbyClients.delete(client)
-          activityRegistry.unregisterClientForUser(user.name)
-        })
-      this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
-      this.lobbies = this.lobbies.delete(lobby.name)
-      loadingData.deferred.resolve()
-    }
-  }
-
-  @Api('/loadFailed')
-  async loadFailed(data, next) {
-    const client = this.getClient(data)
-    const lobby = this.getLobbyForClient(client)
-    this.ensureLobbyLoading(lobby)
-    this._maybeCancelLoading(lobby)
   }
 
   @Api(
@@ -943,12 +789,6 @@ export class LobbyApi {
   ensureLobbyNotLoading(lobby) {
     if (this.loadingLobbies.has(lobby.name)) {
       throw new errors.Conflict('lobby has already started')
-    }
-  }
-
-  ensureLobbyLoading(lobby) {
-    if (!this.loadingLobbies.has(lobby.name)) {
-      throw new errors.Conflict('lobby must be loading')
     }
   }
 

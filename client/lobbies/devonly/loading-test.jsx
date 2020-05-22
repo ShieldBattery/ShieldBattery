@@ -5,7 +5,7 @@ import LoadingScreen from '../loading.jsx'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 import { MapRecord } from '../../maps/maps-reducer'
 import { User } from '../../auth/auth-records'
-import { GameStatus } from '../game-client-reducer'
+import { GameStatus } from '../../active-game/game-client-reducer'
 
 const make = (state, extra) => new GameStatus({ state, extra })
 const STATUSES = [

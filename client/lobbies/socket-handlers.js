@@ -222,6 +222,7 @@ const eventToAction = {
       localUser: user,
       settings,
       setup: {
+        gameId: event.setup.gameId,
         name: lobbyName,
         map,
         gameType,
