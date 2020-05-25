@@ -1,5 +1,5 @@
 import React from 'react'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 
 import ActiveUserCount from '../serverstatus/active-users.jsx'
 import Lockup from './lockup.jsx'

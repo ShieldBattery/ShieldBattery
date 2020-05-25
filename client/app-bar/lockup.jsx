@@ -18,8 +18,9 @@ const SizedLogo = styled(Logo)`
 `
 
 const SizedLogoText = styled(LogoText)`
+  width: auto;
+  height: 56px;
   margin-left: 8px;
-  margin-top: 2px;
 `
 
 class Lockup extends React.Component {
