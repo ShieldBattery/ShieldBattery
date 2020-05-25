@@ -13,6 +13,7 @@
 *.dll binary
 *.opus binary
 *.mp4 binary
+*.afdesign binary
 
 # Custom for Visual Studio
 *.sln    merge=union
