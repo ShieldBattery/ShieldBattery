@@ -39,8 +39,8 @@ services:
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
       - SB_ROUTE_CREATOR_PORT=14099
-      - 'SB_FILE_STORE={"filesystem":{"path":"uploaded_files"}}'
-      - SB_SPRITE_DATA=bw_sprite_data
+      - 'SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}'
+      - SB_SPRITE_DATA=server/bw_sprite_data
       - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
       - SB_SESSION_SECRET=${SB_SESSION_SECRET}
       - SB_SESSION_TTL=${SB_SESSION_TTL}
