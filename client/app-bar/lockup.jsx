@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 
 import Logo from '../logos/logo-no-bg.svg'
-import LogoText from '../logos/logotext-white-156x56.svg'
+import LogoText from '../logos/logotext-white-154x56.svg'
 
 const Container = styled.div`
   height: 100%;
