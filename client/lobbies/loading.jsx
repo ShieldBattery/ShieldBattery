@@ -2,7 +2,6 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { getPlayerSlots } from '../../common/lobbies'
 import gameTypeToString from './game-type-to-string'
-import styles from './loading.css'
 import styled from 'styled-components'
 
 import Card from '../material/card.jsx'
@@ -11,7 +10,14 @@ import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RaceIcon from './race-icon.jsx'
 
 import { fastOutSlowInShort } from '../material/curves'
-import { alphaDisabled } from '../styles/colors'
+import {
+  alphaDisabled,
+  colorTextSecondary,
+  colorTextFaint,
+  colorTextPrimary,
+} from '../styles/colors'
+import { Title, Subheading, singleLine, Display1 } from '../styles/typography'
+import { shadow1dp } from '../material/shadows'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',
@@ -197,6 +203,11 @@ const StyledAvatar = styled(Avatar)`
   opacity: ${props => (props.isReady ? 1 : alphaDisabled)};
 `
 
+const LoadingMessageContent = styled(Title)`
+  margin-top: 24px;
+  color: ${colorTextSecondary};
+`
+
 const MESSAGE_TIME_MIN = 3000
 const MESSAGE_TIME_MAX = 5500
 class LoadingMessage extends React.Component {
@@ -229,9 +240,44 @@ class LoadingMessage extends React.Component {
 
   render() {
     const message = LOADING_MESSAGES[this.state.messageIndex]
-    return <span className={styles.loadingMessage}>{message}&hellip;</span>
+    return <LoadingMessageContent>{message}&hellip;</LoadingMessageContent>
   }
 }
+
+const PlayerCard = styled(Card)`
+  width: 256px;
+  margin: 8px;
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  flex-shrink: 0;
+  overflow: hidden;
+
+  color: ${props => (props.ready ? colorTextPrimary : colorTextFaint)};
+  --player-component-opacity: ${props => (props.ready ? 1 : alphaDisabled)};
+`
+
+const PlayerName = styled(Subheading)`
+  ${singleLine};
+  ${fastOutSlowInShort};
+
+  color: inherit;
+  flex-grow: 1;
+  margin-right: 16px;
+`
+
+const PlayerRaceIcon = styled(RaceIcon)`
+  ${fastOutSlowInShort};
+  width: 32px;
+  height: 32px;
+  opacity: var(--player-component-opacity);
+
+  /* TODO(tec27): is this still necessary with styled-components? */
+  svg {
+    width: 32px;
+    height: 32px;
+  }
+`
 
 class LoadingPlayer extends React.Component {
   static propTypes = {
@@ -250,14 +296,43 @@ class LoadingPlayer extends React.Component {
     const displayName = isComputer ? 'Computer' : player.name
 
     return (
-      <Card className={isReady ? styles.readyPlayer : styles.player}>
+      <PlayerCard ready={isReady}>
         {avatar}
-        <span className={styles.playerName}>{displayName}</span>
-        <RaceIcon className={styles.playerRace} race={player.race} />
-      </Card>
+        <PlayerName as='span'>{displayName}</PlayerName>
+        <PlayerRaceIcon race={player.race} />
+      </PlayerCard>
     )
   }
 }
+
+const Content = styled.div`
+  margin-top: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+const GameTypeMapBridge = styled(Display1)`
+  color: ${colorTextSecondary};
+`
+
+const MapThumbnail = styled.img`
+  ${shadow1dp};
+  width: 256px;
+  height: auto;
+  border-radius: 2px;
+  margin-top: 16px;
+`
+
+const Players = styled.div`
+  margin-top: 8px;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+`
 
 export default class LoadingScreen extends React.Component {
   static propTypes = {
@@ -282,18 +357,18 @@ export default class LoadingScreen extends React.Component {
     ))
 
     return (
-      <div className={styles.content}>
-        <div className={styles.typeAndMap}>
-          <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
-          <span className={styles.gameTypeMapBridge}> on </span>
-          <span className={styles.mapName}>{lobby.map.name}</span>
+      <Content>
+        <div>
+          <Display1 as='span'>{gameTypeToString(lobby.gameType)}</Display1>
+          <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
+          <Display1 as='span'>{lobby.map.name}</Display1>
         </div>
         <div>
-          <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
+          <MapThumbnail src={lobby.map.imageUrl} />
         </div>
-        <div className={styles.players}>{playerElems}</div>
+        <Players>{playerElems}</Players>
         <LoadingMessage />
-      </div>
+      </Content>
     )
   }
 }
