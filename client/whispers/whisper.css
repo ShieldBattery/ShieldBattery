@@ -38,15 +38,3 @@
   margin: 8px 0;
   padding: 0 16px;
 }
-
-.navCloseButton {
-  min-height: 32px !important;
-  width: 32px !important;
-  padding: 0 !important;
-  line-height: 32px !important;
-  margin-right: 4px !important;
-}
-
-.navCloseButton > span {
-  line-height: 32px !important;
-}

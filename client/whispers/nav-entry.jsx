@@ -1,9 +1,21 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 import CloseWhisperIcon from '../icons/material/ic_close_black_24px.svg'
 import Entry from '../material/left-nav/entry.jsx'
 import IconButton from '../material/icon-button.jsx'
-import styles from './whisper.css'
+
+const LeaveButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  line-height: 32px;
+  margin-right: 4px;
+
+  > span {
+    line-height: 32px;
+  }
+`
 
 export default class WhisperNavEntry extends React.Component {
   static propTypes = {
@@ -16,12 +28,7 @@ export default class WhisperNavEntry extends React.Component {
   render() {
     const { user, currentPath, hasUnread } = this.props
     const button = (
-      <IconButton
-        className={styles.navCloseButton}
-        icon={<CloseWhisperIcon />}
-        title='Close whisper'
-        onClick={this.onClose}
-      />
+      <LeaveButton icon={<CloseWhisperIcon />} title='Close whisper' onClick={this.onClose} />
     )
 
     return (
