@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
-import { replace } from 'connected-react-router'
+import { replace, push } from 'connected-react-router'
 import keycode from 'keycode'
 import styled from 'styled-components'
 
@@ -37,6 +37,7 @@ import Whisper from './whispers/whisper.jsx'
 import WhispersTitle from './whispers/app-bar-title.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
+import AdminIcon from './icons/material/ic_build_black_36px.svg'
 import CancelMatchIcon from './icons/material/ic_cancel_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
@@ -92,14 +93,6 @@ const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
-`
-
-const LinksContainer = styled.div`
-  width: 100%;
-  padding: 0 12px;
-
-  display: flex;
-  justify-content: space-between;
 `
 
 const StyledMapsIcon = styled(MapsIcon)`
@@ -261,11 +254,6 @@ class MainLayout extends React.Component {
       />
     )
     const footer = [
-      isAdmin(auth) ? (
-        <LinksContainer key='links'>
-          <Link to='/admin'>Admin</Link>
-        </LinksContainer>
-      ) : null,
       <ProfileNavEntry
         key='profileEntry'
         user={auth.user.name}
@@ -329,6 +317,14 @@ class MainLayout extends React.Component {
             altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
+          isAdmin(auth) ? (
+            <ActivityButton
+              key='admin'
+              icon={<AdminIcon />}
+              label='Admin'
+              onClick={this.onAdminClick}
+            />
+          ) : null,
           <HotkeyedActivityButton
             key='settings'
             icon={<SettingsIcon />}
@@ -345,6 +341,15 @@ class MainLayout extends React.Component {
             label='Download'
             onClick={this.onDownloadClick}
           />,
+          <ActivitySpacer key='spacer' />,
+          isAdmin(auth) ? (
+            <ActivityButton
+              key='admin'
+              icon={<AdminIcon />}
+              label='Admin'
+              onClick={this.onAdminClick}
+            />
+          ) : null,
         ]
 
     return (
@@ -506,6 +511,10 @@ class MainLayout extends React.Component {
   onChangelogClick = () => {
     this.onCloseProfileOverlay()
     this.props.dispatch(openChangelog())
+  }
+
+  onAdminClick = () => {
+    this.props.dispatch(push('/admin'))
   }
 }
 
