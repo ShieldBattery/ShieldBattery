@@ -16,10 +16,15 @@ const isProd = nodeEnv === 'production'
 export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
+  mainEntry,
   globalDefines = {},
   envDefines = {},
   extraRules = [],
 }) {
+  if (!webpackOpts.entry[mainEntry]) {
+    throw new Error(`Could not find entry called '${mainEntry}'`)
+  }
+
   const postCssOpts = JSON.stringify({
     config: {
       path: path.join(__dirname, 'postcss.config.js'),
@@ -145,7 +150,7 @@ export default function ({
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
-    config.entry.reactHotLoaderPatch = 'react-hot-loader/patch'
+    config.entry[mainEntry] = ['react-hot-loader/patch', config.entry[mainEntry]].flat()
     config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
     if (config.target === 'electron-main') {

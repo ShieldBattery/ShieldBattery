@@ -47,8 +47,10 @@ const webBabelOpts = {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  webWebpackOpts.entry.hotClient =
-    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
+  webWebpackOpts.entry.bundle = [
+    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr',
+    webWebpackOpts.entry.bundle,
+  ].flat()
 }
 
 const SB_SERVER = (() => {
@@ -75,6 +77,7 @@ console.error('Using a server of ' + SB_SERVER + ' by default')
 const electronWeb = makeConfig({
   webpack: webWebpackOpts,
   babel: webBabelOpts,
+  mainEntry: 'bundle',
   globalDefines: {
     IS_ELECTRON: true,
   },
@@ -127,6 +130,7 @@ const mainBabelOpts = {
 const electronMain = makeConfig({
   webpack: mainWebpackOpts,
   babel: mainBabelOpts,
+  mainEntry: 'index',
   extraRules: [
     {
       test: /\.node$/,

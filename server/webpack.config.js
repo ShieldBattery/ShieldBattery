@@ -20,7 +20,7 @@ const webpackOpts = {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  webpackOpts.entry.hotClient = 'webpack-hot-middlware/client'
+  webpackOpts.entry.client = ['webpack-hot-middleware/client', webpackOpts.entry.client].flat()
 }
 
 const babelOpts = {
@@ -54,6 +54,7 @@ const babelOpts = {
 module.exports = makeConfig({
   webpack: webpackOpts,
   babel: babelOpts,
+  mainEntry: 'client',
   globalDefines: {
     IS_ELECTRON: false,
   },
