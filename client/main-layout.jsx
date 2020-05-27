@@ -104,13 +104,6 @@ const LinksContainer = styled.div`
   justify-content: space-between;
 `
 
-const DevIndicator = styled(Body2)`
-  width: 100%;
-  padding: 0 12px 8px;
-  color: ${colorError};
-  text-transform: uppercase;
-`
-
 const StyledMapsIcon = styled(MapsIcon)`
   width: 36px;
   height: 36px;
@@ -270,7 +263,6 @@ class MainLayout extends React.Component {
       />
     )
     const footer = [
-      DEV_INDICATOR ? <DevIndicator key='dev'>Dev Mode</DevIndicator> : null,
       isAdmin(auth) || DEV_INDICATOR ? (
         <LinksContainer key='links'>
           {isAdmin(auth) ? <Link to='/admin'>Admin</Link> : null}
