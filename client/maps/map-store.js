@@ -2,8 +2,8 @@ import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
 import mkdirp from 'mkdirp'
 import { Map } from 'immutable'
-import request from 'request'
 import HashThrough from '../../common/hash-through'
+import { fetchReadableStream } from '../network/fetch'
 import log from '../logging/logger'
 
 export default class MapStore {
@@ -69,7 +69,7 @@ export default class MapStore {
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject).on('finish', resolve)
-        request.get(mapUrl).on('error', reject).pipe(outStream)
+        fetchReadableStream(mapUrl).on('error', reject).pipe(outStream)
       })
 
       return true
