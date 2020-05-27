@@ -1,5 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
+import { connect } from 'react-redux'
+import { push } from 'connected-react-router'
 
 import ActiveUserCount from '../serverstatus/active-users.jsx'
 import Lockup from './lockup.jsx'
@@ -71,12 +73,14 @@ const DevIndicator = styled.div`
   left: -32px;
 
   background-color: ${colorError};
+  cursor: pointer;
   font-size: 16px;
   line-height: 20px;
   opacity: 0.84;
   text-align: center;
   text-transform: uppercase;
   transform: rotate(-45deg);
+  -webkit-app-region: no-drag;
 `
 
 class AppBar extends React.Component {
@@ -88,7 +92,7 @@ class AppBar extends React.Component {
         <SizeRight />
         <LeftSide>
           <Lockup />
-          {DEV_INDICATOR ? <DevIndicator>Dev</DevIndicator> : null}
+          {DEV_INDICATOR ? <DevIndicator onClick={this.goToDev}>Dev</DevIndicator> : null}
         </LeftSide>
         <Content>{this.props.children}</Content>
         <RightSide>
@@ -97,6 +101,10 @@ class AppBar extends React.Component {
       </Container>
     )
   }
+
+  goToDev = () => {
+    this.props.dispatch(push('/dev'))
+  }
 }
 
-export default AppBar
+export default connect()(AppBar)

@@ -68,9 +68,7 @@ import { openChangelogIfNecessary, openChangelog } from './changelog/action-crea
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
-import { DEV_INDICATOR, MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
-import { colorError } from './styles/colors'
-import { Body2 } from './styles/typography'
+import { MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -263,10 +261,9 @@ class MainLayout extends React.Component {
       />
     )
     const footer = [
-      isAdmin(auth) || DEV_INDICATOR ? (
+      isAdmin(auth) ? (
         <LinksContainer key='links'>
-          {isAdmin(auth) ? <Link to='/admin'>Admin</Link> : null}
-          {DEV_INDICATOR ? <Link to='/dev'>Dev routes</Link> : null}
+          <Link to='/admin'>Admin</Link>
         </LinksContainer>
       ) : null,
       <ProfileNavEntry
