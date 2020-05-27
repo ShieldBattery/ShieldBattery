@@ -5,6 +5,7 @@ import net from 'net'
 
 import isDev from './lib/env/is-dev'
 import Koa from 'koa'
+import koaConvert from 'koa-convert'
 import log from './lib/logging/logger'
 import path from 'path'
 import thenify from 'thenify'
@@ -201,7 +202,7 @@ const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddlewar
     })
 
     app.use(middleware)
-    app.use(koaWebpackHot(getWebpackCompiler()))
+    app.use(koaConvert(koaWebpackHot(getWebpackCompiler())))
   }
 
   fileStoreMiddleware(app)
