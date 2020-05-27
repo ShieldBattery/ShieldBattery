@@ -11,6 +11,7 @@ const webWebpackOpts = {
     bundle: './client/index.jsx',
   },
   output: {
+    chunkFilename: '[name].chunk.js',
     filename: '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: 'http://localhost:5566/dist/',

@@ -11,6 +11,7 @@ files:
   - 'index.html'
   - 'assets/**/*'
   - 'dist/bundle.js'
+  - 'dist/**/*.chunk.js'
   - 'styles/**/*'
   - from: 'dist/'
     to: './'
