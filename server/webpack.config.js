@@ -9,6 +9,7 @@ const webpackOpts = {
   name: 'server',
   entry: ['./client/index.jsx'],
   output: {
+    chunkFilename: '[name].chunk.js',
     filename: 'client.js',
     path: path.join(__dirname, 'public', 'scripts'),
     publicPath: '/scripts/',

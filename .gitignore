@@ -7,3 +7,4 @@ server/.env
 .env
 npm-debug.log
 yarn-error.log
+stats.json

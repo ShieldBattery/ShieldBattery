@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { List, Map, Set } from 'immutable'
-import debounce from 'lodash.debounce'
+import { debounce } from 'lodash-es'
 import styled from 'styled-components'
 
 import { openSimpleDialog } from '../dialogs/action-creators'
