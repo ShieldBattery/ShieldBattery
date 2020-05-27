@@ -134,9 +134,6 @@ export default function ({
     ],
   }
 
-  // NOTE(tec27): The production versions of these are fine/no-ops, so we can include these all the
-  // time
-  config.entry = ['react-hot-loader/patch'].concat(config.entry)
   config.resolve = {
     ...(config.resolve || {}),
     alias: {
@@ -148,6 +145,7 @@ export default function ({
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'cheap-module-eval-source-map'
+    config.entry.reactHotLoaderPatch = 'react-hot-loader/patch'
     config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
     if (config.target === 'electron-main') {

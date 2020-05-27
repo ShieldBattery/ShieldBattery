@@ -7,9 +7,11 @@ const path = require('path')
 // compiled for electron)
 const webWebpackOpts = {
   target: 'electron-renderer',
-  entry: ['./client/index.jsx'],
+  entry: {
+    bundle: './client/index.jsx',
+  },
   output: {
-    filename: 'bundle.js',
+    filename: '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: 'http://localhost:5566/dist/',
     libraryTarget: 'commonjs2',
@@ -45,9 +47,8 @@ const webBabelOpts = {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  webWebpackOpts.entry.unshift(
-    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr',
-  )
+  webWebpackOpts.entry.hotClient =
+    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr'
 }
 
 const SB_SERVER = (() => {
@@ -69,7 +70,7 @@ const SB_SERVER = (() => {
   return 'http://localhost:5555'
 })()
 
-console.log('Using a server of ' + SB_SERVER + ' by default')
+console.error('Using a server of ' + SB_SERVER + ' by default')
 
 const electronWeb = makeConfig({
   webpack: webWebpackOpts,

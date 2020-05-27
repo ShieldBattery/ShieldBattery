@@ -26,6 +26,7 @@
     "app": "cross-env SB_HOT=1 electron app",
     "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive test/",
     "build-app-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
+    "build-app-client-stats": "cross-env BABEL_ENV=node NODE_ENV=production webpack --profile --json > stats.json",
     "build-game": "game/build.bat release sign",
     "build-web-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack --config ./server/webpack.config.js",
     "build-web-client-stats": "cross-env BABEL_ENV=node NODE_ENV=production webpack --profile --json --config ./server/webpack.config.js > stats.json",

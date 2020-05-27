@@ -7,10 +7,12 @@ const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, no
 const webpackOpts = {
   // Relative to the root directory
   name: 'server',
-  entry: ['./client/index.jsx'],
+  entry: {
+    client: './client/index.jsx',
+  },
   output: {
     chunkFilename: '[name].chunk.js',
-    filename: 'client.js',
+    filename: '[name].js',
     path: path.join(__dirname, 'public', 'scripts'),
     publicPath: '/scripts/',
   },
@@ -18,7 +20,7 @@ const webpackOpts = {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  webpackOpts.entry.unshift('webpack-hot-middleware/client')
+  webpackOpts.entry.hotClient = 'webpack-hot-middlware/client'
 }
 
 const babelOpts = {
