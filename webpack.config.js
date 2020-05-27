@@ -19,6 +19,9 @@ const webWebpackOpts = {
 
 const webBabelOpts = {
   babelrc: false,
+  // This makes babel-loader cache-bust if the NODE_ENV changes, which is what we want here, since
+  // the BABEL_ENV has been set specifically for our builder's babel-register usage.
+  envName: process.env.NODE_ENV,
   cacheDirectory: true,
   presets: [
     '@babel/preset-react',
@@ -98,6 +101,9 @@ const mainWebpackOpts = {
 
 const mainBabelOpts = {
   babelrc: false,
+  // This makes babel-loader cache-bust if the NODE_ENV changes, which is what we want here, since
+  // the BABEL_ENV has been set specifically for our builder's babel-register usage.
+  envName: process.env.NODE_ENV,
   cacheDirectory: true,
   presets: [
     [

@@ -5,7 +5,7 @@ import path from 'path'
 import webpack from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin'
-import TerserJSPlugin from 'terser-webpack-plugin'
+import TerserWebpackPlugin from 'terser-webpack-plugin'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version
@@ -106,16 +106,9 @@ export default function ({
     },
     optimization: {
       noEmitOnErrors: true,
-      minimizer: isProd ? [new TerserJSPlugin({}), new OptimizeCSSAssetsPlugin({})] : [],
+      minimizer: isProd ? [new TerserWebpackPlugin(), new OptimizeCSSAssetsPlugin()] : [],
     },
     plugins: [
-      ...webpackOpts.plugins,
-      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
-      // that just exports whatever Promise babel is using
-      new webpack.NormalModuleReplacementPlugin(
-        /[\\/]any-promise[\\/]/,
-        require.resolve('./common/promise.js'),
-      ),
       new webpack.DefinePlugin({
         ...globalDefines,
 
@@ -131,6 +124,13 @@ export default function ({
           ...envDefines,
         },
       }),
+      ...webpackOpts.plugins,
+      // get rid of errors caused by any-promise's crappy codebase, by replacing it with a module
+      // that just exports whatever Promise babel is using
+      new webpack.NormalModuleReplacementPlugin(
+        /[\\/]any-promise[\\/]/,
+        require.resolve('./common/promise.js'),
+      ),
     ],
   }
 
@@ -156,15 +156,16 @@ export default function ({
       config.node = { __filename: false, __dirname: false }
     }
 
-    config.plugins = config.plugins.concat([
+    config.plugins = [
       new webpack.DefinePlugin({
         // We only define the exact field here to avoid overwriting all of process.env
         'process.env.NODE_ENV': JSON.stringify('production'),
       }),
+      ...config.plugins,
       new MiniCssExtractPlugin({
         filename: '../styles/site.css',
       }),
-    ])
+    ]
 
     config.devtool = 'hidden-source-map'
   }
