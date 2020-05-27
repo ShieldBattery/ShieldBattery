@@ -1,9 +1,10 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Route, Switch } from 'react-router-dom'
 import { replace, push } from 'connected-react-router'
 import keycode from 'keycode'
 import styled from 'styled-components'
+import loadable from '@loadable/component'
 
 import ActiveGame from './active-game/view.jsx'
 import ActiveGameTitle from './active-game/app-bar-title.jsx'
@@ -11,7 +12,6 @@ import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
 import ActivitySpacer from './activities/spacer.jsx'
-import AdminPanel from './admin/panel.jsx'
 import AdminTitle from './admin/app-bar-title.jsx'
 import AppBar from './app-bar/app-bar.jsx'
 import ChatChannel from './chat/channel.jsx'
@@ -23,6 +23,7 @@ import EmailVerificationNotification from './auth/email-verification-notificatio
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import Index from './navigation/index.jsx'
 import LeftNav from './material/left-nav/left-nav.jsx'
+import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
 import MenuItem from './material/menu/item.jsx'
@@ -106,6 +107,12 @@ if (IS_ELECTRON) {
   activeGameRoute = <Route path='/active-game' component={ActiveGame} />
   lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
 }
+
+const LoadableAdminPanel = loadable(() => import('./admin/panel.jsx'), {
+  // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
+  // place?)
+  fallback: <LoadingIndicator />,
+})
 
 function stateToProps(state) {
   return {
@@ -369,7 +376,11 @@ class MainLayout extends React.Component {
           <Content>
             <Switch>
               {activeGameRoute}
-              <ConditionalRoute path='/admin' filters={[IsAdminFilter]} component={AdminPanel} />
+              <ConditionalRoute
+                path='/admin'
+                filters={[IsAdminFilter]}
+                component={LoadableAdminPanel}
+              />
               <Route path='/chat' exact={true} component={ChatList} />
               <Route path='/chat/:channel' component={ChatChannel} />
               {lobbyRoute}

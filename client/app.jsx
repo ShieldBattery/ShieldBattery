@@ -2,6 +2,7 @@ import React from 'react'
 import { Route, Switch } from 'react-router-dom'
 import ga from 'react-ga'
 import { StyleSheetManager } from 'styled-components'
+import loadable from '@loadable/component'
 import { makeServerUrl } from './network/server-url'
 
 import { hot } from 'react-hot-loader/root'
@@ -10,7 +11,6 @@ import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.js
 import Faq from './beta/faq.jsx'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
 import HasBetaFilter from './beta/has-beta-filter.jsx'
-import Dev from './dev.jsx'
 import DownloadPage from './download/download-page.jsx'
 import LoadingFilter from './loading/loading-filter.jsx'
 import LoggedInFilter from './auth/logged-in-filter.jsx'
@@ -21,11 +21,20 @@ import Signup from './auth/signup.jsx'
 import SiteConnectedFilter from './network/site-connected-filter.jsx'
 import Splash from './beta/splash.jsx'
 import { WindowControls, WindowControlsStyle } from './app-bar/window-controls.jsx'
+import LoadingIndicator from './progress/dots.jsx'
 
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
+
+const LoadableDev = IS_PRODUCTION
+  ? () => null
+  : loadable(() => import('./dev.jsx'), {
+      // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
+      // place?)
+      fallback: <LoadingIndicator />,
+    })
 
 class App extends React.Component {
   initialized = false
@@ -75,7 +84,7 @@ class App extends React.Component {
             <LoginRoute path='/signup' component={Signup} />
             <LoginRoute path='/verify-email' component={VerifyEmail} />
             <LoginRoute path='/send-verification-email' component={SendVerificationEmail} />
-            {!IS_PRODUCTION ? <Route path='/dev' component={Dev} /> : null}
+            {!IS_PRODUCTION ? <Route path='/dev' component={LoadableDev} /> : null}
             <ConditionalRoute
               filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
               component={MainLayout}
