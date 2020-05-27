@@ -39,6 +39,10 @@ import {
 } from '../common/ipc-constants'
 
 autoUpdater.logger = logger
+// We control the download ourselves to avoid problems with double-downloading that this library
+// sometimes has
+autoUpdater.autoDownload = false
+let downloadingUpdate = false
 
 // Set up our main file's protocol to enable the necessary features
 protocol.registerSchemesAsPrivileged([
@@ -150,6 +154,10 @@ function setupIpc(localSettings) {
   autoUpdater
     .on('update-available', () => {
       updateState = NEW_VERSION_FOUND
+      if (!downloadingUpdate) {
+        downloadingUpdate = true
+        autoUpdater.downloadUpdate()
+      }
       sendUpdateState()
     })
     .on('update-not-available', () => {
@@ -158,11 +166,13 @@ function setupIpc(localSettings) {
     })
     .on('update-downloaded', () => {
       updateState = NEW_VERSION_DOWNLOADED
+      downloadingUpdate = false
       sendUpdateState()
     })
     .on('error', () => {
       if (updateState === NEW_VERSION_FOUND) {
         updateState = NEW_VERSION_DOWNLOAD_ERROR
+        downloadingUpdate = false
         sendUpdateState()
       }
     })
