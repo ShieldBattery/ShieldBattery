@@ -32,7 +32,7 @@ win:
   target: nsis-web
 
 # These properties differ between configs
-productName: ShieldBattery-Dev
+productName: ShieldBattery-Staging
 publish:
   provider: generic
   url: 'https://dev.shieldbattery.net/published_artifacts/${os}'
