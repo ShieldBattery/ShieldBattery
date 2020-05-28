@@ -239,6 +239,8 @@ function setupCspProtocol(curSession) {
         dataStream.push(result)
         dataStream.push(null)
 
+        // Allow loading extra chunks from the dev server in non-production
+        const chunkPolicy = isHot ? 'http://localhost:5566' : ''
         // If hot-reloading is on, we have to allow eval so it can work
         const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
 
@@ -247,7 +249,7 @@ function setupCspProtocol(curSession) {
           headers: {
             'content-type': 'text/html',
             'content-security-policy':
-              `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
+              `script-src 'self' 'nonce-${nonce}' ${chunkPolicy} ${scriptEvalPolicy};` +
               `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
               "font-src 'self' https://fonts.gstatic.com;",
           },
