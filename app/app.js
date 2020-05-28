@@ -280,10 +280,9 @@ async function createWindow(localSettings, curSession) {
   const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
   mainWindow = new BrowserWindow({
     width: winWidth && winWidth > 0 ? winWidth : 1024,
-    height: winHeight && winHeight > 0 ? winHeight : 768,
+    height: winHeight && winHeight > 0 ? winHeight : 800,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
-    // icon: path.join(__dirname, 'assets', 'shieldbattery-64.png'),
 
     acceptFirstMouse: true,
     backgroundColor: '#1B1E22',

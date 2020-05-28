@@ -52,7 +52,7 @@ export const AuthBottomAction = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 56px;
+  margin-top: 48px;
 `
 
 export const BottomActionButton = styled(FlatButton)`
