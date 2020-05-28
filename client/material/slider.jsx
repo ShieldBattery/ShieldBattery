@@ -1,22 +1,17 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import TransitionGroup from 'react-addons-css-transition-group'
-import classnames from 'classnames'
 import keycode from 'keycode'
-import styles from './slider.css'
+import styled from 'styled-components'
+import { Body1, Caption } from '../styles/typography'
+import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
+import { fastOutSlowInShort } from './curve-constants'
 
-const balloonTransitionNames = {
-  enter: styles.balloonEnter,
-  enterActive: styles.balloonEnterActive,
-  leave: styles.balloonLeave,
-  leaveActive: styles.balloonLeaveActive,
-}
-
-const tickTransitionNames = {
-  enter: styles.tickEnter,
-  enterActive: styles.tickEnterActive,
-  leave: styles.tickLeave,
-  leaveActive: styles.tickLeaveActive,
+const transitionNames = {
+  enter: 'enter',
+  enterActive: 'enterActive',
+  leave: 'leave',
+  leaveActive: 'leaveActive',
 }
 
 const LEFT = keycode('left')
@@ -26,6 +21,45 @@ const END = keycode('end')
 
 const MOUSE_LEFT = 1
 
+const THUMB_WIDTH_PX = 12
+const THUMB_HEIGHT_PX = 12
+const BALLOON_WIDTH_PX = 28
+const BALLOON_HEIGHT_PX = 28
+
+const TickContainer = styled.span`
+  position: absolute;
+  width: calc(100% - 12px);
+  left: 6px;
+  opacity: 1;
+
+  &.enter {
+    opacity: 0;
+    transition: opacity 150ms linear;
+  }
+
+  &.enterActive {
+    opacity: 1;
+  }
+
+  &.leave {
+    opacity: 1;
+    transition: opacity 150ms linear;
+  }
+
+  &.leaveActive {
+    opacity: 0;
+  }
+`
+
+const ValueTick = styled.div`
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  margin-left: -1px;
+
+  background-color: rgba(255, 255, 255, 0.7);
+`
+
 const Ticks = ({ show, min, max, step }) => {
   let container
   if (show) {
@@ -33,27 +67,47 @@ const Ticks = ({ show, min, max, step }) => {
     const stepPercentage = (step / (max - min)) * 100
     const elems = [
       // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
-      <div key={0} className={styles.valueTick} style={{ left: '-5px' }} />,
+      <ValueTick key={0} style={{ left: '-5px' }} />,
     ]
     for (let i = 1, p = stepPercentage; i < numSteps - 1; i++, p = i * stepPercentage) {
-      elems.push(<div key={i} className={styles.valueTick} style={{ left: `${p}%` }} />)
+      elems.push(<ValueTick key={i} style={{ left: `${p}%` }} />)
     }
-    elems.push(
-      <div key={numSteps - 1} className={styles.valueTick} style={{ left: 'calc(100% + 5px)' }} />,
-    )
+    elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
 
-    container = <span className={styles.tickContainer}>{elems}</span>
+    container = <TickContainer>{elems}</TickContainer>
   }
 
   return (
     <TransitionGroup
-      transitionName={tickTransitionNames}
+      transitionName={transitionNames}
       transitionEnterTimeout={150}
       transitionLeaveTimeout={150}>
       {container}
     </TransitionGroup>
   )
 }
+
+const TrackRoot = styled.div`
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  left: 0px;
+  top: 48px;
+  background-color: rgba(255, 255, 255, 0.3);
+`
+
+const FilledTrack = styled.div`
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+
+  background-color: ${amberA400};
+  transform: scaleX(1);
+  transform-origin: 0% 50%;
+  transition: transform 150ms ${fastOutSlowInShort};
+  will-change: transform;
+`
 
 const Track = ({ showTicks, value, min, max, step }) => {
   const scale = (value - min) / (max - min)
@@ -62,12 +116,133 @@ const Track = ({ showTicks, value, min, max, step }) => {
   }
 
   return (
-    <div className={styles.track}>
-      <div className={styles.filled} style={filledStyle} />
+    <TrackRoot>
+      <FilledTrack style={filledStyle} />
       <Ticks show={showTicks} min={min} max={max} step={step} />
-    </div>
+    </TrackRoot>
   )
 }
+
+const Root = styled.div`
+  height: 64px;
+  position: relative;
+  contain: layout style;
+
+  ${props => (props.focused ? 'outline: none;' : '')}
+`
+
+const SliderLabel = styled(Body1)`
+  position: absolute;
+  top: 8px;
+  left: 2px;
+
+  color: ${colorTextFaint};
+  pointer-events: none;
+`
+
+const OverflowClip = styled.div`
+  position: absolute;
+  width: calc(100% + ${BALLOON_WIDTH_PX - THUMB_WIDTH_PX}px);
+  height: 100%;
+  top: 0;
+  left: ${BALLOON_WIDTH_PX / -2 + THUMB_WIDTH_PX / 2}px;
+  padding: 0 14px;
+
+  overflow-x: hidden;
+  overflow-y: visible;
+  pointer-events: none;
+`
+
+const ThumbContainer = styled.div`
+  position: relative;
+  top: ${48 - THUMB_HEIGHT_PX / 2}px;
+  width: 100%;
+  pointer-events: none;
+  will-change: transform;
+  transition: transform 150ms ${fastOutSlowInShort};
+`
+
+const Thumb = styled.div`
+  position: absolute;
+  width: ${THUMB_WIDTH_PX}px;
+  height: ${THUMB_HEIGHT_PX}px;
+  left: ${THUMB_WIDTH_PX / -2}px;
+
+  background-color: ${props => (props.empty ? '#ffffff' : amberA400)};
+  border-radius: 50%;
+  pointer-events: none;
+  transition: background-color 200ms linear;
+  z-index: 1;
+`
+
+const ClickableArea = styled.div`
+  position: absolute;
+  width: 100%;
+  height: 32px;
+  left: 0;
+  bottom: 0;
+
+  cursor: pointer;
+`
+
+const Balloon = styled.div`
+  position: absolute;
+  width: ${BALLOON_WIDTH_PX}px;
+  height: ${BALLOON_HEIGHT_PX}px;
+  top: -42px;
+  left: ${BALLOON_WIDTH_PX / -2}px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: ${props => (props.empty ? grey700 : amberA400)};
+  border-radius: 50%;
+  color: ${props => (props.empty ? colorTextPrimary : 'rgba(0, 0, 0, 0.87)')};
+  pointer-events: none;
+  text-align: center;
+  transform-origin: 50% 150%;
+  transition: transform 150ms ${fastOutSlowInShort}, background-color 200ms linear,
+    color 200ms linear;
+  will-change: transform, background-color, color;
+
+  &::before {
+    position: absolute;
+    left: 0;
+    top: 19px;
+
+    border-radius: 16px;
+    border-top: 16px solid ${props => (props.empty ? grey700 : amberA400)};
+    border-left: ${BALLOON_WIDTH_PX / 2}px solid transparent;
+    border-right: ${BALLOON_WIDTH_PX / 2}px solid transparent;
+    content: '';
+    transition: border-top-color 250ms linear;
+    will-change: border-top-color;
+    z-index: 1;
+  }
+
+  &.enter {
+    transform: scale(0, 0);
+  }
+
+  &.enterActive {
+    transform: scale(1, 1);
+  }
+
+  &.leave {
+    transform: scale(1, 1);
+  }
+
+  &.leaveActive {
+    transform: scale(0, 0);
+  }
+`
+
+const BalloonText = styled(Caption)`
+  font-weight: 500;
+  line-height: ${BALLOON_HEIGHT_PX}px;
+  z-index: 2;
+`
 
 class Slider extends React.Component {
   static propTypes = {
@@ -99,6 +274,8 @@ class Slider extends React.Component {
     isFocused: false,
     isClicked: false,
   }
+  rootRef = React.createRef()
+  trackAreaRef = React.createRef()
   _sliderDimensions = null
   _hasWindowListeners = false
 
@@ -125,41 +302,36 @@ class Slider extends React.Component {
   _renderBalloon(thumbPercent) {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
-    const className = this.props.value === this.props.min ? styles.balloonEmpty : styles.balloon
     return (
-      <div className={className}>
-        <div className={styles.balloonAfter} />
-        <span className={styles.balloonText}>{this.props.value}</span>
-      </div>
+      <Balloon empty={this.props.value === this.props.min}>
+        <BalloonText as='span'>{this.props.value}</BalloonText>
+      </Balloon>
     )
   }
 
   render() {
-    const classes = classnames(styles.slider, this.props.className, {
-      [styles.focused]: this.state.isFocused,
-      [styles.disabled]: this.props.disabled,
-    })
-
     const stepPercentage = (this.props.step / (this.props.max - this.props.min)) * 100
 
     const optionNum = (this.props.value - this.props.min) / this.props.step
     const thumbPosition = stepPercentage * optionNum
 
     const labelElement = this.props.label ? (
-      <label className={styles.label} htmlFor={this.id}>
+      <SliderLabel as='label' htmlFor={this.id}>
         {this.props.label}
-      </label>
+      </SliderLabel>
     ) : null
 
-    const thumbClass = this.props.value === this.props.min ? styles.thumbEmpty : styles.thumb
     const thumbContainerStyle = {
       transform: `translateX(${thumbPosition}%)`,
     }
 
+    // TODO(tec27): implement disabled state
     return (
-      <div
-        ref='root'
-        className={classes}
+      <Root
+        ref={this.rootRef}
+        focused={this.state.isFocused}
+        disabled={this.props.disabled}
+        className={this.props.className}
         tabIndex={this.props.tabIndex}
         onFocus={this.onFocus}
         onBlur={this.onBlur}
@@ -172,28 +344,28 @@ class Slider extends React.Component {
           value={this.props.value}
           showTicks={this.state.isClicked}
         />
-        <div className={styles.overflowClip}>
-          <div className={styles.thumbContainer} style={thumbContainerStyle}>
-            <div className={thumbClass} />
+        <OverflowClip>
+          <ThumbContainer style={thumbContainerStyle}>
+            <Thumb empty={this.props.value === this.props.min} />
             <TransitionGroup
-              transitionName={balloonTransitionNames}
+              transitionName={transitionNames}
               transitionEnterTimeout={300}
               transitionLeaveTimeout={300}>
               {this._renderBalloon(thumbPosition)}
             </TransitionGroup>
-          </div>
-        </div>
-        <div ref='trackArea' className={styles.clickableArea} onMouseDown={::this.onMouseDown} />
-      </div>
+          </ThumbContainer>
+        </OverflowClip>
+        <ClickableArea ref={this.trackAreaRef} onMouseDown={this.onMouseDown} />
+      </Root>
     )
   }
 
   focus() {
-    this.refs.root.focus()
+    this.rootRef.current.focus()
   }
 
   blur() {
-    this.refs.root.blur()
+    this.rootRef.current.blur()
   }
 
   onFocus = () => {
@@ -267,7 +439,7 @@ class Slider extends React.Component {
     }
 
     this._addWindowListeners()
-    this._sliderDimensions = this.refs.trackArea.getBoundingClientRect()
+    this._sliderDimensions = this.trackAreaRef.current.getBoundingClientRect()
     this.setState({ isClicked: true })
     const newValue = this.getClosestValue(event.clientX)
     if (newValue !== this.props.value) {
