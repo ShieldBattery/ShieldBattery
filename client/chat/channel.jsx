@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
+import styled, { css } from 'styled-components'
 import {
   sendMessage,
   retrieveInitialMessageHistory,
@@ -11,17 +12,63 @@ import {
   deactivateChannel,
   joinChannel,
 } from './action-creators'
-import styles from './channel.css'
 
 import MessageInput from '../messaging/message-input.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
+import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { Body2, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
+
+const UserListContainer = styled.div`
+  width: 256px;
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const UserListSection = styled.div`
+  padding-left: 16px;
+
+  &:first-child {
+    padding-top: 16px;
+  }
+
+  &:last-child {
+    padding-bottom: 16px;
+  }
+
+  & + & {
+    margin-top: 16px;
+  }
+`
+
+const userListRow = css`
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  line-height: 28px;
+`
+
+const UserListSubheader = styled(Body2)`
+  ${singleLine};
+  ${userListRow};
+  color: ${colorTextSecondary};
+`
+
+const UserSublist = styled.ul`
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+`
+
+const UserListEntryItem = styled.li`
+  ${userListRow};
+`
 
 class UserListEntry extends React.Component {
   static propTypes = {
@@ -29,7 +76,7 @@ class UserListEntry extends React.Component {
   }
 
   render() {
-    return <li className={styles.userListEntry}>{this.props.user}</li>
+    return <UserListEntryItem>{this.props.user}</UserListEntryItem>
   }
 }
 
@@ -48,30 +95,64 @@ class UserList extends React.Component {
     }
 
     return (
-      <div className={styles.userListSection}>
-        <p className={styles.userSubheader}>{title}</p>
-        <ul className={styles.userSublist}>
+      <UserListSection>
+        <UserListSubheader as='p'>{title}</UserListSubheader>
+        <UserSublist>
           {users.map(u => (
             <UserListEntry user={u} key={u} />
           ))}
-        </ul>
-      </div>
+        </UserSublist>
+      </UserListSection>
     )
   }
 
   render() {
     const { active, idle, offline } = this.props.users
     return (
-      <div className={styles.userList}>
+      <UserListContainer>
         <ScrollableContent>
           {this.renderSection('Active', active)}
           {this.renderSection('Idle', idle)}
           {this.renderSection('Offline', offline)}
         </ScrollableContent>
-      </div>
+      </UserListContainer>
     )
   }
 }
+
+const Container = styled.div`
+  max-width: 1140px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+`
+
+const LoadingArea = styled.div`
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+const MessagesAndInput = styled.div`
+  min-width: 320px;
+  height: 100%;
+  flex-grow: 1;
+`
+
+const Messages = styled.div`
+  height: calc(100% - 56px - 16px); /* chat input height + margin */h
+  margin: 0 0 -1px 0;
+  border-bottom: 1px solid ${props =>
+    props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)'};
+  transition: border 250ms linear;
+`
+
+const ChatInput = styled(MessageInput)`
+  margin: 8px 0;
+  padding: 0 16px;
+`
 
 class Channel extends React.Component {
   static propTypes = {
@@ -99,11 +180,10 @@ class Channel extends React.Component {
 
   render() {
     const { channel, onSendChatMessage } = this.props
-    const messagesClass = this.state.isScrolledUp ? styles.messagesScrollBorder : styles.messages
     return (
-      <div className={styles.container}>
-        <div className={styles.messagesAndInput}>
-          <div className={messagesClass}>
+      <Container>
+        <MessagesAndInput>
+          <Messages isScrolledUp={this.state.isScrolledUp}>
             <MessageList
               ref={this._setMessageListRef}
               loading={channel.loadingHistory}
@@ -111,11 +191,11 @@ class Channel extends React.Component {
               messages={channel.messages}
               onScrollUpdate={this.onScrollUpdate}
             />
-          </div>
-          <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
-        </div>
+          </Messages>
+          <ChatInput onSend={onSendChatMessage} />
+        </MessagesAndInput>
         <UserList users={this.props.channel.users} />
-      </div>
+      </Container>
     )
   }
 
@@ -210,9 +290,9 @@ export default class ChatChannelView extends React.Component {
 
     if (!channel) {
       return (
-        <div className={styles.loadingArea}>
+        <LoadingArea>
           <LoadingIndicator />
-        </div>
+        </LoadingArea>
       )
     }
 

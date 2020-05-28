@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
+import styled from 'styled-components'
 import {
   sendMessage,
   startWhisperSession,
@@ -10,15 +11,49 @@ import {
   activateWhisperSession,
   deactivateWhisperSession,
 } from './action-creators'
-import styles from './whisper.css'
 
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { colorDividers } from '../styles/colors'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
+
+const Container = styled.div`
+  max-width: 884px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+`
+
+const LoadingArea = styled.div`
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+const MessagesAndInput = styled.div`
+  min-width: 320px;
+  height: 100%;
+  flex-grow: 1;
+`
+
+const Messages = styled.div`
+  height: calc(100% - 56px - 16px); /* chat input height + margin */h
+  margin: 0 0 -1px 0;
+  border-bottom: 1px solid ${props =>
+    props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)'};
+  transition: border 250ms linear;
+`
+
+const ChatInput = styled(MessageInput)`
+  margin: 8px 0;
+  padding: 0 16px;
+`
 
 class Whisper extends React.Component {
   static propTypes = {
@@ -46,11 +81,10 @@ class Whisper extends React.Component {
 
   render() {
     const { session, onSendChatMessage } = this.props
-    const messagesClass = this.state.isScrolledUp ? styles.messagesScrollBorder : styles.messages
     return (
-      <div className={styles.container}>
-        <div className={styles.messagesAndInput}>
-          <div className={messagesClass}>
+      <Container>
+        <MessagesAndInput>
+          <Messages isScrolledUp={this.state.isScrolledUp}>
             <MessageList
               ref={this._setMessageListRef}
               loading={session.loadingHistory}
@@ -58,10 +92,10 @@ class Whisper extends React.Component {
               messages={session.messages}
               onScrollUpdate={this.onScrollUpdate}
             />
-          </div>
-          <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
-        </div>
-      </div>
+          </Messages>
+          <ChatInput onSend={onSendChatMessage} />
+        </MessagesAndInput>
+      </Container>
     )
   }
 
@@ -167,9 +201,9 @@ export default class WhisperView extends React.Component {
 
     if (!session) {
       return (
-        <div className={styles.loadingArea}>
+        <LoadingArea>
           <LoadingIndicator />
-        </div>
+        </LoadingArea>
       )
     }
 
