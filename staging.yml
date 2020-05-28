@@ -35,4 +35,4 @@ win:
 productName: ShieldBattery-Staging
 publish:
   provider: generic
-  url: 'https://dev.shieldbattery.net/published_artifacts/${os}'
+  url: 'https://staging.shieldbattery.net/published_artifacts/${os}'
