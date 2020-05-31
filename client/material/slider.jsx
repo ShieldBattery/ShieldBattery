@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { Body1, Caption } from '../styles/typography'
 import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
-import { fastOutSlowInShort } from './curve-constants'
+import { fastOutSlowIn } from './curve-constants'
 
 const transitionNames = {
   enter: 'enter',
@@ -105,7 +105,7 @@ const FilledTrack = styled.div`
   background-color: ${amberA400};
   transform: scaleX(1);
   transform-origin: 0% 50%;
-  transition: transform 150ms ${fastOutSlowInShort};
+  transition: transform 150ms ${fastOutSlowIn};
   will-change: transform;
 `
 
@@ -159,7 +159,7 @@ const ThumbContainer = styled.div`
   width: 100%;
   pointer-events: none;
   will-change: transform;
-  transition: transform 150ms ${fastOutSlowInShort};
+  transition: transform 150ms ${fastOutSlowIn};
 `
 
 const Thumb = styled.div`
@@ -202,8 +202,7 @@ const Balloon = styled.div`
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
-  transition: transform 150ms ${fastOutSlowInShort}, background-color 200ms linear,
-    color 200ms linear;
+  transition: transform 150ms ${fastOutSlowIn}, background-color 200ms linear, color 200ms linear;
   will-change: transform, background-color, color;
 
   &::before {
