@@ -1,4 +1,6 @@
+mod file_hook;
 mod pe_image;
+mod thiscall;
 
 use std::marker::PhantomData;
 use std::mem;
@@ -47,6 +49,8 @@ pub struct BwScr {
     init_storm_networking: unsafe extern "C" fn(),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
+    /// Some only if hd graphics are to be disabled
+    open_file: Option<scarf::VirtualAddress>,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 }
@@ -56,6 +60,10 @@ unsafe impl<T> Send for SendPtr<T> {}
 unsafe impl<T> Sync for SendPtr<T> {}
 
 mod scr {
+    use libc::c_void;
+
+    use super::thiscall::Thiscall;
+
     #[repr(C)]
     pub struct SnpLoadFuncs {
         pub identify: unsafe extern "stdcall" fn(
@@ -116,6 +124,116 @@ mod scr {
         pub length: usize,
         pub capacity: usize,
         pub inline_buffer: [u8; 0x10],
+    }
+
+    #[repr(C)]
+    pub struct FileHandle {
+        pub vtable: *const V_FileHandle1,
+        pub vtable2: *const V_FileHandle2,
+        pub vtable3: *const V_FileHandle3,
+        pub metadata: *mut FileMetadata,
+        pub peek: *mut FilePeek,
+        pub read: *mut FileRead,
+        pub file_ok: u32,
+        //pub dc18: [u8; 0x10],
+        pub close_callback: Function, // 0x1 = pointer, else inline
+    }
+
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    pub struct OpenParams {
+        pub extension: *const u8,
+        pub _unk4: u32,
+        pub file_type: u32,
+        pub locale: u32,
+        pub flags: u32,
+        pub casc_buffer_size: u32,
+        pub safety_padding: [u32; 4],
+    }
+
+    #[repr(C)]
+    pub struct FileRead {
+        pub vtable: *const V_FileRead,
+        pub inner: *mut c_void,
+    }
+
+    #[repr(C)]
+    pub struct FilePeek {
+        pub vtable: *const V_FilePeek,
+        pub inner: *mut c_void,
+    }
+
+    #[repr(C)]
+    pub struct FileMetadata {
+        pub vtable: *const V_FileMetadata,
+        pub inner: *mut c_void,
+    }
+
+    /// This seems to be a std::function implementation
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    pub struct Function {
+        pub vtable: *const V_Function,
+        pub inner: *mut c_void,
+    }
+
+    #[repr(C)]
+    pub struct V_FileHandle1 {
+        pub destroy: Thiscall<unsafe extern fn(*mut FileHandle, u32)>,
+        pub read: Thiscall<unsafe extern fn(*mut FileHandle, *mut u8, u32) -> u32>,
+        pub skip: Thiscall<unsafe extern fn(*mut FileHandle, u32)>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_FileHandle2 {
+        pub unk0: [usize; 1],
+        pub peek: Thiscall<unsafe extern fn(*mut c_void, *mut u8, u32) -> u32>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_FileHandle3 {
+        pub unk0: [usize; 1],
+        pub tell: Thiscall<unsafe extern fn(*mut c_void) -> u32>,
+        pub seek: Thiscall<unsafe extern fn(*mut c_void, u32)>,
+        pub file_size: Thiscall<unsafe extern fn(*mut c_void) -> u32>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_FileMetadata {
+        pub unk0: [usize; 1],
+        pub tell: Thiscall<unsafe extern fn(*mut FileMetadata) -> u32>,
+        pub seek: Thiscall<unsafe extern fn(*mut FileMetadata, u32)>,
+        pub file_size: Thiscall<unsafe extern fn(*mut FileMetadata) -> u32>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_FileRead {
+        pub destroy: usize,
+        pub read: Thiscall<unsafe extern fn(*mut FileRead, *mut u8, u32) -> u32>,
+        pub skip: Thiscall<unsafe extern fn(*mut FileRead, u32)>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_FilePeek {
+        pub destroy: usize,
+        pub peek: Thiscall<unsafe extern fn(*mut FilePeek, *mut u8, u32) -> u32>,
+        pub safety_padding: [usize; 0x20],
+    }
+
+    #[repr(C)]
+    pub struct V_Function {
+        pub destroy_inner: Thiscall<unsafe extern fn(*mut Function, u32)>,
+        pub invoke: Thiscall<unsafe extern fn(*mut Function)>,
+        pub destroy: usize,
+        pub get_sizes: Thiscall<unsafe extern fn(*mut Function, *mut u32, *mut u32)>,
+        pub unk10: usize,
+        pub copy: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
+        pub safety_padding: [usize; 0x20],
     }
 }
 
@@ -311,6 +429,18 @@ impl BwScr {
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
+        let disable_hd = match std::env::var_os("SB_NO_HD") {
+            Some(s) => s == "1",
+            None => false,
+        };
+        let open_file = if disable_hd {
+            let open_file = analysis.file_hook().get(0).cloned()
+                .ok_or("open_file (Required due to SB_NO_HD)")?;
+            Some(open_file)
+        } else {
+            None
+        };
+
         debug!("Found all necessary BW data");
         let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
         Ok(BwScr {
@@ -339,6 +469,7 @@ impl BwScr {
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
             load_snp_list,
             mainmenu_entry_hook,
+            open_file,
             lobby_create_callback_offset,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
         })
@@ -368,6 +499,11 @@ impl BwScr {
 
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
+
+        if let Some(open_file) = self.open_file {
+            let address = open_file.0 as usize - base;
+            exe.hook_closure_address(OpenFile, file_hook::open_file_hook, address);
+        }
 
         drop(exe);
         crate::forge::init_hooks_scr(&mut active_patcher);
@@ -641,9 +777,14 @@ unsafe extern "stdcall" fn snp_load_bind(
     1
 }
 
-whack_hooks!(stdcall, 0,
+whack_hooks!(0, // cdecl
     !0 => GameInit();
     !0 => EntryPoint();
+    !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
+        *mut scr::FileHandle;
+);
+
+whack_hooks!(stdcall, 0,
     !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
 );
 
