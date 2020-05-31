@@ -201,3 +201,12 @@ It is possible to override the server's URL with environment variables. Two leve
   actual packaged executable).
 
 Note: run time takes precedence over build time.
+
+### Developer settings for SC:R
+
+If you need to run SC:R while developing, it is possible to disable HD graphics to shorten game
+launch times and to reduce system load by setting environment `SB_NO_HD` to `1`.
+
+Disabling HD graphics may cause crashes if the game tries to render with them, so it is recommended
+to launch SC:R, switch the graphics to SD, and close the game before setting the environment
+variable.
