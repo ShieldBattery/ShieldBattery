@@ -60,8 +60,8 @@ export function startReplay(replay) {
       payload: replay,
     })
 
-    // TODO(2Pac): Utilize the game coordinator on the server for this, so we can show to other
-    // people (like their friends) when a user is watching a replay.
+    // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
+    // to other people (like their friends) when a user is watching a replay.
     setGameConfig(replay, user, settings).then(
       gameId => {
         setGameRoutes(gameId)

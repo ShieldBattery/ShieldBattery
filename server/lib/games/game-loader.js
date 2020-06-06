@@ -69,25 +69,19 @@ export const LoadingDatas = {
 export class GameLoader {
   constructor() {
     this.loadingGames = new Map()
-    this.onGameSetup = null
-    this.onRoutesSet = null
-    this.onLoadingCanceled = null
-    this.onGameLoaded = null
   }
 
   // A function that starts the process of loading a new game. The first argument is a list of
-  // players, created as a human type slots. Requires at leat one player for things to work
-  // properly. Besides players, a set of handlers can be sent, which will be called during various
-  // phases of the loading process.
-  loadGame(players, onGameSetup, onRoutesSet, onLoadingCanceled, onGameLoaded) {
-    this.onGameSetup = onGameSetup
-    this.onRoutesSet = onRoutesSet
-    this.onLoadingCanceled = onLoadingCanceled
-    this.onGameLoaded = onGameLoaded
-
+  // players, that should be created as a human (or observer) type slots. At least one player should
+  // be present for things to work properly. Besides players, a set of handlers can be sent, which
+  // will be called during various phases of the loading process.
+  //
+  // Returns a promise which will resolve with the list of players if the game successfully loaded,
+  // or rejected if the load failed.
+  loadGame(players, onGameSetup, onRoutesSet) {
     const cancelToken = new CancelToken()
     const gameId = cuid()
-    const gameLoad = this._doGameLoad(gameId, cancelToken, players)
+    const gameLoad = this._doGameLoad(gameId, cancelToken, players, onGameSetup, onRoutesSet)
 
     rejectOnTimeout(gameLoad, GAME_LOAD_TIMEOUT).catch(() => {
       cancelToken.cancel()
@@ -102,6 +96,10 @@ export class GameLoader {
   // the game results and perhaps registering the user to the gameplay activity registry, if not
   // already registered.
   registerGame(gameId, playerName) {
+    if (!this.loadingGames.has(gameId)) {
+      return
+    }
+
     let loadingData = this.loadingGames.get(gameId)
     const player = loadingData.players.find(p => p.name === playerName)
     loadingData = loadingData.set('finishedPlayers', loadingData.finishedPlayers.add(player.id))
@@ -109,12 +107,8 @@ export class GameLoader {
 
     if (LoadingDatas.isAllFinished(loadingData)) {
       // TODO(tec27): register this game in the DB for accepting results
-      if (this.onGameLoaded) {
-        this.onGameLoaded(loadingData.players)
-      }
-
       this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve()
+      loadingData.deferred.resolve(loadingData.players)
     }
   }
 
@@ -128,17 +122,13 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.delete(gameId)
     loadingData.cancelToken.cancel()
     loadingData.deferred.reject(new Error('Game loading cancelled'))
-
-    if (this.onLoadingCanceled) {
-      this.onLoadingCanceled()
-    }
   }
 
   isLoading(gameId) {
     return this.loadingGames.has(gameId)
   }
 
-  async _doGameLoad(gameId, cancelToken, players) {
+  async _doGameLoad(gameId, cancelToken, players, onGameSetup, onRoutesSet) {
     const gameLoaded = createDeferred()
     this.loadingGames = this.loadingGames.set(
       gameId,
@@ -148,8 +138,8 @@ export class GameLoader {
         deferred: gameLoaded,
       }),
     )
-    if (this.onGameSetup) {
-      this.onGameSetup({ gameId, seed: generateSeed() })
+    if (onGameSetup) {
+      onGameSetup({ gameId, seed: generateSeed() })
     }
 
     const hasMultipleHumans = players.size > 1
@@ -177,18 +167,18 @@ export class GameLoader {
     }, new Map())
 
     for (const [player, routes] of routesByPlayer.entries()) {
-      if (this.onRoutesSet) {
-        this.onRoutesSet(player.name, routes)
+      if (onRoutesSet) {
+        onRoutesSet(player.name, routes)
       }
     }
     if (!hasMultipleHumans) {
-      if (this.onRoutesSet) {
-        this.onRoutesSet(players.first().name, [])
+      if (onRoutesSet) {
+        onRoutesSet(players.first().name, [])
       }
     }
 
     cancelToken.throwIfCancelling()
-    await gameLoaded
+    return gameLoaded
   }
 }
 

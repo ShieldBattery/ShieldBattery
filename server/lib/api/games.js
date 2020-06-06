@@ -3,7 +3,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 
-import gameCoordinator from '../games/game-coordinator'
+import gameLoader from '../games/game-loader'
 
 const throttle = createThrottle('games', {
   rate: 20,
@@ -30,11 +30,11 @@ export default function (router) {
 async function gameLoaded(ctx, next) {
   const { gameId } = ctx.params
 
-  if (!gameCoordinator.isLoading(gameId)) {
+  if (!gameLoader.isLoading(gameId)) {
     throw new httpErrors.Conflict('game must be loading')
   }
 
-  gameCoordinator.registerGame(gameId, ctx.session.userName)
+  gameLoader.registerGame(gameId, ctx.session.userName)
 
   ctx.status = 204
 }
@@ -42,11 +42,11 @@ async function gameLoaded(ctx, next) {
 async function loadFailed(ctx, next) {
   const { gameId } = ctx.params
 
-  if (!gameCoordinator.isLoading(gameId)) {
+  if (!gameLoader.isLoading(gameId)) {
     throw new httpErrors.Conflict('game must be loading')
   }
 
-  gameCoordinator.maybeCancelLoading(ctx.params.gameId)
+  gameLoader.maybeCancelLoading(ctx.params.gameId)
 
   ctx.status = 204
 }

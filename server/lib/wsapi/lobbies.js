@@ -3,7 +3,7 @@ import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 import activityRegistry from '../games/gameplay-activity-registry'
-import gameCoordinator from '../games/game-coordinator'
+import gameLoader from '../games/game-loader'
 import * as Lobbies from '../lobbies/lobby'
 import * as Slots from '../lobbies/slot'
 import { getMapInfo } from '../models/maps'
@@ -621,7 +621,7 @@ export class LobbyApi {
     client.unsubscribe(LobbyApi._getClientPath(lobby, client))
     client.unsubscribe(LobbyApi._getPath(lobby))
     this._maybeCancelCountdown(lobby)
-    gameCoordinator.maybeCancelLoading(this.loadingLobbies.get(lobby.name))
+    gameLoader.maybeCancelLoading(this.loadingLobbies.get(lobby.name))
   }
 
   @Api('/startCountdown')
@@ -648,7 +648,7 @@ export class LobbyApi {
       await timer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
 
-      await gameCoordinator.loadGame(
+      await gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
         (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
