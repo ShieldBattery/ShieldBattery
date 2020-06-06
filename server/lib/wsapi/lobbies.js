@@ -647,21 +647,22 @@ export class LobbyApi {
     try {
       await timer
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-
-      await gameLoader.loadGame(
-        getHumanSlots(lobby),
-        setup => this._onGameSetup(lobby, setup),
-        (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
-        () => this._onLoadingCanceled(lobby),
-        players => this._onGameLoaded(lobby, players),
-      )
-    } catch (err) {
-      this._maybeCancelCountdown(lobby)
     } finally {
       if (timerId) {
         clearTimeout(timerId)
         timerId = null
       }
+    }
+
+    try {
+      const players = await gameLoader.loadGame(
+        getHumanSlots(lobby),
+        setup => this._onGameSetup(lobby, setup),
+        (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
+      )
+      this._onGameLoaded(lobby, players)
+    } catch (err) {
+      this._onLoadingCanceled(lobby)
     }
   }
 
