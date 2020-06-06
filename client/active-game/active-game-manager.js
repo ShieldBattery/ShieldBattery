@@ -187,7 +187,7 @@ export default class ActiveGameManager extends EventEmitter {
   _setStatus(state, extra = null) {
     if (this.activeGame) {
       this.activeGame.status = { state, extra }
-      this.emit('gameStatus', this.activeGame.id, this.getStatus())
+      this.emit('gameStatus', this.getStatus())
       log.verbose(`Game status updated to '${statusToString(state)}' [${JSON.stringify(extra)}]`)
     }
   }
