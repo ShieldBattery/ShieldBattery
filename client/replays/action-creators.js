@@ -32,6 +32,7 @@ async function setGameConfig(replay, user, settings) {
     settings,
     localUser: user,
     setup: {
+      gameId: cuid(),
       name: replay.name,
       map: { isReplay: true, path: replay.path },
       gameType: 'melee',
@@ -59,6 +60,8 @@ export function startReplay(replay) {
       payload: replay,
     })
 
+    // TODO(2Pac): Utilize the game coordinator on the server for this, so we can show to other
+    // people (like their friends) when a user is watching a replay.
     setGameConfig(replay, user, settings).then(
       gameId => {
         setGameRoutes(gameId)
