@@ -4,6 +4,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 
 import gameLoader from '../games/game-loader'
+import { GAME_STATUS_PLAYING, GAME_STATUS_ERROR } from '../../../common/game-status'
 
 const throttle = createThrottle('games', {
   rate: 20,
@@ -12,41 +13,27 @@ const throttle = createThrottle('games', {
 })
 
 export default function (router) {
-  router
-    .put(
-      '/:gameId',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
-      ensureLoggedIn,
-      gameLoaded,
-    )
-    .delete(
-      '/:gameId',
-      throttleMiddleware(throttle, ctx => ctx.session.userId),
-      ensureLoggedIn,
-      loadFailed,
-    )
+  router.put(
+    '/:gameId',
+    throttleMiddleware(throttle, ctx => ctx.session.userId),
+    ensureLoggedIn,
+    updateGameStatus,
+  )
 }
 
-async function gameLoaded(ctx, next) {
+async function updateGameStatus(ctx, next) {
   const { gameId } = ctx.params
+  const { status, extra } = ctx.request.body
+
+  if (status < GAME_STATUS_PLAYING || status > GAME_STATUS_ERROR) {
+    throw new httpErrors.BadRequest('invalid game status')
+  }
 
   if (!gameLoader.isLoading(gameId)) {
     throw new httpErrors.Conflict('game must be loading')
   }
 
-  gameLoader.registerGame(gameId, ctx.session.userName)
-
-  ctx.status = 204
-}
-
-async function loadFailed(ctx, next) {
-  const { gameId } = ctx.params
-
-  if (!gameLoader.isLoading(gameId)) {
-    throw new httpErrors.Conflict('game must be loading')
-  }
-
-  gameLoader.maybeCancelLoading(ctx.params.gameId)
+  gameLoader.updateGameStatus(gameId, ctx.session.userName, status, extra)
 
   ctx.status = 204
 }

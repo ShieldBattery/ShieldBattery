@@ -7,6 +7,7 @@ import routeCreator from '../rally-point/route-creator'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import { GAME_STATUS_PLAYING, GAME_STATUS_ERROR } from '../../../common/game-status'
 
 const GAME_LOAD_TIMEOUT = 30 * 1000
 
@@ -91,11 +92,19 @@ export class GameLoader {
     return gameLoad
   }
 
-  // A function which is called to register the (now loaded) game into the system for each player.
-  // Currently, it only cleans up the loading game state, but in future it will be used to accept
-  // the game results and perhaps registering the user to the gameplay activity registry, if not
-  // already registered.
-  registerGame(gameId, playerName) {
+  updateGameStatus(gameId, playerName, status, extra) {
+    switch (status) {
+      case GAME_STATUS_PLAYING:
+        this._handleGameLoaded(gameId, playerName)
+        break
+      case GAME_STATUS_ERROR:
+        this.maybeCancelLoading(gameId)
+      default:
+        throw new Error('invalid game status')
+    }
+  }
+
+  _handleGameLoaded(gameId, playerName) {
     if (!this.loadingGames.has(gameId)) {
       return
     }

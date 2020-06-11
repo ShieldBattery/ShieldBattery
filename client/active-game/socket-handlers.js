@@ -3,6 +3,7 @@ import fetch from '../network/fetch'
 import { dispatch } from '../dispatch-registry'
 
 import { ACTIVE_GAME_STATUS } from '../actions'
+import { stringToStatus } from '../../common/game-status'
 
 export default function () {
   if (!activeGameManager) {
@@ -15,10 +16,11 @@ export default function () {
       payload: status,
     })
 
-    if (status.state === 'playing') {
-      fetch('/api/1/games/' + encodeURIComponent(status.id), { method: 'put' })
-    } else if (status.state === 'error') {
-      fetch('/api/1/games/' + encodeURIComponent(status.id), { method: 'delete' })
+    if (status.state === 'playing' || status.state === 'error') {
+      fetch('/api/1/games/' + encodeURIComponent(status.id), {
+        method: 'put',
+        body: JSON.stringify({ status: stringToStatus(status.state), extra: status.extra }),
+      })
     }
   })
 }
