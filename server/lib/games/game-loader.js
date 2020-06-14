@@ -7,7 +7,6 @@ import routeCreator from '../rally-point/route-creator'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
-import { GAME_STATUS_PLAYING, GAME_STATUS_ERROR } from '../../../common/game-status'
 
 const GAME_LOAD_TIMEOUT = 30 * 1000
 
@@ -92,19 +91,9 @@ export class GameLoader {
     return gameLoad
   }
 
-  updateGameStatus(gameId, playerName, status, extra) {
-    switch (status) {
-      case GAME_STATUS_PLAYING:
-        this._handleGameLoaded(gameId, playerName)
-        break
-      case GAME_STATUS_ERROR:
-        this.maybeCancelLoading(gameId)
-      default:
-        throw new Error('invalid game status')
-    }
-  }
-
-  _handleGameLoaded(gameId, playerName) {
+  // The game has successfully loaded for a specific player; once the game is loaded for all
+  // players, we register it in the DB for accepting results.
+  registerGameAsLoaded(gameId, playerName) {
     if (!this.loadingGames.has(gameId)) {
       return
     }

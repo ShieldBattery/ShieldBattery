@@ -23,17 +23,29 @@ export default function (router) {
 
 async function updateGameStatus(ctx, next) {
   const { gameId } = ctx.params
-  const { status, extra } = ctx.request.body
+  const { status } = ctx.request.body
 
   if (status < GAME_STATUS_PLAYING || status > GAME_STATUS_ERROR) {
     throw new httpErrors.BadRequest('invalid game status')
   }
 
-  if (!gameLoader.isLoading(gameId)) {
+  if (
+    (status === GAME_STATUS_PLAYING || status === GAME_STATUS_ERROR) &&
+    !gameLoader.isLoading(gameId)
+  ) {
     throw new httpErrors.Conflict('game must be loading')
   }
 
-  gameLoader.updateGameStatus(gameId, ctx.session.userName, status, extra)
+  switch (status) {
+    case GAME_STATUS_PLAYING:
+      gameLoader.registerGameAsLoaded(gameId, ctx.session.userName)
+      break
+    case GAME_STATUS_ERROR:
+      gameLoader.maybeCancelLoading(gameId)
+      break
+    default:
+      throw new httpErrors.BadRequest('invalid game status')
+  }
 
   ctx.status = 204
 }
