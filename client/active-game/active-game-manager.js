@@ -2,7 +2,6 @@ import { remote } from 'electron'
 import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
-import cuid from 'cuid'
 import deepEqual from 'deep-equal'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
@@ -60,7 +59,7 @@ export default class ActiveGameManager extends EventEmitter {
       return null
     }
 
-    const gameId = cuid()
+    const gameId = config.setup.gameId
     const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
       .then(
         proc => proc.waitForExit(),

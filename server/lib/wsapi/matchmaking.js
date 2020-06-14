@@ -2,7 +2,7 @@ import { List, Map, Record } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
-import activityRegistry from '../gameplay-activity/gameplay-activity-registry'
+import activityRegistry from '../games/gameplay-activity-registry'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
 import {

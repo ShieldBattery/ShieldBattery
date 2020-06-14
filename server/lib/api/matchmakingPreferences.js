@@ -10,7 +10,7 @@ import {
 } from '../models/matchmaking-preferences'
 import { getMapInfo } from '../models/maps'
 
-export default function (router, userSockets) {
+export default function (router) {
   router
     .post('/', featureEnabled(MATCHMAKING), ensureLoggedIn, upsertPreferences)
     .get('/', featureEnabled(MATCHMAKING), ensureLoggedIn, getPreferences)

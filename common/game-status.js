@@ -34,3 +34,26 @@ export function statusToString(status) {
       return 'invalid'
   }
 }
+
+export function stringToStatus(string) {
+  switch (string) {
+    case 'unknown':
+      return GAME_STATUS_UNKNOWN
+    case 'launching':
+      return GAME_STATUS_LAUNCHING
+    case 'configuring':
+      return GAME_STATUS_CONFIGURING
+    case 'awaitingPlayers':
+      return GAME_STATUS_AWAITING_PLAYERS
+    case 'starting':
+      return GAME_STATUS_STARTING
+    case 'playing':
+      return GAME_STATUS_PLAYING
+    case 'finished':
+      return GAME_STATUS_FINISHED
+    case 'error':
+      return GAME_STATUS_ERROR
+    default:
+      return -1
+  }
+}
