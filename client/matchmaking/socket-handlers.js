@@ -127,8 +127,7 @@ const eventToAction = {
         gameId: event.setup.gameId,
         name: event.matchInfo.type,
         map: event.mapInfo,
-        gameType: 'topVBottom',
-        gameSubType: Math.ceil(event.mapInfo.mapData.slots / 2),
+        gameType: 'oneVOne',
         slots: event.players,
         host: event.players[0], // Arbitrarily set first player as host
         seed: event.setup.seed,
