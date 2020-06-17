@@ -143,6 +143,16 @@ export async function mapExists(hash) {
 }
 
 export async function getMapInfo(mapIds, userId) {
+  const favoritedJoin = userId
+    ? `
+      SELECT maps.*, fav.map_id AS favorited
+      FROM maps LEFT JOIN favorited_maps AS fav
+      ON fav.map_id = maps.id AND fav.favorited_by = $2
+    `
+    : `
+      SELECT maps.*
+      FROM maps
+    `
   const query = `
     WITH maps AS (
       SELECT
@@ -164,11 +174,12 @@ export async function getMapInfo(mapIds, userId) {
       ON um.map_hash = m.hash
       WHERE um.id = ANY($1)
     )
-    SELECT maps.*, fav.map_id AS favorited
-    FROM maps LEFT JOIN favorited_maps AS fav
-    ON fav.map_id = maps.id AND fav.favorited_by = $2;
+    ${favoritedJoin};
   `
-  const params = [mapIds, userId]
+  const params = [mapIds]
+  if (userId) {
+    params.push(userId)
+  }
 
   const { client, done } = await db()
   try {

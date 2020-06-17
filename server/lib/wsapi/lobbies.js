@@ -655,12 +655,12 @@ export class LobbyApi {
     }
 
     try {
-      const players = await gameLoader.loadGame(
+      await gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
         (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
       )
-      this._onGameLoaded(lobby, players)
+      this._onGameLoaded(lobby)
     } catch (err) {
       this._onLoadingCanceled(lobby)
     }
@@ -689,10 +689,10 @@ export class LobbyApi {
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
   }
 
-  _onGameLoaded(lobby, players) {
+  _onGameLoaded(lobby) {
     this._publishTo(lobby, { type: 'gameStarted' })
 
-    players
+    getHumanSlots(lobby)
       .map(p => activityRegistry.getClientForUser(p.name))
       .forEach(client => {
         const user = this.getUserByName(client.name)

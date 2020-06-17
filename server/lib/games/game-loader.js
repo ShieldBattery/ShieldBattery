@@ -106,7 +106,7 @@ export class GameLoader {
     if (LoadingDatas.isAllFinished(loadingData)) {
       // TODO(tec27): register this game in the DB for accepting results
       this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve(loadingData.players)
+      loadingData.deferred.resolve()
     }
   }
 
@@ -166,12 +166,12 @@ export class GameLoader {
 
     for (const [player, routes] of routesByPlayer.entries()) {
       if (onRoutesSet) {
-        onRoutesSet(player.name, routes)
+        onRoutesSet(player.name, routes, gameId)
       }
     }
     if (!hasMultipleHumans) {
       if (onRoutesSet) {
-        onRoutesSet(players.first().name, [])
+        onRoutesSet(players.first().name, [], gameId)
       }
     }
 

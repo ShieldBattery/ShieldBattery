@@ -1,4 +1,4 @@
-import { Map, Record } from 'immutable'
+import { List, Map, Record } from 'immutable'
 import cuid from 'cuid'
 
 const STATUS_UNACCEPTED = 0
@@ -98,7 +98,7 @@ export default class MatchAcceptor {
     } else {
       // All players have accepted
       this._cleanupMatch(match)
-      process.nextTick(() => this.onMatchAccepted(match.info, match.clients.keys()))
+      process.nextTick(() => this.onMatchAccepted(match.info, new List(match.clients.keys())))
     }
 
     return true

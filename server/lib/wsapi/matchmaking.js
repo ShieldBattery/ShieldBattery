@@ -3,6 +3,9 @@ import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 import activityRegistry from '../games/gameplay-activity-registry'
+import gameLoader from '../games/game-loader'
+import { createHuman } from '../lobbies/slot'
+import { getMapInfo } from '../models/maps'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
 import {
@@ -90,18 +93,63 @@ export class MatchmakingApi {
     }
   }
 
-  _onMatchAccepted = (matchInfo, clients) => {
+  _onMatchAccepted = async (matchInfo, clients) => {
+    try {
+      const players = clients.map(c => createHuman(c.name))
+      await gameLoader.loadGame(
+        players,
+        setup => this._onGameSetup(matchInfo, clients, players, setup),
+        (playerName, routes, gameId) => this._onRoutesSet(clients, playerName, routes, gameId),
+      )
+      this._onGameLoaded(clients)
+    } catch (err) {
+      this._onLoadingCanceled(clients)
+    }
+  }
+
+  async _onGameSetup(matchInfo, clients, players, setup = {}) {
+    // TODO(2Pac): Select map intelligently based on user's preference
+    const mapInfo = (await getMapInfo(['4cd22c4f-2924-42f3-91ae-0e85ddaace3d']))[0]
+
+    if (!mapInfo) {
+      throw new errors.BadRequest('invalid map')
+    }
+
     this.queueEntries = this.queueEntries.withMutations(map => {
       for (const client of clients) {
         map.delete(client.name)
-        // TODO(tec27): Write code to actually deal with game init, instead of doing this
         this._publishToActiveClient(client.name, {
           type: 'matchReady',
-          players: matchInfo.players,
+          setup,
+          players,
+          matchInfo,
+          mapInfo,
         })
-        this._unregisterActivity(client)
       }
     })
+  }
+
+  _onRoutesSet(clients, playerName, routes, gameId) {
+    this._publishToActiveClient(playerName, {
+      type: 'setRoutes',
+      routes,
+      gameId,
+    })
+  }
+
+  _onLoadingCanceled(clients) {
+    for (const client of clients) {
+      this._publishToActiveClient(client.name, {
+        type: 'cancelLoading',
+      })
+      this._unregisterActivity(client)
+    }
+  }
+
+  _onGameLoaded(clients) {
+    for (const client of clients) {
+      this._unregisterActivity(client)
+    }
   }
 
   _onMatchDeclined = (matchInfo, requeueClients, kickClients) => {

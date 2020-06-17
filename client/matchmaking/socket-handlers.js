@@ -1,4 +1,8 @@
+import activeGameManager from '../active-game/active-game-manager-instance'
+import rallyPointManager from '../network/rally-point-manager-instance'
+import mapStore from '../maps/map-store-instance'
 import {
+  ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
@@ -9,6 +13,7 @@ import {
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
+import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 
 const acceptMatchState = {
@@ -37,6 +42,7 @@ const eventToAction = {
   matchFound: (name, event) => {
     clearRequeueTimer()
     clearAcceptMatchTimer()
+    rallyPointManager.refreshPings()
 
     let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
     dispatch({
@@ -90,15 +96,63 @@ const eventToAction = {
     }, 5000)
   },
 
-  matchReady: (name, event) => {
+  matchReady: (name, event) => (dispatch, getState) => {
     dispatch(closeDialog())
-
     clearAcceptMatchTimer()
+
     // All players are ready; feel free to move to the loading screen and start the game
-    return {
+    dispatch({
       type: MATCHMAKING_UPDATE_MATCH_READY,
       payload: event,
+    })
+
+    const {
+      settings,
+      auth: { user },
+    } = getState()
+
+    const {
+      hash,
+      mapData: { format },
+      mapUrl,
+    } = event.mapInfo
+    // NOTE(2Pac): We can't download map any sooner since we don't know which map we'll play until
+    // all players accept the game
+    mapStore.downloadMap(hash, format, mapUrl)
+
+    const config = {
+      localUser: user,
+      settings,
+      setup: {
+        gameId: event.setup.gameId,
+        name: event.matchInfo.type,
+        map: event.mapInfo,
+        gameType: 'topVBottom',
+        gameSubType: Math.ceil(event.mapInfo.mapData.slots / 2),
+        slots: event.players,
+        host: event.players[0], // Arbitrarily set first player as host
+        seed: event.setup.seed,
+      },
     }
+
+    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManager.setGameConfig(config) })
+  },
+
+  setRoutes: (name, event) => dispatch => {
+    const { routes, gameId } = event
+
+    activeGameManager.setGameRoutes(gameId, routes)
+  },
+
+  cancelLoading: (name, event) => dispatch => {
+    dispatch(closeDialog())
+    clearAcceptMatchTimer()
+
+    dispatch({
+      type: ACTIVE_GAME_LAUNCH,
+      payload: activeGameManager.setGameConfig({}),
+    })
+    dispatch(openSnackbar({ message: 'The game has failed to load.' }))
   },
 
   status: (name, event) => ({

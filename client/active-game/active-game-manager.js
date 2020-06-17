@@ -3,6 +3,7 @@ import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
+import { Set } from 'immutable'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
 import { REMASTERED } from '../../common/flags'
@@ -50,13 +51,26 @@ export default class ActiveGameManager extends EventEmitter {
         // Same config as before, no operation necessary
         return current.id
       }
-      // Quit the currently active game so we can replace it
-      this.emit('gameCommand', current.id, 'quit')
+      if (current.id !== config.gameId) {
+        // Quit the currently active game so we can replace it
+        this.emit('gameCommand', current.id, 'quit')
+      }
     }
     if (!config.setup) {
       this._setStatus(GAME_STATUS_UNKNOWN)
       this.activeGame = null
       return null
+    }
+
+    if (current && current.routes && config.setup) {
+      const routesIds = new Set(current.routes.map(r => r.for))
+      const slotIds = new Set(config.setup.slots.map(s => s.id))
+
+      if (!slotIds.isSuperset(routesIds)) {
+        this._setStatus(GAME_STATUS_UNKNOWN)
+        this.activeGame = null
+        return null
+      }
     }
 
     const gameId = config.setup.gameId
@@ -70,9 +84,9 @@ export default class ActiveGameManager extends EventEmitter {
         err => this.handleGameExitWaitError(gameId, err),
       )
     this.activeGame = {
+      ...current,
       id: gameId,
       promise: activeGamePromise,
-      routes: null,
       config,
       status: { state: GAME_STATUS_UNKNOWN, extra: null },
     }
@@ -82,13 +96,32 @@ export default class ActiveGameManager extends EventEmitter {
   }
 
   setGameRoutes(gameId, routes) {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
+    const current = this.activeGame
+    if (current && current.id !== gameId) {
       return
     }
 
-    this.activeGame.routes = routes
-    this.emit('gameCommand', gameId, 'routes', routes)
-    this.emit('gameCommand', gameId, 'setupGame', this.activeGame.config.setup)
+    if (current && current.config && routes) {
+      const routesIds = new Set(routes.map(r => r.for))
+      const slotIds = new Set(current.config.setup.slots.map(s => s.id))
+
+      if (!slotIds.isSuperset(routesIds)) {
+        return
+      }
+    }
+
+    this.activeGame = {
+      ...current,
+      id: gameId,
+      routes,
+    }
+
+    // `setGameRoutes` can be called before `setGameConfig`, in which case the config won't be set
+    // yet; we also don't send the routes, since the game couldn't be connected in that case either.
+    if (current && current.config) {
+      this.emit('gameCommand', gameId, 'routes', routes)
+      this.emit('gameCommand', gameId, 'setupGame', current.config.setup)
+    }
   }
 
   async handleGameConnected(id) {
