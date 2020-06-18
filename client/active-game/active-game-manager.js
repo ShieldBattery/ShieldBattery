@@ -2,7 +2,6 @@ import { remote } from 'electron'
 import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
-import deepEqual from 'deep-equal'
 import { Set } from 'immutable'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
@@ -46,30 +45,24 @@ export default class ActiveGameManager extends EventEmitter {
 
   setGameConfig(config) {
     const current = this.activeGame
-    if (current) {
-      if (deepEqual(config, current.config)) {
-        // Same config as before, no operation necessary
-        return current.id
-      }
-      if (current.id !== config.gameId) {
-        // Quit the currently active game so we can replace it
-        this.emit('gameCommand', current.id, 'quit')
-      }
+    if (current && current.id !== config.gameId) {
+      // Means that a previous game left hanging somehow; quit it
+      this.emit('gameCommand', current.id, 'quit')
     }
     if (!config.setup) {
       this._setStatus(GAME_STATUS_UNKNOWN)
       this.activeGame = null
       return null
     }
-
     if (current && current.routes && config.setup) {
       const routesIds = new Set(current.routes.map(r => r.for))
       const slotIds = new Set(config.setup.slots.map(s => s.id))
 
       if (!slotIds.isSuperset(routesIds)) {
-        this._setStatus(GAME_STATUS_UNKNOWN)
+        this._setStatus(GAME_STATUS_ERROR)
         this.activeGame = null
-        return null
+
+        throw new Error("Slots and routes don't match")
       }
     }
 
@@ -101,12 +94,15 @@ export default class ActiveGameManager extends EventEmitter {
       return
     }
 
-    if (current && current.config && routes) {
+    if (current && current.config) {
       const routesIds = new Set(routes.map(r => r.for))
       const slotIds = new Set(current.config.setup.slots.map(s => s.id))
 
       if (!slotIds.isSuperset(routesIds)) {
-        return
+        this._setStatus(GAME_STATUS_ERROR)
+        this.activeGame = null
+
+        throw new Error("Slots and routes don't match")
       }
     }
 

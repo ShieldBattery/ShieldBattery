@@ -1,5 +1,6 @@
 import db from '../db'
 import transact from '../db/transaction'
+import sql from 'sql-template-strings'
 import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
@@ -142,18 +143,18 @@ export async function mapExists(hash) {
   }
 }
 
-export async function getMapInfo(mapIds, userId) {
-  const favoritedJoin = userId
-    ? `
+export async function getMapInfo(mapIds, favoritedBy) {
+  const favoritedJoin = favoritedBy
+    ? sql`
       SELECT maps.*, fav.map_id AS favorited
       FROM maps LEFT JOIN favorited_maps AS fav
-      ON fav.map_id = maps.id AND fav.favorited_by = $2
+      ON fav.map_id = maps.id AND fav.favorited_by = ${favoritedBy};
     `
-    : `
+    : sql`
       SELECT maps.*
-      FROM maps
+      FROM maps;
     `
-  const query = `
+  const query = sql`
     WITH maps AS (
       SELECT
         um.*,
@@ -172,18 +173,13 @@ export async function getMapInfo(mapIds, userId) {
       ON um.uploaded_by = u.id
       INNER JOIN maps AS m
       ON um.map_hash = m.hash
-      WHERE um.id = ANY($1)
+      WHERE um.id = ANY(${mapIds})
     )
-    ${favoritedJoin};
-  `
-  const params = [mapIds]
-  if (userId) {
-    params.push(userId)
-  }
+  `.append(favoritedJoin)
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
+    const result = await client.query(query)
 
     if (result.rows.length < 1) return []
 
