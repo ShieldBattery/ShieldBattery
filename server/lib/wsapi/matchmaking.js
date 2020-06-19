@@ -6,6 +6,7 @@ import activityRegistry from '../games/gameplay-activity-registry'
 import gameLoader from '../games/game-loader'
 import { createHuman } from '../lobbies/slot'
 import { getMapInfo } from '../models/maps'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
 import {
@@ -109,8 +110,12 @@ export class MatchmakingApi {
 
   async _onGameSetup(matchInfo, clients, players, setup = {}) {
     // TODO(2Pac): Select map intelligently based on user's preference
-    const mapInfo = (await getMapInfo(['4cd22c4f-2924-42f3-91ae-0e85ddaace3d']))[0]
+    const mapPool = await getCurrentMapPool(matchInfo.type)
+    if (!mapPool) {
+      throw new errors.NotFound('invalid map pool')
+    }
 
+    const mapInfo = (await getMapInfo(mapPool.maps))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
     }
