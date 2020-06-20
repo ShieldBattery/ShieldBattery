@@ -136,9 +136,9 @@ export class GameLoader {
         deferred: gameLoaded,
       }),
     )
-    if (onGameSetup) {
-      onGameSetup({ gameId, seed: generateSeed() }).catch(() => this.maybeCancelLoading(gameId))
-    }
+    const onGameSetupResult = onGameSetup
+      ? onGameSetup({ gameId, seed: generateSeed() })
+      : Promise.resolve()
 
     const hasMultipleHumans = players.size > 1
     const pingPromise = !hasMultipleHumans
@@ -174,6 +174,8 @@ export class GameLoader {
         onRoutesSet(players.first().name, [], gameId)
       }
     }
+
+    await onGameSetupResult
 
     cancelToken.throwIfCancelling()
     return gameLoaded
