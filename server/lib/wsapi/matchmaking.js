@@ -112,12 +112,12 @@ export class MatchmakingApi {
     // TODO(2Pac): Select map intelligently based on user's preference
     const mapPool = await getCurrentMapPool(matchInfo.type)
     if (!mapPool) {
-      throw new errors.NotFound('invalid map pool')
+      throw new Error('invalid map pool')
     }
 
     const mapInfo = (await getMapInfo(mapPool.maps))[0]
     if (!mapInfo) {
-      throw new errors.BadRequest('invalid map')
+      throw new Error('invalid map')
     }
 
     this.queueEntries = this.queueEntries.withMutations(map => {

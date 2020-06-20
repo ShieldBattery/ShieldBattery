@@ -137,7 +137,7 @@ export class GameLoader {
       }),
     )
     if (onGameSetup) {
-      onGameSetup({ gameId, seed: generateSeed() })
+      onGameSetup({ gameId, seed: generateSeed() }).catch(() => this.maybeCancelLoading(gameId))
     }
 
     const hasMultipleHumans = players.size > 1
