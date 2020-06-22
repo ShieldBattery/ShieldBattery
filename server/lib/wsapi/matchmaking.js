@@ -56,10 +56,7 @@ export class MatchmakingApi {
     )
     this.acceptor = new MatchAcceptor(
       MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
-      this.matchAcceptorDelegate.onAcceptProgress,
-      this.matchAcceptorDelegate.onAccepted,
-      this.matchAcceptorDelegate.onDeclined,
-      this.matchAcceptorDelegate.onError,
+      this.matchAcceptorDelegate,
     )
 
     this.queueEntries = new Map()

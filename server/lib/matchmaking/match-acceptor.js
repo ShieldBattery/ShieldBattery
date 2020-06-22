@@ -21,18 +21,19 @@ export default class MatchAcceptor {
   // onAcceptProgress is a `function(matchInfo, total, accepted)` that will be called whenever a new
   //    player has accepted the match. `total` is the total count of players in the match,
   //    `accepted` is the count of players that have accepted the match
-  // onMatchAccepted is a `function(matchInfo, clients)` that will be called when all clients for a
-  //    match have accepted it (params will be what is passed into `addMatch` originally)
-  // onMatchDeclined is a `function(matchInfo, requeueClients, kickClients)` that will be called
-  //    when a match is declined (either due to timeout, or a client leaving the queue before the
+  // onAccepted is a `function(matchInfo, clients)` that will be called when all clients for a match
+  //    have accepted it (params will be what is passed into `addMatch` originally)
+  // onDeclined is a `function(matchInfo, requeueClients, kickClients)` that will be called when a
+  //    match is declined (either due to timeout, or a client leaving the queue before the
   //    match was fully accepted). `requeueClients` is an iterable of clients who should be
   //    requeued, `kickClients` is an iterable of clients who should be removed from the queue.
-  // onError is a `function(error)` that will be called whenever any of the above functions fail
-  constructor(acceptTimeMs, onAcceptProgress, onMatchAccepted, onMatchDeclined, onError) {
+  // onError is a `function(error, clients)` that will be called whenever any of the above functions
+  //    fail.
+  constructor(acceptTimeMs, { onAcceptProgress, onAccepted, onDeclined, onError }) {
     this.acceptTimeMs = acceptTimeMs
     this.onAcceptProgress = onAcceptProgress
-    this.onMatchAccepted = onMatchAccepted
-    this.onMatchDeclined = onMatchDeclined
+    this.onAccepted = onAccepted
+    this.onDeclined = onDeclined
     this.onError = onError
 
     this.matches = new Map()
@@ -102,7 +103,7 @@ export default class MatchAcceptor {
     } else {
       // All players have accepted
       this._cleanupMatch(match)
-      Promise.resolve(this.onMatchAccepted(match.info, new List(match.clients.keys()))).catch(err =>
+      Promise.resolve(this.onAccepted(match.info, new List(match.clients.keys()))).catch(err =>
         this.onError(err, match.clients.keys()),
       )
     }
@@ -134,7 +135,7 @@ export default class MatchAcceptor {
     const requeueClients = clients.get(true)
     const kickClients = clients.get(false)
     Promise.resolve(
-      this.onMatchDeclined(
+      this.onDeclined(
         match.info,
         requeueClients ? requeueClients.keys() : [],
         kickClients ? kickClients.keys() : [],
