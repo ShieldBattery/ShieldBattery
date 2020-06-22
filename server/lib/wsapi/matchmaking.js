@@ -51,128 +51,130 @@ export class MatchmakingApi {
     this.matchmakers = new Map(
       MATCHMAKING_TYPES.map(type => [
         type,
-        new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound),
+        new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
       ]),
     )
     this.acceptor = new MatchAcceptor(
       MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
-      this._onMatchAccepted,
-      this._onMatchDeclined,
-      this._onMatchAcceptProgress,
-      this._onMatchError,
+      this.matchAcceptorDelegate.onAcceptProgress,
+      this.matchAcceptorDelegate.onAccepted,
+      this.matchAcceptorDelegate.onDeclined,
+      this.matchAcceptorDelegate.onError,
     )
 
     this.queueEntries = new Map()
   }
 
-  _onMatchFound = (player, opponent) => {
-    const { type } = this.queueEntries.get(player.name)
-    const matchInfo = new Match({
-      type,
-      players: new List([player, opponent]),
-    })
-    this.acceptor.addMatch(matchInfo, [
-      activityRegistry.getClientForUser(player.name),
-      activityRegistry.getClientForUser(opponent.name),
-    ])
-
-    this._publishToActiveClient(player.name, {
-      type: 'matchFound',
-      numPlayers: 2,
-    })
-    this._publishToActiveClient(opponent.name, {
-      type: 'matchFound',
-      numPlayers: 2,
-    })
-  }
-
-  _onMatchAcceptProgress = (matchInfo, total, accepted) => {
-    for (const player of matchInfo.players) {
-      this._publishToActiveClient(player.name, {
-        type: 'playerAccepted',
-        acceptedPlayers: accepted,
+  matchmakerDelegate = {
+    onMatchFound: (player, opponent) => {
+      const { type } = this.queueEntries.get(player.name)
+      const matchInfo = new Match({
+        type,
+        players: new List([player, opponent]),
       })
-    }
+      this.acceptor.addMatch(matchInfo, [
+        activityRegistry.getClientForUser(player.name),
+        activityRegistry.getClientForUser(opponent.name),
+      ])
+
+      this._publishToActiveClient(player.name, {
+        type: 'matchFound',
+        numPlayers: 2,
+      })
+      this._publishToActiveClient(opponent.name, {
+        type: 'matchFound',
+        numPlayers: 2,
+      })
+    },
   }
 
-  _onMatchAccepted = async (matchInfo, clients) => {
-    const players = clients.map(c => createHuman(c.name))
-    await gameLoader.loadGame(
-      players,
-      setup => this._onGameSetup(matchInfo, clients, players, setup),
-      (playerName, routes, gameId) => this._onRoutesSet(clients, playerName, routes, gameId),
-    )
-    this._onGameLoaded(clients)
-  }
-
-  async _onGameSetup(matchInfo, clients, players, setup = {}) {
-    // TODO(2Pac): Select map intelligently based on user's preference
-    const mapPool = await getCurrentMapPool(matchInfo.type)
-    if (!mapPool) {
-      throw new Error('invalid map pool')
-    }
-
-    const mapInfo = (await getMapInfo(mapPool.maps))[0]
-    if (!mapInfo) {
-      throw new Error('invalid map')
-    }
-
-    this.queueEntries = this.queueEntries.withMutations(map => {
-      for (const client of clients) {
-        map.delete(client.name)
-        this._publishToActiveClient(client.name, {
-          type: 'matchReady',
-          setup,
-          players,
-          matchInfo,
-          mapInfo,
+  matchAcceptorDelegate = {
+    onAcceptProgress: (matchInfo, total, accepted) => {
+      for (const player of matchInfo.players) {
+        this._publishToActiveClient(player.name, {
+          type: 'playerAccepted',
+          acceptedPlayers: accepted,
         })
       }
-    })
-  }
+    },
+    onAccepted: async (matchInfo, clients) => {
+      const players = clients.map(c => createHuman(c.name))
+      await gameLoader.loadGame(
+        players,
+        setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, players, setup),
+        (playerName, routes, gameId) =>
+          this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
+      )
+      this.gameLoaderDelegate.onGameLoaded(clients)
+    },
+    onDeclined: (matchInfo, requeueClients, kickClients) => {
+      this.queueEntries = this.queueEntries.withMutations(map => {
+        for (const client of kickClients) {
+          map.delete(client)
+          this._publishToActiveClient(client.name, {
+            type: 'acceptTimeout',
+          })
+          this._unregisterActivity(client)
+        }
+      })
 
-  _onRoutesSet(clients, playerName, routes, gameId) {
-    this._publishToActiveClient(playerName, {
-      type: 'setRoutes',
-      routes,
-      gameId,
-    })
-  }
-
-  _onGameLoaded(clients) {
-    for (const client of clients) {
-      this._unregisterActivity(client)
-    }
-  }
-
-  _onMatchDeclined = (matchInfo, requeueClients, kickClients) => {
-    this.queueEntries = this.queueEntries.withMutations(map => {
-      for (const client of kickClients) {
-        map.delete(client)
+      for (const client of requeueClients) {
+        const player = matchInfo.players.find(p => p.name === client.name)
+        this.matchmakers.get(matchInfo.type).addToQueue(player)
         this._publishToActiveClient(client.name, {
-          type: 'acceptTimeout',
+          type: 'requeue',
+        })
+      }
+    },
+    onError: (err, clients) => {
+      for (const client of clients) {
+        this._publishToActiveClient(client.name, {
+          type: 'cancelLoading',
+          reason: err.message,
         })
         this._unregisterActivity(client)
       }
-    })
-
-    for (const client of requeueClients) {
-      const player = matchInfo.players.find(p => p.name === client.name)
-      this.matchmakers.get(matchInfo.type).addToQueue(player)
-      this._publishToActiveClient(client.name, {
-        type: 'requeue',
-      })
-    }
+    },
   }
 
-  _onMatchError = (err, clients) => {
-    for (const client of clients) {
-      this._publishToActiveClient(client.name, {
-        type: 'cancelLoading',
-        reason: err.message,
+  gameLoaderDelegate = {
+    onGameSetup: async (matchInfo, clients, players, setup = {}) => {
+      // TODO(2Pac): Select map intelligently based on user's preference
+      const mapPool = await getCurrentMapPool(matchInfo.type)
+      if (!mapPool) {
+        throw new Error('invalid map pool')
+      }
+
+      const mapInfo = (await getMapInfo(mapPool.maps))[0]
+      if (!mapInfo) {
+        throw new Error('invalid map')
+      }
+
+      this.queueEntries = this.queueEntries.withMutations(map => {
+        for (const client of clients) {
+          map.delete(client.name)
+          this._publishToActiveClient(client.name, {
+            type: 'matchReady',
+            setup,
+            players,
+            matchInfo,
+            mapInfo,
+          })
+        }
       })
-      this._unregisterActivity(client)
-    }
+    },
+    onRoutesSet: (clients, playerName, routes, gameId) => {
+      this._publishToActiveClient(playerName, {
+        type: 'setRoutes',
+        routes,
+        gameId,
+      })
+    },
+    onGameLoaded: clients => {
+      for (const client of clients) {
+        this._unregisterActivity(client)
+      }
+    },
   }
 
   _handleLeave = client => {

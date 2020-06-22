@@ -18,21 +18,21 @@ const Match = new Record({
 export default class MatchAcceptor {
   // acceptTimeMs is the max time (in milliseconds) that clients will be given to accept. If a match
   //    is not accepted in this time period, it will be declined.
+  // onAcceptProgress is a `function(matchInfo, total, accepted)` that will be called whenever a new
+  //    player has accepted the match. `total` is the total count of players in the match,
+  //    `accepted` is the count of players that have accepted the match
   // onMatchAccepted is a `function(matchInfo, clients)` that will be called when all clients for a
   //    match have accepted it (params will be what is passed into `addMatch` originally)
   // onMatchDeclined is a `function(matchInfo, requeueClients, kickClients)` that will be called
   //    when a match is declined (either due to timeout, or a client leaving the queue before the
   //    match was fully accepted). `requeueClients` is an iterable of clients who should be
   //    requeued, `kickClients` is an iterable of clients who should be removed from the queue.
-  // onAcceptProgress is a `function(matchInfo, total, accepted)` that will be called whenever a new
-  //    player has accepted the match. `total` is the total count of players in the match,
-  //    `accepted` is the count of players that have accepted the match
   // onError is a `function(error)` that will be called whenever any of the above functions fail
-  constructor(acceptTimeMs, onMatchAccepted, onMatchDeclined, onAcceptProgress, onError) {
+  constructor(acceptTimeMs, onAcceptProgress, onMatchAccepted, onMatchDeclined, onError) {
     this.acceptTimeMs = acceptTimeMs
+    this.onAcceptProgress = onAcceptProgress
     this.onMatchAccepted = onMatchAccepted
     this.onMatchDeclined = onMatchDeclined
-    this.onAcceptProgress = onAcceptProgress
     this.onError = onError
 
     this.matches = new Map()
