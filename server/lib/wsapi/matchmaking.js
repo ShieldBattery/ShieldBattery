@@ -59,6 +59,7 @@ export class MatchmakingApi {
       this._onMatchAccepted,
       this._onMatchDeclined,
       this._onMatchAcceptProgress,
+      this._onMatchError,
     )
 
     this.queueEntries = new Map()
@@ -95,17 +96,13 @@ export class MatchmakingApi {
   }
 
   _onMatchAccepted = async (matchInfo, clients) => {
-    try {
-      const players = clients.map(c => createHuman(c.name))
-      await gameLoader.loadGame(
-        players,
-        setup => this._onGameSetup(matchInfo, clients, players, setup),
-        (playerName, routes, gameId) => this._onRoutesSet(clients, playerName, routes, gameId),
-      )
-      this._onGameLoaded(clients)
-    } catch (err) {
-      this._onLoadingCanceled(clients)
-    }
+    const players = clients.map(c => createHuman(c.name))
+    await gameLoader.loadGame(
+      players,
+      setup => this._onGameSetup(matchInfo, clients, players, setup),
+      (playerName, routes, gameId) => this._onRoutesSet(clients, playerName, routes, gameId),
+    )
+    this._onGameLoaded(clients)
   }
 
   async _onGameSetup(matchInfo, clients, players, setup = {}) {
@@ -142,15 +139,6 @@ export class MatchmakingApi {
     })
   }
 
-  _onLoadingCanceled(clients) {
-    for (const client of clients) {
-      this._publishToActiveClient(client.name, {
-        type: 'cancelLoading',
-      })
-      this._unregisterActivity(client)
-    }
-  }
-
   _onGameLoaded(clients) {
     for (const client of clients) {
       this._unregisterActivity(client)
@@ -174,6 +162,16 @@ export class MatchmakingApi {
       this._publishToActiveClient(client.name, {
         type: 'requeue',
       })
+    }
+  }
+
+  _onMatchError = (err, clients) => {
+    for (const client of clients) {
+      this._publishToActiveClient(client.name, {
+        type: 'cancelLoading',
+        reason: err.message,
+      })
+      this._unregisterActivity(client)
     }
   }
 

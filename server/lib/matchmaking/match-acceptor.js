@@ -27,11 +27,13 @@ export default class MatchAcceptor {
   // onAcceptProgress is a `function(matchInfo, total, accepted)` that will be called whenever a new
   //    player has accepted the match. `total` is the total count of players in the match,
   //    `accepted` is the count of players that have accepted the match
-  constructor(acceptTimeMs, onMatchAccepted, onMatchDeclined, onAcceptProgress) {
+  // onError is a `function(error)` that will be called whenever any of the above functions fail
+  constructor(acceptTimeMs, onMatchAccepted, onMatchDeclined, onAcceptProgress, onError) {
     this.acceptTimeMs = acceptTimeMs
     this.onMatchAccepted = onMatchAccepted
     this.onMatchDeclined = onMatchDeclined
     this.onAcceptProgress = onAcceptProgress
+    this.onError = onError
 
     this.matches = new Map()
     this.clientToMatchId = new Map()
@@ -89,16 +91,20 @@ export default class MatchAcceptor {
       // Still waiting on at least one player
       if (oldMatch !== match) {
         this.matches = this.matches.set(id, match)
-        this.onAcceptProgress(
-          match.info,
-          match.clients.size,
-          match.clients.count(status => status === STATUS_ACCEPTED),
-        )
+        Promise.resolve(
+          this.onAcceptProgress(
+            match.info,
+            match.clients.size,
+            match.clients.count(status => status === STATUS_ACCEPTED),
+          ),
+        ).catch(err => this.onError(err, match.clients.keys()))
       }
     } else {
       // All players have accepted
       this._cleanupMatch(match)
-      process.nextTick(() => this.onMatchAccepted(match.info, new List(match.clients.keys())))
+      Promise.resolve(this.onMatchAccepted(match.info, new List(match.clients.keys()))).catch(err =>
+        this.onError(err, match.clients.keys()),
+      )
     }
 
     return true
@@ -127,12 +133,12 @@ export default class MatchAcceptor {
   _declineMatch(match, clients) {
     const requeueClients = clients.get(true)
     const kickClients = clients.get(false)
-    process.nextTick(() =>
+    Promise.resolve(
       this.onMatchDeclined(
         match.info,
         requeueClients ? requeueClients.keys() : [],
         kickClients ? kickClients.keys() : [],
       ),
-    )
+    ).catch(err => this.onError(err, match.clients.keys()))
   }
 }
