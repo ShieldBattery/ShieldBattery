@@ -1,4 +1,4 @@
-import { Map, Record } from 'immutable'
+import { List, Map, Record } from 'immutable'
 import cuid from 'cuid'
 
 const STATUS_UNACCEPTED = 0
@@ -18,20 +18,23 @@ const Match = new Record({
 export default class MatchAcceptor {
   // acceptTimeMs is the max time (in milliseconds) that clients will be given to accept. If a match
   //    is not accepted in this time period, it will be declined.
-  // onMatchAccepted is a `function(matchInfo, clients)` that will be called when all clients for a
-  //    match have accepted it (params will be what is passed into `addMatch` originally)
-  // onMatchDeclined is a `function(matchInfo, requeueClients, kickClients)` that will be called
-  //    when a match is declined (either due to timeout, or a client leaving the queue before the
-  //    match was fully accepted). `requeueClients` is an iterable of clients who should be
-  //    requeued, `kickClients` is an iterable of clients who should be removed from the queue.
   // onAcceptProgress is a `function(matchInfo, total, accepted)` that will be called whenever a new
   //    player has accepted the match. `total` is the total count of players in the match,
   //    `accepted` is the count of players that have accepted the match
-  constructor(acceptTimeMs, onMatchAccepted, onMatchDeclined, onAcceptProgress) {
+  // onAccepted is a `function(matchInfo, clients)` that will be called when all clients for a match
+  //    have accepted it (params will be what is passed into `addMatch` originally)
+  // onDeclined is a `function(matchInfo, requeueClients, kickClients)` that will be called when a
+  //    match is declined (either due to timeout, or a client leaving the queue before the
+  //    match was fully accepted). `requeueClients` is an iterable of clients who should be
+  //    requeued, `kickClients` is an iterable of clients who should be removed from the queue.
+  // onError is a `function(error, clients)` that will be called whenever any of the above functions
+  //    fail.
+  constructor(acceptTimeMs, { onAcceptProgress, onAccepted, onDeclined, onError }) {
     this.acceptTimeMs = acceptTimeMs
-    this.onMatchAccepted = onMatchAccepted
-    this.onMatchDeclined = onMatchDeclined
     this.onAcceptProgress = onAcceptProgress
+    this.onAccepted = onAccepted
+    this.onDeclined = onDeclined
+    this.onError = onError
 
     this.matches = new Map()
     this.clientToMatchId = new Map()
@@ -89,16 +92,20 @@ export default class MatchAcceptor {
       // Still waiting on at least one player
       if (oldMatch !== match) {
         this.matches = this.matches.set(id, match)
-        this.onAcceptProgress(
-          match.info,
-          match.clients.size,
-          match.clients.count(status => status === STATUS_ACCEPTED),
-        )
+        Promise.resolve(
+          this.onAcceptProgress(
+            match.info,
+            match.clients.size,
+            match.clients.count(status => status === STATUS_ACCEPTED),
+          ),
+        ).catch(err => this.onError(err, match.clients.keys()))
       }
     } else {
       // All players have accepted
       this._cleanupMatch(match)
-      process.nextTick(() => this.onMatchAccepted(match.info, match.clients.keys()))
+      Promise.resolve(this.onAccepted(match.info, new List(match.clients.keys()))).catch(err =>
+        this.onError(err, match.clients.keys()),
+      )
     }
 
     return true
@@ -127,12 +134,12 @@ export default class MatchAcceptor {
   _declineMatch(match, clients) {
     const requeueClients = clients.get(true)
     const kickClients = clients.get(false)
-    process.nextTick(() =>
-      this.onMatchDeclined(
+    Promise.resolve(
+      this.onDeclined(
         match.info,
         requeueClients ? requeueClients.keys() : [],
         kickClients ? kickClients.keys() : [],
       ),
-    )
+    ).catch(err => this.onError(err, match.clients.keys()))
   }
 }

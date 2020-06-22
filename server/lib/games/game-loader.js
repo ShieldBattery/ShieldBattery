@@ -106,7 +106,7 @@ export class GameLoader {
     if (LoadingDatas.isAllFinished(loadingData)) {
       // TODO(tec27): register this game in the DB for accepting results
       this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve(loadingData.players)
+      loadingData.deferred.resolve()
     }
   }
 
@@ -136,9 +136,9 @@ export class GameLoader {
         deferred: gameLoaded,
       }),
     )
-    if (onGameSetup) {
-      onGameSetup({ gameId, seed: generateSeed() })
-    }
+    const onGameSetupResult = onGameSetup
+      ? onGameSetup({ gameId, seed: generateSeed() })
+      : Promise.resolve()
 
     const hasMultipleHumans = players.size > 1
     const pingPromise = !hasMultipleHumans
@@ -166,14 +166,16 @@ export class GameLoader {
 
     for (const [player, routes] of routesByPlayer.entries()) {
       if (onRoutesSet) {
-        onRoutesSet(player.name, routes)
+        onRoutesSet(player.name, routes, gameId)
       }
     }
     if (!hasMultipleHumans) {
       if (onRoutesSet) {
-        onRoutesSet(players.first().name, [])
+        onRoutesSet(players.first().name, [], gameId)
       }
     }
+
+    await onGameSetupResult
 
     cancelToken.throwIfCancelling()
     return gameLoaded

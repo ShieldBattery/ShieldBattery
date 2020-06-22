@@ -3,6 +3,10 @@ import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 import activityRegistry from '../games/gameplay-activity-registry'
+import gameLoader from '../games/game-loader'
+import { createHuman } from '../lobbies/slot'
+import { getMapInfo } from '../models/maps'
+import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
 import {
@@ -47,81 +51,127 @@ export class MatchmakingApi {
     this.matchmakers = new Map(
       MATCHMAKING_TYPES.map(type => [
         type,
-        new TimedMatchmaker(MATCHMAKING_INTERVAL, this._onMatchFound),
+        new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
       ]),
     )
     this.acceptor = new MatchAcceptor(
       MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
-      this._onMatchAccepted,
-      this._onMatchDeclined,
-      this._onMatchAcceptProgress,
+      this.matchAcceptorDelegate,
     )
 
     this.queueEntries = new Map()
   }
 
-  _onMatchFound = (player, opponent) => {
-    const { type } = this.queueEntries.get(player.name)
-    const matchInfo = new Match({
-      type,
-      players: new List([player, opponent]),
-    })
-    this.acceptor.addMatch(matchInfo, [
-      activityRegistry.getClientForUser(player.name),
-      activityRegistry.getClientForUser(opponent.name),
-    ])
+  matchmakerDelegate = {
+    onMatchFound: (player, opponent) => {
+      const { type } = this.queueEntries.get(player.name)
+      const matchInfo = new Match({
+        type,
+        players: new List([player, opponent]),
+      })
+      this.acceptor.addMatch(matchInfo, [
+        activityRegistry.getClientForUser(player.name),
+        activityRegistry.getClientForUser(opponent.name),
+      ])
 
-    this._publishToActiveClient(player.name, {
-      type: 'matchFound',
-      numPlayers: 2,
-    })
-    this._publishToActiveClient(opponent.name, {
-      type: 'matchFound',
-      numPlayers: 2,
-    })
-  }
-
-  _onMatchAcceptProgress = (matchInfo, total, accepted) => {
-    for (const player of matchInfo.players) {
       this._publishToActiveClient(player.name, {
-        type: 'playerAccepted',
-        acceptedPlayers: accepted,
+        type: 'matchFound',
+        numPlayers: 2,
       })
-    }
+      this._publishToActiveClient(opponent.name, {
+        type: 'matchFound',
+        numPlayers: 2,
+      })
+    },
   }
 
-  _onMatchAccepted = (matchInfo, clients) => {
-    this.queueEntries = this.queueEntries.withMutations(map => {
+  matchAcceptorDelegate = {
+    onAcceptProgress: (matchInfo, total, accepted) => {
+      for (const player of matchInfo.players) {
+        this._publishToActiveClient(player.name, {
+          type: 'playerAccepted',
+          acceptedPlayers: accepted,
+        })
+      }
+    },
+    onAccepted: async (matchInfo, clients) => {
+      const players = clients.map(c => createHuman(c.name))
+      await gameLoader.loadGame(
+        players,
+        setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, players, setup),
+        (playerName, routes, gameId) =>
+          this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
+      )
+      this.gameLoaderDelegate.onGameLoaded(clients)
+    },
+    onDeclined: (matchInfo, requeueClients, kickClients) => {
+      this.queueEntries = this.queueEntries.withMutations(map => {
+        for (const client of kickClients) {
+          map.delete(client)
+          this._publishToActiveClient(client.name, {
+            type: 'acceptTimeout',
+          })
+          this._unregisterActivity(client)
+        }
+      })
+
+      for (const client of requeueClients) {
+        const player = matchInfo.players.find(p => p.name === client.name)
+        this.matchmakers.get(matchInfo.type).addToQueue(player)
+        this._publishToActiveClient(client.name, {
+          type: 'requeue',
+        })
+      }
+    },
+    onError: (err, clients) => {
       for (const client of clients) {
-        map.delete(client.name)
-        // TODO(tec27): Write code to actually deal with game init, instead of doing this
         this._publishToActiveClient(client.name, {
-          type: 'matchReady',
-          players: matchInfo.players,
+          type: 'cancelLoading',
+          reason: err.message,
         })
         this._unregisterActivity(client)
       }
-    })
+    },
   }
 
-  _onMatchDeclined = (matchInfo, requeueClients, kickClients) => {
-    this.queueEntries = this.queueEntries.withMutations(map => {
-      for (const client of kickClients) {
-        map.delete(client)
-        this._publishToActiveClient(client.name, {
-          type: 'acceptTimeout',
-        })
+  gameLoaderDelegate = {
+    onGameSetup: async (matchInfo, clients, players, setup = {}) => {
+      // TODO(2Pac): Select map intelligently based on user's preference
+      const mapPool = await getCurrentMapPool(matchInfo.type)
+      if (!mapPool) {
+        throw new Error('invalid map pool')
+      }
+
+      const mapInfo = (await getMapInfo(mapPool.maps))[0]
+      if (!mapInfo) {
+        throw new Error('invalid map')
+      }
+
+      this.queueEntries = this.queueEntries.withMutations(map => {
+        for (const client of clients) {
+          map.delete(client.name)
+          this._publishToActiveClient(client.name, {
+            type: 'matchReady',
+            setup,
+            players,
+            matchInfo,
+            mapInfo,
+          })
+        }
+      })
+    },
+    onRoutesSet: (clients, playerName, routes, gameId) => {
+      this._publishToActiveClient(playerName, {
+        type: 'setRoutes',
+        routes,
+        gameId,
+      })
+    },
+    onGameLoaded: clients => {
+      for (const client of clients) {
         this._unregisterActivity(client)
       }
-    })
-
-    for (const client of requeueClients) {
-      const player = matchInfo.players.find(p => p.name === client.name)
-      this.matchmakers.get(matchInfo.type).addToQueue(player)
-      this._publishToActiveClient(client.name, {
-        type: 'requeue',
-      })
-    }
+    },
   }
 
   _handleLeave = client => {
