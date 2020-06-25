@@ -540,7 +540,7 @@ impl BwScr {
             let async_handle = crate::async_handle();
             let mut sdf_cache = sdf_cache.clone().lock_owned();
             async_handle.spawn(async move {
-                let exe_hash = hash_exe_header(base as *const u8);
+                let exe_hash = pe_image::hash_pe_header(base as *const u8);
                 *sdf_cache = Some(SdfCache::init(exe_hash).await);
             });
 
@@ -588,14 +588,6 @@ impl BwScr {
             }
         }
     }
-}
-
-/// Exe hash for SDF cache.
-///
-/// I believe that the PE header in memory does not change based on relocations or such..
-/// But if I'm wrong then the hash could be just PE section offsets + sizes.
-unsafe fn hash_exe_header(exe_base: *const u8) -> u32 {
-    fxhash::hash32(std::slice::from_raw_parts(exe_base, 0x400))
 }
 
 impl bw::Bw for BwScr {
