@@ -1747,7 +1747,9 @@ pub fn hide_window() {
     });
     if let Some(handle) = handle {
         unsafe {
-            ShowWindow(handle, SW_HIDE);
+            with_scr_hooks_disabled(|| {
+                ShowWindow(handle, SW_HIDE);
+            });
         }
     }
 }
