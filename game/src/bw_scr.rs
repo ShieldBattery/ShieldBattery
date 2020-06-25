@@ -1,5 +1,6 @@
 mod file_hook;
 mod pe_image;
+mod sdf_cache;
 mod thiscall;
 
 use std::marker::PhantomData;
@@ -15,6 +16,8 @@ use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use crate::bw;
 use crate::snp;
+
+use sdf_cache::{InitSdfCache, SdfCache};
 
 const NET_PLAYER_COUNT: usize = 12;
 
@@ -33,6 +36,7 @@ pub struct BwScr {
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
+    fonts: Value<*mut *mut scr::Font>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
     maybe_receive_turns: unsafe extern "C" fn(),
@@ -47,12 +51,17 @@ pub struct BwScr {
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
+    ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
+    font_cache_render_ascii: scarf::VirtualAddress,
+    ttf_render_sdf: scarf::VirtualAddress,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
+
+    sdf_cache: Arc<InitSdfCache>,
 }
 
 struct SendPtr<T>(T);
@@ -235,6 +244,26 @@ mod scr {
         pub copy: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
         pub safety_padding: [usize; 0x20],
     }
+
+    #[repr(C)]
+    pub struct Font {
+        pub unk0: [u8; 0x14],
+        pub ttf: *mut TtfSet,
+    }
+
+    #[repr(C)]
+    pub struct TtfSet {
+        pub fonts: [TtfFont; 5],
+    }
+
+    #[repr(C)]
+    pub struct TtfFont {
+        pub unk0: [u8; 0x4],
+        pub raw_ttf: *mut u8,
+        pub unk8: [u8; 0x78],
+        pub scale: f32,
+        pub unk94: [u8; 0x1c],
+    }
 }
 
 // Actually thiscall, but that isn't available in stable Rust (._.)
@@ -261,6 +290,7 @@ unsafe extern "stdcall" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
 /// Though using a smaller size than what the value internally is will
 /// truncate any read data to that size.
 /// (So maybe using Value<u32> always would be fine?)
+#[derive(Copy, Clone)]
 struct Value<T> {
     op: scarf::Operand<'static>,
     phantom: PhantomData<T>,
@@ -420,9 +450,14 @@ impl BwScr {
             .ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
         let local_player_name = analysis.local_player_name().ok_or("Local player name")?;
+        let fonts = analysis.fonts().ok_or("Fonts")?;
         let init = analysis.init_storm_networking();
         let init_storm_networking = init.init_storm_networking.ok_or("init_storm_networking")?;
         let load_snp_list = init.load_snp_list.ok_or("load_snp_list")?;
+        let font_cache_render_ascii = analysis.font_cache_render_ascii()
+            .ok_or("font_cache_render_ascii")?;
+        let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
+        let ttf_render_sdf = analysis.ttf_render_sdf().ok_or("ttf_render_sdf")?;
         let lobby_create_callback_offset =
             analysis.create_game_dialog_vtbl_on_multiplayer_create()
                 .ok_or("Lobby create callback vtable offset")?;
@@ -442,7 +477,9 @@ impl BwScr {
         };
 
         debug!("Found all necessary BW data");
+
         let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
+        let sdf_cache = Arc::new(InitSdfCache::new());
         Ok(BwScr {
             game: Value::new(ctx, game),
             players: Value::new(ctx, players),
@@ -458,6 +495,7 @@ impl BwScr {
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
+            fonts: Value::new(ctx, fonts),
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             maybe_receive_turns: unsafe { mem::transmute(maybe_receive_turns.0) },
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
@@ -467,33 +505,47 @@ impl BwScr {
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
+            ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
             load_snp_list,
             mainmenu_entry_hook,
             open_file,
             lobby_create_callback_offset,
+            font_cache_render_ascii,
+            ttf_render_sdf,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
+            sdf_cache,
         })
     }
 
     pub unsafe fn patch_game(self: Arc<Self>, image: *mut u8) {
+        use self::hooks::*;
         debug!("Patching SCR");
         let base = GetModuleHandleW(null()) as *mut _;
-        let mut active_patcher = crate::PATCHER.lock().unwrap();
+        let mut active_patcher = crate::PATCHER.lock();
         let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
         let base = base as usize;
         let address = self.mainmenu_entry_hook.0 as usize - base;
         exe.hook_closure_address(GameInit, move |_| {
             debug!("SCR game init hook");
-            // BW initializes its internal SNP list with a static constructor,
-            // but patch_game() is called even before that, so overwrite the
-            // list at GameInit hook.
             crate::process_init_hook();
         }, address);
         // This function being run while Windows loader lock is held, crate::initialize
         // cannot be called so hook the exe's entry point and call it from there.
         let address = pe_entry_point_offset(base as *const u8);
+        let sdf_cache = self.sdf_cache.clone();
         exe.hook_closure_address(EntryPoint, move |orig| {
+            // crate::initialize initializes the async runtime, letting us to start
+            // loading SDF cache.
             crate::initialize();
+            let async_handle = crate::async_handle();
+            let mut sdf_cache = sdf_cache.clone().lock_owned();
+            async_handle.spawn(async move {
+                let exe_hash = hash_exe_header(base as *const u8);
+                *sdf_cache = Some(SdfCache::init(exe_hash).await);
+            });
+
+            // This function is practically SCR's main(), so it won't return and any code
+            // below will not be ran.
             orig();
         }, address);
 
@@ -504,6 +556,8 @@ impl BwScr {
             let address = open_file.0 as usize - base;
             exe.hook_closure_address(OpenFile, file_hook::open_file_hook, address);
         }
+
+        sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
         drop(exe);
         crate::forge::init_hooks_scr(&mut active_patcher);
@@ -534,6 +588,14 @@ impl BwScr {
             }
         }
     }
+}
+
+/// Exe hash for SDF cache.
+///
+/// I believe that the PE header in memory does not change based on relocations or such..
+/// But if I'm wrong then the hash could be just PE section offsets + sizes.
+unsafe fn hash_exe_header(exe_base: *const u8) -> u32 {
+    fxhash::hash32(std::slice::from_raw_parts(exe_base, 0x400))
 }
 
 impl bw::Bw for BwScr {
@@ -777,16 +839,36 @@ unsafe extern "stdcall" fn snp_load_bind(
     1
 }
 
-whack_hooks!(0, // cdecl
-    !0 => GameInit();
-    !0 => EntryPoint();
-    !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
-        *mut scr::FileHandle;
-);
+#[allow(bad_style)]
+mod hooks {
+    use libc::c_void;
 
-whack_hooks!(stdcall, 0,
-    !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
-);
+    use super::scr;
+
+    whack_hooks!(0, // cdecl
+        !0 => GameInit();
+        !0 => EntryPoint();
+        !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
+            *mut scr::FileHandle;
+        !0 => FontCacheRenderAscii(@ecx *mut c_void);
+        !0 => Ttf_RenderSdf(
+            *mut scr::TtfFont,
+            f32,
+            u32, // glyph id
+            u32, // a4 border
+            u32, // a5 edge_value
+            f32,
+            *mut u32, // a7 out width pixels
+            *mut u32, // a8 out width pixels
+            *mut u32, // a9 out x unk (unused)
+            *mut u32, // a10 out y unk (unused)
+        ) -> *mut u8;
+    );
+
+    whack_hooks!(stdcall, 0,
+        !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
+    );
+}
 
 // Inline asm is only on nightly rust, so..
 // mov eax, fs:[0x2c]; ret

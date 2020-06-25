@@ -27,11 +27,12 @@ use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use lazy_static::lazy_static;
 use libc::c_void;
+use parking_lot::Mutex;
 use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
 use winapi::um::winnt::EXCEPTION_POINTERS;
 
@@ -283,6 +284,7 @@ pub unsafe extern "stdcall" fn SnpBind(index: u32, functions: *mut *const bw::Sn
 
 lazy_static! {
     static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
+    static ref ASYNC_RUNTIME: Mutex<Option<tokio::runtime::Handle>> = Mutex::new(None);
 }
 
 fn initialize() {
@@ -393,6 +395,8 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  not the main task which receives messages from game_state.
     //  Not sure if that's the smartest way to do that.
     let mut runtime = tokio::runtime::Runtime::new().unwrap();
+    let handle = runtime.handle();
+    *ASYNC_RUNTIME.lock() = Some(handle.clone());
     runtime.block_on(future::lazy(|_| ()).then(|()| {
         let (websocket_send, websocket_recv) = tokio::sync::mpsc::channel(32);
         let (game_state_send, game_state_recv) = tokio::sync::mpsc::channel(128);
@@ -419,8 +423,16 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             debug!("Main async task ended");
         }).map(|_| ())
     }));
+    drop(runtime);
     info!("Async thread end");
     std::process::exit(0);
+}
+
+/// Obtains a handle to async runtime, which can be used to spawn additional tasks
+/// that would block on sync I/O.
+/// Currently this is used to eagerly open some filesystem files to speed up SCR loading.
+fn async_handle() -> tokio::runtime::Handle {
+    ASYNC_RUNTIME.lock().as_ref().expect("Async runtime was not initialized").clone()
 }
 
 struct Args {
@@ -430,6 +442,9 @@ struct Args {
     is_scr: bool,
 }
 
+// TODO: This function should probably cache the result instead of recomputing
+// it several times. It's not really slow relative to anything but unnecessary
+// work is unnecessary.
 fn parse_args() -> Args {
     try_parse_args().unwrap_or_else(|| {
         let args = std::env::args_os().collect::<Vec<_>>();

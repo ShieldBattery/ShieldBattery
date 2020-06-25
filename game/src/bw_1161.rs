@@ -219,7 +219,7 @@ unsafe fn patch_game() {
         CreateFileA(*const i8, u32, u32, *mut c_void, u32, u32, *mut c_void) -> HANDLE
     );
 
-    let mut active_patcher = crate::PATCHER.lock().unwrap();
+    let mut active_patcher = crate::PATCHER.lock();
     crate::forge::init_hooks_1161(&mut active_patcher);
     snp::init_hooks(&mut active_patcher);
 
