@@ -21,7 +21,7 @@ pub unsafe fn init_crash_handler() {
     SetUnhandledExceptionFilter(Some(exception_handler));
     let kernel32 = windows::load_library("kernel32").unwrap();
     let address = kernel32.proc_address("SetUnhandledExceptionFilter").unwrap();
-    let mut patcher = crate::PATCHER.lock().unwrap();
+    let mut patcher = crate::PATCHER.lock();
     let mut patcher = patcher.patch_library("kernel32", 0);
     patcher.hook_closure_address(
         SetUnhandledExceptionFilterDecl,

@@ -44,6 +44,19 @@ pub unsafe fn get_section(base: *const u8, name: &[u8; 8]) -> Option<BinarySecti
     }).next()
 }
 
+/// Exe hash for SDF cache etc.
+///
+/// Hashes section header data, assuming that no meaningful
+/// recompilation of game gives exact same section sizes.
+pub unsafe fn hash_pe_header(base: *const u8) -> u32 {
+    let pe_header_offset = read_u32(base, 0x3c);
+    let pe_header = base.offset(pe_header_offset as isize);
+    let section_count = read_u16(pe_header, 6);
+    let section_headers =
+        std::slice::from_raw_parts(pe_header.add(0xf8), section_count as usize * 0x28);
+    fxhash::hash32(section_headers)
+}
+
 unsafe fn read_u32(base: *const u8, offset: usize) -> u32 {
     (base.add(offset) as *const u32).read_unaligned()
 }
