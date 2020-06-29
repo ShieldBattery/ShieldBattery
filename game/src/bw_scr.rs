@@ -1,3 +1,4 @@
+mod commands;
 mod file_hook;
 mod pe_image;
 mod sdf_cache;
@@ -8,13 +9,15 @@ use std::mem;
 use std::path::Path;
 use std::ptr::{null};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use byteorder::{ByteOrder, LittleEndian};
 use lazy_static::lazy_static;
 use libc::c_void;
 use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
-use crate::bw;
+use crate::bw::{self, Bw};
 use crate::snp;
 
 use sdf_cache::{InitSdfCache, SdfCache};
@@ -56,12 +59,16 @@ pub struct BwScr {
     load_snp_list: scarf::VirtualAddress,
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
+    process_game_commands: scarf::VirtualAddress,
+    game_command_lengths: Vec<u32>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
+    // State
     sdf_cache: Arc<InitSdfCache>,
+    is_replay_seeking: AtomicBool,
 }
 
 struct SendPtr<T>(T);
@@ -461,6 +468,9 @@ impl BwScr {
         let lobby_create_callback_offset =
             analysis.create_game_dialog_vtbl_on_multiplayer_create()
                 .ok_or("Lobby create callback vtable offset")?;
+        let process_game_commands = analysis.process_commands().process_commands
+            .ok_or("process_game_commands")?;
+        let game_command_lengths = (*analysis.command_lengths()).clone();
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
@@ -512,8 +522,11 @@ impl BwScr {
             lobby_create_callback_offset,
             font_cache_render_ascii,
             ttf_render_sdf,
+            process_game_commands,
+            game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
+            is_replay_seeking: AtomicBool::new(false),
         })
     }
 
@@ -551,6 +564,31 @@ impl BwScr {
 
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
+
+        let address = self.process_game_commands.0 as usize - base;
+        let this = self.clone();
+        exe.hook_closure_address(
+            ProcessGameCommands,
+            move |data, len, are_recorded_replay_commands, orig| {
+                let slice = std::slice::from_raw_parts(data, len);
+                if are_recorded_replay_commands == 0 {
+                    for command in commands::iter_commands(slice, &this.game_command_lengths) {
+                        match command {
+                            [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
+                                let frame = LittleEndian::read_u32(rest);
+                                let game = this.game();
+                                if (*game).frame_count > frame {
+                                    this.is_replay_seeking.store(true, Ordering::Relaxed);
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                orig(data, len, are_recorded_replay_commands);
+            },
+            address,
+        );
 
         if let Some(open_file) = self.open_file {
             let address = open_file.0 as usize - base;
@@ -592,8 +630,17 @@ impl BwScr {
 
 impl bw::Bw for BwScr {
     unsafe fn run_game_loop(&self) {
-        self.game_state.write(3); // Playing
-        (self.game_loop)();
+        loop {
+            self.game_state.write(3); // Playing
+            (self.game_loop)();
+            // Replay seeking exits game loop and sets a bool for it to restart,
+            // we don't have access to that bool but we hook the replay seek
+            // command and set our own
+            if self.is_replay_seeking.load(Ordering::Relaxed) == false {
+                break;
+            }
+            self.is_replay_seeking.store(false, Ordering::Relaxed);
+        }
     }
 
     unsafe fn clean_up_for_exit(&self) {
@@ -855,6 +902,7 @@ mod hooks {
             *mut u32, // a9 out x unk (unused)
             *mut u32, // a10 out y unk (unused)
         ) -> *mut u8;
+        !0 => ProcessGameCommands(*const u8, usize, u32);
     );
 
     whack_hooks!(stdcall, 0,
