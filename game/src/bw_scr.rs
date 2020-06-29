@@ -7,7 +7,7 @@ mod thiscall;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::Path;
-use std::ptr::{null};
+use std::ptr::{null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -598,6 +598,18 @@ impl BwScr {
         sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
         drop(exe);
+
+        {
+            let kernel32 = crate::windows::load_library("kernel32").unwrap();
+            let mut patcher = active_patcher.patch_library("kernel32", 0);
+            let kernel32_base = kernel32.handle() as usize;
+            let address = kernel32.proc_address("CreateEventW").unwrap() as usize;
+            patcher.hook_closure_address(
+                CreateEventW,
+                create_event_hook,
+                address - kernel32_base,
+            );
+        }
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
     }
@@ -818,6 +830,40 @@ impl bw::Bw for BwScr {
     }
 }
 
+fn create_event_hook(
+    security: *mut c_void,
+    init_state: u32,
+    manual_reset: u32,
+    name: *const u16,
+    orig: unsafe extern fn(*mut c_void, u32, u32, *const u16) -> *mut c_void,
+) -> *mut c_void {
+    unsafe {
+        use winapi::um::errhandlingapi::SetLastError;
+        if !name.is_null() {
+            let name_len = (0..).find(|&i| *name.add(i) == 0).unwrap();
+            let name = std::slice::from_raw_parts(name, name_len);
+            if ascii_compare_u16_u8(name, b"Starcraft Check For Other Instances") {
+                // BW just checks last error to be ERROR_ALREADY_EXISTS
+                SetLastError(0);
+                return null_mut();
+            }
+        }
+        orig(security, init_state, manual_reset, name)
+    }
+}
+
+fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    for i in 0..a.len() {
+        if a[i] >= 0x80 || a[i] != b[i] as u16 {
+            return false;
+        }
+    }
+    true
+}
+
 fn load_snp_list_hook(
     _callbacks: *mut scr::SnpLoadFuncs,
     _count: u32,
@@ -907,6 +953,7 @@ mod hooks {
 
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
+        !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
     );
 }
 
