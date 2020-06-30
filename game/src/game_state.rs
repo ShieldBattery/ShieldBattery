@@ -34,9 +34,16 @@ pub struct GameState {
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
+    can_start_game: CanStartGame,
 }
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
+
+enum CanStartGame {
+    Yes,
+    /// Tasks waiting for start permission push wakeup sender here
+    No(Vec<oneshot::Sender<()>>),
+}
 
 enum InitState {
     WaitingForInput(IncompleteInit),
@@ -76,6 +83,7 @@ pub enum GameStateMessage {
     SetRoutes(Vec<Route>),
     SetLocalUser(LocalUser),
     SetupGame(GameSetupInfo),
+    AllowStart,
     Snp(snp::SnpMessage),
     InLobby,
     PlayerJoined,
@@ -193,6 +201,22 @@ impl GameState {
         send_game_request(&self.send_main_thread_requests, request_type)
     }
 
+    fn wait_can_start_game(&mut self) -> impl Future<Output = ()> {
+        let recv = match self.can_start_game {
+            CanStartGame::No(ref mut waiters) => {
+                let (send, recv) = oneshot::channel();
+                waiters.push(send);
+                Some(recv)
+            }
+            CanStartGame::Yes => None,
+        };
+        async move {
+            if let Some(recv) = recv {
+                let _ = recv.await;
+            }
+        }
+    }
+
     /// On success returns after the game is finished and results have been forwarded
     /// to the app.
     fn init_game(
@@ -236,6 +260,7 @@ impl GameState {
 
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
+        let allow_start = self.wait_can_start_game();
 
         self.init_main_thread
             .send(())
@@ -312,6 +337,7 @@ impl GameState {
                 }
             }
             debug!("All players have joined");
+            allow_start.await;
             unsafe {
                 do_lobby_game_init(&info);
             }
@@ -342,6 +368,16 @@ impl GameState {
             }
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
+            }
+            AllowStart => {
+                match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
+                    CanStartGame::Yes => (),
+                    CanStartGame::No(waiting) => {
+                        for sender in waiting {
+                            let _ = sender.send(());
+                        }
+                    }
+                }
             }
             SetupGame(info) => {
                 let mut ws_send = self.ws_send.clone();
@@ -895,6 +931,7 @@ pub async fn create_future(
         send_main_thread_requests,
         running_game: None,
         async_stop,
+        can_start_game: CanStartGame::No(Vec::new()),
     };
     let mut internal_recv = internal_recv.fuse();
     let mut messages = messages.fuse();

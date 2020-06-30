@@ -158,6 +158,9 @@ fn handle_app_message<'a>(text: String) -> Result<MessageResult, HandleMessageEr
             let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
+        "allowStart" => {
+            Ok(MessageResult::Game(GameStateMessage::AllowStart))
+        }
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         _ => Err(HandleMessageError::UnknownCommand(message.command)),
