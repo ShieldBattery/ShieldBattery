@@ -10,6 +10,7 @@ import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
   GAME_STATUS_CONFIGURING,
+  GAME_STATUS_STARTING,
   GAME_STATUS_PLAYING,
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
@@ -117,8 +118,18 @@ export default class ActiveGameManager extends EventEmitter {
     if (current && current.config) {
       this.emit('gameCommand', gameId, 'routes', routes)
       this.emit('gameCommand', gameId, 'setupGame', current.config.setup)
-      this.emit('gameCommand', gameId, 'allowStart')
     }
+  }
+
+  allowStart(waitTime = 2000) {
+    if (!this.activeGame) {
+      return
+    }
+
+    this._setStatus(GAME_STATUS_STARTING)
+    setTimeout(() => {
+      this.emit('gameCommand', this.activeGame.id, 'allowStart')
+    }, waitTime)
   }
 
   async handleGameConnected(id) {

@@ -645,24 +645,23 @@ export class LobbyApi {
     this._publishListChange('delete', lobby.name)
 
     try {
-      await timer
+      const gameLoaded = gameLoader.loadGame(
+        getHumanSlots(lobby),
+        setup => this._onGameSetup(lobby, setup),
+        (playerName, routes, gameId) => this._onRoutesSet(lobby, playerName, routes, gameId),
+      )
+
+      await Promise.all([timer, gameLoaded])
       this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      this._onGameLoaded(lobby)
+    } catch (err) {
+      this._maybeCancelCountdown(lobby)
+      this._onLoadingCanceled(lobby)
     } finally {
       if (timerId) {
         clearTimeout(timerId)
         timerId = null
       }
-    }
-
-    try {
-      await gameLoader.loadGame(
-        getHumanSlots(lobby),
-        setup => this._onGameSetup(lobby, setup),
-        (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
-      )
-      this._onGameLoaded(lobby)
-    } catch (err) {
-      this._onLoadingCanceled(lobby)
     }
   }
 
@@ -674,10 +673,11 @@ export class LobbyApi {
     })
   }
 
-  _onRoutesSet(lobby, playerName, routes) {
+  _onRoutesSet(lobby, playerName, routes, gameId) {
     this._publishToClient(lobby, playerName, {
       type: 'setRoutes',
       routes,
+      gameId,
     })
   }
 
