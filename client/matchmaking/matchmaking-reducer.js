@@ -1,4 +1,4 @@
-import { List, Map, Record } from 'immutable'
+import { List, Map, Record, Set } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   MAPS_TOGGLE_FAVORITE,
@@ -9,6 +9,11 @@ import {
   MATCHMAKING_GET_CURRENT_MAP_POOL,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
+  MATCHMAKING_UPDATE_COUNTDOWN_START,
+  MATCHMAKING_UPDATE_COUNTDOWN_TICK,
+  MATCHMAKING_UPDATE_GAME_STARTING,
+  MATCHMAKING_UPDATE_GAME_STARTED,
+  MATCHMAKING_UPDATE_LOADING_CANCELED,
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
@@ -16,9 +21,19 @@ import {
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
 
+export const Player = new Record({
+  id: null,
+  name: null,
+  race: null,
+  teamId: null,
+})
 const Match = new Record({
   numPlayers: 0,
   acceptedPlayers: 0,
+  players: new List(),
+  preferredMaps: new Set(),
+  randomMaps: new Set(),
+  chosenMap: null,
 })
 const MapPool = new Record({
   id: null,
@@ -35,6 +50,11 @@ export const MatchmakingState = new Record({
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
+  isLoading: false,
+  isCountingDown: false,
+  countdownTimer: -1,
+  isStarting: false,
+
   match: null,
   mapPoolTypes: new Map(),
 })
@@ -116,8 +136,34 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   [MATCHMAKING_UPDATE_MATCH_READY](state, action) {
-    const { players } = action.payload
-    return state.setIn(['match', 'acceptedPlayers'], Object.keys(players).length)
+    const { players, preferredMaps, randomMaps, chosenMap } = action.payload
+    return state
+      .setIn(['match', 'acceptedPlayers'], Object.keys(players).length)
+      .setIn(['match', 'players'], new List(players.map(p => new Player(p))))
+      .setIn(['match', 'preferredMaps'], new Set(preferredMaps.map(m => new MapRecord(m))))
+      .setIn(['match', 'randomMaps'], new Set(randomMaps.map(m => new MapRecord(m))))
+      .setIn(['match', 'chosenMap'], new MapRecord(chosenMap))
+      .set('isLoading', true)
+  },
+
+  [MATCHMAKING_UPDATE_COUNTDOWN_START](state, action) {
+    return state.set('isCountingDown', true).set('countdownTimer', action.payload)
+  },
+
+  [MATCHMAKING_UPDATE_COUNTDOWN_TICK](state, action) {
+    return state.set('countdownTimer', action.payload)
+  },
+
+  [MATCHMAKING_UPDATE_GAME_STARTING](state, action) {
+    return state.set('isStarting', true).set('isCountingDown', false)
+  },
+
+  [MATCHMAKING_UPDATE_GAME_STARTED](state, action) {
+    return state.set('isStarting', false).set('isLoading', false)
+  },
+
+  [MATCHMAKING_UPDATE_LOADING_CANCELED](state, action) {
+    return new MatchmakingState()
   },
 
   [NETWORK_SITE_CONNECTED](state, action) {

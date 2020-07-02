@@ -13,10 +13,10 @@ export default keyedReducer(new ActiveGame(), {
 
   [ACTIVE_GAME_STATUS](state, action) {
     const { state: status } = action.payload
-    if (status === 'unknown' || status === 'finished' || status === 'error') {
-      return state.set('isActive', false)
-    } else {
+    if (status === 'playing') {
       return state.set('isActive', true)
+    } else {
+      return state.set('isActive', false)
     }
   },
 })

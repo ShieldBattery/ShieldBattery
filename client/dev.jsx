@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import DevActivities from './activities/devonly/routes.jsx'
 import DevLists from './lists/devonly/routes.jsx'
 import DevLobbies from './lobbies/devonly/routes.jsx'
+import DevMatchmaking from './matchmaking/devonly/routes.jsx'
 import DevMaterial from './material/devonly/routes.jsx'
 
 const Container = styled.div`
@@ -31,7 +32,10 @@ class DevDashboard extends React.Component {
             <Link to='/dev/lists'>List components</Link>
           </li>
           <li>
-            <Link to='/dev/lobbies'>Lobby-related components</Link>
+            <Link to='/dev/lobbies'>Lobby components</Link>
+          </li>
+          <li>
+            <Link to='/dev/matchmaking'>Matchmaking components</Link>
           </li>
           <li>
             <Link to='/dev/material'>Material components</Link>
@@ -52,6 +56,7 @@ export default class Dev extends React.Component {
           <Route path='/dev/activities' component={DevActivities} />
           <Route path='/dev/lists' component={DevLists} />
           <Route path='/dev/lobbies' component={DevLobbies} />
+          <Route path='/dev/matchmaking' component={DevMatchmaking} />
           <Route path='/dev/material' component={DevMaterial} />
         </Switch>
       </Container>
