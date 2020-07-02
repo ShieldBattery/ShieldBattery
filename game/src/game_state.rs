@@ -339,7 +339,7 @@ impl GameState {
             debug!("All players have joined");
             allow_start.await;
             unsafe {
-                do_lobby_game_init(&info);
+                do_lobby_game_init(&info).await;
             }
             forge::end_wnd_proc();
             app_socket::send_message(&mut ws_send, "/game/start", ()).await
@@ -823,8 +823,9 @@ async unsafe fn try_join_lobby_once(
     // network code actually do its job.
     let (send, recv) = oneshot::channel();
     std::thread::spawn(move || {
-        snp::spoof_game("shieldbattery", Ipv4Addr::new(10, 27, 27, 0));
-        let result = with_bw(|bw| bw.join_lobby(&mut game_info, &map_path));
+        let address = Ipv4Addr::new(10, 27, 27, 0);
+        snp::spoof_game("shieldbattery", address);
+        let result = with_bw(|bw| bw.join_lobby(&mut game_info, &map_path, address));
         let _ = send.send(result);
     });
 
@@ -868,10 +869,6 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
         } else {
             0
         };
-        let mut name = [0; 25];
-        for (i, &byte) in slot.name.as_bytes().iter().take(24).enumerate() {
-            name[i] = byte;
-        }
         *players.add(slot_id) = bw::Player {
             player_id: slot_id as u32,
             storm_id: match slot.is_human() {
@@ -887,8 +884,9 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
                 slot.bw_player_type()
             },
             team,
-            name,
+            name: [0; 25],
         };
+        with_bw(|bw| bw.set_player_name(slot_id as u8, &slot.name));
     }
 }
 
@@ -904,10 +902,20 @@ unsafe fn storm_player_names(bw: &dyn bw::Bw) -> Vec<Option<String>> {
     }).collect::<Vec<_>>()
 }
 
-unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
+async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
     with_bw(|bw| {
-        bw.do_lobby_game_init(info.seed)
+        bw.do_lobby_game_init(info.seed);
     });
+    loop {
+        let done = with_bw(|bw| {
+            bw.maybe_receive_turns();
+            bw.try_finish_lobby_game_init()
+        });
+        if done {
+            break;
+        }
+        tokio::time::delay_for(Duration::from_millis(20)).await;
+    }
 }
 
 pub async fn create_future(

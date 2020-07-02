@@ -55,7 +55,11 @@ impl bw::Bw for Bw1161 {
         };
         // We ask bw to handle lobby game init packet that was sent by host (storm id 0)
         on_lobby_game_init(0, &data);
+    }
+
+    unsafe fn try_finish_lobby_game_init(&self) -> bool {
         *lobby_state = 9;
+        true
     }
 
     unsafe fn create_lobby(
@@ -71,7 +75,9 @@ impl bw::Bw for Bw1161 {
         &self,
         game_info: &mut bw::JoinableGameInfo,
         map_path: &[u8],
+        _address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
+        assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
         let ok = join_game(game_info);
         if ok == 0 {
             return Err(storm::SErrGetLastError());
@@ -100,6 +106,14 @@ impl bw::Bw for Bw1161 {
 
     unsafe fn players(&self) -> *mut bw::Player {
         (*players).as_mut_ptr()
+    }
+
+    unsafe fn set_player_name(&self, id: u8, name: &str) {
+        let mut buffer = [0; 25];
+        for (i, &byte) in name.as_bytes().iter().take(24).enumerate() {
+            buffer[i] = byte;
+        }
+        (*self.players().add(id as usize)).name = buffer;
     }
 
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {

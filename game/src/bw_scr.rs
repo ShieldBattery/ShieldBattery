@@ -1,3 +1,4 @@
+mod bw_hash_table;
 mod commands;
 mod file_hook;
 mod pe_image;
@@ -9,13 +10,15 @@ use std::mem;
 use std::path::Path;
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use lazy_static::lazy_static;
 use libc::c_void;
+use parking_lot::Mutex;
 use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
+use winapi::shared::ntdef::HANDLE;
 
 use crate::bw::{self, Bw};
 use crate::snp;
@@ -27,7 +30,7 @@ const NET_PLAYER_COUNT: usize = 12;
 pub struct BwScr {
     game: Value<*mut bw::Game>,
     players: Value<*mut bw::Player>,
-    storm_players: Value<*mut bw::StormPlayer>,
+    storm_players: Value<*mut scr::StormPlayer>,
     storm_player_flags: Value<*mut u32>,
     lobby_state: Value<u8>,
     is_multiplayer: Value<u8>,
@@ -42,12 +45,16 @@ pub struct BwScr {
     fonts: Value<*mut *mut scr::Font>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
-    maybe_receive_turns: unsafe extern "C" fn(),
+    step_network: unsafe extern "C" fn(),
     select_map_entry: unsafe extern "C" fn(
         *mut scr::GameInput,
         *mut *const scr::LobbyDialogVtable,
         *mut scr::MapDirEntry,
     ) -> u32,
+    // arg 1 path, a2 out, a3 is_campaign, a4 unused?
+    init_map_from_path: unsafe extern "C" fn(*const u8, *mut c_void, u32, u32) -> u32,
+    join_game:
+        unsafe extern "C" fn(*mut scr::JoinableGameInfo, *mut scr::BwString, usize) -> u32,
     game_loop: unsafe extern "C" fn(),
     init_sprites: unsafe extern "C" fn(),
     init_game_network: unsafe extern "C" fn(),
@@ -55,11 +62,13 @@ pub struct BwScr {
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
     ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
+    send_command: unsafe extern "C" fn(*const u8, usize),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
     process_game_commands: scarf::VirtualAddress,
+    snet_initialize_provider: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
@@ -69,6 +78,7 @@ pub struct BwScr {
     // State
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
+    lobby_game_init_command_seen: AtomicBool,
 }
 
 struct SendPtr<T>(T);
@@ -271,6 +281,90 @@ mod scr {
         pub scale: f32,
         pub unk94: [u8; 0x1c],
     }
+
+    #[repr(C)]
+    pub struct JoinableGameInfo {
+        // String -> GameInfoValue
+        // Key offset in BwHashTableEntry is 0x8, Value offset 0x28
+        pub params: BwHashTable,
+        pub unk10: [u8; 0x24],
+        pub game_name: BwString,
+        pub sockaddr_family: u16,
+        // Network endian
+        pub port: u16,
+        pub ip: [u8; 4],
+        pub game_id: u64,
+        pub new_game_type: u32,
+        pub game_subtype: u32,
+        pub unk68: f32,
+        pub unk6c: u32,
+        pub timestamp: u64,
+        pub unk78: u8,
+        pub unk79: u8,
+        pub unk7a: [u8; 2],
+        // SEXP
+        pub product_id: u32,
+        // 0xe9
+        pub game_version: u32,
+        // Padding in the case struct grows or there are more fields
+        pub safety_padding: [u8; 0x24],
+    }
+
+    #[repr(C)]
+    pub struct GameInfoValue {
+        pub variant: u32,
+        pub padding: u32,
+        pub data: GameInfoValueUnion,
+    }
+
+    #[repr(C)]
+    pub union GameInfoValueUnion {
+        pub var1: [u8; 0x1c], // Actually a string
+        pub var2_3: u64,
+        pub var4: f64,
+        pub var5: u8,
+    }
+
+    #[repr(C)]
+    pub struct BwHashTable {
+        pub bucket_count: u32,
+        pub buckets: *mut *mut BwHashTableEntry,
+        pub size: u32,
+        pub resize_factor: f32,
+    }
+
+    #[repr(C)]
+    pub struct BwHashTableEntry {
+        pub next: *mut BwHashTableEntry,
+        // Key and value are placed in this struct at this point.
+        // I would want to assume that BwHashTableEntry<Key, Val>
+        // and just declaring key/val as fields would get key and value
+        // laid out same as SCR does, but for now just going to hardcode
+        // the offsets.
+        // It seems somewhat inconsistent whether key/value are
+        // 4-aligned or 8-aligned.
+        // As BwHashTable is used only once (as of this writing..), I don't
+        // want to spend time testing if the layout is correct or not.
+    }
+
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    pub struct StormPlayer {
+        pub state: u8,
+        pub unk1: u8,
+        pub flags: u16,
+        pub unk4: u16,
+        // Always 5, not useful for us
+        pub protocol_version: u16,
+        pub name: [u8; 0x60],
+    }
+
+    #[test]
+    fn struct_sizes() {
+        use std::mem::size_of;
+        assert_eq!(size_of::<JoinableGameInfo>(), 0x84 + 0x24);
+        assert_eq!(size_of::<StormPlayer>(), 0x68);
+    }
 }
 
 // Actually thiscall, but that isn't available in stable Rust (._.)
@@ -433,7 +527,7 @@ impl BwScr {
             .ok_or("init_network_player_info")?;
         let step = analysis.step_network();
         let storm_player_flags = step.net_player_flags.clone().ok_or("Storm player flags")?;
-        let maybe_receive_turns = step.step_network.ok_or("maybe_receive_turns")?;
+        let step_network = step.step_network.ok_or("step_network")?;
         let lobby_state = analysis.lobby_state().ok_or("Lobby state")?;
         let select_map_entry = analysis.select_map_entry();
         let is_multiplayer = select_map_entry.is_multiplayer.clone().ok_or("is_multiplayer")?;
@@ -442,11 +536,14 @@ impl BwScr {
         let game_state = game_init.scmain_state.clone().ok_or("Game state")?;
         let mainmenu_entry_hook = game_init.mainmenu_entry_hook.ok_or("Entry hook")?;
         let game_loop = game_init.game_loop.ok_or("Game loop")?;
+        let init_map_from_path = analysis.init_map_from_path().ok_or("init_map_from_path")?;
+        let join_game = analysis.join_game().ok_or("join_game")?;
         let init_sprites = analysis.load_images().ok_or("Init sprites")?;
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
         let process_lobby_commands = analysis.process_lobby_commands()
             .ok_or("Process lobby commands")?;
+        let send_command = analysis.send_command().ok_or("send_command")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
         let start = analysis.single_player_start();
         let local_storm_id = start.local_storm_player_id.clone().ok_or("Local storm id")?;
@@ -470,6 +567,8 @@ impl BwScr {
                 .ok_or("Lobby create callback vtable offset")?;
         let process_game_commands = analysis.process_commands().process_commands
             .ok_or("process_game_commands")?;
+        let snet_initialize_provider = analysis.snet_initialize_provider()
+            .ok_or("SNetInitializeProvider")?;
         let game_command_lengths = (*analysis.command_lengths()).clone();
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
@@ -507,12 +606,15 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
-            maybe_receive_turns: unsafe { mem::transmute(maybe_receive_turns.0) },
+            step_network: unsafe { mem::transmute(step_network.0) },
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
             game_loop: unsafe { mem::transmute(game_loop.0) },
+            init_map_from_path: unsafe { mem::transmute(init_map_from_path.0) },
+            join_game: unsafe { mem::transmute(join_game.0) },
             init_sprites: unsafe { mem::transmute(init_sprites.0) },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
+            send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
@@ -523,10 +625,12 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             process_game_commands,
+            snet_initialize_provider,
             game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
+            lobby_game_init_command_seen: AtomicBool::new(false),
         })
     }
 
@@ -589,6 +693,28 @@ impl BwScr {
             },
             address,
         );
+        let address = self.process_lobby_commands as usize - base;
+        let this = self.clone();
+        exe.hook_closure_address(
+            ProcessLobbyCommands,
+            move |data, len, player, orig| {
+                let slice = std::slice::from_raw_parts(data, len);
+                if let Some(&byte) = slice.get(0) {
+                    if byte == 0x48 && player == 0 {
+                        this.lobby_game_init_command_seen.store(true, Ordering::Relaxed);
+                    }
+                }
+                orig(data, len, player);
+            },
+            address
+        );
+        let address = self.snet_initialize_provider.0 as usize - base;
+        exe.hook_closure_address(SNetInitializeProvider, move |a1, a2, a3, a4, a5, _a6, orig| {
+            // arg6 causes SCR to spawn a thread that receives packets like 1161 does.
+            // Good thing it exists, otherwise we'd have to find other way to make
+            // host receive packets.
+            orig(a1, a2, a3, a4, a5, 1)
+        }, address);
 
         if let Some(open_file) = self.open_file {
             let address = open_file.0 as usize - base;
@@ -638,6 +764,20 @@ impl BwScr {
             }
         }
     }
+
+    unsafe fn storm_last_error_ptr(&self) -> *mut u32 {
+        // This just is starcraft.exe errno
+        // dword [[fs:[2c] + tls_index * 4] + 8]
+        let tls_index = *self.starcraft_tls_index.0;
+        let get_tls_table: extern fn() -> *mut *mut u32 = mem::transmute(GET_TLS_TABLE.as_ptr());
+        let table = get_tls_table();
+        let tls_data = *table.add(tls_index as usize);
+        tls_data.add(2)
+    }
+
+    unsafe fn storm_last_error(&self) -> u32 {
+        *self.storm_last_error_ptr()
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -665,7 +805,17 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn maybe_receive_turns(&self) {
-        (self.maybe_receive_turns)();
+        // NOTE: This is actually not the same function that 1161 calls, but one
+        // level higher that also ends up handling any received commands.
+        // I think there was an issue where maybe_receive_turns was being inlined
+        // in some patches, making it not ideal function for SCR.
+        // Due to this being a function that does more, we have to do extra synchronization
+        // with do_lobby_game_init + try_finish_lobby_game_init that 1161 doesn't need to do.
+        //
+        // For SCR-1161 crossplay we'd have to make this part consistent across games.
+        // I think using 1161's function here is hard, but it would be better for load times,
+        // as this synchronization can add extra few hundred milliseconds to loads.
+        (self.step_network)();
     }
 
     unsafe fn init_game_network(&self) {
@@ -679,16 +829,27 @@ impl bw::Bw for BwScr {
     unsafe fn do_lobby_game_init(&self, seed: u32) {
         self.update_nation_and_human_ids();
         self.lobby_state.write(8);
-        let data = bw::LobbyGameInitData {
-            game_init_command: 0x48,
-            random_seed: seed,
-            // TODO(tec27): deal with player bytes if we ever allow save games
-            player_bytes: [8; 8],
-        };
-        let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-        let len = mem::size_of::<bw::LobbyGameInitData>();
-        (self.process_lobby_commands)(ptr, len, 0);
-        self.lobby_state.write(9);
+        let local_storm_id = self.local_storm_id.resolve();
+        if local_storm_id == 0 {
+            let data = bw::LobbyGameInitData {
+                game_init_command: 0x48,
+                random_seed: seed,
+                // TODO(tec27): deal with player bytes if we ever allow save games
+                player_bytes: [8; 8],
+            };
+            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
+            let len = mem::size_of::<bw::LobbyGameInitData>();
+            (self.send_command)(ptr, len);
+        }
+    }
+
+    unsafe fn try_finish_lobby_game_init(&self) -> bool {
+        if self.lobby_game_init_command_seen.load(Ordering::Relaxed) {
+            self.lobby_state.write(9);
+            true
+        } else {
+            false
+        }
     }
 
     unsafe fn create_lobby(
@@ -778,10 +939,115 @@ impl bw::Bw for BwScr {
 
     unsafe fn join_lobby(
         &self,
-        _game_info: &mut bw::JoinableGameInfo,
-        _map_path: &[u8],
+        input_game_info: &mut bw::JoinableGameInfo,
+        map_path: &[u8],
+        address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
-        unimplemented!();
+        assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
+        let mut params =
+            bw_hash_table::HashTable::<scr::BwString, scr::GameInfoValue>::new(0x20, 0x8, 0x28);
+        let mut add_param = |key: &[u8], value: u32| {
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
+            let mut value = scr::GameInfoValue {
+                variant: 2,
+                padding: 0,
+                data: scr::GameInfoValueUnion {
+                    var2_3: value as u64,
+                }
+            };
+            params.insert(&mut string, &mut value);
+        };
+        add_param(b"save_game_id", input_game_info.save_checksum as u32);
+        add_param(b"is_replay", input_game_info.is_replay as u32);
+        // Can lie for most of these player counts
+        add_param(b"players_current", 1);
+        add_param(b"players_max", input_game_info.max_player_count as u32);
+        add_param(b"observers_current", 0);
+        add_param(b"observers_max", 0);
+        add_param(b"players_ai", 0);
+        add_param(b"closed_slots", 0);
+        add_param(b"proxy", 0);
+        add_param(b"game_speed", input_game_info.game_speed as u32);
+        add_param(b"map_tile_set", input_game_info.tileset as u32);
+        add_param(b"map_width", input_game_info.map_width as u32);
+        add_param(b"map_height", input_game_info.map_height as u32);
+        // Not sure if we want to change this one day. I think 0 means dynamic,
+        // which is assumed by the host as well AFAIK.
+        add_param(b"net_turn_rate", 0);
+        // TODO: This is actually important for EUD maps. Host gets it set correctly
+        // automatically, but I think we need more code here to support EUD maps.
+        add_param(b"flags", 0);
+
+        let mut add_param_string = |key: &[u8], value_str: &[u8]| {
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
+            let mut value = scr::GameInfoValue {
+                variant: 1,
+                padding: 0,
+                data: scr::GameInfoValueUnion {
+                    var1: mem::zeroed(),
+                }
+            };
+            init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), value_str);
+            params.insert(&mut string, &mut value);
+        };
+        let host_name_length = input_game_info.game_creator
+            .iter().position(|&x| x == 0)
+            .unwrap_or(input_game_info.game_creator.len());
+        add_param_string(b"host_name", &input_game_info.game_creator[..host_name_length]);
+        let map_name_length = input_game_info.map_name
+            .iter().position(|&x| x == 0)
+            .unwrap_or(input_game_info.map_name.len());
+        add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
+
+        let mut game_info = scr::JoinableGameInfo {
+            params: params.bw_table(),
+            // AF_INET
+            sockaddr_family: 2,
+            port: 6112u16.to_be(),
+            ip: address.octets(),
+            // I don't think this gets read at any point, we skip past the part where
+            // BW would register a game id in its global structures.
+            // Just set this to some clearly invalid value.
+            game_id: 0x1234_1234_1234_1234,
+            // This game type enum is offset by -1 for some reason...
+            // Hence "new" game type
+            new_game_type: input_game_info.game_type as u32 - 1,
+            game_subtype: input_game_info.game_subtype as u32,
+            // SEXP
+            product_id: 0x53455850,
+            game_version: 0xe9,
+            ..mem::zeroed()
+        };
+        init_bw_string(&mut game_info.game_name, &input_game_info.name);
+        let mut password: scr::BwString = mem::zeroed();
+        init_bw_string(&mut password, b"");
+        self.storm_set_last_error(0);
+        let error = (self.join_game)(&mut game_info, &mut password, 0);
+        if error != 0 {
+            // Try storm error first, if it's 0 then use the returned error.
+            let storm_error = self.storm_last_error();
+            if storm_error != 0 {
+                return Err(self.storm_last_error());
+            } else {
+                return Err(error);
+            }
+        }
+        debug!("Joined game");
+
+        let mut out = [0u32; 8];
+        let ok = (self.init_map_from_path)(
+            map_path.as_ptr(),
+            out.as_mut_ptr() as *mut c_void,
+            0,
+            0,
+        );
+        if ok == 0 {
+            return Err(self.storm_last_error());
+        }
+        // TODO Team game thing
+        Ok(())
     }
 
     unsafe fn remaining_game_init(&self, name_in: &str) {
@@ -809,9 +1075,39 @@ impl bw::Bw for BwScr {
         self.players.resolve()
     }
 
+    unsafe fn set_player_name(&self, id: u8, name: &str) {
+        let mut buffer = [0; 0x60];
+        for (i, &byte) in name.as_bytes().iter().take(0x5f).enumerate() {
+            buffer[i] = byte;
+        }
+        // SCR has longer player names after the bw::Player array,
+        // which are ones that it (mostly?) uses.
+        let players = self.players();
+        (&mut (*players.add(id as usize)).name).copy_from_slice(&buffer[..25]);
+        let player_names = players.add(0x10) as *mut u8;
+        let long_name = player_names.add(id as usize * 0x60);
+        let long_name = std::slice::from_raw_parts_mut(long_name, 0x60);
+        long_name.copy_from_slice(&buffer[..0x60]);
+    }
+
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
-        let ptr = self.storm_players.resolve() as *const bw::StormPlayer;
-        std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT).into()
+        let ptr = self.storm_players.resolve();
+        let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
+        scr_players.iter().map(|player| {
+            bw::StormPlayer {
+                state: player.state,
+                unk1: player.unk1,
+                flags: player.flags,
+                unk4: player.unk4,
+                protocol_version: player.protocol_version,
+                name: {
+                    let mut name = [0; 0x19];
+                    (&mut name[..0x18]).copy_from_slice(&player.name[..0x18]);
+                    name
+                },
+                padding: 0,
+            }
+        }).collect()
     }
 
     unsafe fn storm_player_flags(&self) -> Vec<u32> {
@@ -820,13 +1116,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn storm_set_last_error(&self, error: u32) {
-        // This just sets starcraft.exe errno
-        // dword [[fs:[2c] + tls_index * 4] + 8]
-        let tls_index = *self.starcraft_tls_index.0;
-        let get_tls_table: extern fn() -> *mut *mut u32 = mem::transmute(GET_TLS_TABLE.as_ptr());
-        let table = get_tls_table();
-        let tls_data = *table.add(tls_index as usize);
-        *tls_data.add(2) = error;
+        *self.storm_last_error_ptr() = error;
     }
 }
 
@@ -865,15 +1155,38 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
 }
 
 fn load_snp_list_hook(
-    _callbacks: *mut scr::SnpLoadFuncs,
-    _count: u32,
+    callbacks: *mut scr::SnpLoadFuncs,
+    count: u32,
     orig: unsafe extern fn(*mut scr::SnpLoadFuncs, u32) -> u32,
 ) -> u32 {
     let mut funcs = scr::SnpLoadFuncs {
         identify: snp_load_identify,
         bind: snp_load_bind,
     };
+
     unsafe {
+        // Call bind for SCR's LAN funcs to determine function count
+        // and to get pointer to its initialize function, which we'll
+        // have to call at our SNP initialize.
+        assert!(count != 0);
+        let mut orig_scr_funcs = null();
+        let ok = ((*callbacks).bind)(1, &mut orig_scr_funcs);
+        assert!(ok != 0);
+        let func_count = *orig_scr_funcs / mem::size_of::<usize>();
+        SCR_SNP_INITIALIZE.store(*orig_scr_funcs.add(7), Ordering::Relaxed);
+
+        // (0x80 bytes on x86)
+        // Keeping functions that aren't in 1.16.1 null seems to be ok.
+        let mut snp_functions = vec![0usize; func_count];
+        std::ptr::copy_nonoverlapping(
+            &snp::SNP_FUNCTIONS,
+            snp_functions.as_mut_ptr() as *mut bw::SnpFunctions,
+            1,
+        );
+        snp_functions[0] = func_count * mem::size_of::<usize>();
+        snp_functions[7] = snp_initialize as usize;
+        *SNP_FUNCTIONS.lock() = snp_functions;
+
         orig(&mut funcs, 1)
     }
 }
@@ -888,6 +1201,7 @@ unsafe extern "stdcall" fn snp_load_identify(
     if snp_index > 0 {
         return 0;
     }
+
     *id = snp::PROVIDER_ID;
     *name = b"Shieldbattery\0".as_ptr();
     *description = b"=)\0".as_ptr();
@@ -895,22 +1209,30 @@ unsafe extern "stdcall" fn snp_load_identify(
     1
 }
 
+unsafe extern "stdcall" fn snp_initialize(
+    client_info: *const bw::ClientInfo,
+    user_data: *mut c_void,
+    battle_info: *mut c_void,
+    module_data: *mut c_void,
+    receive_event: HANDLE,
+) -> i32 {
+    snp::initialize(client_info, user_data, battle_info, module_data, receive_event);
+    // We'll also have to call the SCR's normal LAN SNP init function, which initializes
+    // a global that SCR will try to access on game joining. Luckily it won't initialize
+    // anything else we don't want.
+    let scr_init: unsafe extern "stdcall" fn(
+        *const bw::ClientInfo,
+        *mut c_void,
+        *mut c_void,
+        *mut c_void,
+        HANDLE,
+    ) -> i32 = mem::transmute(SCR_SNP_INITIALIZE.load(Ordering::Relaxed));
+    scr_init(client_info, user_data, battle_info, module_data, receive_event)
+}
+
+static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
 lazy_static! {
-    static ref SNP_FUNCTIONS: Vec<usize> = {
-        // So far the function struct has always been 0x20 words
-        // (0x80 bytes on x86)
-        // Keeping functions that aren't in 1.16.1 null seems to be ok.
-        let mut out = vec![0usize; 0x20];
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                &snp::SNP_FUNCTIONS,
-                out.as_mut_ptr() as *mut bw::SnpFunctions,
-                1,
-            );
-            out[0] = 0x20 * mem::size_of::<usize>();
-        }
-        out
-    };
+    static ref SNP_FUNCTIONS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 }
 
 unsafe extern "stdcall" fn snp_load_bind(
@@ -920,7 +1242,7 @@ unsafe extern "stdcall" fn snp_load_bind(
     if snp_index > 0 {
         return 0;
     }
-    *funcs = SNP_FUNCTIONS.as_ptr();
+    *funcs = SNP_FUNCTIONS.lock().as_ptr();
     1
 }
 
@@ -949,11 +1271,14 @@ mod hooks {
             *mut u32, // a10 out y unk (unused)
         ) -> *mut u8;
         !0 => ProcessGameCommands(*const u8, usize, u32);
+        !0 => ProcessLobbyCommands(*const u8, usize, u32);
+        !0 => SendCommand(*const u8, usize);
     );
 
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
+        !0 => SNetInitializeProvider(usize, usize, usize, usize, usize, u32) -> u32;
     );
 }
 
