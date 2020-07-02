@@ -1011,9 +1011,12 @@ impl bw::Bw for BwScr {
             // BW would register a game id in its global structures.
             // Just set this to some clearly invalid value.
             game_id: 0x1234_1234_1234_1234,
-            // This game type enum is offset by -1 for some reason...
+            // This game type enum is mostly offset by -1 for some reason, TvB is -2..
             // Hence "new" game type
-            new_game_type: input_game_info.game_type as u32 - 1,
+            new_game_type: match input_game_info.game_type {
+                0xf => 0xd,
+                x => x as u32 - 1,
+            },
             game_subtype: input_game_info.game_subtype as u32,
             // SEXP
             product_id: 0x53455850,
