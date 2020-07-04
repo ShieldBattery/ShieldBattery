@@ -141,7 +141,7 @@ const eventToAction = {
     const { routes, gameId } = event
 
     activeGameManager.setGameRoutes(gameId, routes)
-    activeGameManager.allowStart()
+    activeGameManager.allowStart(gameId)
   },
 
   cancelLoading: (name, event) => dispatch => {

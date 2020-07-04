@@ -122,14 +122,14 @@ export default class ActiveGameManager extends EventEmitter {
     }
   }
 
-  allowStart(waitTime = 2000) {
-    if (!this.activeGame) {
+  allowStart(gameId, waitTime = 2000) {
+    if (this.activeGame && this.activeGame.id !== gameId) {
       return
     }
 
     this._setStatus(GAME_STATUS_STARTING)
     setTimeout(() => {
-      this.emit('gameCommand', this.activeGame.id, 'allowStart')
+      this.emit('gameCommand', gameId, 'allowStart')
       this.allowStartSent = true
     }, waitTime)
   }

@@ -46,7 +46,7 @@ async function setGameConfig(replay, user, settings) {
 
 function setGameRoutes(gameId) {
   activeGameManager.setGameRoutes(gameId, [])
-  activeGameManager.allowStart()
+  activeGameManager.allowStart(gameId)
 }
 
 export function startReplay(replay) {
