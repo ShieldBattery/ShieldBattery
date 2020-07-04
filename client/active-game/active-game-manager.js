@@ -25,6 +25,7 @@ export default class ActiveGameManager extends EventEmitter {
     this.mapStore = mapStore
     this.activeGame = null
     this.serverPort = 0
+    this.allowStartSent = false
   }
 
   getStatus() {
@@ -129,6 +130,7 @@ export default class ActiveGameManager extends EventEmitter {
     this._setStatus(GAME_STATUS_STARTING)
     setTimeout(() => {
       this.emit('gameCommand', this.activeGame.id, 'allowStart')
+      this.allowStartSent = true
     }, waitTime)
   }
 
@@ -153,6 +155,12 @@ export default class ActiveGameManager extends EventEmitter {
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)
       this.emit('gameCommand', id, 'setupGame', game.config.setup)
+    }
+
+    // If the `allowStart` command was already sent by this point, it means it was sent while the
+    // game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
+    if (this.allowStartSent) {
+      this.emit('gameCommand', this.activeGame.id, 'allowStart')
     }
   }
 
