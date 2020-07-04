@@ -246,7 +246,7 @@ unsafe extern "stdcall" fn get_game_info(
     })
 }
 
-unsafe extern "stdcall" fn initialize(
+pub unsafe extern "stdcall" fn initialize(
     client_info: *const bw::ClientInfo,
     _user_data: *mut c_void,
     _battle_info: *mut c_void,

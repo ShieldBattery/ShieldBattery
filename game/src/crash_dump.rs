@@ -52,6 +52,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
         message = format!("Crash @ {:08x}, couldn't write dump: {}", place, e);
     };
 
+    error!("{}", message);
     windows::message_box("Shieldbattery crash :(", &message);
     TerminateProcess(GetCurrentProcess(), (*(*exception).ExceptionRecord).ExceptionCode);
     loop {}

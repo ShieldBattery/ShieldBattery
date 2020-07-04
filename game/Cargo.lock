@@ -629,7 +629,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf/?rev=0da3a84ece61a9651cd7bc323ece68d18c5beac8#0da3a84ece61a9651cd7bc323ece68d18c5beac8"
+source = "git+https://github.com/neivv/samase_scarf/?rev=1466c13431b19e1f739cdebcf9a219242827aa95#1466c13431b19e1f739cdebcf9a219242827aa95"
 dependencies = [
  "arrayvec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -722,7 +722,7 @@ dependencies = [
  "parking_lot 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=0da3a84ece61a9651cd7bc323ece68d18c5beac8)",
+ "samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=1466c13431b19e1f739cdebcf9a219242827aa95)",
  "scopeguard 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.111 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.53 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -997,7 +997,7 @@ dependencies = [
 "checksum redox_syscall 0.1.56 (registry+https://github.com/rust-lang/crates.io-index)" = "2439c63f3f6139d1b57529d16bc3b8bb855230c8efcc5d3a896c8bea7c3b1e84"
 "checksum rustc-demangle 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 "checksum ryu 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
-"checksum samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=0da3a84ece61a9651cd7bc323ece68d18c5beac8)" = "<none>"
+"checksum samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=1466c13431b19e1f739cdebcf9a219242827aa95)" = "<none>"
 "checksum scarf 0.3.0 (git+https://github.com/neivv/scarf?rev=5032e35fda24805f7cb026adaa029829a701c534)" = "<none>"
 "checksum scopeguard 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 "checksum serde 1.0.111 (registry+https://github.com/rust-lang/crates.io-index)" = "c9124df5b40cbd380080b2cc6ab894c040a3070d995f5c9dc77e18c34a8ae37d"

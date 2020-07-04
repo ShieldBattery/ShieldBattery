@@ -33,7 +33,7 @@ use std::time::Duration;
 use lazy_static::lazy_static;
 use libc::c_void;
 use parking_lot::Mutex;
-use winapi::um::processthreadsapi::{GetCurrentProcess, TerminateProcess};
+use winapi::um::processthreadsapi::{GetCurrentProcess, GetCurrentProcessId, TerminateProcess};
 use winapi::um::winnt::EXCEPTION_POINTERS;
 
 use crate::game_state::GameStateMessage;
@@ -188,7 +188,8 @@ pub extern "C" fn OnInject() {
         .chain(log_file())
         .apply();
 
-    info!("Logging started");
+    let process_id = unsafe { GetCurrentProcessId() };
+    info!("Logging started. Process id {} (0x{:x})", process_id, process_id);
     let args = parse_args();
     if args.is_scr {
         unsafe {

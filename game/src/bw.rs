@@ -33,6 +33,7 @@ pub trait Bw: Sync + Send {
     unsafe fn maybe_receive_turns(&self);
     unsafe fn init_game_network(&self);
     unsafe fn do_lobby_game_init(&self, seed: u32);
+    unsafe fn try_finish_lobby_game_init(&self) -> bool;
 
     /// Inits player's info from storm to starcraft.
     /// Called once player has joined and is visible to storm.
@@ -43,13 +44,17 @@ pub trait Bw: Sync + Send {
         lobby_name: &str,
         game_type: GameType,
     ) -> Result<(), LobbyCreateError>;
+    /// `map_path` must be null-terminated.
+    /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
         game_info: &mut JoinableGameInfo,
         map_path: &[u8],
+        address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
     unsafe fn players(&self) -> *mut Player;
+    unsafe fn set_player_name(&self, id: u8, name: &str);
 
     /// Note: Size is unspecified, but will not change between calls.
     /// (Remastered has 12 storm players)
