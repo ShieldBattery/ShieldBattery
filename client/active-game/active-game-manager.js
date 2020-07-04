@@ -153,7 +153,6 @@ export default class ActiveGameManager extends EventEmitter {
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)
       this.emit('gameCommand', id, 'setupGame', game.config.setup)
-      this.emit('gameCommand', id, 'allowStart')
     }
   }
 

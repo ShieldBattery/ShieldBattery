@@ -617,11 +617,18 @@ export class LobbyApi {
       lobby: null,
     })
 
+    this._maybeCancelCountdown(lobby)
+    // Send the leaving user a message to cancel the loading, before we unsubscribe them from the
+    // lobby routes.
+    if (this.loadingLobbies.has(lobby.name)) {
+      this._publishToUser(lobby, userName, {
+        type: 'cancelLoading',
+      })
+    }
+
     user.unsubscribe(LobbyApi._getUserPath(lobby, userName))
     client.unsubscribe(LobbyApi._getClientPath(lobby, client))
     client.unsubscribe(LobbyApi._getPath(lobby))
-    this._maybeCancelCountdown(lobby)
-    gameLoader.maybeCancelLoading(this.loadingLobbies.get(lobby.name))
   }
 
   @Api('/startCountdown')
@@ -645,6 +652,9 @@ export class LobbyApi {
     this._publishListChange('delete', lobby.name)
 
     try {
+      timer.then(() => {
+        this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      })
       const gameLoaded = gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
@@ -652,7 +662,6 @@ export class LobbyApi {
       )
 
       await Promise.all([timer, gameLoaded])
-      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       this._onGameLoaded(lobby)
     } catch (err) {
       this._maybeCancelCountdown(lobby)
