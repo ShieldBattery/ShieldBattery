@@ -174,10 +174,6 @@ const eventToAction = {
   }),
 
   startCountdown: (name, event, { siteSocket }) => (dispatch, getState) => {
-    const {
-      gameClient: { gameId },
-    } = getState()
-
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -196,7 +192,6 @@ const eventToAction = {
       if (!tick) {
         clearCountdownTimer(true /* leaveAtmosphere */)
         dispatch({ type: LOBBY_UPDATE_LOADING_START })
-        activeGameManager.allowStart(gameId)
       }
     }, 1000)
   },
@@ -244,6 +239,12 @@ const eventToAction = {
     const { routes, gameId } = event
 
     activeGameManager.setGameRoutes(gameId, routes)
+  },
+
+  allowStart: (name, event) => {
+    const { gameId } = event
+
+    activeGameManager.allowStart(gameId)
   },
 
   cancelLoading: (name, event) => dispatch => {

@@ -141,6 +141,11 @@ const eventToAction = {
     const { routes, gameId } = event
 
     activeGameManager.setGameRoutes(gameId, routes)
+  },
+
+  allowStart: (name, event) => {
+    const { gameId } = event
+
     activeGameManager.allowStart(gameId)
   },
 

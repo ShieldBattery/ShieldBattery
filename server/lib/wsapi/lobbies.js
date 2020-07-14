@@ -644,32 +644,49 @@ export class LobbyApi {
     this.ensureLobbyNotTransient(lobby)
 
     const lobbyName = lobby.name
-    const timer = createDeferred()
-    let timerId = setTimeout(() => timer.resolve(), 5000)
-    this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, new Countdown({ timer }))
+    const countdownTimer = createDeferred()
+    let countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
+    this.lobbyCountdowns = this.lobbyCountdowns.set(
+      lobbyName,
+      new Countdown({ timer: countdownTimer }),
+    )
 
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby.name)
 
+    let allowStartTimerId
     try {
-      timer.then(() => {
-        this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-      })
-      const gameLoaded = gameLoader.loadGame(
+      const { gameId, gameLoad } = gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
         (playerName, routes, gameId) => this._onRoutesSet(lobby, playerName, routes, gameId),
       )
 
-      await Promise.all([timer, gameLoaded])
+      countdownTimer.then(() => {
+        // Have some leeway after the countdown finishes and before allowing the game to start so
+        // we can, for example, show the loading screen for some minimum amount of time
+        allowStartTimerId = setTimeout(() => {
+          this._publishTo(lobby, {
+            type: 'allowStart',
+            gameId,
+          })
+        }, 2000)
+        this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      })
+
+      await Promise.all([countdownTimer, gameLoad])
       this._onGameLoaded(lobby)
     } catch (err) {
       this._maybeCancelCountdown(lobby)
       this._onLoadingCanceled(lobby)
     } finally {
-      if (timerId) {
-        clearTimeout(timerId)
-        timerId = null
+      if (countdownTimerId) {
+        clearTimeout(countdownTimerId)
+        countdownTimerId = null
+      }
+      if (allowStartTimerId) {
+        clearTimeout(allowStartTimerId)
+        allowStartTimerId = null
       }
     }
   }

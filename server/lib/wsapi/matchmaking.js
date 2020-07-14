@@ -96,12 +96,14 @@ export class MatchmakingApi {
     },
     onAccepted: async (matchInfo, clients) => {
       const players = clients.map(c => createHuman(c.name))
-      await gameLoader.loadGame(
+      const { gameLoad } = gameLoader.loadGame(
         players,
         setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, players, setup),
         (playerName, routes, gameId) =>
           this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
       )
+
+      await gameLoad
       this.gameLoaderDelegate.onGameLoaded(clients)
     },
     onDeclined: (matchInfo, requeueClients, kickClients) => {
@@ -166,6 +168,7 @@ export class MatchmakingApi {
         routes,
         gameId,
       })
+      this._publishToActiveClient(playerName, { type: 'allowStart', gameId })
     },
     onGameLoaded: clients => {
       for (const client of clients) {
