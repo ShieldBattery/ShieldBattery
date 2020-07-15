@@ -88,7 +88,7 @@ export class GameLoader {
       this.maybeCancelLoading(gameId)
     })
 
-    return gameLoad
+    return { gameId, gameLoad }
   }
 
   // The game has successfully loaded for a specific player; once the game is loaded for all

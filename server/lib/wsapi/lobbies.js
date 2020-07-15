@@ -617,11 +617,18 @@ export class LobbyApi {
       lobby: null,
     })
 
+    this._maybeCancelCountdown(lobby)
+    // Send the leaving user a message to cancel the loading, before we unsubscribe them from the
+    // lobby routes.
+    if (this.loadingLobbies.has(lobby.name)) {
+      this._publishToUser(lobby, userName, {
+        type: 'cancelLoading',
+      })
+    }
+
     user.unsubscribe(LobbyApi._getUserPath(lobby, userName))
     client.unsubscribe(LobbyApi._getClientPath(lobby, client))
     client.unsubscribe(LobbyApi._getPath(lobby))
-    this._maybeCancelCountdown(lobby)
-    gameLoader.maybeCancelLoading(this.loadingLobbies.get(lobby.name))
   }
 
   @Api('/startCountdown')
@@ -637,32 +644,50 @@ export class LobbyApi {
     this.ensureLobbyNotTransient(lobby)
 
     const lobbyName = lobby.name
-    const timer = createDeferred()
-    let timerId = setTimeout(() => timer.resolve(), 5000)
-    this.lobbyCountdowns = this.lobbyCountdowns.set(lobbyName, new Countdown({ timer }))
+    const countdownTimer = createDeferred()
+    let countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
+    this.lobbyCountdowns = this.lobbyCountdowns.set(
+      lobbyName,
+      new Countdown({ timer: countdownTimer }),
+    )
 
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby.name)
 
+    let allowStartTimerId
     try {
-      await timer
-      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
-    } finally {
-      if (timerId) {
-        clearTimeout(timerId)
-        timerId = null
-      }
-    }
-
-    try {
-      await gameLoader.loadGame(
+      const { gameId, gameLoad } = gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
-        (playerName, routes) => this._onRoutesSet(lobby, playerName, routes),
+        (playerName, routes, gameId) => this._onRoutesSet(lobby, playerName, routes, gameId),
       )
+
+      countdownTimer.then(() => {
+        // Have some leeway after the countdown finishes and before allowing the game to start so
+        // we can, for example, show the loading screen for some minimum amount of time
+        allowStartTimerId = setTimeout(() => {
+          this._publishTo(lobby, {
+            type: 'allowStart',
+            gameId,
+          })
+        }, 2000)
+        this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      })
+
+      await Promise.all([countdownTimer, gameLoad])
       this._onGameLoaded(lobby)
     } catch (err) {
+      this._maybeCancelCountdown(lobby)
       this._onLoadingCanceled(lobby)
+    } finally {
+      if (countdownTimerId) {
+        clearTimeout(countdownTimerId)
+        countdownTimerId = null
+      }
+      if (allowStartTimerId) {
+        clearTimeout(allowStartTimerId)
+        allowStartTimerId = null
+      }
     }
   }
 
@@ -674,10 +699,11 @@ export class LobbyApi {
     })
   }
 
-  _onRoutesSet(lobby, playerName, routes) {
+  _onRoutesSet(lobby, playerName, routes, gameId) {
     this._publishToClient(lobby, playerName, {
       type: 'setRoutes',
       routes,
+      gameId,
     })
   }
 

@@ -111,14 +111,23 @@ export default class ActiveGameManager extends EventEmitter {
       id: gameId,
       routes,
     }
+    this._setStatus(GAME_STATUS_LAUNCHING)
 
     // `setGameRoutes` can be called before `setGameConfig`, in which case the config won't be set
     // yet; we also don't send the routes, since the game couldn't be connected in that case either.
     if (current && current.config) {
       this.emit('gameCommand', gameId, 'routes', routes)
       this.emit('gameCommand', gameId, 'setupGame', current.config.setup)
-      this.emit('gameCommand', gameId, 'allowStart')
     }
+  }
+
+  allowStart(gameId) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'allowStart')
+    this.activeGame.allowStartSent = true
   }
 
   async handleGameConnected(id) {
@@ -142,7 +151,12 @@ export default class ActiveGameManager extends EventEmitter {
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)
       this.emit('gameCommand', id, 'setupGame', game.config.setup)
-      this.emit('gameCommand', id, 'allowStart')
+    }
+
+    // If the `allowStart` command was already sent by this point, it means it was sent while the
+    // game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
+    if (this.activeGame.allowStartSent) {
+      this.emit('gameCommand', this.activeGame.id, 'allowStart')
     }
   }
 

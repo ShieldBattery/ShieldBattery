@@ -143,6 +143,12 @@ const eventToAction = {
     activeGameManager.setGameRoutes(gameId, routes)
   },
 
+  allowStart: (name, event) => {
+    const { gameId } = event
+
+    activeGameManager.allowStart(gameId)
+  },
+
   cancelLoading: (name, event) => dispatch => {
     dispatch(closeDialog())
     clearAcceptMatchTimer()
