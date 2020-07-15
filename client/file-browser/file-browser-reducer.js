@@ -44,6 +44,13 @@ export default keyedReducer(new FileStates(), {
       )
     }
 
+    const { browseId, path } = action.meta
+    // Ensure that the displayed path and the fetched files are consistent with each other (with
+    // displayed path being the source of truth).
+    if (state[browseId].path !== path) {
+      return state
+    }
+
     const folders = action.payload
       .filter(e => e.isFolder)
       .map(e => new Folder(e))
