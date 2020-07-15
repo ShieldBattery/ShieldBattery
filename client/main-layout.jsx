@@ -26,8 +26,10 @@ import LeftNav from './material/left-nav/left-nav.jsx'
 import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
+import Menu from './material/menu/menu.jsx'
 import MenuItem from './material/menu/item.jsx'
 import ProfileNavEntry from './profile/nav-entry.jsx'
+import SearchingMatchNavEntry from './matchmaking/searching-match-nav-entry.jsx'
 import Section from './material/left-nav/section.jsx'
 import Subheader from './material/left-nav/subheader.jsx'
 import SubheaderButton from './material/left-nav/subheader-button.jsx'
@@ -39,7 +41,6 @@ import WhispersTitle from './whispers/app-bar-title.jsx'
 
 import AddIcon from './icons/material/ic_add_black_24px.svg'
 import AdminIcon from './icons/material/ic_build_black_36px.svg'
-import CancelMatchIcon from './icons/material/ic_cancel_black_24px.svg'
 import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
@@ -71,6 +72,7 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
+import { blue50 } from './styles/colors'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -94,6 +96,32 @@ const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
+`
+
+const StyledFindMatchIcon = styled(FindMatchIcon).withConfig({
+  // Don't forward the `glow` property to the `svg` element
+  shouldForwardProp: prop => prop !== 'glow',
+})`
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  ${props => {
+    if (props.glow) {
+      return `
+        fill: ${blue50};
+        filter: blur(4px);
+      `
+    }
+
+    return ''
+  }}
+`
+
+const SearchingMatchIcon = styled.div`
+  position: relative;
+  width: 36px;
+  height: 42px;
 `
 
 const StyledMapsIcon = styled(MapsIcon)`
@@ -140,12 +168,12 @@ function stateToProps(state) {
 @connect(stateToProps)
 class MainLayout extends React.Component {
   state = {
-    profileOverlayOpened: false,
+    profileOverlayOpen: false,
+    searchingMatchOverlayOpen: false,
   }
-  _profileEntryRef = null
-  _setProfileEntryRef = elem => {
-    this._profileEntryRef = elem
-  }
+
+  _profileEntryRef = React.createRef()
+  _searchingMatchButtonRef = React.createRef()
 
   componentDidMount() {
     this.props.dispatch(openChangelogIfNecessary())
@@ -186,12 +214,23 @@ class MainLayout extends React.Component {
     ]
   }
 
+  renderSearchingMatchNav() {
+    if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
+
+    return [
+      <Section key='searching-match-section'>
+        <SearchingMatchNavEntry onCancelSearch={this.onCancelFindMatchClick} />
+      </Section>,
+      <Divider key='searching-match-divider' />,
+    ]
+  }
+
   renderProfileOverlay() {
     return (
       <SelfProfileOverlay
-        open={this.state.profileOverlayOpened}
+        open={this.state.profileOverlayOpen}
         onDismiss={this.onCloseProfileOverlay}
-        anchor={this._profileEntryRef}
+        anchor={this._profileEntryRef.current}
         user={this.props.auth.user.name}>
         {window._sbFeedbackUrl ? (
           <MenuItem icon={<FeedbackIcon />} text='Send feedback' onClick={this.onFeedbackClick} />
@@ -199,6 +238,30 @@ class MainLayout extends React.Component {
         <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
         <MenuItem icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
       </SelfProfileOverlay>
+    )
+  }
+
+  renderSearchingMatchOverlay() {
+    if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
+
+    return (
+      <Menu
+        open={this.state.searchingMatchOverlayOpen}
+        onDismiss={this.onSearchingMatchOverlayClose}
+        anchor={this._searchingMatchButtonRef.current}
+        anchorOriginVertical='top'
+        anchorOriginHorizontal='left'
+        popoverOriginVertical='top'
+        popoverOriginHorizontal='right'>
+        <MenuItem
+          key='cancel'
+          text='Cancel'
+          onClick={() => {
+            this.onCancelFindMatchClick()
+            this.onSearchingMatchOverlayClose()
+          }}
+        />
+      </Menu>
     )
   }
 
@@ -263,10 +326,10 @@ class MainLayout extends React.Component {
     const footer = [
       <ProfileNavEntry
         key='profileEntry'
+        ref={this._profileEntryRef}
         user={auth.user.name}
         avatarTitle={auth.user.name}
         onProfileEntryClick={this.onProfileEntryClick}
-        profileEntryRef={this._setProfileEntryRef}
       />,
     ]
     const findMatchButton = !this.props.matchmaking.isFinding ? (
@@ -281,10 +344,16 @@ class MainLayout extends React.Component {
       />
     ) : (
       <ActivityButton
-        key='cancel-match'
-        icon={<CancelMatchIcon />}
-        label='Cancel'
-        onClick={this.onCancelFindMatchClick}
+        key='searching-match'
+        ref={this._searchingMatchButtonRef}
+        icon={
+          <SearchingMatchIcon>
+            <StyledFindMatchIcon glow={true} />
+            <StyledFindMatchIcon />
+          </SearchingMatchIcon>
+        }
+        label='Searching...'
+        onClick={this.onSearchingMatchOverlayOpen}
       />
     )
     const activityButtons = IS_ELECTRON
@@ -365,6 +434,7 @@ class MainLayout extends React.Component {
         {!auth.emailVerified ? <EmailVerificationNotification /> : null}
         <Layout>
           <LeftNav footer={footer}>
+            {this.renderSearchingMatchNav()}
             {this.renderActiveGameNav()}
             {this.renderLobbyNav()}
             <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
@@ -392,6 +462,7 @@ class MainLayout extends React.Component {
           </Content>
           <ActivityBar>{activityButtons}</ActivityBar>
           {this.renderProfileOverlay()}
+          {this.renderSearchingMatchOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
@@ -401,15 +472,19 @@ class MainLayout extends React.Component {
   }
 
   onProfileEntryClick = () => {
-    this.setState({
-      profileOverlayOpened: true,
-    })
+    this.setState({ profileOverlayOpen: true })
   }
 
   onCloseProfileOverlay = () => {
-    this.setState({
-      profileOverlayOpened: false,
-    })
+    this.setState({ profileOverlayOpen: false })
+  }
+
+  onSearchingMatchOverlayOpen = () => {
+    this.setState({ searchingMatchOverlayOpen: true })
+  }
+
+  onSearchingMatchOverlayClose = () => {
+    this.setState({ searchingMatchOverlayOpen: false })
   }
 
   onJoinChannelClick = () => {
