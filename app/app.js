@@ -73,7 +73,7 @@ export const getMainWindow = () => mainWindow
 async function installDevExtensions() {
   if (isDev) {
     const installer = require('electron-devtools-installer')
-    const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS']
+    const extensions = ['REDUX_DEVTOOLS']
     // Apparently there's no way to upgrade extensions in Electron, so we're always forcing a
     // download.
     const forceDownload = true
