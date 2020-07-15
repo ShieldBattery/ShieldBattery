@@ -16,6 +16,7 @@ const Container = styled(ButtonCommon)`
   min-height: 96px;
   padding: 8px;
   margin-top: 8px;
+  border-radius: 0;
   color: ${colorTextSecondary};
 
   ${props => {
@@ -45,22 +46,22 @@ const Label = styled.span`
   margin-top: 8px;
 `
 
-export default class ActivityButton extends React.Component {
-  static propTypes = {
-    label: PropTypes.string.isRequired,
-    icon: PropTypes.element.isRequired,
-    disabled: PropTypes.bool,
-    onClick: PropTypes.func,
-  }
+const ActivityButton = React.forwardRef((props, ref) => {
+  const { label, icon, disabled, onClick } = props
 
-  render() {
-    const { label, icon, disabled, onClick } = this.props
+  return (
+    <Container ref={ref} disabled={disabled} onClick={onClick}>
+      <div>{icon}</div>
+      <Label>{label}</Label>
+    </Container>
+  )
+})
 
-    return (
-      <Container disabled={disabled} onClick={onClick}>
-        <div>{icon}</div>
-        <Label>{label}</Label>
-      </Container>
-    )
-  }
+ActivityButton.propTypes = {
+  label: PropTypes.string.isRequired,
+  icon: PropTypes.element.isRequired,
+  disabled: PropTypes.bool,
+  onClick: PropTypes.func,
 }
+
+export default ActivityButton

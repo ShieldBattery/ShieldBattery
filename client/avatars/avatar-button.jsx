@@ -21,21 +21,22 @@ const StyledAvatar = styled(Avatar)`
   ${props => props.style};
 `
 
-export default class AvatarButton extends React.Component {
-  static propTypes = {
-    avatarStyle: PropTypes.array,
-    buttonRef: PropTypes.func,
-  }
+const AvatarButton = React.forwardRef((props, ref) => {
+  const { buttonRef, user, image, avatarStyle, ...rest } = props
 
-  render() {
-    const { buttonRef, user, image, avatarStyle, ...rest } = this.props
+  return (
+    <IconButton
+      ref={ref}
+      {...rest}
+      buttonRef={buttonRef}
+      icon={<StyledAvatar user={user} image={image} style={avatarStyle} />}
+    />
+  )
+})
 
-    return (
-      <IconButton
-        {...rest}
-        buttonRef={buttonRef}
-        icon={<StyledAvatar user={user} image={image} style={avatarStyle} />}
-      />
-    )
-  }
+AvatarButton.propTypes = {
+  avatarStyle: PropTypes.array,
+  buttonRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
 }
+
+export default AvatarButton

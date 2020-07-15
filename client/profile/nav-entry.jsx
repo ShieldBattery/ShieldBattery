@@ -40,28 +40,27 @@ const User = styled(Body2)`
 `
 
 // TODO(tec27): Make this whole area clickable/hoverable
-export default class ProfileNavEntry extends React.Component {
-  static propTypes = {
-    onProfileEntryClick: PropTypes.func.isRequired,
-    avatarTitle: PropTypes.string.isRequired,
-    user: PropTypes.string.isRequired,
-    profileEntryRef: PropTypes.func,
-  }
+const ProfileNavEntry = React.forwardRef((props, ref) => {
+  const { user, avatarTitle, onProfileEntryClick } = props
 
-  render() {
-    const { user, avatarTitle, onProfileEntryClick, profileEntryRef } = this.props
+  return (
+    <Container>
+      <StyledAvatarButton
+        avatarStyle={avatarStyle}
+        user={user}
+        title={avatarTitle}
+        buttonRef={ref}
+        onClick={onProfileEntryClick}
+      />
+      <User>{user}</User>
+    </Container>
+  )
+})
 
-    return (
-      <Container>
-        <StyledAvatarButton
-          avatarStyle={avatarStyle}
-          user={user}
-          title={avatarTitle}
-          buttonRef={profileEntryRef}
-          onClick={onProfileEntryClick}
-        />
-        <User>{user}</User>
-      </Container>
-    )
-  }
+ProfileNavEntry.propTypes = {
+  onProfileEntryClick: PropTypes.func.isRequired,
+  avatarTitle: PropTypes.string.isRequired,
+  user: PropTypes.string.isRequired,
 }
+
+export default ProfileNavEntry
