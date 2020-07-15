@@ -84,7 +84,9 @@ async function installDevExtensions() {
 }
 
 async function createLocalSettings() {
-  const settings = new LocalSettings(path.join(getUserDataPath(), 'settings.json'))
+  const sbSessionName = process.env.SB_SESSION
+  const fileName = sbSessionName ? `settings-${sbSessionName}.json` : 'settings.json'
+  const settings = new LocalSettings(path.join(getUserDataPath(), fileName))
   await settings.untilInitialized()
   return settings
 }
