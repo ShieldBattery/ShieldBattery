@@ -119,7 +119,7 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <Contents role='dialog'>
+      <Contents role='dialog' className={this.props.className}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <TitleBar>
           <Title>{title}</Title>
