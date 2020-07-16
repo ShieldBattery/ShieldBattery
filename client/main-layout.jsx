@@ -72,7 +72,6 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
-import { blue50 } from './styles/colors'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -96,32 +95,6 @@ const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
-`
-
-const StyledFindMatchIcon = styled(FindMatchIcon).withConfig({
-  // Don't forward the `glow` property to the `svg` element
-  shouldForwardProp: prop => prop !== 'glow',
-})`
-  position: absolute;
-  top: 0;
-  left: 0;
-
-  ${props => {
-    if (props.glow) {
-      return `
-        fill: ${blue50};
-        filter: blur(4px);
-      `
-    }
-
-    return ''
-  }}
-`
-
-const SearchingMatchIcon = styled.div`
-  position: relative;
-  width: 36px;
-  height: 42px;
 `
 
 const StyledMapsIcon = styled(MapsIcon)`
@@ -346,12 +319,8 @@ class MainLayout extends React.Component {
       <ActivityButton
         key='searching-match'
         ref={this._searchingMatchButtonRef}
-        icon={
-          <SearchingMatchIcon>
-            <StyledFindMatchIcon glow={true} />
-            <StyledFindMatchIcon />
-          </SearchingMatchIcon>
-        }
+        icon={<FindMatchIcon />}
+        glowing={true}
         label='Searching...'
         onClick={this.onSearchingMatchOverlayOpen}
       />

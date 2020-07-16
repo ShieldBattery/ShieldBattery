@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import { ButtonCommon } from '../material/button.jsx'
 
-import { colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { blue50, colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors'
 import { buttonText, robotoCondensed } from '../styles/typography'
 
 const Container = styled(ButtonCommon)`
@@ -37,6 +37,33 @@ const Container = styled(ButtonCommon)`
   }}
 `
 
+const IconContainer = styled.div`
+  position: relative;
+  width: 36px;
+  height: 42px;
+
+  svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  ${props => {
+    if (props.glowing) {
+      return `
+        svg:first-child {
+          fill: ${blue50};
+          filter: blur(4px);
+        }
+      `
+    }
+
+    return ''
+  }}
+`
+
 const Label = styled.span`
   ${buttonText};
   ${robotoCondensed}
@@ -47,11 +74,14 @@ const Label = styled.span`
 `
 
 const ActivityButton = React.forwardRef((props, ref) => {
-  const { label, icon, disabled, onClick } = props
+  const { label, icon, disabled, glowing, onClick } = props
 
   return (
     <Container ref={ref} disabled={disabled} onClick={onClick}>
-      <div>{icon}</div>
+      <IconContainer glowing={glowing}>
+        {glowing ? icon : null}
+        {icon}
+      </IconContainer>
       <Label>{label}</Label>
     </Container>
   )
@@ -61,6 +91,7 @@ ActivityButton.propTypes = {
   label: PropTypes.string.isRequired,
   icon: PropTypes.element.isRequired,
   disabled: PropTypes.bool,
+  glowing: PropTypes.bool,
   onClick: PropTypes.func,
 }
 

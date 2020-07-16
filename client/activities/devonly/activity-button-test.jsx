@@ -33,8 +33,9 @@ export default class ActivityButtonsTest extends React.Component {
         <StyledCard>
           <h3>Press some buttons</h3>
           <ActivityBar>
-            <ActivityButton icon={<Icon />} label='Activity button' />
-            <ActivityButton icon={<Icon />} label='Activity button disabled' disabled={true} />
+            <ActivityButton icon={<Icon />} label='Default' />
+            <ActivityButton icon={<Icon />} label='Disabled' disabled={true} />
+            <ActivityButton icon={<Icon />} label='Glowing' glowing={true} />
           </ActivityBar>
         </StyledCard>
       </Container>
