@@ -17,6 +17,7 @@ const Container = styled.div`
   align-items: center;
   max-width: 1140px;
   margin: 0 auto;
+  padding: 24px 40px;
 `
 
 const TopHalfContainer = styled.div`
@@ -62,7 +63,13 @@ const TeamContainer = styled.div`
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+
+  &:first-child {
+    align-items: flex-end;
+  }
+  &:last-child {
+    align-items: flex-start;
+  }
 `
 
 const PlayerCard = styled(Card)`

@@ -173,10 +173,10 @@ export class MatchmakingApi {
       })
 
       const [preferredMaps, randomMaps] = await Promise.all([
-        await getMapInfo(preferredMapsHashes.toJS()),
-        await getMapInfo(randomMapsHashes),
+        getMapInfo(preferredMapsHashes.toJS()),
+        getMapInfo(randomMapsHashes),
       ])
-      if (!preferredMaps.length && !randomMaps.length) {
+      if (!(preferredMaps.length + randomMaps.length)) {
         throw new Error('no maps found')
       }
 
