@@ -5,6 +5,7 @@ import styled from 'styled-components'
 
 import Avatar from '../avatars/avatar.jsx'
 import Dialog from '../material/dialog.jsx'
+import KeyListener from '../keyboard/key-listener.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 
 import { closeDialog } from '../dialogs/action-creators'
@@ -14,6 +15,9 @@ import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 
 import { amberA400, grey700 } from '../styles/colors'
 import { Body1 } from '../styles/typography'
+
+const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const StyledDialog = styled(Dialog)`
   width: 384px;
@@ -88,8 +92,9 @@ export default class AcceptMatch extends React.Component {
     } else if (failedToAccept) {
       return (
         <div>
+          <KeyListener onKeyDown={this.onFailedKeyDown} />
           <p>You failed to accept the match and have been removed from the queue.</p>
-          <RaisedButton label='Ok' onClick={() => this.props.dispatch(closeDialog())} />
+          <RaisedButton label='Ok' onClick={this.onFailedClick} />
         </div>
       )
     } else if (!match) {
@@ -108,6 +113,7 @@ export default class AcceptMatch extends React.Component {
 
       return (
         <div>
+          <KeyListener onKeyDown={this.onAcceptKeyDown} />
           <Body1>All players must accept the match to begin.</Body1>
           <CenteredContainer>
             {hasAccepted ? (
@@ -139,5 +145,27 @@ export default class AcceptMatch extends React.Component {
 
   onAcceptClick = () => {
     this.props.dispatch(acceptMatch())
+  }
+
+  onFailedClick = () => {
+    this.props.dispatch(closeDialog())
+  }
+
+  onAcceptKeyDown = event => {
+    if (event.code === ENTER || event.code === ENTER_NUMPAD) {
+      this.onAcceptClick()
+      return true
+    }
+
+    return false
+  }
+
+  onFailedKeyDown = event => {
+    if (event.code === ENTER || event.code === ENTER_NUMPAD) {
+      this.onFailedClick()
+      return true
+    }
+
+    return false
   }
 }

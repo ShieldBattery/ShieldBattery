@@ -31,6 +31,7 @@ import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { Headline, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -385,7 +386,7 @@ export default class CreateLobby extends React.Component {
   }
 
   onKeyDown = event => {
-    if (event.code === ENTER) {
+    if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       this.onCreateClick()
       return true
     }

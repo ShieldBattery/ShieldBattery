@@ -37,6 +37,7 @@ const transitionNames = {
 }
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 const ESCAPE = 'Escape'
 const F = 'KeyF'
 
@@ -190,7 +191,7 @@ class FilterOverlay extends React.Component {
       this.props.anchor.focus()
       this.props.onDismiss()
       return true
-    } else if (event.code === ENTER) {
+    } else if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       // Set focus back to element that opens the overlay
       this.props.anchor.focus()
       this.props.onApply()

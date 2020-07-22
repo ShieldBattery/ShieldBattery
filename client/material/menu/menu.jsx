@@ -23,6 +23,7 @@ const transitionNames = {
 }
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 const TAB = 'Tab'
 const ESCAPE = 'Escape'
 const UP = 'ArrowUp'
@@ -268,7 +269,7 @@ export default class Menu extends React.Component {
         this.onItemSelected(this.state.activeIndex)
         return true
       }
-    } else if (event.code === ENTER) {
+    } else if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       if (this.state.activeIndex >= 0) {
         this.onItemSelected(this.state.activeIndex)
         return true

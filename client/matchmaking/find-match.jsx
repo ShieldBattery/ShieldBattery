@@ -30,6 +30,7 @@ import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
 import { Body1, Headline, Subheading, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -419,7 +420,7 @@ export default class FindMatch extends React.Component {
   }
 
   onKeyDown = event => {
-    if (event.code === ENTER) {
+    if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       this.onFindClick()
       return true
     }

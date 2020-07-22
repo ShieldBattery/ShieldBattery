@@ -25,6 +25,7 @@ import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Body1, Headline, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -263,7 +264,7 @@ export default class PreferredMaps extends React.Component {
   }
 
   onKeyDown = event => {
-    if (event.code === ENTER) {
+    if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       this.onConfirmClick()
       return true
     }

@@ -27,6 +27,7 @@ const transitionNames = {
 
 const SPACE = 'Space'
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const CONTAINER_HEIGHT = 56
 
@@ -294,7 +295,7 @@ class Select extends React.Component {
     if (!this.state.isFocused) return false
 
     if (!this.state.isOpened) {
-      if (event.code === SPACE || event.code === ENTER) {
+      if (event.code === SPACE || event.code === ENTER || event.code === ENTER_NUMPAD) {
         this.onOpen()
         return true
       }

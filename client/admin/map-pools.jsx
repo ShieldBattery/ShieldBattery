@@ -49,6 +49,7 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const ENTER = 'Enter'
+const ENTER_NUMPAD = 'NumpadEnter'
 
 const Container = styled.div`
   padding: 0 16px;
@@ -336,7 +337,7 @@ export class MapPoolEditor extends React.Component {
   }
 
   onKeyDown = event => {
-    if (event.code === ENTER && this.state.searchFocused) {
+    if ((event.code === ENTER || event.code === ENTER_NUMPAD) && this.state.searchFocused) {
       this.onSearchClick()
       return true
     }
