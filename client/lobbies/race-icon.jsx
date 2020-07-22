@@ -8,13 +8,13 @@ import TerranIcon from '../icons/starcraft/marine_24px.svg'
 import ZergIcon from '../icons/starcraft/hydra_24px.svg'
 
 const ICONS = {
-  r: <RandomIcon />,
-  p: <ProtossIcon />,
-  t: <TerranIcon />,
-  z: <ZergIcon />,
+  r: RandomIcon,
+  p: ProtossIcon,
+  t: TerranIcon,
+  z: ZergIcon,
 }
 
-const Icon = styled.i`
+const StyledIcon = styled.svg`
   ${props => {
     let color
     if (props.race === 'z') {
@@ -27,7 +27,7 @@ const Icon = styled.i`
       color = '#FF9100'
     }
 
-    return `color: ${color};`
+    return `fill: ${color};`
   }}
 `
 
@@ -38,10 +38,6 @@ export default class RaceIcon extends React.Component {
 
   render() {
     const icon = ICONS[this.props.race]
-    return (
-      <Icon className={this.props.className} race={this.props.race}>
-        {icon}
-      </Icon>
-    )
+    return <StyledIcon className={this.props.className} as={icon} race={this.props.race} />
   }
 }

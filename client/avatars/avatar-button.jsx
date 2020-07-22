@@ -12,11 +12,6 @@ const StyledAvatar = styled(Avatar)`
   margin: auto;
   overflow: hidden;
 
-  & > svg {
-    width: 24px;
-    height: 24px;
-  }
-
   // This has to be on the bottom so it can override any of the style above.
   ${props => props.style};
 `

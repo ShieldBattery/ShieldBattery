@@ -23,11 +23,6 @@ const StyledAvatarButton = styled(AvatarButton)`
 const avatarStyle = css`
   width: 40px;
   height: 40px;
-
-  & > svg {
-    width: 40px;
-    height: 40px;
-  }
 `
 
 const User = styled(Body2)`

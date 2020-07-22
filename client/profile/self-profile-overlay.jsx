@@ -23,8 +23,10 @@ const Contents = styled.div`
 
 const Header = styled.div`
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding-top: 24px;
-  text-align: center;
 
   .enter & {
     opacity: 0;

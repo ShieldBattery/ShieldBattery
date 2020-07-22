@@ -48,12 +48,7 @@ export const StyledRaceIcon = styled(RaceIcon)`
   height: 32px;
   margin: auto;
   overflow: hidden;
-  transition: color 150ms ${fastOutSlowIn};
-
-  & svg {
-    width: 32px;
-    height: 32px;
-  }
+  transition: fill 150ms ${fastOutSlowIn};
 
   ${props => {
     let color
@@ -68,11 +63,11 @@ export const StyledRaceIcon = styled(RaceIcon)`
     }
 
     return `
-      color: ${props.active ? color : colorTextFaint};
+      fill: ${props.active ? color : colorTextFaint};
 
       &:hover,
       &:active {
-        color: ${color};
+        fill: ${color};
       }
     `
   }}
@@ -82,11 +77,6 @@ export const StyledRaceIcon = styled(RaceIcon)`
       return `
         width: 44px;
         height: 44px;
-
-        & svg {
-          width: 44px;
-          height: 44px;
-        }
       `
     }
 

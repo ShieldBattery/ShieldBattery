@@ -101,11 +101,8 @@ const PlayerName = styled(Headline)`
 
 const StyledRaceIcon = styled(RaceIcon)`
   flex-shrink: 0;
-
-  & svg {
-    width: 48px;
-    height: 48px;
-  }
+  width: 48px;
+  height: 48px;
 `
 
 const VsContainer = styled.div`

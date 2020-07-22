@@ -271,12 +271,6 @@ const PlayerRaceIcon = styled(RaceIcon)`
   width: 32px;
   height: 32px;
   opacity: var(--player-component-opacity);
-
-  /* TODO(tec27): is this still necessary with styled-components? */
-  svg {
-    width: 32px;
-    height: 32px;
-  }
 `
 
 class LoadingPlayer extends React.Component {
