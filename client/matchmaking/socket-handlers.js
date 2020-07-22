@@ -6,12 +6,18 @@ import {
   MATCHMAKING_FIND,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
+  MATCHMAKING_UPDATE_GAME_STARTING,
+  MATCHMAKING_UPDATE_GAME_STARTED,
+  MATCHMAKING_UPDATE_LOADING_CANCELED,
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
+  MATCHMAKING_UPDATE_COUNTDOWN_START,
+  MATCHMAKING_UPDATE_COUNTDOWN_TICK,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
+import { replace } from 'connected-react-router'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
@@ -35,6 +41,17 @@ function clearRequeueTimer() {
   if (timer) {
     clearTimeout(timer)
     requeueState.timer = null
+  }
+}
+
+const countdownState = {
+  timer: null,
+}
+function clearCountdownTimer() {
+  const { timer } = countdownState
+  if (timer) {
+    clearInterval(timer)
+    countdownState.timer = null
   }
 }
 
@@ -105,6 +122,7 @@ const eventToAction = {
       type: MATCHMAKING_UPDATE_MATCH_READY,
       payload: event,
     })
+    dispatch(replace('/matchmaking/map-selection'))
 
     const {
       settings,
@@ -115,7 +133,7 @@ const eventToAction = {
       hash,
       mapData: { format },
       mapUrl,
-    } = event.mapInfo
+    } = event.chosenMap
     // NOTE(2Pac): We can't download map any sooner since we don't know which map we'll play until
     // all players accept the game
     mapStore.downloadMap(hash, format, mapUrl)
@@ -126,7 +144,7 @@ const eventToAction = {
       setup: {
         gameId: event.setup.gameId,
         name: event.matchInfo.type,
-        map: event.mapInfo,
+        map: event.chosenMap,
         gameType: 'oneVOne',
         slots: event.players,
         host: event.players[0], // Arbitrarily set first player as host
@@ -143,6 +161,29 @@ const eventToAction = {
     activeGameManager.setGameRoutes(gameId, routes)
   },
 
+  startCountdown: (name, event) => (dispatch, getState) => {
+    clearCountdownTimer()
+    let tick = 5
+    dispatch({
+      type: MATCHMAKING_UPDATE_COUNTDOWN_START,
+      payload: tick,
+    })
+    dispatch(replace('/matchmaking/countdown'))
+
+    countdownState.timer = setInterval(() => {
+      tick -= 1
+      dispatch({
+        type: MATCHMAKING_UPDATE_COUNTDOWN_TICK,
+        payload: tick,
+      })
+      if (!tick) {
+        clearCountdownTimer()
+        dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
+        dispatch(replace('/matchmaking/game-starting'))
+      }
+    }, 1000)
+  },
+
   allowStart: (name, event) => {
     const { gameId } = event
 
@@ -153,11 +194,21 @@ const eventToAction = {
     dispatch(closeDialog())
     clearAcceptMatchTimer()
 
+    dispatch(replace('/'))
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: activeGameManager.setGameConfig({}),
     })
+    dispatch({ type: MATCHMAKING_UPDATE_LOADING_CANCELED })
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
+  },
+
+  gameStarted: (name, event) => {
+    dispatch(replace('/matchmaking/active-game'))
+
+    return {
+      type: MATCHMAKING_UPDATE_GAME_STARTED,
+    }
   },
 
   status: (name, event) => ({

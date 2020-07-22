@@ -59,18 +59,18 @@ const FilledTimerBar = styled.div`
 
 @connect(state => ({ matchmaking: state.matchmaking }))
 export default class AcceptMatch extends React.Component {
-  componentWillMount() {
-    this.maybeClose(this.props)
+  componentDidMount() {
+    this.maybeClose()
   }
 
-  componentWillUpdate(nextProps) {
-    this.maybeClose(nextProps)
+  componentDidUpdate() {
+    this.maybeClose()
   }
 
-  maybeClose(props) {
+  maybeClose() {
     const {
       matchmaking: { isFinding, failedToAccept, match },
-    } = props
+    } = this.props
     if (!isFinding && !failedToAccept && !match) {
       this.props.dispatch(closeDialog())
     }

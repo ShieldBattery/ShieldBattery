@@ -26,6 +26,8 @@ import LeftNav from './material/left-nav/left-nav.jsx'
 import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
+import MatchmakingView from './matchmaking/view.jsx'
+import MatchmakingTitle from './matchmaking/app-bar-title.jsx'
 import Menu from './material/menu/menu.jsx'
 import MenuItem from './material/menu/item.jsx'
 import ProfileNavEntry from './profile/nav-entry.jsx'
@@ -104,9 +106,11 @@ const StyledMapsIcon = styled(MapsIcon)`
 
 let activeGameRoute
 let lobbyRoute
+let matchmakingRoute
 if (IS_ELECTRON) {
   activeGameRoute = <Route path='/active-game' component={ActiveGame} />
   lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
+  matchmakingRoute = <Route path='/matchmaking' component={MatchmakingView} />
 }
 
 const LoadableAdminPanel = loadable(() => import('./admin/panel.jsx'), {
@@ -260,6 +264,8 @@ class MainLayout extends React.Component {
       appBarTitle = <ChatTitle />
     } else if (pathname.startsWith('/lobbies')) {
       appBarTitle = <LobbyTitle />
+    } else if (pathname.startsWith('/matchmaking')) {
+      appBarTitle = <MatchmakingTitle />
     } else if (pathname.startsWith('/whispers')) {
       appBarTitle = <WhispersTitle />
     }
@@ -423,6 +429,7 @@ class MainLayout extends React.Component {
               <Route path='/chat' exact={true} component={ChatList} />
               <Route path='/chat/:channel' component={ChatChannel} />
               {lobbyRoute}
+              {matchmakingRoute}
               <Route path='/whispers/:target' component={Whisper} />
               {/* If no paths match, redirect the page to the "index". Note: this means that we
                   can't actually have a 404 page, but I don't think we really need one? */}

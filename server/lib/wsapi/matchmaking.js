@@ -1,4 +1,4 @@
-import { List, Map, Record } from 'immutable'
+import { List, Map, Range, Record, Set } from 'immutable'
 import errors from 'http-errors'
 import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
@@ -9,6 +9,7 @@ import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
+import createDeferred from '../../../common/async/deferred'
 import {
   MATCHMAKING_ACCEPT_MATCH_TIME,
   MATCHMAKING_TYPES,
@@ -22,6 +23,8 @@ const Player = new Record({
   rating: 0,
   interval: null,
   race: 'r',
+  alternateRace: 'p',
+  preferredMaps: new Set(),
 })
 
 const Match = new Record({
@@ -33,6 +36,13 @@ const QueueEntry = new Record({
   username: null,
   type: null,
 })
+
+const Timers = new Record({
+  mapSelectionTimer: null,
+  countdownTimer: null,
+})
+
+const getRandomInt = max => Math.floor(Math.random() * Math.floor(max))
 
 // How often to run the matchmaker 'find match' process
 const MATCHMAKING_INTERVAL = 7500
@@ -60,6 +70,7 @@ export class MatchmakingApi {
     )
 
     this.queueEntries = new Map()
+    this.clientTimers = new Map()
   }
 
   matchmakerDelegate = {
@@ -95,6 +106,12 @@ export class MatchmakingApi {
       }
     },
     onAccepted: async (matchInfo, clients) => {
+      this.queueEntries = this.queueEntries.withMutations(map => {
+        for (const client of clients) {
+          map.delete(client.name)
+        }
+      })
+
       const players = clients.map(c => createHuman(c.name))
       const { gameLoad } = gameLoader.loadGame(
         players,
@@ -129,7 +146,7 @@ export class MatchmakingApi {
       for (const client of clients) {
         this._publishToActiveClient(client.name, {
           type: 'cancelLoading',
-          reason: err.message,
+          reason: err && err.message,
         })
         this._unregisterActivity(client)
       }
@@ -138,29 +155,79 @@ export class MatchmakingApi {
 
   gameLoaderDelegate = {
     onGameSetup: async (matchInfo, clients, players, setup = {}) => {
-      // TODO(2Pac): Select map intelligently based on user's preference
-      const mapPool = await getCurrentMapPool(matchInfo.type)
-      if (!mapPool) {
+      const currentMapPool = await getCurrentMapPool(matchInfo.type)
+      if (!currentMapPool) {
         throw new Error('invalid map pool')
       }
 
-      const mapInfo = (await getMapInfo(mapPool.maps))[0]
-      if (!mapInfo) {
-        throw new Error('invalid map')
+      const mapPool = new Set(currentMapPool.maps)
+      const preferredMapsHashes = matchInfo.players
+        .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
+        .filter(m => mapPool.includes(m))
+
+      const randomMapsHashes = []
+      Range(preferredMapsHashes.size, 4).forEach(() => {
+        const availableMaps = mapPool.subtract(preferredMapsHashes.concat(randomMapsHashes))
+        const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
+        randomMapsHashes.push(randomMap)
+      })
+
+      const [preferredMaps, randomMaps] = await Promise.all([
+        getMapInfo(preferredMapsHashes.toJS()),
+        getMapInfo(randomMapsHashes),
+      ])
+      if (!(preferredMaps.length + randomMaps.length)) {
+        throw new Error('no maps found')
       }
 
-      this.queueEntries = this.queueEntries.withMutations(map => {
-        for (const client of clients) {
-          map.delete(client.name)
+      const chosenMap = [...preferredMaps, ...randomMaps][
+        getRandomInt(preferredMaps.length + randomMaps.length)
+      ]
+
+      // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
+      // catches any of the errors inside.
+      await Promise.all(
+        clients.map(async client => {
           this._publishToActiveClient(client.name, {
             type: 'matchReady',
             setup,
             players,
             matchInfo,
-            mapInfo,
+            preferredMaps,
+            randomMaps,
+            chosenMap,
           })
-        }
-      })
+
+          let mapSelectionTimerId
+          let countdownTimerId
+          try {
+            const mapSelectionTimer = createDeferred()
+            this.clientTimers = this.clientTimers.update(client.name, new Timers(), timers =>
+              timers.merge({ mapSelectionTimer }),
+            )
+            mapSelectionTimerId = setTimeout(() => mapSelectionTimer.resolve(), 5000)
+            await mapSelectionTimer
+            this._publishToActiveClient(client.name, { type: 'startCountdown' })
+
+            const countdownTimer = createDeferred()
+            this.clientTimers = this.clientTimers.update(client.name, new Timers(), timers =>
+              timers.merge({ countdownTimer }),
+            )
+            countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
+            await countdownTimer
+            this._publishToActiveClient(client.name, { type: 'allowStart', gameId: setup.gameId })
+          } finally {
+            if (mapSelectionTimerId) {
+              clearTimeout(mapSelectionTimerId)
+              mapSelectionTimerId = null
+            }
+            if (countdownTimerId) {
+              clearTimeout(countdownTimerId)
+              countdownTimerId = null
+            }
+          }
+        }),
+      )
     },
     onRoutesSet: (clients, playerName, routes, gameId) => {
       this._publishToActiveClient(playerName, {
@@ -168,20 +235,39 @@ export class MatchmakingApi {
         routes,
         gameId,
       })
-      this._publishToActiveClient(playerName, { type: 'allowStart', gameId })
     },
     onGameLoaded: clients => {
       for (const client of clients) {
+        this._publishToActiveClient(client.name, { type: 'gameStarted' })
         this._unregisterActivity(client)
       }
     },
   }
 
   _handleLeave = client => {
+    // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
+    // loading process, or even during the game process.
     const entry = this.queueEntries.get(client.name)
-    this.queueEntries = this.queueEntries.delete(client.name)
-    this.matchmakers.get(entry.type).removeFromQueue(entry.username)
-    this.acceptor.registerDisconnect(client)
+    // Means the client disconnected during the queueing process
+    if (entry) {
+      this.queueEntries = this.queueEntries.delete(client.name)
+      this.matchmakers.get(entry.type).removeFromQueue(entry.username)
+      this.acceptor.registerDisconnect(client)
+    }
+
+    // Means the client disconnected during the loading process
+    if (this.clientTimers.has(client.name)) {
+      const { mapSelectionTimer, countdownTimer } = this.clientTimers.get(client.name)
+      if (countdownTimer) {
+        countdownTimer.reject(new Error('Countdown cancelled'))
+      }
+      if (mapSelectionTimer) {
+        mapSelectionTimer.reject(new Error('Map selection cancelled'))
+      }
+
+      this.clientTimers = this.clientTimers.delete(client.name)
+    }
+
     this._unregisterActivity(client)
   }
 
@@ -207,7 +293,7 @@ export class MatchmakingApi {
     }),
   )
   async find(data, next) {
-    const { type, race } = data.get('body')
+    const { type, race, alternateRace, preferredMaps } = data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -230,6 +316,8 @@ export class MatchmakingApi {
       rating,
       interval,
       race,
+      alternateRace,
+      preferredMaps,
     })
     this.matchmakers.get(type).addToQueue(player)
 

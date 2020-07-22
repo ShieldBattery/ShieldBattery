@@ -292,6 +292,16 @@ export const MATCHMAKING_GET_CURRENT_MAP_POOL = 'MATCHMAKING_GET_CURRENT_MAP_POO
 export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
 // The accept match time has changed
 export const MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME'
+// A match we're in is starting the game countdown
+export const MATCHMAKING_UPDATE_COUNTDOWN_START = 'MATCHMAKING_UPDATE_COUNTDOWN_START'
+// A second has ticked off the countdown for a match we're in
+export const MATCHMAKING_UPDATE_COUNTDOWN_TICK = 'MATCHMAKING_UPDATE_COUNTDOWN_TICK'
+// The game is being started and is the final step before the loading process completes
+export const MATCHMAKING_UPDATE_GAME_STARTING = 'MATCHMAKING_UPDATE_GAME_STARTING'
+// The game has been started and the loading process is now complete
+export const MATCHMAKING_UPDATE_GAME_STARTED = 'MATCHMAKING_UPDATE_GAME_STARTED'
+// The matchmaking has canceled out of the loading phase (because of timeout or load failure)
+export const MATCHMAKING_UPDATE_LOADING_CANCELED = 'MATCHMAKING_UPDATE_LOADING_CANCELED'
 // The server has responded that a player has accepted the match
 export const MATCHMAKING_UPDATE_MATCH_ACCEPTED = 'MATCHMAKING_UPDATE_MATCH_ACCEPTED'
 // The server has responded with a found match
