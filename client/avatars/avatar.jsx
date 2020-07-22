@@ -16,7 +16,7 @@ export const ImageAvatar = styled.img`
   ${props => (props.glowing ? `box-shadow: 0 0 8px ${amberA400}` : '')};
 `
 
-const IconContainer = styled.div`
+export const IconContainer = styled.div`
   position: relative;
   width: 40px;
   height: 40px;
