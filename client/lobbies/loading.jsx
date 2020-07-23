@@ -4,19 +4,10 @@ import { getPlayerSlots } from '../../common/lobbies'
 import gameTypeToString from './game-type-to-string'
 import styled from 'styled-components'
 
-import Card from '../material/card.jsx'
-import Avatar from '../avatars/avatar.jsx'
-import ComputerAvatar from '../avatars/computer-avatar.jsx'
-import RaceIcon from './race-icon.jsx'
+import PlayerCard from './player-card.jsx'
 
-import { fastOutSlowInShort } from '../material/curves'
-import {
-  alphaDisabled,
-  colorTextSecondary,
-  colorTextFaint,
-  colorTextPrimary,
-} from '../styles/colors'
-import { Title, Subheading, singleLine, Display1 } from '../styles/typography'
+import { colorTextSecondary } from '../styles/colors'
+import { Title, Display1 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const LOADING_MESSAGES = [
@@ -197,12 +188,6 @@ const LOADING_MESSAGES = [
   'Building a bot to perfectly emulate SlayerS`BoxeR`',
 ]
 
-const StyledAvatar = styled(Avatar)`
-  ${fastOutSlowInShort};
-  margin-right: 16px;
-  opacity: ${props => (props.isReady ? 1 : alphaDisabled)};
-`
-
 const LoadingMessageContent = styled(Title)`
   margin-top: 24px;
   color: ${colorTextSecondary};
@@ -244,61 +229,6 @@ class LoadingMessage extends React.Component {
   }
 }
 
-const PlayerCard = styled(Card)`
-  width: 256px;
-  margin: 8px;
-  display: flex;
-  align-items: center;
-  flex-grow: 1;
-  flex-shrink: 0;
-  overflow: hidden;
-
-  color: ${props => (props.ready ? colorTextPrimary : colorTextFaint)};
-  --player-component-opacity: ${props => (props.ready ? 1 : alphaDisabled)};
-`
-
-const PlayerName = styled(Subheading)`
-  ${singleLine};
-  ${fastOutSlowInShort};
-
-  color: inherit;
-  flex-grow: 1;
-  margin-right: 16px;
-`
-
-const PlayerRaceIcon = styled(RaceIcon)`
-  ${fastOutSlowInShort};
-  width: 32px;
-  height: 32px;
-  opacity: var(--player-component-opacity);
-`
-
-class LoadingPlayer extends React.Component {
-  static propTypes = {
-    player: PropTypes.object.isRequired,
-    isReady: PropTypes.bool,
-  }
-
-  render() {
-    const { player, isReady } = this.props
-    const isComputer = player.type === 'computer'
-    const avatar = isComputer ? (
-      <StyledAvatar as={ComputerAvatar} isReady={isReady} />
-    ) : (
-      <StyledAvatar user={player.name} isReady={isReady} />
-    )
-    const displayName = isComputer ? 'Computer' : player.name
-
-    return (
-      <PlayerCard ready={isReady}>
-        {avatar}
-        <PlayerName as='span'>{displayName}</PlayerName>
-        <PlayerRaceIcon race={player.race} />
-      </PlayerCard>
-    )
-  }
-}
-
 const Content = styled.div`
   margin-top: 16px;
   margin-bottom: 16px;
@@ -320,12 +250,17 @@ const MapThumbnail = styled.img`
 `
 
 const Players = styled.div`
-  margin-top: 8px;
-
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+`
+
+const StyledPlayerCard = styled(PlayerCard)`
+  max-width: 320px;
+  margin: 8px;
 `
 
 export default class LoadingScreen extends React.Component {
@@ -346,8 +281,15 @@ export default class LoadingScreen extends React.Component {
       return gameStatus.extra ? !gameStatus.extra.includes(p.name) : true
     }
 
+    // TODO(2Pac): Group the players in two columns in Top vs Bottom game types, each column
+    // representing the one team. Also, perhaps display observers separately in their own group.
     const playerElems = getPlayerSlots(lobby).map(p => (
-      <LoadingPlayer key={p.id} player={p} isReady={isReady(p)} />
+      <StyledPlayerCard
+        key={p.id}
+        player={p}
+        isComputer={p.type === 'computer'}
+        isReady={isReady(p)}
+      />
     ))
 
     return (

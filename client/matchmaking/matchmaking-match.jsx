@@ -2,14 +2,12 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Avatar from '../avatars/avatar.jsx'
-import Card from '../material/card.jsx'
 import MapThumbnail from '../maps/map-thumbnail.jsx'
-import RaceIcon from '../lobbies/race-icon.jsx'
+import PlayerCard from '../lobbies/player-card.jsx'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1, Display3, Display4, Headline, robotoCondensed } from '../styles/typography'
+import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -72,37 +70,12 @@ const TeamContainer = styled.div`
   }
 `
 
-const PlayerCard = styled(Card)`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
+const StyledPlayerCard = styled(PlayerCard)`
   max-width: 360px;
-  height: 88px;
-  padding: 12px;
 
   &:not(:first-child) {
     margin-top: 16px;
   }
-`
-
-const StyledAvatar = styled(Avatar)`
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-`
-
-const PlayerName = styled(Headline)`
-  flex-grow: 1;
-  ${robotoCondensed};
-  font-weight: 700;
-  margin: 0 12px;
-`
-
-const StyledRaceIcon = styled(RaceIcon)`
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
 `
 
 const VsContainer = styled.div`
@@ -139,21 +112,15 @@ export default class MatchmakingMatch extends React.Component {
     }
   }
 
-  renderPlayerCard(player) {
-    return (
-      <PlayerCard key={player.id}>
-        <StyledAvatar user={player.name} />
-        <PlayerName>{player.name}</PlayerName>
-        <StyledRaceIcon race={player.race} />
-      </PlayerCard>
-    )
-  }
-
   render() {
     const { map, players } = this.props
     // TODO(2Pac): Split the teams by their parties once we support team matchmaking
-    const team1 = players.slice(0, players.length / 2).map(p => this.renderPlayerCard(p))
-    const team2 = players.slice(players.length / 2).map(p => this.renderPlayerCard(p))
+    const team1 = players
+      .slice(0, players.length / 2)
+      .map(p => <StyledPlayerCard key={p.id} player={p} />)
+    const team2 = players
+      .slice(players.length / 2)
+      .map(p => <StyledPlayerCard key={p.id} player={p} />)
 
     return (
       <Container>
