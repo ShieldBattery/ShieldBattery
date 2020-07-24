@@ -19,11 +19,13 @@ import {
 import { MATCHMAKING } from '../../../common/flags'
 
 const Player = new Record({
+  id: null,
   name: null,
-  rating: 0,
+  rating: -1,
   interval: null,
-  race: 'r',
-  alternateRace: 'p',
+  race: null,
+  useAlternateRace: false,
+  alternateRace: null,
   preferredMaps: new Set(),
 })
 
@@ -87,10 +89,12 @@ export class MatchmakingApi {
 
       this._publishToActiveClient(player.name, {
         type: 'matchFound',
+        matchmakingType: type,
         numPlayers: 2,
       })
       this._publishToActiveClient(opponent.name, {
         type: 'matchFound',
+        matchmakingType: type,
         numPlayers: 2,
       })
     },
@@ -112,15 +116,44 @@ export class MatchmakingApi {
         }
       })
 
-      const players = clients.map(c => createHuman(c.name))
-      const { gameLoad } = gameLoader.loadGame(
-        players,
-        setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, players, setup),
+      let slots
+      const players = matchInfo.players
+      const playersHaveSameRace = players.every(p => p.race === players.first().race)
+      if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
+        // All players have the same race and want to use an alternate race; select randomly one
+        // player to use the alternate race and everyone else their main race. This is only done for
+        // the first player, as the whole concept of the alternate race doesn't make much sense when
+        // there are more than two players.
+        const randomPlayerIndex = getRandomInt(players.size)
+        slots = players.map((p, i) =>
+          i === randomPlayerIndex
+            ? createHuman(p.name, p.alternateRace)
+            : createHuman(p.name, p.race),
+        )
+      } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
+        // All players have the same race, but only some of them are choosing to use an alternate
+        // race; find the first player who wants to use the alternate race and have everyone else
+        // use their main. Again, this is only done for the first player.
+        const useAlternateRacePlayer = players.find(p => p.useAlternateRace === true)
+        slots = players.map(p =>
+          p.id === useAlternateRacePlayer.id
+            ? createHuman(p.name, p.alternateRace)
+            : createHuman(p.name, p.race),
+        )
+      } else {
+        // All players have different race or don't want to use alternate race; nothing special to
+        // do here.
+        slots = players.map(p => createHuman(p.name, p.race))
+      }
+
+      const { gameLoaded } = gameLoader.loadGame(
+        slots,
+        setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, slots, setup),
         (playerName, routes, gameId) =>
           this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
       )
 
-      await gameLoad
+      await gameLoaded
       this.gameLoaderDelegate.onGameLoaded(clients)
     },
     onDeclined: (matchInfo, requeueClients, kickClients) => {
@@ -154,7 +187,7 @@ export class MatchmakingApi {
   }
 
   gameLoaderDelegate = {
-    onGameSetup: async (matchInfo, clients, players, setup = {}) => {
+    onGameSetup: async (matchInfo, clients, slots, setup = {}) => {
       const currentMapPool = await getCurrentMapPool(matchInfo.type)
       if (!currentMapPool) {
         throw new Error('invalid map pool')
@@ -176,13 +209,27 @@ export class MatchmakingApi {
         getMapInfo(preferredMapsHashes.toJS()),
         getMapInfo(randomMapsHashes),
       ])
-      if (!(preferredMaps.length + randomMaps.length)) {
+      if (
+        preferredMapsHashes.size + randomMapsHashes.length !==
+        preferredMaps.length + randomMaps.length
+      ) {
         throw new Error('no maps found')
       }
 
       const chosenMap = [...preferredMaps, ...randomMaps][
         getRandomInt(preferredMaps.length + randomMaps.length)
       ]
+
+      const playersJson = matchInfo.players.map(p => {
+        const slot = slots.find(s => s.name === p.name)
+
+        return {
+          id: p.id,
+          name: p.name,
+          race: slot.race,
+          rating: p.rating,
+        }
+      })
 
       // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
       // catches any of the errors inside.
@@ -191,8 +238,8 @@ export class MatchmakingApi {
           this._publishToActiveClient(client.name, {
             type: 'matchReady',
             setup,
-            players,
-            matchInfo,
+            slots,
+            players: playersJson,
             preferredMaps,
             randomMaps,
             chosenMap,
@@ -293,7 +340,7 @@ export class MatchmakingApi {
     }),
   )
   async find(data, next) {
-    const { type, race, alternateRace, preferredMaps } = data.get('body')
+    const { type, race, useAlternateRace, alternateRace, preferredMaps } = data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -312,10 +359,12 @@ export class MatchmakingApi {
       high: rating + 50,
     })
     const player = new Player({
+      id: user.session.userId,
       name: user.name,
       rating,
       interval,
       race,
+      useAlternateRace,
       alternateRace,
       preferredMaps,
     })

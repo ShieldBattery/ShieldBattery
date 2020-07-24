@@ -143,11 +143,11 @@ const eventToAction = {
       settings,
       setup: {
         gameId: event.setup.gameId,
-        name: event.matchInfo.type,
+        name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
         gameType: 'oneVOne',
-        slots: event.players,
-        host: event.players[0], // Arbitrarily set first player as host
+        slots: event.slots,
+        host: event.slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed,
       },
     }

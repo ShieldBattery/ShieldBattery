@@ -15,10 +15,11 @@ import {
   MATCHMAKING_PREFERENCES_UPDATE,
 } from '../actions'
 
-export const findMatch = (type, race, alternateRace, preferredMaps) =>
+export const findMatch = (type, race, useAlternateRace, alternateRace, preferredMaps) =>
   createSiteSocketAction(MATCHMAKING_FIND_BEGIN, MATCHMAKING_FIND, '/matchmaking/find', {
     type,
     race,
+    useAlternateRace,
     alternateRace,
     preferredMaps,
   })

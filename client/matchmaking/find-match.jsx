@@ -412,10 +412,11 @@ export default class FindMatch extends React.Component {
   onSubmit = () => {
     const { race, useAlternateRace, alternateRace } = this._form.current.getModel()
     const matchmakingType = tabToType(this.state.activeTab)
-    const alterRace = useAlternateRace ? alternateRace : undefined
     const preferredMaps = this._getPreferredMaps().map(m => m.id)
 
-    this.props.dispatch(findMatch(matchmakingType, race, alterRace, preferredMaps))
+    this.props.dispatch(
+      findMatch(matchmakingType, race, useAlternateRace, alternateRace, preferredMaps),
+    )
     this.props.dispatch(closeOverlay())
   }
 
