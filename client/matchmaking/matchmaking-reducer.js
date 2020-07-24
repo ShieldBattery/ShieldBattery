@@ -25,11 +25,12 @@ export const Player = new Record({
   id: null,
   name: null,
   race: null,
-  teamId: null,
+  rating: -1,
 })
 const Match = new Record({
   numPlayers: 0,
   acceptedPlayers: 0,
+  type: null,
   players: new List(),
   preferredMaps: new Set(),
   randomMaps: new Set(),
@@ -37,7 +38,7 @@ const Match = new Record({
 })
 const MapPool = new Record({
   id: null,
-  type: '',
+  type: null,
   startDate: null,
   maps: new List(),
   byId: new Map(),
@@ -125,8 +126,9 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   [MATCHMAKING_UPDATE_MATCH_FOUND](state, action) {
+    const { matchmakingType, numPlayers } = action.payload
     return state
-      .set('match', new Match({ numPlayers: action.payload.numPlayers }))
+      .set('match', new Match({ type: matchmakingType, numPlayers }))
       .set('isFinding', false)
       .set('hasAccepted', false)
   },

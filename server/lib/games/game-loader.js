@@ -81,14 +81,23 @@ export class GameLoader {
   loadGame(players, onGameSetup, onRoutesSet) {
     const cancelToken = new CancelToken()
     const gameId = cuid()
-    const gameLoad = this._doGameLoad(gameId, cancelToken, players, onGameSetup, onRoutesSet)
+    const gameLoaded = createDeferred()
+    this.loadingGames = this.loadingGames.set(
+      gameId,
+      new LoadingData({
+        players: new Set(players),
+        cancelToken,
+        deferred: gameLoaded,
+      }),
+    )
+    this._doGameLoad(gameId, onGameSetup, onRoutesSet)
 
-    rejectOnTimeout(gameLoad, GAME_LOAD_TIMEOUT).catch(() => {
+    rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
       cancelToken.cancel()
       this.maybeCancelLoading(gameId)
     })
 
-    return { gameId, gameLoad }
+    return { gameId, gameLoaded }
   }
 
   // The game has successfully loaded for a specific player; once the game is loaded for all
@@ -126,16 +135,14 @@ export class GameLoader {
     return this.loadingGames.has(gameId)
   }
 
-  async _doGameLoad(gameId, cancelToken, players, onGameSetup, onRoutesSet) {
-    const gameLoaded = createDeferred()
-    this.loadingGames = this.loadingGames.set(
-      gameId,
-      new LoadingData({
-        players: new Set(players),
-        cancelToken,
-        deferred: gameLoaded,
-      }),
-    )
+  async _doGameLoad(gameId, onGameSetup, onRoutesSet) {
+    if (!this.loadingGames.has(gameId)) {
+      return
+    }
+
+    const loadingData = this.loadingGames.get(gameId)
+    const { players, cancelToken } = loadingData
+
     const onGameSetupResult = onGameSetup
       ? onGameSetup({ gameId, seed: generateSeed() })
       : Promise.resolve()
@@ -176,9 +183,7 @@ export class GameLoader {
     }
 
     await onGameSetupResult
-
     cancelToken.throwIfCancelling()
-    return gameLoaded
   }
 }
 

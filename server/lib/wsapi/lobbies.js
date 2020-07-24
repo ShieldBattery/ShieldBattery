@@ -656,7 +656,7 @@ export class LobbyApi {
 
     let allowStartTimerId
     try {
-      const { gameId, gameLoad } = gameLoader.loadGame(
+      const { gameId, gameLoaded } = gameLoader.loadGame(
         getHumanSlots(lobby),
         setup => this._onGameSetup(lobby, setup),
         (playerName, routes, gameId) => this._onRoutesSet(lobby, playerName, routes, gameId),
@@ -674,7 +674,7 @@ export class LobbyApi {
         this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
       })
 
-      await Promise.all([countdownTimer, gameLoad])
+      await Promise.all([countdownTimer, gameLoaded])
       this._onGameLoaded(lobby)
     } catch (err) {
       this._maybeCancelCountdown(lobby)
