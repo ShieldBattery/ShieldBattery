@@ -90,10 +90,11 @@ export class GameLoader {
         deferred: gameLoaded,
       }),
     )
-    this._doGameLoad(gameId, onGameSetup, onRoutesSet)
+    this._doGameLoad(gameId, onGameSetup, onRoutesSet).catch(() => {
+      this.maybeCancelLoading(gameId)
+    })
 
     rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
-      cancelToken.cancel()
       this.maybeCancelLoading(gameId)
     })
 
