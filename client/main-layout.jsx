@@ -18,11 +18,12 @@ import ChatChannel from './chat/channel.jsx'
 import ChatList from './chat/list.jsx'
 import { ChatListTitle, ChatTitle } from './chat/app-bar-title.jsx'
 import { ConditionalRoute } from './navigation/custom-routes.jsx'
-import Divider from './material/left-nav/divider.jsx'
+import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
+import ConnectedLeftNav from './navigation/connected-left-nav.jsx'
+import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
 import EmailVerificationNotification from './auth/email-verification-notification.jsx'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button.jsx'
 import Index from './navigation/index.jsx'
-import LeftNav from './material/left-nav/left-nav.jsx'
 import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
@@ -30,50 +31,29 @@ import MatchmakingView from './matchmaking/view.jsx'
 import MatchmakingTitle from './matchmaking/app-bar-title.jsx'
 import Menu from './material/menu/menu.jsx'
 import MenuItem from './material/menu/item.jsx'
-import ProfileNavEntry from './profile/nav-entry.jsx'
-import SearchingMatchNavEntry from './matchmaking/searching-match-nav-entry.jsx'
-import Section from './material/left-nav/section.jsx'
-import Subheader from './material/left-nav/subheader.jsx'
-import SubheaderButton from './material/left-nav/subheader-button.jsx'
-import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay.jsx'
-import ConnectedSnackbar from './snackbars/connected-snackbar.jsx'
-import SelfProfileOverlay from './profile/self-profile-overlay.jsx'
 import Whisper from './whispers/whisper.jsx'
 import WhispersTitle from './whispers/app-bar-title.jsx'
 
-import AddIcon from './icons/material/ic_add_black_24px.svg'
 import AdminIcon from './icons/material/ic_build_black_36px.svg'
-import ChangelogIcon from './icons/material/ic_new_releases_black_24px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
-import FeedbackIcon from './icons/material/ic_feedback_black_24px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
-import LogoutIcon from './icons/material/ic_power_settings_new_black_24px.svg'
 import MapsIcon from './icons/material/ic_terrain_black_24px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
 
-import ActiveGameNavEntry from './active-game/nav-entry.jsx'
-import ChatNavEntry from './chat/nav-entry.jsx'
-import LobbyNavEntry from './lobbies/nav-entry.jsx'
-import WhisperNavEntry from './whispers/nav-entry.jsx'
-
-import { logOut } from './auth/auther'
 import { isAdmin } from './admin/admin-permissions'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
-import { leaveChannel } from './chat/action-creators'
-import { leaveLobby } from './lobbies/action-creators'
-import { closeWhisperSession } from './whispers/action-creators'
 import { isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
-import { openChangelogIfNecessary, openChangelog } from './changelog/action-creators'
+import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
-import { MULTI_CHANNEL, MATCHMAKING } from '../common/flags'
+import { MATCHMAKING } from '../common/flags'
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
@@ -121,21 +101,8 @@ const LoadableAdminPanel = loadable(() => import('./admin/panel.jsx'), {
 
 function stateToProps(state) {
   return {
-    activeGame: state.activeGame,
     auth: state.auth,
-    inLobby: state.lobby.inLobby,
-    lobby: state.lobby.inLobby
-      ? { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread }
-      : null,
     inGameplayActivity: state.gameplayActivity.inGameplayActivity,
-    chatChannels: state.chat.channels.map(c => ({
-      name: c,
-      hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
-    })),
-    whispers: state.whispers.sessions.map(s => ({
-      name: s,
-      hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
-    })),
     starcraft: state.starcraft,
     router: state.router,
     matchmaking: state.matchmaking,
@@ -145,77 +112,13 @@ function stateToProps(state) {
 @connect(stateToProps)
 class MainLayout extends React.Component {
   state = {
-    profileOverlayOpen: false,
     searchingMatchOverlayOpen: false,
   }
 
-  _profileEntryRef = React.createRef()
   _searchingMatchButtonRef = React.createRef()
 
   componentDidMount() {
     this.props.dispatch(openChangelogIfNecessary())
-  }
-
-  renderLobbyNav() {
-    if (!this.props.inLobby || !IS_ELECTRON) return null
-
-    const {
-      lobby: { name, hasUnread },
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = this.props
-    return [
-      <Subheader key='lobby-header'>Lobby</Subheader>,
-      <Section key='lobby-section'>
-        <LobbyNavEntry
-          key='lobby'
-          lobby={name}
-          currentPath={currentPath}
-          hasUnread={hasUnread}
-          onLeaveClick={this.onLeaveLobbyClick}
-        />
-      </Section>,
-      <Divider key='lobby-divider' />,
-    ]
-  }
-
-  renderActiveGameNav() {
-    if (!this.props.activeGame.isActive || !IS_ELECTRON) return null
-
-    return [
-      <Section key='active-game-section'>
-        <ActiveGameNavEntry key='active-game' currentPath={this.props.router.location.pathname} />
-      </Section>,
-      <Divider key='active-game-divider' />,
-    ]
-  }
-
-  renderSearchingMatchNav() {
-    if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
-
-    return [
-      <Section key='searching-match-section'>
-        <SearchingMatchNavEntry onCancelSearch={this.onCancelFindMatchClick} />
-      </Section>,
-      <Divider key='searching-match-divider' />,
-    ]
-  }
-
-  renderProfileOverlay() {
-    return (
-      <SelfProfileOverlay
-        open={this.state.profileOverlayOpen}
-        onDismiss={this.onCloseProfileOverlay}
-        anchor={this._profileEntryRef.current}
-        user={this.props.auth.user.name}>
-        {window._sbFeedbackUrl ? (
-          <MenuItem icon={<FeedbackIcon />} text='Send feedback' onClick={this.onFeedbackClick} />
-        ) : null}
-        <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
-        <MenuItem icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
-      </SelfProfileOverlay>
-    )
   }
 
   renderSearchingMatchOverlay() {
@@ -246,8 +149,6 @@ class MainLayout extends React.Component {
     const {
       auth,
       inGameplayActivity,
-      chatChannels,
-      whispers,
       router: {
         location: { pathname },
       },
@@ -270,47 +171,6 @@ class MainLayout extends React.Component {
       appBarTitle = <WhispersTitle />
     }
 
-    const channelNav = chatChannels.map(c => (
-      <ChatNavEntry
-        key={c.name}
-        channel={c.name}
-        currentPath={pathname}
-        hasUnread={c.hasUnread}
-        onLeave={this.onChannelLeave}
-      />
-    ))
-    const joinChannelButton = (
-      <SubheaderButton
-        icon={<AddIcon />}
-        title='Join a channel'
-        onClick={this.onJoinChannelClick}
-      />
-    )
-    const whisperNav = whispers.map(w => (
-      <WhisperNavEntry
-        key={w.name}
-        user={w.name}
-        currentPath={pathname}
-        hasUnread={w.hasUnread}
-        onClose={this.onWhisperClose}
-      />
-    ))
-    const addWhisperButton = (
-      <SubheaderButton
-        icon={<AddIcon />}
-        title='Start a whisper'
-        onClick={this.onAddWhisperClick}
-      />
-    )
-    const footer = [
-      <ProfileNavEntry
-        key='profileEntry'
-        ref={this._profileEntryRef}
-        user={auth.user.name}
-        avatarTitle={auth.user.name}
-        onProfileEntryClick={this.onProfileEntryClick}
-      />,
-    ]
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <HotkeyedActivityButton
         key='find-match'
@@ -408,16 +268,7 @@ class MainLayout extends React.Component {
         <AppBar>{appBarTitle}</AppBar>
         {!auth.emailVerified ? <EmailVerificationNotification /> : null}
         <Layout>
-          <LeftNav footer={footer}>
-            {this.renderSearchingMatchNav()}
-            {this.renderActiveGameNav()}
-            {this.renderLobbyNav()}
-            <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
-            <Section>{channelNav}</Section>
-            <Divider />
-            <Subheader button={addWhisperButton}>Whispers</Subheader>
-            <Section>{whisperNav}</Section>
-          </LeftNav>
+          <ConnectedLeftNav />
           <Content>
             <Switch>
               {activeGameRoute}
@@ -437,7 +288,6 @@ class MainLayout extends React.Component {
             </Switch>
           </Content>
           <ActivityBar>{activityButtons}</ActivityBar>
-          {this.renderProfileOverlay()}
           {this.renderSearchingMatchOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
@@ -445,10 +295,6 @@ class MainLayout extends React.Component {
         </Layout>
       </Container>
     )
-  }
-
-  onProfileEntryClick = () => {
-    this.setState({ profileOverlayOpen: true })
   }
 
   onCloseProfileOverlay = () => {
@@ -463,33 +309,8 @@ class MainLayout extends React.Component {
     this.setState({ searchingMatchOverlayOpen: false })
   }
 
-  onJoinChannelClick = () => {
-    this.props.dispatch(openDialog('channel'))
-  }
-
-  onChannelLeave = channel => {
-    this.props.dispatch(leaveChannel(channel))
-  }
-
-  onAddWhisperClick = () => {
-    this.props.dispatch(openDialog('whispers'))
-  }
-
-  onWhisperClose = user => {
-    this.props.dispatch(closeWhisperSession(user))
-  }
-
-  onLeaveLobbyClick = () => {
-    this.props.dispatch(leaveLobby())
-  }
-
   onSettingsClick = () => {
     this.props.dispatch(openDialog('settings'))
-  }
-
-  onLogOutClick = () => {
-    this.onCloseProfileOverlay()
-    this.props.dispatch(logOut().action)
   }
 
   onFindMatchClick = () => {
@@ -563,16 +384,6 @@ class MainLayout extends React.Component {
 
   onDownloadClick = () => {
     this.props.dispatch(openDialog('download'))
-  }
-
-  onFeedbackClick = () => {
-    this.onCloseProfileOverlay()
-    window.open(window._sbFeedbackUrl, '_blank')
-  }
-
-  onChangelogClick = () => {
-    this.onCloseProfileOverlay()
-    this.props.dispatch(openChangelog())
   }
 
   onAdminClick = () => {
