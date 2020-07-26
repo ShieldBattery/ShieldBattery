@@ -3,8 +3,6 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 
 import Dialog from '../material/dialog.jsx'
-import RaisedButton from '../material/raised-button.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
 
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -16,18 +14,6 @@ import {
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { Subheading } from '../styles/typography'
-
-const LoadingArea = styled.div`
-  width: 100%;
-  text-align: center;
-  padding-top: 24px;
-  padding-bottom: 24px;
-`
-
-const ErrorMessage = styled(Subheading)`
-  margin-top: 24px;
-  margin-bottom: 24px;
-`
 
 const HeaderText = styled(Subheading)`
   margin-top: 0;

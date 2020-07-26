@@ -163,9 +163,9 @@ app
   .use(koaError()) // TODO(tec27): Customize error view
   .use(
     koaCompress({
-      // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved out
-      // there's almost zero way that compressing it with brotli during the request is going to be
-      // faster than just sending a slightly bigger gzipped version
+      // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved
+      // out there's almost zero way that compressing it with brotli during the request is going to
+      // be faster than just sending a slightly bigger gzipped version
       br: false,
     }),
   )
