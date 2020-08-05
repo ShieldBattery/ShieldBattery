@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { Route, Switch } from 'react-router-dom'
+import { push, replace } from 'connected-react-router'
 import styles from './view.css'
 
 import Lobby from './lobby.jsx'
@@ -31,7 +32,7 @@ const mapStateToProps = state => {
     lobbyState: state.lobbyState,
     lobby: state.lobby,
     gameClient: state.gameClient,
-    hasActiveGame: state.activeGame.isActive,
+    activeGame: state.activeGame,
   }
 }
 
@@ -57,8 +58,14 @@ export default class LobbyView extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (isLeavingLobby(prevProps, this.props)) {
-      prevProps.dispatch(push(this.props.hasActiveGame ? '/active-game' : '/'))
+    if (isLeavingLobby(prevProps, this.props) && !this.props.activeGame.isActive) {
+      this.props.dispatch(push('/'))
+      return
+    }
+
+    if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
+      // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
+      this.props.dispatch(replace('/'))
       return
     }
 
@@ -77,17 +84,33 @@ export default class LobbyView extends React.Component {
     this.props.dispatch(deactivateLobby())
   }
 
-  render() {
-    const routeLobby = this.props.match.params.lobby
+  renderLoadingScreen = () => {
     const { lobby, user, gameClient } = this.props
+
+    if (!lobby.info.isLoading) return null
+
+    return <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
+  }
+
+  renderActiveLobby = () => {
+    const {
+      activeGame: { isActive: hasActiveGame },
+    } = this.props
+
+    if (!hasActiveGame) return null
+
+    return <span>Why are you looking here?</span>
+  }
+
+  renderLobby = () => {
+    const routeLobby = this.props.match.params.lobby
+    const { lobby, user } = this.props
 
     let content
     if (!lobby.inLobby) {
       content = this.renderLobbyState()
     } else if (lobby.info.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
-    } else if (lobby.info.isLoading) {
-      content = <LoadingScreen lobby={lobby.info} gameStatus={gameClient.status} user={user} />
     } else {
       content = (
         <Lobby
@@ -111,6 +134,16 @@ export default class LobbyView extends React.Component {
     }
 
     return content
+  }
+
+  render() {
+    return (
+      <Switch>
+        <Route path='/lobbies/:lobby/loading-game' render={this.renderLoadingScreen} />
+        <Route path='/lobbies/:lobby/active-game' render={this.renderActiveLobby} />
+        <Route path='/lobbies/:lobby' exact={true} render={this.renderLobby} />
+      </Switch>
+    )
   }
 
   // TODO(tec27): refactor out into its own component

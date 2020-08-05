@@ -26,6 +26,7 @@ import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
+import { replace } from 'connected-react-router'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import activeGameManager from '../active-game/active-game-manager-instance'
@@ -192,6 +193,17 @@ const eventToAction = {
       if (!tick) {
         clearCountdownTimer(true /* leaveAtmosphere */)
         dispatch({ type: LOBBY_UPDATE_LOADING_START })
+
+        const {
+          lobby,
+          router: {
+            location: { pathname: currentPath },
+          },
+        } = getState()
+
+        if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}`) {
+          dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`))
+        }
       }
     }, 1000)
   },
@@ -247,8 +259,19 @@ const eventToAction = {
     activeGameManager.allowStart(gameId)
   },
 
-  cancelLoading: (name, event) => dispatch => {
+  cancelLoading: (name, event) => (dispatch, getState) => {
     fadeAtmosphere()
+
+    const {
+      lobby,
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
+    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+      dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
+    }
+
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: activeGameManager.setGameConfig({}),
@@ -256,12 +279,25 @@ const eventToAction = {
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },
 
-  gameStarted: (name, event) => {
+  gameStarted: (name, event) => (dispatch, getState) => {
     fadeAtmosphere(false /* fast */)
 
-    return {
-      type: LOBBY_UPDATE_GAME_STARTED,
+    const {
+      lobby,
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
+
+    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+      dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/active-game`))
     }
+    dispatch({
+      type: LOBBY_UPDATE_GAME_STARTED,
+      payload: {
+        lobby,
+      },
+    })
   },
 
   chat: (name, event) => {

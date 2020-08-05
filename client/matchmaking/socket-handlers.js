@@ -162,13 +162,21 @@ const eventToAction = {
   },
 
   startCountdown: (name, event) => (dispatch, getState) => {
+    const {
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
+
     clearCountdownTimer()
     let tick = 5
     dispatch({
       type: MATCHMAKING_UPDATE_COUNTDOWN_START,
       payload: tick,
     })
-    dispatch(replace('/matchmaking/countdown'))
+    if (currentPath === '/matchmaking/map-selection') {
+      dispatch(replace('/matchmaking/countdown'))
+    }
 
     countdownState.timer = setInterval(() => {
       tick -= 1
@@ -178,14 +186,22 @@ const eventToAction = {
       })
       if (!tick) {
         clearCountdownTimer()
-        dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
-        dispatch(replace('/matchmaking/game-starting'))
       }
     }, 1000)
   },
 
-  allowStart: (name, event) => {
+  allowStart: (name, event) => (dispatch, getState) => {
     const { gameId } = event
+    const {
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
+
+    if (currentPath === '/matchmaking/countdown') {
+      dispatch(replace('/matchmaking/game-starting'))
+    }
+    dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
 
     activeGameManager.allowStart(gameId)
   },
@@ -203,12 +219,23 @@ const eventToAction = {
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
   },
 
-  gameStarted: (name, event) => {
-    dispatch(replace('/matchmaking/active-game'))
+  gameStarted: (name, event) => (dispatch, getState) => {
+    const {
+      matchmaking: { match },
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
 
-    return {
-      type: MATCHMAKING_UPDATE_GAME_STARTED,
+    if (currentPath === '/matchmaking/game-starting') {
+      dispatch(replace('/matchmaking/active-game'))
     }
+    dispatch({
+      type: MATCHMAKING_UPDATE_GAME_STARTED,
+      payload: {
+        match,
+      },
+    })
   },
 
   status: (name, event) => ({

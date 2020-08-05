@@ -46,12 +46,12 @@ const MapPool = new Record({
   isRequesting: false,
   lastError: null,
 })
-export const MatchmakingState = new Record({
+export const BaseMatchmakingState = new Record({
   isFinding: false,
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
-  isLoading: false,
+  isSelectingMap: false,
   isCountingDown: false,
   countdownTimer: -1,
   isStarting: false,
@@ -59,6 +59,11 @@ export const MatchmakingState = new Record({
   match: null,
   mapPoolTypes: new Map(),
 })
+export class MatchmakingState extends BaseMatchmakingState {
+  get isLoading() {
+    return this.isSelectingMap || this.isCountingDown || this.isStarting
+  }
+}
 
 export default keyedReducer(new MatchmakingState(), {
   [MATCHMAKING_ACCEPT](state, action) {
@@ -139,17 +144,22 @@ export default keyedReducer(new MatchmakingState(), {
 
   [MATCHMAKING_UPDATE_MATCH_READY](state, action) {
     const { players, preferredMaps, randomMaps, chosenMap } = action.payload
-    return state
-      .setIn(['match', 'acceptedPlayers'], Object.keys(players).length)
-      .setIn(['match', 'players'], new List(players.map(p => new Player(p))))
-      .setIn(['match', 'preferredMaps'], new Set(preferredMaps.map(m => new MapRecord(m))))
-      .setIn(['match', 'randomMaps'], new Set(randomMaps.map(m => new MapRecord(m))))
-      .setIn(['match', 'chosenMap'], new MapRecord(chosenMap))
-      .set('isLoading', true)
+    const match = {
+      acceptedPlayers: Object.keys(players).length,
+      players: new List(players.map(p => new Player(p))),
+      preferredMaps: new Set(preferredMaps.map(m => new MapRecord(m))),
+      randomMaps: new Set(randomMaps.map(m => new MapRecord(m))),
+      chosenMap: new MapRecord(chosenMap),
+    }
+
+    return state.set('isSelectingMap', true).update('match', m => m.merge(match))
   },
 
   [MATCHMAKING_UPDATE_COUNTDOWN_START](state, action) {
-    return state.set('isCountingDown', true).set('countdownTimer', action.payload)
+    return state
+      .set('isSelectingMap', false)
+      .set('isCountingDown', true)
+      .set('countdownTimer', action.payload)
   },
 
   [MATCHMAKING_UPDATE_COUNTDOWN_TICK](state, action) {
@@ -161,7 +171,7 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   [MATCHMAKING_UPDATE_GAME_STARTED](state, action) {
-    return state.set('isStarting', false).set('isLoading', false)
+    return new MatchmakingState()
   },
 
   [MATCHMAKING_UPDATE_LOADING_CANCELED](state, action) {

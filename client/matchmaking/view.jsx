@@ -7,24 +7,24 @@ import Index from '../navigation/index.jsx'
 import MapSelection from './map-selection.jsx'
 import MatchmakingMatch from './matchmaking-match.jsx'
 
-@connect(state => ({ hasActiveGame: state.activeGame.isActive, matchmaking: state.matchmaking }))
+@connect(state => ({ activeGame: state.activeGame, matchmaking: state.matchmaking }))
 export default class MatchmakingView extends React.Component {
   componentDidMount() {
-    if (!this.props.matchmaking.isLoading && !this.props.hasActiveGame) {
+    if (!this.props.matchmaking.isLoading && !this.props.activeGame.isActive) {
       this.props.dispatch(replace('/'))
     }
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.hasActiveGame && !this.props.hasActiveGame) {
+    if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
       this.props.dispatch(replace('/'))
     }
   }
 
   renderMapSelection = () => {
-    const { isLoading, match } = this.props.matchmaking
-    if (!isLoading) return null
+    const { isSelectingMap, match } = this.props.matchmaking
+    if (!isSelectingMap || !match) return null
 
     return (
       <MapSelection
@@ -36,17 +36,23 @@ export default class MatchmakingView extends React.Component {
   }
 
   renderMatchmakingMatch = () => {
-    const { isLoading, isCountingDown, countdownTimer, isStarting, match } = this.props.matchmaking
-    if (!isLoading && !match) return null
+    const {
+      activeGame: { isActive: hasActiveGame, info: gameInfo },
+      matchmaking: { isCountingDown, countdownTimer, isStarting, match },
+    } = this.props
+
+    if (!hasActiveGame && !match) return null
+
+    const chosenMap = hasActiveGame ? gameInfo.extra.match.chosenMap : match.chosenMap
+    const players = hasActiveGame ? gameInfo.extra.match.players : match.players
 
     return (
       <MatchmakingMatch
-        isLoading={isLoading}
         isCountingDown={isCountingDown}
         countdownTimer={countdownTimer}
         isStarting={isStarting}
-        map={match.chosenMap}
-        players={match.players.toJS()}
+        map={chosenMap}
+        players={players.toJS()}
       />
     )
   }

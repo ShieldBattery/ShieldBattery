@@ -4,8 +4,6 @@ import { connect } from 'react-redux'
 import Divider from '../material/left-nav/divider.jsx'
 import LeftNav from '../material/left-nav/left-nav.jsx'
 import MenuItem from '../material/menu/item.jsx'
-import ProfileNavEntry from '../profile/nav-entry.jsx'
-import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry.jsx'
 import Section from '../material/left-nav/section.jsx'
 import Subheader from '../material/left-nav/subheader.jsx'
 import SubheaderButton from '../material/left-nav/subheader-button.jsx'
@@ -16,9 +14,11 @@ import ChangelogIcon from '../icons/material/ic_new_releases_black_24px.svg'
 import FeedbackIcon from '../icons/material/ic_feedback_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
 
-import ActiveGameNavEntry from '../active-game/nav-entry.jsx'
 import ChatNavEntry from '../chat/nav-entry.jsx'
+import GameActivityNavEntry from '../active-game/game-activity-nav-entry.jsx'
 import LobbyNavEntry from '../lobbies/nav-entry.jsx'
+import ProfileNavEntry from '../profile/nav-entry.jsx'
+import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry.jsx'
 import WhisperNavEntry from '../whispers/nav-entry.jsx'
 
 import { logOut } from '../auth/auther'
@@ -35,20 +35,17 @@ function stateToProps(state) {
   return {
     activeGame: state.activeGame,
     auth: state.auth,
-    inLobby: state.lobby.inLobby,
-    lobby: state.lobby.inLobby
-      ? { name: state.lobby.info.name, hasUnread: state.lobby.hasUnread }
-      : null,
     chatChannels: state.chat.channels.map(c => ({
       name: c,
       hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
     })),
+    lobby: state.lobby,
+    matchmaking: state.matchmaking,
+    router: state.router,
     whispers: state.whispers.sessions.map(s => ({
       name: s,
       hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
     })),
-    router: state.router,
-    matchmaking: state.matchmaking,
   }
 }
 
@@ -60,15 +57,20 @@ class ConnectedLeftNav extends React.Component {
 
   _profileEntryRef = React.createRef()
 
-  renderLobbyNav() {
-    if (!this.props.inLobby || !IS_ELECTRON) return null
-
+  renderLobby() {
     const {
-      lobby: { name, hasUnread },
+      lobby: {
+        info: { name },
+        hasUnread,
+        inLobby,
+      },
       router: {
         location: { pathname: currentPath },
       },
     } = this.props
+
+    if (!inLobby || !IS_ELECTRON) return null
+
     return [
       <Subheader key='lobby-header'>Lobby</Subheader>,
       <Section key='lobby-section'>
@@ -84,18 +86,88 @@ class ConnectedLeftNav extends React.Component {
     ]
   }
 
-  renderActiveGameNav() {
-    if (!this.props.activeGame.isActive || !IS_ELECTRON) return null
+  renderLoadingGame() {
+    const {
+      lobby,
+      matchmaking,
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = this.props
+    const isLoading = lobby.info.isLoading || matchmaking.isLoading
+
+    if (!isLoading || !IS_ELECTRON) return null
+
+    let link
+    let title
+    if (lobby.info.isLoading) {
+      link = `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`
+      title = 'Custom game'
+    } else if (matchmaking.isLoading) {
+      title = `Ranked ${matchmaking.match.type}`
+
+      if (matchmaking.isSelectingMap) {
+        link = '/matchmaking/map-selection'
+      } else if (matchmaking.isCountingDown) {
+        link = '/matchmaking/countdown'
+      } else if (matchmaking.isStarting) {
+        link = '/matchmaking/game-starting'
+      }
+    } else {
+      return null
+    }
+
+    return [
+      <Section key='loading-game-section'>
+        <GameActivityNavEntry
+          key='loading-game'
+          link={link}
+          currentPath={currentPath}
+          title={title}
+          subtitle='Loading...'
+        />
+      </Section>,
+      <Divider key='loading-game-divider' />,
+    ]
+  }
+
+  renderActiveGame() {
+    const {
+      activeGame: { isActive, info: gameInfo },
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = this.props
+
+    if (!isActive || !gameInfo || !IS_ELECTRON) return null
+
+    let link
+    let title
+    if (gameInfo.type === 'lobby') {
+      link = `/lobbies/${encodeURIComponent(gameInfo.extra.lobby.info.name)}/active-game`
+      title = 'Custom game'
+    } else if (gameInfo.type === 'matchmaking') {
+      link = '/matchmaking/active-game'
+      title = `Ranked ${gameInfo.extra.match.type}`
+    } else {
+      return null
+    }
 
     return [
       <Section key='active-game-section'>
-        <ActiveGameNavEntry key='active-game' currentPath={this.props.router.location.pathname} />
+        <GameActivityNavEntry
+          key='active-game'
+          link={link}
+          currentPath={currentPath}
+          title={title}
+          subtitle='Game in progress...'
+        />
       </Section>,
       <Divider key='active-game-divider' />,
     ]
   }
 
-  renderSearchingMatchNav() {
+  renderSearchingMatch() {
     if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
 
     return [
@@ -176,9 +248,10 @@ class ConnectedLeftNav extends React.Component {
 
     return (
       <LeftNav footer={footer}>
-        {this.renderSearchingMatchNav()}
-        {this.renderActiveGameNav()}
-        {this.renderLobbyNav()}
+        {this.renderSearchingMatch()}
+        {this.renderLoadingGame()}
+        {this.renderActiveGame()}
+        {this.renderLobby()}
         <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
         <Section>{channelNav}</Section>
         <Divider />
