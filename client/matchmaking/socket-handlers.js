@@ -1,6 +1,7 @@
 import activeGameManager from '../active-game/active-game-manager-instance'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
+import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
@@ -46,12 +47,31 @@ function clearRequeueTimer() {
 
 const countdownState = {
   timer: null,
+  sound: null,
+  atmosphere: null,
 }
-function clearCountdownTimer() {
-  const { timer } = countdownState
+function fadeAtmosphere(fast = true) {
+  const { atmosphere } = countdownState
+  if (atmosphere) {
+    const timing = fast ? 1.5 : 3
+    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
+    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
+    countdownState.atmosphere = null
+  }
+}
+function clearCountdownTimer(leaveAtmosphere = false) {
+  const { timer, sound, atmosphere } = countdownState
   if (timer) {
     clearInterval(timer)
     countdownState.timer = null
+  }
+  if (sound) {
+    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
+    sound.source.stop(audioManager.currentTime + 0.6)
+    countdownState.sound = null
+  }
+  if (!leaveAtmosphere && atmosphere) {
+    fadeAtmosphere()
   }
 }
 
@@ -161,6 +181,7 @@ const eventToAction = {
     activeGameManager.setGameRoutes(gameId, routes)
   },
 
+  // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
   startCountdown: (name, event) => (dispatch, getState) => {
     const {
       router: {
@@ -177,6 +198,8 @@ const eventToAction = {
     if (currentPath === '/matchmaking/map-selection') {
       dispatch(replace('/matchmaking/countdown'))
     }
+    countdownState.sound = audioManager.playFadeableSound(SOUNDS.COUNTDOWN)
+    countdownState.atmosphere = audioManager.playFadeableSound(SOUNDS.ATMOSPHERE)
 
     countdownState.timer = setInterval(() => {
       tick -= 1
@@ -185,7 +208,7 @@ const eventToAction = {
         payload: tick,
       })
       if (!tick) {
-        clearCountdownTimer()
+        clearCountdownTimer(true /* leaveAtmosphere */)
       }
     }, 1000)
   },
@@ -207,8 +230,7 @@ const eventToAction = {
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {
-    dispatch(closeDialog())
-    clearAcceptMatchTimer()
+    clearCountdownTimer()
 
     const {
       router: {
@@ -232,6 +254,8 @@ const eventToAction = {
   },
 
   gameStarted: (name, event) => (dispatch, getState) => {
+    fadeAtmosphere(false /* fast */)
+
     const {
       matchmaking: { match },
       router: {
