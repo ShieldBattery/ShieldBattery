@@ -5,7 +5,6 @@ import { EventEmitter } from 'events'
 import { Set } from 'immutable'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
-import { REMASTERED } from '../../common/flags'
 import {
   GAME_STATUS_UNKNOWN,
   GAME_STATUS_LAUNCHING,
@@ -274,7 +273,7 @@ async function doLaunch(gameId, serverPort, settings) {
   if (!checkResult.path || !checkResult.version) {
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
-  const isRemastered = REMASTERED && checkResult.remastered
+  const isRemastered = checkResult.remastered
 
   const userDataPath = remote.app.getPath('userData')
   let appPath

@@ -5,7 +5,7 @@ import path from 'path'
 import glob from 'glob'
 import logger from '../logging/logger'
 import getFileHash from '../../common/get-file-hash'
-import { REMASTERED } from '../../common/flags'
+import { BW_1161 } from '../../common/flags'
 import checkFileExists from '../../common/check-file-exists'
 
 function globAsync(...args) {
@@ -56,13 +56,14 @@ async function checkRemasteredPath(dirPath) {
 export async function checkStarcraftPath(dirPath) {
   const result = { path: false, version: false, remastered: false }
 
-  if (REMASTERED) {
-    if (await checkRemasteredPath(dirPath)) {
-      // NOTE(2Pac): For now we're assuming that every SC:R version is supported since we're
-      // updating our offsets for each new patch dynamically thanks to neive's magic.
-      return { ...result, path: true, version: true, remastered: true }
-    }
+  if (await checkRemasteredPath(dirPath)) {
+    // NOTE(2Pac): For now we're assuming that every SC:R version is supported since we're updating
+    // our offsets for each new patch dynamically thanks to neive's magic.
+    return { ...result, path: true, version: true, remastered: true }
   }
+
+  if (!BW_1161) return result
+
   const requiredFiles = ['starcraft.exe', 'storm.dll', 'stardat.mpq', 'broodat.mpq']
 
   try {
