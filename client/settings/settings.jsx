@@ -48,18 +48,22 @@ const compareResolutions = (a, b) => a.width === b.width && a.height === b.heigh
 const TitleActionContainer = styled.div`
   display: flex;
   align-items: center;
+  margin-right: 24px;
 `
 
 const TitleActionText = styled(Body1)`
   color: ${colorTextSecondary};
+  margin-right: 4px;
+
+  &:hover {
+    cursor: pointer;
+  }
 `
 
 const TitleActionButton = styled(IconButton)`
   flex-shrink: 0;
   min-height: 40px;
   width: 40px;
-  margin-right: 24px;
-  margin-left: 4px;
   line-height: 40px;
 
   & ${Label} {
@@ -201,7 +205,7 @@ export default class Settings extends React.Component {
     const starcraftVersionText = isRemastered ? 'StarCraft: Remastered' : 'StarCraft v1.16.1'
     const titleAction = (
       <TitleActionContainer>
-        <TitleActionText>{starcraftVersionText}</TitleActionText>
+        <TitleActionText onClick={this.onSetPathClick}>{starcraftVersionText}</TitleActionText>
         <TitleActionButton
           icon={<SetPathIcon />}
           title='Change StarCraft path'

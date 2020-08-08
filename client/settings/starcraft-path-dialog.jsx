@@ -48,6 +48,10 @@ const PathContainer = styled.div`
 const StyledTextField = styled(TextField)`
   flex-grow: 1;
   margin-right: 8px;
+
+  input:hover {
+    cursor: pointer;
+  }
 `
 
 const BrowseButtonContainer = styled.div`
