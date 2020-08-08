@@ -206,11 +206,23 @@ const eventToAction = {
     activeGameManager.allowStart(gameId)
   },
 
-  cancelLoading: (name, event) => dispatch => {
+  cancelLoading: (name, event) => (dispatch, getState) => {
     dispatch(closeDialog())
     clearAcceptMatchTimer()
 
-    dispatch(replace('/'))
+    const {
+      router: {
+        location: { pathname: currentPath },
+      },
+    } = getState()
+
+    if (
+      currentPath === '/matchmaking/map-selection' ||
+      currentPath === '/matchmaking/countdown' ||
+      currentPath === '/matchmaking/game-starting'
+    ) {
+      dispatch(replace('/'))
+    }
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: activeGameManager.setGameConfig({}),
