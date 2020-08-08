@@ -22,6 +22,9 @@ import { replace } from 'connected-react-router'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
+import { USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
+
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
 const acceptMatchState = {
   timer: null,
@@ -77,6 +80,10 @@ function clearCountdownTimer(leaveAtmosphere = false) {
 
 const eventToAction = {
   matchFound: (name, event) => {
+    if (ipcRenderer) {
+      ipcRenderer.send(USER_ATTENTION_REQUIRED)
+    }
+
     clearRequeueTimer()
     clearAcceptMatchTimer()
     rallyPointManager.refreshPings()

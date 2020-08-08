@@ -32,6 +32,7 @@ import {
   SETTINGS_EMIT_ERROR,
   SETTINGS_MERGE,
   SETTINGS_MERGE_ERROR,
+  USER_ATTENTION_REQUIRED,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MAXIMIZED_STATE,
@@ -198,6 +199,13 @@ function setupIpc(localSettings) {
       if (systemTray) {
         systemTray.setUnreadIcon()
       }
+    }
+  })
+
+  ipcMain.on(USER_ATTENTION_REQUIRED, (event, data) => {
+    if (mainWindow && !mainWindow.isFocused()) {
+      mainWindow.once('focus', () => mainWindow.flashFrame(false))
+      mainWindow.flashFrame(true)
     }
   })
 }

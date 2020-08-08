@@ -33,6 +33,10 @@ export const SETTINGS_EMIT_ERROR = 'SETTINGS_EMIT_ERROR'
 export const SETTINGS_MERGE = 'SETTINGS_MERGE'
 export const SETTINGS_MERGE_ERROR = 'SETTINGS_MERGE_ERROR'
 
+// Tells the main process that something has happened that requires a user's attention and to get it
+// somehow (by e.g. flashing the window)
+export const USER_ATTENTION_REQUIRED = 'USER_ATTENTION_REQUIRED'
+
 export const WINDOW_CLOSE = 'WINDOW_CLOSE'
 export const WINDOW_MAXIMIZE = 'WINDOW_MAXIMIZE'
 export const WINDOW_MINIMIZE = 'WINDOW_MINIMIZE'
