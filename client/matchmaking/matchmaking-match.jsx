@@ -92,7 +92,6 @@ const VsText = styled(Display1)`
 
 export default class MatchmakingMatch extends React.Component {
   static propTypes = {
-    isLoading: PropTypes.bool,
     isCountingDown: PropTypes.bool,
     countdownTimer: PropTypes.number,
     isStarting: PropTypes.bool,
@@ -101,11 +100,11 @@ export default class MatchmakingMatch extends React.Component {
   }
 
   renderStatus() {
-    const { isLoading, isCountingDown, countdownTimer, isStarting } = this.props
+    const { isCountingDown, countdownTimer, isStarting } = this.props
 
-    if (isLoading && isCountingDown) {
+    if (isCountingDown) {
       return <CountdownText>{countdownTimer}</CountdownText>
-    } else if (isLoading && isStarting) {
+    } else if (isStarting) {
       return <StatusText>Game starting...</StatusText>
     } else {
       return <StatusText>Game in progress...</StatusText>

@@ -10,16 +10,19 @@ const Container = styled.div`
   padding-left: 32px;
 `
 
-@connect(state => ({ router: state.router }))
+@connect(state => ({ activeGame: state.activeGame, lobby: state.lobby }))
 export default class LobbyTitle extends React.Component {
   render() {
-    const {
-      router: {
-        location: { pathname },
-      },
-    } = this.props
+    const { activeGame, lobby } = this.props
 
-    const lobbyTitle = pathname.slice(pathname.lastIndexOf('/') + 1)
+    let lobbyTitle
+    if (activeGame.isActive) {
+      lobbyTitle = 'Game in progress...'
+    } else if (lobby.info.isLoading) {
+      lobbyTitle = 'Loading...'
+    } else {
+      lobbyTitle = lobby.info.name
+    }
 
     return (
       <Container>

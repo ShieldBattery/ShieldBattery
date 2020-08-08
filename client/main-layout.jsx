@@ -6,8 +6,6 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import loadable from '@loadable/component'
 
-import ActiveGame from './active-game/view.jsx'
-import ActiveGameTitle from './active-game/app-bar-title.jsx'
 import ActivityBar from './activities/activity-bar.jsx'
 import ActivityButton from './activities/activity-button.jsx'
 import ActivityOverlay from './activities/activity-overlay.jsx'
@@ -84,11 +82,9 @@ const StyledMapsIcon = styled(MapsIcon)`
   height: 36px;
 `
 
-let activeGameRoute
 let lobbyRoute
 let matchmakingRoute
 if (IS_ELECTRON) {
-  activeGameRoute = <Route path='/active-game' component={ActiveGame} />
   lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
   matchmakingRoute = <Route path='/matchmaking' component={MatchmakingView} />
 }
@@ -155,9 +151,7 @@ class MainLayout extends React.Component {
     } = this.props
 
     let appBarTitle
-    if (pathname.startsWith('/active-game')) {
-      appBarTitle = <ActiveGameTitle />
-    } else if (pathname.startsWith('/admin')) {
+    if (pathname.startsWith('/admin')) {
       appBarTitle = <AdminTitle />
     } else if (pathname === '/chat') {
       appBarTitle = <ChatListTitle />
@@ -271,7 +265,6 @@ class MainLayout extends React.Component {
           <ConnectedLeftNav />
           <Content>
             <Switch>
-              {activeGameRoute}
               <ConditionalRoute
                 path='/admin'
                 filters={[IsAdminFilter]}
