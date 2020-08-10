@@ -1,5 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 import gameTypeToString from './game-type-to-string'
 import {
   isUms,
@@ -14,11 +15,12 @@ import styles from './view.css'
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import MessageInput from '../messaging/message-input.jsx'
+import { ScrollableContent } from '../material/scroll-bar.jsx'
+import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
 import OpenSlot from './open-slot.jsx'
 import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
-import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
+import { ObserverSlots, RegularSlots, TeamName } from './slot.jsx'
 
 class JoinMessage extends React.Component {
   static propTypes = {
@@ -262,6 +264,14 @@ class ChatList extends React.Component {
   }
 }
 
+const SlotsCard = styled(Card)`
+  width: 100%;
+  flex-grow: 0;
+  flex-shrink: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
+`
+
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
@@ -430,11 +440,7 @@ export default class Lobby extends React.Component {
       const displayTeamName =
         (isTeamType(lobby.gameType) || isLobbyUms || isObserver) && currentTeam.slots.size !== 0
       if (displayTeamName) {
-        slots.push(
-          <span key={'team' + teamIndex} className={styles.teamName}>
-            {currentTeam.name}
-          </span>,
-        )
+        slots.push(<TeamName key={'team' + teamIndex}>{currentTeam.name}</TeamName>)
       }
 
       const currentSlots = this.getTeamSlots(currentTeam, isObserver, isLobbyUms)
@@ -448,10 +454,10 @@ export default class Lobby extends React.Component {
     return (
       <div className={styles.contentArea}>
         <div className={styles.left}>
-          <Card className={styles.slots}>
-            <div className={styles.regularSlots}>{slots}</div>
-            <div className={styles.obsSlots}>{obsSlots}</div>
-          </Card>
+          <SlotsCard>
+            <RegularSlots>{slots}</RegularSlots>
+            <ObserverSlots>{obsSlots}</ObserverSlots>
+          </SlotsCard>
           <ChatList messages={this.props.chat} />
           <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
         </div>

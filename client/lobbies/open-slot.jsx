@@ -1,10 +1,17 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styles from './view.css'
 import RacePicker from './race-picker.jsx'
 import SelectedRace from './selected-race.jsx'
 import SlotActions from './slot-actions.jsx'
 import SwapSlotsIcon from '../icons/material/ic_swap_vert_black_24px.svg'
+import {
+  Slot,
+  SlotLeft,
+  SlotProfileOpen,
+  SlotEmptyAvatar,
+  SlotEmptyName,
+  SlotRight,
+} from './slot.jsx'
 
 export default class OpenSlot extends React.Component {
   static propTypes = {
@@ -31,9 +38,9 @@ export default class OpenSlot extends React.Component {
     const { controlledOpen, canSetRace, race, onSetRace } = this.props
     if (controlledOpen) {
       return canSetRace ? (
-        <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+        <RacePicker race={race} onSetRace={onSetRace} />
       ) : (
-        <SelectedRace className={styles.slotRace} race={race} />
+        <SelectedRace race={race} />
       )
     } else {
       return null
@@ -68,22 +75,19 @@ export default class OpenSlot extends React.Component {
     }
 
     return (
-      <div className={styles.slot}>
-        <div className={styles.slotLeft}>
-          <div
-            className={styles.slotProfileOpen}
+      <Slot>
+        <SlotLeft>
+          <SlotProfileOpen
             onMouseEnter={this.onLeftMouseEnter}
             onMouseLeave={this.onLeftMouseLeave}
             onClick={onSwitchClick}>
-            <span className={styles.slotEmptyAvatar}>
-              {this.state.isHovered ? <SwapSlotsIcon /> : null}
-            </span>
-            <span className={styles.slotEmptyName}>Open</span>
-          </div>
+            <SlotEmptyAvatar>{this.state.isHovered ? <SwapSlotsIcon /> : null}</SlotEmptyAvatar>
+            <SlotEmptyName>Open</SlotEmptyName>
+          </SlotProfileOpen>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
-        </div>
-        <div className={styles.slotRight}>{this.renderControls()}</div>
-      </div>
+        </SlotLeft>
+        <SlotRight>{this.renderControls()}</SlotRight>
+      </Slot>
     )
   }
 

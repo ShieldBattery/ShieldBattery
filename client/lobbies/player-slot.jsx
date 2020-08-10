@@ -1,6 +1,5 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styles from './view.css'
 import styled from 'styled-components'
 
 import Avatar from '../avatars/avatar.jsx'
@@ -8,6 +7,7 @@ import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RacePicker from './race-picker.jsx'
 import SelectedRace from './selected-race.jsx'
 import SlotActions from './slot-actions.jsx'
+import { Slot, SlotLeft, SlotRight, SlotName, SlotProfile } from './slot.jsx'
 
 const StyledAvatar = styled(Avatar)`
   flex-grow: 0;
@@ -45,9 +45,9 @@ export default class PlayerSlot extends React.Component {
     }
 
     return canSetRace ? (
-      <RacePicker className={styles.slotRace} race={race} onSetRace={onSetRace} />
+      <RacePicker race={race} onSetRace={onSetRace} />
     ) : (
-      <SelectedRace className={styles.slotRace} race={race} />
+      <SelectedRace race={race} />
     )
   }
 
@@ -91,16 +91,16 @@ export default class PlayerSlot extends React.Component {
     }
 
     return (
-      <div className={styles.slot}>
-        <div className={styles.slotLeft}>
-          <div className={styles.slotProfile}>
+      <Slot>
+        <SlotLeft>
+          <SlotProfile>
             {avatar}
-            <span className={styles.slotName}>{displayName}</span>
-          </div>
+            <SlotName>{displayName}</SlotName>
+          </SlotProfile>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
-        </div>
-        <div className={styles.slotRight}>{this.renderControls()}</div>
-      </div>
+        </SlotLeft>
+        <SlotRight>{this.renderControls()}</SlotRight>
+      </Slot>
     )
   }
 }

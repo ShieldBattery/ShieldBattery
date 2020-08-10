@@ -1,20 +1,21 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import TransitionGroup from 'react-addons-css-transition-group'
-import styles from './view.css'
+import styled from 'styled-components'
 
 import IconButton from '../material/icon-button.jsx'
 import MenuItem from '../material/menu/item.jsx'
 import Popover from '../material/popover.jsx'
 import SlotActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
+import { fastOutSlowIn } from '../material/curve-constants.js'
 
 const transitionNames = {
-  appear: styles.enter,
-  appearActive: styles.enterActive,
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  appear: 'enter',
+  appearActive: 'enterActive',
+  enter: 'enter',
+  enterActive: 'enterActive',
+  leave: 'leave',
+  leaveActive: 'leaveActive',
 }
 
 export default class SlotActions extends React.Component {
@@ -121,6 +122,36 @@ export class SlotActionsOverlay extends React.Component {
   }
 }
 
+const ContentsRoot = styled.div`
+  min-width: 160px;
+`
+
+const SlotActionsContainer = styled.div`
+  position: relative;
+  padding-top: 8px;
+  padding-bottom: 8px;
+
+  .enter & {
+    opacity: 0;
+    transition-property: opacity;
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  .enterActive & {
+    opacity: 1;
+  }
+
+  .leave & {
+    opacity: 1;
+    transition-property: opacity;
+    transition-timing-function: ${fastOutSlowIn};
+  }
+
+  .leaveActive & {
+    opacity: 0;
+  }
+`
+
 export class SlotActionsContents extends React.Component {
   static propTypes = {
     style: PropTypes.object,
@@ -130,11 +161,9 @@ export class SlotActionsContents extends React.Component {
     const { children, style } = this.props
 
     return (
-      <div className={styles.slotActionsContents}>
-        <div className={styles.slotActions} style={style}>
-          {children}
-        </div>
-      </div>
+      <ContentsRoot>
+        <SlotActionsContainer style={style}>{children}</SlotActionsContainer>
+      </ContentsRoot>
     )
   }
 }
