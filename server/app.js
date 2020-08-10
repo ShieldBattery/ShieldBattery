@@ -30,6 +30,7 @@ import routeCreator from './lib/rally-point/route-creator'
 
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
+import AwsStore from './lib/file-upload/aws'
 
 import setupWebsockets from './websockets'
 import createRoutes from './routes'
@@ -70,11 +71,31 @@ if (rallyPointServers.local) {
     })
 }
 
-if (!process.env.SB_FILE_STORE) {
-  throw new Error('SB_FILE_STORE must be specified')
+if (!process.env.SB_FILE_STORE || !process.env.SB_FILE_STORE_IMPLEMENTATIONS) {
+  throw new Error('SB_FILE_STORE and SB_FILE_STORE_IMPLEMENTATIONS must be specified')
 }
-const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
-setStore(new LocalFileStore(fileStoreSettings.filesystem))
+const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE_IMPLEMENTATIONS)
+if (process.env.SB_FILE_STORE === 'filesystem') {
+  const settings = fileStoreSettings.filesystem
+  if (!settings || !settings.path) {
+    throw new Error('Invalid "filesystem" store settings')
+  }
+  setStore(new LocalFileStore(settings))
+} else if (process.env.SB_FILE_STORE === 'dospaces') {
+  const settings = fileStoreSettings.dospaces
+  if (
+    !settings ||
+    !settings.endpoint ||
+    !settings.accessKeyId ||
+    !settings.secretAccessKey ||
+    !settings.bucket
+  ) {
+    throw new Error('Invalid "dospaces" store settings')
+  }
+  setStore(new AwsStore(settings))
+} else {
+  throw new Error('SB_FILE_STORE must be either "filesystem" or "dospaces"')
+}
 
 const asyncLookup = thenify(dns.lookup)
 const rallyPointServersArray = rallyPointServers.local

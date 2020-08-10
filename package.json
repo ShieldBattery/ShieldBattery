@@ -54,6 +54,7 @@
     "@babel/preset-env": "^7.7.7",
     "@babel/register": "^7.7.7",
     "@koa/router": "^8.0.8",
+    "aws-sdk": "^2.730.0",
     "bcrypt": "^4.0.1",
     "bl": "^4.0.0",
     "bw-chk": "^1.1.0",
