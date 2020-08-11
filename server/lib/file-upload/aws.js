@@ -22,6 +22,7 @@ export default class Aws {
 
     this.bucket = bucket
     this.client = new aws.S3(options)
+    this.getSignedUrlAsync = util.promisify(this.client.getSignedUrl.bind(this.client))
   }
 
   _getNormalizedPath(filename) {
@@ -47,7 +48,6 @@ export default class Aws {
   async url(filename, options = {}) {
     const normalized = this._getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...options }
-    const getSignedUrlAsPromise = util.promisify(this.client.getSignedUrl.bind(this.client))
-    return getSignedUrlAsPromise('getObject', params)
+    return this.getSignedUrlAsync('getObject', params)
   }
 }

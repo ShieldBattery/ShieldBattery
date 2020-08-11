@@ -71,18 +71,21 @@ if (rallyPointServers.local) {
     })
 }
 
-if (!process.env.SB_FILE_STORE || !process.env.SB_FILE_STORE_IMPLEMENTATIONS) {
-  throw new Error('SB_FILE_STORE and SB_FILE_STORE_IMPLEMENTATIONS must be specified')
+if (!process.env.SB_FILE_STORE) {
+  throw new Error('SB_FILE_STORE must be specified')
 }
-const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE_IMPLEMENTATIONS)
-if (process.env.SB_FILE_STORE === 'filesystem') {
+const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
+if (!(fileStoreSettings.filesystem || fileStoreSettings.doSpaces)) {
+  throw new Error('SB_FILE_STORE is invalid')
+}
+if (fileStoreSettings.filesystem) {
   const settings = fileStoreSettings.filesystem
   if (!settings || !settings.path) {
     throw new Error('Invalid "filesystem" store settings')
   }
   setStore(new LocalFileStore(settings))
-} else if (process.env.SB_FILE_STORE === 'dospaces') {
-  const settings = fileStoreSettings.dospaces
+} else if (fileStoreSettings.doSpaces) {
+  const settings = fileStoreSettings.doSpaces
   if (
     !settings ||
     !settings.endpoint ||
@@ -90,11 +93,9 @@ if (process.env.SB_FILE_STORE === 'filesystem') {
     !settings.secretAccessKey ||
     !settings.bucket
   ) {
-    throw new Error('Invalid "dospaces" store settings')
+    throw new Error('Invalid "doSpaces" store settings')
   }
   setStore(new AwsStore(settings))
-} else {
-  throw new Error('SB_FILE_STORE must be either "filesystem" or "dospaces"')
 }
 
 const asyncLookup = thenify(dns.lookup)
