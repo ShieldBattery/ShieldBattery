@@ -1,6 +1,22 @@
 import path from 'path'
 import aws from 'aws-sdk'
 
+// Convert some of the more frequently used options to the AWS formatting
+function formatOptions(options = {}) {
+  const formatted = {}
+  if (options.cache) {
+    formatted.CacheControl = options.cache
+  }
+  if (options.type) {
+    formatted.ContentType = options.type
+  }
+  if (options.expires) {
+    formatted.Expires = options.expires
+  }
+
+  return formatted
+}
+
 // This is a generic implementation of a file-store using the aws-sdk. Note however, that it can be
 // used by any compatible storage provider, e.g. DigitalOcean Spaces or Amazon S3.
 export default class Aws {
@@ -33,19 +49,19 @@ export default class Aws {
 
   async write(filename, stream, options = {}) {
     const normalized = this._getNormalizedPath(filename)
-    const params = { Key: normalized, Bucket: this.bucket, Body: stream, ...options }
+    const params = { Key: normalized, Bucket: this.bucket, Body: stream, ...formatOptions(options) }
     return this.client.upload(params).promise()
   }
 
   async delete(filename, options = {}) {
     const normalized = this._getNormalizedPath(filename)
-    const params = { Key: normalized, Bucket: this.bucket, ...options }
+    const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
     return this.client.deleteObject(params).promise()
   }
 
   async url(filename, options = {}) {
     const normalized = this._getNormalizedPath(filename)
-    const params = { Key: normalized, Bucket: this.bucket, ...options }
+    const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
     return this.client.getSignedUrlPromise('getObject', params)
   }
 }
