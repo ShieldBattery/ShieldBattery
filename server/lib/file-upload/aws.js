@@ -1,5 +1,4 @@
 import path from 'path'
-import util from 'util'
 import aws from 'aws-sdk'
 
 // This is a generic implementation of a file-store using the aws-sdk. Note however, that it can be
@@ -22,7 +21,6 @@ export default class Aws {
 
     this.bucket = bucket
     this.client = new aws.S3(options)
-    this.getSignedUrlAsync = util.promisify(this.client.getSignedUrl.bind(this.client))
   }
 
   _getNormalizedPath(filename) {
@@ -48,6 +46,6 @@ export default class Aws {
   async url(filename, options = {}) {
     const normalized = this._getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...options }
-    return this.getSignedUrlAsync('getObject', params)
+    return this.client.getSignedUrlPromise('getObject', params)
   }
 }
