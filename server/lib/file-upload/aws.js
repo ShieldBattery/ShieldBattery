@@ -1,6 +1,8 @@
 import path from 'path'
 import aws from 'aws-sdk'
 
+import { FILE_MAX_AGE_MS } from './index.js'
+
 // Convert some of the more frequently used options to the AWS formatting
 function formatOptions(options = {}) {
   const formatted = {}
@@ -50,7 +52,13 @@ export default class Aws {
 
   async write(filename, stream, options = {}) {
     const normalized = this._getNormalizedPath(filename)
-    const params = { Key: normalized, Bucket: this.bucket, Body: stream, ...formatOptions(options) }
+    const params = {
+      Key: normalized,
+      Bucket: this.bucket,
+      Body: stream,
+      CacheControl: `max-age=${FILE_MAX_AGE_MS / 1000}`,
+      ...formatOptions(options),
+    }
     return this.client.upload(params).promise()
   }
 

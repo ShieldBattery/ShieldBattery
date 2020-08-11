@@ -16,7 +16,7 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
   const mapParams = { mapData, extension, uploadedBy, visibility }
   const map = await addMap(mapParams, async () => {
     if (imageStream) {
-      await writeFile(imagePath(hash), imageStream)
+      await writeFile(imagePath(hash), imageStream, { type: 'image/jpeg' })
     }
     await writeFile(mapPath(hash, extension), fs.createReadStream(path))
   })

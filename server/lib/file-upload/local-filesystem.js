@@ -6,9 +6,7 @@ import path from 'path'
 import thenify from 'thenify'
 import util from 'util'
 
-// How long browsers can cache resources for (in milliseconds). These resources should all be pretty
-// static, so this can be a long time
-const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
+import { FILE_MAX_AGE_MS } from './index.js'
 
 const access = thenify(fs.access)
 const mkdir = thenify(fs.mkdir)
