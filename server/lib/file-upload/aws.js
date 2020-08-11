@@ -40,7 +40,8 @@ export default class Aws {
   }
 
   _getNormalizedPath(filename) {
-    const normalized = path.normalize(filename)
+    // Force posix path separators on aws-compatible services which use it to create faux folders.
+    const normalized = path.posix.normalize(filename)
     if (path.isAbsolute(normalized) || normalized[0] === '.') {
       throw new Error('Invalid directory')
     }
