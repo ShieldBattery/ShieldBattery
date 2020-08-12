@@ -75,7 +75,7 @@ if (!process.env.SB_FILE_STORE) {
   throw new Error('SB_FILE_STORE must be specified')
 }
 const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
-if (!(fileStoreSettings.filesystem || fileStoreSettings.doSpaces)) {
+if (!fileStoreSettings) {
   throw new Error('SB_FILE_STORE is invalid')
 }
 if (fileStoreSettings.filesystem) {
@@ -96,6 +96,8 @@ if (fileStoreSettings.filesystem) {
     throw new Error('Invalid "doSpaces" store settings')
   }
   setStore(new AwsStore(settings))
+} else {
+  throw new Error('no valid key could be found in SB_FILE_STORE')
 }
 
 const asyncLookup = thenify(dns.lookup)

@@ -1,9 +1,5 @@
 import { Readable } from 'stream'
 
-// How long browsers can cache resources for (in milliseconds). These resources should all be pretty
-// static, so this can be a long time
-export const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
-
 let store = null
 
 export function setStore(obj) {
