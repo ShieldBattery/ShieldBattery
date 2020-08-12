@@ -348,7 +348,7 @@ export async function getFavoritedMaps(favoritedBy, sort, filters = {}, searchSt
   const { client, done } = await db()
   try {
     const result = await client.query(query, params)
-    return Promise.all(result.rows.map(info => createMapInfo(info)))
+    return await Promise.all(result.rows.map(info => createMapInfo(info)))
   } finally {
     done()
   }
