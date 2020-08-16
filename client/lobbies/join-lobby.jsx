@@ -1,13 +1,58 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 import { connect } from 'react-redux'
 import siteSocket from '../network/site-socket'
 import gameTypeToString from './game-type-to-string'
 import { joinLobby, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
-import styles from './join-lobby.css'
 
 import MapThumbnail from '../maps/map-thumbnail.jsx'
+import { colorDividers } from '../styles/colors'
+import { Headline, Subheading, Body2, Title } from '../styles/typography'
+
+const ListEntryRoot = styled.div`
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 7px;
+
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  &:first-child {
+    padding-top: 8px;
+  }
+
+  &:last-child {
+    padding-bottom: 8px;
+  }
+
+  & + & {
+    padding-top: 8px;
+    border-top: 1px solid ${colorDividers};
+  }
+`
+
+const Info = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+`
+
+const MapPreview = styled.div`
+  width: 128px;
+  height: 128px;
+  position: relative;
+
+  flex-shrink: 0;
+  margin-left: 8px;
+`
 
 class ListEntry extends React.Component {
   static propTypes = {
@@ -23,20 +68,28 @@ class ListEntry extends React.Component {
     const { lobby, onClick } = this.props
 
     return (
-      <div className={styles.listEntry} onClick={() => onClick(lobby)}>
-        <div className={styles.info}>
-          <span className={styles.name}>{lobby.name}</span>
-          <span className={styles.hostName}>{lobby.host.name}</span>
-          <span className={styles.gameType}>{gameTypeToString(lobby.gameType)}</span>
-          <span className={styles.openSlots}>{lobby.openSlotCount} slots open</span>
-        </div>
-        <div className={styles.map}>
+      <ListEntryRoot onClick={() => onClick(lobby)}>
+        <Info>
+          <Headline as='span'>{lobby.name}</Headline>
+          <Subheading as='span'>{lobby.host.name}</Subheading>
+          <Body2 as='span'>{gameTypeToString(lobby.gameType)}</Body2>
+          <Body2 as='span'>{lobby.openSlotCount} slots open</Body2>
+        </Info>
+        <MapPreview>
           <MapThumbnail map={lobby.map} showMapName={true} canHover={false} />
-        </div>
-      </div>
+        </MapPreview>
+      </ListEntryRoot>
     )
   }
 }
+
+const Root = styled.div`
+  padding: 16px;
+`
+
+const Header = styled(Title)`
+  margin-top: 8px;
+`
 
 @connect(state => ({ lobbyList: state.lobbyList }))
 export default class JoinLobby extends React.Component {
@@ -57,21 +110,21 @@ export default class JoinLobby extends React.Component {
     const { byName, list } = this.props.lobbyList
     if (!list.size) {
       return (
-        <div className={styles.list}>
-          <p className={styles.emptyText}>There are no active lobbies</p>
+        <div>
+          <Subheading as='p'>There are no active lobbies</Subheading>
         </div>
       )
     }
 
     const openLobbies = list.filter(name => byName.get(name).openSlotCount > 0)
     return (
-      <div className={styles.list}>
+      <div>
         {!openLobbies.isEmpty() ? (
           openLobbies.map(name => (
             <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />
           ))
         ) : (
-          <p className={styles.emptyText}>There are no open lobbies</p>
+          <Subheading as='p'>There are no open lobbies</Subheading>
         )}
       </div>
     )
@@ -79,10 +132,10 @@ export default class JoinLobby extends React.Component {
 
   render() {
     return (
-      <div className={styles.root}>
-        <p className={styles.header}>Join Lobby</p>
+      <Root>
+        <Header as='p'>Join Lobby</Header>
         {this.renderList()}
-      </div>
+      </Root>
     )
   }
 
