@@ -22,6 +22,18 @@ import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
 import { ObserverSlots, RegularSlots, TeamName } from './slot.jsx'
 
+import { blue100, blue200 } from '../styles/colors'
+import { Body2 } from '../styles/typography'
+
+const ChatSystemMessage = styled(ChatMessageLayout)`
+  color: ${blue100};
+`
+
+const ChatImportant = styled(Body2)`
+  line-height: inherit;
+  color: ${blue200};
+`
+
 class JoinMessage extends React.Component {
   static propTypes = {
     time: PropTypes.number.isRequired,
@@ -30,12 +42,11 @@ class JoinMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          &gt;&gt; <span className={styles.chatImportant}>{this.props.name}</span> has joined the
-          lobby
+          &gt;&gt; <ChatImportant>{this.props.name}</ChatImportant> has joined the lobby
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -48,12 +59,11 @@ class LeaveMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has left the
-          lobby
+          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has left the lobby
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -66,12 +76,11 @@ class KickMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has been kicked
-          from the lobby
+          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has been kicked from the lobby
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -84,12 +93,11 @@ class BanMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          &lt;&lt; <span className={styles.chatImportant}>{this.props.name}</span> has been banned
-          from the lobby
+          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has been banned from the lobby
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -103,12 +111,12 @@ class SelfJoinMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          You have joined <span className={styles.chatImportant}>{this.props.lobby}</span>. The host
-          is <span className={styles.chatImportant}>{this.props.host}</span>.
+          You have joined <ChatImportant>{this.props.lobby}</ChatImportant>. The host is{' '}
+          <ChatImportant>{this.props.host}</ChatImportant>.
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -121,11 +129,11 @@ class HostChangeMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>
-          <span className={styles.chatImportant}>{this.props.name}</span> is now the host
+          <ChatImportant>{this.props.name}</ChatImportant> is now the host
         </span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -137,9 +145,9 @@ class CountdownStartedMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>The game countdown has begun</span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -152,9 +160,9 @@ class CountdownTickMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>{this.props.timeLeft}&hellip;</span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -166,9 +174,9 @@ class CountdownCanceledMessage extends React.Component {
 
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>The game countdown has been canceled</span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
@@ -181,12 +189,25 @@ class LoadingCanceledMessage extends React.Component {
   // TODO(tec27): We really need to pass a reason back here
   render() {
     return (
-      <ChatMessageLayout time={this.props.time} className={styles.chatSystemMessage}>
+      <ChatSystemMessage time={this.props.time}>
         <span>Game initialization has been canceled</span>
-      </ChatMessageLayout>
+      </ChatSystemMessage>
     )
   }
 }
+
+const StyledScrollableChat = styled(ScrollableContent)`
+  margin-top: 8px;
+  user-select: contain;
+
+  & * {
+    user-select: text;
+  }
+`
+
+const ChatView = styled.div`
+  padding: 8px 8px 0px;
+`
 
 class ChatList extends React.Component {
   static propTypes = {
@@ -254,12 +275,9 @@ class ChatList extends React.Component {
 
   render() {
     return (
-      <ScrollableContent
-        ref={this._setScrollbarRef}
-        className={styles.chat}
-        viewClassName={styles.chatView}>
+      <StyledScrollableChat ref={this._setScrollbarRef} viewElement={<ChatView />}>
         {this.props.messages.map(msg => this.renderMessage(msg))}
-      </ScrollableContent>
+      </StyledScrollableChat>
     )
   }
 }
@@ -270,6 +288,12 @@ const SlotsCard = styled(Card)`
   flex-shrink: 0;
   padding-top: 8px;
   padding-bottom: 8px;
+`
+
+const StyledMessageInput = styled(MessageInput)`
+  flex-shrink: 0;
+  margin: 8px 0;
+  padding: 0 16px;
 `
 
 export default class Lobby extends React.Component {
@@ -459,7 +483,7 @@ export default class Lobby extends React.Component {
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
           <ChatList messages={this.props.chat} />
-          <MessageInput className={styles.chatInput} onSend={onSendChatMessage} />
+          <StyledMessageInput onSend={onSendChatMessage} />
         </div>
         <div className={styles.info}>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />

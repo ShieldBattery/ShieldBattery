@@ -1,8 +1,33 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styles from './message.css'
+import styled from 'styled-components'
 
 import { ChatMessageLayout, InfoMessageLayout } from './message.jsx'
+
+import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { Body2 } from '../styles/typography'
+
+const SystemMessage = styled(ChatMessageLayout)`
+  color: ${blue100};
+`
+
+const SystemImportant = styled(Body2)`
+  line-height: inherit;
+  color: ${blue200};
+`
+
+const InfoImportant = styled(Body2)`
+  line-height: inherit;
+  color: ${colorTextSecondary};
+`
+
+const SeparatedInfoMessage = styled(InfoMessageLayout)`
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  color: ${colorTextFaint};
+`
 
 class BaseMessage extends React.Component {
   static propTypes = {
@@ -18,11 +43,11 @@ export class JoinChannelMessage extends BaseMessage {
   render() {
     const { time, user } = this.props.record
     return (
-      <ChatMessageLayout time={time} className={styles.systemMessage}>
+      <SystemMessage time={time}>
         <span>
-          <span className={styles.systemImportant}>{user}</span> has joined the channel
+          <SystemImportant>{user}</SystemImportant> has joined the channel
         </span>
-      </ChatMessageLayout>
+      </SystemMessage>
     )
   }
 }
@@ -31,11 +56,11 @@ export class LeaveChannelMessage extends BaseMessage {
   render() {
     const { time, user } = this.props.record
     return (
-      <ChatMessageLayout time={time} className={styles.systemMessage}>
+      <SystemMessage time={time}>
         <span>
-          <span className={styles.systemImportant}>{user}</span> has left the channel
+          <SystemImportant>{user}</SystemImportant> has left the channel
         </span>
-      </ChatMessageLayout>
+      </SystemMessage>
     )
   }
 }
@@ -44,11 +69,11 @@ export class NewChannelOwnerMessage extends BaseMessage {
   render() {
     const { time, newOwner } = this.props.record
     return (
-      <ChatMessageLayout time={time} className={styles.systemMessage}>
+      <SystemMessage time={time}>
         <span>
-          <span className={styles.systemImportant}>{newOwner}</span> is the new owner of the channel
+          <SystemImportant>{newOwner}</SystemImportant> is the new owner of the channel
         </span>
-      </ChatMessageLayout>
+      </SystemMessage>
     )
   }
 }
@@ -57,11 +82,11 @@ export class SelfJoinChannelMessage extends BaseMessage {
   render() {
     const { channel } = this.props.record
     return (
-      <InfoMessageLayout className={styles.separatedInfoMessage}>
+      <SeparatedInfoMessage>
         <span>
-          You joined <span className={styles.infoImportant}>#{channel}</span>
+          You joined <InfoImportant>#{channel}</InfoImportant>
         </span>
-      </InfoMessageLayout>
+      </SeparatedInfoMessage>
     )
   }
 }
@@ -70,11 +95,11 @@ export class UserOnlineMessage extends BaseMessage {
   render() {
     const { time, user } = this.props.record
     return (
-      <ChatMessageLayout time={time} className={styles.systemMessage}>
+      <SystemMessage time={time}>
         <span>
-          &gt;&gt; <span className={styles.systemImportant}>{user}</span> has come online
+          &gt;&gt; <SystemImportant>{user}</SystemImportant> has come online
         </span>
-      </ChatMessageLayout>
+      </SystemMessage>
     )
   }
 }
@@ -83,11 +108,11 @@ export class UserOfflineMessage extends BaseMessage {
   render() {
     const { time, user } = this.props.record
     return (
-      <ChatMessageLayout time={time} className={styles.systemMessage}>
+      <SystemMessage time={time}>
         <span>
-          &lt;&lt; <span className={styles.systemImportant}>{user}</span> has gone offline
+          &lt;&lt; <SystemImportant>{user}</SystemImportant> has gone offline
         </span>
-      </ChatMessageLayout>
+      </SystemMessage>
     )
   }
 }

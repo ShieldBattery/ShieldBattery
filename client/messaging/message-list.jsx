@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styles from './message.css'
+import styled from 'styled-components'
 
 import { ChatMessage } from './message.jsx'
 import {
@@ -13,6 +13,26 @@ import {
 } from './message-types.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+
+const LoadingArea = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 32px;
+`
+
+const MessagesScrollableView = styled.div`
+  padding: 8px 16px 0px 8px;
+`
+
+const Messages = styled.div`
+  padding: 8px 0 0;
+  user-select: contain;
+
+  & * {
+    user-select: text;
+  }
+`
 
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
@@ -44,11 +64,7 @@ class PureMessageList extends React.Component {
   }
 
   render() {
-    return (
-      <div className={styles.messages}>
-        {this.props.messages.map(msg => this.renderMessage(msg))}
-      </div>
-    )
+    return <Messages>{this.props.messages.map(msg => this.renderMessage(msg))}</Messages>
   }
 }
 
@@ -86,9 +102,7 @@ export default class MessageList extends React.Component {
       return null
     }
 
-    return (
-      <div className={styles.loadingArea}>{this.props.loading ? <LoadingIndicator /> : null}</div>
-    )
+    return <LoadingArea>{this.props.loading ? <LoadingIndicator /> : null}</LoadingArea>
   }
 
   render() {
@@ -97,8 +111,7 @@ export default class MessageList extends React.Component {
         ref={this._setScrollableRef}
         autoScroll={true}
         onUpdate={this.props.onScrollUpdate}
-        className={styles.messagesScrollable}
-        viewClassName={styles.messagesScrollableView}>
+        viewElement={<MessagesScrollableView />}>
         {this.renderLoadingArea()}
         <PureMessageList messages={this.props.messages} />
       </ScrollableContent>

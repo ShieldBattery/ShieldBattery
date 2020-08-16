@@ -1,7 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import classnames from 'classnames'
-import styles from './message.css'
+import styled from 'styled-components'
+
+import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
+import { Body1, Body2, Caption } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
 function getLocalTime(date) {
@@ -34,28 +36,60 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
+const Timestamp = styled(Caption)`
+  flex-shrink: 0;
+  margin: 0;
+  margin-right: 8px;
+  line-height: inherit;
+  color: ${colorTextFaint};
+`
+
 export const ChatTimestamp = props => (
-  <span title={longTimestamp.format(props.time)} className={styles.timestamp}>
+  <Timestamp title={longTimestamp.format(props.time)}>
     {getLocalTime(new Date(props.time))}
-  </span>
+  </Timestamp>
 )
 ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
 
+const MessageContainer = styled(Body1)`
+  display: flex;
+  align-items: flex-start;
+  line-height: 20px;
+  min-height: 20px;
+  padding: 0 8px 4px 8px;
+`
+
 export const ChatMessageLayout = props => {
-  const classes = classnames(styles.message, props.className)
   return (
-    <div className={classes}>
+    <MessageContainer as='div' className={props.className}>
       <ChatTimestamp time={props.time} />
       {props.children}
-    </div>
+    </MessageContainer>
   )
 }
 ChatMessageLayout.propTypes = {
   time: PropTypes.number.isRequired,
   className: PropTypes.string,
 }
+
+const Username = styled(Body2)`
+  flex-shrink: 0;
+  color: ${amberA100};
+  line-height: inherit;
+  padding-right: 8px;
+`
+
+const Text = styled.span`
+  flex-grow: 1;
+  line-height: inherit;
+  padding-left: 8px;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+`
 
 export class ChatMessage extends React.Component {
   static propTypes = {
@@ -77,21 +111,36 @@ export class ChatMessage extends React.Component {
 
     return (
       <ChatMessageLayout time={time}>
-        <span className={styles.username}>{user}</span>
-        <span className={styles.text}>{text}</span>
+        <Username>{user}</Username>
+        <Text>{text}</Text>
       </ChatMessageLayout>
     )
   }
 }
 
+const InfoDivider = styled.hr`
+  border: none;
+  border-top: 1px solid ${colorDividers};
+  margin: 0;
+`
+
+const InfoDividerLeft = styled(InfoDivider)`
+  width: 72px;
+  margin-right: 8px;
+`
+
+const InfoDividerRight = styled(InfoDivider)`
+  flex-grow: 1;
+  margin-left: 8px;
+`
+
 export const InfoMessageLayout = props => {
-  const classes = classnames(styles.message, props.className)
   return (
-    <div className={classes}>
-      <hr className={styles.infoDividerLeft} />
+    <MessageContainer className={props.className}>
+      <InfoDividerLeft />
       {props.children}
-      <hr className={styles.infoDividerRight} />
-    </div>
+      <InfoDividerRight />
+    </MessageContainer>
   )
 }
 InfoMessageLayout.propTypes = {

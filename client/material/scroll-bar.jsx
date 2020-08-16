@@ -81,8 +81,7 @@ function renderThumbVertical({ style }) {
 
 export class ScrollableContent extends React.Component {
   static propTypes = {
-    className: PropTypes.string,
-    viewClassName: PropTypes.string,
+    viewElement: PropTypes.element,
     onUpdate: PropTypes.func,
     autoHeight: PropTypes.bool,
     autoHeightMin: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
@@ -95,11 +94,19 @@ export class ScrollableContent extends React.Component {
 
   constructor(props) {
     super(props)
-    this._renderView = ({ children, style }) => (
-      <div className={this.props.viewClassName} style={style}>
-        {children}
-      </div>
-    )
+    this._renderView = ({ children, style }) => {
+      let viewElement
+      if (this.props.viewElement) {
+        viewElement = React.cloneElement(this.props.viewElement, {
+          style,
+          children,
+        })
+      } else {
+        viewElement = <div style={style}>{children}</div>
+      }
+
+      return viewElement
+    }
 
     this._scrollBars = null
     this._setScrollBarsRef = elem => {

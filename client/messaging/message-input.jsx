@@ -5,7 +5,6 @@ import KeyListener from '../keyboard/key-listener.jsx'
 
 export default class MessageInput extends React.Component {
   static propTypes = {
-    className: PropTypes.any,
     onSend: PropTypes.func.isRequired,
   }
   state = {

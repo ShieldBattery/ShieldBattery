@@ -37,25 +37,6 @@
   line-height: 16px;
 }
 
-.chat {
-  margin-top: 8px;
-  user-select: contain;
-}
-
-.chat * {
-  user-select: text;
-}
-
-.chatView {
-  padding: 8px 8px 0px;
-}
-
-.chatInput {
-  composes: exact;
-  margin: 8px 0;
-  padding: 0 16px;
-}
-
 .info {
   composes: exact;
   margin: 16px 0 16px 40px;
@@ -91,14 +72,4 @@
 
 .startButton {
   margin-top: 12px;
-}
-
-.chatSystemMessage {
-  color: blue100;
-}
-
-.chatImportant {
-  composes: body2;
-  line-height: inherit;
-  color: blue200;
 }
