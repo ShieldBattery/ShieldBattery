@@ -1,16 +1,18 @@
 import childProcess from 'child_process'
 import fs from 'fs'
+import bl from 'bl'
 import { addMap } from '../models/maps'
 import { writeFile } from '../file-upload'
-import bl from 'bl'
+import Queue from '../../../common/async/promise-queue'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
+const mapQueue = new Queue(Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT))
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
 export async function storeMap(path, extension, uploadedBy, visibility) {
-  const { mapData, imageStream } = await mapParseWorker(path, extension)
+  const { mapData, imageStream } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
 
   const mapParams = { mapData, extension, uploadedBy, visibility }
