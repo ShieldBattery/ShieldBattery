@@ -159,7 +159,16 @@ yarn run migrate-up
 You will need to run this command after pulling in commits that change the database structure as
 well.
 
+### Set up file storage
+
+To make sure the uploading of various files (e.g. maps, replays) is possible, ensure that the
+`SB_FILE_STORE` environment variable is set correctly. Currently, files can be saved on the server's
+filesystem, or on the DigitalOcean Spaces. See `sample.env` for more information on how to configure
+each of those.
+
 ### Set up map system
+
+**NOTE**: File storage must be properly configured beforehand for the map system to correctly work.
 
 The server needs access to some of BW's data files in order to generate map images. Download an mpq
 editor, such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download
@@ -167,13 +176,7 @@ editor, such as [this one](http://www.zezula.net/en/mpq/download.html) and make 
 editor to extract BW's data files from `stardat.mpq`, `broodat.mpq`, in that order, having
 `broodat.mpq` overwrite any conflicting files from `stardat.mpq`. The necessary directories in
 .mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
-structure), and set `config.bwData` in server's `config.js` to that directory.
-
-Set `config.fileStore` in the `config.js` to the directory that you wish to use for uploaded maps
-and their images (see example in `config.example.js`). Now you can use the admin panel and
-"Mass map upload" feature to upload any map(s) from your hard disk to the server. If you wish to
-upload official maps, you can download them from
-[here](https://drive.google.com/file/d/0B76qCUchMgsnb0dla2V2NEdDVTQ/).
+structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 
 ### Run the server
 

@@ -30,6 +30,7 @@ import routeCreator from './lib/rally-point/route-creator'
 
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
+import AwsStore from './lib/file-upload/aws'
 
 import setupWebsockets from './websockets'
 import createRoutes from './routes'
@@ -74,7 +75,30 @@ if (!process.env.SB_FILE_STORE) {
   throw new Error('SB_FILE_STORE must be specified')
 }
 const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
-setStore(new LocalFileStore(fileStoreSettings.filesystem))
+if (!fileStoreSettings) {
+  throw new Error('SB_FILE_STORE is invalid')
+}
+if (fileStoreSettings.filesystem) {
+  const settings = fileStoreSettings.filesystem
+  if (!settings || !settings.path) {
+    throw new Error('Invalid "filesystem" store settings')
+  }
+  setStore(new LocalFileStore(settings))
+} else if (fileStoreSettings.doSpaces) {
+  const settings = fileStoreSettings.doSpaces
+  if (
+    !settings ||
+    !settings.endpoint ||
+    !settings.accessKeyId ||
+    !settings.secretAccessKey ||
+    !settings.bucket
+  ) {
+    throw new Error('Invalid "doSpaces" store settings')
+  }
+  setStore(new AwsStore(settings))
+} else {
+  throw new Error('no valid key could be found in SB_FILE_STORE')
+}
 
 const asyncLookup = thenify(dns.lookup)
 const rallyPointServersArray = rallyPointServers.local

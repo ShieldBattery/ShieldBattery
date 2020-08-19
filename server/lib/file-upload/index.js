@@ -7,28 +7,25 @@ export function setStore(obj) {
 }
 
 // Accepts either `Buffer` or a `Readable` for `data`
-export async function writeFile(filename, data) {
-  if (Buffer.isBuffer(data)) {
-    return store.write(
-      filename,
-      new Readable({
+export async function writeFile(filename, data, options) {
+  const stream = Buffer.isBuffer(data)
+    ? new Readable({
         read() {
           this.push(data)
           this.push(null)
         },
-      }),
-    )
-  } else {
-    return store.write(filename, data)
-  }
+      })
+    : data
+
+  return store.write(filename, stream, options)
 }
 
-export async function deleteFile(filename) {
-  return store.delete(filename)
+export async function deleteFile(filename, options) {
+  return store.delete(filename, options)
 }
 
-export async function getUrl(filename) {
-  return store.url(filename)
+export async function getUrl(filename, options) {
+  return store.url(filename, options)
 }
 
 export function addMiddleware(app) {
