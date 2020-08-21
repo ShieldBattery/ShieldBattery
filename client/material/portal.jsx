@@ -1,19 +1,56 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import ReactDOM from 'react-dom'
-import TransitionGroup from 'react-addons-css-transition-group'
-import styles from './portal.css'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import styled from 'styled-components'
+import { rgba } from 'polished'
 
+import { fastOutSlowIn } from './curve-constants'
 import { zIndexDialogScrim } from './zindex'
+import { grey900 } from '../styles/colors'
 
 const transitionNames = {
-  appear: styles.enter,
-  appearActive: styles.enterActive,
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  appear: 'enter',
+  appearActive: 'enterActive',
+  enter: 'enter',
+  enterActive: 'enterActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
+
+const Scrim = styled.div`
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  background-color: ${rgba(grey900, 0.42)};
+  /*
+    Even though we're using React's CSS Transition Group to animate the scrim with the classes below
+    we also have a transition of "opacity" property here, because it is possible in some special
+    case (Dialogs) for scrim to always be rendered.
+  */
+  transition: opacity 250ms ${fastOutSlowIn};
+  -webkit-app-region: no-drag;
+
+  &.enter {
+    background-color: ${rgba(grey900, 0)};
+  }
+
+  &.enterActive {
+    background-color: ${rgba(grey900, 0.42)};
+    transition: background-color 250ms ${fastOutSlowIn};
+  }
+
+  &.exit {
+  }
+
+  &.exitActive {
+    transition: background-color 200ms ${fastOutSlowIn};
+    background-color: ${rgba(grey900, 0)};
+  }
+`
 
 // A component for rendering component trees into 'portals', that is, roots that exist outside of
 // the React root. This is useful for things like modal dialogs, popovers, etc. Contains
@@ -42,7 +79,6 @@ export default class Portal extends React.Component {
   }
 
   addPortal() {
-    this.portal.classList.add(styles.portal)
     document.body.appendChild(this.portal)
   }
 
@@ -63,19 +99,14 @@ export default class Portal extends React.Component {
     }
     const contents = (
       <>
-        <TransitionGroup
-          transitionName={transitionNames}
-          transitionAppear={true}
-          transitionAppearTimeout={250}
-          transitionEnterTimeout={250}
-          transitionLeaveTimeout={200}>
+        <TransitionGroup>
           {open ? (
-            <div
-              key={'scrim'}
-              className={styles.scrim}
-              style={scrimStyle}
-              onClick={this.onClickAway}
-            />
+            <CSSTransition
+              classNames={transitionNames}
+              appear={true}
+              timeout={{ appear: 250, enter: 250, exit: 200 }}>
+              <Scrim key={'scrim'} style={scrimStyle} onClick={this.onClickAway} />
+            </CSSTransition>
           ) : null}
         </TransitionGroup>
         {open ? children() : null}
