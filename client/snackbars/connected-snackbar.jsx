@@ -1,16 +1,15 @@
 import React from 'react'
-import TransitionGroup from 'react-addons-css-transition-group'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import { connect } from 'react-redux'
 import { closeSnackbar } from './action-creators'
-import styles from '../material/snackbar.css'
 
 import Snackbar from '../material/snackbar.jsx'
 
 const transitionNames = {
-  enter: styles.enter,
-  enterActive: styles.enterActive,
-  leave: styles.leave,
-  leaveActive: styles.leaveActive,
+  enter: 'enter',
+  enterActive: 'enterActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
 const ENTER_TIME = 450
 // This should be slightly longer than the actual exit, so that consecutive snackbars look nice
@@ -106,11 +105,14 @@ class ConnectedSnackbar extends React.Component {
     }
 
     return (
-      <TransitionGroup
-        transitionName={transitionNames}
-        transitionEnterTimeout={ENTER_TIME}
-        transitionLeaveTimeout={LEAVE_TIME}>
-        {elem}
+      <TransitionGroup>
+        {elem ? (
+          <CSSTransition
+            classNames={transitionNames}
+            timeout={{ enter: ENTER_TIME, exit: LEAVE_TIME }}>
+            {elem}
+          </CSSTransition>
+        ) : null}
       </TransitionGroup>
     )
   }
