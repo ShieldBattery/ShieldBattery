@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import TransitionGroup from 'react-addons-css-transition-group'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import keycode from 'keycode'
 import styled from 'styled-components'
 import { Body1, Caption } from '../styles/typography'
@@ -10,8 +10,8 @@ import { fastOutSlowIn } from './curve-constants'
 const transitionNames = {
   enter: 'enter',
   enterActive: 'enterActive',
-  leave: 'leave',
-  leaveActive: 'leaveActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
 
 const LEFT = keycode('left')
@@ -41,12 +41,12 @@ const TickContainer = styled.span`
     opacity: 1;
   }
 
-  &.leave {
+  &.exit {
     opacity: 1;
     transition: opacity 150ms linear;
   }
 
-  &.leaveActive {
+  &.exitActive {
     opacity: 0;
   }
 `
@@ -74,17 +74,14 @@ const Ticks = ({ show, min, max, step }) => {
     }
     elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
 
-    container = <TickContainer>{elems}</TickContainer>
+    container = (
+      <CSSTransition classNames={transitionNames} timeout={150}>
+        <TickContainer>{elems}</TickContainer>
+      </CSSTransition>
+    )
   }
 
-  return (
-    <TransitionGroup
-      transitionName={transitionNames}
-      transitionEnterTimeout={150}
-      transitionLeaveTimeout={150}>
-      {container}
-    </TransitionGroup>
-  )
+  return <TransitionGroup>{container}</TransitionGroup>
 }
 
 const TrackRoot = styled.div`
@@ -228,11 +225,11 @@ const Balloon = styled.div`
     transform: scale(1, 1);
   }
 
-  &.leave {
+  &.exit {
     transform: scale(1, 1);
   }
 
-  &.leaveActive {
+  &.exitActive {
     transform: scale(0, 0);
   }
 `
@@ -302,9 +299,11 @@ class Slider extends React.Component {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
     return (
-      <Balloon empty={this.props.value === this.props.min}>
-        <BalloonText as='span'>{this.props.value}</BalloonText>
-      </Balloon>
+      <CSSTransition classNames={transitionNames} timeout={300}>
+        <Balloon empty={this.props.value === this.props.min}>
+          <BalloonText as='span'>{this.props.value}</BalloonText>
+        </Balloon>
+      </CSSTransition>
     )
   }
 
@@ -346,12 +345,7 @@ class Slider extends React.Component {
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
             <Thumb empty={this.props.value === this.props.min} />
-            <TransitionGroup
-              transitionName={transitionNames}
-              transitionEnterTimeout={300}
-              transitionLeaveTimeout={300}>
-              {this._renderBalloon(thumbPosition)}
-            </TransitionGroup>
+            <TransitionGroup>{this._renderBalloon(thumbPosition)}</TransitionGroup>
           </ThumbContainer>
         </OverflowClip>
         <ClickableArea ref={this.trackAreaRef} onMouseDown={this.onMouseDown} />
