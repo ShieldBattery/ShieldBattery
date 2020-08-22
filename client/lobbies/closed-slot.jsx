@@ -68,7 +68,7 @@ export default class ClosedSlot extends React.Component {
         <SlotLeft>
           <SlotProfile>
             <SlotEmptyAvatar />
-            <SlotEmptyName>Closed</SlotEmptyName>
+            <SlotEmptyName as='span'>Closed</SlotEmptyName>
           </SlotProfile>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

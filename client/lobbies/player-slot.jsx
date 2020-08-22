@@ -95,7 +95,7 @@ export default class PlayerSlot extends React.Component {
         <SlotLeft>
           <SlotProfile>
             {avatar}
-            <SlotName>{displayName}</SlotName>
+            <SlotName as='span'>{displayName}</SlotName>
           </SlotProfile>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

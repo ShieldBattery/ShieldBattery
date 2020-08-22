@@ -10,7 +10,6 @@ import {
   canRemoveObservers,
   canAddObservers,
 } from '../../common/lobbies'
-import styles from './view.css'
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
@@ -22,8 +21,9 @@ import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
 import { ObserverSlots, RegularSlots, TeamName } from './slot.jsx'
 
-import { blue100, blue200 } from '../styles/colors'
-import { Body2 } from '../styles/typography'
+import { blue100, blue200, colorTextSecondary } from '../styles/colors'
+import { Body1, Body2, Headline, Subheading } from '../styles/typography'
+import { shadow1dp } from '../material/shadows'
 
 const ChatSystemMessage = styled(ChatMessageLayout)`
   color: ${blue100};
@@ -296,6 +296,65 @@ const StyledMessageInput = styled(MessageInput)`
   padding: 0 16px;
 `
 
+const ContentArea = styled.div`
+  max-width: 1140px;
+  height: 100%;
+  padding: 0 16px;
+  margin: 0 auto;
+
+  display: flex;
+  justify-content: space-between;
+`
+
+const Left = styled.div`
+  min-width: 320px;
+  min-height: 100%;
+  max-height: 100%;
+  padding-top: 16px;
+
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+`
+
+const Info = styled.div`
+  width: 256px;
+  margin: 16px 0 16px 40px;
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const MapName = styled(Headline)`
+  margin: 0;
+`
+
+const MapThumbnail = styled.img`
+  ${shadow1dp};
+
+  width: 256px;
+  border-radius: 2px;
+  margin-top: 8px;
+`
+
+const InfoItem = styled.div`
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+`
+
+const InfoLabel = styled(Body1)`
+  color: ${colorTextSecondary};
+`
+
+const InfoValue = styled(Subheading)`
+  margin-left: 16px;
+  flex-grow: 1;
+`
+
+const StartButton = styled(RaisedButton)`
+  margin-top: 12px;
+`
+
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
@@ -476,27 +535,27 @@ export default class Lobby extends React.Component {
     }
 
     return (
-      <div className={styles.contentArea}>
-        <div className={styles.left}>
+      <ContentArea>
+        <Left>
           <SlotsCard>
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
           <ChatList messages={this.props.chat} />
           <StyledMessageInput onSend={onSendChatMessage} />
-        </div>
-        <div className={styles.info}>
+        </Left>
+        <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
-          <h3 className={styles.mapName}>{lobby.map.name}</h3>
-          <img className={styles.mapThumbnail} src={lobby.map.imageUrl} />
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Game type</span>
-            <span className={styles.infoValue}>{gameTypeToString(lobby.gameType)}</span>
-          </div>
+          <MapName>{lobby.map.name}</MapName>
+          <MapThumbnail src={lobby.map.imageUrl} />
+          <InfoItem>
+            <InfoLabel as='span'>Game type</InfoLabel>
+            <InfoValue as='span'>{gameTypeToString(lobby.gameType)}</InfoValue>
+          </InfoItem>
           {this.renderCountdown()}
           {this.renderStartButton()}
-        </div>
-      </div>
+        </Info>
+      </ContentArea>
     )
   }
 
@@ -506,7 +565,8 @@ export default class Lobby extends React.Component {
       return null
     }
 
-    return <h3 className={styles.countdown}>{lobby.countdownTimer}</h3>
+    // TODO(tec27): This should probably have some kind of custom style applied?
+    return <h3>{lobby.countdownTimer}</h3>
   }
 
   renderStartButton() {
@@ -517,13 +577,7 @@ export default class Lobby extends React.Component {
 
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby)
     return (
-      <RaisedButton
-        className={styles.startButton}
-        color='primary'
-        label='Start game'
-        disabled={isDisabled}
-        onClick={onStartGame}
-      />
+      <StartButton color='primary' label='Start game' disabled={isDisabled} onClick={onStartGame} />
     )
   }
 }

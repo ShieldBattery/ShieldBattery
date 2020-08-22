@@ -1,9 +1,0 @@
-@value fastOutSlowIn from './curve-constants.css';
-
-.fastOutSlowInShort {
-  transition: all 250ms fastOutSlowIn;
-}
-
-.fastOutSlowInNormal {
-  transition: all 400ms fastOutSlowIn;
-}

@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Route, Switch } from 'react-router-dom'
 import { push, replace } from 'connected-react-router'
-import styles from './view.css'
+import styled from 'styled-components'
 
 import Lobby from './lobby.jsx'
 import LoadingScreen from './loading.jsx'
@@ -45,6 +45,18 @@ function isLeavingLobby(oldProps, newProps) {
     !newProps.lobby.inLobby /* now we're not */
   )
 }
+
+const LoadingArea = styled.div`
+  height: 32px;
+  display: flex;
+  align-items: center;
+`
+
+const PreLobbyArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+`
 
 @connect(mapStateToProps)
 export default class LobbyView extends React.Component {
@@ -173,9 +185,9 @@ export default class LobbyView extends React.Component {
     if (!lobby.state && !lobby.error) {
       if (lobby.isRequesting) {
         preLobbyAreaContents = (
-          <div className={styles.loadingArea}>
+          <LoadingArea>
             <LoadingIndicator />
-          </div>
+          </LoadingArea>
         )
       } else {
         preLobbyAreaContents = <span>There was a problem loading this lobby</span>
@@ -183,28 +195,28 @@ export default class LobbyView extends React.Component {
     } else if (lobby.state) {
       preLobbyAreaContents = [
         lobby.isRequesting ? (
-          <div key='loading' className={styles.loadingArea}>
+          <LoadingArea key='loading'>
             <LoadingIndicator />
-          </div>
+          </LoadingArea>
         ) : null,
         this.renderLobbyStateContent(lobby.state),
       ]
     } else if (lobby.error) {
       preLobbyAreaContents = [
         lobby.isRequesting ? (
-          <div key='loading' className={styles.loadingArea}>
+          <LoadingArea key='loading'>
             <LoadingIndicator />
-          </div>
+          </LoadingArea>
         ) : null,
         <p>There was a problem loading this lobby</p>,
       ]
     }
 
-    return <div className={styles.preLobbyArea}>{preLobbyAreaContents}</div>
+    return <PreLobbyArea>{preLobbyAreaContents}</PreLobbyArea>
   }
 
   renderLeaveAndJoin() {
-    return <p className={styles.preLobbyArea}>You're already in another lobby.</p>
+    return <PreLobbyArea as='p'>You're already in another lobby.</PreLobbyArea>
   }
 
   onLeaveLobbyClick = () => {
