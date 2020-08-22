@@ -236,10 +236,6 @@ function setupCspProtocol(curSession) {
         const isHot = !!process.env.SB_HOT
         const result = data
           .replace(
-            /%STYLESHEET_TAG%/g,
-            isHot ? '' : `<link rel="stylesheet" href="styles/site.css" nonce="${nonce}" />`,
-          )
-          .replace(
             /%SCRIPT_URL%/g,
             isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js',
           )

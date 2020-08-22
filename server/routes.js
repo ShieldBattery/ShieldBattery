@@ -4,7 +4,6 @@ import KoaRouter from '@koa/router'
 import httpErrors from 'http-errors'
 import path from 'path'
 import fs from 'fs'
-import isDev from './lib/env/is-dev'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
 
@@ -35,14 +34,6 @@ export default function applyRoutes(app, nydus, userSockets) {
   // common requests that we don't want to return the regular page for
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
-
-  if (isDev) {
-    // We expect the styles to be included in the development JS (so they can be hot reloaded)
-    router.get('/styles/site.css', (ctx, next) => {
-      ctx.body = ''
-      ctx.type = 'text/css'
-    })
-  }
 
   router.get('/config', async (ctx, next) => {
     ctx.body = {

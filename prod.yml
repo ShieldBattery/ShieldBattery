@@ -12,7 +12,6 @@ files:
   - 'assets/**/*'
   - 'dist/bundle.js'
   - 'dist/**/*.chunk.js'
-  - 'styles/**/*'
   - from: 'dist/'
     to: './'
     filter:

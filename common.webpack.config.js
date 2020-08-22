@@ -1,10 +1,7 @@
 // Common webpack config settings, call with options specific to each environment to create a real
 // config
 
-import path from 'path'
 import webpack from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin'
 import TerserWebpackPlugin from 'terser-webpack-plugin'
 import packageJson from './package.json'
 
@@ -23,34 +20,6 @@ export default function ({
 }) {
   if (!webpackOpts.entry[mainEntry]) {
     throw new Error(`Could not find entry called '${mainEntry}'`)
-  }
-
-  const postCssOpts = JSON.stringify({
-    config: {
-      path: path.join(__dirname, 'postcss.config.js'),
-      ctx: {
-        target: webpackOpts.target,
-      },
-    },
-  })
-
-  const styleRule = {
-    test: /\.css$/,
-    use: [
-      isProd ? MiniCssExtractPlugin.loader : 'style-loader',
-      {
-        loader: 'css-loader',
-        options: {
-          modules: {
-            localIdentName: !isProd ? '[name]__[local]__[hash:base64:5]' : '[hash:base64]',
-          },
-          importLoaders: 1,
-        },
-      },
-      // NOTE(tec27): We have to use the string form here or css-loader screws up at importing
-      // this loader because it's a massive pile of unupdated crap
-      `postcss-loader?${postCssOpts}`,
-    ],
   }
 
   const config = {
@@ -97,7 +66,6 @@ export default function ({
           exclude: /README.md$/,
           use: [{ loader: 'html-loader' }, { loader: 'markdown-loader' }],
         },
-        styleRule,
         {
           // Dumb workaround for `iconv-lite` not fixing their bugs. See this issue for more info:
           // https://github.com/ashtuchkin/iconv-lite/issues/204
@@ -111,7 +79,7 @@ export default function ({
     },
     optimization: {
       noEmitOnErrors: true,
-      minimizer: isProd ? [new TerserWebpackPlugin(), new OptimizeCSSAssetsPlugin()] : [],
+      minimizer: isProd ? [new TerserWebpackPlugin()] : [],
     },
     plugins: [
       new webpack.DefinePlugin({
@@ -165,9 +133,6 @@ export default function ({
         'process.env.NODE_ENV': JSON.stringify('production'),
       }),
       ...config.plugins,
-      new MiniCssExtractPlugin({
-        filename: '../styles/site.css',
-      }),
     ]
 
     config.devtool = 'hidden-source-map'
