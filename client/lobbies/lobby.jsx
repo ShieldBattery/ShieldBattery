@@ -22,7 +22,7 @@ import PlayerSlot from './player-slot.jsx'
 import { ObserverSlots, RegularSlots, TeamName } from './slot.jsx'
 
 import { blue100, blue200, colorTextSecondary } from '../styles/colors'
-import { Body1, Body2, Headline, Subheading } from '../styles/typography'
+import { Body1, Body2, Headline, Subheading, robotoCondensed, Display1 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const ChatSystemMessage = styled(ChatMessageLayout)`
@@ -355,6 +355,11 @@ const StartButton = styled(RaisedButton)`
   margin-top: 12px;
 `
 
+const Countdown = styled(Display1)`
+  ${robotoCondensed};
+  font-weight: 700;
+`
+
 export default class Lobby extends React.Component {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
@@ -565,8 +570,7 @@ export default class Lobby extends React.Component {
       return null
     }
 
-    // TODO(tec27): This should probably have some kind of custom style applied?
-    return <h3>{lobby.countdownTimer}</h3>
+    return <Countdown>{lobby.countdownTimer}</Countdown>
   }
 
   renderStartButton() {
