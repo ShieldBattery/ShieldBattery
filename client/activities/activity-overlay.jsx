@@ -1,5 +1,5 @@
 import React from 'react'
-import TransitionGroup from 'react-addons-css-transition-group'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import { connect } from 'react-redux'
 import keycode from 'keycode'
 import styled from 'styled-components'
@@ -37,8 +37,8 @@ const ESCAPE = keycode('escape')
 const transitionNames = {
   enter: 'enter',
   enterActive: 'enterActive',
-  leave: 'leave',
-  leaveActive: 'leaveActive',
+  exit: 'exit',
+  exitActive: 'exitActive',
 }
 
 const Scrim = styled.div`
@@ -91,24 +91,24 @@ const Container = styled.div`
     transition: opacity 250ms ${fastOutSlowIn};
   }
 
-  &.leave {
+  &.exit {
     pointer-events: none;
   }
 
-  &.leave ${Overlay} {
+  &.exit ${Overlay} {
     transform: translate3d(0, 0, 0);
   }
 
-  &.leave ${Scrim} {
+  &.exit ${Scrim} {
     opacity: 0.42;
   }
 
-  &.leaveActive ${Overlay} {
+  &.exitActive ${Overlay} {
     transform: translate3d(100%, 0, 0);
     transition: transform 250ms ${fastOutLinearIn};
   }
 
-  &.leaveActive ${Scrim} {
+  &.exitActive ${Scrim} {
     opacity: 0;
     transition: opacity 200ms ${fastOutSlowIn};
   }
@@ -153,11 +153,13 @@ export default class ActivityOverlay extends React.Component {
     const OverlayComponent = this.getOverlayComponent()
     const overlayComponent = <OverlayComponent {...activityOverlay.current.initData.toObject()} />
     return (
-      <Container key={'overlay'}>
-        <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
-        <Scrim onClick={this.onScrimClick} />
-        <Overlay>{overlayComponent}</Overlay>
-      </Container>
+      <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
+        <Container key={'overlay'}>
+          <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
+          <Scrim onClick={this.onScrimClick} />
+          <Overlay>{overlayComponent}</Overlay>
+        </Container>
+      </CSSTransition>
     )
   }
 
@@ -166,12 +168,7 @@ export default class ActivityOverlay extends React.Component {
       <>
         <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />
         <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
-          <TransitionGroup
-            transitionName={transitionNames}
-            transitionEnterTimeout={350}
-            transitionLeaveTimeout={250}>
-            {this.renderOverlay()}
-          </TransitionGroup>
+          <TransitionGroup>{this.renderOverlay()}</TransitionGroup>
         </span>
         <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />
       </>
