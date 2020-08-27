@@ -7,7 +7,7 @@ export function setStore(obj) {
 }
 
 // Accepts either `Buffer` or a `Readable` for `data`
-export async function writeFile(filename, data, options) {
+export function writeFile(filename, data, options) {
   const stream = Buffer.isBuffer(data)
     ? new Readable({
         read() {
@@ -20,11 +20,15 @@ export async function writeFile(filename, data, options) {
   return store.write(filename, stream, options)
 }
 
-export async function deleteFile(filename, options) {
+export function deleteFile(filename, options) {
   return store.delete(filename, options)
 }
 
-export async function getUrl(filename, options) {
+export function deleteFiles(prefix, options) {
+  return store.deleteFiles(prefix, options)
+}
+
+export function getUrl(filename, options) {
   return store.url(filename, options)
 }
 

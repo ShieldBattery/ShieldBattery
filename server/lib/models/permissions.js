@@ -1,4 +1,5 @@
 import db from '../db'
+import sql from 'sql-template-strings'
 
 class Permissions {
   constructor(props) {
@@ -9,30 +10,31 @@ class Permissions {
     this.banUsers = props.ban_users
     this.manageMaps = props.manage_maps
     this.manageMapPools = props.manage_map_pools
+    this.deleteMaps = props.delete_maps
   }
 }
 
 export async function createPermissions(dbClient, userId) {
-  const query = 'INSERT INTO permissions (user_id) VALUES ($1) RETURNING *'
-  const params = [userId]
+  const query = sql`
+    INSERT INTO permissions (user_id) VALUES (${userId}) RETURNING *;
+  `
 
-  const result = await dbClient.query(query, params)
+  const result = await dbClient.query(query)
   if (result.rows.length < 1) throw new Error('No rows returned')
   return new Permissions(result.rows[0])
 }
 
 export async function getPermissions(userId) {
-  const query = `
+  const query = sql`
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
-        manage_maps, manage_map_pools
+        manage_maps, manage_map_pools, delete_maps
     FROM permissions
-    WHERE user_id = $1
+    WHERE user_id = ${userId};
   `
-  const params = [userId]
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
+    const result = await client.query(query)
     return new Permissions(result.rows[0])
   } finally {
     done()
@@ -40,26 +42,24 @@ export async function getPermissions(userId) {
 }
 
 export async function updatePermissions(userId, perms) {
-  const query = `
-    UPDATE permissions SET edit_permissions = $2, debug = $3, accept_invites = $4,
-        edit_all_channels = $5, ban_users = $6, manage_maps = $7, manage_map_pools = $8
-    WHERE user_id = $1
-    RETURNING *
+  const query = sql`
+    UPDATE permissions
+    SET
+      edit_permissions = ${!!perms.editPermissions},
+      debug = ${!!perms.debug},
+      accept_invites = ${!!perms.acceptInvites},
+      edit_all_channels = ${!!perms.editAllChannels},
+      ban_users = ${!!perms.banUsers},
+      manage_maps = ${!!perms.manageMaps},
+      manage_map_pools = ${!!perms.manageMapPools},
+      delete_maps = ${!!perms.deleteMaps}
+    WHERE user_id = ${userId}
+    RETURNING *;
   `
-  const params = [
-    userId,
-    !!perms.editPermissions,
-    !!perms.debug,
-    !!perms.acceptInvites,
-    !!perms.editAllChannels,
-    !!perms.banUsers,
-    !!perms.manageMaps,
-    !!perms.manageMapPools,
-  ]
 
   const { client, done } = await db()
   try {
-    const result = await client.query(query, params)
+    const result = await client.query(query)
     return new Permissions(result.rows[0])
   } finally {
     done()

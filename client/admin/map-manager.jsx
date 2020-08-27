@@ -1,7 +1,10 @@
-import { List, Map } from 'immutable'
 import React from 'react'
+import { connect } from 'react-redux'
+import { List, Map } from 'immutable'
 import styled from 'styled-components'
 
+import fetch from '../network/fetch'
+import FlatButton from '../material/flat-button.jsx'
 import form from '../forms/form.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import uploadMap from '../maps/upload'
@@ -12,7 +15,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 
-import { colorError, colorSuccess, colorTextSecondary, grey800 } from '../styles/colors'
+import { colorError, colorSuccess, colorTextSecondary, amberA400, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
 const Container = styled.div`
@@ -57,6 +60,14 @@ const StyledErrorIcon = styled(ErrorIcon)`
 
 const Underline = styled(Subheading)`
   color: ${colorTextSecondary};
+`
+
+const ErrorText = styled(Subheading)`
+  color: ${colorError};
+`
+
+const WarningText = styled(Subheading)`
+  color: ${amberA400};
 `
 
 const UPLOAD_STATUS_PENDING = 0
@@ -107,10 +118,14 @@ class UploadStatus extends React.PureComponent {
   }
 }
 
-export default class UploadMap extends React.Component {
+@connect(state => ({ auth: state.auth }))
+export default class MapManager extends React.Component {
   state = {
     selectedFiles: new List(),
     results: new Map(),
+    areYouSure: false,
+    isDeleting: false,
+    deleteError: null,
   }
   _form = null
   _setForm = elem => {
@@ -138,7 +153,13 @@ export default class UploadMap extends React.Component {
     )
   }
 
-  render() {
+  renderUploadMaps() {
+    const {
+      auth: { permissions: perms },
+    } = this.props
+
+    if (!perms.manageMaps) return null
+
     const { selectedFiles, results } = this.state
     const model = {
       files: '',
@@ -146,20 +167,70 @@ export default class UploadMap extends React.Component {
 
     const disableUploadButton = results.some(r => r !== UPLOAD_STATUS_PENDING)
     return (
+      <>
+        <Underline>Select maps to upload</Underline>
+        <UploadForm
+          ref={this._setForm}
+          model={model}
+          onSubmit={this.onSubmit}
+          onChange={this.onFormChange}
+          onCleared={this.onFilesRemoved}
+        />
+        {this.renderSelectedFiles()}
+        {selectedFiles.size ? (
+          <RaisedButton
+            label='Upload'
+            disabled={disableUploadButton}
+            onClick={this.onUploadClick}
+          />
+        ) : null}
+      </>
+    )
+  }
+
+  renderDeleteMaps() {
+    const {
+      auth: { permissions: perms },
+    } = this.props
+
+    if (!perms.deleteMaps) return null
+
+    const { areYouSure, isDeleting, deleteError } = this.state
+    return (
+      <>
+        <Underline>Delete all maps</Underline>
+        <RaisedButton
+          label='Delete all maps'
+          disabled={isDeleting}
+          onClick={() => this.setState({ areYouSure: true })}
+        />
+        {areYouSure ? (
+          <div>
+            <WarningText>
+              WARNING! This action will delete all maps in the database and their respective files.
+              This cannot be reversed.
+            </WarningText>
+            <p>Are you sure?</p>
+            <FlatButton
+              label='No'
+              color='accent'
+              onClick={() => this.setState({ areYouSure: false })}
+            />
+            <FlatButton label='Yes' color='accent' onClick={this.onDeleteMapsClick} />
+          </div>
+        ) : null}
+        {isDeleting ? <LoadingIndicator /> : null}
+        {deleteError ? <ErrorText>Something went wrong: {deleteError.message}</ErrorText> : null}
+      </>
+    )
+  }
+
+  render() {
+    return (
       <ScrollableContent>
         <Container>
-          <Underline>Select maps to upload</Underline>
-          <UploadForm
-            ref={this._setForm}
-            model={model}
-            onSubmit={this.onSubmit}
-            onChange={this.onFormChange}
-            onCleared={this.onFilesRemoved}
-          />
-          {this.renderSelectedFiles()}
-          {selectedFiles.size ? (
-            <RaisedButton label='Upload' disabled={disableUploadButton} onClick={this.onClick} />
-          ) : null}
+          {this.renderUploadMaps()}
+          {this.renderDeleteMaps()}
         </Container>
       </ScrollableContent>
     )
@@ -176,7 +247,7 @@ export default class UploadMap extends React.Component {
     this.setState({ selectedFiles: new List(), results: new Map() })
   }
 
-  onClick = () => {
+  onUploadClick = () => {
     this._form.submit()
   }
 
@@ -203,6 +274,17 @@ export default class UploadMap extends React.Component {
     for (const { path } of files) {
       // Upload stuff in parallel
       this._doUpload(path)
+    }
+  }
+
+  onDeleteMapsClick = async () => {
+    this.setState({ areYouSure: false, isDeleting: true, deleteError: null })
+
+    try {
+      await fetch('/api/1/maps/', { method: 'DELETE' })
+      this.setState({ isDeleting: false })
+    } catch (err) {
+      this.setState({ isDeleting: false, deleteError: err })
     }
   }
 }

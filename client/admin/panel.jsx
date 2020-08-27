@@ -12,7 +12,7 @@ import {
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
 
-const AdminMapUpload = IS_ELECTRON ? require('./map-upload.jsx').default : null
+const AdminMapManager = IS_ELECTRON ? require('./map-manager.jsx').default : null
 
 class AdminDashboard extends React.Component {
   render() {
@@ -24,10 +24,10 @@ class AdminDashboard extends React.Component {
           <Link to='/admin/users'>View user's profile</Link>
         </li>
       ) : null
-    const uploadLink =
-      perms.manageMaps && IS_ELECTRON ? (
+    const mapsLink =
+      (perms.manageMaps || perms.deleteMaps) && IS_ELECTRON ? (
         <li>
-          <Link to='/admin/map-upload'>Upload official maps</Link>
+          <Link to='/admin/map-manager'>Manage maps</Link>
         </li>
       ) : null
     const mapPoolsLink = perms.manageMapPools ? (
@@ -44,7 +44,7 @@ class AdminDashboard extends React.Component {
     return (
       <ul>
         {usersLink}
-        {uploadLink}
+        {mapsLink}
         {mapPoolsLink}
         {invitesLink}
       </ul>
@@ -70,7 +70,7 @@ export default class Panel extends React.Component {
           filters={[CanAcceptBetaInvitesFilter]}
           component={AdminBetaInvites}
         />
-        {AdminMapUpload ? <Route path='/admin/map-upload' component={AdminMapUpload} /> : null}
+        {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : null}
         <ConditionalRoute
           path='/admin/map-pools'
           filters={[CanManageMapPoolsFilter]}
