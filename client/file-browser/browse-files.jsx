@@ -530,11 +530,13 @@ export default class Files extends React.Component {
 
   onFileClick = file => {
     const { onSelect } = this.props.fileTypes[file.extension]
-    const { focusedPath } = this.state
-    if (focusedPath !== file.path) {
-      this.setState({ focusedPath: file.path })
-    }
-    onSelect(file)
+    // Make sure the focused path is updated before calling `onSelect` action which might cause this
+    // component to get unmounted (so `componentWillUnmount` will have the latest version of the
+    // focused path to work with).
+    this.setState(
+      () => ({ focusedPath: file.path }),
+      () => onSelect(file),
+    )
   }
 
   onRefreshClick = () => {
