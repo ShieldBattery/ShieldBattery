@@ -8,7 +8,9 @@ import {
   removeMap,
   addMapToFavorites,
   removeMapFromFavorites,
+  deleteAllMaps as dbDeleteAllMaps,
 } from '../models/maps'
+import { deleteFiles } from '../file-upload'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../common/flags'
 import {
@@ -97,6 +99,7 @@ export default function (router) {
       ensureLoggedIn,
       removeFromFavorites,
     )
+    .delete('/', checkAllPermissions('massDeleteMaps'), deleteAllMaps)
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
@@ -255,5 +258,10 @@ async function addToFavorites(ctx, next) {
 
 async function removeFromFavorites(ctx, next) {
   await removeMapFromFavorites(ctx.params.mapId, ctx.session.userId)
+  ctx.status = 204
+}
+
+async function deleteAllMaps(ctx, next) {
+  await dbDeleteAllMaps(() => Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')]))
   ctx.status = 204
 }

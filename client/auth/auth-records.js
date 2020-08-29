@@ -12,6 +12,7 @@ export const Permissions = new Record({
   banUsers: false,
   manageMaps: false,
   manageMapPools: false,
+  massDeleteMaps: false,
 })
 export const Auth = new Record({
   authChangeInProgress: false,

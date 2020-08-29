@@ -455,3 +455,21 @@ export async function removeMapFromFavorites(mapId, userId) {
     done()
   }
 }
+
+// This function should only be used by users with necessary, super-restrictive, permissions. Note
+// that unlike the user-facing "removeMap" function, which soft-deletes a map, this one actually
+// deletes all maps from the database. Use with care!
+export async function deleteAllMaps(transactionFn) {
+  return transact(async client => {
+    const query = sql`
+      BEGIN;
+        UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
+        UPDATE matchmaking_preferences SET preferred_maps = NULL;
+        TRUNCATE matchmaking_map_pools, favorited_maps, uploaded_maps, maps;
+      COMMIT;
+    `
+
+    await client.query(query)
+    await transactionFn()
+  })
+}

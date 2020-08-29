@@ -1,6 +1,7 @@
 import fs from 'fs'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
+import rimraf from 'rimraf'
 import log from '../logging/logger.js'
 import path from 'path'
 import thenify from 'thenify'
@@ -13,6 +14,7 @@ export const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
 const access = thenify(fs.access)
 const mkdir = thenify(fs.mkdir)
 const unlinkAsync = util.promisify(fs.unlink)
+const rimrafAsync = util.promisify(rimraf)
 
 async function createDirectory(path) {
   try {
@@ -61,6 +63,16 @@ export default class LocalFsStore {
     try {
       // TODO(2Pac): Delete the directory tree as well, if it's empty
       await unlinkAsync(full)
+    } catch (err) {
+      // File most likely doesn't exist so there's nothing to delete; just log the error and move on
+      log.error({ err }, 'error deleting the file')
+    }
+  }
+
+  async deleteFiles(prefix) {
+    const full = this._getFullPath(prefix)
+    try {
+      await rimrafAsync(full)
     } catch (err) {
       // File most likely doesn't exist so there's nothing to delete; just log the error and move on
       log.error({ err }, 'error deleting the file')

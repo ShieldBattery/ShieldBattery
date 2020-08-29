@@ -77,6 +77,18 @@ export default class Aws {
   }
 
   // Options object can contain any of the valid keys specified in the AWS SDK for the
+  // `deleteObjects` function.
+  async deleteFiles(prefix, options = {}) {
+    const normalized = this._getNormalizedPath(prefix)
+    const files = await this.client
+      .listObjectsV2({ Prefix: normalized, Bucket: this.bucket })
+      .promise()
+    const keys = files.Contents.map(file => ({ Key: file.Key }))
+    const params = { Delete: { Objects: keys }, Bucket: this.bucket, ...formatOptions(options) }
+    return this.client.deleteObjects(params).promise()
+  }
+
+  // Options object can contain any of the valid keys specified in the AWS SDK for the
   // `getSignedUrlPromise` function. Besides those, we allow sending some of the more frequently
   // used options in a more friendlier format, e.g. `expires` can be sent instead of `Expires`
   // which defines how long the fetched URL will be accessible for (default is 15mins).
