@@ -99,7 +99,7 @@ export default function (router) {
       ensureLoggedIn,
       removeFromFavorites,
     )
-    .delete('/', checkAllPermissions('deleteMaps'), deleteAllMaps)
+    .delete('/', checkAllPermissions('massDeleteMaps'), deleteAllMaps)
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']

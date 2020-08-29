@@ -10,7 +10,7 @@ class Permissions {
     this.banUsers = props.ban_users
     this.manageMaps = props.manage_maps
     this.manageMapPools = props.manage_map_pools
-    this.deleteMaps = props.delete_maps
+    this.massDeleteMaps = props.mass_delete_maps
   }
 }
 
@@ -27,7 +27,7 @@ export async function createPermissions(dbClient, userId) {
 export async function getPermissions(userId) {
   const query = sql`
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
-        manage_maps, manage_map_pools, delete_maps
+        manage_maps, manage_map_pools, mass_delete_maps
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -52,7 +52,7 @@ export async function updatePermissions(userId, perms) {
       ban_users = ${!!perms.banUsers},
       manage_maps = ${!!perms.manageMaps},
       manage_map_pools = ${!!perms.manageMapPools},
-      delete_maps = ${!!perms.deleteMaps}
+      mass_delete_maps = ${!!perms.massDeleteMaps}
     WHERE user_id = ${userId}
     RETURNING *;
   `

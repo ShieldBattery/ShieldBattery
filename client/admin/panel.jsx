@@ -25,7 +25,7 @@ class AdminDashboard extends React.Component {
         </li>
       ) : null
     const mapsLink =
-      (perms.manageMaps || perms.deleteMaps) && IS_ELECTRON ? (
+      (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
         <li>
           <Link to='/admin/map-manager'>Manage maps</Link>
         </li>

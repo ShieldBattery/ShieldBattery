@@ -1,14 +1,14 @@
 exports.up = async function (db) {
   await db.runSql(`
     ALTER TABLE permissions
-    ADD COLUMN delete_maps boolean NOT NULL DEFAULT false;
+    ADD COLUMN mass_delete_maps boolean NOT NULL DEFAULT false;
   `)
 }
 
 exports.down = async function (db) {
   await db.runSql(`
     ALTER TABLE permissions
-    DROP COLUMN delete_maps;
+    DROP COLUMN mass_delete_maps;
   `)
 }
 

@@ -193,7 +193,7 @@ export default class MapManager extends React.Component {
       auth: { permissions: perms },
     } = this.props
 
-    if (!perms.deleteMaps) return null
+    if (!perms.massDeleteMaps) return null
 
     const { areYouSure, isDeleting, deleteError } = this.state
     return (

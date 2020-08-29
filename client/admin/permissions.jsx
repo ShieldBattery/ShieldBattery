@@ -44,7 +44,11 @@ class UserPermissionsForm extends React.Component {
           label='Manage matchmaking map pools'
           inputProps={inputProps}
         />
-        <CheckBox {...bindCheckable('deleteMaps')} label='Delete maps' inputProps={inputProps} />
+        <CheckBox
+          {...bindCheckable('massDeleteMaps')}
+          label='Mass delete maps'
+          inputProps={inputProps}
+        />
       </form>
     )
   }
