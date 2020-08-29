@@ -7,7 +7,7 @@ import FlatButton from './flat-button.jsx'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'
 import { zIndexSnackbar } from './zindex'
-import { grey900 } from '../styles/colors'
+import { grey800 } from '../styles/colors'
 
 const MessageContainer = styled.div`
   line-height: 20px;
@@ -72,7 +72,7 @@ const Content = styled.div`
   height: auto;
   text-align: left;
   border-radius: 2px;
-  background-color: ${grey900};
+  background-color: ${grey800};
 `
 
 class Snackbar extends React.Component {
