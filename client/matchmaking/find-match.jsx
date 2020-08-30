@@ -280,7 +280,7 @@ export default class FindMatch extends React.Component {
   }
 
   componentDidMount() {
-    this.props.dispatch(getMatchmakingPreferences())
+    this.props.dispatch(getMatchmakingPreferences(tabToType(this.state.activeTab)))
     window.addEventListener('beforeunload', this._savePreferences)
   }
 
