@@ -46,84 +46,80 @@ function createLobbyInitData(chk) {
   }
 }
 
-function generateImage(map, bwDataPath) {
-  if (bwDataPath !== '') {
-    // Create 1024x1024 images, or, if the map is not a square, have the larger of the
-    // dimensions be 1024 pixels.
-    let width
-    let height
-    if (map.size[0] > map.size[1]) {
-      width = 1024
-      height = map.size[1] * Math.floor(1024 / map.size[0])
-    } else {
-      height = 1024
-      width = map.size[0] * Math.floor(1024 / map.size[1])
-    }
-
-    return map
-      .image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
-      .then(imageRgb => {
-        const rgbaBuffer = Buffer.alloc(width * height * 4)
-        for (let i = 0; i < width * height; i++) {
-          rgbaBuffer[i * 4] = imageRgb[i * 3]
-          rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]
-          rgbaBuffer[i * 4 + 2] = imageRgb[i * 3 + 2]
-        }
-        const { data } = jpeg.encode(
-          {
-            data: rgbaBuffer,
-            width,
-            height,
-          },
-          90,
-        )
-        return data
-      })
-  } else {
-    return Promise.resolve(null)
+// Creates an image with the provided width and calculates height so the aspect ratio is preserved.
+function generateImage(map, bwDataPath, width = 1024) {
+  if (!bwDataPath) {
+    return Promise.resolve()
   }
+
+  const aspectRatio = map.size[0] / map.size[1]
+  const height = Math.floor(width / aspectRatio)
+
+  return map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true }).then(imageRgb => {
+    const rgbaBuffer = Buffer.alloc(width * height * 4)
+    for (let i = 0; i < width * height; i++) {
+      rgbaBuffer[i * 4] = imageRgb[i * 3]
+      rgbaBuffer[i * 4 + 1] = imageRgb[i * 3 + 1]
+      rgbaBuffer[i * 4 + 2] = imageRgb[i * 3 + 2]
+    }
+    const { data } = jpeg.encode(
+      {
+        data: rgbaBuffer,
+        width,
+        height,
+      },
+      90,
+    )
+    return data
+  })
 }
 
-process.once('message', msg => {
+function createStreamPromise(data, fd) {
+  return new Promise((resolve, reject) => {
+    const stream = fs.createWriteStream('', { fd, flags: 'w' })
+    stream.on('error', reject).on('finish', resolve)
+    stream.write(data)
+    stream.end()
+  })
+}
+
+process.once('message', async msg => {
   console.assert(msg === 'init')
   process.send('init')
-  parseAndHashMap(path, extension)
-    .then(({ hash, map }) => {
-      return generateImage(map, bwDataPath).then(image => {
-        const imagePromise = new Promise((resolve, reject) => {
-          if (image) {
-            const imagePipe = fs.createWriteStream('', { fd: 3, flags: 'w' })
-            imagePipe.on('error', reject).on('finish', resolve)
 
-            imagePipe.write(image)
-            imagePipe.end()
-          } else {
-            resolve()
-          }
-        })
-        const sendPromise = new Promise(resolve =>
-          process.send(
-            {
-              hash,
-              title: map.title,
-              description: map.description,
-              width: map.size[0],
-              height: map.size[1],
-              tileset: map.tileset,
-              meleePlayers: map.maxPlayers(false),
-              umsPlayers: map.maxPlayers(true),
-              lobbyInitData: createLobbyInitData(map),
-            },
-            resolve,
-          ),
-        )
-        return Promise.all([imagePromise, sendPromise])
-      })
+  try {
+    const { hash, map } = await parseAndHashMap(path, extension)
+    const [image, thumbnail] = await Promise.all([
+      generateImage(map, bwDataPath, 1024 /* width */),
+      generateImage(map, bwDataPath, 256 /* width */),
+    ])
+    const imagePromise = image ? createStreamPromise(image, 3 /* fd */) : Promise.resolve()
+    const thumbnailPromise = thumbnail
+      ? createStreamPromise(thumbnail, 4 /* fd */)
+      : Promise.resolve()
+
+    const sendPromise = new Promise(resolve =>
+      process.send(
+        {
+          hash,
+          title: map.title,
+          description: map.description,
+          width: map.size[0],
+          height: map.size[1],
+          tileset: map.tileset,
+          meleePlayers: map.maxPlayers(false),
+          umsPlayers: map.maxPlayers(true),
+          lobbyInitData: createLobbyInitData(map),
+        },
+        resolve,
+      ),
+    )
+
+    await Promise.all([sendPromise, imagePromise, thumbnailPromise])
+  } catch (err) {
+    console.log(err)
+    setImmediate(() => {
+      process.exit(1)
     })
-    .catch(e => {
-      console.log(e)
-      setImmediate(() => {
-        process.exit(1)
-      })
-    })
+  }
 })

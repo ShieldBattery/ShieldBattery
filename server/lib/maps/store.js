@@ -16,13 +16,18 @@ const mapQueue = new Queue(MAX_CONCURRENT)
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
 export async function storeMap(path, extension, uploadedBy, visibility) {
-  const { mapData, imageStream } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const { mapData, imageStream, thumbnailStream } = await mapQueue.addToQueue(() =>
+    mapParseWorker(path, extension),
+  )
   const { hash } = mapData
 
   const mapParams = { mapData, extension, uploadedBy, visibility }
   const map = await addMap(mapParams, async () => {
     if (imageStream) {
       await writeFile(imagePath(hash), imageStream, { type: 'image/jpeg' })
+    }
+    if (thumbnailStream) {
+      await writeFile(thumbnailPath(hash), thumbnailStream, { type: 'image/jpeg' })
     }
     await writeFile(mapPath(hash, extension), fs.createReadStream(path))
   })
@@ -42,16 +47,22 @@ export function imagePath(hash) {
   return `map_images/${firstByte}/${secondByte}/${hash}.jpg`
 }
 
+export function thumbnailPath(hash) {
+  const firstByte = hash.substr(0, 2)
+  const secondByte = hash.substr(2, 2)
+  return `map_thumbnails/${firstByte}/${secondByte}/${hash}.jpg`
+}
+
 async function mapParseWorker(path, extension) {
-  const { messages, binaryData } = await runChildProcess(require.resolve('./map-parse-worker'), [
-    path,
-    extension,
-    BW_DATA_PATH,
-  ])
+  const { messages, imageStream, thumbnailStream } = await runChildProcess(
+    require.resolve('./map-parse-worker'),
+    [path, extension, BW_DATA_PATH],
+  )
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
-    imageStream: BW_DATA_PATH ? binaryData : null,
+    imageStream: BW_DATA_PATH ? imageStream : null,
+    thumbnailStream: BW_DATA_PATH ? thumbnailStream : null,
   }
 }
 
@@ -63,7 +74,7 @@ function runChildProcess(path, args) {
     }
   }
   const result = new Promise(async (resolve, reject) => {
-    const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
+    const opts = { stdio: [0, 1, 2, 'pipe', 'pipe', 'ipc'] }
     const child = childProcess.fork(path, args, opts)
     let error = false
     let inited = false
@@ -89,8 +100,9 @@ function runChildProcess(path, args) {
     // If the child process writes image data to the pipe before we are able to handle it, it
     // will get lost. Buffering the data with a PassThrough prevents that, without requiring
     // the pipe consumer to send any synchronization messages themselves.
-    const binaryData = child.stdio[3].pipe(bl())
-    child.on('exit', () => resolve({ messages, binaryData }))
+    const imageStream = child.stdio[3].pipe(bl())
+    const thumbnailStream = child.stdio[4].pipe(bl())
+    child.on('exit', () => resolve({ messages, imageStream, thumbnailStream }))
     child.on('message', message => {
       if (inited) {
         resetTimeout()

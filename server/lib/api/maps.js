@@ -262,6 +262,8 @@ async function removeFromFavorites(ctx, next) {
 }
 
 async function deleteAllMaps(ctx, next) {
-  await dbDeleteAllMaps(() => Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')]))
+  await dbDeleteAllMaps(() =>
+    Promise.all([deleteFiles('maps/'), deleteFiles('map_images/'), deleteFiles('map_thumbnails/')]),
+  )
   ctx.status = 204
 }
