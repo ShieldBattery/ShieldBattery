@@ -94,7 +94,12 @@ const SelectionsTextContainer = styled.div`
   align-items: center;
 `
 
+const SelectionsCount = styled(Subheading)`
+  margin: 0;
+`
+
 const SelectionsText = styled(Subheading)`
+  margin: 0;
   color: ${colorTextSecondary};
 `
 
@@ -221,7 +226,7 @@ export default class PreferredMaps extends React.Component {
         <Footer>
           <RaisedButton label='Confirm' onClick={this.onConfirmClick} />
           <SelectionsTextContainer>
-            <Subheading>{2 - selectCount}</Subheading>&nbsp;
+            <SelectionsCount>{2 - selectCount}</SelectionsCount>&nbsp;
             <SelectionsText>selections left</SelectionsText>
           </SelectionsTextContainer>
         </Footer>
