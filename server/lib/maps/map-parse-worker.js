@@ -52,8 +52,7 @@ function generateImage(map, bwDataPath, width = 1024) {
     return Promise.resolve()
   }
 
-  const aspectRatio = map.size[0] / map.size[1]
-  const height = Math.floor(width / aspectRatio)
+  const height = Math.round((width * map.size[1]) / map.size[0])
 
   return map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true }).then(imageRgb => {
     const rgbaBuffer = Buffer.alloc(width * height * 4)
@@ -89,13 +88,19 @@ process.once('message', async msg => {
 
   try {
     const { hash, map } = await parseAndHashMap(path, extension)
-    const [image, thumbnail] = await Promise.all([
+    const [image, imagex2, thumbnail, thumbnailx2] = await Promise.all([
       generateImage(map, bwDataPath, 1024 /* width */),
+      generateImage(map, bwDataPath, 2048 /* width */),
       generateImage(map, bwDataPath, 256 /* width */),
+      generateImage(map, bwDataPath, 512 /* width */),
     ])
     const imagePromise = image ? createStreamPromise(image, 3 /* fd */) : Promise.resolve()
+    const imagex2Promise = imagex2 ? createStreamPromise(imagex2, 4 /* fd */) : Promise.resolve()
     const thumbnailPromise = thumbnail
-      ? createStreamPromise(thumbnail, 4 /* fd */)
+      ? createStreamPromise(thumbnail, 5 /* fd */)
+      : Promise.resolve()
+    const thumbnailx2Promise = thumbnailx2
+      ? createStreamPromise(thumbnailx2, 6 /* fd */)
       : Promise.resolve()
 
     const sendPromise = new Promise(resolve =>
@@ -115,7 +120,13 @@ process.once('message', async msg => {
       ),
     )
 
-    await Promise.all([sendPromise, imagePromise, thumbnailPromise])
+    await Promise.all([
+      sendPromise,
+      imagePromise,
+      imagex2Promise,
+      thumbnailPromise,
+      thumbnailx2Promise,
+    ])
   } catch (err) {
     console.log(err)
     setImmediate(() => {
