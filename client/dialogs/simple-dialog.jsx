@@ -15,10 +15,16 @@ export default class SimpleDialog extends React.Component {
     const buttons = hasButton
       ? [<FlatButton label={'Okay'} key={'okay'} color={'accent'} onClick={onCancel} />]
       : []
+    const content =
+      typeof simpleContent === 'string' ? (
+        <BodyText as='p'>{simpleContent}</BodyText>
+      ) : (
+        simpleContent
+      )
 
     return (
       <Dialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
-        <BodyText as='p'>{simpleContent}</BodyText>
+        {content}
       </Dialog>
     )
   }

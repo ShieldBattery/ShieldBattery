@@ -8,6 +8,7 @@ import ActivityBackButton from '../activities/activity-back-button.jsx'
 import form from '../forms/form.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import MapPreview from '../maps/map-preview.jsx'
 import MapSelect from '../maps/map-select.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
@@ -75,10 +76,6 @@ const ScrollDivider = styled.div`
   margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
   margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
   background-color: ${colorDividers};
-`
-
-const MapPreview = styled.img`
-  width: 100%;
 `
 
 const Footer = styled.div`
@@ -235,13 +232,7 @@ export default class PreferredMaps extends React.Component {
   }
 
   onMapPreview = map => {
-    this.props.dispatch(
-      openSimpleDialog(
-        map.name,
-        <MapPreview src={map.imageUrl} alt={map.name} />,
-        false /* hasButton */,
-      ),
-    )
+    this.props.dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
   }
 
   onToggleFavoriteMap = map => {

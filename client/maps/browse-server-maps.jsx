@@ -20,6 +20,7 @@ import Footer from './browser-footer.jsx'
 import ImageList from '../material/image-list.jsx'
 import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import MapPreview from './map-preview.jsx'
 import MapThumbnail from './map-thumbnail.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
@@ -84,10 +85,6 @@ const ScrollDivider = styled.div`
   margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
   margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
   background-color: ${colorDividers};
-`
-
-const MapPreview = styled.img`
-  width: 100%;
 `
 
 const TAB_OFFICIAL_MAPS = 0
@@ -476,13 +473,7 @@ export default class Maps extends React.Component {
   }
 
   onMapPreview = map => {
-    this.props.dispatch(
-      openSimpleDialog(
-        map.name,
-        <MapPreview src={map.imageUrl} alt={map.name} />,
-        false /* hasButton */,
-      ),
-    )
+    this.props.dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
   }
 
   onToggleFavoriteMap = map => {
