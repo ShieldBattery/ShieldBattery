@@ -207,9 +207,11 @@ export default class MapThumbnail extends React.Component {
 
     return (
       <Container className={this.props.className}>
-        {map.imageUrl ? (
+        {map.thumbnailUrl ? (
           <picture>
-            <MapImage src={map.imageUrl} alt={map.name} draggable={false} />
+            <source srcSet={`${map.thumbnailUrl} 1x`} />
+            <source srcSet={`${map.thumbnailx2Url} 2x`} />
+            <MapImage src={map.thumbnailUrl} alt={map.name} draggable={false} />
           </picture>
         ) : (
           <NoImage>

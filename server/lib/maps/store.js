@@ -16,15 +16,38 @@ const mapQueue = new Queue(MAX_CONCURRENT)
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
 export async function storeMap(path, extension, uploadedBy, visibility) {
-  const { mapData, imageStream } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const {
+    mapData,
+    imageStream,
+    imagex2Stream,
+    thumbnailStream,
+    thumbnailx2Stream,
+  } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
 
   const mapParams = { mapData, extension, uploadedBy, visibility }
   const map = await addMap(mapParams, async () => {
-    if (imageStream) {
-      await writeFile(imagePath(hash), imageStream, { type: 'image/jpeg' })
-    }
-    await writeFile(mapPath(hash, extension), fs.createReadStream(path))
+    const imagePromise = imageStream
+      ? writeFile(imagePath(hash), imageStream, { type: 'image/jpeg' })
+      : Promise.resolve()
+    const imagex2Promise = imagex2Stream
+      ? writeFile(imagex2Path(hash), imagex2Stream, { type: 'image/jpeg' })
+      : Promise.resolve()
+    const thumbnailPromise = thumbnailStream
+      ? writeFile(thumbnailPath(hash), thumbnailStream, { type: 'image/jpeg' })
+      : Promise.resolve()
+    const thumbnailx2Promise = thumbnailx2Stream
+      ? writeFile(thumbnailx2Path(hash), thumbnailx2Stream, { type: 'image/jpeg' })
+      : Promise.resolve()
+    const mapPromise = writeFile(mapPath(hash, extension), fs.createReadStream(path))
+
+    await Promise.all([
+      imagePromise,
+      imagex2Promise,
+      thumbnailPromise,
+      thumbnailx2Promise,
+      mapPromise,
+    ])
   })
 
   return map
@@ -42,16 +65,39 @@ export function imagePath(hash) {
   return `map_images/${firstByte}/${secondByte}/${hash}.jpg`
 }
 
+export function imagex2Path(hash) {
+  const firstByte = hash.substr(0, 2)
+  const secondByte = hash.substr(2, 2)
+  return `map_images_x2/${firstByte}/${secondByte}/${hash}@x2.jpg`
+}
+
+export function thumbnailPath(hash) {
+  const firstByte = hash.substr(0, 2)
+  const secondByte = hash.substr(2, 2)
+  return `map_thumbnails/${firstByte}/${secondByte}/${hash}.jpg`
+}
+
+export function thumbnailx2Path(hash) {
+  const firstByte = hash.substr(0, 2)
+  const secondByte = hash.substr(2, 2)
+  return `map_thumbnails_x2/${firstByte}/${secondByte}/${hash}@x2.jpg`
+}
+
 async function mapParseWorker(path, extension) {
-  const { messages, binaryData } = await runChildProcess(require.resolve('./map-parse-worker'), [
-    path,
-    extension,
-    BW_DATA_PATH,
-  ])
+  const {
+    messages,
+    imageStream,
+    imagex2Stream,
+    thumbnailStream,
+    thumbnailx2Stream,
+  } = await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
-    imageStream: BW_DATA_PATH ? binaryData : null,
+    imageStream: BW_DATA_PATH ? imageStream : null,
+    imagex2Stream: BW_DATA_PATH ? imagex2Stream : null,
+    thumbnailStream: BW_DATA_PATH ? thumbnailStream : null,
+    thumbnailx2Stream: BW_DATA_PATH ? thumbnailx2Stream : null,
   }
 }
 
@@ -63,7 +109,7 @@ function runChildProcess(path, args) {
     }
   }
   const result = new Promise(async (resolve, reject) => {
-    const opts = { stdio: [0, 1, 2, 'pipe', 'ipc'] }
+    const opts = { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe', 'pipe', 'ipc'] }
     const child = childProcess.fork(path, args, opts)
     let error = false
     let inited = false
@@ -89,8 +135,13 @@ function runChildProcess(path, args) {
     // If the child process writes image data to the pipe before we are able to handle it, it
     // will get lost. Buffering the data with a PassThrough prevents that, without requiring
     // the pipe consumer to send any synchronization messages themselves.
-    const binaryData = child.stdio[3].pipe(bl())
-    child.on('exit', () => resolve({ messages, binaryData }))
+    const imageStream = child.stdio[3].pipe(bl())
+    const imagex2Stream = child.stdio[4].pipe(bl())
+    const thumbnailStream = child.stdio[5].pipe(bl())
+    const thumbnailx2Stream = child.stdio[6].pipe(bl())
+    child.on('exit', () =>
+      resolve({ messages, imageStream, imagex2Stream, thumbnailStream, thumbnailx2Stream }),
+    )
     child.on('message', message => {
       if (inited) {
         resetTimeout()

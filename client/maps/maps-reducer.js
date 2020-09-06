@@ -35,6 +35,9 @@ export const MapRecord = new Record({
   isFavorited: false,
   mapUrl: null,
   imageUrl: null,
+  imagex2Url: null,
+  thumbnailUrl: null,
+  thumbnailx2Url: null,
 })
 const FavoritedMaps = new Record({
   list: new List(),
