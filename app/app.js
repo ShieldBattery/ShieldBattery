@@ -71,19 +71,6 @@ let systemTray
 
 export const getMainWindow = () => mainWindow
 
-async function installDevExtensions() {
-  if (isDev) {
-    const installer = require('electron-devtools-installer')
-    const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS']
-    // Apparently there's no way to upgrade extensions in Electron, so we're always forcing a
-    // download.
-    const forceDownload = true
-    return Promise.all(extensions.map(name => installer.default(installer[name], forceDownload)))
-  }
-
-  return null
-}
-
 async function createLocalSettings() {
   const sbSessionName = process.env.SB_SESSION
   const fileName = sbSessionName ? `settings-${sbSessionName}.json` : 'settings.json'
@@ -297,6 +284,9 @@ async function createWindow(localSettings, curSession) {
     title: 'ShieldBattery',
     webPreferences: {
       session: curSession,
+      // TODO(tec27): Implement other ways to IPC than using the remote module, it's slow, and a
+      // potential security risk
+      enableRemoteModule: true,
       // TODO(tec27): Figure out a path to turning this off as it's a security risk
       nodeIntegration: true,
       // TODO(tec27): Ideally we'd turn these options on as well (note that these get turned on
@@ -362,24 +352,20 @@ async function createWindow(localSettings, curSession) {
       event.preventDefault()
     })
 
-  mainWindow.loadURL('shieldbattery://app')
-
   registerHotkeys()
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
-  if (isDev) {
-    mainWindow.webContents.openDevTools()
-  }
 
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  await mainWindow.loadURL('shieldbattery://app')
 }
 
 app.on('ready', async () => {
-  const devExtensionsPromise = installDevExtensions()
   const localSettingsPromise = createLocalSettings()
 
   if (!isDev) {
@@ -387,7 +373,7 @@ app.on('ready', async () => {
   }
 
   try {
-    const [, localSettings] = await Promise.all([devExtensionsPromise, localSettingsPromise])
+    const localSettings = await localSettingsPromise
 
     setupIpc(localSettings)
     setupCspProtocol(currentSession())

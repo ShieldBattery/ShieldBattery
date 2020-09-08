@@ -3,11 +3,12 @@ require('@babel/register')({
     [
       '@babel/preset-env',
       {
-        targets: { electron: '8.2' },
+        targets: { electron: '10.1' },
         useBuiltIns: 'usage',
         corejs: 3,
       },
     ],
+    ['@babel/preset-typescript'],
   ],
 
   plugins: [

@@ -5,7 +5,7 @@
         [
           "@babel/preset-env",
           {
-            "targets": { "electron": "7.1" }
+            "targets": { "electron": "10.1" }
           }
         ],
         ["@babel/preset-typescript"]
