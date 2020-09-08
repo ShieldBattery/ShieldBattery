@@ -1,13 +1,14 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
+import { rgba } from 'polished'
 
 import IconButton from '../material/icon-button.jsx'
 import { Label } from '../material/button.jsx'
 import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
-import { colorTextPrimary, colorTextSecondary, grey800 } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
@@ -25,10 +26,19 @@ const Container = styled.div`
 `
 
 const MapImage = styled.img`
-  position: absolute;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+
+  ${props => {
+    if (!props.keepAspectRatio) {
+      return `
+        position: absolute;
+        object-fit: cover;
+      `
+    }
+
+    return ''
+  }}
 `
 
 const NoImage = styled.div`
@@ -58,16 +68,16 @@ const Overlay = styled.div`
   align-items: center;
   background-color: ${props => {
     let opacity = 0
-    if (props.isFocused) opacity = '0.12'
-    if (props.isSelected) opacity = '0.36'
-    const style = `rgba(255, 229, 127, ${opacity})` /* amberA100 */
+    if (props.isFocused) opacity = 0.12
+    if (props.isSelected) opacity = 0.36
+    const style = rgba(amberA100, opacity)
 
     return props.isSelected || props.isFocused ? style + ' !important' : style
   }};
   transition: background-color 150ms linear;
 
   &:hover {
-    background-color: rgba(255, 229, 127, 0.12); /* amberA100 */
+    background-color: ${rgba(amberA100, 0.12)};
     cursor: pointer;
   }
 
@@ -137,6 +147,7 @@ export default class MapThumbnail extends React.Component {
     isFavoriting: PropTypes.bool,
     isSelected: PropTypes.bool,
     isFocused: PropTypes.bool,
+    keepAspectRatio: PropTypes.bool,
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
     onMapPreview: PropTypes.func,
@@ -190,6 +201,7 @@ export default class MapThumbnail extends React.Component {
       isSelected,
       selectedIcon,
       isFocused,
+      keepAspectRatio,
       onClick,
       onPreview,
       onToggleFavorite,
@@ -211,7 +223,12 @@ export default class MapThumbnail extends React.Component {
           <picture>
             <source srcSet={`${map.thumbnailUrl} 1x`} />
             <source srcSet={`${map.thumbnailx2Url} 2x`} />
-            <MapImage src={map.thumbnailUrl} alt={map.name} draggable={false} />
+            <MapImage
+              src={map.thumbnailUrl}
+              alt={map.name}
+              keepAspectRatio={keepAspectRatio}
+              draggable={false}
+            />
           </picture>
         ) : (
           <NoImage>

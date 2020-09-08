@@ -13,6 +13,7 @@ import {
 
 import Card from '../material/card.jsx'
 import RaisedButton from '../material/raised-button.jsx'
+import MapThumbnail from '../maps/map-thumbnail.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
@@ -328,11 +329,10 @@ const MapName = styled(Headline)`
   margin: 0;
 `
 
-const MapThumbnail = styled.img`
+const MapThumbnailContainer = styled.div`
   ${shadow1dp};
 
   width: 256px;
-  border-radius: 2px;
   margin-top: 8px;
 `
 
@@ -552,7 +552,9 @@ export default class Lobby extends React.Component {
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
           <MapName>{lobby.map.name}</MapName>
-          <MapThumbnail src={lobby.map.imageUrl} />
+          <MapThumbnailContainer>
+            <MapThumbnail map={lobby.map} keepAspectRatio={true} />
+          </MapThumbnailContainer>
           <InfoItem>
             <InfoLabel as='span'>Game type</InfoLabel>
             <InfoValue as='span'>{gameTypeToString(lobby.gameType)}</InfoValue>
