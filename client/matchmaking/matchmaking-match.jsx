@@ -127,7 +127,7 @@ export default class MatchmakingMatch extends React.Component {
         <TopHalfContainer>
           <Spacer />
           <MapContainer>
-            <MapThumbnail map={map} />
+            <MapThumbnail map={map} size={512} />
           </MapContainer>
           <StatusContainer>{this.renderStatus()}</StatusContainer>
         </TopHalfContainer>

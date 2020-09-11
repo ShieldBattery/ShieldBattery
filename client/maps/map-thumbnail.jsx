@@ -1,16 +1,17 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
+import { rgba } from 'polished'
 
 import IconButton from '../material/icon-button.jsx'
 import { Label } from '../material/button.jsx'
+import MapImage from './map-image.jsx'
 import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
-import { colorTextPrimary, colorTextSecondary, grey800 } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary, amberA100 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
-import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
@@ -24,33 +25,17 @@ const Container = styled.div`
   overflow: hidden;
 `
 
-const MapImage = styled.img`
+const StyledMapImage = styled(MapImage)`
   position: absolute;
-  width: 100%;
+  top: 0;
+  left: 0;
   height: 100%;
-  object-fit: cover;
-`
-
-const NoImage = styled.div`
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background-color: ${grey800};
-
-  & > svg {
-    width: 90px;
-    height: 90px;
-    margin-bottom: 48px;
-    opacity: 0.5;
-  }
 `
 
 const Overlay = styled.div`
   position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: flex;
@@ -58,16 +43,16 @@ const Overlay = styled.div`
   align-items: center;
   background-color: ${props => {
     let opacity = 0
-    if (props.isFocused) opacity = '0.12'
-    if (props.isSelected) opacity = '0.36'
-    const style = `rgba(255, 229, 127, ${opacity})` /* amberA100 */
+    if (props.isFocused) opacity = 0.12
+    if (props.isSelected) opacity = 0.36
+    const style = rgba(amberA100, opacity)
 
     return props.isSelected || props.isFocused ? style + ' !important' : style
   }};
   transition: background-color 150ms linear;
 
   &:hover {
-    background-color: rgba(255, 229, 127, 0.12); /* amberA100 */
+    background-color: ${rgba(amberA100, 0.12)};
     cursor: pointer;
   }
 
@@ -92,7 +77,6 @@ const FavoriteActionIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   right: 4px;
-  pointer-events: ${props => (props.isFavoriting ? 'none' : 'auto')};
 
   & ${Label} {
     color: ${colorTextSecondary};
@@ -108,7 +92,7 @@ const TextProtection = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
 `
 
 const MapName = styled(Subheading)`
@@ -133,13 +117,14 @@ const MapActionButton = styled(IconButton)`
 export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
+    size: PropTypes.number,
     showMapName: PropTypes.bool,
     isFavoriting: PropTypes.bool,
     isSelected: PropTypes.bool,
     isFocused: PropTypes.bool,
     selectedIcon: PropTypes.element,
     onClick: PropTypes.func,
-    onMapPreview: PropTypes.func,
+    onPreview: PropTypes.func,
     onToggleFavorite: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemove: PropTypes.func,
@@ -185,6 +170,7 @@ export default class MapThumbnail extends React.Component {
   render() {
     const {
       map,
+      size,
       showMapName,
       isFavoriting,
       isSelected,
@@ -207,17 +193,7 @@ export default class MapThumbnail extends React.Component {
 
     return (
       <Container className={this.props.className}>
-        {map.thumbnailUrl ? (
-          <picture>
-            <source srcSet={`${map.thumbnailUrl} 1x`} />
-            <source srcSet={`${map.thumbnailx2Url} 2x`} />
-            <MapImage src={map.thumbnailUrl} alt={map.name} draggable={false} />
-          </picture>
-        ) : (
-          <NoImage>
-            <ImageIcon />
-          </NoImage>
-        )}
+        <StyledMapImage map={map} size={size} />
         {onClick ? (
           <Overlay
             isSelected={isSelected}

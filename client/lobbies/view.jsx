@@ -7,6 +7,10 @@ import styled from 'styled-components'
 import Lobby from './lobby.jsx'
 import LoadingScreen from './loading.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
+import MapPreview from '../maps/map-preview.jsx'
+
+import { openSimpleDialog } from '../dialogs/action-creators'
+import { toggleFavoriteMap } from '../maps/action-creators'
 
 import {
   addComputer,
@@ -33,6 +37,7 @@ const mapStateToProps = state => {
     lobby: state.lobby,
     gameClient: state.gameClient,
     activeGame: state.activeGame,
+    maps: state.maps,
   }
 }
 
@@ -116,7 +121,7 @@ export default class LobbyView extends React.Component {
 
   renderLobby = () => {
     const routeLobby = this.props.match.params.lobby
-    const { lobby, user } = this.props
+    const { lobby, maps, user } = this.props
 
     let content
     if (!lobby.inLobby) {
@@ -129,6 +134,7 @@ export default class LobbyView extends React.Component {
           lobby={lobby.info}
           chat={lobby.chat}
           user={user}
+          isFavoritingMap={maps.favoriteStatusRequests.has(lobby.info.map.id)}
           onLeaveLobbyClick={this.onLeaveLobbyClick}
           onAddComputer={this.onAddComputer}
           onSetRace={this.onSetRace}
@@ -141,6 +147,8 @@ export default class LobbyView extends React.Component {
           onRemoveObserver={this.onRemoveObserver}
           onStartGame={this.onStartGame}
           onSendChatMessage={this.onSendChatMessage}
+          onMapPreview={this.onMapPreview}
+          onToggleFavoriteMap={this.onToggleFavoriteMap}
         />
       )
     }
@@ -265,5 +273,19 @@ export default class LobbyView extends React.Component {
 
   onStartGame = () => {
     this.props.dispatch(startCountdown())
+  }
+
+  onMapPreview = () => {
+    const {
+      lobby: {
+        info: { map },
+      },
+    } = this.props
+
+    this.props.dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
+  }
+
+  onToggleFavoriteMap = () => {
+    this.props.dispatch(toggleFavoriteMap(this.props.lobby.info.map))
   }
 }

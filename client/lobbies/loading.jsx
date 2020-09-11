@@ -4,6 +4,7 @@ import { getPlayerSlots } from '../../common/lobbies'
 import gameTypeToString from './game-type-to-string'
 import styled from 'styled-components'
 
+import MapImage from '../maps/map-image.jsx'
 import PlayerCard from './player-card.jsx'
 
 import { colorTextSecondary } from '../styles/colors'
@@ -241,12 +242,13 @@ const GameTypeMapBridge = styled(Display1)`
   color: ${colorTextSecondary};
 `
 
-const MapThumbnail = styled.img`
+const MapThumbnail = styled.div`
   ${shadow1dp};
   width: 256px;
   height: auto;
   border-radius: 2px;
   margin-top: 16px;
+  overflow: hidden;
 `
 
 const Players = styled.div`
@@ -299,9 +301,9 @@ export default class LoadingScreen extends React.Component {
           <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
           <Display1 as='span'>{lobby.map.name}</Display1>
         </div>
-        <div>
-          <MapThumbnail src={lobby.map.imageUrl} />
-        </div>
+        <MapThumbnail>
+          <MapImage map={lobby.map} showNotAvailableText={true} />
+        </MapThumbnail>
         <Players>{playerElems}</Players>
         <LoadingMessage />
       </Content>

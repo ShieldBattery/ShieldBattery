@@ -12,7 +12,10 @@ import {
 } from '../../common/lobbies'
 
 import Card from '../material/card.jsx'
+import IconButton from '../material/icon-button.jsx'
+import { Label } from '../material/button.jsx'
 import RaisedButton from '../material/raised-button.jsx'
+import MapImage from '../maps/map-image.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { ChatMessageLayout, ChatMessage } from '../messaging/message.jsx'
@@ -20,6 +23,10 @@ import OpenSlot from './open-slot.jsx'
 import ClosedSlot from './closed-slot.jsx'
 import PlayerSlot from './player-slot.jsx'
 import { ObserverSlots, RegularSlots, TeamName } from './slot.jsx'
+
+import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
+import PreviewIcon from '../icons/material/zoom_in-24px.svg'
+import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
 import { blue100, blue200, colorTextSecondary } from '../styles/colors'
 import { Body1, Body2, Headline, Subheading, robotoCondensed, Display1 } from '../styles/typography'
@@ -328,12 +335,33 @@ const MapName = styled(Headline)`
   margin: 0;
 `
 
-const MapThumbnail = styled.img`
+const MapThumbnail = styled.div`
   ${shadow1dp};
-
+  position: relative;
   width: 256px;
   border-radius: 2px;
   margin-top: 8px;
+  overflow: hidden;
+`
+
+const MapPreviewIcon = styled(IconButton)`
+  position: absolute;
+  top: 4px;
+  left: 4px;
+
+  & ${Label} {
+    color: ${colorTextSecondary};
+  }
+`
+
+const FavoriteActionIcon = styled(IconButton)`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+
+  & ${Label} {
+    color: ${colorTextSecondary};
+  }
 `
 
 const InfoItem = styled.div`
@@ -365,6 +393,7 @@ export default class Lobby extends React.Component {
     lobby: PropTypes.object.isRequired,
     chat: PropTypes.object.isRequired,
     user: PropTypes.object,
+    isFavoritingMap: PropTypes.bool,
     onLeaveLobbyClick: PropTypes.func,
     onSetRace: PropTypes.func,
     onAddComputer: PropTypes.func,
@@ -376,6 +405,8 @@ export default class Lobby extends React.Component {
     onBanPlayer: PropTypes.func,
     onMakeObserver: PropTypes.func,
     onRemoveObserver: PropTypes.func,
+    onMapPreview: PropTypes.func,
+    onToggleFavoriteMap: PropTypes.func,
   }
 
   getTeamSlots(team, isObserver, isLobbyUms) {
@@ -517,7 +548,14 @@ export default class Lobby extends React.Component {
   }
 
   render() {
-    const { lobby, onLeaveLobbyClick, onSendChatMessage } = this.props
+    const {
+      lobby,
+      isFavoritingMap,
+      onLeaveLobbyClick,
+      onSendChatMessage,
+      onMapPreview,
+      onToggleFavoriteMap,
+    } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -552,7 +590,20 @@ export default class Lobby extends React.Component {
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
           <MapName>{lobby.map.name}</MapName>
-          <MapThumbnail src={lobby.map.imageUrl} />
+          <MapThumbnail>
+            <MapImage map={lobby.map} showNotAvailableText={true} />
+            <MapPreviewIcon
+              icon={<PreviewIcon />}
+              title={'Show map preview'}
+              onClick={onMapPreview}
+            />
+            <FavoriteActionIcon
+              disabled={isFavoritingMap}
+              icon={lobby.map.isFavorited ? <FavoritedIcon /> : <UnfavoritedIcon />}
+              title={lobby.map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+              onClick={onToggleFavoriteMap}
+            />
+          </MapThumbnail>
           <InfoItem>
             <InfoLabel as='span'>Game type</InfoLabel>
             <InfoValue as='span'>{gameTypeToString(lobby.gameType)}</InfoValue>
