@@ -255,10 +255,9 @@ mod scr {
     pub struct V_Function {
         pub destroy_inner: Thiscall<unsafe extern fn(*mut Function, u32)>,
         pub invoke: Thiscall<unsafe extern fn(*mut Function)>,
-        pub destroy: usize,
-        pub get_sizes: Thiscall<unsafe extern fn(*mut Function, *mut u32, *mut u32)>,
-        pub unk10: usize,
+        pub get_sizes: Thiscall<unsafe extern fn(*mut Function, *mut u32)>,
         pub copy: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
+        pub copy2: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
         pub safety_padding: [usize; 0x20],
     }
 

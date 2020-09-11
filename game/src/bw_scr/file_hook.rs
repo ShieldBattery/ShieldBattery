@@ -212,10 +212,9 @@ lazy_static! {
     static ref FUNCTION_VTABLE: scr::V_Function = scr::V_Function {
         destroy_inner: Thiscall::new(function_nop_destory),
         invoke: Thiscall::new(close_file),
-        destroy: 0,
         get_sizes: Thiscall::new(function_object_size),
-        unk10: 0,
         copy: Thiscall::new(function_copy),
+        copy2: Thiscall::new(function_copy),
         safety_padding: [0; 0x20],
     };
 }
@@ -229,10 +228,10 @@ unsafe extern fn function_nop_destory(_file: *mut scr::Function, _unk: u32) {
 unsafe extern fn function_object_size(
     _file: *mut scr::Function,
     size: *mut u32,
-    other: *mut u32,
 ) {
     *size = 0xc;
-    *other = 0x4;
+    *size.add(1) = 0x4;
+    *(size.add(2) as *mut u8) = 0x1;
 }
 
 unsafe extern fn function_copy(this: *mut scr::Function, other: *mut scr::Function) {
