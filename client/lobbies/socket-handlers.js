@@ -201,7 +201,7 @@ const eventToAction = {
           },
         } = getState()
 
-        if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}`) {
+        if (currentPath === `/lobbies/${lobby.info.name}`) {
           dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`))
         }
       }
@@ -268,7 +268,7 @@ const eventToAction = {
         location: { pathname: currentPath },
       },
     } = getState()
-    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+    if (currentPath === `/lobbies/${lobby.info.name}/loading-game`) {
       dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
     }
 
@@ -289,7 +289,7 @@ const eventToAction = {
       },
     } = getState()
 
-    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+    if (currentPath === `/lobbies/${lobby.info.name}/loading-game`) {
       dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/active-game`))
     }
     dispatch({
