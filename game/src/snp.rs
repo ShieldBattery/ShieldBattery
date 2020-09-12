@@ -31,7 +31,7 @@ pub static SNP_FUNCTIONS: bw::SnpFunctions = bw::SnpFunctions {
     free_server_packet,
     get_game_info,
     func6: -6isize as *mut c_void,
-    initialize,
+    initialize: initialize_1161,
     func8: -8isize as *mut c_void,
     enum_devices,
     receive_games_list,
@@ -169,7 +169,7 @@ pub enum SnpMessage {
 
 #[derive(Clone)]
 pub struct SendMessages {
-    signal_handle: Arc<OwnedHandle>,
+    receive_callback: Arc<Box<dyn Fn() + Send + Sync + 'static>>,
 }
 
 impl SendMessages {
@@ -177,9 +177,7 @@ impl SendMessages {
         with_state(|state| {
             state.messages.push(message);
         });
-        unsafe {
-            SetEvent(self.signal_handle.get());
-        }
+        (self.receive_callback)();
     }
 }
 
@@ -210,7 +208,7 @@ extern "stdcall" fn unbind() -> i32 {
     })
 }
 
-unsafe extern "stdcall" fn free_packet(
+pub unsafe extern "stdcall" fn free_packet(
     from: *mut sockaddr,
     _data: *const u8,
     _data_len: u32,
@@ -246,37 +244,41 @@ unsafe extern "stdcall" fn get_game_info(
     })
 }
 
-pub unsafe extern "stdcall" fn initialize(
+unsafe extern "stdcall" fn initialize_1161(
     client_info: *const bw::ClientInfo,
     _user_data: *mut c_void,
     _battle_info: *mut c_void,
     _module_data: *mut c_void,
     receive_event: HANDLE,
 ) -> i32 {
+    initialize(&*client_info, Some(receive_event));
+    1
+}
+
+pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HANDLE>) {
     debug!("SNP initialize");
     with_state(|state| {
         state.is_bound = true;
         state.spoofed_game = None;
         state.spoofed_game_dirty = false;
-        state.current_client_info = Some((*client_info).clone());
+        state.current_client_info = Some(client_info.clone());
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
         // without having to synchronize storm unbinding SNP.
-        let receive_event = if crate::is_scr() {
-            // SCR seems to have changed from a raw winapi HANDLE to a wrapper class,
-            // leading it to be passed as *mut HANDLE
-            *(receive_event as *mut HANDLE)
+        let receive_callback = if let Some(receive_event) = receive_event {
+            let receive_event = OwnedHandle::duplicate(receive_event)
+                .expect("SNP event handle duplication failed");
+            Box::new(move || {
+                SetEvent(receive_event.get());
+            }) as Box<dyn Fn() + Send + Sync + 'static>
         } else {
-            receive_event
+            Box::new(move || {
+            })
         };
-
-        let receive_event =
-            OwnedHandle::duplicate(receive_event).expect("SNP event handle duplication failed");
         send_snp_message(SnpMessage::CreateNetworkHandler(SendMessages {
-            signal_handle: Arc::new(receive_event),
+            receive_callback: Arc::new(receive_callback),
         }));
-        1
-    })
+    });
 }
 
 unsafe extern "stdcall" fn enum_devices(device_data: *mut *mut c_void) -> i32 {
@@ -313,7 +315,7 @@ unsafe extern "stdcall" fn receive_games_list(
     })
 }
 
-unsafe extern "stdcall" fn receive_packet(
+pub unsafe extern "stdcall" fn receive_packet(
     addr: *mut *mut sockaddr,
     data: *mut *const u8,
     length: *mut u32,
@@ -377,6 +379,18 @@ unsafe extern "stdcall" fn send_packet(
     1
 }
 
+pub unsafe extern "stdcall" fn send_packet_scr(
+    target: *const sockaddr,
+    data: *const u8,
+    data_len: u32,
+) -> i32 {
+    let targets = &[target];
+    let targets = targets.iter().map(|t| sockaddr_to_std_ip(**t)).collect();
+    let data = std::slice::from_raw_parts(data, data_len as usize);
+    send_snp_message(SnpMessage::Send(targets, data.into()));
+    1
+}
+
 unsafe extern "stdcall" fn send_command(
     _unk1: *const u8,
     _player_name: *const u8,
@@ -389,7 +403,7 @@ unsafe extern "stdcall" fn send_command(
     1
 }
 
-unsafe extern "stdcall" fn broadcast_game(
+pub unsafe extern "stdcall" fn broadcast_game(
     _name: *const u8,
     _password: *const u8,
     _game_data: *const u8,
@@ -404,7 +418,7 @@ unsafe extern "stdcall" fn broadcast_game(
     1
 }
 
-unsafe extern "stdcall" fn stop_broadcasting_game() -> i32 {
+pub unsafe extern "stdcall" fn stop_broadcasting_game() -> i32 {
     1
 }
 

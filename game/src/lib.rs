@@ -26,7 +26,7 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -220,7 +220,6 @@ pub extern "C" fn OnInject() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
-    IS_SCR.store(true, Ordering::Relaxed);
     debug!("SCR init");
     let bw = match bw_scr::BwScr::new() {
         Ok(o) => Arc::new(o),
@@ -231,11 +230,6 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
 }
 
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);
-static IS_SCR: AtomicBool = AtomicBool::new(false);
-
-fn is_scr() -> bool {
-    IS_SCR.load(Ordering::Relaxed)
-}
 
 #[no_mangle]
 #[allow(non_snake_case)]

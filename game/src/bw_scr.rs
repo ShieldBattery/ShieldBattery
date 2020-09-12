@@ -13,12 +13,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
-use lazy_static::lazy_static;
 use libc::c_void;
-use parking_lot::Mutex;
 use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
-use winapi::shared::ntdef::HANDLE;
 
 use crate::bw::{self, Bw};
 use crate::snp;
@@ -68,7 +65,6 @@ pub struct BwScr {
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
     process_game_commands: scarf::VirtualAddress,
-    snet_initialize_provider: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
@@ -86,7 +82,7 @@ unsafe impl<T> Send for SendPtr<T> {}
 unsafe impl<T> Sync for SendPtr<T> {}
 
 mod scr {
-    use libc::c_void;
+    use libc::{c_void, sockaddr};
 
     use super::thiscall::Thiscall;
 
@@ -99,7 +95,7 @@ mod scr {
             *mut *const u8, // description
             *mut *const crate::bw::SnpCapabilities,
         ) -> u32,
-        pub bind: unsafe extern "stdcall" fn(u32, *mut *const usize) -> u32,
+        pub bind: unsafe extern "stdcall" fn(u32, *mut *const SnpFunctions) -> u32,
     }
 
     #[repr(C)]
@@ -358,11 +354,39 @@ mod scr {
         pub name: [u8; 0x60],
     }
 
+    #[repr(C)]
+    pub struct SnpFunctions {
+        pub unk0: usize,
+        pub free_packet: unsafe extern "stdcall" fn(*mut sockaddr, *const u8, u32) -> i32,
+        pub initialize: unsafe extern "stdcall" fn(
+            *const crate::bw::ClientInfo,
+            *mut c_void,
+            *mut c_void,
+            *mut c_void,
+        ) -> i32,
+        pub unk0c: usize,
+        pub receive_packet:
+            unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
+        pub send_packet: unsafe extern "stdcall" fn(*const sockaddr, *const u8, u32) -> i32,
+        pub unk18: usize,
+        pub broadcast_game: unsafe extern "stdcall"
+            fn(*const u8, *const u8, *const u8, i32, u32, i32, i32, i32, *mut c_void, u32) -> i32,
+        pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
+        pub unk24: usize,
+        pub unk28: usize,
+        pub joined_game: Option<unsafe extern "stdcall" fn(*const u8, usize) -> i32>,
+        pub unk30: usize,
+        pub unk34: usize,
+        pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
+        pub future_padding: [usize; 0x10],
+    }
+
     #[test]
     fn struct_sizes() {
         use std::mem::size_of;
         assert_eq!(size_of::<JoinableGameInfo>(), 0x84 + 0x24);
         assert_eq!(size_of::<StormPlayer>(), 0x68);
+        assert_eq!(size_of::<SnpFunctions>(), 0x3c + 0x10 * size_of::<usize>());
     }
 }
 
@@ -566,8 +590,6 @@ impl BwScr {
                 .ok_or("Lobby create callback vtable offset")?;
         let process_game_commands = analysis.process_commands().process_commands
             .ok_or("process_game_commands")?;
-        let snet_initialize_provider = analysis.snet_initialize_provider()
-            .ok_or("SNetInitializeProvider")?;
         let game_command_lengths = (*analysis.command_lengths()).clone();
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
@@ -624,7 +646,6 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             process_game_commands,
-            snet_initialize_provider,
             game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
@@ -707,13 +728,6 @@ impl BwScr {
             },
             address
         );
-        let address = self.snet_initialize_provider.0 as usize - base;
-        exe.hook_closure_address(SNetInitializeProvider, move |a1, a2, a3, a4, a5, _a6, orig| {
-            // arg6 causes SCR to spawn a thread that receives packets like 1161 does.
-            // Good thing it exists, otherwise we'd have to find other way to make
-            // host receive packets.
-            orig(a1, a2, a3, a4, a5, 1)
-        }, address);
 
         if let Some(open_file) = self.open_file {
             let address = open_file.0 as usize - base;
@@ -1174,24 +1188,29 @@ fn load_snp_list_hook(
         let mut orig_scr_funcs = null();
         let ok = ((*callbacks).bind)(1, &mut orig_scr_funcs);
         assert!(ok != 0);
-        let func_count = *orig_scr_funcs / mem::size_of::<usize>();
-        SCR_SNP_INITIALIZE.store(*orig_scr_funcs.add(7), Ordering::Relaxed);
-
-        // (0x80 bytes on x86)
-        // Keeping functions that aren't in 1.16.1 null seems to be ok.
-        let mut snp_functions = vec![0usize; func_count];
-        std::ptr::copy_nonoverlapping(
-            &snp::SNP_FUNCTIONS,
-            snp_functions.as_mut_ptr() as *mut bw::SnpFunctions,
-            1,
-        );
-        snp_functions[0] = func_count * mem::size_of::<usize>();
-        snp_functions[7] = snp_initialize as usize;
-        *SNP_FUNCTIONS.lock() = snp_functions;
-
+        SCR_SNP_INITIALIZE.store((*orig_scr_funcs).initialize as usize, Ordering::Relaxed);
         orig(&mut funcs, 1)
     }
 }
+
+static SNP_FUNCTIONS: scr::SnpFunctions = scr::SnpFunctions {
+    unk0: 0,
+    free_packet: snp::free_packet,
+    initialize: snp_initialize,
+    unk0c: 0,
+    receive_packet: snp::receive_packet,
+    send_packet: snp::send_packet_scr,
+    unk18: 0,
+    broadcast_game: snp::broadcast_game,
+    stop_broadcasting_game: snp::stop_broadcasting_game,
+    unk24: 0,
+    unk28: 0,
+    joined_game: None,
+    unk30: 0,
+    unk34: 0,
+    start_listening_for_games: None,
+    future_padding: [0; 0x10],
+};
 
 unsafe extern "stdcall" fn snp_load_identify(
     snp_index: u32,
@@ -1216,9 +1235,8 @@ unsafe extern "stdcall" fn snp_initialize(
     user_data: *mut c_void,
     battle_info: *mut c_void,
     module_data: *mut c_void,
-    receive_event: HANDLE,
 ) -> i32 {
-    snp::initialize(client_info, user_data, battle_info, module_data, receive_event);
+    snp::initialize(&*client_info, None);
     // We'll also have to call the SCR's normal LAN SNP init function, which initializes
     // a global that SCR will try to access on game joining. Luckily it won't initialize
     // anything else we don't want.
@@ -1227,24 +1245,20 @@ unsafe extern "stdcall" fn snp_initialize(
         *mut c_void,
         *mut c_void,
         *mut c_void,
-        HANDLE,
     ) -> i32 = mem::transmute(SCR_SNP_INITIALIZE.load(Ordering::Relaxed));
-    scr_init(client_info, user_data, battle_info, module_data, receive_event)
+    scr_init(client_info, user_data, battle_info, module_data)
 }
 
 static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
-lazy_static! {
-    static ref SNP_FUNCTIONS: Mutex<Vec<usize>> = Mutex::new(Vec::new());
-}
 
 unsafe extern "stdcall" fn snp_load_bind(
     snp_index: u32,
-    funcs: *mut *const usize,
+    funcs: *mut *const scr::SnpFunctions,
 ) -> u32 {
     if snp_index > 0 {
         return 0;
     }
-    *funcs = SNP_FUNCTIONS.lock().as_ptr();
+    *funcs = &SNP_FUNCTIONS;
     1
 }
 
@@ -1280,7 +1294,6 @@ mod hooks {
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
-        !0 => SNetInitializeProvider(usize, usize, usize, usize, usize, u32) -> u32;
     );
 }
 

@@ -451,7 +451,7 @@ pub struct SnpCapabilities {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct ClientInfo {
     pub size: u32,
     pub product_name: *const u8,
