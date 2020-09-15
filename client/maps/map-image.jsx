@@ -9,11 +9,9 @@ import { Subheading } from '../styles/typography'
 
 const ImgElement = styled.img`
   display: block;
-  width: 100%;
-  object-fit: cover;
 `
 
-const NoImage = styled.div`
+const NoImageContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -30,19 +28,28 @@ const NoImage = styled.div`
   }
 `
 
+const NoImage = () => (
+  <NoImageContainer>
+    <ImageIcon />
+    <Subheading>Map preview not available</Subheading>
+  </NoImageContainer>
+)
+
 export default class MapImage extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
     size: PropTypes.number,
-    showNotAvailableText: PropTypes.bool,
+    altText: PropTypes.string,
+    noImageElem: PropTypes.element,
   }
 
   static defaultProps = {
     size: 256,
+    noImageElem: <NoImage />,
   }
 
   render() {
-    const { map, size, showNotAvailableText } = this.props
+    const { map, size, altText, noImageElem } = this.props
     const srcSet = `
       ${map.image256Url} 256w,
       ${map.image512Url} 512w,
@@ -50,7 +57,7 @@ export default class MapImage extends React.Component {
       ${map.image2048Url} 2048w
     `
 
-    // TODO(2Pac): Actually check if the image URL is available instead of just checking it's set.
+    // TODO(2Pac): handle 404s
     return (
       <>
         {map.image256Url ? (
@@ -59,14 +66,11 @@ export default class MapImage extends React.Component {
             srcSet={srcSet}
             sizes={`${size}px`}
             src={map.image256Url}
-            alt={map.name}
+            alt={altText || map.name}
             draggable={false}
           />
         ) : (
-          <NoImage>
-            <ImageIcon />
-            {showNotAvailableText ? <Subheading>Map preview not available</Subheading> : null}
-          </NoImage>
+          noImageElem
         )}
       </>
     )

@@ -9,10 +9,11 @@ import MapImage from './map-image.jsx'
 import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
-import { colorTextPrimary, colorTextSecondary, amberA100 } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors'
 import { Subheading, singleLine } from '../styles/typography'
 
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
+import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
@@ -29,7 +30,26 @@ const StyledMapImage = styled(MapImage)`
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
   height: 100%;
+  object-fit: cover;
+`
+
+const NoImageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background-color: ${grey800};
+
+  & > svg {
+    width: 90px;
+    height: 90px;
+    opacity: 0.5;
+    margin-bottom: 24px;
+  }
 `
 
 const Overlay = styled.div`
@@ -114,6 +134,12 @@ const MapActionButton = styled(IconButton)`
   }
 `
 
+const NoImage = () => (
+  <NoImageContainer>
+    <ImageIcon />
+  </NoImageContainer>
+)
+
 export default class MapThumbnail extends React.Component {
   static propTypes = {
     map: PropTypes.object.isRequired,
@@ -193,7 +219,7 @@ export default class MapThumbnail extends React.Component {
 
     return (
       <Container className={this.props.className}>
-        <StyledMapImage map={map} size={size} />
+        <StyledMapImage map={map} size={size} noImageElem={<NoImage />} />
         {onClick ? (
           <Overlay
             isSelected={isSelected}

@@ -335,7 +335,7 @@ const MapName = styled(Headline)`
   margin: 0;
 `
 
-const MapThumbnail = styled.div`
+const MapImageContainer = styled.div`
   ${shadow1dp};
   position: relative;
   width: 256px;
@@ -590,8 +590,8 @@ export default class Lobby extends React.Component {
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
           <MapName>{lobby.map.name}</MapName>
-          <MapThumbnail>
-            <MapImage map={lobby.map} showNotAvailableText={true} />
+          <MapImageContainer>
+            <MapImage map={lobby.map} />
             <MapPreviewIcon
               icon={<PreviewIcon />}
               title={'Show map preview'}
@@ -603,7 +603,7 @@ export default class Lobby extends React.Component {
               title={lobby.map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
               onClick={onToggleFavoriteMap}
             />
-          </MapThumbnail>
+          </MapImageContainer>
           <InfoItem>
             <InfoLabel as='span'>Game type</InfoLabel>
             <InfoValue as='span'>{gameTypeToString(lobby.gameType)}</InfoValue>

@@ -242,7 +242,7 @@ const GameTypeMapBridge = styled(Display1)`
   color: ${colorTextSecondary};
 `
 
-const MapThumbnail = styled.div`
+const MapImageContainer = styled.div`
   ${shadow1dp};
   width: 256px;
   height: auto;
@@ -301,9 +301,9 @@ export default class LoadingScreen extends React.Component {
           <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
           <Display1 as='span'>{lobby.map.name}</Display1>
         </div>
-        <MapThumbnail>
-          <MapImage map={lobby.map} showNotAvailableText={true} />
-        </MapThumbnail>
+        <MapImageContainer>
+          <MapImage map={lobby.map} />
+        </MapImageContainer>
         <Players>{playerElems}</Players>
         <LoadingMessage />
       </Content>
