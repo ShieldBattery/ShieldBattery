@@ -131,6 +131,7 @@ class MapList extends React.PureComponent {
     byId: PropTypes.instanceOf(Map),
     user: PropTypes.object.isRequired,
     canManageMaps: PropTypes.bool.isRequired,
+    thumbnailSize: PropTypes.number,
     favoriteStatusRequests: PropTypes.instanceOf(Set),
     onMapSelect: PropTypes.func,
     onMapPreview: PropTypes.func,
@@ -145,6 +146,7 @@ class MapList extends React.PureComponent {
       byId,
       user,
       canManageMaps,
+      thumbnailSize,
       favoriteStatusRequests,
       onMapSelect,
       onMapPreview,
@@ -164,6 +166,7 @@ class MapList extends React.PureComponent {
         <MapThumbnail
           key={id}
           map={map}
+          size={THUMBNAIL_SIZES[thumbnailSize].columnCount === 2 ? 512 : 256}
           showMapName={true}
           isFavoriting={favoriteStatusRequests.has(map.id)}
           onClick={onMapSelect ? () => onMapSelect(map) : undefined}
@@ -302,6 +305,7 @@ export default class Maps extends React.Component {
             byId={maps.byId}
             user={auth.user}
             canManageMaps={auth.permissions.manageMaps}
+            thumbnailSize={thumbnailSize}
             favoriteStatusRequests={favoriteStatusRequests}
             onMapSelect={onMapSelect}
             onMapPreview={this.onMapPreview}

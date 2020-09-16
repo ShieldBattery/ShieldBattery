@@ -24,6 +24,7 @@ import {
   LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_LOADING_CANCELED,
   LOBBY_UPDATE_CHAT_MESSAGE,
+  MAPS_TOGGLE_FAVORITE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 
@@ -152,6 +153,12 @@ const infoReducer = keyedReducer(undefined, {
 
   [NETWORK_SITE_CONNECTED](state, action) {
     return new LobbyInfo()
+  },
+
+  [MAPS_TOGGLE_FAVORITE](state, action) {
+    const { map } = action.meta
+
+    return state.setIn(['map', 'isFavorited'], !map.isFavorited)
   },
 })
 

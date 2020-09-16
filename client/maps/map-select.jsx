@@ -151,6 +151,7 @@ export default class MapSelect extends React.Component {
         <MapThumbnail
           key={id}
           map={map}
+          size={thumbnailSize === 'xlarge' ? 512 : 256}
           showMapName={true}
           canHover={true}
           isSelected={isSelected(map)}
@@ -179,7 +180,7 @@ export default class MapSelect extends React.Component {
           {canBrowseMaps ? (
             <BrowseButton
               onClick={this.onMapBrowse}
-              isFocused={isFocused && focusedIndex === list.length}>
+              isFocused={isFocused && focusedIndex === list.size}>
               <BrowseIcon />
               <BrowseText>Browse maps</BrowseText>
             </BrowseButton>

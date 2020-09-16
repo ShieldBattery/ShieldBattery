@@ -88,19 +88,19 @@ process.once('message', async msg => {
 
   try {
     const { hash, map } = await parseAndHashMap(path, extension)
-    const [image, imagex2, thumbnail, thumbnailx2] = await Promise.all([
-      generateImage(map, bwDataPath, 1024 /* width */),
-      generateImage(map, bwDataPath, 2048 /* width */),
+    const [image256, image512, image1024, image2048] = await Promise.all([
       generateImage(map, bwDataPath, 256 /* width */),
       generateImage(map, bwDataPath, 512 /* width */),
+      generateImage(map, bwDataPath, 1024 /* width */),
+      generateImage(map, bwDataPath, 2048 /* width */),
     ])
-    const imagePromise = image ? createStreamPromise(image, 3 /* fd */) : Promise.resolve()
-    const imagex2Promise = imagex2 ? createStreamPromise(imagex2, 4 /* fd */) : Promise.resolve()
-    const thumbnailPromise = thumbnail
-      ? createStreamPromise(thumbnail, 5 /* fd */)
+    const image256Promise = image256 ? createStreamPromise(image256, 3 /* fd */) : Promise.resolve()
+    const image512Promise = image512 ? createStreamPromise(image512, 4 /* fd */) : Promise.resolve()
+    const image1024Promise = image1024
+      ? createStreamPromise(image1024, 5 /* fd */)
       : Promise.resolve()
-    const thumbnailx2Promise = thumbnailx2
-      ? createStreamPromise(thumbnailx2, 6 /* fd */)
+    const image2048Promise = image2048
+      ? createStreamPromise(image2048, 6 /* fd */)
       : Promise.resolve()
 
     const sendPromise = new Promise(resolve =>
@@ -122,10 +122,10 @@ process.once('message', async msg => {
 
     await Promise.all([
       sendPromise,
-      imagePromise,
-      imagex2Promise,
-      thumbnailPromise,
-      thumbnailx2Promise,
+      image256Promise,
+      image512Promise,
+      image1024Promise,
+      image2048Promise,
     ])
   } catch (err) {
     console.log(err)

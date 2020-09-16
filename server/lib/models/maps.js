@@ -3,7 +3,7 @@ import transact from '../db/transaction'
 import sql from 'sql-template-strings'
 import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { getUrl } from '../file-upload'
-import { mapPath, imagePath, imagex2Path, thumbnailPath, thumbnailx2Path } from '../maps/store'
+import { mapPath, imagePath } from '../maps/store'
 
 // This model contains information from three separate tables (`maps`, `uploaded_maps` and `users`)
 // and should always be fully constructed, so pieces of code that use it don't have to be defensive
@@ -34,10 +34,10 @@ class MapInfo {
     }
     this.isFavorited = !!props.favorited
     this.mapUrl = null
-    this.imageUrl = null
-    this.imagex2Url = null
-    this.thumbnailUrl = null
-    this.thumbnailx2Url = null
+    this.image256Url = null
+    this.image512Url = null
+    this.image1024Url = null
+    this.image2048Url = null
   }
 }
 
@@ -45,19 +45,19 @@ const createMapInfo = async info => {
   const map = new MapInfo(info)
   const hashString = map.hash.toString('hex')
 
-  const [mapUrl, imageUrl, imagex2Url, thumbnailUrl, thumbnailx2Url] = await Promise.all([
+  const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
     getUrl(mapPath(hashString, map.mapData.format)),
-    getUrl(imagePath(hashString)),
-    getUrl(imagex2Path(hashString)),
-    getUrl(thumbnailPath(hashString)),
-    getUrl(thumbnailx2Path(hashString)),
+    getUrl(imagePath(hashString, 256)),
+    getUrl(imagePath(hashString, 512)),
+    getUrl(imagePath(hashString, 1024)),
+    getUrl(imagePath(hashString, 2048)),
   ])
   map.hash = hashString
   map.mapUrl = mapUrl
-  map.imageUrl = imageUrl
-  map.imagex2Url = imagex2Url
-  map.thumbnailUrl = thumbnailUrl
-  map.thumbnailx2Url = thumbnailx2Url
+  map.image256Url = image256Url
+  map.image512Url = image512Url
+  map.image1024Url = image1024Url
+  map.image2048Url = image2048Url
 
   return map
 }

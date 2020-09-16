@@ -18,34 +18,34 @@ const mapQueue = new Queue(MAX_CONCURRENT)
 export async function storeMap(path, extension, uploadedBy, visibility) {
   const {
     mapData,
-    imageStream,
-    imagex2Stream,
-    thumbnailStream,
-    thumbnailx2Stream,
+    image256Stream,
+    image512Stream,
+    image1024Stream,
+    image2048Stream,
   } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
 
   const mapParams = { mapData, extension, uploadedBy, visibility }
   const map = await addMap(mapParams, async () => {
-    const imagePromise = imageStream
-      ? writeFile(imagePath(hash), imageStream, { type: 'image/jpeg' })
+    const image256Promise = image256Stream
+      ? writeFile(imagePath(hash, 256), image256Stream, { type: 'image/jpeg' })
       : Promise.resolve()
-    const imagex2Promise = imagex2Stream
-      ? writeFile(imagex2Path(hash), imagex2Stream, { type: 'image/jpeg' })
+    const image512Promise = image512Stream
+      ? writeFile(imagePath(hash, 512), image512Stream, { type: 'image/jpeg' })
       : Promise.resolve()
-    const thumbnailPromise = thumbnailStream
-      ? writeFile(thumbnailPath(hash), thumbnailStream, { type: 'image/jpeg' })
+    const image1024Promise = image1024Stream
+      ? writeFile(imagePath(hash, 1024), image1024Stream, { type: 'image/jpeg' })
       : Promise.resolve()
-    const thumbnailx2Promise = thumbnailx2Stream
-      ? writeFile(thumbnailx2Path(hash), thumbnailx2Stream, { type: 'image/jpeg' })
+    const image2048Promise = image2048Stream
+      ? writeFile(imagePath(hash, 2048), image2048Stream, { type: 'image/jpeg' })
       : Promise.resolve()
     const mapPromise = writeFile(mapPath(hash, extension), fs.createReadStream(path))
 
     await Promise.all([
-      imagePromise,
-      imagex2Promise,
-      thumbnailPromise,
-      thumbnailx2Promise,
+      image256Promise,
+      image512Promise,
+      image1024Promise,
+      image2048Promise,
       mapPromise,
     ])
   })
@@ -59,45 +59,27 @@ export function mapPath(hash, extension) {
   return `maps/${firstByte}/${secondByte}/${hash}.${extension}`
 }
 
-export function imagePath(hash) {
+export function imagePath(hash, size) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
-  return `map_images/${firstByte}/${secondByte}/${hash}.jpg`
-}
-
-export function imagex2Path(hash) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
-  return `map_images_x2/${firstByte}/${secondByte}/${hash}@x2.jpg`
-}
-
-export function thumbnailPath(hash) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
-  return `map_thumbnails/${firstByte}/${secondByte}/${hash}.jpg`
-}
-
-export function thumbnailx2Path(hash) {
-  const firstByte = hash.substr(0, 2)
-  const secondByte = hash.substr(2, 2)
-  return `map_thumbnails_x2/${firstByte}/${secondByte}/${hash}@x2.jpg`
+  return `map_images/${firstByte}/${secondByte}/${hash}-${size}.jpg`
 }
 
 async function mapParseWorker(path, extension) {
   const {
     messages,
-    imageStream,
-    imagex2Stream,
-    thumbnailStream,
-    thumbnailx2Stream,
+    image256Stream,
+    image512Stream,
+    image1024Stream,
+    image2048Stream,
   } = await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
-    imageStream: BW_DATA_PATH ? imageStream : null,
-    imagex2Stream: BW_DATA_PATH ? imagex2Stream : null,
-    thumbnailStream: BW_DATA_PATH ? thumbnailStream : null,
-    thumbnailx2Stream: BW_DATA_PATH ? thumbnailx2Stream : null,
+    image256Stream: BW_DATA_PATH ? image256Stream : null,
+    image512Stream: BW_DATA_PATH ? image512Stream : null,
+    image1024Stream: BW_DATA_PATH ? image1024Stream : null,
+    image2048Stream: BW_DATA_PATH ? image2048Stream : null,
   }
 }
 
@@ -135,12 +117,12 @@ function runChildProcess(path, args) {
     // If the child process writes image data to the pipe before we are able to handle it, it
     // will get lost. Buffering the data with a PassThrough prevents that, without requiring
     // the pipe consumer to send any synchronization messages themselves.
-    const imageStream = child.stdio[3].pipe(bl())
-    const imagex2Stream = child.stdio[4].pipe(bl())
-    const thumbnailStream = child.stdio[5].pipe(bl())
-    const thumbnailx2Stream = child.stdio[6].pipe(bl())
+    const image256Stream = child.stdio[3].pipe(bl())
+    const image512Stream = child.stdio[4].pipe(bl())
+    const image1024Stream = child.stdio[5].pipe(bl())
+    const image2048Stream = child.stdio[6].pipe(bl())
     child.on('exit', () =>
-      resolve({ messages, imageStream, imagex2Stream, thumbnailStream, thumbnailx2Stream }),
+      resolve({ messages, image256Stream, image512Stream, image1024Stream, image2048Stream }),
     )
     child.on('message', message => {
       if (inited) {

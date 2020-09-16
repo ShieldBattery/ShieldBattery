@@ -4,34 +4,16 @@ import koaStatic from 'koa-static'
 import rimraf from 'rimraf'
 import log from '../logging/logger.js'
 import path from 'path'
-import thenify from 'thenify'
 import util from 'util'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time
 export const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
 
-const access = thenify(fs.access)
-const mkdir = thenify(fs.mkdir)
+const accessAsync = util.promisify(fs.access)
+const mkdirAsync = util.promisify(fs.mkdir)
 const unlinkAsync = util.promisify(fs.unlink)
 const rimrafAsync = util.promisify(rimraf)
-
-async function createDirectory(path) {
-  try {
-    await access(path)
-  } catch (_) {
-    await mkdir(path)
-  }
-}
-
-async function createDirTree(dir) {
-  const segments = dir.split(path.sep)
-  let currentDir = ''
-  for (const segment of segments) {
-    currentDir += segment + path.sep
-    await createDirectory(currentDir)
-  }
-}
 
 export default class LocalFsStore {
   constructor({ path }) {
@@ -48,7 +30,7 @@ export default class LocalFsStore {
 
   async write(filename, stream) {
     const full = this._getFullPath(filename)
-    await createDirTree(path.dirname(full))
+    await mkdirAsync(path.dirname(full), { recursive: true })
     const out = fs.createWriteStream(full)
     stream.pipe(out)
     return new Promise((resolve, reject) => {
@@ -82,7 +64,7 @@ export default class LocalFsStore {
   async url(filename) {
     const full = this._getFullPath(filename)
     try {
-      await access(full)
+      await accessAsync(full)
       return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}`
     } catch (_) {
       return null
