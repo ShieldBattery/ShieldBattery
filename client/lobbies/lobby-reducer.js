@@ -158,7 +158,11 @@ const infoReducer = keyedReducer(undefined, {
   [MAPS_TOGGLE_FAVORITE](state, action) {
     const { map } = action.meta
 
-    return state.setIn(['map', 'isFavorited'], !map.isFavorited)
+    if (state.map && state.map.id === map.id) {
+      return state.setIn(['map', 'isFavorited'], !map.isFavorited)
+    }
+
+    return state
   },
 })
 
