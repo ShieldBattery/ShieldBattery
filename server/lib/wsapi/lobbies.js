@@ -24,6 +24,7 @@ import {
   hasOpposingSides,
   getObserverTeam,
 } from '../../../common/lobbies'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
@@ -645,6 +646,8 @@ export class LobbyApi {
 
     const lobbyName = lobby.name
     const countdownTimer = createDeferred()
+    countdownTimer.catch(swallowNonBuiltins)
+
     let countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
     this.lobbyCountdowns = this.lobbyCountdowns.set(
       lobbyName,
@@ -654,29 +657,59 @@ export class LobbyApi {
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby.name)
 
+    const gameConfig = {
+      gameType: lobby.gameType,
+      gameSubType: lobby.gameSubType,
+      teams: lobby.teams
+        .map(team =>
+          team.slots
+            .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
+            .map(s => ({
+              name: s.name,
+              race: s.race,
+              isComputer: s.type === 'computer' || s.type === 'umsComputer',
+            }))
+            .toArray(),
+        )
+        .toArray(),
+    }
+
     let allowStartTimerId
     try {
-      const { gameId, gameLoaded } = gameLoader.loadGame(
-        getHumanSlots(lobby),
-        setup => this._onGameSetup(lobby, setup),
-        (playerName, routes, gameId) => this._onRoutesSet(lobby, playerName, routes, gameId),
-      )
-
-      countdownTimer.then(() => {
-        // Have some leeway after the countdown finishes and before allowing the game to start so
-        // we can, for example, show the loading screen for some minimum amount of time
-        allowStartTimerId = setTimeout(() => {
-          this._publishTo(lobby, {
-            type: 'allowStart',
-            gameId,
-          })
-        }, 2000)
-        this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      let gameId
+      const gameLoaded = gameLoader.loadGame({
+        players: getHumanSlots(lobby),
+        mapId: lobby.map.id,
+        gameSource: 'LOBBY',
+        gameConfig,
+        onGameSetup: setup => {
+          gameId = setup.gameId
+          this._onGameSetup(lobby, setup)
+        },
+        onRoutesSet: (playerName, routes, forGameId) => {
+          gameId = forGameId
+          this._onRoutesSet(lobby, playerName, routes, forGameId)
+        },
       })
+
+      countdownTimer
+        .then(() => {
+          // Have some leeway after the countdown finishes and before allowing the game to start so
+          // we can, for example, show the loading screen for some minimum amount of time
+          allowStartTimerId = setTimeout(() => {
+            this._publishTo(lobby, {
+              type: 'allowStart',
+              gameId,
+            })
+          }, 2000)
+          this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+        })
+        .catch(swallowNonBuiltins)
 
       await Promise.all([countdownTimer, gameLoaded])
       this._onGameLoaded(lobby)
     } catch (err) {
+      console.error(err)
       this._maybeCancelCountdown(lobby)
       this._onLoadingCanceled(lobby)
     } finally {

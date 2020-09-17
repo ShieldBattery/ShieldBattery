@@ -4,6 +4,7 @@ exports.up = async function (db) {
       id uuid NOT NULL,
       start_time timestamp without time zone NOT NULL,
       map_id uuid NOT NULL,
+      config jsonb NOT NULL,
       disputable boolean NOT NULL,
       dispute_requested boolean NOT NULL,
       dispute_reviewed boolean NOT NULL,

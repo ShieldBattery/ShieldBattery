@@ -20,11 +20,11 @@ class Deferred {
   }
 
   then(...args) {
-    this._promise.then(...args)
+    return this._promise.then(...args)
   }
 
   catch(...args) {
-    this._promise.catch(...args)
+    return this._promise.catch(...args)
   }
 }
 

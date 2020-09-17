@@ -146,7 +146,41 @@ export class MatchmakingApi {
         slots = players.map(p => createHuman(p.name, p.race))
       }
 
-      const { gameLoaded } = gameLoader.loadGame(
+      const currentMapPool = await getCurrentMapPool(matchInfo.type)
+      if (!currentMapPool) {
+        throw new Error('invalid map pool')
+      }
+
+      const mapPool = new Set(currentMapPool.maps)
+      const preferredMapsHashes = matchInfo.players
+        .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
+        .filter(m => mapPool.includes(m))
+
+      const randomMapsHashes = []
+      Range(preferredMapsHashes.size, 4).forEach(() => {
+        const availableMaps = mapPool.subtract(preferredMapsHashes.concat(randomMapsHashes))
+        const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
+        randomMapsHashes.push(randomMap)
+      })
+
+      const [preferredMaps, randomMaps] = await Promise.all([
+        getMapInfo(preferredMapsHashes.toJS()),
+        getMapInfo(randomMapsHashes),
+      ])
+      if (
+        preferredMapsHashes.size + randomMapsHashes.length !==
+        preferredMaps.length + randomMaps.length
+      ) {
+        throw new Error('no maps found')
+      }
+
+      const chosenMap = [...preferredMaps, ...randomMaps][
+        getRandomInt(preferredMaps.length + randomMaps.length)
+      ]
+
+      // FIXME(tec27): convert map hash into a map ID somehow
+
+      const gameLoaded = gameLoader.loadGame(
         slots,
         setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, slots, setup),
         (playerName, routes, gameId) =>
@@ -188,38 +222,6 @@ export class MatchmakingApi {
 
   gameLoaderDelegate = {
     onGameSetup: async (matchInfo, clients, slots, setup = {}) => {
-      const currentMapPool = await getCurrentMapPool(matchInfo.type)
-      if (!currentMapPool) {
-        throw new Error('invalid map pool')
-      }
-
-      const mapPool = new Set(currentMapPool.maps)
-      const preferredMapsHashes = matchInfo.players
-        .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
-        .filter(m => mapPool.includes(m))
-
-      const randomMapsHashes = []
-      Range(preferredMapsHashes.size, 4).forEach(() => {
-        const availableMaps = mapPool.subtract(preferredMapsHashes.concat(randomMapsHashes))
-        const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
-        randomMapsHashes.push(randomMap)
-      })
-
-      const [preferredMaps, randomMaps] = await Promise.all([
-        getMapInfo(preferredMapsHashes.toJS()),
-        getMapInfo(randomMapsHashes),
-      ])
-      if (
-        preferredMapsHashes.size + randomMapsHashes.length !==
-        preferredMaps.length + randomMaps.length
-      ) {
-        throw new Error('no maps found')
-      }
-
-      const chosenMap = [...preferredMaps, ...randomMaps][
-        getRandomInt(preferredMaps.length + randomMaps.length)
-      ]
-
       const playersJson = matchInfo.players.map(p => {
         const slot = slots.find(s => s.name === p.name)
 

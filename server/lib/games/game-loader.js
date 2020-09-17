@@ -7,6 +7,7 @@ import routeCreator from '../rally-point/route-creator'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 30 * 1000
 
@@ -71,34 +72,55 @@ export class GameLoader {
     this.loadingGames = new Map()
   }
 
-  // A function that starts the process of loading a new game. The first argument is a list of
-  // players, that should be created as a human (or observer) type slots. At least one player should
-  // be present for things to work properly. Besides players, a set of handlers can be sent, which
-  // will be called during various phases of the loading process.
-  //
-  // Returns a promise which will resolve with the list of players if the game successfully loaded,
-  // or rejected if the load failed.
-  loadGame(players, onGameSetup, onRoutesSet) {
-    const cancelToken = new CancelToken()
-    const gameId = cuid()
+  /**
+   * Starts the process of loading a new game.
+   *
+   * @param players A list of players that should be created as human (or observer) type slots. At
+   *   least one player should be present for things to work properly.
+   * @param mapId The ID of the map that the game will be played on
+   * @param gameSource A string representing the source of the game, e.g. 'MATCHMAKING' or 'LOBBY'
+   * @param gameConfig an object describing the configuration of the game in the format:
+   *   `{ gameType, gameSubType, teams: [ [team1Players], [team2Players], ...] }`
+   *   For games that begin teamless, all players may be on a single team. Entries in the team lists
+   *   are in the format `{ name, race = (p,r,t,z), isComputer }`.
+   * @param onGameSetup An optional callback({ gameId, seed }) that will be called when the game
+   *   setup info has been sent to clients
+   * @param onRoutesSet An optional callback(playerName, routes, gameId) that will be called for
+   *   each player when their routes to all other players have been set up and are ready to be used.
+   *
+   * @returns A promise which will resolve with the list of players if the game successfully loaded,
+   *   or be rejected if the load failed.
+   */
+  loadGame({ players, mapId, gameSource, gameConfig, onGameSetup, onRoutesSet }) {
     const gameLoaded = createDeferred()
-    this.loadingGames = this.loadingGames.set(
-      gameId,
-      new LoadingData({
-        players: new Set(players),
-        cancelToken,
-        deferred: gameLoaded,
-      }),
-    )
-    this._doGameLoad(gameId, onGameSetup, onRoutesSet).catch(() => {
-      this.maybeCancelLoading(gameId)
-    })
 
-    rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
-      this.maybeCancelLoading(gameId)
-    })
+    registerGame(mapId, gameSource, gameConfig)
+      .then(({ gameId, resultCodes }) => {
+        const cancelToken = new CancelToken()
+        this.loadingGames = this.loadingGames.set(
+          gameId,
+          new LoadingData({
+            players: new Set(players),
+            cancelToken,
+            deferred: gameLoaded,
+          }),
+        )
+        this._doGameLoad(gameId, onGameSetup, onRoutesSet).catch(() => {
+          this.maybeCancelLoading(gameId)
+        })
 
-    return { gameId, gameLoaded }
+        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
+          this.maybeCancelLoading(gameId)
+        })
+      })
+      .catch(err => {
+        console.error(err)
+        // NOTE(tec27): We haven't registered the game in `loadingGames` yet by this point so we
+        // can't cancel it that way
+        gameLoaded.reject(new Error("Couldn't register game with database"))
+      })
+
+    return gameLoaded
   }
 
   // The game has successfully loaded for a specific player; once the game is loaded for all
