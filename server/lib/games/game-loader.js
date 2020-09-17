@@ -1,6 +1,6 @@
 import { List, Map, Record, Set } from 'immutable'
-import cuid from 'cuid'
 
+import log from '../logging/logger'
 import pickServer from '../rally-point/pick-server'
 import pingRegistry from '../rally-point/ping-registry'
 import routeCreator from '../rally-point/route-creator'
@@ -8,6 +8,8 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { registerGame } from './registration'
+import { deleteRecordForGame } from '../models/games'
+import { deleteUserRecordsForGame } from '../models/games-users'
 
 const GAME_LOAD_TIMEOUT = 30 * 1000
 
@@ -152,6 +154,10 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.delete(gameId)
     loadingData.cancelToken.cancel()
     loadingData.deferred.reject(new Error('Game loading cancelled'))
+
+    Promise.all([deleteRecordForGame(gameId), deleteUserRecordsForGame(gameId)]).catch(err => {
+      log.error({ err }, 'error removing game records for cancelled gamed')
+    })
   }
 
   isLoading(gameId) {

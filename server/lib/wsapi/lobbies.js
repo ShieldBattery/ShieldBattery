@@ -709,7 +709,7 @@ export class LobbyApi {
       await Promise.all([countdownTimer, gameLoaded])
       this._onGameLoaded(lobby)
     } catch (err) {
-      console.error(err)
+      // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
       this._maybeCancelCountdown(lobby)
       this._onLoadingCanceled(lobby)
     } finally {
