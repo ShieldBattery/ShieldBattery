@@ -116,7 +116,7 @@ export class GameLoader {
         })
       })
       .catch(err => {
-        console.error(err)
+        log.error({ err }, "couldn't register game with database")
         // NOTE(tec27): We haven't registered the game in `loadingGames` yet by this point so we
         // can't cancel it that way
         gameLoaded.reject(new Error("Couldn't register game with database"))

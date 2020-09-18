@@ -4,8 +4,6 @@ import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
 import { genResultCode } from './gen-result-code'
 
-// TODO(tec27): Make some constants somewhere for game sources
-
 /**
  * Registers a game in the database so that results can be collected for it.
  *

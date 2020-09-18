@@ -17,6 +17,7 @@ import {
   validRace,
 } from '../../../common/constants'
 import { MATCHMAKING } from '../../../common/flags'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 
 const Player = new Record({
   id: null,
@@ -52,6 +53,46 @@ const MATCHMAKING_INTERVAL = 7500
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 const MOUNT_BASE = '/matchmaking'
+
+/**
+ * Selects a map for the given players and matchmaking type, based on the players' stored
+ * matchmaking preferences and the current map pool.
+ *
+ * @returns an object with `{ preferredMaps, randomMaps, chosenMap }` describing the maps that were
+ *   used to make the selection, as well as the actual selection
+ */
+async function pickMap(matchmakingType, players) {
+  const currentMapPool = await getCurrentMapPool(matchmakingType)
+  if (!currentMapPool) {
+    throw new Error('invalid map pool')
+  }
+
+  const mapPool = new Set(currentMapPool.maps)
+  const preferredMapIds = players
+    .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
+    .filter(m => mapPool.includes(m))
+
+  const randomMapIds = []
+  Range(preferredMapIds.size, 4).forEach(() => {
+    const availableMaps = mapPool.subtract(preferredMapIds.concat(randomMapIds))
+    const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
+    randomMapIds.push(randomMap)
+  })
+
+  const [preferredMaps, randomMaps] = await Promise.all([
+    getMapInfo(preferredMapIds.toJS()),
+    getMapInfo(randomMapIds),
+  ])
+  if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
+    throw new Error('no maps found')
+  }
+
+  const chosenMap = [...preferredMaps, ...randomMaps][
+    getRandomInt(preferredMaps.length + randomMaps.length)
+  ]
+
+  return { preferredMaps, randomMaps, chosenMap }
+}
 
 @Mount(MOUNT_BASE)
 export class MatchmakingApi {
@@ -146,34 +187,10 @@ export class MatchmakingApi {
         slots = players.map(p => createHuman(p.name, p.race))
       }
 
-      const currentMapPool = await getCurrentMapPool(matchInfo.type)
-      if (!currentMapPool) {
-        throw new Error('invalid map pool')
-      }
-
-      const mapPool = new Set(currentMapPool.maps)
-      const preferredMapIds = matchInfo.players
-        .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
-        .filter(m => mapPool.includes(m))
-
-      const randomMapIds = []
-      Range(preferredMapIds.size, 4).forEach(() => {
-        const availableMaps = mapPool.subtract(preferredMapIds.concat(randomMapIds))
-        const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
-        randomMapIds.push(randomMap)
-      })
-
-      const [preferredMaps, randomMaps] = await Promise.all([
-        getMapInfo(preferredMapIds.toJS()),
-        getMapInfo(randomMapIds),
-      ])
-      if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
-        throw new Error('no maps found')
-      }
-
-      const chosenMap = [...preferredMaps, ...randomMaps][
-        getRandomInt(preferredMaps.length + randomMaps.length)
-      ]
+      const { preferredMaps, randomMaps, chosenMap } = await pickMap(
+        matchInfo.type,
+        matchInfo.players,
+      )
 
       const gameConfig = {
         // TODO(tec27): This will need to be adjusted for team matchmaking
@@ -235,6 +252,7 @@ export class MatchmakingApi {
       for (const client of clients) {
         this._publishToActiveClient(client.name, {
           type: 'cancelLoading',
+          // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
           reason: err && err.message,
         })
         this._unregisterActivity(client)
@@ -281,6 +299,7 @@ export class MatchmakingApi {
           let countdownTimerId
           try {
             const mapSelectionTimer = createDeferred()
+            mapSelectionTimer.catch(swallowNonBuiltins)
             this.clientTimers = this.clientTimers.update(client.name, new Timers(), timers =>
               timers.merge({ mapSelectionTimer }),
             )
@@ -289,6 +308,7 @@ export class MatchmakingApi {
             this._publishToActiveClient(client.name, { type: 'startCountdown' })
 
             const countdownTimer = createDeferred()
+            countdownTimer.catch(swallowNonBuiltins)
             this.clientTimers = this.clientTimers.update(client.name, new Timers(), timers =>
               timers.merge({ countdownTimer }),
             )
