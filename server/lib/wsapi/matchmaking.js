@@ -152,25 +152,22 @@ export class MatchmakingApi {
       }
 
       const mapPool = new Set(currentMapPool.maps)
-      const preferredMapsHashes = matchInfo.players
+      const preferredMapIds = matchInfo.players
         .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
         .filter(m => mapPool.includes(m))
 
-      const randomMapsHashes = []
-      Range(preferredMapsHashes.size, 4).forEach(() => {
-        const availableMaps = mapPool.subtract(preferredMapsHashes.concat(randomMapsHashes))
+      const randomMapIds = []
+      Range(preferredMapIds.size, 4).forEach(() => {
+        const availableMaps = mapPool.subtract(preferredMapIds.concat(randomMapIds))
         const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))
-        randomMapsHashes.push(randomMap)
+        randomMapIds.push(randomMap)
       })
 
       const [preferredMaps, randomMaps] = await Promise.all([
-        getMapInfo(preferredMapsHashes.toJS()),
-        getMapInfo(randomMapsHashes),
+        getMapInfo(preferredMapIds.toJS()),
+        getMapInfo(randomMapIds),
       ])
-      if (
-        preferredMapsHashes.size + randomMapsHashes.length !==
-        preferredMaps.length + randomMaps.length
-      ) {
+      if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
         throw new Error('no maps found')
       }
 
@@ -178,14 +175,39 @@ export class MatchmakingApi {
         getRandomInt(preferredMaps.length + randomMaps.length)
       ]
 
-      // FIXME(tec27): convert map hash into a map ID somehow
+      const gameConfig = {
+        // TODO(tec27): This will need to be adjusted for team matchmaking
+        gameType: 'oneVOne',
+        gameSubType: 0,
+        teams: [
+          slots
+            .map(s => ({
+              name: s.name,
+              race: s.race,
+              isComputer: s.type === 'computer' || s.type === 'umsComputer',
+            }))
+            .toArray(),
+        ],
+      }
 
-      const gameLoaded = gameLoader.loadGame(
-        slots,
-        setup => this.gameLoaderDelegate.onGameSetup(matchInfo, clients, slots, setup),
-        (playerName, routes, gameId) =>
+      const gameLoaded = gameLoader.loadGame({
+        players: slots,
+        mapId: chosenMap.id,
+        gameSource: 'MATCHMAKING',
+        gameConfig,
+        onGameSetup: setup =>
+          this.gameLoaderDelegate.onGameSetup({
+            matchInfo,
+            clients,
+            slots,
+            setup,
+            preferredMaps,
+            randomMaps,
+            chosenMap,
+          }),
+        onRoutesSet: (playerName, routes, gameId) =>
           this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
-      )
+      })
 
       await gameLoaded
       this.gameLoaderDelegate.onGameLoaded(clients)
@@ -221,7 +243,15 @@ export class MatchmakingApi {
   }
 
   gameLoaderDelegate = {
-    onGameSetup: async (matchInfo, clients, slots, setup = {}) => {
+    onGameSetup: async ({
+      matchInfo,
+      clients,
+      slots,
+      setup = {},
+      preferredMaps,
+      randomMaps,
+      chosenMap,
+    }) => {
       const playersJson = matchInfo.players.map(p => {
         const slot = slots.find(s => s.name === p.name)
 
