@@ -682,9 +682,9 @@ export class LobbyApi {
         mapId: lobby.map.id,
         gameSource: 'LOBBY',
         gameConfig,
-        onGameSetup: setup => {
+        onGameSetup: (setup, resultCodes) => {
           gameId = setup.gameId
-          this._onGameSetup(lobby, setup)
+          this._onGameSetup(lobby, setup, resultCodes)
         },
         onRoutesSet: (playerName, routes, forGameId) => {
           gameId = forGameId
@@ -724,12 +724,16 @@ export class LobbyApi {
     }
   }
 
-  _onGameSetup(lobby, setup = {}) {
+  _onGameSetup(lobby, setup = {}, resultCodes) {
     this.loadingLobbies = this.loadingLobbies.set(lobby.name, setup.gameId)
-    this._publishTo(lobby, {
-      type: 'setupGame',
-      setup,
-    })
+    const players = getHumanSlots(lobby).map(s => s.name)
+    for (const player of players) {
+      this._publishToClient(lobby, player, {
+        type: 'setupGame',
+        setup,
+        resultCode: resultCodes.get(player),
+      })
+    }
   }
 
   _onRoutesSet(lobby, playerName, routes, gameId) {

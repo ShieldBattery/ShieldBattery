@@ -85,8 +85,9 @@ export class GameLoader {
    *   `{ gameType, gameSubType, teams: [ [team1Players], [team2Players], ...] }`
    *   For games that begin teamless, all players may be on a single team. Entries in the team lists
    *   are in the format `{ name, race = (p,r,t,z), isComputer }`.
-   * @param onGameSetup An optional callback({ gameId, seed }) that will be called when the game
-   *   setup info has been sent to clients
+   * @param onGameSetup An optional callback({ gameId, seed }, resultCodes) that will be called when
+   *   the game setup info has been sent to clients. `resultCodes` is a Map of player name -> code
+   *   to use for submitting game results
    * @param onRoutesSet An optional callback(playerName, routes, gameId) that will be called for
    *   each player when their routes to all other players have been set up and are ready to be used.
    *
@@ -107,7 +108,7 @@ export class GameLoader {
             deferred: gameLoaded,
           }),
         )
-        this._doGameLoad(gameId, onGameSetup, onRoutesSet).catch(() => {
+        this._doGameLoad(gameId, resultCodes, onGameSetup, onRoutesSet).catch(() => {
           this.maybeCancelLoading(gameId)
         })
 
@@ -164,7 +165,7 @@ export class GameLoader {
     return this.loadingGames.has(gameId)
   }
 
-  async _doGameLoad(gameId, onGameSetup, onRoutesSet) {
+  async _doGameLoad(gameId, resultCodes, onGameSetup, onRoutesSet) {
     if (!this.loadingGames.has(gameId)) {
       return
     }
@@ -173,7 +174,7 @@ export class GameLoader {
     const { players, cancelToken } = loadingData
 
     const onGameSetupResult = onGameSetup
-      ? onGameSetup({ gameId, seed: generateSeed() })
+      ? onGameSetup({ gameId, seed: generateSeed() }, resultCodes)
       : Promise.resolve()
 
     const hasMultipleHumans = players.size > 1

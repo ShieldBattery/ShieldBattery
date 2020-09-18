@@ -176,6 +176,7 @@ const eventToAction = {
         slots: event.slots,
         host: event.slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed,
+        resultCode: event.resultCode,
       },
     }
 

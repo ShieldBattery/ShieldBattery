@@ -241,6 +241,7 @@ const eventToAction = {
         slots,
         host,
         seed: event.setup.seed,
+        resultCode: event.resultCode,
       },
     }
 

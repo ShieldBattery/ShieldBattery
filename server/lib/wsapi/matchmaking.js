@@ -212,12 +212,13 @@ export class MatchmakingApi {
         mapId: chosenMap.id,
         gameSource: 'MATCHMAKING',
         gameConfig,
-        onGameSetup: setup =>
+        onGameSetup: (setup, resultCodes) =>
           this.gameLoaderDelegate.onGameSetup({
             matchInfo,
             clients,
             slots,
             setup,
+            resultCodes,
             preferredMaps,
             randomMaps,
             chosenMap,
@@ -266,6 +267,7 @@ export class MatchmakingApi {
       clients,
       slots,
       setup = {},
+      resultCodes,
       preferredMaps,
       randomMaps,
       chosenMap,
@@ -288,6 +290,7 @@ export class MatchmakingApi {
           this._publishToActiveClient(client.name, {
             type: 'matchReady',
             setup,
+            resultCode: resultCodes.get(client.name),
             slots,
             players: playersJson,
             preferredMaps,
