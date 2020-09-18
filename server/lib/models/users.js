@@ -1,4 +1,5 @@
 // User model, corresponding to a user account on the site (with a login, password, etc.)
+import sql from 'sql-template-strings'
 import db from '../db'
 import transact from '../db/transaction'
 import { createPermissions } from './permissions'
@@ -130,6 +131,20 @@ export async function findAllUsernamesWithEmail(email) {
   try {
     const result = await client.query('SELECT name FROM users WHERE email = $1', [email])
     return result.rows.map(row => row.name)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a Map of name -> user ID given a list of names. Any users that can't be found won't be
+ * present in the resulting Map.
+ */
+export async function findUserIdsForNames(names) {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`SELECT id, name FROM users WHERE name = ANY (${names})`)
+    return new Map(result.rows.map(row => [row.name, row.id]))
   } finally {
     done()
   }
