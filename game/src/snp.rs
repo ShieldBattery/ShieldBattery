@@ -162,11 +162,14 @@ pub fn spoof_game(name: &str, address: Ipv4Addr) {
 /// Messages sent to the async SNP task from BW's side.
 pub enum SnpMessage {
     Destroy,
-    // The handle is an event created by storm, signaled when a message is received
     CreateNetworkHandler(SendMessages),
     Send(Vec<Ipv4Addr>, Vec<u8>),
 }
 
+/// This is named SendMessages since it allows the network task to
+/// send messages to, that is, communicate with SNP layer.
+/// But from this module's point of view it's a misleading name, as
+/// the only communication there is is for for data being *received*.
 #[derive(Clone)]
 pub struct SendMessages {
     receive_callback: Arc<Box<dyn Fn() + Send + Sync + 'static>>,

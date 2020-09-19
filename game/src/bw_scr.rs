@@ -60,11 +60,14 @@ pub struct BwScr {
     init_storm_networking: unsafe extern "C" fn(),
     ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     send_command: unsafe extern "C" fn(*const u8, usize),
+    snet_recv_packets: unsafe extern "C" fn(),
+    snet_send_packets: unsafe extern "C" fn(),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
     process_game_commands: scarf::VirtualAddress,
+    step_io: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
@@ -591,6 +594,14 @@ impl BwScr {
         let process_game_commands = analysis.process_commands().process_commands
             .ok_or("process_game_commands")?;
         let game_command_lengths = (*analysis.command_lengths()).clone();
+        let snet_recv_packets = analysis.snet_recv_packets().ok_or("snet_recv_packets")?;
+        let snet_send_packets = analysis.snet_send_packets().ok_or("snet_send_packets")?;
+        let scheduler_vtable = Some(analysis.vtables_for_class(b".?AVSchedulerService@services"))
+            // There is only 1 matching vtable for now, hopefully it won't change
+            .filter(|x| x.len() == 1)
+            .map(|x| x[0])
+            .ok_or("Scheduler vtable")?;
+        let step_io = unsafe { *(scheduler_vtable.0 as *mut usize).add(3) };
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
@@ -638,6 +649,8 @@ impl BwScr {
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
+            snet_recv_packets: unsafe { mem::transmute(snet_recv_packets.0) },
+            snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
             load_snp_list,
             mainmenu_entry_hook,
@@ -646,6 +659,7 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             process_game_commands,
+            step_io: scarf::VirtualAddress(step_io as _),
             game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
@@ -710,6 +724,26 @@ impl BwScr {
                     }
                 }
                 orig(data, len, are_recorded_replay_commands);
+            },
+            address,
+        );
+        let address = self.step_io.0 as usize - base;
+        let this = self.clone();
+        exe.hook_closure_address(
+            StepIo,
+            move |scheduler, orig| {
+                orig(scheduler);
+                // BW actually only calls these in a case which would be equivalent with our SNP
+                // code calling receive_callback() (Which is nop in SCR for now), but these
+                // are cheap enough to always call. It may also be slightly better on
+                // unreliable networks as this sends packets every frame instead of every
+                // time a packets are received in a frame.
+                //
+                // Still need to check that the SNP is ready BW side.
+                if SNP_INITIALIZED.load(Ordering::Relaxed) {
+                    (this.snet_recv_packets)();
+                    (this.snet_send_packets)();
+                }
             },
             address,
         );
@@ -828,6 +862,15 @@ impl bw::Bw for BwScr {
         // For SCR-1161 crossplay we'd have to make this part consistent across games.
         // I think using 1161's function here is hard, but it would be better for load times,
         // as this synchronization can add extra few hundred milliseconds to loads.
+
+        // Also call snet recv/send functions which we usually call in step_io hook.
+        // In some points where we expect maybe_receive_turns to advance networking state
+        // during lobby init, the main thread isn't running it's usual event loop that
+        // would call step_io.
+        // Hopefully this doesn't have thread safety issues when called from the async thread..
+        // Since the main thread isn't running it's normal loop at all, it's probably fine.
+        (self.snet_recv_packets)();
+        (self.snet_send_packets)();
         (self.step_network)();
     }
 
@@ -1246,10 +1289,13 @@ unsafe extern "stdcall" fn snp_initialize(
         *mut c_void,
         *mut c_void,
     ) -> i32 = mem::transmute(SCR_SNP_INITIALIZE.load(Ordering::Relaxed));
-    scr_init(client_info, user_data, battle_info, module_data)
+    let result = scr_init(client_info, user_data, battle_info, module_data);
+    SNP_INITIALIZED.store(result != 0, Ordering::Relaxed);
+    result
 }
 
 static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
+static SNP_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 unsafe extern "stdcall" fn snp_load_bind(
     snp_index: u32,
@@ -1294,6 +1340,7 @@ mod hooks {
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
+        !0 => StepIo(@ecx *mut c_void);
     );
 }
 
