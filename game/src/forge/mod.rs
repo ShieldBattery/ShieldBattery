@@ -24,7 +24,7 @@ use winapi::um::unknwnbase::IUnknown;
 use winapi::um::wingdi::{GetDeviceCaps, BITMAP, BITSPIXEL, DEVMODEW};
 use winapi::um::winuser::*;
 
-use crate::game_thread::{game_thread_message, GameThreadMessage};
+use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 use crate::windows::os_string_from_winapi;
 
 use self::renderer::Renderer;
@@ -178,7 +178,7 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                 }
             });
             if let Some(pos) = pos {
-                game_thread_message(GameThreadMessage::WindowMove(pos.0, pos.1));
+                send_game_msg_to_async(GameThreadMessage::WindowMove(pos.0, pos.1));
             }
         }
         WM_GETMINMAXINFO => {

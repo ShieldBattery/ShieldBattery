@@ -332,11 +332,8 @@ async fn handle_messages_from_game_thread(
                     Ok(())
                 }
             }
-            GameThreadMessage::Snp(snp) => {
-                game_send.send(GameStateMessage::Snp(snp)).await.map_err(|_| ())
-            }
-            GameThreadMessage::Results(results) => {
-                game_send.send(GameStateMessage::Results(results)).await.map_err(|_| ())
+            other => {
+                game_send.send(GameStateMessage::GameThread(other)).await.map_err(|_| ())
             }
         };
         if result.is_err() {

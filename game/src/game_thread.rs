@@ -1,10 +1,11 @@
+//! Hooks and other code that is running on the game/main thread (As opposed to async threads).
+
 use std::sync::mpsc::Receiver;
-/// Hooks and other code that is running on the game/main thread (As opposed to async threads).
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 
-use crate::bw::{with_bw};
+use crate::bw::{self, with_bw};
 use crate::forge;
 use crate::snp;
 
@@ -43,11 +44,15 @@ pub enum GameThreadRequestType {
 pub enum GameThreadMessage {
     WindowMove(i32, i32),
     Snp(snp::SnpMessage),
+    /// Storm player id (which stays stable) -> game player id mapping.
+    /// Once this message is sent, any game player ids used so far should be
+    /// considered invalid and updated to match this mapping.
+    PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
 }
 
 /// Sends a message from game thread to the async system.
-pub fn game_thread_message(message: GameThreadMessage) {
+pub fn send_game_msg_to_async(message: GameThreadMessage) {
     let send_global = SEND_FROM_GAME_THREAD.lock().unwrap();
     if let Some(ref send) = *send_global {
         let _ = send.send(message);
@@ -82,7 +87,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             with_bw(|bw| bw.run_game_loop());
             debug!("Game loop ended");
             let results = game_results();
-            game_thread_message(GameThreadMessage::Results(results));
+            send_game_msg_to_async(GameThreadMessage::Results(results));
             forge::hide_window();
         }
         // Saves registry settings etc.
@@ -136,4 +141,28 @@ unsafe fn init_bw() {
         (*bw.game()).is_bw = 1;
     });
     debug!("Process initialized");
+}
+
+/// Bw impl is expected to hook the point after init_game_data and call this.
+pub unsafe fn after_init_game_data() {
+    // Let async thread know about player randomization.
+    // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
+    // data structures used in a game. Player randomization seems to have been done before that,
+    // so if it ever in future ends up being the case that the async thread has a point where it
+    // uses wrong game player ids, a more exact point for this hook should be decided.
+    //
+    // But for now it should be fine, and this should also be late enough in initialization that
+    // any possible alternate branches for save/replay/ums randomization should have been executed
+    // as well.
+    with_bw(|bw| {
+        let mut mapping = [None; bw::MAX_STORM_PLAYERS];
+        let players = bw.players();
+        for i in 0..8 {
+            let storm_id = (*players.add(i)).storm_id;
+            if let Some(out) = mapping.get_mut(storm_id as usize) {
+                *out = Some(i as u8);
+            }
+        }
+        send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
+    });
 }

@@ -18,6 +18,7 @@ use samase_scarf::scarf::{self};
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use crate::bw::{self, Bw};
+use crate::game_thread;
 use crate::snp;
 
 use sdf_cache::{InitSdfCache, SdfCache};
@@ -68,6 +69,7 @@ pub struct BwScr {
     ttf_render_sdf: scarf::VirtualAddress,
     process_game_commands: scarf::VirtualAddress,
     step_io: scarf::VirtualAddress,
+    init_game_data: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
@@ -602,6 +604,7 @@ impl BwScr {
             .map(|x| x[0])
             .ok_or("Scheduler vtable")?;
         let step_io = unsafe { *(scheduler_vtable.0 as *mut usize).add(3) };
+        let init_game_data = analysis.init_game().init_game.ok_or("init_game_data")?;
 
         let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
 
@@ -660,6 +663,7 @@ impl BwScr {
             ttf_render_sdf,
             process_game_commands,
             step_io: scarf::VirtualAddress(step_io as _),
+            init_game_data,
             game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
@@ -762,6 +766,11 @@ impl BwScr {
             },
             address
         );
+        let address = self.init_game_data.0 as usize - base;
+        exe.hook_closure_address(InitGameData, move |orig| {
+            orig();
+            game_thread::after_init_game_data();
+        }, address);
 
         if let Some(open_file) = self.open_file {
             let address = open_file.0 as usize - base;
@@ -1335,6 +1344,7 @@ mod hooks {
         !0 => ProcessGameCommands(*const u8, usize, u32);
         !0 => ProcessLobbyCommands(*const u8, usize, u32);
         !0 => SendCommand(*const u8, usize);
+        !0 => InitGameData();
     );
 
     whack_hooks!(stdcall, 0,

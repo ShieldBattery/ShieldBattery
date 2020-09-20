@@ -2,6 +2,7 @@ use std::ffi::CStr;
 use std::mem;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration};
 
@@ -20,7 +21,9 @@ use crate::bw::{self, GameType, with_bw};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::chat::StormPlayerId;
 use crate::forge;
-use crate::game_thread::{GameThreadRequest, GameThreadRequestType, GameThreadResults};
+use crate::game_thread::{
+    GameThreadRequest, GameThreadRequestType, GameThreadResults, GameThreadMessage,
+};
 use crate::network_manager::{NetworkError, NetworkManager};
 use crate::snp;
 use crate::windows;
@@ -84,10 +87,9 @@ pub enum GameStateMessage {
     SetLocalUser(LocalUser),
     SetupGame(GameSetupInfo),
     AllowStart,
-    Snp(snp::SnpMessage),
     InLobby,
     PlayerJoined,
-    Results(GameThreadResults),
+    GameThread(GameThreadMessage),
     CleanupQuit,
 }
 
@@ -417,9 +419,6 @@ impl GameState {
                     cancel_token.bind(task).await
                 });
             }
-            Snp(snp) => {
-                return self.network.send_snp_message(snp).map(|_| ()).boxed();
-            }
             InLobby | PlayerJoined => {
                 if let InitState::Started(ref mut state) = self.init_state {
                     state.player_joined();
@@ -427,12 +426,8 @@ impl GameState {
                     warn!("Player joined before init was started");
                 }
             }
-            Results(results) => {
-                if let InitState::Started(ref mut state) = self.init_state {
-                    state.received_results(results);
-                } else {
-                    warn!("Received results before init was started");
-                }
+            GameThread(msg) => {
+                return self.handle_game_thread_message(msg);
             }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
@@ -444,6 +439,44 @@ impl GameState {
                     async_stop.cancel();
                 };
                 tokio::spawn(task);
+            }
+        }
+        future::ready(()).boxed()
+    }
+
+    fn handle_game_thread_message(
+        &mut self,
+        message: GameThreadMessage,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        use crate::game_thread::GameThreadMessage::*;
+        match message {
+            WindowMove(..) => (),
+            Snp(snp) => {
+                return self.network.send_snp_message(snp).map(|_| ()).boxed();
+            }
+            PlayersRandomized(new_mapping) => {
+                if let InitState::Started(ref mut state) = self.init_state {
+                    for player in &mut state.joined_players {
+                        let old_id = player.player_id;
+                        player.player_id = new_mapping.get(player.storm_id.0 as usize)
+                            .and_then(|x| *x);
+                        if old_id.is_some() != player.player_id.is_some() {
+                            warn!(
+                                "Player {} lost/gained player id after randomization: {:?} -> {:?}",
+                                player.name, old_id, player.player_id,
+                            );
+                        }
+                    }
+                } else {
+                    warn!("Player randomization received too early");
+                }
+            }
+            Results(results) => {
+                if let InitState::Started(ref mut state) = self.init_state {
+                    state.received_results(results);
+                } else {
+                    warn!("Received results before init was started");
+                }
             }
         }
         future::ready(()).boxed()
@@ -642,7 +675,7 @@ impl InitInProgress {
             Victory = 3,
         }
 
-        let mut results = vec![GameResult::Playing; 8];
+        let mut results = [GameResult::Playing; bw::MAX_STORM_PLAYERS];
         let local_storm_id = self
             .joined_players
             .iter()

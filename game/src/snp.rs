@@ -12,7 +12,7 @@ use winapi::um::synchapi::SetEvent;
 use winapi::um::sysinfoapi::GetTickCount;
 
 use crate::bw;
-use crate::game_thread::{game_thread_message, GameThreadMessage};
+use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 use crate::windows::{OwnedHandle};
 
 // 'SBAT'
@@ -198,7 +198,7 @@ struct RawReceivedMessage {
 }
 
 fn send_snp_message(message: SnpMessage) {
-    game_thread_message(GameThreadMessage::Snp(message));
+    send_game_msg_to_async(GameThreadMessage::Snp(message));
 }
 
 extern "stdcall" fn unbind() -> i32 {

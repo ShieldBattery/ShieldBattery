@@ -65,6 +65,8 @@ pub trait Bw: Sync + Send {
     unsafe fn storm_set_last_error(&self, error: u32);
 }
 
+pub const MAX_STORM_PLAYERS: usize = 12;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GameType {
     pub primary: u8,

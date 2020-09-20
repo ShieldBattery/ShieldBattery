@@ -14,6 +14,7 @@ use winapi::um::winnt::HANDLE;
 
 use crate::bw;
 use crate::chat;
+use crate::game_thread;
 use crate::windows;
 
 pub struct Bw1161;
@@ -163,6 +164,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004A2D60 => UpdateNetTimeoutPlayers();
     0x004CB190 =>
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
+    0x004EEE00 => InitGameData();
 );
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
@@ -298,6 +300,10 @@ unsafe fn patch_game() {
         CenterScreenOnOwnStartLocation,
         observing::center_screen_on_start_location,
     );
+    exe.hook_closure(InitGameData, |orig| {
+        orig();
+        game_thread::after_init_game_data();
+    });
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
     exe.import_hook_opt(&b"kernel32"[..], DeleteFileA, delete_file_hook);
