@@ -1,12 +1,13 @@
 import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
-import thenify from 'thenify'
+import util from 'util'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
 import sendAccountVerificationEmail from '../verifications/send-account-verification-email'
+import sendMail from '../mail/mailer'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { usePasswordResetCode } from '../models/password-resets'
@@ -24,6 +25,12 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
   burst: 4,
+  window: 60000,
+})
+
+const accountUpdateThrottle = createThrottle('accountupdate', {
+  rate: 10,
+  burst: 20,
   window: 60000,
 })
 
@@ -47,10 +54,12 @@ export default function (router, { nydus }) {
       createUser,
     )
     .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), find)
-    .put('/:id', function* (next) {
-      // TODO(tec27): update a user
-      throw new httpErrors.ImATeapot()
-    })
+    .patch(
+      '/:id',
+      throttleMiddleware(accountUpdateThrottle, ctx => ctx.session.userId),
+      ensureLoggedIn,
+      updateUser,
+    )
     .post('/:username/password', resetPassword)
     .post(
       '/emailVerification',
@@ -77,7 +86,7 @@ async function find(ctx, next) {
   }
 }
 
-const bcryptHash = thenify(bcrypt.hash)
+const bcryptHash = util.promisify(bcrypt.hash)
 function hashPass(password) {
   return bcryptHash(password, 10)
 }
@@ -113,6 +122,39 @@ async function createUser(ctx, next) {
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
   await sendAccountVerificationEmail(code, email)
   ctx.body = result
+}
+
+const bcryptCompare = util.promisify(bcrypt.compare)
+async function updateUser(ctx, next) {
+  let { id } = ctx.params
+  const { currentPassword, newPassword } = ctx.request.body
+
+  // TODO(2Pac): Handle updates of other account fields (e.g. email, profile image)
+
+  id = parseInt(id, 10)
+  if (!id || isNaN(id) || !isValidPassword(currentPassword) || !isValidPassword(newPassword)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  const user = await users.find(id)
+  const same = await bcryptCompare(currentPassword, user.password)
+
+  if (!same) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  }
+
+  user.password = await hashPass(newPassword)
+  await user.save()
+
+  // No need to await this before sending response to the user
+  sendMail({
+    to: user.email,
+    subject: 'ShieldBattery Password Changed',
+    templateName: 'password-change',
+    templateData: { username: user.name },
+  }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+
+  ctx.status = 204
 }
 
 async function resetPassword(ctx, next) {
