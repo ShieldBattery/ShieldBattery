@@ -4,7 +4,7 @@ import deepEqual from 'deep-equal'
 import log from './logger'
 import { findInstallPath } from './find-install-path'
 
-const VERSION = 4
+const VERSION = 5
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -87,6 +87,7 @@ export default class LocalSettings extends EventEmitter {
       winWidth: -1,
       winHeight: -1,
       winMaximized: false,
+      masterVolume: 50,
     }
   }
 
@@ -112,6 +113,10 @@ export default class LocalSettings extends EventEmitter {
     if (!settings.version || settings.version < 4) {
       log.verbose('Found settings version 3, migrating to version 4')
       delete newSettings.renderer
+    }
+    if (!settings.version || settings.version < 5) {
+      log.verbose('Found settings version 4, migrating to version 5')
+      newSettings.masterVolume = 50
     }
 
     newSettings.version = VERSION

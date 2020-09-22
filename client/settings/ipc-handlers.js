@@ -1,3 +1,4 @@
+import audioManager from '../audio/audio-manager-instance'
 import { dispatch } from '../dispatch-registry'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
 import { LOCAL_SETTINGS_UPDATE, LOCAL_SETTINGS_SET } from '../actions'
@@ -17,6 +18,7 @@ export default function registerModule({ ipcRenderer }) {
     return
   }
 
+  let lastMasterVolume = null
   let lastPath = ''
   let lastPathWasValid = false
   ipcRenderer
@@ -25,6 +27,11 @@ export default function registerModule({ ipcRenderer }) {
         type: LOCAL_SETTINGS_UPDATE,
         payload: settings,
       })
+
+      if (settings.masterVolume !== lastMasterVolume) {
+        audioManager.setMasterVolume(settings.masterVolume)
+      }
+      lastMasterVolume = settings.masterVolume
 
       if (settings.starcraftPath === lastPath && lastPathWasValid) {
         return
