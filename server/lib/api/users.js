@@ -140,7 +140,7 @@ async function updateUser(ctx, next) {
   const same = await bcryptCompare(currentPassword, user.password)
 
   if (!same) {
-    throw new httpErrors.BadRequest('Invalid parameters')
+    throw new httpErrors.Unauthorized('Incorrect password')
   }
 
   user.password = await hashPass(newPassword)

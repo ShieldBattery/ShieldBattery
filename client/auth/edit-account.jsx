@@ -149,11 +149,14 @@ export default class EditAccount extends React.Component {
     }
 
     if (reqId && auth.lastFailure && auth.lastFailure.reqId === reqId) {
-      errorElem = (
-        <ErrorText>
-          There was an issue with updating your account. Please check your data and try again.
-        </ErrorText>
-      )
+      // TODO(2Pac): Use the actual error code once the error system is implemented.
+      if (auth.lastFailure.err === 'Incorrect password') {
+        errorElem = <ErrorText>Incorrect current password.</ErrorText>
+      } else {
+        errorElem = (
+          <ErrorText>There was an issue updating your account. Please try again later.</ErrorText>
+        )
+      }
     }
 
     const buttons = [
