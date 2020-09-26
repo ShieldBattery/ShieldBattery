@@ -335,9 +335,8 @@ export default class Maps extends React.Component {
 
   renderFavoritedMaps() {
     const { maps } = this.props
-    const { activeTab } = this.state
 
-    if (activeTab !== TAB_MY_MAPS || maps.favoritedMaps.list.size < 1) return null
+    if (maps.favoritedMaps.list.size < 1) return null
 
     return this._renderMaps('Favorited maps', maps.favoritedMaps)
   }

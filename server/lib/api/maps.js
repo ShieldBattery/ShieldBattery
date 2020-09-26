@@ -148,9 +148,7 @@ async function list(ctx, next) {
   const favoritedBy = ctx.session.userId
   const [mapsResult, favoritedMaps] = await Promise.all([
     getMaps(visibility, sort, filters, limit, page, favoritedBy, uploadedBy, q),
-    visibility === MAP_VISIBILITY_PRIVATE
-      ? getFavoritedMaps(favoritedBy, sort, filters, q)
-      : Promise.resolve([]),
+    getFavoritedMaps(favoritedBy, sort, filters, q),
   ])
   const { total, maps } = mapsResult
   ctx.body = {
