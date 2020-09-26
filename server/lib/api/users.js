@@ -127,34 +127,71 @@ async function createUser(ctx, next) {
 const bcryptCompare = util.promisify(bcrypt.compare)
 async function updateUser(ctx, next) {
   let { id } = ctx.params
-  const { currentPassword, newPassword } = ctx.request.body
-
-  // TODO(2Pac): Handle updates of other account fields (e.g. email, profile image)
+  const { currentPassword, newPassword, newEmail } = ctx.request.body
 
   id = parseInt(id, 10)
-  if (!id || isNaN(id) || !isValidPassword(currentPassword) || !isValidPassword(newPassword)) {
+  if (!id || isNaN(id)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  } else if (newPassword && !isValidPassword(newPassword)) {
+    throw new httpErrors.BadRequest('Invalid parameters')
+  } else if (newEmail && !isValidEmail(newEmail)) {
     throw new httpErrors.BadRequest('Invalid parameters')
   }
 
   const user = await users.find(id)
-  const same = await bcryptCompare(currentPassword, user.password)
+  const oldEmail = user.email
 
-  if (!same) {
-    throw new httpErrors.Unauthorized('Incorrect password')
+  // Changing email and password requires a correct current password to be entered
+  if (newPassword || newEmail) {
+    if (!isValidPassword(currentPassword)) {
+      throw new httpErrors.BadRequest('Invalid parameters')
+    }
+
+    const same = await bcryptCompare(currentPassword, user.password)
+    if (!same) {
+      throw new httpErrors.Unauthorized('Incorrect password')
+    }
   }
 
-  user.password = await hashPass(newPassword)
+  if (newPassword) {
+    user.password = await hashPass(newPassword)
+  }
+  if (newEmail) {
+    user.email = newEmail
+    user.emailVerified = false
+  }
   await user.save()
 
   // No need to await this before sending response to the user
-  sendMail({
-    to: user.email,
-    subject: 'ShieldBattery Password Changed',
-    templateName: 'password-change',
-    templateData: { username: user.name },
-  }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+  if (newPassword) {
+    sendMail({
+      to: user.email,
+      subject: 'ShieldBattery Password Changed',
+      templateName: 'password-change',
+      templateData: { username: user.name },
+    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+  }
+  if (newEmail) {
+    sendMail({
+      to: oldEmail,
+      subject: 'ShieldBattery Email Changed',
+      templateName: 'email-change',
+      templateData: { username: user.name },
+    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
 
-  ctx.status = 204
+    const emailVerificationCode = cuid()
+    await addEmailVerificationCode(user.id, user.email, emailVerificationCode, ctx.ip)
+    await updateAllSessions(ctx, { emailVerified: false })
+
+    sendMail({
+      to: user.email,
+      subject: 'ShieldBattery Email Verification',
+      templateName: 'email-verification',
+      templateData: { token: emailVerificationCode },
+    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+  }
+
+  ctx.body = { email: user.email, emailVerified: user.emailVerified }
 }
 
 async function resetPassword(ctx, next) {

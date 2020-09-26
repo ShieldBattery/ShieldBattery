@@ -6,69 +6,125 @@ import Avatar from '../avatars/avatar.jsx'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
 import form from '../forms/form.jsx'
+import { Label } from '../material/button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import PasswordTextField from '../material/password-text-field.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
+import TextField from '../material/text-field.jsx'
 
 import { closeDialog } from '../dialogs/action-creators'
 import { updateAccount } from '../auth/auther'
-import { composeValidators, matchesOther, minLength, required } from '../forms/validators'
-import { PASSWORD_MINLENGTH } from '../../common/constants'
+import {
+  composeValidators,
+  matchesOther,
+  minLength,
+  maxLength,
+  regex,
+  required,
+} from '../forms/validators'
+import {
+  EMAIL_MINLENGTH,
+  EMAIL_MAXLENGTH,
+  EMAIL_PATTERN,
+  PASSWORD_MINLENGTH,
+} from '../../common/constants'
 
-import { colorError } from '../styles/colors'
+import { colorTextSecondary, colorError } from '../styles/colors'
 import { Subheading } from '../styles/typography'
 
+function passwordRequired() {
+  return (val, model, dirty) =>
+    (dirty.email || dirty.newPassword) && !val ? 'Enter your current password' : null
+}
+
+const emailValidator = composeValidators(
+  required('Enter an email address'),
+  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
+  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
+  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+)
 const passwordValidator = composeValidators(
-  required('Enter a password'),
+  passwordRequired(),
   minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
 )
 const newPasswordValidator = composeValidators(
-  required('Enter a new password'),
   minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
 )
 const confirmNewPasswordValidator = composeValidators(
-  required('Confirm your new password'),
   matchesOther('newPassword', 'Enter a matching password'),
 )
 
+const ChangePasswordButton = styled(FlatButton)`
+  & ${Label} {
+    color: ${colorTextSecondary};
+    font-weight: 400;
+  }
+`
+
 @form({
+  email: emailValidator,
   currentPassword: passwordValidator,
   newPassword: newPasswordValidator,
   confirmNewPassword: confirmNewPasswordValidator,
 })
 class AccountForm extends React.Component {
+  state = {
+    changePassword: false,
+  }
+
   render() {
     const { bindInput, onSubmit } = this.props
+    const { changePassword } = this.state
     const textInputProps = {
       autoCapitalize: 'off',
       autoCorrect: 'off',
       spellCheck: false,
-      tabIndex: 1,
+      tabIndex: 0,
     }
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
+        <TextField
+          {...bindInput('email')}
+          inputProps={textInputProps}
+          label='Email'
+          floatingLabel={true}
+        />
         <PasswordTextField
           {...bindInput('currentPassword')}
           label='Current password'
           floatingLabel={true}
           inputProps={textInputProps}
         />
-        <PasswordTextField
-          {...bindInput('newPassword')}
-          label='New password'
-          floatingLabel={true}
-          inputProps={textInputProps}
-        />
-        <PasswordTextField
-          {...bindInput('confirmNewPassword')}
-          label='Confirm new password'
-          floatingLabel={true}
-          inputProps={textInputProps}
-        />
+        {!changePassword ? (
+          <ChangePasswordButton
+            label='Change password?'
+            onClick={this.onPasswordChangeClick}
+            tabIndex={0}
+          />
+        ) : (
+          <>
+            <PasswordTextField
+              {...bindInput('newPassword')}
+              label='New password'
+              floatingLabel={true}
+              inputProps={textInputProps}
+            />
+            <PasswordTextField
+              {...bindInput('confirmNewPassword')}
+              label='Confirm new password'
+              floatingLabel={true}
+              inputProps={textInputProps}
+            />
+          </>
+        )}
       </form>
     )
+  }
+
+  onPasswordChangeClick = () => {
+    this.setState({ changePassword: true })
   }
 }
 
@@ -123,12 +179,15 @@ export default class EditAccount extends React.Component {
 
   renderDialogContents() {
     const { auth } = this.props
+    const formModel = {
+      email: auth.user.email,
+    }
 
     return (
       <AccountContainer>
         <StyledAvatar user={auth.user.name} />
         <InfoContainer>
-          <AccountForm ref={this._form} model={{}} onSubmit={this.onSubmit} />
+          <AccountForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
         </InfoContainer>
       </AccountContainer>
     )
@@ -184,10 +243,20 @@ export default class EditAccount extends React.Component {
   }
 
   onSubmit = () => {
+    const oldValues = this.props.auth.user
     const values = this._form.current.getModel()
     const userProps = {
       currentPassword: values.currentPassword,
       newPassword: values.newPassword,
+    }
+
+    if (oldValues.email === values.email && !values.newPassword) {
+      // Nothing changed, just close the dialog.
+      this.props.dispatch(closeDialog())
+      return
+    }
+    if (oldValues.email !== values.email) {
+      userProps.newEmail = values.email
     }
 
     const { id, action } = updateAccount(this.props.auth.user.id, userProps)

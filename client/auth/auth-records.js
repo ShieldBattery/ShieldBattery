@@ -3,6 +3,7 @@ import { Record } from 'immutable'
 export const User = new Record({
   id: null,
   name: null,
+  email: null,
 })
 export const Permissions = new Record({
   editPermissions: false,
