@@ -1,8 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
-import keycode from 'keycode'
 import styled from 'styled-components'
+
+import KeyListener from '../keyboard/key-listener.jsx'
+
 import { Body1, Caption } from '../styles/typography'
 import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
@@ -14,10 +16,10 @@ const transitionNames = {
   exitActive: 'exitActive',
 }
 
-const LEFT = keycode('left')
-const RIGHT = keycode('right')
-const HOME = keycode('home')
-const END = keycode('end')
+const LEFT = 'ArrowLeft'
+const RIGHT = 'ArrowRight'
+const HOME = 'Home'
+const END = 'End'
 
 const MOUSE_LEFT = 1
 
@@ -106,10 +108,11 @@ const FilledTrack = styled.div`
   will-change: transform;
 `
 
-const Track = ({ showTicks, value, min, max, step }) => {
+const Track = ({ showTicks, value, min, max, step, transitionDuration = 150 }) => {
   const scale = (value - min) / (max - min)
   const filledStyle = {
     transform: `scaleX(${scale})`,
+    transitionDuration: `${transitionDuration}ms`,
   }
 
   return (
@@ -271,6 +274,8 @@ class Slider extends React.Component {
   state = {
     isFocused: false,
     isClicked: false,
+    isDragging: false,
+    keyDownCount: 0,
   }
   rootRef = React.createRef()
   trackAreaRef = React.createRef()
@@ -321,8 +326,24 @@ class Slider extends React.Component {
       </SliderLabel>
     ) : null
 
+    // Transition duration can make the animation look laggy if the user is quickly updating the
+    // slider value, by e.g. holding down the left/right key or dragging the thumb with a mouse.
+    // We're trying to account for that by shortening the transition duration when that happens.
+    // These numbers were picked on a trial-and-error basis to fix the immediate issue of a laggy
+    // slider; a deeper look into transition performance is needed to try to fix this in a more
+    // deterministic way though.
+    let transitionDuration
+    if (this.state.isDragging) {
+      transitionDuration = 0
+    } else if (this.state.keyDownCount > 1 /* Means the user is holding down a left/right key */) {
+      transitionDuration = 30
+    } else {
+      transitionDuration = 150
+    }
+
     const thumbContainerStyle = {
       transform: `translateX(${thumbPosition}%)`,
+      transitionDuration: `${transitionDuration}ms`,
     }
 
     // TODO(tec27): implement disabled state
@@ -334,8 +355,8 @@ class Slider extends React.Component {
         className={this.props.className}
         tabIndex={this.props.tabIndex}
         onFocus={this.onFocus}
-        onBlur={this.onBlur}
-        onKeyDown={this.onKeyDown}>
+        onBlur={this.onBlur}>
+        <KeyListener onKeyDown={this.onKeyDown} onKeyUp={this.onKeyUp} />
         {labelElement}
         <Track
           min={this.props.min}
@@ -343,6 +364,7 @@ class Slider extends React.Component {
           step={this.props.step}
           value={this.props.value}
           showTicks={this.props.showTicks && this.state.isClicked}
+          transitionDuration={transitionDuration}
         />
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
@@ -372,33 +394,44 @@ class Slider extends React.Component {
   }
 
   onKeyDown = event => {
-    let handled = false
-    if (event.keyCode === LEFT) {
-      handled = true
+    if (!this.state.isFocused) return false
+
+    if (event.code === LEFT) {
       if (this.props.value !== this.props.min) {
+        this.setState({ keyDownCount: this.state.keyDownCount + 1 })
         this.onChange(this.props.value - this.props.step)
+        return true
       }
-    } else if (event.keyCode === RIGHT) {
-      handled = true
+    } else if (event.code === RIGHT) {
       if (this.props.value !== this.props.max) {
+        this.setState({ keyDownCount: this.state.keyDownCount + 1 })
         this.onChange(this.props.value + this.props.step)
+        return true
       }
-    } else if (event.keyCode === HOME) {
-      handled = true
+    } else if (event.code === HOME) {
       if (this.props.value !== this.props.min) {
         this.onChange(this.props.min)
+        return true
       }
-    } else if (event.keyCode === END) {
-      handled = true
+    } else if (event.code === END) {
       if (this.props.value !== this.props.max) {
         this.onChange(this.props.max)
+        return true
       }
     }
 
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
+    return false
+  }
+
+  onKeyUp = event => {
+    if (!this.state.isFocused) return false
+
+    if (event.code === LEFT || event.code === RIGHT) {
+      this.setState({ keyDownCount: 0 })
+      return true
     }
+
+    return false
   }
 
   minMaxValidator(value) {
@@ -444,6 +477,9 @@ class Slider extends React.Component {
 
   onMouseMove = event => {
     event.preventDefault()
+    if (!this.state.isDragging) {
+      this.setState({ isDragging: true })
+    }
     const newValue = this.getClosestValue(event.clientX)
     if (newValue !== this.props.value) {
       this.onChange(newValue)
@@ -453,7 +489,7 @@ class Slider extends React.Component {
   onMouseUp = event => {
     event.preventDefault()
     this._removeWindowListeners()
-    this.setState({ isClicked: false })
+    this.setState({ isClicked: false, isDragging: false })
     const newValue = this.getClosestValue(event.clientX)
     if (newValue !== this.props.value) {
       this.onChange(newValue)
