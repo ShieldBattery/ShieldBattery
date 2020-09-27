@@ -256,6 +256,7 @@ class Slider extends React.Component {
       }
       return null
     },
+    showTicks: PropTypes.bool,
     label: PropTypes.string,
     tabIndex: PropTypes.number,
     onChange: PropTypes.func,
@@ -263,6 +264,7 @@ class Slider extends React.Component {
 
   static defaultProps = {
     step: 1,
+    showTicks: true,
     tabIndex: 0,
   }
 
@@ -340,7 +342,7 @@ class Slider extends React.Component {
           max={this.props.max}
           step={this.props.step}
           value={this.props.value}
-          showTicks={this.state.isClicked}
+          showTicks={this.props.showTicks && this.state.isClicked}
         />
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
