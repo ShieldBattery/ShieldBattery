@@ -1,9 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import keycode from 'keycode'
 import styled from 'styled-components'
-
-import KeyListener from '../keyboard/key-listener.jsx'
 
 import { Body1, Caption } from '../styles/typography'
 import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
@@ -16,10 +15,10 @@ const transitionNames = {
   exitActive: 'exitActive',
 }
 
-const LEFT = 'ArrowLeft'
-const RIGHT = 'ArrowRight'
-const HOME = 'Home'
-const END = 'End'
+const LEFT = keycode('left')
+const RIGHT = keycode('right')
+const HOME = keycode('home')
+const END = keycode('end')
 
 const MOUSE_LEFT = 1
 
@@ -355,8 +354,9 @@ class Slider extends React.Component {
         className={this.props.className}
         tabIndex={this.props.tabIndex}
         onFocus={this.onFocus}
-        onBlur={this.onBlur}>
-        <KeyListener onKeyDown={this.onKeyDown} onKeyUp={this.onKeyUp} />
+        onBlur={this.onBlur}
+        onKeyDown={this.onKeyDown}
+        onKeyUp={this.onKeyUp}>
         {labelElement}
         <Track
           min={this.props.min}
@@ -394,44 +394,48 @@ class Slider extends React.Component {
   }
 
   onKeyDown = event => {
-    if (!this.state.isFocused) return false
-
-    if (event.code === LEFT) {
+    let handled = false
+    if (event.keyCode === LEFT) {
+      handled = true
       if (this.props.value !== this.props.min) {
         this.setState({ keyDownCount: this.state.keyDownCount + 1 })
         this.onChange(this.props.value - this.props.step)
-        return true
       }
-    } else if (event.code === RIGHT) {
+    } else if (event.keyCode === RIGHT) {
+      handled = true
       if (this.props.value !== this.props.max) {
         this.setState({ keyDownCount: this.state.keyDownCount + 1 })
         this.onChange(this.props.value + this.props.step)
-        return true
       }
-    } else if (event.code === HOME) {
+    } else if (event.keyCode === HOME) {
+      handled = true
       if (this.props.value !== this.props.min) {
         this.onChange(this.props.min)
-        return true
       }
-    } else if (event.code === END) {
+    } else if (event.keyCode === END) {
+      handled = true
       if (this.props.value !== this.props.max) {
         this.onChange(this.props.max)
-        return true
       }
     }
 
-    return false
+    if (handled) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
   }
 
   onKeyUp = event => {
-    if (!this.state.isFocused) return false
-
-    if (event.code === LEFT || event.code === RIGHT) {
+    let handled = false
+    if (event.keyCode === LEFT || event.keyCode === RIGHT) {
+      handled = true
       this.setState({ keyDownCount: 0 })
-      return true
     }
 
-    return false
+    if (handled) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
   }
 
   minMaxValidator(value) {
