@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 
+import EditAccount from '../auth/edit-account.jsx'
 import Portal from '../material/portal.jsx'
 import SimpleDialog from './simple-dialog.jsx'
 import Settings from '../settings/settings.jsx'
@@ -38,6 +39,8 @@ class ConnectedDialogOverlay extends React.Component {
     switch (dialogType) {
       case 'acceptMatch':
         return { component: AcceptMatch, modal: true }
+      case 'account':
+        return { component: EditAccount, modal: false }
       case 'changelog':
         return { component: ChangelogDialog, modal: false }
       case 'channel':

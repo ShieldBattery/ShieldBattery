@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 
 import Divider from '../material/left-nav/divider.jsx'
 import LeftNav from '../material/left-nav/left-nav.jsx'
+import MenuDivider from '../material/menu/divider.jsx'
 import MenuItem from '../material/menu/item.jsx'
 import Section from '../material/left-nav/section.jsx'
 import Subheader from '../material/left-nav/subheader.jsx'
@@ -11,6 +12,7 @@ import SelfProfileOverlay from '../profile/self-profile-overlay.jsx'
 
 import AddIcon from '../icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from '../icons/material/ic_new_releases_black_24px.svg'
+import EditIcon from '../icons/material/edit-24px.svg'
 import FeedbackIcon from '../icons/material/ic_feedback_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
 
@@ -189,6 +191,8 @@ class ConnectedLeftNav extends React.Component {
           <MenuItem icon={<FeedbackIcon />} text='Send feedback' onClick={this.onFeedbackClick} />
         ) : null}
         <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
+        <MenuItem icon={<EditIcon />} text='Edit account' onClick={this.onAccountClick} />
+        <MenuDivider />
         <MenuItem icon={<LogoutIcon />} text='Log out' onClick={this.onLogOutClick} />
       </SelfProfileOverlay>
     )
@@ -307,6 +311,11 @@ class ConnectedLeftNav extends React.Component {
   onChangelogClick = () => {
     this.onCloseProfileOverlay()
     this.props.dispatch(openChangelog())
+  }
+
+  onAccountClick = () => {
+    this.onCloseProfileOverlay()
+    this.props.dispatch(openDialog('account'))
   }
 }
 

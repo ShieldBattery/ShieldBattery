@@ -1,5 +1,6 @@
 import fetch from '../network/fetch'
 import {
+  AUTH_ACCOUNT_UPDATE,
   AUTH_CHANGE_BEGIN,
   AUTH_LOG_IN,
   AUTH_LOG_OUT,
@@ -119,4 +120,13 @@ export function sendVerificationEmail() {
   const url = '/api/1/users/sendVerification'
 
   return idRequest(AUTH_SEND_VERIFICATION_EMAIL, () => fetch(url, { method: 'post' }))
+}
+
+export function updateAccount(userId, userProps) {
+  return idRequest(AUTH_ACCOUNT_UPDATE, () =>
+    fetch('/api/1/users/' + encodeURIComponent(userId), {
+      method: 'PATCH',
+      body: JSON.stringify(userProps),
+    }),
+  )
 }

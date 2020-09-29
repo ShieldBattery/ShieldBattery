@@ -1,4 +1,5 @@
 import {
+  AUTH_ACCOUNT_UPDATE,
   AUTH_CHANGE_BEGIN,
   AUTH_LOG_IN,
   AUTH_LOG_OUT,
@@ -90,6 +91,7 @@ function handleSendVerificationEmailError(state, action) {
 
 const logInSplitter = (state, action) => (!action.error ? logInSuccess : handleError)(state, action)
 const handlers = {
+  [AUTH_ACCOUNT_UPDATE]: noOpOrError,
   [AUTH_CHANGE_BEGIN]: begin,
   [AUTH_LOG_IN]: logInSplitter,
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),

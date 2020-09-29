@@ -34,6 +34,7 @@ export const ADMIN_SET_PERMISSIONS = 'ADMIN_SET_PERMISSIONS'
 // The AudioManager has finished initializing and is ready to play sounds
 export const AUDIO_MANAGER_INITIALIZED = 'AUDIO_MANAGER_INITIALIZED'
 
+export const AUTH_ACCOUNT_UPDATE = 'AUTH_ACCOUNT_UPDATE'
 export const AUTH_CHANGE_BEGIN = 'AUTH_CHANGE_BEGIN'
 export const AUTH_LOG_IN = 'AUTH_LOG_IN'
 export const AUTH_LOG_OUT = 'AUTH_LOG_OUT'
