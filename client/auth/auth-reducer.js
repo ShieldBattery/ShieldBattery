@@ -89,9 +89,19 @@ function handleSendVerificationEmailError(state, action) {
   )
 }
 
+function accountUpdate(state, action) {
+  const { email, emailVerified } = action.payload
+  return state
+    .set('authChangeInProgress', false)
+    .set('lastFailure', null)
+    .set('emailVerified', emailVerified)
+    .setIn(['user', 'email'], email)
+}
+
 const logInSplitter = (state, action) => (!action.error ? logInSuccess : handleError)(state, action)
 const handlers = {
-  [AUTH_ACCOUNT_UPDATE]: noOpOrError,
+  [AUTH_ACCOUNT_UPDATE]: (state, action) =>
+    (!action.error ? accountUpdate : handleError)(state, action),
   [AUTH_CHANGE_BEGIN]: begin,
   [AUTH_LOG_IN]: logInSplitter,
   [AUTH_LOG_OUT]: (state, action) => (!action.error ? logOutSuccess : handleError)(state, action),

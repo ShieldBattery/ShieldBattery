@@ -93,7 +93,7 @@ export default (validations = {}) => Wrapped => {
     validate(name) {
       if (validations.hasOwnProperty(name)) {
         const resultPromise = Promise.resolve(
-          validations[name](this.state.model[name], this.state.model),
+          validations[name](this.state.model[name], this.state.model, this.state.dirty),
         )
         this._validationPromises[name] = resultPromise
         resultPromise.then(errorMsg => {

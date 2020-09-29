@@ -40,13 +40,14 @@ class User {
   }
 
   async _insert() {
-    const query =
-      'INSERT INTO users (name, email, password, created, signup_ip_address) ' +
-      'VALUES ($1, $2, $3, $4, $5) RETURNING id'
-    const params = [this.name, this.email, this.password, this.created, this.signupIpAddress]
+    const query = sql`
+      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified)
+      VALUES (${this.name}, ${this.email}, ${this.password}, ${this.created},
+        ${this.signupIpAddress}, ${!!this.emailVerified})
+      RETURNING id`
 
     return transact(async client => {
-      const result = await client.query(query, params)
+      const result = await client.query(query)
       if (result.rows.length < 1) {
         throw new Error('No rows returned')
       }
@@ -61,20 +62,16 @@ class User {
 
   async _update() {
     if (!this.id) throw new Error('Incomplete data')
-    const query = `UPDATE users SET name = $1, email = $2, password = $3, created = $4,
-        signup_ip_address = $5 WHERE id = $6`
-    const params = [
-      this.name,
-      this.email,
-      this.password,
-      this.created,
-      this.signupIpAddress,
-      this.id,
-    ]
+    const query = sql`
+      UPDATE users
+      SET name = ${this.name}, email = ${this.email}, password = ${this.password},
+        created = ${this.created}, signup_ip_address = ${this.signupIpAddress},
+        email_verified = ${!!this.emailVerified}
+      WHERE id = ${this.id};`
 
     const { client, done } = await db()
     try {
-      await client.query(query, params)
+      await client.query(query)
       return this
     } finally {
       done()

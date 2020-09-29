@@ -1,9 +1,9 @@
 // Returns a validator that executes multiple validators in sequence, returning the first error
 // encountered
 export function composeValidators(...validators) {
-  return async (value, model) => {
+  return async (...args) => {
     for (const validator of validators) {
-      const error = await validator(value, model)
+      const error = await validator(...args)
       if (error) {
         return error
       }

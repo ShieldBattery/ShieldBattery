@@ -206,19 +206,25 @@ export default class TextField extends React.Component {
       onKeyDown: this.onKeyDown,
     }
 
-    const leadingIconsElements = leadingIcons.map((leadingIcon, index) => (
-      <LeadingIcon key={index} index={index} dense={dense}>
-        {leadingIcon}
-      </LeadingIcon>
-    ))
+    const leadingIconsElements = leadingIcons.map((leadingIcon, index) => {
+      const elem = React.cloneElement(leadingIcon, { tabIndex: -1 })
+      return (
+        <LeadingIcon key={index} index={index} dense={dense}>
+          {elem}
+        </LeadingIcon>
+      )
+    })
     const trailingIconsElements = trailingIcons
       .slice() // Don't mutate the original array
       .reverse()
-      .map((trailingIcon, index) => (
-        <TrailingIcon key={index} index={index} dense={dense} multiline={multiline}>
-          {trailingIcon}
-        </TrailingIcon>
-      ))
+      .map((trailingIcon, index) => {
+        const elem = React.cloneElement(trailingIcon, { tabIndex: -1 })
+        return (
+          <TrailingIcon key={index} index={index} dense={dense} multiline={multiline}>
+            {elem}
+          </TrailingIcon>
+        )
+      })
 
     return (
       <div className={this.props.className}>
