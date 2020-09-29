@@ -63,6 +63,20 @@ export default class AudioManager {
     return this._context.currentTime
   }
 
+  get masterVolume() {
+    return this._nodes.masterGain.gain.value
+  }
+
+  // Volume should be a value between 0 and 100, which represents the percentage that the master
+  // volume will be set to.
+  setMasterVolume(volume) {
+    if (Number.isNaN(volume) || volume < 0 || volume > 100) {
+      throw new Error('Invalid volume value: ' + volume)
+    }
+
+    this._nodes.masterGain.gain.value = volume / 100
+  }
+
   // soundId is a value from AudioManager.SOUNDS
   // Returns the AudioBufferSourceNode
   playSound(soundId) {

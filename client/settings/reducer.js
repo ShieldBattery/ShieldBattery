@@ -11,6 +11,7 @@ export const LocalSettings = new Record({
   starcraftPath: null,
   gameWinX: null,
   gameWinY: null,
+  masterVolume: null,
 
   lastError: null,
 })

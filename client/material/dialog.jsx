@@ -98,6 +98,7 @@ class Dialog extends React.Component {
     title: PropTypes.string.isRequired,
     titleAction: PropTypes.element,
     showCloseButton: PropTypes.bool,
+    tabs: PropTypes.element,
     buttons: PropTypes.arrayOf(PropTypes.element),
   }
 
@@ -107,7 +108,7 @@ class Dialog extends React.Component {
   }
 
   render() {
-    const { title, titleAction, showCloseButton, buttons } = this.props
+    const { title, titleAction, showCloseButton, tabs, buttons } = this.props
     const { scrolledUp, scrolledDown } = this.state
 
     const closeButton = showCloseButton ? (
@@ -126,7 +127,8 @@ class Dialog extends React.Component {
           {titleAction}
           {closeButton}
         </TitleBar>
-        {scrolledDown ? <ScrollDivider position='top' /> : null}
+        {tabs}
+        {scrolledDown || tabs ? <ScrollDivider position='top' /> : null}
         <ScrollableContent
           autoHeight={true}
           autoHeightMin={'100px'}
