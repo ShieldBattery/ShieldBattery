@@ -96,17 +96,15 @@ Promise.all([rootElemPromise])
   })
   .then(async ({ elem, store, history }) => {
     let analyticsId = window._sbAnalyticsId
-    if (IS_ELECTRON) {
-      const configPromise = fetch('/config', { method: 'get' })
-      const { action, promise: sessionPromise } = getCurrentSession()
-      store.dispatch(action)
-      try {
-        const [config] = await Promise.all([configPromise, sessionPromise])
-        analyticsId = config.analyticsId
-        window._sbFeedbackUrl = config.feedbackUrl
-      } catch (err) {
-        // Ignored, usually just means we don't have a current session
-      }
+    const configPromise = fetch('/config', { method: 'get' })
+    const { action, promise: sessionPromise } = getCurrentSession()
+    store.dispatch(action)
+    try {
+      const [config] = await Promise.all([configPromise, sessionPromise])
+      analyticsId = config.analyticsId
+      window._sbFeedbackUrl = config.feedbackUrl
+    } catch (err) {
+      // Ignored, usually just means we don't have a current session
     }
     return { elem, store, history, analyticsId }
   })
