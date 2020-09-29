@@ -53,4 +53,4 @@ rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
 
 [dependencies.samase_scarf]
 git = "https://github.com/neivv/samase_scarf/"
-rev = "c4eff01bb4cdd88f773e96cd8c1e6e4d56d3f363"
+rev = "8a35243db57e7719b14798e8fee83fe81d6fb750"

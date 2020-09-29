@@ -28,6 +28,8 @@ const NET_PLAYER_COUNT: usize = 12;
 pub struct BwScr {
     game: Value<*mut bw::Game>,
     players: Value<*mut bw::Player>,
+    chk_players: Value<*mut bw::Player>,
+    init_chk_player_types: Value<*mut u8>,
     storm_players: Value<*mut scr::StormPlayer>,
     storm_player_flags: Value<*mut u32>,
     lobby_state: Value<u8>,
@@ -55,7 +57,13 @@ pub struct BwScr {
         unsafe extern "C" fn(*mut scr::JoinableGameInfo, *mut scr::BwString, usize) -> u32,
     game_loop: unsafe extern "C" fn(),
     init_sprites: unsafe extern "C" fn(),
-    init_game_network: unsafe extern "C" fn(),
+    // Setting the argument to nonzero seems to be used by the new bnet lobbies/mm?
+    // Skips over some player initialization and lobby map downloads.
+    // It may be slightly more ideal for us to call init_game_network(1) as well, but
+    // it would at least require the host to call init_team_game_playable_slots(), and
+    // as there may be other similar data that would not be inited, it's going to do
+    // init_game_network(0) for now. And that's closer to 1161 behaviour.
+    init_game_network: unsafe extern "C" fn(u32),
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
@@ -549,6 +557,9 @@ impl BwScr {
 
         let game = analysis.game().ok_or("Game")?;
         let players = analysis.players().ok_or("Players")?;
+        let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
+        let init_chk_player_types =
+            analysis.original_chk_player_types().ok_or("Orig CHK player types")?;
         let net_players = analysis.net_players();
         let storm_players = net_players.net_players.clone().ok_or("Storm players")?;
         let init_network_player_info = net_players.init_net_player
@@ -627,6 +638,8 @@ impl BwScr {
         Ok(BwScr {
             game: Value::new(ctx, game),
             players: Value::new(ctx, players),
+            chk_players: Value::new(ctx, chk_players),
+            init_chk_player_types: Value::new(ctx, init_chk_player_types),
             storm_players: Value::new(ctx, storm_players.0),
             storm_player_flags: Value::new(ctx, storm_player_flags),
             lobby_state: Value::new(ctx, lobby_state),
@@ -834,6 +847,24 @@ impl BwScr {
     unsafe fn storm_last_error(&self) -> u32 {
         *self.storm_last_error_ptr()
     }
+
+    unsafe fn init_team_game_playable_slots(&self) {
+        // There's a bw::Player structure that contains player types as they were
+        // defined in the map scenario.chk; It is being used in lobby to know which slots
+        // are completely disabled, which ones are available for humans etc.
+        // Team games override that and set all those slots to open so that they can
+        // have all 8 slots available in lobby on smaller maps.
+        // This requires the player types to be copied to a backup array; usually people
+        // joining that get the array's contents from a message sent by the host, but we
+        // skip that. Copying that information from the chk players
+        // (which is same what the host does) is fine since we guarantee that all players
+        // have the map file ready before joining, so the data there is valid.
+        let chk_players = self.chk_players.resolve();
+        let init_player_types = self.init_chk_player_types.resolve();
+        for i in 0..12 {
+            *init_player_types.add(i) = (*chk_players.add(i)).player_type;
+        }
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -884,7 +915,7 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn init_game_network(&self) {
-        (self.init_game_network)()
+        (self.init_game_network)(0)
     }
 
     unsafe fn init_network_player_info(&self, storm_player_id: u32) {
@@ -998,7 +1029,7 @@ impl bw::Bw for BwScr {
             // as well, struct offsets may change and we may miss the error.
             return Err(bw::LobbyCreateError::from_error_code(result));
         }
-        (self.init_game_network)();
+        (self.init_game_network)(0);
         Ok(())
     }
 
@@ -1114,7 +1145,7 @@ impl bw::Bw for BwScr {
         if ok == 0 {
             return Err(self.storm_last_error());
         }
-        // TODO Team game thing
+        self.init_team_game_playable_slots();
         Ok(())
     }
 
