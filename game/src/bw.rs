@@ -81,6 +81,10 @@ impl GameType {
     pub fn is_ums(&self) -> bool {
         self.primary == 0xa
     }
+
+    pub fn is_team_game(&self) -> bool {
+        matches!(self.primary, 0xb | 0xc | 0xd)
+    }
 }
 
 quick_error! {

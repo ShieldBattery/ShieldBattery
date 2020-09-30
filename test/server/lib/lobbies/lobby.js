@@ -836,6 +836,19 @@ describe('Lobbies - Team melee', () => {
     expect(() => Lobbies.openSlot(lobby, 0, 0)).to.throw(Error)
     expect(() => Lobbies.openSlot(lobby, 0, 1)).to.throw(Error)
   })
+
+  it('should only allow a single race for computer teams', () => {
+    const comp = Slots.createComputer('t')
+    let lobby = Lobbies.addPlayer(TEAM_MELEE_3, 1, 0, comp)
+    expect(lobby.teams.get(1).slots.get(0)).to.equal(comp)
+    expect(lobby.teams.get(1).slots.get(1).race).to.equal('t')
+    expect(lobby.teams.get(1).slots.get(2).race).to.equal('t')
+
+    lobby = Lobbies.setRace(lobby, 1, 1, 'r')
+    expect(lobby.teams.get(1).slots.get(0).race).to.equal('r')
+    expect(lobby.teams.get(1).slots.get(1).race).to.equal('r')
+    expect(lobby.teams.get(1).slots.get(2).race).to.equal('r')
+  })
 })
 
 const UMS_MAP_1 = {

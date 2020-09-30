@@ -921,6 +921,25 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
         };
         with_bw(|bw| bw.set_player_name(slot_id as u8, &slot.name));
     }
+    // Verify that computer team races in team melee are either all random or no random.
+    // Otherwise the race randomization function will generate invalid races.
+    // This is also supposed to be prevented server-side, but verifying it also here is
+    // very preferable to debugging a game that broke due to invalid races.
+    if game_type.is_team_game() {
+        let players = std::slice::from_raw_parts(players, 8);
+        for i in 0..4 {
+            let team = i + 1;
+            if players.iter().any(|x| {
+                x.team == team &&
+                    x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER &&
+                    x.race == bw::RACE_RANDOM
+            }) {
+                if players.iter().any(|x| x.team == team && x.race != bw::RACE_RANDOM) {
+                    panic!("Computer team {} has both random and non-random slots, which is not allowed", i);
+                }
+            }
+        }
+    }
 }
 
 unsafe fn storm_player_names(bw: &dyn bw::Bw) -> Vec<Option<String>> {

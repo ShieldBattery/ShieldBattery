@@ -319,7 +319,20 @@ export function addPlayer(lobby, teamIndex, slotIndex, player) {
 
 // Updates the race of a particular player, returning the updated lobby.
 export function setRace(lobby, teamIndex, slotIndex, newRace) {
-  return lobby.setIn(['teams', teamIndex, 'slots', slotIndex, 'race'], newRace)
+  const team = lobby.teams.get(teamIndex)
+  if (
+    hasControlledOpens(lobby.gameType) &&
+    team.slots.count(slot => slot.type === 'computer') > 0
+  ) {
+    // BW doesn't support computer teams in team melee having different races. Change all races
+    // of a computer team at once.
+    // The exact limitation is with some but not all slots being random, we could allow multiple
+    // non-random races but the AI won't be able to take advantage of it anyway.
+    const slots = team.slots.map(slot => slot.set('race', newRace))
+    return lobby.setIn(['teams', teamIndex, 'slots'], slots)
+  } else {
+    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex, 'race'], newRace)
+  }
 }
 
 // A helper function that is used when a player leaves a team in team melee/ffa game types. Leave
