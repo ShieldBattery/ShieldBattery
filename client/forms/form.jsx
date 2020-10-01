@@ -192,6 +192,14 @@ export default (validations = {}) => Wrapped => {
         this.onChange,
       )
     }
+    setInputError = (name, errorMsg) => {
+      this.setState({
+        validationErrors: {
+          ...this.state.validationErrors,
+          [name]: errorMsg,
+        },
+      })
+    }
 
     getModel() {
       return this.state.model
@@ -244,6 +252,7 @@ export default (validations = {}) => Wrapped => {
         bindInput: this.bindInput,
         getInputValue: this.getInputValue,
         setInputValue: this.setInputValue,
+        setInputError: this.setInputError,
       }
 
       return <Wrapped {...childProps} />

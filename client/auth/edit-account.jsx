@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
@@ -68,8 +69,18 @@ const ChangePasswordButton = styled(FlatButton)`
   confirmNewPassword: confirmNewPasswordValidator,
 })
 class AccountForm extends React.Component {
+  static propTypes = {
+    passwordError: PropTypes.string,
+  }
+
   state = {
     changePassword: false,
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.passwordError !== this.props.passwordError && this.props.passwordError) {
+      this.props.setInputError('currentPassword', this.props.passwordError)
+    }
   }
 
   render() {
@@ -177,7 +188,7 @@ export default class EditAccount extends React.Component {
     }
   }
 
-  renderDialogContents() {
+  renderDialogContents(passwordError) {
     const { auth } = this.props
     const formModel = {
       email: auth.user.email,
@@ -187,7 +198,12 @@ export default class EditAccount extends React.Component {
       <AccountContainer>
         <StyledAvatar user={auth.user.name} />
         <InfoContainer>
-          <AccountForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
+          <AccountForm
+            ref={this._form}
+            model={formModel}
+            passwordError={passwordError}
+            onSubmit={this.onSubmit}
+          />
         </InfoContainer>
       </AccountContainer>
     )
@@ -198,6 +214,7 @@ export default class EditAccount extends React.Component {
     const { reqId } = this.state
     let loadingElem
     let errorElem
+    let passwordError
 
     if (auth.authChangeInProgress) {
       loadingElem = (
@@ -210,7 +227,7 @@ export default class EditAccount extends React.Component {
     if (reqId && auth.lastFailure && auth.lastFailure.reqId === reqId) {
       // TODO(2Pac): Use the actual error code once the error system is implemented.
       if (auth.lastFailure.err === 'Incorrect password') {
-        errorElem = <ErrorText>Incorrect current password.</ErrorText>
+        passwordError = 'Incorrect current password.'
       } else {
         errorElem = (
           <ErrorText>There was an issue updating your account. Please try again later.</ErrorText>
@@ -233,7 +250,7 @@ export default class EditAccount extends React.Component {
       <Dialog title={'Edit account'} buttons={buttons} showCloseButton={true} onCancel={onCancel}>
         {loadingElem}
         {errorElem}
-        {this.renderDialogContents()}
+        {this.renderDialogContents(passwordError)}
       </Dialog>
     )
   }
