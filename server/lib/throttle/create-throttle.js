@@ -42,14 +42,17 @@ class IoredisTable extends RedisTable {
   }
 }
 
-// Creates a new throttle object using the specified options and our usual redis client.
-// The `name` is used in the redis key.
-// Options are:
-//  - window: the number of milliseconds in which `rate` and `burst` act
-//  - rate: how many tokens are refreshed every `window` amount of time
-//  - burst: maximum number of requests allowed in a `window` amount of time
-//  - expiry: how long the token bucket keys in redis should be set to expire for, in seconds
-//    (default: 10 * (`burst` / `rate`) `window`s)
+/**
+ * Creates a new throttle object using the specified options and our usual redis client. The `name`
+ * is used in the redis key.
+ *
+ * Options are:
+ *  - window: the number of milliseconds in which `rate` and `burst` act
+ *  - rate: how many tokens are refreshed every `window` amount of time
+ *  - burst: maximum number of requests allowed in a `window` amount of time
+ *  - expiry: how long the token bucket keys in redis should be set to expire for, in seconds
+ *    (default: 10 * (`burst` / `rate`) `window`s)
+ */
 export default function createThrottle(name, opts) {
   const table = new IoredisTable(redisClient, {
     prefix: 'sbthrottle:' + name,

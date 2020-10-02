@@ -1,4 +1,4 @@
-import chai, { expect } from 'chai'
+import { expect } from 'chai'
 import {
   GAME_RESULT_DEFEAT,
   GAME_RESULT_DISCONNECTED,

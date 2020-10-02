@@ -1,25 +1,4 @@
-import {
-  GAME_RESULT_DISCONNECTED,
-  GAME_RESULT_PLAYING,
-  GAME_RESULT_VICTORY,
-  GAME_RESULT_DEFEAT,
-} from '../../../common/game-results'
-
-// tec28's result:
-/*
-[
-  ['tec27', 0],
-  ['tec28', 2],
-]
-*/
-
-// tec27's result:
-/*
-[
-  ['tec27', 3],
-  ['tec28', 2],
-]
-*/
+import { GAME_RESULT_VICTORY, GAME_RESULT_DEFEAT } from '../../../common/game-results'
 
 function isTerminal(resultCode) {
   return resultCode === GAME_RESULT_VICTORY || resultCode === GAME_RESULT_DEFEAT
