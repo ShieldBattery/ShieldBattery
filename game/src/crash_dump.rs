@@ -43,12 +43,11 @@ pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) ->
 }
 
 unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
+    assert!(!exception.is_null());
     // TODO
-    let args = crate::parse_args();
-    let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
     let place = (*(*exception).ContextRecord).Eip;
     let mut message = format!("Crash @ {:08x}", place);
-    if let Err(e) = write_minidump(&minidump_path, exception) {
+    if let Err(e) = write_minidump_to_default_path(exception) {
         message = format!("Crash @ {:08x}, couldn't write dump: {}", place, e);
     };
 
@@ -58,6 +57,21 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     loop {}
 }
 
+/// The exception is allowed to be null, in which case it'll just write a minidump
+/// without an exception.
+/// Note that MiniDumpWriteDump does not (usually?) produce correct call stack for the
+/// current thread; in most cases where you don't have an exception you'll likely want
+/// to start a helper thread that calls this function, so that the actual thread's state gets
+/// dumped correctly.
+pub unsafe fn write_minidump_to_default_path(
+    exception: *mut EXCEPTION_POINTERS,
+) -> Result<(), io::Error>{
+    let args = crate::parse_args();
+    let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
+    write_minidump(&minidump_path, exception)
+}
+
+/// The exception is allowed to be null.
 unsafe fn write_minidump(
     path: &Path,
     exception: *mut EXCEPTION_POINTERS,

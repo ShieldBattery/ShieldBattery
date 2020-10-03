@@ -26,7 +26,7 @@ use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -103,6 +103,8 @@ fn log_file() -> File {
 fn panic_hook(info: &std::panic::PanicInfo) {
     use std::fmt::Write;
 
+    static ALREADY_PANICKING: AtomicBool = AtomicBool::new(false);
+
     fn backtrace() -> String {
         let mut backtrace = String::new();
         backtrace::trace(|frame| {
@@ -139,6 +141,20 @@ fn panic_hook(info: &std::panic::PanicInfo) {
         backtrace
     }
 
+    let already_panicking = ALREADY_PANICKING.swap(true, Ordering::Relaxed);
+    if already_panicking {
+        // Another thread is already panicking. This may either mean that
+        // a) Two threads happened to panic simultaneously
+        // or
+        // b) the minidump thread started below panicked.
+        // Wait a bit in case this is case a), and if the process is still alive,
+        // log this panic and abort (Without writing minidump so that we don't get
+        // recursive case `b`s)
+        std::thread::sleep(std::time::Duration::from_millis(5000));
+        debug!("Another thread panicked after the first panic:");
+        return;
+    }
+
     let mut msg = String::new();
     let location = match info.location() {
         Some(s) => format!("{}:{}", s.file(), s.line()),
@@ -158,6 +174,24 @@ fn panic_hook(info: &std::panic::PanicInfo) {
         write!(msg, "Backtrace:\n{}", backtrace()).unwrap();
     }
     error!("{}", msg);
+    if !already_panicking {
+        // Write minidump in a separate thread so that this thread's stack will be accurate.
+        let result = std::thread::spawn(move || {
+            unsafe {
+                crash_dump::write_minidump_to_default_path(std::ptr::null_mut())
+            }
+        }).join();
+        match result {
+            Ok(Ok(())) => (),
+            Ok(Err(e)) => {
+                error!("Unable to write minidump: {}", e);
+            }
+            Err(_) => {
+                // This should be unreachable, as this dll is being compiled to abort on panics
+                error!("Minidump writing thread panicked");
+            }
+        }
+    }
     // TODO Probs tell how to report, where to get log file etc
     windows::message_box("Shieldbattery crash :(", &format!("{}\n{}", location, panic_msg));
     unsafe {
