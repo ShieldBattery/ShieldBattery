@@ -20,7 +20,7 @@
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "main": "index.js",
   "engines": {
-    "node": ">= 10.0.0"
+    "node": ">= 12.0.0"
   },
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
