@@ -1,6 +1,6 @@
 //! Helpers for creating scarf::BinaryFile from a image loaded in memory
 
-use samase_scarf::scarf::{VirtualAddress, BinarySection};
+use scr_analysis::scarf::{VirtualAddress, BinarySection};
 
 pub unsafe fn get_pe_header(base: *const u8) -> BinarySection<VirtualAddress> {
     let pe_header = read_u32(base, 0x3c);

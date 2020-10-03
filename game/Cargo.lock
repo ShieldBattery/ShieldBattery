@@ -667,6 +667,13 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "scr-analysis"
+version = "0.1.0"
+dependencies = [
+ "samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=8a35243db57e7719b14798e8fee83fe81d6fb750)",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.111"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -724,8 +731,8 @@ dependencies = [
  "parking_lot 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "samase_scarf 0.1.0 (git+https://github.com/neivv/samase_scarf/?rev=8a35243db57e7719b14798e8fee83fe81d6fb750)",
  "scopeguard 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "scr-analysis 0.1.0",
  "serde 1.0.111 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.53 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",

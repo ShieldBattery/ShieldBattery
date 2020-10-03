@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
-use samase_scarf::scarf::{self};
+use scr_analysis::scarf;
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use crate::bw::{self, Bw};
@@ -478,7 +478,7 @@ impl<T: BwValue> Value<T> {
     /// so their pointer could technically be changed. But there still isn't
     /// any reason to.)
     unsafe fn write(&self, value: T) {
-        use samase_scarf::scarf::{MemAccessSize, OperandType};
+        use scr_analysis::scarf::{MemAccessSize, OperandType};
         let value = T::to_usize(value);
         match self.op.ty() {
             OperandType::Memory(ref mem) => {
@@ -499,7 +499,7 @@ unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
 
 unsafe fn resolve_operand(op: scarf::Operand<'_>) -> usize {
-    use samase_scarf::scarf::{ArithOpType, MemAccessSize, OperandType};
+    use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
     match *op.ty() {
         OperandType::Constant(c) => c as usize,
         OperandType::Memory(ref mem) => {
@@ -552,29 +552,24 @@ impl BwScr {
             binary
         };
         let ctx = scarf::OperandContext::new();
-        let mut analysis: samase_scarf::Analysis<scarf::ExecutionStateX86<'_>> =
-            samase_scarf::Analysis::new(&binary, &ctx);
+        let mut analysis = scr_analysis::Analysis::new(&binary, &ctx);
 
         let game = analysis.game().ok_or("Game")?;
         let players = analysis.players().ok_or("Players")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
         let init_chk_player_types =
             analysis.original_chk_player_types().ok_or("Orig CHK player types")?;
-        let net_players = analysis.net_players();
-        let storm_players = net_players.net_players.clone().ok_or("Storm players")?;
-        let init_network_player_info = net_players.init_net_player
+        let storm_players = analysis.storm_players().ok_or("Storm players")?;
+        let init_network_player_info = analysis.init_net_player()
             .ok_or("init_network_player_info")?;
-        let step = analysis.step_network();
-        let storm_player_flags = step.net_player_flags.clone().ok_or("Storm player flags")?;
-        let step_network = step.step_network.ok_or("step_network")?;
+        let storm_player_flags = analysis.net_player_flags().ok_or("Storm player flags")?;
+        let step_network = analysis.step_network().ok_or("step_network")?;
         let lobby_state = analysis.lobby_state().ok_or("Lobby state")?;
-        let select_map_entry = analysis.select_map_entry();
-        let is_multiplayer = select_map_entry.is_multiplayer.clone().ok_or("is_multiplayer")?;
-        let select_map_entry = select_map_entry.select_map_entry.ok_or("select_map_entry")?;
-        let game_init = analysis.game_init();
-        let game_state = game_init.scmain_state.clone().ok_or("Game state")?;
-        let mainmenu_entry_hook = game_init.mainmenu_entry_hook.ok_or("Entry hook")?;
-        let game_loop = game_init.game_loop.ok_or("Game loop")?;
+        let is_multiplayer = analysis.is_multiplayer().ok_or("is_multiplayer")?;
+        let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
+        let game_state = analysis.game_state().ok_or("Game state")?;
+        let mainmenu_entry_hook = analysis.mainmenu_entry_hook().ok_or("Entry hook")?;
+        let game_loop = analysis.game_loop().ok_or("Game loop")?;
         let init_map_from_path = analysis.init_map_from_path().ok_or("init_map_from_path")?;
         let join_game = analysis.join_game().ok_or("join_game")?;
         let init_sprites = analysis.load_images().ok_or("Init sprites")?;
@@ -584,19 +579,17 @@ impl BwScr {
             .ok_or("Process lobby commands")?;
         let send_command = analysis.send_command().ok_or("send_command")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
-        let start = analysis.single_player_start();
-        let local_storm_id = start.local_storm_player_id.clone().ok_or("Local storm id")?;
-        let local_unique_player_id = start.local_unique_player_id.clone()
+        let local_storm_id = analysis.local_storm_player_id().ok_or("Local storm id")?;
+        let local_unique_player_id = analysis.local_unique_player_id()
             .ok_or("Local unique player id")?;
-        let net_player_to_game = start.net_player_to_game.clone().ok_or("Net player to game")?;
-        let net_player_to_unique = start.net_player_to_unique.clone()
-            .ok_or("Net player to unique")?;
+        let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
+        let net_player_to_unique = analysis.net_player_to_unique().ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
         let local_player_name = analysis.local_player_name().ok_or("Local player name")?;
         let fonts = analysis.fonts().ok_or("Fonts")?;
-        let init = analysis.init_storm_networking();
-        let init_storm_networking = init.init_storm_networking.ok_or("init_storm_networking")?;
-        let load_snp_list = init.load_snp_list.ok_or("load_snp_list")?;
+        let init_storm_networking = analysis.init_storm_networking()
+            .ok_or("init_storm_networking")?;
+        let load_snp_list = analysis.load_snp_list().ok_or("load_snp_list")?;
         let font_cache_render_ascii = analysis.font_cache_render_ascii()
             .ok_or("font_cache_render_ascii")?;
         let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
@@ -604,27 +597,21 @@ impl BwScr {
         let lobby_create_callback_offset =
             analysis.create_game_dialog_vtbl_on_multiplayer_create()
                 .ok_or("Lobby create callback vtable offset")?;
-        let process_game_commands = analysis.process_commands().process_commands
-            .ok_or("process_game_commands")?;
-        let game_command_lengths = (*analysis.command_lengths()).clone();
+        let process_game_commands = analysis.process_commands().ok_or("process_game_commands")?;
+        let game_command_lengths = analysis.command_lengths();
         let snet_recv_packets = analysis.snet_recv_packets().ok_or("snet_recv_packets")?;
         let snet_send_packets = analysis.snet_send_packets().ok_or("snet_send_packets")?;
-        let scheduler_vtable = Some(analysis.vtables_for_class(b".?AVSchedulerService@services"))
-            // There is only 1 matching vtable for now, hopefully it won't change
-            .filter(|x| x.len() == 1)
-            .map(|x| x[0])
-            .ok_or("Scheduler vtable")?;
-        let step_io = unsafe { *(scheduler_vtable.0 as *mut usize).add(3) };
-        let init_game_data = analysis.init_game().init_game.ok_or("init_game_data")?;
+        let step_io = analysis.step_io().ok_or("step_io")?;
+        let init_game_data = analysis.init_game().ok_or("init_game_data")?;
 
-        let starcraft_tls_index = get_tls_index(&binary).ok_or("TLS index")?;
+        let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
         let disable_hd = match std::env::var_os("SB_NO_HD") {
             Some(s) => s == "1",
             None => false,
         };
         let open_file = if disable_hd {
-            let open_file = analysis.file_hook().get(0).cloned()
+            let open_file = analysis.file_hook()
                 .ok_or("open_file (Required due to SB_NO_HD)")?;
             Some(open_file)
         } else {
@@ -640,7 +627,7 @@ impl BwScr {
             players: Value::new(ctx, players),
             chk_players: Value::new(ctx, chk_players),
             init_chk_player_types: Value::new(ctx, init_chk_player_types),
-            storm_players: Value::new(ctx, storm_players.0),
+            storm_players: Value::new(ctx, storm_players),
             storm_player_flags: Value::new(ctx, storm_player_flags),
             lobby_state: Value::new(ctx, lobby_state),
             is_multiplayer: Value::new(ctx, is_multiplayer),
@@ -675,7 +662,7 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             process_game_commands,
-            step_io: scarf::VirtualAddress(step_io as _),
+            step_io,
             init_game_data,
             game_command_lengths,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
@@ -1389,15 +1376,6 @@ mod hooks {
 // mov eax, fs:[0x2c]; ret
 #[link_section = ".text"]
 static GET_TLS_TABLE: [u8; 7] = [0x64, 0xa1, 0x2c, 0x00, 0x00, 0x00, 0xc3];
-
-fn get_tls_index(binary: &scarf::BinaryFile<scarf::VirtualAddress>) -> Option<*mut u32> {
-    let base = binary.base;
-    let pe_start = binary.read_u32(base + 0x3c).ok()?;
-    let tls_offset = binary.read_u32(base + pe_start + 0xc0).ok().filter(|&offset| offset != 0)?;
-    let tls_address = base + tls_offset;
-    let tls_ptr = binary.read_u32(tls_address + 0x8).ok()?;
-    Some(tls_ptr as *mut u32)
-}
 
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer

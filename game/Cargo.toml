@@ -51,6 +51,30 @@ features = [
 git = "https://github.com/neivv/whack/"
 rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
 
-[dependencies.samase_scarf]
-git = "https://github.com/neivv/samase_scarf/"
-rev = "8a35243db57e7719b14798e8fee83fe81d6fb750"
+# -- Local helper crates --
+[workspace]
+
+[dependencies.scr-analysis]
+path = "./scr-analysis"
+
+[profile.dev.package.scr-analysis]
+# Optimize scr-analysis subcrate as its code takes quite a lot of time to run
+# if not optimized (That is also the main reason for it being a separate crate)
+opt-level = 2
+
+# Same for lower level analysis crates (Not sure if samase_scarf makes difference since
+# it should be 90% generic functions that end up being optimized in scr-analysis)
+[profile.dev.package.samase_scarf]
+opt-level = 2
+
+[profile.dev.package.scarf]
+opt-level = 2
+
+[profile.dev.package.memmem]
+opt-level = 2
+
+# The http crate relies pretty heavily on optimizations to be usable;
+# http::header::name::parse_hdr is 135 kB unoptimized, 19 kB optimized
+# (Imo it either way chooses a poor tradeoff between size and performance but oh well)
+[profile.dev.package.http]
+opt-level = 2

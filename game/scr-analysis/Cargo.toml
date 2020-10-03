@@ -1,0 +1,8 @@
+[package]
+name = "scr-analysis"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies.samase_scarf]
+git = "https://github.com/neivv/samase_scarf/"
+rev = "8a35243db57e7719b14798e8fee83fe81d6fb750"
