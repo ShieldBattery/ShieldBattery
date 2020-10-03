@@ -6,7 +6,6 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
-import sendAccountVerificationEmail from '../verifications/send-account-verification-email'
 import sendMail from '../mail/mailer'
 import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
@@ -120,7 +119,14 @@ async function createUser(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
-  await sendAccountVerificationEmail(code, email)
+  // No need to await for this
+  sendMail({
+    to: email,
+    subject: 'ShieldBattery Email Verification',
+    templateName: 'email-verification',
+    templateData: { token: code },
+  }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
+
   ctx.body = result
 }
 
@@ -169,7 +175,7 @@ async function updateUser(ctx, next) {
       subject: 'ShieldBattery Password Changed',
       templateName: 'password-change',
       templateData: { username: user.name },
-    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+    }).catch(err => ctx.log.error({ err }, 'Error sending password changed email'))
   }
   if (newEmail) {
     sendMail({
@@ -177,7 +183,7 @@ async function updateUser(ctx, next) {
       subject: 'ShieldBattery Email Changed',
       templateName: 'email-change',
       templateData: { username: user.name },
-    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+    }).catch(err => ctx.log.error({ err }, 'Error sending email changed email'))
 
     const emailVerificationCode = cuid()
     await addEmailVerificationCode(user.id, user.email, emailVerificationCode, ctx.ip)
@@ -188,7 +194,7 @@ async function updateUser(ctx, next) {
       subject: 'ShieldBattery Email Verification',
       templateName: 'email-verification',
       templateData: { token: emailVerificationCode },
-    }).catch(err => ctx.log.error({ err }, 'Error sending email'))
+    }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
   }
 
   ctx.body = { email: user.email, emailVerified: user.emailVerified }
@@ -259,6 +265,13 @@ async function sendVerificationEmail(ctx, next) {
 
   const code = cuid()
   await addEmailVerificationCode(user.id, user.email, code, ctx.ip)
-  await sendAccountVerificationEmail(code, user.email)
+  // No need to await for this
+  sendMail({
+    to: user.email,
+    subject: 'ShieldBattery Email Verification',
+    templateName: 'email-verification',
+    templateData: { token: code },
+  }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
+
   ctx.status = 204
 }
