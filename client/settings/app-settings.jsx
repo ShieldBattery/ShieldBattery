@@ -16,12 +16,13 @@ import { colorTextSecondary } from '../styles/colors'
 
 const VolumeSettings = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   width: 100%;
 `
 
 const StyledSlider = styled(Slider)`
   flex-grow: 1;
+  margin-bottom: 8px;
 `
 
 const TestSoundButton = styled(FlatButton)`
