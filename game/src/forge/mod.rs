@@ -75,6 +75,7 @@ mod scr_hooks {
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
         !0 => SetWindowPos(HWND, HWND, i32, i32, i32, i32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
+        !0 => GetWindowLongW(HWND, i32) -> u32;
     );
 }
 
@@ -313,11 +314,18 @@ unsafe extern "system" fn wnd_proc_scr(
                 return Some(0);
             }
             WM_HOTKEY | WM_TIMER => msg_timer(window, wparam as i32),
+            WM_WINDOWPOSCHANGED => {
+                let new_pos = lparam as *const WINDOWPOS;
+                debug!(
+                    "Window pos changed to {},{},{},{}, flags 0x{:x}",
+                    (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy, (*new_pos).flags,
+                );
+            }
             _ => (),
         }
         None
     });
-    if let Some(ret) = ret {
+    let ret = if let Some(ret) = ret {
         ret
     } else {
         let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
@@ -326,7 +334,8 @@ unsafe extern "system" fn wnd_proc_scr(
         } else {
             DefWindowProcA(window, msg, wparam, lparam)
         }
-    }
+    };
+    ret
 }
 
 unsafe fn msg_game_started(window: HWND) {
@@ -1208,12 +1217,21 @@ unsafe fn release_capture() -> u32 {
 }
 
 fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
-    // We handle the window showing around here, Brood War.
+    // SCR May have reasons to hide/reshow window, so allow that once game has started.
+    // (Though it seems to be calling SetWindowPos always instead)
+    // Never allow 1161's ShowWindow cals to get through.
     unsafe {
-        if is_forge_window(window) && !scr_hooks_disabled() {
-            1
+        let call_orig = if is_forge_window(window) && !scr_hooks_disabled() {
+            with_forge(|forge| forge.is_scr() && forge.game_started)
         } else {
+            true
+        };
+        if call_orig {
+            debug!("ShowWindow {:p} {}", window, show);
             orig(window, show)
+        } else {
+            debug!("Skipping ShowWindow {:p} {}", window, show);
+            1
         }
     }
 }
@@ -1232,11 +1250,13 @@ fn set_window_pos(
     // its window creation, which happens early enough in loading that
     // we don't want to show the window yet.
     unsafe {
+        debug!("SetWindowPos {:p} {},{} {},{} flags {:x}", hwnd, x, y, w, h, flags);
         let new_flags = if !scr_hooks_disabled() && is_forge_window(hwnd) {
             with_forge(|forge| {
                 if forge.game_started {
                     flags
                 } else {
+                    debug!("Adding SWP_NOACTIVATE | SWP_HIDEWINDOW as the game has not started");
                     flags | SWP_NOACTIVATE | SWP_HIDEWINDOW
                 }
             })
@@ -1274,10 +1294,10 @@ fn change_display_settings_ex(
             );
             return orig(device_name, devmode, hwnd, flags, param);
         }
-        if !scr_hooks_disabled() {
+        let call_orig = if !scr_hooks_disabled() {
             with_forge(|forge| {
                 if forge.game_started {
-                    orig(device_name, devmode, hwnd, flags, param)
+                    true
                 } else {
                     if devmode.is_null() {
                         // Resetting to default settings (out of fullscreen),
@@ -1298,11 +1318,17 @@ fn change_display_settings_ex(
                             flags,
                         });
                     }
-                    DISP_CHANGE_SUCCESSFUL
+                    false
                 }
             })
         } else {
+            true
+        };
+        if call_orig {
+            debug!("Letting ChangeDisplaySettingsExW of window {:p} pass through", hwnd);
             orig(device_name, devmode, hwnd, flags, param)
+        } else {
+            DISP_CHANGE_SUCCESSFUL
         }
     }
 }
@@ -1533,6 +1559,29 @@ fn create_window_w(
     }
 }
 
+fn get_window_long_w(
+    window: HWND,
+    long: i32,
+    orig: unsafe extern fn(HWND, i32) -> u32,
+) -> u32 {
+    // SC:R uses GetWindowLongW(GWL_STYLE) and stores the result. It may then update
+    // that Starcraft-side copy of the style and call SetWindowLongW() to update
+    // it at Windows side. However, GWL_STYLE also contains a flag that controls
+    // the windows's visibility, and we delay showing the window longer than
+    // SC:R expects, so it receives GWL_STYLE for which WS_VISIBLE is not set,
+    // later unintentionally passing it to SetWindowLongW which hides the window.
+    //
+    // This is relevant at least when the game is started up in windowed fullscreen
+    // and then switched to windowed mode afterwards.
+    // For some reason starting in windowed mode does not have the same issue.
+    let value = unsafe { orig(window, long) };
+    if long == GWL_STYLE {
+        value | WS_VISIBLE
+    } else {
+        value
+    }
+}
+
 pub unsafe fn init_hooks_1161(patcher: &mut whack::Patcher) {
     use self::hooks::*;
     let mut starcraft = patcher.patch_exe(0x0040_0000);
@@ -1603,6 +1652,8 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     patcher.hook_closure_address(SetWindowPos, set_window_pos, address - user32_base);
     let address = user32.proc_address("SetCursorPos").unwrap() as usize;
     patcher.hook_closure_address(SetCursorPos, scr_set_cursor_pos, address - user32_base);
+    let address = user32.proc_address("GetWindowLongW").unwrap() as usize;
+    patcher.hook_closure_address(GetWindowLongW, get_window_long_w, address - user32_base);
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
