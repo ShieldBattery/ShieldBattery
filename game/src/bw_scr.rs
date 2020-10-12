@@ -3,6 +3,7 @@ mod commands;
 mod file_hook;
 mod pe_image;
 mod sdf_cache;
+mod shader_replaces;
 mod thiscall;
 
 use std::marker::PhantomData;
@@ -14,16 +15,22 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
+use parking_lot::Mutex;
 use scr_analysis::scarf;
+use smallvec::SmallVec;
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
-use crate::bw::{self, Bw};
+use crate::bw::{self, Bw, FowSpriteIterator};
+use crate::bw::unit::{Unit, UnitIterator};
 use crate::game_thread;
 use crate::snp;
 
 use sdf_cache::{InitSdfCache, SdfCache};
+use shader_replaces::ShaderReplaces;
+use thiscall::Thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
+const SHADER_ID_MASK: u32 = 0x1c;
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,
@@ -43,6 +50,15 @@ pub struct BwScr {
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
     fonts: Value<*mut *mut scr::Font>,
+    first_active_unit: Value<*mut bw::Unit>,
+    sprites_by_y_tile: Value<*mut *mut scr::Sprite>,
+    sprites_by_y_tile_end: Value<*mut *mut scr::Sprite>,
+    sprite_x: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
+    sprite_y: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
+    free_sprites: LinkedList<scr::Sprite>,
+    active_fow_sprites: LinkedList<bw::FowSprite>,
+    free_fow_sprites: LinkedList<bw::FowSprite>,
+    free_images: LinkedList<bw::Image>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
     step_network: unsafe extern "C" fn(),
@@ -78,7 +94,11 @@ pub struct BwScr {
     process_game_commands: scarf::VirtualAddress,
     step_io: scarf::VirtualAddress,
     init_game_data: scarf::VirtualAddress,
+    step_game: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
+    prism_pixel_shaders: Vec<scarf::VirtualAddress>,
+    prism_renderer_vtable: scarf::VirtualAddress,
+    replay_minimap_patch: Option<scr_analysis::Patch>,
     /// Some only if hd graphics are to be disabled
     open_file: Option<scarf::VirtualAddress>,
     lobby_create_callback_offset: usize,
@@ -88,15 +108,63 @@ pub struct BwScr {
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
+    shader_replaces: ShaderReplaces,
+    renderer_state: Mutex<RendererState>,
 }
 
 struct SendPtr<T>(T);
 unsafe impl<T> Send for SendPtr<T> {}
 unsafe impl<T> Sync for SendPtr<T> {}
 
-mod scr {
+/// Keeps track of pointers to renderer structures as they are collected
+struct RendererState {
+    renderer: Option<*mut c_void>,
+    shader_inputs: Vec<ShaderState>,
+}
+
+#[derive(Copy, Clone)]
+struct ShaderState {
+    shader: *mut scr::Shader,
+    vertex_path: *const u8,
+    pixel_path: *const u8,
+}
+
+impl RendererState {
+    unsafe fn set_renderer(&mut self, renderer: *mut c_void) {
+        self.renderer = Some(renderer);
+    }
+
+    unsafe fn set_shader_inputs(
+        &mut self,
+        shader: *mut scr::Shader,
+        vertex_path: *const u8,
+        pixel_path: *const u8,
+    ) {
+        let id = (*shader).id as usize;
+        if self.shader_inputs.len() <= id {
+            self.shader_inputs.resize_with(id + 1, || ShaderState {
+                shader: null_mut(),
+                vertex_path: null(),
+                pixel_path: null(),
+            });
+        }
+        if self.shader_inputs[id].shader != shader {
+            self.shader_inputs[id] = ShaderState {
+                shader,
+                vertex_path,
+                pixel_path,
+            };
+        }
+    }
+}
+
+unsafe impl Send for RendererState {}
+unsafe impl Sync for RendererState {}
+
+pub mod scr {
     use libc::{c_void, sockaddr};
 
+    use crate::bw;
     use super::thiscall::Thiscall;
 
     #[repr(C)]
@@ -394,12 +462,81 @@ mod scr {
         pub future_padding: [usize; 0x10],
     }
 
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    pub struct PrismShaderSet {
+        pub count: u32,
+        pub shaders: *mut PrismShader,
+    }
+
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    pub struct PrismShader {
+        pub api_type: u8,
+        pub shader_type: u8,
+        pub unk: [u8; 6],
+        pub data: *const u8,
+        pub data_len: u32,
+    }
+
+    #[repr(C)]
+    pub struct DrawCommands {
+        pub commands: [DrawCommand; 0x2000],
+    }
+
+    #[repr(C)]
+    pub struct DrawCommand {
+        pub data: [u8; 0x28],
+        pub shader_id: u32,
+        pub more_data: [u8; 0x24],
+        pub shader_constants: [f32; 0x14],
+    }
+
+    #[repr(C)]
+    pub struct Shader {
+        pub id: u32,
+        pub rest: [u8; 0x74],
+    }
+
+    #[repr(C, packed)]
+    pub struct Sprite {
+        pub prev: *mut Sprite,
+        pub next: *mut Sprite,
+        pub sprite_id: u16,
+        pub player: u8,
+        pub selection_index: u8,
+        pub visibility_mask: u8,
+        pub elevation_level: u8,
+        pub flags: u8,
+        pub selection_flash_timer: u8,
+        pub index: u16,
+        pub width: u8,
+        pub height: u8,
+        pub pos_x: u32,
+        pub pos_y: u32,
+        pub main_image: *mut bw::Image,
+        pub first_image: *mut bw::Image,
+        pub last_image: *mut bw::Image,
+    }
+
+    unsafe impl Sync for PrismShader {}
+    unsafe impl Send for PrismShader {}
+
+    pub const PRISM_SHADER_API_SM4: u8 = 0x0;
+    pub const PRISM_SHADER_API_SM5: u8 = 0x4;
+    pub const PRISM_SHADER_TYPE_PIXEL: u8 = 0x6;
+
     #[test]
     fn struct_sizes() {
         use std::mem::size_of;
         assert_eq!(size_of::<JoinableGameInfo>(), 0x84 + 0x24);
         assert_eq!(size_of::<StormPlayer>(), 0x68);
         assert_eq!(size_of::<SnpFunctions>(), 0x3c + 0x10 * size_of::<usize>());
+        assert_eq!(size_of::<PrismShaderSet>(), 0x8);
+        assert_eq!(size_of::<PrismShader>(), 0x10);
+        assert_eq!(size_of::<DrawCommand>(), 0xa0);
+        assert_eq!(size_of::<Shader>(), 0x78);
+        assert_eq!(size_of::<Sprite>(), 0x28);
     }
 }
 
@@ -464,7 +601,39 @@ impl BwValue for u32 {
 
 impl<T: BwValue> Value<T> {
     unsafe fn resolve(&self) -> T {
-        T::from_usize(resolve_operand(self.op))
+        T::from_usize(resolve_operand(self.op, &[]))
+    }
+
+    unsafe fn resolve_with_custom(&self, custom: &[usize]) -> T {
+        T::from_usize(resolve_operand(self.op, custom))
+    }
+
+    /// Resolves the value as a pointer so it can be read/written as needed.
+    ///
+    /// Will panic if it is not possible to form a pointer to the value.
+    /// (For example, if the value is defined as `Mem32[addr] ^ 0x12341234`)
+    /// Because of that, it is preferable to use resolve/write instead of this
+    /// where possible. (Write is not that much more flexible either at the moment,
+    /// as it isn't necessary, but it could be improved if needed)
+    unsafe fn resolve_as_ptr(&self) -> *mut T {
+        use scr_analysis::scarf::{MemAccessSize, OperandType};
+        match self.op.ty() {
+            OperandType::Memory(ref mem) => {
+                let expected_size = match mem::size_of::<T>() {
+                    1 => MemAccessSize::Mem8,
+                    2 => MemAccessSize::Mem16,
+                    3..=4 => MemAccessSize::Mem32,
+                    5..=8 => MemAccessSize::Mem64,
+                    _ => panic!("Cannot form pointer to {}", self.op),
+                };
+                if mem.size != expected_size {
+                    panic!("Cannot form pointer to {}", self.op);
+                }
+                let addr = resolve_operand(mem.address, &[]);
+                addr as *mut T
+            }
+            _ => panic!("Cannot form pointer to {}", self.op),
+        }
     }
 
     /// Writes over the value.
@@ -482,7 +651,7 @@ impl<T: BwValue> Value<T> {
         let value = T::to_usize(value);
         match self.op.ty() {
             OperandType::Memory(ref mem) => {
-                let addr = resolve_operand(mem.address);
+                let addr = resolve_operand(mem.address, &[]);
                 match mem.size {
                     MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
                     MemAccessSize::Mem16 => *(addr as *mut u16) = value as u16,
@@ -498,22 +667,32 @@ impl<T: BwValue> Value<T> {
 unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
 
-unsafe fn resolve_operand(op: scarf::Operand<'_>) -> usize {
+unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
     match *op.ty() {
         OperandType::Constant(c) => c as usize,
         OperandType::Memory(ref mem) => {
-            let addr = resolve_operand(mem.address);
-            match mem.size {
-                MemAccessSize::Mem8 => (addr as *const u8).read_unaligned() as usize,
-                MemAccessSize::Mem16 => (addr as *const u16).read_unaligned() as usize,
-                MemAccessSize::Mem32 => (addr as *const u32).read_unaligned() as usize,
-                MemAccessSize::Mem64 => (addr as *const u64).read_unaligned() as usize,
+            let addr = resolve_operand(mem.address, custom);
+            if addr < 0x80 {
+                let val = read_fs(addr as usize);
+                match mem.size {
+                    MemAccessSize::Mem8 => val & 0xff,
+                    MemAccessSize::Mem16 => val & 0xffff,
+                    MemAccessSize::Mem32 => val & 0xffff_ffff,
+                    MemAccessSize::Mem64 => val,
+                }
+            } else {
+                match mem.size {
+                    MemAccessSize::Mem8 => (addr as *const u8).read_unaligned() as usize,
+                    MemAccessSize::Mem16 => (addr as *const u16).read_unaligned() as usize,
+                    MemAccessSize::Mem32 => (addr as *const u32).read_unaligned() as usize,
+                    MemAccessSize::Mem64 => (addr as *const u64).read_unaligned() as usize,
+                }
             }
         }
         OperandType::Arithmetic(ref arith) => {
-            let left = resolve_operand(arith.left);
-            let right = resolve_operand(arith.right);
+            let left = resolve_operand(arith.left, custom);
+            let right = resolve_operand(arith.right, custom);
             match arith.ty {
                 ArithOpType::Add => left.wrapping_add(right),
                 ArithOpType::Sub => left.wrapping_sub(right),
@@ -530,7 +709,26 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>) -> usize {
                 _ => panic!("Unimplemented resolve: {}", op),
             }
         }
+        OperandType::Custom(id) => {
+            custom.get(id as usize)
+                .copied()
+                .unwrap_or_else(|| panic!("Resolve needs custom id {}", id))
+        }
         _ => panic!("Unimplemented resolve: {}", op),
+    }
+}
+
+struct LinkedList<T> {
+    start: Value<*mut T>,
+    end: Value<*mut T>,
+}
+
+impl<T> LinkedList<T> {
+    pub unsafe fn resolve(&self) -> bw::list::LinkedList<T> {
+        bw::list::LinkedList {
+            start: self.start.resolve_as_ptr(),
+            end: self.end.resolve_as_ptr(),
+        }
     }
 }
 
@@ -551,9 +749,10 @@ impl BwScr {
             binary.set_relocs(relocs);
             binary
         };
-        let ctx = scarf::OperandContext::new();
-        let mut analysis = scr_analysis::Analysis::new(&binary, &ctx);
+        let analysis_ctx = scarf::OperandContext::new();
+        let mut analysis = scr_analysis::Analysis::new(&binary, &analysis_ctx);
 
+        let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
         let game = analysis.game().ok_or("Game")?;
         let players = analysis.players().ok_or("Players")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
@@ -604,6 +803,41 @@ impl BwScr {
         let step_io = analysis.step_io().ok_or("step_io")?;
         let init_game_data = analysis.init_game().ok_or("init_game_data")?;
 
+        let prism_pixel_shaders = analysis.prism_pixel_shaders().ok_or("Prism pixel shaders")?;
+        let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
+
+        let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
+        let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
+        let sprite_y = analysis.sprite_y().ok_or("sprite_y")?;
+        let sprites_by_y_tile = analysis.sprites_by_y_tile_start()
+            .ok_or("sprites_by_y_tile_start")?;
+        let sprites_by_y_tile_end = analysis.sprites_by_y_tile_end()
+            .ok_or("sprites_by_y_tile_end")?;
+        let step_game = analysis.step_game().ok_or("step_game")?;
+        let free_sprites = LinkedList {
+            start: Value::new(ctx, analysis.first_free_sprite().ok_or("first_free_sprite")?),
+            end: Value::new(ctx, analysis.last_free_sprite().ok_or("last_free_sprite")?),
+        };
+        let active_fow_sprites = LinkedList {
+            start: Value::new(
+               ctx,
+               analysis.first_active_fow_sprite().ok_or("first_active_fow_sprite")?,
+            ),
+            end: Value::new(
+                ctx,
+                analysis.last_active_fow_sprite().ok_or("last_active_fow_sprite")?,
+            ),
+        };
+        let free_fow_sprites = LinkedList {
+            start:
+                Value::new(ctx, analysis.first_free_fow_sprite().ok_or("first_free_fow_sprite")?),
+            end: Value::new(ctx, analysis.last_free_fow_sprite().ok_or("last_free_fow_sprite")?),
+        };
+        let free_images = LinkedList {
+            start: Value::new(ctx, analysis.first_free_image().ok_or("first_free_image")?),
+            end: Value::new(ctx, analysis.last_free_image().ok_or("last_free_image")?),
+        };
+
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
         let disable_hd = match std::env::var_os("SB_NO_HD") {
@@ -618,9 +852,10 @@ impl BwScr {
             None
         };
 
+        let replay_minimap_patch = analysis.replay_minimap_unexplored_fog_patch();
+
         debug!("Found all necessary BW data");
 
-        let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
         let sdf_cache = Arc::new(InitSdfCache::new());
         Ok(BwScr {
             game: Value::new(ctx, game),
@@ -640,6 +875,15 @@ impl BwScr {
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
+            first_active_unit: Value::new(ctx, first_active_unit),
+            sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
+            sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
+            sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
+            sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
+            free_sprites,
+            active_fow_sprites,
+            free_fow_sprites,
+            free_images,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
@@ -662,13 +906,22 @@ impl BwScr {
             font_cache_render_ascii,
             ttf_render_sdf,
             process_game_commands,
+            step_game,
             step_io,
             init_game_data,
             game_command_lengths,
+            prism_pixel_shaders,
+            prism_renderer_vtable,
+            replay_minimap_patch,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
+            shader_replaces: ShaderReplaces::new(),
+            renderer_state: Mutex::new(RendererState {
+                renderer: None,
+                shader_inputs: Vec::with_capacity(0x30),
+            }),
         })
     }
 
@@ -766,16 +1019,28 @@ impl BwScr {
             },
             address
         );
+        let address = self.step_game.0 as usize - base;
+        exe.hook_closure_address(StepGame, move |orig| {
+            orig();
+            game_thread::after_step_game();
+        }, address);
         let address = self.init_game_data.0 as usize - base;
         exe.hook_closure_address(InitGameData, move |orig| {
             orig();
             game_thread::after_init_game_data();
         }, address);
 
+        if let Some(ref patch) = self.replay_minimap_patch {
+            let address = patch.address.0 as usize - base;
+            exe.replace(address, &patch.data);
+        }
+
         if let Some(open_file) = self.open_file {
             let address = open_file.0 as usize - base;
             exe.hook_closure_address(OpenFile, file_hook::open_file_hook, address);
         }
+
+        self.clone().patch_shaders(&mut exe, base);
 
         sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
@@ -794,6 +1059,94 @@ impl BwScr {
         }
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
+    }
+
+    unsafe fn patch_shaders(self: Arc<Self>, exe: &mut whack::ModulePatcher<'_>, base: usize) {
+        use self::hooks::*;
+        let renderer_vtable = self.prism_renderer_vtable.0 as usize as *mut usize;
+
+        let create_shader = *renderer_vtable.add(0x10);
+        // Render hook
+        let relative = *renderer_vtable.add(0x7) - base;
+        let this = self.clone();
+        exe.hook_closure_address(Renderer_Render, move |renderer, commands, width, height, orig| {
+            if this.shader_replaces.has_changed() {
+                // Hot reload shaders.
+                // Unfortunately repatching the .exe to replace shader sets in BW
+                // memory is not currently possible.
+                // Will have to write over the previously allocated scr::PrismShader slice
+                // instead.
+                let create_shader: Thiscall<unsafe extern fn(
+                    *mut c_void, *mut scr::Shader, *const u8, *const u8, *const u8, *mut c_void,
+                ) -> usize> = Thiscall::wrap_thiscall(create_shader);
+                for (id, new_set) in this.shader_replaces.iter_shaders() {
+                    if let Some(shader_set) = this.prism_pixel_shaders.get(id as usize) {
+                        let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
+                        assert!((*shader_set).count as usize == new_set.len());
+                        let out = std::slice::from_raw_parts_mut(
+                            (*shader_set).shaders,
+                            (*shader_set).count as usize,
+                        );
+                        if out[0].data != new_set[0].data {
+                            out.copy_from_slice(new_set);
+                            let args = {
+                                let renderer_state = this.renderer_state.lock();
+                                renderer_state.shader_inputs.get(id as usize).copied()
+                            };
+                            if let Some(args) = args {
+                                create_shader.call6(
+                                    renderer,
+                                    args.shader,
+                                    null(),
+                                    args.vertex_path,
+                                    args.pixel_path,
+                                    null_mut(),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            // Leave unexplored area in UMS maps black
+            let use_new_mask = if crate::game_thread::is_ums() {
+                0.0
+            } else {
+                1.0
+            };
+            for cmd in &mut (*commands).commands {
+                if cmd.shader_id == SHADER_ID_MASK {
+                    cmd.shader_constants[0] = use_new_mask;
+                }
+            }
+            orig(renderer, commands, width, height)
+        }, relative);
+
+        // CreateShader hook
+        let relative = create_shader as usize - base;
+        let this = self.clone();
+        exe.hook_closure_address(
+            Renderer_CreateShader,
+            move |renderer, shader, text, vertex, pixel, arg5, orig| {
+                {
+                    let mut renderer_state = this.renderer_state.lock();
+                    renderer_state.set_renderer(renderer);
+                    renderer_state.set_shader_inputs(shader, vertex, pixel);
+                }
+                orig(renderer, shader, text, vertex, pixel, arg5)
+            },
+            relative,
+        );
+
+        for (id, shader_set) in self.shader_replaces.iter_shaders() {
+            if let Some(&address) = self.prism_pixel_shaders.get(id as usize) {
+                let patch = scr::PrismShaderSet {
+                    count: shader_set.len() as u32,
+                    shaders: shader_set.as_ptr() as *mut _,
+                };
+                let relative = address.0 as usize - base;
+                exe.replace_val(relative, patch);
+            }
+        }
     }
 
     unsafe fn update_nation_and_human_ids(&self) {
@@ -825,8 +1178,7 @@ impl BwScr {
         // This just is starcraft.exe errno
         // dword [[fs:[2c] + tls_index * 4] + 8]
         let tls_index = *self.starcraft_tls_index.0;
-        let get_tls_table: extern fn() -> *mut *mut u32 = mem::transmute(GET_TLS_TABLE.as_ptr());
-        let table = get_tls_table();
+        let table = read_fs(0x2c) as *mut *mut u32;
         let tls_data = *table.add(tls_index as usize);
         tls_data.add(2)
     }
@@ -851,6 +1203,124 @@ impl BwScr {
         for i in 0..12 {
             *init_player_types.add(i) = (*chk_players.add(i)).player_type;
         }
+    }
+
+    unsafe fn create_fow_sprite_main(&self, unit: Unit) -> Option<()> {
+        // Going to be pessimistic and guess that the existing function for creating fog
+        // sprites is likely to be inlined in some future build.
+        // So going to write explicitly the equivalent function.
+        //
+        // This is simpler what BW does since it just allocates the Sprite/Image objects and
+        // copies existing data there, but it should not cause any issues.
+        //
+        // Also taking care to not actually add any objects to active lists before all
+        // allocations are done so that we can recover cleanly from allocation failures.
+        // (Though allocation failure is an edge case that likely never gets actually hit or
+        // tested :/)
+        let free_fow_sprites = self.free_fow_sprites.resolve();
+        let free_sprites = self.free_sprites.resolve();
+        let free_images = self.free_images.resolve();
+        let fow = free_fow_sprites.alloc()?;
+        let sprite = free_sprites.alloc()?;
+        let mut images: SmallVec<[bw::list::Allocation<bw::Image>; 8]> = SmallVec::new();
+        let in_sprite = (**unit).sprite as *mut scr::Sprite;
+        *sprite.value() = scr::Sprite {
+            prev: null_mut(),
+            next: null_mut(),
+            sprite_id: (*in_sprite).sprite_id,
+            player: (*in_sprite).player,
+            selection_index: (*in_sprite).selection_index,
+            visibility_mask: 0xff,
+            elevation_level: (*in_sprite).elevation_level,
+            flags: (*in_sprite).flags,
+            selection_flash_timer: (*in_sprite).selection_flash_timer,
+            index: (*in_sprite).index,
+            width: (*in_sprite).width,
+            height: (*in_sprite).height,
+            pos_x: (*in_sprite).pos_x,
+            pos_y: (*in_sprite).pos_y,
+            main_image: null_mut(),
+            first_image: null_mut(),
+            last_image: null_mut(),
+        };
+        let mut in_image = (*in_sprite).first_image;
+        while !in_image.is_null() {
+            let image = free_images.alloc()?;
+            *image.value() = bw::Image {
+                prev: null_mut(),
+                next: null_mut(),
+                image_id: (*in_image).image_id,
+                drawfunc: (*in_image).drawfunc,
+                direction: (*in_image).direction,
+                flags: (*in_image).flags,
+                x_offset: (*in_image).x_offset,
+                y_offset: (*in_image).y_offset,
+                iscript: (*in_image).iscript,
+                frameset: (*in_image).frameset,
+                frame: (*in_image).frame,
+                map_position: (*in_image).map_position,
+                screen_position: (*in_image).screen_position,
+                grp_bounds: (*in_image).grp_bounds,
+                grp: (*in_image).grp,
+                drawfunc_param: (*in_image).drawfunc_param,
+                draw: (*in_image).draw,
+                step_frame: (*in_image).step_frame,
+                parent: sprite.value() as *mut c_void,
+            };
+            if in_image == (*in_sprite).main_image {
+                (*sprite.value()).main_image = image.value();
+            }
+            images.push(image);
+            in_image = (*in_image).next;
+        }
+        *fow.value() = bw::FowSprite {
+            prev: null_mut(),
+            next: null_mut(),
+            unit_id: (**unit).unit_id,
+            sprite: sprite.value() as *mut c_void,
+        };
+
+        // Now the allocations can be moved to active lists
+        let fow_list = self.active_fow_sprites.resolve();
+        let sprite_lists_start = self.sprites_by_y_tile.resolve();
+        let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
+        let y_tile = self.sprite_y(in_sprite) / 32;
+        let sprite_list = bw::list::LinkedList {
+            start: sprite_lists_start.add(y_tile as usize),
+            end: sprite_lists_end.add(y_tile as usize),
+        };
+        let sprite_images = bw::list::LinkedList {
+            start: &mut (*sprite.value()).first_image,
+            end: &mut (*sprite.value()).last_image,
+        };
+        while let Some(image) = images.pop() {
+            image.move_to(&sprite_images);
+        }
+        sprite.move_to(&sprite_list);
+        fow.move_to(&fow_list);
+        Some(())
+    }
+
+    unsafe fn sprite_x(&self, sprite: *mut scr::Sprite) -> i16 {
+        let ptr = sprite as usize + self.sprite_x.1 as usize;
+        let value = match self.sprite_x.2 {
+            scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
+        };
+        self.sprite_x.0.resolve_with_custom(&[value]) as i16
+    }
+
+    unsafe fn sprite_y(&self, sprite: *mut scr::Sprite) -> i16 {
+        let ptr = sprite as usize + self.sprite_y.1 as usize;
+        let value = match self.sprite_y.2 {
+            scarf::MemAccessSize::Mem8 => (ptr as *mut u8).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem16 => (ptr as *mut u16).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem32 => (ptr as *mut u32).read_unaligned() as usize,
+            scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
+        };
+        self.sprite_y.0.resolve_with_custom(&[value]) as i16
     }
 }
 
@@ -1176,6 +1646,26 @@ impl bw::Bw for BwScr {
         long_name.copy_from_slice(&buffer[..0x60]);
     }
 
+    unsafe fn active_units(&self) -> UnitIterator {
+        UnitIterator::new(Unit::from_ptr(self.first_active_unit.resolve()))
+    }
+
+    unsafe fn fow_sprites(&self) -> FowSpriteIterator {
+        FowSpriteIterator::new(self.active_fow_sprites.start.resolve())
+    }
+
+    unsafe fn create_fow_sprite(&self, unit: Unit) {
+        self.create_fow_sprite_main(unit);
+    }
+
+    unsafe fn sprite_position(&self, sprite: *mut c_void) -> bw::Point {
+        let sprite = sprite as *mut scr::Sprite;
+        bw::Point {
+            x: self.sprite_x(sprite),
+            y: self.sprite_y(sprite),
+        }
+    }
+
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
         let ptr = self.storm_players.resolve();
         let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
@@ -1363,19 +1853,34 @@ mod hooks {
         !0 => ProcessLobbyCommands(*const u8, usize, u32);
         !0 => SendCommand(*const u8, usize);
         !0 => InitGameData();
+        !0 => StepGame();
     );
 
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => StepIo(@ecx *mut c_void);
+        !0 => Renderer_Render(@ecx *mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
+        !0 => Renderer_CreateShader(
+            @ecx *mut c_void,
+            *mut scr::Shader,
+            *const u8,
+            *const u8,
+            *const u8,
+            *mut c_void,
+        ) -> usize;
     );
 }
 
 // Inline asm is only on nightly rust, so..
-// mov eax, fs:[0x2c]; ret
+// mov eax, [esp + 4]; mov eax, fs:[eax]; ret
 #[link_section = ".text"]
-static GET_TLS_TABLE: [u8; 7] = [0x64, 0xa1, 0x2c, 0x00, 0x00, 0x00, 0xc3];
+static READ_FS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
+
+unsafe fn read_fs(offset: usize) -> usize {
+    let func: extern fn(usize) -> usize = mem::transmute(READ_FS.as_ptr());
+    func(offset)
+}
 
 /// Value is assumed to not have null terminator.
 /// Leaks memory and BW should not be let to deallocate the buffer

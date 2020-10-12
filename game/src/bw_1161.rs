@@ -12,12 +12,44 @@ use std::ptr::null_mut;
 use libc::c_void;
 use winapi::um::winnt::HANDLE;
 
-use crate::bw;
+use crate::bw::{self, FowSpriteIterator};
+use crate::bw::unit::{Unit, UnitIterator};
 use crate::chat;
 use crate::game_thread;
 use crate::windows;
 
 pub struct Bw1161;
+
+mod v1161 {
+    use crate::bw;
+
+    #[repr(C, packed)]
+    pub struct Sprite {
+        pub prev: *mut Sprite,
+        pub next: *mut Sprite,
+        pub sprite_id: u16,
+        pub player: u8,
+        pub selection_index: u8,
+        pub visibility_mask: u8,
+        pub elevation_level: u8,
+        pub flags: u8,
+        pub selection_flash_timer: u8,
+        pub index: u16,
+        pub width: u8,
+        pub height: u8,
+        pub pos_x: i16,
+        pub pos_y: i16,
+        pub main_image: *mut bw::Image,
+        pub first_image: *mut bw::Image,
+        pub last_image: *mut bw::Image,
+    }
+
+    #[test]
+    fn struct_sizes() {
+        use std::mem::size_of;
+        assert_eq!(size_of::<Sprite>(), 0x24);
+    }
+}
 
 impl bw::Bw for Bw1161 {
     unsafe fn run_game_loop(&self) {
@@ -117,6 +149,26 @@ impl bw::Bw for Bw1161 {
         (*self.players().add(id as usize)).name = buffer;
     }
 
+    unsafe fn active_units(&self) -> UnitIterator {
+        UnitIterator::new(Unit::from_ptr(*first_active_unit))
+    }
+
+    unsafe fn fow_sprites(&self) -> FowSpriteIterator {
+        FowSpriteIterator::new(*first_fow_sprite)
+    }
+
+    unsafe fn create_fow_sprite(&self, unit: Unit) {
+        create_fow_sprite((**unit).unit_id as u32, (**unit).sprite);
+    }
+
+    unsafe fn sprite_position(&self, sprite: *mut c_void) -> bw::Point {
+        let sprite = sprite as *mut v1161::Sprite;
+        bw::Point {
+            x: (*sprite).pos_x,
+            y: (*sprite).pos_y,
+        }
+    }
+
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
         (*storm_players)[..].into()
     }
@@ -165,6 +217,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004CB190 =>
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
     0x004EEE00 => InitGameData();
+    0x004D94B0 => StepGame();
 );
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
@@ -193,6 +246,9 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004CDE70 => add_to_replay_data(@eax *mut bw::ReplayData, @ebx *const u8, @edi u32, u32);
     0x0048D0C0 => display_message(@edi *const u8, @eax u32);
     0x004207B0 => clean_up_for_exit(@ebx u32);
+
+    // Unit id, base sprite
+    0x00488410 => create_fow_sprite(u32, *mut c_void) -> *mut bw::FowSprite;
 );
 
 whack_vars!(init_vars, 0x00400000,
@@ -220,6 +276,8 @@ whack_vars!(init_vars, 0x00400000,
     0x00597248 => primary_selected: *mut bw::Unit;
     0x0057EE7C => storm_id_to_human_id: [u32; 8];
     0x00512678 => current_command_player: u32;
+    0x00628430 => first_active_unit: *mut bw::Unit;
+    0x00654868 => first_fow_sprite: *mut bw::FowSprite;
 );
 
 // Misc non-function-level patches
@@ -303,6 +361,10 @@ unsafe fn patch_game() {
     exe.hook_closure(InitGameData, |orig| {
         orig();
         game_thread::after_init_game_data();
+    });
+    exe.hook_closure(StepGame, |orig| {
+        orig();
+        game_thread::after_step_game();
     });
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);

@@ -32,6 +32,9 @@ pub trait ExternCFn {
     type A1;
     type A2;
     type A3;
+    type A4;
+    type A5;
+    type A6;
 
     fn cast_usize(self) -> usize;
 }
@@ -45,6 +48,9 @@ impl<A, R> ExternCFn for unsafe extern "C" fn(A) -> R {
     type A1 = A;
     type A2 = Unused;
     type A3 = Unused;
+    type A4 = Unused;
+    type A5 = Unused;
+    type A6 = Unused;
 
     fn cast_usize(self) -> usize {
         self as usize
@@ -57,6 +63,9 @@ impl<A, B, R> ExternCFn for unsafe extern "C" fn(A, B) -> R {
     type A1 = A;
     type A2 = B;
     type A3 = Unused;
+    type A4 = Unused;
+    type A5 = Unused;
+    type A6 = Unused;
 
     fn cast_usize(self) -> usize {
         self as usize
@@ -69,6 +78,24 @@ impl<A, B, C, R> ExternCFn for unsafe extern "C" fn(A, B, C) -> R {
     type A1 = A;
     type A2 = B;
     type A3 = C;
+    type A4 = Unused;
+    type A5 = Unused;
+    type A6 = Unused;
+
+    fn cast_usize(self) -> usize {
+        self as usize
+    }
+}
+
+impl<A, B, C, D, E, F, R> ExternCFn for unsafe extern "C" fn(A, B, C, D, E, F) -> R {
+    const ARGS: u8 = 6;
+    type Ret = R;
+    type A1 = A;
+    type A2 = B;
+    type A3 = C;
+    type A4 = D;
+    type A5 = E;
+    type A6 = F;
 
     fn cast_usize(self) -> usize {
         self as usize
@@ -76,6 +103,7 @@ impl<A, B, C, R> ExternCFn for unsafe extern "C" fn(A, B, C) -> R {
 }
 
 impl<T: ExternCFn> Thiscall<T> {
+    /// Creates a callable wrapper to a func that is extern "C"
     pub fn new(func: T) -> Thiscall<T> {
         unsafe {
             let heap = *EXEC_HEAP;
@@ -110,6 +138,11 @@ impl<T: ExternCFn> Thiscall<T> {
         }
     }
 
+    /// Creates a callable wrapper to a func that is already using thiscall ABI
+    pub fn wrap_thiscall(func: usize) -> Thiscall<T> {
+        Thiscall(func, PhantomData)
+    }
+
     pub unsafe fn call1(self, a1: T::A1) -> T::Ret {
         let fnptr: unsafe extern "C" fn(usize, T::A1) -> T::Ret = mem::transmute(CALL.as_ptr());
         fnptr(self.0, a1)
@@ -126,17 +159,35 @@ impl<T: ExternCFn> Thiscall<T> {
             mem::transmute(CALL.as_ptr());
         fnptr(self.0, a1, a2, a3)
     }
+
+    pub unsafe fn call6(
+        self,
+        a1: T::A1,
+        a2: T::A2,
+        a3: T::A3,
+        a4: T::A4,
+        a5: T::A5,
+        a6: T::A6,
+    ) -> T::Ret {
+        let fnptr:
+            unsafe extern "C" fn(usize, T::A1, T::A2, T::A3, T::A4, T::A5, T::A6) -> T::Ret =
+            mem::transmute(CALL.as_ptr());
+        fnptr(self.0, a1, a2, a3, a4, a5, a6)
+    }
 }
 
-// Max 3 arguments
+// Max 6 arguments
 #[link_section = ".text"]
-static CALL: [u8; 0x19] = [
+static CALL: [u8; 0x25] = [
     0x55,                   // push ebp
     0x89, 0xe5,             // mov ebp, esp
     0x8b, 0x44, 0xe4, 0x08, // mov eax, [esp + 0x8]
     0x8b, 0x4c, 0xe4, 0x0c, // mov ecx, [esp + 0xc]
-    0xff, 0x74, 0xe4, 0x14, // push [esp + 0x14]
-    0xff, 0x74, 0xe4, 0x14, // push [esp + 0x14]
+    0xff, 0x74, 0xe4, 0x20, // push [esp + 0x20]
+    0xff, 0x74, 0xe4, 0x20, // push [esp + 0x20]
+    0xff, 0x74, 0xe4, 0x20, // push [esp + 0x20]
+    0xff, 0x74, 0xe4, 0x20, // push [esp + 0x20]
+    0xff, 0x74, 0xe4, 0x20, // push [esp + 0x20]
     0xff, 0xd0,             // call eax
     0x89, 0xec,             // mov esp, ebp
     0x5d,                   // pop ebp
