@@ -23,24 +23,22 @@ quick_error! {
     #[derive(Debug)]
     pub enum RallyPointError {
         Bind(error: io::Error) {
-            description("UDP bind error")
             display("UDP binding failed: {}", error)
         }
         Send(error: io::Error, addr: SocketAddr) {
-            description("UDP send error")
             display("Failed to send datagram to {}: {}", addr, error)
         }
         NotActive {
-            description("Rally-point instance has closed")
+            display("Rally-point instance has closed")
         }
         JoinFailed {
-            description("Joining route failed")
+            display("Joining route failed")
         }
         Timeout {
-            description("Operation timed out")
+            display("Operation timed out")
         }
         RouteNotActive {
-            description("Route is not active")
+            display("Route is not active")
         }
     }
 }

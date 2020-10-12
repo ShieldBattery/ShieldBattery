@@ -110,10 +110,9 @@ quick_error! {
         LeagueMissingBroodwar {}   // Brood War is required to play league games.
         LeagueBadAuth {}           // You must select an authenticated ladder map to start a ladder game.
         MapNotFound {
-            description("Map was not found")
+            display("Map was not found")
         }
         NonAnsiPath(path: PathBuf) {
-            description("A path cannot be passed to BW")
             display("Path '{}' cannot be passed to BW", path.display())
         }
         Other(msg: String) {

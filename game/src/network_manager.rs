@@ -33,16 +33,15 @@ quick_error! {
     #[derive(Debug, Clone)]
     pub enum NetworkError {
         NotActive {
-            description("Network task is not active")
+            display("Network task is not active")
         }
         NoServerAddress {
-            description("Server info has no address")
+            display("Server info has no address")
         }
         ServerUnreachable {
-            description("Server is not reachable")
+            display("Server is not reachable")
         }
         RallyPoint(e: Arc<RallyPointError>) {
-            description("Rally-point error")
             display("Rally-point error {}", e)
         }
     }

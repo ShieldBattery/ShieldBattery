@@ -115,53 +115,45 @@ quick_error! {
     #[derive(Debug, Clone)]
     pub enum GameInitError {
         InitInProgress {
-            description("Game init is already in progress")
+            display("Game init is already in progress")
         }
         SettingsNotSet {
-            description("Settings not set")
+            display("Settings not set")
         }
         LocalUserNotSet {
-            description("Local user not set")
+            display("Local user not set")
         }
         RoutesNotSet {
-            description("Routes not set")
+            display("Routes not set")
         }
         Closed {
-            description("Game is being closed")
+            display("Game is being closed")
         }
         GameInitAlreadyInProgress {
-            description("Cannot have two game inits active at once")
+            display("Cannot have two game inits active at once")
         }
         UnexpectedPlayer(name: String) {
-            description("Unexpected player")
             display("Unexpected player name: {}", name)
         }
         StormIdChanged(name: String) {
-            description("Player storm id changed")
             display("Unexpected storm id change for player {}", name)
         }
         NetworkInit(e: NetworkError) {
-            description("Network initialization error")
             display("Network initialization error: {}", e)
         }
         UnknownGameType(ty: String, sub: Option<u8>) {
-            description("Unknown game type")
             display("Unknown game type '{}', {:?}", ty, sub)
         }
         UnknownTileset(name: String) {
-            description("Unknown tileset")
             display("Unknown tileset '{}'", name)
         }
         Bw(e: bw::LobbyCreateError) {
-            description("BW error")
             display("BW error: {}", e)
         }
         NonAnsiPath(path: PathBuf) {
-            description("A path cannot be passed to BW")
             display("Path '{}' cannot be passed to BW", path.display())
         }
         MissingMapInfo(desc: &'static str) {
-            description("Missing map info")
             display("Missing map info '{}'", desc)
         }
     }

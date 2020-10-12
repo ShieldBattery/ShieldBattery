@@ -172,11 +172,9 @@ quick_error! {
     pub enum HandleMessageError {
         Serde(error: serde_json::Error, context: &'static str, input: String) {
             context(c: (&'static str, &str), e: serde_json::Error) -> (e, c.0, c.1.into())
-            description("JSON decode error")
             display("{} '{}': {}", context, input, error)
         }
         UnknownCommand(cmd: String) {
-            description("Unknown command")
             display("Unknown command '{}'", cmd)
         }
     }
