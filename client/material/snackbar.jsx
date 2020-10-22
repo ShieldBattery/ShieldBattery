@@ -93,7 +93,7 @@ class Snackbar extends React.Component {
 
   constructor(props) {
     super(props)
-    this._handleActionClick = ::this.onActionClick
+    this._handleActionClick = this.onActionClick.bind(this)
   }
 
   render() {

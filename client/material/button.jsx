@@ -78,7 +78,7 @@ export default class Button extends React.Component {
   render() {
     const {
       label,
-      buttonRef, // eslint-disable-line no-unused-vars
+      buttonRef, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...otherProps
     } = this.props
 

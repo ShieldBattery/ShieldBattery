@@ -131,7 +131,7 @@ export class TimedMatchmaker extends Matchmaker {
     super(onMatchFound, opponentChooser)
     this.searchIntervalMs = searchIntervalMs
     this.timer = null
-    this.doMatchPlayers = ::this.matchPlayers
+    this.doMatchPlayers = this.matchPlayers.bind(this)
   }
 
   addToQueue(player) {

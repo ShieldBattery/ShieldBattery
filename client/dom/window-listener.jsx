@@ -14,8 +14,8 @@ export default class WindowListener extends React.Component {
   constructor(props, context) {
     super(props, context)
     this.rafId = null
-    this.eventHandler = ::this.onEvent
-    this.frameHandler = ::this.onFrame
+    this.eventHandler = this.onEvent.bind(this)
+    this.frameHandler = this.onFrame.bind(this)
     this.lastEvent = null
   }
 

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "strict": true,
+
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    // Babel operates on single files, so we need to make sure tsc's semantics match
+    "isolatedModules": true,
+    "jsx": "react",
+    // We use babel to convert to JS, so tsc should just check types but not emit anything
+    "noEmit": true
+  },
+
+  "exclude": ["dist", "node_modules", "server/public", "app/dist", "app/node_modules"]
+}

@@ -53,8 +53,8 @@ class TransitionSnackbar extends React.Component {
 
   render() {
     const {
-      dispatch, // eslint-disable-line no-unused-vars
-      onLeft, // eslint-disable-line no-unused-vars
+      dispatch, // eslint-disable-line @typescript-eslint/no-unused-vars
+      onLeft, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...pass
     } = this.props
 
@@ -66,7 +66,7 @@ class TransitionSnackbar extends React.Component {
 class ConnectedSnackbar extends React.Component {
   constructor(props) {
     super(props)
-    this._handleChildLeft = ::this.onChildLeft
+    this._handleChildLeft = this.onChildLeft.bind(this)
     this._awaitingLeave = false
   }
 

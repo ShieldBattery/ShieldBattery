@@ -95,7 +95,7 @@ const Header = styled(Title)`
 export default class JoinLobby extends React.Component {
   constructor(props) {
     super(props)
-    this._handleLobbyClick = ::this.onLobbyClick
+    this._handleLobbyClick = this.onLobbyClick.bind(this)
   }
 
   componentDidMount() {

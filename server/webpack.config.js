@@ -46,7 +46,6 @@ const babelOpts = {
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
-    ['@babel/plugin-proposal-function-bind'],
     ['react-hot-loader/babel'],
   ],
 }

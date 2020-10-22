@@ -3,11 +3,11 @@
 // and On (on everywhere). To add a new flag, just declare it as an export here, and set its value
 // to the return value of the right level (e.g. `DEV()`), then check it in any relevant code paths.
 
-/* eslint-disable no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const OFF = () => false
 const DEV = () => process.env.NODE_ENV !== 'production'
 const ON = () => true
-/* eslint-enable no-unused-vars */
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 // Show the "dev mode" indicator on the site (don't move this past dev mode)
 export const DEV_INDICATOR = DEV()

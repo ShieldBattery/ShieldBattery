@@ -1,20 +1,20 @@
 {
-  "parser": "babel-eslint",
+  "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaFeatures": {
       "legacyDecorators": true
     },
-    "ecmaVersion": 6,
+    "ecmaVersion": 2018,
     "sourceType": "module"
   },
 
-  "extends": ["prettier"],
+  "extends": ["prettier", "plugin:@typescript-eslint/recommended"],
 
-  "plugins": ["babel", "prettier", "react"],
+  "plugins": ["@typescript-eslint", "prettier", "react"],
 
   "settings": {
     "react": {
-      "version": "15.6.1"
+      "version": "16.13.1"
     }
   },
 
@@ -161,8 +161,8 @@
     "no-unneeded-ternary": 2,
     "no-unreachable": 2,
     "no-unused-expressions": [2, { "allowTaggedTemplates": true }],
-    "no-unused-vars": [2, { "vars": "all", "args": "none" }],
-    "no-use-before-define": [2, "nofunc"],
+    "no-unused-vars": 0,
+    "no-use-before-define": 0,
     "no-var": 2,
     "no-void": 2,
     "no-warning-comments": [2, { "terms": ["fixme", "do not submit", "xxx"], "location": "start" }],
@@ -200,10 +200,6 @@
     "wrap-regex": 0,
     "yoda": 0,
 
-    "babel/block-scoped-var": 0,
-    "babel/new-cap": [2, { "newIsCap": true, "capIsNew": false }],
-    "babel/space-in-brackets": 0,
-
     "prettier/prettier": 2,
 
     "react/display-name": 0,
@@ -214,7 +210,8 @@
     "react/jsx-sort-props": 0,
     "react/jsx-uses-react": 2,
     "react/jsx-uses-vars": 2,
-    "react/no-deprecated": 2,
+    // TODO(tec27): make this an error again once we've fixed componentWillReceiveProps/etc.
+    "react/no-deprecated": 1,
     "react/no-did-mount-set-state": 0,
     "react/no-did-update-set-state": 0,
     "react/no-direct-mutation-state": 2,
@@ -227,6 +224,14 @@
     "react/require-extension": 0,
     "react/require-render-return": 2,
     "react/self-closing-comp": 0,
-    "react/sort-comp": 0
+    "react/sort-comp": 0,
+
+    "@typescript-eslint/explicit-module-boundary-types": 0,
+    "@typescript-eslint/no-empty-function": 0,
+    "@typescript-eslint/no-explicit-any": 0,
+    "@typescript-eslint/no-extra-semi": 0,
+    "@typescript-eslint/no-non-null-assertion": 0,
+    "@typescript-eslint/no-unused-vars": [2, { "vars": "all", "args": "none" }],
+    "@typescript-eslint/no-var-requires": 0
   }
 }

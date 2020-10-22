@@ -8,7 +8,7 @@ class ActiveUsersCount extends React.Component {
   render() {
     const {
       activeUsers,
-      dispatch, // eslint-disable-line no-unused-vars
+      dispatch, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...otherProps
     } = this.props
     const activeUsersStr = activeUsers === null ? '' : `${activeUsers} online`

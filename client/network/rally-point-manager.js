@@ -57,7 +57,7 @@ export default class RallyPointManager extends EventEmitter {
   constructor() {
     super()
     this.rallyPoint = new RallyPointPlayer('::', 0)
-    this._handlePing = ::this._onPing
+    this._handlePing = this._onPing.bind(this)
     this._boundPromise = this.rallyPoint.bind()
 
     this.servers = []

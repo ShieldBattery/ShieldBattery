@@ -138,7 +138,7 @@ export default class Menu extends React.Component {
       dense,
       selectedIndex,
       renderTransition,
-      onItemSelected, // eslint-disable-line no-unused-vars
+      onItemSelected, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...popoverProps
     } = this.props
 

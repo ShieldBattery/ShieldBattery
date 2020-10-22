@@ -135,8 +135,8 @@ function isClosingCurrentWhisperSession(oldProps, newProps) {
 export default class WhisperView extends React.Component {
   constructor(props) {
     super(props)
-    this._handleSendChatMessage = ::this.onSendChatMessage
-    this._handleRequestMoreHistory = ::this.onRequestMoreHistory
+    this._handleSendChatMessage = this.onSendChatMessage.bind(this)
+    this._handleRequestMoreHistory = this.onRequestMoreHistory.bind(this)
   }
 
   componentDidMount() {
