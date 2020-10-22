@@ -112,6 +112,8 @@
     "@exponent/electron-cookies": "^2.0.0",
     "@hot-loader/react-dom": "^16.13.0",
     "@loadable/component": "^5.12.0",
+    "@types/chai": "^4.2.14",
+    "@types/mocha": "^8.0.3",
     "@types/pg": "^7.14.5",
     "@typescript-eslint/eslint-plugin": "^4.5.0",
     "@typescript-eslint/parser": "^4.5.0",
