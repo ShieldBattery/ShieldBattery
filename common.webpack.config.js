@@ -29,7 +29,7 @@ export default function ({
     module: {
       rules: [
         {
-          test: /\.jsx?$/,
+          test: /\.[jt]sx?$/,
           exclude: /node_modules/,
           use: [
             {

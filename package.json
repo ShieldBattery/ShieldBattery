@@ -24,7 +24,7 @@
   },
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
-    "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --recursive test/",
+    "autotest": "cross-env BABEL_ENV=node mocha --watch --watch-extensions js -R spec --require @babel/register --extension js,ts --recursive test/",
     "build-app-client": "cross-env BABEL_ENV=node NODE_ENV=production webpack",
     "build-app-client-stats": "cross-env BABEL_ENV=node NODE_ENV=production webpack --profile --json > stats.json",
     "build-game": "game/build.bat release sign",
@@ -42,7 +42,7 @@
     "pack": "yarn run clean && yarn run build-app-client && yarn run build-game && electron-builder build --dir --win --ia32 --x64 -c prod.yml",
     "packstaging": "yarn run clean && cross-env SB_SERVER=https://staging.shieldbattery.net yarn run build-app-client && yarn run build-game && electron-builder build --dir --win --ia32 --x64 -c staging.yml",
     "start-server": "node ./server/index.js | pino-pretty -c -t",
-    "test": "cross-env BABEL_ENV=node mocha -R spec --require @babel/register --recursive test/",
+    "test": "cross-env BABEL_ENV=node mocha -R spec --require @babel/register --extension js,ts --recursive test/",
     "typecheck": "tsc",
     "posttest": "yarn run typecheck && yarn run lint",
     "yarnall": "cd app && yarn && cd .. && yarn"
