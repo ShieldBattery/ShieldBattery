@@ -1,5 +1,5 @@
 // Can't use ES6 imports in this file because this won't be running through Babel
-require('@babel/register')
+require('./babel-register')
 const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
 

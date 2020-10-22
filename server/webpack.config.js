@@ -1,4 +1,4 @@
-require('@babel/register')
+require('../babel-register')
 const makeConfig = require('../common.webpack.config.js').default
 const path = require('path')
 
