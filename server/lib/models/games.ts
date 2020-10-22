@@ -1,10 +1,11 @@
 import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
+import { RaceChar } from '../../../common/races'
 
 // TODO(tec27): These game types should be in a more common place
 export interface GameConfigPlayer {
   name: string
-  race: 'p' | 'r' | 't' | 'z'
+  race: RaceChar
   isComputer: boolean
 }
 

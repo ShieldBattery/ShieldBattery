@@ -1,5 +1,15 @@
-import db from '../db'
+import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
+import { GameClientResult, GameClientPlayerResult } from '../../../common/game-results'
+import { RaceChar } from '../../../common/races'
+
+export interface GameUserRecordData {
+  userId: number
+  gameId: string
+  startTime: Date
+  selectedRace: RaceChar
+  resultCode?: GameClientResult
+}
 
 /**
  * Creates a new user-specific game record in the `games_users` table. All values that are reported
@@ -7,8 +17,8 @@ import sql from 'sql-template-strings'
  * the record for the game itself.
  */
 export async function createGameUserRecord(
-  client,
-  { userId, gameId, startTime, selectedRace, resultCode },
+  client: DbClient,
+  { userId, gameId, startTime, selectedRace, resultCode }: GameUserRecordData,
 ) {
   return client.query(sql`
     INSERT INTO games_users (
@@ -24,7 +34,7 @@ export async function createGameUserRecord(
 /**
  * Deletes all user-specific records for a particular game.
  */
-export async function deleteUserRecordsForGame(gameId) {
+export async function deleteUserRecordsForGame(gameId: string) {
   const { client, done } = await db()
 
   try {
@@ -42,7 +52,7 @@ export async function deleteUserRecordsForGame(gameId) {
  *
  * @returns an object containing the information about the game, or null if there is no such game
  */
-export async function getUserGameRecord(userId, gameId) {
+export async function getUserGameRecord(userId: number, gameId: string) {
   const { client, done } = await db()
 
   try {
@@ -71,18 +81,27 @@ export async function getUserGameRecord(userId, gameId) {
   }
 }
 
+export interface ReportedResultsData {
+  userId: number
+  gameId: string
+  reportedAt: Date
+  reportedResults: {
+    /** The elapsed time of the game, in milliseconds. */
+    time: number
+    /** A tuple of (player name, result info). */
+    playerResults: Array<[string, GameClientPlayerResult]>
+  }
+}
+
 /**
  * Updates a particular user's results for a game.
- *
- * Results should be an array of entries containing [playerName, resultCode], where resultCode can
- * be:
- *
- * - 0: playing
- * - 1: disconnected
- * - 2: victory
- * - 3: defeat
  */
-export async function setReportedResults({ userId, gameId, reportedResults, reportedAt }) {
+export async function setReportedResults({
+  userId,
+  gameId,
+  reportedResults,
+  reportedAt,
+}: ReportedResultsData) {
   const { client, done } = await db()
 
   try {

@@ -1,10 +1,9 @@
 import { expect } from 'chai'
-import { GameClientResult } from '../../../../common/game-results'
+import { GameClientResult, GameClientPlayerResult } from '../../../../common/game-results'
 import { AssignedRaceChar } from '../../../../common/races'
 
 import {
   hasCompletedResults,
-  PlayerResult,
   ReconciledPlayerResult,
   reconcileResults,
 } from '../../../../server/lib/games/results'
@@ -14,7 +13,7 @@ function makePlayerResult(
   result: GameClientResult,
   race: AssignedRaceChar,
   apm: number,
-): [string, PlayerResult] {
+): [string, GameClientPlayerResult] {
   return [name, { result, race, apm }]
 }
 

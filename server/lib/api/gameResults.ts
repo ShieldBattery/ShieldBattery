@@ -1,3 +1,5 @@
+import Koa from 'koa'
+import Router from '@koa/router'
 import httpErrors from 'http-errors'
 import { getUserGameRecord, setReportedResults } from '../models/games-users'
 import createThrottle from '../throttle/create-throttle'
@@ -9,7 +11,7 @@ const throttle = createThrottle('gamesResults', {
   window: 60000,
 })
 
-export default function (router) {
+export default function (router: Router) {
   router.post(
     '/:gameId',
     throttleMiddleware(throttle, ctx => ctx.ip),
@@ -18,11 +20,11 @@ export default function (router) {
 }
 
 // TODO(tec27): clients also need to report the assigned races for each player
-async function submitGameResults(ctx, next) {
+async function submitGameResults(ctx: Koa.Context, next: Koa.Next) {
   const { gameId } = ctx.params
   const { userId, resultCode, results } = ctx.request.body
 
-  if (userId == null) {
+  if (userId === null || userId === undefined) {
     throw new httpErrors.BadRequest('userId must be specified')
   } else if (!resultCode) {
     throw new httpErrors.BadRequest('resultCode must be specified')

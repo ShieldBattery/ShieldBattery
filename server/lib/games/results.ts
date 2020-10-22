@@ -1,11 +1,9 @@
-import { GameClientResult, ReconciledResult } from '../../../common/game-results'
+import {
+  GameClientResult,
+  GameClientPlayerResult,
+  ReconciledResult,
+} from '../../../common/game-results'
 import { AssignedRaceChar } from '../../../common/races'
-
-export interface PlayerResult {
-  result: GameClientResult
-  race: AssignedRaceChar
-  apm: number
-}
 
 export interface ResultSubmission {
   /** The name of the player who reported these results. */
@@ -13,14 +11,14 @@ export interface ResultSubmission {
   /** The elapsed time of the game, in milliseconds. */
   time: number
   /** A tuple of (player name, result info). */
-  playerResults: Array<[string, PlayerResult]>
+  playerResults: Array<[string, GameClientPlayerResult]>
 }
 
 function isTerminal(resultCode: GameClientResult) {
   return resultCode === GameClientResult.Victory || resultCode === GameClientResult.Defeat
 }
 
-function countTerminalStates(resultMap: Array<[string, PlayerResult]>) {
+function countTerminalStates(resultMap: Array<[string, GameClientPlayerResult]>) {
   return resultMap.reduce((sum, [, curResult]) => (isTerminal(curResult.result) ? sum + 1 : sum), 0)
 }
 
@@ -102,7 +100,7 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
   // control over the displayed time which is *slightly* unsafe, I suppose.
   const elapsedTime = sortedResults[sortedResults.length - 1].time
 
-  const combined = new Map<string, PlayerResult[]>()
+  const combined = new Map<string, GameClientPlayerResult[]>()
   const apm = new Map<string, number>()
   for (const { reporter, playerResults } of sortedResults) {
     for (const [name, result] of playerResults) {
