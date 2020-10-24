@@ -1,0 +1,132 @@
+import React from 'react'
+import PropTypes from 'prop-types'
+
+import CheckBox from '../material/check-box.jsx'
+import form from '../forms/form.jsx'
+import SubmitOnEnter from '../forms/submit-on-enter.jsx'
+import Slider from '../material/slider.jsx'
+
+@form()
+class InputRemasteredForm extends React.Component {
+  render() {
+    const { bindCheckable, bindCustom, onSubmit } = this.props
+
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <Slider
+          {...bindCustom('keyboardScrollSpeed')}
+          label='Keyboard Scroll Speed'
+          tabIndex={0}
+          min={0}
+          max={6}
+          step={1}
+        />
+        <Slider
+          {...bindCustom('mouseScrollSpeed')}
+          label='Mouse Scroll Speed'
+          tabIndex={0}
+          min={0}
+          max={6}
+          step={1}
+        />
+        <CheckBox
+          {...bindCheckable('mouseSensitivityOn')}
+          label='Use Mouse Sensitivity'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <Slider
+          {...bindCustom('mouseSensitivity')}
+          label='Mouse Sensitivity'
+          tabIndex={0}
+          min={0}
+          max={100}
+          step={5}
+          disabled={this.props.getInputValue('mouseSensitivityOn')}
+          showTicks={false}
+        />
+        <CheckBox
+          {...bindCheckable('mouseScalingOn')}
+          label='Use Mouse Scaling'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('hardwareCursorOn')}
+          label='Hardware Cursor'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('mouseConfineOn')}
+          label='Use Mouse Confine'
+          inputProps={{ tabIndex: 0 }}
+        />
+      </form>
+    )
+  }
+}
+
+@form()
+class Input1161Form extends React.Component {
+  render() {
+    const { bindCustom, onSubmit } = this.props
+
+    return (
+      <form noValidate={true} onSubmit={onSubmit}>
+        <SubmitOnEnter />
+        <Slider
+          {...bindCustom('sensitivity')}
+          label='Mouse sensitivity'
+          tabIndex={0}
+          min={0}
+          max={10}
+          step={1}
+        />
+      </form>
+    )
+  }
+}
+
+export default class InputSettings extends React.Component {
+  static propTypes = {
+    localSettings: PropTypes.object.isRequired,
+    scrSettings: PropTypes.object.isRequired,
+    formRef: PropTypes.object.isRequired,
+    isRemastered: PropTypes.bool,
+    onChange: PropTypes.func.isRequired,
+    onSubmit: PropTypes.func.isRequired,
+  }
+
+  render() {
+    const { localSettings, scrSettings, formRef, isRemastered } = this.props
+
+    const form1161Model = {
+      sensitivity: localSettings.v1161mouseSensitivity,
+    }
+    const formScrModel = { ...scrSettings.toJS() }
+
+    return isRemastered ? (
+      <InputRemasteredForm
+        ref={formRef}
+        model={formScrModel}
+        onChange={this.onChange}
+        onSubmit={this.onSubmit}
+      />
+    ) : (
+      <Input1161Form
+        ref={formRef}
+        model={form1161Model}
+        onChange={this.onChange}
+        onSubmit={this.onSubmit}
+      />
+    )
+  }
+
+  onChange = () => {
+    const values = this.props.formRef.current.getModel()
+    this.props.onChange({ ...values, v1161mouseSensitivity: values.sensitivity })
+  }
+
+  onSubmit = () => {
+    this.props.onSubmit()
+  }
+}

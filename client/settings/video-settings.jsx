@@ -29,25 +29,83 @@ function filterWindowSizes(width, height) {
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 
 @form()
-class SettingsRemasteredForm extends React.Component {
+class VideoRemasteredForm extends React.Component {
   render() {
-    const { bindCustom, onSubmit } = this.props
+    const { bindCheckable, bindCustom, onSubmit } = this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
-          <Option value={0} text='Fullscreen' />
-          <Option value={1} text='Borderless Window' />
-          <Option value={2} text='Windowed' />
+          <Option value={0} text='Windowed' />
+          <Option value={1} text='Windowed (Fullscreen)' />
+          <Option value={2} text='Fullscreen' />
         </Select>
+        <CheckBox
+          {...bindCheckable('fpsLimitOn')}
+          label='Enable FPS Cap'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <Slider
+          {...bindCustom('fpsLimit')}
+          label='FPS Limit'
+          tabIndex={0}
+          min={100}
+          max={300}
+          step={1}
+          disabled={!this.props.getInputValue('fpsLimitOn')}
+          showTicks={false}
+        />
+        <Slider
+          {...bindCustom('sdGraphicsFilter')}
+          label='SD Graphics Filter'
+          tabIndex={0}
+          min={0}
+          max={3}
+          step={1}
+        />
+        <CheckBox
+          {...bindCheckable('vsyncOn')}
+          label='Enable Vertical Sync'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('hdGraphicsOn')}
+          label='HD Graphics'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('environmentEffectsOn')}
+          label='Environment Effects'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('realTimeLightingOn')}
+          label='Real-Time Lighting'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('smoothUnitTurningOn')}
+          label='Smooth Unit Turning'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('shadowStackingOn')}
+          label='Shadow Stacking'
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('pillarboxOn')}
+          label='Pillarbox'
+          inputProps={{ tabIndex: 0 }}
+        />
       </form>
     )
   }
 }
 
 @form()
-class Settings1161Form extends React.Component {
+class Video1161Form extends React.Component {
   isFullscreen() {
     return this.props.getInputValue('displayMode') === 0
   }
@@ -102,25 +160,18 @@ class Settings1161Form extends React.Component {
           disabled={!this.isFullscreen()}
           inputProps={{ tabIndex: 0 }}
         />
-        <Slider
-          {...bindCustom('sensitivity')}
-          label='Mouse sensitivity'
-          tabIndex={0}
-          min={0}
-          max={10}
-          step={1}
-        />
       </form>
     )
   }
 }
 
-export default class GameSettings extends React.Component {
+export default class VideoSettings extends React.Component {
   static propTypes = {
     localSettings: PropTypes.object.isRequired,
     resolution: PropTypes.object.isRequired,
     formRef: PropTypes.object.isRequired,
     isRemastered: PropTypes.bool,
+    onChange: PropTypes.func.isRequired,
     onSubmit: PropTypes.func.isRequired,
   }
 
@@ -128,7 +179,10 @@ export default class GameSettings extends React.Component {
     const { width, height } = this.props.resolution
     const filteredSizes = filterWindowSizes(width, height)
     for (const size of filteredSizes) {
-      if (size.width === localSettings.width && size.height === localSettings.height) {
+      if (
+        size.width === localSettings.gameWinWidth &&
+        size.height === localSettings.gameWinHeight
+      ) {
         return { width: size.width, height: size.height }
       }
     }
@@ -140,40 +194,48 @@ export default class GameSettings extends React.Component {
   }
 
   render() {
-    const { localSettings, resolution, formRef, isRemastered } = this.props
+    const { localSettings, scrSettings, resolution, formRef, isRemastered } = this.props
 
-    const formModel = {
-      displayMode: localSettings.displayMode,
-      maintainAspectRatio: localSettings.maintainAspectRatio,
-      sensitivity: localSettings.mouseSensitivity,
+    const form1161Model = {
+      displayMode: localSettings.v1161displayMode,
+      maintainAspectRatio: localSettings.v1161maintainAspectRatio,
       windowSize: this.getDefaultWindowSizeValue(localSettings),
     }
+    const formScrModel = { ...scrSettings.toJS() }
 
     const defaultWindowSize = this.getDefaultWindowSizeValue(localSettings)
     return isRemastered ? (
-      <SettingsRemasteredForm ref={formRef} model={formModel} onSubmit={this.onSubmit} />
+      <VideoRemasteredForm
+        ref={formRef}
+        model={formScrModel}
+        onChange={this.onChange}
+        onSubmit={this.onSubmit}
+      />
     ) : (
-      <Settings1161Form
+      <Video1161Form
         ref={formRef}
         resolution={resolution}
         defaultWindowSize={defaultWindowSize}
-        model={formModel}
+        model={form1161Model}
+        onChange={this.onChange}
         onSubmit={this.onSubmit}
       />
     )
   }
 
-  onSubmit = () => {
+  onChange = () => {
     const values = this.props.formRef.current.getModel()
     const windowSize = values.windowSize || {}
-    const newSettings = {
-      width: windowSize.width,
-      height: windowSize.height,
-      displayMode: values.displayMode,
-      mouseSensitivity: values.sensitivity,
-      maintainAspectRatio: values.maintainAspectRatio,
-    }
+    this.props.onChange({
+      ...values,
+      v1161displayMode: values.displayMode,
+      v1161maintainAspectRatio: values.maintainAspectRatio,
+      gameWinWidth: windowSize.width,
+      gameWinHeight: windowSize.height,
+    })
+  }
 
-    this.props.onSubmit(newSettings)
+  onSubmit = () => {
+    this.props.onSubmit()
   }
 }

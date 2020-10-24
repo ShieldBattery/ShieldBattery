@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import WindowListener from '../dom/window-listener.jsx'
 
-import { amberA400, colorTextSecondary } from '../styles/colors'
+import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors'
 import { fastOutSlowIn } from '../material/curve-constants'
 
 const Container = styled.ul`
@@ -21,7 +21,17 @@ export const TabTitle = styled.span`
   font-size: 14px;
   font-weight: 500;
   text-transform: uppercase;
-  color: ${props => (props.active ? amberA400 : colorTextSecondary)};
+
+  ${props => {
+    let color = colorTextSecondary
+    if (props.active) {
+      color = amberA400
+    } else if (props.disabled) {
+      color = colorTextFaint
+    }
+
+    return `color: ${color}`
+  }};
 `
 
 export const TabItemContainer = styled.li`
@@ -32,14 +42,20 @@ export const TabItemContainer = styled.li`
   align-items: center;
   transition: background-color 15ms linear;
 
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.04);
-    cursor: pointer;
-  }
+  ${props => {
+    if (props.disabled) return ''
 
-  &:active {
-    background-color: rgba(255, 255, 255, 0.08);
-  }
+    return `
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+
+      &:active {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    `
+  }}
 `
 
 const ActiveIndicator = styled.div`
@@ -57,21 +73,24 @@ export class TabItem extends React.Component {
     text: PropTypes.string.isRequired,
     value: PropTypes.number,
     active: PropTypes.bool,
+    disabled: PropTypes.bool,
     onClick: PropTypes.func,
   }
 
   render() {
-    const { text, active } = this.props
+    const { text, active, disabled } = this.props
 
     return (
-      <TabItemContainer onClick={this.onTabClick}>
-        <TabTitle active={active}>{text}</TabTitle>
+      <TabItemContainer disabled={disabled} onClick={this.onTabClick}>
+        <TabTitle active={active} disabled={disabled}>
+          {text}
+        </TabTitle>
       </TabItemContainer>
     )
   }
 
   onTabClick = () => {
-    if (this.props.onClick) {
+    if (!this.props.disabled && this.props.onClick) {
       this.props.onClick(this.props.value)
     }
   }
@@ -98,7 +117,10 @@ export default class Tabs extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.activeTab !== this.props.activeTab) {
+    const prevTabCount = React.Children.count(prevProps.children)
+    const tabCount = React.Children.count(this.props.children)
+
+    if (prevProps.activeTab !== this.props.activeTab || prevTabCount !== tabCount) {
       this._calcIndicatorPosition()
     }
   }

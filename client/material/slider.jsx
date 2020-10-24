@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 
 import { Body1, Caption } from '../styles/typography'
-import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
+import { colorTextFaint, amberA400, grey400, grey700, colorTextPrimary } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
 const transitionNames = {
@@ -100,14 +100,14 @@ const FilledTrack = styled.div`
   width: 100%;
   height: 2px;
 
-  background-color: ${amberA400};
+  background-color: ${props => (props.disabled ? grey400 : amberA400)};
   transform: scaleX(1);
   transform-origin: 0% 50%;
   transition: transform 150ms ${fastOutSlowIn};
   will-change: transform;
 `
 
-const Track = ({ showTicks, value, min, max, step, transitionDuration = 150 }) => {
+const Track = ({ disabled, showTicks, value, min, max, step, transitionDuration = 150 }) => {
   const scale = (value - min) / (max - min)
   const filledStyle = {
     transform: `scaleX(${scale})`,
@@ -116,7 +116,7 @@ const Track = ({ showTicks, value, min, max, step, transitionDuration = 150 }) =
 
   return (
     <TrackRoot>
-      <FilledTrack style={filledStyle} />
+      <FilledTrack disabled={disabled} style={filledStyle} />
       <Ticks show={showTicks} min={min} max={max} step={step} />
     </TrackRoot>
   )
@@ -127,7 +127,7 @@ const Root = styled.div`
   position: relative;
   contain: layout style;
 
-  ${props => (props.focused ? 'outline: none;' : '')}
+  ${props => (props.focused || props.disabled ? 'outline: none;' : '')}
 `
 
 const SliderLabel = styled(Body1)`
@@ -167,7 +167,16 @@ const Thumb = styled.div`
   height: ${THUMB_HEIGHT_PX}px;
   left: ${THUMB_WIDTH_PX / -2}px;
 
-  background-color: ${props => (props.empty ? '#ffffff' : amberA400)};
+  background-color: ${props => {
+    if (props.disabled) {
+      return grey400
+    }
+    if (props.empty) {
+      return '#ffffff'
+    }
+
+    return amberA400
+  }};
   border-radius: 50%;
   pointer-events: none;
   transition: background-color 200ms linear;
@@ -181,7 +190,7 @@ const ClickableArea = styled.div`
   left: 0;
   bottom: 0;
 
-  cursor: pointer;
+  cursor: ${props => (props.disabled ? 'auto' : 'pointer')};
 `
 
 const Balloon = styled.div`
@@ -258,6 +267,7 @@ class Slider extends React.Component {
       }
       return null
     },
+    disabled: PropTypes.bool,
     showTicks: PropTypes.bool,
     label: PropTypes.string,
     tabIndex: PropTypes.number,
@@ -345,14 +355,13 @@ class Slider extends React.Component {
       transitionDuration: `${transitionDuration}ms`,
     }
 
-    // TODO(tec27): implement disabled state
     return (
       <Root
         ref={this.rootRef}
         focused={this.state.isFocused}
         disabled={this.props.disabled}
         className={this.props.className}
-        tabIndex={this.props.tabIndex}
+        tabIndex={this.props.disabled ? -1 : this.props.tabIndex}
         onFocus={this.onFocus}
         onBlur={this.onBlur}
         onKeyDown={this.onKeyDown}
@@ -363,37 +372,62 @@ class Slider extends React.Component {
           max={this.props.max}
           step={this.props.step}
           value={this.props.value}
+          disabled={this.props.disabled}
           showTicks={this.props.showTicks && this.state.isClicked}
           transitionDuration={transitionDuration}
         />
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
-            <Thumb empty={this.props.value === this.props.min} />
+            <Thumb empty={this.props.value === this.props.min} disabled={this.props.disabled} />
             <TransitionGroup>{this._renderBalloon(thumbPosition)}</TransitionGroup>
           </ThumbContainer>
         </OverflowClip>
-        <ClickableArea ref={this.trackAreaRef} onMouseDown={this.onMouseDown} />
+        <ClickableArea
+          ref={this.trackAreaRef}
+          disabled={this.props.disabled}
+          onMouseDown={this.onMouseDown}
+        />
       </Root>
     )
   }
 
   focus() {
+    if (this.props.disabled) {
+      return
+    }
+
     this.rootRef.current.focus()
   }
 
   blur() {
+    if (this.props.disabled) {
+      return
+    }
+
     this.rootRef.current.blur()
   }
 
   onFocus = () => {
+    if (this.props.disabled) {
+      return
+    }
+
     this.setState({ isFocused: true })
   }
 
   onBlur = () => {
+    if (this.props.disabled) {
+      return
+    }
+
     this.setState({ isFocused: false })
   }
 
   onKeyDown = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     let handled = false
     if (event.keyCode === LEFT) {
       handled = true
@@ -426,6 +460,10 @@ class Slider extends React.Component {
   }
 
   onKeyUp = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     let handled = false
     if (event.keyCode === LEFT || event.keyCode === RIGHT) {
       handled = true
@@ -466,7 +504,7 @@ class Slider extends React.Component {
   }
 
   onMouseDown = event => {
-    if (!(event.buttons & MOUSE_LEFT)) {
+    if (this.props.disabled || !(event.buttons & MOUSE_LEFT)) {
       return
     }
 
@@ -480,6 +518,10 @@ class Slider extends React.Component {
   }
 
   onMouseMove = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     event.preventDefault()
     if (!this.state.isDragging) {
       this.setState({ isDragging: true })
@@ -491,6 +533,10 @@ class Slider extends React.Component {
   }
 
   onMouseUp = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     event.preventDefault()
     this._removeWindowListeners()
     this.setState({ isClicked: false, isDragging: false })
