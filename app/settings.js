@@ -22,9 +22,9 @@ function jsonify(settings) {
   return JSON.stringify(settings, null, 2)
 }
 
-// A general class that the local settings and scr settings can both use to handle their respective
-// logic. Currently, the only difference between local settings and scr settings is that we don't
-// try to create the scr settings file if it doesn't exist.
+// A general class that the local settings and SC:R settings can both use to handle their respective
+// logic. Currently, the only difference between local settings and SC:R settings is that we don't
+// try to create the SC:R settings file if it doesn't exist.
 class Settings extends EventEmitter {
   static EVENT = 'change'
 

@@ -230,7 +230,7 @@ export const LOBBY_PREFERENCES_UPDATE = 'LOBBY_PREFERENCES_UPDATE'
 
 // We are starting the process of saving the local settings
 export const LOCAL_SETTINGS_SET_BEGIN = 'LOCAL_SETTINGS_SET_BEGIN'
-// The server has responded with success/failure to our local settings saving
+// The client has responded with success/failure to our local settings saving
 export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The local settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
@@ -327,11 +327,11 @@ export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 // We have started the process of launching the game with the selected replay in it
 export const REPLAYS_START_REPLAY = 'REPLAYS_START_REPLAY'
 
-// We are starting the process of saving the scr settings
+// We are starting the process of saving the SC:R settings
 export const SCR_SETTINGS_SET_BEGIN = 'SCR_SETTINGS_SET_BEGIN'
-// The server has responded with success/failure to our scr settings saving
+// The client has responded with success/failure to our SC:R settings saving
 export const SCR_SETTINGS_SET = 'SCR_SETTINGS_SET'
-// The scr settings pertaining to this computer only have changed
+// The SC:R settings pertaining to this computer only have changed
 export const SCR_SETTINGS_UPDATE = 'SCR_SETTINGS_UPDATE'
 
 export const SERVER_STATUS = 'SERVER_STATUS'

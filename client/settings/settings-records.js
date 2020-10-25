@@ -2,7 +2,7 @@ import { Map, Record } from 'immutable'
 
 // NOTE(2Pac): These setting records should *only* contain the actual setting values that will be
 // persisted somewhere permanently (so don't put stuff like `lastError` in here). This allows us to
-// easily save/fetch settings without doing some kind of filtering.
+// use these records to easily save/fetch settings without doing some kind of filtering.
 
 export const LocalSettings = new Record({
   starcraftPath: null,
@@ -62,9 +62,9 @@ export const ScrSettings = new Record({
 })
 
 // Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
-// names used in SC:R are the values. Used for converting both from SC:R -> SB settings (when
-// fetching), and SB -> SC:R settings (when saving).
-export const scrSettingMappings = new Map([
+// names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
+// convert from SC:R -> SB settings (when fetching) use the inverse map below.
+export const sbToScrMapping = new Map([
   ['keyboardScrollSpeed', 'm_kscroll'],
   ['mouseScrollSpeed', 'm_mscroll'],
   ['mouseSensitivityOn', 'MouseUseSensitivity'],
@@ -106,9 +106,11 @@ export const scrSettingMappings = new Map([
   ['apmAlertSoundOn', 'apm_AlertUseSound'],
 ])
 
+export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
+
 export function fromScrToSb(scrSettings) {
   const mappedScrSettings = Object.entries(scrSettings).reduce((acc, [name, value]) => {
-    const sbKeyName = scrSettingMappings.findKey(scrKeyName => scrKeyName === name)
+    const sbKeyName = scrToSbMapping.get(name)
 
     acc[sbKeyName] = value
 
@@ -120,7 +122,7 @@ export function fromScrToSb(scrSettings) {
 
 export function fromSbToScr(sbSettings) {
   return Object.entries(sbSettings).reduce((acc, [name, value]) => {
-    const scrKeyName = scrSettingMappings.get(name)
+    const scrKeyName = sbToScrMapping.get(name)
 
     acc[scrKeyName] = value
 

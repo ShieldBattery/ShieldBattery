@@ -34,15 +34,15 @@ export const LOCAL_SETTINGS_GET_ERROR = 'LOCAL_SETTINGS_GET_ERROR'
 export const LOCAL_SETTINGS_MERGE = 'LOCAL_SETTINGS_MERGE'
 // Tells a renderer process that there has been an error merging the local settings
 export const LOCAL_SETTINGS_MERGE_ERROR = 'LOCAL_SETTINGS_MERGE_ERROR'
-// The scr settings have changed (includes the new settings)
+// The SC:R settings have changed (includes the new settings)
 export const SCR_SETTINGS_CHANGED = 'SCR_SETTINGS_CHANGED'
 // Cause the main process to immediately emit a SCR_SETTINGS_CHANGED event
 export const SCR_SETTINGS_GET = 'SCR_SETTINGS_GET'
-// Tells a renderer process that there has been an error getting the scr settings
+// Tells a renderer process that there has been an error getting the SC:R settings
 export const SCR_SETTINGS_GET_ERROR = 'SCR_SETTINGS_GET_ERROR'
-// Pass a new scr settings from the renderer -> main process (to be merged with the existing one)
+// Pass a new SC:R settings from the renderer -> main process (to be merged with the existing one)
 export const SCR_SETTINGS_MERGE = 'SCR_SETTINGS_MERGE'
-// Tells a renderer process that there has been an error merging the scr settings
+// Tells a renderer process that there has been an error merging the SC:R settings
 export const SCR_SETTINGS_MERGE_ERROR = 'SCR_SETTINGS_MERGE_ERROR'
 
 // Tells the main process that something has happened that requires a user's attention and to get it
