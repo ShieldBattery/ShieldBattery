@@ -211,6 +211,7 @@ export class MatchmakingApi {
         players: slots,
         mapId: chosenMap.id,
         gameSource: 'MATCHMAKING',
+        gameSourceExtra: matchInfo.type,
         gameConfig,
         onGameSetup: (setup, resultCodes) =>
           this.gameLoaderDelegate.onGameSetup({

@@ -10,6 +10,8 @@ import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
  *
  * @param mapId the ID of the map being played on, as stored in the `uploaded_maps` table
  * @param gameSource a string representing the source of the game, e.g. 'MATCHMAKING' or 'LOBBY'
+ * @param gameSourceExtra extra information about the source of the game, such as the matchmaking
+ *   type
  * @param gameConfig an object describing the configuration of the game
  * @param startTime the time the game is being started at. Optional, defaults to the current time.
  *
@@ -19,6 +21,7 @@ import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
 export async function registerGame(
   mapId: string,
   gameSource: GameSource,
+  gameSourceExtra: string | undefined,
   gameConfig: GameConfig<GameConfigPlayerName>,
   startTime = new Date(),
 ) {
@@ -46,6 +49,7 @@ export async function registerGame(
       })),
     ),
     gameSource,
+    gameSourceExtra,
   }
 
   const resultCodes = new Map(humanNames.map(name => [name, genResultCode()]))

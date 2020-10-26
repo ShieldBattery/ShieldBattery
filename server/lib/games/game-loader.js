@@ -81,6 +81,8 @@ export class GameLoader {
    *   least one player should be present for things to work properly.
    * @param mapId The ID of the map that the game will be played on
    * @param gameSource A string representing the source of the game, e.g. 'MATCHMAKING' or 'LOBBY'
+   * @param gameSourceExtra An optional string of extra information about the source of the game,
+   *   such as the matchmaking type
    * @param gameConfig an object describing the configuration of the game in the format:
    *   `{ gameType, gameSubType, teams: [ [team1Players], [team2Players], ...] }`
    *   For games that begin teamless, all players may be on a single team. Entries in the team lists
@@ -94,7 +96,7 @@ export class GameLoader {
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({ players, mapId, gameSource, gameConfig, onGameSetup, onRoutesSet }) {
+  loadGame({ players, mapId, gameSource, gameSourceExtra, gameConfig, onGameSetup, onRoutesSet }) {
     const gameLoaded = createDeferred()
 
     registerGame(mapId, gameSource, gameConfig)
