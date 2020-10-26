@@ -4,6 +4,7 @@
     "module": "commonjs",
     "strict": true,
 
+    "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
@@ -14,5 +15,5 @@
     "noEmit": true
   },
 
-  "exclude": ["dist", "node_modules", "server/public", "app/dist", "app/node_modules"]
+  "exclude": ["dist", "node_modules", "server/public", "app/dist", "app/node_modules", "game"]
 }

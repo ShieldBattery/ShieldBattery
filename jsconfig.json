@@ -1,7 +1,0 @@
-{
-  "compilerOptions": {
-    "experimentalDecorators": true
-  },
-  "include": ["app/**/*", "client/**/*", "common/**/*", "server/**/*", "test/**/*"],
-  "exclude": ["app/node_modules", "node_modules", "server/public/**/*"]
-}

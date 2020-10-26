@@ -3,22 +3,25 @@ import transact from '../db/transaction'
 import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
 import { genResultCode } from './gen-result-code'
+import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
 
 /**
  * Registers a game in the database so that results can be collected for it.
  *
  * @param mapId the ID of the map being played on, as stored in the `uploaded_maps` table
  * @param gameSource a string representing the source of the game, e.g. 'MATCHMAKING' or 'LOBBY'
- * @param gameConfig an object describing the configuration of the game in the format:
- *   `{ gameType, gameSubType, teams: [ [team1Players], [team2Players], ...] }`
- *   For games that begin teamless, all players may be on a single team. Entries in the team lists
- *   are in the format `{ name, race = (p,r,t,z), isComputer }`.
+ * @param gameConfig an object describing the configuration of the game
  * @param startTime the time the game is being started at. Optional, defaults to the current time.
  *
  * @returns an object containing the generated `gameId` and a map of `resultCodes` indexed by
  *   player name
  */
-export async function registerGame(mapId, gameSource, gameConfig, startTime = new Date()) {
+export async function registerGame(
+  mapId: string,
+  gameSource: GameSource,
+  gameConfig: GameConfig<GameConfigPlayerName>,
+  startTime = new Date(),
+) {
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
     const humans = team.filter(p => !p.isComputer)
     r.push(...humans)
@@ -37,7 +40,7 @@ export async function registerGame(mapId, gameSource, gameConfig, startTime = ne
     gameSubType: gameConfig.gameSubType,
     teams: gameConfig.teams.map(team =>
       team.map(p => ({
-        id: p.isComputer ? -1 : userIdsMap.get(p.name),
+        id: p.isComputer ? -1 : userIdsMap.get(p.name)!,
         race: p.race,
         isComputer: p.isComputer,
       })),
@@ -47,18 +50,20 @@ export async function registerGame(mapId, gameSource, gameConfig, startTime = ne
 
   const resultCodes = new Map(humanNames.map(name => [name, genResultCode()]))
 
-  let gameId
+  // NOTE(tec27): the value here makes the linter happy, but this will actually be set in the
+  // transaction below
+  let gameId = ''
 
   await transact(async client => {
-    gameId = await createGameRecord(client, { startTime, mapId, gameConfig: configToStore })
+    gameId = await createGameRecord(client, { startTime, mapId, config: configToStore })
     await Promise.all(
       humanPlayers.map(p =>
         createGameUserRecord(client, {
-          userId: userIdsMap.get(p.name),
+          userId: userIdsMap.get(p.name)!,
           gameId,
           startTime,
           selectedRace: p.race,
-          resultCode: resultCodes.get(p.name),
+          resultCode: resultCodes.get(p.name)!,
         }),
       ),
     )

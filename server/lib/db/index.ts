@@ -14,6 +14,7 @@ if (!connectionString) throw new Error('DATABASE_URL must be set')
 const pool = new pg.Pool({ connectionString })
 
 export type DbClient = pg.PoolClient
+export type DbDone = (release?: unknown) => void
 
 export interface ClientResult {
   /**
@@ -25,17 +26,29 @@ export interface ClientResult {
    * A method to release the client back to the pool. Optionally, a parameter can be passed
    * indicating whether the client should be thrown away rather than re-used.
    */
-  done: (release?: unknown) => void
+  done: DbDone
 }
 
 // TODO(tec27): I think it might be better to wrap the query functions instead of just wrapping the
 // client pool getter, but since I don't know how we'll be using this too much yet I'm just
 // keeping it simple for now
-export default function () {
+export default function getDbClient() {
   return new Promise<ClientResult>((resolve, reject) => {
     pool.connect((err, client, done) => {
       if (err) reject(err)
       else resolve({ client, done })
     })
   })
+}
+
+/**
+ * Executes `fn` with a database client, automatically releasing the client when completed.
+ */
+export async function withDbClient<T>(fn: (client: DbClient) => Promise<T>): Promise<T> {
+  const { client, done } = await getDbClient()
+  try {
+    return await fn(client)
+  } finally {
+    done()
+  }
 }

@@ -5,7 +5,7 @@ import transact from '../db/transaction'
 import { createPermissions } from './permissions'
 import { addUserToChannel } from './chat-channels'
 
-function defPrivate(o, name, value) {
+function defPrivate(o: unknown, name: string, value: unknown) {
   Object.defineProperty(o, name, {
     enumerable: false,
     writable: true,
@@ -14,7 +14,31 @@ function defPrivate(o, name, value) {
 }
 
 class User {
-  constructor(props, _fromDb) {
+  id: number | null | undefined
+  name: string
+  email: string
+  created: Date
+  signupIpAddress: string | null
+  emailVerified: boolean
+
+  private _fromDb!: boolean
+  private password!: string
+
+  constructor(
+    props: {
+      id?: number | null
+      name: string
+      email: string
+      password: string
+      created?: Date
+      signupIpAddress?: string | null
+      // eslint-disable-next-line camelcase
+      ip_address_at_signup?: string | null
+      // eslint-disable-next-line camelcase
+      email_verified?: boolean
+    },
+    _fromDb = false,
+  ) {
     defPrivate(this, '_fromDb', !!_fromDb)
 
     this.id = this._fromDb ? props.id : null
@@ -22,8 +46,10 @@ class User {
     this.email = props.email
     defPrivate(this, 'password', props.password)
     this.created = props.created || new Date()
-    this.signupIpAddress = this._fromDb ? props.ip_address_at_signup : props.signupIpAddress
-    this.emailVerified = props.email_verified
+    this.signupIpAddress = this._fromDb
+      ? props.ip_address_at_signup ?? null
+      : props.signupIpAddress ?? null
+    this.emailVerified = props.email_verified ?? false
   }
 
   async save() {
@@ -54,8 +80,8 @@ class User {
 
       this.id = result.rows[0].id
       this._fromDb = true
-      const userPermissions = await createPermissions(client, this.id)
-      await addUserToChannel(this.id, 'ShieldBattery', client)
+      const userPermissions = await createPermissions(client, this.id!)
+      await addUserToChannel(this.id!, 'ShieldBattery', client)
       return { user: this, permissions: userPermissions }
     })
   }
@@ -79,17 +105,23 @@ class User {
   }
 }
 
-function createUser(name, email, hashedPassword, ipAddress, createdDate) {
+function createUser(
+  name: string,
+  email: string,
+  hashedPassword: string,
+  ipAddress: string,
+  createdDate = new Date(),
+) {
   return new User({
     name,
     email,
     password: hashedPassword,
-    created: createdDate || new Date(),
+    created: createdDate,
     signupIpAddress: ipAddress,
   })
 }
 
-export async function findUser(criteria) {
+export async function findUser(criteria: number | string) {
   let query = 'SELECT id, name, email, password, created, email_verified FROM users WHERE ',
     params
   if (typeof criteria != 'number') {
@@ -111,7 +143,7 @@ export async function findUser(criteria) {
   }
 }
 
-export async function maybeUpdateIpAddress(userId, ipAddress) {
+export async function maybeUpdateIpAddress(userId: number, ipAddress: string) {
   const { client, done } = await db()
   try {
     return client.query(
@@ -123,7 +155,7 @@ export async function maybeUpdateIpAddress(userId, ipAddress) {
   }
 }
 
-export async function findAllUsernamesWithEmail(email) {
+export async function findAllUsernamesWithEmail(email: string) {
   const { client, done } = await db()
   try {
     const result = await client.query('SELECT name FROM users WHERE email = $1', [email])
@@ -137,11 +169,11 @@ export async function findAllUsernamesWithEmail(email) {
  * Returns a Map of name -> user ID given a list of names. Any users that can't be found won't be
  * present in the resulting Map.
  */
-export async function findUserIdsForNames(names) {
+export async function findUserIdsForNames(names: string[]) {
   const { client, done } = await db()
   try {
     const result = await client.query(sql`SELECT id, name FROM users WHERE name = ANY (${names})`)
-    return new Map(result.rows.map(row => [row.name, row.id]))
+    return new Map<string, number>(result.rows.map(row => [row.name, row.id]))
   } finally {
     done()
   }

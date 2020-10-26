@@ -1,15 +1,36 @@
 import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
-import { GameClientResult, GameClientPlayerResult } from '../../../common/game-results'
-import { RaceChar } from '../../../common/races'
+import { GameClientPlayerResult, ReconciledResult } from '../../../common/game-results'
+import { AssignedRaceChar, RaceChar } from '../../../common/races'
 
-export interface GameUserRecordData {
+export interface ReportedResultsData {
+  userId: number
+  gameId: string
+  reportedAt: Date
+  reportedResults: {
+    /** The elapsed time of the game, in milliseconds. */
+    time: number
+    /** A tuple of (userId, result info). */
+    playerResults: Array<[number, GameClientPlayerResult]>
+  }
+}
+
+export interface DbGameUser {
   userId: number
   gameId: string
   startTime: Date
   selectedRace: RaceChar
-  resultCode?: GameClientResult
+  resultCode: string
+  reportedResults: ReportedResultsData | null
+  reportedAt: Date | null
+  assignedRace: AssignedRaceChar | null
+  result: ReconciledResult | null
 }
+
+export type CreateGameUserRecordData = Pick<
+  DbGameUser,
+  'userId' | 'gameId' | 'startTime' | 'selectedRace' | 'resultCode'
+>
 
 /**
  * Creates a new user-specific game record in the `games_users` table. All values that are reported
@@ -18,7 +39,7 @@ export interface GameUserRecordData {
  */
 export async function createGameUserRecord(
   client: DbClient,
-  { userId, gameId, startTime, selectedRace, resultCode }: GameUserRecordData,
+  { userId, gameId, startTime, selectedRace, resultCode }: CreateGameUserRecordData,
 ) {
   return client.query(sql`
     INSERT INTO games_users (
@@ -34,7 +55,7 @@ export async function createGameUserRecord(
 /**
  * Deletes all user-specific records for a particular game.
  */
-export async function deleteUserRecordsForGame(gameId: string) {
+export async function deleteUserRecordsForGame(gameId: string): Promise<void> {
   const { client, done } = await db()
 
   try {
@@ -47,19 +68,19 @@ export async function deleteUserRecordsForGame(gameId: string) {
 /**
  * Retrieves a particular user-specific game record.
  *
- * @param userId
- * @param gameId
- *
  * @returns an object containing the information about the game, or null if there is no such game
  */
-export async function getUserGameRecord(userId: number, gameId: string) {
+export async function getUserGameRecord(
+  userId: number,
+  gameId: string,
+): Promise<DbGameUser | null> {
   const { client, done } = await db()
 
   try {
     const result = await client.query(
       sql`SELECT * FROM games_users WHERE user_id = ${userId} AND game_id = ${gameId}`,
     )
-    if (!result.rows.length) {
+    if (!result.rowCount) {
       return null
     }
 
@@ -81,18 +102,6 @@ export async function getUserGameRecord(userId: number, gameId: string) {
   }
 }
 
-export interface ReportedResultsData {
-  userId: number
-  gameId: string
-  reportedAt: Date
-  reportedResults: {
-    /** The elapsed time of the game, in milliseconds. */
-    time: number
-    /** A tuple of (player name, result info). */
-    playerResults: Array<[string, GameClientPlayerResult]>
-  }
-}
-
 /**
  * Updates a particular user's results for a game.
  */
@@ -108,7 +117,7 @@ export async function setReportedResults({
     await client.query(sql`
       UPDATE games_users
       SET
-        reported_results = ${JSON.stringify(reportedResults)},
+        reported_results = ${reportedResults},
         reported_at = ${reportedAt}
       WHERE user_id = ${userId} AND game_id = ${gameId}
     `)
