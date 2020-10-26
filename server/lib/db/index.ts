@@ -42,12 +42,16 @@ export default function getDbClient() {
 }
 
 /**
- * Executes `fn` with a database client, automatically releasing the client when completed.
+ * Executes `fn` with a database client, automatically releasing the client when completed. Any
+ * additional arguments will be passed along with the `DbClient`.
  */
-export async function withDbClient<T>(fn: (client: DbClient) => Promise<T>): Promise<T> {
+export async function withDbClient<T, U extends any[]>(
+  fn: (client: DbClient, ...args: U) => Promise<T>,
+  ...args: U
+): Promise<T> {
   const { client, done } = await getDbClient()
   try {
-    return await fn(client)
+    return await fn(client, ...args)
   } finally {
     done()
   }

@@ -6,19 +6,19 @@ import {
 import { AssignedRaceChar } from '../../../common/races'
 
 export interface ResultSubmission {
-  /** The name of the player who reported these results. */
-  reporter: string
+  /** The user ID of the player who reported these results. */
+  reporter: number
   /** The elapsed time of the game, in milliseconds. */
   time: number
-  /** A tuple of (player name, result info). */
-  playerResults: Array<[string, GameClientPlayerResult]>
+  /** A tuple of (user id, result info). */
+  playerResults: Array<[number, GameClientPlayerResult]>
 }
 
 function isTerminal(resultCode: GameClientResult) {
   return resultCode === GameClientResult.Victory || resultCode === GameClientResult.Defeat
 }
 
-function countTerminalStates(resultMap: Array<[string, GameClientPlayerResult]>) {
+function countTerminalStates(resultMap: Array<[number, GameClientPlayerResult]>) {
   return resultMap.reduce((sum, [, curResult]) => (isTerminal(curResult.result) ? sum + 1 : sum), 0)
 }
 
@@ -70,7 +70,7 @@ export interface ReconciledResults {
   /** The elapsed time for the game, in milliseconds. */
   time: number
   /** A map containing the final result info for each player in the game. */
-  results: Map<string, ReconciledPlayerResult>
+  results: Map<number, ReconciledPlayerResult>
 }
 
 /**
@@ -100,36 +100,36 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
   // control over the displayed time which is *slightly* unsafe, I suppose.
   const elapsedTime = sortedResults[sortedResults.length - 1].time
 
-  const combined = new Map<string, GameClientPlayerResult[]>()
-  const apm = new Map<string, number>()
+  const combined = new Map<number, GameClientPlayerResult[]>()
+  const apm = new Map<number, number>()
   for (const { reporter, playerResults } of sortedResults) {
-    for (const [name, result] of playerResults) {
-      if (!combined.has(name)) {
-        combined.set(name, [])
+    for (const [id, result] of playerResults) {
+      if (!combined.has(id)) {
+        combined.set(id, [])
       }
-      combined.get(name)!.push(result)
+      combined.get(id)!.push(result)
 
-      if (reporter === name) {
+      if (reporter === id) {
         // Trust each player about their own APM only. This is a tad exploitable but probably not
         // for anything that harmful (a workaround to this would be to calculate it from replays
         // exclusively?)
-        apm.set(name, result.apm)
+        apm.set(id, result.apm)
       }
     }
   }
 
-  const playerRaces = new Map<string, AssignedRaceChar>()
-  for (const [playerName, playerResults] of combined) {
+  const playerRaces = new Map<number, AssignedRaceChar>()
+  for (const [playerId, playerResults] of combined) {
     const raceSet = new Set(playerResults.map(r => r.race))
     if (raceSet.size > 1) {
       disputed = true
     }
-    playerRaces.set(playerName, playerResults[0].race)
+    playerRaces.set(playerId, playerResults[0].race)
   }
 
-  const reconciled = new Map<string, ReconciledPlayerResult>()
+  const reconciled = new Map<number, ReconciledPlayerResult>()
 
-  for (const [playerName, playerResults] of combined.entries()) {
+  for (const [playerId, playerResults] of combined.entries()) {
     let victories = 0
     let defeats = 0
     for (const r of playerResults) {
@@ -156,10 +156,10 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
       result = 'loss'
     }
 
-    reconciled.set(playerName, {
+    reconciled.set(playerId, {
       result,
-      race: playerRaces.get(playerName)!,
-      apm: apm.get(playerName) ?? 0,
+      race: playerRaces.get(playerId)!,
+      apm: apm.get(playerId) ?? 0,
     })
   }
 

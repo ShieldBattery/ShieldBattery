@@ -2,6 +2,7 @@ import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
 import { GameClientPlayerResult, ReconciledResult } from '../../../common/game-results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { ReconciledPlayerResult, ResultSubmission } from '../games/results'
 
 export interface ReportedResultsData {
   userId: number
@@ -124,4 +125,53 @@ export async function setReportedResults({
   } finally {
     done()
   }
+}
+
+/**
+ * Gets the current reported results for all the users in a game.
+ */
+export async function getCurrentReportedResults(
+  gameId: string,
+): Promise<Array<ResultSubmission | null>> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query(sql`
+      SELECT user_id, reported_results
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return result.rows.map(row =>
+      row.reportedResults
+        ? {
+            reporter: row.user_id,
+            time: row.reported_results.time,
+            playerResults: row.reported_results.playerResults,
+          }
+        : null,
+    )
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Sets the reconciled (and probably final) result for a particular user in a game. This is intended
+ * to be executed in a transaction that updates all the users and the full game results at once.
+ */
+export async function setUserReconciledResult(
+  client: DbClient,
+  userId: number,
+  gameId: string,
+  result: ReconciledPlayerResult,
+) {
+  // TODO(tec27): Should this table also have a column for the reconciled APM?
+  return client.query(sql`
+    UPDATE games_users
+    SET
+      assigned_race = ${result.race},
+      result = ${result.result}
+    WHERE user_id = ${userId} AND game_id = ${gameId}
+  `)
 }

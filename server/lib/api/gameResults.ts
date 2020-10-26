@@ -2,13 +2,20 @@ import Koa from 'koa'
 import Router from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { getUserGameRecord, setReportedResults } from '../models/games-users'
+import {
+  getCurrentReportedResults,
+  getUserGameRecord,
+  setUserReconciledResult,
+  setReportedResults,
+} from '../models/games-users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
 import { joiValidator } from '../validation/joi-validator'
-import { getGameRecord } from '../models/games'
+import { getGameRecord, setReconciledResult } from '../models/games'
 import { findUserIdsForNames } from '../models/users'
+import { hasCompletedResults, reconcileResults } from '../games/results'
+import transact from '../db/transaction'
 
 const throttle = createThrottle('gamesResults', {
   rate: 10,
@@ -52,9 +59,13 @@ const submitGameResultsSchema = Joi.object({
 // TODO(tec27): This should be put somewhere common so the client code can use the same interface
 // when making the request
 interface SubmitGameResultsBody {
+  /** The ID of the user submitting results. */
   userId: number
+  /** The secret code the user was given to submit results with. */
   resultCode: string
+  /** The elapsed time of the game, in milliseconds. */
   time: number
+  /** A tuple of (player name, result). */
   playerResults: [string, GameClientPlayerResult][]
 }
 
@@ -102,5 +113,29 @@ async function submitGameResults(ctx: Koa.Context, next: Koa.Next) {
 
   ctx.status = 204
 
-  // TODO(tec27): check if this game now has complete results
+  // We don't need to hold up the response while we check for reconciling
+  Promise.resolve()
+    .then(async () => {
+      // TODO(tec27): This should probably be moved to games/registration (and that file renamed)
+      // since this will be used to check periodically for reconcilable games as well
+      const currentResults = await getCurrentReportedResults(gameId)
+      if (!hasCompletedResults(currentResults)) {
+        return
+      }
+
+      const reconciled = reconcileResults(currentResults)
+      await transact(async client => {
+        const resultEntries = Array.from(reconciled.results.entries())
+        const userPromises = resultEntries.map(([userId, result]) =>
+          setUserReconciledResult(client, userId, gameId, result),
+        )
+
+        // TODO(tec27): update ranks, win/loss records, etc.
+
+        await Promise.all([...userPromises, setReconciledResult(client, gameId, reconciled)])
+      })
+    })
+    .catch(err => {
+      ctx.log.error(err, 'checking for reconcilable results on submission failed')
+    })
 }

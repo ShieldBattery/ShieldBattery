@@ -1272,6 +1272,15 @@
   dependencies:
     "@types/koa" "*"
 
+"@types/koa-pino-logger@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@types/koa-pino-logger/-/koa-pino-logger-3.0.0.tgz#275d4b000abc14b1928dc2e9ab476c8296a64b6a"
+  integrity sha512-sP+12JNX01q+nHpCRqkVIuLjaRemQEfDoFg0evpTnjUEI3jUI2ZrOkhQ5coxn3yVm2tedui/2YhlaPn/XrYNWA==
+  dependencies:
+    "@types/koa" "*"
+    "@types/pino" "*"
+    "@types/pino-http" "*"
+
 "@types/koa@*", "@types/koa@^2.11.6":
   version "2.11.6"
   resolved "https://registry.yarnpkg.com/@types/koa/-/koa-2.11.6.tgz#b7030caa6b44af801c2aea13ba77d74aff7484d5"
@@ -1326,6 +1335,29 @@
     "@types/node" "*"
     "@types/pg-types" "*"
 
+"@types/pino-http@*":
+  version "5.0.5"
+  resolved "https://registry.yarnpkg.com/@types/pino-http/-/pino-http-5.0.5.tgz#d696094509b6a02f886a89607c4c34ce4af860f1"
+  integrity sha512-xx8bMUmap1LV0qxzZUlsjE9F5oX3nzoh+rPEtCY8WQgWx6UESbEv4VFwcRLRj6mtACBd0BVcTydcvBppnb6lSg==
+  dependencies:
+    "@types/pino" "*"
+
+"@types/pino-std-serializers@*":
+  version "2.4.1"
+  resolved "https://registry.yarnpkg.com/@types/pino-std-serializers/-/pino-std-serializers-2.4.1.tgz#f8bd52a209c8b3c97d1533b1ba27f57c816382bf"
+  integrity sha512-17XcksO47M24IVTVKPeAByWUd3Oez7EbIjXpSbzMPhXVzgjGtrOa49gKBwxH9hb8dKv58OelsWQ+A1G1l9S3wQ==
+  dependencies:
+    "@types/node" "*"
+
+"@types/pino@*":
+  version "6.3.3"
+  resolved "https://registry.yarnpkg.com/@types/pino/-/pino-6.3.3.tgz#a8114e07d792d36b48b79db0151557b6d42c8d95"
+  integrity sha512-YtT58N7Tt7B7f5B/upuq694p4eT4icM9TuhgYeKhm+dnF0Ahm7q5YJp1i7vC2mBMdWgH1IvOa2XK6rhUjBv0GQ==
+  dependencies:
+    "@types/node" "*"
+    "@types/pino-std-serializers" "*"
+    "@types/sonic-boom" "*"
+
 "@types/prop-types@*":
   version "15.7.3"
   resolved "https://registry.yarnpkg.com/@types/prop-types/-/prop-types-15.7.3.tgz#2ab0d5da2e5815f94b0b9d4b95d1e5f243ab2ca7"
@@ -1378,6 +1410,13 @@
   integrity sha512-nuRJmv7jW7VmCVTn+IgYDkkbbDGyIINOeu/G0d74X3lm6E5KfMeQPJhxIt1ayQeQB3cSxvYs1RA/wipYoFB4EA==
   dependencies:
     "@types/mime" "*"
+    "@types/node" "*"
+
+"@types/sonic-boom@*":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@types/sonic-boom/-/sonic-boom-0.7.0.tgz#38337036293992a1df65dd3161abddf8fb9b7176"
+  integrity sha512-AfqR0fZMoUXUNwusgXKxcE9DPlHNDHQp6nKYUd4PSRpLobF5CCevSpyTEBcVZreqaWKCnGBr9KI1fHMTttoB7A==
+  dependencies:
     "@types/node" "*"
 
 "@types/yargs-parser@*":

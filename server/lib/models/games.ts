@@ -1,6 +1,7 @@
 import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
 import { GameConfig, GameConfigPlayerId } from '../games/configuration'
+import { ReconciledResults } from '../games/results'
 
 export interface DbGame {
   id: string
@@ -78,4 +79,25 @@ export async function deleteRecordForGame(gameId: string): Promise<void> {
   } finally {
     done()
   }
+}
+
+/**
+ * Sets the reconciled (and probably final) result for a particular game. This is intended
+ * to be executed in a transaction that updates all the users and the full game results at once.
+ */
+export async function setReconciledResult(
+  client: DbClient,
+  gameId: string,
+  results: ReconciledResults,
+) {
+  // TODO(tec27): we need a column for results LOL whoops :)
+  return client.query(sql`
+    UPDATE games
+    SET
+      game_length = ${results.time},
+      disputable = ${results.disputed},
+      dispute_requested = false,
+      dispute_reviewed = false
+    WHERE game_id = ${gameId}
+  `)
 }
