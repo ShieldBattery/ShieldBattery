@@ -1,7 +1,7 @@
 import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
 import { GameConfig, GameConfigPlayerId } from '../games/configuration'
-import { ReconciledResults } from '../games/results'
+import { ReconciledPlayerResult, ReconciledResults } from '../games/results'
 
 export interface DbGame {
   id: string
@@ -12,6 +12,7 @@ export interface DbGame {
   disputeRequested: boolean
   disputeReviewed: boolean
   gameLength: number | null
+  results: [number, ReconciledPlayerResult][] | null
 }
 
 export type CreateGameRecordData = Pick<DbGame, 'startTime' | 'mapId' | 'config'>
@@ -45,7 +46,7 @@ export async function getGameRecord(gameId: string): Promise<DbGame | null> {
   try {
     const result = await client.query(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
-        game_length
+        game_length, results
       FROM games
       WHERE id = ${gameId}`)
     if (!result.rowCount) {
@@ -61,6 +62,7 @@ export async function getGameRecord(gameId: string): Promise<DbGame | null> {
         disputeRequested: row.dispute_requested,
         disputeReviewed: row.dispute_reviewed,
         gameLength: row.game_length,
+        results: row.results,
       }
     }
   } finally {
@@ -90,10 +92,10 @@ export async function setReconciledResult(
   gameId: string,
   results: ReconciledResults,
 ) {
-  // TODO(tec27): we need a column for results LOL whoops :)
   return client.query(sql`
     UPDATE games
     SET
+      results = ${Array.from(results.results.entries())},
       game_length = ${results.time},
       disputable = ${results.disputed},
       dispute_requested = false,

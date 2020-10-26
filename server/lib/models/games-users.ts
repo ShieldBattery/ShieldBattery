@@ -26,6 +26,7 @@ export interface DbGameUser {
   reportedAt: Date | null
   assignedRace: AssignedRaceChar | null
   result: ReconciledResult | null
+  apm: number | null
 }
 
 export type CreateGameUserRecordData = Pick<
@@ -45,10 +46,10 @@ export async function createGameUserRecord(
   return client.query(sql`
     INSERT INTO games_users (
       user_id, game_id, start_time, selected_race, result_code, reported_results, reported_at,
-      assigned_race, result
+      assigned_race, result, apm
     ) VALUES (
       ${userId}, ${gameId}, ${startTime}, ${selectedRace}, ${resultCode}, NULL, NULL,
-      NULL, NULL
+      NULL, NULL, NULL
     )
   `)
 }
@@ -97,6 +98,7 @@ export async function getUserGameRecord(
       reportedAt: row.reported_at,
       assignedRace: row.assignedRace,
       result: row.result,
+      apm: row.apm,
     }
   } finally {
     done()
@@ -166,12 +168,12 @@ export async function setUserReconciledResult(
   gameId: string,
   result: ReconciledPlayerResult,
 ) {
-  // TODO(tec27): Should this table also have a column for the reconciled APM?
   return client.query(sql`
     UPDATE games_users
     SET
       assigned_race = ${result.race},
-      result = ${result.result}
+      result = ${result.result},
+      apm = ${result.apm}
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
 }
