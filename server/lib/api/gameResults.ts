@@ -125,10 +125,15 @@ async function submitGameResults(ctx: Koa.Context, next: Koa.Next) {
 
       const reconciled = reconcileResults(currentResults)
       await transact(async client => {
+        // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
+        // and "fixup" rank changes and win/loss counters
         const resultEntries = Array.from(reconciled.results.entries())
         const userPromises = resultEntries.map(([userId, result]) =>
           setUserReconciledResult(client, userId, gameId, result),
         )
+
+        // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
+        // as when a user has an unknown result?
 
         // TODO(tec27): update ranks, win/loss records, etc.
 

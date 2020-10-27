@@ -152,8 +152,11 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
       }
     } else if (victories > 0) {
       result = 'win'
-    } else {
+    } else if (defeats > 0) {
       result = 'loss'
+    } else {
+      disputed = true
+      result = 'unknown'
     }
 
     reconciled.set(playerId, {

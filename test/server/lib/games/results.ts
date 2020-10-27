@@ -242,6 +242,44 @@ describe('games/results/reconcileResults', () => {
     })
   })
 
+  it('should reconcile a 4 player game without final results', () => {
+    const results = [
+      {
+        reporter: 2,
+        time: 7,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 20),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 20),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 20),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 20),
+        ],
+      },
+      null,
+      {
+        reporter: 1,
+        time: 9,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Disconnected, 't', 40),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 40),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 40),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 40),
+        ],
+      },
+      null,
+    ]
+
+    const reconciled = reconcileResults(results)
+
+    expect(reconciled.disputed).to.equal(true)
+    expect(reconciled.time).to.equal(9)
+    evaluateResults(reconciled.results, {
+      1: { result: 'unknown', race: 't', apm: 40 },
+      2: { result: 'unknown', race: 'z', apm: 20 },
+      3: { result: 'unknown', race: 'p', apm: 0 },
+      4: { result: 'unknown', race: 'p', apm: 0 },
+    })
+  })
+
   it('should reconcile a 4 player game with disputed results for 1 player', () => {
     const results = [
       {

@@ -142,6 +142,7 @@ export async function getCurrentReportedResults(
       SELECT user_id, reported_results
       FROM games_users
       WHERE game_id = ${gameId}
+      ORDER_BY reported_at DESC
     `)
 
     return result.rows.map(row =>
