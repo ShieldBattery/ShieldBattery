@@ -20,6 +20,12 @@ import {
   ADMIN_MAP_POOL_GET_HISTORY,
   ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
   ADMIN_MAP_POOL_SEARCH_MAPS,
+  ADMIN_MATCHMAKING_TIMES_ADD_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_ADD,
+  ADMIN_MATCHMAKING_TIMES_DELETE_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_DELETE,
+  ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
   ADMIN_SET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
@@ -235,6 +241,58 @@ export function deleteMapPool(type, id) {
       payload: fetch(`/api/1/matchmakingMapPools/${encodeURIComponent(id)}`, {
         method: 'delete',
       }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted' }))),
+      meta: { type, id },
+    })
+  }
+}
+
+// TODO(2Pac): This can be cached
+export function getMatchmakingTimesHistory(type) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
+      meta: { type },
+    })
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
+      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`),
+      meta: { type },
+    })
+  }
+}
+
+export function addMatchmakingTime(type, startDate = Date.now(), enabled = false) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_ADD_BEGIN,
+      meta: { type },
+    })
+
+    const params = { method: 'post', body: JSON.stringify({ startDate, enabled }) }
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_ADD,
+      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`, params).then(
+        matchmakingTime => {
+          dispatch(openSnackbar({ message: 'New matchmaking time created' }))
+          return matchmakingTime
+        },
+      ),
+      meta: { type },
+    })
+  }
+}
+
+export function deleteMatchmakingTime(type, id) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_DELETE_BEGIN,
+      meta: { type, id },
+    })
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_DELETE,
+      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(id)}`, {
+        method: 'delete',
+      }).then(() => dispatch(openSnackbar({ message: 'Matchmaking time deleted' }))),
       meta: { type, id },
     })
   }

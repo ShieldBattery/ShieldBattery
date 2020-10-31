@@ -9,6 +9,7 @@ export interface Permissions {
   banUsers: boolean
   manageMaps: boolean
   manageMapPools: boolean
+  manageMatchmakingTimes: boolean
   massDeleteMaps: boolean
 }
 
@@ -21,6 +22,7 @@ function convertFromDb(props: {
   ban_users: boolean
   manage_maps: boolean
   manage_map_pools: boolean
+  manage_matchmaking_times: boolean
   mass_delete_maps: boolean
   /* eslint-enable camelcase */
 }) {
@@ -33,6 +35,7 @@ function convertFromDb(props: {
     manageMaps: props.manage_maps,
     manageMapPools: props.manage_map_pools,
     massDeleteMaps: props.mass_delete_maps,
+    manageMatchmakingTimes: props.manage_matchmaking_times,
   }
 }
 
@@ -49,7 +52,7 @@ export async function createPermissions(dbClient: DbClient, userId: number): Pro
 export async function getPermissions(userId: number) {
   const query = sql`
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
-        manage_maps, manage_map_pools, mass_delete_maps
+        manage_maps, manage_map_pools, mass_delete_maps, manage_matchmaking_times
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -74,7 +77,8 @@ export async function updatePermissions(userId: number, perms: Permissions) {
       ban_users = ${!!perms.banUsers},
       manage_maps = ${!!perms.manageMaps},
       manage_map_pools = ${!!perms.manageMapPools},
-      mass_delete_maps = ${!!perms.massDeleteMaps}
+      mass_delete_maps = ${!!perms.massDeleteMaps},
+      manage_matchmaking_times = ${!!perms.manageMatchmakingTimes}
     WHERE user_id = ${userId}
     RETURNING *;
   `

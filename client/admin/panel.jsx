@@ -4,11 +4,13 @@ import { Link, Route, Switch } from 'react-router-dom'
 
 import AdminBetaInvites from './invites.jsx'
 import AdminMapPools from './map-pools.jsx'
+import AdminMatchmakingTimes from './matchmaking-times.jsx'
 import { ConditionalRoute } from '../navigation/custom-routes.jsx'
 import { UserFind } from './user-profile.jsx'
 import {
   CanAcceptBetaInvitesFilter,
   CanManageMapPoolsFilter,
+  CanManageMatchmakingTimesFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters.jsx'
 
@@ -35,6 +37,11 @@ class AdminDashboard extends React.Component {
         <Link to='/admin/map-pools'>Manage matchmaking map pools</Link>
       </li>
     ) : null
+    const matchmakingTimesLink = perms.manageMatchmakingTimes ? (
+      <li>
+        <Link to='/admin/matchmaking-times'>Manage matchmaking times</Link>
+      </li>
+    ) : null
     const invitesLink = perms.acceptInvites ? (
       <li>
         <Link to='/admin/invites'>View beta invites</Link>
@@ -46,6 +53,7 @@ class AdminDashboard extends React.Component {
         {usersLink}
         {mapsLink}
         {mapPoolsLink}
+        {matchmakingTimesLink}
         {invitesLink}
       </ul>
     )
@@ -75,6 +83,11 @@ export default class Panel extends React.Component {
           path='/admin/map-pools'
           filters={[CanManageMapPoolsFilter]}
           component={AdminMapPools}
+        />
+        <ConditionalRoute
+          path='/admin/matchmaking-times'
+          filters={[CanManageMatchmakingTimesFilter]}
+          component={AdminMatchmakingTimes}
         />
       </Switch>
     )
