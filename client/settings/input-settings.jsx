@@ -5,6 +5,7 @@ import CheckBox from '../material/check-box.jsx'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Slider from '../material/slider.jsx'
+import { FormContainer } from './settings-content.jsx'
 
 @form()
 class InputRemasteredForm extends React.Component {
@@ -14,52 +15,58 @@ class InputRemasteredForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <Slider
-          {...bindCustom('keyboardScrollSpeed')}
-          label='Keyboard Scroll Speed'
-          tabIndex={0}
-          min={0}
-          max={6}
-          step={1}
-        />
-        <Slider
-          {...bindCustom('mouseScrollSpeed')}
-          label='Mouse Scroll Speed'
-          tabIndex={0}
-          min={0}
-          max={6}
-          step={1}
-        />
-        <CheckBox
-          {...bindCheckable('mouseSensitivityOn')}
-          label='Use Mouse Sensitivity'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <Slider
-          {...bindCustom('mouseSensitivity')}
-          label='Mouse Sensitivity'
-          tabIndex={0}
-          min={0}
-          max={100}
-          step={5}
-          disabled={this.props.getInputValue('mouseSensitivityOn')}
-          showTicks={false}
-        />
-        <CheckBox
-          {...bindCheckable('mouseScalingOn')}
-          label='Use Mouse Scaling'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('hardwareCursorOn')}
-          label='Hardware Cursor'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('mouseConfineOn')}
-          label='Use Mouse Confine'
-          inputProps={{ tabIndex: 0 }}
-        />
+        <FormContainer>
+          <div>
+            <Slider
+              {...bindCustom('keyboardScrollSpeed')}
+              label='Keyboard scroll speed'
+              tabIndex={0}
+              min={0}
+              max={6}
+              step={1}
+            />
+            <Slider
+              {...bindCustom('mouseScrollSpeed')}
+              label='Mouse scroll speed'
+              tabIndex={0}
+              min={0}
+              max={6}
+              step={1}
+            />
+          </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('mouseSensitivityOn')}
+              label='Custom mouse sensitivity'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Slider
+              {...bindCustom('mouseSensitivity')}
+              label='Mouse sensitivity'
+              tabIndex={0}
+              min={0}
+              max={100}
+              step={5}
+              disabled={!this.props.getInputValue('mouseSensitivityOn')}
+              showTicks={false}
+            />
+            <CheckBox
+              {...bindCheckable('mouseScalingOn')}
+              label='Use mouse scaling'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('hardwareCursorOn')}
+              label='Hardware cursor'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('mouseConfineOn')}
+              label='Lock cursor to window'
+              inputProps={{ tabIndex: 0 }}
+            />
+          </div>
+        </FormContainer>
       </form>
     )
   }

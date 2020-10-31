@@ -5,6 +5,7 @@ import CheckBox from '../material/check-box.jsx'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Slider from '../material/slider.jsx'
+import { FormContainer } from './settings-content.jsx'
 
 @form()
 class SoundRemasteredForm extends React.Component {
@@ -14,76 +15,73 @@ class SoundRemasteredForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <CheckBox
-          {...bindCheckable('musicOn')}
-          label='Turn Music On'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <Slider
-          {...bindCustom('musicVolume')}
-          label='Music Volume'
-          tabIndex={0}
-          min={0}
-          max={100}
-          step={5}
-          disabled={!this.props.getInputValue('musicOn')}
-          showTicks={false}
-        />
-        <CheckBox
-          {...bindCheckable('soundOn')}
-          label='Turn Digital Sounds On'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <Slider
-          {...bindCustom('soundVolume')}
-          label='Digital Volume'
-          tabIndex={0}
-          min={0}
-          max={100}
-          step={5}
-          disabled={!this.props.getInputValue('soundOn')}
-          showTicks={false}
-        />
-        <CheckBox
-          {...bindCheckable('unitSpeechOn')}
-          label='Unit Speech'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('unitAcknowledgementsOn')}
-          label='Unit Acknowledgements'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('backgroundSoundsOn')}
-          label='Sound Plays While In Background'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('buildingSoundsOn')}
-          label='Building Sounds'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('gameSubtitlesOn')}
-          label='Game Subtitles'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('cinematicSubtitlesOn')}
-          label='Cinematic Subtitles'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('originalVoiceOversOn')}
-          label='Original Unit Voice Overs'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('original1998CampaignOn')}
-          label='Original 1998 Campaign'
-          inputProps={{ tabIndex: 0 }}
-        />
+        <FormContainer>
+          <div>
+            <CheckBox {...bindCheckable('musicOn')} label='Music' inputProps={{ tabIndex: 0 }} />
+            <Slider
+              {...bindCustom('musicVolume')}
+              label='Music volume'
+              tabIndex={0}
+              min={0}
+              max={100}
+              step={5}
+              disabled={!this.props.getInputValue('musicOn')}
+              showTicks={false}
+            />
+            <CheckBox
+              {...bindCheckable('soundOn')}
+              label='Game sounds'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Slider
+              {...bindCustom('soundVolume')}
+              label='Sound volume'
+              tabIndex={0}
+              min={0}
+              max={100}
+              step={5}
+              disabled={!this.props.getInputValue('soundOn')}
+              showTicks={false}
+            />
+          </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('unitSpeechOn')}
+              label='Unit speech'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('unitAcknowledgementsOn')}
+              label='Unit acknowledgements'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('backgroundSoundsOn')}
+              label='Sound plays while in background'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('buildingSoundsOn')}
+              label='Building sounds'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('gameSubtitlesOn')}
+              label='Game subtitles'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('cinematicSubtitlesOn')}
+              label='Cinematic subtitles'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('originalVoiceOversOn')}
+              label='Original unit voice overs'
+              inputProps={{ tabIndex: 0 }}
+            />
+          </div>
+        </FormContainer>
       </form>
     )
   }

@@ -6,39 +6,78 @@ import form from '../forms/form.jsx'
 import Option from '../material/select/option.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Select from '../material/select/select.jsx'
+import TextField from '../material/text-field.jsx'
+import { FormContainer } from './settings-content.jsx'
 
-@form()
+function validApmValue() {
+  return (val, model) =>
+    (model.apmAlertOn && !val) || val < 0 || val > 999 ? 'Enter a value between 0 and 999' : null
+}
+
+@form({ apmAlertValue: validApmValue() })
 class GameplayRemasteredForm extends React.Component {
   render() {
-    const { bindCheckable, bindCustom, onSubmit } = this.props
+    const { bindCheckable, bindCustom, bindInput, onSubmit } = this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <CheckBox
-          {...bindCheckable('gameTimerOn')}
-          label='Game Timer'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('colorCyclingOn')}
-          label='Enable Color Cycling'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
-          <Option value={2} text='Animated' />
-          <Option value={1} text='Still' />
-          <Option value={0} text='Disabled' />
-        </Select>
-        <Select {...bindCustom('minimapPosition')} label='Mini-Map Position' tabIndex={0}>
-          <Option value={true} text='Left Corner' />
-          <Option value={false} text='Standard' />
-        </Select>
-        <CheckBox
-          {...bindCheckable('apmDisplayOn')}
-          label='Display APM In Game'
-          inputProps={{ tabIndex: 0 }}
-        />
+        <FormContainer>
+          <div>
+            <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
+              <Option value={2} text='Animated' />
+              <Option value={1} text='Still' />
+              <Option value={0} text='Disabled' />
+            </Select>
+            <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
+              <Option value={true} text='Left Corner' />
+              <Option value={false} text='Standard' />
+            </Select>
+          </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('gameTimerOn')}
+              label='Game timer'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('colorCyclingOn')}
+              label='Enable color cycling'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('apmDisplayOn')}
+              label='APM display'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('apmAlertOn')}
+              label='Alert when APM falls below'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <TextField
+              {...bindInput('apmAlertValue')}
+              floatingLabel={false}
+              dense={true}
+              label='APM value'
+              type='number'
+              inputProps={{ min: 0, max: 999 }}
+              disabled={!this.props.getInputValue('apmAlertOn')}
+            />
+            <CheckBox
+              {...bindCheckable('apmAlertColorOn')}
+              label='Color text'
+              inputProps={{ tabIndex: 0 }}
+              disabled={!this.props.getInputValue('apmAlertOn')}
+            />
+            <CheckBox
+              {...bindCheckable('apmAlertSoundOn')}
+              label='Play sound'
+              inputProps={{ tabIndex: 0 }}
+              disabled={!this.props.getInputValue('apmAlertOn')}
+            />
+          </div>
+        </FormContainer>
       </form>
     )
   }
@@ -76,6 +115,9 @@ export default class GameplaySettings extends React.Component {
 
   onChange = () => {
     const values = this.props.formRef.current.getModel()
+    if (values.apmAlertValue) {
+      values.apmAlertValue = +values.apmAlertValue
+    }
     this.props.onChange(values)
   }
 

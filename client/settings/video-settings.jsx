@@ -7,6 +7,7 @@ import Option from '../material/select/option.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Select from '../material/select/select.jsx'
 import Slider from '../material/slider.jsx'
+import { FormContainer } from './settings-content.jsx'
 
 const SUPPORTED_WINDOW_SIZES = [
   { width: 640, height: 480 },
@@ -36,69 +37,75 @@ class VideoRemasteredForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
-          <Option value={0} text='Windowed' />
-          <Option value={1} text='Windowed (Fullscreen)' />
-          <Option value={2} text='Fullscreen' />
-        </Select>
-        <CheckBox
-          {...bindCheckable('fpsLimitOn')}
-          label='Enable FPS Cap'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <Slider
-          {...bindCustom('fpsLimit')}
-          label='FPS Limit'
-          tabIndex={0}
-          min={100}
-          max={300}
-          step={1}
-          disabled={!this.props.getInputValue('fpsLimitOn')}
-          showTicks={false}
-        />
-        <Slider
-          {...bindCustom('sdGraphicsFilter')}
-          label='SD Graphics Filter'
-          tabIndex={0}
-          min={0}
-          max={3}
-          step={1}
-        />
-        <CheckBox
-          {...bindCheckable('vsyncOn')}
-          label='Enable Vertical Sync'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('hdGraphicsOn')}
-          label='HD Graphics'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('environmentEffectsOn')}
-          label='Environment Effects'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('realTimeLightingOn')}
-          label='Real-Time Lighting'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('smoothUnitTurningOn')}
-          label='Smooth Unit Turning'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('shadowStackingOn')}
-          label='Shadow Stacking'
-          inputProps={{ tabIndex: 0 }}
-        />
-        <CheckBox
-          {...bindCheckable('pillarboxOn')}
-          label='Pillarbox'
-          inputProps={{ tabIndex: 0 }}
-        />
+        <FormContainer>
+          <div>
+            <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
+              <Option value={0} text='Windowed' />
+              <Option value={1} text='Windowed (Fullscreen)' />
+              <Option value={2} text='Fullscreen' />
+            </Select>
+            <CheckBox
+              {...bindCheckable('fpsLimitOn')}
+              label='Enable FPS limit'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Slider
+              {...bindCustom('fpsLimit')}
+              label='FPS limit'
+              tabIndex={0}
+              min={100}
+              max={300}
+              step={1}
+              disabled={!this.props.getInputValue('fpsLimitOn')}
+              showTicks={false}
+            />
+            <Slider
+              {...bindCustom('sdGraphicsFilter')}
+              label='SD graphics filter'
+              tabIndex={0}
+              min={0}
+              max={3}
+              step={1}
+            />
+          </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('vsyncOn')}
+              label='Enable vertical sync'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('hdGraphicsOn')}
+              label='HD graphics'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('environmentEffectsOn')}
+              label='Environment effects'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('realTimeLightingOn')}
+              label='Real-time lighting'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('smoothUnitTurningOn')}
+              label='Smooth unit turning'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('shadowStackingOn')}
+              label='Shadow stacking'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <CheckBox
+              {...bindCheckable('pillarboxOn')}
+              label='Keep aspect ratio'
+              inputProps={{ tabIndex: 0 }}
+            />
+          </div>
+        </FormContainer>
       </form>
     )
   }
