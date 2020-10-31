@@ -26,7 +26,7 @@ Install the latest version of it from their [downloads page](https://yarnpkg.com
 
 ### C++
 
-Visual Studio 2015 or higher is required to build various C++ parts and to link the Rust DLL.
+Visual Studio 2017 or higher is required to build various C++ parts and to link the Rust DLL.
 The easiest/cheapest way to get this is through the
 [Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
