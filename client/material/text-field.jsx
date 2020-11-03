@@ -31,6 +31,7 @@ const TextFieldContainer = styled.div`
   background-color: rgba(255, 255, 255, 0.1);
   border-radius: 4px 4px 0 0;
   contain: layout paint style;
+  user-select: text;
 
   ${props => {
     const spacing = props.floatingLabel ? 34 : 28 /* textfield padding + input margin */
