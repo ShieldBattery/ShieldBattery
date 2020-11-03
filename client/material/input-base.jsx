@@ -19,6 +19,7 @@ export const InputBase = styled(Subheading)`
   color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
   line-height: inherit;
   -ms-flex-preferred-size: inherit;
+  user-select: inherit;
 
   &:focus {
     outline: none;
