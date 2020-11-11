@@ -54,6 +54,7 @@ import { removeMap } from './maps/action-creators'
 import { MATCHMAKING } from '../common/flags'
 
 import { Caption } from './styles/typography.js'
+import { colorTextSecondary } from './styles/colors.js'
 import { version as curVersion } from '../package.json'
 
 const KEY_C = keycode('c')
@@ -87,7 +88,7 @@ const StyledMapsIcon = styled(MapsIcon)`
 
 const VersionText = styled(Caption)`
   margin: 8px 0px 0px 0px;
-  opacity: 0.7;
+  color: ${colorTextSecondary};
 `
 
 let lobbyRoute
