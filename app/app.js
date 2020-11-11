@@ -221,17 +221,24 @@ function setupCspProtocol(curSession) {
 
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
+        const hasReactDevTools = !!process.env.SB_REACT_DEV
         const result = data
           .replace(
             /%SCRIPT_URL%/g,
             isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js',
           )
           .replace(/%CSP_NONCE%/g, nonce)
+          .replace(
+            /%REACT_DEV%/g,
+            hasReactDevTools ? '<script src="http://localhost:8097"></script>' : '',
+          )
 
         const dataStream = new Readable()
         dataStream.push(result)
         dataStream.push(null)
 
+        // Allow loading things from the remote React devtools if they're enabled
+        const reactDevPolicy = hasReactDevTools ? 'http://localhost:8097' : ''
         // Allow loading extra chunks from the dev server in non-production
         const chunkPolicy = isHot ? 'http://localhost:5566' : ''
         // If hot-reloading is on, we have to allow eval so it can work
@@ -242,7 +249,8 @@ function setupCspProtocol(curSession) {
           headers: {
             'content-type': 'text/html',
             'content-security-policy':
-              `script-src 'self' 'nonce-${nonce}' ${chunkPolicy} ${scriptEvalPolicy};` +
+              `script-src 'self' 'nonce-${nonce}' ${reactDevPolicy} ${chunkPolicy} ` +
+              `${scriptEvalPolicy};` +
               `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
               "font-src 'self' https://fonts.gstatic.com;",
           },
