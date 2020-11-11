@@ -53,6 +53,10 @@ import { removeMap } from './maps/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 
+import { Caption } from './styles/typography.js'
+import { colorTextSecondary } from './styles/colors.js'
+import { version as curVersion } from '../package.json'
+
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
@@ -80,6 +84,11 @@ const Content = styled.div`
 const StyledMapsIcon = styled(MapsIcon)`
   width: 36px;
   height: 36px;
+`
+
+const VersionText = styled(Caption)`
+  margin: 8px 0px 0px 0px;
+  color: ${colorTextSecondary};
 `
 
 let lobbyRoute
@@ -280,7 +289,10 @@ class MainLayout extends React.Component {
               <Index transitionFn={replace} />
             </Switch>
           </Content>
-          <ActivityBar>{activityButtons}</ActivityBar>
+          <ActivityBar>
+            {activityButtons}
+            <VersionText>v{curVersion}</VersionText>
+          </ActivityBar>
           {this.renderSearchingMatchOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
