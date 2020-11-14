@@ -99,7 +99,7 @@ export class GameLoader {
   loadGame({ players, mapId, gameSource, gameSourceExtra, gameConfig, onGameSetup, onRoutesSet }) {
     const gameLoaded = createDeferred()
 
-    registerGame(mapId, gameSource, gameConfig)
+    registerGame(mapId, gameSource, gameSourceExtra, gameConfig)
       .then(({ gameId, resultCodes }) => {
         const cancelToken = new CancelToken()
         this.loadingGames = this.loadingGames.set(
