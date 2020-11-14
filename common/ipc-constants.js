@@ -44,6 +44,8 @@ export const SCR_SETTINGS_GET_ERROR = 'SCR_SETTINGS_GET_ERROR'
 export const SCR_SETTINGS_MERGE = 'SCR_SETTINGS_MERGE'
 // Tells a renderer process that there has been an error merging the SC:R settings
 export const SCR_SETTINGS_MERGE_ERROR = 'SCR_SETTINGS_MERGE_ERROR'
+// Cause the main process to overwrite SC:R settings
+export const SCR_SETTINGS_OVERWRITE = 'SCR_SETTINGS_OVERWRITE'
 
 // Tells the main process that something has happened that requires a user's attention and to get it
 // somehow (by e.g. flashing the window)

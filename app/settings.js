@@ -1,10 +1,12 @@
 import fs, { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
 import deepEqual from 'deep-equal'
+import { Map } from 'immutable'
 import log from './logger'
 import { findInstallPath } from './find-install-path'
 
 const VERSION = 6
+const SCR_VERSION = 1
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -23,8 +25,7 @@ function jsonify(settings) {
 }
 
 // A general class that the local settings and SC:R settings can both use to handle their respective
-// logic. Currently, the only difference between local settings and SC:R settings is that we don't
-// try to create the SC:R settings file if it doesn't exist.
+// logic.
 class Settings extends EventEmitter {
   static EVENT = 'change'
 
@@ -83,6 +84,27 @@ class Settings extends EventEmitter {
   }
 }
 
+function migrateV1MouseSensitivity(oldSens) {
+  if (oldSens === undefined) {
+    return undefined
+  }
+
+  switch (oldSens) {
+    case 0:
+      return 0
+    case 1:
+      return 3
+    case 2:
+      return 5
+    case 3:
+      return 8
+    case 4:
+      return 10
+    default:
+      return 0
+  }
+}
+
 export class LocalSettings extends Settings {
   constructor(filepath) {
     const initializeFunc = async function () {
@@ -121,6 +143,11 @@ export class LocalSettings extends Settings {
       winHeight: -1,
       winMaximized: false,
       masterVolume: 50,
+      gameWinWidth: -1, // This setting is only used in v1.16.1 for now; use it in SC:R eventually
+      gameWinHeight: -1, // Ditto
+      v1161displayMode: 0,
+      v1161mouseSensitivity: 0,
+      v1161maintainAspectRatio: true,
     }
   }
 
@@ -171,38 +198,131 @@ export class LocalSettings extends Settings {
   }
 }
 
-function migrateV1MouseSensitivity(oldSens) {
-  if (oldSens === undefined) {
-    return undefined
-  }
+// Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
+// names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
+// convert from SC:R -> SB settings (when fetching) use the inverse map below.
+export const sbToScrMapping = new Map([
+  ['keyboardScrollSpeed', 'm_kscroll'],
+  ['mouseScrollSpeed', 'm_mscroll'],
+  ['mouseSensitivityOn', 'MouseUseSensitivity'],
+  ['mouseSensitivity', 'MouseSensitivity'],
+  ['mouseScalingOn', 'MouseScaling'],
+  ['hardwareCursorOn', 'MouseHardwareCursor'],
+  ['mouseConfineOn', 'MouseConfine'],
+  ['musicOn', 'MusicEnabled'],
+  ['musicVolume', 'music'],
+  ['soundOn', 'SfxEnabled'],
+  ['soundVolume', 'sfx'],
+  ['unitSpeechOn', 'unitspeech'],
+  ['unitAcknowledgementsOn', 'unitnoise'],
+  ['backgroundSoundsOn', 'SoundInBackground'],
+  ['buildingSoundsOn', 'bldgnoise'],
+  ['gameSubtitlesOn', 'trigtext'],
+  ['cinematicSubtitlesOn', 'cinematicSubtitlesEnabled'],
+  ['originalVoiceOversOn', 'originalUnitVO'],
+  ['displayMode', 'WindowMode'],
+  ['fpsLimitOn', 'FPSLimitEnabled'],
+  ['fpsLimit', 'FPSLimit'],
+  ['sdGraphicsFilter', 'SDFilterMode'],
+  ['vsyncOn', 'VSync'],
+  ['hdGraphicsOn', 'HDPreferences'],
+  ['environmentEffectsOn', 'ShowFoliage'],
+  ['realTimeLightingOn', 'RealtimeLightingEnabled'],
+  ['smoothUnitTurningOn', 'UseHDRotation'],
+  ['shadowStackingOn', 'ShadowStacking'],
+  ['pillarboxOn', 'OriginalAspectRatio'],
+  ['gameTimerOn', 'GameTimer'],
+  ['colorCyclingOn', 'ColorCycle'],
+  ['unitPortraits', 'UnitPortraits'],
+  ['minimapPosition', 'consoleSplit'],
+  ['apmDisplayOn', 'apm_Showing'],
+  ['apmAlertOn', 'apm_AlertUser'],
+  ['apmAlertValue', 'apm_AlertValue'],
+  ['apmAlertColorOn', 'apm_AlertUseColor'],
+  ['apmAlertSoundOn', 'apm_AlertUseSound'],
+])
 
-  switch (oldSens) {
-    case 0:
-      return 0
-    case 1:
-      return 3
-    case 2:
-      return 5
-    case 3:
-      return 8
-    case 4:
-      return 10
-    default:
-      return 0
-  }
+export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
+
+export function fromScrToSb(scrSettings) {
+  return Object.entries(scrSettings).reduce((acc, [name, value]) => {
+    const sbKeyName = scrToSbMapping.get(name)
+
+    if (!sbKeyName) return acc
+
+    acc[sbKeyName] = value
+
+    return acc
+  }, {})
+}
+
+export function fromSbToScr(sbSettings) {
+  return Object.entries(sbSettings).reduce((acc, [name, value]) => {
+    const scrKeyName = sbToScrMapping.get(name)
+
+    acc[scrKeyName] = value
+
+    return acc
+  }, {})
 }
 
 export class ScrSettings extends Settings {
-  constructor(filepath) {
+  constructor(filepath, scrFilepath) {
     const initializeFunc = async function () {
       try {
         this._settings = JSON.parse(await fsPromises.readFile(this._filepath, { encoding: 'utf8' }))
-        // We only attach the watcher if the above doesn't throw, which means the settings exist.
-        this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
       } catch (err) {
-        log.error('Error reading/parsing the sc:r settings file: ' + err)
+        log.error('Error reading/parsing settings file: ' + err + ', creating')
+        try {
+          await fsPromises.unlink(this._filepath)
+        } catch (err) {
+          // Ignored, probably just due to the file not existing
+        }
       }
+
+      if (!this._settings) {
+        this._settings = await this._createDefaults()
+        await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
+      } else if (this._settings.version !== SCR_VERSION) {
+        // TODO(2Pac): Migrate SC:R settings when their version changes
+      }
+
+      this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
     }
+
     super(filepath, initializeFunc)
+    this._scrFilepath = scrFilepath
+  }
+
+  async _createDefaults() {
+    let scrSettings
+
+    try {
+      scrSettings = JSON.parse(await fsPromises.readFile(this._scrFilepath, { encoding: 'utf8' }))
+    } catch (err) {
+      log.error('Error reading/parsing the SC:R settings file: ' + err)
+      // TODO(2Pac): There's technically a scenario in which a user doesn't have the SC:R installed,
+      // and then installs it while the application is running. As soon as they set the StarCraft
+      // path to a correct SC:R version, they will be able to see (and change) their SC:R settings
+      // even though they will be uninitialized. This should be fine though because as soon as they
+      // save the settings, our own copy of the SC:R settings should be created with the new values.
+      // So even though this is probably fine, gonna leave this TODO here in case it doesn't really
+      // work as I imagined.
+      scrSettings = {}
+    }
+
+    return {
+      version: SCR_VERSION,
+      ...fromScrToSb(scrSettings),
+    }
+  }
+
+  // Function which overwrites SC:R settings with our own. This should be done before each game to
+  // make sure the game is initialized with our settings, instead of Blizzard's.
+  async overwrite() {
+    await this._initialized
+    await fsPromises.writeFile(this._scrFilepath, jsonify(fromSbToScr(this._settings)), {
+      encoding: 'utf8',
+    })
   }
 }

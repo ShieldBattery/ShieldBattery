@@ -1,4 +1,4 @@
-import { remote } from 'electron'
+import { ipcRenderer, remote } from 'electron'
 import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
@@ -14,6 +14,7 @@ import {
   GAME_STATUS_ERROR,
   statusToString,
 } from '../../common/game-status'
+import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
 
 const { launchProcess } = remote.require('./native/process')
 
@@ -285,6 +286,9 @@ async function doLaunch(gameId, serverPort, settings) {
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}"`
   if (isRemastered) {
+    // Blizzard reinitializes their settings file everytime the SC:R is opened through their
+    // launcher. So we must do the same thing with our own version of settings before each game.
+    ipcRenderer.send(SCR_SETTINGS_OVERWRITE)
     // SCR uses -launch as an argument to skip bnet launcher.
     // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.
     args += ' -launch'

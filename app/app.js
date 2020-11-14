@@ -37,6 +37,7 @@ import {
   SCR_SETTINGS_GET_ERROR,
   SCR_SETTINGS_MERGE,
   SCR_SETTINGS_MERGE_ERROR,
+  SCR_SETTINGS_OVERWRITE,
   USER_ATTENTION_REQUIRED,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
@@ -85,7 +86,10 @@ async function createLocalSettings() {
 }
 
 async function createScrSettings() {
+  const sbSessionName = process.env.SB_SESSION
+  const fileName = sbSessionName ? `scr-settings-${sbSessionName}.json` : 'scr-settings.json'
   const settings = new ScrSettings(
+    path.join(getUserDataPath(), fileName),
     path.join(app.getPath('documents'), 'StarCraft', 'CSettings.json'),
   )
   await settings.untilInitialized()
@@ -111,7 +115,7 @@ function setupIpc(localSettings, scrSettings) {
       scrSettings.get().then(
         settings => event.sender.send(SCR_SETTINGS_CHANGED, settings),
         err => {
-          logger.error('Error getting scr settings: ' + err)
+          logger.error('Error getting SC:R settings: ' + err)
           event.sender.send(SCR_SETTINGS_GET_ERROR, err)
         },
       )
@@ -126,8 +130,13 @@ function setupIpc(localSettings, scrSettings) {
     .on(SCR_SETTINGS_MERGE, (event, settings) => {
       // This will trigger a change if things changed, which will then emit a LOCAL_SETTINGS_CHANGED
       scrSettings.merge(settings).catch(err => {
-        logger.error('Error merging scr settings: ' + err)
+        logger.error('Error merging SC:R settings: ' + err)
         event.sender.send(SCR_SETTINGS_MERGE_ERROR, err)
+      })
+    })
+    .on(SCR_SETTINGS_OVERWRITE, () => {
+      scrSettings.overwrite().catch(err => {
+        logger.error('Error overwriting SC:R settings: ' + err)
       })
     })
     .on(WINDOW_CLOSE, (event, shouldDisplayCloseHint) => {

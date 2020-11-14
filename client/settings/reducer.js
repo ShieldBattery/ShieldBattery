@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
-import { LocalSettings, ScrSettings, fromScrToSb } from './settings-records'
+import { LocalSettings, ScrSettings } from './settings-records'
 import {
   LOCAL_SETTINGS_SET_BEGIN,
   LOCAL_SETTINGS_SET,
@@ -36,7 +36,7 @@ export const scrSettingsReducer = keyedReducer(new ScrSettings(), {
       // TODO(tec27): deal with the error
     }
 
-    return fromScrToSb(action.payload)
+    return new ScrSettings(action.payload)
   },
 })
 

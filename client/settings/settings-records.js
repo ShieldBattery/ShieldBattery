@@ -1,4 +1,4 @@
-import { Map, Record } from 'immutable'
+import { Record } from 'immutable'
 
 // NOTE(2Pac): These setting records should *only* contain the actual setting values that will be
 // persisted somewhere permanently (so don't put stuff like `lastError` in here). This allows us to
@@ -6,14 +6,14 @@ import { Map, Record } from 'immutable'
 
 export const LocalSettings = new Record({
   starcraftPath: null,
-  masterVolume: null,
+  masterVolume: -1,
   gameWinWidth: -1,
   gameWinHeight: -1,
-  gameWinX: null,
-  gameWinY: null,
-  v1161displayMode: 0,
-  v1161mouseSensitivity: 0,
-  v1161maintainAspectRatio: true,
+  gameWinX: -1,
+  gameWinY: -1,
+  v1161displayMode: -1,
+  v1161mouseSensitivity: -1,
+  v1161maintainAspectRatio: false,
 })
 export const ScrSettings = new Record({
   // Input settings
@@ -36,7 +36,6 @@ export const ScrSettings = new Record({
   gameSubtitlesOn: false,
   cinematicSubtitlesOn: false,
   originalVoiceOversOn: false,
-  original1998CampaignOn: false,
   // Video settings
   displayMode: -1,
   fpsLimitOn: false,
@@ -60,72 +59,3 @@ export const ScrSettings = new Record({
   apmAlertColorOn: false,
   apmAlertSoundOn: false,
 })
-
-// Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
-// names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
-// convert from SC:R -> SB settings (when fetching) use the inverse map below.
-export const sbToScrMapping = new Map([
-  ['keyboardScrollSpeed', 'm_kscroll'],
-  ['mouseScrollSpeed', 'm_mscroll'],
-  ['mouseSensitivityOn', 'MouseUseSensitivity'],
-  ['mouseSensitivity', 'MouseSensitivity'],
-  ['mouseScalingOn', 'MouseScaling'],
-  ['hardwareCursorOn', 'MouseHardwareCursor'],
-  ['mouseConfineOn', 'MouseConfine'],
-  ['musicOn', 'MusicEnabled'],
-  ['musicVolume', 'music'],
-  ['soundOn', 'SfxEnabled'],
-  ['soundVolume', 'sfx'],
-  ['unitSpeechOn', 'unitspeech'],
-  ['unitAcknowledgementsOn', 'unitnoise'],
-  ['backgroundSoundsOn', 'SoundInBackground'],
-  ['buildingSoundsOn', 'bldgnoise'],
-  ['gameSubtitlesOn', 'trigtext'],
-  ['cinematicSubtitlesOn', 'cinematicSubtitlesEnabled'],
-  ['originalVoiceOversOn', 'originalUnitVO'],
-  ['original1998CampaignOn', 'originalCampaign'],
-  ['displayMode', 'WindowMode'],
-  ['fpsLimitOn', 'FPSLimitEnabled'],
-  ['fpsLimit', 'FPSLimit'],
-  ['sdGraphicsFilter', 'SDFilterMode'],
-  ['vsyncOn', 'VSync'],
-  ['hdGraphicsOn', 'HDPreferences'],
-  ['environmentEffectsOn', 'ShowFoliage'],
-  ['realTimeLightingOn', 'RealtimeLightingEnabled'],
-  ['smoothUnitTurningOn', 'UseHDRotation'],
-  ['shadowStackingOn', 'ShadowStacking'],
-  ['pillarboxOn', 'OriginalAspectRatio'],
-  ['gameTimerOn', 'GameTimer'],
-  ['colorCyclingOn', 'ColorCycle'],
-  ['unitPortraits', 'UnitPortraits'],
-  ['minimapPosition', 'consoleSplit'],
-  ['apmDisplayOn', 'apm_Showing'],
-  ['apmAlertOn', 'apm_AlertUser'],
-  ['apmAlertValue', 'apm_AlertValue'],
-  ['apmAlertColorOn', 'apm_AlertUseColor'],
-  ['apmAlertSoundOn', 'apm_AlertUseSound'],
-])
-
-export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
-
-export function fromScrToSb(scrSettings) {
-  const mappedScrSettings = Object.entries(scrSettings).reduce((acc, [name, value]) => {
-    const sbKeyName = scrToSbMapping.get(name)
-
-    acc[sbKeyName] = value
-
-    return acc
-  }, {})
-
-  return new ScrSettings(mappedScrSettings)
-}
-
-export function fromSbToScr(sbSettings) {
-  return Object.entries(sbSettings).reduce((acc, [name, value]) => {
-    const scrKeyName = sbToScrMapping.get(name)
-
-    acc[scrKeyName] = value
-
-    return acc
-  }, {})
-}
