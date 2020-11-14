@@ -33,7 +33,6 @@ class Settings extends EventEmitter {
     super()
     this._filepath = filepath
     this._settings = null
-    this._watcher = null
 
     this._initialized = initializeFunc.apply(this)
     this._initialized.then(() => {
@@ -127,7 +126,7 @@ export class LocalSettings extends Settings {
         await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       }
 
-      this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
+      fs.watch(this._filepath, event => this._onFileChange(event))
     }
 
     super(filepath, initializeFunc)
@@ -287,11 +286,22 @@ export class ScrSettings extends Settings {
         // TODO(2Pac): Migrate SC:R settings when their version changes
       }
 
-      this._watcher = fs.watch(this._filepath, event => this._onFileChange(event))
+      fs.watch(this._filepath, event => this._onFileChange(event))
+
+      try {
+        this._scrSettings = JSON.parse(
+          await fsPromises.readFile(this._scrFilepath, { encoding: 'utf8' }),
+        )
+        // We only attach the watcher if the above doesn't throw, which means the settings exist.
+        fs.watch(this._scrFilepath, event => this._onScrFileChange(event))
+      } catch (err) {
+        log.error('Error reading/parsing the sc:r settings file: ' + err)
+      }
     }
 
     super(filepath, initializeFunc)
     this._scrFilepath = scrFilepath
+    this._scrSettings = null
   }
 
   async _createDefaults() {
@@ -317,12 +327,33 @@ export class ScrSettings extends Settings {
     }
   }
 
+  _onScrFileChange(event) {
+    if (event === 'change') {
+      this._readScrFile().catch(err => {
+        log.error('Error reading/parsing the SC:R settings file: ' + err)
+      })
+    }
+  }
+
+  async _readScrFile() {
+    await this._initialized
+    const contents = await fsPromises.readFile(this._scrFilepath, { encoding: 'utf8' })
+    const newData = JSON.parse(contents)
+    if (!deepEqual(newData, this._scrSettings)) {
+      this._scrSettings = newData
+    }
+  }
+
   // Function which overwrites SC:R settings with our own. This should be done before each game to
   // make sure the game is initialized with our settings, instead of Blizzard's.
   async overwrite() {
     await this._initialized
-    await fsPromises.writeFile(this._scrFilepath, jsonify(fromSbToScr(this._settings)), {
-      encoding: 'utf8',
-    })
+    const merged = Object.assign({}, this._scrSettings, fromSbToScr(this._settings))
+    if (!deepEqual(merged, this._scrSettings)) {
+      this._scrSettings = merged
+      await fsPromises.writeFile(this._scrFilepath, jsonify(this._scrSettings), {
+        encoding: 'utf8',
+      })
+    }
   }
 }
