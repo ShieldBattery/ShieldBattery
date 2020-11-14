@@ -1,11 +1,16 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 
 import CheckBox from '../material/check-box.jsx'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Slider from '../material/slider.jsx'
 import { FormContainer } from './settings-content.jsx'
+
+const MouseSensitivitySlider = styled(Slider)`
+  margin-bottom: 16px;
+`
 
 @form()
 class InputRemasteredForm extends React.Component {
@@ -40,7 +45,7 @@ class InputRemasteredForm extends React.Component {
               label='Custom mouse sensitivity'
               inputProps={{ tabIndex: 0 }}
             />
-            <Slider
+            <MouseSensitivitySlider
               {...bindCustom('mouseSensitivity')}
               label='Mouse sensitivity'
               tabIndex={0}

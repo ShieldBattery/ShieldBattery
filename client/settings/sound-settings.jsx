@@ -1,11 +1,16 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 
 import CheckBox from '../material/check-box.jsx'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Slider from '../material/slider.jsx'
 import { FormContainer } from './settings-content.jsx'
+
+const MusicVolumeSlider = styled(Slider)`
+  margin-bottom: 16px;
+`
 
 @form()
 class SoundRemasteredForm extends React.Component {
@@ -18,7 +23,7 @@ class SoundRemasteredForm extends React.Component {
         <FormContainer>
           <div>
             <CheckBox {...bindCheckable('musicOn')} label='Music' inputProps={{ tabIndex: 0 }} />
-            <Slider
+            <MusicVolumeSlider
               {...bindCustom('musicVolume')}
               label='Music volume'
               tabIndex={0}
