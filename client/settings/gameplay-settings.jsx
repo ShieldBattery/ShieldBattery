@@ -6,7 +6,7 @@ import form from '../forms/form.jsx'
 import Option from '../material/select/option.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Select from '../material/select/select.jsx'
-import TextField from '../material/text-field.jsx'
+import NumberTextField from '../material/number-text-field.jsx'
 import { FormContainer } from './settings-content.jsx'
 
 function validApmValue() {
@@ -17,7 +17,7 @@ function validApmValue() {
 @form({ apmAlertValue: validApmValue() })
 class GameplayRemasteredForm extends React.Component {
   render() {
-    const { bindCheckable, bindCustom, bindInput, onSubmit } = this.props
+    const { bindCheckable, bindCustom, onSubmit } = this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
@@ -55,12 +55,11 @@ class GameplayRemasteredForm extends React.Component {
               label='Alert when APM falls below'
               inputProps={{ tabIndex: 0 }}
             />
-            <TextField
-              {...bindInput('apmAlertValue')}
+            <NumberTextField
+              {...bindCustom('apmAlertValue')}
               floatingLabel={false}
               dense={true}
               label='APM value'
-              type='number'
               inputProps={{ min: 0, max: 999 }}
               disabled={!this.props.getInputValue('apmAlertOn')}
             />
@@ -115,9 +114,6 @@ export default class GameplaySettings extends React.Component {
 
   onChange = () => {
     const values = this.props.formRef.current.getModel()
-    if (values.apmAlertValue) {
-      values.apmAlertValue = +values.apmAlertValue
-    }
     this.props.onChange(values)
   }
 
