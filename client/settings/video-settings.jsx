@@ -114,7 +114,7 @@ class VideoRemasteredForm extends React.Component {
 @form()
 class Video1161Form extends React.Component {
   isFullscreen() {
-    return this.props.getInputValue('displayMode') === 0
+    return this.props.getInputValue('v1161displayMode') === 0
   }
 
   renderWindowSizeOptions(resolution) {
@@ -149,7 +149,7 @@ class Video1161Form extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
+        <Select {...bindCustom('v1161displayMode')} label='Display mode' tabIndex={0}>
           <Option value={0} text='Fullscreen' />
           <Option value={1} text='Borderless Window' />
           <Option value={2} text='Windowed' />
@@ -162,7 +162,7 @@ class Video1161Form extends React.Component {
           {this.renderWindowSizeOptions(resolution)}
         </Select>
         <CheckBox
-          {...bindCheckable('maintainAspectRatio')}
+          {...bindCheckable('v1161maintainAspectRatio')}
           label='Maintain aspect ratio'
           disabled={!this.isFullscreen()}
           inputProps={{ tabIndex: 0 }}
@@ -204,8 +204,8 @@ export default class VideoSettings extends React.Component {
     const { localSettings, scrSettings, resolution, formRef, isRemastered } = this.props
 
     const form1161Model = {
-      displayMode: localSettings.v1161displayMode,
-      maintainAspectRatio: localSettings.v1161maintainAspectRatio,
+      v1161displayMode: localSettings.v1161displayMode,
+      v1161maintainAspectRatio: localSettings.v1161maintainAspectRatio,
       windowSize: this.getDefaultWindowSizeValue(localSettings),
     }
     const formScrModel = { ...scrSettings.toJS() }
@@ -235,8 +235,6 @@ export default class VideoSettings extends React.Component {
     const windowSize = values.windowSize || {}
     this.props.onChange({
       ...values,
-      v1161displayMode: values.displayMode,
-      v1161maintainAspectRatio: values.maintainAspectRatio,
       gameWinWidth: windowSize.width,
       gameWinHeight: windowSize.height,
     })

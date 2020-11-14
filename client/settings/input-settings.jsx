@@ -81,7 +81,7 @@ class Input1161Form extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <Slider
-          {...bindCustom('sensitivity')}
+          {...bindCustom('v1161mouseSensitivity')}
           label='Mouse sensitivity'
           tabIndex={0}
           min={0}
@@ -107,7 +107,7 @@ export default class InputSettings extends React.Component {
     const { localSettings, scrSettings, formRef, isRemastered } = this.props
 
     const form1161Model = {
-      sensitivity: localSettings.v1161mouseSensitivity,
+      v1161mouseSensitivity: localSettings.v1161mouseSensitivity,
     }
     const formScrModel = { ...scrSettings.toJS() }
 
@@ -130,7 +130,7 @@ export default class InputSettings extends React.Component {
 
   onChange = () => {
     const values = this.props.formRef.current.getModel()
-    this.props.onChange({ ...values, v1161mouseSensitivity: values.sensitivity })
+    this.props.onChange(values)
   }
 
   onSubmit = () => {
