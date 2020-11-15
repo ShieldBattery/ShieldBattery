@@ -275,6 +275,15 @@ async function doLaunch(gameId, serverPort, settings) {
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
   const isRemastered = checkResult.remastered
+  if (isRemastered) {
+    try {
+      // Blizzard reinitializes their settings file everytime the SC:R is opened through their
+      // launcher. So we must do the same thing with our own version of settings before each game.
+      await ipcRenderer.invoke(SCR_SETTINGS_OVERWRITE)
+    } catch (err) {
+      throw new Error('Error overwriting SC:R settings: ' + err)
+    }
+  }
 
   const userDataPath = remote.app.getPath('userData')
   let appPath
@@ -286,9 +295,6 @@ async function doLaunch(gameId, serverPort, settings) {
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
   let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}"`
   if (isRemastered) {
-    // Blizzard reinitializes their settings file everytime the SC:R is opened through their
-    // launcher. So we must do the same thing with our own version of settings before each game.
-    ipcRenderer.send(SCR_SETTINGS_OVERWRITE)
     // SCR uses -launch as an argument to skip bnet launcher.
     // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.
     args += ' -launch'
