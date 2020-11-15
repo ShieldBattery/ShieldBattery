@@ -199,14 +199,16 @@ function setupIpc(localSettings) {
 
 function setupCspProtocol(curSession) {
   // Register a protocol that will perform two functions:
-  // - Return our index.html file with the proper style/script values filled out
+  // - Return our index.html file and scripts/styles with the proper style/script values filled out
   // - Add fake headers to the response such that we set up CSP with a nonce (necessary for
   //   styled-components to work properly), and unfortunately not really possible to do without
   //   HTTP headers
   curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
     const url = new URL(req.url)
 
-    if (url.pathname === '/') {
+    const pathname = path.normalize(url.pathname)
+
+    if (pathname === '/') {
       fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
         if (err) {
           const dataStream = new Readable()
@@ -258,7 +260,7 @@ function setupCspProtocol(curSession) {
         })
       })
     } else {
-      cb(fs.createReadStream(path.join(__dirname, url.pathname)))
+      cb(fs.createReadStream(path.join(__dirname, pathname)))
     }
   })
 }
