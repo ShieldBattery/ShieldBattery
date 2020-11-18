@@ -206,7 +206,7 @@ function setupCspProtocol(curSession) {
   curSession.protocol.registerStreamProtocol('shieldbattery', (req, cb) => {
     const url = new URL(req.url)
 
-    const pathname = path.normalize(url.pathname)
+    const pathname = path.posix.normalize(url.pathname)
 
     if (pathname === '/') {
       fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
