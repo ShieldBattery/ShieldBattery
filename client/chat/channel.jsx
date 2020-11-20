@@ -12,10 +12,13 @@ import {
   deactivateChannel,
   joinChannel,
 } from './action-creators'
+import { navigateToWhisper } from '../whispers/action-creators'
 
 import MessageInput from '../messaging/message-input.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
+import MenuItem from '../material/menu/item.jsx'
+import UserOverlay from './user-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { Body2, singleLine } from '../styles/typography'
@@ -68,15 +71,55 @@ const UserSublist = styled.ul`
 
 const UserListEntryItem = styled.li`
   ${userListRow};
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
 `
 
+@connect()
 class UserListEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
   }
 
+  state = {
+    userOverlayOpen: false,
+  }
+
+  _userEntryRef = React.createRef()
+
+  onOpenUserOverlay = () => {
+    this.setState({userOverlayOpen: true})
+  }
+
+  onCloseUserOverlay = () => {
+    this.setState({userOverlayOpen: false})
+  }
+
+  onWhisper = () => {
+    this.props.dispatch(navigateToWhisper(this.props.user))
+  }
+
+  renderUserOverlay() {
+    return (
+      <UserOverlay
+        open={this.state.userOverlayOpen}
+        onDismiss={this.onCloseUserOverlay}
+        anchor={this._userEntryRef.current}
+        user={this.props.user}>
+        <MenuItem text="Whisper" onClick={this.onWhisper} />
+      </UserOverlay>
+    )
+  }
+
   render() {
-    return <UserListEntryItem>{this.props.user}</UserListEntryItem>
+    return (
+      <>
+      <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>{this.props.user}</UserListEntryItem>
+      {this.renderUserOverlay()}
+      </>
+    )
   }
 }
 
