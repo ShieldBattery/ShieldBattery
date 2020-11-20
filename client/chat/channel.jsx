@@ -90,11 +90,11 @@ class UserListEntry extends React.Component {
   _userEntryRef = React.createRef()
 
   onOpenUserOverlay = () => {
-    this.setState({userOverlayOpen: true})
+    this.setState({ userOverlayOpen: true })
   }
 
   onCloseUserOverlay = () => {
-    this.setState({userOverlayOpen: false})
+    this.setState({ userOverlayOpen: false })
   }
 
   onWhisper = () => {
@@ -108,7 +108,7 @@ class UserListEntry extends React.Component {
         onDismiss={this.onCloseUserOverlay}
         anchor={this._userEntryRef.current}
         user={this.props.user}>
-        <MenuItem text="Whisper" onClick={this.onWhisper} />
+        <MenuItem text='Whisper' onClick={this.onWhisper} />
       </UserOverlay>
     )
   }
@@ -116,8 +116,10 @@ class UserListEntry extends React.Component {
   render() {
     return (
       <>
-      <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>{this.props.user}</UserListEntryItem>
-      {this.renderUserOverlay()}
+        <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
+          {this.props.user}
+        </UserListEntryItem>
+        {this.renderUserOverlay()}
       </>
     )
   }
