@@ -7,7 +7,7 @@ A modern way to play StarCraft: Brood War.
 The ShieldBattery developers frequent the Discord server at the link below, feel free to stop in with
 questions, comments, or just to hang out!
 
-https://discord.gg/TdKEvyz
+https://discord.gg/N2BpZ46
 
 ## Developer setup
 
