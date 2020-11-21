@@ -44,6 +44,14 @@ class VideoRemasteredForm extends React.Component {
               <Option value={1} text='Windowed (Fullscreen)' />
               <Option value={2} text='Fullscreen' />
             </Select>
+            <Slider
+              {...bindCustom('sdGraphicsFilter')}
+              label='SD graphics filter'
+              tabIndex={0}
+              min={0}
+              max={3}
+              step={1}
+            />
             <CheckBox
               {...bindCheckable('fpsLimitOn')}
               label='Enable FPS limit'
@@ -58,14 +66,6 @@ class VideoRemasteredForm extends React.Component {
               step={1}
               disabled={!this.props.getInputValue('fpsLimitOn')}
               showTicks={false}
-            />
-            <Slider
-              {...bindCustom('sdGraphicsFilter')}
-              label='SD graphics filter'
-              tabIndex={0}
-              min={0}
-              max={3}
-              step={1}
             />
           </div>
           <div>

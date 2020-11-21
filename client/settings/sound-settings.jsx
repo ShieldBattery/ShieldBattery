@@ -9,7 +9,7 @@ import Slider from '../material/slider.jsx'
 import { FormContainer } from './settings-content.jsx'
 
 const MusicVolumeSlider = styled(Slider)`
-  margin-bottom: 16px;
+  margin-bottom: 40px;
 `
 
 @form()

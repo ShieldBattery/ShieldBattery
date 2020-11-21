@@ -276,13 +276,9 @@ async function doLaunch(gameId, serverPort, settings) {
   }
   const isRemastered = checkResult.remastered
   if (isRemastered) {
-    try {
-      // Blizzard reinitializes their settings file everytime the SC:R is opened through their
-      // launcher. So we must do the same thing with our own version of settings before each game.
-      await ipcRenderer.invoke(SCR_SETTINGS_OVERWRITE)
-    } catch (err) {
-      throw new Error('Error overwriting SC:R settings: ' + err)
-    }
+    // Blizzard reinitializes their settings file everytime the SC:R is opened through their
+    // launcher. So we must do the same thing with our own version of settings before each game.
+    await ipcRenderer.invoke(SCR_SETTINGS_OVERWRITE)
   }
 
   const userDataPath = remote.app.getPath('userData')

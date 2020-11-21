@@ -1,5 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
 
 import CheckBox from '../material/check-box.jsx'
 import form from '../forms/form.jsx'
@@ -8,6 +9,10 @@ import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import Select from '../material/select/select.jsx'
 import NumberTextField from '../material/number-text-field.jsx'
 import { FormContainer } from './settings-content.jsx'
+
+const ApmAlertCheckbox = styled(CheckBox)`
+  margin-top: 32px;
+`
 
 function validApmValue() {
   return (val, model) =>
@@ -30,7 +35,7 @@ class GameplayRemasteredForm extends React.Component {
               <Option value={0} text='Disabled' />
             </Select>
             <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
-              <Option value={true} text='Left Corner' />
+              <Option value={true} text='Bottom-left corner' />
               <Option value={false} text='Standard' />
             </Select>
           </div>
@@ -50,7 +55,7 @@ class GameplayRemasteredForm extends React.Component {
               label='APM display'
               inputProps={{ tabIndex: 0 }}
             />
-            <CheckBox
+            <ApmAlertCheckbox
               {...bindCheckable('apmAlertOn')}
               label='Alert when APM falls below'
               inputProps={{ tabIndex: 0 }}
