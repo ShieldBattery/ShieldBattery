@@ -5,17 +5,21 @@ import styled from 'styled-components'
 import AppSettings from './app-settings.jsx'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
-import GameSettings from './game-settings.jsx'
+import GameplaySettings from './gameplay-settings.jsx'
 import IconButton from '../material/icon-button.jsx'
+import InputSettings from './input-settings.jsx'
 import { Label } from '../material/button.jsx'
+import SoundSettings from './sound-settings.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
+import VideoSettings from './video-settings.jsx'
 
 import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
 
 import { openDialog, closeDialog } from '../dialogs/action-creators'
-import { mergeLocalSettings } from './action-creators'
+import { mergeLocalSettings, mergeScrSettings } from './action-creators'
 import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 
+import { LocalSettings, ScrSettings } from './settings-records'
 import { colorTextSecondary, colorError } from '../styles/colors'
 import { Body1, Subheading } from '../styles/typography'
 
@@ -57,12 +61,21 @@ const ErrorText = styled(Subheading)`
 `
 
 const TAB_APP = 0
-const TAB_GAME = 1
+
+const SCR_TAB_INPUT = 1
+const SCR_TAB_SOUND = 2
+const SCR_TAB_VIDEO = 3
+const SCR_TAB_GAMEPLAY = 4
+
+const V1161_TAB_INPUT = 1
+const V1161_TAB_VIDEO = 2
 
 @connect(state => ({ settings: state.settings, starcraft: state.starcraft }))
 export default class Settings extends React.Component {
   state = {
     activeTab: TAB_APP,
+    tempLocalSettings: new LocalSettings(this.props.settings.local),
+    tempScrSettings: new ScrSettings(this.props.settings.scr),
   }
 
   _form = React.createRef()
@@ -72,14 +85,25 @@ export default class Settings extends React.Component {
   // Settings and re-open it and you're fine)
   _resolution = getResolution()
 
+  static getDerivedStateFromProps(props, state) {
+    // This is needed due to us opening the Settings dialog at the same time as saving the new
+    // StarCraft path (in the StarCraft Path dialog), which means the `tempLocalSettings` will get
+    // initialized with the old value. We update it manually here to the new value when the path
+    // changes.
+    if (props.settings.local.starcraftPath !== state.tempLocalSettings.starcraftPath) {
+      return {
+        tempLocalSettings: state.tempLocalSettings.merge(props.settings.local),
+      }
+    }
+    return null
+  }
+
   componentDidMount() {
     this._saveButton.current.focus()
   }
 
   renderSettings() {
-    const { local } = this.props.settings
-    const { activeTab } = this.state
-
+    const { activeTab, tempLocalSettings: local, tempScrSettings: scr } = this.state
     const isRemastered = isStarcraftRemastered(this.props)
 
     switch (activeTab) {
@@ -88,16 +112,52 @@ export default class Settings extends React.Component {
           <AppSettings
             localSettings={local}
             formRef={this._form}
+            onChange={this.onSettingsChange}
             onSubmit={this.onSettingsSubmit}
           />
         )
-      case TAB_GAME:
+      case isRemastered ? SCR_TAB_INPUT : V1161_TAB_INPUT:
         return (
-          <GameSettings
+          <InputSettings
             localSettings={local}
+            scrSettings={scr}
+            formRef={this._form}
+            isRemastered={isRemastered}
+            onChange={this.onSettingsChange}
+            onSubmit={this.onSettingsSubmit}
+          />
+        )
+      case isRemastered ? SCR_TAB_SOUND : -1:
+        return (
+          <SoundSettings
+            localSettings={local}
+            scrSettings={scr}
+            formRef={this._form}
+            isRemastered={isRemastered}
+            onChange={this.onSettingsChange}
+            onSubmit={this.onSettingsSubmit}
+          />
+        )
+      case isRemastered ? SCR_TAB_VIDEO : V1161_TAB_VIDEO:
+        return (
+          <VideoSettings
+            localSettings={local}
+            scrSettings={scr}
             resolution={this._resolution}
             formRef={this._form}
             isRemastered={isRemastered}
+            onChange={this.onSettingsChange}
+            onSubmit={this.onSettingsSubmit}
+          />
+        )
+      case isRemastered ? SCR_TAB_GAMEPLAY : -1:
+        return (
+          <GameplaySettings
+            localSettings={local}
+            scrSettings={scr}
+            formRef={this._form}
+            isRemastered={isRemastered}
+            onChange={this.onSettingsChange}
             onSubmit={this.onSettingsSubmit}
           />
         )
@@ -109,7 +169,7 @@ export default class Settings extends React.Component {
   render() {
     const { onCancel } = this.props
     const { activeTab } = this.state
-    const { local } = this.props.settings
+    const { scr, lastError } = this.props.settings
 
     const isRemastered = isStarcraftRemastered(this.props)
     const starcraftVersionText = isRemastered ? 'StarCraft: Remastered' : 'StarCraft v1.16.1'
@@ -123,10 +183,21 @@ export default class Settings extends React.Component {
         />
       </TitleActionContainer>
     )
+    const isTabDisabled = isRemastered && !scr
+    const tabItems = [
+      <TabItem key='app' text='App' />,
+      <TabItem key='input' text='Input' disabled={isTabDisabled} />,
+    ]
+    if (isRemastered) {
+      tabItems.push(<TabItem key='sound' text='Sound' disabled={isTabDisabled} />)
+    }
+    tabItems.push(<TabItem key='video' text='Video' disabled={isTabDisabled} />)
+    if (isRemastered) {
+      tabItems.push(<TabItem key='gameplay' text='Gameplay' disabled={isTabDisabled} />)
+    }
     const tabs = (
       <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-        <TabItem text='App' />
-        <TabItem text='Game' />
+        {tabItems}
       </Tabs>
     )
     const buttons = [
@@ -148,7 +219,7 @@ export default class Settings extends React.Component {
         buttons={buttons}
         onCancel={onCancel}>
         <ContentsBody>
-          {local.lastError ? (
+          {lastError ? (
             <ErrorText>There was an issue saving the settings. Please try again.</ErrorText>
           ) : null}
           {this.renderSettings()}
@@ -158,8 +229,6 @@ export default class Settings extends React.Component {
   }
 
   onTabChange = value => {
-    // TODO(2Pac): Currently, switching a tab effectively discards all the changed settings on the
-    // previous tab. Should we remember those, so they're also saved if the settings are submitted?
     this.setState({ activeTab: value })
   }
 
@@ -175,10 +244,18 @@ export default class Settings extends React.Component {
     this.props.dispatch(closeDialog())
   }
 
-  onSettingsSubmit = newSettings => {
-    this.props.dispatch(mergeLocalSettings(newSettings))
+  onSettingsChange = settings => {
+    this.setState({
+      tempLocalSettings: this.state.tempLocalSettings.merge(settings),
+      tempScrSettings: this.state.tempScrSettings.merge(settings),
+    })
+  }
 
-    if (!this.props.settings.local.lastError) {
+  onSettingsSubmit = () => {
+    this.props.dispatch(mergeLocalSettings(this.state.tempLocalSettings.toJS()))
+    this.props.dispatch(mergeScrSettings(this.state.tempScrSettings.toJS()))
+
+    if (!this.props.settings.lastError) {
       this.props.dispatch(closeDialog())
     }
   }

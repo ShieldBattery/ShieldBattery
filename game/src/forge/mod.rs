@@ -1658,7 +1658,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
     let mouse_sensitivity = settings
-        .get("mouseSensitivity")
+        .get("v1161mouseSensitivity")
         .and_then(|x| x.as_u64())
         .filter(|&x| x <= MOUSE_SETTING_MAX as u64)
         .map(|x| x as u8)
@@ -1667,7 +1667,7 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
             0
         });
     let display_mode = settings
-        .get("displayMode")
+        .get("v1161displayMode")
         .and_then(|x| x.as_u64())
         .and_then(|s| match s {
             0 => Some(DisplayMode::FullScreen),
@@ -1691,7 +1691,7 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         .and_then(|x| x.as_i64())
         .map(|x| x as i32);
     let width = settings
-        .get("width")
+        .get("gameWinWidth")
         .and_then(|x| x.as_i64())
         .filter(|&x| x > 0 && x < 100_000)
         .unwrap_or_else(|| {
@@ -1699,7 +1699,7 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
             640
         });
     let height = settings
-        .get("height")
+        .get("gameWinHeight")
         .and_then(|x| x.as_i64())
         .filter(|&x| x > 0 && x < 100_000)
         .unwrap_or_else(|| {
@@ -1708,7 +1708,7 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         });
 
     let maintain_aspect_ratio = settings
-        .get("maintainAspectRatio")
+        .get("v1161maintainAspectRatio")
         .and_then(|x| x.as_bool())
         .unwrap_or_else(|| {
             warn!("Using default value for maintainAspectRatio");

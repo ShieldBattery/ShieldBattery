@@ -3,9 +3,10 @@ import PropTypes from 'prop-types'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import keycode from 'keycode'
 import styled from 'styled-components'
+import { darken, rgba } from 'polished'
 
 import { Body1, Caption } from '../styles/typography'
-import { colorTextFaint, amberA400, grey700, colorTextPrimary } from '../styles/colors'
+import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
 const transitionNames = {
@@ -22,15 +23,18 @@ const END = keycode('end')
 
 const MOUSE_LEFT = 1
 
-const THUMB_WIDTH_PX = 12
-const THUMB_HEIGHT_PX = 12
+const THUMB_WIDTH_PX = 20
+const THUMB_HEIGHT_PX = 20
 const BALLOON_WIDTH_PX = 28
 const BALLOON_HEIGHT_PX = 28
 
 const TickContainer = styled.span`
   position: absolute;
   width: calc(100% - 12px);
+  height: 100%;
   left: 6px;
+  display: flex;
+  align-items: center;
   opacity: 1;
 
   &.enter {
@@ -57,21 +61,22 @@ const ValueTick = styled.div`
   width: 2px;
   height: 2px;
   margin-left: -1px;
-
-  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  background-color: ${props => (props.filled ? darken(0.3, amberA400) : rgba(amberA400, 0.7))};
 `
 
-const Ticks = ({ show, min, max, step }) => {
+const Ticks = ({ show, value, min, max, step }) => {
   let container
   if (show) {
     const numSteps = (max - min) / step + 1
     const stepPercentage = (step / (max - min)) * 100
+    const optionNum = (value - min) / step
     const elems = [
       // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
-      <ValueTick key={0} style={{ left: '-5px' }} />,
+      <ValueTick key={0} filled={true} style={{ left: '-5px' }} />,
     ]
     for (let i = 1, p = stepPercentage; i < numSteps - 1; i++, p = i * stepPercentage) {
-      elems.push(<ValueTick key={i} style={{ left: `${p}%` }} />)
+      elems.push(<ValueTick key={i} filled={i < optionNum} style={{ left: `${p}%` }} />)
     }
     elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
 
@@ -88,26 +93,39 @@ const Ticks = ({ show, min, max, step }) => {
 const TrackRoot = styled.div`
   position: absolute;
   width: 100%;
-  height: 2px;
+  height: 4px;
   left: 0px;
-  top: 48px;
-  background-color: rgba(255, 255, 255, 0.3);
+  top: 54px;
+  border-radius: 2px;
+  background-color: ${props => (props.disabled ? rgba(grey500, 0.5) : rgba(amberA400, 0.3))};
+`
+
+// This wrapper is needed to make sure the border-radius doesn't get scaled with the filled track.
+const FilledTrackWrapper = styled.div`
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
 `
 
 const FilledTrack = styled.div`
   position: absolute;
   left: 0;
+  top: 0;
   width: 100%;
-  height: 2px;
+  height: 100%;
+  background-color: ${props => (props.disabled ? grey500 : amberA400)};
 
-  background-color: ${amberA400};
   transform: scaleX(1);
   transform-origin: 0% 50%;
   transition: transform 150ms ${fastOutSlowIn};
   will-change: transform;
 `
 
-const Track = ({ showTicks, value, min, max, step, transitionDuration = 150 }) => {
+const Track = ({ disabled, showTicks, value, min, max, step, transitionDuration = 150 }) => {
   const scale = (value - min) / (max - min)
   const filledStyle = {
     transform: `scaleX(${scale})`,
@@ -115,19 +133,21 @@ const Track = ({ showTicks, value, min, max, step, transitionDuration = 150 }) =
   }
 
   return (
-    <TrackRoot>
-      <FilledTrack style={filledStyle} />
-      <Ticks show={showTicks} min={min} max={max} step={step} />
+    <TrackRoot disabled={disabled}>
+      <FilledTrackWrapper>
+        <FilledTrack disabled={disabled} style={filledStyle} />
+      </FilledTrackWrapper>
+      <Ticks show={showTicks} value={value} min={min} max={max} step={step} />
     </TrackRoot>
   )
 }
 
 const Root = styled.div`
-  height: 64px;
+  height: 72px;
   position: relative;
   contain: layout style;
 
-  ${props => (props.focused ? 'outline: none;' : '')}
+  ${props => (props.focused || props.disabled ? 'outline: none;' : '')}
 `
 
 const SliderLabel = styled(Body1)`
@@ -154,7 +174,7 @@ const OverflowClip = styled.div`
 
 const ThumbContainer = styled.div`
   position: relative;
-  top: ${48 - THUMB_HEIGHT_PX / 2}px;
+  top: ${54 - THUMB_HEIGHT_PX / 2}px;
   width: 100%;
   pointer-events: none;
   will-change: transform;
@@ -166,8 +186,9 @@ const Thumb = styled.div`
   width: ${THUMB_WIDTH_PX}px;
   height: ${THUMB_HEIGHT_PX}px;
   left: ${THUMB_WIDTH_PX / -2}px;
+  top: 2px;
 
-  background-color: ${props => (props.empty ? '#ffffff' : amberA400)};
+  background-color: ${props => (props.disabled ? grey500 : amberA400)};
   border-radius: 50%;
   pointer-events: none;
   transition: background-color 200ms linear;
@@ -181,7 +202,7 @@ const ClickableArea = styled.div`
   left: 0;
   bottom: 0;
 
-  cursor: pointer;
+  cursor: ${props => (props.disabled ? 'auto' : 'pointer')};
 `
 
 const Balloon = styled.div`
@@ -195,9 +216,9 @@ const Balloon = styled.div`
   align-items: center;
   justify-content: center;
 
-  background-color: ${props => (props.empty ? grey700 : amberA400)};
+  background-color: ${amberA400};
   border-radius: 50%;
-  color: ${props => (props.empty ? colorTextPrimary : 'rgba(0, 0, 0, 0.87)')};
+  color: rgba(0, 0, 0, 0.87);
   pointer-events: none;
   text-align: center;
   transform-origin: 50% 150%;
@@ -210,7 +231,7 @@ const Balloon = styled.div`
     top: 19px;
 
     border-radius: 16px;
-    border-top: 16px solid ${props => (props.empty ? grey700 : amberA400)};
+    border-top: 16px solid ${amberA400};
     border-left: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     border-right: ${BALLOON_WIDTH_PX / 2}px solid transparent;
     content: '';
@@ -258,6 +279,7 @@ class Slider extends React.Component {
       }
       return null
     },
+    disabled: PropTypes.bool,
     showTicks: PropTypes.bool,
     label: PropTypes.string,
     tabIndex: PropTypes.number,
@@ -306,7 +328,7 @@ class Slider extends React.Component {
 
     return (
       <CSSTransition classNames={transitionNames} timeout={300}>
-        <Balloon empty={this.props.value === this.props.min}>
+        <Balloon>
           <BalloonText as='span'>{this.props.value}</BalloonText>
         </Balloon>
       </CSSTransition>
@@ -345,14 +367,13 @@ class Slider extends React.Component {
       transitionDuration: `${transitionDuration}ms`,
     }
 
-    // TODO(tec27): implement disabled state
     return (
       <Root
         ref={this.rootRef}
         focused={this.state.isFocused}
         disabled={this.props.disabled}
         className={this.props.className}
-        tabIndex={this.props.tabIndex}
+        tabIndex={this.props.disabled ? -1 : this.props.tabIndex}
         onFocus={this.onFocus}
         onBlur={this.onBlur}
         onKeyDown={this.onKeyDown}
@@ -363,37 +384,62 @@ class Slider extends React.Component {
           max={this.props.max}
           step={this.props.step}
           value={this.props.value}
+          disabled={this.props.disabled}
           showTicks={this.props.showTicks && this.state.isClicked}
           transitionDuration={transitionDuration}
         />
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
-            <Thumb empty={this.props.value === this.props.min} />
+            <Thumb disabled={this.props.disabled} />
             <TransitionGroup>{this._renderBalloon(thumbPosition)}</TransitionGroup>
           </ThumbContainer>
         </OverflowClip>
-        <ClickableArea ref={this.trackAreaRef} onMouseDown={this.onMouseDown} />
+        <ClickableArea
+          ref={this.trackAreaRef}
+          disabled={this.props.disabled}
+          onMouseDown={this.onMouseDown}
+        />
       </Root>
     )
   }
 
   focus() {
+    if (this.props.disabled) {
+      return
+    }
+
     this.rootRef.current.focus()
   }
 
   blur() {
+    if (this.props.disabled) {
+      return
+    }
+
     this.rootRef.current.blur()
   }
 
   onFocus = () => {
+    if (this.props.disabled) {
+      return
+    }
+
     this.setState({ isFocused: true })
   }
 
   onBlur = () => {
+    if (this.props.disabled) {
+      return
+    }
+
     this.setState({ isFocused: false })
   }
 
   onKeyDown = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     let handled = false
     if (event.keyCode === LEFT) {
       handled = true
@@ -426,6 +472,10 @@ class Slider extends React.Component {
   }
 
   onKeyUp = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     let handled = false
     if (event.keyCode === LEFT || event.keyCode === RIGHT) {
       handled = true
@@ -466,7 +516,7 @@ class Slider extends React.Component {
   }
 
   onMouseDown = event => {
-    if (!(event.buttons & MOUSE_LEFT)) {
+    if (this.props.disabled || !(event.buttons & MOUSE_LEFT)) {
       return
     }
 
@@ -480,6 +530,10 @@ class Slider extends React.Component {
   }
 
   onMouseMove = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     event.preventDefault()
     if (!this.state.isDragging) {
       this.setState({ isDragging: true })
@@ -491,6 +545,10 @@ class Slider extends React.Component {
   }
 
   onMouseUp = event => {
+    if (this.props.disabled) {
+      return
+    }
+
     event.preventDefault()
     this._removeWindowListeners()
     this.setState({ isClicked: false, isDragging: false })

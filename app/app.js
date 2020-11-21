@@ -13,7 +13,7 @@ import { URL } from 'url'
 
 app.setAppUserModelId('net.shieldbattery.client')
 
-import LocalSettings from './local-settings'
+import { LocalSettings, ScrSettings } from './settings'
 import currentSession from './current-session'
 import SystemTray from './system-tray'
 import { autoUpdater } from 'electron-updater'
@@ -27,11 +27,17 @@ import {
   NEW_VERSION_GET_STATE,
   NEW_VERSION_RESTART,
   NEW_VERSION_UP_TO_DATE,
-  SETTINGS_CHANGED,
-  SETTINGS_EMIT,
-  SETTINGS_EMIT_ERROR,
-  SETTINGS_MERGE,
-  SETTINGS_MERGE_ERROR,
+  LOCAL_SETTINGS_CHANGED,
+  LOCAL_SETTINGS_GET,
+  LOCAL_SETTINGS_GET_ERROR,
+  LOCAL_SETTINGS_MERGE,
+  LOCAL_SETTINGS_MERGE_ERROR,
+  SCR_SETTINGS_CHANGED,
+  SCR_SETTINGS_GET,
+  SCR_SETTINGS_GET_ERROR,
+  SCR_SETTINGS_MERGE,
+  SCR_SETTINGS_MERGE_ERROR,
+  SCR_SETTINGS_OVERWRITE,
   USER_ATTENTION_REQUIRED,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
@@ -79,26 +85,57 @@ async function createLocalSettings() {
   return settings
 }
 
-function setupIpc(localSettings) {
+async function createScrSettings() {
+  const sbSessionName = process.env.SB_SESSION
+  const fileName = sbSessionName ? `scr-settings-${sbSessionName}.json` : 'scr-settings.json'
+  const settings = new ScrSettings(
+    path.join(getUserDataPath(), fileName),
+    path.join(app.getPath('documents'), 'StarCraft', 'CSettings.json'),
+  )
+  await settings.untilInitialized()
+  return settings
+}
+
+function setupIpc(localSettings, scrSettings) {
   ipcMain.on(LOG_MESSAGE, (event, level, message) => {
     logger.log(level, message)
   })
 
+  ipcMain.handle(SCR_SETTINGS_OVERWRITE, async () => {
+    await scrSettings.overwrite()
+  })
+
   ipcMain
-    .on(SETTINGS_EMIT, event => {
+    .on(LOCAL_SETTINGS_GET, event => {
       localSettings.get().then(
-        settings => event.sender.send(SETTINGS_CHANGED, settings),
+        settings => event.sender.send(LOCAL_SETTINGS_CHANGED, settings),
         err => {
-          logger.error('Error getting settings: ' + err)
-          event.sender.send(SETTINGS_EMIT_ERROR, err)
+          logger.error('Error getting local settings: ' + err)
+          event.sender.send(LOCAL_SETTINGS_GET_ERROR, err)
         },
       )
     })
-    .on(SETTINGS_MERGE, (event, settings) => {
-      // This will trigger a change if things changed (which will then emit a SETTINGS_CHANGED)
+    .on(SCR_SETTINGS_GET, event => {
+      scrSettings.get().then(
+        settings => event.sender.send(SCR_SETTINGS_CHANGED, settings),
+        err => {
+          logger.error('Error getting SC:R settings: ' + err)
+          event.sender.send(SCR_SETTINGS_GET_ERROR, err)
+        },
+      )
+    })
+    .on(LOCAL_SETTINGS_MERGE, (event, settings) => {
+      // This will trigger a change if things changed, which will then emit a LOCAL_SETTINGS_CHANGED
       localSettings.merge(settings).catch(err => {
-        logger.error('Error merging settings: ' + err)
-        event.sender.send(SETTINGS_MERGE_ERROR, err)
+        logger.error('Error merging local settings: ' + err)
+        event.sender.send(LOCAL_SETTINGS_MERGE_ERROR, err)
+      })
+    })
+    .on(SCR_SETTINGS_MERGE, (event, settings) => {
+      // This will trigger a change if things changed, which will then emit a SCR_SETTINGS_CHANGED
+      scrSettings.merge(settings).catch(err => {
+        logger.error('Error merging SC:R settings: ' + err)
+        event.sender.send(SCR_SETTINGS_MERGE_ERROR, err)
       })
     })
     .on(WINDOW_CLOSE, (event, shouldDisplayCloseHint) => {
@@ -131,7 +168,12 @@ function setupIpc(localSettings) {
 
   localSettings.on(LocalSettings.EVENT, settings => {
     if (mainWindow) {
-      mainWindow.webContents.send(SETTINGS_CHANGED, settings)
+      mainWindow.webContents.send(LOCAL_SETTINGS_CHANGED, settings)
+    }
+  })
+  scrSettings.on(ScrSettings.EVENT, settings => {
+    if (mainWindow) {
+      mainWindow.webContents.send(SCR_SETTINGS_CHANGED, settings)
     }
   })
 
@@ -377,15 +419,19 @@ async function createWindow(localSettings, curSession) {
 
 app.on('ready', async () => {
   const localSettingsPromise = createLocalSettings()
+  const scrSettingsPromise = createScrSettings()
 
   if (!isDev) {
     autoUpdater.checkForUpdates()
   }
 
   try {
-    const localSettings = await localSettingsPromise
+    const [localSettings, scrSettings] = await Promise.all([
+      localSettingsPromise,
+      scrSettingsPromise,
+    ])
 
-    setupIpc(localSettings)
+    setupIpc(localSettings, scrSettings)
     setupCspProtocol(currentSession())
     await createWindow(localSettings, currentSession())
     systemTray = new SystemTray(mainWindow, () => app.quit())

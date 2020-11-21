@@ -90,7 +90,7 @@ class StarcraftPathForm extends React.Component {
 
   onBrowseClick = async () => {
     const { getInputValue, setInputValue } = this.props
-    const currentPath = getInputValue('path')
+    const currentPath = getInputValue('path') || ''
 
     const selection = await dialog.showOpenDialog(currentWindow, {
       title: 'Select StarCraft folder',
@@ -136,7 +136,7 @@ export default class StarcraftPath extends React.Component {
     return (
       <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel}>
         <StarcraftPathForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
-        {settings.local.lastError ? (
+        {settings.lastError ? (
           <ErrorText>There was an issue saving the StarCraft path. Please try again.</ErrorText>
         ) : null}
       </Dialog>
@@ -162,7 +162,7 @@ export default class StarcraftPath extends React.Component {
     }
     this.props.dispatch(mergeLocalSettings(newSettings))
 
-    if (!this.props.settings.local.lastError) {
+    if (!this.props.settings.lastError) {
       this.props.dispatch(openDialog('settings'))
     }
   }

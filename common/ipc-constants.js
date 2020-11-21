@@ -25,13 +25,27 @@ export const NEW_VERSION_RESTART = 'NEW_VERSION_RESTART'
 export const NEW_VERSION_UP_TO_DATE = 'NEW_VERSION_UP_TO_DATE'
 
 // The local settings have changed (includes the new settings)
-export const SETTINGS_CHANGED = 'SETTINGS_CHANGED'
-// Cause the main process to immediately emit a SETTINGS_CHANGED event
-export const SETTINGS_EMIT = 'SETTINGS_EMIT'
-export const SETTINGS_EMIT_ERROR = 'SETTINGS_EMIT_ERROR'
-// Pass a new settings object from the renderer -> main process (to be merged with the existing one)
-export const SETTINGS_MERGE = 'SETTINGS_MERGE'
-export const SETTINGS_MERGE_ERROR = 'SETTINGS_MERGE_ERROR'
+export const LOCAL_SETTINGS_CHANGED = 'LOCAL_SETTINGS_CHANGED'
+// Cause the main process to immediately emit a LOCAL_SETTINGS_CHANGED event
+export const LOCAL_SETTINGS_GET = 'LOCAL_SETTINGS_GET'
+// Tells a renderer process that there has been an error getting the local settings
+export const LOCAL_SETTINGS_GET_ERROR = 'LOCAL_SETTINGS_GET_ERROR'
+// Pass a new local settings from the renderer -> main process (to be merged with the existing one)
+export const LOCAL_SETTINGS_MERGE = 'LOCAL_SETTINGS_MERGE'
+// Tells a renderer process that there has been an error merging the local settings
+export const LOCAL_SETTINGS_MERGE_ERROR = 'LOCAL_SETTINGS_MERGE_ERROR'
+// The SC:R settings have changed (includes the new settings)
+export const SCR_SETTINGS_CHANGED = 'SCR_SETTINGS_CHANGED'
+// Cause the main process to immediately emit a SCR_SETTINGS_CHANGED event
+export const SCR_SETTINGS_GET = 'SCR_SETTINGS_GET'
+// Tells a renderer process that there has been an error getting the SC:R settings
+export const SCR_SETTINGS_GET_ERROR = 'SCR_SETTINGS_GET_ERROR'
+// Pass a new SC:R settings from the renderer -> main process (to be merged with the existing one)
+export const SCR_SETTINGS_MERGE = 'SCR_SETTINGS_MERGE'
+// Tells a renderer process that there has been an error merging the SC:R settings
+export const SCR_SETTINGS_MERGE_ERROR = 'SCR_SETTINGS_MERGE_ERROR'
+// Cause the main process to overwrite SC:R settings
+export const SCR_SETTINGS_OVERWRITE = 'SCR_SETTINGS_OVERWRITE'
 
 // Tells the main process that something has happened that requires a user's attention and to get it
 // somehow (by e.g. flashing the window)

@@ -1,4 +1,4 @@
-import { remote } from 'electron'
+import { ipcRenderer, remote } from 'electron'
 import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
@@ -14,6 +14,7 @@ import {
   GAME_STATUS_ERROR,
   statusToString,
 } from '../../common/game-status'
+import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
 
 const { launchProcess } = remote.require('./native/process')
 
@@ -274,6 +275,11 @@ async function doLaunch(gameId, serverPort, settings) {
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
   const isRemastered = checkResult.remastered
+  if (isRemastered) {
+    // Blizzard reinitializes their settings file everytime the SC:R is opened through their
+    // launcher. So we must do the same thing with our own version of settings before each game.
+    await ipcRenderer.invoke(SCR_SETTINGS_OVERWRITE)
+  }
 
   const userDataPath = remote.app.getPath('userData')
   let appPath

@@ -91,6 +91,7 @@ export default class AppSettings extends React.Component {
   static propTypes = {
     localSettings: PropTypes.object.isRequired,
     formRef: PropTypes.object.isRequired,
+    onChange: PropTypes.func.isRequired,
     onSubmit: PropTypes.func.isRequired,
   }
 
@@ -132,6 +133,7 @@ export default class AppSettings extends React.Component {
         isPlayingTestSound={isPlayingTestSound}
         onMasterVolumeChange={this.onMasterVolumeChange}
         onTestSoundClick={this.onTestSoundClick}
+        onChange={this.onChange}
         onSubmit={this.onSubmit}
       />
     )
@@ -153,10 +155,13 @@ export default class AppSettings extends React.Component {
     this._sound.onended = this._cleanup
   }
 
+  onChange = () => {
+    const values = this.props.formRef.current.getModel()
+    this.props.onChange(values)
+  }
+
   onSubmit = () => {
     this._hasSavedSettings = true
-    const values = this.props.formRef.current.getModel()
-
-    this.props.onSubmit(values)
+    this.props.onSubmit()
   }
 }

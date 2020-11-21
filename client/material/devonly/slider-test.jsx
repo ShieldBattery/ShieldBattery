@@ -57,7 +57,14 @@ export default class SliderTest extends React.Component {
             step={5}
             onChange={value => this.onChange('3', value)}
           />
-          {/* TODO: disabled */}
+          <Slider
+            min={10}
+            max={100}
+            value={50}
+            step={5}
+            disabled={true}
+            onChange={value => this.onChange('3', value)}
+          />
           <Slider
             min={0}
             max={4}
