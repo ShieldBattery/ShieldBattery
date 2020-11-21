@@ -132,7 +132,7 @@ function setupIpc(localSettings, scrSettings) {
       })
     })
     .on(SCR_SETTINGS_MERGE, (event, settings) => {
-      // This will trigger a change if things changed, which will then emit a LOCAL_SETTINGS_CHANGED
+      // This will trigger a change if things changed, which will then emit a SCR_SETTINGS_CHANGED
       scrSettings.merge(settings).catch(err => {
         logger.error('Error merging SC:R settings: ' + err)
         event.sender.send(SCR_SETTINGS_MERGE_ERROR, err)
