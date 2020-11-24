@@ -216,16 +216,10 @@ export default class CreateLobby extends React.Component {
     map: PropTypes.object,
   }
 
-  _autoFocusTimer = null
-  _form = null
-  _setForm = elem => {
-    this._form = elem
-  }
-  _input = null
-  _setInput = elem => {
-    this._input = elem
-  }
   isHosted = false
+  _autoFocusTimer = null
+  _form = React.createRef()
+  _input = React.createRef()
 
   state = {
     scrolledUp: false,
@@ -236,10 +230,14 @@ export default class CreateLobby extends React.Component {
   _savePreferences = () => {
     const { recentMaps } = this.state
 
+    // This can happen if the component unmounts before the matchmaking preferences are finished
+    // requesting (since the form won't be rendered in that case)
+    if (!this._form.current) return
+
     let orderedRecentMaps = recentMaps.list
     // If the selected map is actually hosted, we move it to the front of the recent maps list
     if (this.isHosted) {
-      const { selectedMap } = this._form.getModel()
+      const { selectedMap } = this._form.current.getModel()
       orderedRecentMaps = orderedRecentMaps
         .delete(orderedRecentMaps.indexOf(selectedMap))
         .unshift(selectedMap)
@@ -247,7 +245,7 @@ export default class CreateLobby extends React.Component {
 
     this.props.dispatch(
       updateLobbyPreferences({
-        ...this._form.getModel(),
+        ...this._form.current.getModel(),
         recentMaps: orderedRecentMaps.toArray(),
       }),
     )
@@ -294,7 +292,7 @@ export default class CreateLobby extends React.Component {
 
   _doAutoFocus() {
     this._autoFocusTimer = null
-    this._input.focus()
+    if (this._input.current) this._input.current.focus()
   }
 
   render() {
@@ -329,8 +327,8 @@ export default class CreateLobby extends React.Component {
           <ScrollableContent onUpdate={this.onScrollUpdate}>
             <ContentsBody>
               <CreateLobbyForm
-                ref={this._setForm}
-                inputRef={this._setInput}
+                ref={this._form}
+                inputRef={this._input}
                 model={model}
                 onSubmit={this.onSubmit}
                 recentMaps={recentMaps}
@@ -371,13 +369,13 @@ export default class CreateLobby extends React.Component {
   }
 
   onCreateClick = () => {
-    this._form.submit()
+    this._form.current.submit()
   }
 
   onSubmit = () => {
     this.isHosted = true
 
-    const { name, gameType, gameSubType, selectedMap } = this._form.getModel()
+    const { name, gameType, gameSubType, selectedMap } = this._form.current.getModel()
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))

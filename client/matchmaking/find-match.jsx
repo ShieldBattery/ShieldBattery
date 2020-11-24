@@ -267,6 +267,10 @@ export default class FindMatch extends React.Component {
   _savePreferences = () => {
     const { activeTab } = this.state
 
+    // This can happen if the component unmounts before the matchmaking preferences are finished
+    // requesting (since the form won't be rendered in that case)
+    if (!this._form.current) return
+
     // TODO(2Pac): Remove this once we add support for other tabs that we currently display
     if (activeTab !== TAB_1V1) return
 
