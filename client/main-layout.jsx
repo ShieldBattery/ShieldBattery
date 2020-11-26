@@ -301,7 +301,7 @@ class MainLayout extends React.Component {
       </Container>
     )
   }
-  
+
   onSearchingMatchOverlayOpen = () => {
     this.setState({ searchingMatchOverlayOpen: true })
   }

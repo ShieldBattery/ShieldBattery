@@ -145,7 +145,7 @@ class UserList extends React.Component {
         <UserListSubheader as='p'>{title}</UserListSubheader>
         <UserSublist>
           {users.map(u => (
-            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick}/>
+            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
           ))}
         </UserSublist>
       </UserListSection>
