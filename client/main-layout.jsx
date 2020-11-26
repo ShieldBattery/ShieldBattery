@@ -301,11 +301,7 @@ class MainLayout extends React.Component {
       </Container>
     )
   }
-
-  onCloseProfileOverlay = () => {
-    this.setState({ profileOverlayOpen: false })
-  }
-
+  
   onSearchingMatchOverlayOpen = () => {
     this.setState({ searchingMatchOverlayOpen: true })
   }

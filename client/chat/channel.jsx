@@ -77,10 +77,10 @@ const UserListEntryItem = styled.li`
   }
 `
 
-@connect()
 class UserListEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
+    onWhisperClick: PropTypes.func,
   }
 
   state = {
@@ -97,8 +97,8 @@ class UserListEntry extends React.Component {
     this.setState({ userOverlayOpen: false })
   }
 
-  onWhisper = () => {
-    this.props.dispatch(navigateToWhisper(this.props.user))
+  onWhisperClick = () => {
+    this.props.onWhisperClick(this.props.user)
   }
 
   renderUserOverlay() {
@@ -108,7 +108,7 @@ class UserListEntry extends React.Component {
         onDismiss={this.onCloseUserOverlay}
         anchor={this._userEntryRef.current}
         user={this.props.user}>
-        <MenuItem text='Whisper' onClick={this.onWhisper} />
+        <MenuItem text='Whisper' onClick={this.onWhisperClick} />
       </UserOverlay>
     )
   }
@@ -128,6 +128,7 @@ class UserListEntry extends React.Component {
 class UserList extends React.Component {
   static propTypes = {
     users: PropTypes.object.isRequired,
+    onWhisperClick: PropTypes.func,
   }
 
   shouldComponentUpdate(nextProps) {
@@ -144,7 +145,7 @@ class UserList extends React.Component {
         <UserListSubheader as='p'>{title}</UserListSubheader>
         <UserSublist>
           {users.map(u => (
-            <UserListEntry user={u} key={u} />
+            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick}/>
           ))}
         </UserSublist>
       </UserListSection>
@@ -204,6 +205,7 @@ class Channel extends React.Component {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
     onRequestMoreHistory: PropTypes.func,
+    onWhisperClick: PropTypes.func,
   }
 
   messageList = null
@@ -239,7 +241,7 @@ class Channel extends React.Component {
           </Messages>
           <ChatInput onSend={onSendChatMessage} />
         </MessagesAndInput>
-        <UserList users={this.props.channel.users} />
+        <UserList users={this.props.channel.users} onWhisperClick={this.props.onWhisperClick} />
       </Container>
     )
   }
@@ -284,6 +286,7 @@ export default class ChatChannelView extends React.Component {
     super(props)
     this._handleSendChatMessage = this.onSendChatMessage.bind(this)
     this._handleRequestMoreHistory = this.onRequestMoreHistory.bind(this)
+    this._handleWhisperClick = this.onWhisperClick.bind(this)
   }
 
   componentDidMount() {
@@ -346,6 +349,7 @@ export default class ChatChannelView extends React.Component {
         channel={channel}
         onSendChatMessage={this._handleSendChatMessage}
         onRequestMoreHistory={this._handleRequestMoreHistory}
+        onWhisperClick={this._handleWhisperClick}
       />
     )
   }
@@ -356,6 +360,10 @@ export default class ChatChannelView extends React.Component {
 
   onRequestMoreHistory() {
     this.props.dispatch(retrieveNextMessageHistory(this.props.match.params.channel))
+  }
+
+  onWhisperClick(user) {
+    this.props.dispatch(navigateToWhisper(user))
   }
 
   _isInChannel() {
