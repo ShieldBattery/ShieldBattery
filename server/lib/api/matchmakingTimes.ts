@@ -13,7 +13,6 @@ import { joiValidator } from '../validation/joi-validator'
 import {
   getMatchmakingTimesHistory,
   addMatchmakingTime,
-  getCurrentMatchmakingState,
   getMatchmakingTimeById,
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
@@ -27,7 +26,6 @@ export default function (router: Router) {
       checkAllPermissions('manageMatchmakingTimes'),
       getHistory,
     )
-    .get('/:matchmakingType/current', featureEnabled(MATCHMAKING), ensureLoggedIn, getCurrent)
     .post(
       '/:matchmakingType',
       featureEnabled(MATCHMAKING),
@@ -70,20 +68,6 @@ async function addNew(ctx: Koa.Context, next: Koa.Next) {
   }
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
-}
-
-async function getCurrent(ctx: Koa.Context, next: Koa.Next) {
-  const { matchmakingType } = ctx.params
-
-  if (!isValidMatchmakingType(matchmakingType)) {
-    throw new httpErrors.BadRequest('invalid matchmaking type')
-  }
-
-  const current = await getCurrentMatchmakingState(matchmakingType)
-  if (!current) {
-    throw new httpErrors.NotFound('no matchmaking times found for this type')
-  }
-  ctx.body = current
 }
 
 async function deleteFutureOne(ctx: Koa.Context, next: Koa.Next) {
