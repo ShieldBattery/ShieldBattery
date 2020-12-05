@@ -64,7 +64,7 @@ const HistoryContainer = styled.table`
     width: 50%;
   }
 
-  th:nth-child(2) {
+  th:last-child {
     padding-left: 16px;
   }
 `
@@ -113,6 +113,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
         <thead>
           <tr>
             <th>Start date</th>
+            <th>Status</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -120,20 +121,23 @@ class MatchmakingTimesHistory extends React.PureComponent {
           {history.sortedList.map(time => {
             const isCurrent = time.id === current.id
             const isFuture = time.startDate > Date.now()
+            let suffix
+            if (isCurrent) {
+              suffix = '(Current)'
+            } else if (!isCurrent && !isFuture) {
+              suffix = '(Finished)'
+            }
 
             return (
               <tr key={time.id}>
                 <td>
-                  {dateFormat.format(time.startDate)} {isCurrent ? '(Current)' : ''}
+                  {dateFormat.format(time.startDate)} {suffix}
                 </td>
+                <td>{time.enabled ? 'Enabled' : 'Disabled'}</td>
                 <td>
-                  {isCurrent ? (
-                    <FlatButton label={current.enabled ? 'Enabled' : 'Disabled'} disabled={true} />
-                  ) : null}
                   {isFuture ? (
                     <FlatButton label='Delete' color='accent' onClick={() => onDelete(time.id)} />
                   ) : null}
-                  {!isCurrent && !isFuture ? <FlatButton label='Finished' disabled={true} /> : null}
                 </td>
               </tr>
             )
