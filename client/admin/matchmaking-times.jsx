@@ -20,7 +20,7 @@ import {
   deleteMatchmakingTime,
 } from './action-creators'
 
-import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors'
+import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors'
 import { Body1, Subheading } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -67,6 +67,22 @@ const HistoryContainer = styled.table`
   th:last-child {
     padding-left: 16px;
   }
+`
+
+const EnabledText = styled.span`
+  color: ${colorSuccess};
+`
+
+const DisabledText = styled.span`
+  color: ${colorError};
+`
+
+const CurrentText = styled.span`
+  color: ${amberA400};
+`
+
+const FinishedText = styled.span`
+  color: ${colorTextSecondary};
 `
 
 class MatchmakingTimesHistory extends React.PureComponent {
@@ -123,9 +139,9 @@ class MatchmakingTimesHistory extends React.PureComponent {
             const isFuture = time.startDate > Date.now()
             let suffix
             if (isCurrent) {
-              suffix = '(Current)'
+              suffix = <CurrentText>(Current)</CurrentText>
             } else if (!isCurrent && !isFuture) {
-              suffix = '(Finished)'
+              suffix = <FinishedText>(Finished)</FinishedText>
             }
 
             return (
@@ -133,7 +149,13 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 <td>
                   {dateFormat.format(time.startDate)} {suffix}
                 </td>
-                <td>{time.enabled ? 'Enabled' : 'Disabled'}</td>
+                <td>
+                  {time.enabled ? (
+                    <EnabledText>Enabled</EnabledText>
+                  ) : (
+                    <DisabledText>Disabled</DisabledText>
+                  )}
+                </td>
                 <td>
                   {isFuture ? (
                     <FlatButton label='Delete' color='accent' onClick={() => onDelete(time.id)} />
