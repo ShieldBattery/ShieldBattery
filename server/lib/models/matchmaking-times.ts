@@ -154,6 +154,56 @@ export async function getPastMatchmakingTimes(
   }
 }
 
+enum Status {
+  Enabled = true,
+  Disabled = false,
+}
+
+/**
+ * Get matchmaking schedule. The schedule represents future N (where N defaults to 2) matchmaking
+ * times, starting with a first S (where S defaults to enabled) status, after date X (where X
+ * defaults to current date) for a particular matchmaking type. Additionally, all subsequent
+ * matchmaking times with the same enabled status as the one before them are filtered out.
+ */
+export async function getMatchmakingSchedule(
+  matchmakingType: MatchmakingType,
+  date = new Date(),
+  firstStatus = Status.Enabled,
+  depth = 2,
+): Promise<Array<MatchmakingTime>> {
+  const query = sql`
+    WITH RECURSIVE schedule AS (
+      (SELECT *, 0 AS depth
+      FROM matchmaking_times AS mt
+      WHERE mt.matchmaking_type = ${matchmakingType} AND mt.enabled = ${firstStatus}
+        AND mt.start_date > ${date}
+      ORDER BY mt.start_date
+      LIMIT 1)
+
+      UNION ALL
+
+      (SELECT mt.*, s.depth + 1 AS depth
+      FROM matchmaking_times AS mt, schedule s
+      WHERE mt.matchmaking_type = s.matchmaking_type AND mt.enabled != s.enabled
+        AND mt.start_date > s.start_date
+      ORDER BY mt.start_date
+      LIMIT 1)
+    )
+    SELECT *
+    FROM schedule
+    WHERE depth <= ${depth}
+    ORDER BY start_date;
+  `
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query)
+    return result.rows.map(r => convertFromDb(r))
+  } finally {
+    done()
+  }
+}
+
 export async function addMatchmakingTime(
   matchmakingType: MatchmakingType,
   startDate: Date,

@@ -27,7 +27,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 
 import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
-import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
+import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
 import { Body1Old, HeadlineOld, SubheadingOld, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
@@ -75,6 +75,9 @@ const ScrollDivider = styled.div`
 `
 
 const Actions = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   margin: 16px 24px;
 `
 
@@ -139,6 +142,11 @@ const RandomIcon = styled(BrowseIcon)`
   width: 128px;
   height: 128px;
   opacity: 0.5;
+`
+
+const ErrorText = styled(SubheadingOld)`
+  margin-left: 16px;
+  color: ${colorError};
 `
 
 // A wrapper around <RacePicker /> so it can be used in forms
@@ -250,6 +258,7 @@ function typeToTab(type) {
 @connect(state => ({
   matchmaking: state.matchmaking,
   matchmakingPreferences: state.matchmakingPreferences,
+  matchmakingStatus: state.matchmakingStatus,
 }))
 export default class FindMatch extends React.Component {
   static propTypes = {
@@ -355,7 +364,7 @@ export default class FindMatch extends React.Component {
   }
 
   render() {
-    const { matchmaking, matchmakingPreferences } = this.props
+    const { matchmaking, matchmakingPreferences, matchmakingStatus } = this.props
     const { activeTab, scrolledUp } = this.state
 
     const mapPool = matchmaking.mapPoolTypes.get(tabToType(activeTab))
@@ -368,6 +377,8 @@ export default class FindMatch extends React.Component {
       )
     }
 
+    const status = matchmakingStatus.types.get(tabToType(activeTab))
+    const isMatchmakingDisabled = !status || !status.enabled
     return (
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
@@ -388,7 +399,12 @@ export default class FindMatch extends React.Component {
         </Contents>
         {activeTab === TAB_1V1 ? (
           <Actions>
-            <RaisedButton label='Find match' onClick={this.onFindClick} />
+            <RaisedButton
+              label='Find match'
+              disabled={isMatchmakingDisabled}
+              onClick={this.onFindClick}
+            />
+            {isMatchmakingDisabled ? <ErrorText>Matchmaking is now disabled</ErrorText> : null}
           </Actions>
         ) : null}
       </Container>

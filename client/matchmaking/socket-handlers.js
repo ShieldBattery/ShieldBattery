@@ -6,6 +6,7 @@ import log from '../logging/logger'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
+  MATCHMAKING_STATUS_UPDATE,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
   MATCHMAKING_UPDATE_GAME_STARTING,
@@ -324,4 +325,11 @@ export default function registerModule({ siteSocket }) {
   }
   siteSocket.registerRoute('/matchmaking/:userName', matchmakingHandler)
   siteSocket.registerRoute('/matchmaking/:userId/:clientId', matchmakingHandler)
+
+  siteSocket.registerRoute('/matchmakingStatus', (route, event) => {
+    dispatch({
+      type: MATCHMAKING_STATUS_UPDATE,
+      payload: event,
+    })
+  })
 }

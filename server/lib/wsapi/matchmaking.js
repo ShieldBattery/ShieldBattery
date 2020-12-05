@@ -9,6 +9,7 @@ import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
+import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 import createDeferred from '../../../common/async/deferred'
 import {
   MATCHMAKING_ACCEPT_MATCH_TIME,
@@ -399,6 +400,10 @@ export class MatchmakingApi {
     const { type, race, useAlternateRace, alternateRace, preferredMaps } = data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    if (matchmakingStatusInstance && !matchmakingStatusInstance.isEnabled(type)) {
+      throw new errors.Conflict('matchmaking is currently disabled')
+    }
 
     if (!activityRegistry.registerActiveClient(user.name, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')

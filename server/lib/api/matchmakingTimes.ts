@@ -18,6 +18,7 @@ import {
   getMatchmakingTimeById,
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
+import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 
 const matchmakingTypeSchema = Joi.object({
   matchmakingType: Joi.valid(...MATCHMAKING_TYPES).required(),
@@ -165,6 +166,10 @@ async function addNew(ctx: Koa.Context, next: Koa.Next) {
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
+
+  if (matchmakingStatusInstance) {
+    matchmakingStatusInstance.publish(matchmakingType)
+  }
 }
 
 async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
@@ -178,5 +183,10 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
   }
 
   await removeMatchmakingTime(matchmakingTimeId)
+
+  if (matchmakingStatusInstance) {
+    matchmakingStatusInstance.publish(matchmakingTime.type)
+  }
+
   ctx.status = 204
 }

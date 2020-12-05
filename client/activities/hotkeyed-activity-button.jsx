@@ -4,8 +4,9 @@ import PropTypes from 'prop-types'
 import ActivityButton from './activity-button.jsx'
 import KeyListener from '../keyboard/key-listener.jsx'
 
-export default class HotkeyedActivityButton extends React.Component {
+class HotkeyedActivityButton extends React.Component {
   static propTypes = {
+    innerRef: PropTypes.object,
     disabled: PropTypes.bool,
     keycode: PropTypes.number.isRequired,
     altKey: PropTypes.bool,
@@ -24,8 +25,9 @@ export default class HotkeyedActivityButton extends React.Component {
   }
 
   render() {
-    const { disabled, label, icon, onClick } = this.props
+    const { innerRef, disabled, label, icon, onClick } = this.props
     const activityButtonProps = {
+      ref: innerRef,
       label,
       icon,
       disabled,
@@ -58,3 +60,7 @@ export default class HotkeyedActivityButton extends React.Component {
     return false
   }
 }
+
+export default React.forwardRef((props, ref) => (
+  <HotkeyedActivityButton innerRef={ref} {...props} />
+))
