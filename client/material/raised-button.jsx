@@ -59,7 +59,7 @@ const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
     return ''
   }}
 
-  ${CardLayer} & {
+  ${CardLayer} && {
     ${props => (props.disabled ? 'background-color: rgba(255, 255, 255, 0.08)' : '')};
   }
 `
