@@ -5,6 +5,11 @@ import Joi from 'joi'
 /** A description of how to validate a request. */
 interface JoiValidationDescriptor {
   /**
+   * A schema to use for validating a request's named route parameters. If undefined, the params
+   * will not be validated.
+   */
+  params?: Joi.Schema
+  /**
    * A schema to use for validating a request's query string data. If undefined, the query string
    * will not be validated.
    */
@@ -17,8 +22,14 @@ interface JoiValidationDescriptor {
 }
 
 /** Returns a function that validates that the parts of a Koa request pass validation with Joi. */
-export function joiValidator({ query, body }: JoiValidationDescriptor) {
+export function joiValidator({ params, query, body }: JoiValidationDescriptor) {
   return async (ctx: Koa.Context, next: Koa.Next) => {
+    if (params) {
+      const { error } = params.validate(ctx.params)
+      if (error) {
+        throw new httpErrors.BadRequest(`Invalid params - ${error.message}`)
+      }
+    }
     if (query) {
       const { error } = query.validate(ctx.query)
       if (error) {
@@ -26,7 +37,7 @@ export function joiValidator({ query, body }: JoiValidationDescriptor) {
       }
     }
     if (body) {
-      const { error } = body.validate(ctx.body)
+      const { error } = body.validate(ctx.request.body)
       if (error) {
         throw new httpErrors.BadRequest(`Invalid request body - ${error.message}`)
       }

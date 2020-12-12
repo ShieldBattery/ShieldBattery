@@ -13,7 +13,7 @@ function convertFromDb(props: {
   /* eslint-disable camelcase */
   id: string
   matchmaking_type: MatchmakingType
-  start_date: number
+  start_date: Date
   enabled: boolean
   /* eslint-enable camelcase */
 }): MatchmakingTime {
@@ -65,7 +65,7 @@ export async function addMatchmakingTime(
   matchmakingType: MatchmakingType,
   startDate: Date,
   enabled: boolean,
-): Promise<MatchmakingTime | null> {
+): Promise<MatchmakingTime> {
   const query = sql`
     INSERT INTO matchmaking_times (matchmaking_type, start_date, enabled)
     VALUES (${matchmakingType}, ${startDate}, ${enabled})
@@ -95,7 +95,7 @@ export async function getCurrentMatchmakingState(
   const { client, done } = await db()
   try {
     const result = await client.query(query)
-    return convertFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()
   }
@@ -111,13 +111,13 @@ export async function getMatchmakingTimeById(id: string): Promise<MatchmakingTim
   const { client, done } = await db()
   try {
     const result = await client.query(query)
-    return convertFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()
   }
 }
 
-export async function removeMatchmakingTime(id: string) {
+export async function removeMatchmakingTime(id: string): Promise<void> {
   const query = sql`
     DELETE FROM matchmaking_times
     WHERE id = ${id};

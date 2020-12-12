@@ -5,7 +5,7 @@ import Joi from 'joi'
 
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { isValidMatchmakingType } from '../../../common/constants'
+import { MATCHMAKING_TYPES } from '../../../common/constants'
 import { MATCHMAKING } from '../../../common/flags'
 import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -17,6 +17,15 @@ import {
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
 
+const matchmakingTypeSchema = Joi.object({
+  matchmakingType: Joi.valid(...MATCHMAKING_TYPES).required(),
+})
+
+const addMatchmakingTimeSchema = Joi.object({
+  startDate: Joi.number().integer().greater(Date.now()).required(),
+  enabled: Joi.boolean(),
+})
+
 export default function (router: Router) {
   router
     .get(
@@ -24,6 +33,7 @@ export default function (router: Router) {
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
+      joiValidator({ params: matchmakingTypeSchema }),
       getHistory,
     )
     .post(
@@ -31,7 +41,7 @@ export default function (router: Router) {
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
-      joiValidator({ body: addMatchmakingTimeSchema }),
+      joiValidator({ params: matchmakingTypeSchema, body: addMatchmakingTimeSchema }),
       addNew,
     )
     .delete(
@@ -39,38 +49,24 @@ export default function (router: Router) {
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
-      deleteFutureOne,
+      deleteFutureTime,
     )
 }
 
 async function getHistory(ctx: Koa.Context, next: Koa.Next) {
   const { matchmakingType } = ctx.params
 
-  if (!isValidMatchmakingType(matchmakingType)) {
-    throw new httpErrors.BadRequest('invalid matchmaking type')
-  }
-
   ctx.body = await getMatchmakingTimesHistory(matchmakingType)
 }
-
-const addMatchmakingTimeSchema = Joi.object({
-  startDate: Joi.number().required(),
-})
 
 async function addNew(ctx: Koa.Context, next: Koa.Next) {
   const { matchmakingType } = ctx.params
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 
-  if (!isValidMatchmakingType(matchmakingType)) {
-    throw new httpErrors.BadRequest('invalid matchmaking type')
-  } else if (!startDate || !Number.isInteger(startDate) || startDate < Date.now()) {
-    throw new httpErrors.BadRequest('startDate must be a valid timestamp value in the future')
-  }
-
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
 }
 
-async function deleteFutureOne(ctx: Koa.Context, next: Koa.Next) {
+async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
   const { matchmakingTimeId } = ctx.params
 
   const matchmakingTime = await getMatchmakingTimeById(matchmakingTimeId)
