@@ -6,6 +6,7 @@ const location = !IS_ELECTRON ? window.location : new window.URL(makeServerUrl('
 const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
 const options = {
   query: { clientId: cuid() },
+  withCredentials: true,
 }
 
 const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`, options)

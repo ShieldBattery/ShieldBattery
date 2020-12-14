@@ -6,6 +6,7 @@ import getAddress from './lib/websockets/get-address'
 import { createUserSockets, createClientSockets } from './lib/websockets/socket-groups'
 import log from './lib/logging/logger'
 import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
+import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
 
 const apiHandlers = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
@@ -28,6 +29,11 @@ class WebsocketServer {
     this.connectedUsers = 0
     this.nydus = nydus(this.httpServer, {
       allowRequest: async (info, cb) => await this.onAuthorization(info, cb),
+      cors: {
+        origin: 'shieldbattery://app',
+        credentials: true,
+        maxAge: CORS_MAX_AGE_SECONDS,
+      },
     })
 
     // NOTE(tec27): the order of creation here is very important, we want *more specific* event
