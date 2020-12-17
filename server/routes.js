@@ -8,7 +8,7 @@ import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
 
 const router = KoaRouter()
-const jsFileMatcher = RegExp.prototype.test.bind(/\.js$/)
+const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 
 function send404(ctx, next) {
   throw new httpErrors.NotFound()
@@ -20,8 +20,8 @@ export default function applyRoutes(app, nydus, userSockets) {
   // api methods (through HTTP)
   const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
   const baseApiPath = '/api/1/'
-  apiFiles.filter(jsFileMatcher).forEach(filename => {
-    const apiPath = baseApiPath + path.basename(filename, '.js')
+  apiFiles.filter(jsOrTsFileMatcher).forEach(filename => {
+    const apiPath = baseApiPath + path.basename(filename, path.extname(filename))
     const subRouter = new KoaRouter()
     require('./lib/api/' + filename).default(subRouter, { nydus, userSockets })
     router.use(apiPath, subRouter.routes())
