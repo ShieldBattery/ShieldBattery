@@ -26,6 +26,7 @@ pub struct SetupProgressInfo {
 
 #[derive(Deserialize, Clone)]
 pub struct LocalUser {
+    pub id: u32,
     pub name: String,
 }
 
@@ -35,11 +36,27 @@ pub struct WindowMove {
     pub y: i32,
 }
 
+#[derive(Serialize, Clone)]
+pub struct GamePlayerResult {
+    pub result: u8,
+    pub race: char,
+    pub apm: u32,
+}
+
 #[derive(Serialize)]
 pub struct GameResults {
     #[serde(rename = "time")]
     pub time_ms: u32,
-    pub results: HashMap<String, u8>,
+    pub results: HashMap<String, GamePlayerResult>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameResultsReport {
+    pub user_id: u32,
+    pub result_code: String,
+    pub time: u32,
+    pub player_results: Vec<(String, GamePlayerResult)>,
 }
 
 #[derive(Deserialize)]
@@ -53,6 +70,9 @@ pub struct GameSetupInfo {
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
     pub seed: u32,
+    pub game_id: String,
+    pub result_code: String,
+    pub server_url: String,
 }
 
 #[derive(Deserialize)]

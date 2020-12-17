@@ -46,7 +46,7 @@ pub enum GameThreadMessage {
     Snp(snp::SnpMessage),
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
-    /// considered invalid and updated to match this mapping.
+    /// considered invalid and updated to match this mappin
     PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
 }

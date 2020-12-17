@@ -33,6 +33,7 @@ import activeGameManager from '../active-game/active-game-manager-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
+import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -242,6 +243,7 @@ const eventToAction = {
         host,
         seed: event.setup.seed,
         resultCode: event.resultCode,
+        serverUrl: makeServerUrl(''),
       },
     }
 
