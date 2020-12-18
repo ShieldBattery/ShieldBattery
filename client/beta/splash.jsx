@@ -55,21 +55,25 @@ const BackgroundVideoScrim = styled.div`
 
 const LogoLockup = styled.div`
   display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   position: relative;
-  margin: 20px 0px;
+  margin: 20px 8px;
   pointer-events: none;
 `
 
 const Logo = styled.img`
   width: 128px;
   height: 128px;
-  margin-right: 16px;
+  margin: 0 8px;
 `
 
 const StyledLogoText = styled(LogoText)`
   width: 320px;
   height: 50px;
+  margin: 0 8px;
   margin-top: 6px; /* correct for baseline alignment */
 `
 
@@ -81,19 +85,21 @@ const TagLine = styled.div`
   font-weight: 700;
   line-height: 40px;
   margin: 16px 0px;
+  padding: 0 16px;
+  text-align: center;
 `
 
 const ButtonsContainer = styled.div`
   display: flex;
-  justify-content: space-between;
-  width: 464px;
-  margin: 16px 0px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
 `
 
 const SplashButton = styled(RaisedButton)`
   width: 200px;
   height: 54px;
-  margin: 0px;
+  margin: 16px 32px;
 
   & ${Label} {
     font-size: 18px;
@@ -101,19 +107,20 @@ const SplashButton = styled(RaisedButton)`
   }
 `
 
-const Feature = styled(Card)`
-  width: 368px;
-  padding: 12px 24px 24px 24px;
-`
-
 const FeatureContainer = styled.div`
   display: flex;
   flex-direction: row;
-  margin: 24px 0px 40px 0px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 16px 8px 32px 8px;
+`
 
-  & > ${Feature} + ${Feature} {
-    margin-left: 16px;
-  }
+const Feature = styled(Card)`
+  flex: 1 1 320px;
+  max-width: 368px;
+  min-width: 320px;
+  margin: 8px;
+  padding: 12px 24px 24px 24px;
 `
 
 const StyledChatImage = styled(ChatImage)`
@@ -161,8 +168,9 @@ const BottomContainer = styled.div`
 `
 
 const BottomSection = styled.div`
-  width: 864px;
-  margin-bottom: 64px;
+  max-width: 864px;
+  width: calc(100% - 32px);
+  margin: 0 16px 64px 16px;
 `
 
 // TODO(2Pac): Use proper typography css for this from some common place
@@ -176,11 +184,11 @@ const bottomSectionTitle = `
 
 const BottomSectionTitle = styled.h3`
   ${bottomSectionTitle};
+  margin-left: 16px;
 `
 
 const BottomSectionList = styled.ul`
-  list-style: inside;
-  padding-left: 0px;
+  padding-left: 32px;
   column-count: ${props => props.columnCount || 'auto'};
   column-gap: ${props => props.columnGap || 'normal'};
 
