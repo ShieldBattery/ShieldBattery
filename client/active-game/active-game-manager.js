@@ -13,6 +13,8 @@ import {
   GAME_STATUS_FINISHED,
   GAME_STATUS_ERROR,
   statusToString,
+  GAME_STATUS_HAS_RESULT,
+  GAME_STATUS_RESULT_SENT,
 } from '../../common/game-status'
 import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
 
@@ -182,14 +184,30 @@ export default class ActiveGameManager extends EventEmitter {
     this._setStatus(GAME_STATUS_PLAYING)
   }
 
-  handleGameEnd(gameId, results, time) {
+  handleGameResult(gameId, results, time) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    // TODO(tec27): this needs to be handled differently (game should really be reporting these
-    // directly to the server)
-    log.verbose(`Game finished: ${JSON.stringify({ results, time })}`)
+
+    // TODO(tec27): Store these results and attempt to send them ourselves if the game fails to
+    log.verbose(`Game results: ${JSON.stringify({ results, time })}`)
+    this._setStatus(GAME_STATUS_HAS_RESULT)
     this.emit('gameResults', { results, time })
+  }
+
+  handleGameResultSent(gameId) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this._setStatus(GAME_STATUS_RESULT_SENT)
+  }
+
+  handleGameFinished(gameId) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
     this._setStatus(GAME_STATUS_FINISHED)
     this.emit('gameCommand', gameId, 'cleanup_and_quit')
   }

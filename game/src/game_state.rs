@@ -1,7 +1,3 @@
-use crate::app_messages::GamePlayerResult;
-use crate::app_messages::GameResultsReport;
-use reqwest::header::HeaderMap;
-use reqwest::header::ORIGIN;
 use std::ffi::CStr;
 use std::mem;
 use std::net::Ipv4Addr;
@@ -13,12 +9,13 @@ use std::time::Duration;
 use bytes::Bytes;
 use futures::prelude::*;
 use futures::{pin_mut, select};
+use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    self, GameResults, GameSetupInfo, LocalUser, PlayerInfo, Route, Settings, SetupProgress,
-    GAME_STATUS_ERROR,
+    self, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, PlayerInfo,
+    Race, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, with_bw, GameType};
@@ -354,7 +351,7 @@ impl GameState {
             let game_done = send_game_request(&game_request_send, start_game_request);
             game_done.await;
             let results = results.await?;
-            app_socket::send_message(&mut ws_send, "/game/end", &results)
+            app_socket::send_message(&mut ws_send, "/game/result", &results)
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
@@ -382,21 +379,29 @@ impl GameState {
             for _ in 0..3 {
                 let result = client
                     .post(&result_url)
+                    .timeout(Duration::from_secs(30))
                     .headers(result_headers.clone())
                     .json(&result_body)
                     .send()
                     .await;
 
-                if result.is_ok() {
-                    if result.unwrap().status().is_success() {
+                match result.and_then(|r| r.error_for_status()) {
+                    Ok(_) => {
                         debug!("Game results sent successfully");
                         app_socket::send_message(&mut ws_send, "/game/resultSent", ())
                             .await
                             .map_err(|_| GameInitError::Closed)?;
                         break;
                     }
-                }
+                    Err(err) => {
+                        error!("Error sending game results: {}", err);
+                    }
+                };
             }
+
+            app_socket::send_message(&mut ws_send, "/game/finished", ())
+                .await
+                .map_err(|_| GameInitError::Closed)?;
 
             Ok(())
         }
@@ -720,7 +725,6 @@ impl InitInProgress {
         }
 
         let mut results = [GameResult::Playing; bw::MAX_STORM_PLAYERS];
-        let mut races = ['r'; bw::MAX_STORM_PLAYERS];
         let local_storm_id = self
             .joined_players
             .iter()
@@ -748,17 +752,6 @@ impl InitInProgress {
                         }
                     }
                 };
-                unsafe {
-                    with_bw(|bw| {
-                        let players = bw.players();
-                        races[storm_id] = match (*players.add(player_id as usize)).race {
-                            bw::RACE_ZERG => 'z',
-                            bw::RACE_TERRAN => 't',
-                            bw::RACE_PROTOSS => 'p',
-                            r => panic!("Invalid race ({}) for player {}", player_id, r),
-                        };
-                    });
-                }
             }
         }
 
@@ -786,12 +779,24 @@ impl InitInProgress {
             .joined_players
             .iter()
             .filter_map(|player| {
-                if player.player_id.is_some() {
+                if let Some(player_id) = player.player_id {
                     Some((
                         player.name.clone(),
                         GamePlayerResult {
                             result: results[player.storm_id.0 as usize] as u8,
-                            race: races[player.storm_id.0 as usize],
+                            race: match game_results.race[player_id as usize] {
+                                Some(bw::RACE_ZERG) => Race::Zerg,
+                                Some(bw::RACE_TERRAN) => Race::Terran,
+                                Some(bw::RACE_PROTOSS) => Race::Protoss,
+                                r => {
+                                    warn!(
+                                        "Invalid race ({}) for player {}",
+                                        r.map_or("None".to_string(), |v| v.to_string()),
+                                        player_id
+                                    );
+                                    Race::Zerg
+                                }
+                            },
                             // TODO(tec27): implement APM calculation
                             apm: 0,
                         },

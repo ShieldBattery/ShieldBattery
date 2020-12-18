@@ -36,10 +36,20 @@ pub struct WindowMove {
     pub y: i32,
 }
 
+#[derive(Serialize, Copy, Clone)]
+pub enum Race {
+    #[serde(rename = "z")]
+    Zerg,
+    #[serde(rename = "t")]
+    Terran,
+    #[serde(rename = "p")]
+    Protoss,
+}
+
 #[derive(Serialize, Clone)]
 pub struct GamePlayerResult {
     pub result: u8,
-    pub race: char,
+    pub race: Race,
     pub apm: u32,
 }
 

@@ -46,7 +46,7 @@ pub enum GameThreadMessage {
     Snp(snp::SnpMessage),
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
-    /// considered invalid and updated to match this mappin
+    /// considered invalid and updated to match this mapping.
     PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
 }
@@ -106,6 +106,7 @@ pub enum PlayerLoseType {
 pub struct GameThreadResults {
     // Index by ingame player id
     pub victory_state: [u8; 8],
+    pub race: [Option<u8>; 8],
     // Index by storm id
     pub player_has_left: [bool; 8],
     pub player_lose_type: Option<PlayerLoseType>,
@@ -114,8 +115,20 @@ pub struct GameThreadResults {
 
 unsafe fn game_results() -> GameThreadResults {
     let game = with_bw(|bw| bw.game());
+    let players = with_bw(|bw| bw.players());
+
     GameThreadResults {
         victory_state: (*game).victory_state,
+        race: {
+            let mut arr = [None; 8];
+            for i in 0..8 {
+                let player = players.add(i as usize);
+                if let Some(out) = arr.get_mut((*player).player_id as usize) {
+                    *out = Some((*player).race);
+                }
+            }
+            arr
+        },
         player_has_left: {
             let mut arr = [false; 8];
             for i in 0..8 {
