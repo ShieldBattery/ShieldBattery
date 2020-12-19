@@ -95,11 +95,11 @@ export async function setReconciledResult(
   return client.query(sql`
     UPDATE games
     SET
-      results = ${Array.from(results.results.entries())},
+      results = ${JSON.stringify(Array.from(results.results.entries()))},
       game_length = ${results.time},
       disputable = ${results.disputed},
       dispute_requested = false,
       dispute_reviewed = false
-    WHERE game_id = ${gameId}
+    WHERE id = ${gameId}
   `)
 }

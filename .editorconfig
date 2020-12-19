@@ -10,3 +10,6 @@ trim_trailing_whitespace = true
 
 [*.bat]
 end_of_line = crlf
+
+[*.rs]
+indent_size = 4

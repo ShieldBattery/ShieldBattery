@@ -80,8 +80,14 @@ class GameServer {
       case '/game/start':
         activeGameManager.handleGameStart(gameId)
         break
-      case '/game/end':
-        activeGameManager.handleGameEnd(gameId, payload.results, payload.time)
+      case '/game/result':
+        activeGameManager.handleGameResult(gameId, payload.results, payload.time)
+        break
+      case '/game/resultSent':
+        activeGameManager.handleGameResultSent(gameId)
+        break
+      case '/game/finished':
+        activeGameManager.handleGameFinished(gameId)
         break
       case '/game/replaySave':
         activeGameManager.handleReplaySave(gameId, payload.path)

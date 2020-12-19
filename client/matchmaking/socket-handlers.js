@@ -23,6 +23,7 @@ import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
+import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -177,6 +178,7 @@ const eventToAction = {
         host: event.slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed,
         resultCode: event.resultCode,
+        serverUrl: makeServerUrl(''),
       },
     }
 

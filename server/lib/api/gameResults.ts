@@ -54,7 +54,7 @@ const submitGameResultsSchema = Joi.object({
     .min(1)
     .max(8)
     .required(),
-})
+}).required()
 
 // TODO(tec27): This should be put somewhere common so the client code can use the same interface
 // when making the request

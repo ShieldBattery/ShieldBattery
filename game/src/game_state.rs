@@ -4,25 +4,26 @@ use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::{Duration};
+use std::time::Duration;
 
 use bytes::Bytes;
-use futures::{pin_mut, select};
 use futures::prelude::*;
+use futures::{pin_mut, select};
+use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    self, GameResults, GameSetupInfo, LocalUser, PlayerInfo, Route, Settings, SetupProgress,
-    GAME_STATUS_ERROR,
+    self, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, PlayerInfo,
+    Race, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, GameType, with_bw};
+use crate::bw::{self, with_bw, GameType};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::chat::StormPlayerId;
 use crate::forge;
 use crate::game_thread::{
-    GameThreadRequest, GameThreadRequestType, GameThreadResults, GameThreadMessage,
+    GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
 use crate::network_manager::{NetworkError, NetworkManager};
 use crate::snp;
@@ -276,9 +277,11 @@ impl GameState {
             }
             start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
                 .map_err(|()| GameInitError::Closed)?;
-            net_game_info_set_future.await
+            net_game_info_set_future
+                .await
                 .map_err(|e| GameInitError::NetworkInit(e))?;
-            network_ready_future.await
+            network_ready_future
+                .await
                 .map_err(|e| GameInitError::NetworkInit(e))?;
             debug!("Network ready");
             if !is_host {
@@ -290,7 +293,9 @@ impl GameState {
             unsafe {
                 setup_slots(&info.slots, game_type);
             }
-            send_messages_to_state.send(GameStateMessage::InLobby).await
+            send_messages_to_state
+                .send(GameStateMessage::InLobby)
+                .await
                 .map_err(|_| GameInitError::Closed)?;
             loop {
                 unsafe {
@@ -321,7 +326,9 @@ impl GameState {
                     });
 
                     if new_players {
-                        send_messages_to_state.send(GameStateMessage::PlayerJoined).await
+                        send_messages_to_state
+                            .send(GameStateMessage::PlayerJoined)
+                            .await
                             .map_err(|_| GameInitError::Closed)?;
                     }
                 }
@@ -336,17 +343,69 @@ impl GameState {
                 do_lobby_game_init(&info).await;
             }
             forge::end_wnd_proc();
-            app_socket::send_message(&mut ws_send, "/game/start", ()).await
+            app_socket::send_message(&mut ws_send, "/game/start", ())
+                .await
                 .map_err(|_| GameInitError::Closed)?;
 
             let start_game_request = GameThreadRequestType::StartGame;
             let game_done = send_game_request(&game_request_send, start_game_request);
             game_done.await;
             let results = results.await?;
-            app_socket::send_message(&mut ws_send, "/game/end", results).await
+            app_socket::send_message(&mut ws_send, "/game/result", &results)
+                .await
                 .map_err(|_| GameInitError::Closed)?;
+
+            // Attempt to send results to the server, if this fails, we expect
+            // the app to retry in the future
+            let client = reqwest::Client::new();
+            let result_url = format!("{}/api/1/gameResults/{}", info.server_url, info.game_id);
+
+            let sbat_header: &'static str = "x-shield-battery-client";
+            let mut result_headers = HeaderMap::new();
+            result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
+            result_headers.insert(sbat_header, "true".parse().unwrap());
+
+            let result_body = GameResultsReport {
+                user_id: local_user.id,
+                result_code: info.result_code.clone(),
+                time: results.time_ms,
+                player_results: results
+                    .results
+                    .iter()
+                    .map(|(name, result)| (name.clone(), result.clone()))
+                    .collect(),
+            };
+
+            for _ in 0..3 {
+                let result = client
+                    .post(&result_url)
+                    .timeout(Duration::from_secs(30))
+                    .headers(result_headers.clone())
+                    .json(&result_body)
+                    .send()
+                    .await;
+
+                match result.and_then(|r| r.error_for_status()) {
+                    Ok(_) => {
+                        debug!("Game results sent successfully");
+                        app_socket::send_message(&mut ws_send, "/game/resultSent", ())
+                            .await
+                            .map_err(|_| GameInitError::Closed)?;
+                        break;
+                    }
+                    Err(err) => {
+                        error!("Error sending game results: {}", err);
+                    }
+                };
+            }
+
+            app_socket::send_message(&mut ws_send, "/game/finished", ())
+                .await
+                .map_err(|_| GameInitError::Closed)?;
+
             Ok(())
-        }.boxed()
+        }
+        .boxed()
     }
 
     // Message handler, so ideally only return futures that are about sending
@@ -363,16 +422,14 @@ impl GameState {
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
-            AllowStart => {
-                match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
-                    CanStartGame::Yes => (),
-                    CanStartGame::No(waiting) => {
-                        for sender in waiting {
-                            let _ = sender.send(());
-                        }
+            AllowStart => match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
+                CanStartGame::Yes => (),
+                CanStartGame::No(waiting) => {
+                    for sender in waiting {
+                        let _ = sender.send(());
                     }
                 }
-            }
+            },
             SetupGame(info) => {
                 let mut ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
@@ -388,11 +445,9 @@ impl GameState {
                                 extra: Some(msg),
                             },
                         };
-                        let _ = app_socket::send_message(
-                            &mut ws_send,
-                            "/game/setupProgress",
-                            message,
-                        ).await;
+                        let _ =
+                            app_socket::send_message(&mut ws_send, "/game/setupProgress", message)
+                                .await;
                     }
                     debug!("Game setup & play task ended");
                     tokio::time::delay_for(Duration::from_millis(10000)).await;
@@ -450,8 +505,8 @@ impl GameState {
                 if let InitState::Started(ref mut state) = self.init_state {
                     for player in &mut state.joined_players {
                         let old_id = player.player_id;
-                        player.player_id = new_mapping.get(player.storm_id.0 as usize)
-                            .and_then(|x| *x);
+                        player.player_id =
+                            new_mapping.get(player.storm_id.0 as usize).and_then(|x| *x);
                         if old_id.is_some() != player.player_id.is_some() {
                             warn!(
                                 "Player {} lost/gained player id after randomization: {:?} -> {:?}",
@@ -565,7 +620,9 @@ impl InitInProgress {
         }
     }
 
-    fn wait_for_results(&mut self) -> impl Future<Output = Result<Arc<GameResults>, GameInitError>> {
+    fn wait_for_results(
+        &mut self,
+    ) -> impl Future<Output = Result<Arc<GameResults>, GameInitError>> {
         let (send_done, recv_done) = oneshot::channel();
         self.waiting_for_result.push(send_done);
         recv_done.map_err(|_| GameInitError::Closed)
@@ -722,10 +779,23 @@ impl InitInProgress {
             .joined_players
             .iter()
             .filter_map(|player| {
-                if player.player_id.is_some() {
+                if let Some(player_id) = player.player_id {
                     Some((
                         player.name.clone(),
-                        results[player.storm_id.0 as usize] as u8,
+                        GamePlayerResult {
+                            result: results[player.storm_id.0 as usize] as u8,
+                            race: match game_results.race[player_id as usize] {
+                                bw::RACE_ZERG => Race::Zerg,
+                                bw::RACE_TERRAN => Race::Terran,
+                                bw::RACE_PROTOSS => Race::Protoss,
+                                r => {
+                                    warn!("Invalid race ({}) for player {}", r, player_id);
+                                    Race::Zerg
+                                }
+                            },
+                            // TODO(tec27): implement APM calculation
+                            apm: 0,
+                        },
                     ))
                 } else {
                     None
@@ -745,8 +815,7 @@ impl InitInProgress {
 
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
-    with_bw(|bw| bw.create_lobby(map_path, &info.name, game_type))
-        .map_err(|e| GameInitError::Bw(e))
+    with_bw(|bw| bw.create_lobby(map_path, &info.name, game_type)).map_err(|e| GameInitError::Bw(e))
 }
 
 unsafe fn join_lobby(
@@ -808,9 +877,7 @@ unsafe fn join_lobby(
     let map_path: Bytes = match windows::ansi_codepage_cstring(&info.map_path) {
         Ok(o) => o.into(),
         Err(_) => {
-            return future::err(GameInitError::NonAnsiPath(
-                (&info.map_path).into(),
-            )).boxed();
+            return future::err(GameInitError::NonAnsiPath((&info.map_path).into())).boxed();
         }
     };
     async move {
@@ -834,7 +901,8 @@ unsafe fn join_lobby(
             debug!("Storm player names at join: {:?}", player_names);
         });
         Ok(())
-    }.boxed()
+    }
+    .boxed()
 }
 
 async unsafe fn try_join_lobby_once(
@@ -922,11 +990,14 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
         for i in 0..4 {
             let team = i + 1;
             if players.iter().any(|x| {
-                x.team == team &&
-                    x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER &&
-                    x.race == bw::RACE_RANDOM
+                x.team == team
+                    && x.player_type == bw::PLAYER_TYPE_LOBBY_COMPUTER
+                    && x.race == bw::RACE_RANDOM
             }) {
-                if players.iter().any(|x| x.team == team && x.race != bw::RACE_RANDOM) {
+                if players
+                    .iter()
+                    .any(|x| x.team == team && x.race != bw::RACE_RANDOM)
+                {
                     panic!("Computer team {} has both random and non-random slots, which is not allowed", i);
                 }
             }
@@ -936,14 +1007,21 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
 
 unsafe fn storm_player_names(bw: &dyn bw::Bw) -> Vec<Option<String>> {
     let storm_players = bw.storm_players();
-    storm_players.iter().map(|player| {
-        let name_len = player.name.iter().position(|&c| c == 0).unwrap_or(player.name.len());
-        if name_len != 0 {
-            Some(String::from_utf8_lossy(&player.name[..name_len]).into())
-        } else {
-            None
-        }
-    }).collect::<Vec<_>>()
+    storm_players
+        .iter()
+        .map(|player| {
+            let name_len = player
+                .name
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(player.name.len());
+            if name_len != 0 {
+                Some(String::from_utf8_lossy(&player.name[..name_len]).into())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
 }
 
 async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {

@@ -142,11 +142,11 @@ export async function getCurrentReportedResults(
       SELECT user_id, reported_results
       FROM games_users
       WHERE game_id = ${gameId}
-      ORDER_BY reported_at DESC
+      ORDER BY reported_at DESC
     `)
 
     return result.rows.map(row =>
-      row.reportedResults
+      row.reported_results
         ? {
             reporter: row.user_id,
             time: row.reported_results.time,

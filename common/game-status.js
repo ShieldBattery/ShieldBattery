@@ -9,8 +9,10 @@ export const GAME_STATUS_CONFIGURING = 2
 export const GAME_STATUS_AWAITING_PLAYERS = 3
 export const GAME_STATUS_STARTING = 4
 export const GAME_STATUS_PLAYING = 5
-export const GAME_STATUS_FINISHED = 6
-export const GAME_STATUS_ERROR = 7
+export const GAME_STATUS_HAS_RESULT = 6
+export const GAME_STATUS_RESULT_SENT = 7
+export const GAME_STATUS_FINISHED = 8
+export const GAME_STATUS_ERROR = 666
 
 export function statusToString(status) {
   switch (status) {
@@ -26,6 +28,10 @@ export function statusToString(status) {
       return 'starting'
     case GAME_STATUS_PLAYING:
       return 'playing'
+    case GAME_STATUS_HAS_RESULT:
+      return 'hasResult'
+    case GAME_STATUS_RESULT_SENT:
+      return 'resultSent'
     case GAME_STATUS_FINISHED:
       return 'finished'
     case GAME_STATUS_ERROR:
@@ -49,6 +55,10 @@ export function stringToStatus(string) {
       return GAME_STATUS_STARTING
     case 'playing':
       return GAME_STATUS_PLAYING
+    case 'hasResults':
+      return GAME_STATUS_HAS_RESULT
+    case 'resultSent':
+      return GAME_STATUS_RESULT_SENT
     case 'finished':
       return GAME_STATUS_FINISHED
     case 'error':

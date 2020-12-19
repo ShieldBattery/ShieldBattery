@@ -8,7 +8,7 @@ import log from './lib/logging/logger'
 
 const apiHandlers = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
-  .filter(filename => /\.js$/.test(filename))
+  .filter(filename => /\.(js|ts)$/.test(filename))
   .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff

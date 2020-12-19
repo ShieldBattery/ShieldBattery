@@ -20,13 +20,13 @@ interface JoiValidationDescriptor {
 export function joiValidator({ query, body }: JoiValidationDescriptor) {
   return async (ctx: Koa.Context, next: Koa.Next) => {
     if (query) {
-      const { error } = query.validate(ctx.query)
+      const { error } = query.validate(ctx.request.query)
       if (error) {
         throw new httpErrors.BadRequest(`Invalid query string - ${error.message}`)
       }
     }
     if (body) {
-      const { error } = body.validate(ctx.body)
+      const { error } = body.validate(ctx.request.body)
       if (error) {
         throw new httpErrors.BadRequest(`Invalid request body - ${error.message}`)
       }
