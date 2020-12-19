@@ -106,7 +106,7 @@ pub enum PlayerLoseType {
 pub struct GameThreadResults {
     // Index by ingame player id
     pub victory_state: [u8; 8],
-    pub race: [Option<u8>; 8],
+    pub race: [u8; 8],
     // Index by storm id
     pub player_has_left: [bool; 8],
     pub player_lose_type: Option<PlayerLoseType>,
@@ -120,12 +120,9 @@ unsafe fn game_results() -> GameThreadResults {
     GameThreadResults {
         victory_state: (*game).victory_state,
         race: {
-            let mut arr = [None; 8];
+            let mut arr = [bw::RACE_ZERG; 8];
             for i in 0..8 {
-                let player = players.add(i as usize);
-                if let Some(out) = arr.get_mut((*player).player_id as usize) {
-                    *out = Some((*player).race);
-                }
+                arr[i] = (*players.add(i as usize)).race;
             }
             arr
         },

@@ -785,15 +785,11 @@ impl InitInProgress {
                         GamePlayerResult {
                             result: results[player.storm_id.0 as usize] as u8,
                             race: match game_results.race[player_id as usize] {
-                                Some(bw::RACE_ZERG) => Race::Zerg,
-                                Some(bw::RACE_TERRAN) => Race::Terran,
-                                Some(bw::RACE_PROTOSS) => Race::Protoss,
+                                bw::RACE_ZERG => Race::Zerg,
+                                bw::RACE_TERRAN => Race::Terran,
+                                bw::RACE_PROTOSS => Race::Protoss,
                                 r => {
-                                    warn!(
-                                        "Invalid race ({}) for player {}",
-                                        r.map_or("None".to_string(), |v| v.to_string()),
-                                        player_id
-                                    );
+                                    warn!("Invalid race ({}) for player {}", r, player_id);
                                     Race::Zerg
                                 }
                             },
