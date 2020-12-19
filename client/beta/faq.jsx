@@ -12,7 +12,7 @@ import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
 import { Headline, Subheading, Display4 } from '../styles/typography'
-import { shadow4dp } from '../material/shadows'
+import { shadowDef4dp } from '../material/shadow-constants'
 
 const questions = [
   {
@@ -139,23 +139,37 @@ const makeQuestionId = question => {
 }
 
 const pageWidth = css`
-  width: 940px;
-  margin: 0px auto;
+  width: 100%;
+  max-width: 940px;
 `
 
 const QuestionSectionRoot = styled.div`
   ${pageWidth};
   padding: 48px 48px 48px 0;
   border-bottom: 1px solid ${colorDividers};
+
+  @media screen and (max-width: 980px) {
+    padding: 16px;
+  }
+`
+
+const QuestionContainer = styled.div`
+  display: flex;
+  flex-direction: row;
 `
 
 const StyledQuestionIcon = styled(QuestionIcon)`
+  flex-shrink: 0;
   margin-left: 16px;
   margin-right: 16px;
 
   display: inline-block;
   color: ${blue400};
   vertical-align: middle;
+
+  @media screen and (max-width: 980px) {
+    margin-left: 0px;
+  }
 `
 
 const QuestionText = styled(Headline)`
@@ -165,6 +179,10 @@ const QuestionText = styled(Headline)`
   color: ${blue400};
   line-height: 48px;
   vertical-align: middle;
+
+  @media screen and (max-width: 980px) {
+    line-height: 32px;
+  }
 `
 
 const AnswerText = styled(Subheading)`
@@ -189,6 +207,10 @@ const AnswerText = styled(Subheading)`
   & li {
     margin-left: 1em;
   }
+
+  @media screen and (max-width: 980px) {
+    margin-left: 64px;
+  }
 `
 
 class QuestionSection extends React.PureComponent {
@@ -196,8 +218,10 @@ class QuestionSection extends React.PureComponent {
     const { question, answer } = this.props
     return (
       <QuestionSectionRoot id={makeQuestionId(question)}>
-        <StyledQuestionIcon />
-        <QuestionText>{question}</QuestionText>
+        <QuestionContainer>
+          <StyledQuestionIcon />
+          <QuestionText>{question}</QuestionText>
+        </QuestionContainer>
         <AnswerText>{answer}</AnswerText>
       </QuestionSectionRoot>
     )
@@ -211,8 +235,11 @@ class FragmentLink extends React.PureComponent {
 }
 
 const Splash = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   background-color: ${grey900};
-  overflow: auto;
 
   & * {
     user-select: text;
@@ -221,33 +248,77 @@ const Splash = styled.div`
 
 const LogoContainer = styled.div`
   ${pageWidth};
-  left: calc(50% - 940px / 2);
   position: absolute;
+  top: 38px;
+  left: calc(50% - 940px / 2);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
   pointer-events: none;
+
+  @media screen and (max-width: 980px) {
+    max-width: 100%;
+    left: 0;
+    justify-content: center;
+    padding: 0 16px;
+  }
 `
 
 const Logo = styled.img`
   margin-top: 8px;
-  float: left;
   pointer-events: none;
+
+  @media screen and (max-width: 980px) {
+    display: none;
+  }
 `
 
 const StyledLogoText = styled(LogoText)`
-  width: 464px;
+  width: 100%;
+  max-width: 464px;
   margin-top: 80px;
-  float: right;
   pointer-events: none;
+
+  @media screen and (max-width: 980px) {
+    margin-top: 24px;
+  }
 `
 
 const Intro = styled.div`
-  margin-top: 180px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  width: 100%;
+  margin-top: 142px;
   background-color: ${grey850};
-  ${shadow4dp};
+  box-shadow: ${shadowDef4dp};
+
+  @media screen and (max-width: 980px) {
+    margin-top: 86px;
+  }
+`
+
+const FaqHeaderContainer = styled.div`
+  ${pageWidth};
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+
+  @media screen and (max-width: 980px) {
+    justify-content: center;
+  }
 `
 
 const FaqHeader = styled(Display4)`
-  ${pageWidth};
-  padding: 64px 0 64px 472px;
+  width: 100%;
+  max-width: 464px;
+  margin: 0;
+  padding: 64px 0;
+
+  @media screen and (max-width: 980px) {
+    padding: 24px 16px;
+  }
 `
 
 const FaqToc = styled.div`
@@ -261,6 +332,10 @@ const FaqToc = styled.div`
   font-size: 20px;
   line-height: 1.5;
   border-bottom: 1px solid ${colorDividers};
+
+  @media screen and (max-width: 980px) {
+    padding: 32px 16px;
+  }
 `
 
 @connect()
@@ -291,13 +366,15 @@ export default class Faq extends React.Component {
     return (
       <ScrollableContent>
         <Splash>
+          <TopLinks />
           <LogoContainer>
-            <TopLinks />
             <Logo src={makeServerUrl('/images/splash-logo.png')} />
             <StyledLogoText />
           </LogoContainer>
           <Intro>
-            <FaqHeader>FAQ</FaqHeader>
+            <FaqHeaderContainer>
+              <FaqHeader>FAQ</FaqHeader>
+            </FaqHeaderContainer>
           </Intro>
           <FaqToc id={'faqToc'}>
             <h3>Frequently Asked Questions</h3>
