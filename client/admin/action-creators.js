@@ -26,6 +26,10 @@ import {
   ADMIN_MATCHMAKING_TIMES_DELETE,
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
+  ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
+  ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_GET_PAST,
   ADMIN_SET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
@@ -256,6 +260,38 @@ export function getMatchmakingTimesHistory(type) {
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
       payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`),
+      meta: { type },
+    })
+  }
+}
+
+export function getMatchmakingTimesFuture(type, limit, page) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN,
+      meta: { type },
+    })
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
+      payload: fetch(
+        `/api/1/matchmakingTimes/${encodeURIComponent(type)}/future?limit=${limit}&page=${page}`,
+      ),
+      meta: { type },
+    })
+  }
+}
+
+export function getMatchmakingTimesPast(type, limit, page) {
+  return dispatch => {
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
+      meta: { type },
+    })
+    dispatch({
+      type: ADMIN_MATCHMAKING_TIMES_GET_PAST,
+      payload: fetch(
+        `/api/1/matchmakingTimes/${encodeURIComponent(type)}/past?limit=${limit}&page=${page}`,
+      ),
       meta: { type },
     })
   }

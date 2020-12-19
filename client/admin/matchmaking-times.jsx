@@ -16,12 +16,16 @@ import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
 
 import {
   getMatchmakingTimesHistory,
+  getMatchmakingTimesFuture,
+  getMatchmakingTimesPast,
   addMatchmakingTime,
   deleteMatchmakingTime,
 } from './action-creators'
 
 import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors'
 import { Body1, Subheading } from '../styles/typography'
+
+const MATCHMAKING_TIMES_LIMIT = 10
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -88,11 +92,22 @@ const FinishedText = styled.span`
 class MatchmakingTimesHistory extends React.PureComponent {
   static propTypes = {
     history: PropTypes.object,
+    futureTimesPage: PropTypes.number.isRequired,
+    pastTimesPage: PropTypes.number.isRequired,
+    onLoadMoreFuture: PropTypes.func.isRequired,
+    onLoadMorePast: PropTypes.func.isRequired,
     onDelete: PropTypes.func.isRequired,
   }
 
   render() {
-    const { history, onDelete } = this.props
+    const {
+      history,
+      futureTimesPage,
+      pastTimesPage,
+      onLoadMoreFuture,
+      onLoadMorePast,
+      onDelete,
+    } = this.props
 
     if (!history) return null
 
@@ -134,6 +149,20 @@ class MatchmakingTimesHistory extends React.PureComponent {
           </tr>
         </thead>
         <tbody>
+          <tr>
+            <td>
+              {history.isRequestingFutureTimes ? (
+                <LoadingIndicator />
+              ) : (
+                <FlatButton
+                  label='Load more future times'
+                  color='accent'
+                  disabled={futureTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalFutureTimes}
+                  onClick={onLoadMoreFuture}
+                />
+              )}
+            </td>
+          </tr>
           {history.sortedList.map(time => {
             const isCurrent = time.id === current.id
             const isFuture = time.startDate > Date.now()
@@ -164,6 +193,20 @@ class MatchmakingTimesHistory extends React.PureComponent {
               </tr>
             )
           })}
+          <tr>
+            <td>
+              {history.isRequestingPastTimes ? (
+                <LoadingIndicator />
+              ) : (
+                <FlatButton
+                  label='Load more past times'
+                  color='accent'
+                  disabled={pastTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalPastTimes}
+                  onClick={onLoadMorePast}
+                />
+              )}
+            </td>
+          </tr>
         </tbody>
       </HistoryContainer>
     )
@@ -216,6 +259,8 @@ export default class MatchmakingTimes extends React.Component {
     startDate: '',
     invalidDate: false,
     enabled: false,
+    futureTimesPage: 1,
+    pastTimesPage: 1,
   }
 
   componentDidMount() {
@@ -233,7 +278,14 @@ export default class MatchmakingTimes extends React.Component {
 
   render() {
     const { matchmakingTimes } = this.props
-    const { activeTab, startDate, invalidDate, enabled } = this.state
+    const {
+      activeTab,
+      startDate,
+      invalidDate,
+      enabled,
+      futureTimesPage,
+      pastTimesPage,
+    } = this.state
     const matchmakingTimesHistory = matchmakingTimes.types.get(tabToType(activeTab))
 
     let dateValidationContents
@@ -270,6 +322,10 @@ export default class MatchmakingTimes extends React.Component {
           <h3>Matchmaking times history</h3>
           <MatchmakingTimesHistory
             history={matchmakingTimesHistory}
+            futureTimesPage={futureTimesPage}
+            pastTimesPage={pastTimesPage}
+            onLoadMoreFuture={this.onLoadMoreFutureTimes}
+            onLoadMorePast={this.onLoadMorePastTimes}
             onDelete={this.onDeleteMatchmakingTime}
           />
         </Container>
@@ -304,6 +360,24 @@ export default class MatchmakingTimes extends React.Component {
 
     this.setState({ startDate: '', enabled: false })
     this.props.dispatch(addMatchmakingTime(tabToType(activeTab), Date.parse(startDate), enabled))
+  }
+
+  onLoadMoreFutureTimes = () => {
+    const { activeTab, futureTimesPage } = this.state
+
+    this.props.dispatch(
+      getMatchmakingTimesFuture(tabToType(activeTab), MATCHMAKING_TIMES_LIMIT, futureTimesPage),
+    )
+    this.setState({ futureTimesPage: futureTimesPage + 1 })
+  }
+
+  onLoadMorePastTimes = () => {
+    const { activeTab, pastTimesPage } = this.state
+
+    this.props.dispatch(
+      getMatchmakingTimesPast(tabToType(activeTab), MATCHMAKING_TIMES_LIMIT, pastTimesPage),
+    )
+    this.setState({ pastTimesPage: pastTimesPage + 1 })
   }
 
   onDeleteMatchmakingTime = id => {

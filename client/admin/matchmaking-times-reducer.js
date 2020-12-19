@@ -1,10 +1,14 @@
-import { List, Map, Record } from 'immutable'
+import { List, Map, Record, Set } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   ADMIN_MATCHMAKING_TIMES_ADD,
   ADMIN_MATCHMAKING_TIMES_DELETE,
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
+  ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
+  ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
+  ADMIN_MATCHMAKING_TIMES_GET_PAST,
 } from '../actions'
 
 export const MatchmakingTime = new Record({
@@ -13,15 +17,39 @@ export const MatchmakingTime = new Record({
   startDate: null,
   enabled: false,
 })
-export const MatchmakingTimesHistory = new Record({
-  sortedList: new List(),
+export const MatchmakingTimesHistoryBase = new Record({
+  currentTime: null,
+  futureTimes: new List(),
+  totalFutureTimes: -1,
+  pastTimes: new List(),
+  totalPastTimes: -1,
 
   isRequesting: false,
+  isRequestingFutureTimes: false,
+  isRequestingPastTimes: false,
   lastError: null,
 })
 export const MatchmakingTimesState = new Record({
   types: new Map(),
 })
+
+export class MatchmakingTimesHistory extends MatchmakingTimesHistoryBase {
+  get sortedList() {
+    return this.futureTimes
+      .concat(this.currentTime ? [this.currentTime] : [])
+      .concat(this.pastTimes)
+      .sortBy(t => t.startDate)
+      .reverse()
+  }
+}
+
+function createMatchmakingTime(time) {
+  if (!time) {
+    return null
+  }
+
+  return new MatchmakingTime({ ...time, startDate: new Date(time.startDate) })
+}
 
 export default keyedReducer(new MatchmakingTimesState(), {
   [ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN](state, action) {
@@ -38,10 +66,65 @@ export default keyedReducer(new MatchmakingTimesState(), {
       return state.setIn(['types', meta.type], new MatchmakingTimesHistory({ lastError: payload }))
     }
 
+    const { current, futureTimes, totalFutureTimes, pastTimes, totalPastTimes } = payload
     const history = new MatchmakingTimesHistory({
-      sortedList: new List(payload.map(t => new MatchmakingTime(t))),
+      currentTime: createMatchmakingTime(current),
+      futureTimes: new List(futureTimes.map(createMatchmakingTime)),
+      totalFutureTimes,
+      pastTimes: new List(pastTimes.map(createMatchmakingTime)),
+      totalPastTimes,
     })
     return state.setIn(['types', meta.type], history)
+  },
+
+  [ADMIN_MATCHMAKING_TIMES_GET_FUTURE_BEGIN](state, action) {
+    return state.setIn(['types', action.meta.type, 'isRequestingFutureTimes'], true)
+  },
+
+  [ADMIN_MATCHMAKING_TIMES_GET_FUTURE](state, action) {
+    const { meta, payload } = action
+
+    if (action.error) {
+      return state
+        .setIn(['types', meta.type, 'lastError'], payload)
+        .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
+    }
+
+    const futureTimes = new List(payload.futureTimes.map(createMatchmakingTime))
+    return state
+      .setIn(['types', meta.type, 'lastError'], null)
+      .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
+      .setIn(['types', meta.type, 'totalFutureTimes'], payload.totalFutureTimes)
+      .updateIn(['types', meta.type, 'futureTimes'], times => {
+        // Filter the matchmaking times that were already added through the `ADD` action
+        const newTimesIds = new Set(futureTimes.map(t => t.id))
+        const oldTimesIds = new Set(times.map(t => t.id))
+        const filteredIds = newTimesIds.subtract(oldTimesIds)
+        const filteredFutureTimes = futureTimes.filter(t => filteredIds.includes(t.id))
+
+        return filteredFutureTimes.concat(times)
+      })
+  },
+
+  [ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN](state, action) {
+    return state.setIn(['types', action.meta.type, 'isRequestingPastTimes'], true)
+  },
+
+  [ADMIN_MATCHMAKING_TIMES_GET_PAST](state, action) {
+    const { meta, payload } = action
+
+    if (action.error) {
+      return state
+        .setIn(['types', meta.type, 'lastError'], payload)
+        .setIn(['types', meta.type, 'isRequestingPastTimes'], false)
+    }
+
+    const pastTimes = new List(payload.pastTimes.map(createMatchmakingTime))
+    return state
+      .setIn(['types', meta.type, 'lastError'], null)
+      .setIn(['types', meta.type, 'isRequestingPastTimes'], false)
+      .setIn(['types', meta.type, 'totalPastTimes'], payload.totalPastTimes)
+      .updateIn(['types', meta.type, 'pastTimes'], times => times.concat(pastTimes))
   },
 
   [ADMIN_MATCHMAKING_TIMES_ADD](state, action) {
@@ -51,14 +134,9 @@ export default keyedReducer(new MatchmakingTimesState(), {
       return state.setIn(['types', meta.type, 'lastError'], payload)
     }
 
-    const history = state.types.get(meta.type)
-    const updatedHistory = new MatchmakingTimesHistory({
-      sortedList: history.sortedList
-        .push(payload)
-        .sortBy(t => t.startDate)
-        .reverse(),
-    })
-    return state.setIn(['types', meta.type], updatedHistory)
+    return state.updateIn(['types', meta.type, 'futureTimes'], futureTimes =>
+      futureTimes.push(createMatchmakingTime(payload)),
+    )
   },
 
   [ADMIN_MATCHMAKING_TIMES_DELETE](state, action) {
@@ -69,15 +147,15 @@ export default keyedReducer(new MatchmakingTimesState(), {
     }
 
     const history = state.types.get(meta.type)
-    const removedTimeIndex = history.sortedList.findIndex(t => t.id === meta.id)
+    const removedTimeIndex = history.futureTimes.findIndex(t => t.id === meta.id)
 
     if (removedTimeIndex < 0) {
       return state
     }
 
-    const updatedHistory = new MatchmakingTimesHistory({
-      sortedList: history.sortedList.delete(removedTimeIndex),
-    })
-    return state.setIn(['types', meta.type], updatedHistory)
+    return state.setIn(
+      ['types', meta.type, 'futureTimes'],
+      history.futureTimes.delete(removedTimeIndex),
+    )
   },
 })

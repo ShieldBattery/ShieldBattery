@@ -11,7 +11,9 @@ import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
 import { joiValidator } from '../validation/joi-validator'
 import {
-  getMatchmakingTimesHistory,
+  getCurrentMatchmakingTime,
+  getFutureMatchmakingTimes,
+  getPastMatchmakingTimes,
   addMatchmakingTime,
   getMatchmakingTimeById,
   removeMatchmakingTime,
@@ -36,6 +38,22 @@ export default function (router: Router) {
       joiValidator({ params: matchmakingTypeSchema }),
       getHistory,
     )
+    .get(
+      '/:matchmakingType/future',
+      featureEnabled(MATCHMAKING),
+      ensureLoggedIn,
+      checkAllPermissions('manageMatchmakingTimes'),
+      joiValidator({ params: matchmakingTypeSchema }),
+      getFutureTimes,
+    )
+    .get(
+      '/:matchmakingType/past',
+      featureEnabled(MATCHMAKING),
+      ensureLoggedIn,
+      checkAllPermissions('manageMatchmakingTimes'),
+      joiValidator({ params: matchmakingTypeSchema }),
+      getPastTimes,
+    )
     .post(
       '/:matchmakingType',
       featureEnabled(MATCHMAKING),
@@ -56,7 +74,81 @@ export default function (router: Router) {
 async function getHistory(ctx: Koa.Context, next: Koa.Next) {
   const { matchmakingType } = ctx.params
 
-  ctx.body = await getMatchmakingTimesHistory(matchmakingType)
+  const current = await getCurrentMatchmakingTime(matchmakingType)
+  // NOTE(2Pac): `current` can be `null` in case all the times are in future (or there are none yet)
+  const currentDate = current ? current.startDate : new Date()
+  const [{ futureTimes, totalFutureTimes }, { pastTimes, totalPastTimes }] = await Promise.all([
+    getFutureMatchmakingTimes(matchmakingType, currentDate),
+    getPastMatchmakingTimes(matchmakingType, currentDate),
+  ])
+
+  ctx.body = {
+    current,
+    futureTimes,
+    totalFutureTimes,
+    pastTimes,
+    totalPastTimes,
+  }
+}
+
+async function getFutureTimes(ctx: Koa.Context, next: Koa.Next) {
+  const { matchmakingType } = ctx.params
+  let { limit, page } = ctx.query
+
+  limit = parseInt(limit, 10)
+  if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
+    limit = 10
+  }
+
+  page = parseInt(page, 10)
+  if (!page || isNaN(page) || page < 0) {
+    page = 0
+  }
+
+  const current = await getCurrentMatchmakingTime(matchmakingType)
+  // NOTE(2Pac): `current` can be `null` in case all the times are in future (or there are none yet)
+  const currentDate = current ? current.startDate : new Date()
+  const { futureTimes, totalFutureTimes } = await getFutureMatchmakingTimes(
+    matchmakingType,
+    currentDate,
+    limit,
+    page,
+  )
+
+  ctx.body = {
+    futureTimes,
+    totalFutureTimes,
+  }
+}
+
+async function getPastTimes(ctx: Koa.Context, next: Koa.Next) {
+  const { matchmakingType } = ctx.params
+  let { limit, page } = ctx.query
+
+  limit = parseInt(limit, 10)
+  if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
+    limit = 10
+  }
+
+  page = parseInt(page, 10)
+  if (!page || isNaN(page) || page < 0) {
+    page = 0
+  }
+
+  const current = await getCurrentMatchmakingTime(matchmakingType)
+  // NOTE(2Pac): `current` can be `null` in case all the times are in future (or there are none yet)
+  const currentDate = current ? current.startDate : new Date()
+  const { pastTimes, totalPastTimes } = await getPastMatchmakingTimes(
+    matchmakingType,
+    currentDate,
+    limit,
+    page,
+  )
+
+  ctx.body = {
+    pastTimes,
+    totalPastTimes,
+  }
 }
 
 async function addNew(ctx: Koa.Context, next: Koa.Next) {

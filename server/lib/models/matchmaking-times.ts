@@ -5,7 +5,7 @@ import { MatchmakingType } from '../../../common/matchmaking'
 export interface MatchmakingTime {
   id: string
   type: MatchmakingType
-  startDate: number
+  startDate: Date
   enabled: boolean
 }
 
@@ -20,42 +20,124 @@ function convertFromDb(props: {
   return {
     id: props.id,
     type: props.matchmaking_type,
-    startDate: +props.start_date,
+    startDate: props.start_date,
     enabled: props.enabled,
   }
 }
 
-/**
- * Retrieves a history of matchmaking times for a particular matchmaking type. History size can be
- * provided which will be used to retrieve (at most) that amount of history on both sides of the
- * date nearest to the current.
- */
-export async function getMatchmakingTimesHistory(
+export async function getCurrentMatchmakingTime(
   matchmakingType: MatchmakingType,
-  historySize = 10,
-): Promise<Array<MatchmakingTime | null>> {
+): Promise<MatchmakingTime | null> {
   const query = sql`
-    WITH mt AS (
-      SELECT id, matchmaking_type, start_date, enabled, row_number() OVER (ORDER BY start_date DESC)
-      FROM matchmaking_times
-    ), current AS (
-      SELECT row_number
-      FROM mt
-      WHERE matchmaking_type = ${matchmakingType} AND start_date < NOW()
-      ORDER BY start_date DESC
-      LIMIT 1
-    )
-    SELECT mt.*
-    FROM mt, current
-    WHERE matchmaking_type = ${matchmakingType}
-      AND ABS(mt.row_number - current.row_number) <= ${historySize}
-    ORDER BY mt.row_number;
+    SELECT *
+    FROM matchmaking_times
+    WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
+    ORDER BY start_date DESC
+    LIMIT 1;
   `
 
   const { client, done } = await db()
   try {
     const result = await client.query(query)
-    return result.rows.map(convertFromDb)
+    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
+  } finally {
+    done()
+  }
+}
+
+async function getTotalTimes(
+  matchmakingType: MatchmakingType,
+  date = new Date(),
+  isFuture = true,
+): Promise<number> {
+  const query = sql`
+    SELECT COUNT(id)
+    FROM matchmaking_times
+    WHERE matchmaking_type = ${matchmakingType} AND start_date
+  `
+    .append(isFuture ? '>' : '<')
+    .append(sql`${date};`)
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query(query)
+    return parseInt(result.rows[0].count, 10)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Get future N (where N defaults to 10) matchmaking times after date X (where X defaults to current
+ * date) for a particular matchmaking type. Also has the paging support.
+ */
+export async function getFutureMatchmakingTimes(
+  matchmakingType: MatchmakingType,
+  date = new Date(),
+  limit = 10,
+  page = 0,
+): Promise<Array<MatchmakingTime>> {
+  // To make sure the results are ordered in expected order, we first use the ascending order in the
+  // sub-query to get the given page of times, then reverse the order of results in the outer query,
+  // so that the newest time is on top.
+  const query = sql`
+    WITH times AS (
+      SELECT *
+      FROM matchmaking_times
+      WHERE matchmaking_type = ${matchmakingType} AND start_date > ${date}
+      ORDER BY start_date ASC
+      LIMIT ${limit}
+      OFFSET ${page * limit}
+    )
+    SELECT *
+    FROM times
+    ORDER BY start_date DESC;
+  `
+
+  const { client, done } = await db()
+  try {
+    const [total, result] = await Promise.all([
+      getTotalTimes(matchmakingType, date, true /* future times count */),
+      client.query(query),
+    ])
+    return {
+      futureTimes: result.rows.map(convertFromDb),
+      totalFutureTimes: total,
+    }
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Get past N (where N defaults to 10) matchmaking times before date X (where X defaults to current
+ * date) for a particular matchmaking type. Also has the paging support.
+ */
+export async function getPastMatchmakingTimes(
+  matchmakingType: MatchmakingType,
+  date = new Date(),
+  limit = 10,
+  page = 0,
+): Promise<Array<MatchmakingTime>> {
+  const query = sql`
+    SELECT *
+    FROM matchmaking_times
+    WHERE matchmaking_type = ${matchmakingType} AND start_date < ${date}
+    ORDER BY start_date DESC
+    LIMIT ${limit}
+    OFFSET ${page * limit};
+  `
+
+  const { client, done } = await db()
+  try {
+    const [total, result] = await Promise.all([
+      getTotalTimes(matchmakingType, date, false /* past times count */),
+      client.query(query),
+    ])
+    return {
+      pastTimes: result.rows.map(convertFromDb),
+      totalPastTimes: total,
+    }
   } finally {
     done()
   }
@@ -76,26 +158,6 @@ export async function addMatchmakingTime(
   try {
     const result = await client.query(query)
     return convertFromDb(result.rows[0])
-  } finally {
-    done()
-  }
-}
-
-export async function getCurrentMatchmakingState(
-  matchmakingType: MatchmakingType,
-): Promise<MatchmakingTime | null> {
-  const query = sql`
-    SELECT *
-    FROM matchmaking_times
-    WHERE matchmaking_type = ${matchmakingType} AND start_date <= ${new Date()}
-    ORDER BY start_date DESC
-    LIMIT 1;
-  `
-
-  const { client, done } = await db()
-  try {
-    const result = await client.query(query)
-    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
   } finally {
     done()
   }
