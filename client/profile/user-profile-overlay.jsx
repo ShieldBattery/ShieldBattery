@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Overlay from '../material/overlay.jsx'
+import ProfileOverlay from './profile-overlay.jsx'
 import Avatar from '../avatars/avatar.jsx'
 import { Title, singleLine } from '../styles/typography'
 
@@ -30,32 +30,27 @@ const Actions = styled.div`
   padding-bottom: 8px;
 `
 
-export default class UserOverlay extends React.Component {
+export default class UserProfileOverlay extends React.Component {
   static propTypes = {
-    open: PropTypes.bool.isRequired,
     user: PropTypes.string.isRequired,
-    onDismiss: PropTypes.func.isRequired,
-    anchor: PropTypes.object,
   }
 
   render() {
-    const { user, children, open, onDismiss, anchor } = this.props
+    const { user, children, ...rest } = this.props
 
     return (
-      <Overlay
-        open={open}
-        onDismiss={onDismiss}
-        anchor={anchor}
+      <ProfileOverlay
         anchorOriginVertical='bottom'
         anchorOriginHorizontal='left'
         popoverOriginVertical='top'
-        popoverOriginHorizontal='left'>
+        popoverOriginHorizontal='left'
+        {...rest}>
         <Header>
           <StyledAvatar user={user} />
           <Username>{user}</Username>
         </Header>
         <Actions>{children}</Actions>
-      </Overlay>
+      </ProfileOverlay>
     )
   }
 }

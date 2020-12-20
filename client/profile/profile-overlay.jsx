@@ -1,5 +1,4 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
@@ -46,34 +45,12 @@ const Contents = styled.div`
   }
 `
 
-export default class Overlay extends React.Component {
-  static propTypes = {
-    open: PropTypes.bool.isRequired,
-    onDismiss: PropTypes.func.isRequired,
-    anchor: PropTypes.object,
-  }
-
+export default class ProfileOverlay extends React.Component {
   render() {
-    const {
-      children,
-      open,
-      onDismiss,
-      anchor,
-      anchorOriginVertical,
-      anchorOriginHorizontal,
-      popoverOriginVertical,
-      popoverOriginHorizontal,
-    } = this.props
+    const { children, ...rest } = this.props
 
     return (
-      <Popover
-        open={open}
-        onDismiss={onDismiss}
-        anchor={anchor}
-        anchorOriginVertical={anchorOriginVertical}
-        anchorOriginHorizontal={anchorOriginHorizontal}
-        popoverOriginVertical={popoverOriginVertical}
-        popoverOriginHorizontal={popoverOriginHorizontal}>
+      <Popover {...rest}>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style

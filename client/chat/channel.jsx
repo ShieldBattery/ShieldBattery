@@ -18,7 +18,7 @@ import MessageInput from '../messaging/message-input.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import MenuItem from '../material/menu/item.jsx'
-import UserOverlay from './user-overlay.jsx'
+import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { Body2, singleLine } from '../styles/typography'
@@ -73,6 +73,7 @@ const UserListEntryItem = styled.li`
   ${userListRow};
 
   &:hover {
+    cursor: pointer;
     background-color: rgba(255, 255, 255, 0.12);
   }
 `
@@ -80,7 +81,7 @@ const UserListEntryItem = styled.li`
 class UserListEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
-    onWhisperClick: PropTypes.func,
+    onWhisperClick: PropTypes.func.isRequired,
   }
 
   state = {
@@ -88,6 +89,30 @@ class UserListEntry extends React.Component {
   }
 
   _userEntryRef = React.createRef()
+
+  renderUserOverlay() {
+    return (
+      <UserProfileOverlay
+        open={this.state.userOverlayOpen}
+        onDismiss={this.onCloseUserOverlay}
+        anchor={this._userEntryRef.current}
+        user={this.props.user}>
+        <MenuItem text='Whisper' onClick={this.onWhisperClick} />
+      </UserProfileOverlay>
+    )
+  }
+
+  render() {
+    console.log(this.props)
+    return (
+      <>
+        <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
+          {this.props.user}
+        </UserListEntryItem>
+        {this.renderUserOverlay()}
+      </>
+    )
+  }
 
   onOpenUserOverlay = () => {
     this.setState({ userOverlayOpen: true })
@@ -100,52 +125,29 @@ class UserListEntry extends React.Component {
   onWhisperClick = () => {
     this.props.onWhisperClick(this.props.user)
   }
-
-  renderUserOverlay() {
-    return (
-      <UserOverlay
-        open={this.state.userOverlayOpen}
-        onDismiss={this.onCloseUserOverlay}
-        anchor={this._userEntryRef.current}
-        user={this.props.user}>
-        <MenuItem text='Whisper' onClick={this.onWhisperClick} />
-      </UserOverlay>
-    )
-  }
-
-  render() {
-    return (
-      <>
-        <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
-          {this.props.user}
-        </UserListEntryItem>
-        {this.renderUserOverlay()}
-      </>
-    )
-  }
 }
 
 class UserList extends React.Component {
   static propTypes = {
     users: PropTypes.object.isRequired,
-    onWhisperClick: PropTypes.func,
   }
 
   shouldComponentUpdate(nextProps) {
     return this.props.users !== nextProps.users
   }
 
-  renderSection(title, users) {
-    if (!users.size) {
+  renderSection(title, sectionUsers) {
+    if (!sectionUsers.size) {
       return null
     }
 
+    const { users, ...rest } = this.props
     return (
       <UserListSection>
         <UserListSubheader as='p'>{title}</UserListSubheader>
         <UserSublist>
-          {users.map(u => (
-            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
+          {sectionUsers.map(u => (
+            <UserListEntry user={u} key={u} {...rest} />
           ))}
         </UserSublist>
       </UserListSection>
@@ -205,7 +207,6 @@ class Channel extends React.Component {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
     onRequestMoreHistory: PropTypes.func,
-    onWhisperClick: PropTypes.func,
   }
 
   messageList = null
@@ -226,7 +227,7 @@ class Channel extends React.Component {
   }
 
   render() {
-    const { channel, onSendChatMessage } = this.props
+    const { channel, onSendChatMessage, onRequestMoreHistory, ...rest } = this.props
     return (
       <Container>
         <MessagesAndInput>
@@ -241,7 +242,7 @@ class Channel extends React.Component {
           </Messages>
           <ChatInput onSend={onSendChatMessage} />
         </MessagesAndInput>
-        <UserList users={this.props.channel.users} onWhisperClick={this.props.onWhisperClick} />
+        <UserList users={this.props.channel.users} {...rest} />
       </Container>
     )
   }
@@ -284,9 +285,6 @@ function isLeavingChannel(oldProps, newProps) {
 export default class ChatChannelView extends React.Component {
   constructor(props) {
     super(props)
-    this._handleSendChatMessage = this.onSendChatMessage.bind(this)
-    this._handleRequestMoreHistory = this.onRequestMoreHistory.bind(this)
-    this._handleWhisperClick = this.onWhisperClick.bind(this)
   }
 
   componentDidMount() {
@@ -347,22 +345,22 @@ export default class ChatChannelView extends React.Component {
     return (
       <Channel
         channel={channel}
-        onSendChatMessage={this._handleSendChatMessage}
-        onRequestMoreHistory={this._handleRequestMoreHistory}
-        onWhisperClick={this._handleWhisperClick}
+        onSendChatMessage={this.onSendChatMessage}
+        onRequestMoreHistory={this.onRequestMoreHistory}
+        onWhisperClick={this.onWhisperClick}
       />
     )
   }
 
-  onSendChatMessage(msg) {
+  onSendChatMessage = msg => {
     this.props.dispatch(sendMessage(this.props.match.params.channel, msg))
   }
 
-  onRequestMoreHistory() {
+  onRequestMoreHistory = () => {
     this.props.dispatch(retrieveNextMessageHistory(this.props.match.params.channel))
   }
 
-  onWhisperClick(user) {
+  onWhisperClick = user => {
     this.props.dispatch(navigateToWhisper(user))
   }
 
