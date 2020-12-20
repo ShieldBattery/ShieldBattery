@@ -103,7 +103,6 @@ class UserListEntry extends React.Component {
   }
 
   render() {
-    console.log(this.props)
     return (
       <>
         <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
@@ -141,6 +140,7 @@ class UserList extends React.Component {
       return null
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { users, ...rest } = this.props
     return (
       <UserListSection>
@@ -227,6 +227,7 @@ class Channel extends React.Component {
   }
 
   render() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { channel, onSendChatMessage, onRequestMoreHistory, ...rest } = this.props
     return (
       <Container>
