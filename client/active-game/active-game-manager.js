@@ -3,6 +3,7 @@ import path from 'path'
 import { promises as fsPromises } from 'fs'
 import { EventEmitter } from 'events'
 import { Set } from 'immutable'
+import fetch from '../network/fetch'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
 import log from '../logging/logger'
 import {
@@ -184,15 +185,20 @@ export default class ActiveGameManager extends EventEmitter {
     this._setStatus(GAME_STATUS_PLAYING)
   }
 
-  handleGameResult(gameId, results, time) {
+  handleGameResult(gameId, result, time) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    // TODO(tec27): Store these results and attempt to send them ourselves if the game fails to
-    log.verbose(`Game results: ${JSON.stringify({ results, time })}`)
+    log.verbose(`Game results: ${JSON.stringify({ result, time })}`)
+
+    this.activeGame = {
+      ...this.activeGame,
+      result: { result, time },
+    }
     this._setStatus(GAME_STATUS_HAS_RESULT)
-    this.emit('gameResults', { results, time })
+
+    this.emit('gameResult', { result, time })
   }
 
   handleGameResultSent(gameId) {
@@ -200,6 +206,10 @@ export default class ActiveGameManager extends EventEmitter {
       return
     }
 
+    this.activeGame = {
+      ...this.activeGame,
+      resultSent: true,
+    }
     this._setStatus(GAME_STATUS_RESULT_SENT)
   }
 
@@ -238,6 +248,36 @@ export default class ActiveGameManager extends EventEmitter {
           new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`),
         )
       }
+    }
+
+    // TODO(#541): Convert a game config to a "blank" result if one was not delivered by the
+    // game before exit
+    if (
+      this.activeGame.status.state >= GAME_STATUS_PLAYING &&
+      !this.activeGame.resultSent &&
+      this.activeGame.result
+    ) {
+      // TODO(#542): Retry submission of these results more times/for longer to try and ensure
+      // complete resutls on the server
+      log.verbose('Game failed to send result, retrying once from the app')
+      const { config } = this.activeGame
+      const submission = {
+        userId: config.localUser.id,
+        resultCode: config.setup.resultCode,
+        time: this.activeGame.result.time,
+        playerResults: Array.from(Object.entries(this.activeGame.result.result)),
+      }
+
+      fetch(`/api/1/gameResults/${encodeURIComponent(this.activeGame.id)}`, {
+        method: 'post',
+        body: JSON.stringify(submission),
+      })
+        .then(() => {
+          log.verbose('Game result submitted successfully')
+        })
+        .catch(err => {
+          log.error('Game result submission failed: ' + err)
+        })
     }
 
     this.activeGame = null
