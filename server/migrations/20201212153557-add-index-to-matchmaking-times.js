@@ -1,6 +1,6 @@
 exports.up = async function (db) {
   await db.runSql(`
-    CREATE INDEX start_date_index ON matchmaking_times (start_date);
+    CREATE INDEX start_date_index ON matchmaking_times (start_date DESC);
   `)
 }
 

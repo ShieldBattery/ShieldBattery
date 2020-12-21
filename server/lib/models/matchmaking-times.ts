@@ -45,17 +45,22 @@ export async function getCurrentMatchmakingTime(
   }
 }
 
+enum TimesPeriod {
+  Future,
+  Past,
+}
+
 async function getTotalTimes(
   matchmakingType: MatchmakingType,
   date = new Date(),
-  isFuture = true,
+  period = TimesPeriod.Future,
 ): Promise<number> {
   const query = sql`
-    SELECT COUNT(id)
+    SELECT COUNT(*)
     FROM matchmaking_times
     WHERE matchmaking_type = ${matchmakingType} AND start_date
   `
-    .append(isFuture ? '>' : '<')
+    .append(period === TimesPeriod.Future ? '>' : '<')
     .append(sql`${date};`)
 
   const { client, done } = await db()
@@ -100,7 +105,7 @@ export async function getFutureMatchmakingTimes(
   const { client, done } = await db()
   try {
     const [total, result] = await Promise.all([
-      getTotalTimes(matchmakingType, date, true /* future times count */),
+      getTotalTimes(matchmakingType, date, TimesPeriod.Future),
       client.query(query),
     ])
     return {
@@ -137,7 +142,7 @@ export async function getPastMatchmakingTimes(
   const { client, done } = await db()
   try {
     const [total, result] = await Promise.all([
-      getTotalTimes(matchmakingType, date, false /* past times count */),
+      getTotalTimes(matchmakingType, date, TimesPeriod.Past),
       client.query(query),
     ])
     return {

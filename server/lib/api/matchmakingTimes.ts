@@ -24,7 +24,16 @@ const matchmakingTypeSchema = Joi.object({
 })
 
 const addMatchmakingTimeSchema = Joi.object({
-  startDate: Joi.number().integer().greater(Date.now()).required(),
+  startDate: Joi.number()
+    .integer()
+    .custom(value => {
+      if (value < Date.now()) {
+        throw new httpErrors.BadRequest('startDate must be a valid timestamp value in the future')
+      }
+
+      return value
+    })
+    .required(),
   enabled: Joi.boolean(),
 })
 

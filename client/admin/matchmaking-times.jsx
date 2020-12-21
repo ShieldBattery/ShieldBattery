@@ -131,13 +131,17 @@ class MatchmakingTimesHistory extends React.PureComponent {
       )
     }
 
-    if (history.sortedList.isEmpty()) {
+    const sortedList = history.futureTimes
+      .concat(history.currentTime ? [history.currentTime] : [])
+      .concat(history.pastTimes)
+
+    if (sortedList.isEmpty()) {
       return <p>This matchmaking type doesn't have matchmaking times history.</p>
     }
 
     // NOTE(2Pac): Technically, this can be wrong depending on how much time has passed since it was
     // last checked, but it should be good enough for the purpose we're using it for.
-    const current = history.sortedList.filter(t => t.startDate <= Date.now()).first() || {}
+    const current = sortedList.filter(t => t.startDate <= Date.now()).first() || {}
 
     return (
       <HistoryContainer>
@@ -163,7 +167,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
               )}
             </td>
           </tr>
-          {history.sortedList.map(time => {
+          {sortedList.map(time => {
             const isCurrent = time.id === current.id
             const isFuture = time.startDate > Date.now()
             let suffix

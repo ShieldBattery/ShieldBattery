@@ -206,7 +206,7 @@ export async function getMapInfo(mapIds, favoritedBy) {
 
 async function getMapsCount(whereCondition, params) {
   const query = `
-    SELECT COUNT(id)
+    SELECT COUNT(*)
     FROM uploaded_maps AS um
     INNER JOIN maps AS m
     ON um.map_hash = m.hash

@@ -17,7 +17,7 @@ export const MatchmakingTime = new Record({
   startDate: null,
   enabled: false,
 })
-export const MatchmakingTimesHistoryBase = new Record({
+export const MatchmakingTimesHistory = new Record({
   currentTime: null,
   futureTimes: new List(),
   totalFutureTimes: -1,
@@ -32,16 +32,6 @@ export const MatchmakingTimesHistoryBase = new Record({
 export const MatchmakingTimesState = new Record({
   types: new Map(),
 })
-
-export class MatchmakingTimesHistory extends MatchmakingTimesHistoryBase {
-  get sortedList() {
-    return this.futureTimes
-      .concat(this.currentTime ? [this.currentTime] : [])
-      .concat(this.pastTimes)
-      .sortBy(t => t.startDate)
-      .reverse()
-  }
-}
 
 function createMatchmakingTime(time) {
   if (!time) {
@@ -95,14 +85,14 @@ export default keyedReducer(new MatchmakingTimesState(), {
       .setIn(['types', meta.type, 'lastError'], null)
       .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
       .setIn(['types', meta.type, 'totalFutureTimes'], payload.totalFutureTimes)
-      .updateIn(['types', meta.type, 'futureTimes'], times => {
+      .updateIn(['types', meta.type, 'futureTimes'], existingTimes => {
         // Filter the matchmaking times that were already added through the `ADD` action
-        const newTimesIds = new Set(futureTimes.map(t => t.id))
-        const oldTimesIds = new Set(times.map(t => t.id))
-        const filteredIds = newTimesIds.subtract(oldTimesIds)
-        const filteredFutureTimes = futureTimes.filter(t => filteredIds.includes(t.id))
+        const timesSet = new Set(existingTimes.concat(futureTimes))
 
-        return filteredFutureTimes.concat(times)
+        return timesSet
+          .toList()
+          .sortBy(t => t.startDate)
+          .reverse()
       })
   },
 
@@ -135,7 +125,10 @@ export default keyedReducer(new MatchmakingTimesState(), {
     }
 
     return state.updateIn(['types', meta.type, 'futureTimes'], futureTimes =>
-      futureTimes.push(createMatchmakingTime(payload)),
+      futureTimes
+        .push(createMatchmakingTime(payload))
+        .sortBy(t => t.startDate)
+        .reverse(),
     )
   },
 
