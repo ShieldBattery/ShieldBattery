@@ -25,10 +25,10 @@
   },
 
   "globals": {
-    "document": false,
-    "navigator": false,
-    "window": false,
-    "IS_ELECTRON": true
+    "document": "readonly",
+    "navigator": "readonly",
+    "window": "readonly",
+    "IS_ELECTRON": "readonly"
   },
 
   "rules": {
@@ -138,6 +138,10 @@
     "no-redeclare": 2,
     "no-regex-spaces": 2,
     "no-reserved-keys": 0,
+    "no-restricted-globals": [2, {
+      "name": "fetch",
+      "message": "Do not use the built-in fetch, use client/network/fetch instead."
+    }],
     "no-restricted-modules": 0,
     "no-return-assign": 2,
     "no-script-url": 0,
