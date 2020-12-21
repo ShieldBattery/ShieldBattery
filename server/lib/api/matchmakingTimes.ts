@@ -164,7 +164,7 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
   const matchmakingTime = await getMatchmakingTimeById(matchmakingTimeId)
   if (!matchmakingTime) {
     throw new httpErrors.NotFound("matchmaking time doesn't exist")
-  } else if (matchmakingTime.startDate < Date.now()) {
+  } else if (new Date(matchmakingTime.startDate) < new Date()) {
     throw new httpErrors.BadRequest("can't delete matchmaking times in past")
   }
 

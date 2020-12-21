@@ -69,9 +69,9 @@ export default keyedReducer(new MatchmakingTimesState(), {
     const { current, futureTimes, totalFutureTimes, pastTimes, totalPastTimes } = payload
     const history = new MatchmakingTimesHistory({
       currentTime: createMatchmakingTime(current),
-      futureTimes: new List(futureTimes.map(createMatchmakingTime)),
+      futureTimes: new List(futureTimes.map(t => createMatchmakingTime(t))),
       totalFutureTimes,
-      pastTimes: new List(pastTimes.map(createMatchmakingTime)),
+      pastTimes: new List(pastTimes.map(t => createMatchmakingTime(t))),
       totalPastTimes,
     })
     return state.setIn(['types', meta.type], history)
@@ -90,7 +90,7 @@ export default keyedReducer(new MatchmakingTimesState(), {
         .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
     }
 
-    const futureTimes = new List(payload.futureTimes.map(createMatchmakingTime))
+    const futureTimes = new List(payload.futureTimes.map(t => createMatchmakingTime(t)))
     return state
       .setIn(['types', meta.type, 'lastError'], null)
       .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
@@ -119,7 +119,7 @@ export default keyedReducer(new MatchmakingTimesState(), {
         .setIn(['types', meta.type, 'isRequestingPastTimes'], false)
     }
 
-    const pastTimes = new List(payload.pastTimes.map(createMatchmakingTime))
+    const pastTimes = new List(payload.pastTimes.map(t => createMatchmakingTime(t)))
     return state
       .setIn(['types', meta.type, 'lastError'], null)
       .setIn(['types', meta.type, 'isRequestingPastTimes'], false)

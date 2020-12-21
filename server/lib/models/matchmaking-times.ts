@@ -76,7 +76,10 @@ export async function getFutureMatchmakingTimes(
   date = new Date(),
   limit = 10,
   page = 0,
-): Promise<Array<MatchmakingTime>> {
+): Promise<{
+  futureTimes: MatchmakingTime[]
+  totalFutureTimes: number
+}> {
   // To make sure the results are ordered in expected order, we first use the ascending order in the
   // sub-query to get the given page of times, then reverse the order of results in the outer query,
   // so that the newest time is on top.
@@ -101,7 +104,7 @@ export async function getFutureMatchmakingTimes(
       client.query(query),
     ])
     return {
-      futureTimes: result.rows.map(convertFromDb),
+      futureTimes: result.rows.map(r => convertFromDb(r)),
       totalFutureTimes: total,
     }
   } finally {
@@ -118,7 +121,10 @@ export async function getPastMatchmakingTimes(
   date = new Date(),
   limit = 10,
   page = 0,
-): Promise<Array<MatchmakingTime>> {
+): Promise<{
+  pastTimes: MatchmakingTime[]
+  totalPastTimes: number
+}> {
   const query = sql`
     SELECT *
     FROM matchmaking_times
@@ -135,7 +141,7 @@ export async function getPastMatchmakingTimes(
       client.query(query),
     ])
     return {
-      pastTimes: result.rows.map(convertFromDb),
+      pastTimes: result.rows.map(r => convertFromDb(r)),
       totalPastTimes: total,
     }
   } finally {
