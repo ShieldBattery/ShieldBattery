@@ -12,7 +12,7 @@ class MapPool {
 
 async function getMapPoolsCount(type) {
   const query = sql`
-    SELECT COUNT(id)
+    SELECT COUNT(*)
     FROM matchmaking_map_pools
     WHERE matchmaking_type = ${type};
   `

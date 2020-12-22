@@ -26,3 +26,9 @@ export const CanManageMapPoolsFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'manageMapPools'),
   () => replace('/admin'),
 )
+
+export const CanManageMatchmakingTimesFilter = createConditionalRedirect(
+  'CanManageMatchmakingTimes',
+  state => !hasAllPermissions(state.auth, 'manageMatchmakingTimes'),
+  () => replace('/admin'),
+)

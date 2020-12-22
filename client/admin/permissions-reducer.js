@@ -15,6 +15,7 @@ export const Permissions = new Record({
   manageMaps: false,
   manageMapPools: false,
   massDeleteMaps: false,
+  manageMatchmakingTimes: false,
 
   lastUpdated: 0,
   isRequesting: false,
