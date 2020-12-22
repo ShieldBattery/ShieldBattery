@@ -34,7 +34,7 @@ import { SORT_BY_NAME } from '../../common/maps'
 import { MAP_UPLOADING } from '../../common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { HeadlineOld, Subheading } from '../styles/typography'
+import { HeadlineOld, SubheadingOld } from '../styles/typography'
 
 const MAPS_LIMIT = 30
 
@@ -71,11 +71,11 @@ const ContentsBody = styled.div`
   padding: 0 24px;
 `
 
-const Underline = styled(Subheading)`
+const Underline = styled(SubheadingOld)`
   color: ${colorTextSecondary};
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
@@ -363,7 +363,7 @@ export default class Maps extends React.Component {
       return (
         <>
           <Underline>All maps</Underline>
-          <Subheading>{text}</Subheading>
+          <SubheadingOld>{text}</SubheadingOld>
         </>
       )
     }

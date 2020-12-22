@@ -30,7 +30,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { HeadlineOld, Title, Subheading, Caption } from '../styles/typography'
+import { HeadlineOld, TitleOld, SubheadingOld, CaptionOld } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -101,7 +101,7 @@ class UpOneDir extends React.PureComponent {
         <EntryIcon>
           <UpDirectory />
         </EntryIcon>
-        <Subheading as={'span'}>Up one directory</Subheading>
+        <SubheadingOld as={'span'}>Up one directory</SubheadingOld>
       </EntryContainer>
     )
   }
@@ -129,7 +129,7 @@ class FolderEntry extends React.PureComponent {
           <Folder />
         </EntryIcon>
         <InfoContainer>
-          <Subheading as={'span'}>{folder.name}</Subheading>
+          <SubheadingOld as={'span'}>{folder.name}</SubheadingOld>
         </InfoContainer>
       </FolderEntryContainer>
     )
@@ -157,15 +157,15 @@ class FileEntry extends React.PureComponent {
       <FileEntryContainer style={style} focused={isFocused} onClick={() => onClick(file)}>
         <EntryIcon>{icon}</EntryIcon>
         <InfoContainer>
-          <Subheading as={'span'}>{file.name}</Subheading>
-          <Caption as={'span'}>{dateFormat.format(file.date)}</Caption>
+          <SubheadingOld as={'span'}>{file.name}</SubheadingOld>
+          <CaptionOld as={'span'}>{dateFormat.format(file.date)}</CaptionOld>
         </InfoContainer>
       </FileEntryContainer>
     )
   }
 }
 
-const BreadcrumbPiece = styled(Title)`
+const BreadcrumbPiece = styled(TitleOld)`
   height: 48px;
   margin-top: 0;
   margin-bottom: 0;

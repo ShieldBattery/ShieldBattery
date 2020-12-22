@@ -11,7 +11,7 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
-import { HeadlineOld, Subheading, Display4Old } from '../styles/typography'
+import { HeadlineOld, SubheadingOld, Display4Old } from '../styles/typography'
 import { shadowDef4dp } from '../material/shadow-constants'
 
 const questions = [
@@ -185,7 +185,7 @@ const QuestionText = styled(HeadlineOld)`
   }
 `
 
-const AnswerText = styled(Subheading)`
+const AnswerText = styled(SubheadingOld)`
   margin: 8px 0 0 80px;
   color: ${colorTextSecondary};
   font-size: 20px;

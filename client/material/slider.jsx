@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { darken, rgba } from 'polished'
 
-import { Body1, CaptionOld } from '../styles/typography'
+import { Body1Old, CaptionOld } from '../styles/typography'
 import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
@@ -150,7 +150,7 @@ const Root = styled.div`
   ${props => (props.focused || props.disabled ? 'outline: none;' : '')}
 `
 
-const SliderLabel = styled(Body1)`
+const SliderLabel = styled(Body1Old)`
   position: absolute;
   top: 8px;
   left: 2px;

@@ -28,7 +28,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
 import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { HeadlineOld, Subheading } from '../styles/typography'
+import { HeadlineOld, SubheadingOld } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -85,7 +85,7 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
-const Overline = styled(Subheading)`
+const Overline = styled(SubheadingOld)`
   color: ${colorTextSecondary};
 `
 

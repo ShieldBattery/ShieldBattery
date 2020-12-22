@@ -7,7 +7,7 @@ import SubheaderButton from '../material/left-nav/subheader-button.jsx'
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2, TitleOld, robotoCondensed } from '../styles/typography'
+import { Body2Old, TitleOld, robotoCondensed } from '../styles/typography'
 
 const SearchingContainer = styled.div`
   display: flex;
@@ -23,7 +23,7 @@ const SearchTitle = styled(TitleOld)`
   margin: 0 16px;
 `
 
-const ElapsedTimeContainer = styled(Body2)`
+const ElapsedTimeContainer = styled(Body2Old)`
   color: ${colorTextSecondary};
   font-size: 16px;
   margin: 0 16px;

@@ -34,7 +34,7 @@ import {
 } from './action-creators'
 
 import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors'
-import { Body1, SubheadingOld } from '../styles/typography'
+import { Body1Old, SubheadingOld } from '../styles/typography'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30
@@ -106,7 +106,7 @@ const DateInput = styled.input`
   color: #000;
 `
 
-const InvalidDateInput = styled(Body1)`
+const InvalidDateInput = styled(Body1Old)`
   margin-left: 16px;
   color: ${colorError};
 `

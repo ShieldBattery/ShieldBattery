@@ -30,10 +30,10 @@ import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
 import { blue100, blue200, colorTextSecondary } from '../styles/colors'
 import {
-  Body1,
-  Body2,
+  Body1Old,
+  Body2Old,
   HeadlineOld,
-  Subheading,
+  SubheadingOld,
   robotoCondensed,
   Display1Old,
 } from '../styles/typography'
@@ -43,7 +43,7 @@ const ChatSystemMessage = styled(ChatMessageLayout)`
   color: ${blue100};
 `
 
-const ChatImportant = styled(Body2)`
+const ChatImportant = styled(Body2Old)`
   line-height: inherit;
   color: ${blue200};
 `
@@ -377,11 +377,11 @@ const InfoItem = styled.div`
   align-items: center;
 `
 
-const InfoLabel = styled(Body1)`
+const InfoLabel = styled(Body1Old)`
   color: ${colorTextSecondary};
 `
 
-const InfoValue = styled(Subheading)`
+const InfoValue = styled(SubheadingOld)`
   margin-left: 16px;
   flex-grow: 1;
 `

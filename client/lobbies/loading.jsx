@@ -8,7 +8,7 @@ import MapImage from '../maps/map-image.jsx'
 import PlayerCard from './player-card.jsx'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Title, Display1Old } from '../styles/typography'
+import { TitleOld, Display1Old } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const LOADING_MESSAGES = [
@@ -189,7 +189,7 @@ const LOADING_MESSAGES = [
   'Building a bot to perfectly emulate SlayerS`BoxeR`',
 ]
 
-const LoadingMessageContent = styled(Title)`
+const LoadingMessageContent = styled(TitleOld)`
   margin-top: 24px;
   color: ${colorTextSecondary};
 `

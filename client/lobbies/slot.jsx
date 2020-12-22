@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Body2, singleLine, SubheadingOld } from '../styles/typography'
+import { Body2Old, singleLine, SubheadingOld } from '../styles/typography'
 import { colorTextSecondary, colorDividers, colorTextFaint } from '../styles/colors'
 
 export const RegularSlots = styled.div`
@@ -59,7 +59,7 @@ export const SlotRight = styled.div`
   }
 `
 
-export const TeamName = styled(Body2)`
+export const TeamName = styled(Body2Old)`
   ${singleLine};
   line-height: 24px;
   height: 24px;

@@ -9,7 +9,7 @@ import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { blue200, grey800 } from '../styles/colors'
-import { Display3Old, Subheading } from '../styles/typography'
+import { Display3Old, SubheadingOld } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -79,7 +79,7 @@ export default class MapSelection extends React.Component {
         <MapContainer key={m.id} glowing={m.id === chosenMap.id}>
           <RandomThumbnail>
             <StyledRandomIcon />
-            <Subheading>Random map</Subheading>
+            <SubheadingOld>Random map</SubheadingOld>
           </RandomThumbnail>
         </MapContainer>
       )

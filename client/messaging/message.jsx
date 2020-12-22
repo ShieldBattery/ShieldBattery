@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
-import { Body1, Body2Old, CaptionOld } from '../styles/typography'
+import { Body1Old, Body2Old, CaptionOld } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
 function getLocalTime(date) {
@@ -53,7 +53,7 @@ ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
 
-const MessageContainer = styled(Body1)`
+const MessageContainer = styled(Body1Old)`
   display: flex;
   align-items: flex-start;
   line-height: 20px;

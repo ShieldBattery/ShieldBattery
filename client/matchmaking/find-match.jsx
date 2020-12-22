@@ -27,7 +27,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
 import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body1, HeadlineOld, Subheading, robotoCondensed } from '../styles/typography'
+import { Body1Old, HeadlineOld, SubheadingOld, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -77,7 +77,7 @@ const Actions = styled.div`
   margin: 16px 24px;
 `
 
-const Overline = styled(Subheading)`
+const Overline = styled(SubheadingOld)`
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
@@ -86,7 +86,7 @@ const StyledRacePicker = styled(RacePicker)`
   margin: 12px 0;
 `
 
-const DescriptionText = styled(Body1)`
+const DescriptionText = styled(Body1Old)`
   color: ${colorTextSecondary};
   font-size: 12px;
 `
@@ -178,7 +178,7 @@ class Find1vs1MatchForm extends React.Component {
             <BrowseButton onClick={onBrowsePreferred}>
               <RandomContainer>
                 <RandomIcon />
-                <Subheading>Random map</Subheading>
+                <SubheadingOld>Random map</SubheadingOld>
               </RandomContainer>
             </BrowseButton>
           )}
@@ -321,9 +321,9 @@ export default class FindMatch extends React.Component {
 
     if (activeTab === TAB_2V2 || activeTab === TAB_3V3) {
       return (
-        <Subheading>
+        <SubheadingOld>
           Team matchmaking is not implemented yet. It should become available really soon.
-        </Subheading>
+        </SubheadingOld>
       )
     }
 

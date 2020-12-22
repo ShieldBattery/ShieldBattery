@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2, TitleOld, robotoCondensed, singleLine } from '../styles/typography'
+import { Body2Old, TitleOld, robotoCondensed, singleLine } from '../styles/typography'
 
 const Container = styled.li`
   height: 72px;
@@ -38,7 +38,7 @@ const StyledTitle = styled(TitleOld)`
   font-weight: 700;
 `
 
-const Subtitle = styled(Body2)`
+const Subtitle = styled(Body2Old)`
   ${singleLine};
   color: ${colorTextSecondary};
   margin-top: 8px;

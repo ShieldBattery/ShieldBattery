@@ -27,7 +27,7 @@ import {
 } from '../../common/constants'
 import { required } from '../forms/validators'
 import { colorError, colorTextSecondary } from '../styles/colors'
-import { Display1Old, Subheading, Body1, singleLine } from '../styles/typography'
+import { Display1Old, SubheadingOld, Body1Old, singleLine } from '../styles/typography'
 
 const ESCAPE = 'Escape'
 
@@ -42,7 +42,7 @@ const LoadingArea = styled.div`
   margin-top: 24px;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
@@ -72,7 +72,7 @@ const MapDescriptionWrapper = styled.div`
   height: 120px;
 `
 
-const MapDescription = styled(Subheading)`
+const MapDescription = styled(SubheadingOld)`
   position: relative;
   margin: 0;
   padding-right: ${props => (props.canEdit ? '68px' : '16px')};
@@ -98,7 +98,7 @@ const MapData = styled.div`
   margin-top: 16px;
 `
 
-const MapDataItem = styled(Body1)`
+const MapDataItem = styled(Body1Old)`
   letter-spacing: 0.25px;
   color: ${colorTextSecondary};
 `

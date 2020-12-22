@@ -23,7 +23,7 @@ import { toggleFavoriteMap } from '../maps/action-creators'
 import { MATCHMAKING_TYPES } from '../../common/constants'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Body1, HeadlineOld, Subheading } from '../styles/typography'
+import { Body1Old, HeadlineOld, SubheadingOld } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -61,12 +61,12 @@ const ContentsBody = styled.div`
   padding: 0 24px;
 `
 
-const InfoText = styled(Body1)`
+const InfoText = styled(Body1Old)`
   color: ${colorTextSecondary};
   font-size: 12px;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
@@ -91,11 +91,11 @@ const SelectionsTextContainer = styled.div`
   align-items: center;
 `
 
-const SelectionsCount = styled(Subheading)`
+const SelectionsCount = styled(SubheadingOld)`
   margin: 0;
 `
 
-const SelectionsText = styled(Subheading)`
+const SelectionsText = styled(SubheadingOld)`
   margin: 0;
   color: ${colorTextSecondary};
 `
