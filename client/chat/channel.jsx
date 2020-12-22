@@ -48,16 +48,16 @@ const UserListSection = styled.div`
   }
 
   & + & {
-    margin-top: 24px;
+    margin-top: 22px; /* accounts for 2px of internal padding in the overline */
   }
 `
 
 const userListRow = css`
   ${singleLine};
 
-  height: 36px;
-  margin: 4px 0 0;
-  padding: 0 8px;
+  height: 40px;
+  margin: 0;
+  padding: 2px 8px;
   line-height: 36px;
 `
 
