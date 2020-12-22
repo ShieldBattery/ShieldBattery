@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import Popover from '../material/popover.jsx'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 import { colorTextSecondary } from '../styles/colors'
-import { robotoCondensed } from '../styles/typography'
+import { Headline3, Headline5, Headline6, Body1, Overline } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -58,37 +58,9 @@ const Contents = styled.div`
   }
 `
 
-// TODO(2Pac): Use this from typography file once it's updated to the new type system
-const Headline5 = styled.span`
-  font-size: 24px;
-  font-weight: 400;
-  line-height: 32px;
-`
-
-// TODO(2Pac): Update the Body1 component for this in the typography file
-const Body1 = styled.span`
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 20px;
-  letter-spacing: 0.03125em;
-`
-
 const DisabledText = styled(Body1)`
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 20px;
-  letter-spacing: 0.03125em;
   margin: 24px 0 32px 0;
   overflow-wrap: break-word;
-`
-
-// TODO(2Pac): Use this from typography file once it's updated to the new type system
-const Headline6 = styled.span`
-  ${robotoCondensed};
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 28px;
-  letter-spacing: 0.025em;
 `
 
 const ToText = styled(Headline6)`
@@ -113,25 +85,8 @@ const CountdownItemContainer = styled.div`
   }
 `
 
-// TODO(2Pac): Use this from typography file once it's updated to the new type system
-const Overline = styled.span`
-  ${robotoCondensed};
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 36px;
-  letter-spacing: 0.015625em;
-`
-
 const CountdownItemText = styled(Overline)`
   color: ${colorTextSecondary};
-`
-
-// TODO(2Pac): Use this from typography file once it's updated to the new type system
-const Headline3 = styled.span`
-  ${robotoCondensed};
-  font-size: 48px;
-  font-weight: 400;
-  line-height: 56px;
 `
 
 export default class MatchmakingDisabledOverlay extends React.Component {
