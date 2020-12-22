@@ -7,7 +7,6 @@ import Avatar from '../avatars/avatar.jsx'
 import { Title, singleLine } from '../styles/typography'
 
 const Header = styled.div`
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -27,26 +26,32 @@ const Username = styled(Title)`
 `
 
 const Actions = styled.div`
-  position: relative;
   padding-top: 8px;
   padding-bottom: 8px;
 `
 
 export default class SelfProfileOverlay extends React.Component {
   static propTypes = {
+    open: PropTypes.bool.isRequired,
     user: PropTypes.string.isRequired,
+    onDismiss: PropTypes.func.isRequired,
+    anchor: PropTypes.object,
   }
 
   render() {
-    const { user, children, ...rest } = this.props
+    const { user, children, open, onDismiss, anchor } = this.props
+    const popoverProps = {
+      open,
+      onDismiss,
+      anchor,
+      anchorOriginVertical: 'bottom',
+      anchorOriginHorizontal: 'left',
+      popoverOriginVertical: 'bottom',
+      popoverOriginHorizontal: 'left',
+    }
 
     return (
-      <ProfileOverlay
-        anchorOriginVertical='bottom'
-        anchorOriginHorizontal='left'
-        popoverOriginVertical='bottom'
-        popoverOriginHorizontal='left'
-        {...rest}>
+      <ProfileOverlay popoverProps={popoverProps}>
         <Header>
           <StyledAvatar user={user} />
           <Username>{user}</Username>

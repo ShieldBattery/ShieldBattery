@@ -1,4 +1,5 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
@@ -46,11 +47,15 @@ const Contents = styled.div`
 `
 
 export default class ProfileOverlay extends React.Component {
+  static propTypes = {
+    popoverProps: PropTypes.object.isRequired,
+  }
+
   render() {
-    const { children, ...rest } = this.props
+    const { children, popoverProps } = this.props
 
     return (
-      <Popover {...rest}>
+      <Popover {...popoverProps}>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style

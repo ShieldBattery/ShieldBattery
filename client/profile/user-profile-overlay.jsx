@@ -32,19 +32,26 @@ const Actions = styled.div`
 
 export default class UserProfileOverlay extends React.Component {
   static propTypes = {
+    open: PropTypes.bool.isRequired,
     user: PropTypes.string.isRequired,
+    onDismiss: PropTypes.func.isRequired,
+    anchor: PropTypes.object,
   }
 
   render() {
-    const { user, children, ...rest } = this.props
+    const { user, children, open, onDismiss, anchor } = this.props
+    const popoverProps = {
+      open,
+      onDismiss,
+      anchor,
+      anchorOriginVertical: 'bottom',
+      anchorOriginHorizontal: 'left',
+      popoverOriginVertical: 'top',
+      popoverOriginHorizontal: 'left',
+    }
 
     return (
-      <ProfileOverlay
-        anchorOriginVertical='bottom'
-        anchorOriginHorizontal='left'
-        popoverOriginVertical='top'
-        popoverOriginHorizontal='left'
-        {...rest}>
+      <ProfileOverlay popoverProps={popoverProps}>
         <Header>
           <StyledAvatar user={user} />
           <Username>{user}</Username>

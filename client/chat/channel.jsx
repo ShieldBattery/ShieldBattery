@@ -129,25 +129,24 @@ class UserListEntry extends React.Component {
 class UserList extends React.Component {
   static propTypes = {
     users: PropTypes.object.isRequired,
+    onWhisperClick: PropTypes.func.isRequired,
   }
 
   shouldComponentUpdate(nextProps) {
     return this.props.users !== nextProps.users
   }
 
-  renderSection(title, sectionUsers) {
-    if (!sectionUsers.size) {
+  renderSection(title, users) {
+    if (!users.size) {
       return null
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { users, ...rest } = this.props
     return (
       <UserListSection>
         <UserListSubheader as='p'>{title}</UserListSubheader>
         <UserSublist>
-          {sectionUsers.map(u => (
-            <UserListEntry user={u} key={u} {...rest} />
+          {users.map(u => (
+            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
           ))}
         </UserSublist>
       </UserListSection>
@@ -207,6 +206,7 @@ class Channel extends React.Component {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
     onRequestMoreHistory: PropTypes.func,
+    onWhisperClick: PropTypes.func.isRequired,
   }
 
   messageList = null
@@ -227,8 +227,7 @@ class Channel extends React.Component {
   }
 
   render() {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { channel, onSendChatMessage, onRequestMoreHistory, ...rest } = this.props
+    const { channel, onSendChatMessage } = this.props
     return (
       <Container>
         <MessagesAndInput>
@@ -243,7 +242,7 @@ class Channel extends React.Component {
           </Messages>
           <ChatInput onSend={onSendChatMessage} />
         </MessagesAndInput>
-        <UserList users={this.props.channel.users} {...rest} />
+        <UserList users={this.props.channel.users} onWhisperClick={this.props.onWhisperClick} />
       </Container>
     )
   }
@@ -284,10 +283,6 @@ function isLeavingChannel(oldProps, newProps) {
 
 @connect(mapStateToProps)
 export default class ChatChannelView extends React.Component {
-  constructor(props) {
-    super(props)
-  }
-
   componentDidMount() {
     const routeChannel = this.props.match.params.channel
     if (this._isInChannel()) {
