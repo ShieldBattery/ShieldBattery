@@ -15,9 +15,152 @@ export const robotoCondensed = css`
 export const buttonText = css`
   font-size: ${textSizeButton};
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 1.25px;
+  line-height: 36px;
   text-transform: uppercase;
 `
+
+export const headline1 = css`
+  font-size: 96px;
+  font-weight: 300;
+  letter-spacing: -1.5px;
+  line-height: 96px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline1 = styled.div`
+  ${headline1};
+`
+
+export const headline2 = css`
+  font-size: 60px;
+  font-weight: 300;
+  letter-spacing: -0.5px;
+  line-height: 60px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline2 = styled.div`
+  ${headline2};
+`
+
+export const headline3 = css`
+  ${robotoCondensed};
+  font-size: 48px;
+  line-height: 56px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline3 = styled.div`
+  ${headline3};
+`
+
+export const headline4 = css`
+  font-size: 34px;
+  letter-spacing: 0.25px;
+  line-height: 40px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline4 = styled.div`
+  ${headline4};
+`
+
+export const headline5 = css`
+  font-size: 24px;
+  line-height: 32px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline5 = styled.div`
+  ${headline5};
+`
+
+export const headline6 = css`
+  ${robotoCondensed};
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  line-height: 28px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Headline6 = styled.div`
+  ${headline6};
+`
+
+export const subtitle1 = css`
+  font-size: 16px;
+  letter-spacing: 0.15px;
+  line-height: 24px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Subtitle1 = styled.div`
+  ${subtitle1};
+`
+
+export const subtitle2 = css`
+  ${robotoCondensed};
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.56px;
+  line-height: 24px;
+  text-rendering: optimizeLegibility;
+`
+
+export const Subtitle2 = styled.div`
+  ${subtitle2};
+`
+
+export const body1 = css`
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  line-height: 20px;
+`
+
+export const Body1 = styled.div`
+  ${body1};
+`
+
+export const body2 = css`
+  ${robotoCondensed};
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.32px;
+  line-height: 20px;
+`
+
+export const Body2 = styled.div`
+  ${body2};
+`
+
+export const caption = css`
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  line-height: 20px;
+`
+
+export const Caption = styled.div`
+  ${caption};
+`
+
+export const overline = css`
+  ${robotoCondensed};
+  font-feature-settings: 'liga' off;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.25px;
+  line-height: 36px;
+`
+
+export const Overline = styled.div`
+  ${overline};
+`
+
+// =============================================================================
+// EVERYTHING BELOW HERE WILL BE DELETED SOON!!! DO NOT ADD MORE USAGES!!!
+// =============================================================================
 
 const textSizeSubheadOld = '16px'
 const textSizeTitleOld = '20px'

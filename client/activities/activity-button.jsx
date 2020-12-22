@@ -66,10 +66,11 @@ const IconContainer = styled.div`
 
 const Label = styled.span`
   ${buttonText};
-  ${robotoCondensed}
-  font-family: 'Roboto Condensed', Roboto, sans-serif;
+  ${robotoCondensed};
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.42px;
+  line-height: 18px;
   margin-top: 8px;
 `
 
