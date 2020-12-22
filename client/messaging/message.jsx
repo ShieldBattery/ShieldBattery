@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { amberA100, colorTextFaint, colorDividers } from '../styles/colors.ts'
-import { Body1, Body2, Caption } from '../styles/typography.ts'
+import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
+import { Body1, Body2, Caption } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
 function getLocalTime(date) {

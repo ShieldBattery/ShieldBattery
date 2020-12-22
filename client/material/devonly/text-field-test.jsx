@@ -8,7 +8,7 @@ import { Label } from '../button.jsx'
 import TextField from '../text-field.jsx'
 import PasswordTextField from '../password-text-field.jsx'
 
-import { colorTextSecondary } from '../../styles/colors.ts'
+import { colorTextSecondary } from '../../styles/colors'
 
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'

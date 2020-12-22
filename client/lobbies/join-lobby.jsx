@@ -8,8 +8,8 @@ import { joinLobby, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 
 import MapThumbnail from '../maps/map-thumbnail.jsx'
-import { colorDividers } from '../styles/colors.ts'
-import { Headline, Subheading, Body2, Title } from '../styles/typography.ts'
+import { colorDividers } from '../styles/colors'
+import { Headline, Subheading, Body2, Title } from '../styles/typography'
 
 const ListEntryRoot = styled.div`
   width: 100%;

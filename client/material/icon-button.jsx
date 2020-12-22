@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import Button, { ButtonCommon } from './button.jsx'
 
-import { CardLayer } from '../styles/colors.ts'
+import { CardLayer } from '../styles/colors'
 
 export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;

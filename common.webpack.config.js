@@ -105,6 +105,10 @@ export default function ({
         require.resolve('./common/promise.js'),
       ),
     ],
+
+    resolve: {
+      extensions: ['.js', '.jsx', '.ts', '.tsx'],
+    },
   }
 
   config.resolve = {

@@ -10,8 +10,8 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
-import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors.ts'
-import { Headline, Subheading, Display4 } from '../styles/typography.ts'
+import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
+import { Headline, Subheading, Display4 } from '../styles/typography'
 import { shadowDef4dp } from '../material/shadow-constants'
 
 const questions = [

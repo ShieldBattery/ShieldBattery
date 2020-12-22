@@ -27,8 +27,8 @@ import Select from '../material/select/select.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
-import { colorDividers, colorTextSecondary } from '../styles/colors.ts'
-import { Headline, Subheading } from '../styles/typography.ts'
+import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { Headline, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

@@ -6,7 +6,7 @@ import { darken } from 'polished'
 import Button, { ButtonCommon, Label } from './button.jsx'
 
 import { shadow6dp } from './shadows'
-import { amberA400 } from '../styles/colors.ts'
+import { amberA400 } from '../styles/colors'
 
 const FloatingActionButtonContents = styled(ButtonCommon)`
   ${shadow6dp};

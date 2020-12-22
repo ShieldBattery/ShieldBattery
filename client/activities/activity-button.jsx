@@ -4,8 +4,8 @@ import styled from 'styled-components'
 
 import { ButtonCommon } from '../material/button.jsx'
 
-import { blue50, colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors.ts'
-import { buttonText, robotoCondensed } from '../styles/typography.ts'
+import { blue50, colorTextPrimary, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { buttonText, robotoCondensed } from '../styles/typography'
 
 const Container = styled(ButtonCommon)`
   display: flex;

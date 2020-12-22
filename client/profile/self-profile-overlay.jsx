@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import ProfileOverlay from './profile-overlay.jsx'
 import Avatar from '../avatars/avatar.jsx'
-import { Title, singleLine } from '../styles/typography.ts'
+import { Title, singleLine } from '../styles/typography'
 
 const Header = styled.div`
   display: flex;

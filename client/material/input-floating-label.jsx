@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { fastOutSlowInShort } from './curves'
-import { amberA400, colorTextFaint, colorTextSecondary, colorError } from '../styles/colors.ts'
+import { amberA400, colorTextFaint, colorTextSecondary, colorError } from '../styles/colors'
 
 const FloatingLabel = styled.label`
   position: absolute;

@@ -29,8 +29,8 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors.ts'
-import { Headline, Title, Subheading, Caption } from '../styles/typography.ts'
+} from '../styles/colors'
+import { Headline, Title, Subheading, Caption } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',

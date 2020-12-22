@@ -12,7 +12,7 @@ import {
   colorTextPrimary,
   alphaDisabled,
   colorBackground,
-} from '../styles/colors.ts'
+} from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
 const BOX_WIDTH = 18

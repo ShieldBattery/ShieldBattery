@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { colorBackground } from '../../styles/colors.ts'
+import { colorBackground } from '../../styles/colors'
 
 const Footer = styled.div`
   display: flex;

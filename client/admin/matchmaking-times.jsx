@@ -22,8 +22,8 @@ import {
   deleteMatchmakingTime,
 } from './action-creators'
 
-import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors.ts'
-import { Body1, Subheading } from '../styles/typography.ts'
+import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors'
+import { Body1, Subheading } from '../styles/typography'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 

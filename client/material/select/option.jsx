@@ -6,7 +6,7 @@ import { rgba } from 'polished'
 import MenuItem from '../menu/item.jsx'
 import MenuItemSymbol from '../menu/menu-item-symbol'
 
-import { amberA400 } from '../../styles/colors.ts'
+import { amberA400 } from '../../styles/colors'
 
 const StyledMenuItem = styled(MenuItem)`
   &:hover {

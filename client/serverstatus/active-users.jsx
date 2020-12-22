@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 
-import { Body1 } from '../styles/typography.ts'
+import { Body1 } from '../styles/typography'
 
 @connect(state => ({ activeUsers: state.serverStatus.get('activeUsers') }))
 class ActiveUsersCount extends React.Component {

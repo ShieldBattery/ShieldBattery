@@ -6,8 +6,8 @@ import MapThumbnail from '../maps/map-thumbnail.jsx'
 import PlayerCard from '../lobbies/player-card.jsx'
 
 import { shadowDef2dp } from '../material/shadow-constants'
-import { colorTextSecondary } from '../styles/colors.ts'
-import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography.ts'
+import { colorTextSecondary } from '../styles/colors'
+import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;

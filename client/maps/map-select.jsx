@@ -11,8 +11,8 @@ import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 import { shadow2dp, shadow8dp } from '../material/shadows'
-import { grey800, colorError, colorTextSecondary } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography.ts'
+import { grey800, colorError, colorTextSecondary } from '../styles/colors'
+import { Subheading } from '../styles/typography'
 
 const SPACE = 'Space'
 const TAB = 'Tab'

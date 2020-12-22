@@ -24,8 +24,8 @@ import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 import { MAP_UPLOADING } from '../../common/flags'
 
 import { fastOutSlowInShort } from '../material/curves'
-import { colorTextSecondary } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography.ts'
+import { colorTextSecondary } from '../styles/colors'
+import { Subheading } from '../styles/typography'
 
 const transitionNames = {
   appear: 'enter',

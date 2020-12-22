@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import { RaceButton, StyledRaceIcon } from './race-picker.jsx'
 
-import { colorDividers } from '../styles/colors.ts'
+import { colorDividers } from '../styles/colors'
 
 const Deselected = styled.span`
   position: relative;

@@ -7,7 +7,7 @@ import FlatButton from './flat-button.jsx'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'
 import { zIndexSnackbar } from './zindex'
-import { grey800 } from '../styles/colors.ts'
+import { grey800 } from '../styles/colors'
 
 const MessageContainer = styled.div`
   line-height: 20px;

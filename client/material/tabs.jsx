@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import WindowListener from '../dom/window-listener.jsx'
 
-import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors.ts'
+import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors'
 import { fastOutSlowIn } from '../material/curve-constants'
 
 const Container = styled.ul`

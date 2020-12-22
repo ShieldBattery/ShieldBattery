@@ -33,8 +33,8 @@ import {
   deleteMapPool,
 } from './action-creators'
 
-import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors.ts'
-import { Body1, Subheading } from '../styles/typography.ts'
+import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors'
+import { Body1, Subheading } from '../styles/typography'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30

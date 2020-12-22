@@ -6,7 +6,7 @@ import { randomColorForString } from './colors'
 
 import PlaceholderIcon from './avatar-placeholder.svg'
 
-import { amberA400 } from '../styles/colors.ts'
+import { amberA400 } from '../styles/colors'
 
 export const ImageAvatar = styled.img`
   width: 40px;

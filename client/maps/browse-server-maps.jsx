@@ -33,8 +33,8 @@ import {
 import { SORT_BY_NAME } from '../../common/maps'
 import { MAP_UPLOADING } from '../../common/flags'
 
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.ts'
-import { Headline, Subheading } from '../styles/typography.ts'
+import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
+import { Headline, Subheading } from '../styles/typography'
 
 const MAPS_LIMIT = 30
 

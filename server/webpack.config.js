@@ -41,7 +41,7 @@ const babelOpts = {
         corejs: 3,
       },
     ],
-    ['@babel/preset-typescript'],
+    ['@babel/preset-typescript', { allExtensions: true, isTSX: true }],
   ],
   plugins: [
     ['babel-plugin-styled-components'],

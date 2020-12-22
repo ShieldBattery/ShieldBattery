@@ -12,7 +12,7 @@ import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import PlayIcon from '../icons/material/play_arrow-24px.svg'
 import StopIcon from '../icons/material/stop-24px.svg'
 
-import { colorTextSecondary } from '../styles/colors.ts'
+import { colorTextSecondary } from '../styles/colors'
 
 const VolumeSettings = styled.div`
   display: flex;

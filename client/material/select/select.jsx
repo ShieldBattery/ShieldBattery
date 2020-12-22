@@ -14,7 +14,7 @@ import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24p
 
 import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../curve-constants'
 import { shadowDef10dp } from '../shadow-constants'
-import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors.ts'
+import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 
 const transitionNames = {
   appear: 'enter',

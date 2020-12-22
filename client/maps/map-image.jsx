@@ -4,8 +4,8 @@ import styled from 'styled-components'
 
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
 
-import { grey800 } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography.ts'
+import { grey800 } from '../styles/colors'
+import { Subheading } from '../styles/typography'
 
 const ImgElement = styled.img`
   display: block;

@@ -8,7 +8,7 @@ import TextField from './text-field.jsx'
 import ShowPasswordIcon from '../icons/material/visibility-24px.svg'
 import HidePasswordIcon from '../icons/material/visibility_off-24px.svg'
 
-import { colorTextSecondary } from '../styles/colors.ts'
+import { colorTextSecondary } from '../styles/colors'
 
 const VisibilityButton = styled(IconButton)`
   ${props => {

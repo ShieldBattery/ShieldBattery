@@ -5,8 +5,8 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { darken, rgba } from 'polished'
 
-import { Body1, Caption } from '../styles/typography.ts'
-import { colorTextFaint, amberA400, grey500 } from '../styles/colors.ts'
+import { Body1, Caption } from '../styles/typography'
+import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
 const transitionNames = {

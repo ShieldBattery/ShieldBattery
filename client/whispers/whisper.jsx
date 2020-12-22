@@ -16,7 +16,7 @@ import LoadingIndicator from '../progress/dots.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import MessageList from '../messaging/message-list.jsx'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { colorDividers } from '../styles/colors.ts'
+import { colorDividers } from '../styles/colors'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8

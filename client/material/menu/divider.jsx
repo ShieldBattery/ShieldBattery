@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import { colorDividers } from '../../styles/colors.ts'
+import { colorDividers } from '../../styles/colors'
 
 const StyledDivider = styled.div`
   width: 100%;

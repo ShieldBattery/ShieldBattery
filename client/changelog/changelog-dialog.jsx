@@ -4,7 +4,7 @@ import Dialog from '../material/dialog.jsx'
 import { VERSION, KEY, shouldShowChangelog } from './should-show-changelog'
 
 import changelogContent from '../../CHANGELOG.md'
-import { colorTextSecondary, colorTextPrimary } from '../styles/colors.ts'
+import { colorTextSecondary, colorTextPrimary } from '../styles/colors'
 const changelogHtml = { __html: changelogContent }
 
 const Content = styled.div`

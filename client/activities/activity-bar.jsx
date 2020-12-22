@@ -2,7 +2,7 @@ import styled from 'styled-components'
 import { rgba } from 'polished'
 
 import { shadow3dp } from '../material/shadows'
-import { blue800 } from '../styles/colors.ts'
+import { blue800 } from '../styles/colors'
 
 export default styled.div`
   display: flex;

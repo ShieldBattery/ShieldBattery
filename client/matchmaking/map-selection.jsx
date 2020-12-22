@@ -8,8 +8,8 @@ import MapThumbnail from '../maps/map-thumbnail.jsx'
 import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
 
 import { shadowDef2dp } from '../material/shadow-constants'
-import { blue200, grey800 } from '../styles/colors.ts'
-import { Display3, Subheading } from '../styles/typography.ts'
+import { blue200, grey800 } from '../styles/colors'
+import { Display3, Subheading } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;

@@ -15,14 +15,8 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 
-import {
-  colorError,
-  colorSuccess,
-  colorTextSecondary,
-  amberA400,
-  grey800,
-} from '../styles/colors.ts'
-import { Subheading, singleLine } from '../styles/typography.ts'
+import { colorError, colorSuccess, colorTextSecondary, amberA400, grey800 } from '../styles/colors'
+import { Subheading, singleLine } from '../styles/typography'
 
 const Container = styled.div`
   max-width: 600px;

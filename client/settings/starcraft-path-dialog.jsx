@@ -13,8 +13,8 @@ import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { mergeLocalSettings } from './action-creators'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
-import { colorError } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography.ts'
+import { colorError } from '../styles/colors'
+import { Subheading } from '../styles/typography'
 
 const checkStarcraftPath = IS_ELECTRON
   ? require('../starcraft/check-starcraft-path').checkStarcraftPath

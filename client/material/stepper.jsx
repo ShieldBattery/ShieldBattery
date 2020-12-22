@@ -13,7 +13,7 @@ import {
   colorDividers,
   colorTextFaint,
   colorError,
-} from '../styles/colors.ts'
+} from '../styles/colors'
 
 const Container = styled.ul`
   position: relative;

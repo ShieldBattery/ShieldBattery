@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Scrollbars } from 'react-custom-scrollbars'
 import styled from 'styled-components'
 
-import { grey700, grey800, grey900, CardLayer } from '../styles/colors.ts'
+import { grey700, grey800, grey900, CardLayer } from '../styles/colors'
 
 const Track = styled.div`
   background-color: ${grey800};

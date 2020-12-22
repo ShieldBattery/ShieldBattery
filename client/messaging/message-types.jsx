@@ -4,8 +4,8 @@ import styled from 'styled-components'
 
 import { ChatMessageLayout, InfoMessageLayout } from './message.jsx'
 
-import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors.ts'
-import { Body2 } from '../styles/typography.ts'
+import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { Body2 } from '../styles/typography'
 
 const SystemMessage = styled(ChatMessageLayout)`
   color: ${blue100};

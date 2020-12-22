@@ -11,7 +11,7 @@ import MenuItemSymbol from './menu-item-symbol'
 import { fastOutSlowIn } from '../curve-constants'
 import { shadowDef6dp } from '../shadow-constants'
 import { zIndexMenu } from '../zindex'
-import { CardLayer } from '../../styles/colors.ts'
+import { CardLayer } from '../../styles/colors'
 
 const transitionNames = {
   appear: 'enter',
