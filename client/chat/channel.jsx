@@ -14,6 +14,7 @@ import {
 } from './action-creators'
 import { navigateToWhisper } from '../whispers/action-creators'
 
+import Avatar from '../avatars/avatar.jsx'
 import MessageInput from '../messaging/message-input.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import MessageList from '../messaging/message-list.jsx'
@@ -21,7 +22,7 @@ import MenuItem from '../material/menu/item.jsx'
 import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body2Old, singleLine } from '../styles/typography'
+import { body2, overline, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
 
@@ -35,30 +36,33 @@ const UserListContainer = styled.div`
 `
 
 const UserListSection = styled.div`
-  padding-left: 16px;
+  padding-left: 8px;
+  padding-right: 8px;
 
   &:first-child {
-    padding-top: 16px;
+    margin-top: 8px;
   }
 
   &:last-child {
-    padding-bottom: 16px;
+    margin-bottom: 8px;
   }
 
   & + & {
-    margin-top: 16px;
+    margin-top: 24px;
   }
 `
 
 const userListRow = css`
-  height: 28px;
-  margin: 0;
-  padding: 0;
-  line-height: 28px;
+  ${singleLine};
+
+  height: 36px;
+  margin: 4px 0 0;
+  padding: 0 8px;
+  line-height: 36px;
 `
 
-const UserListSubheader = styled(Body2Old)`
-  ${singleLine};
+const UserListOverline = styled.div`
+  ${overline}
   ${userListRow};
   color: ${colorTextSecondary};
 `
@@ -70,12 +74,27 @@ const UserSublist = styled.ul`
 `
 
 const UserListEntryItem = styled.li`
+  ${body2};
   ${userListRow};
 
   &:hover {
     cursor: pointer;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.08);
   }
+`
+
+const StyledAvatar = styled(Avatar)`
+  width: 32px;
+  height: 32px;
+
+  display: inline-block;
+
+  margin: 2px 16px 2px 0;
+`
+
+const UserListName = styled.span`
+  ${singleLine};
+  display: inline-block;
 `
 
 class UserListEntry extends React.Component {
@@ -106,7 +125,8 @@ class UserListEntry extends React.Component {
     return (
       <>
         <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
-          {this.props.user}
+          <StyledAvatar user={this.props.user} />
+          <UserListName>{this.props.user}</UserListName>
         </UserListEntryItem>
         {this.renderUserOverlay()}
       </>
@@ -143,7 +163,7 @@ class UserList extends React.Component {
 
     return (
       <UserListSection>
-        <UserListSubheader as='p'>{title}</UserListSubheader>
+        <UserListOverline>{title}</UserListOverline>
         <UserSublist>
           {users.map(u => (
             <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />

@@ -127,7 +127,7 @@ export const body2 = css`
   ${robotoCondensed};
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.32px;
+  letter-spacing: 0.84px;
   line-height: 20px;
 `
 
@@ -150,7 +150,7 @@ export const overline = css`
   font-feature-settings: 'liga' off;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.25px;
+  letter-spacing: 0.48px;
   line-height: 36px;
 `
 
