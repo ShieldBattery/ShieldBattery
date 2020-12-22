@@ -1,9 +1,8 @@
+import MatchmakingStatus from './matchmaking-status'
 import { MATCHMAKING } from '../../../common/flags'
 
-let matchmakingStatus
+let matchmakingStatus: MatchmakingStatus | null = null
 if (MATCHMAKING) {
-  const MatchmakingStatus = require('./matchmaking-status').default
-
   matchmakingStatus = new MatchmakingStatus()
 }
 

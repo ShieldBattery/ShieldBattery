@@ -154,11 +154,6 @@ export async function getPastMatchmakingTimes(
   }
 }
 
-enum Status {
-  Enabled = true,
-  Disabled = false,
-}
-
 /**
  * Get matchmaking schedule. The schedule represents future N (where N defaults to 2) matchmaking
  * times, starting with a first S (where S defaults to enabled) status, after date X (where X
@@ -168,7 +163,7 @@ enum Status {
 export async function getMatchmakingSchedule(
   matchmakingType: MatchmakingType,
   date = new Date(),
-  firstStatus = Status.Enabled,
+  firstStatus = true,
   depth = 2,
 ): Promise<Array<MatchmakingTime>> {
   const query = sql`

@@ -2,6 +2,7 @@ import { Map, Record, is } from 'immutable'
 import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 import { MATCHMAKING_TYPES } from '../../../common/constants'
+import { MatchmakingType } from '../../../common/matchmaking'
 
 const StatusRecord = new Record({
   type: null,
@@ -12,22 +13,27 @@ const StatusRecord = new Record({
 })
 
 export default class MatchmakingStatus {
+  // TODO(2Pac): Update this once nydus gets typings
+  nydus: any
+  statusByType: Map<MatchmakingType, any>
+  timerByType: Map<MatchmakingType, any>
+
   constructor() {
     this.nydus = null
     this.statusByType = new Map()
     this.timerByType = new Map()
   }
 
-  isEnabled(type) {
-    return this.statusByType.get(type)?.enabled
+  isEnabled(type: MatchmakingType): boolean {
+    return !!this.statusByType.get(type)?.enabled
   }
 
-  initialize(nydus) {
+  initialize(nydus: any) {
     this.nydus = nydus
     MATCHMAKING_TYPES.forEach(type => this.publish(type))
   }
 
-  subscribe(socket) {
+  subscribe(socket: any) {
     this.nydus.subscribeClient(socket, '/matchmakingStatus')
 
     MATCHMAKING_TYPES.forEach(type => {
@@ -46,7 +52,7 @@ export default class MatchmakingStatus {
    *  - invalidates the previous timer and sets up a new one to run the function again, if the next
    *    starting date has changed (by e.g. admin adding/removing matchmaking times)
    */
-  publish = async type => {
+  publish = async (type: MatchmakingType) => {
     try {
       const current = await getCurrentMatchmakingTime(type)
       const schedule = await getMatchmakingSchedule(type, current?.startDate, !current?.enabled)
@@ -54,7 +60,7 @@ export default class MatchmakingStatus {
       const oldStatus = this.statusByType.get(type)
       const status = new StatusRecord({
         type,
-        enabled: current?.enabled,
+        enabled: !!current?.enabled,
         startDate: current?.startDate,
         nextStartDate: schedule[0]?.startDate,
         nextEndDate: schedule[1]?.startDate,
