@@ -21,7 +21,7 @@ import MenuItem from '../material/menu/item.jsx'
 import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { colorDividers, colorTextSecondary } from '../styles/colors.ts'
-import { Body2, singleLine } from '../styles/typography'
+import { Body2, singleLine } from '../styles/typography.ts'
 
 import { MULTI_CHANNEL } from '../../common/flags'
 

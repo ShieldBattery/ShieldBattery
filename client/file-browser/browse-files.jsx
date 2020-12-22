@@ -30,7 +30,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors.ts'
-import { Headline, Title, Subheading, Caption } from '../styles/typography'
+import { Headline, Title, Subheading, Caption } from '../styles/typography.ts'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',

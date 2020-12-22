@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 
 import { colorText } from '../styles/colors.ts'
-import { Body2 } from '../styles/typography'
+import { Body2 } from '../styles/typography.ts'
 
 import RaisedButton from '../material/raised-button.jsx'
 import GetApp from '../icons/material/ic_get_app_black_36px.svg'

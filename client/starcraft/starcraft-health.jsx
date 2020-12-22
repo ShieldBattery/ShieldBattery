@@ -13,7 +13,7 @@ import {
 } from './is-starcraft-healthy'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const HeaderText = styled(Subheading)`
   margin-top: 0;

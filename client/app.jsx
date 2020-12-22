@@ -23,8 +23,8 @@ import Splash from './beta/splash.jsx'
 import { WindowControls, WindowControlsStyle } from './app-bar/window-controls.jsx'
 import LoadingIndicator from './progress/dots.jsx'
 
-import GlobalStyle from './styles/global'
-import ResetStyle from './styles/reset'
+import GlobalStyle from './styles/global.ts'
+import ResetStyle from './styles/reset.ts'
 
 const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
 

@@ -9,7 +9,7 @@ import { closeOverlay } from '../activities/action-creators'
 
 import MapThumbnail from '../maps/map-thumbnail.jsx'
 import { colorDividers } from '../styles/colors.ts'
-import { Headline, Subheading, Body2, Title } from '../styles/typography'
+import { Headline, Subheading, Body2, Title } from '../styles/typography.ts'
 
 const ListEntryRoot = styled.div`
   width: 100%;

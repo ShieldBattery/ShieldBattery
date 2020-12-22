@@ -7,7 +7,7 @@ import PlayerCard from '../lobbies/player-card.jsx'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors.ts'
-import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography'
+import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography.ts'
 
 const Container = styled.div`
   display: flex;

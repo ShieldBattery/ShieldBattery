@@ -28,7 +28,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
 import { colorDividers, colorTextSecondary } from '../styles/colors.ts'
-import { Headline, Subheading } from '../styles/typography'
+import { Headline, Subheading } from '../styles/typography.ts'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

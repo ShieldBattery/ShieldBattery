@@ -9,7 +9,7 @@ import RaisedButton from '../raised-button.jsx'
 import SelectedMenuItem from '../menu/selected-item.jsx'
 
 import { colorTextSecondary } from '../../styles/colors.ts'
-import { Subheading } from '../../styles/typography'
+import { Subheading } from '../../styles/typography.ts'
 
 const Container = styled.div`
   display: flex;

@@ -22,7 +22,7 @@ import {
   amberA400,
   grey800,
 } from '../styles/colors.ts'
-import { Subheading, singleLine } from '../styles/typography'
+import { Subheading, singleLine } from '../styles/typography.ts'
 
 const Container = styled.div`
   max-width: 600px;

@@ -3,7 +3,7 @@ import { makeServerUrl } from '../network/server-url'
 import styled from 'styled-components'
 
 import { grey800, colorTextPrimary } from '../styles/colors.ts'
-import { Body1 } from '../styles/typography'
+import { Body1 } from '../styles/typography.ts'
 
 const VerifyEmail = styled.div`
   height: 32px;

@@ -12,7 +12,7 @@ import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { grey800, colorError, colorTextSecondary } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const SPACE = 'Space'
 const TAB = 'Tab'

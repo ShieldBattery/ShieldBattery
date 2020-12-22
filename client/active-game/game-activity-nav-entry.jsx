@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors.ts'
-import { Body2, Title, robotoCondensed, singleLine } from '../styles/typography.js'
+import { Body2, Title, robotoCondensed, singleLine } from '../styles/typography.ts'
 
 const Container = styled.li`
   height: 72px;

@@ -14,7 +14,7 @@ import { mergeLocalSettings } from './action-creators'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 import { colorError } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const checkStarcraftPath = IS_ELECTRON
   ? require('../starcraft/check-starcraft-path').checkStarcraftPath

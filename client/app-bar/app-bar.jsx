@@ -11,7 +11,7 @@ import { DEV_INDICATOR } from '../../common/flags'
 import { blue800, colorError } from '../styles/colors.ts'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
-import { Title, singleLine, robotoCondensed } from '../styles/typography'
+import { Title, singleLine, robotoCondensed } from '../styles/typography.ts'
 import { zIndexAppBar } from '../material/zindex'
 
 const Container = styled.header`

@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 
 import AvatarButton from '../avatars/avatar-button.jsx'
 
-import { Body2, singleLine, robotoCondensed } from '../styles/typography'
+import { Body2, singleLine, robotoCondensed } from '../styles/typography.ts'
 
 const Container = styled.div`
   display: flex;

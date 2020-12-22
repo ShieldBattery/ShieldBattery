@@ -34,7 +34,7 @@ import { SORT_BY_NAME } from '../../common/maps'
 import { MAP_UPLOADING } from '../../common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.ts'
-import { Headline, Subheading } from '../styles/typography'
+import { Headline, Subheading } from '../styles/typography.ts'
 
 const MAPS_LIMIT = 30
 

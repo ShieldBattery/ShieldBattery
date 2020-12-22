@@ -8,7 +8,7 @@ import MapImage from '../maps/map-image.jsx'
 import PlayerCard from './player-card.jsx'
 
 import { colorTextSecondary } from '../styles/colors.ts'
-import { Title, Display1 } from '../styles/typography'
+import { Title, Display1 } from '../styles/typography.ts'
 import { shadow1dp } from '../material/shadows'
 
 const LOADING_MESSAGES = [

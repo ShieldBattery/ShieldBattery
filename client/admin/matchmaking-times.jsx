@@ -23,7 +23,7 @@ import {
 } from './action-creators'
 
 import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors.ts'
-import { Body1, Subheading } from '../styles/typography'
+import { Body1, Subheading } from '../styles/typography.ts'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 

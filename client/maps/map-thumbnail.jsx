@@ -10,7 +10,7 @@ import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
 import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors.ts'
-import { Subheading, singleLine } from '../styles/typography'
+import { Subheading, singleLine } from '../styles/typography.ts'
 
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'

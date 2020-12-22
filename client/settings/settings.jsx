@@ -21,7 +21,7 @@ import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 
 import { LocalSettings, ScrSettings } from './settings-records'
 import { colorTextSecondary, colorError } from '../styles/colors.ts'
-import { Body1, Subheading } from '../styles/typography'
+import { Body1, Subheading } from '../styles/typography.ts'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size

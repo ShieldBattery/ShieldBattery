@@ -25,7 +25,7 @@ import { MAP_UPLOADING } from '../../common/flags'
 
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const transitionNames = {
   appear: 'enter',

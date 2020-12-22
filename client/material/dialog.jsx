@@ -13,7 +13,7 @@ import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constan
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
 import { colorDividers, CardLayer } from '../styles/colors.ts'
-import { Headline } from '../styles/typography'
+import { Headline } from '../styles/typography.ts'
 
 const ESCAPE = keycode('esc')
 

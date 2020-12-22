@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import Dialog from '../material/dialog.jsx'
 import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
-import { Title } from '../styles/typography'
+import { Title } from '../styles/typography.ts'
 
 import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
 

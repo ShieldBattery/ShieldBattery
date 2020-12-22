@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
 
 import { grey800 } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const ImgElement = styled.img`
   display: block;

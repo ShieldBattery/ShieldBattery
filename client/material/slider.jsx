@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { darken, rgba } from 'polished'
 
-import { Body1, Caption } from '../styles/typography'
+import { Body1, Caption } from '../styles/typography.ts'
 import { colorTextFaint, amberA400, grey500 } from '../styles/colors.ts'
 import { fastOutSlowIn } from './curve-constants'
 

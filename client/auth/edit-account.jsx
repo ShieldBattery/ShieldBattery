@@ -31,7 +31,7 @@ import {
 } from '../../common/constants'
 
 import { colorTextSecondary, colorError } from '../styles/colors.ts'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 function passwordRequired() {
   return (val, model, dirty) =>

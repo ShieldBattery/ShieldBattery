@@ -23,7 +23,7 @@ import { toggleFavoriteMap } from '../maps/action-creators'
 import { MATCHMAKING_TYPES } from '../../common/constants'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.ts'
-import { Body1, Headline, Subheading } from '../styles/typography'
+import { Body1, Headline, Subheading } from '../styles/typography.ts'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

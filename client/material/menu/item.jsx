@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import MenuItemSymbol from './menu-item-symbol'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu.jsx'
 
-import { Subheading, singleLine } from '../../styles/typography'
+import { Subheading, singleLine } from '../../styles/typography.ts'
 
 const Item = styled.div`
   display: flex;

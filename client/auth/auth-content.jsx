@@ -8,7 +8,7 @@ import CheckBox from '../material/check-box.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors.ts'
-import { Display1 } from '../styles/typography'
+import { Display1 } from '../styles/typography.ts'
 
 export const AuthContent = styled.div`
   position: relative;

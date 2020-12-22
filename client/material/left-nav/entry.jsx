@@ -5,7 +5,7 @@ import styled from 'styled-components'
 
 import AttentionIndicator from './attention-indicator.jsx'
 import { amberA200 } from '../../styles/colors.ts'
-import { singleLine } from '../../styles/typography.js'
+import { singleLine } from '../../styles/typography.ts'
 
 const Container = styled.li`
   position: relative;

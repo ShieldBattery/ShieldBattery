@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import Dialog from '../material/dialog.jsx'
 import FlatButton from '../material/flat-button.jsx'
-import { Subheading } from '../styles/typography'
+import { Subheading } from '../styles/typography.ts'
 
 const BodyText = styled(Subheading)`
   margin-top: 0;
