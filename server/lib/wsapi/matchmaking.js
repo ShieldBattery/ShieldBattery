@@ -11,12 +11,8 @@ import { Interval, TimedMatchmaker } from '../matchmaking/matchmaker'
 import MatchAcceptor from '../matchmaking/match-acceptor'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 import createDeferred from '../../../common/async/deferred'
-import {
-  MATCHMAKING_ACCEPT_MATCH_TIME,
-  MATCHMAKING_TYPES,
-  isValidMatchmakingType,
-  validRace,
-} from '../../../common/constants'
+import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
+import { MatchmakingType, isValidMatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 
@@ -103,7 +99,7 @@ export class MatchmakingApi {
     this.clientSockets = clientSockets
 
     this.matchmakers = new Map(
-      MATCHMAKING_TYPES.map(type => [
+      Object.values(MatchmakingType).map(type => [
         type,
         new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
       ]),

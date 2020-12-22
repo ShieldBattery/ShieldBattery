@@ -1,27 +1,26 @@
 import { Map, Record, is } from 'immutable'
 import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
-import { MATCHMAKING_TYPES } from '../../../common/constants'
 import { MatchmakingType } from '../../../common/matchmaking'
 
-const StatusRecord = new Record({
-  type: null,
+class StatusRecord extends Record({
+  type: null as MatchmakingType | null,
   enabled: false,
-  startDate: null,
-  nextStartDate: null,
-  nextEndDate: null,
-})
+  startDate: null as Date | null,
+  nextStartDate: null as Date | null,
+  nextEndDate: null as Date | null,
+}) {}
 
 export default class MatchmakingStatus {
   // TODO(2Pac): Update this once nydus gets typings
   nydus: any
-  statusByType: Map<MatchmakingType, any>
-  timerByType: Map<MatchmakingType, any>
+  statusByType: Map<MatchmakingType, StatusRecord>
+  timerByType: Map<MatchmakingType, ReturnType<typeof setTimeout>>
 
   constructor() {
     this.nydus = null
-    this.statusByType = new Map()
-    this.timerByType = new Map()
+    this.statusByType = Map()
+    this.timerByType = Map()
   }
 
   isEnabled(type: MatchmakingType): boolean {
@@ -30,29 +29,30 @@ export default class MatchmakingStatus {
 
   initialize(nydus: any) {
     this.nydus = nydus
-    MATCHMAKING_TYPES.forEach(type => this.publish(type))
+    for (const type of Object.values(MatchmakingType)) {
+      this.maybePublish(type)
+    }
   }
 
   subscribe(socket: any) {
     this.nydus.subscribeClient(socket, '/matchmakingStatus')
 
-    MATCHMAKING_TYPES.forEach(type => {
+    for (const type of Object.values(MatchmakingType)) {
       const status = this.statusByType.get(type)
       if (status) {
         this.nydus.publish('/matchmakingStatus', status)
       }
-    })
+    }
   }
 
   /**
-   * This function does the following:
-   *  - fetches matchmaking status from the database and caches it; matchmaking status represents
-   *    the current matchmaking time and the starting and ending dates of the next status changes.
-   *  - notifies the user if the status changed since last time it was called
-   *  - invalidates the previous timer and sets up a new one to run the function again, if the next
-   *    starting date has changed (by e.g. admin adding/removing matchmaking times)
+   * Publishes the current matchmaking status to subscribed users, if the status or the schedule
+   * has changed since the last cached value.
+   *
+   * If a change has occurred, a timeout will be set up for the next scheduled change to publish
+   * that as well.
    */
-  publish = async (type: MatchmakingType) => {
+  async maybePublish(type: MatchmakingType) {
     try {
       const current = await getCurrentMatchmakingTime(type)
       const schedule = await getMatchmakingSchedule(type, current?.startDate, !current?.enabled)
@@ -80,13 +80,14 @@ export default class MatchmakingStatus {
         clearTimeout(oldTimer)
       }
 
-      let timer
       if (status.nextStartDate) {
-        timer = setTimeout(() => this.publish(type), new Date(status.nextStartDate) - Date.now())
+        const timer = setTimeout(() => this.maybePublish(type), +status.nextStartDate - Date.now())
+        this.timerByType = this.timerByType.set(type, timer)
+      } else {
+        this.timerByType = this.timerByType.delete(type)
       }
-      this.timerByType = this.timerByType.set(type, timer)
     } catch (err) {
-      log.error({ err }, 'error getting matchmaking status')
+      log.error({ err }, 'error publishing matchmaking status')
     }
   }
 }

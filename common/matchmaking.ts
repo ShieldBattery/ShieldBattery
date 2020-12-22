@@ -1,7 +1,13 @@
 /**
- * A string representation of all the matchmaking types that we support.
+ * A string representation of each of the matchmaking types that we support.
  */
-export type MatchmakingType = '1v1'
+export enum MatchmakingType {
+  Match1v1 = '1v1',
+}
+
+export function isValidMatchmakingType(type: string) {
+  return Object.values(MatchmakingType).includes(type as MatchmakingType)
+}
 
 /**
  * The body data of the API route for adding new matchmaking times.

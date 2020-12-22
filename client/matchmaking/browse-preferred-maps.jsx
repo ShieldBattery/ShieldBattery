@@ -20,7 +20,7 @@ import { openOverlay } from '../activities/action-creators'
 import { getCurrentMapPool } from './action-creators'
 import { toggleFavoriteMap } from '../maps/action-creators'
 
-import { MATCHMAKING_TYPES } from '../../common/constants'
+import { MatchmakingType } from '../../common/matchmaking'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Body1Old, HeadlineOld, SubheadingOld } from '../styles/typography'
@@ -147,7 +147,7 @@ class PreferredMapsForm extends React.Component {
 @connect(state => ({ maps: state.maps, matchmaking: state.matchmaking }))
 export default class PreferredMaps extends React.Component {
   static propTypes = {
-    type: PropTypes.oneOf(MATCHMAKING_TYPES).isRequired,
+    type: PropTypes.oneOf(Object.values(MatchmakingType)).isRequired,
     preferredMaps: PropTypes.instanceOf(List),
   }
 

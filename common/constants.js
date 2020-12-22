@@ -16,8 +16,6 @@ export const CHANNEL_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}|?<>:;,'"]+$/
 export const CHANNEL_MAXLENGTH = 64
 
 export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
-export const MATCHMAKING_TYPE_1V1 = '1v1'
-export const MATCHMAKING_TYPES = [MATCHMAKING_TYPE_1V1]
 
 export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
 
@@ -63,10 +61,6 @@ export function isValidGameType(type) {
 
 export function isValidGameSubType(type) {
   return type => !type || (type >= 1 && type <= 7)
-}
-
-export function isValidMatchmakingType(type) {
-  return MATCHMAKING_TYPES.includes(type)
 }
 
 export function validRace(r) {
