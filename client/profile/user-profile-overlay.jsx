@@ -8,20 +8,20 @@ import { Title, singleLine } from '../styles/typography'
 
 const Header = styled.div`
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 24px;
+  justify-content: center;
+  padding-top: 12px;
 `
 
 const StyledAvatar = styled(Avatar)`
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 8px;
 `
 
 const Username = styled(Title)`
   margin-top: 0;
   margin-bottom: 0;
+  padding-left: 8px;
   ${singleLine};
 `
 
@@ -30,7 +30,7 @@ const Actions = styled.div`
   padding-bottom: 8px;
 `
 
-export default class SelfProfileOverlay extends React.Component {
+export default class UserProfileOverlay extends React.Component {
   static propTypes = {
     open: PropTypes.bool.isRequired,
     user: PropTypes.string.isRequired,
@@ -46,7 +46,7 @@ export default class SelfProfileOverlay extends React.Component {
       anchor,
       anchorOriginVertical: 'bottom',
       anchorOriginHorizontal: 'left',
-      popoverOriginVertical: 'bottom',
+      popoverOriginVertical: 'top',
       popoverOriginHorizontal: 'left',
     }
 
