@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import ProfileOverlay from './profile-overlay.jsx'
 import Avatar from '../avatars/avatar.jsx'
-import { TitleOld, singleLine } from '../styles/typography'
+import { headline6, singleLine } from '../styles/typography'
 
 const Header = styled.div`
   display: flex;
@@ -19,9 +19,8 @@ const StyledAvatar = styled(Avatar)`
   margin-bottom: 16px;
 `
 
-const Username = styled(TitleOld)`
-  margin-top: 0;
-  margin-bottom: 0;
+const Username = styled.div`
+  ${headline6};
   ${singleLine};
 `
 

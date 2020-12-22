@@ -4,24 +4,23 @@ import styled from 'styled-components'
 
 import ProfileOverlay from './profile-overlay.jsx'
 import Avatar from '../avatars/avatar.jsx'
-import { TitleOld, singleLine } from '../styles/typography'
+import { headline6, singleLine } from '../styles/typography'
 
 const Header = styled.div`
   display: flex;
-  justify-content: center;
-  padding-top: 12px;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
 `
 
 const StyledAvatar = styled(Avatar)`
-  width: 32px;
-  height: 32px;
-  margin-bottom: 8px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
 `
 
-const Username = styled(TitleOld)`
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-left: 8px;
+const Username = styled.div`
+  ${headline6};
   ${singleLine};
 `
 
@@ -44,10 +43,11 @@ export default class UserProfileOverlay extends React.Component {
       open,
       onDismiss,
       anchor,
-      anchorOriginVertical: 'bottom',
+      anchorOffsetHorizontal: -4,
+      anchorOriginVertical: 'top',
       anchorOriginHorizontal: 'left',
       popoverOriginVertical: 'top',
-      popoverOriginHorizontal: 'left',
+      popoverOriginHorizontal: 'right',
     }
 
     return (

@@ -80,7 +80,7 @@ export const headline6 = css`
   ${robotoCondensed};
   font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.84px;
   line-height: 28px;
   text-rendering: optimizeLegibility;
 `
