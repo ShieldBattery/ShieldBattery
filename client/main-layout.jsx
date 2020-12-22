@@ -53,7 +53,7 @@ import { removeMap } from './maps/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 
-import { Caption } from './styles/typography'
+import { CaptionOld } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
 import { version as curVersion } from '../package.json'
 
@@ -86,7 +86,7 @@ const StyledMapsIcon = styled(MapsIcon)`
   height: 36px;
 `
 
-const VersionText = styled(Caption)`
+const VersionText = styled(CaptionOld)`
   margin: 8px 0px 0px 0px;
   color: ${colorTextSecondary};
 `

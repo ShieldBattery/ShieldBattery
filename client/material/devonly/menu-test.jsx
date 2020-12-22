@@ -9,7 +9,7 @@ import RaisedButton from '../raised-button.jsx'
 import SelectedMenuItem from '../menu/selected-item.jsx'
 
 import { colorTextSecondary } from '../../styles/colors'
-import { Subheading } from '../../styles/typography'
+import { SubheadingOld } from '../../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -30,7 +30,7 @@ const StyledMenu = styled(Menu)`
   min-width: 256px;
 `
 
-const Overline = styled(Subheading)`
+const Overline = styled(SubheadingOld)`
   padding: 0 12px;
   margin: 8px 0;
   color: ${colorTextSecondary};

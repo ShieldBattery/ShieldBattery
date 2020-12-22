@@ -29,7 +29,14 @@ import PreviewIcon from '../icons/material/zoom_in-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
 import { blue100, blue200, colorTextSecondary } from '../styles/colors'
-import { Body1, Body2, Headline, Subheading, robotoCondensed, Display1 } from '../styles/typography'
+import {
+  Body1,
+  Body2,
+  HeadlineOld,
+  Subheading,
+  robotoCondensed,
+  Display1Old,
+} from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const ChatSystemMessage = styled(ChatMessageLayout)`
@@ -331,7 +338,7 @@ const Info = styled.div`
   flex-shrink: 0;
 `
 
-const MapName = styled(Headline)`
+const MapName = styled(HeadlineOld)`
   margin: 0;
 `
 
@@ -383,7 +390,7 @@ const StartButton = styled(RaisedButton)`
   margin-top: 12px;
 `
 
-const Countdown = styled(Display1)`
+const Countdown = styled(Display1Old)`
   ${robotoCondensed};
   font-weight: 700;
 `

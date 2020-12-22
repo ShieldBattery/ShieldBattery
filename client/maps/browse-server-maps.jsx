@@ -34,7 +34,7 @@ import { SORT_BY_NAME } from '../../common/maps'
 import { MAP_UPLOADING } from '../../common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Headline, Subheading } from '../styles/typography'
+import { HeadlineOld, Subheading } from '../styles/typography'
 
 const MAPS_LIMIT = 30
 
@@ -401,7 +401,7 @@ export default class Maps extends React.Component {
       <Container>
         <TitleBar>
           <ActivityBackButton />
-          <Headline>{title}</Headline>
+          <HeadlineOld>{title}</HeadlineOld>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='Official maps' />

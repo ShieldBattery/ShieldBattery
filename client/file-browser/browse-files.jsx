@@ -30,7 +30,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { Headline, Title, Subheading, Caption } from '../styles/typography'
+import { HeadlineOld, Title, Subheading, Caption } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -251,7 +251,7 @@ const TitleContainer = styled.div`
   align-items: center;
 `
 
-const ContentTitle = styled(Headline)`
+const ContentTitle = styled(HeadlineOld)`
   margin: 0;
 `
 

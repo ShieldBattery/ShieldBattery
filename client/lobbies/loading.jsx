@@ -8,7 +8,7 @@ import MapImage from '../maps/map-image.jsx'
 import PlayerCard from './player-card.jsx'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Title, Display1 } from '../styles/typography'
+import { Title, Display1Old } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const LOADING_MESSAGES = [
@@ -238,7 +238,7 @@ const Content = styled.div`
   align-items: center;
 `
 
-const GameTypeMapBridge = styled(Display1)`
+const GameTypeMapBridge = styled(Display1Old)`
   color: ${colorTextSecondary};
 `
 
@@ -297,9 +297,9 @@ export default class LoadingScreen extends React.Component {
     return (
       <Content>
         <div>
-          <Display1 as='span'>{gameTypeToString(lobby.gameType)}</Display1>
+          <Display1Old as='span'>{gameTypeToString(lobby.gameType)}</Display1Old>
           <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
-          <Display1 as='span'>{lobby.map.name}</Display1>
+          <Display1Old as='span'>{lobby.map.name}</Display1Old>
         </div>
         <MapImageContainer>
           <MapImage map={lobby.map} />

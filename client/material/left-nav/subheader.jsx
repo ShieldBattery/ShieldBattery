@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
-import { Body2, singleLine } from '../../styles/typography'
+import { Body2Old, singleLine } from '../../styles/typography'
 import { colorTextSecondary } from '../../styles/colors'
 
 const Container = styled.div`
@@ -10,7 +10,7 @@ const Container = styled.div`
   align-items: center;
 `
 
-const Title = styled(Body2)`
+const Title = styled(Body2Old)`
   ${singleLine};
 
   height: 36px;

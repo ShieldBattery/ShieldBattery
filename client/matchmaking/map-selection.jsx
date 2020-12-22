@@ -9,7 +9,7 @@ import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { blue200, grey800 } from '../styles/colors'
-import { Display3, Subheading } from '../styles/typography'
+import { Display3Old, Subheading } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -87,7 +87,7 @@ export default class MapSelection extends React.Component {
 
     return (
       <Container>
-        <Display3>Map pool</Display3>
+        <Display3Old>Map pool</Display3Old>
         <MapsContainer>
           {preferredMapsItems}
           {randomMapsItems}

@@ -27,7 +27,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
 import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body1, Headline, Subheading, robotoCondensed } from '../styles/typography'
+import { Body1, HeadlineOld, Subheading, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -362,7 +362,7 @@ export default class FindMatch extends React.Component {
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
-          <Headline>Find match</Headline>
+          <HeadlineOld>Find match</HeadlineOld>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='1 vs 1' />

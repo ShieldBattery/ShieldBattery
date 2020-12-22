@@ -34,7 +34,7 @@ import {
 } from './action-creators'
 
 import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors'
-import { Body1, Subheading } from '../styles/typography'
+import { Body1, SubheadingOld } from '../styles/typography'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30
@@ -93,7 +93,7 @@ const StyledSelectedIcon = styled(SelectedIcon)`
   }
 `
 
-const SectionTitle = styled(Subheading)`
+const SectionTitle = styled(SubheadingOld)`
   color: ${colorTextSecondary};
 `
 
@@ -159,7 +159,7 @@ const LoadingArea = styled.div`
   margin: 16px 0;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 

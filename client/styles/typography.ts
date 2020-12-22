@@ -18,7 +18,7 @@ export const buttonText = css`
   text-transform: uppercase;
 `
 
-export const Display4 = styled.h1`
+export const Display4Old = styled.h1`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay4};
   font-weight: 300;
@@ -26,7 +26,7 @@ export const Display4 = styled.h1`
   line-height: ${textSizeDisplay4};
 `
 
-export const Display3 = styled.h1`
+export const Display3Old = styled.h1`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay3};
   font-weight: 400;
@@ -34,35 +34,28 @@ export const Display3 = styled.h1`
   line-height: ${textSizeDisplay3};
 `
 
-export const Display2 = styled.h1`
-  text-rendering: optimizeLegibility;
-  font-size: ${textSizeDisplay2};
-  font-weight: 400;
-  line-height: 64px;
-`
-
-export const Display1 = styled.h2`
+export const Display1Old = styled.h2`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay1};
   font-weight: 400;
   line-height: 40px;
 `
 
-export const Headline = styled.h3`
+export const HeadlineOld = styled.h3`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeHeadline};
   font-weight: 400;
   line-height: 32px;
 `
 
-export const Title = styled.h4`
+export const TitleOld = styled.h4`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeTitle};
   font-weight: 500;
   letter-spacing: 0.005em;
 `
 
-export const Subheading = styled.h5`
+export const SubheadingOld = styled.h5`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeSubhead};
   font-weight: 400;
@@ -70,19 +63,19 @@ export const Subheading = styled.h5`
   line-height: 24px;
 `
 
-export const Caption = styled.h6`
+export const CaptionOld = styled.h6`
   font-weight: 400;
   font-size: ${textSizeCaption};
   letter-spacing: 0.02em;
 `
 
-export const Body2 = styled.span`
+export const Body2Old = styled.span`
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 24px;
 `
 
-export const Body1 = styled.span`
+export const Body1Old = styled.span`
   font-weight: 400;
   letter-spacing: 0.01em;
   line-height: 20px;

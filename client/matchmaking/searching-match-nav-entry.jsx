@@ -7,7 +7,7 @@ import SubheaderButton from '../material/left-nav/subheader-button.jsx'
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2, Title, robotoCondensed } from '../styles/typography'
+import { Body2, TitleOld, robotoCondensed } from '../styles/typography'
 
 const SearchingContainer = styled.div`
   display: flex;
@@ -17,7 +17,7 @@ const SearchingContainer = styled.div`
   height: 48px;
 `
 
-const SearchTitle = styled(Title)`
+const SearchTitle = styled(TitleOld)`
   ${robotoCondensed};
   font-weight: 700;
   margin: 0 16px;

@@ -5,18 +5,18 @@ import styled from 'styled-components'
 import { ChatMessageLayout, InfoMessageLayout } from './message.jsx'
 
 import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
-import { Body2 } from '../styles/typography'
+import { Body2Old } from '../styles/typography'
 
 const SystemMessage = styled(ChatMessageLayout)`
   color: ${blue100};
 `
 
-const SystemImportant = styled(Body2)`
+const SystemImportant = styled(Body2Old)`
   line-height: inherit;
   color: ${blue200};
 `
 
-const InfoImportant = styled(Body2)`
+const InfoImportant = styled(Body2Old)`
   line-height: inherit;
   color: ${colorTextSecondary};
 `

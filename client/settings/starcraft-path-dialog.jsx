@@ -14,7 +14,7 @@ import { mergeLocalSettings } from './action-creators'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 import { colorError } from '../styles/colors'
-import { Subheading } from '../styles/typography'
+import { SubheadingOld } from '../styles/typography'
 
 const checkStarcraftPath = IS_ELECTRON
   ? require('../starcraft/check-starcraft-path').checkStarcraftPath
@@ -60,7 +60,7 @@ const BrowseButtonContainer = styled.div`
   height: 56px;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 

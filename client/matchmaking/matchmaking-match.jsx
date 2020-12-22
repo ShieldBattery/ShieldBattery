@@ -7,7 +7,7 @@ import PlayerCard from '../lobbies/player-card.jsx'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1, Display3, Display4, robotoCondensed } from '../styles/typography'
+import { Display1Old, Display3Old, Display4Old, robotoCondensed } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -41,12 +41,12 @@ const StatusContainer = styled.div`
   align-items: center;
 `
 
-const CountdownText = styled(Display4)`
+const CountdownText = styled(Display4Old)`
   ${robotoCondensed};
   font-weight: 700;
 `
 
-const StatusText = styled(Display1)`
+const StatusText = styled(Display1Old)`
   ${robotoCondensed};
   color: ${colorTextSecondary};
 `
@@ -85,7 +85,7 @@ const VsContainer = styled.div`
   align-items: center;
 `
 
-const VsText = styled(Display1)`
+const VsText = styled(Display1Old)`
   ${robotoCondensed};
   font-weight: 700;
 `
@@ -123,7 +123,7 @@ export default class MatchmakingMatch extends React.Component {
 
     return (
       <Container>
-        <Display3>{map.name}</Display3>
+        <Display3Old>{map.name}</Display3Old>
         <TopHalfContainer>
           <Spacer />
           <MapContainer>

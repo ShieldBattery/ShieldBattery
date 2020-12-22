@@ -9,7 +9,7 @@ import RaceIcon from '../lobbies/race-icon.jsx'
 
 import { fastOutSlowInShort } from '../material/curves'
 import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { Headline, singleLine, robotoCondensed } from '../styles/typography'
+import { HeadlineOld, singleLine, robotoCondensed } from '../styles/typography'
 
 const Container = styled(Card)`
   display: flex;
@@ -31,7 +31,7 @@ const StyledAvatar = styled(Avatar)`
   ${fastOutSlowInShort};
 `
 
-const PlayerName = styled(Headline)`
+const PlayerName = styled(HeadlineOld)`
   flex-grow: 1;
   font-weight: 700;
   margin: 0 16px;

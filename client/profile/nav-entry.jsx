@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 
 import AvatarButton from '../avatars/avatar-button.jsx'
 
-import { Body2, singleLine, robotoCondensed } from '../styles/typography'
+import { Body2Old, singleLine, robotoCondensed } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -25,7 +25,7 @@ const avatarStyle = css`
   height: 40px;
 `
 
-const User = styled(Body2)`
+const User = styled(Body2Old)`
   ${robotoCondensed}
   font-size: 24px;
   font-weight: 700;

@@ -11,7 +11,7 @@ import { DEV_INDICATOR } from '../../common/flags'
 import { blue800, colorError } from '../styles/colors'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
-import { Title, singleLine, robotoCondensed } from '../styles/typography'
+import { TitleOld, singleLine, robotoCondensed } from '../styles/typography'
 import { zIndexAppBar } from '../material/zindex'
 
 const Container = styled.header`
@@ -42,7 +42,7 @@ const Content = styled.div`
   }
 `
 
-export const AppBarTitle = styled(Title)`
+export const AppBarTitle = styled(TitleOld)`
   ${singleLine};
   line-height: ${standardIncrement};
   margin: 0;

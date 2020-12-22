@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
-import { Body1, Body2, Caption } from '../styles/typography'
+import { Body1, Body2Old, CaptionOld } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
 function getLocalTime(date) {
@@ -36,7 +36,7 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-const Timestamp = styled(Caption)`
+const Timestamp = styled(CaptionOld)`
   flex-shrink: 0;
   margin: 0;
   margin-right: 8px;
@@ -74,7 +74,7 @@ ChatMessageLayout.propTypes = {
   className: PropTypes.string,
 }
 
-const Username = styled(Body2)`
+const Username = styled(Body2Old)`
   flex-shrink: 0;
   color: ${amberA100};
   line-height: inherit;

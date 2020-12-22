@@ -8,14 +8,14 @@ import CheckBox from '../material/check-box.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { Display1 } from '../styles/typography'
+import { Display1Old } from '../styles/typography'
 
 export const AuthContent = styled.div`
   position: relative;
   width: 100%;
 `
 
-export const AuthTitle = styled(Display1)`
+export const AuthTitle = styled(Display1Old)`
   text-align: center;
   margin-top: 0;
 `

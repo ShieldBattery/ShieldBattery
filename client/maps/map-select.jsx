@@ -12,7 +12,7 @@ import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 import { shadow2dp, shadow8dp } from '../material/shadows'
 import { grey800, colorError, colorTextSecondary } from '../styles/colors'
-import { Subheading } from '../styles/typography'
+import { SubheadingOld } from '../styles/typography'
 
 const SPACE = 'Space'
 const TAB = 'Tab'
@@ -23,7 +23,7 @@ const Container = styled.div`
   }
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
@@ -75,7 +75,7 @@ const BrowseIcon = styled(MapIcon)`
   opacity: 0.5;
 `
 
-const BrowseText = styled(Subheading)`
+const BrowseText = styled(SubheadingOld)`
   color: ${colorTextSecondary};
 `
 

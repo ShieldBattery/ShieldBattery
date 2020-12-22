@@ -27,7 +27,7 @@ import {
 } from '../../common/constants'
 import { required } from '../forms/validators'
 import { colorError, colorTextSecondary } from '../styles/colors'
-import { Display1, Subheading, Body1, singleLine } from '../styles/typography'
+import { Display1Old, Subheading, Body1, singleLine } from '../styles/typography'
 
 const ESCAPE = 'Escape'
 
@@ -54,7 +54,7 @@ const MapInfo = styled.div`
   margin-right: 16px;
 `
 
-const MapName = styled(Display1)`
+const MapName = styled(Display1Old)`
   flex-shrink: 0;
   position: relative;
   /* dialog max-width - dialog padding - map info margin - map image */

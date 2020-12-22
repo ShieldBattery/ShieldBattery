@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2, Title, robotoCondensed, singleLine } from '../styles/typography'
+import { Body2, TitleOld, robotoCondensed, singleLine } from '../styles/typography'
 
 const Container = styled.li`
   height: 72px;
@@ -31,7 +31,7 @@ const StyledLink = styled(Link)`
   }
 `
 
-const StyledTitle = styled(Title)`
+const StyledTitle = styled(TitleOld)`
   ${robotoCondensed};
   ${singleLine};
   margin: 0;

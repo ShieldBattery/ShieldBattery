@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import Dialog from '../material/dialog.jsx'
 import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
-import { Title } from '../styles/typography'
+import { TitleOld } from '../styles/typography'
 
 import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
 
@@ -13,7 +13,7 @@ import RaisedButton from '../material/raised-button.jsx'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
-const Text = styled(Title)`
+const Text = styled(TitleOld)`
   margin-top: 0;
   margin-bottom: 24px;
   font-weight: 400;

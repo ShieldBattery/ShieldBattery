@@ -23,7 +23,7 @@ import { toggleFavoriteMap } from '../maps/action-creators'
 import { MATCHMAKING_TYPES } from '../../common/constants'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Body1, Headline, Subheading } from '../styles/typography'
+import { Body1, HeadlineOld, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -211,7 +211,7 @@ export default class PreferredMaps extends React.Component {
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
           <ActivityBackButton />
-          <Headline>Select preferred maps</Headline>
+          <HeadlineOld>Select preferred maps</HeadlineOld>
         </TitleBar>
         <Contents>
           <ScrollDivider position='top' />

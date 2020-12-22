@@ -11,7 +11,7 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
-import { Headline, Subheading, Display4 } from '../styles/typography'
+import { HeadlineOld, Subheading, Display4Old } from '../styles/typography'
 import { shadowDef4dp } from '../material/shadow-constants'
 
 const questions = [
@@ -172,7 +172,7 @@ const StyledQuestionIcon = styled(QuestionIcon)`
   }
 `
 
-const QuestionText = styled(Headline)`
+const QuestionText = styled(HeadlineOld)`
   margin: 0;
   display: inline-block;
 
@@ -310,7 +310,7 @@ const FaqHeaderContainer = styled.div`
   }
 `
 
-const FaqHeader = styled(Display4)`
+const FaqHeader = styled(Display4Old)`
   width: 100%;
   max-width: 464px;
   margin: 0;

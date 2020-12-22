@@ -23,7 +23,7 @@ import {
 } from './action-creators'
 
 import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors'
-import { Body1, Subheading } from '../styles/typography'
+import { Body1, SubheadingOld } from '../styles/typography'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 
@@ -40,7 +40,7 @@ const LoadingArea = styled.div`
   margin: 16px 0;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 

@@ -13,9 +13,9 @@ import {
 } from './is-starcraft-healthy'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { Subheading } from '../styles/typography'
+import { SubheadingOld } from '../styles/typography'
 
-const HeaderText = styled(Subheading)`
+const HeaderText = styled(SubheadingOld)`
   margin-top: 0;
 `
 

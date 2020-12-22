@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 
-import { Body1 } from '../styles/typography'
+import { Body1Old } from '../styles/typography'
 
 @connect(state => ({ activeUsers: state.serverStatus.get('activeUsers') }))
 class ActiveUsersCount extends React.Component {
@@ -12,7 +12,7 @@ class ActiveUsersCount extends React.Component {
       ...otherProps
     } = this.props
     const activeUsersStr = activeUsers === null ? '' : `${activeUsers} online`
-    return <Body1 {...otherProps}>{activeUsersStr}</Body1>
+    return <Body1Old {...otherProps}>{activeUsersStr}</Body1Old>
   }
 }
 

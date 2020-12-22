@@ -16,7 +16,7 @@ import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 
 import { colorError, colorSuccess, colorTextSecondary, amberA400, grey800 } from '../styles/colors'
-import { Subheading, singleLine } from '../styles/typography'
+import { SubheadingOld, singleLine } from '../styles/typography'
 
 const Container = styled.div`
   max-width: 600px;
@@ -58,15 +58,15 @@ const StyledErrorIcon = styled(ErrorIcon)`
   color: ${colorError};
 `
 
-const Underline = styled(Subheading)`
+const Underline = styled(SubheadingOld)`
   color: ${colorTextSecondary};
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
-const WarningText = styled(Subheading)`
+const WarningText = styled(SubheadingOld)`
   color: ${amberA400};
 `
 

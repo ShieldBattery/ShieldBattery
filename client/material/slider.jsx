@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { darken, rgba } from 'polished'
 
-import { Body1, Caption } from '../styles/typography'
+import { Body1, CaptionOld } from '../styles/typography'
 import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
@@ -257,7 +257,7 @@ const Balloon = styled.div`
   }
 `
 
-const BalloonText = styled(Caption)`
+const BalloonText = styled(CaptionOld)`
   font-weight: 500;
   line-height: ${BALLOON_HEIGHT_PX}px;
   z-index: 2;

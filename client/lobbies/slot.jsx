@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Body2, singleLine, Subheading } from '../styles/typography'
+import { Body2, singleLine, SubheadingOld } from '../styles/typography'
 import { colorTextSecondary, colorDividers, colorTextFaint } from '../styles/colors'
 
 export const RegularSlots = styled.div`
@@ -96,7 +96,7 @@ export const SlotEmptyAvatar = styled.span`
   color: ${colorTextSecondary};
 `
 
-export const SlotName = styled(Subheading)`
+export const SlotName = styled(SubheadingOld)`
   ${singleLine};
   max-width: 256px;
   flex-grow: 1;

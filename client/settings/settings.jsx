@@ -21,7 +21,7 @@ import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 
 import { LocalSettings, ScrSettings } from './settings-records'
 import { colorTextSecondary, colorError } from '../styles/colors'
-import { Body1, Subheading } from '../styles/typography'
+import { Body1, SubheadingOld } from '../styles/typography'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size
@@ -56,7 +56,7 @@ const ContentsBody = styled.div`
   margin-top: 24px;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 

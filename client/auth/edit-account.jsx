@@ -31,7 +31,7 @@ import {
 } from '../../common/constants'
 
 import { colorTextSecondary, colorError } from '../styles/colors'
-import { Subheading } from '../styles/typography'
+import { SubheadingOld } from '../styles/typography'
 
 function passwordRequired() {
   return (val, model, dirty) =>
@@ -146,7 +146,7 @@ const LoadingArea = styled.div`
   margin-bottom: 24px;
 `
 
-const ErrorText = styled(Subheading)`
+const ErrorText = styled(SubheadingOld)`
   margin: 0;
   margin-bottom: 24px;
   color: ${colorError};

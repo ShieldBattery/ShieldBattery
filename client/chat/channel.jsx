@@ -21,7 +21,7 @@ import MenuItem from '../material/menu/item.jsx'
 import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body2, singleLine } from '../styles/typography'
+import { Body2Old, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
 
@@ -57,7 +57,7 @@ const userListRow = css`
   line-height: 28px;
 `
 
-const UserListSubheader = styled(Body2)`
+const UserListSubheader = styled(Body2Old)`
   ${singleLine};
   ${userListRow};
   color: ${colorTextSecondary};

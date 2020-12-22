@@ -28,7 +28,7 @@ import { ScrollableContent } from '../material/scroll-bar.jsx'
 import TextField from '../material/text-field.jsx'
 
 import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { Headline, Subheading } from '../styles/typography'
+import { HeadlineOld, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -320,7 +320,7 @@ export default class CreateLobby extends React.Component {
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
-          <Headline>Create lobby</Headline>
+          <HeadlineOld>Create lobby</HeadlineOld>
         </TitleBar>
         <Contents>
           {scrolledDown ? <ScrollDivider position='top' /> : null}

@@ -13,7 +13,7 @@ import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constan
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
 import { colorDividers, CardLayer } from '../styles/colors'
-import { Headline } from '../styles/typography'
+import { HeadlineOld } from '../styles/typography'
 
 const ESCAPE = keycode('esc')
 
@@ -62,7 +62,7 @@ const TitleBar = styled.div`
   align-items: center;
 `
 
-const Title = styled(Headline)`
+const Title = styled(HeadlineOld)`
   flex-grow: 1;
   margin: 0;
   padding: 24px 24px 20px;
