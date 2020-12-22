@@ -30,7 +30,7 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../common/constants'
 
-import { colorTextSecondary, colorError } from '../styles/colors'
+import { colorTextSecondary, colorError } from '../styles/colors.ts'
 import { Subheading } from '../styles/typography'
 
 function passwordRequired() {

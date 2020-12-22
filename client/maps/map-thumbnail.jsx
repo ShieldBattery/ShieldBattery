@@ -9,7 +9,7 @@ import MapImage from './map-image.jsx'
 import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
-import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors'
+import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors.ts'
 import { Subheading, singleLine } from '../styles/typography'
 
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'

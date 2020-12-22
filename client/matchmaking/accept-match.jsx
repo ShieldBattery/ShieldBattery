@@ -13,7 +13,7 @@ import { acceptMatch } from './action-creators'
 
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 
-import { amberA400, grey700 } from '../styles/colors'
+import { amberA400, grey700 } from '../styles/colors.ts'
 import { Body1 } from '../styles/typography'
 
 const ENTER = 'Enter'

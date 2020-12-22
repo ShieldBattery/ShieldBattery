@@ -9,7 +9,7 @@ import WindowListener from '../dom/window-listener.jsx'
 import { fastOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'
 import { zIndexMenu, zIndexMenuBackdrop } from './zindex'
-import { CardLayer } from '../styles/colors'
+import { CardLayer } from '../styles/colors.ts'
 
 const ESCAPE = 'ESCAPE'
 

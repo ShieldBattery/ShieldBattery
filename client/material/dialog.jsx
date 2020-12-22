@@ -12,7 +12,7 @@ import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constants'
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
-import { colorDividers, CardLayer } from '../styles/colors'
+import { colorDividers, CardLayer } from '../styles/colors.ts'
 import { Headline } from '../styles/typography'
 
 const ESCAPE = keycode('esc')

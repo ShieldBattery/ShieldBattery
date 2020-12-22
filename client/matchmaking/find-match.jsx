@@ -26,7 +26,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 
 import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
 
-import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
+import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors.ts'
 import { Body1, Headline, Subheading, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'

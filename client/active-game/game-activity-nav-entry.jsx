@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-import { colorTextSecondary } from '../styles/colors.js'
+import { colorTextSecondary } from '../styles/colors.ts'
 import { Body2, Title, robotoCondensed, singleLine } from '../styles/typography.js'
 
 const Container = styled.li`

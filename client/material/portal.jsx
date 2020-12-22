@@ -7,7 +7,7 @@ import { rgba } from 'polished'
 
 import { fastOutSlowIn } from './curve-constants'
 import { zIndexDialogScrim } from './zindex'
-import { grey900 } from '../styles/colors'
+import { grey900 } from '../styles/colors.ts'
 
 const transitionNames = {
   appear: 'enter',

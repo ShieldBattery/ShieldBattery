@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors'
+import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors.ts'
 import { Subheading, singleLine } from '../styles/typography'
 
 export const TEXTAREA_BOTTOM_PADDING = 7

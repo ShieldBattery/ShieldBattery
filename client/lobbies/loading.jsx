@@ -7,7 +7,7 @@ import styled from 'styled-components'
 import MapImage from '../maps/map-image.jsx'
 import PlayerCard from './player-card.jsx'
 
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 import { Title, Display1 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 

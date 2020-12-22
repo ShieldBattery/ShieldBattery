@@ -7,7 +7,7 @@ import PasswordTextField from '../material/password-text-field.jsx'
 import CheckBox from '../material/check-box.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors.ts'
 import { Display1 } from '../styles/typography'
 
 export const AuthContent = styled.div`

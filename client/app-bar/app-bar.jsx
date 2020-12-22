@@ -8,7 +8,7 @@ import Lockup from './lockup.jsx'
 import { windowControlsHeight, SizeTop, SizeLeft, SizeRight } from './window-controls.jsx'
 import { DEV_INDICATOR } from '../../common/flags'
 
-import { blue800, colorError } from '../styles/colors'
+import { blue800, colorError } from '../styles/colors.ts'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
 import { Title, singleLine, robotoCondensed } from '../styles/typography'

@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 
 import { shadow2dp } from './shadows'
-import { CardLayer } from '../styles/colors'
+import { CardLayer } from '../styles/colors.ts'
 
 const Card = styled(CardLayer)`
   ${shadow2dp};

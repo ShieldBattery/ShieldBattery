@@ -9,7 +9,7 @@ import InputError from './input-error.jsx'
 import InputUnderline from './input-underline.jsx'
 import Label from './input-label.jsx'
 
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 
 // NOTE(2Pac): You might notice that this component (and others that are used here) might have some
 // weird values used for paddings and margins, like 1px, or 7px. This is fine. It's mostly caused by

@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import Button, { ButtonContent, Label } from './button.jsx'
 
-import { amberA400, blue400, CardLayer } from '../styles/colors'
+import { amberA400, blue400, CardLayer } from '../styles/colors.ts'
 
 const FlatButtonContents = styled(ButtonContent).attrs(props => ({
   primary: props.color === 'primary',

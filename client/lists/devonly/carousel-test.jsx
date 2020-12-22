@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import Card from '../../material/card.jsx'
 import Carousel from '../carousel.jsx'
 
-import { grey850, grey800, colorTextSecondary } from '../../styles/colors'
+import { grey850, grey800, colorTextSecondary } from '../../styles/colors.ts'
 
 const Container = styled.div`
   display: flex;

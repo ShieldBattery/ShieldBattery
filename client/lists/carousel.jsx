@@ -11,7 +11,7 @@ import CarouselPrev from '../icons/material/chevron_left-24px.svg'
 import CarouselNext from '../icons/material/chevron_right-24px.svg'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 
 const BUTTON_WIDTH = 64
 const LOADER_WIDTH = 98

@@ -8,7 +8,7 @@ import MenuItem from '../menu/item.jsx'
 import RaisedButton from '../raised-button.jsx'
 import SelectedMenuItem from '../menu/selected-item.jsx'
 
-import { colorTextSecondary } from '../../styles/colors'
+import { colorTextSecondary } from '../../styles/colors.ts'
 import { Subheading } from '../../styles/typography'
 
 const Container = styled.div`

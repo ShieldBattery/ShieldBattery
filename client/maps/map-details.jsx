@@ -26,7 +26,7 @@ import {
   MAP_VISIBILITY_PUBLIC,
 } from '../../common/constants'
 import { required } from '../forms/validators'
-import { colorError, colorTextSecondary } from '../styles/colors'
+import { colorError, colorTextSecondary } from '../styles/colors.ts'
 import { Display1, Subheading, Body1, singleLine } from '../styles/typography'
 
 const ESCAPE = 'Escape'

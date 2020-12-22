@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import { colorText } from '../styles/colors'
+import { colorText } from '../styles/colors.ts'
 import { Body2 } from '../styles/typography'
 
 import RaisedButton from '../material/raised-button.jsx'

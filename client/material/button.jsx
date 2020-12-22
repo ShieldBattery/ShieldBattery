@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import { reset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
-import { colorTextPrimary, colorTextFaint } from '../styles/colors'
+import { colorTextPrimary, colorTextFaint } from '../styles/colors.ts'
 import { buttonText } from '../styles/typography'
 
 export const ButtonCommon = styled.button`

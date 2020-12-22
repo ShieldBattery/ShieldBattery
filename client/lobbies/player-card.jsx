@@ -8,7 +8,7 @@ import ComputerAvatar from '../avatars/computer-avatar.jsx'
 import RaceIcon from '../lobbies/race-icon.jsx'
 
 import { fastOutSlowInShort } from '../material/curves'
-import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors.ts'
 import { Headline, singleLine, robotoCondensed } from '../styles/typography'
 
 const Container = styled(Card)`

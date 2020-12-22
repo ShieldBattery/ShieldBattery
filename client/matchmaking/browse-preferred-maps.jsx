@@ -22,7 +22,7 @@ import { toggleFavoriteMap } from '../maps/action-creators'
 
 import { MATCHMAKING_TYPES } from '../../common/constants'
 
-import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorError, colorTextSecondary } from '../styles/colors.ts'
 import { Body1, Headline, Subheading } from '../styles/typography'
 
 const ENTER = 'Enter'

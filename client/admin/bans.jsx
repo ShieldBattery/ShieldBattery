@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 import FlatButton from '../material/flat-button.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
 import form from '../forms/form.jsx'

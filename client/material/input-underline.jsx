@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { fastOutSlowInShort } from './curves'
-import { amberA400, colorError, colorDividers } from '../styles/colors'
+import { amberA400, colorError, colorDividers } from '../styles/colors.ts'
 
 const UnderlineContainer = styled.div`
   order: 3;

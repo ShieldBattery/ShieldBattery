@@ -20,7 +20,7 @@ import { mergeLocalSettings, mergeScrSettings } from './action-creators'
 import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 
 import { LocalSettings, ScrSettings } from './settings-records'
-import { colorTextSecondary, colorError } from '../styles/colors'
+import { colorTextSecondary, colorError } from '../styles/colors.ts'
 import { Body1, Subheading } from '../styles/typography'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null

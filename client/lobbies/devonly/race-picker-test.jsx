@@ -5,7 +5,7 @@ import Card from '../../material/card.jsx'
 import RacePicker from '../race-picker.jsx'
 import SelectedRace from '../selected-race.jsx'
 
-import { grey850 } from '../../styles/colors'
+import { grey850 } from '../../styles/colors.ts'
 
 const Container = styled.div`
   display: flex;

@@ -9,7 +9,7 @@ import {
   grey700,
   grey800,
   CardLayer,
-} from './colors'
+} from './colors.ts'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {

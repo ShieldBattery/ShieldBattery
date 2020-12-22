@@ -54,7 +54,7 @@ import { removeMap } from './maps/action-creators'
 import { MATCHMAKING } from '../common/flags'
 
 import { Caption } from './styles/typography.js'
-import { colorTextSecondary } from './styles/colors.js'
+import { colorTextSecondary } from './styles/colors.ts'
 import { version as curVersion } from '../package.json'
 
 const KEY_C = keycode('c')

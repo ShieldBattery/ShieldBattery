@@ -6,7 +6,7 @@ import SubheaderButton from '../material/left-nav/subheader-button.jsx'
 
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 import { Body2, Title, robotoCondensed } from '../styles/typography'
 
 const SearchingContainer = styled.div`

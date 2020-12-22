@@ -6,7 +6,7 @@ import Button from '../material/button.jsx'
 import RaceIcon from './race-icon.jsx'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextFaint } from '../styles/colors'
+import { colorTextFaint } from '../styles/colors.ts'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
 export const RACE_PICKER_SIZE_LARGE = 'LARGE'

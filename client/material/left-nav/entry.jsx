@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import AttentionIndicator from './attention-indicator.jsx'
-import { amberA200 } from '../../styles/colors.js'
+import { amberA200 } from '../../styles/colors.ts'
 import { singleLine } from '../../styles/typography.js'
 
 const Container = styled.li`

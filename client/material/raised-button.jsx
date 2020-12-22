@@ -7,7 +7,7 @@ import Button, { ButtonContent, Label } from './button.jsx'
 
 import { shadowDef8dp } from './shadow-constants'
 import { shadow2dp } from './shadows'
-import { amberA400, blue500, blue600, blue700, CardLayer } from '../styles/colors'
+import { amberA400, blue500, blue600, blue700, CardLayer } from '../styles/colors.ts'
 
 const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
   primary: props.color !== 'accent',

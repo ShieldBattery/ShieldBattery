@@ -5,7 +5,7 @@ import queryString from 'query-string'
 import { Range } from 'immutable'
 import styled from 'styled-components'
 
-import { colorTextSecondary } from '../styles/colors'
+import { colorTextSecondary } from '../styles/colors.ts'
 import { getInvites, acceptUser } from './action-creators'
 
 const Container = styled.div`

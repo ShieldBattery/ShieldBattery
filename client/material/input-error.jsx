@@ -4,7 +4,7 @@ import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
 
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
-import { colorError } from '../styles/colors'
+import { colorError } from '../styles/colors.ts'
 
 const StyledTransitionGroup = styled(TransitionGroup)`
   display: flex;

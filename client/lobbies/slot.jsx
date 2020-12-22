@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { Body2, singleLine, Subheading } from '../styles/typography'
-import { colorTextSecondary, colorDividers, colorTextFaint } from '../styles/colors'
+import { colorTextSecondary, colorDividers, colorTextFaint } from '../styles/colors.ts'
 
 export const RegularSlots = styled.div`
   width: 100%;

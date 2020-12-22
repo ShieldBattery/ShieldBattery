@@ -29,7 +29,7 @@ import {
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-} from '../styles/colors'
+} from '../styles/colors.ts'
 import { Headline, Title, Subheading, Caption } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {

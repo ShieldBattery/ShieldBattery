@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { amberA200 } from '../../styles/colors'
+import { amberA200 } from '../../styles/colors.ts'
 
 const AttentionIndicator = styled.div`
   width: 8px;

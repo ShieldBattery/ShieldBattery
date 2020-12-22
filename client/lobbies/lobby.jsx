@@ -28,7 +28,7 @@ import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import PreviewIcon from '../icons/material/zoom_in-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
-import { blue100, blue200, colorTextSecondary } from '../styles/colors'
+import { blue100, blue200, colorTextSecondary } from '../styles/colors.ts'
 import { Body1, Body2, Headline, Subheading, robotoCondensed, Display1 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
