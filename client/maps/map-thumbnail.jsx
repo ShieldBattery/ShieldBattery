@@ -10,7 +10,7 @@ import Menu from '../material/menu/menu.jsx'
 import MenuItem from '../material/menu/item.jsx'
 
 import { colorTextPrimary, colorTextSecondary, amberA100, grey800 } from '../styles/colors'
-import { SubheadingOld, singleLine } from '../styles/typography'
+import { subtitle2, singleLine } from '../styles/typography'
 
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
@@ -115,9 +115,10 @@ const TextProtection = styled.div`
   background-color: rgba(0, 0, 0, 0.7);
 `
 
-const MapName = styled(SubheadingOld)`
-  color: ${colorTextPrimary};
+const MapName = styled.div`
+  ${subtitle2};
   ${singleLine};
+  color: ${colorTextPrimary};
 `
 
 const MapActionButton = styled(IconButton)`
