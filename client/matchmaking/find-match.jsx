@@ -19,6 +19,7 @@ import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
 
 import {
   findMatch,
+  getCurrentMapPool,
   getMatchmakingPreferences,
   updateMatchmakingPreferences,
 } from './action-creators'
@@ -246,7 +247,10 @@ function typeToTab(type) {
   }
 }
 
-@connect(state => ({ matchmakingPreferences: state.matchmakingPreferences }))
+@connect(state => ({
+  matchmaking: state.matchmaking,
+  matchmakingPreferences: state.matchmakingPreferences,
+}))
 export default class FindMatch extends React.Component {
   static propTypes = {
     preferredMaps: PropTypes.instanceOf(List),
@@ -285,6 +289,9 @@ export default class FindMatch extends React.Component {
 
   componentDidMount() {
     this.props.dispatch(getMatchmakingPreferences(tabToType(this.state.activeTab)))
+    // This is needed so the current map pool is loaded in the store which will then be used to
+    // download all the maps as soon as the player enters the queue.
+    this.props.dispatch(getCurrentMapPool(tabToType(this.state.activeTab)))
     window.addEventListener('beforeunload', this._savePreferences)
   }
 
@@ -301,10 +308,11 @@ export default class FindMatch extends React.Component {
       })
     }
 
-    // TODO(2Pac): Get preferences for the new tab when the tab changes (once we add support for
-    // other matchmaking types that we currently display tabs for)
+    // TODO(2Pac): Get preferences and the map pool for the new tab when the tab changes (once we
+    // add support for other matchmaking types that we currently display tabs for)
     if (prevState.activeTab !== TAB_1V1 && this.state.activeTab === TAB_1V1) {
       this.props.dispatch(getMatchmakingPreferences(tabToType(this.state.activeTab)))
+      this.props.dispatch(getCurrentMapPool(tabToType(this.state.activeTab)))
     }
   }
 
@@ -347,10 +355,12 @@ export default class FindMatch extends React.Component {
   }
 
   render() {
-    const { matchmakingPreferences } = this.props
+    const { matchmaking, matchmakingPreferences } = this.props
     const { activeTab, scrolledUp } = this.state
 
-    if (matchmakingPreferences.isRequesting) {
+    const mapPool = matchmaking.mapPoolTypes.get(tabToType(activeTab))
+
+    if ((mapPool && mapPool.isRequesting) || matchmakingPreferences.isRequesting) {
       return (
         <LoadingArea>
           <LoadingIndicator />
