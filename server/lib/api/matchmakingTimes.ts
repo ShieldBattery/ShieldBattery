@@ -5,7 +5,7 @@ import Joi from 'joi'
 
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { MATCHMAKING_TYPES } from '../../../common/constants'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -21,7 +21,7 @@ import {
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 
 const matchmakingTypeSchema = Joi.object({
-  matchmakingType: Joi.valid(...MATCHMAKING_TYPES).required(),
+  matchmakingType: Joi.valid(...Object.values(MatchmakingType)).required(),
 })
 
 const addMatchmakingTimeSchema = Joi.object({
@@ -168,7 +168,7 @@ async function addNew(ctx: Koa.Context, next: Koa.Next) {
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
 
   if (matchmakingStatusInstance) {
-    matchmakingStatusInstance.publish(matchmakingType)
+    matchmakingStatusInstance.maybePublish(matchmakingType)
   }
 }
 
@@ -185,7 +185,7 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
   await removeMatchmakingTime(matchmakingTimeId)
 
   if (matchmakingStatusInstance) {
-    matchmakingStatusInstance.publish(matchmakingTime.type)
+    matchmakingStatusInstance.maybePublish(matchmakingTime.type)
   }
 
   ctx.status = 204
