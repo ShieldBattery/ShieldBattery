@@ -4,9 +4,6 @@ block headScripts
   if initData
     script(type='text/javascript', nonce=cspNonce).
       window._sbInitData=!{JSON.stringify(initData)}
-  if analyticsId
-    script(type='text/javascript', nonce=cspNonce).
-      window._sbAnalyticsId=!{JSON.stringify(analyticsId)}
   if feedbackUrl
     script(type='text/javascript', nonce=cspNonce).
       window._sbFeedbackUrl=!{JSON.stringify(feedbackUrl)}
@@ -17,7 +14,7 @@ block metaTags
   meta(property='og:title', content='ShieldBattery - Modern Starcraft: Brood War')
   meta(property='og:description', content='Play Starcraft: Brood War with improved networking, modern operating system support, ladder, matchmaking, and more!')
   meta(property='og:image', content='/images/logo-and-text-1200x630.png')
-  
+
   meta(name='twitter:card', content='summary_large_image')
   meta(name='twitter:title', content='ShieldBattery - Modern Starcraft: Brood War')
   meta(name='twitter:description', content='Play Starcraft: Brood War with improved networking, modern operating system support, ladder, matchmaking, and more!')

@@ -37,7 +37,6 @@ export default function applyRoutes(app, nydus, userSockets) {
 
   router.get('/config', async (ctx, next) => {
     ctx.body = {
-      analyticsId: process.env.SB_ANALYTICS_ID,
       feedbackUrl: process.env.SB_FEEDBACK_URL,
     }
     ctx.type = 'application/json'
@@ -64,7 +63,6 @@ export default function applyRoutes(app, nydus, userSockets) {
       }
       await ctx.render('index', {
         initData,
-        analyticsId: process.env.SB_ANALYTICS_ID,
         feedbackUrl: process.env.SB_FEEDBACK_URL,
         cspNonce: getCspNonce(ctx),
       })

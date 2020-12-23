@@ -1,10 +1,7 @@
 import React from 'react'
 import { Route, Switch } from 'react-router-dom'
-import ga from 'react-ga'
 import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
-import { makeServerUrl } from './network/server-url'
-
 import { hot } from 'react-hot-loader/root'
 
 import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.jsx'
@@ -37,32 +34,6 @@ const LoadableDev = IS_PRODUCTION
     })
 
 class App extends React.Component {
-  initialized = false
-  onUpdate = () => {
-    if (!this.initialized) {
-      return
-    }
-
-    // TODO(2Pac): Make GA work.
-    // See: https://github.com/react-ga/react-ga/wiki/React-Router-v4-withTracker
-    if (IS_ELECTRON) {
-      ga.pageview(window.location.hash.slice(1))
-    } else {
-      ga.pageview(window.location.pathname)
-    }
-  }
-
-  componentDidMount() {
-    if (this.props.analyticsId) {
-      ga.initialize(this.props.analyticsId)
-      if (IS_ELECTRON) {
-        ga.set({ location: makeServerUrl('') })
-        ga.set({ checkProtocolTask: null })
-      }
-      this.initialized = true
-    }
-  }
-
   render() {
     return (
       // NOTE(2Pac): These are only the top-level routes. More specific routes are declared where
