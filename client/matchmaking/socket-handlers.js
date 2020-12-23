@@ -17,6 +17,7 @@ import {
   MATCHMAKING_UPDATE_COUNTDOWN_TICK,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
+  MATCHMAKING_UPDATE_SEARCHING_TIME,
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
@@ -28,6 +29,17 @@ import { USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+
+const searchingState = {
+  timer: null,
+}
+function clearSearchingTimer() {
+  const { timer } = searchingState
+  if (timer) {
+    clearInterval(timer)
+    searchingState.timer = null
+  }
+}
 
 const acceptMatchState = {
   timer: null,
@@ -288,15 +300,31 @@ const eventToAction = {
     })
   },
 
+  // TODO(2Pac): Is it safe to assume that this event will only be emitted when a player starts or
+  // cancels finding a match? Maybe rename this event to better indicate that, or introduce a new
+  // event that guarantees that better? Or perhaps do this logic in the action-creator after we
+  // invoke the find-match action?
   status: (name, event) => (dispatch, getState) => {
-    // As a slight optimization, we download the whole map pool as soon as the player enters the
-    // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if a
-    // map already exists before attempting to download it.
-    if (event.matchmaking && event.matchmaking.type) {
+    const isFinding = event.matchmaking && event.matchmaking.type
+    if (isFinding) {
+      clearSearchingTimer()
+      let searchingTime = 0
+
+      searchingState.timer = setInterval(() => {
+        searchingTime += 1
+        dispatch({
+          type: MATCHMAKING_UPDATE_SEARCHING_TIME,
+          payload: searchingTime,
+        })
+      }, 1000)
+
       const {
         matchmaking: { mapPoolTypes },
       } = getState()
 
+      // As a slight optimization, we download the whole map pool as soon as the player enters the
+      // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if
+      // a map already exists before attempting to download it.
       const mapPool = mapPoolTypes.get(event.matchmaking.type)
       if (mapPool) {
         mapPool.byId
@@ -307,6 +335,8 @@ const eventToAction = {
               .catch(err => log.error('Error while downloading map: ' + err)),
           )
       }
+    } else {
+      clearSearchingTimer()
     }
 
     dispatch({

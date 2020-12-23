@@ -321,6 +321,8 @@ export const MATCHMAKING_UPDATE_MATCH_ACCEPTED = 'MATCHMAKING_UPDATE_MATCH_ACCEP
 export const MATCHMAKING_UPDATE_MATCH_FOUND = 'MATCHMAKING_UPDATE_MATCH_FOUND'
 // The server has responded that all players have accepted the match and game is ready to start
 export const MATCHMAKING_UPDATE_MATCH_READY = 'MATCHMAKING_UPDATE_MATCH_READY'
+// A second has elapsed while searching for a match
+export const MATCHMAKING_UPDATE_SEARCHING_TIME = 'MATCHMAKING_UPDATE_SEARCHING_TIME'
 // Our status has changed, ie. one of our clients is searching for a game or has stopped searching
 export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
 

@@ -26,10 +26,9 @@ import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
 import MatchmakingDisabledOverlay from './matchmaking/matchmaking-disabled-overlay.jsx'
+import MatchmakingSearchingOverlay from './matchmaking/matchmaking-searching-overlay.jsx'
 import MatchmakingView from './matchmaking/view.jsx'
 import MatchmakingTitle from './matchmaking/app-bar-title.jsx'
-import Menu from './material/menu/menu.jsx'
-import MenuItem from './material/menu/item.jsx'
 import Whisper from './whispers/whisper.jsx'
 import WhispersTitle from './whispers/app-bar-title.jsx'
 
@@ -113,6 +112,7 @@ function stateToProps(state) {
     starcraft: state.starcraft,
     router: state.router,
     matchmaking: state.matchmaking,
+    matchmakingPreferences: state.matchmakingPreferences,
     matchmakingStatus: state.matchmakingStatus,
   }
 }
@@ -166,26 +166,25 @@ class MainLayout extends React.Component {
   }
 
   renderSearchingMatchOverlay() {
-    if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
+    const {
+      matchmaking: { isFinding, searchingTime },
+      matchmakingPreferences: { matchmakingType, race },
+    } = this.props
+    if (!isFinding || !IS_ELECTRON) return null
 
     return (
-      <Menu
+      <MatchmakingSearchingOverlay
         open={this.state.searchingMatchOverlayOpen}
-        onDismiss={this.onSearchingMatchOverlayClose}
         anchor={this._searchingMatchButtonRef.current}
-        anchorOriginVertical='top'
-        anchorOriginHorizontal='left'
-        popoverOriginVertical='top'
-        popoverOriginHorizontal='right'>
-        <MenuItem
-          key='cancel'
-          text='Cancel'
-          onClick={() => {
-            this.onCancelFindMatchClick()
-            this.onSearchingMatchOverlayClose()
-          }}
-        />
-      </Menu>
+        elapsedTime={searchingTime}
+        matchmakingType={matchmakingType}
+        selectedRace={race}
+        onCancelSearch={() => {
+          this.onCancelFindMatchClick()
+          this.onSearchingMatchOverlayClose()
+        }}
+        onDismiss={this.onSearchingMatchOverlayClose}
+      />
     )
   }
 

@@ -31,30 +31,12 @@ const ElapsedTimeContainer = styled(Body2Old)`
 
 export default class SearchingMatchNavEntry extends React.Component {
   static propTypes = {
+    elapsedTime: PropTypes.number,
     onCancelSearch: PropTypes.func.isRequired,
   }
 
-  state = {
-    elapsedTime: 0, // in seconds
-  }
-
-  _timerId = null
-
-  componentDidMount() {
-    this._timerId = setInterval(() => {
-      this.setState({ elapsedTime: this.state.elapsedTime + 1 })
-    }, 1000)
-  }
-
-  componentWillUnmount() {
-    if (this._timerId) {
-      clearInterval(this._timerId)
-      this._timerId = null
-    }
-  }
-
   formatElapsedTime() {
-    const { elapsedTime } = this.state
+    const { elapsedTime } = this.props
     const hours = Math.floor(elapsedTime / 3600)
     const minutes = Math.floor(elapsedTime / 60) % 60
     const seconds = elapsedTime % 60

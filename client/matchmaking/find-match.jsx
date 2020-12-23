@@ -378,7 +378,9 @@ export default class FindMatch extends React.Component {
     const { matchmaking, matchmakingPreferences, matchmakingStatus } = this.props
     const { activeTab, scrolledUp } = this.state
 
-    const mapPool = matchmaking.mapPoolTypes.get(tabToType(activeTab))
+    // TODO(2Pac): Remove this check once we add support for other tabs that we currently display
+    const mapPool =
+      activeTab === TAB_1V1 ? matchmaking.mapPoolTypes.get(tabToType(activeTab)) : null
 
     if ((mapPool && mapPool.isRequesting) || matchmakingPreferences.isRequesting) {
       return (
@@ -388,7 +390,8 @@ export default class FindMatch extends React.Component {
       )
     }
 
-    const status = matchmakingStatus.types.get(tabToType(activeTab))
+    // TODO(2Pac): Remove this check once we add support for other tabs that we currently display
+    const status = activeTab === TAB_1V1 ? matchmakingStatus.types.get(tabToType(activeTab)) : null
     const isMatchmakingDisabled = !status || !status.enabled
     return (
       <Container>
