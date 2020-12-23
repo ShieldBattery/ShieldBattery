@@ -1,6 +1,7 @@
 import httpErrors from 'http-errors'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { isValidMatchmakingType, validRace } from '../../../common/constants'
+import { validRace } from '../../../common/constants'
+import { isValidMatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'

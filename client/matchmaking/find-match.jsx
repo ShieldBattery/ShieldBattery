@@ -25,7 +25,7 @@ import {
 } from './action-creators'
 import { openOverlay, closeOverlay } from '../activities/action-creators'
 
-import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
+import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
 import { Body1Old, HeadlineOld, SubheadingOld, robotoCondensed } from '../styles/typography'
@@ -240,7 +240,7 @@ const TAB_3V3 = 2
 function tabToType(tab) {
   switch (tab) {
     case TAB_1V1:
-      return MATCHMAKING_TYPE_1V1
+      return MatchmakingType.Match1v1
     default:
       throw new Error('Invalid tab value')
   }
@@ -248,7 +248,7 @@ function tabToType(tab) {
 
 function typeToTab(type) {
   switch (type) {
-    case MATCHMAKING_TYPE_1V1:
+    case MatchmakingType.Match1v1:
       return TAB_1V1
     default:
       throw new Error('Invalid type value')

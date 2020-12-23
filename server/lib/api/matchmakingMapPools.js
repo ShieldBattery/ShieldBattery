@@ -1,7 +1,7 @@
 import httpErrors from 'http-errors'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { isValidMatchmakingType } from '../../../common/constants'
+import { isValidMatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import { getMapInfo } from '../models/maps'
 import { featureEnabled } from '../flags/feature-enabled'
