@@ -5,7 +5,6 @@ import { ConnectedRouter } from 'connected-react-router'
 import { createBrowserHistory, createHashHistory } from 'history'
 
 import log from './logging/logger'
-import { makeServerUrl } from './network/server-url'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { fromJS as authFromJS } from './auth/auth-records'
@@ -35,10 +34,6 @@ if (IS_ELECTRON) {
     })
 
   require('./active-game/game-server')
-  // Necessary to make Google Analytics work, since it wants to store/read a cookie but we're on a
-  // file:// origin (so that's not possible)
-  const ElectronCookies = require('@exponent/electron-cookies')
-  ElectronCookies.enable({ origin: makeServerUrl('') })
 }
 
 if (module.hot) {
@@ -95,25 +90,23 @@ Promise.all([rootElemPromise])
     return { elem, store, history }
   })
   .then(async ({ elem, store, history }) => {
-    let analyticsId = window._sbAnalyticsId
     const configPromise = fetch('/config', { method: 'get' })
     const { action, promise: sessionPromise } = getCurrentSession()
     store.dispatch(action)
     try {
       const [config] = await Promise.all([configPromise, sessionPromise])
-      analyticsId = config.analyticsId
       window._sbFeedbackUrl = config.feedbackUrl
     } catch (err) {
       // Ignored, usually just means we don't have a current session
     }
-    return { elem, store, history, analyticsId }
+    return { elem, store, history }
   })
-  .then(({ elem, store, history, analyticsId }) => {
+  .then(({ elem, store, history }) => {
     render(
       <Provider store={store}>
         <ConnectedRouter history={history}>
           <RedirectProvider>
-            <App analyticsId={analyticsId} />
+            <App />
           </RedirectProvider>
         </ConnectedRouter>
       </Provider>,
