@@ -124,7 +124,7 @@
     "@types/koa__router": "^8.0.3",
     "@types/mocha": "^8.0.3",
     "@types/pg": "^7.14.5",
-    "@types/react": "^16.9.53",
+    "@types/react": "^17.0.0",
     "@types/react-redux": "^7.1.9",
     "@types/react-router": "^5.1.8",
     "@types/styled-components": "^5.1.7",
