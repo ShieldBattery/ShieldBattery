@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import Popover from '../material/popover.jsx'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 import { colorTextSecondary } from '../styles/colors'
-import { Headline3, Headline5, Headline6, Body1, Overline } from '../styles/typography'
+import { Headline3, Headline5, Headline6, headline6, body1, overline } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -58,12 +58,14 @@ const Contents = styled.div`
   }
 `
 
-const DisabledText = styled(Body1)`
+const DisabledText = styled.span`
+  ${body1};
   margin: 24px 0 32px 0;
   overflow-wrap: break-word;
 `
 
-const ToText = styled(Headline6)`
+const ToText = styled.span`
+  ${headline6};
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
@@ -85,7 +87,8 @@ const CountdownItemContainer = styled.div`
   }
 `
 
-const CountdownItemText = styled(Overline)`
+const CountdownItemText = styled.span`
+  ${overline};
   color: ${colorTextSecondary};
 `
 

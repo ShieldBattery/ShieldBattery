@@ -155,10 +155,11 @@ export async function getPastMatchmakingTimes(
 }
 
 /**
- * Get matchmaking schedule. The schedule represents future N (where N defaults to 2) matchmaking
- * times, starting with a first S (where S defaults to enabled) status, after date X (where X
- * defaults to current date) for a particular matchmaking type. Additionally, all subsequent
- * matchmaking times with the same enabled status as the one before them are filtered out.
+ * Retrieve the schedule of currently applicable matchmaking status changes. The schedule represents
+ * future N (where N defaults to 2) matchmaking times, starting with a first S (where S defaults to
+ * enabled) status, after date X (where X defaults to current date) for a particular matchmaking
+ * type. Additionally, all subsequent matchmaking times with the same enabled status as the one
+ * before them are filtered out.
  */
 export async function getMatchmakingSchedule(
   matchmakingType: MatchmakingType,

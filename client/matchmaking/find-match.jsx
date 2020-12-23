@@ -28,7 +28,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
-import { Body1Old, HeadlineOld, SubheadingOld, robotoCondensed } from '../styles/typography'
+import { Headline5, Subtitle1, subtitle1, body1, robotoCondensed } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -81,7 +81,8 @@ const Actions = styled.div`
   margin: 16px 24px;
 `
 
-const Overline = styled(SubheadingOld)`
+const Overline = styled.span`
+  ${subtitle1};
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
@@ -90,7 +91,8 @@ const StyledRacePicker = styled(RacePicker)`
   margin: 12px 0;
 `
 
-const DescriptionText = styled(Body1Old)`
+const DescriptionText = styled.span`
+  ${body1};
   color: ${colorTextSecondary};
   font-size: 12px;
 `
@@ -144,7 +146,8 @@ const RandomIcon = styled(BrowseIcon)`
   opacity: 0.5;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.span`
+  ${subtitle1};
   margin-left: 16px;
   color: ${colorError};
 `
@@ -187,7 +190,7 @@ class Find1vs1MatchForm extends React.Component {
             <BrowseButton onClick={onBrowsePreferred}>
               <RandomContainer>
                 <RandomIcon />
-                <SubheadingOld>Random map</SubheadingOld>
+                <Subtitle1>Random map</Subtitle1>
               </RandomContainer>
             </BrowseButton>
           )}
@@ -338,9 +341,9 @@ export default class FindMatch extends React.Component {
 
     if (activeTab === TAB_2V2 || activeTab === TAB_3V3) {
       return (
-        <SubheadingOld>
+        <Subtitle1>
           Team matchmaking is not implemented yet. It should become available really soon.
-        </SubheadingOld>
+        </Subtitle1>
       )
     }
 
@@ -383,7 +386,7 @@ export default class FindMatch extends React.Component {
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
-          <HeadlineOld>Find match</HeadlineOld>
+          <Headline5>Find match</Headline5>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='1 vs 1' />

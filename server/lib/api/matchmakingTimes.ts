@@ -167,9 +167,7 @@ async function addNew(ctx: Koa.Context, next: Koa.Next) {
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
 
-  if (matchmakingStatusInstance) {
-    matchmakingStatusInstance.maybePublish(matchmakingType)
-  }
+  matchmakingStatusInstance?.maybePublish(matchmakingType)
 }
 
 async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
@@ -184,9 +182,7 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
 
   await removeMatchmakingTime(matchmakingTimeId)
 
-  if (matchmakingStatusInstance) {
-    matchmakingStatusInstance.maybePublish(matchmakingTime.type)
-  }
+  matchmakingStatusInstance?.maybePublish(matchmakingTime.type)
 
   ctx.status = 204
 }

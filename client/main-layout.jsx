@@ -53,6 +53,7 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
+import { MatchmakingType } from '../common/matchmaking'
 
 import { CaptionOld } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
@@ -132,9 +133,10 @@ class MainLayout extends React.Component {
 
   componentDidUpdate(prevProps) {
     // TODO(2Pac): Rethink  this UI for partially disabled matchmaking
+    if (!IS_ELECTRON) return
     const { matchmakingDisabledOverlayOpen } = this.state
-    const prevMatchmakingStatus = prevProps.matchmakingStatus.types.get('1v1')
-    const currMatchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
+    const prevMatchmakingStatus = prevProps.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+    const currMatchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
 
     if (
       prevMatchmakingStatus &&
@@ -152,7 +154,7 @@ class MainLayout extends React.Component {
   renderMatchmakingDisabledOverlay() {
     if (!IS_ELECTRON) return null
 
-    const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
+    const matchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
     return (
       <MatchmakingDisabledOverlay
         open={this.state.matchmakingDisabledOverlayOpen}

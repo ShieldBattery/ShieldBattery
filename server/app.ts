@@ -209,9 +209,7 @@ const mainServer = http.createServer(app.callback())
 
 const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
 
-if (matchmakingStatusInstance) {
-  matchmakingStatusInstance.initialize(nydus)
-}
+matchmakingStatusInstance?.initialize(nydus)
 
 // Wrapping this in IIFE so we can use top-level `await` (until node implements it natively)
 ;(async () => {

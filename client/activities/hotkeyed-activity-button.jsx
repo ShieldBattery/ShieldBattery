@@ -6,7 +6,7 @@ import KeyListener from '../keyboard/key-listener.jsx'
 
 class HotkeyedActivityButton extends React.Component {
   static propTypes = {
-    innerRef: PropTypes.object,
+    buttonRef: PropTypes.object,
     disabled: PropTypes.bool,
     keycode: PropTypes.number.isRequired,
     altKey: PropTypes.bool,
@@ -25,9 +25,9 @@ class HotkeyedActivityButton extends React.Component {
   }
 
   render() {
-    const { innerRef, disabled, label, icon, onClick } = this.props
+    const { buttonRef, disabled, label, icon, onClick } = this.props
     const activityButtonProps = {
-      ref: innerRef,
+      ref: buttonRef,
       label,
       icon,
       disabled,
@@ -62,5 +62,5 @@ class HotkeyedActivityButton extends React.Component {
 }
 
 export default React.forwardRef((props, ref) => (
-  <HotkeyedActivityButton innerRef={ref} {...props} />
+  <HotkeyedActivityButton buttonRef={ref} {...props} />
 ))
