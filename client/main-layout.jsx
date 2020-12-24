@@ -25,6 +25,7 @@ import Index from './navigation/index.jsx'
 import LoadingIndicator from './progress/dots.jsx'
 import LobbyView from './lobbies/view.jsx'
 import LobbyTitle from './lobbies/app-bar-title.jsx'
+import MatchmakingDisabledOverlay from './matchmaking/matchmaking-disabled-overlay.jsx'
 import MatchmakingView from './matchmaking/view.jsx'
 import MatchmakingTitle from './matchmaking/app-bar-title.jsx'
 import Menu from './material/menu/menu.jsx'
@@ -52,6 +53,7 @@ import { IsAdminFilter } from './admin/admin-route-filters.jsx'
 import { removeMap } from './maps/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
+import { MatchmakingType } from '../common/matchmaking'
 
 import { CaptionOld } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
@@ -111,19 +113,56 @@ function stateToProps(state) {
     starcraft: state.starcraft,
     router: state.router,
     matchmaking: state.matchmaking,
+    matchmakingStatus: state.matchmakingStatus,
   }
 }
 
 @connect(stateToProps)
 class MainLayout extends React.Component {
   state = {
+    matchmakingDisabledOverlayOpen: false,
     searchingMatchOverlayOpen: false,
   }
 
+  _findMatchButtonRef = React.createRef()
   _searchingMatchButtonRef = React.createRef()
 
   componentDidMount() {
     this.props.dispatch(openChangelogIfNecessary())
+  }
+
+  componentDidUpdate(prevProps) {
+    // TODO(2Pac): Rethink  this UI for partially disabled matchmaking
+    if (!IS_ELECTRON) return
+    const { matchmakingDisabledOverlayOpen } = this.state
+    const prevMatchmakingStatus = prevProps.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+    const currMatchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+
+    if (
+      prevMatchmakingStatus &&
+      !prevMatchmakingStatus.enabled &&
+      currMatchmakingStatus &&
+      currMatchmakingStatus.enabled &&
+      matchmakingDisabledOverlayOpen
+    ) {
+      this.onMatchmakingDisabledOverlayClose()
+      this.props.dispatch(openOverlay('findMatch'))
+    }
+  }
+
+  // TODO(2Pac): Rethink this UI for partially disabled matchmaking
+  renderMatchmakingDisabledOverlay() {
+    if (!IS_ELECTRON) return null
+
+    const matchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+    return (
+      <MatchmakingDisabledOverlay
+        open={this.state.matchmakingDisabledOverlayOpen}
+        anchor={this._findMatchButtonRef.current}
+        matchmakingStatus={matchmakingStatus}
+        onDismiss={this.onMatchmakingDisabledOverlayClose}
+      />
+    )
   }
 
   renderSearchingMatchOverlay() {
@@ -177,6 +216,7 @@ class MainLayout extends React.Component {
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <HotkeyedActivityButton
         key='find-match'
+        ref={this._findMatchButtonRef}
         icon={<FindMatchIcon />}
         label='Find match'
         onClick={this.onFindMatchClick}
@@ -293,6 +333,7 @@ class MainLayout extends React.Component {
             {activityButtons}
             <VersionText>v{curVersion}</VersionText>
           </ActivityBar>
+          {this.renderMatchmakingDisabledOverlay()}
           {this.renderSearchingMatchOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
@@ -300,6 +341,10 @@ class MainLayout extends React.Component {
         </Layout>
       </Container>
     )
+  }
+
+  onMatchmakingDisabledOverlayClose = () => {
+    this.setState({ matchmakingDisabledOverlayOpen: false })
   }
 
   onSearchingMatchOverlayOpen = () => {
@@ -321,7 +366,13 @@ class MainLayout extends React.Component {
       if (!isStarcraftHealthy(this.props)) {
         this.props.dispatch(openDialog('starcraftHealth'))
       } else {
-        this.props.dispatch(openOverlay('findMatch'))
+        const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
+
+        if (matchmakingStatus && matchmakingStatus.enabled) {
+          this.props.dispatch(openOverlay('findMatch'))
+        } else {
+          this.setState({ matchmakingDisabledOverlayOpen: true })
+        }
       }
     }
   }

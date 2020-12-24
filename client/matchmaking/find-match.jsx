@@ -25,10 +25,17 @@ import {
 } from './action-creators'
 import { openOverlay, closeOverlay } from '../activities/action-creators'
 
-import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
+import { MatchmakingType } from '../../common/matchmaking'
 
-import { amberA400, colorDividers, colorTextSecondary } from '../styles/colors'
-import { Body1Old, HeadlineOld, SubheadingOld, robotoCondensed } from '../styles/typography'
+import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
+import {
+  Headline5,
+  Subtitle1,
+  Subtitle2,
+  subtitle1,
+  body1,
+  robotoCondensed,
+} from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -75,10 +82,14 @@ const ScrollDivider = styled.div`
 `
 
 const Actions = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   margin: 16px 24px;
 `
 
-const Overline = styled(SubheadingOld)`
+const SectionTitle = styled.div`
+  ${subtitle1};
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
@@ -87,7 +98,8 @@ const StyledRacePicker = styled(RacePicker)`
   margin: 12px 0;
 `
 
-const DescriptionText = styled(Body1Old)`
+const DescriptionText = styled.span`
+  ${body1};
   color: ${colorTextSecondary};
   font-size: 12px;
 `
@@ -139,6 +151,13 @@ const RandomIcon = styled(BrowseIcon)`
   width: 128px;
   height: 128px;
   opacity: 0.5;
+  margin-bottom: 24px;
+`
+
+const ErrorText = styled.div`
+  ${subtitle1};
+  margin-left: 16px;
+  color: ${colorError};
 `
 
 // A wrapper around <RacePicker /> so it can be used in forms
@@ -179,7 +198,7 @@ class Find1vs1MatchForm extends React.Component {
             <BrowseButton onClick={onBrowsePreferred}>
               <RandomContainer>
                 <RandomIcon />
-                <SubheadingOld>Random map</SubheadingOld>
+                <Subtitle2>Random map</Subtitle2>
               </RandomContainer>
             </BrowseButton>
           )}
@@ -189,7 +208,7 @@ class Find1vs1MatchForm extends React.Component {
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
-        <Overline>Race</Overline>
+        <SectionTitle>Race</SectionTitle>
         <RaceSelect {...bindCustom('race')} size={RACE_PICKER_SIZE_LARGE} />
         <CheckBox
           {...bindCheckable('useAlternateRace')}
@@ -197,7 +216,7 @@ class Find1vs1MatchForm extends React.Component {
         />
         {useAlternateRace ? (
           <>
-            <Overline>Alternate race</Overline>
+            <SectionTitle>Alternate race</SectionTitle>
             <DescriptionText>
               Select a race to be used whenever your opponent has selected the same primary race.
             </DescriptionText>
@@ -210,7 +229,7 @@ class Find1vs1MatchForm extends React.Component {
         ) : null}
         <PreferredMapsContainer>
           <PreferredHeader>
-            <Overline>Preferred maps</Overline>
+            <SectionTitle>Preferred maps</SectionTitle>
             {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
           </PreferredHeader>
           <DescriptionText>
@@ -232,7 +251,7 @@ const TAB_3V3 = 2
 function tabToType(tab) {
   switch (tab) {
     case TAB_1V1:
-      return MATCHMAKING_TYPE_1V1
+      return MatchmakingType.Match1v1
     default:
       throw new Error('Invalid tab value')
   }
@@ -240,7 +259,7 @@ function tabToType(tab) {
 
 function typeToTab(type) {
   switch (type) {
-    case MATCHMAKING_TYPE_1V1:
+    case MatchmakingType.Match1v1:
       return TAB_1V1
     default:
       throw new Error('Invalid type value')
@@ -250,6 +269,7 @@ function typeToTab(type) {
 @connect(state => ({
   matchmaking: state.matchmaking,
   matchmakingPreferences: state.matchmakingPreferences,
+  matchmakingStatus: state.matchmakingStatus,
 }))
 export default class FindMatch extends React.Component {
   static propTypes = {
@@ -329,9 +349,9 @@ export default class FindMatch extends React.Component {
 
     if (activeTab === TAB_2V2 || activeTab === TAB_3V3) {
       return (
-        <SubheadingOld>
+        <Subtitle1>
           Team matchmaking is not implemented yet. It should become available really soon.
-        </SubheadingOld>
+        </Subtitle1>
       )
     }
 
@@ -355,7 +375,7 @@ export default class FindMatch extends React.Component {
   }
 
   render() {
-    const { matchmaking, matchmakingPreferences } = this.props
+    const { matchmaking, matchmakingPreferences, matchmakingStatus } = this.props
     const { activeTab, scrolledUp } = this.state
 
     const mapPool = matchmaking.mapPoolTypes.get(tabToType(activeTab))
@@ -368,11 +388,13 @@ export default class FindMatch extends React.Component {
       )
     }
 
+    const status = matchmakingStatus.types.get(tabToType(activeTab))
+    const isMatchmakingDisabled = !status || !status.enabled
     return (
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
-          <HeadlineOld>Find match</HeadlineOld>
+          <Headline5>Find match</Headline5>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='1 vs 1' />
@@ -388,7 +410,12 @@ export default class FindMatch extends React.Component {
         </Contents>
         {activeTab === TAB_1V1 ? (
           <Actions>
-            <RaisedButton label='Find match' onClick={this.onFindClick} />
+            <RaisedButton
+              label='Find match'
+              disabled={isMatchmakingDisabled}
+              onClick={this.onFindClick}
+            />
+            {isMatchmakingDisabled ? <ErrorText>Matchmaking is now disabled</ErrorText> : null}
           </Actions>
         ) : null}
       </Container>

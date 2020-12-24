@@ -5,7 +5,7 @@ import Joi from 'joi'
 
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { MATCHMAKING_TYPES } from '../../../common/constants'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -18,9 +18,10 @@ import {
   getMatchmakingTimeById,
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
+import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 
 const matchmakingTypeSchema = Joi.object({
-  matchmakingType: Joi.valid(...MATCHMAKING_TYPES).required(),
+  matchmakingType: Joi.valid(...Object.values(MatchmakingType)).required(),
 })
 
 const addMatchmakingTimeSchema = Joi.object({
@@ -165,6 +166,8 @@ async function addNew(ctx: Koa.Context, next: Koa.Next) {
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
+
+  matchmakingStatusInstance?.maybePublish(matchmakingType)
 }
 
 async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
@@ -178,5 +181,8 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
   }
 
   await removeMatchmakingTime(matchmakingTimeId)
+
+  matchmakingStatusInstance?.maybePublish(matchmakingTime.type)
+
   ctx.status = 204
 }

@@ -10,7 +10,7 @@ import RaisedButton from '../material/raised-button.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
 import Tabs, { TabItem } from '../material/tabs.jsx'
 
-import { MATCHMAKING_TYPE_1V1 } from '../../common/constants'
+import { MatchmakingType } from '../../common/matchmaking'
 
 import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
 
@@ -222,7 +222,7 @@ const TAB_1V1 = 0
 function tabToType(tab) {
   switch (tab) {
     case TAB_1V1:
-      return MATCHMAKING_TYPE_1V1
+      return MatchmakingType.Match1v1
     default:
       throw new Error('Invalid tab value')
   }

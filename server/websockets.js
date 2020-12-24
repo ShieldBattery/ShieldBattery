@@ -5,6 +5,7 @@ import cuid from 'cuid'
 import getAddress from './lib/websockets/get-address'
 import { createUserSockets, createClientSockets } from './lib/websockets/socket-groups'
 import log from './lib/logging/logger'
+import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
 
 const apiHandlers = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
@@ -46,6 +47,11 @@ class WebsocketServer {
 
     this.nydus.on('connection', socket => {
       this.nydus.subscribeClient(socket, '/status', { users: this.connectedUsers })
+
+      // TODO(2Pac): Only do this for Electron clients
+      if (matchmakingStatusInstance) {
+        matchmakingStatusInstance.subscribe(socket)
+      }
     })
 
     // TODO(tec27): this timer can be longer (like 5 minutes) but is shorter for demo purposes

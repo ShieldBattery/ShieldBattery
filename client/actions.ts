@@ -299,6 +299,8 @@ export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
 export const MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN = 'MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN'
 // The server has responded with success/failure to our request of the current matchmaking map pool
 export const MATCHMAKING_GET_CURRENT_MAP_POOL = 'MATCHMAKING_GET_CURRENT_MAP_POOL'
+// The matchmaking status changed, ie. it either become enabled or disabled
+export const MATCHMAKING_STATUS_UPDATE = 'MATCHMAKING_STATUS_UPDATE'
 // Some (or all) of the players have failed to accept the match
 export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
 // The accept match time has changed

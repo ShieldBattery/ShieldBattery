@@ -27,6 +27,7 @@ import views from 'koa-views'
 
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
+import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
 
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
@@ -207,6 +208,8 @@ app
 const mainServer = http.createServer(app.callback())
 
 const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
+
+matchmakingStatusInstance?.initialize(nydus)
 
 // Wrapping this in IIFE so we can use top-level `await` (until node implements it natively)
 ;(async () => {
