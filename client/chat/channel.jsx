@@ -21,7 +21,7 @@ import MessageList from '../messaging/message-list.jsx'
 import MenuItem from '../material/menu/item.jsx'
 import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
-import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorTextSecondary, grey800 } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
@@ -81,6 +81,13 @@ const UserListEntryItem = styled.li`
     cursor: pointer;
     background-color: rgba(255, 255, 255, 0.08);
   }
+
+  ${props => {
+    if (props.isOverlayOpen) {
+      return `background-color: ${grey800};`
+    }
+    return ''
+  }}
 `
 
 const StyledAvatar = styled(Avatar)`
@@ -124,7 +131,10 @@ class UserListEntry extends React.Component {
   render() {
     return (
       <>
-        <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
+        <UserListEntryItem
+          ref={this._userEntryRef}
+          isOverlayOpen={this.state.userOverlayOpen}
+          onClick={this.onOpenUserOverlay}>
           <StyledAvatar user={this.props.user} />
           <UserListName>{this.props.user}</UserListName>
         </UserListEntryItem>
