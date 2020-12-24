@@ -1,7 +1,7 @@
 # ---------- 1st stage ----------
 # The first stage adds the necessary libraries to build native add-ons (eg. bcrypt) and then installs
 # the server dependencies
-FROM node:12-alpine as builder
+FROM node:14-alpine as builder
 
 # By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
 # multistage build to install the necessary tools, and build the dependencies which will then be
@@ -39,7 +39,7 @@ RUN git clone https://github.com/vishnubob/wait-for-it.git
 
 # ---------- 2nd stage ----------
 # Second stage copies the built dependencies from first stage and runs the app in production mode
-FROM node:12-alpine
+FROM node:14-alpine
 ENV NODE_ENV=production
 # Tell the server not to try and run webpack
 ENV SB_PREBUILT_ASSETS=true
