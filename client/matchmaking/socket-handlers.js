@@ -2,6 +2,7 @@ import activeGameManager from '../active-game/active-game-manager-instance'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import log from '../logging/logger'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
@@ -162,9 +163,11 @@ const eventToAction = {
       mapData: { format },
       mapUrl,
     } = event.chosenMap
-    // NOTE(2Pac): We can't download map any sooner since we don't know which map we'll play until
-    // all players accept the game
-    mapStore.downloadMap(hash, format, mapUrl)
+    // Even though we're downloading the whole map pool as soon as the player enters the queue,
+    // we're still leaving this as a check to make sure the map exists before starting a game.
+    mapStore
+      .downloadMap(hash, format, mapUrl)
+      .catch(err => log.error('Error while downloading map: ' + err))
 
     const config = {
       localUser: user,
@@ -284,10 +287,32 @@ const eventToAction = {
     })
   },
 
-  status: (name, event) => ({
-    type: MATCHMAKING_UPDATE_STATUS,
-    payload: event,
-  }),
+  status: (name, event) => (dispatch, getState) => {
+    // As a slight optimization, we download the whole map pool as soon as the player enters the
+    // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if a
+    // map already exists before attempting to download it.
+    if (event.matchmaking && event.matchmaking.type) {
+      const {
+        matchmaking: { mapPoolTypes },
+      } = getState()
+
+      const mapPool = mapPoolTypes.get(event.matchmaking.type)
+      if (mapPool) {
+        mapPool.byId
+          .valueSeq()
+          .forEach(map =>
+            mapStore
+              .downloadMap(map.hash, map.mapData.format, map.mapUrl)
+              .catch(err => log.error('Error while downloading map: ' + err)),
+          )
+      }
+    }
+
+    dispatch({
+      type: MATCHMAKING_UPDATE_STATUS,
+      payload: event,
+    })
+  },
 }
 
 export default function registerModule({ siteSocket }) {
