@@ -88,7 +88,7 @@ const Actions = styled.div`
   margin: 16px 24px;
 `
 
-const SectionTtitle = styled.div`
+const SectionTitle = styled.div`
   ${subtitle1};
   margin: 8px 0;
   color: ${colorTextSecondary};
@@ -208,7 +208,7 @@ class Find1vs1MatchForm extends React.Component {
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
-        <SectionTtitle>Race</SectionTtitle>
+        <SectionTitle>Race</SectionTitle>
         <RaceSelect {...bindCustom('race')} size={RACE_PICKER_SIZE_LARGE} />
         <CheckBox
           {...bindCheckable('useAlternateRace')}
@@ -216,7 +216,7 @@ class Find1vs1MatchForm extends React.Component {
         />
         {useAlternateRace ? (
           <>
-            <SectionTtitle>Alternate race</SectionTtitle>
+            <SectionTitle>Alternate race</SectionTitle>
             <DescriptionText>
               Select a race to be used whenever your opponent has selected the same primary race.
             </DescriptionText>
@@ -229,7 +229,7 @@ class Find1vs1MatchForm extends React.Component {
         ) : null}
         <PreferredMapsContainer>
           <PreferredHeader>
-            <SectionTtitle>Preferred maps</SectionTtitle>
+            <SectionTitle>Preferred maps</SectionTitle>
             {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
           </PreferredHeader>
           <DescriptionText>
