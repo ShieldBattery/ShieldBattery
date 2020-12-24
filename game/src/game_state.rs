@@ -95,7 +95,7 @@ pub enum GameStateMessage {
 }
 
 impl GameSetupInfo {
-    fn game_type(&self) -> Option<GameType> {
+    pub fn game_type(&self) -> Option<GameType> {
         let (primary, subtype) = match &*self.game_type {
             "melee" => (0x2, 0x1),
             "ffa" => (0x3, 0x1),
@@ -266,9 +266,13 @@ impl GameState {
             // Could possibly aim to keep all of BW initialization in the main thread, but this
             // system has worked fine so far.
             let is_host = local_user.name == info.host.name;
-            let init_done =
-                send_game_request(&game_request_send, GameThreadRequestType::Initialize);
-            init_done.await;
+            let req = send_game_request(
+                &game_request_send,
+                GameThreadRequestType::SetupInfo(info.clone()),
+            );
+            req.await;
+            let req = send_game_request(&game_request_send, GameThreadRequestType::Initialize);
+            req.await;
             unsafe {
                 with_bw(|bw| bw.remaining_game_init(&local_user.name));
                 if is_host {

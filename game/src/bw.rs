@@ -1,3 +1,6 @@
+pub mod list;
+pub mod unit;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -55,6 +58,11 @@ pub trait Bw: Sync + Send {
     unsafe fn game(&self) -> *mut Game;
     unsafe fn players(&self) -> *mut Player;
     unsafe fn set_player_name(&self, id: u8, name: &str);
+
+    unsafe fn active_units(&self) -> unit::UnitIterator;
+    unsafe fn fow_sprites(&self) -> FowSpriteIterator;
+    unsafe fn create_fow_sprite(&self, unit: unit::Unit);
+    unsafe fn sprite_position(&self, sprite: *mut c_void) -> Point;
 
     /// Note: Size is unspecified, but will not change between calls.
     /// (Remastered has 12 storm players)
@@ -191,10 +199,195 @@ pub struct PreplacedUnit {
     pub player: u8,
 }
 
+#[repr(C)]
+pub struct FowSprite {
+    pub prev: *mut FowSprite,
+    pub next: *mut FowSprite,
+    pub unit_id: u16,
+    pub sprite: *mut c_void,
+}
+
+#[repr(C, packed)]
+pub struct Image {
+    pub prev: *mut Image,
+    pub next: *mut Image,
+    pub image_id: u16,
+    pub drawfunc: u8,
+    pub direction: u8,
+    pub flags: u16,
+    pub x_offset: i8,
+    pub y_offset: i8,
+    pub iscript: Iscript,
+    pub frameset: u16,
+    pub frame: u16,
+    pub map_position: Point,
+    pub screen_position: Point,
+    pub grp_bounds: Rect,
+    pub grp: *mut c_void,
+    pub drawfunc_param: *mut c_void,
+    pub draw: *mut c_void,
+    pub step_frame: *mut c_void,
+    /// Sprite pointer, struct format differs between 1161/SCR
+    pub parent: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Iscript {
+    pub header: u16,
+    pub pos: u16,
+    pub return_pos: u16,
+    pub animation: u8,
+    pub wait: u8,
+}
+
 #[repr(C, packed)]
 pub struct Unit {
-    pub whatever: [u8; 0x4c],
+    pub prev: *mut Unit,
+    pub next: *mut Unit,
+    pub hitpoints: i32,
+    /// The sprite struct has different format between 1161 and SC:R,
+    /// be aware of which struct this is being casted if accessed
+    pub sprite: *mut c_void,
+    pub move_target: Point,
+    pub move_target_unit: *mut Unit,
+    pub next_move_waypoint: Point,
+    pub unk_move_waypoint: Point,
+    pub flingy_flags: u8,
+    pub facing_direction: u8,
+    pub flingy_turn_speed: u8,
+    pub movement_direction: u8,
+    pub flingy_id: u16,
+    pub unk_26: u8,
+    pub flingy_movement_type: u8,
+    pub position: Point,
+    pub exact_position: Point32,
+    pub flingy_top_speed: u32,
+    pub current_speed: i32,
+    pub next_speed: i32,
+    pub speed: i32,
+    pub speed2: i32,
+    pub acceleration: u16,
+    pub new_direction: u8,
+    pub target_direction: u8,
+    // Flingy end
     pub player: u8,
+    pub order: u8,
+    pub order_state: u8,
+    pub order_signal: u8,
+    pub order_fow_unit: u16,
+    pub unused52: u16,
+    pub order_timer: u8,
+    pub ground_cooldown: u8,
+    pub air_cooldown: u8,
+    pub spell_cooldown: u8,
+    pub order_target_pos: Point,
+    pub target: *mut Unit,
+    // Entity end
+    pub shields: i32,
+    pub unit_id: u16,
+    pub unused66: u16,
+    pub next_player_unit: *mut Unit,
+    pub prev_player_unit: *mut Unit,
+    pub subunit: *mut Unit,
+    pub order_queue_begin: *mut c_void,
+    pub order_queue_end: *mut c_void,
+    pub previous_attacker: *mut Unit,
+    pub related: *mut Unit,
+    pub highlight_order_count: u8,
+    pub order_wait: u8,
+    pub unk86: u8,
+    pub attack_notify_timer: u8,
+    pub previous_unit_id: u16,
+    pub minimap_draw_counter: u8,
+    pub minimap_draw_color: u8,
+    pub unused8c: u16,
+    pub rank: u8,
+    pub kills: u8,
+    pub last_attacking_player: u8,
+    pub secondary_order_wait: u8,
+    pub ai_spell_flags: u8,
+    pub order_flags: u8,
+    pub buttons: u16,
+    pub invisibility_effects: u8,
+    pub movement_state: u8,
+    pub build_queue: [u16; 5],
+    pub energy: u16,
+    pub current_build_slot: u8,
+    pub minor_unique_index: u8,
+    pub secondary_order: u8,
+    pub building_overlay_state: u8,
+    pub build_hp_gain: u16,
+    pub build_shield_gain: u16,
+    pub remaining_build_time: u16,
+    pub previous_hp: u16,
+    pub loaded_units: [u16; 8],
+    pub unit_specific: [u8; 16],
+    pub unit_specific2: [u8; 12],
+    pub flags: u32,
+    pub carried_powerup_flags: u8,
+    pub wireframe_seed: u8,
+    pub secondary_order_state: u8,
+    pub move_target_update_timer: u8,
+    pub detection_status: u32,
+    pub unke8: u16,
+    pub unkea: u16,
+    pub currently_building: *mut Unit,
+    pub next_invisible: *mut Unit,
+    pub prev_invisible: *mut Unit,
+    pub rally_pylon: [u8; 8],
+    pub path: *mut c_void,
+    pub path_frame: u8,
+    pub pathing_flags: u8,
+    pub _unk106: u8,
+    pub _unk107: u8,
+    pub collision_points: [u16; 0x4],
+    pub death_timer: u16,
+    pub defensive_matrix_dmg: u16,
+    pub matrix_timer: u8,
+    pub stim_timer: u8,
+    pub ensnare_timer: u8,
+    pub lockdown_timer: u8,
+    pub irradiate_timer: u8,
+    pub stasis_timer: u8,
+    pub plague_timer: u8,
+    pub is_under_storm: u8,
+    pub irradiated_by: *mut Unit,
+    pub irradiate_player: u8,
+    pub parasited_by_players: u8,
+    pub master_spell_timer: u8,
+    pub is_blind: u8,
+    pub maelstrom_timer: u8,
+    pub _unk125: u8,
+    pub acid_spore_count: u8,
+    pub acid_spore_timers: [u8; 0x9],
+    pub bullet_spread_seed: u16,
+    pub scr_carried_unit_high_bits: u16,
+    pub ai: *mut c_void,
+    pub _dc138: [u8; 0x18],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Rect {
+    pub left: i16,
+    pub top: i16,
+    pub right: i16,
+    pub bottom: i16,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Point {
+    pub x: i16,
+    pub y: i16,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Point32 {
+    pub x: i32,
+    pub y: i32,
 }
 
 #[repr(C)]
@@ -543,4 +736,29 @@ fn struct_sizes() {
     assert_eq!(size_of::<Dialog>(), 0x46);
     assert_eq!(size_of::<UiEvent>(), 0x12);
     assert_eq!(size_of::<Game>(), 0x17700);
+    assert_eq!(size_of::<Unit>(), 0x150);
+    assert_eq!(size_of::<Image>(), 0x40);
+    assert_eq!(size_of::<FowSprite>(), 0x10);
+}
+
+pub struct FowSpriteIterator(*mut FowSprite);
+
+impl FowSpriteIterator {
+    pub fn new(first: *mut FowSprite) -> FowSpriteIterator {
+        FowSpriteIterator(first)
+    }
+}
+
+impl Iterator for FowSpriteIterator {
+    type Item = *mut FowSprite;
+    fn next(&mut self) -> Option<*mut FowSprite> {
+        if self.0.is_null() {
+            return None;
+        }
+        let fow = self.0;
+        unsafe {
+            self.0 = (*fow).next;
+        }
+        Some(fow)
+    }
 }
