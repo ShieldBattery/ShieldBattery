@@ -50,6 +50,10 @@ const Root = styled.div`
   label {
     order: 2;
     margin-left: 10px; /* the box is 18px wide, so this hits a 4px multiple */
+    /* for some reason, the combination of 1px padding and 19px line-height, centers the text a bit
+    better vertically than simply using the line-height of 20px ¯\_(ツ)_/¯ */
+    padding-top: 1px;
+    line-height: 19px;
     pointer-events: none;
     ${props => (props.disabled ? `color: ${colorTextFaint};` : '')}
   }
