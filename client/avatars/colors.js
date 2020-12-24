@@ -84,7 +84,7 @@ function hashStr(str) {
   let result = 0
   for (let i = 0; i < str.length; i++) {
     result += (result << 5) + str.charCodeAt(i)
-    result = result | 0
+    result = result & 0x7fffffff
   }
   return result
 }

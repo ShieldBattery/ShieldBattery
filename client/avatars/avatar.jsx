@@ -55,6 +55,7 @@ export default class Avatar extends React.Component {
       avatarColor = color
     } else if (user) {
       avatarColor = randomColorForString(user)
+      console.dir(avatarColor)
     } else {
       avatarColor = 'rgba(255, 255, 255, 0.5)'
     }
