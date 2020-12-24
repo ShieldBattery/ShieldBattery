@@ -62,6 +62,7 @@ COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
 COPY --chown=node:node --from=builder /shieldbattery/common ./common
 COPY --chown=node:node --from=builder /shieldbattery/server ./server
 COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
+COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
 
 # Copy the installed dependencies from the first stage
 COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
