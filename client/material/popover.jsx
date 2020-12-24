@@ -11,7 +11,7 @@ import { shadow6dp } from './shadows'
 import { zIndexMenu, zIndexMenuBackdrop } from './zindex'
 import { CardLayer } from '../styles/colors'
 
-const ESCAPE = 'ESCAPE'
+const ESCAPE = 'Escape'
 
 const OPEN_DELAY = 125
 const OPEN_DURATION = 175
