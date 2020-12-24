@@ -165,8 +165,8 @@ export default class Signup extends React.Component {
     redirectIfLoggedIn(this.props)
   }
 
-  componentWillReceiveProps(nextProps) {
-    redirectIfLoggedIn(nextProps)
+  componentDidUpdate() {
+    redirectIfLoggedIn(this.props)
   }
 
   render() {

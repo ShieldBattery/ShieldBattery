@@ -128,8 +128,8 @@ export default class Login extends React.Component {
     redirectIfLoggedIn(this.props)
   }
 
-  componentWillReceiveProps(nextProps) {
-    redirectIfLoggedIn(nextProps)
+  componentDidUpdate() {
+    redirectIfLoggedIn(this.props)
   }
 
   render() {
