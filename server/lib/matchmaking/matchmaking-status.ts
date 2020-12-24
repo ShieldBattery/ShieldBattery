@@ -45,7 +45,7 @@ export default class MatchmakingStatus {
     }
   }
 
-  async _getStatus(type: MatchmakingType) {
+  private async getStatus(type: MatchmakingType) {
     const current = await getCurrentMatchmakingTime(type)
     const schedule = await getMatchmakingSchedule(type, current?.startDate, !current?.enabled)
 
@@ -66,7 +66,7 @@ export default class MatchmakingStatus {
    * that as well.
    */
   maybePublish(type: MatchmakingType) {
-    this._getStatus(type)
+    this.getStatus(type)
       .then(status => {
         const oldStatus = this.statusByType.get(type)
         // If the status hasn't changed, no need to notify the users

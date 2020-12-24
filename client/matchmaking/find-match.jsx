@@ -28,7 +28,14 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
-import { Headline5, Subtitle1, subtitle1, body1, robotoCondensed } from '../styles/typography'
+import {
+  Headline5,
+  Subtitle1,
+  Subtitle2,
+  subtitle1,
+  body1,
+  robotoCondensed,
+} from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -81,7 +88,7 @@ const Actions = styled.div`
   margin: 16px 24px;
 `
 
-const Overline = styled.span`
+const SectionTtitle = styled.div`
   ${subtitle1};
   margin: 8px 0;
   color: ${colorTextSecondary};
@@ -144,9 +151,10 @@ const RandomIcon = styled(BrowseIcon)`
   width: 128px;
   height: 128px;
   opacity: 0.5;
+  margin-bottom: 24px;
 `
 
-const ErrorText = styled.span`
+const ErrorText = styled.div`
   ${subtitle1};
   margin-left: 16px;
   color: ${colorError};
@@ -190,7 +198,7 @@ class Find1vs1MatchForm extends React.Component {
             <BrowseButton onClick={onBrowsePreferred}>
               <RandomContainer>
                 <RandomIcon />
-                <Subtitle1>Random map</Subtitle1>
+                <Subtitle2>Random map</Subtitle2>
               </RandomContainer>
             </BrowseButton>
           )}
@@ -200,7 +208,7 @@ class Find1vs1MatchForm extends React.Component {
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
-        <Overline>Race</Overline>
+        <SectionTtitle>Race</SectionTtitle>
         <RaceSelect {...bindCustom('race')} size={RACE_PICKER_SIZE_LARGE} />
         <CheckBox
           {...bindCheckable('useAlternateRace')}
@@ -208,7 +216,7 @@ class Find1vs1MatchForm extends React.Component {
         />
         {useAlternateRace ? (
           <>
-            <Overline>Alternate race</Overline>
+            <SectionTtitle>Alternate race</SectionTtitle>
             <DescriptionText>
               Select a race to be used whenever your opponent has selected the same primary race.
             </DescriptionText>
@@ -221,7 +229,7 @@ class Find1vs1MatchForm extends React.Component {
         ) : null}
         <PreferredMapsContainer>
           <PreferredHeader>
-            <Overline>Preferred maps</Overline>
+            <SectionTtitle>Preferred maps</SectionTtitle>
             {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
           </PreferredHeader>
           <DescriptionText>
