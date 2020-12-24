@@ -23,7 +23,6 @@ const COLORS = [
   '#c5cae9',
   '#7986cb',
   '#3f51b5',
-  '#303f9f',
 
   // Light Blue
   '#b3e5fc',
@@ -76,7 +75,6 @@ const COLORS = [
   // Brown
   '#d7ccc8',
   '#a1887f',
-  '#795548',
 ].sort()
 
 function hashStr(str) {
