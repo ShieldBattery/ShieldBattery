@@ -24,7 +24,7 @@ export const IconContainer = styled.div`
 
 export const IconAvatar = styled(PlaceholderIcon).withConfig({
   // Don't forward the `glowing` property to the `svg` element
-  shouldForwardProp: prop => prop !== 'glowing',
+  shouldForwardProp: prop => prop !== 'glowing' && prop !== 'color',
 })`
   position: absolute;
   top: 0;
