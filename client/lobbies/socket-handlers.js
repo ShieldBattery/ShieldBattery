@@ -34,6 +34,7 @@ import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 import { makeServerUrl } from '../network/server-url'
+import log from '../logging/logger'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -72,7 +73,9 @@ const eventToAction = {
     clearCountdownTimer()
     // TODO(tec27): handle errors on this?
     const { hash, mapData, mapUrl } = event.lobby.map
-    mapStore.downloadMap(hash, mapData.format, mapUrl)
+    mapStore
+      .downloadMap(hash, mapData.format, mapUrl)
+      .catch(err => log.error('Error while downloading map: ' + err))
     rallyPointManager.refreshPings()
 
     return {

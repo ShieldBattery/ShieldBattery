@@ -2,6 +2,7 @@ import activeGameManager from '../active-game/active-game-manager-instance'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import mapStore from '../maps/map-store-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import log from '../logging/logger'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
@@ -164,7 +165,9 @@ const eventToAction = {
     } = event.chosenMap
     // Even though we're downloading the whole map pool as soon as the player enters the queue,
     // we're still leaving this as a check to make sure the map exists before starting a game.
-    mapStore.downloadMap(hash, format, mapUrl)
+    mapStore
+      .downloadMap(hash, format, mapUrl)
+      .catch(err => log.error('Error while downloading map: ' + err))
 
     const config = {
       localUser: user,
@@ -297,7 +300,11 @@ const eventToAction = {
       if (mapPool) {
         mapPool.byId
           .valueSeq()
-          .forEach(map => mapStore.downloadMap(map.hash, map.mapData.format, map.mapUrl))
+          .forEach(map =>
+            mapStore
+              .downloadMap(map.hash, map.mapData.format, map.mapUrl)
+              .catch(err => log.error('Error while downloading map: ' + err)),
+          )
       }
     }
 
