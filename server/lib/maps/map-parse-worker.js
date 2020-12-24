@@ -25,16 +25,26 @@ function createLobbyInitData(chk) {
   }
 
   return {
-    // Convert (acceptable) race ids to strings, set force's teamId and filter out empty ones.
+    // Convert race ids to strings, set force's teamId and filter out empty ones.
     forces: chk.forces
       .map(({ name, players }, index) => ({
         name,
         teamId: index + 1,
         players: players.map(({ id, race, computer, typeId }) => {
-          const raceName = raceIdToName[race]
-          if (!raceName) {
-            throw new Error(`Player ${id} has an invalid race ${race}`)
-          }
+          // While the raceIdToName map keys are the "intended" mappings,
+          // there are other values that a map can use. At least race 6
+          // makes SC:R melee lobbies default to random race without requiring
+          // user to select it same way that race 5 would.
+          // But we have our own lobby system which doesn't require users
+          // to explicitly choose races before starting game.
+          //
+          // Anyway, this 'forces' object is only used by us to set up UMS lobbies.
+          // The player race in UMS mainly selects which music & UI console are used.
+          // Exception being race 5 ('any'), where the player selects a race, will not
+          // get any preplaced units, and spawn with that race's starting units.
+          //
+          // So choosing terran here is fine as a fallback.
+          const raceName = raceIdToName[race] || 't'
           return {
             id,
             computer,
