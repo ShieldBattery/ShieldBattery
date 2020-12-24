@@ -26,7 +26,6 @@ nsis:
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
 win:
-  certificateSubjectName: Travis Collins
   icon: icon.ico
   target: nsis-web
 

@@ -24,7 +24,6 @@ files:
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
-  certificateSubjectName: Travis Collins
   icon: icon.ico
   target: nsis-web
 
