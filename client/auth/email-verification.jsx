@@ -45,9 +45,9 @@ export class EmailVerification extends React.Component {
     }
   }
 
-  componentWillUpdate(nextProps, nextState) {
-    if (this.props.auth.authChangeInProgress && !nextProps.auth.authChangeInProgress) {
-      if (this.state.reqId && !nextProps.auth.lastFailure) {
+  componentDidUpdate(prevProps) {
+    if (prevProps.auth.authChangeInProgress && !this.props.auth.authChangeInProgress) {
+      if (this.state.reqId && !this.props.auth.lastFailure) {
         this.setState({ success: true })
       }
     }
