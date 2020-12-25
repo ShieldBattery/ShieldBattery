@@ -48,6 +48,8 @@ const MapPool = new Record({
 })
 export const BaseMatchmakingState = new Record({
   isFinding: false,
+  /** The time when the search was started (as returned by `window.performance.now()`) */
+  searchStartTime: -1,
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
@@ -87,6 +89,7 @@ export default keyedReducer(new MatchmakingState(), {
 
     return new MatchmakingState({
       isFinding: true,
+      searchStartTime: window.performance.now(),
     })
   },
 

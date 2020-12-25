@@ -288,15 +288,20 @@ const eventToAction = {
     })
   },
 
+  // TODO(2Pac): Is it safe to assume that this event will only be emitted when a player starts or
+  // cancels finding a match? Maybe rename this event to better indicate that, or introduce a new
+  // event that guarantees that better? Or perhaps do this logic in the action-creator after we
+  // invoke the find-match action?
   status: (name, event) => (dispatch, getState) => {
-    // As a slight optimization, we download the whole map pool as soon as the player enters the
-    // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if a
-    // map already exists before attempting to download it.
-    if (event.matchmaking && event.matchmaking.type) {
+    const isFinding = event.matchmaking && event.matchmaking.type
+    if (isFinding) {
       const {
         matchmaking: { mapPoolTypes },
       } = getState()
 
+      // As a slight optimization, we download the whole map pool as soon as the player enters the
+      // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if
+      // a map already exists before attempting to download it.
       const mapPool = mapPoolTypes.get(event.matchmaking.type)
       if (mapPool) {
         mapPool.byId

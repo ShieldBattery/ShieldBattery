@@ -7,7 +7,8 @@ import SubheaderButton from '../material/left-nav/subheader-button.jsx'
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2Old, TitleOld, robotoCondensed } from '../styles/typography'
+import { body2, TitleOld, robotoCondensed } from '../styles/typography'
+import { ElapsedTime } from './elapsed-time'
 
 const SearchingContainer = styled.div`
   display: flex;
@@ -23,46 +24,16 @@ const SearchTitle = styled(TitleOld)`
   margin: 0 16px;
 `
 
-const ElapsedTimeContainer = styled(Body2Old)`
+const StyledElapsedTime = styled(ElapsedTime)`
+  ${body2}
   color: ${colorTextSecondary};
-  font-size: 16px;
   margin: 0 16px;
 `
 
 export default class SearchingMatchNavEntry extends React.Component {
   static propTypes = {
+    startTime: PropTypes.number,
     onCancelSearch: PropTypes.func.isRequired,
-  }
-
-  state = {
-    elapsedTime: 0, // in seconds
-  }
-
-  _timerId = null
-
-  componentDidMount() {
-    this._timerId = setInterval(() => {
-      this.setState({ elapsedTime: this.state.elapsedTime + 1 })
-    }, 1000)
-  }
-
-  componentWillUnmount() {
-    if (this._timerId) {
-      clearInterval(this._timerId)
-      this._timerId = null
-    }
-  }
-
-  formatElapsedTime() {
-    const { elapsedTime } = this.state
-    const hours = Math.floor(elapsedTime / 3600)
-    const minutes = Math.floor(elapsedTime / 60) % 60
-    const seconds = elapsedTime % 60
-
-    return [hours, minutes, seconds]
-      .map(v => ('' + v).padStart(2, '0'))
-      .filter((v, i) => v !== '00' || i > 0)
-      .join(':')
   }
 
   render() {
@@ -76,7 +47,7 @@ export default class SearchingMatchNavEntry extends React.Component {
             onClick={this.onCancelSearchClick}
           />
         </SearchingContainer>
-        <ElapsedTimeContainer>Time: {this.formatElapsedTime()}</ElapsedTimeContainer>
+        <StyledElapsedTime prefix={'Time: '} startTimeMs={this.props.startTime} />
       </>
     )
   }

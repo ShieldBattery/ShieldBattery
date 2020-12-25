@@ -170,11 +170,17 @@ class ConnectedLeftNav extends React.Component {
   }
 
   renderSearchingMatch() {
-    if (!this.props.matchmaking.isFinding || !IS_ELECTRON) return null
+    const {
+      matchmaking: { isFinding, searchStartTime },
+    } = this.props
+    if (!isFinding || searchStartTime < 0 || !IS_ELECTRON) return null
 
     return [
       <Section key='searching-match-section'>
-        <SearchingMatchNavEntry onCancelSearch={this.onCancelFindMatchClick} />
+        <SearchingMatchNavEntry
+          startTime={searchStartTime}
+          onCancelSearch={this.onCancelFindMatchClick}
+        />
       </Section>,
       <Divider key='searching-match-divider' />,
     ]
