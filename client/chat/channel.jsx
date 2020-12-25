@@ -81,6 +81,13 @@ const UserListEntryItem = styled.li`
     cursor: pointer;
     background-color: rgba(255, 255, 255, 0.08);
   }
+
+  ${props => {
+    if (props.isOverlayOpen) {
+      return 'background-color: rgba(255, 255, 255, 0.08);'
+    }
+    return ''
+  }}
 `
 
 const StyledAvatar = styled(Avatar)`
@@ -124,7 +131,10 @@ class UserListEntry extends React.Component {
   render() {
     return (
       <>
-        <UserListEntryItem ref={this._userEntryRef} onClick={this.onOpenUserOverlay}>
+        <UserListEntryItem
+          ref={this._userEntryRef}
+          isOverlayOpen={this.state.userOverlayOpen}
+          onClick={this.onOpenUserOverlay}>
           <StyledAvatar user={this.props.user} />
           <UserListName>{this.props.user}</UserListName>
         </UserListEntryItem>
