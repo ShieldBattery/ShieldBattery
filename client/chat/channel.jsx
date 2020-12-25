@@ -219,10 +219,10 @@ const MessagesAndInput = styled.div`
 `
 
 const Messages = styled.div`
-  height: calc(100% - 56px - 16px); /* chat input height + margin */h
+  height: calc(100% - 56px - 16px); /* chat input height + margin */
   margin: 0 0 -1px 0;
-  border-bottom: 1px solid ${props =>
-    props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)'};
+  border-bottom: 1px solid
+    ${props => (props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)')};
   transition: border 250ms linear;
 `
 
@@ -247,12 +247,12 @@ class Channel extends React.Component {
     isScrolledUp: false,
   }
 
-  componentWillUpdate(nextProps, nextState) {
+  componentDidUpdate(prevProps) {
     const insertingAtTop =
-      nextProps.channel !== this.props.channel &&
-      this.props.channel.messages.size > 0 &&
-      nextProps.channel.messages.size > this.props.channel.messages.size &&
-      nextProps.channel.messages.get(0) !== this.props.channel.messages.get(0)
+      prevProps.channel !== this.props.channel &&
+      prevProps.channel.messages.size > 0 &&
+      this.props.channel.messages.size > prevProps.channel.messages.size &&
+      this.props.channel.messages.get(0) !== prevProps.channel.messages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
   }
 
@@ -324,13 +324,12 @@ export default class ChatChannelView extends React.Component {
     }
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (isLeavingChannel(this.props, nextProps)) {
-      this.props.dispatch(push('/'))
-    }
-  }
-
   componentDidUpdate(prevProps) {
+    if (isLeavingChannel(prevProps, this.props)) {
+      this.props.dispatch(push('/'))
+      return
+    }
+
     const prevChannel = prevProps.match.params.channel
     const routeChannel = this.props.match.params.channel
     if (this._isInChannel()) {

@@ -43,10 +43,10 @@ const MessagesAndInput = styled.div`
 `
 
 const Messages = styled.div`
-  height: calc(100% - 56px - 16px); /* chat input height + margin */h
+  height: calc(100% - 56px - 16px); /* chat input height + margin */
   margin: 0 0 -1px 0;
-  border-bottom: 1px solid ${props =>
-    props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)'};
+  border-bottom: 1px solid
+    ${props => (props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)')};
   transition: border 250ms linear;
 `
 
@@ -70,12 +70,12 @@ class Whisper extends React.Component {
     isScrolledUp: false,
   }
 
-  componentWillUpdate(nextProps, nextState) {
+  componentDidUpdate(prevProps) {
     const insertingAtTop =
-      nextProps.session !== this.props.session &&
-      this.props.session.messages.size > 0 &&
-      nextProps.session.messages.size > this.props.session.messages.size &&
-      nextProps.session.messages.get(0) !== this.props.session.messages.get(0)
+      prevProps.session !== this.props.session &&
+      prevProps.session.messages.size > 0 &&
+      this.props.session.messages.size > prevProps.session.messages.size &&
+      this.props.session.messages.get(0) !== prevProps.session.messages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
   }
 
@@ -155,31 +155,28 @@ export default class WhisperView extends React.Component {
     }
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (isClosingCurrentWhisperSession(this.props, nextProps)) {
+  componentDidUpdate(prevProps) {
+    if (isClosingCurrentWhisperSession(prevProps, this.props)) {
       this.props.dispatch(push('/'))
       return
     }
 
-    const target = nextProps.match.params.target.toLowerCase()
+    const target = this.props.match.params.target.toLowerCase()
     // TODO(tec27): this really only handles one type of error (session creation failure), it needs
     // to handle (or ignore) other stuff too, like sending errors
-    const error = nextProps.whispers.errorsByName.get(target)
+    const error = this.props.whispers.errorsByName.get(target)
     if (error) {
       this.props.dispatch(push('/'))
       this.props.dispatch(openSnackbar({ message: error, time: TIMING_LONG }))
       return
     }
 
-    if (nextProps.user.name.toLowerCase() === target) {
+    if (this.props.user.name.toLowerCase() === target) {
       this.props.dispatch(push('/'))
       this.props.dispatch(openSnackbar({ message: "Can't whisper with yourself." }))
       return
     }
-  }
 
-  componentDidUpdate(prevProps) {
-    const target = this.props.match.params.target.toLowerCase()
     if (this._hasWhisperSession(target)) {
       this.props.dispatch(retrieveInitialMessageHistory(target))
       this.props.dispatch(activateWhisperSession(target))
