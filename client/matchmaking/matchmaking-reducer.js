@@ -17,7 +17,6 @@ import {
   MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
-  MATCHMAKING_UPDATE_SEARCHING_TIME,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
@@ -49,7 +48,8 @@ const MapPool = new Record({
 })
 export const BaseMatchmakingState = new Record({
   isFinding: false,
-  searchingTime: -1,
+  /** The time when the search was started (as returned by `window.performance.now()`) */
+  searchStartTime: -1,
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
@@ -89,12 +89,8 @@ export default keyedReducer(new MatchmakingState(), {
 
     return new MatchmakingState({
       isFinding: true,
-      searchingTime: 0,
+      searchStartTime: window.performance.now(),
     })
-  },
-
-  [MATCHMAKING_UPDATE_SEARCHING_TIME](state, action) {
-    return state.set('searchingTime', action.payload)
   },
 
   [MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN](state, action) {

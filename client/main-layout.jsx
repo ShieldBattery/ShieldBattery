@@ -167,7 +167,7 @@ class MainLayout extends React.Component {
 
   renderSearchingMatchOverlay() {
     const {
-      matchmaking: { isFinding, searchingTime },
+      matchmaking: { isFinding, searchStartTime },
       matchmakingPreferences: { matchmakingType, race },
     } = this.props
     if (!isFinding || !IS_ELECTRON) return null
@@ -176,7 +176,7 @@ class MainLayout extends React.Component {
       <MatchmakingSearchingOverlay
         open={this.state.searchingMatchOverlayOpen}
         anchor={this._searchingMatchButtonRef.current}
-        elapsedTime={searchingTime}
+        startTime={searchStartTime}
         matchmakingType={matchmakingType}
         selectedRace={race}
         onCancelSearch={() => {

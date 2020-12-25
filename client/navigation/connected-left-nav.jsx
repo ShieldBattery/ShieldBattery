@@ -171,14 +171,14 @@ class ConnectedLeftNav extends React.Component {
 
   renderSearchingMatch() {
     const {
-      matchmaking: { isFinding, searchingTime },
+      matchmaking: { isFinding, searchStartTime },
     } = this.props
-    if (!isFinding || searchingTime < 0 || !IS_ELECTRON) return null
+    if (!isFinding || searchStartTime < 0 || !IS_ELECTRON) return null
 
     return [
       <Section key='searching-match-section'>
         <SearchingMatchNavEntry
-          elapsedTime={searchingTime}
+          startTime={searchStartTime}
           onCancelSearch={this.onCancelFindMatchClick}
         />
       </Section>,

@@ -17,7 +17,6 @@ import {
   MATCHMAKING_UPDATE_COUNTDOWN_TICK,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
-  MATCHMAKING_UPDATE_SEARCHING_TIME,
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
@@ -29,17 +28,6 @@ import { USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
-
-const searchingState = {
-  timer: null,
-}
-function clearSearchingTimer() {
-  const { timer } = searchingState
-  if (timer) {
-    clearInterval(timer)
-    searchingState.timer = null
-  }
-}
 
 const acceptMatchState = {
   timer: null,
@@ -307,17 +295,6 @@ const eventToAction = {
   status: (name, event) => (dispatch, getState) => {
     const isFinding = event.matchmaking && event.matchmaking.type
     if (isFinding) {
-      clearSearchingTimer()
-      let searchingTime = 0
-
-      searchingState.timer = setInterval(() => {
-        searchingTime += 1
-        dispatch({
-          type: MATCHMAKING_UPDATE_SEARCHING_TIME,
-          payload: searchingTime,
-        })
-      }, 1000)
-
       const {
         matchmaking: { mapPoolTypes },
       } = getState()
@@ -335,8 +312,6 @@ const eventToAction = {
               .catch(err => log.error('Error while downloading map: ' + err)),
           )
       }
-    } else {
-      clearSearchingTimer()
     }
 
     dispatch({

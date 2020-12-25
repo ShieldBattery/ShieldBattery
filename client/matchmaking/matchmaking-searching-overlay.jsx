@@ -7,9 +7,10 @@ import RaceIcon from '../lobbies/race-icon.jsx'
 import Popover from '../material/popover.jsx'
 import RaisedButton from '../material/raised-button.jsx'
 import { fastOutSlowIn } from '../material/curve-constants.js'
-import { Headline3, Headline6 } from '../styles/typography'
+import { headline3, Headline6 } from '../styles/typography'
 
 import { MatchmakingType } from '../../common/matchmaking'
+import { ElapsedTime } from './elapsed-time'
 
 // TODO(2Pac): Move this to a common folder if we decide to use this text elsewhere
 function matchmakingTypeToText(type) {
@@ -88,31 +89,33 @@ const StyledRaceIcon = styled(RaceIcon)`
   height: 80px;
 `
 
+const StyledElapsedTime = styled(ElapsedTime)`
+  ${headline3};
+`
+
 export default class MatchmakingSearchingOverlay extends React.Component {
   static propTypes = {
     open: PropTypes.bool.isRequired,
     anchor: PropTypes.object,
-    elapsedTime: PropTypes.number,
+    startTime: PropTypes.number,
     matchmakingType: PropTypes.string,
     selectedRace: PropTypes.string,
     onCancelSearch: PropTypes.func.isRequired,
     onDismiss: PropTypes.func.isRequired,
   }
 
-  formatElapsedTime() {
-    const { elapsedTime } = this.props
-    const hours = Math.floor(elapsedTime / 3600)
-    const minutes = Math.floor(elapsedTime / 60) % 60
-    const seconds = elapsedTime % 60
-
-    return [hours, minutes, seconds]
-      .map(v => ('' + v).padStart(2, '0'))
-      .filter((v, i) => v !== '00' || i > 0)
-      .join(':')
-  }
-
   render() {
-    const { open, anchor, matchmakingType, selectedRace, onCancelSearch, onDismiss } = this.props
+    const {
+      open,
+      anchor,
+      startTime,
+      matchmakingType,
+      selectedRace,
+      onCancelSearch,
+      onDismiss,
+    } = this.props
+
+    const elapsedTime = window.performance.now() - startTime
 
     return (
       <Popover
@@ -156,7 +159,7 @@ export default class MatchmakingSearchingOverlay extends React.Component {
                     <StyledRaceIcon race={selectedRace} />
                   </InfoItem>
                   <InfoItem>
-                    <Headline3>{this.formatElapsedTime()}</Headline3>
+                    <StyledElapsedTime timeMs={elapsedTime} />
                   </InfoItem>
                 </InfoContainer>
                 <RaisedButton label='Cancel search' onClick={onCancelSearch} />
