@@ -27,7 +27,6 @@ const SearchTitle = styled(TitleOld)`
 const StyledElapsedTime = styled(ElapsedTime)`
   ${body2}
   color: ${colorTextSecondary};
-  font-size: 16px;
   margin: 0 16px;
 `
 
