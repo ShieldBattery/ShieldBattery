@@ -38,8 +38,6 @@ export default class SearchingMatchNavEntry extends React.Component {
   }
 
   render() {
-    const elapsedTime = window.performance.now() - this.props.startTime
-
     return (
       <>
         <SearchingContainer>
@@ -50,7 +48,7 @@ export default class SearchingMatchNavEntry extends React.Component {
             onClick={this.onCancelSearchClick}
           />
         </SearchingContainer>
-        <StyledElapsedTime prefix={'Time: '} timeMs={elapsedTime} />
+        <StyledElapsedTime prefix={'Time: '} startTimeMs={this.props.startTime} />
       </>
     )
   }

@@ -115,8 +115,6 @@ export default class MatchmakingSearchingOverlay extends React.Component {
       onDismiss,
     } = this.props
 
-    const elapsedTime = window.performance.now() - startTime
-
     return (
       <Popover
         open={open}
@@ -159,7 +157,7 @@ export default class MatchmakingSearchingOverlay extends React.Component {
                     <StyledRaceIcon race={selectedRace} />
                   </InfoItem>
                   <InfoItem>
-                    <StyledElapsedTime timeMs={elapsedTime} />
+                    <StyledElapsedTime startTimeMs={startTime} />
                   </InfoItem>
                 </InfoContainer>
                 <RaisedButton label='Cancel search' onClick={onCancelSearch} />
