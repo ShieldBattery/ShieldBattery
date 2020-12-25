@@ -4,6 +4,7 @@ import { Route, Switch } from 'react-router-dom'
 import { push, replace } from 'connected-react-router'
 import styled from 'styled-components'
 
+import ActiveLobby from './active-lobby.jsx'
 import Lobby from './lobby.jsx'
 import LoadingScreen from './loading.jsx'
 import LoadingIndicator from '../progress/dots.jsx'
@@ -111,12 +112,12 @@ export default class LobbyView extends React.Component {
 
   renderActiveLobby = () => {
     const {
-      activeGame: { isActive: hasActiveGame },
+      activeGame: { isActive: hasActiveGame, info: gameInfo },
     } = this.props
 
     if (!hasActiveGame) return null
 
-    return <span>Why are you looking here?</span>
+    return <ActiveLobby lobby={gameInfo.extra.lobby.info} />
   }
 
   renderLobby = () => {
