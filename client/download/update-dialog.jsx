@@ -31,11 +31,15 @@ const LoadingContainer = styled.div`
 @connect(state => ({ update: state.update }))
 export default class UpdateDialog extends React.Component {
   componentDidMount() {
-    this.componentWillUpdate(this.props)
+    this.checkUpdate()
   }
 
-  componentWillUpdate(nextProps) {
-    if (!nextProps.update.hasUpdate) {
+  componentDidUpdate() {
+    this.checkUpdate()
+  }
+
+  checkUpdate() {
+    if (!this.props.update.hasUpdate) {
       // This should really never happen, but just in case!
       this.props.dispatch(openSnackbar({ message: 'Your client is now up to date.' }))
       this.props.dispatch(closeDialog())
