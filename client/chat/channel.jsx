@@ -21,7 +21,7 @@ import MessageList from '../messaging/message-list.jsx'
 import MenuItem from '../material/menu/item.jsx'
 import UserProfileOverlay from '../profile/user-profile-overlay.jsx'
 import { ScrollableContent } from '../material/scroll-bar.jsx'
-import { colorDividers, colorTextSecondary, grey800 } from '../styles/colors'
+import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
@@ -84,7 +84,7 @@ const UserListEntryItem = styled.li`
 
   ${props => {
     if (props.isOverlayOpen) {
-      return `background-color: ${grey800};`
+      return `background-color: rgba(255, 255, 255, 0.08);`
     }
     return ''
   }}
