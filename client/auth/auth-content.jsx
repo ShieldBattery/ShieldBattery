@@ -80,6 +80,8 @@ export const RowEdge = styled.div`
 `
 
 export const ForgotActionButton = styled(FlatButton)`
+  padding: 0 8px;
+
   & ${Label} {
     color: ${colorTextSecondary};
     font-weight: 400;
