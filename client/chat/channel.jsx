@@ -84,7 +84,7 @@ const UserListEntryItem = styled.li`
 
   ${props => {
     if (props.isOverlayOpen) {
-      return `background-color: rgba(255, 255, 255, 0.08);`
+      return 'background-color: rgba(255, 255, 255, 0.08);'
     }
     return ''
   }}
