@@ -247,15 +247,15 @@ export default class Popover extends React.Component {
     return popoverPosition
   }
 
-  componentWillReceiveProps(nextProps) {
-    if (nextProps.open !== this.state.open) {
-      const { popoverOriginHorizontal, popoverOriginVertical } = nextProps
-      if (nextProps.open) {
-        this.animationId = window.requestAnimationFrame(() => this.animateOnOpen(nextProps))
+  componentDidUpdate() {
+    if (this.props.open !== this.state.open && !this.state.transitioning) {
+      const { popoverOriginHorizontal, popoverOriginVertical } = this.props
+      if (this.props.open) {
+        this.animationId = window.requestAnimationFrame(() => this.animateOnOpen(this.props))
         this.setState({
           open: true,
           transitioning: true,
-          popoverPosition: this.calculatePopoverPosition(nextProps),
+          popoverPosition: this.calculatePopoverPosition(this.props),
         })
         clearTimeout(this.openTimer)
         this.openTimer = setTimeout(
