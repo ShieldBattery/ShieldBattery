@@ -75,9 +75,9 @@ class ForgotFormHolder extends React.Component {
     this._form = elem
   }
 
-  componentWillUpdate(nextProps, nextState) {
-    if (this.props.auth.authChangeInProgress && !nextProps.auth.authChangeInProgress) {
-      if (this.state.reqId && !nextProps.auth.lastFailure) {
+  componentDidUpdate(prevProps) {
+    if (prevProps.auth.authChangeInProgress && !this.props.auth.authChangeInProgress) {
+      if (this.state.reqId && !this.props.auth.lastFailure) {
         this._form.reset()
         this.setState({ success: true })
       }
