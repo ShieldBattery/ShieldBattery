@@ -1,3 +1,32 @@
+#### 6.1.7 [Testing for 7.0] (December 26th, 2020)
+
+- **Wow, it's been a while.** Sorry about that. The hurdles involved in supporting a game that was
+  actively being worked on were unexpected and large. But we figured it out! And we're here again!
+  And we're ready to bring you the best gosh darn StarCrafting Experience you've ever seen!
+- **StarCraft: Resupported.** We now support StarCraft: Remastered installs. In fact, that's all we
+  support. RIP 1.16, we'll miss you a bit. As a result, you'll notice that our Settings dialog has
+  changed quite a bit, and we directly map to settings you'd find inside SC:R now. The big missing
+  feature there is hotkey configuration. For now, you can launch SC:R through Blizzard's launcher
+  and any hotkeys you change there will be maintained for ShieldBattery.
+- **Matchmaking making matches.** Matchmaking is finally here! For 1v1. Without ranks yet. More
+  modes and ranked is coming real soon, but we wanted to roll out a simpler version first to work
+  out all the kinks. It may be available at limited times, depending on how testing is going, but
+  the client will let you know (and also let you know when it'll be back if it's currently
+  disabled)! We look forward to your feedback on our unique race and map selection systems, so let
+  us have it!
+- **DeMapcracy.** Remember that cool new maps backend we mentioned 3 years ago? Honestly I wouldn't
+  blame you if you didn't, although I mean, it's like, two versions below this one and you could
+  just go look... Okay you don't have to, really it's fine! The important thing is, you can now
+  upload all those maps you have sitting in your BW directory. And you can make lobbies for them
+  too! Currently these will be in your _private collection_, usable only by you. Features for
+  publishing and managing publicly available maps are _Coming Soon™_.
+- **Fog of War: Now With Slightly Less Fog.** The starting fog color is now slightly transparent in
+  non-UMS settings, so you can see the location of terrain and resources without exploring. We
+  believe this will make playing new and unfamiliar maps slightly less intimidating, and just feels _right_. It may be 2020, but we can still teach Brood War some new tricks �
+- **WHAT'S THAT? I CAN'T HEAR YOU OVER THE COUNTDOWN BEEPS!** We added a volume slider for our
+  in-app sounds, just in case you didn't want to blast your whole neighborhood with incessant
+  beeping every time you start a game. Weirdo.
+
 #### 6.1.0 (April 24th, 2017)
 
 - **Support for newer game installs.** We can now handle installs of newer versions of StarCraft
