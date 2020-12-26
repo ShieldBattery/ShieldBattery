@@ -55,8 +55,8 @@ const MOUNT_BASE = '/matchmaking'
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
  *
- * @returns an object with `{ preferredMaps, randomMaps, chosenMap }` describing the maps that were
- *   used to make the selection, as well as the actual selection
+ * @returns an object with `{ mapsByPlayer, preferredMaps, randomMaps, chosenMap }` describing the
+ *   maps that were used to make the selection, as well as the actual selection.
  */
 async function pickMap(matchmakingType, players) {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
@@ -64,10 +64,28 @@ async function pickMap(matchmakingType, players) {
     throw new Error('invalid map pool')
   }
 
-  const mapPool = new Set(currentMapPool.maps)
-  const preferredMapIds = players
-    .reduce((acc, p) => acc.concat(p.preferredMaps), new Set())
-    .filter(m => mapPool.includes(m))
+  // The algorithm for selecting maps is:
+  // 1) All player selections are collected and only unique ones are kept
+  // 2) If there are less than 4 maps after #1, we fill the rest of the list
+  //    with random map selections from the pool that are *also* unique
+  // 3) We pick 1 random map from this 4 map pool as the chosen one
+  //
+  // This means that we are guaranteed to have 4 unique maps to select from each
+  // time, and that even if 2 particular maps are extremely popular among
+  // players, they will still have to know how to play on the entire pool. It
+  // also means that players that learn "rare" maps will have an advantage
+  // during this selection process (there is a higher chance their map will
+  // not be replaced with a random one).
+
+  const mapPool = Set(currentMapPool.maps)
+  let preferredMapIds = Set()
+  let mapIdsByPlayer = Map()
+
+  for (const p of players) {
+    const available = p.preferredMaps.intersect(mapPool)
+    preferredMapIds = preferredMapIds.concat(available)
+    mapIdsByPlayer = mapIdsByPlayer.set(p.id, available)
+  }
 
   const randomMapIds = []
   Range(preferredMapIds.size, 4).forEach(() => {
@@ -84,11 +102,15 @@ async function pickMap(matchmakingType, players) {
     throw new Error('no maps found')
   }
 
+  const mapsByPlayer = mapIdsByPlayer
+    .map(mapIds => mapIds.map(id => preferredMaps.find(m => m.id === id)))
+    .toJS()
+
   const chosenMap = [...preferredMaps, ...randomMaps][
     getRandomInt(preferredMaps.length + randomMaps.length)
   ]
 
-  return { preferredMaps, randomMaps, chosenMap }
+  return { mapsByPlayer, preferredMaps, randomMaps, chosenMap }
 }
 
 @Mount(MOUNT_BASE)
@@ -184,7 +206,7 @@ export class MatchmakingApi {
         slots = players.map(p => createHuman(p.name, p.race))
       }
 
-      const { preferredMaps, randomMaps, chosenMap } = await pickMap(
+      const { mapsByPlayer, preferredMaps, randomMaps, chosenMap } = await pickMap(
         matchInfo.type,
         matchInfo.players,
       )
@@ -217,6 +239,7 @@ export class MatchmakingApi {
             slots,
             setup,
             resultCodes,
+            mapsByPlayer,
             preferredMaps,
             randomMaps,
             chosenMap,
@@ -266,6 +289,7 @@ export class MatchmakingApi {
       slots,
       setup = {},
       resultCodes,
+      mapsByPlayer,
       preferredMaps,
       randomMaps,
       chosenMap,
@@ -291,6 +315,7 @@ export class MatchmakingApi {
             resultCode: resultCodes.get(client.name),
             slots,
             players: playersJson,
+            mapsByPlayer,
             preferredMaps,
             randomMaps,
             chosenMap,
@@ -423,7 +448,7 @@ export class MatchmakingApi {
       race,
       useAlternateRace,
       alternateRace,
-      preferredMaps,
+      preferredMaps: Set(preferredMaps),
     })
     this.matchmakers.get(type).addToQueue(player)
 
