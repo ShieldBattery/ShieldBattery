@@ -53,6 +53,32 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
   return map
 }
 
+export async function storeRegeneratedImages(path, extension) {
+  const {
+    mapData,
+    image256Stream,
+    image512Stream,
+    image1024Stream,
+    image2048Stream,
+  } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const { hash } = mapData
+
+  const image256Promise = image256Stream
+    ? writeFile(imagePath(hash, 256), image256Stream, { type: 'image/jpeg' })
+    : Promise.resolve()
+  const image512Promise = image512Stream
+    ? writeFile(imagePath(hash, 512), image512Stream, { type: 'image/jpeg' })
+    : Promise.resolve()
+  const image1024Promise = image1024Stream
+    ? writeFile(imagePath(hash, 1024), image1024Stream, { type: 'image/jpeg' })
+    : Promise.resolve()
+  const image2048Promise = image2048Stream
+    ? writeFile(imagePath(hash, 2048), image2048Stream, { type: 'image/jpeg' })
+    : Promise.resolve()
+
+  await Promise.all([image256Promise, image512Promise, image1024Promise, image2048Promise])
+}
+
 export function mapPath(hash, extension) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)

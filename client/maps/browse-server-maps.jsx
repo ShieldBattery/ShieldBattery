@@ -138,6 +138,7 @@ class MapList extends React.PureComponent {
     onToggleFavoriteMap: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemoveMap: PropTypes.func,
+    onRegenMapImage: PropTypes.func,
   }
 
   render() {
@@ -153,6 +154,7 @@ class MapList extends React.PureComponent {
       onToggleFavoriteMap,
       onMapDetails,
       onRemoveMap,
+      onRegenMapImage,
     } = this.props
 
     return list.map((id, i) => {
@@ -161,6 +163,7 @@ class MapList extends React.PureComponent {
         onRemoveMap &&
         ((map.visibility !== MAP_VISIBILITY_PRIVATE && canManageMaps) ||
           (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id === user.id))
+      const canRegenMapImage = onRegenMapImage && canManageMaps
 
       return (
         <MapThumbnail
@@ -174,6 +177,7 @@ class MapList extends React.PureComponent {
           onToggleFavorite={onToggleFavoriteMap ? () => onToggleFavoriteMap(map) : undefined}
           onMapDetails={onMapDetails ? () => onMapDetails(map) : undefined}
           onRemove={canRemoveMap ? () => onRemoveMap(map) : undefined}
+          onRegenMapImage={canRegenMapImage ? () => onRegenMapImage(map) : undefined}
         />
       )
     })
@@ -189,6 +193,7 @@ export default class Maps extends React.Component {
     onLocalMapSelect: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemoveMap: PropTypes.func,
+    onRegenMapImage: PropTypes.func,
   }
 
   state = {
@@ -291,6 +296,7 @@ export default class Maps extends React.Component {
       onMapSelect,
       onMapDetails,
       onRemoveMap,
+      onRegenMapImage,
     } = this.props
     const { thumbnailSize } = this.state
 
@@ -312,6 +318,7 @@ export default class Maps extends React.Component {
             onToggleFavoriteMap={this.onToggleFavoriteMap}
             onMapDetails={onMapDetails}
             onRemoveMap={onRemoveMap}
+            onRegenMapImage={onRegenMapImage}
           />
         </ImageList>
       </>

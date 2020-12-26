@@ -1,5 +1,7 @@
 import httpErrors from 'http-errors'
-import { storeMap } from '../maps/store'
+import { writeFile as fsWriteFile } from 'fs/promises'
+import { withFile as withTmpFile } from 'tmp-promise'
+import { storeMap, mapPath, storeRegeneratedImages } from '../maps/store'
 import {
   getMaps,
   getMapInfo,
@@ -10,7 +12,7 @@ import {
   removeMapFromFavorites,
   deleteAllMaps as dbDeleteAllMaps,
 } from '../models/maps'
-import { deleteFiles } from '../file-upload'
+import { deleteFiles, readFile } from '../file-upload'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { MAP_UPLOADING } from '../../../common/flags'
 import {
@@ -45,7 +47,6 @@ const mapFavoriteThrottle = createThrottle('mapfavorite', {
   burst: 70,
   window: 60000,
 })
-
 const mapRemoveThrottle = createThrottle('mapremove', {
   rate: 20,
   burst: 40,
@@ -87,6 +88,8 @@ export default function (router) {
       remove,
     )
     .post('/official', checkAllPermissions('manageMaps'), handleMultipartFiles, upload)
+    .post('/:mapId/regenerate', checkAllPermissions('manageMaps'), regenMapImage)
+    .delete('/', checkAllPermissions('massDeleteMaps'), deleteAllMaps)
     .post(
       '/favorites/:mapId',
       throttleMiddleware(mapFavoriteThrottle, ctx => ctx.session.userId),
@@ -99,7 +102,6 @@ export default function (router) {
       ensureLoggedIn,
       removeFromFavorites,
     )
-    .delete('/', checkAllPermissions('massDeleteMaps'), deleteAllMaps)
 }
 
 const SUPPORTED_EXTENSIONS = ['scx', 'scm']
@@ -261,5 +263,22 @@ async function removeFromFavorites(ctx, next) {
 
 async function deleteAllMaps(ctx, next) {
   await dbDeleteAllMaps(() => Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')]))
+  ctx.status = 204
+}
+
+async function regenMapImage(ctx, next) {
+  const { mapId } = ctx.params
+
+  const map = (await getMapInfo([mapId]))[0]
+  if (!map) {
+    throw new httpErrors.NotFound('Map not found')
+  }
+
+  const mapBufferPromise = readFile(mapPath(map.hash, map.mapData.format))
+  await withTmpFile(async ({ path }) => {
+    await fsWriteFile(path, await mapBufferPromise)
+    await storeRegeneratedImages(path, map.mapData.format)
+  })
+
   ctx.status = 204
 }

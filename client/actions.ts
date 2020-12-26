@@ -261,6 +261,10 @@ export const MAPS_LIST_CLEAR = 'MAPS_LIST_CLEAR'
 export const MAPS_LIST_GET_BEGIN = 'MAPS_LIST_GET_BEGIN'
 // We have received a response to our map list retrieval (error or the list of maps)
 export const MAPS_LIST_GET = 'MAPS_LIST_GET'
+// We are starting the process of regenerating a map's image
+export const MAPS_REGEN_IMAGE_BEGIN = 'MAPS_REGIN_IMAGE_BEGIN'
+// The server has responded with success/failure to use regenerating a map image
+export const MAPS_REGEN_IMAGE = 'MAPS_REGIN_IMAGE'
 // We are starting the process of removing a map
 export const MAPS_REMOVE_BEGIN = 'MAPS_REMOVE_BEGIN'
 // The server has responded with success/failure to us removing a map

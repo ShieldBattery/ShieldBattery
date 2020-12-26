@@ -18,6 +18,8 @@ import {
   MAPS_PREFERENCES_GET,
   MAPS_PREFERENCES_UPDATE_BEGIN,
   MAPS_PREFERENCES_UPDATE,
+  MAPS_REGEN_IMAGE_BEGIN,
+  MAPS_REGEN_IMAGE,
 } from '../actions'
 
 const upload = IS_ELECTRON ? require('./upload').default : null
@@ -75,6 +77,37 @@ export function removeMap(map) {
     dispatch({
       type: MAPS_REMOVE,
       payload: fetch(`/api/1/maps/${map.id}`, { method: 'DELETE' }),
+      meta: { map },
+    })
+  }
+}
+
+export function regenMapImage(map) {
+  return dispatch => {
+    dispatch({ type: MAPS_REGEN_IMAGE_BEGIN, meta: { map } })
+
+    const reqPromise = fetch(`/api/1/maps/${map.id}/regenerate`, { method: 'POST' })
+
+    reqPromise.then(
+      () => {
+        dispatch(
+          openSnackbar({
+            message: 'Images regenerated',
+          }),
+        )
+      },
+      () => {
+        dispatch(
+          openSnackbar({
+            message: 'An error occurred while regenerating images',
+          }),
+        )
+      },
+    )
+
+    dispatch({
+      type: MAPS_REGEN_IMAGE,
+      payload: reqPromise,
       meta: { map },
     })
   }

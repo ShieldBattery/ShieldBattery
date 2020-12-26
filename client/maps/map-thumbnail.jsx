@@ -155,6 +155,7 @@ export default class MapThumbnail extends React.Component {
     onToggleFavorite: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemove: PropTypes.func,
+    onRegenMapImage: PropTypes.func,
   }
 
   state = {
@@ -208,11 +209,15 @@ export default class MapThumbnail extends React.Component {
       onToggleFavorite,
       onMapDetails,
       onRemove,
+      onRegenMapImage,
     } = this.props
 
     const mapActions = []
     if (onMapDetails) {
       mapActions.push(['View map details', onMapDetails])
+    }
+    if (onRegenMapImage) {
+      mapActions.push(['Regenerate image', onRegenMapImage])
     }
     if (onRemove) {
       mapActions.push(['Remove', onRemove])

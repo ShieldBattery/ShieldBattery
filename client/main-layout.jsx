@@ -49,7 +49,7 @@ import { openOverlay } from './activities/action-creators'
 import { isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters.jsx'
-import { removeMap } from './maps/action-creators'
+import { regenMapImage, removeMap } from './maps/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
@@ -410,11 +410,16 @@ class MainLayout extends React.Component {
     this.props.dispatch(removeMap(map))
   }
 
+  onRegenMapImage = map => {
+    this.props.dispatch(regenMapImage(map))
+  }
+
   serverMapsProps = {
     title: 'Maps',
     onLocalMapSelect: this.onLocalMapSelect,
     onMapDetails: this.onMapDetails,
     onRemoveMap: this.onRemoveMap,
+    onRegenMapImage: this.onRegenMapImage,
   }
 
   onMapsClick = () => {
