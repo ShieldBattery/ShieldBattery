@@ -70,13 +70,14 @@ class Whisper extends React.Component {
     isScrolledUp: false,
   }
 
-  componentDidUpdate(prevProps) {
+  getSnapshotBeforeUpdate(prevProps) {
     const insertingAtTop =
       prevProps.session !== this.props.session &&
-      prevProps.session.messages.size > 0 &&
-      this.props.session.messages.size > prevProps.session.messages.size &&
-      this.props.session.messages.get(0) !== prevProps.session.messages.get(0)
+      prevProps.session.chatMessages.size > 0 &&
+      this.props.session.chatMessages.size > prevProps.session.chatMessages.size &&
+      this.props.session.chatMessages.get(0) !== prevProps.session.chatMessages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
+    return null
   }
 
   render() {

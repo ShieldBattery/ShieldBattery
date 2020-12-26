@@ -247,13 +247,14 @@ class Channel extends React.Component {
     isScrolledUp: false,
   }
 
-  componentDidUpdate(prevProps) {
+  getSnapshotBeforeUpdate(prevProps) {
     const insertingAtTop =
       prevProps.channel !== this.props.channel &&
-      prevProps.channel.messages.size > 0 &&
-      this.props.channel.messages.size > prevProps.channel.messages.size &&
-      this.props.channel.messages.get(0) !== prevProps.channel.messages.get(0)
+      prevProps.channel.chatMessages.size > 0 &&
+      this.props.channel.chatMessages.size > prevProps.channel.chatMessages.size &&
+      this.props.channel.chatMessages.get(0) !== prevProps.channel.chatMessages.get(0)
     this.messageList.setInsertingAtTop(insertingAtTop)
+    return null
   }
 
   render() {
