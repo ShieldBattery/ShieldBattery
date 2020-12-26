@@ -22,7 +22,7 @@
   publishing and managing publicly available maps are _Coming Soon™_.
 - **Fog of War: Now With Slightly Less Fog.** The starting fog color is now slightly transparent in
   non-UMS settings, so you can see the location of terrain and resources without exploring. We
-  believe this will make playing new and unfamiliar maps slightly less intimidating, and just feels _right_. It may be 2020, but we can still teach Brood War some new tricks �
+  believe this will make playing new and unfamiliar maps slightly less intimidating, and just feels _right_. It may be 2020, but we can still teach Brood War some new tricks 😎
 - **WHAT'S THAT? I CAN'T HEAR YOU OVER THE COUNTDOWN BEEPS!** We added a volume slider for our
   in-app sounds, just in case you didn't want to blast your whole neighborhood with incessant
   beeping every time you start a game. Weirdo.
