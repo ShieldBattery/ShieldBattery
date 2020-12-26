@@ -58,7 +58,7 @@
     "aws-sdk": "^2.730.0",
     "bcrypt": "^5.0.0",
     "bl": "^4.0.0",
-    "bw-chk": "ShieldBattery/bw-chk#a4dbfa6cc1b964cc8768095acd38953ee60fd5de",
+    "bw-chk": "^1.2.1",
     "canonical-host": "^0.0.5",
     "core-js": "^3.6.1",
     "cross-env": "^7.0.2",
