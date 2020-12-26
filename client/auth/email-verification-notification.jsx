@@ -21,11 +21,11 @@ const VerifyEmailText = styled(Body1Old)`
 
 export default class ContentLayout extends React.Component {
   render() {
-    const verifyEmailText = `Please verify your email to ensure everything works correctly. In case
-      you haven't received it yet,`
+    const verifyEmailText = `Your email is unverified! Check for an email from
+      ShieldBattery and click the enclosed link. If you don't see one, we can `
     const verifyEmailLink = (
       <a href={makeServerUrl('/send-verification-email')} target='_blank'>
-        get verification email.
+        send another.
       </a>
     )
 
