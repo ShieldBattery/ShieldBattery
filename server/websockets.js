@@ -30,6 +30,10 @@ class WebsocketServer {
       allowRequest: async (info, cb) => await this.onAuthorization(info, cb),
     })
 
+    this.nydus.on('error', err => {
+      log.error({ err }, 'nydus error')
+    })
+
     // NOTE(tec27): the order of creation here is very important, we want *more specific* event
     // handlers on sockets registered first, so that their close handlers get called first.
     this.clientSockets = createClientSockets(this.nydus, this.sessionLookup)
