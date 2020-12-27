@@ -7,6 +7,7 @@ import logger from '../logging/logger'
 import activeGameManager from '../active-game/active-game-manager-instance'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { Slot } from '../lobbies/lobby-reducer'
+import { makeServerUrl } from '../network/server-url'
 import { REPLAYS_START_REPLAY } from '../actions'
 
 function getReplayHeader(filePath) {
@@ -40,6 +41,8 @@ async function setGameConfig(replay, user, settings) {
       slots,
       host: player,
       seed: header.seed,
+      resultCode: '',
+      serverUrl: makeServerUrl(''),
     },
   })
 }
