@@ -6,8 +6,12 @@ import siteSocket from './site-socket'
 import LoadingIndicator from '../progress/dots.jsx'
 
 if (IS_ELECTRON) {
-  siteSocket.opts.extraHeaders = {
-    'x-shield-battery-client': 'true',
+  siteSocket.opts.transportOptions = {
+    polling: {
+      extraHeaders: {
+        'x-shield-battery-client': 'true',
+      },
+    },
   }
 }
 

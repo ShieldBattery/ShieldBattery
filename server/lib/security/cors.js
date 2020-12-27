@@ -1,6 +1,6 @@
 import vary from 'vary'
 
-const CORS_MAX_AGE_SECONDS = 60 * 60 * 6
+export const CORS_MAX_AGE_SECONDS = 60 * 60 * 6
 
 // Koa Middleware to handle CORS headers and pre-flight requests such that our site and app are both
 // allowed to make requests to the server.
