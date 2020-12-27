@@ -16,16 +16,22 @@ export const MatchmakingStatusState = new Record({
 
 export default keyedReducer(new MatchmakingStatusState(), {
   [MATCHMAKING_STATUS_UPDATE](state, action) {
-    const { startDate, nextStartDate, nextEndDate } = action.payload
-    return state.setIn(
-      ['types', action.payload.type],
-      new MatchmakingStatus({
-        ...action.payload,
-        startDate: new Date(startDate),
-        nextStartDate: new Date(nextStartDate),
-        nextEndDate: new Date(nextEndDate),
-      }),
-    )
+    let nextState = state
+
+    for (const status of action.payload) {
+      const { startDate, nextStartDate, nextEndDate } = status
+      nextState = state.setIn(
+        ['types', status.type],
+        new MatchmakingStatus({
+          ...status,
+          startDate: new Date(startDate),
+          nextStartDate: new Date(nextStartDate),
+          nextEndDate: new Date(nextEndDate),
+        }),
+      )
+    }
+
+    return nextState
   },
 
   [NETWORK_SITE_CONNECTED](state, action) {

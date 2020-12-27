@@ -35,14 +35,15 @@ export default class MatchmakingStatus {
   }
 
   subscribe(socket: any) {
-    this.nydus.subscribeClient(socket, '/matchmakingStatus')
-
+    const statuses = []
     for (const type of Object.values(MatchmakingType)) {
       const status = this.statusByType.get(type)
       if (status) {
-        this.nydus.publish('/matchmakingStatus', status)
+        statuses.push(status)
       }
     }
+
+    this.nydus.subscribeClient(socket, '/matchmakingStatus', statuses)
   }
 
   private async getStatus(type: MatchmakingType) {
@@ -73,7 +74,7 @@ export default class MatchmakingStatus {
         if (is(oldStatus, status)) return
 
         this.statusByType = this.statusByType.set(type, status)
-        this.nydus.publish('/matchmakingStatus', status)
+        this.nydus.publish('/matchmakingStatus', [status])
 
         // If the `nextStartDate` hasn't changed, no need to update the timer
         if (oldStatus?.nextStartDate === status.nextStartDate) return
