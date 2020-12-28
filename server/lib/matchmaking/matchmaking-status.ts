@@ -2,6 +2,7 @@ import { Map, Record, is } from 'immutable'
 import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { NydusServer } from 'nydus'
 
 class StatusRecord extends Record({
   type: null as MatchmakingType | null,
@@ -12,8 +13,7 @@ class StatusRecord extends Record({
 }) {}
 
 export default class MatchmakingStatus {
-  // TODO(2Pac): Update this once nydus gets typings
-  private nydus: any
+  private nydus: NydusServer | null
   private statusByType: Map<MatchmakingType, StatusRecord>
   private timerByType: Map<MatchmakingType, ReturnType<typeof setTimeout>>
 
@@ -27,7 +27,7 @@ export default class MatchmakingStatus {
     return !!this.statusByType.get(type)?.enabled
   }
 
-  initialize(nydus: any) {
+  initialize(nydus: NydusServer) {
     this.nydus = nydus
     for (const type of Object.values(MatchmakingType)) {
       this.maybePublish(type)
@@ -43,7 +43,7 @@ export default class MatchmakingStatus {
       }
     }
 
-    this.nydus.subscribeClient(socket, '/matchmakingStatus', statuses)
+    this.nydus!.subscribeClient(socket, '/matchmakingStatus', statuses)
   }
 
   private async getStatus(type: MatchmakingType) {
@@ -74,7 +74,7 @@ export default class MatchmakingStatus {
         if (is(oldStatus, status)) return
 
         this.statusByType = this.statusByType.set(type, status)
-        this.nydus.publish('/matchmakingStatus', [status])
+        this.nydus!.publish('/matchmakingStatus', [status])
 
         // If the `nextStartDate` hasn't changed, no need to update the timer
         if (oldStatus?.nextStartDate === status.nextStartDate) return
