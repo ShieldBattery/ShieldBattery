@@ -16,7 +16,7 @@ attempting to follow further steps.
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (11.7.0 at the time of
+to install a version of it, generally the current version is a good choice (14.15.3 at the time of
 writing).
 
 #### Yarn
