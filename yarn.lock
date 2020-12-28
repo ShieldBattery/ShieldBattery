@@ -1135,6 +1135,20 @@
   resolved "https://registry.yarnpkg.com/@types/debug/-/debug-4.1.5.tgz#b14efa8852b7768d898906613c23f688713e02cd"
   integrity sha512-Q1y515GcOdTHgagaVFhHnIFQ38ygs/kmxdNpvpou+raI9UO3YZcHDngBSYKQklcKlvA7iuQlmIKbzvmxcOE9CQ==
 
+"@types/engine.io-client@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@types/engine.io-client/-/engine.io-client-3.1.4.tgz#5e590da573f0c0d17864188c1f887f5b5d564ae1"
+  integrity sha512-BbSGUviNc9Nim3FMgmImpbavNTUvVYm9OTKAV1c3FzyQFXxAiUH+IG5q5PMNnnzsVOFpywcvHoucBocxa+LWkQ==
+  dependencies:
+    "@types/node" "*"
+
+"@types/engine.io@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@types/engine.io/-/engine.io-3.1.4.tgz#3d9472711d179daa7c95c051e50ad411e18a9bdc"
+  integrity sha512-98rXVukLD6/ozrQ2O80NAlWDGA4INg+tqsEReWJldqyi2fulC9V7Use/n28SWgROXKm6003ycWV4gZHoF8GA6w==
+  dependencies:
+    "@types/node" "*"
+
 "@types/events@*":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/events/-/events-3.0.0.tgz#2862f3f58a9a7f7c3e78d79f130dd4d71c25c2a7"
@@ -2154,10 +2168,10 @@ babel-plugin-syntax-jsx@^6.18.0:
   resolved "https://registry.yarnpkg.com/babel-plugin-syntax-jsx/-/babel-plugin-syntax-jsx-6.18.0.tgz#0af32a9a6e13ca7a3fd5069e62d7b0f58d0d8946"
   integrity sha1-CvMqmm4Tyno/1QaeYtew9Y0NiUY=
 
-backo@^1.1.0:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/backo/-/backo-1.1.0.tgz#a36c4468923f2d265c9e8a709ea56ecdaff807e6"
-  integrity sha1-o2xEaJI/LSZcnopwnqVuza/4B+Y=
+backo2@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/backo2/-/backo2-1.0.2.tgz#31ab1ac8b129363463e35b3ebb69f4dfcfba7947"
+  integrity sha1-MasayLEpNjRj41s+u2n038+6eUc=
 
 balanced-match@^1.0.0:
   version "1.0.0"
@@ -3447,7 +3461,7 @@ debug@3.1.0, debug@~3.1.0:
   dependencies:
     ms "2.0.0"
 
-debug@4, debug@^4.0.1, debug@^4.1.0, debug@^4.1.1, debug@^4.3.0:
+debug@4, debug@^4.0.1, debug@^4.1.0, debug@^4.1.1, debug@^4.3.0, debug@^4.3.1:
   version "4.3.1"
   resolved "https://registry.yarnpkg.com/debug/-/debug-4.3.1.tgz#f0d229c505e0c6d8c49ac553d1b13dc183f6b2ee"
   integrity sha512-doEwdvm4PCeK4K3RQN2ZC2BYUBaxwLARCqZmMjtF8a51J2Rb0xpVloFRnCODwqjpwnAoao4pelN8l3RJdv3gRQ==
@@ -7113,35 +7127,34 @@ number-is-nan@^1.0.0:
   resolved "https://registry.yarnpkg.com/number-is-nan/-/number-is-nan-1.0.1.tgz#097b602b53422a522c1afb8790318336941a011d"
   integrity sha1-CXtgK1NCKlIsGvuHkDGDNpQaAR0=
 
-nydus-client@^1.0.2:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/nydus-client/-/nydus-client-1.1.0.tgz#f744f4bccb4c51a7fce29336cb42b2cb1634cc1a"
-  integrity sha512-J8NNwvRpPKXzgdgsvs0RTyIHbxixVwbseM7xy5yFfNnknXa5S9y0WCeEYb35uBukfc+PFL+xhjikllxCjBjs7g==
+nydus-client@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/nydus-client/-/nydus-client-2.0.1.tgz#9131ed712091ef22dd2381a87bc694477bd2bd32"
+  integrity sha512-DRNkZiu1gi/XaSwqmwRSV3zA7OElVcpdDpZFxzGH7G6Ya0lkP/8Zbvoj8hAppJ4FGxvBb/P5MfC5VvI8DEnVpQ==
   dependencies:
-    backo "^1.1.0"
+    backo2 "^1.0.2"
     cuid "^2.1.6"
     engine.io-client "^4.0.5"
-    immutable "^4.0.0-rc.12"
-    nydus-protocol "^1.0.0"
+    nydus-protocol "^2.0.0"
     ruta3 "^2.0.0"
 
-nydus-protocol@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/nydus-protocol/-/nydus-protocol-1.0.0.tgz#6556f82eec7993a83a2f26345c5b3aa15b76c5e8"
-  integrity sha1-ZVb4Lux5k6g6LyY0XFs6oVt2xeg=
+nydus-protocol@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/nydus-protocol/-/nydus-protocol-2.0.0.tgz#77481b284e081f1bab83ddf054cdbbbd15ad403f"
+  integrity sha512-+k7iQZI0hfFFgeIsMMDpPeLGtjU28uuu/ZQdEKR2x+lBuPRVzQ0Dvfc1kwL630OQHU/CgPlrr1j+XUYK4GLfyQ==
   dependencies:
-    debug "^2.2.0"
+    debug "^4.3.1"
 
-nydus@^1.0.4:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/nydus/-/nydus-1.1.0.tgz#3236365a99afd243a9db23344264b7f1cb8445e1"
-  integrity sha512-96T9/LzhpuKsxPK5oWRkS0OqZaIb1+EGYh/rJk8ln3u32HIk5xg4MZSBmeGHfPlJzFCtDuQVbjqmK3hTY0drjw==
+nydus@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/nydus/-/nydus-2.0.1.tgz#9133541b58ffd48e96b08054f8fba4c4c5bb94e7"
+  integrity sha512-3dIiRawaiTz9BrSauiORXsXt2rXEP0yvPyAN+X5GPSJRWNckZbX7arGxixus0XBZqeP1kmhhPVzZ+4x4v4AVOw==
   dependencies:
-    backo "^1.1.0"
+    backo2 "^1.0.2"
     cuid "^2.1.6"
     engine.io "2Pacalypse-/engine.io#master"
     immutable "^4.0.0-rc.12"
-    nydus-protocol "^1.0.0"
+    nydus-protocol "^2.0.0"
     ruta3 "^2.0.0"
 
 object-assign@^4, object-assign@^4.0.1, object-assign@^4.1.0, object-assign@^4.1.1:
