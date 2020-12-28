@@ -14,13 +14,11 @@ class StatusRecord extends Record({
 
 export default class MatchmakingStatus {
   private nydus: NydusServer | null
-  private statusByType: Map<MatchmakingType, StatusRecord>
-  private timerByType: Map<MatchmakingType, ReturnType<typeof setTimeout>>
+  private statusByType = Map<MatchmakingType, StatusRecord>()
+  private timerByType = Map<MatchmakingType, ReturnType<typeof setTimeout>>()
 
   constructor() {
     this.nydus = null
-    this.statusByType = Map()
-    this.timerByType = Map()
   }
 
   isEnabled(type: MatchmakingType): boolean {
