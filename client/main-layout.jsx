@@ -37,7 +37,7 @@ import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
-import MapsIcon from './icons/material/ic_terrain_black_24px.svg'
+import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
 
