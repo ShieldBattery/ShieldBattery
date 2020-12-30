@@ -1,3 +1,5 @@
+import 'core-js/proposals/reflect-metadata'
+
 import childProcess from 'child_process'
 import dns from 'dns'
 import http from 'http'
