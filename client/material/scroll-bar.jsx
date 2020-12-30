@@ -118,13 +118,15 @@ export class ScrollableContent extends React.Component {
     this._lastScrollHeight = 0
   }
 
-  componentWillUpdate() {
+  getSnapshotBeforeUpdate() {
     const node = this._scrollBars
     this._lastScrollHeight = node.getScrollHeight()
     this._shouldAutoScroll =
       !this._insertingAtTop &&
       node.getScrollTop() + node.getClientHeight() + 8 /* allow some leeway */ >=
         this._lastScrollHeight
+
+    return null
   }
 
   componentDidMount() {

@@ -24,7 +24,12 @@ const INACTIVE_CHANNEL_MAX_HISTORY = 150
 const SessionBase = new Record({
   target: null,
   status: null,
+  // This list should contain *all* messages, including the client-side ones like notifications for
+  // user coming online/offline, etc.
   messages: new List(),
+  // This list should contain only messages of the type `ChatMessage`, i.e. the messages that are
+  // written by users.
+  chatMessages: new List(),
 
   loadingHistory: false,
   hasHistory: true,
@@ -111,17 +116,17 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_MESSAGE](state, action) {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
-
-    return updateMessages(state, target.toLowerCase(), m => {
-      return m.push(
-        new ChatMessage({
-          id,
-          time,
-          from,
-          text: message,
-        }),
-      )
+    const newMessage = new ChatMessage({
+      id,
+      time,
+      from,
+      text: message,
     })
+
+    const updated = state.updateIn(['byName', target.toLowerCase(), 'chatMessages'], m =>
+      m.push(newMessage),
+    )
+    return updateMessages(updated, target.toLowerCase(), m => m.push(newMessage))
   },
 
   [WHISPERS_UPDATE_USER_ACTIVE](state, action) {
@@ -188,25 +193,26 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
     const { target } = action.meta
     const name = target.toLowerCase()
-    const newMessages = action.payload
-    const updated = state.setIn(['byName', name, 'loadingHistory'], false)
-    if (!newMessages.length) {
+    const newMessages = new List(
+      action.payload.map(
+        msg =>
+          new ChatMessage({
+            id: msg.id,
+            time: msg.sent,
+            from: msg.from,
+            text: msg.data.text,
+          }),
+      ),
+    )
+    let updated = state.setIn(['byName', name, 'loadingHistory'], false)
+    if (!newMessages.size) {
       return updated.setIn(['byName', name, 'hasHistory'], false)
     }
 
-    return updateMessages(updated, name, messages => {
-      return new List(
-        newMessages.map(
-          msg =>
-            new ChatMessage({
-              id: msg.id,
-              time: msg.sent,
-              from: msg.from,
-              text: msg.data.text,
-            }),
-        ),
-      ).concat(messages)
-    })
+    updated = updated.updateIn(['byName', name, 'chatMessages'], messages =>
+      newMessages.concat(messages),
+    )
+    return updateMessages(updated, name, messages => newMessages.concat(messages))
   },
 
   [WHISPERS_SESSION_ACTIVATE](state, action) {

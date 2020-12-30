@@ -248,9 +248,10 @@ class ChatList extends React.Component {
     return nextProps.messages !== this.props.messages
   }
 
-  componentWillUpdate() {
+  getSnapshotBeforeUpdate() {
     const node = this._scrollbar
     this._shouldAutoScroll = node.getScrollTop() + node.getClientHeight() >= node.getScrollHeight()
+    return null
   }
 
   componentDidUpdate() {

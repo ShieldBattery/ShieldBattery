@@ -50,7 +50,12 @@ export const Users = new Record({
 
 const ChannelBase = new Record({
   name: null,
+  // This list should contain *all* messages, including the client-side ones like notifications for
+  // user coming online/offline, etc.
   messages: new List(),
+  // This list should contain only messages of the type `ChatMessage`, i.e. the messages that are
+  // written by users.
+  chatMessages: new List(),
   users: new Users(),
 
   loadingHistory: false,
@@ -202,16 +207,17 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_UPDATE_MESSAGE](state, action) {
     const { id, channel, time, user, message } = action.payload
-    return updateMessages(state, channel, m => {
-      return m.push(
-        new ChatMessage({
-          id,
-          time,
-          from: user,
-          text: message,
-        }),
-      )
+    const lowerCaseChannel = channel.toLowerCase()
+    const newMessage = new ChatMessage({
+      id,
+      time,
+      from: user,
+      text: message,
     })
+    const updated = state.updateIn(['byName', lowerCaseChannel, 'chatMessages'], m =>
+      m.push(newMessage),
+    )
+    return updateMessages(updated, channel, m => m.push(newMessage))
   },
 
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
@@ -287,25 +293,26 @@ export default keyedReducer(new ChatState(), {
   [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
     const { channel } = action.meta
     const lowerCaseChannel = channel.toLowerCase()
-    const newMessages = action.payload
-    const updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
-    if (!newMessages.length) {
+    const newMessages = new List(
+      action.payload.map(
+        msg =>
+          new ChatMessage({
+            id: msg.id,
+            time: msg.sent,
+            from: msg.user,
+            text: msg.data.text,
+          }),
+      ),
+    )
+    let updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
+    if (!newMessages.size) {
       return updated.setIn(['byName', lowerCaseChannel, 'hasHistory'], false)
     }
 
-    return updateMessages(updated, channel, messages => {
-      return new List(
-        newMessages.map(
-          msg =>
-            new ChatMessage({
-              id: msg.id,
-              time: msg.sent,
-              from: msg.user,
-              text: msg.data.text,
-            }),
-        ),
-      ).concat(messages)
-    })
+    updated = updated.updateIn(['byName', lowerCaseChannel, 'chatMessages'], messages =>
+      newMessages.concat(messages),
+    )
+    return updateMessages(updated, channel, messages => newMessages.concat(messages))
   },
 
   [CHAT_LOAD_USER_LIST_BEGIN](state, action) {
