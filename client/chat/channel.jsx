@@ -48,16 +48,16 @@ const UserListSection = styled.div`
   }
 
   & + & {
-    margin-top: 22px; /* accounts for 2px of internal padding in the overline */
+    margin-top: 24px;
   }
 `
 
 const userListRow = css`
   ${singleLine};
 
-  height: 40px;
+  height: 36px;
   margin: 0;
-  padding: 2px 8px;
+  padding: 0 8px;
   line-height: 36px;
 `
 
@@ -76,6 +76,9 @@ const UserSublist = styled.ul`
 const UserListEntryItem = styled.li`
   ${body2};
   ${userListRow};
+  height: 44px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 
   &:hover {
     cursor: pointer;
@@ -173,7 +176,9 @@ class UserList extends React.Component {
 
     return (
       <UserListSection>
-        <UserListOverline>{title}</UserListOverline>
+        <UserListOverline>
+          {title} ({users.size})
+        </UserListOverline>
         <UserSublist>
           {users.map(u => (
             <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
