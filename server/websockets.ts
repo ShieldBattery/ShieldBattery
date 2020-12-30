@@ -4,6 +4,7 @@ import fs from 'fs'
 import cuid from 'cuid'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
+import { container, DependencyContainer, inject, singleton } from 'tsyringe'
 
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import getAddress from './lib/websockets/get-address'
@@ -23,8 +24,10 @@ const dummyRes = ({
   setHeader() {},
 } as any) as ServerResponse
 
+@singleton()
 export class WebsocketServer {
   private sessionLookup: RequestSessionLookup = new WeakMap<IncomingMessage, SessionInfo>()
+  private depContainer: DependencyContainer
   private connectedUsers = 0
 
   readonly nydus: NydusServer
@@ -34,7 +37,7 @@ export class WebsocketServer {
   constructor(
     private httpServer: HttpServer,
     private koa: Koa,
-    private sessionMiddleware: Koa.Middleware,
+    @inject('sessionMiddleware') private sessionMiddleware: Koa.Middleware,
   ) {
     this.nydus = createNydus(this.httpServer, ({
       allowRequest: (req: IncomingMessage, cb: (err: Error | null, authorized?: boolean) => void) =>
@@ -53,10 +56,15 @@ export class WebsocketServer {
       log.error({ err }, 'nydus error')
     })
 
+    this.depContainer = container.createChildContainer()
+    this.depContainer.register<NydusServer>(NydusServer, { useValue: this.nydus })
+    this.depContainer.register<RequestSessionLookup>('sessionLookup', {
+      useValue: this.sessionLookup,
+    })
     // NOTE(tec27): the order of creation here is very important, we want *more specific* event
     // handlers on sockets registered first, so that their close handlers get called first.
-    this.clientSockets = new ClientSocketsManager(this.nydus, this.sessionLookup)
-    this.userSockets = new UserSocketsManager(this.nydus, this.sessionLookup)
+    this.clientSockets = this.depContainer.resolve(ClientSocketsManager)
+    this.userSockets = this.depContainer.resolve(UserSocketsManager)
 
     for (const handler of apiHandlers) {
       if (handler) {

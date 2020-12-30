@@ -1,7 +1,7 @@
 import 'core-js/proposals/reflect-metadata'
 
 import childProcess from 'child_process'
-import dns from 'dns'
+import { promises as dns, LookupAddress } from 'dns'
 import http from 'http'
 import net from 'net'
 
@@ -10,7 +10,6 @@ import Koa from 'koa'
 import koaConvert from 'koa-convert'
 import log from './lib/logging/logger'
 import path from 'path'
-import thenify from 'thenify'
 
 import Csrf from 'koa-csrf'
 import csrfCookie from './lib/security/csrf-cookie'
@@ -26,6 +25,7 @@ import sessionMiddleware from './lib/session/middleware'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import userSessionsMiddleware from './lib/session/user-sessions-middleware'
 import views from 'koa-views'
+import { container } from 'tsyringe'
 
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
@@ -44,8 +44,15 @@ if (!process.env.SB_CANONICAL_HOST) {
 if (!process.env.SB_RALLY_POINT_SECRET || !process.env.SB_RALLY_POINT_SERVERS) {
   throw new Error('SB_RALLY_POINT_SECRET and SB_RALLY_POINT_SERVERS must be specified')
 }
+
+type RallyPointServerInfo = { desc: string; address: string; port: number }
+type RallyPointConfig = {
+  local?: RallyPointServerInfo
+  remote?: RallyPointServerInfo[]
+}
+
 const rallyPointSecret = process.env.SB_RALLY_POINT_SECRET
-const rallyPointServers = JSON.parse(process.env.SB_RALLY_POINT_SERVERS)
+const rallyPointServers = JSON.parse(process.env.SB_RALLY_POINT_SERVERS) as RallyPointConfig
 if (!(rallyPointServers.local || rallyPointServers.remote)) {
   throw new Error('SB_RALLY_POINT_SERVERS is invalid')
 }
@@ -103,30 +110,29 @@ if (fileStoreSettings.filesystem) {
   throw new Error('no valid key could be found in SB_FILE_STORE')
 }
 
-const asyncLookup = thenify(dns.lookup)
 const rallyPointServersArray = rallyPointServers.local
   ? [rallyPointServers.local]
-  : rallyPointServers.remote
+  : rallyPointServers.remote!
 const resolvedRallyPointServers = Promise.all(
   rallyPointServersArray.map(async s => {
-    let v6
+    let v6: LookupAddress | undefined
     try {
-      v6 = await asyncLookup(s.address, { family: 6 })
+      v6 = await dns.lookup(s.address, { family: 6 })
     } catch (err) {
       log.warn('Warning: error looking up ' + s.address + ' for ipv6: ' + err)
     }
 
-    let v4
+    let v4: LookupAddress | undefined
     try {
-      v4 = await asyncLookup(s.address, { family: 4 })
+      v4 = await dns.lookup(s.address, { family: 4 })
     } catch (err) {
       log.warn('Warning: error looking up ' + s.address + ' for ipv4: ' + err)
     }
-    if (v4 && v4[1] === 6 && v6 && v6[0].startsWith('::ffff:')) {
+    if (v4 && v4?.family === 6 && v6 && v6.address.startsWith('::ffff:')) {
       // v6 is an ipv6-mapped ipv4 address, so swap things around
-      v4[0] = v6[0].slice('::ffff:'.length)
-      v4[1] = 4
-      v6[0] = undefined
+      v4.address = v6.address.slice('::ffff:'.length)
+      v4.family = 4
+      v6 = undefined
     }
 
     if (!v4 && !v6) {
@@ -134,8 +140,8 @@ const resolvedRallyPointServers = Promise.all(
     }
 
     return {
-      address4: v4 && v4[1] === 4 ? `::ffff:${v4[0]}` : undefined,
-      address6: v6 && v6[1] === 6 ? v6[0] : undefined,
+      address4: v4 && v4.family === 4 ? `::ffff:${v4.address}` : undefined,
+      address6: v6 && v6.family === 6 ? v6.address : undefined,
       port: s.port,
       desc: s.desc,
     }
@@ -155,7 +161,9 @@ const initRouteCreatorPromise = routeCreator.initialize(
 const app = new Koa()
 const port = process.env.SB_HTTP_PORT
 
-let webpackCompiler
+container.register<Koa>(Koa, { useValue: app })
+
+let webpackCompiler: any
 
 function getWebpackCompiler() {
   if (!webpackCompiler) {
@@ -167,10 +175,14 @@ function getWebpackCompiler() {
   return webpackCompiler
 }
 
-app.keys = [process.env.SB_SESSION_SECRET]
+app.keys = [process.env.SB_SESSION_SECRET!]
 app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
 
-app.on('error', err => {
+interface PossibleHttpError extends Error {
+  status?: number
+}
+
+app.on('error', (err: PossibleHttpError) => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
   log.error({ err }, 'server error')
@@ -208,8 +220,10 @@ app
   .use(userSessionsMiddleware())
 
 const mainServer = http.createServer(app.callback())
+container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddleware })
+container.register<http.Server>(http.Server, { useValue: mainServer })
 
-const websocketServer = new WebsocketServer(mainServer, app, sessionMiddleware)
+const websocketServer = container.resolve(WebsocketServer)
 
 matchmakingStatusInstance?.initialize(websocketServer.nydus)
 
@@ -236,7 +250,11 @@ matchmakingStatusInstance?.initialize(websocketServer.nydus)
   createRoutes(app, websocketServer)
 
   const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
-  const compilePromise = needToBuild ? thenify(getWebpackCompiler().run)() : Promise.resolve()
+  const compilePromise = needToBuild
+    ? new Promise((resolve, reject) =>
+        getWebpackCompiler().run((err: Error, stats: any) => (err ? reject(err) : resolve(stats))),
+      )
+    : Promise.resolve()
   if (needToBuild) {
     log.info('In production mode, building assets...')
   }
@@ -246,7 +264,7 @@ matchmakingStatusInstance?.initialize(websocketServer.nydus)
     pingRegistry.setServers(servers)
     await initRouteCreatorPromise
 
-    const stats = await compilePromise
+    const stats: any | undefined = await compilePromise
 
     if (stats) {
       if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {

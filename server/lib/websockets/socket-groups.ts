@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusServer, NydusClient } from 'nydus'
+import { inject, injectable } from 'tsyringe'
 import log from '../logging/logger'
 import { updateOrInsertUserIp } from '../models/user-ips'
 import getAddress from './get-address'
@@ -154,10 +155,14 @@ export class ClientSocketsGroup extends SocketGroup {
 }
 
 // TODO(tec27): type the events emitted
+@injectable()
 export class UserSocketsManager extends EventEmitter {
   users = Map<string, UserSocketsGroup>()
 
-  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+  constructor(
+    private nydus: NydusServer,
+    @inject('sessionLookup') private sessionLookup: RequestSessionLookup,
+  ) {
     super()
 
     this.nydus.on('connection', socket => {
@@ -204,10 +209,14 @@ export class UserSocketsManager extends EventEmitter {
   }
 }
 
+@injectable()
 export class ClientSocketsManager extends EventEmitter {
   clients = Map<string, ClientSocketsGroup>()
 
-  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+  constructor(
+    private nydus: NydusServer,
+    @inject('sessionLookup') private sessionLookup: RequestSessionLookup,
+  ) {
     super()
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)
