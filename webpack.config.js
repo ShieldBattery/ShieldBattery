@@ -22,6 +22,7 @@ const webWebpackOpts = {
 
 const webBabelOpts = {
   babelrc: false,
+  configFile: false,
   cacheDirectory: process.env.NODE_ENV !== 'production',
   presets: [
     '@babel/preset-react',
@@ -105,6 +106,7 @@ const mainWebpackOpts = {
 
 const mainBabelOpts = {
   babelrc: false,
+  configFile: false,
   cacheDirectory: process.env.NODE_ENV !== 'production',
   presets: [
     [

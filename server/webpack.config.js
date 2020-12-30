@@ -25,6 +25,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 const babelOpts = {
   babelrc: false,
+  configFile: false,
   cacheDirectory: process.env.NODE_ENV !== 'production',
   // Note that these need to be installed in the root package.json, not the server one
   presets: [
