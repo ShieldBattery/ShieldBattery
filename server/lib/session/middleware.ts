@@ -18,7 +18,7 @@ export default session({
     if (isElectronClient(ctx)) {
       // Can't set SameSite: lax cookies on cross-origin requests, which is all requests for the
       // Electron client
-      ctx.session.cookie.sameSite = 'none'
+      session.cookie.sameSite = 'none'
     }
   },
 })

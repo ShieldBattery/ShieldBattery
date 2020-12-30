@@ -1,11 +1,11 @@
 import httpErrors from 'http-errors'
-import { Context, Next } from 'koa'
+import { ExtendableContext, Next, Middleware } from 'koa'
 import { PromiseBasedThrottle } from './create-throttle'
 
 async function middlewareFunc(
   throttle: PromiseBasedThrottle,
-  getId: (ctx: Context) => string,
-  ctx: Context,
+  getId: (ctx: ExtendableContext) => string,
+  ctx: ExtendableContext,
   next: Next,
 ) {
   const isLimited = await throttle.rateLimit(getId(ctx))
@@ -20,7 +20,7 @@ async function middlewareFunc(
 // throttle object (see ./create-throttle) and ID-retrieval method (which is a function(ctx)).
 export default function throttleMiddleware(
   throttle: PromiseBasedThrottle,
-  getId: (ctx: Context) => string,
-) {
-  return middlewareFunc.bind(null, throttle, getId)
+  getId: (ctx: ExtendableContext) => string,
+): Middleware {
+  return (ctx: ExtendableContext, next: Next) => middlewareFunc(throttle, getId, ctx, next)
 }

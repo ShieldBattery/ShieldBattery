@@ -35,7 +35,7 @@ import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-uploa
 import LocalFileStore from './lib/file-upload/local-filesystem'
 import AwsStore from './lib/file-upload/aws'
 
-import setupWebsockets from './websockets'
+import { WebsocketServer } from './websockets'
 import createRoutes from './routes'
 
 if (!process.env.SB_CANONICAL_HOST) {
@@ -209,9 +209,9 @@ app
 
 const mainServer = http.createServer(app.callback())
 
-const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddleware)
+const websocketServer = new WebsocketServer(mainServer, app, sessionMiddleware)
 
-matchmakingStatusInstance?.initialize(nydus)
+matchmakingStatusInstance?.initialize(websocketServer.nydus)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
@@ -233,7 +233,7 @@ matchmakingStatusInstance?.initialize(nydus)
 
   fileStoreMiddleware(app)
 
-  createRoutes(app, nydus, userSockets)
+  createRoutes(app, websocketServer)
 
   const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
   const compilePromise = needToBuild ? thenify(getWebpackCompiler().run)() : Promise.resolve()

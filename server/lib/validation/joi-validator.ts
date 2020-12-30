@@ -1,6 +1,7 @@
 import Koa from 'koa'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import { RouterContext } from '@koa/router'
 
 /** A description of how to validate a request. */
 interface JoiValidationDescriptor {
@@ -23,7 +24,7 @@ interface JoiValidationDescriptor {
 
 /** Returns a function that validates that the parts of a Koa request pass validation with Joi. */
 export function joiValidator({ params, query, body }: JoiValidationDescriptor) {
-  return async (ctx: Koa.Context, next: Koa.Next) => {
+  return async (ctx: RouterContext, next: Koa.Next) => {
     if (params) {
       const { error } = params.validate(ctx.params)
       if (error) {

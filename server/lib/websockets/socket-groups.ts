@@ -1,0 +1,245 @@
+import { EventEmitter } from 'events'
+import { Map, Set } from 'immutable'
+import { NydusServer, NydusClient } from 'nydus'
+import log from '../logging/logger'
+import { updateOrInsertUserIp } from '../models/user-ips'
+import getAddress from './get-address'
+import { RequestSessionLookup, SessionInfo } from './session-lookup'
+
+type DataGetter = (socketGroup: SocketGroup, socket: NydusClient) => unknown
+type CleanupFunc = (socketGroup: SocketGroup) => void
+
+interface SubscriptionInfo {
+  getter: DataGetter
+  cleanup: CleanupFunc | undefined
+}
+
+const defaultDataGetter: DataGetter = () => {}
+
+// TODO(tec27): type the events this emits
+abstract class SocketGroup extends EventEmitter {
+  readonly name: string
+  sockets = Set<NydusClient>()
+  subscriptions = Map<string, Readonly<SubscriptionInfo>>()
+
+  constructor(private nydus: NydusServer, readonly session: SessionInfo, initSocket: NydusClient) {
+    super()
+    this.name = session.userName
+
+    if (initSocket) {
+      this.add(initSocket)
+    }
+  }
+
+  /**
+   * Returns the Nydus path corresponding to this socket group. Publishes to this path will go to
+   * every socket in the group.
+   */
+  abstract getPath(): string
+  /**
+   * Returns a string representing the type of this group. This will be used in the notification to
+   * the socket when it first connects so that it knows it's part of a particular type of group.
+   */
+  abstract getType(): string
+
+  add(socket: NydusClient) {
+    const newSockets = this.sockets.add(socket)
+    if (newSockets !== this.sockets) {
+      this.sockets = newSockets
+      socket.once('close', () => this.delete(socket))
+      this.applySubscriptions(socket)
+      this.emit('connection', this, socket)
+    }
+  }
+
+  delete(socket: NydusClient) {
+    this.sockets = this.sockets.delete(socket)
+    if (this.sockets.isEmpty()) {
+      this.applyCleanups()
+      this.emit('close', this)
+    }
+  }
+
+  closeAll() {
+    for (const s of this.sockets) {
+      s.close()
+    }
+  }
+
+  /**
+   * Adds a subscription to all sockets for this socket group, including any sockets that may
+   * connect after this. `initialDataGetter` should either be undefined, or a
+   * function(socketGroup, socket) that returns the initialData to use for a subscribe call.
+   * `cleanup` should either be null/undefined, or a function(socketGroup) that will be called when
+   * every socket in the socket group has disconnected.
+   */
+  subscribe(
+    path: string,
+    initialDataGetter: (
+      socketGroup: SocketGroup,
+      socket: NydusClient,
+    ) => unknown = defaultDataGetter,
+    cleanup?: (socketGroup: SocketGroup) => void,
+  ) {
+    if (this.subscriptions.has(path)) {
+      throw new Error('duplicate persistent subscription: ' + path)
+    }
+
+    this.subscriptions = this.subscriptions.set(path, {
+      getter: initialDataGetter,
+      cleanup,
+    })
+    for (const socket of this.sockets) {
+      this.nydus.subscribeClient(socket, path, initialDataGetter(this, socket))
+    }
+  }
+
+  private applySubscriptions(socket: NydusClient) {
+    for (const [path, { getter }] of this.subscriptions.entries()) {
+      this.nydus.subscribeClient(socket, path, getter(this, socket))
+    }
+
+    // Give the client a message so they know we're done subscribing them to things
+    this.nydus.subscribeClient(socket, this.getPath(), { type: this.getType() })
+
+    // Subscribe the client to the their profile path, so they can receive an update in case their
+    // profile changes
+    this.nydus.subscribeClient(socket, '/userProfiles/' + this.session.userId)
+  }
+
+  private applyCleanups() {
+    for (const { cleanup } of this.subscriptions.values()) {
+      if (cleanup) cleanup(this)
+    }
+  }
+
+  unsubscribe(path: string) {
+    const updated = this.subscriptions.delete(path)
+    if (updated === this.subscriptions) return
+
+    for (const socket of this.sockets) {
+      this.nydus.unsubscribeClient(socket, path)
+    }
+    this.subscriptions = updated
+  }
+}
+
+export class UserSocketsGroup extends SocketGroup {
+  getPath() {
+    return `/users/${this.session.userId}`
+  }
+
+  getType() {
+    return 'subscribedUser'
+  }
+}
+
+export class ClientSocketsGroup extends SocketGroup {
+  readonly userId: number
+  readonly clientId: string
+
+  constructor(nydus: NydusServer, session: SessionInfo, socket: NydusClient) {
+    super(nydus, session, socket)
+    this.userId = session.userId
+    this.clientId = session.clientId
+  }
+
+  getPath() {
+    return `/clients/${this.userId}/${this.clientId}`
+  }
+
+  getType() {
+    return 'subscribedClient'
+  }
+}
+
+// TODO(tec27): type the events emitted
+export class UserSocketsManager extends EventEmitter {
+  users = Map<string, UserSocketsGroup>()
+
+  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+    super()
+
+    this.nydus.on('connection', socket => {
+      const session = this.sessionLookup.get(socket.conn.request)
+      if (!session) {
+        log.error({ req: socket.conn.request }, "couldn't find a session for the request")
+        return
+      }
+
+      const userName: string = session.userName
+      if (!this.users.has(userName)) {
+        const user = new UserSocketsGroup(this.nydus, session!, socket)
+        this.users = this.users.set(userName, user)
+        this.emit('newUser', user)
+        user.once('close', () => this.removeUser(userName))
+      } else {
+        this.users.get(userName)!.add(socket)
+      }
+
+      updateOrInsertUserIp(session.userId, getAddress(socket.conn.request)).catch(() => {
+        log.error({ req: socket.conn.request }, 'failed to save user IP address')
+      })
+    })
+  }
+
+  getByName(name: string) {
+    return this.users.get(name)
+  }
+
+  getBySocket(socket: NydusClient) {
+    const session = this.sessionLookup.get(socket.conn.request)
+    if (!session) {
+      log.error({ req: socket.conn.request }, "couldn't find a session for the request")
+      return undefined
+    }
+
+    return this.getByName(session.userName)
+  }
+
+  private removeUser(userName: string) {
+    this.users = this.users.delete(userName)
+    this.emit('userQuit', userName)
+    return this
+  }
+}
+
+export class ClientSocketsManager extends EventEmitter {
+  clients = Map<string, ClientSocketsGroup>()
+
+  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+    super()
+    this.nydus.on('connection', socket => {
+      const session = this.sessionLookup.get(socket.conn.request)
+      if (!session) {
+        log.error({ req: socket.conn.request }, "couldn't find a session for the request")
+        return
+      }
+
+      const userClientId = `${session.userId}|${session.clientId}`
+      if (!this.clients.has(userClientId)) {
+        const client = new ClientSocketsGroup(this.nydus, session, socket)
+        this.clients = this.clients.set(userClientId, client)
+        client.once('close', () => this._removeClient(userClientId))
+      } else {
+        this.clients.get(userClientId)!.add(socket)
+      }
+    })
+  }
+
+  getCurrentClient(socket: NydusClient) {
+    const session = this.sessionLookup.get(socket.conn.request)
+    if (!session) {
+      log.error({ req: socket.conn.request }, "couldn't find a session for the request")
+      return undefined
+    }
+
+    const userClientId = `${session.userId}|${session.clientId}`
+    return this.clients.get(userClientId)
+  }
+
+  _removeClient(userClientId: string) {
+    this.clients = this.clients.delete(userClientId)
+    return this
+  }
+}

@@ -14,7 +14,7 @@ function send404(ctx, next) {
   throw new httpErrors.NotFound()
 }
 
-export default function applyRoutes(app, nydus, userSockets) {
+export default function applyRoutes(app, websocketServer) {
   app.use(router.routes()).use(router.allowedMethods())
 
   // api methods (through HTTP)
@@ -23,7 +23,7 @@ export default function applyRoutes(app, nydus, userSockets) {
   apiFiles.filter(jsOrTsFileMatcher).forEach(filename => {
     const apiPath = baseApiPath + path.basename(filename, path.extname(filename))
     const subRouter = new KoaRouter()
-    require('./lib/api/' + filename).default(subRouter, { nydus, userSockets })
+    require('./lib/api/' + filename).default(subRouter, websocketServer)
     router.use(apiPath, subRouter.routes())
     logger.info('mounted ' + apiPath)
   })

@@ -248,6 +248,8 @@ async function verifyEmail(ctx, next, nydus) {
   // connected when they open the email verification page), the client making the request won't
   // actually get this event. Thankfully, that's easy to deal with on the client-side.
   nydus.publish('/userProfiles/' + ctx.session.userId, { action: 'emailVerified' })
+  // TODO(tec27): get the above path from UserSocketsGroup instead of just concat'ing things
+  // together here
 
   ctx.status = 204
 }

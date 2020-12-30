@@ -1,9 +1,13 @@
-import nydus from 'nydus'
+import createNydus, { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'
 import fs from 'fs'
 import cuid from 'cuid'
+import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
+import Koa from 'koa'
+
+import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import getAddress from './lib/websockets/get-address'
-import { createUserSockets, createClientSockets } from './lib/websockets/socket-groups'
+import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
 import log from './lib/logging/logger'
 import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
 import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
@@ -14,27 +18,36 @@ const apiHandlers = fs
   .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
-const dummyRes = {
-  getHeader() {},
+const dummyRes = ({
+  getHeader: () => undefined,
   setHeader() {},
-}
+} as any) as ServerResponse
 
-class WebsocketServer {
-  constructor(server, koaApp, sessionMiddleware) {
-    this.httpServer = server
-    this.koa = koaApp
-    this.sessionWare = sessionMiddleware
-    this.sessionLookup = new WeakMap()
+export class WebsocketServer {
+  private sessionLookup: RequestSessionLookup = new WeakMap<IncomingMessage, SessionInfo>()
+  private connectedUsers = 0
 
-    this.connectedUsers = 0
-    this.nydus = nydus(this.httpServer, {
-      allowRequest: async (info, cb) => await this.onAuthorization(info, cb),
+  readonly nydus: NydusServer
+  readonly clientSockets: ClientSocketsManager
+  readonly userSockets: UserSocketsManager
+
+  constructor(
+    private httpServer: HttpServer,
+    private koa: Koa,
+    private sessionMiddleware: Koa.Middleware,
+  ) {
+    this.nydus = createNydus(this.httpServer, ({
+      allowRequest: (req: IncomingMessage, cb: (err: Error | null, authorized?: boolean) => void) =>
+        this.onAuthorization(req, cb).catch(err => {
+          log.error({ err }, 'Error during socket authorization')
+        }),
       cors: {
         origin: 'shieldbattery://app',
         credentials: true,
         maxAge: CORS_MAX_AGE_SECONDS,
       },
-    })
+      // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
+    } as any) as Partial<NydusServerOptions>)
 
     this.nydus.on('error', err => {
       log.error({ err }, 'nydus error')
@@ -42,8 +55,8 @@ class WebsocketServer {
 
     // NOTE(tec27): the order of creation here is very important, we want *more specific* event
     // handlers on sockets registered first, so that their close handlers get called first.
-    this.clientSockets = createClientSockets(this.nydus, this.sessionLookup)
-    this.userSockets = createUserSockets(this.nydus, this.sessionLookup)
+    this.clientSockets = new ClientSocketsManager(this.nydus, this.sessionLookup)
+    this.userSockets = new UserSocketsManager(this.nydus, this.sessionLookup)
 
     for (const handler of apiHandlers) {
       if (handler) {
@@ -68,7 +81,10 @@ class WebsocketServer {
     setInterval(() => this.nydus.publish('/status', { users: this.connectedUsers }), 1 * 60 * 1000)
   }
 
-  async onAuthorization(req, cb) {
+  async onAuthorization(
+    req: IncomingMessage,
+    cb: (err: Error | null, authorized?: boolean) => void,
+  ) {
     const logger = log.child({ reqId: cuid() })
     logger.info({ req }, 'websocket authorizing')
     if (!req.headers.cookie) {
@@ -78,16 +94,16 @@ class WebsocketServer {
     }
 
     const ctx = this.koa.createContext(req, dummyRes)
-    const sessionWare = this.sessionWare
+    const sessionMiddleware = this.sessionMiddleware
     try {
-      await sessionWare(ctx, () => {})
+      await sessionMiddleware(ctx, async () => {})
 
-      if (!ctx.session.userId) {
+      if (!ctx.session?.userId) {
         throw new Error('User is not logged in')
       }
 
       const clientId = ctx.query.clientId || cuid()
-      const handshakeData = {
+      const handshakeData: SessionInfo = {
         sessionId: ctx.sessionId,
         userId: ctx.session.userId,
         clientId,
@@ -101,8 +117,4 @@ class WebsocketServer {
       cb(null, false)
     }
   }
-}
-
-export default function (server, koaApp, sessionMiddleware) {
-  return new WebsocketServer(server, koaApp, sessionMiddleware)
 }

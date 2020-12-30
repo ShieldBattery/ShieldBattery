@@ -1,5 +1,5 @@
 import Koa from 'koa'
-import Router from '@koa/router'
+import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 
@@ -81,7 +81,7 @@ export default function (router: Router) {
     )
 }
 
-async function getHistory(ctx: Koa.Context, next: Koa.Next) {
+async function getHistory(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = ctx.params
 
   const current = await getCurrentMatchmakingTime(matchmakingType)
@@ -101,7 +101,7 @@ async function getHistory(ctx: Koa.Context, next: Koa.Next) {
   }
 }
 
-async function getFutureTimes(ctx: Koa.Context, next: Koa.Next) {
+async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = ctx.params
   let { limit, page } = ctx.query
 
@@ -131,7 +131,7 @@ async function getFutureTimes(ctx: Koa.Context, next: Koa.Next) {
   }
 }
 
-async function getPastTimes(ctx: Koa.Context, next: Koa.Next) {
+async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = ctx.params
   let { limit, page } = ctx.query
 
@@ -161,7 +161,7 @@ async function getPastTimes(ctx: Koa.Context, next: Koa.Next) {
   }
 }
 
-async function addNew(ctx: Koa.Context, next: Koa.Next) {
+async function addNew(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = ctx.params
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 

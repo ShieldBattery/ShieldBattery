@@ -1,5 +1,5 @@
 import Koa from 'koa'
-import Router from '@koa/router'
+import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import {
@@ -69,7 +69,7 @@ interface SubmitGameResultsBody {
   playerResults: [string, GameClientPlayerResult][]
 }
 
-async function submitGameResults(ctx: Koa.Context, next: Koa.Next) {
+async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
   const { gameId } = ctx.params
   const { userId, resultCode, time, playerResults } = ctx.request.body as SubmitGameResultsBody
 
