@@ -11,7 +11,6 @@ const app = express()
 const compiler = webpack(config)
 
 const middleware = webpackDevMiddleware(compiler, {
-  logLevel: 'warn',
   publicPath: config.output.publicPath,
   headers: {
     'Access-Control-Allow-Origin': '*',

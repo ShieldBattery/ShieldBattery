@@ -213,24 +213,21 @@ const { nydus, userSockets } = setupWebsockets(mainServer, app, sessionMiddlewar
 
 matchmakingStatusInstance?.initialize(nydus)
 
-// Wrapping this in IIFE so we can use top-level `await` (until node implements it natively)
+// Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
+// natively)
 ;(async () => {
   if (isDev) {
-    const koaWebpack = require('koa-webpack')
+    const { webpackMiddleware } = require('./lib/webpack/middleware')
     const koaWebpackHot = require('koa-webpack-hot-middleware')
 
-    const middleware = await koaWebpack({
-      compiler: getWebpackCompiler(),
-      devMiddleware: {
-        logLevel: 'warn',
-        publicPath: require('./webpack.config.js').output.publicPath,
-      },
-      // webpack-hot-client is not compatible with react-hot-loader, so we turn it off and set up
-      // our own webpack-hot-middleware instead
-      hotClient: false,
-    })
-
-    app.use(middleware)
+    app.use(
+      webpackMiddleware({
+        compiler: getWebpackCompiler(),
+        devMiddleware: {
+          publicPath: require('./webpack.config.js').output.publicPath,
+        },
+      }),
+    )
     app.use(koaConvert(koaWebpackHot(getWebpackCompiler())))
   }
 
@@ -267,4 +264,7 @@ matchmakingStatusInstance?.initialize(nydus)
     log.error({ err }, 'Error building assets')
     process.exit(1)
   }
-})()
+})().catch(err => {
+  log.error({ err }, 'Error initializing app')
+  process.exit(1)
+})

@@ -78,7 +78,6 @@ export default function ({
       ],
     },
     optimization: {
-      noEmitOnErrors: true,
       minimizer: isProd ? [new TerserWebpackPlugin()] : [],
     },
     plugins: [
@@ -112,16 +111,19 @@ export default function ({
   }
 
   config.resolve = {
-    ...(config.resolve || {}),
+    ...config.resolve,
     alias: {
       'react-dom': '@hot-loader/react-dom',
+    },
+    fallback: {
+      stream: require.resolve('stream-browserify'),
     },
   }
 
   if (!isProd) {
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
-    config.devtool = 'cheap-module-eval-source-map'
+    config.devtool = 'eval-cheap-module-source-map'
     config.entry[mainEntry] = ['react-hot-loader/patch', config.entry[mainEntry]].flat()
     config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
