@@ -6,6 +6,7 @@
 
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
+    "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
     // Babel operates on single files, so we need to make sure tsc's semantics match
