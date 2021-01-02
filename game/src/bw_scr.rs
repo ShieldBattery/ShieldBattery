@@ -966,8 +966,13 @@ impl BwScr {
             ProcessGameCommands,
             move |data, len, are_recorded_replay_commands, orig| {
                 let slice = std::slice::from_raw_parts(data, len);
+                let slice = commands::filter_invalid_commands(
+                    slice,
+                    are_recorded_replay_commands != 0,
+                    &this.game_command_lengths,
+                );
                 if are_recorded_replay_commands == 0 {
-                    for command in commands::iter_commands(slice, &this.game_command_lengths) {
+                    for command in commands::iter_commands(&slice, &this.game_command_lengths) {
                         match command {
                             [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
                                 let frame = LittleEndian::read_u32(rest);
@@ -980,7 +985,7 @@ impl BwScr {
                         }
                     }
                 }
-                orig(data, len, are_recorded_replay_commands);
+                orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
             },
             address,
         );
