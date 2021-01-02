@@ -18,9 +18,8 @@ use crate::app_messages::{
     Race, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, with_bw, GameType};
+use crate::bw::{self, with_bw, GameType, StormPlayerId};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
-use crate::chat::StormPlayerId;
 use crate::forge;
 use crate::game_thread::{
     GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,

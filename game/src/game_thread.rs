@@ -3,12 +3,13 @@
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
+use byteorder::{ByteOrder, LittleEndian};
 use fxhash::FxHashSet;
 use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 
 use crate::app_messages::{GameSetupInfo};
-use crate::bw::{self, with_bw};
+use crate::bw::{self, with_bw, StormPlayerId};
 use crate::forge;
 use crate::snp;
 
@@ -204,6 +205,13 @@ pub fn is_ums() -> bool {
         .is_some()
 }
 
+pub fn is_team_game() -> bool {
+    SETUP_INFO.get()
+        .and_then(|x| x.game_type())
+        .filter(|x| x.is_team_game())
+        .is_some()
+}
+
 pub fn is_replay() -> bool {
     SETUP_INFO.get()
         .and_then(|x| x.map.is_replay)
@@ -253,3 +261,81 @@ pub unsafe fn after_step_game() {
         }
     });
 }
+
+/// Reimplementation of replay command reading & processing since the default implementation
+/// has buffer overflows for replays where there are too many commands in a frame.
+///
+/// A function pointer for the original function is still needed to handle replay ending
+/// case which we don't need to touch.
+pub unsafe fn step_replay_commands(orig: unsafe extern fn()) {
+    with_bw(|bw| {
+        let game = bw.game();
+        let replay = bw.replay_data();
+        let command_lengths = bw.game_command_lengths();
+        let frame = (*game).frame_count;
+        let data_end = (*replay).data_start.add((*replay).data_length as usize);
+        let remaining_length = (data_end as usize).saturating_sub((*replay).data_pos as usize);
+        // Data is in format
+        // u32 frame, u8 length, { u8 storm_player, u8 cmd[] }[length]
+        // Repeated for each frame in replay, if the commands don't fit in a single frame
+        // then there can be repeated blocks with equal frame number.
+        let mut data = std::slice::from_raw_parts((*replay).data_pos, remaining_length);
+        if data.is_empty() {
+            // Let the original function handle replay ending
+            orig();
+            return;
+        }
+
+        loop {
+            let (mut frame_data, rest) = match replay_next_frame(data) {
+                Some(s) => s,
+                None => {
+                    warn!("Broken replay? Unable to read next frame");
+                    (*replay).data_pos = data_end;
+                    return;
+                }
+            };
+            if frame_data.frame > frame {
+                break;
+            }
+            data = rest;
+            while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
+                bw.process_replay_commands(command, storm_player);
+            }
+        }
+        let new_pos = (data_end as usize - data.len()) as *mut u8;
+        (*replay).data_pos = new_pos;
+    });
+}
+
+struct ReplayFrame<'a> {
+    frame: u32,
+    // (u8 storm_player, u8 command[...]) pairs repeated.
+    // (Command length must be known from the data)
+    commands: &'a [u8],
+}
+
+fn replay_next_frame<'a>(input: &'a [u8]) -> Option<(ReplayFrame<'a>, &'a [u8])> {
+    let &commands_len = input.get(4)?;
+    let frame = LittleEndian::read_u32(input.get(..4)?);
+    let rest = input.get(5..)?;
+    let commands = rest.get(..commands_len as usize)?;
+    let rest = rest.get(commands_len as usize..)?;
+    Some((ReplayFrame {
+        frame,
+        commands,
+    }, rest))
+}
+
+impl<'a> ReplayFrame<'a> {
+    pub fn next_command(&mut self, command_lengths: &[u32]) -> Option<(StormPlayerId, &'a [u8])> {
+        let player = StormPlayerId(*self.commands.get(0)?);
+        let data = self.commands.get(1..)?;
+        let length = bw::commands::command_length(data, command_lengths)?;
+        let command = data.get(..length)?;
+        let rest = data.get(length..)?;
+        self.commands = rest;
+        Some((player, command))
+    }
+}
+

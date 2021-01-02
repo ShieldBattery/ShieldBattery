@@ -1,5 +1,4 @@
 mod bw_hash_table;
-mod commands;
 mod file_hook;
 mod pe_image;
 mod sdf_cache;
@@ -20,7 +19,8 @@ use scr_analysis::scarf;
 use smallvec::SmallVec;
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
-use crate::bw::{self, Bw, FowSpriteIterator};
+use crate::bw::{self, Bw, FowSpriteIterator, StormPlayerId};
+use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::game_thread;
 use crate::snp;
@@ -46,6 +46,8 @@ pub struct BwScr {
     local_player_id: Value<u32>,
     local_unique_player_id: Value<u32>,
     local_storm_id: Value<u32>,
+    command_user: Value<u32>,
+    unique_command_user: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -55,6 +57,8 @@ pub struct BwScr {
     sprites_by_y_tile_end: Value<*mut *mut scr::Sprite>,
     sprite_x: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
     sprite_y: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
+    replay_data: Value<*mut bw::ReplayData>,
+    enable_rng: Value<u32>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -87,14 +91,15 @@ pub struct BwScr {
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
     snet_send_packets: unsafe extern "C" fn(),
+    process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
-    process_game_commands: scarf::VirtualAddress,
     step_io: scarf::VirtualAddress,
     init_game_data: scarf::VirtualAddress,
     step_game: scarf::VirtualAddress,
+    step_replay_commands: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<scarf::VirtualAddress>,
     prism_renderer_vtable: scarf::VirtualAddress,
@@ -781,6 +786,8 @@ impl BwScr {
         let local_storm_id = analysis.local_storm_player_id().ok_or("Local storm id")?;
         let local_unique_player_id = analysis.local_unique_player_id()
             .ok_or("Local unique player id")?;
+        let command_user = analysis.command_user().ok_or("Command user")?;
+        let unique_command_user = analysis.unique_command_user().ok_or("Unique command user")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis.net_player_to_unique().ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
@@ -802,6 +809,7 @@ impl BwScr {
         let snet_send_packets = analysis.snet_send_packets().ok_or("snet_send_packets")?;
         let step_io = analysis.step_io().ok_or("step_io")?;
         let init_game_data = analysis.init_game().ok_or("init_game_data")?;
+        let step_replay_commands = analysis.step_replay_commands().ok_or("step_replay_commands")?;
 
         let prism_pixel_shaders = analysis.prism_pixel_shaders().ok_or("Prism pixel shaders")?;
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
@@ -838,6 +846,9 @@ impl BwScr {
             end: Value::new(ctx, analysis.last_free_image().ok_or("last_free_image")?),
         };
 
+        let replay_data = analysis.replay_data().ok_or("replay_data")?;
+        let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
+
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
         let disable_hd = match std::env::var_os("SB_NO_HD") {
@@ -871,6 +882,8 @@ impl BwScr {
             local_player_id: Value::new(ctx, local_player_id),
             local_unique_player_id: Value::new(ctx, local_unique_player_id),
             local_storm_id: Value::new(ctx, local_storm_id),
+            command_user: Value::new(ctx, command_user),
+            unique_command_user: Value::new(ctx, unique_command_user),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -880,6 +893,8 @@ impl BwScr {
             sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
             sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
             sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
+            replay_data: Value::new(ctx, replay_data),
+            enable_rng: Value::new(ctx, enable_rng),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -899,13 +914,14 @@ impl BwScr {
             snet_recv_packets: unsafe { mem::transmute(snet_recv_packets.0) },
             snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
+            process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             load_snp_list,
             mainmenu_entry_hook,
             open_file,
             lobby_create_callback_offset,
             font_cache_render_ascii,
             ttf_render_sdf,
-            process_game_commands,
+            step_replay_commands,
             step_game,
             step_io,
             init_game_data,
@@ -960,7 +976,7 @@ impl BwScr {
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
 
-        let address = self.process_game_commands.0 as usize - base;
+        let address = self.process_game_commands as usize - base;
         let this = self.clone();
         exe.hook_closure_address(
             ProcessGameCommands,
@@ -1033,6 +1049,10 @@ impl BwScr {
         exe.hook_closure_address(InitGameData, move |orig| {
             orig();
             game_thread::after_init_game_data();
+        }, address);
+        let address = self.step_replay_commands.0 as usize - base;
+        exe.hook_closure_address(StepReplayCommands, |orig| {
+            game_thread::step_replay_commands(orig);
         }, address);
 
         if let Some(ref patch) = self.replay_minimap_patch {
@@ -1636,6 +1656,39 @@ impl bw::Bw for BwScr {
         self.players.resolve()
     }
 
+    unsafe fn replay_data(&self) -> *mut bw::ReplayData {
+        self.replay_data.resolve()
+    }
+
+    fn game_command_lengths(&self) -> &[u32] {
+        &self.game_command_lengths
+    }
+
+    unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
+        let players = self.players();
+        let game = self.game();
+        let unique_player = match (0..8)
+            .position(|i| (*players.add(i)).storm_id as u8 == storm_player.0)
+        {
+            Some(s) => s as u8,
+            None => return,
+        };
+        let game_player = if game_thread::is_team_game() {
+            // Teams start from 1
+            let team = (*players.add(unique_player as usize)).team;
+            (*game).team_game_main_player[team as usize - 1]
+        } else {
+            unique_player
+        };
+        self.command_user.write(game_player as u32);
+        self.unique_command_user.write(unique_player as u32);
+        self.enable_rng.write(1);
+        (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
+        self.command_user.write(self.local_player_id.resolve());
+        self.unique_command_user.write(self.local_unique_player_id.resolve());
+        self.enable_rng.write(1);
+    }
+
     unsafe fn set_player_name(&self, id: u8, name: &str) {
         let mut buffer = [0; 0x60];
         for (i, &byte) in name.as_bytes().iter().take(0x5f).enumerate() {
@@ -1859,6 +1912,7 @@ mod hooks {
         !0 => SendCommand(*const u8, usize);
         !0 => InitGameData();
         !0 => StepGame();
+        !0 => StepReplayCommands();
     );
 
     whack_hooks!(stdcall, 0,

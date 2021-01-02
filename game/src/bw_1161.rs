@@ -12,7 +12,7 @@ use std::ptr::null_mut;
 use libc::c_void;
 use winapi::um::winnt::HANDLE;
 
-use crate::bw::{self, FowSpriteIterator};
+use crate::bw::{self, FowSpriteIterator, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::chat;
 use crate::game_thread;
@@ -53,7 +53,7 @@ mod v1161 {
 
 impl bw::Bw for Bw1161 {
     unsafe fn run_game_loop(&self) {
-        *game_state = 3; // Playing
+        *vars::game_state = 3; // Playing
         game_loop();
     }
 
@@ -78,8 +78,8 @@ impl bw::Bw for Bw1161 {
     }
 
     unsafe fn do_lobby_game_init(&self, seed: u32) {
-        update_nation_and_human_ids(*local_storm_id);
-        *lobby_state = 8;
+        update_nation_and_human_ids(*vars::local_storm_id);
+        *vars::lobby_state = 8;
         let data = bw::LobbyGameInitData {
             game_init_command: 0x48,
             random_seed: seed,
@@ -91,7 +91,7 @@ impl bw::Bw for Bw1161 {
     }
 
     unsafe fn try_finish_lobby_game_init(&self) -> bool {
-        *lobby_state = 9;
+        *vars::lobby_state = 9;
         true
     }
 
@@ -126,19 +126,64 @@ impl bw::Bw for Bw1161 {
 
     unsafe fn remaining_game_init(&self, name_in: &str) {
         let name = windows::ansi_codepage_cstring(&name_in).unwrap_or_else(|e| e);
-        for (&input, out) in name.iter().zip(local_player_name.iter_mut()) {
+        for (&input, out) in name.iter().zip(vars::local_player_name.iter_mut()) {
             *out = input;
         }
         choose_network_provider(crate::snp::PROVIDER_ID);
-        *is_multiplayer = 1;
+        *vars::is_multiplayer = 1;
     }
 
     unsafe fn game(&self) -> *mut bw::Game {
-        &mut *game
+        &mut *vars::game
     }
 
     unsafe fn players(&self) -> *mut bw::Player {
-        (*players).as_mut_ptr()
+        (*vars::players).as_mut_ptr()
+    }
+
+    unsafe fn replay_data(&self) -> *mut bw::ReplayData {
+        *vars::replay_data
+    }
+
+    fn game_command_lengths(&self) -> &[u32] {
+        // Copypasted to contain also SCR commands as of 1.23.7,
+        // doesn't hurt and would have to be done ever if 1.16.1 was
+        // improved to support them in replays and ingame.
+        static LENGTHS: &[u32] = &[
+            !0, !0, !0, !0, !0, 1, 33, 33, 1, 26, 26, 26, 8, 3, 5, 2,
+            1, 1, 5, 3, 10, 11, !0, !0, 1, 1, 2, 1, 1, 1, 2, 3,
+            3, 2, 2, 3, 1, 2, 2, 1, 2, 3, 1, 2, 2, 2, 1, 5,
+            2, 1, 2, 1, 1, 3, 1, 1, !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
+            !0, !0, !0, !0, !0, 2, 10, 2, 5, !0, 1, !0, 82, 5, !0, 2,
+            12, 13, 5, 50, 50, 50, 4, !0, !0, !0, !0, !0, !0, !0, !0, !0,
+        ];
+        LENGTHS
+    }
+
+    unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
+        let players = self.players();
+        let game = self.game();
+        let unique_player = match (0..8)
+            .position(|i| (*players.add(i)).storm_id as u8 == storm_player.0)
+        {
+            Some(s) => s as u8,
+            None => return,
+        };
+        let game_player = if game_thread::is_team_game() {
+            // Teams start from 1
+            let team = (*players.add(unique_player as usize)).team;
+            (*game).team_game_main_player[team as usize - 1]
+        } else {
+            unique_player
+        };
+        *vars::command_user = game_player as u32;
+        *vars::unique_command_user = unique_player as u32;
+        *vars::enable_rng = 1;
+        process_commands(commands.as_ptr(), commands.len() as u32, 1);
+        *vars::command_user = *vars::local_nation_id;
+        *vars::unique_command_user = *vars::local_unique_player_id;
+        *vars::enable_rng = 0;
     }
 
     unsafe fn set_player_name(&self, id: u8, name: &str) {
@@ -150,11 +195,11 @@ impl bw::Bw for Bw1161 {
     }
 
     unsafe fn active_units(&self) -> UnitIterator {
-        UnitIterator::new(Unit::from_ptr(*first_active_unit))
+        UnitIterator::new(Unit::from_ptr(*vars::first_active_unit))
     }
 
     unsafe fn fow_sprites(&self) -> FowSpriteIterator {
-        FowSpriteIterator::new(*first_fow_sprite)
+        FowSpriteIterator::new(*vars::first_fow_sprite)
     }
 
     unsafe fn create_fow_sprite(&self, unit: Unit) {
@@ -170,11 +215,11 @@ impl bw::Bw for Bw1161 {
     }
 
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
-        (*storm_players)[..].into()
+        (*vars::storm_players)[..].into()
     }
 
     unsafe fn storm_player_flags(&self) -> Vec<u32> {
-        (*storm_player_flags)[..].into()
+        (*vars::storm_player_flags)[..].into()
     }
 
     unsafe fn storm_set_last_error(&self, error: u32) {
@@ -218,6 +263,7 @@ whack_hooks!(stdcall, 0x00400000,
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
     0x004EEE00 => InitGameData();
     0x004D94B0 => StepGame();
+    0x00487100 => StepReplayCommands();
 );
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
@@ -249,36 +295,48 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
 
     // Unit id, base sprite
     0x00488410 => create_fow_sprite(u32, *mut c_void) -> *mut bw::FowSprite;
+
+    0x004865D0 => process_commands(@eax *const u8, u32, u32);
 );
 
-whack_vars!(init_vars, 0x00400000,
-    0x0057F0F0 => game: bw::Game;
-    0x0057EE9C => local_player_name: [u8; 25];
-    0x0057F0B4 => is_multiplayer: u8;
-    0x0059BB70 => current_map_folder_path: [u8; 260];
-    0x0051A27C => map_list_root: *mut bw::MapListEntry;
-    0x0057EEE0 => players: [bw::Player; 12];
-    0x0066FE20 => storm_players: [bw::StormPlayer; 8];
-    0x0051268C => local_storm_id: u32;
-    0x0066FBFA => lobby_state: u8;
-    0x00596904 => game_state: u32;
-    0x0057F1DA => chat_message_recipients: u8;
-    0x0068C144 => chat_message_type: u8;
-    0x0057F0B8 => storm_player_flags: [u32; 8];
+mod vars {
+    use crate::bw;
 
-    0x00596BBC => replay_data: *mut bw::ReplayData;
-    0x006D0F18 => replay_visions: u32;
-    0x0057F0B0 => player_visions: u32;
-    0x006CEB39 => resource_minimap_color: u8;
-    0x006D5BC4 => timeout_bin: *mut bw::Dialog;
-    0x00512684 => local_nation_id: u32;
-    0x006D0F14 => is_replay: u32;
-    0x00597248 => primary_selected: *mut bw::Unit;
-    0x0057EE7C => storm_id_to_human_id: [u32; 8];
-    0x00512678 => current_command_player: u32;
-    0x00628430 => first_active_unit: *mut bw::Unit;
-    0x00654868 => first_fow_sprite: *mut bw::FowSprite;
-);
+    whack_vars!(init_vars, 0x00400000,
+        0x0057F0F0 => game: bw::Game;
+        0x0057EE9C => local_player_name: [u8; 25];
+        0x0057F0B4 => is_multiplayer: u8;
+        0x0059BB70 => current_map_folder_path: [u8; 260];
+        0x0051A27C => map_list_root: *mut bw::MapListEntry;
+        0x0057EEE0 => players: [bw::Player; 12];
+        0x0066FE20 => storm_players: [bw::StormPlayer; 8];
+        0x0051268C => local_storm_id: u32;
+        0x00512684 => local_nation_id: u32;
+        0x00512688 => local_unique_player_id: u32;
+        0x0066FBFA => lobby_state: u8;
+        0x00596904 => game_state: u32;
+        0x0057F1DA => chat_message_recipients: u8;
+        0x0068C144 => chat_message_type: u8;
+        0x0057F0B8 => storm_player_flags: [u32; 8];
+
+        0x00596BBC => replay_data: *mut bw::ReplayData;
+        0x006D0F18 => replay_visions: u32;
+        0x0057F0B0 => player_visions: u32;
+        0x006CEB39 => resource_minimap_color: u8;
+        0x006D5BC4 => timeout_bin: *mut bw::Dialog;
+        0x006D0F14 => is_replay: u32;
+        0x00597248 => primary_selected: *mut bw::Unit;
+        0x0057EE7C => storm_id_to_human_id: [u32; 8];
+        0x00512678 => current_command_player: u32;
+        0x00628430 => first_active_unit: *mut bw::Unit;
+        0x00654868 => first_fow_sprite: *mut bw::FowSprite;
+
+        // Main player of the team in team melee
+        0x00512678 => command_user: u32;
+        0x0051267C => unique_command_user: u32;
+        0x006D11C8 => enable_rng: u32;
+    );
+}
 
 // Misc non-function-level patches
 pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
@@ -299,7 +357,7 @@ unsafe fn patch_game() {
 
     let mut exe = active_patcher.patch_exe(0x0040_0000);
     init_funcs(&mut exe);
-    init_vars(&mut exe);
+    vars::init_vars(&mut exe);
     exe.hook_opt(WinMain, entry_point_hook);
     exe.hook(GameInit, crate::process_init_hook);
     exe.hook_opt(ChatCommand, chat_command_hook);
@@ -365,6 +423,9 @@ unsafe fn patch_game() {
     exe.hook_closure(StepGame, |orig| {
         orig();
         game_thread::after_step_game();
+    });
+    exe.hook_closure(StepReplayCommands, |orig| {
+        game_thread::step_replay_commands(orig);
     });
 
     exe.import_hook_opt(&b"kernel32"[..], CreateEventA, create_event_hook);
@@ -586,7 +647,7 @@ unsafe fn create_lobby(
     let name = windows::ansi_codepage_cstring(name)
         .unwrap_or_else(|_| (&b"Shieldbattery\0"[..]).into());
     let password = null_mut();
-    let map_folder_path = (*current_map_folder_path).as_ptr();
+    let map_folder_path = (*vars::current_map_folder_path).as_ptr();
     let speed = 6; // Fastest
     let result = select_map_or_directory(
         name.as_ptr(),
@@ -626,7 +687,7 @@ unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, bw::L
     let map_dir = windows::ansi_codepage_cstring(&map_dir)
         .map_err(|_| bw::LobbyCreateError::NonAnsiPath(map_dir.into()))?;
     for (i, &val) in map_dir.iter().enumerate() {
-        current_map_folder_path[i] = val;
+        vars::current_map_folder_path[i] = val;
     }
 
     extern "stdcall" fn dummy(_a: *mut bw::MapListEntry, _b: *const u8, _c: u32) -> u32 {
@@ -634,11 +695,11 @@ unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, bw::L
     }
     get_maps_list(
         0x28,
-        (*current_map_folder_path).as_ptr(),
+        (*vars::current_map_folder_path).as_ptr(),
         "\0".as_ptr(),
         dummy,
     );
-    let mut current_map = *map_list_root;
+    let mut current_map = *vars::map_list_root;
     while current_map as isize > 0 {
         let name = CStr::from_ptr((*current_map).name.as_ptr() as *const i8);
         if name.to_bytes_with_nul() == &map_file[..] {
@@ -650,9 +711,9 @@ unsafe fn find_map_entry(map_path: &Path) -> Result<*mut bw::MapListEntry, bw::L
 }
 
 pub unsafe fn chat_command_hook(text: *const u8, orig: unsafe extern fn(*const u8)) {
-    if *chat_message_type == bw::CHAT_MESSAGE_ALLIES {
+    if *vars::chat_message_type == bw::CHAT_MESSAGE_ALLIES {
         if let Some(player_override) = chat::get_ally_override() {
-            *chat_message_recipients = player_override;
+            *vars::chat_message_recipients = player_override;
         }
     }
     orig(text);

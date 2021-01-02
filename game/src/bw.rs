@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod list;
 pub mod unit;
 
@@ -7,6 +8,9 @@ use std::sync::{Arc, RwLock};
 use libc::{c_void, sockaddr};
 use quick_error::quick_error;
 use winapi::shared::ntdef::HANDLE;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct StormPlayerId(pub u8);
 
 /// Gets access to the object that is used for actually manipulating Broodwar state.
 pub fn with_bw<F: FnOnce(&Arc<dyn Bw>) -> R, R>(callback: F) -> R {
@@ -57,6 +61,13 @@ pub trait Bw: Sync + Send {
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
     unsafe fn players(&self) -> *mut Player;
+    /// May be null in some edge case?
+    /// But since it is used for both recording and replaying it usually isn't.
+    /// Should still check for null.
+    unsafe fn replay_data(&self) -> *mut ReplayData;
+    fn game_command_lengths(&self) -> &[u32];
+    unsafe fn process_replay_commands(&self, commands: &[u8], player: StormPlayerId);
+
     unsafe fn set_player_name(&self, id: u8, name: &str);
 
     unsafe fn active_units(&self) -> unit::UnitIterator;
@@ -166,8 +177,6 @@ pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
 pub const RACE_RANDOM: u8 = 0x6;
 pub const CHAT_MESSAGE_ALLIES: u8 = 0x3;
-
-pub struct ReplayData;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -418,7 +427,10 @@ pub struct Rect32 {
 pub struct Game {
     pub minerals: [u32; 0xc],
     pub gas: [u32; 0xc],
-    pub dc60: [u8; 0x84],
+    pub dc60: [u8; 0x7c],
+    pub team_game_main_player: [u8; 4],
+    pub screen_pos_x_tiles: u16,
+    pub screen_pos_y_tiles: u16,
     pub map_width_tiles: u16,
     pub map_height_tiles: u16,
     pub dce8: [u8; 0x4],
@@ -715,6 +727,18 @@ pub struct GameTemplate {
     pub padding: u8,
 }
 
+#[repr(C)]
+pub struct ReplayData {
+    pub recording: u32,
+    pub playing_back: u32,
+    pub data_start: *mut u8,
+    pub data_length: u32,
+    pub unk10: u32,
+    pub data_unk: *mut u8,
+    pub unk18: u32,
+    pub data_pos: *mut u8,
+}
+
 unsafe impl Send for SnpFunctions {}
 unsafe impl Sync for SnpFunctions {}
 unsafe impl Send for SnpListEntry {}
@@ -739,6 +763,7 @@ fn struct_sizes() {
     assert_eq!(size_of::<Unit>(), 0x150);
     assert_eq!(size_of::<Image>(), 0x40);
     assert_eq!(size_of::<FowSprite>(), 0x10);
+    assert_eq!(size_of::<ReplayData>(), 0x20);
 }
 
 pub struct FowSpriteIterator(*mut FowSprite);

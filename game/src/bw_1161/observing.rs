@@ -4,7 +4,7 @@ use std::mem;
 use libc::c_void;
 
 use crate::bw;
-use crate::bw_1161;
+use crate::bw_1161::{self, vars};
 
 pub unsafe fn process_commands_hook(
     data: *const u8,
@@ -12,7 +12,7 @@ pub unsafe fn process_commands_hook(
     replay: u32,
     orig: unsafe extern fn(*const u8, u32, u32),
 ) {
-    if replay == 0 && *bw_1161::current_command_player >= 8 {
+    if replay == 0 && *vars::current_command_player >= 8 {
         // Replace anything sent by observers with a keep alive command, I'm quite sure there will
         // be buffer overflows otherwise.
         let buf = [0x05u8];
@@ -42,7 +42,7 @@ pub unsafe fn chat_message_hook(
     orig: unsafe extern fn(u32, *const u8, u32) -> u32,
 ) -> u32 {
     use std::io::Write;
-    if bw_1161::storm_id_to_human_id[storm_player as usize] >= 8 {
+    if vars::storm_id_to_human_id[storm_player as usize] >= 8 {
         // Observer message, we'll have to manually print text and add to replay recording.
         let message = std::slice::from_raw_parts(message, length as usize);
 
@@ -61,7 +61,7 @@ pub unsafe fn chat_message_hook(
             // 0x1f is the neutral cyan color and 0x02 is the regular chat message one.
             write!(&mut pos, "\x1f")?;
             let name = CStr::from_ptr(
-                bw_1161::storm_players[storm_player as usize].name.as_ptr() as *const i8
+                vars::storm_players[storm_player as usize].name.as_ptr() as *const i8
             );
             pos.write_all(name.to_bytes())?;
             write!(&mut pos, ": ")?;
@@ -76,13 +76,13 @@ pub unsafe fn chat_message_hook(
         let _ = (&mut replay_command[2..]).write(&buf[..]);
         replay_command[0x51] = 0;
         bw_1161::add_to_replay_data(
-            *bw_1161::replay_data,
+            *vars::replay_data,
             replay_command.as_ptr(),
             replay_command.len() as u32,
             storm_player,
         );
 
-        if storm_player == *bw_1161::local_storm_id {
+        if storm_player == *vars::local_storm_id {
             // Switch the message to be green to show it's player's own message
             let _ = format(&mut buf[..], 0x07);
         }
@@ -130,10 +130,10 @@ pub unsafe fn load_dialog_hook(
 pub unsafe fn init_ui_variables_hook(orig: unsafe extern fn()) {
     orig();
     if is_local_player_observer() {
-        *bw_1161::replay_visions = 0xff;
-        *bw_1161::player_visions = 0xff;
+        *vars::replay_visions = 0xff;
+        *vars::player_visions = 0xff;
         // To allies (=observers)
-        (*bw_1161::game).chat_dialog_recipient = 9;
+        (*vars::game).chat_dialog_recipient = 9;
         // Could also set the race, it currently just does an overflow read to zerg.
     }
 }
@@ -172,10 +172,10 @@ pub unsafe fn get_gluall_string_hook(
 
 pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
     unsafe fn find_timeout_dialog_player_label(bw_player: u8) -> Option<*mut bw::Control> {
-        if (*bw_1161::timeout_bin).is_null() {
+        if (*vars::timeout_bin).is_null() {
             return None;
         }
-        let mut label = find_dialog_child(*bw_1161::timeout_bin, -10)?;
+        let mut label = find_dialog_child(*vars::timeout_bin, -10)?;
         let mut label_count = 0;
         while !label.is_null() && label_count < 8 {
             // Flag 0x8 == Shown
@@ -190,7 +190,7 @@ pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
     // To make observers appear in network timeout dialog, we temporarily write their info to
     // ingame player structure, and revert the change after this function has been called.
 
-    let bw_players: &mut [bw::Player] = &mut bw_1161::players[..8];
+    let bw_players: &mut [bw::Player] = &mut vars::players[..8];
     let actual_players: [bw::Player; 8] = {
         let mut players: [bw::Player; 8] = mem::zeroed();
         for i in 0..players.len() {
@@ -234,22 +234,22 @@ pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
                 // Technically player 10 can actually have units in some odd UMS maps, but we
                 // aren't allowing observing UMS games anyways, so whatever. Even if the someone
                 // noticed the color changing, I doubt they would care.
-                (*ctrl).label = bw_1161::storm_players[storm_id as usize].name.as_ptr();
+                (*ctrl).label = vars::storm_players[storm_id as usize].name.as_ptr();
                 (*ctrl).custom_value = 10usize as *mut c_void;
-                (*bw_1161::game).player_minimap_color[10] = *bw_1161::resource_minimap_color;
+                (*vars::game).player_minimap_color[10] = *vars::resource_minimap_color;
             }
         }
     }
     for (i, player) in actual_players.iter().enumerate() {
-        bw_1161::players[i] = player.clone();
+        vars::players[i] = player.clone();
     }
 }
 
 pub unsafe fn update_command_card_hook(orig: unsafe extern fn()) {
-    if is_local_player_observer() && !(*bw_1161::primary_selected).is_null() {
-        *bw_1161::local_nation_id = (**bw_1161::primary_selected).player as u32;
+    if is_local_player_observer() && !(*vars::primary_selected).is_null() {
+        *vars::local_nation_id = (**vars::primary_selected).player as u32;
         orig();
-        *bw_1161::local_nation_id = !0;
+        *vars::local_nation_id = !0;
     } else {
         orig();
     }
@@ -263,12 +263,12 @@ pub unsafe fn draw_command_button_hook(
     orig: unsafe extern fn(*mut bw::Control, i32, i32, *mut c_void),
 ) {
     // Need to disable replay flag being set from DrawScreenHook if observing
-    let was_replay = *bw_1161::is_replay;
+    let was_replay = *vars::is_replay;
     if is_local_player_observer() {
-        *bw_1161::is_replay = 0;
+        *vars::is_replay = 0;
     }
     orig(control, x, y, area);
-    *bw_1161::is_replay = was_replay;
+    *vars::is_replay = was_replay;
 }
 
 pub unsafe fn center_screen_on_start_location(
@@ -276,14 +276,14 @@ pub unsafe fn center_screen_on_start_location(
     other: *mut c_void,
     orig: unsafe extern fn(*mut bw::PreplacedUnit, *mut c_void) -> u32,
 ) -> u32 {
-    let was_replay = *bw_1161::is_replay;
-    if is_local_player_observer() && bw_1161::players[(*unit).player as usize].player_type != 0 {
+    let was_replay = *vars::is_replay;
+    if is_local_player_observer() && vars::players[(*unit).player as usize].player_type != 0 {
         // Center the screen once we get the first active player so observers don't randomly
         // end up staring at unused start location.
-        *bw_1161::is_replay = 1;
+        *vars::is_replay = 1;
     }
     let result = orig(unit, other);
-    *bw_1161::is_replay = was_replay;
+    *vars::is_replay = was_replay;
     result
 }
 
@@ -301,15 +301,15 @@ unsafe fn find_dialog_child(dialog: *mut bw::Dialog, child_id: i16) -> Option<*m
 unsafe fn is_local_player_observer() -> bool {
     // Should probs use shieldbattery's data instead of checking BW variables,
     // but we don't have anything that's readily accessible by game thread.
-    *bw_1161::local_nation_id == !0
+    *vars::local_nation_id == !0
 }
 
 pub unsafe fn with_replay_flag_if_obs<F: FnOnce() -> R, R>(func: F) -> R {
-    let was_replay = *bw_1161::is_replay;
+    let was_replay = *vars::is_replay;
     if is_local_player_observer() {
-        *bw_1161::is_replay = 1;
+        *vars::is_replay = 1;
     }
     let ret = func();
-    *bw_1161::is_replay = was_replay;
+    *vars::is_replay = was_replay;
     ret
 }

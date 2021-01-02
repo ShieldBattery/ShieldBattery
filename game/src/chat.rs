@@ -2,12 +2,11 @@ use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 
+use crate::bw::StormPlayerId;
+
 lazy_static! {
     static ref ALLY_OVERRIDE: Mutex<Option<u8>> = Mutex::new(None);
 }
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct StormPlayerId(pub u8);
 
 pub fn set_ally_override(storm_ids: &[StormPlayerId]) {
     let mut bits = 0u8;

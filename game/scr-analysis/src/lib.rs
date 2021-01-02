@@ -297,4 +297,24 @@ impl<'e> Analysis<'e> {
     pub fn step_game(&mut self) -> Option<VirtualAddress> {
         self.0.step_objects()
     }
+
+    pub fn step_replay_commands(&mut self) -> Option<VirtualAddress> {
+        self.0.step_replay_commands()
+    }
+
+    pub fn replay_data(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_data()
+    }
+
+    pub fn command_user(&mut self) -> Option<Operand<'e>> {
+        self.0.command_user()
+    }
+
+    pub fn unique_command_user(&mut self) -> Option<Operand<'e>> {
+        self.0.selections().unique_command_user
+    }
+
+    pub fn enable_rng(&mut self) -> Option<Operand<'e>> {
+        self.0.rng().enable
+    }
 }

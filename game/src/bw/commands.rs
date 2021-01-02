@@ -9,6 +9,27 @@ pub mod id {
     pub const REPLAY_SEEK: u8 = 0x5d;
 }
 
+pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
+    match *data.get(0)? {
+        0x6 | 0x7 => {
+            // Save/Load commands have a 0-terminated string starting at offset 5
+            // as their last field
+            data.iter().enumerate().skip(5).find(|x| *x.1 == 0).map(|x| x.0 + 1)
+        }
+        0x9 | 0xa | 0xb => {
+            // Old selection commands, { u8 id, u8 unit_count, u16 units[] }
+            data.get(1).map(|&count| count as usize * 2 + 2)
+        }
+        0x63 | 0x64 | 0x65 => {
+            // New selection commands, { u8 id, u8 unit_count, u32 units[] }
+            data.get(1).map(|&count| count as usize * 4 + 2)
+        }
+        x => {
+            command_lengths.get(x as usize).map(|&len| len as usize)
+        }
+    }
+}
+
 /// Splits a byte slice that may contain many commands to slices of individual commands.
 pub fn iter_commands<'a>(
     slice: &'a [u8],
@@ -28,24 +49,10 @@ struct IterCommands<'a> {
 impl<'a> Iterator for IterCommands<'a> {
     type Item = &'a [u8];
     fn next(&mut self) -> Option<Self::Item> {
-        let len = match *self.slice.get(0)? {
-            0x6 | 0x7 => {
-                // Save/Load commands have a 0-terminated string starting at offset 5
-                // as their last field
-                self.slice.iter().enumerate().skip(5).find(|x| *x.1 == 0).map(|x| x.0 + 1)
-            }
-            0x9 | 0xa | 0xb => {
-                // Old selection commands, { u8 id, u8 unit_count, u16 units[] }
-                self.slice.get(1).map(|&count| count as usize * 2 + 2)
-            }
-            0x63 | 0x64 | 0x65 => {
-                // New selection commands, { u8 id, u8 unit_count, u32 units[] }
-                self.slice.get(1).map(|&count| count as usize * 4 + 2)
-            }
-            x => {
-                self.command_lengths.get(x as usize).map(|&len| len as usize)
-            }
-        };
+        if self.slice.is_empty() {
+            return None;
+        }
+        let len = command_length(self.slice, self.command_lengths);
         let split = len
             .filter(|&len| len != 0)
             .and_then(|len| Some((self.slice.get(..len)?, self.slice.get(len..)?)));
