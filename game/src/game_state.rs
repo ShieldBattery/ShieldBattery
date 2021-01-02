@@ -18,7 +18,7 @@ use crate::app_messages::{
     Race, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, with_bw, GameType, StormPlayerId};
+use crate::bw::{self, get_bw, GameType, StormPlayerId};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
@@ -273,7 +273,7 @@ impl GameState {
             let req = send_game_request(&game_request_send, GameThreadRequestType::Initialize);
             req.await;
             unsafe {
-                with_bw(|bw| bw.remaining_game_init(&local_user.name));
+                get_bw().remaining_game_init(&local_user.name);
                 if is_host {
                     create_lobby(&info, game_type)?;
                 }
@@ -300,33 +300,32 @@ impl GameState {
                 .send(GameStateMessage::InLobby)
                 .await
                 .map_err(|_| GameInitError::Closed)?;
+            let bw = get_bw();
             loop {
                 unsafe {
                     let mut someone_left = false;
                     let mut new_players = false;
-                    with_bw(|bw| {
-                        let flags_before = bw.storm_player_flags();
-                        bw.maybe_receive_turns();
-                        let flags_after = bw.storm_player_flags();
-                        let flags = flags_before.iter().zip(flags_after.iter());
-                        for (i, (&old, &new)) in flags.enumerate() {
-                            if old == 0 && new != 0 {
-                                bw.init_network_player_info(i as u32);
-                                new_players = true;
-                            }
-                            if old != 0 && new == 0 {
-                                someone_left = true;
-                            }
+                    let flags_before = bw.storm_player_flags();
+                    bw.maybe_receive_turns();
+                    let flags_after = bw.storm_player_flags();
+                    let flags = flags_before.iter().zip(flags_after.iter());
+                    for (i, (&old, &new)) in flags.enumerate() {
+                        if old == 0 && new != 0 {
+                            bw.init_network_player_info(i as u32);
+                            new_players = true;
                         }
-                        if someone_left {
-                            // No idea what to do here, launching is probably going to fail
-                            // but log the error so that investigation will be easier.
-                            error!(
-                                "A player that was joined has left??? Before: {:x?} After: {:x?}",
-                                flags_before, flags_after,
-                            );
+                        if old != 0 && new == 0 {
+                            someone_left = true;
                         }
-                    });
+                    }
+                    if someone_left {
+                        // No idea what to do here, launching is probably going to fail
+                        // but log the error so that investigation will be easier.
+                        error!(
+                            "A player that was joined has left??? Before: {:x?} After: {:x?}",
+                            flags_before, flags_after,
+                        );
+                    }
 
                     if new_players {
                         send_messages_to_state
@@ -633,7 +632,7 @@ impl InitInProgress {
 
     // Return Ok(true) on done, Ok(false) on keep waiting
     unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
-        let storm_names = with_bw(|bw| storm_player_names(&**bw));
+        let storm_names = storm_player_names(get_bw());
         self.update_bw_slots(&storm_names)?;
         if self.has_all_players() {
             Ok(true)
@@ -646,7 +645,7 @@ impl InitInProgress {
         &mut self,
         storm_names: &[Option<String>],
     ) -> Result<(), GameInitError> {
-        let players = with_bw(|bw| bw.players());
+        let players = get_bw().players();
         for (storm_id, name) in storm_names.iter().enumerate() {
             let storm_id = StormPlayerId(storm_id as u8);
             let name = match name {
@@ -818,7 +817,7 @@ impl InitInProgress {
 
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
-    with_bw(|bw| bw.create_lobby(map_path, &info.name, game_type)).map_err(|e| GameInitError::Bw(e))
+    get_bw().create_lobby(map_path, &info.name, game_type).map_err(|e| GameInitError::Bw(e))
 }
 
 unsafe fn join_lobby(
@@ -891,18 +890,17 @@ unsafe fn join_lobby(
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
         }
-        with_bw(|bw| {
-            bw.init_game_network();
-            bw.maybe_receive_turns();
-            let storm_flags = bw.storm_player_flags();
-            for (i, &flags) in storm_flags.iter().enumerate() {
-                if flags != 0 {
-                    bw.init_network_player_info(i as u32);
-                }
+        let bw = get_bw();
+        bw.init_game_network();
+        bw.maybe_receive_turns();
+        let storm_flags = bw.storm_player_flags();
+        for (i, &flags) in storm_flags.iter().enumerate() {
+            if flags != 0 {
+                bw.init_network_player_info(i as u32);
             }
-            let player_names = storm_player_names(&**bw);
-            debug!("Storm player names at join: {:?}", player_names);
-        });
+        }
+        let player_names = storm_player_names(bw);
+        debug!("Storm player names at join: {:?}", player_names);
         Ok(())
     }
     .boxed()
@@ -921,7 +919,8 @@ async unsafe fn try_join_lobby_once(
     std::thread::spawn(move || {
         let address = Ipv4Addr::new(10, 27, 27, 0);
         snp::spoof_game("shieldbattery", address);
-        let result = with_bw(|bw| bw.join_lobby(&mut game_info, &map_path, address));
+        let bw = get_bw();
+        let result = bw.join_lobby(&mut game_info, &map_path, address);
         let _ = send.send(result);
     });
 
@@ -933,7 +932,8 @@ async unsafe fn try_join_lobby_once(
 }
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
-    let players = with_bw(|bw| bw.players());
+    let bw = get_bw();
+    let players = bw.players();
     for i in 0..8 {
         *players.add(i) = bw::Player {
             player_id: i as u32,
@@ -982,7 +982,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
             team,
             name: [0; 25],
         };
-        with_bw(|bw| bw.set_player_name(slot_id as u8, &slot.name));
+        bw.set_player_name(slot_id as u8, &slot.name);
     }
     // Verify that computer team races in team melee are either all random or no random.
     // Otherwise the race randomization function will generate invalid races.
@@ -1028,14 +1028,11 @@ unsafe fn storm_player_names(bw: &dyn bw::Bw) -> Vec<Option<String>> {
 }
 
 async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
-    with_bw(|bw| {
-        bw.do_lobby_game_init(info.seed);
-    });
+    let bw = get_bw();
+    bw.do_lobby_game_init(info.seed);
     loop {
-        let done = with_bw(|bw| {
-            bw.maybe_receive_turns();
-            bw.try_finish_lobby_game_init()
-        });
+        bw.maybe_receive_turns();
+        let done = bw.try_finish_lobby_game_init();
         if done {
             break;
         }

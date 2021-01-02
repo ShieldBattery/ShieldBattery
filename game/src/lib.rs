@@ -27,7 +27,6 @@ use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 
 use lazy_static::lazy_static;
@@ -245,7 +244,7 @@ pub extern "C" fn OnInject() {
             init_helper(scr_init, crash_dump::cdecl_crash_dump);
         }
     } else {
-        let bw = Arc::new(bw_1161::Bw1161);
+        let bw = Box::leak(Box::new(bw_1161::Bw1161));
         unsafe {
             bw.patch_game();
         }
@@ -256,10 +255,10 @@ pub extern "C" fn OnInject() {
 unsafe extern "C" fn scr_init(image: *mut u8) {
     debug!("SCR init");
     let bw = match bw_scr::BwScr::new() {
-        Ok(o) => Arc::new(o),
+        Ok(o) => Box::leak(Box::new(o)),
         Err(e) => panic!("StarCraft version not supported: Couldn't find '{}'", e),
     };
-    bw.clone().patch_game(image);
+    bw.patch_game(image);
     bw::set_bw_impl(bw);
 }
 

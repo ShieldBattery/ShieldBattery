@@ -3,28 +3,24 @@ pub mod list;
 pub mod unit;
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
 
 use libc::{c_void, sockaddr};
+use once_cell::sync::OnceCell;
 use quick_error::quick_error;
 use winapi::shared::ntdef::HANDLE;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct StormPlayerId(pub u8);
 
+static BW_IMPL: OnceCell<&'static dyn Bw> = OnceCell::new();
+
 /// Gets access to the object that is used for actually manipulating Broodwar state.
-pub fn with_bw<F: FnOnce(&Arc<dyn Bw>) -> R, R>(callback: F) -> R {
-    let locked = BW_IMPL.read().unwrap();
-    let inner = locked.as_ref().unwrap();
-    callback(&*inner)
+pub fn get_bw() -> &'static dyn Bw {
+    *BW_IMPL.get().unwrap()
 }
 
-pub fn set_bw_impl(bw: Arc<dyn Bw>) {
-    *BW_IMPL.write().unwrap() = Some(bw);
-}
-
-lazy_static::lazy_static! {
-    static ref BW_IMPL: RwLock<Option<Arc<dyn Bw>>> = RwLock::new(None);
+pub fn set_bw_impl(bw: &'static dyn Bw) {
+    let _ = BW_IMPL.set(bw);
 }
 
 /// The interface to Broodwar.

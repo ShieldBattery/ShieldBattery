@@ -941,7 +941,7 @@ impl BwScr {
         })
     }
 
-    pub unsafe fn patch_game(self: Arc<Self>, image: *mut u8) {
+    pub unsafe fn patch_game(&'static self, image: *mut u8) {
         use self::hooks::*;
         debug!("Patching SCR");
         let base = GetModuleHandleW(null()) as *mut _;
@@ -977,7 +977,6 @@ impl BwScr {
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
 
         let address = self.process_game_commands as usize - base;
-        let this = self.clone();
         exe.hook_closure_address(
             ProcessGameCommands,
             move |data, len, are_recorded_replay_commands, orig| {
@@ -985,16 +984,16 @@ impl BwScr {
                 let slice = commands::filter_invalid_commands(
                     slice,
                     are_recorded_replay_commands != 0,
-                    &this.game_command_lengths,
+                    &self.game_command_lengths,
                 );
                 if are_recorded_replay_commands == 0 {
-                    for command in commands::iter_commands(&slice, &this.game_command_lengths) {
+                    for command in commands::iter_commands(&slice, &self.game_command_lengths) {
                         match command {
                             [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
                                 let frame = LittleEndian::read_u32(rest);
-                                let game = this.game();
+                                let game = self.game();
                                 if (*game).frame_count > frame {
-                                    this.is_replay_seeking.store(true, Ordering::Relaxed);
+                                    self.is_replay_seeking.store(true, Ordering::Relaxed);
                                 }
                             }
                             _ => (),
@@ -1006,7 +1005,6 @@ impl BwScr {
             address,
         );
         let address = self.step_io.0 as usize - base;
-        let this = self.clone();
         exe.hook_closure_address(
             StepIo,
             move |scheduler, orig| {
@@ -1019,21 +1017,20 @@ impl BwScr {
                 //
                 // Still need to check that the SNP is ready BW side.
                 if SNP_INITIALIZED.load(Ordering::Relaxed) {
-                    (this.snet_recv_packets)();
-                    (this.snet_send_packets)();
+                    (self.snet_recv_packets)();
+                    (self.snet_send_packets)();
                 }
             },
             address,
         );
         let address = self.process_lobby_commands as usize - base;
-        let this = self.clone();
         exe.hook_closure_address(
             ProcessLobbyCommands,
             move |data, len, player, orig| {
                 let slice = std::slice::from_raw_parts(data, len);
                 if let Some(&byte) = slice.get(0) {
                     if byte == 0x48 && player == 0 {
-                        this.lobby_game_init_command_seen.store(true, Ordering::Relaxed);
+                        self.lobby_game_init_command_seen.store(true, Ordering::Relaxed);
                     }
                 }
                 orig(data, len, player);
@@ -1086,16 +1083,15 @@ impl BwScr {
         debug!("Patched.");
     }
 
-    unsafe fn patch_shaders(self: Arc<Self>, exe: &mut whack::ModulePatcher<'_>, base: usize) {
+    unsafe fn patch_shaders(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) {
         use self::hooks::*;
         let renderer_vtable = self.prism_renderer_vtable.0 as usize as *mut usize;
 
         let create_shader = *renderer_vtable.add(0x10);
         // Render hook
         let relative = *renderer_vtable.add(0x7) - base;
-        let this = self.clone();
         exe.hook_closure_address(Renderer_Render, move |renderer, commands, width, height, orig| {
-            if this.shader_replaces.has_changed() {
+            if self.shader_replaces.has_changed() {
                 // Hot reload shaders.
                 // Unfortunately repatching the .exe to replace shader sets in BW
                 // memory is not currently possible.
@@ -1104,8 +1100,8 @@ impl BwScr {
                 let create_shader: Thiscall<unsafe extern fn(
                     *mut c_void, *mut scr::Shader, *const u8, *const u8, *const u8, *mut c_void,
                 ) -> usize> = Thiscall::wrap_thiscall(create_shader);
-                for (id, new_set) in this.shader_replaces.iter_shaders() {
-                    if let Some(shader_set) = this.prism_pixel_shaders.get(id as usize) {
+                for (id, new_set) in self.shader_replaces.iter_shaders() {
+                    if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
                         let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
                         assert!((*shader_set).count as usize == new_set.len());
                         let out = std::slice::from_raw_parts_mut(
@@ -1115,7 +1111,7 @@ impl BwScr {
                         if out[0].data != new_set[0].data {
                             out.copy_from_slice(new_set);
                             let args = {
-                                let renderer_state = this.renderer_state.lock();
+                                let renderer_state = self.renderer_state.lock();
                                 renderer_state.shader_inputs.get(id as usize).copied()
                             };
                             if let Some(args) = args {
@@ -1148,12 +1144,11 @@ impl BwScr {
 
         // CreateShader hook
         let relative = create_shader as usize - base;
-        let this = self.clone();
         exe.hook_closure_address(
             Renderer_CreateShader,
             move |renderer, shader, text, vertex, pixel, arg5, orig| {
                 {
-                    let mut renderer_state = this.renderer_state.lock();
+                    let mut renderer_state = self.renderer_state.lock();
                     renderer_state.set_renderer(renderer);
                     renderer_state.set_shader_inputs(shader, vertex, pixel);
                 }

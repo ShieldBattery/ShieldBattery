@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 
 use crate::app_messages::{GameSetupInfo};
-use crate::bw::{self, with_bw, StormPlayerId};
+use crate::bw::{self, get_bw, StormPlayerId};
 use crate::forge;
 use crate::snp;
 
@@ -92,7 +92,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         RunWndProc => forge::run_wnd_proc(),
         StartGame => {
             forge::game_started();
-            with_bw(|bw| bw.run_game_loop());
+            get_bw().run_game_loop();
             debug!("Game loop ended");
             let results = game_results();
             send_game_msg_to_async(GameThreadMessage::Results(results));
@@ -100,7 +100,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
         }
         // Saves registry settings etc.
         ExitCleanup => {
-            with_bw(|bw| bw.clean_up_for_exit());
+            get_bw().clean_up_for_exit();
         }
         SetupInfo(info) => {
             if let Err(_) = SETUP_INFO.set(info) {
@@ -127,8 +127,9 @@ pub struct GameThreadResults {
 }
 
 unsafe fn game_results() -> GameThreadResults {
-    let game = with_bw(|bw| bw.game());
-    let players = with_bw(|bw| bw.players());
+    let bw = get_bw();
+    let game = bw.game();
+    let players = bw.players();
 
     GameThreadResults {
         victory_state: (*game).victory_state,
@@ -159,43 +160,41 @@ unsafe fn game_results() -> GameThreadResults {
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.
 unsafe fn init_bw() {
-    with_bw(|bw| {
-        bw.init_sprites();
-        (*bw.game()).is_bw = 1;
-    });
+    let bw = get_bw();
+    bw.init_sprites();
+    (*bw.game()).is_bw = 1;
     debug!("Process initialized");
 }
 
 /// Bw impl is expected to hook the point after init_game_data and call this.
 pub unsafe fn after_init_game_data() {
-    with_bw(|bw| {
-        // Let async thread know about player randomization.
-        // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
-        // data structures used in a game. Player randomization seems to have been done before that,
-        // so if it ever in future ends up being the case that the async thread has a point where it
-        // uses wrong game player ids, a more exact point for this hook should be decided.
-        //
-        // But for now it should be fine, and this should also be late enough in initialization that
-        // any possible alternate branches for save/replay/ums randomization should have been executed
-        // as well.
-        let mut mapping = [None; bw::MAX_STORM_PLAYERS];
-        let players = bw.players();
-        for i in 0..8 {
-            let storm_id = (*players.add(i)).storm_id;
-            if let Some(out) = mapping.get_mut(storm_id as usize) {
-                *out = Some(i as u8);
+    // Let async thread know about player randomization.
+    // The function that bw_1161/bw_scr refer to as init_game_data mainly initializes global
+    // data structures used in a game. Player randomization seems to have been done before that,
+    // so if it ever in future ends up being the case that the async thread has a point where it
+    // uses wrong game player ids, a more exact point for this hook should be decided.
+    //
+    // But for now it should be fine, and this should also be late enough in initialization that
+    // any possible alternate branches for save/replay/ums randomization should have been executed
+    // as well.
+    let bw = get_bw();
+    let mut mapping = [None; bw::MAX_STORM_PLAYERS];
+    let players = bw.players();
+    for i in 0..8 {
+        let storm_id = (*players.add(i)).storm_id;
+        if let Some(out) = mapping.get_mut(storm_id as usize) {
+            *out = Some(i as u8);
+        }
+    }
+    send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
+    // Create fog-of-war sprites for any neutral buildings
+    if !is_ums() {
+        for unit in bw.active_units() {
+            if unit.player() == 11 && unit.is_landed_building() {
+                bw.create_fow_sprite(unit);
             }
         }
-        send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
-        // Create fog-of-war sprites for any neutral buildings
-        if !is_ums() {
-            for unit in bw.active_units() {
-                if unit.player() == 11 && unit.is_landed_building() {
-                    bw.create_fow_sprite(unit);
-                }
-            }
-        }
-    });
+    }
 }
 
 pub fn is_ums() -> bool {
@@ -226,40 +225,39 @@ pub fn is_replay() -> bool {
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
 pub unsafe fn after_step_game() {
-    with_bw(|bw| {
-        if is_replay() && !is_ums() {
-            // One thing BW's step_game does is that it removes any fog sprites that were
-            // no longer in fog. Unfortunately now that we show fog sprites for unexplored
-            // resources as well, removing those fog sprites ends up being problematic if
-            // the user switches vision off from a player who had those resources explored.
-            // In such case the unexplored fog sprites would not appear and some of the
-            // expansions would show up as empty while other unexplored bases keep their
-            // fog sprites as usual.
-            // To get around this issue, check which neutral buildings don't have fog
-            // sprites and add them back.
-            // (Adding fog sprites on visible area is fine, at least in replays)
+    let bw = get_bw();
+    if is_replay() && !is_ums() {
+        // One thing BW's step_game does is that it removes any fog sprites that were
+        // no longer in fog. Unfortunately now that we show fog sprites for unexplored
+        // resources as well, removing those fog sprites ends up being problematic if
+        // the user switches vision off from a player who had those resources explored.
+        // In such case the unexplored fog sprites would not appear and some of the
+        // expansions would show up as empty while other unexplored bases keep their
+        // fog sprites as usual.
+        // To get around this issue, check which neutral buildings don't have fog
+        // sprites and add them back.
+        // (Adding fog sprites on visible area is fine, at least in replays)
 
-            let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
-            for fow in bw.fow_sprites() {
-                let sprite = (*fow).sprite;
+        let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
+        for fow in bw.fow_sprites() {
+            let sprite = (*fow).sprite;
+            let pos = bw.sprite_position(sprite);
+            fow_sprites.insert((pos.x, pos.y, (*fow).unit_id));
+        }
+        for unit in bw.active_units() {
+            if unit.player() == 11 && unit.is_landed_building() {
+                // This currently adds fow sprites even for buildings that became
+                // neutral after player left. It's probably fine, but if it wasn't
+                // desired, checking that `sprite.player == 11` should only include
+                // buildings that existed from map start
+                let sprite = (**unit).sprite;
                 let pos = bw.sprite_position(sprite);
-                fow_sprites.insert((pos.x, pos.y, (*fow).unit_id));
-            }
-            for unit in bw.active_units() {
-                if unit.player() == 11 && unit.is_landed_building() {
-                    // This currently adds fow sprites even for buildings that became
-                    // neutral after player left. It's probably fine, but if it wasn't
-                    // desired, checking that `sprite.player == 11` should only include
-                    // buildings that existed from map start
-                    let sprite = (**unit).sprite;
-                    let pos = bw.sprite_position(sprite);
-                    if fow_sprites.insert((pos.x, pos.y, unit.id())) {
-                        bw.create_fow_sprite(unit);
-                    }
+                if fow_sprites.insert((pos.x, pos.y, unit.id())) {
+                    bw.create_fow_sprite(unit);
                 }
             }
         }
-    });
+    }
 }
 
 /// Reimplementation of replay command reading & processing since the default implementation
@@ -268,44 +266,43 @@ pub unsafe fn after_step_game() {
 /// A function pointer for the original function is still needed to handle replay ending
 /// case which we don't need to touch.
 pub unsafe fn step_replay_commands(orig: unsafe extern fn()) {
-    with_bw(|bw| {
-        let game = bw.game();
-        let replay = bw.replay_data();
-        let command_lengths = bw.game_command_lengths();
-        let frame = (*game).frame_count;
-        let data_end = (*replay).data_start.add((*replay).data_length as usize);
-        let remaining_length = (data_end as usize).saturating_sub((*replay).data_pos as usize);
-        // Data is in format
-        // u32 frame, u8 length, { u8 storm_player, u8 cmd[] }[length]
-        // Repeated for each frame in replay, if the commands don't fit in a single frame
-        // then there can be repeated blocks with equal frame number.
-        let mut data = std::slice::from_raw_parts((*replay).data_pos, remaining_length);
-        if data.is_empty() {
-            // Let the original function handle replay ending
-            orig();
-            return;
-        }
+    let bw = get_bw();
+    let game = bw.game();
+    let replay = bw.replay_data();
+    let command_lengths = bw.game_command_lengths();
+    let frame = (*game).frame_count;
+    let data_end = (*replay).data_start.add((*replay).data_length as usize);
+    let remaining_length = (data_end as usize).saturating_sub((*replay).data_pos as usize);
+    // Data is in format
+    // u32 frame, u8 length, { u8 storm_player, u8 cmd[] }[length]
+    // Repeated for each frame in replay, if the commands don't fit in a single frame
+    // then there can be repeated blocks with equal frame number.
+    let mut data = std::slice::from_raw_parts((*replay).data_pos, remaining_length);
+    if data.is_empty() {
+        // Let the original function handle replay ending
+        orig();
+        return;
+    }
 
-        loop {
-            let (mut frame_data, rest) = match replay_next_frame(data) {
-                Some(s) => s,
-                None => {
-                    warn!("Broken replay? Unable to read next frame");
-                    (*replay).data_pos = data_end;
-                    return;
-                }
-            };
-            if frame_data.frame > frame {
-                break;
+    loop {
+        let (mut frame_data, rest) = match replay_next_frame(data) {
+            Some(s) => s,
+            None => {
+                warn!("Broken replay? Unable to read next frame");
+                (*replay).data_pos = data_end;
+                return;
             }
-            data = rest;
-            while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
-                bw.process_replay_commands(command, storm_player);
-            }
+        };
+        if frame_data.frame > frame {
+            break;
         }
-        let new_pos = (data_end as usize - data.len()) as *mut u8;
-        (*replay).data_pos = new_pos;
-    });
+        data = rest;
+        while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
+            bw.process_replay_commands(command, storm_player);
+        }
+    }
+    let new_pos = (data_end as usize - data.len()) as *mut u8;
+    (*replay).data_pos = new_pos;
 }
 
 struct ReplayFrame<'a> {

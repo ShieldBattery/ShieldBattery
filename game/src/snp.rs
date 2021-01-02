@@ -347,7 +347,7 @@ pub unsafe extern "stdcall" fn receive_packet(
         *addr = null_mut();
         *data = null_mut();
         *length = 0;
-        bw::with_bw(|bw| bw.storm_set_last_error(STORM_ERROR_NO_MESSAGES_WAITING));
+        bw::get_bw().storm_set_last_error(STORM_ERROR_NO_MESSAGES_WAITING);
         0
     }
 }
