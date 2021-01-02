@@ -1187,8 +1187,8 @@ impl BwScr {
                 *net_player_to_game.add(storm_id as usize) = game_id as u32;
                 *net_player_to_unique.add(storm_id as usize) = game_id as u32;
                 if storm_id == local_storm_id {
-                    self.local_player_id.write(local_storm_id);
-                    self.local_unique_player_id.write(local_storm_id);
+                    self.local_player_id.write(game_id as u32);
+                    self.local_unique_player_id.write(game_id as u32);
                 }
             }
         }
