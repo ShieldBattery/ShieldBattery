@@ -226,20 +226,6 @@ pub extern "C" fn OnInject() {
     let args = parse_args();
     if args.is_scr {
         unsafe {
-            // Waiting for debugger this early may not work as expected,
-            // but probably still better than somewhere after SCR's main has started.
-            // Debugging SCR is difficult anyway.
-            if crate::WAIT_DEBUGGER {
-                debug!("Waiting for debugger");
-                let start = std::time::Instant::now();
-                while winapi::um::debugapi::IsDebuggerPresent() == 0 {
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                    if start.elapsed().as_secs() > 100 {
-                        std::process::exit(0);
-                    }
-                }
-                debug!("Debugger ok");
-            }
             let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
             init_helper(scr_init, crash_dump::cdecl_crash_dump);
         }
@@ -253,6 +239,17 @@ pub extern "C" fn OnInject() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
+    if WAIT_DEBUGGER {
+        debug!("Waiting for debugger");
+        let start = std::time::Instant::now();
+        while winapi::um::debugapi::IsDebuggerPresent() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            if start.elapsed().as_secs() > 100 {
+                std::process::exit(0);
+            }
+        }
+        debug!("Debugger ok");
+    }
     debug!("SCR init");
     let bw = match bw_scr::BwScr::new() {
         Ok(o) => Box::leak(Box::new(o)),
