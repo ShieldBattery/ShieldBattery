@@ -1627,33 +1627,17 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     // Also this will mean that when we call these functions, those calls also get hooked,
     // so the hooks need to be able to handle that (The hooking library is unfortunately
     // not much of a help here, we'll have to set global bools)
-    //
-    // TODO It is wrong to assume that GetProcAddress(LoadLibrary("user32"), ...)
-    // actually returns functions that are in user32, the patcher should be pathing
-    // whichever DLL that the GetProcAddress returns functions for.
-    let user32 = crate::windows::load_library("user32").unwrap();
-    let mut patcher = patcher.patch_library("user32", 0);
-    let user32_base = user32.handle() as usize;
 
     // TODO possibly port keyboard hooks as well.
-    let address = user32.proc_address("CreateWindowExW").unwrap() as usize;
-    patcher.hook_closure_address(CreateWindowExW, create_window_w, address - user32_base);
-    let address = user32.proc_address("RegisterClassExW").unwrap() as usize;
-    patcher.hook_closure_address(RegisterClassExW, register_class_w, address - user32_base);
-    let address = user32.proc_address("ShowWindow").unwrap() as usize;
-    patcher.hook_closure_address(ShowWindow, show_window, address - user32_base);
-    let address = user32.proc_address("ChangeDisplaySettingsExW").unwrap() as usize;
-    patcher.hook_closure_address(
-        ChangeDisplaySettingsExW,
-        change_display_settings_ex,
-        address - user32_base,
+    hook_winapi_exports!(patcher, "user32",
+        "CreateWindowExW", CreateWindowExW, create_window_w;
+        "RegisterClassExW", RegisterClassExW, register_class_w;
+        "ShowWindow", ShowWindow, show_window;
+        "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
+        "SetWindowPos", SetWindowPos, set_window_pos;
+        "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
+        "GetWindowLongW", GetWindowLongW, get_window_long_w;
     );
-    let address = user32.proc_address("SetWindowPos").unwrap() as usize;
-    patcher.hook_closure_address(SetWindowPos, set_window_pos, address - user32_base);
-    let address = user32.proc_address("SetCursorPos").unwrap() as usize;
-    patcher.hook_closure_address(SetCursorPos, scr_set_cursor_pos, address - user32_base);
-    let address = user32.proc_address("GetWindowLongW").unwrap() as usize;
-    patcher.hook_closure_address(GetWindowLongW, get_window_long_w, address - user32_base);
 }
 
 pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {

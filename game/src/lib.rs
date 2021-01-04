@@ -5,6 +5,9 @@ extern crate log;
 #[macro_use]
 extern crate whack;
 
+#[macro_use]
+mod hook_macro;
+
 mod app_messages;
 mod app_socket;
 mod bw;

@@ -1068,17 +1068,9 @@ impl BwScr {
 
         drop(exe);
 
-        {
-            let kernel32 = crate::windows::load_library("kernel32").unwrap();
-            let mut patcher = active_patcher.patch_library("kernel32", 0);
-            let kernel32_base = kernel32.handle() as usize;
-            let address = kernel32.proc_address("CreateEventW").unwrap() as usize;
-            patcher.hook_closure_address(
-                CreateEventW,
-                create_event_hook,
-                address - kernel32_base,
-            );
-        }
+        hook_winapi_exports!(&mut active_patcher, "kernel32",
+            "CreateEventW", CreateEventW, create_event_hook;
+        );
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
     }
