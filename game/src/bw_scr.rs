@@ -77,6 +77,7 @@ pub struct BwScr {
         unsafe extern "C" fn(*mut scr::JoinableGameInfo, *mut scr::BwString, usize) -> u32,
     game_loop: unsafe extern "C" fn(),
     init_sprites: unsafe extern "C" fn(),
+    init_real_time_lighting: Option<unsafe extern "C" fn()>,
     // Setting the argument to nonzero seems to be used by the new bnet lobbies/mm?
     // Skips over some player initialization and lobby map downloads.
     // It may be slightly more ideal for us to call init_game_network(1) as well, but
@@ -777,6 +778,7 @@ impl BwScr {
         let init_map_from_path = analysis.init_map_from_path().ok_or("init_map_from_path")?;
         let join_game = analysis.join_game().ok_or("join_game")?;
         let init_sprites = analysis.load_images().ok_or("Init sprites")?;
+        let init_real_time_lighting = analysis.init_real_time_lighting();
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
         let process_lobby_commands = analysis.process_lobby_commands()
@@ -906,6 +908,8 @@ impl BwScr {
             init_map_from_path: unsafe { mem::transmute(init_map_from_path.0) },
             join_game: unsafe { mem::transmute(join_game.0) },
             init_sprites: unsafe { mem::transmute(init_sprites.0) },
+            init_real_time_lighting:
+                unsafe { init_real_time_lighting.map(|x| mem::transmute(x.0)) },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
@@ -1358,6 +1362,9 @@ impl bw::Bw for BwScr {
     unsafe fn init_sprites(&self) {
         (self.init_sprites)();
         self.sprites_inited.write(1);
+        if let Some(init_rtl) = self.init_real_time_lighting {
+            init_rtl();
+        }
     }
 
     unsafe fn maybe_receive_turns(&self) {

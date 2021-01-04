@@ -317,4 +317,8 @@ impl<'e> Analysis<'e> {
     pub fn enable_rng(&mut self) -> Option<Operand<'e>> {
         self.0.rng().enable
     }
+
+    pub fn init_real_time_lighting(&mut self) -> Option<VirtualAddress> {
+        self.0.init_real_time_lighting()
+    }
 }
