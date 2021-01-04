@@ -353,52 +353,9 @@ impl GameState {
             let game_done = send_game_request(&game_request_send, start_game_request);
             game_done.await;
             let results = results.await?;
-            app_socket::send_message(&mut ws_send, "/game/result", &results)
-                .await
-                .map_err(|_| GameInitError::Closed)?;
 
-            // Attempt to send results to the server, if this fails, we expect
-            // the app to retry in the future
-            let client = reqwest::Client::new();
-            let result_url = format!("{}/api/1/gameResults/{}", info.server_url, info.game_id);
-
-            let sbat_header: &'static str = "x-shield-battery-client";
-            let mut result_headers = HeaderMap::new();
-            result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
-            result_headers.insert(sbat_header, "true".parse().unwrap());
-
-            let result_body = GameResultsReport {
-                user_id: local_user.id,
-                result_code: info.result_code.clone(),
-                time: results.time_ms,
-                player_results: results
-                    .results
-                    .iter()
-                    .map(|(name, result)| (name.clone(), result.clone()))
-                    .collect(),
-            };
-
-            for _ in 0..3 {
-                let result = client
-                    .post(&result_url)
-                    .timeout(Duration::from_secs(30))
-                    .headers(result_headers.clone())
-                    .json(&result_body)
-                    .send()
-                    .await;
-
-                match result.and_then(|r| r.error_for_status()) {
-                    Ok(_) => {
-                        debug!("Game results sent successfully");
-                        app_socket::send_message(&mut ws_send, "/game/resultSent", ())
-                            .await
-                            .map_err(|_| GameInitError::Closed)?;
-                        break;
-                    }
-                    Err(err) => {
-                        error!("Error sending game results: {}", err);
-                    }
-                };
+            if !info.is_replay() {
+                send_game_result(&results, &info, &local_user, &mut ws_send).await;
             }
 
             app_socket::send_message(&mut ws_send, "/game/finished", ())
@@ -529,6 +486,60 @@ impl GameState {
             }
         }
         future::ready(()).boxed()
+    }
+}
+
+async fn send_game_result(
+    results: &GameResults,
+    info: &GameSetupInfo,
+    local_user: &LocalUser,
+    ws_send: &mut app_socket::SendMessages,
+) {
+    // Send results to the app.
+    // If the app is closed, ignore the error and try to still send results to server.
+    let _ = app_socket::send_message(ws_send, "/game/result", &results).await;
+
+    // Attempt to send results to the server, if this fails, we expect
+    // the app to retry in the future
+    let client = reqwest::Client::new();
+    let result_url = format!("{}/api/1/gameResults/{}", info.server_url, info.game_id);
+
+    let sbat_header: &'static str = "x-shield-battery-client";
+    let mut result_headers = HeaderMap::new();
+    result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
+    result_headers.insert(sbat_header, "true".parse().unwrap());
+
+    let result_body = GameResultsReport {
+        user_id: local_user.id,
+        result_code: info.result_code.clone(),
+        time: results.time_ms,
+        player_results: results
+            .results
+            .iter()
+            .map(|(name, result)| (name.clone(), result.clone()))
+            .collect(),
+    };
+
+    for _ in 0u8..3 {
+        let result = client
+            .post(&result_url)
+            .timeout(Duration::from_secs(30))
+            .headers(result_headers.clone())
+            .json(&result_body)
+            .send()
+            .await;
+
+        match result.and_then(|r| r.error_for_status()) {
+            Ok(_) => {
+                debug!("Game results sent successfully");
+                let _ = app_socket::send_message(ws_send, "/game/resultSent", ())
+                    .await;
+                break;
+            }
+            Err(err) => {
+                error!("Error sending game results: {}", err);
+            }
+        };
     }
 }
 

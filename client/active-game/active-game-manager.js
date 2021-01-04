@@ -255,7 +255,8 @@ export default class ActiveGameManager extends EventEmitter {
     if (
       this.activeGame.status.state >= GAME_STATUS_PLAYING &&
       !this.activeGame.resultSent &&
-      this.activeGame.result
+      this.activeGame.result &&
+      !this.activeGame.config.map.isReplay
     ) {
       // TODO(#542): Retry submission of these results more times/for longer to try and ensure
       // complete resutls on the server
