@@ -85,6 +85,12 @@ pub struct GameSetupInfo {
     pub server_url: String,
 }
 
+impl GameSetupInfo {
+    pub fn is_replay(&self) -> bool {
+        self.map.is_replay == Some(true)
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapInfo {
