@@ -1,18 +1,10 @@
-import createNydus, { NydusServer, NydusServerOptions } from 'nydus'
+import { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'
 import fs from 'fs'
 import cuid from 'cuid'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
-import {
-  container,
-  delay,
-  DependencyContainer,
-  inject,
-  instanceCachingFactory,
-  Lifecycle,
-  singleton,
-} from 'tsyringe'
+import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
 
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import getAddress from './lib/websockets/get-address'
