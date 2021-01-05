@@ -394,6 +394,11 @@ async function createWindow(localSettings, curSession) {
         systemTray.clearUnreadIcon()
       }
     })
+    .on('show', () => {
+      if (systemTray) {
+        systemTray.clearUnreadIcon()
+      }
+    })
 
   mainWindow.webContents
     .on('new-window', (event, url) => {
