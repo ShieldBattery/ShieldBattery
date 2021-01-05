@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusServer, NydusClient } from 'nydus'
-import { inject, injectable } from 'tsyringe'
+import { container, singleton } from 'tsyringe'
 import log from '../logging/logger'
 import { updateOrInsertUserIp } from '../models/user-ips'
 import getAddress from './get-address'
@@ -155,15 +155,17 @@ export class ClientSocketsGroup extends SocketGroup {
 }
 
 // TODO(tec27): type the events emitted
-@injectable()
+@singleton()
 export class UserSocketsManager extends EventEmitter {
   users = Map<string, UserSocketsGroup>()
 
-  constructor(
-    private nydus: NydusServer,
-    @inject('sessionLookup') private sessionLookup: RequestSessionLookup,
-  ) {
+  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
     super()
+
+    // NOTE(tec27): This isn't really used, but it ensures ClientSocketsManager is always created
+    // and registers it's event handlers *before* UserSocketsManager, so that events fire in a
+    // consistent order
+    container.resolve(ClientSocketsManager)
 
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)
@@ -209,14 +211,11 @@ export class UserSocketsManager extends EventEmitter {
   }
 }
 
-@injectable()
+@singleton()
 export class ClientSocketsManager extends EventEmitter {
   clients = Map<string, ClientSocketsGroup>()
 
-  constructor(
-    private nydus: NydusServer,
-    @inject('sessionLookup') private sessionLookup: RequestSessionLookup,
-  ) {
+  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
     super()
     this.nydus.on('connection', socket => {
       const session = this.sessionLookup.get(socket.conn.request)

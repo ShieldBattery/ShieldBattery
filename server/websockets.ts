@@ -4,7 +4,15 @@ import fs from 'fs'
 import cuid from 'cuid'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
-import { container, DependencyContainer, inject, singleton } from 'tsyringe'
+import {
+  container,
+  delay,
+  DependencyContainer,
+  inject,
+  instanceCachingFactory,
+  Lifecycle,
+  singleton,
+} from 'tsyringe'
 
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import getAddress from './lib/websockets/get-address'
@@ -24,47 +32,59 @@ const dummyRes = ({
   setHeader() {},
 } as any) as ServerResponse
 
+type AllowRequestFn = (
+  req: IncomingMessage,
+  cb: (err: Error | null, authorized?: boolean) => void,
+) => void
+
+class AuthorizingNydusServer extends NydusServer {
+  private allowRequest: AllowRequestFn | undefined
+
+  constructor(options: Partial<NydusServerOptions> = {}) {
+    super(({
+      ...options,
+      allowRequest: (req: IncomingMessage, cb: (err: Error | null, authorized?: boolean) => void) =>
+        this.onAllowRequest(req, cb),
+    } as any) as Partial<NydusServerOptions>)
+  }
+
+  setAllowRequestHandler(fn: AllowRequestFn) {
+    this.allowRequest = fn
+  }
+
+  private onAllowRequest(
+    req: IncomingMessage,
+    cb: (err: Error | null, authorized?: boolean) => void,
+  ) {
+    if (this.allowRequest) {
+      this.allowRequest(req, cb)
+    } else {
+      cb(new Error('authorization not configured'), false)
+    }
+  }
+}
+
 @singleton()
 export class WebsocketServer {
-  private sessionLookup: RequestSessionLookup = new WeakMap<IncomingMessage, SessionInfo>()
-  private depContainer: DependencyContainer
   private connectedUsers = 0
 
-  readonly nydus: NydusServer
-  readonly clientSockets: ClientSocketsManager
-  readonly userSockets: UserSocketsManager
-
   constructor(
-    private httpServer: HttpServer,
     private koa: Koa,
+    readonly nydus: NydusServer,
     @inject('sessionMiddleware') private sessionMiddleware: Koa.Middleware,
+    private sessionLookup: RequestSessionLookup,
+    readonly clientSockets: ClientSocketsManager,
+    readonly userSockets: UserSocketsManager,
   ) {
-    this.nydus = createNydus(this.httpServer, ({
-      allowRequest: (req: IncomingMessage, cb: (err: Error | null, authorized?: boolean) => void) =>
-        this.onAuthorization(req, cb).catch(err => {
-          log.error({ err }, 'Error during socket authorization')
-        }),
-      cors: {
-        origin: 'shieldbattery://app',
-        credentials: true,
-        maxAge: CORS_MAX_AGE_SECONDS,
-      },
-      // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
-    } as any) as Partial<NydusServerOptions>)
-    container.register<NydusServer>(NydusServer, { useValue: this.nydus })
+    ;(this.nydus as AuthorizingNydusServer).setAllowRequestHandler((req, cb) =>
+      this.onAuthorization(req, cb).catch(err => {
+        log.error({ err }, 'Error during socket authorization')
+      }),
+    )
 
     this.nydus.on('error', err => {
       log.error({ err }, 'nydus error')
     })
-
-    this.depContainer = container.createChildContainer()
-    this.depContainer.register<RequestSessionLookup>('sessionLookup', {
-      useValue: this.sessionLookup,
-    })
-    // NOTE(tec27): the order of creation here is very important, we want *more specific* event
-    // handlers on sockets registered first, so that their close handlers get called first.
-    this.clientSockets = this.depContainer.resolve(ClientSocketsManager)
-    this.userSockets = this.depContainer.resolve(UserSocketsManager)
 
     for (const handler of apiHandlers) {
       if (handler) {
@@ -127,12 +147,19 @@ export class WebsocketServer {
   }
 }
 
-// NOTE(tec27): We register this in this way such that injecting a NydusServer will ensure the
-// WebsocketServer has been created. It's a bit odd since creating a NydusServer has a dependency
-// on our WebsocketServer (we need it for the allowRequest config option)
 container.register<NydusServer>(NydusServer, {
-  useFactory: c => {
-    const server = c.resolve(WebsocketServer)
-    return server.nydus
-  },
+  useFactory: instanceCachingFactory(c => {
+    const httpServer = c.resolve(HttpServer)
+    const opts = ({
+      cors: {
+        origin: 'shieldbattery://app',
+        credentials: true,
+        maxAge: CORS_MAX_AGE_SECONDS,
+      },
+      // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
+    } as any) as Partial<NydusServerOptions>
+    const nydus = new AuthorizingNydusServer(opts)
+    nydus.attach(httpServer, opts)
+    return nydus
+  }),
 })

@@ -1,4 +1,5 @@
 import { IncomingMessage } from 'http'
+import { singleton } from 'tsyringe'
 
 export interface SessionInfo {
   sessionId: string
@@ -8,4 +9,5 @@ export interface SessionInfo {
   address: string
 }
 
-export type RequestSessionLookup = WeakMap<IncomingMessage, SessionInfo>
+@singleton()
+export class RequestSessionLookup extends WeakMap<IncomingMessage, SessionInfo> {}
