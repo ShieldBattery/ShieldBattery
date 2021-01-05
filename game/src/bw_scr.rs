@@ -1048,8 +1048,13 @@ impl BwScr {
         }, address);
         let address = self.init_game_data.0 as usize - base;
         exe.hook_closure_address(InitGameData, move |orig| {
-            orig();
+            let ok = orig();
+            if ok == 0 {
+                error!("init_game_data failed");
+                return 0;
+            }
             game_thread::after_init_game_data();
+            1
         }, address);
         let address = self.step_replay_commands.0 as usize - base;
         exe.hook_closure_address(StepReplayCommands, |orig| {
@@ -1904,7 +1909,7 @@ mod hooks {
         !0 => ProcessGameCommands(*const u8, usize, u32);
         !0 => ProcessLobbyCommands(*const u8, usize, u32);
         !0 => SendCommand(*const u8, usize);
-        !0 => InitGameData();
+        !0 => InitGameData() -> u32;
         !0 => StepGame();
         !0 => StepReplayCommands();
     );

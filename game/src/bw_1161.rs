@@ -261,7 +261,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004A2D60 => UpdateNetTimeoutPlayers();
     0x004CB190 =>
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
-    0x004EEE00 => InitGameData();
+    0x004EEE00 => InitGameData() -> u32;
     0x004D94B0 => StepGame();
     0x00487100 => StepReplayCommands();
 );
@@ -417,8 +417,13 @@ unsafe fn patch_game() {
         observing::center_screen_on_start_location,
     );
     exe.hook_closure(InitGameData, |orig| {
-        orig();
+        let ok = orig();
+        if ok == 0 {
+            error!("init_game_data failed");
+            return 0;
+        }
         game_thread::after_init_game_data();
+        1
     });
     exe.hook_closure(StepGame, |orig| {
         orig();
