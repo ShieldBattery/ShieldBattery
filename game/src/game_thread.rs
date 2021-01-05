@@ -212,6 +212,8 @@ pub unsafe fn after_init_game_data() {
 }
 
 pub fn is_ums() -> bool {
+    // TODO This returns false on replays. Also same thing about looking at BW's
+    // structures as for is_team_game
     SETUP_INFO.get()
         .and_then(|x| x.game_type())
         .filter(|x| x.is_ums())
@@ -219,10 +221,18 @@ pub fn is_ums() -> bool {
 }
 
 pub fn is_team_game() -> bool {
-    SETUP_INFO.get()
-        .and_then(|x| x.game_type())
-        .filter(|x| x.is_team_game())
-        .is_some()
+    // Technically it would be better to look at BW's structures instead, but we don't
+    // have them available for SC:R right now.
+    if is_replay() {
+        sbat_replay_data()
+            .filter(|x| x.team_game_main_players != [0, 0, 0, 0])
+            .is_some()
+    } else {
+        SETUP_INFO.get()
+            .and_then(|x| x.game_type())
+            .filter(|x| x.is_team_game())
+            .is_some()
+    }
 }
 
 pub fn is_replay() -> bool {
