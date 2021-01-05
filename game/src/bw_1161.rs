@@ -261,7 +261,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004A2D60 => UpdateNetTimeoutPlayers();
     0x004CB190 =>
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
-    0x004EEE00 => InitGameData() -> u32;
+    0x004EF100 => InitGameData() -> u32;
     0x0049F380 => InitUnitData();
     0x004D94B0 => StepGame();
     0x00487100 => StepReplayCommands();
