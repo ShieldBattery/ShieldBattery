@@ -6114,10 +6114,10 @@ nydus-protocol@^2.0.0:
   dependencies:
     debug "^4.3.1"
 
-nydus@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/nydus/-/nydus-2.0.1.tgz#9133541b58ffd48e96b08054f8fba4c4c5bb94e7"
-  integrity sha512-3dIiRawaiTz9BrSauiORXsXt2rXEP0yvPyAN+X5GPSJRWNckZbX7arGxixus0XBZqeP1kmhhPVzZ+4x4v4AVOw==
+nydus@2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/nydus/-/nydus-2.0.2.tgz#a97176b6d7fbda2b51069365ad941e6989178da6"
+  integrity sha512-XbcQIH8fudZns4rpUtfhZ/HRKrp1orxnaGHCxGFqlr3BVrrBz7xk4OUeC1MAr7e7X/6nqn2qxqbD1dcBNtp67g==
   dependencies:
     backo2 "^1.0.2"
     cuid "^2.1.6"

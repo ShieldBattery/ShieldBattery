@@ -5,9 +5,8 @@ import validateBody from '../websockets/validate-body'
 
 import pingRegistry from '../rally-point/ping-registry'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { NydusServer } from 'nydus'
+import { NydusServer, NextFunc } from 'nydus'
 import { container, singleton } from 'tsyringe'
-import { NextFunc } from 'nydus/dist/composer'
 
 const MOUNT_BASE = '/rallyPoint'
 
