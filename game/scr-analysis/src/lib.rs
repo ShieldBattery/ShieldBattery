@@ -208,6 +208,10 @@ impl<'e> Analysis<'e> {
         self.0.init_game().init_game
     }
 
+    pub fn init_units(&mut self) -> Option<VirtualAddress> {
+        self.0.init_units()
+    }
+
     pub fn file_hook(&mut self) -> Option<VirtualAddress> {
         self.0.file_hook().get(0).copied()
     }

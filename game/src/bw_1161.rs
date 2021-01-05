@@ -228,8 +228,8 @@ impl bw::Bw for Bw1161 {
 }
 
 impl Bw1161 {
-    pub unsafe fn patch_game(&self) {
-        patch_game();
+    pub unsafe fn patch_game(&'static self) {
+        patch_game(self);
     }
 }
 
@@ -262,6 +262,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004CB190 =>
         CenterScreenOnOwnStartLocation(@eax *mut bw::PreplacedUnit, @ecx *mut c_void) -> u32;
     0x004EEE00 => InitGameData() -> u32;
+    0x0049F380 => InitUnitData();
     0x004D94B0 => StepGame();
     0x00487100 => StepReplayCommands();
 );
@@ -342,7 +343,7 @@ mod vars {
 pub const INIT_SPRITES_RENDER_ONE: usize = 0x0047AEB1;
 pub const INIT_SPRITES_RENDER_TWO: usize = 0x0047AFB1;
 
-unsafe fn patch_game() {
+unsafe fn patch_game(bw: &'static Bw1161) {
     use observing::with_replay_flag_if_obs;
 
     whack_export!(pub extern "system" CreateEventA(*mut c_void, u32, u32, *const i8) -> *mut c_void);
@@ -424,6 +425,10 @@ unsafe fn patch_game() {
         }
         game_thread::after_init_game_data();
         1
+    });
+    exe.hook_closure(InitUnitData, move |orig| {
+        game_thread::before_init_unit_data(bw);
+        orig();
     });
     exe.hook_closure(StepGame, |orig| {
         orig();

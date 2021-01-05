@@ -423,7 +423,8 @@ pub struct Rect32 {
 pub struct Game {
     pub minerals: [u32; 0xc],
     pub gas: [u32; 0xc],
-    pub dc60: [u8; 0x7c],
+    pub dc60: [u8; 0x70],
+    pub starting_races: [u8; 0xc],
     pub team_game_main_player: [u8; 4],
     pub screen_pos_x_tiles: u16,
     pub screen_pos_y_tiles: u16,

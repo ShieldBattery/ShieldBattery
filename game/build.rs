@@ -1,5 +1,7 @@
-//! A build script to compile d3d11 shaders for SC:R
-//! Could be extended to also build Forge's 1.16.1 shaders at some point =)
+//! A build script that
+//! 1) Compiles d3d11 shaders for SC:R
+//!     (Could be extended to also build Forge's 1.16.1 shaders at some point)
+//! 2) Gathers version information from package.json
 
 use std::fs;
 use std::path::{Path};
@@ -44,6 +46,18 @@ fn main() {
             ShaderModel::Sm4,
         ).unwrap_or_else(|e| panic!("Failed to compile {}: {:?}", out_name, e));
     }
+    println!("cargo:rustc-env=SHIELDBATTERY_VERSION={}", package_json_version("../package.json"));
+}
+
+fn package_json_version(path: &str) -> String {
+    println!("cargo:rerun-if-changed={}", path);
+    let mut file = fs::File::open(path).unwrap();
+    let json: serde_json::Value = serde_json::from_reader(&mut file).unwrap();
+    json
+        .as_object().expect("package.json root not object")
+        .get("version").expect("package.json version not found")
+        .as_str().expect("package.json version not string")
+        .into()
 }
 
 fn compile_prism_shader(

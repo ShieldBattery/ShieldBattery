@@ -99,6 +99,7 @@ pub struct BwScr {
     ttf_render_sdf: scarf::VirtualAddress,
     step_io: scarf::VirtualAddress,
     init_game_data: scarf::VirtualAddress,
+    init_unit_data: scarf::VirtualAddress,
     step_game: scarf::VirtualAddress,
     step_replay_commands: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
@@ -111,11 +112,14 @@ pub struct BwScr {
     starcraft_tls_index: SendPtr<*mut u32>,
 
     // State
+    exe_build: u32,
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
     shader_replaces: ShaderReplaces,
     renderer_state: Mutex<RendererState>,
+    open_replay_file_count: AtomicUsize,
+    open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
 }
 
 struct SendPtr<T>(T);
@@ -811,6 +815,7 @@ impl BwScr {
         let snet_send_packets = analysis.snet_send_packets().ok_or("snet_send_packets")?;
         let step_io = analysis.step_io().ok_or("step_io")?;
         let init_game_data = analysis.init_game().ok_or("init_game_data")?;
+        let init_unit_data = analysis.init_units().ok_or("init_unit_data")?;
         let step_replay_commands = analysis.step_replay_commands().ok_or("step_replay_commands")?;
 
         let prism_pixel_shaders = analysis.prism_pixel_shaders().ok_or("Prism pixel shaders")?;
@@ -870,6 +875,7 @@ impl BwScr {
         debug!("Found all necessary BW data");
 
         let sdf_cache = Arc::new(InitSdfCache::new());
+        let exe_build = get_exe_build();
         Ok(BwScr {
             game: Value::new(ctx, game),
             players: Value::new(ctx, players),
@@ -929,11 +935,13 @@ impl BwScr {
             step_game,
             step_io,
             init_game_data,
+            init_unit_data,
             game_command_lengths,
             prism_pixel_shaders,
             prism_renderer_vtable,
             replay_minimap_patch,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
+            exe_build,
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
@@ -942,6 +950,8 @@ impl BwScr {
                 renderer: None,
                 shader_inputs: Vec::with_capacity(0x30),
             }),
+            open_replay_file_count: AtomicUsize::new(0),
+            open_replay_files: Mutex::new(Vec::new()),
         })
     }
 
@@ -1056,6 +1066,11 @@ impl BwScr {
             game_thread::after_init_game_data();
             1
         }, address);
+        let address = self.init_unit_data.0 as usize - base;
+        exe.hook_closure_address(InitUnitData, move |orig| {
+            game_thread::before_init_unit_data(self);
+            orig();
+        }, address);
         let address = self.step_replay_commands.0 as usize - base;
         exe.hook_closure_address(StepReplayCommands, |orig| {
             game_thread::step_replay_commands(orig);
@@ -1077,8 +1092,17 @@ impl BwScr {
 
         drop(exe);
 
+        let create_file_hook_closure = move |a, b, c, d, e, f, g, o| {
+            create_file_hook(&self, a, b, c, d, e, f, g, o)
+        };
+        let close_handle_hook = move |handle, orig: unsafe extern fn(_) -> _| {
+            self.check_replay_file_finish(handle);
+            orig(handle)
+        };
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
+            "CreateFileW", CreateFileW, create_file_hook_closure;
+            "CloseHandle", CloseHandle, close_handle_hook;
         );
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
@@ -1342,6 +1366,32 @@ impl BwScr {
             scarf::MemAccessSize::Mem64 => (ptr as *mut u64).read_unaligned() as usize,
         };
         self.sprite_y.0.resolve_with_custom(&[value]) as i16
+    }
+
+    unsafe fn register_possible_replay_handle(&self, handle: *mut c_void) {
+        self.open_replay_file_count.fetch_add(1, Ordering::Relaxed);
+        self.open_replay_files.lock().push(SendPtr(handle));
+    }
+
+    unsafe fn check_replay_file_finish(&self, handle: *mut c_void) {
+        if self.open_replay_file_count.load(Ordering::Relaxed) == 0 {
+            return;
+        }
+        let mut open_files = self.open_replay_files.lock();
+        match open_files.iter().position(|x| x.0 == handle) {
+            Some(i) => {
+                open_files.swap_remove(i);
+                self.open_replay_file_count.fetch_sub(1, Ordering::Relaxed);
+            }
+            None => return,
+        };
+        drop(open_files);
+
+        if crate::replay::has_replay_magic_bytes(handle) {
+            if let Err(e) = crate::replay::add_shieldbattery_data(handle, self, self.exe_build) {
+                error!("Unable to write extended replay data: {}", e);
+            }
+        }
     }
 }
 
@@ -1753,6 +1803,14 @@ impl bw::Bw for BwScr {
     }
 }
 
+fn get_exe_build() -> u32 {
+    let exe_path = crate::windows::module_name(0 as *mut _).expect("Couldn't get exe path");
+    match crate::windows::version::get_version(Path::new(&exe_path)) {
+        Some(s) => s.3 as u32,
+        None => 0,
+    }
+}
+
 fn create_event_hook(
     security: *mut c_void,
     init_state: u32,
@@ -1773,6 +1831,67 @@ fn create_event_hook(
         }
         orig(security, init_state, manual_reset, name)
     }
+}
+
+fn create_file_hook(
+    bw: &BwScr,
+    filename: *const u16,
+    access: u32,
+    share: u32,
+    security: *mut c_void,
+    creation_disposition: u32,
+    flags: u32,
+    template: *mut c_void,
+    orig: unsafe extern fn(*const u16, u32, u32, *mut c_void, u32, u32, *mut c_void) -> *mut c_void,
+) -> *mut c_void {
+    use winapi::um::fileapi::{CREATE_ALWAYS};
+    use winapi::um::handleapi::INVALID_HANDLE_VALUE;
+    use winapi::um::winnt::GENERIC_READ;
+    unsafe {
+        let mut is_replay = false;
+        let mut access = access;
+        if !filename.is_null() {
+            // Check for creating a replay file. (We add more data to it after BW has done
+            // writing it)
+            //
+            // SC:R currently creates the file as LastReplay.rep, and then copies
+            // it to the second autosave place after writing it.
+            // But, to be future-proof (paranoid) against it possibly being refactored,
+            // accept any file ending with .rep and check for magic bytes when at CloseHandle
+            // hook.
+            if creation_disposition == CREATE_ALWAYS {
+                let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
+                let filename = std::slice::from_raw_parts(filename, name_len);
+                let ext = Some(())
+                    .and_then(|()| filename.get(filename.len().checked_sub(4)?..));
+                if let Some(ext) = ext {
+                    is_replay = ascii_compare_u16_u8_casei(ext, b".rep");
+                    // To read the replay magic bytes at CloseHandle hook,
+                    // we'll need read access to the newly created file as well.
+                    // Can't think of any issues this extra flag may cause..
+                    access |= GENERIC_READ;
+                }
+            }
+        }
+        let handle =
+            orig(filename, access, share, security, creation_disposition, flags, template);
+        if handle != INVALID_HANDLE_VALUE && is_replay {
+            bw.register_possible_replay_handle(handle);
+        }
+        handle
+    }
+}
+
+fn ascii_compare_u16_u8_casei(a: &[u16], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    for i in 0..a.len() {
+        if a[i] >= 0x80 || (a[i] as u8).eq_ignore_ascii_case(&b[i]) == false {
+            return false;
+        }
+    }
+    true
 }
 
 fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
@@ -1910,6 +2029,7 @@ mod hooks {
         !0 => ProcessLobbyCommands(*const u8, usize, u32);
         !0 => SendCommand(*const u8, usize);
         !0 => InitGameData() -> u32;
+        !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepReplayCommands();
     );
@@ -1917,6 +2037,16 @@ mod hooks {
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
+        !0 => CloseHandle(*mut c_void) -> u32;
+        !0 => CreateFileW(
+            *const u16,
+            u32,
+            u32,
+            *mut c_void,
+            u32,
+            u32,
+            *mut c_void,
+        ) -> *mut c_void;
         !0 => StepIo(@ecx *mut c_void);
         !0 => Renderer_Render(@ecx *mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
         !0 => Renderer_CreateShader(
