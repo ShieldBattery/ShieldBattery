@@ -90,7 +90,7 @@ export default function ({
         // eslint-disable-next-line camelcase
         __webpack_nonce__: 'window.SB_CSP_NONCE',
 
-        'process.webpackEnv': {
+        __WEBPACK_ENV: {
           NODE_ENV: JSON.stringify(nodeEnv),
           VERSION: `"${VERSION}"`,
           ...envDefines,

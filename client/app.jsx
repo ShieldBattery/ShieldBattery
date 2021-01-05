@@ -23,7 +23,7 @@ import LoadingIndicator from './progress/dots.jsx'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 
-const IS_PRODUCTION = process.webpackEnv.NODE_ENV === 'production'
+const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
 const LoadableDev = IS_PRODUCTION
   ? () => null

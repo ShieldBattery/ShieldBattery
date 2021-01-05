@@ -56,9 +56,8 @@ import { MatchmakingType } from '../common/matchmaking'
 
 import { CaptionOld } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
-import PACKAGE_JSON from '../package.json'
 
-const curVersion = PACKAGE_JSON.version
+const curVersion = __WEBPACK_ENV.VERSION
 
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')

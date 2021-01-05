@@ -1,4 +1,4 @@
-export const VERSION = process.webpackEnv.VERSION
+export const VERSION = __WEBPACK_ENV.VERSION
 const PARSED_VERSION = VERSION.split('.').map(str => +str)
 export const KEY = 'shieldBatteryVersion'
 
