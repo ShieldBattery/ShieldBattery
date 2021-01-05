@@ -37,9 +37,10 @@ type ApiClassPrototype = unknown & {
  *     context binding).
  */
 export function Api(path: string, ...middleware: Array<string | RouteHandler>) {
-  return function (target: ApiClassPrototype, key: string) {
-    target[API_METHODS] ??= new Map<string, ApiMethodRegistration>()
-    target[API_METHODS]!.set(key, { path, middleware })
+  return function (target: any, key: string) {
+    const proto = target as ApiClassPrototype
+    proto[API_METHODS] ??= new Map<string, ApiMethodRegistration>()
+    proto[API_METHODS]!.set(key, { path, middleware })
   }
 }
 
