@@ -29,7 +29,6 @@ import { container } from 'tsyringe'
 
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
-import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
 
 import { setStore, addMiddleware as fileStoreMiddleware } from './lib/file-upload'
 import LocalFileStore from './lib/file-upload/local-filesystem'
@@ -224,8 +223,6 @@ container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddl
 container.register<http.Server>(http.Server, { useValue: mainServer })
 
 const websocketServer = container.resolve(WebsocketServer)
-
-matchmakingStatusInstance?.initialize(websocketServer.nydus)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

@@ -51,13 +51,13 @@ export class WebsocketServer {
       },
       // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
     } as any) as Partial<NydusServerOptions>)
+    container.register<NydusServer>(NydusServer, { useValue: this.nydus })
 
     this.nydus.on('error', err => {
       log.error({ err }, 'nydus error')
     })
 
     this.depContainer = container.createChildContainer()
-    this.depContainer.register<NydusServer>(NydusServer, { useValue: this.nydus })
     this.depContainer.register<RequestSessionLookup>('sessionLookup', {
       useValue: this.sessionLookup,
     })
@@ -126,3 +126,13 @@ export class WebsocketServer {
     }
   }
 }
+
+// NOTE(tec27): We register this in this way such that injecting a NydusServer will ensure the
+// WebsocketServer has been created. It's a bit odd since creating a NydusServer has a dependency
+// on our WebsocketServer (we need it for the allowRequest config option)
+container.register<NydusServer>(NydusServer, {
+  useFactory: c => {
+    const server = c.resolve(WebsocketServer)
+    return server.nydus
+  },
+})

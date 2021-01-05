@@ -3,6 +3,7 @@ import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { NydusServer } from 'nydus'
+import { injectable } from 'tsyringe'
 
 class StatusRecord extends Record({
   type: null as MatchmakingType | null,
@@ -12,24 +13,19 @@ class StatusRecord extends Record({
   nextEndDate: null as Date | null,
 }) {}
 
+@injectable()
 export default class MatchmakingStatus {
-  private nydus: NydusServer | null
   private statusByType = Map<MatchmakingType, StatusRecord>()
   private timerByType = Map<MatchmakingType, ReturnType<typeof setTimeout>>()
 
-  constructor() {
-    this.nydus = null
+  constructor(private nydus: NydusServer) {
+    for (const type of Object.values(MatchmakingType)) {
+      this.maybePublish(type)
+    }
   }
 
   isEnabled(type: MatchmakingType): boolean {
     return !!this.statusByType.get(type)?.enabled
-  }
-
-  initialize(nydus: NydusServer) {
-    this.nydus = nydus
-    for (const type of Object.values(MatchmakingType)) {
-      this.maybePublish(type)
-    }
   }
 
   subscribe(socket: any) {
@@ -41,7 +37,7 @@ export default class MatchmakingStatus {
       }
     }
 
-    this.nydus!.subscribeClient(socket, '/matchmakingStatus', statuses)
+    this.nydus.subscribeClient(socket, '/matchmakingStatus', statuses)
   }
 
   private async getStatus(type: MatchmakingType) {
@@ -72,7 +68,7 @@ export default class MatchmakingStatus {
         if (is(oldStatus, status)) return
 
         this.statusByType = this.statusByType.set(type, status)
-        this.nydus!.publish('/matchmakingStatus', [status])
+        this.nydus.publish('/matchmakingStatus', [status])
 
         // If the `nextStartDate` hasn't changed, no need to update the timer
         if (oldStatus?.nextStartDate === status.nextStartDate) return
