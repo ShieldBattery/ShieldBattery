@@ -241,6 +241,10 @@ pub fn is_replay() -> bool {
         .unwrap_or(false)
 }
 
+pub fn setup_info() -> &'static GameSetupInfo {
+    &*SETUP_INFO.get().unwrap()
+}
+
 /// Bw impl is expected to call this after step_game,
 /// the function that progresses game objects by a tick/frame/step.
 /// In other words, if the game isn't paused/lagging, this gets ran 24 times in second

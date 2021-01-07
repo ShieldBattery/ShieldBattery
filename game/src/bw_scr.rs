@@ -1388,7 +1388,12 @@ impl BwScr {
         drop(open_files);
 
         if crate::replay::has_replay_magic_bytes(handle) {
-            if let Err(e) = crate::replay::add_shieldbattery_data(handle, self, self.exe_build) {
+            if let Err(e) = crate::replay::add_shieldbattery_data(
+                handle,
+                self,
+                self.exe_build,
+                game_thread::setup_info(),
+            ) {
                 error!("Unable to write extended replay data: {}", e);
             }
         }
