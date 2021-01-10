@@ -56,9 +56,12 @@ export default function applyRoutes(app, websocketServer) {
       const initData = {}
       if (ctx.session.userId) {
         initData.auth = {
-          user: { id: ctx.session.userId, name: ctx.session.userName },
+          user: {
+            id: ctx.session.userId,
+            name: ctx.session.userName,
+            emailVerified: ctx.session.emailVerified,
+          },
           permissions: ctx.session.permissions,
-          emailVerified: ctx.session.emailVerified,
         }
       }
       await ctx.render('index', {
