@@ -19,6 +19,8 @@ const LoadingArea = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  -webkit-app-region: drag;
 `
 
 @connect(state => ({ siteNetwork: state.network.site }))

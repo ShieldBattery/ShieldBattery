@@ -8,6 +8,8 @@ const Container = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  -webkit-app-region: drag;
 `
 
 @connect(state => ({ loading: state.loading }))
