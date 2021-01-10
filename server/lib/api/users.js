@@ -197,6 +197,7 @@ async function updateUser(ctx, next) {
     }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
   }
 
+  // TODO(tec27): Patch requests should really return the whole entity
   ctx.body = { email: user.email, emailVerified: user.emailVerified }
 }
 

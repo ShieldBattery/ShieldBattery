@@ -14,7 +14,7 @@ import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import TextField from '../material/text-field.jsx'
 
 import { closeDialog } from '../dialogs/action-creators'
-import { updateAccount } from '../auth/auther'
+import { updateAccount } from './action-creators'
 import {
   composeValidators,
   matchesOther,

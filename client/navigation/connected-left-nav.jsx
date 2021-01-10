@@ -23,7 +23,7 @@ import ProfileNavEntry from '../profile/nav-entry.jsx'
 import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry.jsx'
 import WhisperNavEntry from '../whispers/nav-entry.jsx'
 
-import { logOut } from '../auth/auther'
+import { logOut } from '../auth/action-creators'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { openDialog } from '../dialogs/action-creators'
 import { leaveChannel } from '../chat/action-creators'

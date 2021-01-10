@@ -7,8 +7,8 @@ import { createBrowserHistory, createHashHistory } from 'history'
 import log from './logging/logger'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import { fromJS as authFromJS } from './auth/auth-records'
-import { getCurrentSession } from './auth/auther'
+import { fromJs as authFromJs } from './auth/auth-records'
+import { getCurrentSession } from './auth/action-creators'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app.jsx'
 import RedirectProvider from './navigation/redirect-provider.jsx'
@@ -75,7 +75,7 @@ Promise.all([rootElemPromise])
   .then(async ([elem]) => {
     const initData = window._sbInitData
     if (initData && initData.auth) {
-      initData.auth = authFromJS(initData.auth)
+      initData.auth = authFromJs(initData.auth)
     }
 
     const history = !IS_ELECTRON ? createBrowserHistory() : createHashHistory()

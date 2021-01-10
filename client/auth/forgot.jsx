@@ -6,7 +6,7 @@ import queryString from 'query-string'
 
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import { retrieveUsername, startPasswordReset, resetPassword } from './auther'
+import { recoverUsername, startPasswordReset, resetPassword } from './action-creators'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import {
@@ -177,7 +177,7 @@ class ForgotUserForm extends React.Component {
 const FORGOT_USER_SUCCESS =
   'If there are any users registered to that email address, you should ' +
   'receive an email in the next few minutes with the relevant usernames.'
-const doForgotUserSubmit = values => retrieveUsername(values.email)
+const doForgotUserSubmit = values => recoverUsername(values.email)
 export const ForgotUser = () => (
   <ForgotFormHolder
     form={ForgotUserForm}
