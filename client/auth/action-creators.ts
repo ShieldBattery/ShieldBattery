@@ -3,7 +3,7 @@ import cuid from 'cuid'
 import type { ThunkAction } from '../dispatch-registry'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import { User, UserInfo } from '../../common/users/user-info'
-import { AuthChangeBegin, AccountUpdateSuccess, LogInSuccess } from './actions'
+import { AuthChangeBegin, AccountUpdateSuccess } from './actions'
 
 type IdRequestable = Extract<
   Exclude<ReduxAction, { error: true }>,

@@ -54,9 +54,8 @@ async function startNewSession(ctx, next) {
   if (ctx.session.userId) {
     const { userId, userName, permissions, emailVerified } = ctx.session
     ctx.body = {
-      user: { id: userId, name: userName },
+      user: { id: userId, name: userName, emailVerified },
       permissions,
-      emailVerified,
     }
 
     return
