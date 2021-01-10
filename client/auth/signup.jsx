@@ -42,7 +42,7 @@ import {
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../common/constants'
-import { signUp } from './auther'
+import { signUp } from './action-creators'
 
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;

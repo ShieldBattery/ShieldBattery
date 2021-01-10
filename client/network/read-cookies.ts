@@ -1,8 +1,8 @@
 // Read cookies into an object, caching the last value received.
-let lastCookies = {}
+let lastCookies: Record<string, string> = {}
 let lastCookieString = ''
 
-function safeDecodeURIComponent(str) {
+function safeDecodeURIComponent(str: string) {
   try {
     return decodeURIComponent(str)
   } catch (e) {

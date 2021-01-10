@@ -1,17 +1,6 @@
 import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
-
-export interface Permissions {
-  editPermissions: boolean
-  debug: boolean
-  acceptInvites: boolean
-  editAllChannels: boolean
-  banUsers: boolean
-  manageMaps: boolean
-  manageMapPools: boolean
-  manageMatchmakingTimes: boolean
-  massDeleteMaps: boolean
-}
+import { Permissions } from '../../../common/users/permissions'
 
 function convertFromDb(props: {
   /* eslint-disable camelcase */
@@ -25,7 +14,7 @@ function convertFromDb(props: {
   manage_matchmaking_times: boolean
   mass_delete_maps: boolean
   /* eslint-enable camelcase */
-}) {
+}): Permissions {
   return {
     editPermissions: props.edit_permissions,
     debug: props.debug,

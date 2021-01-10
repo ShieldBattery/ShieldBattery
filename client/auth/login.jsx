@@ -6,7 +6,7 @@ import { redirectIfLoggedIn } from './auth-utils'
 
 import LoadingIndicator from '../progress/dots.jsx'
 import RaisedButton from '../material/raised-button.jsx'
-import { logIn } from './auther'
+import { logIn } from './action-creators'
 import form from '../forms/form.jsx'
 import SubmitOnEnter from '../forms/submit-on-enter.jsx'
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'

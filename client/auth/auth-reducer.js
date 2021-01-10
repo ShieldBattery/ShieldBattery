@@ -77,8 +77,9 @@ function handleSendVerificationEmailError(state, action) {
   const { body, res } = action.payload
   let errMessage = body ? body.error : 'Sending verification error'
   if (res.status === 409) {
-    errMessage = `The provided email is over verification limit. Please specify a different email
-      address.`
+    errMessage =
+      'The provided email is over verification limit. Please use a different email ' +
+      'address or try again later.'
   }
 
   return state.withMutations(s =>
