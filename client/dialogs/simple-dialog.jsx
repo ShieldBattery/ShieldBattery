@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
-import Dialog from '../material/dialog.jsx'
-import FlatButton from '../material/flat-button.jsx'
+import Dialog from '../material/dialog'
+import FlatButton from '../material/flat-button'
 import { SubheadingOld } from '../styles/typography'
 
 const BodyText = styled(SubheadingOld)`

@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { makeServerUrl } from '../network/server-url'
 
-import Download from './download.jsx'
+import Download from './download'
 import LogoText from '../logos/logotext-640x100.svg'
 
 const Wrapper = styled.div`

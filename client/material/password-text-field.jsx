@@ -1,9 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import IconButton from './icon-button.jsx'
-import { Label } from './button.jsx'
-import TextField from './text-field.jsx'
+import IconButton from './icon-button'
+import { Label } from './button'
+import TextField from './text-field'
 
 import ShowPasswordIcon from '../icons/material/visibility-24px.svg'
 import HidePasswordIcon from '../icons/material/visibility_off-24px.svg'

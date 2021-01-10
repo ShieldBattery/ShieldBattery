@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 
-import { Label } from '../button.jsx'
-import IconButton from '../icon-button.jsx'
+import { Label } from '../button'
+import IconButton from '../icon-button'
 
 import { colorTextSecondary } from '../../styles/colors'
 

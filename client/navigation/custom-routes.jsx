@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 
-import LoginLayout from '../auth/login-layout.jsx'
+import LoginLayout from '../auth/login-layout'
 
 // A custom route for all the components that needs to be wrapped in <LoginLayout>
 export const LoginRoute = ({ component: Component, ...rest }) => (

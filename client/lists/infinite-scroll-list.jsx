@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import LoadingIndicator from '../progress/dots.jsx'
+import LoadingIndicator from '../progress/dots'
 
 const LoadingArea = styled.div`
   display: flex;

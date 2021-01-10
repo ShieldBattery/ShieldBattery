@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import Popover from '../material/popover.jsx'
+import Popover from '../material/popover'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 
 const transitionNames = {

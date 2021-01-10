@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import DevCarousels from './carousel-test.jsx'
+import DevCarousels from './carousel-test'
 
 class DevListsDashboard extends React.Component {
   render() {

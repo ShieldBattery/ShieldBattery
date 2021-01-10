@@ -1,9 +1,9 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import IconButton from '../material/icon-button.jsx'
-import Menu from '../material/menu/menu.jsx'
-import MenuItem from '../material/menu/item.jsx'
+import IconButton from '../material/icon-button'
+import Menu from '../material/menu/menu'
+import MenuItem from '../material/menu/item'
 import SlotActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 
 export default class SlotActions extends React.Component {

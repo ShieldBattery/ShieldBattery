@@ -1,10 +1,10 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import ActiveTest from './active-test.jsx'
-import LobbyTest from './lobby-test.jsx'
-import LoadingTest from './loading-test.jsx'
-import RacePickerTest from './race-picker-test.jsx'
+import ActiveTest from './active-test'
+import LobbyTest from './lobby-test'
+import LoadingTest from './loading-test'
+import RacePickerTest from './race-picker-test'
 
 class DevLobbiesDashboard extends React.Component {
   render() {

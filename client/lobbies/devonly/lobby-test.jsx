@@ -1,6 +1,6 @@
 import React from 'react'
 import { Range, List } from 'immutable'
-import Lobby from '../lobby.jsx'
+import Lobby from '../lobby'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
 import { MapRecord } from '../../maps/maps-reducer'

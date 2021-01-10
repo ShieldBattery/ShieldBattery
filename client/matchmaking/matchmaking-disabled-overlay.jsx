@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import Popover from '../material/popover.jsx'
+import Popover from '../material/popover'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline5, Headline6, headline6, body1, overline } from '../styles/typography'

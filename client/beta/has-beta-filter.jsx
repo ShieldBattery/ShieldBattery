@@ -1,5 +1,5 @@
 import { replace } from 'connected-react-router'
-import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
+import createConditionalRedirect from '../navigation/conditional-redirect'
 import isReturningUser from './is-returning-user'
 
 const HasBetaFilter = createConditionalRedirect(

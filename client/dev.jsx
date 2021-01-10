@@ -2,11 +2,11 @@ import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 import styled from 'styled-components'
 
-import DevActivities from './activities/devonly/routes.jsx'
-import DevLists from './lists/devonly/routes.jsx'
-import DevLobbies from './lobbies/devonly/routes.jsx'
-import DevMatchmaking from './matchmaking/devonly/routes.jsx'
-import DevMaterial from './material/devonly/routes.jsx'
+import DevActivities from './activities/devonly/routes'
+import DevLists from './lists/devonly/routes'
+import DevLobbies from './lobbies/devonly/routes'
+import DevMatchmaking from './matchmaking/devonly/routes'
+import DevMaterial from './material/devonly/routes'
 
 const Container = styled.div`
   padding: 16px !important;

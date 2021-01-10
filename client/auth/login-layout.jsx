@@ -2,8 +2,8 @@ import React from 'react'
 import { makeServerUrl } from '../network/server-url'
 import styled from 'styled-components'
 
-import { SizeTop, SizeLeft, SizeRight } from '../app-bar/window-controls.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
+import { SizeTop, SizeLeft, SizeRight } from '../app-bar/window-controls'
+import { ScrollableContent } from '../material/scroll-bar'
 
 import LogoText from '../logos/logotext-640x100.svg'
 

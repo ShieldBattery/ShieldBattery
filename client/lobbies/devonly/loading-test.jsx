@@ -1,6 +1,6 @@
 import React from 'react'
 import { List } from 'immutable'
-import LoadingScreen from '../loading.jsx'
+import LoadingScreen from '../loading'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 import { MapRecord } from '../../maps/maps-reducer'

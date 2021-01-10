@@ -14,8 +14,8 @@ import {
   SuccessContainer,
   AuthBottomAction,
   BottomActionButton,
-} from './auth-content.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
+} from './auth-content'
+import LoadingIndicator from '../progress/dots'
 
 import { verifyEmail, sendVerificationEmail } from './action-creators'
 import { isLoggedIn, createNextPath } from './auth-utils'

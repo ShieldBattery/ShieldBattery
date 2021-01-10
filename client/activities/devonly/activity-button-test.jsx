@@ -1,9 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import ActivityBar from '../activity-bar.jsx'
-import ActivityButton from '../activity-button.jsx'
-import Card from '../../material/card.jsx'
+import ActivityBar from '../activity-bar'
+import ActivityButton from '../activity-button'
+import Card from '../../material/card'
 
 import Icon from '../../icons/material/baseline-check_circle-24px.svg'
 

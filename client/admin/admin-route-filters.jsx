@@ -1,5 +1,5 @@
 import { replace } from 'connected-react-router'
-import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
+import createConditionalRedirect from '../navigation/conditional-redirect'
 import { isAdmin, hasAllPermissions, hasAnyPermission } from './admin-permissions'
 import { goToIndex } from '../navigation/action-creators'
 

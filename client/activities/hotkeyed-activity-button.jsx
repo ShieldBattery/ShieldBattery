@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import ActivityButton from './activity-button.jsx'
-import KeyListener from '../keyboard/key-listener.jsx'
+import ActivityButton from './activity-button'
+import KeyListener from '../keyboard/key-listener'
 
 class HotkeyedActivityButton extends React.Component {
   static propTypes = {

@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import RaceIcon from '../lobbies/race-icon.jsx'
-import Popover from '../material/popover.jsx'
-import RaisedButton from '../material/raised-button.jsx'
+import RaceIcon from '../lobbies/race-icon'
+import Popover from '../material/popover'
+import RaisedButton from '../material/raised-button'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 import { headline3, Headline6 } from '../styles/typography'
 

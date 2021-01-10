@@ -1,17 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import RacePicker from './race-picker.jsx'
-import SelectedRace from './selected-race.jsx'
-import SlotActions from './slot-actions.jsx'
+import RacePicker from './race-picker'
+import SelectedRace from './selected-race'
+import SlotActions from './slot-actions'
 import SwapSlotsIcon from '../icons/material/ic_swap_vert_black_24px.svg'
-import {
-  Slot,
-  SlotLeft,
-  SlotProfileOpen,
-  SlotEmptyAvatar,
-  SlotEmptyName,
-  SlotRight,
-} from './slot.jsx'
+import { Slot, SlotLeft, SlotProfileOpen, SlotEmptyAvatar, SlotEmptyName, SlotRight } from './slot'
 
 export default class OpenSlot extends React.Component {
   static propTypes = {

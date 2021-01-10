@@ -1,8 +1,8 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import MapSelectionTest from './map-selection-test.jsx'
-import MatchTest from './match-test.jsx'
+import MapSelectionTest from './map-selection-test'
+import MatchTest from './match-test'
 
 class DevMatchmakingDashboard extends React.Component {
   render() {

@@ -1,15 +1,15 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import Dialog from '../material/dialog.jsx'
+import Dialog from '../material/dialog'
 import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { TitleOld } from '../styles/typography'
 
 import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
 
-import LoadingIndicator from '../progress/dots.jsx'
-import RaisedButton from '../material/raised-button.jsx'
+import LoadingIndicator from '../progress/dots'
+import RaisedButton from '../material/raised-button'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 

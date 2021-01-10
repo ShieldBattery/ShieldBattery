@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import LoadingIndicator from '../progress/dots.jsx'
+import LoadingIndicator from '../progress/dots'
 
 const Container = styled.div`
   display: flex;

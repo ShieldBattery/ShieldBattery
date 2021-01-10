@@ -2,12 +2,12 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Avatar from '../avatars/avatar.jsx'
-import ComputerAvatar from '../avatars/computer-avatar.jsx'
-import RacePicker from './race-picker.jsx'
-import SelectedRace from './selected-race.jsx'
-import SlotActions from './slot-actions.jsx'
-import { Slot, SlotLeft, SlotRight, SlotName, SlotProfile } from './slot.jsx'
+import Avatar from '../avatars/avatar'
+import ComputerAvatar from '../avatars/computer-avatar'
+import RacePicker from './race-picker'
+import SelectedRace from './selected-race'
+import SlotActions from './slot-actions'
+import { Slot, SlotLeft, SlotRight, SlotName, SlotProfile } from './slot'
 
 const StyledAvatar = styled(Avatar)`
   flex-grow: 0;

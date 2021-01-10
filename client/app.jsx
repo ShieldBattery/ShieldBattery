@@ -4,21 +4,21 @@ import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
 import { hot } from 'react-hot-loader/root'
 
-import { VerifyEmail, SendVerificationEmail } from './auth/email-verification.jsx'
-import Faq from './beta/faq.jsx'
-import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot.jsx'
-import HasBetaFilter from './beta/has-beta-filter.jsx'
-import DownloadPage from './download/download-page.jsx'
-import LoadingFilter from './loading/loading-filter.jsx'
-import LoggedInFilter from './auth/logged-in-filter.jsx'
-import { ConditionalRoute, LoginRoute } from './navigation/custom-routes.jsx'
-import Login from './auth/login.jsx'
-import MainLayout from './main-layout.jsx'
-import Signup from './auth/signup.jsx'
-import SiteConnectedFilter from './network/site-connected-filter.jsx'
-import Splash from './beta/splash.jsx'
-import { WindowControls, WindowControlsStyle } from './app-bar/window-controls.jsx'
-import LoadingIndicator from './progress/dots.jsx'
+import { VerifyEmail, SendVerificationEmail } from './auth/email-verification'
+import Faq from './beta/faq'
+import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot'
+import HasBetaFilter from './beta/has-beta-filter'
+import DownloadPage from './download/download-page'
+import LoadingFilter from './loading/loading-filter'
+import LoggedInFilter from './auth/logged-in-filter'
+import { ConditionalRoute, LoginRoute } from './navigation/custom-routes'
+import Login from './auth/login'
+import MainLayout from './main-layout'
+import Signup from './auth/signup'
+import SiteConnectedFilter from './network/site-connected-filter'
+import Splash from './beta/splash'
+import { WindowControls, WindowControlsStyle } from './app-bar/window-controls'
+import LoadingIndicator from './progress/dots'
 
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -27,7 +27,7 @@ const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
 const LoadableDev = IS_PRODUCTION
   ? () => null
-  : loadable(() => import('./dev.jsx'), {
+  : loadable(() => import('./dev'), {
       // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
       // place?)
       fallback: <LoadingIndicator />,

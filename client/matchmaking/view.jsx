@@ -3,9 +3,9 @@ import { connect } from 'react-redux'
 import { Route, Switch } from 'react-router-dom'
 import { replace } from 'connected-react-router'
 
-import Index from '../navigation/index.jsx'
-import MapSelection from './map-selection.jsx'
-import MatchmakingMatch from './matchmaking-match.jsx'
+import Index from '../navigation/index'
+import MapSelection from './map-selection'
+import MatchmakingMatch from './matchmaking-match'
 
 @connect(state => ({ activeGame: state.activeGame, matchmaking: state.matchmaking }))
 export default class MatchmakingView extends React.Component {

@@ -2,11 +2,11 @@ import React from 'react'
 import { Set } from 'immutable'
 import styled from 'styled-components'
 
-import FlatButton from '../flat-button.jsx'
-import RaisedButton from '../raised-button.jsx'
-import Card from '../card.jsx'
-import CheckBox from '../check-box.jsx'
-import Stepper, { Step } from '../stepper.jsx'
+import FlatButton from '../flat-button'
+import RaisedButton from '../raised-button'
+import Card from '../card'
+import CheckBox from '../check-box'
+import Stepper, { Step } from '../stepper'
 
 const Container = styled.div`
   display: flex;

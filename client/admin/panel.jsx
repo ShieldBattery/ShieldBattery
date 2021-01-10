@@ -2,19 +2,19 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import AdminBetaInvites from './invites.jsx'
-import AdminMapPools from './map-pools.jsx'
-import AdminMatchmakingTimes from './matchmaking-times.jsx'
-import { ConditionalRoute } from '../navigation/custom-routes.jsx'
-import { UserFind } from './user-profile.jsx'
+import AdminBetaInvites from './invites'
+import AdminMapPools from './map-pools'
+import AdminMatchmakingTimes from './matchmaking-times'
+import { ConditionalRoute } from '../navigation/custom-routes'
+import { UserFind } from './user-profile'
 import {
   CanAcceptBetaInvitesFilter,
   CanManageMapPoolsFilter,
   CanManageMatchmakingTimesFilter,
   CanViewUserProfileFilter,
-} from './admin-route-filters.jsx'
+} from './admin-route-filters'
 
-const AdminMapManager = IS_ELECTRON ? require('./map-manager.jsx').default : null
+const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
 
 class AdminDashboard extends React.Component {
   render() {

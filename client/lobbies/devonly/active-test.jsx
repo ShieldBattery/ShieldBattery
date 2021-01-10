@@ -1,10 +1,10 @@
 import React from 'react'
 import { List } from 'immutable'
 
-import ActiveLobby from '../active-lobby.jsx'
+import ActiveLobby from '../active-lobby'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 import { MapRecord } from '../../maps/maps-reducer'
-import Tabs, { TabItem } from '../../material/tabs.jsx'
+import Tabs, { TabItem } from '../../material/tabs'
 
 const TAB_MELEE = 0
 const TAB_TVB = 1

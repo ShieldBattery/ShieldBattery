@@ -3,12 +3,12 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors'
-import FlatButton from '../material/flat-button.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
-import form from '../forms/form.jsx'
-import Option from '../material/select/option.jsx'
-import Select from '../material/select/select.jsx'
-import TextField from '../material/text-field.jsx'
+import FlatButton from '../material/flat-button'
+import LoadingIndicator from '../progress/dots'
+import form from '../forms/form'
+import Option from '../material/select/option'
+import Select from '../material/select/select'
+import TextField from '../material/text-field'
 
 import { getBanHistoryIfNeeded, banUser } from './action-creators'
 

@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import { AppBarTitle } from '../app-bar/app-bar.jsx'
+import { AppBarTitle } from '../app-bar/app-bar'
 
 const Container = styled.div`
   max-width: 884px;

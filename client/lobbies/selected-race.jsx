@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { RaceButton, StyledRaceIcon } from './race-picker.jsx'
+import { RaceButton, StyledRaceIcon } from './race-picker'
 
 import { colorDividers } from '../styles/colors'
 

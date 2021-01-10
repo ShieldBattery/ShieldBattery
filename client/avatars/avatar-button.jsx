@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import IconButton from '../material/icon-button.jsx'
-import Avatar from './avatar.jsx'
+import IconButton from '../material/icon-button'
+import Avatar from './avatar'
 
 const StyledAvatar = styled(Avatar)`
   width: 24px;

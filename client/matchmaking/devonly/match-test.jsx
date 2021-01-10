@@ -1,6 +1,6 @@
 import React from 'react'
 
-import MatchmakingMatch from '../matchmaking-match.jsx'
+import MatchmakingMatch from '../matchmaking-match'
 import { MapRecord } from '../../maps/maps-reducer'
 import { Player } from '../matchmaking-reducer'
 

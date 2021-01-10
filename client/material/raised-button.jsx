@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { darken } from 'polished'
 
-import Button, { ButtonContent, Label } from './button.jsx'
+import Button, { ButtonContent, Label } from './button'
 
 import { shadowDef8dp } from './shadow-constants'
 import { shadow2dp } from './shadows'

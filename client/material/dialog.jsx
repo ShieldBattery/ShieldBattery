@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import keycode from 'keycode'
 import styled from 'styled-components'
 
-import IconButton from '../material/icon-button.jsx'
-import KeyListener from '../keyboard/key-listener.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
+import IconButton from '../material/icon-button'
+import KeyListener from '../keyboard/key-listener'
+import { ScrollableContent } from '../material/scroll-bar'
 
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 

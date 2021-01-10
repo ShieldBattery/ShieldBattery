@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import siteSocket from './site-socket'
 
-import LoadingIndicator from '../progress/dots.jsx'
+import LoadingIndicator from '../progress/dots'
 
 if (IS_ELECTRON) {
   siteSocket.opts.transportOptions = {

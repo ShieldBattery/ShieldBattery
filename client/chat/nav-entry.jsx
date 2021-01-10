@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import Entry from '../material/left-nav/entry.jsx'
-import IconButton from '../material/icon-button.jsx'
+import Entry from '../material/left-nav/entry'
+import IconButton from '../material/icon-button'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import styled from 'styled-components'
 

@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { IconContainer, IconAvatar } from './avatar.jsx'
+import { IconContainer, IconAvatar } from './avatar'
 
 import ComputerIcon from '../icons/material/ic_memory_black_24px.svg'
 

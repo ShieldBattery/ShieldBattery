@@ -3,12 +3,12 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import FloatingLabel from '../input-floating-label.jsx'
-import InputBase from '../input-base.jsx'
-import InputError from '../input-error.jsx'
-import InputUnderline from '../input-underline.jsx'
-import KeyListener from '../../keyboard/key-listener.jsx'
-import Menu, { Overlay } from '../menu/menu.jsx'
+import FloatingLabel from '../input-floating-label'
+import InputBase from '../input-base'
+import InputError from '../input-error'
+import InputUnderline from '../input-underline'
+import KeyListener from '../../keyboard/key-listener'
+import Menu, { Overlay } from '../menu/menu'
 
 import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 

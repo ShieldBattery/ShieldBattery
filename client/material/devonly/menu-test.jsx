@@ -1,12 +1,12 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import Card from '../card.jsx'
-import Divider from '../menu/divider.jsx'
-import Menu from '../menu/menu.jsx'
-import MenuItem from '../menu/item.jsx'
-import RaisedButton from '../raised-button.jsx'
-import SelectedMenuItem from '../menu/selected-item.jsx'
+import Card from '../card'
+import Divider from '../menu/divider'
+import Menu from '../menu/menu'
+import MenuItem from '../menu/item'
+import RaisedButton from '../raised-button'
+import SelectedMenuItem from '../menu/selected-item'
 
 import { colorTextSecondary } from '../../styles/colors'
 import { SubheadingOld } from '../../styles/typography'

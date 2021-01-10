@@ -1,12 +1,12 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import Card from '../card.jsx'
-import CheckBox from '../check-box.jsx'
-import IconButton from '../icon-button.jsx'
-import { Label } from '../button.jsx'
-import TextField from '../text-field.jsx'
-import PasswordTextField from '../password-text-field.jsx'
+import Card from '../card'
+import CheckBox from '../check-box'
+import IconButton from '../icon-button'
+import { Label } from '../button'
+import TextField from '../text-field'
+import PasswordTextField from '../password-text-field'
 
 import { colorTextSecondary } from '../../styles/colors'
 

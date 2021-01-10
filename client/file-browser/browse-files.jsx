@@ -15,10 +15,10 @@ import Folder from '../icons/material/ic_folder_black_24px.svg'
 import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 
-import KeyListener from '../keyboard/key-listener.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
-import IconButton from '../material/icon-button.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
+import KeyListener from '../keyboard/key-listener'
+import LoadingIndicator from '../progress/dots'
+import IconButton from '../material/icon-button'
+import { ScrollableContent } from '../material/scroll-bar'
 import { shadow4dp } from '../material/shadows'
 import {
   amberA400,

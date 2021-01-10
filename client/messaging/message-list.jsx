@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { ChatMessage } from './message.jsx'
+import { ChatMessage } from './message'
 import {
   JoinChannelMessage,
   LeaveChannelMessage,
@@ -10,9 +10,9 @@ import {
   SelfJoinChannelMessage,
   UserOnlineMessage,
   UserOfflineMessage,
-} from './message-types.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
+} from './message-types'
+import { ScrollableContent } from '../material/scroll-bar'
+import LoadingIndicator from '../progress/dots'
 
 const LoadingArea = styled.div`
   display: flex;

@@ -1,7 +1,7 @@
 import React from 'react'
-import Download from './download.jsx'
+import Download from './download'
 
-import Dialog from '../material/dialog.jsx'
+import Dialog from '../material/dialog'
 
 export default class DownloadDialog extends React.Component {
   render() {

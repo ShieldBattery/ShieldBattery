@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import { goBack } from '../activities/action-creators'
 
-import IconButton from '../material/icon-button.jsx'
+import IconButton from '../material/icon-button'
 
 import BackIcon from '../icons/material/baseline-arrow_back-24px.svg'
 

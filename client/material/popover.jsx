@@ -2,9 +2,9 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import KeyListener from '../keyboard/key-listener.jsx'
-import Portal from './portal.jsx'
-import WindowListener from '../dom/window-listener.jsx'
+import KeyListener from '../keyboard/key-listener'
+import Portal from './portal'
+import WindowListener from '../dom/window-listener'
 
 import { fastOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'

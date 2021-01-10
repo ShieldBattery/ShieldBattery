@@ -4,11 +4,11 @@ import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
 import queryString from 'query-string'
 
-import LoadingIndicator from '../progress/dots.jsx'
-import RaisedButton from '../material/raised-button.jsx'
+import LoadingIndicator from '../progress/dots'
+import RaisedButton from '../material/raised-button'
 import { recoverUsername, startPasswordReset, resetPassword } from './action-creators'
-import form from '../forms/form.jsx'
-import SubmitOnEnter from '../forms/submit-on-enter.jsx'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
 import {
   AuthContentContainer,
   AuthContent,
@@ -22,7 +22,7 @@ import {
   FieldRow,
   AuthTextField,
   AuthPasswordTextField,
-} from './auth-content.jsx'
+} from './auth-content'
 
 import {
   composeValidators,

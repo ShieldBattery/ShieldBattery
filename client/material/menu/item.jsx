@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import MenuItemSymbol from './menu-item-symbol'
-import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu.jsx'
+import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 
 import { SubheadingOld, singleLine } from '../../styles/typography'
 

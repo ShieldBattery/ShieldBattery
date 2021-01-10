@@ -2,10 +2,10 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import FlatButton from '../material/flat-button.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
-import form from '../forms/form.jsx'
-import CheckBox from '../material/check-box.jsx'
+import FlatButton from '../material/flat-button'
+import LoadingIndicator from '../progress/dots'
+import form from '../forms/form'
+import CheckBox from '../material/check-box'
 
 import { getPermissionsIfNeeded, setPermissions } from './action-creators'
 

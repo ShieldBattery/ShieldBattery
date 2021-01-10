@@ -4,8 +4,8 @@ import { connect } from 'react-redux'
 import keycode from 'keycode'
 import styled from 'styled-components'
 
-import KeyListener from '../keyboard/key-listener.jsx'
-import JoinLobby from '../lobbies/join-lobby.jsx'
+import KeyListener from '../keyboard/key-listener'
+import JoinLobby from '../lobbies/join-lobby'
 
 import { closeOverlay } from './action-creators'
 
@@ -23,12 +23,12 @@ const {
   BrowseServerMaps,
 } = IS_ELECTRON
   ? {
-      FindMatch: require('../matchmaking/find-match.jsx').default,
-      BrowsePreferredMaps: require('../matchmaking/browse-preferred-maps.jsx').default,
-      CreateLobby: require('../lobbies/create-lobby.jsx').default,
-      WatchReplay: require('../replays/watch-replay.jsx').default,
-      BrowseLocalMaps: require('../maps/browse-local-maps.jsx').default,
-      BrowseServerMaps: require('../maps/browse-server-maps.jsx').default,
+      FindMatch: require('../matchmaking/find-match').default,
+      BrowsePreferredMaps: require('../matchmaking/browse-preferred-maps').default,
+      CreateLobby: require('../lobbies/create-lobby').default,
+      WatchReplay: require('../replays/watch-replay').default,
+      BrowseLocalMaps: require('../maps/browse-local-maps').default,
+      BrowseServerMaps: require('../maps/browse-server-maps').default,
     }
   : {}
 

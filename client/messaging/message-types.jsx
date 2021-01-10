@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { ChatMessageLayout, InfoMessageLayout } from './message.jsx'
+import { ChatMessageLayout, InfoMessageLayout } from './message'
 
 import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
 import { Body2Old } from '../styles/typography'

@@ -1,6 +1,6 @@
 import React from 'react'
 import { ReactReduxContext } from 'react-redux'
-import { RedirectCheckerContext } from './redirect-provider.jsx'
+import { RedirectCheckerContext } from './redirect-provider'
 
 // Creates a component that conditionally redirects based on store data. createRedirectAction
 // *must* result in this component being unmounted.

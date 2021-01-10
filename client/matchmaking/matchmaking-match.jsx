@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import MapThumbnail from '../maps/map-thumbnail.jsx'
-import PlayerCard from '../lobbies/player-card.jsx'
+import MapThumbnail from '../maps/map-thumbnail'
+import PlayerCard from '../lobbies/player-card'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'

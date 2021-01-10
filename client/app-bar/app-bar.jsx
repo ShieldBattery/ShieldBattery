@@ -3,9 +3,9 @@ import styled from 'styled-components'
 import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
 
-import ActiveUserCount from '../serverstatus/active-users.jsx'
-import Lockup from './lockup.jsx'
-import { windowControlsHeight, SizeTop, SizeLeft, SizeRight } from './window-controls.jsx'
+import ActiveUserCount from '../serverstatus/active-users'
+import Lockup from './lockup'
+import { windowControlsHeight, SizeTop, SizeLeft, SizeRight } from './window-controls'
 import { DEV_INDICATOR } from '../../common/flags'
 
 import { blue800, colorError } from '../styles/colors'

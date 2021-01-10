@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-import AttentionIndicator from './attention-indicator.jsx'
+import AttentionIndicator from './attention-indicator'
 import { amberA200 } from '../../styles/colors'
 import { singleLine } from '../../styles/typography'
 

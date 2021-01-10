@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import ProfileOverlay from './profile-overlay.jsx'
-import Avatar from '../avatars/avatar.jsx'
+import ProfileOverlay from './profile-overlay'
+import Avatar from '../avatars/avatar'
 import { headline6, singleLine } from '../styles/typography'
 
 const Header = styled.div`

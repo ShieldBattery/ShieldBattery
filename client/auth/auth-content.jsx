@@ -1,10 +1,10 @@
 import styled from 'styled-components'
 
-import { Label } from '../material/button.jsx'
-import FlatButton from '../material/flat-button.jsx'
-import TextField from '../material/text-field.jsx'
-import PasswordTextField from '../material/password-text-field.jsx'
-import CheckBox from '../material/check-box.jsx'
+import { Label } from '../material/button'
+import FlatButton from '../material/flat-button'
+import TextField from '../material/text-field'
+import PasswordTextField from '../material/password-text-field'
+import CheckBox from '../material/check-box'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'

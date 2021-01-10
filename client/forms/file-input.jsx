@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import IconButton from '../material/icon-button.jsx'
+import IconButton from '../material/icon-button'
 
 import ClearIcon from '../icons/material/baseline-clear-24px.svg'
 

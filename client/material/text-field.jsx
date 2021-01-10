@@ -3,11 +3,11 @@ import PropTypes from 'prop-types'
 import uniqueId from '../dom/unique-id'
 import styled, { css } from 'styled-components'
 
-import FloatingLabel from './input-floating-label.jsx'
-import InputBase, { TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base.jsx'
-import InputError from './input-error.jsx'
-import InputUnderline from './input-underline.jsx'
-import Label from './input-label.jsx'
+import FloatingLabel from './input-floating-label'
+import InputBase, { TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base'
+import InputError from './input-error'
+import InputUnderline from './input-underline'
+import Label from './input-label'
 
 import { colorTextSecondary } from '../styles/colors'
 

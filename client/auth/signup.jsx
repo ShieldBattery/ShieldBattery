@@ -6,10 +6,10 @@ import styled from 'styled-components'
 import fetch from '../network/fetch'
 import { redirectIfLoggedIn } from './auth-utils'
 
-import LoadingIndicator from '../progress/dots.jsx'
-import RaisedButton from '../material/raised-button.jsx'
-import form from '../forms/form.jsx'
-import SubmitOnEnter from '../forms/submit-on-enter.jsx'
+import LoadingIndicator from '../progress/dots'
+import RaisedButton from '../material/raised-button'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
 import {
   AuthContentContainer,
   AuthContent,
@@ -22,7 +22,7 @@ import {
   FieldRow,
   AuthTextField,
   AuthPasswordTextField,
-} from './auth-content.jsx'
+} from './auth-content'
 
 import {
   composeValidators,

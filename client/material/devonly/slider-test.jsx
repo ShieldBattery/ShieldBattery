@@ -1,11 +1,11 @@
 import React from 'react'
 import styled from 'styled-components'
 
-import Card from '../card.jsx'
-import Slider from '../slider.jsx'
-import Select from '../select/select.jsx'
-import Option from '../select/option.jsx'
-import TextField from '../text-field.jsx'
+import Card from '../card'
+import Slider from '../slider'
+import Select from '../select/select'
+import Option from '../select/option'
+import TextField from '../text-field'
 
 const Container = styled.div`
   display: flex;

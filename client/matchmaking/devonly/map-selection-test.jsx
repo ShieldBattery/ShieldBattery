@@ -1,6 +1,6 @@
 import React from 'react'
 
-import MapSelection from '../map-selection.jsx'
+import MapSelection from '../map-selection'
 import { MapRecord } from '../../maps/maps-reducer'
 
 export default class MapSelectionTest extends React.Component {

@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom'
 import styled, { css } from 'styled-components'
 import { makeServerUrl } from '../network/server-url'
 
-import TopLinks from './top-links.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
+import TopLinks from './top-links'
+import { ScrollableContent } from '../material/scroll-bar'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'

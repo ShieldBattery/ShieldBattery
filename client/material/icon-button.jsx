@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Button, { ButtonCommon } from './button.jsx'
+import Button, { ButtonCommon } from './button'
 
 import { CardLayer } from '../styles/colors'
 

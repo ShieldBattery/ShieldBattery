@@ -3,7 +3,7 @@ import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import { connect } from 'react-redux'
 import { closeSnackbar } from './action-creators'
 
-import Snackbar from '../material/snackbar.jsx'
+import Snackbar from '../material/snackbar'
 
 const transitionNames = {
   enter: 'enter',

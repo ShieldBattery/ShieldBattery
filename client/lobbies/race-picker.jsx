@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Button from '../material/button.jsx'
-import RaceIcon from './race-icon.jsx'
+import Button from '../material/button'
+import RaceIcon from './race-icon'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextFaint } from '../styles/colors'

@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import Button, { ButtonContent, Label } from './button.jsx'
+import Button, { ButtonContent, Label } from './button'
 
 import { amberA400, blue400, CardLayer } from '../styles/colors'
 

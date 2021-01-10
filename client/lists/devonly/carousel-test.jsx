@@ -2,8 +2,8 @@ import React from 'react'
 import { Range } from 'immutable'
 import styled from 'styled-components'
 
-import Card from '../../material/card.jsx'
-import Carousel from '../carousel.jsx'
+import Card from '../../material/card'
+import Carousel from '../carousel'
 
 import { grey850, grey800, colorTextSecondary } from '../../styles/colors'
 

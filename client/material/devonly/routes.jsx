@@ -1,13 +1,13 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import DevButtons from './buttons-test.jsx'
-import DevMenu from './menu-test.jsx'
-import DevPopover from './popover-test.jsx'
-import DevSelects from './selects-test.jsx'
-import DevSliders from './slider-test.jsx'
-import DevSteppers from './stepper-test.jsx'
-import DevTextFields from './text-field-test.jsx'
+import DevButtons from './buttons-test'
+import DevMenu from './menu-test'
+import DevPopover from './popover-test'
+import DevSelects from './selects-test'
+import DevSliders from './slider-test'
+import DevSteppers from './stepper-test'
+import DevTextFields from './text-field-test'
 
 class DevMaterialDashboard extends React.Component {
   render() {

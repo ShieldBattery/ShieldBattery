@@ -4,11 +4,11 @@ import { push } from 'connected-react-router'
 import queryString from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
 
-import LoadingIndicator from '../progress/dots.jsx'
-import RaisedButton from '../material/raised-button.jsx'
+import LoadingIndicator from '../progress/dots'
+import RaisedButton from '../material/raised-button'
 import { logIn } from './action-creators'
-import form from '../forms/form.jsx'
-import SubmitOnEnter from '../forms/submit-on-enter.jsx'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
 import {
   AuthContentContainer,
@@ -26,7 +26,7 @@ import {
   AuthTextField,
   AuthPasswordTextField,
   AuthCheckBox,
-} from './auth-content.jsx'
+} from './auth-content'
 
 import {
   USERNAME_MINLENGTH,

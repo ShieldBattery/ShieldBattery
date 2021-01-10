@@ -4,8 +4,8 @@ import { getPlayerSlots } from '../../common/lobbies'
 import gameTypeToString from './game-type-to-string'
 import styled from 'styled-components'
 
-import MapImage from '../maps/map-image.jsx'
-import PlayerCard from './player-card.jsx'
+import MapImage from '../maps/map-image'
+import PlayerCard from './player-card'
 
 import { colorTextSecondary } from '../styles/colors'
 import { TitleOld, Display1Old } from '../styles/typography'

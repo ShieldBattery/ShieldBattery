@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 
-import { AppBarTitle } from '../app-bar/app-bar.jsx'
+import { AppBarTitle } from '../app-bar/app-bar'
 
 @connect(state => ({ router: state.router }))
 export default class AdminTitle extends React.Component {

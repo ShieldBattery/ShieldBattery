@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import WindowListener from '../dom/window-listener.jsx'
+import WindowListener from '../dom/window-listener'
 
 import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors'
 import { fastOutSlowIn } from '../material/curve-constants'

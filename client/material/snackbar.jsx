@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import FlatButton from './flat-button.jsx'
+import FlatButton from './flat-button'
 
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'

@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import SubheaderButton from '../material/left-nav/subheader-button.jsx'
+import SubheaderButton from '../material/left-nav/subheader-button'
 
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 

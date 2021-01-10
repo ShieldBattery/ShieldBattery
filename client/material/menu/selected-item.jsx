@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import MenuItem from './item.jsx'
+import MenuItem from './item'
 import MenuItemSymbol from './menu-item-symbol'
 
 import SelectedIcon from '../../icons/material/check-24px.svg'

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
 
-import DevActivityButtons from './activity-button-test.jsx'
+import DevActivityButtons from './activity-button-test'
 
 class DevActivityDashboard extends React.Component {
   render() {

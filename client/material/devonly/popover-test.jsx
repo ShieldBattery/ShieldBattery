@@ -2,9 +2,9 @@ import React from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import IconButton from '../icon-button.jsx'
+import IconButton from '../icon-button'
 import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
-import Popover from '../popover.jsx'
+import Popover from '../popover'
 
 import { fastOutSlowIn } from '../curve-constants'
 

@@ -7,7 +7,7 @@ import gameTypeToString from './game-type-to-string'
 import { joinLobby, navigateToLobby } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
 
-import MapThumbnail from '../maps/map-thumbnail.jsx'
+import MapThumbnail from '../maps/map-thumbnail'
 import { colorDividers } from '../styles/colors'
 import { HeadlineOld, SubheadingOld, Body2Old, TitleOld } from '../styles/typography'
 

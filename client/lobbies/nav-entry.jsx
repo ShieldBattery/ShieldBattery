@@ -2,8 +2,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import CloseLobbyIcon from '../icons/material/ic_close_black_24px.svg'
-import Entry from '../material/left-nav/entry.jsx'
-import IconButton from '../material/icon-button.jsx'
+import Entry from '../material/left-nav/entry'
+import IconButton from '../material/icon-button'
 
 const LeaveButton = styled(IconButton)`
   width: 32px;

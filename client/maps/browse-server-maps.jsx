@@ -15,15 +15,15 @@ import {
   updateMapPreferences,
 } from './action-creators'
 
-import ActivityBackButton from '../activities/activity-back-button.jsx'
-import Footer from './browser-footer.jsx'
-import ImageList from '../material/image-list.jsx'
-import InfiniteScrollList from '../lists/infinite-scroll-list.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
-import MapPreview from './map-preview.jsx'
-import MapThumbnail from './map-thumbnail.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
-import Tabs, { TabItem } from '../material/tabs.jsx'
+import ActivityBackButton from '../activities/activity-back-button'
+import Footer from './browser-footer'
+import ImageList from '../material/image-list'
+import InfiniteScrollList from '../lists/infinite-scroll-list'
+import LoadingIndicator from '../progress/dots'
+import MapPreview from './map-preview'
+import MapThumbnail from './map-thumbnail'
+import { ScrollableContent } from '../material/scroll-bar'
+import Tabs, { TabItem } from '../material/tabs'
 
 import {
   MAP_VISIBILITY_OFFICIAL,

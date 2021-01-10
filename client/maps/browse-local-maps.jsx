@@ -4,9 +4,9 @@ import { connect } from 'react-redux'
 import path from 'path'
 import styled from 'styled-components'
 
-import ActivityBackButton from '../activities/activity-back-button.jsx'
-import BrowseFiles from '../file-browser/browse-files.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
+import ActivityBackButton from '../activities/activity-back-button'
+import BrowseFiles from '../file-browser/browse-files'
+import LoadingIndicator from '../progress/dots'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { selectLocalMap } from './action-creators'
 

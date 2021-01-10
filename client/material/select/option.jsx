@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { rgba } from 'polished'
 
-import MenuItem from '../menu/item.jsx'
+import MenuItem from '../menu/item'
 import MenuItemSymbol from '../menu/menu-item-symbol'
 
 import { amberA400 } from '../../styles/colors'

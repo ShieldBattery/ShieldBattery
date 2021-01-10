@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled, { keyframes } from 'styled-components'
 import { rgba } from 'polished'
 
-import MapThumbnail from '../maps/map-thumbnail.jsx'
+import MapThumbnail from '../maps/map-thumbnail'
 
 import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
 

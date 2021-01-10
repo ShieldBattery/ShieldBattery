@@ -12,9 +12,9 @@ import {
   deactivateWhisperSession,
 } from './action-creators'
 
-import LoadingIndicator from '../progress/dots.jsx'
-import MessageInput from '../messaging/message-input.jsx'
-import MessageList from '../messaging/message-list.jsx'
+import LoadingIndicator from '../progress/dots'
+import MessageInput from '../messaging/message-input'
+import MessageList from '../messaging/message-list'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { colorDividers } from '../styles/colors'
 

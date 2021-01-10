@@ -3,9 +3,9 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import KeyListener from '../../keyboard/key-listener.jsx'
-import Popover from '../popover.jsx'
-import { ScrollableContent } from '../scroll-bar.jsx'
+import KeyListener from '../../keyboard/key-listener'
+import Popover from '../popover'
+import { ScrollableContent } from '../scroll-bar'
 import MenuItemSymbol from './menu-item-symbol'
 
 import { fastOutSlowIn } from '../curve-constants'

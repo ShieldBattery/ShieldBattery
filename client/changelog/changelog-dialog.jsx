@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Dialog from '../material/dialog.jsx'
+import Dialog from '../material/dialog'
 import { VERSION, KEY, shouldShowChangelog } from './should-show-changelog'
 
 import changelogContent from '../../CHANGELOG.md'

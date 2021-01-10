@@ -1,5 +1,5 @@
 import { push } from 'connected-react-router'
-import createConditionalRedirect from '../navigation/conditional-redirect.jsx'
+import createConditionalRedirect from '../navigation/conditional-redirect'
 import { isLoggedIn, createNextPath } from './auth-utils'
 
 const LoggedInFilter = createConditionalRedirect(

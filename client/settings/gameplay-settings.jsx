@@ -2,13 +2,13 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import CheckBox from '../material/check-box.jsx'
-import form from '../forms/form.jsx'
-import Option from '../material/select/option.jsx'
-import SubmitOnEnter from '../forms/submit-on-enter.jsx'
-import Select from '../material/select/select.jsx'
-import NumberTextField from '../material/number-text-field.jsx'
-import { FormContainer } from './settings-content.jsx'
+import CheckBox from '../material/check-box'
+import form from '../forms/form'
+import Option from '../material/select/option'
+import SubmitOnEnter from '../forms/submit-on-enter'
+import Select from '../material/select/select'
+import NumberTextField from '../material/number-text-field'
+import { FormContainer } from './settings-content'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;

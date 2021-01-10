@@ -1,9 +1,9 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import Dialog from '../material/dialog.jsx'
-import FlatButton from '../material/flat-button.jsx'
-import form from '../forms/form.jsx'
-import TextField from '../material/text-field.jsx'
+import Dialog from '../material/dialog'
+import FlatButton from '../material/flat-button'
+import form from '../forms/form'
+import TextField from '../material/text-field'
 import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
 
 import { closeDialog } from '../dialogs/action-creators'

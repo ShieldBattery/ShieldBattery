@@ -3,12 +3,12 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import CheckBox from '../material/check-box.jsx'
-import FlatButton from '../material/flat-button.jsx'
-import LoadingIndicator from '../progress/dots.jsx'
-import RaisedButton from '../material/raised-button.jsx'
-import { ScrollableContent } from '../material/scroll-bar.jsx'
-import Tabs, { TabItem } from '../material/tabs.jsx'
+import CheckBox from '../material/check-box'
+import FlatButton from '../material/flat-button'
+import LoadingIndicator from '../progress/dots'
+import RaisedButton from '../material/raised-button'
+import { ScrollableContent } from '../material/scroll-bar'
+import Tabs, { TabItem } from '../material/tabs'
 
 import { MatchmakingType } from '../../common/matchmaking'
 

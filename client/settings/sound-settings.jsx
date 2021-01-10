@@ -2,11 +2,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import CheckBox from '../material/check-box.jsx'
-import form from '../forms/form.jsx'
-import SubmitOnEnter from '../forms/submit-on-enter.jsx'
-import Slider from '../material/slider.jsx'
-import { FormContainer } from './settings-content.jsx'
+import CheckBox from '../material/check-box'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
+import Slider from '../material/slider'
+import { FormContainer } from './settings-content'
 
 const MusicVolumeSlider = styled(Slider)`
   margin-bottom: 40px;

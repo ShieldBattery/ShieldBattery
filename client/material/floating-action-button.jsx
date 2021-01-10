@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { darken } from 'polished'
 
-import Button, { ButtonCommon, Label } from './button.jsx'
+import Button, { ButtonCommon, Label } from './button'
 
 import { shadow6dp } from './shadows'
 import { amberA400 } from '../styles/colors'
