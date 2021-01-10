@@ -9,7 +9,7 @@ const fetch = window.fetch
 type RequestInit = NonNullable<Parameters<typeof fetch>[1]>
 
 export class FetchError extends Error {
-  constructor(message: string, readonly response: Response, readonly body?: { error: string }) {
+  constructor(message: string, readonly res: Response, readonly body?: { error: string }) {
     super(message)
   }
 }
@@ -83,10 +83,12 @@ export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T>
     try {
       const text = await res.text()
       const parsed = parsePrefixedJson(text)
-      throw new FetchError(err.message, res, parsed)
+      err.body = parsed
     } catch (_) {
-      throw new FetchError(err.message, res, { error: err.message })
+      err.body = { error: err.message }
     }
+
+    throw err
   }
 }
 

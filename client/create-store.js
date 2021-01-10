@@ -20,7 +20,6 @@ function promiseMiddleware({ dispatch }) {
         .then(result => dispatch({ ...action, payload: result }))
         .catch(err => {
           dispatch({ ...action, payload: err, error: true })
-          return Promise.reject(err)
         })
     } else {
       next(action)
