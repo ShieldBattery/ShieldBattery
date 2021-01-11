@@ -36,12 +36,17 @@ function isPromise(obj) {
   )
 }
 
-export default function create(initialState, history) {
+export default function create(initialState, history, reduxDevTools) {
   const createMiddlewaredStore = compose(
     applyMiddleware(thunk, promiseMiddleware, routerMiddleware(history)),
     batchedSubscribe(batchedUpdates),
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
-    isDev && window.__REDUX_DEVTOOLS_EXTENSION__ ? window.__REDUX_DEVTOOLS_EXTENSION__() : f => f,
+    // We support both the manual integration of Redux Dev Tools (for Electron clients) and using
+    // the extension (for Web clients)
+    reduxDevTools ? reduxDevTools.instrument() : f => f,
+    isDev && window.__REDUX_DEVTOOLS_EXTENSION__ && !reduxDevTools
+      ? window.__REDUX_DEVTOOLS_EXTENSION__()
+      : f => f,
   )(createStore)
 
   const store = createMiddlewaredStore(createRootReducer(history), initialState)
