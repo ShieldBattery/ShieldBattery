@@ -18,19 +18,9 @@ import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
 const isDev = (__WEBPACK_ENV.NODE_ENV || 'development') === 'development'
 
-// A helper function which adds nonce to third party scripts/styles. We hook `appendChild` on the
-// head, check if it's trying to insert a `tagName` and if the error contains a given string. If so,
-// we add the nonce attribute before doing it.
-const addNonceToThirdParty = (tagName, errorStringMatch = '') => {
-  const appendChild = document.head.appendChild.bind(document.head)
-  document.head.appendChild = elem => {
-    if (elem.tagName === tagName && new Error().stack.includes(errorStringMatch)) {
-      // eslint-disable-next-line no-undef,camelcase
-      elem.setAttribute('nonce', __webpack_nonce__)
-    }
-
-    return appendChild(elem)
-  }
+let ReduxDevTools
+if (IS_ELECTRON && isDev) {
+  ReduxDevTools = require('./debug/redux-devtools.jsx').default
 }
 
 if (IS_ELECTRON) {
@@ -55,17 +45,18 @@ if (IS_ELECTRON) {
 
 if (module.hot) {
   // Dumb hack to make HMR work with CSP. The webpack-hot-middleware runtime blindly inserts scripts
-  // into the head without adding the nonce, with no real way to catch this easily.
-  addNonceToThirdParty('SCRIPT', 'at hotDownloadUpdateChunk')
-}
+  // into the head without adding the nonce, with no real way to catch this easily. Anyway, we
+  // hook `appendChild` on the head, check if it's trying to insert a script, and if so we add the
+  // appropriate attribute before doing it.
+  const appendChild = document.head.appendChild.bind(document.head)
+  document.head.appendChild = elem => {
+    if (elem.tagName === 'SCRIPT' && new Error().stack.includes('at hotDownloadUpdateChunk')) {
+      // eslint-disable-next-line no-undef,camelcase
+      elem.setAttribute('nonce', __webpack_nonce__)
+    }
 
-let ReduxDevTools
-if (IS_ELECTRON && isDev) {
-  ReduxDevTools = require('./debug/redux-devtools.jsx').default
-
-  // Dumb hack to make redux devtools inspector monitor to work with CSP. The inspector blindly
-  // inserts styles into the head without adding the nonce, with no real way to catch this easily.
-  addNonceToThirdParty('STYLE', 'at new DevtoolsInspector')
+    return appendChild(elem)
+  }
 }
 
 const rootElemPromise = new Promise((resolve, reject) => {
