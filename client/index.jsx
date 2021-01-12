@@ -16,6 +16,13 @@ import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
+const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
+
+let ReduxDevTools
+if (IS_ELECTRON && isDev) {
+  ReduxDevTools = require('./debug/redux-devtools.jsx').default
+}
+
 if (IS_ELECTRON) {
   process
     .on('uncaughtException', function (err) {
@@ -79,7 +86,7 @@ Promise.all([rootElemPromise])
     }
 
     const history = !IS_ELECTRON ? createBrowserHistory() : createHashHistory()
-    const store = createStore(initData, history)
+    const store = createStore(initData, history, ReduxDevTools)
     registerDispatch(store.dispatch)
     registerSocketHandlers()
 
@@ -106,7 +113,10 @@ Promise.all([rootElemPromise])
       <Provider store={store}>
         <ConnectedRouter history={history}>
           <RedirectProvider>
-            <App />
+            <>
+              <App />
+              {ReduxDevTools ? <ReduxDevTools /> : null}
+            </>
           </RedirectProvider>
         </ConnectedRouter>
       </Provider>,
