@@ -16,7 +16,7 @@ import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
-const isDev = (__WEBPACK_ENV.NODE_ENV || 'development') === 'development'
+const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
 let ReduxDevTools
 if (IS_ELECTRON && isDev) {

@@ -7,7 +7,7 @@ import { unstable_batchedUpdates as batchedUpdates } from 'react-dom'
 /* eslint-enable camelcase */
 import createRootReducer from './root-reducer'
 
-const isDev = (__WEBPACK_ENV.NODE_ENV || 'development') === 'development'
+const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
 // This is a replacement for redux-promise, which is unmaintained and has transitive deps exceeding
 // 500KB in the output bundle (not worth lol)
