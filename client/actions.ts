@@ -314,15 +314,6 @@ export const MATCHMAKING_UPDATE_MATCH_READY = 'MATCHMAKING_UPDATE_MATCH_READY'
 // Our status has changed, ie. one of our clients is searching for a game or has stopped searching
 export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
 
-// We are beginning to retrieve the matchmaking preferences from the server
-export const MATCHMAKING_PREFERENCES_GET_BEGIN = 'MATCHMAKING_PREFERENCES_GET_BEGIN'
-// The server has responded with success/failure to our retrieval of matchmaking preferences
-export const MATCHMAKING_PREFERENCES_GET = 'MATCHMAKING_PREFERENCES_GET'
-// We are beginning to update the matchmaking preferences to the server
-export const MATCHMAKING_PREFERENCES_UPDATE_BEGIN = 'MATCHMAKING_PREFERENCES_UPDATE_BEGIN'
-// The server has responded with success/failure to us updating the matchmaking preferences
-export const MATCHMAKING_PREFERENCES_UPDATE = 'MATCHMAKING_PREFERENCES_UPDATE'
-
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 

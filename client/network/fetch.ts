@@ -2,17 +2,12 @@ import 'whatwg-fetch'
 import { Readable } from 'stream'
 import { makeServerUrl } from './server-url'
 import readCookies from './read-cookies'
+import { FetchError } from './fetch-action-types'
 
 const fetch = window.fetch
 
 // NOTE(tec27): I have no idea where to import this from otherwise lol
 type RequestInit = NonNullable<Parameters<typeof fetch>[1]>
-
-export class FetchError extends Error {
-  constructor(message: string, readonly res: Response, readonly body?: { error: string }) {
-    super(message)
-  }
-}
 
 function ensureSuccessStatus(res: Response): Response {
   if (res.status >= 200 && res.status < 300) {

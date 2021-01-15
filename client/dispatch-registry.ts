@@ -1,7 +1,7 @@
 import type { PromisifiedAction, ReduxAction } from './action-types'
 
 // TODO(tec27): Use a type for our root Store instead of any
-export type ThunkAction<T extends ReduxAction> = (
+export type ThunkAction<T extends ReduxAction = ReduxAction> = (
   dispatch: DispatchFunction<T>,
   getState: () => any,
 ) => void

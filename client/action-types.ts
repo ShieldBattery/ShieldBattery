@@ -1,6 +1,7 @@
 import { AuthActions } from './auth/actions'
+import { MatchmakingActions } from './matchmaking/actions'
 
-type AllActions = AuthActions
+type AllActions = AuthActions | MatchmakingActions
 
 export type ReduxAction = Extract<AllActions, { type: string }>
 

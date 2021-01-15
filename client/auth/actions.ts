@@ -1,4 +1,5 @@
 import { UserInfo } from '../../common/users/user-info'
+import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type AuthActions =
   | AuthChangeBegin
@@ -34,21 +35,9 @@ interface BaseAuthSuccess<T extends string, P = void> {
   payload: P
 }
 
-interface BaseAuthFailure<T extends string> {
-  type: T
+interface BaseAuthFailure<T extends string> extends BaseFetchFailure<T> {
   meta: {
     reqId: string
-  }
-  error: true
-  payload: {
-    body?: {
-      // TODO(tec27): This has more things on it I believe?
-      error: string
-    }
-    res: {
-      // TODO(tec27): This has more things on it I believe?
-      status: number
-    }
   }
 }
 

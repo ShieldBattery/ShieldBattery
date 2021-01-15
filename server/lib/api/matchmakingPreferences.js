@@ -20,6 +20,7 @@ export default function (router) {
 const isValidAlternateRace = race => ['z', 't', 'p'].includes(race)
 
 async function upsertPreferences(ctx, next) {
+  // TODO(tec27): Make matchmaking type a url param instead of a body param
   const { matchmakingType, race, useAlternateRace, alternateRace, preferredMaps } = ctx.request.body
 
   if (!isValidMatchmakingType(matchmakingType)) {
@@ -49,14 +50,16 @@ async function upsertPreferences(ctx, next) {
 
   ctx.body = {
     ...preferences,
+    mapPoolOutdated: false,
     preferredMaps: await getMapInfo(preferences.preferredMaps, ctx.session.userId),
   }
 }
 
 async function getPreferences(ctx, next) {
+  // TODO(tec27): Make this a url param instead of a query param
   const { matchmakingType } = ctx.query
 
-  if (matchmakingType && !isValidMatchmakingType(matchmakingType)) {
+  if (!matchmakingType || !isValidMatchmakingType(matchmakingType)) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   }
 
@@ -73,6 +76,7 @@ async function getPreferences(ctx, next) {
   const mapPoolOutdated = preferences.mapPoolId !== currentMapPool.id
   const preferredMaps = preferences.preferredMaps.filter(m => currentMapPool.maps.includes(m))
 
+  // TODO(tec27): remove the spread to make this return type more consistent with other types
   ctx.body = {
     ...preferences,
     mapPoolOutdated,

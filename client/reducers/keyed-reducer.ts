@@ -5,7 +5,7 @@ type ReducerFunc<ActionType extends ReduxAction, S> = (state: S, action: ActionT
 type AllActionTypes = ReduxAction['type']
 
 type ReducerMap<S> = {
-  [A in AllActionTypes]: ReducerFunc<Extract<ReduxAction, { type: A }>, S> | undefined
+  [A in AllActionTypes]?: ReducerFunc<Extract<ReduxAction, { type: A }>, S>
 }
 
 /**

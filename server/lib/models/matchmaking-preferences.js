@@ -44,23 +44,13 @@ export async function upsertMatchmakingPreferences(
 }
 
 export async function getMatchmakingPreferences(userId, matchmakingType) {
-  const query = matchmakingType
-    ? sql`
-      SELECT *
-      FROM matchmaking_preferences
-      WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType};
-    `
-    : sql`
-      SELECT *
-      FROM matchmaking_preferences
-      WHERE user_id = ${userId}
-      ORDER BY updated_at DESC
-      LIMIT 1;
-    `
-
   const { client, done } = await db()
   try {
-    const result = await client.query(query)
+    const result = await client.query(sql`
+      SELECT *
+      FROM matchmaking_preferences
+      WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType}
+    `)
     return result.rows.length > 0 ? new MatchmakingPreferences(result.rows[0]) : null
   } finally {
     done()
