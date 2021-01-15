@@ -64,7 +64,6 @@ export function getMatchmakingPreferences(matchmakingType: MatchmakingType): Thu
   }
 }
 
-// TODO(tec27): type the preferences object properly
 export function updateMatchmakingPreferences(preferences: MatchmakingPreferences): ThunkAction {
   return dispatch => {
     dispatch({
