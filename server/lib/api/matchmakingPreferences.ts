@@ -1,7 +1,6 @@
-import httpErrors from 'http-errors'
 import Router, { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
-
 import { MATCHMAKING } from '../../../common/flags'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -9,15 +8,15 @@ import {
   MatchmakingType,
   UpdateMatchmakingPreferencesBody,
 } from '../../../common/matchmaking'
-import { joiValidator } from '../validation/joi-validator'
-import ensureLoggedIn from '../session/ensure-logged-in'
 import { featureEnabled } from '../flags/feature-enabled'
+import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import {
   getMatchmakingPreferences,
   upsertMatchmakingPreferences,
 } from '../models/matchmaking-preferences'
-import { getMapInfo } from '../models/maps'
+import ensureLoggedIn from '../session/ensure-logged-in'
+import { joiValidator } from '../validation/joi-validator'
 
 const matchmakingTypeSchema = Joi.object({
   matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),

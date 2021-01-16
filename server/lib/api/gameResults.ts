@@ -1,21 +1,21 @@
-import Koa from 'koa'
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import Koa from 'koa'
+import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
+import transact from '../db/transaction'
+import { hasCompletedResults, reconcileResults } from '../games/results'
+import { getGameRecord, setReconciledResult } from '../models/games'
 import {
   getCurrentReportedResults,
   getUserGameRecord,
-  setUserReconciledResult,
   setReportedResults,
+  setUserReconciledResult,
 } from '../models/games-users'
+import { findUserIdsForNames } from '../models/users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
 import { joiValidator } from '../validation/joi-validator'
-import { getGameRecord, setReconciledResult } from '../models/games'
-import { findUserIdsForNames } from '../models/users'
-import { hasCompletedResults, reconcileResults } from '../games/results'
-import transact from '../db/transaction'
 
 const throttle = createThrottle('gamesResults', {
   rate: 10,

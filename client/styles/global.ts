@@ -1,14 +1,13 @@
 import { createGlobalStyle } from 'styled-components'
-
 import {
-  colorTextPrimary,
-  colorTextFaint,
-  colorBackground,
   amberA200,
   amberA400,
+  CardLayer,
+  colorBackground,
+  colorTextFaint,
+  colorTextPrimary,
   grey700,
   grey800,
-  CardLayer,
 } from './colors'
 
 const GlobalStyle = createGlobalStyle`

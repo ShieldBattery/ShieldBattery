@@ -1,7 +1,7 @@
-import Koa from 'koa'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { RouterContext } from '@koa/router'
+import Koa from 'koa'
 
 /** A description of how to validate a request. */
 interface JoiValidationDescriptor {

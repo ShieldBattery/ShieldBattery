@@ -1,7 +1,7 @@
-import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
 import { GameClientPlayerResult, ReconciledResult } from '../../../common/game-results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import db, { DbClient } from '../db'
 import { ReconciledPlayerResult, ResultSubmission } from '../games/results'
 
 export interface ReportedResultsData {

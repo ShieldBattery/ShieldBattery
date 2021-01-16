@@ -1,7 +1,7 @@
 import { ServerResponse } from 'http'
+import { Middleware } from 'koa'
 import { Compiler } from 'webpack'
 import webpackDevMiddleware, { Options } from 'webpack-dev-middleware'
-import { Middleware } from 'koa'
 
 export interface WebpackMiddlewareOptions {
   compiler: Compiler

@@ -1,9 +1,9 @@
-import { findUserIdsForNames } from '../models/users'
 import transact from '../db/transaction'
 import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
-import { genResultCode } from './gen-result-code'
+import { findUserIdsForNames } from '../models/users'
 import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
+import { genResultCode } from './gen-result-code'
 
 /**
  * Registers a game in the database so that results can be collected for it.

@@ -1,7 +1,6 @@
+import aws from 'aws-sdk'
 import path from 'path'
 import { Readable } from 'stream'
-import aws from 'aws-sdk'
-
 import { FileStore } from './store'
 
 // How long browsers can cache resources for (in seconds). These resources should all be pretty

@@ -1,17 +1,16 @@
+import cuid from 'cuid'
+import fs from 'fs'
+import { IncomingMessage, Server as HttpServer, ServerResponse } from 'http'
+import Koa from 'koa'
 import { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'
-import fs from 'fs'
-import cuid from 'cuid'
-import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
-import Koa from 'koa'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
-
-import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
-import getAddress from './lib/websockets/get-address'
-import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
 import log from './lib/logging/logger'
 import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
 import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
+import getAddress from './lib/websockets/get-address'
+import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
+import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
 
 const apiHandlers = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))

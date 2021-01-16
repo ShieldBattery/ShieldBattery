@@ -1,6 +1,6 @@
-import db from '../db'
 import sql from 'sql-template-strings'
 import { MatchmakingType } from '../../../common/matchmaking'
+import db from '../db'
 
 export interface MatchmakingTime {
   id: string

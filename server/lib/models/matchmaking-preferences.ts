@@ -1,10 +1,10 @@
-import db from '../db'
 import sql from 'sql-template-strings'
 import {
   MatchmakingPreferences,
   MatchmakingType,
   StoredMatchmakingPreferences,
 } from '../../../common/matchmaking'
+import db from '../db'
 import { Dbify } from '../db/types'
 
 type DbMatchmakingPreferences = Dbify<StoredMatchmakingPreferences>

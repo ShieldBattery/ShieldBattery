@@ -1,24 +1,26 @@
-import Koa from 'koa'
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import Koa from 'koa'
 import { MATCHMAKING } from '../../../common/flags'
-import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
-import { featureEnabled } from '../flags/feature-enabled'
-import { joiValidator } from '../validation/joi-validator'
 import {
+  AddMatchmakingTimeBody,
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+} from '../../../common/matchmaking'
+import { featureEnabled } from '../flags/feature-enabled'
+import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import {
+  addMatchmakingTime,
   getCurrentMatchmakingTime,
   getFutureMatchmakingTimes,
-  getPastMatchmakingTimes,
-  addMatchmakingTime,
   getMatchmakingTimeById,
+  getPastMatchmakingTimes,
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
-import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import { checkAllPermissions } from '../permissions/check-permissions'
+import ensureLoggedIn from '../session/ensure-logged-in'
+import { joiValidator } from '../validation/joi-validator'
 
 const matchmakingTypeSchema = Joi.object({
   matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),

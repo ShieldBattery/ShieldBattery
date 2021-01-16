@@ -1,9 +1,9 @@
 import { List, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
-import { MapRecord } from '../maps/maps-reducer'
 import { GetPreferencesPayload, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
+import { MapRecord } from '../maps/maps-reducer'
 import { FetchError } from '../network/fetch-action-types'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const MatchmakingPreferencesState = Record({
   matchmakingType: MatchmakingType.Match1v1,

@@ -1,5 +1,5 @@
-import { Readable } from 'stream'
 import Koa from 'koa'
+import { Readable } from 'stream'
 import { FileStore } from './store'
 
 let store: FileStore | null = null

@@ -1,7 +1,7 @@
-import session from 'koa-generic-session'
 import cuid from 'cuid'
-import store from './session-store'
+import session from 'koa-generic-session'
 import { isElectronClient } from '../network/only-web-clients'
+import store from './session-store'
 
 const SESSION_TTL_SECONDS = Number(process.env.SB_SESSION_TTL)
 

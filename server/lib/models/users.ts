@@ -2,8 +2,8 @@
 import sql from 'sql-template-strings'
 import db from '../db'
 import transact from '../db/transaction'
-import { createPermissions } from './permissions'
 import { addUserToChannel } from './chat-channels'
+import { createPermissions } from './permissions'
 
 function defPrivate(o: unknown, name: string, value: unknown) {
   Object.defineProperty(o, name, {

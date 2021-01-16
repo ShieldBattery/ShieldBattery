@@ -1,12 +1,11 @@
 import errors from 'http-errors'
 import { Map } from 'immutable'
-import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
-import validateBody from '../websockets/validate-body'
-
-import pingRegistry from '../rally-point/ping-registry'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { NydusServer, NextFunc } from 'nydus'
+import { NextFunc, NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
+import pingRegistry from '../rally-point/ping-registry'
+import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
+import validateBody from '../websockets/validate-body'
 
 const MOUNT_BASE = '/rallyPoint'
 

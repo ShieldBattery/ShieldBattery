@@ -9,9 +9,9 @@
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
 declare module 'webpack-dev-middleware' {
-  import * as webpack from 'webpack'
-  import * as loglevel from 'loglevel'
   import { NextHandleFunction } from 'connect'
+  import * as loglevel from 'loglevel'
+  import * as webpack from 'webpack'
   import MemoryFileSystem = require('memory-fs')
 
   export default function createWebpackDevMiddleware(

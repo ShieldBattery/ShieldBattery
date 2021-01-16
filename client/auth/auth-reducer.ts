@@ -1,3 +1,4 @@
+import type { UserInfo } from '../../common/users/user-info'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   AccountUpdateSuccess,
@@ -14,7 +15,6 @@ import {
   VerifyEmailSuccess,
 } from './actions'
 import { Auth, Permissions, User } from './auth-records'
-import type { UserInfo } from '../../common/users/user-info'
 
 type State = InstanceType<typeof Auth>
 type AuthErrors = Extract<AuthActions, { error: true }>

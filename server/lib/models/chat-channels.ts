@@ -1,6 +1,6 @@
+import sql, { SQLStatement } from 'sql-template-strings'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
-import sql, { SQLStatement } from 'sql-template-strings'
 
 export interface ChannelPermissions {
   kick: boolean

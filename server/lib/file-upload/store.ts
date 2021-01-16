@@ -1,5 +1,5 @@
-import { Readable } from 'stream'
 import Koa from 'koa'
+import { Readable } from 'stream'
 
 // TODO(tec27): Type options better
 /** A generic file store type, meant to allow us to swap stores between dev/prod environments. */

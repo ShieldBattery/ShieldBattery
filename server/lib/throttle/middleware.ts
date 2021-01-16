@@ -1,5 +1,5 @@
 import httpErrors from 'http-errors'
-import { ExtendableContext, Next, Middleware } from 'koa'
+import { ExtendableContext, Middleware, Next } from 'koa'
 import { PromiseBasedThrottle } from './create-throttle'
 
 async function middlewareFunc(

@@ -1,9 +1,9 @@
-import { Map, Record, is } from 'immutable'
-import log from '../logging/logger'
-import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { is, Map, Record } from 'immutable'
 import { NydusServer } from 'nydus'
 import { injectable } from 'tsyringe'
+import { MatchmakingType } from '../../../common/matchmaking'
+import log from '../logging/logger'
+import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 
 class StatusRecord extends Record({
   type: null as MatchmakingType | null,

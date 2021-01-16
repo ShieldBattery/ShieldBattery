@@ -1,6 +1,6 @@
-import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
 import { Permissions } from '../../../common/users/permissions'
+import db, { DbClient } from '../db'
 
 function convertFromDb(props: {
   /* eslint-disable camelcase */

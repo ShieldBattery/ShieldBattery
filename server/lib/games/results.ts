@@ -1,6 +1,6 @@
 import {
-  GameClientResult,
   GameClientPlayerResult,
+  GameClientResult,
   ReconciledResult,
 } from '../../../common/game-results'
 import { AssignedRaceChar } from '../../../common/races'

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
-import { NydusServer, NydusClient } from 'nydus'
+import { NydusClient, NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
 import log from '../logging/logger'
 import { updateOrInsertUserIp } from '../models/user-ips'

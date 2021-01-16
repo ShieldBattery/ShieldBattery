@@ -1,8 +1,8 @@
-import 'whatwg-fetch'
 import { Readable } from 'stream'
-import { makeServerUrl } from './server-url'
-import readCookies from './read-cookies'
+import 'whatwg-fetch'
 import { FetchError } from './fetch-action-types'
+import readCookies from './read-cookies'
+import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
 

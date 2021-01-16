@@ -1,5 +1,5 @@
-import pino, { stdSerializers } from 'pino'
 import cuid from 'cuid'
+import pino, { stdSerializers } from 'pino'
 
 export default pino(getLoggerOptions())
 

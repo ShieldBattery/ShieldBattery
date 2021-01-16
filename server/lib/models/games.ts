@@ -1,5 +1,5 @@
-import db, { DbClient } from '../db'
 import sql from 'sql-template-strings'
+import db, { DbClient } from '../db'
 import { GameConfig, GameConfigPlayerId } from '../games/configuration'
 import { ReconciledPlayerResult, ReconciledResults } from '../games/results'
 

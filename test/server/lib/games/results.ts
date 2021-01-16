@@ -1,7 +1,6 @@
 import { expect } from 'chai'
-import { GameClientResult, GameClientPlayerResult } from '../../../../common/game-results'
+import { GameClientPlayerResult, GameClientResult } from '../../../../common/game-results'
 import { AssignedRaceChar } from '../../../../common/races'
-
 import {
   hasCompletedResults,
   ReconciledPlayerResult,
