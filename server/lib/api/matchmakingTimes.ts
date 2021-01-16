@@ -5,7 +5,7 @@ import Joi from 'joi'
 
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
 import { AddMatchmakingTimeBody } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -21,8 +21,12 @@ import {
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 
 const matchmakingTypeSchema = Joi.object({
-  matchmakingType: Joi.valid(...Object.values(MatchmakingType)).required(),
+  matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
 })
+
+interface MatchmakingTypeParams {
+  matchmakingType: MatchmakingType
+}
 
 const addMatchmakingTimeSchema = Joi.object({
   startDate: Joi.number()
@@ -82,7 +86,7 @@ export default function (router: Router) {
 }
 
 async function getHistory(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = ctx.params
+  const { matchmakingType } = ctx.params as MatchmakingTypeParams
 
   const current = await getCurrentMatchmakingTime(matchmakingType)
   // NOTE(2Pac): `current` can be `null` in case all the times are in future (or there are none yet)
@@ -102,7 +106,7 @@ async function getHistory(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = ctx.params
+  const { matchmakingType } = ctx.params as MatchmakingTypeParams
   let { limit, page } = ctx.query
 
   limit = parseInt(limit, 10)
@@ -132,7 +136,7 @@ async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = ctx.params
+  const { matchmakingType } = ctx.params as MatchmakingTypeParams
   let { limit, page } = ctx.query
 
   limit = parseInt(limit, 10)
@@ -162,7 +166,7 @@ async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function addNew(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = ctx.params
+  const { matchmakingType } = ctx.params as MatchmakingTypeParams
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)

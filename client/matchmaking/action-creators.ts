@@ -1,19 +1,23 @@
-import createSiteSocketAction from '../action-creators/site-socket-action-creator'
-import fetch from '../network/fetch'
 import {
-  MATCHMAKING_ACCEPT_BEGIN,
-  MATCHMAKING_ACCEPT,
-  MATCHMAKING_CANCEL_BEGIN,
-  MATCHMAKING_CANCEL,
-  MATCHMAKING_FIND_BEGIN,
-  MATCHMAKING_FIND,
-  MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
-  MATCHMAKING_GET_CURRENT_MAP_POOL,
-} from '../actions'
-import { MatchmakingType } from '../../common/matchmaking'
-import { ThunkAction } from '../dispatch-registry'
+  GetPreferencesPayload,
+  MatchmakingPreferences,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { GetPreferencesPayload, MatchmakingPreferences } from './actions'
+import createSiteSocketAction from '../action-creators/site-socket-action-creator'
+import {
+  MATCHMAKING_ACCEPT,
+  MATCHMAKING_ACCEPT_BEGIN,
+  MATCHMAKING_CANCEL,
+  MATCHMAKING_CANCEL_BEGIN,
+  MATCHMAKING_FIND,
+  MATCHMAKING_FIND_BEGIN,
+  MATCHMAKING_GET_CURRENT_MAP_POOL,
+  MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
+} from '../actions'
+import { ThunkAction } from '../dispatch-registry'
+import { apiUrl } from '../network/api-url'
+import fetch from '../network/fetch'
 
 export const findMatch = (
   type: MatchmakingType,
@@ -45,7 +49,7 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
     } as any)
     dispatch({
       type: MATCHMAKING_GET_CURRENT_MAP_POOL,
-      payload: fetch('/api/1/matchmakingMapPools/' + encodeURIComponent(type) + '/current'),
+      payload: fetch(apiUrl`matchmakingMapPools/${type}/current`),
       meta: { type },
     } as any)
   }
@@ -56,9 +60,7 @@ export function getMatchmakingPreferences(matchmakingType: MatchmakingType): Thu
     dispatch({ type: '@matchmaking/getPreferencesBegin', payload: { type: matchmakingType } })
     dispatch({
       type: '@matchmaking/getPreferences',
-      payload: fetch<GetPreferencesPayload>(
-        `/api/1/matchmakingPreferences?matchmakingType=${matchmakingType}`,
-      ),
+      payload: fetch<GetPreferencesPayload>(apiUrl`matchmakingPreferences/${matchmakingType}`),
       meta: { type: matchmakingType },
     })
   }
@@ -66,13 +68,15 @@ export function getMatchmakingPreferences(matchmakingType: MatchmakingType): Thu
 
 export function updateMatchmakingPreferences(preferences: MatchmakingPreferences): ThunkAction {
   return dispatch => {
+    const { matchmakingType } = preferences
     dispatch({
       type: '@matchmaking/updatePreferencesBegin',
       payload: preferences,
+      meta: { type: matchmakingType },
     })
     dispatch({
       type: '@matchmaking/updatePreferences',
-      payload: fetch<GetPreferencesPayload>('/api/1/matchmakingPreferences', {
+      payload: fetch<GetPreferencesPayload>(apiUrl`matchmakingPreferences/${matchmakingType}`, {
         method: 'post',
         body: JSON.stringify(preferences),
       }),
