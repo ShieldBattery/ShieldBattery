@@ -8,12 +8,14 @@ const AVAILABLE_SOUNDS = {
   JOIN_ALERT: 0,
   COUNTDOWN: 1,
   ATMOSPHERE: 2,
+  MATCH_FOUND: 3,
 }
 const s = AVAILABLE_SOUNDS
 const SOUND_FILES = {
   [s.JOIN_ALERT]: 'join-alert.opus',
   [s.COUNTDOWN]: 'countdown.opus',
   [s.ATMOSPHERE]: 'atmosphere.opus',
+  [s.MATCH_FOUND]: 'match-found.opus',
 }
 
 export default class AudioManager {

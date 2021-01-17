@@ -87,6 +87,8 @@ const eventToAction = {
       ipcRenderer.send(USER_ATTENTION_REQUIRED)
     }
 
+    audioManager.playSound(SOUNDS.MATCH_FOUND)
+
     clearRequeueTimer()
     clearAcceptMatchTimer()
     rallyPointManager.refreshPings()
