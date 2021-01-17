@@ -23,3 +23,18 @@ set SB_REACT_DEV=1
 ```
 
 Any instances of our app launched from that terminal will then connect to the remote devtools.
+
+### Redux Developer Tools
+
+This set of developer tools are manually integrated into our application, instead of using a browser
+extension as it was done previously. To show/hide it, use the following hotkey inside application:
+
+```
+ctrl + h
+```
+
+To change the default position of the overlay, use the following hotkey:
+
+```
+ctrl + q
+```
