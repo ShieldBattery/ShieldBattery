@@ -224,29 +224,37 @@ export class ClientSocketsManager extends EventEmitter {
         return
       }
 
-      const userClientId = `${session.userId}|${session.clientId}`
+      const userClientId = this.keyFor(session.userId, session.clientId)
       if (!this.clients.has(userClientId)) {
         const client = new ClientSocketsGroup(this.nydus, session, socket)
         this.clients = this.clients.set(userClientId, client)
-        client.once('close', () => this._removeClient(userClientId))
+        client.once('close', () => this.removeClient(userClientId))
       } else {
         this.clients.get(userClientId)!.add(socket)
       }
     })
   }
 
-  getCurrentClient(socket: NydusClient) {
+  getCurrentClient(socket: NydusClient): ClientSocketsGroup | undefined {
     const session = this.sessionLookup.get(socket.conn.request)
     if (!session) {
       log.error({ req: socket.conn.request }, "couldn't find a session for the request")
       return undefined
     }
 
-    const userClientId = `${session.userId}|${session.clientId}`
+    const userClientId = this.keyFor(session.userId, session.clientId)
     return this.clients.get(userClientId)
   }
 
-  _removeClient(userClientId: string) {
+  getById(userId: number, clientId: string): ClientSocketsGroup | undefined {
+    return this.clients.get(this.keyFor(userId, clientId))
+  }
+
+  private keyFor(userId: number, clientId: string) {
+    return `${userId}|${clientId}`
+  }
+
+  private removeClient(userClientId: string) {
     this.clients = this.clients.delete(userClientId)
     return this
   }
