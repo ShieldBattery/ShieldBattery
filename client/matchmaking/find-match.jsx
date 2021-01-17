@@ -358,7 +358,7 @@ export default class FindMatch extends React.Component {
     const { race, useAlternateRace, alternateRace, mapPoolOutdated } = matchmakingPreferences
     const model = {
       race: race || 'r',
-      useAlternateRace,
+      useAlternateRace: !!useAlternateRace,
       alternateRace: alternateRace || 'z',
     }
 
