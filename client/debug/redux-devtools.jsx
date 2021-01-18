@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import styled from 'styled-components'
 import { createDevTools } from 'redux-devtools'
 import DockMonitor from 'redux-devtools-dock-monitor'
@@ -22,9 +22,37 @@ const Container = styled.div`
   }
 `
 
+let isVisible = false
+let setIsVisible = val => {
+  isVisible = val
+}
+
+/**
+ * A wrapper around ReduxDevtoolsInspector that removes the inspector from the component tree
+ * entirely if it's not visible. The underlying component's layout code is quite expensive even
+ * when non-visible and occurs on every action dispatched, so it tends to make things quite laggy.
+ * This is mildly okay when you actually want to see the actions being dispatched, but pretty darn
+ * annoying if the UI isn't even onscreen.
+ */
+function PerformantInspectorMonitor(props) {
+  ;[isVisible, setIsVisible] = useState(false)
+
+  return isVisible ? (
+    <InspectorMonitor {...props} theme='nicinabox' invertTheme={false} supportImmutable={true} />
+  ) : null
+}
+
+PerformantInspectorMonitor.update = function (monitorProps, state, action) {
+  if (action.type === '@@redux-devtools-log-monitor/TOGGLE_VISIBILITY') {
+    setIsVisible(!isVisible)
+  }
+
+  return InspectorMonitor.update(monitorProps, state, action)
+}
+
 export const DevTools = createDevTools(
   <DockMonitor toggleVisibilityKey='ctrl-h' changePositionKey='ctrl-q' defaultIsVisible={false}>
-    <InspectorMonitor theme='nicinabox' invertTheme={false} supportImmutable={true} />
+    <PerformantInspectorMonitor />
   </DockMonitor>,
 )
 
