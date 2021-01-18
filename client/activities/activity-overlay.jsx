@@ -65,6 +65,7 @@ const Overlay = styled.div`
   min-width: 448px;
   max-width: 768px;
   background-color: ${grey850};
+  contain: strict;
   z-index: ${zIndexSideNav};
 
   -webkit-app-region: no-drag;
