@@ -88,7 +88,7 @@ const Container = styled.div`
 
   &.enterActive ${Scrim} {
     opacity: 0.42;
-    transition: opacity 250ms ${fastOutSlowIn};
+    transition: opacity 250ms linear;
   }
 
   &.exit {
@@ -110,7 +110,7 @@ const Container = styled.div`
 
   &.exitActive ${Scrim} {
     opacity: 0;
-    transition: opacity 200ms ${fastOutSlowIn};
+    transition: opacity 200ms linear;
   }
 `
 
