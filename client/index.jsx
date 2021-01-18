@@ -20,7 +20,7 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
 let ReduxDevTools, ReduxDevToolsContainer
 if (IS_ELECTRON && isDev) {
-  const devtools = require('./debug/redux-devtools.jsx')
+  const devtools = require('./debug/redux-devtools')
   ReduxDevToolsContainer = devtools.default
   ReduxDevTools = devtools.DevTools
 }
