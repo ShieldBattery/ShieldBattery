@@ -18,21 +18,38 @@ import {
 import { ThunkAction } from '../dispatch-registry'
 import { apiUrl } from '../network/api-url'
 import fetch from '../network/fetch'
+import siteSocket from '../network/site-socket'
 
-export const findMatch = (
+export function findMatch(
   type: MatchmakingType,
   race: RaceChar,
   useAlternateRace: boolean,
   alternateRace: RaceChar,
   preferredMaps: string[],
-) =>
-  createSiteSocketAction(MATCHMAKING_FIND_BEGIN, MATCHMAKING_FIND, '/matchmaking/find', {
+): ThunkAction {
+  const params = {
     type,
     race,
     useAlternateRace,
     alternateRace,
     preferredMaps,
-  })
+  }
+
+  return dispatch => {
+    dispatch({
+      type: MATCHMAKING_FIND_BEGIN,
+      payload: params,
+    } as any)
+
+    dispatch({
+      type: MATCHMAKING_FIND,
+      payload: siteSocket
+        .invoke('/matchmaking/find', params)
+        .then(() => ({ startTime: window.performance.now() })),
+      meta: params,
+    } as any)
+  }
+}
 
 export const cancelFindMatch = () =>
   createSiteSocketAction(MATCHMAKING_CANCEL_BEGIN, MATCHMAKING_CANCEL, '/matchmaking/cancel')

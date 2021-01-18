@@ -137,6 +137,7 @@ const eventToAction = {
 
     dispatch({
       type: MATCHMAKING_FIND,
+      payload: { startTime: window.performance.now() },
     })
     requeueState.timer = setTimeout(() => {
       // TODO(tec27): we should allow people to close this dialog themselves, and if/when they do,

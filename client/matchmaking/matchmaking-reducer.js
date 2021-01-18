@@ -89,7 +89,7 @@ export default keyedReducer(new MatchmakingState(), {
 
     return new MatchmakingState({
       isFinding: true,
-      searchStartTime: window.performance.now(),
+      searchStartTime: action.payload.startTime,
     })
   },
 
