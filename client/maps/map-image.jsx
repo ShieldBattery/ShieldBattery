@@ -68,6 +68,7 @@ export default class MapImage extends React.Component {
             src={map.image256Url}
             alt={altText || map.name}
             draggable={false}
+            decoding={'async'}
           />
         ) : (
           noImageElem

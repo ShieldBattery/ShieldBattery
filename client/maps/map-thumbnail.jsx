@@ -24,6 +24,7 @@ const Container = styled.div`
   height: 100%;
   border-radius: 2px;
   overflow: hidden;
+  contain: strict;
 `
 
 const StyledMapImage = styled(MapImage)`
