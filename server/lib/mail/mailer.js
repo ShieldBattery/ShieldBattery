@@ -3,6 +3,7 @@ import path from 'path'
 import createMailgun from 'mailgun-js'
 import handlebars from 'handlebars'
 import thenify from 'thenify'
+import log from '../logging/logger'
 
 const asyncReadFile = thenify(fs.readFile)
 
@@ -46,6 +47,13 @@ export default async function sendMail({ to, subject, templateName, templateData
   }
 
   if (!enabled) {
+    if (process.env.NODE_ENV !== 'production') {
+      // In dev, we log out the emails to console to make them easy to test links, etc.
+      log.debug(
+        {},
+        '\n\n==EMAIL==\n\nTo: ' + to + '\nSubject: ' + subject + '\nBody:\n' + text + '\n\n====',
+      )
+    }
     return undefined
   } else {
     return mailgun.messages().send(mailData)
