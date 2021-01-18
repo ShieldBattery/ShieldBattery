@@ -12,7 +12,7 @@ import { closeOverlay } from './action-creators'
 import { dialogScrim, grey850 } from '../styles/colors'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
-import { fastOutSlowIn, fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
+import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 
 const {
   FindMatch,
