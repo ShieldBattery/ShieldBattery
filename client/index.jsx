@@ -18,9 +18,11 @@ import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
-let ReduxDevTools
+let ReduxDevTools, ReduxDevToolsContainer
 if (IS_ELECTRON && isDev) {
-  ReduxDevTools = require('./debug/redux-devtools.jsx').default
+  const devtools = require('./debug/redux-devtools.jsx')
+  ReduxDevToolsContainer = devtools.default
+  ReduxDevTools = devtools.DevTools
 }
 
 if (IS_ELECTRON) {
@@ -115,7 +117,7 @@ Promise.all([rootElemPromise])
           <RedirectProvider>
             <>
               <App />
-              {ReduxDevTools ? <ReduxDevTools /> : null}
+              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
             </>
           </RedirectProvider>
         </ConnectedRouter>
