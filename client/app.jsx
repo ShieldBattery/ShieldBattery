@@ -4,7 +4,7 @@ import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
 import { hot } from 'react-hot-loader/root'
 
-import { VerifyEmail, SendVerificationEmail } from './auth/email-verification'
+import { VerifyEmail } from './auth/email-verification'
 import Faq from './beta/faq'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot'
 import HasBetaFilter from './beta/has-beta-filter'
@@ -54,7 +54,6 @@ class App extends React.Component {
             <LoginRoute path='/reset-password' component={ResetPassword} />
             <LoginRoute path='/signup' component={Signup} />
             <LoginRoute path='/verify-email' component={VerifyEmail} />
-            <LoginRoute path='/send-verification-email' component={SendVerificationEmail} />
             {!IS_PRODUCTION ? <Route path='/dev' component={LoadableDev} /> : null}
             <ConditionalRoute
               filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}

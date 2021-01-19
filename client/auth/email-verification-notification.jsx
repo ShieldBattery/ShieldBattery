@@ -1,5 +1,5 @@
 import React from 'react'
-import { makeServerUrl } from '../network/server-url'
+import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { grey800, colorTextPrimary } from '../styles/colors'
@@ -20,11 +20,15 @@ const VerifyEmailText = styled(Body1Old)`
 `
 
 export default class ContentLayout extends React.Component {
+  static propTypes = {
+    sendVerificationEmail: PropTypes.func.isRequired,
+  }
+
   render() {
     const verifyEmailText = `Your email is unverified! Check for an email from
       ShieldBattery and click the enclosed link. If you don't see one, we can `
     const verifyEmailLink = (
-      <a href={makeServerUrl('/send-verification-email')} target='_blank'>
+      <a href='#' onClick={this.props.sendVerificationEmail}>
         send another.
       </a>
     )

@@ -50,6 +50,7 @@ import { isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { regenMapImage, removeMap } from './maps/action-creators'
+import { sendVerificationEmail } from './auth/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
@@ -309,7 +310,9 @@ class MainLayout extends React.Component {
     return (
       <Container>
         <AppBar>{appBarTitle}</AppBar>
-        {!auth.emailVerified ? <EmailVerificationNotification /> : null}
+        {!auth.emailVerified ? (
+          <EmailVerificationNotification sendVerificationEmail={this.sendVerificationEmail} />
+        ) : null}
         <Layout>
           <ConnectedLeftNav />
           <Content>
@@ -341,6 +344,10 @@ class MainLayout extends React.Component {
         </Layout>
       </Container>
     )
+  }
+
+  sendVerificationEmail = () => {
+    this.props.dispatch(sendVerificationEmail().action)
   }
 
   onMatchmakingDisabledOverlayClose = () => {

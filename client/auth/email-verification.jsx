@@ -139,16 +139,3 @@ export const VerifyEmail = ({ location }) => {
     />
   )
 }
-
-const SEND_VERIFICATION_EMAIL_SUCCESS =
-  'Verification email has successfully been sent. Check your email.'
-export const SendVerificationEmail = ({ location }) => {
-  return (
-    <EmailVerification
-      title={'Send verification email'}
-      doSubmit={() => sendVerificationEmail()}
-      successMessage={SEND_VERIFICATION_EMAIL_SUCCESS}
-      location={location}
-    />
-  )
-}

@@ -3,6 +3,7 @@ import { User, UserInfo } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 
 type IdRequestable = Extract<
@@ -17,7 +18,7 @@ function idRequest<
   ActionType extends Extract<IdRequestable, { type: ActionTypeName }>
 >(
   type: ActionTypeName,
-  fetcher: () => Promise<ActionType['payload']>,
+  fetcher: (dispatch: any) => Promise<ActionType['payload']>,
 ): {
   id: string
   action: ThunkAction<ActionType | AuthChangeBegin>
@@ -34,7 +35,7 @@ function idRequest<
         },
       })
 
-      const payload = fetcher()
+      const payload = fetcher(dispatch)
       const promisified: PromisifiedAction<ActionType> = ({
         type,
         payload,
@@ -135,7 +136,26 @@ export function verifyEmail(token: string) {
 export function sendVerificationEmail() {
   const url = '/api/1/users/sendVerification'
 
-  return idRequest('@auth/sendVerificationEmail', () => fetch<void>(url, { method: 'post' }))
+  return idRequest('@auth/sendVerificationEmail', dispatch =>
+    fetch<void>(url, { method: 'post' }).then(
+      () =>
+        dispatch(
+          openSnackbar({
+            message: 'Verification email has successfully been sent. Check your email.',
+            time: TIMING_LONG,
+          }),
+        ),
+      err => {
+        dispatch(
+          openSnackbar({
+            message: 'Something went wrong while trying to send a verification email.',
+            time: TIMING_LONG,
+          }),
+        )
+        throw err
+      },
+    ),
+  )
 }
 
 export function updateAccount(userId: number, userProps: Partial<User>) {
