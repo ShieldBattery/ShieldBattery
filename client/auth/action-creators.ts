@@ -133,7 +133,7 @@ export function verifyEmail(token: string) {
   return idRequest('@auth/verifyEmail', () => fetch<void>(url, { method: 'post' }))
 }
 
-export function sendVerificationEmail() {
+export function sendVerificationEmail(): ThunkAction {
   return dispatch =>
     fetch<void>('/api/1/users/sendVerification', { method: 'post' }).then(
       () =>
