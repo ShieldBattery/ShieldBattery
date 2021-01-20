@@ -88,11 +88,6 @@ export type RecoverUsernameSuccess = BaseAuthSuccess<'@auth/recoverUsername'>
 /** Recovering a user's name based on their email failed. */
 export type RecoverUsernameFailure = BaseAuthFailure<'@auth/recoverUsername'>
 
-/** Sending a verification email for the current user succeeded. */
-export type SendVerificationEmailSuccess = BaseAuthSuccess<'@auth/sendVerificationEmail'>
-/** Sending a verification email for the current user failed. */
-export type SendVerificationEmailFailure = BaseAuthFailure<'@auth/sendVerificationEmail'>
-
 /** Initiating a password reset for a user was successful. */
 export type StartPasswordResetSuccess = BaseAuthSuccess<'@auth/startPasswordReset'>
 /** Initiating a password reset for a user failed. */

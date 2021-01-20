@@ -143,7 +143,7 @@ export function sendVerificationEmail(): ThunkAction {
             time: TIMING_LONG,
           }),
         ),
-      err => {
+      () => {
         dispatch(
           openSnackbar({
             message:
@@ -151,7 +151,6 @@ export function sendVerificationEmail(): ThunkAction {
             time: TIMING_LONG,
           }),
         )
-        throw err
       },
     )
 }
