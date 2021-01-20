@@ -17,7 +17,7 @@ import {
 } from './auth-content'
 import LoadingIndicator from '../progress/dots'
 
-import { verifyEmail, sendVerificationEmail } from './action-creators'
+import { verifyEmail } from './action-creators'
 import { isLoggedIn, createNextPath } from './auth-utils'
 
 @connect(state => ({ auth: state.auth }))
