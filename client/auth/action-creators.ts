@@ -18,7 +18,7 @@ function idRequest<
   ActionType extends Extract<IdRequestable, { type: ActionTypeName }>
 >(
   type: ActionTypeName,
-  fetcher: (dispatch: any) => Promise<ActionType['payload']>,
+  fetcher: () => Promise<ActionType['payload']>,
 ): {
   id: string
   action: ThunkAction<ActionType | AuthChangeBegin>
@@ -35,7 +35,7 @@ function idRequest<
         },
       })
 
-      const payload = fetcher(dispatch)
+      const payload = fetcher()
       const promisified: PromisifiedAction<ActionType> = ({
         type,
         payload,
@@ -134,28 +134,26 @@ export function verifyEmail(token: string) {
 }
 
 export function sendVerificationEmail() {
-  const url = '/api/1/users/sendVerification'
-
-  return idRequest('@auth/sendVerificationEmail', dispatch =>
-    fetch<void>(url, { method: 'post' }).then(
+  return dispatch =>
+    fetch<void>('/api/1/users/sendVerification', { method: 'post' }).then(
       () =>
         dispatch(
           openSnackbar({
-            message: 'Verification email has successfully been sent. Check your email.',
+            message: 'Verification email has been sent successfully.',
             time: TIMING_LONG,
           }),
         ),
       err => {
         dispatch(
           openSnackbar({
-            message: 'Something went wrong while trying to send a verification email.',
+            message:
+              'Something went wrong while sending a verification email, please try again later.',
             time: TIMING_LONG,
           }),
         )
         throw err
       },
-    ),
-  )
+    )
 }
 
 export function updateAccount(userId: number, userProps: Partial<User>) {

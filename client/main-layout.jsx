@@ -347,7 +347,7 @@ class MainLayout extends React.Component {
   }
 
   sendVerificationEmail = () => {
-    this.props.dispatch(sendVerificationEmail().action)
+    this.props.dispatch(sendVerificationEmail())
   }
 
   onMatchmakingDisabledOverlayClose = () => {
