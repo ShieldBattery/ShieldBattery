@@ -13,8 +13,6 @@ export type AuthActions =
   | ResetPasswordFailure
   | RecoverUsernameSuccess
   | RecoverUsernameFailure
-  | SendVerificationEmailSuccess
-  | SendVerificationEmailFailure
   | StartPasswordResetSuccess
   | StartPasswordResetFailure
   | SignUpSuccess
