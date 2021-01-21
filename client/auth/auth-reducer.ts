@@ -8,7 +8,6 @@ import {
   LogInFailure,
   LogInSuccess,
   LogOutSuccess,
-  SendVerificationEmailFailure,
   SignUpFailure,
   SignUpSuccess,
   VerifyEmailFailure,
@@ -77,23 +76,6 @@ function handleVerifyEmailError(state: State, action: VerifyEmailFailure) {
   )
 }
 
-function handleSendVerificationEmailError(state: State, action: SendVerificationEmailFailure) {
-  const { body, res } = action.payload
-  let errMessage = body ? body.error : 'Sending verification error'
-  if (res.status === 409) {
-    errMessage =
-      'The provided email is over verification limit. Please use a different email ' +
-      'address or try again later.'
-  }
-
-  return state.withMutations(s =>
-    s.set('authChangeInProgress', false).set('lastFailure', {
-      ...action.meta,
-      err: errMessage,
-    }),
-  )
-}
-
 function accountUpdate(state: State, action: AccountUpdateSuccess) {
   const { email, emailVerified } = action.payload
   return state
@@ -120,8 +102,6 @@ export default keyedReducer(new Auth(), {
     !action.error ? logInSuccess(state, action) : state.set('authChangeInProgress', false),
   ['@auth/resetPassword']: noOpOrError,
   ['@auth/recoverUsername']: noOpOrError,
-  ['@auth/sendVerificationEmail']: (state, action) =>
-    !action.error ? noOpOrError(state, action) : handleSendVerificationEmailError(state, action),
   ['@auth/startPasswordReset']: noOpOrError,
   ['@auth/emailVerified']: state => state.set('emailVerified', true),
   ['@auth/verifyEmail']: (state, action) =>

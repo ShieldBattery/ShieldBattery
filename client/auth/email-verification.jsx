@@ -17,7 +17,7 @@ import {
 } from './auth-content'
 import LoadingIndicator from '../progress/dots'
 
-import { verifyEmail, sendVerificationEmail } from './action-creators'
+import { verifyEmail } from './action-creators'
 import { isLoggedIn, createNextPath } from './auth-utils'
 
 @connect(state => ({ auth: state.auth }))
@@ -135,19 +135,6 @@ export const VerifyEmail = ({ location }) => {
       title={'Verify email'}
       doSubmit={() => verifyEmail(token)}
       successMessage={VERIFY_EMAIL_SUCCESS}
-      location={location}
-    />
-  )
-}
-
-const SEND_VERIFICATION_EMAIL_SUCCESS =
-  'Verification email has successfully been sent. Check your email.'
-export const SendVerificationEmail = ({ location }) => {
-  return (
-    <EmailVerification
-      title={'Send verification email'}
-      doSubmit={() => sendVerificationEmail()}
-      successMessage={SEND_VERIFICATION_EMAIL_SUCCESS}
       location={location}
     />
   )

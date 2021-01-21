@@ -3,6 +3,7 @@ import { User, UserInfo } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 
 type IdRequestable = Extract<
@@ -132,10 +133,26 @@ export function verifyEmail(token: string) {
   return idRequest('@auth/verifyEmail', () => fetch<void>(url, { method: 'post' }))
 }
 
-export function sendVerificationEmail() {
-  const url = '/api/1/users/sendVerification'
-
-  return idRequest('@auth/sendVerificationEmail', () => fetch<void>(url, { method: 'post' }))
+export function sendVerificationEmail(): ThunkAction {
+  return dispatch =>
+    fetch<void>('/api/1/users/sendVerification', { method: 'post' }).then(
+      () =>
+        dispatch(
+          openSnackbar({
+            message: 'Verification email has been sent successfully.',
+            time: TIMING_LONG,
+          }),
+        ),
+      () => {
+        dispatch(
+          openSnackbar({
+            message:
+              'Something went wrong while sending a verification email, please try again later.',
+            time: TIMING_LONG,
+          }),
+        )
+      },
+    )
 }
 
 export function updateAccount(userId: number, userProps: Partial<User>) {
