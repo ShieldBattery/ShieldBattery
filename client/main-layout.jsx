@@ -346,7 +346,8 @@ class MainLayout extends React.Component {
     )
   }
 
-  sendVerificationEmail = () => {
+  sendVerificationEmail = event => {
+    event.preventDefault()
     this.props.dispatch(sendVerificationEmail())
   }
 
