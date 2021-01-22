@@ -155,7 +155,7 @@ const eventToAction = {
       type: MATCHMAKING_UPDATE_MATCH_READY,
       payload: event,
     })
-    dispatch(replace('/matchmaking/map-selection'))
+    dispatch(replace('/matchmaking/countdown'))
 
     const {
       settings,
@@ -199,22 +199,14 @@ const eventToAction = {
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
-  startCountdown: (name, event) => (dispatch, getState) => {
-    const {
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = getState()
-
+  startCountdown: (name, event) => dispatch => {
     clearCountdownTimer()
     let tick = 5
     dispatch({
       type: MATCHMAKING_UPDATE_COUNTDOWN_START,
       payload: tick,
     })
-    if (currentPath === '/matchmaking/map-selection') {
-      dispatch(replace('/matchmaking/countdown'))
-    }
+
     countdownState.sound = audioManager.playFadeableSound(SOUNDS.COUNTDOWN)
     countdownState.atmosphere = audioManager.playFadeableSound(SOUNDS.ATMOSPHERE)
 
@@ -255,11 +247,7 @@ const eventToAction = {
       },
     } = getState()
 
-    if (
-      currentPath === '/matchmaking/map-selection' ||
-      currentPath === '/matchmaking/countdown' ||
-      currentPath === '/matchmaking/game-starting'
-    ) {
+    if (currentPath === '/matchmaking/countdown' || currentPath === '/matchmaking/game-starting') {
       dispatch(replace('/'))
     }
     dispatch({

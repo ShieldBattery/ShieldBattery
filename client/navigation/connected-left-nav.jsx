@@ -108,8 +108,8 @@ class ConnectedLeftNav extends React.Component {
     } else if (matchmaking.isLoading) {
       title = `Ranked ${matchmaking.match.type}`
 
-      if (matchmaking.isSelectingMap) {
-        link = '/matchmaking/map-selection'
+      if (matchmaking.isLaunching) {
+        link = '/matchmaking/countdown'
       } else if (matchmaking.isCountingDown) {
         link = '/matchmaking/countdown'
       } else if (matchmaking.isStarting) {

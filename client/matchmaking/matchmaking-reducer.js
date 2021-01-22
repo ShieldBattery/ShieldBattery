@@ -53,7 +53,7 @@ export const BaseMatchmakingState = new Record({
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
-  isSelectingMap: false,
+  isLaunching: false,
   isCountingDown: false,
   countdownTimer: -1,
   isStarting: false,
@@ -63,7 +63,7 @@ export const BaseMatchmakingState = new Record({
 })
 export class MatchmakingState extends BaseMatchmakingState {
   get isLoading() {
-    return this.isSelectingMap || this.isCountingDown || this.isStarting
+    return this.isLaunching || this.isCountingDown || this.isStarting
   }
 }
 
@@ -155,12 +155,12 @@ export default keyedReducer(new MatchmakingState(), {
       chosenMap: new MapRecord(chosenMap),
     }
 
-    return state.set('isSelectingMap', true).update('match', m => m.merge(match))
+    return state.set('isLaunching', true).update('match', m => m.merge(match))
   },
 
   [MATCHMAKING_UPDATE_COUNTDOWN_START](state, action) {
     return state
-      .set('isSelectingMap', false)
+      .set('isLaunching', false)
       .set('isCountingDown', true)
       .set('countdownTimer', action.payload)
   },

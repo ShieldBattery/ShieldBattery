@@ -4,7 +4,6 @@ import { Route, Switch } from 'react-router-dom'
 import { replace } from 'connected-react-router'
 
 import Index from '../navigation/index'
-import MapSelection from './map-selection'
 import MatchmakingMatch from './matchmaking-match'
 
 @connect(state => ({ activeGame: state.activeGame, matchmaking: state.matchmaking }))
@@ -22,23 +21,10 @@ export default class MatchmakingView extends React.Component {
     }
   }
 
-  renderMapSelection = () => {
-    const { isSelectingMap, match } = this.props.matchmaking
-    if (!isSelectingMap || !match) return null
-
-    return (
-      <MapSelection
-        preferredMaps={match.preferredMaps.toJS()}
-        randomMaps={match.randomMaps.toJS()}
-        chosenMap={match.chosenMap}
-      />
-    )
-  }
-
   renderMatchmakingMatch = () => {
     const {
       activeGame: { isActive: hasActiveGame, info: gameInfo },
-      matchmaking: { isCountingDown, countdownTimer, isStarting, match },
+      matchmaking: { isLaunching, isCountingDown, countdownTimer, isStarting, match },
     } = this.props
 
     if (!hasActiveGame && !match) return null
@@ -48,6 +34,7 @@ export default class MatchmakingView extends React.Component {
 
     return (
       <MatchmakingMatch
+        isLaunching={isLaunching}
         isCountingDown={isCountingDown}
         countdownTimer={countdownTimer}
         isStarting={isStarting}
@@ -60,7 +47,6 @@ export default class MatchmakingView extends React.Component {
   render() {
     return (
       <Switch>
-        <Route path='/matchmaking/map-selection' render={this.renderMapSelection} />
         <Route path='/matchmaking/countdown' render={this.renderMatchmakingMatch} />
         <Route path='/matchmaking/game-starting' render={this.renderMatchmakingMatch} />
         <Route path='/matchmaking/active-game' render={this.renderMatchmakingMatch} />

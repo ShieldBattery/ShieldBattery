@@ -6,26 +6,43 @@ import { Player } from '../matchmaking-reducer'
 
 export default class MapSelectionTest extends React.Component {
   state = {
+    isLaunching: true,
     isCountingDown: false,
     countdownTimer: -1,
     isStarting: false,
   }
 
+  _launchingTimer = null
   _loadingTimer = null
   _countdownTimer = null
   _startingTimer = null
 
   componentDidMount() {
     this._loadingTimer = setInterval(() => {
-      this._startCountdown()
-    }, 15000)
-    this._startCountdown()
+      this._startGameLaunch()
+    }, 20000)
+    this._startGameLaunch()
   }
 
   componentWillUnmount() {
     this._clearCountdownTimer()
     this._clearStartingTimer()
     this._clearLoadingTimer()
+  }
+
+  _startGameLaunch() {
+    this.setState({ isLaunching: true })
+    this._launchingTimer = setTimeout(() => {
+      this.setState({ isLaunching: false })
+      this._startCountdown()
+    }, 5000)
+  }
+
+  _clearGameLaunchTimer() {
+    if (this._launchingTimer) {
+      clearTimeout(this._launchingTimer)
+      this._launchingTimer = null
+    }
   }
 
   _startCountdown() {
@@ -70,7 +87,7 @@ export default class MapSelectionTest extends React.Component {
   }
 
   render() {
-    const { isCountingDown, countdownTimer, isStarting } = this.state
+    const { isLaunching, isCountingDown, countdownTimer, isStarting } = this.state
 
     const map = new MapRecord({
       id: 1,
@@ -83,6 +100,7 @@ export default class MapSelectionTest extends React.Component {
 
     return (
       <MatchmakingMatch
+        isLaunching={isLaunching}
         isCountingDown={isCountingDown}
         countdownTimer={countdownTimer}
         isStarting={isStarting}
