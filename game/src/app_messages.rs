@@ -118,6 +118,7 @@ pub struct PlayerInfo {
     pub id: String,
     pub name: String,
     pub race: Option<String>,
+    pub user_id: Option<u32>,
     pub player_id: Option<u8>,
     pub team_id: Option<u8>,
     // Player type can have shieldbattery-specific players (e.g. "observer"),

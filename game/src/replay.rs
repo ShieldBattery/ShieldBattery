@@ -64,6 +64,7 @@ pub unsafe fn add_shieldbattery_data(
     // 0x1a     u8 starting_races[0xc]
     //      This is also needed for team game replays.
     // 0x26     u128 game_id_uuid
+    // 0x36     u32 user_ids[0x8]
     let game = bw.game();
     let mut buffer = Vec::with_capacity(32);
     buffer.write_u32::<LE>(SECTION_ID)?;
@@ -81,6 +82,13 @@ pub unsafe fn add_shieldbattery_data(
     let starting_races = (*game).starting_races;
     buffer.extend_from_slice(&starting_races);
     write_uuid(&mut buffer, &setup_info.game_id)?;
+    for slot in &setup_info.slots {
+        let user_id = match slot.user_id {
+            Some(user_id) => user_id,
+            None => 0xffffffff as u32,
+        };
+        buffer.write_u32::<LE>(user_id)?;
+    }
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
     windows::file_write(file, &buffer)?;
