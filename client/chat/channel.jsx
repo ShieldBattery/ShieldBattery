@@ -21,7 +21,7 @@ import MessageList from '../messaging/message-list'
 import MenuItem from '../material/menu/item'
 import UserProfileOverlay from '../profile/user-profile-overlay'
 import { ScrollableContent } from '../material/scroll-bar'
-import { colorDividers, colorTextSecondary } from '../styles/colors'
+import { colorDividers, colorTextSecondary, colorTextFaint, alphaDisabled } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 
 import { MULTI_CHANNEL } from '../../common/flags'
@@ -71,6 +71,18 @@ const UserSublist = styled.ul`
   list-style-type: none;
   margin: 0;
   padding: 0;
+
+  ${props => {
+    if (props.sectionTitle === 'Offline') {
+      return `
+        color: ${colorTextFaint};
+        svg {
+          opacity: ${alphaDisabled};
+        }
+      `
+    }
+    return ''
+  }}
 `
 
 const UserListEntryItem = styled.li`
@@ -179,7 +191,7 @@ class UserList extends React.Component {
         <UserListOverline>
           {title} ({users.size})
         </UserListOverline>
-        <UserSublist>
+        <UserSublist sectionTitle={title}>
           {users.map(u => (
             <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
           ))}
