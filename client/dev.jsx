@@ -3,6 +3,7 @@ import { Link, Route, Switch } from 'react-router-dom'
 import styled from 'styled-components'
 
 import DevActivities from './activities/devonly/routes'
+import { DevGames } from './games/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
@@ -27,6 +28,9 @@ class DevDashboard extends React.Component {
         <ul>
           <li>
             <Link to='/dev/activities'>Activity components</Link>
+          </li>
+          <li>
+            <Link to='/dev/games'>Games components</Link>
           </li>
           <li>
             <Link to='/dev/lists'>List components</Link>
@@ -54,6 +58,7 @@ export default class Dev extends React.Component {
         <Switch>
           <Route path='/dev' exact={true} render={() => <DevDashboard />} />
           <Route path='/dev/activities' component={DevActivities} />
+          <Route path='/dev/games' component={DevGames} />
           <Route path='/dev/lists' component={DevLists} />
           <Route path='/dev/lobbies' component={DevLobbies} />
           <Route path='/dev/matchmaking' component={DevMatchmaking} />
