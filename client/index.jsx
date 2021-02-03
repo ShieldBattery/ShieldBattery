@@ -2,7 +2,7 @@ import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
 import { ConnectedRouter } from 'connected-react-router'
-import { createBrowserHistory, createHashHistory } from 'history'
+import { createBrowserHistory } from 'history'
 
 import log from './logging/logger'
 import createStore from './create-store'
@@ -87,7 +87,7 @@ Promise.all([rootElemPromise])
       initData.auth = authFromJs(initData.auth)
     }
 
-    const history = !IS_ELECTRON ? createBrowserHistory() : createHashHistory()
+    const history = createBrowserHistory()
     const store = createStore(initData, history, ReduxDevTools)
     registerDispatch(store.dispatch)
     registerSocketHandlers()
