@@ -70,6 +70,6 @@ class Dev extends React.Component {
   }
 }
 
-// NOTE(travisc): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
+// NOTE(tec27): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
 // this root it's own hot context to keep things working inside here
 export default hot(Dev)
