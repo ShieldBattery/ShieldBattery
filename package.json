@@ -66,6 +66,7 @@
     "cross-env": "^7.0.2",
     "cross-env-test": "^0.1.1",
     "cuid": "^2.1.8",
+    "dateformat": "^4.4.1",
     "db-migrate": "^0.11.6",
     "db-migrate-pg": "^1.0.0",
     "dotenv": "^8.2.0",
