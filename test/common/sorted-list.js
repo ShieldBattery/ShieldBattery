@@ -4,14 +4,18 @@ import { create, findIndex, insert } from '../../common/sorted-list'
 
 const alphaSort = (a, b) => a.localeCompare(b)
 
-describe('sorted-list', () => {
+describe('sorted-list', function () {
+  // NOTE(tec27): This test suite is flaky on CI for reasons I cannot figure out, maybe this will
+  // help?
+  this.timeout(5000)
+
   describe('create', () => {
     it('should create an empty list', () => {
       const result = create(alphaSort)
       expect(result.size).to.eql(0)
     })
 
-    it('should create an filled list', () => {
+    it('should create a filled list', () => {
       const result = create(alphaSort, ['z', 'a', 'b'])
       expect(result.size).to.eql(3)
       expect(result.get(0)).to.eql('a')
