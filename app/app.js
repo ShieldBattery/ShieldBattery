@@ -250,7 +250,9 @@ function setupCspProtocol(curSession) {
 
     const pathname = path.posix.normalize(url.pathname)
 
-    if (pathname === '/') {
+    if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
+      cb(fs.createReadStream(path.join(__dirname, pathname)))
+    } else {
       fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
         if (err) {
           const dataStream = new Readable()
@@ -301,8 +303,6 @@ function setupCspProtocol(curSession) {
           data: dataStream,
         })
       })
-    } else {
-      cb(fs.createReadStream(path.join(__dirname, pathname)))
     }
   })
 }
