@@ -27,6 +27,13 @@ let setIsVisible = val => {
   isVisible = val
 }
 
+// NOTE(tec27): This prevents a flash of white as the drawer closes
+const EmptyComponent = styled.div`
+  width: 100%;
+  height: 100%;
+  background-color: #2a2f3a;
+`
+
 /**
  * A wrapper around ReduxDevtoolsInspector that removes the inspector from the component tree
  * entirely if it's not visible. The underlying component's layout code is quite expensive even
@@ -39,7 +46,9 @@ function PerformantInspectorMonitor(props) {
 
   return isVisible ? (
     <InspectorMonitor {...props} theme='nicinabox' invertTheme={false} supportImmutable={true} />
-  ) : null
+  ) : (
+    <EmptyComponent />
+  )
 }
 
 PerformantInspectorMonitor.update = function (monitorProps, state, action) {
