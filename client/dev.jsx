@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link, Route, Switch } from 'react-router-dom'
+import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 
 import DevActivities from './activities/devonly/routes'
@@ -50,7 +51,7 @@ class DevDashboard extends React.Component {
   }
 }
 
-export default class Dev extends React.Component {
+class Dev extends React.Component {
   render() {
     return (
       <Container>
@@ -68,3 +69,7 @@ export default class Dev extends React.Component {
     )
   }
 }
+
+// NOTE(travisc): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
+// this root it's own hot context to keep things working inside here
+export default hot(Dev)
