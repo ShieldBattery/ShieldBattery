@@ -1,5 +1,6 @@
 import React from 'react'
+import { GameResults } from '../results'
 
 export function ResultsTest() {
-  return <div>Games!</div>
+  return <GameResults />
 }

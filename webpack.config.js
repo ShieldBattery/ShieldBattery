@@ -16,6 +16,7 @@ const webWebpackOpts = {
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: process.env.NODE_ENV !== 'production' ? 'http://localhost:5566/dist/' : '/dist/',
     libraryTarget: 'commonjs2',
+    crossOriginLoading: 'anonymous',
   },
   plugins: [],
 }
