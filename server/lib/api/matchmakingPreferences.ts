@@ -48,7 +48,7 @@ export default function (router: Router) {
 }
 
 async function upsertPreferences(ctx: RouterContext) {
-  const { matchmakingType } = ctx.params as MatchmakingTypeParams
+  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
   const { race, useAlternateRace, alternateRace, preferredMaps } = ctx.request
     .body as UpdateMatchmakingPreferencesBody
 
@@ -76,7 +76,7 @@ async function upsertPreferences(ctx: RouterContext) {
 }
 
 async function getPreferences(ctx: RouterContext) {
-  const { matchmakingType } = ctx.params as MatchmakingTypeParams
+  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
 
   const preferences = await getMatchmakingPreferences(ctx.session!.userId, matchmakingType)
   if (!preferences) {
