@@ -4,7 +4,7 @@ import Joi from 'joi'
 import { container } from 'tsyringe'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
 import users from '../models/users'
-import PartyService, { PartyServiceError, PartyUser } from '../parties/party-service'
+import PartyService, { PartyServiceError, PartyServiceErrorCode, PartyUser } from '../parties/party-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -76,11 +76,24 @@ function isPartyServiceError(error: Error): error is PartyServiceError {
   return error.hasOwnProperty('code')
 }
 
+function handlePartyServiceError(error: PartyServiceError) {
+  switch (error.code) {
+    case PartyServiceErrorCode.PartyNotFound:
+      throw new httpErrors.NotFound('Party not found')
+    case PartyServiceErrorCode.NotPartyLeader:
+      throw new httpErrors.Forbidden('Must be the party leader')
+    case PartyServiceErrorCode.PartyFull:
+      throw new httpErrors.Conflict('Party is full')
+    case PartyServiceErrorCode.UserOffline:
+      throw new httpErrors.Unauthorized('Authorization required')
+  }
+}
+
 async function invite(ctx: RouterContext) {
   const { clientId, targets } = ctx.request.body
 
   try {
-    const invites = await Promise.all(
+    const invites = await Promise.all<PartyUser>(
       targets.map(
         async (target: string): Promise<PartyUser> => {
           const foundTarget = await users.find(target)
@@ -101,12 +114,12 @@ async function invite(ctx: RouterContext) {
       name: ctx.session!.userName,
     })
 
-    partyService.invite(leader, clientId, invites as PartyUser[])
+    partyService.invite(leader, clientId, invites)
 
     ctx.status = 204
   } catch (err) {
     if (isPartyServiceError(err)) {
-      throw new httpErrors[err.code](err.message)
+      handlePartyServiceError(err)
     } else {
       throw err
     }
@@ -137,7 +150,7 @@ async function decline(ctx: RouterContext) {
     ctx.status = 204
   } catch (err) {
     if (isPartyServiceError(err)) {
-      throw new httpErrors[err.code](err.message)
+      handlePartyServiceError(err)
     } else {
       throw err
     }
@@ -155,7 +168,7 @@ async function accept(ctx: RouterContext) {
     ctx.status = 204
   } catch (err) {
     if (isPartyServiceError(err)) {
-      throw new httpErrors[err.code](err.message)
+      handlePartyServiceError(err)
     } else {
       throw err
     }

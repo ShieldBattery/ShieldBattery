@@ -23,18 +23,18 @@ export class PartyRecord extends Record({
   leader: null as number | null,
 }) {}
 
-enum ErrorEnum {
-  Unauthorized = 'Unauthorized',
-  Forbidden = 'Forbidden',
-  NotFound = 'NotFound',
-  Conflict = 'Conflict',
+export enum PartyServiceErrorCode {
+  PartyNotFound,
+  NotPartyLeader,
+  PartyFull,
+  UserOffline,
 }
 
 export class PartyServiceError extends Error {
-  public code: ErrorEnum
+  public code: PartyServiceErrorCode
 
-  constructor(code: ErrorEnum, message: string) {
-    super(message)
+  constructor(code: PartyServiceErrorCode) {
+    super()
     this.code = code
   }
 }
@@ -64,7 +64,7 @@ export default class PartyService {
     let party = this.getClientParty(leaderClient)
     if (party) {
       if (party.leader !== leader.id) {
-        throw new PartyServiceError(ErrorEnum.Forbidden, 'Only party leader can invite people')
+        throw new PartyServiceError(PartyServiceErrorCode.NotPartyLeader)
       }
 
       const updatedParty = party.mergeIn('invites', Map(invites.map(i => [i.id, i])))
@@ -106,11 +106,11 @@ export default class PartyService {
   removeInvite(partyId: string, target: PartyUser, leader?: PartyUser) {
     const party = this.parties.get(partyId)
     if (!party) {
-      throw new PartyServiceError(ErrorEnum.NotFound, 'Party not found')
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
     }
 
     if (leader && leader.id !== party.leader) {
-      throw new PartyServiceError(ErrorEnum.Forbidden, 'Must be party leader')
+      throw new PartyServiceError(PartyServiceErrorCode.NotPartyLeader)
     }
 
     const updatedParty = party.deleteIn(['invites', target.id])
@@ -133,11 +133,11 @@ export default class PartyService {
 
     const party = this.parties.get(partyId)
     if (!party) {
-      throw new PartyServiceError(ErrorEnum.NotFound, 'Party not found')
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
     }
 
     if (party.members.size > MAX_PARTY_SIZE) {
-      throw new PartyServiceError(ErrorEnum.Conflict, 'Party is full')
+      throw new PartyServiceError(PartyServiceErrorCode.PartyFull)
     }
 
     const oldParty = this.getClientParty(client)
@@ -166,14 +166,14 @@ export default class PartyService {
         action: 'init',
         party,
       }),
-      () => this.handleClientQuit(client),
+      client => this.handleClientQuit(client),
     )
   }
 
   private handleClientQuit(client: ClientSocketsGroup) {
     const party = this.getClientParty(client)
     if (!party) {
-      throw new PartyServiceError(ErrorEnum.NotFound, 'Party not found')
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
     }
 
     this.clientToPartyId.delete(client)
@@ -189,13 +189,13 @@ export default class PartyService {
   }
 
   private publishToParty(partyId: string, data: any) {
-    this.nydus.publish(getPartyPath(partyId as string), data)
+    this.nydus.publish(getPartyPath(partyId), data)
   }
 
   private getUser(username: string): UserSocketsGroup {
     const user = this.userSockets.getByName(username)
     if (!user) {
-      throw new PartyServiceError(ErrorEnum.Unauthorized, 'Authorization required')
+      throw new PartyServiceError(PartyServiceErrorCode.UserOffline)
     }
 
     return user
@@ -204,7 +204,7 @@ export default class PartyService {
   private getClient(userId: number, clientId: string): ClientSocketsGroup {
     const client = this.clientSockets.getById(userId, clientId)
     if (!client) {
-      throw new PartyServiceError(ErrorEnum.Unauthorized, 'Authorization required')
+      throw new PartyServiceError(PartyServiceErrorCode.UserOffline)
     }
 
     return client
