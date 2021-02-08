@@ -7,21 +7,21 @@ import { updateOrInsertUserIp } from '../models/user-ips'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
-type DataGetter = (socketGroup: SocketGroup, socket: NydusClient) => unknown
-type CleanupFunc = (socketGroup: SocketGroup) => void
+type DataGetter<T> = (socketGroup: T, socket: NydusClient) => unknown
+type CleanupFunc<T> = (socketGroup: T) => void
 
-interface SubscriptionInfo {
-  getter: DataGetter
-  cleanup: CleanupFunc | undefined
+interface SubscriptionInfo<T> {
+  getter: DataGetter<T>
+  cleanup: CleanupFunc<T> | undefined
 }
 
-const defaultDataGetter: DataGetter = () => {}
+const defaultDataGetter: DataGetter<any> = () => {}
 
 // TODO(tec27): type the events this emits
 abstract class SocketGroup extends EventEmitter {
   readonly name: string
   sockets = Set<NydusClient>()
-  subscriptions = Map<string, Readonly<SubscriptionInfo>>()
+  subscriptions = Map<string, Readonly<SubscriptionInfo<this>>>()
 
   constructor(private nydus: NydusServer, readonly session: SessionInfo, initSocket: NydusClient) {
     super()
@@ -80,7 +80,7 @@ abstract class SocketGroup extends EventEmitter {
       socketGroup: SocketGroup,
       socket: NydusClient,
     ) => unknown = defaultDataGetter,
-    cleanup?: (socketGroup: SocketGroup) => void,
+    cleanup?: (socketGroup: this) => void,
   ) {
     if (this.subscriptions.has(path)) {
       throw new Error('duplicate persistent subscription: ' + path)
