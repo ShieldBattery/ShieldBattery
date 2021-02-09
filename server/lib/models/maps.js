@@ -1,7 +1,7 @@
 import db from '../db'
 import transact from '../db/transaction'
 import sql from 'sql-template-strings'
-import { tilesetIdToName, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
+import { SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { getUrl } from '../file-upload'
 import { mapPath, imagePath } from '../maps/store'
 
@@ -23,7 +23,7 @@ class MapInfo {
     // This is StarCraft-specific map data that we get from parsing the map file
     this.mapData = {
       format: props.extension,
-      tileset: tilesetIdToName(props.tileset),
+      tileset: props.tileset,
       originalName: props.original_name,
       originalDescription: props.original_description,
       slots: props.players_melee,

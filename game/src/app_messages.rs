@@ -109,21 +109,7 @@ pub struct MapData {
     pub width: u16,
     pub ums_slots: u8,
     pub slots: u8,
-    pub tileset: String,
-}
-
-pub fn bw_tileset_from_str(val: &str) -> Option<u8> {
-    Some(match val {
-        "badlands" => 0,
-        "platform" => 1,
-        "installation" => 2,
-        "ashworld" => 3,
-        "jungle" => 4,
-        "desert" => 5,
-        "ice" => 6,
-        "twilight" => 7,
-        _ => return None,
-    })
+    pub tileset: u16,
 }
 
 #[derive(Deserialize)]

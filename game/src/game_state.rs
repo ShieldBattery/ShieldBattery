@@ -14,8 +14,8 @@ use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    self, GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, PlayerInfo,
-    Race, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
+    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, PlayerInfo, Race,
+    Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, get_bw, GameType, StormPlayerId};
@@ -143,9 +143,6 @@ quick_error! {
         }
         UnknownGameType(ty: String, sub: Option<u8>) {
             display("Unknown game type '{}', {:?}", ty, sub)
-        }
-        UnknownTileset(name: String) {
-            display("Unknown tileset '{}'", name)
         }
         Bw(e: bw::LobbyCreateError) {
             display("BW error: {}", e)
@@ -532,8 +529,7 @@ async fn send_game_result(
         match result.and_then(|r| r.error_for_status()) {
             Ok(_) => {
                 debug!("Game results sent successfully");
-                let _ = app_socket::send_message(ws_send, "/game/resultSent", ())
-                    .await;
+                let _ = app_socket::send_message(ws_send, "/game/resultSent", ()).await;
                 break;
             }
             Err(err) => {
@@ -828,7 +824,9 @@ impl InitInProgress {
 
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
-    get_bw().create_lobby(map_path, &info.name, game_type).map_err(|e| GameInitError::Bw(e))
+    get_bw()
+        .create_lobby(map_path, &info.name, game_type)
+        .map_err(|e| GameInitError::Bw(e))
 }
 
 unsafe fn join_lobby(
@@ -842,12 +840,6 @@ unsafe fn join_lobby(
     let map_name = match info.map.name {
         Some(ref s) => s,
         None => return future::err(GameInitError::MissingMapInfo("name")).boxed(),
-    };
-    let tileset = match app_messages::bw_tileset_from_str(&map_data.tileset) {
-        Some(s) => s as u16,
-        None => {
-            return future::err(GameInitError::UnknownTileset(map_data.tileset.clone())).boxed();
-        }
     };
     let max_player_count = info.slots.len() as u8;
     let active_player_count = info
@@ -868,7 +860,7 @@ unsafe fn join_lobby(
             game_speed: 6, // Fastest
             game_type: game_type.primary as u16,
             game_subtype: game_type.subtype as u16,
-            tileset,
+            tileset: map_data.tileset,
             is_replay: 0,
             ..mem::zeroed()
         };

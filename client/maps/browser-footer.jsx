@@ -26,6 +26,7 @@ import { MAP_UPLOADING } from '../../common/flags'
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
+import { ALL_TILESETS, Tileset, tilesetToName } from '../../common/maps'
 
 const transitionNames = {
   appear: 'enter',
@@ -264,19 +265,10 @@ export default class BrowserFooter extends React.PureComponent {
       />
     ))
 
-    const tilesetItems = [
-      [0, 'Badlands'],
-      [1, 'Space platform'],
-      [2, 'Installation'],
-      [3, 'Ashworld'],
-      [4, 'Jungle world'],
-      [5, 'Desert'],
-      [6, 'Ice'],
-      [7, 'Twilight'],
-    ].map(([tilesetId, label]) => (
+    const tilesetItems = ALL_TILESETS.map(tilesetId => (
       <CheckBox
         key={tilesetId}
-        label={label}
+        label={tilesetToName(tilesetId)}
         checked={tempTilesetFilter.has(tilesetId)}
         onChange={() => this.onTilesetFilterChange(tilesetId)}
       />

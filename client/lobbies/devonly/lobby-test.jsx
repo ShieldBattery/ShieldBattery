@@ -5,6 +5,7 @@ import Lobby from '../lobby'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
 import { MapRecord } from '../../maps/maps-reducer'
 import { User } from '../../auth/auth-records'
+import { Tileset } from '../../../common/maps'
 
 const SLOTS = new List([
   new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' }),
@@ -27,7 +28,7 @@ const LOBBIES = Range(2, 9).map(numSlots => {
       thumbFormat: 'jpg',
       width: 128,
       height: 128,
-      tileset: 'jungle',
+      tileset: Tileset.Jungle,
       description: 'sup',
       slots: 4,
       umsSlots: 4,

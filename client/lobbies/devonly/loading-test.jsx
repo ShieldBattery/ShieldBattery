@@ -6,6 +6,7 @@ import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 import { MapRecord } from '../../maps/maps-reducer'
 import { User } from '../../auth/auth-records'
 import { GameStatus } from '../../active-game/game-client-reducer'
+import { Tileset } from '../../../common/maps'
 
 const make = (state, extra) => new GameStatus({ state, extra })
 const STATUSES = [
@@ -53,7 +54,7 @@ export default class LoadingTest extends React.Component {
         thumbFormat: 'jpg',
         width: 128,
         height: 128,
-        tileset: 'jungle',
+        tileset: Tileset.Jungle,
         description: 'sup',
         slots: 5,
         umsSlots: 5,

@@ -30,7 +30,7 @@ import {
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../common/constants'
-import { SORT_BY_NAME } from '../../common/maps'
+import { ALL_TILESETS, SORT_BY_NAME } from '../../common/maps'
 import { MAP_UPLOADING } from '../../common/flags'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
@@ -202,7 +202,7 @@ export default class Maps extends React.Component {
     thumbnailSize: 1,
     sortOption: SORT_BY_NAME,
     numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
-    tilesetFilter: new Set([0, 1, 2, 3, 4, 5, 6, 7]),
+    tilesetFilter: new Set(ALL_TILESETS),
     searchQuery: '',
     hasInitializedState: false,
   }

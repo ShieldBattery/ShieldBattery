@@ -28,6 +28,7 @@ import {
 import { required } from '../forms/validators'
 import { colorError, colorTextSecondary } from '../styles/colors'
 import { Display1Old, SubheadingOld, Body1Old, singleLine } from '../styles/typography'
+import { tilesetToName } from '../../common/maps'
 
 const ESCAPE = 'Escape'
 
@@ -289,7 +290,7 @@ export default class MapDetails extends React.Component {
             <MapDataItem>
               Size: {map.mapData.width}x{map.mapData.height}
             </MapDataItem>
-            <MapDataItem>Tileset: {map.mapData.tileset}</MapDataItem>
+            <MapDataItem>Tileset: {tilesetToName(map.mapData.tileset)}</MapDataItem>
             <MapDataItem>Players: {map.mapData.slots}</MapDataItem>
           </MapData>
         </MapInfo>
