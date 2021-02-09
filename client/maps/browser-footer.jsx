@@ -26,7 +26,7 @@ import { MAP_UPLOADING } from '../../common/flags'
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
-import { ALL_TILESETS, Tileset, tilesetToName } from '../../common/maps'
+import { ALL_TILESETS, tilesetToName } from '../../common/maps'
 
 const transitionNames = {
   appear: 'enter',
