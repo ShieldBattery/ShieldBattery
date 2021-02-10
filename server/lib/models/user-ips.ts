@@ -1,6 +1,6 @@
 import { container } from 'tsyringe'
-import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 import db from '../db'
+import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 
 const MAX_RETRIES = 5
 
