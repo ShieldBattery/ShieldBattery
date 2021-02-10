@@ -1,4 +1,6 @@
+import { container } from 'tsyringe'
 import db from '../db'
+import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 
 const MAX_RETRIES = 5
 
@@ -69,3 +71,5 @@ export async function updateOrInsertUserIp(userId: number, ipAddress: string): P
     done()
   }
 }
+
+container.register<UpdateOrInsertUserIp>('updateOrInsertUserIp', { useValue: updateOrInsertUserIp })
