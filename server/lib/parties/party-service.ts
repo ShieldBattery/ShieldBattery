@@ -25,7 +25,7 @@ export class PartyRecord extends Record({
 
 export enum PartyServiceErrorCode {
   PartyNotFound,
-  NotPartyLeader,
+  InsufficientPermissions,
   PartyFull,
   UserOffline,
 }
@@ -33,8 +33,8 @@ export enum PartyServiceErrorCode {
 export class PartyServiceError extends Error {
   public code: PartyServiceErrorCode
 
-  constructor(code: PartyServiceErrorCode) {
-    super()
+  constructor(code: PartyServiceErrorCode, message: string) {
+    super(message)
     this.code = code
   }
 }
@@ -64,7 +64,10 @@ export default class PartyService {
     let party = this.getClientParty(leaderClient)
     if (party) {
       if (party.leader !== leader.id) {
-        throw new PartyServiceError(PartyServiceErrorCode.NotPartyLeader)
+        throw new PartyServiceError(
+          PartyServiceErrorCode.InsufficientPermissions,
+          'Only party leader can invite people',
+        )
       }
 
       const updatedParty = party.mergeIn('invites', Map(invites.map(i => [i.id, i])))
@@ -106,11 +109,14 @@ export default class PartyService {
   removeInvite(partyId: string, target: PartyUser, leader?: PartyUser) {
     const party = this.parties.get(partyId)
     if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
     if (leader && leader.id !== party.leader) {
-      throw new PartyServiceError(PartyServiceErrorCode.NotPartyLeader)
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InsufficientPermissions,
+        'Only party leaders can remove invites to other people',
+      )
     }
 
     const updatedParty = party.deleteIn(['invites', target.id])
@@ -133,11 +139,11 @@ export default class PartyService {
 
     const party = this.parties.get(partyId)
     if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
     if (party.members.size > MAX_PARTY_SIZE) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyFull)
+      throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
     }
 
     const oldParty = this.getClientParty(client)
@@ -173,7 +179,7 @@ export default class PartyService {
   private handleClientQuit(client: ClientSocketsGroup) {
     const party = this.getClientParty(client)
     if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound)
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
     this.clientToPartyId.delete(client)
@@ -195,7 +201,7 @@ export default class PartyService {
   private getUser(username: string): UserSocketsGroup {
     const user = this.userSockets.getByName(username)
     if (!user) {
-      throw new PartyServiceError(PartyServiceErrorCode.UserOffline)
+      throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'User is offline')
     }
 
     return user
@@ -204,7 +210,7 @@ export default class PartyService {
   private getClient(userId: number, clientId: string): ClientSocketsGroup {
     const client = this.clientSockets.getById(userId, clientId)
     if (!client) {
-      throw new PartyServiceError(PartyServiceErrorCode.UserOffline)
+      throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'Authorization required')
     }
 
     return client

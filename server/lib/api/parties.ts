@@ -2,6 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
 import users from '../models/users'
 import PartyService, {
@@ -80,16 +81,22 @@ function isPartyServiceError(error: Error): error is PartyServiceError {
   return error.hasOwnProperty('code')
 }
 
-function handlePartyServiceError(error: PartyServiceError) {
-  switch (error.code) {
+function convertPartyServiceError(err: Error) {
+  if (!isPartyServiceError(err)) {
+    throw err
+  }
+
+  switch (err.code) {
     case PartyServiceErrorCode.PartyNotFound:
-      throw new httpErrors.NotFound('Party not found')
-    case PartyServiceErrorCode.NotPartyLeader:
-      throw new httpErrors.Forbidden('Must be the party leader')
+      throw new httpErrors.NotFound(err.message)
+    case PartyServiceErrorCode.InsufficientPermissions:
+      throw new httpErrors.Forbidden(err.message)
     case PartyServiceErrorCode.PartyFull:
-      throw new httpErrors.Conflict('Party is full')
+      throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
-      throw new httpErrors.Unauthorized('Authorization required')
+      throw new httpErrors.Unauthorized(err.message)
+    default:
+      assertUnreachable(err.code as never)
   }
 }
 
@@ -122,11 +129,7 @@ async function invite(ctx: RouterContext) {
 
     ctx.status = 204
   } catch (err) {
-    if (isPartyServiceError(err)) {
-      handlePartyServiceError(err)
-    } else {
-      throw err
-    }
+    convertPartyServiceError(err)
   }
 }
 
@@ -153,11 +156,7 @@ async function decline(ctx: RouterContext) {
 
     ctx.status = 204
   } catch (err) {
-    if (isPartyServiceError(err)) {
-      handlePartyServiceError(err)
-    } else {
-      throw err
-    }
+    convertPartyServiceError(err)
   }
 }
 
@@ -171,10 +170,6 @@ async function accept(ctx: RouterContext) {
 
     ctx.status = 204
   } catch (err) {
-    if (isPartyServiceError(err)) {
-      handlePartyServiceError(err)
-    } else {
-      throw err
-    }
+    convertPartyServiceError(err)
   }
 }
