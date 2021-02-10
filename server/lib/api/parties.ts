@@ -115,15 +115,15 @@ async function invite(ctx: RouterContext) {
           // TODO(2Pac): Check if the target user has blocked invitations from the user issuing the
           // request. Or potentially use friends list when implemented.
 
-          return new PartyUser({ id: foundTarget.id, name: foundTarget.name })
+          return { id: foundTarget.id, name: foundTarget.name } as PartyUser
         },
       ),
     )
 
-    const leader = new PartyUser({
+    const leader: PartyUser = {
       id: ctx.session!.userId,
       name: ctx.session!.userName,
-    })
+    }
 
     partyService.invite(leader, clientId, invites)
 
@@ -137,8 +137,8 @@ async function decline(ctx: RouterContext) {
   const { partyId, targetId } = ctx.params
 
   try {
-    let leader
-    let target = new PartyUser({ id: ctx.session!.userId, name: ctx.session!.userName })
+    let leader: PartyUser | undefined
+    let target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
 
     // If the `targetId` is provided, that means the user issuing the request wants to cancel an
     // invite to someone else.
@@ -149,7 +149,7 @@ async function decline(ctx: RouterContext) {
       }
 
       leader = target
-      target = new PartyUser({ id: foundTarget.id, name: foundTarget.name })
+      target = { id: foundTarget.id, name: foundTarget.name } as PartyUser
     }
 
     partyService.removeInvite(partyId, target, leader)
@@ -165,7 +165,7 @@ async function accept(ctx: RouterContext) {
   const { clientId } = ctx.request.body
 
   try {
-    const user = new PartyUser({ id: ctx.session!.userId, name: ctx.session!.userName })
+    const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
     partyService.acceptInvite(partyId, user, clientId)
 
     ctx.status = 204

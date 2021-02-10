@@ -1,5 +1,4 @@
 import cuid from 'cuid'
-import { Map, Record } from 'immutable'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import {
@@ -11,17 +10,17 @@ import {
 
 const MAX_PARTY_SIZE = 8
 
-export class PartyUser extends Record({
-  id: null as number | null,
-  name: null as string | null,
-}) {}
+export interface PartyUser {
+  id: number
+  name: string
+}
 
-export class PartyRecord extends Record({
-  id: null as string | null,
-  invites: Map<number | null, PartyUser>(),
-  members: Map<number | null, PartyUser>(),
-  leader: null as number | null,
-}) {}
+export interface PartyRecord {
+  id: string
+  invites: Map<number, PartyUser>
+  members: Map<number, PartyUser>
+  leader: number
+}
 
 export enum PartyServiceErrorCode {
   PartyNotFound,
@@ -49,8 +48,8 @@ function getPartyPath(partyId: string): string {
 
 @singleton()
 export default class PartyService {
-  private parties = Map<string, PartyRecord>()
-  private clientToPartyId = Map<ClientSocketsGroup, string>()
+  private parties = new Map<string, PartyRecord>()
+  private clientToPartyId = new Map<ClientSocketsGroup, string>()
 
   constructor(
     private nydus: NydusServer,
@@ -59,9 +58,9 @@ export default class PartyService {
   ) {}
 
   invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]) {
-    const leaderClient = this.getClient(leader.id as number, leaderClientId)
+    const leaderClient = this.getClient(leader.id, leaderClientId)
 
-    let party = this.getClientParty(leaderClient)
+    let party: PartyRecord | undefined = this.getClientParty(leaderClient)
     if (party) {
       if (party.leader !== leader.id) {
         throw new PartyServiceError(
@@ -70,31 +69,32 @@ export default class PartyService {
         )
       }
 
-      const updatedParty = party.mergeIn('invites', Map(invites.map(i => [i.id, i])))
-      this.parties = this.parties.set(party.id as string, updatedParty)
+      for (const invite of invites) {
+        party.invites.set(invite.id, invite)
+      }
 
-      this.publishToParty(party.id as string, {
+      this.publishToParty(party.id, {
         type: 'invite',
         invites,
       })
     } else {
       const partyId = cuid()
-      party = new PartyRecord({
+      party = {
         id: partyId,
-        invites: Map(invites.map(i => [i.id, i])),
-        members: Map([[leader.id, leader]]),
+        invites: new Map(invites.map(i => [i.id, i])),
+        members: new Map([[leader.id, leader]]),
         leader: leader.id,
-      })
+      }
 
-      this.parties = this.parties.set(partyId, party)
-      this.clientToPartyId = this.clientToPartyId.set(leaderClient, partyId)
+      this.parties.set(partyId, party)
+      this.clientToPartyId.set(leaderClient, partyId)
       this.subscribeToParty(leaderClient, party)
     }
 
-    const inviteUsers = invites.map(i => this.getUser(i.name as string))
+    const inviteUsers = invites.map(i => this.getUser(i.name))
     inviteUsers.forEach(user => {
       user.subscribe(
-        getInvitesPath(party!.id as string),
+        getInvitesPath(party!.id),
         () => ({
           action: 'invite',
           from: party!.leader,
@@ -119,12 +119,7 @@ export default class PartyService {
       )
     }
 
-    const updatedParty = party.deleteIn(['invites', target.id])
-    this.parties = this.parties.set(party.id as string, updatedParty)
-
-    const targetUser = this.getUser(target.name as string)
-    targetUser.unsubscribe(getInvitesPath(partyId))
-
+    party.invites.delete(target.id)
     this.publishToParty(partyId, {
       type: 'decline',
       target,
@@ -132,10 +127,13 @@ export default class PartyService {
 
     // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
     // and no outstanding invites?
+
+    const targetUser = this.getUser(target.name)
+    targetUser.unsubscribe(getInvitesPath(partyId))
   }
 
   acceptInvite(partyId: string, user: PartyUser, clientId: string) {
-    const client = this.getClient(user.id as number, clientId)
+    const client = this.getClient(user.id, clientId)
 
     const party = this.parties.get(partyId)
     if (!party) {
@@ -151,23 +149,23 @@ export default class PartyService {
       // TODO(2Pac): Handle switching parties
     }
 
-    const updatedParty = party.deleteIn(['invites', user.id]).setIn(['members', user.id], user)
-    this.parties = this.parties.set(party.id as string, updatedParty)
-    this.clientToPartyId = this.clientToPartyId.set(client, partyId)
+    party.invites.delete(user.id)
+    party.members.set(user.id, user)
+    this.clientToPartyId.set(client, partyId)
 
     this.publishToParty(partyId, {
       type: 'join',
       user,
     })
 
-    const userSockets = this.getUser(user.name as string)
+    const userSockets = this.getUser(user.name)
     userSockets.unsubscribe(getInvitesPath(partyId))
-    this.subscribeToParty(client, updatedParty)
+    this.subscribeToParty(client, party)
   }
 
   private subscribeToParty(client: ClientSocketsGroup, party: PartyRecord) {
     client.subscribe(
-      getPartyPath(party.id as string),
+      getPartyPath(party.id),
       () => ({
         action: 'init',
         party,
@@ -182,9 +180,9 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
+    party.members.delete(client.userId)
     this.clientToPartyId.delete(client)
-    this.parties = this.parties.deleteIn([party.id, 'members', client.userId])
-    this.publishToParty(party.id as string, {
+    this.publishToParty(party.id, {
       type: 'leave',
       user: client.userId,
     })
