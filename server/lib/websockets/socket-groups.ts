@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
-import { container, singleton } from 'tsyringe'
+import { container, inject, singleton } from 'tsyringe'
 import log from '../logging/logger'
-import { updateOrInsertUserIp } from '../models/user-ips'
+import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
@@ -159,7 +159,11 @@ export class ClientSocketsGroup extends SocketGroup {
 export class UserSocketsManager extends EventEmitter {
   users = Map<string, UserSocketsGroup>()
 
-  constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
+  constructor(
+    private nydus: NydusServer,
+    private sessionLookup: RequestSessionLookup,
+    @inject('updateOrInsertUserIp') private updateOrInsertUserIp: UpdateOrInsertUserIp,
+  ) {
     super()
 
     // NOTE(tec27): This isn't really used, but it ensures ClientSocketsManager is always created
@@ -184,7 +188,7 @@ export class UserSocketsManager extends EventEmitter {
         this.users.get(userName)!.add(socket)
       }
 
-      updateOrInsertUserIp(session.userId, getAddress(socket.conn.request)).catch(() => {
+      this.updateOrInsertUserIp(session.userId, getAddress(socket.conn.request)).catch(() => {
         log.error({ req: socket.conn.request }, 'failed to save user IP address')
       })
     })
