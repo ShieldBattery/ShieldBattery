@@ -95,6 +95,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, [action.payload.user])
   },
 
+  ['@games/getGameRecord'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
   ['@ladder/getRankings'](state, action) {
     if (action.error) {
       return

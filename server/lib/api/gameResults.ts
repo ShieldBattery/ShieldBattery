@@ -9,6 +9,7 @@ import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
+import { getGameRecord, setReconciledResult } from '../games/game-models'
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import {
   getMatchmakingRatingsWithLock,
@@ -17,7 +18,6 @@ import {
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
-import { getGameRecord, setReconciledResult } from '../models/games'
 import {
   getCurrentReportedResults,
   getUserGameRecord,

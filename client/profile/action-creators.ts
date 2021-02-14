@@ -1,10 +1,9 @@
 import { apiUrl, urlPath } from '../../common/urls'
 import { GetUserProfilePayload, SbUserId } from '../../common/users/user-info'
-import { ReduxAction } from '../action-types'
-import { DispatchFunction, ThunkAction } from '../dispatch-registry'
+import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import fetch from '../network/fetch'
-import { RootState } from '../root-reducer'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -29,35 +28,6 @@ export function correctUsernameForProfile(
   tab?: UserProfileSubPage,
 ) {
   replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
-}
-
-export interface RequestHandlingSpec {
-  signal?: AbortSignal
-  onSuccess: () => void
-  onError: (err: Error) => void
-}
-
-function abortableThunk<T extends ReduxAction>(
-  { signal, onSuccess, onError }: RequestHandlingSpec,
-  thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<void>,
-): ThunkAction<T> {
-  return (dispatch, getState) => {
-    thunkFn(dispatch, getState)
-      .then(() => {
-        if (signal?.aborted) {
-          return
-        }
-
-        onSuccess()
-      })
-      .catch((err: Error) => {
-        if (signal?.aborted || (signal && err.name === 'AbortError')) {
-          return
-        }
-
-        onError(err)
-      })
-  }
 }
 
 const userProfileLoadsInProgress = new Set<number>()

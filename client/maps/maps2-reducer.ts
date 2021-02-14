@@ -21,6 +21,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     return DEFAULT_STATE
   },
 
+  ['@games/getGameRecord'](state, { payload: { map }, system: { monotonicTime } }) {
+    state.byId.set(map.id, map)
+    state.lastRetrieved.set(map.id, monotonicTime)
+  },
+
   ['@maps/getMaps'](state, action) {
     if (action.error) {
       return

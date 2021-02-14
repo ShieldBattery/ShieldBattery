@@ -1,9 +1,9 @@
 import { GameConfig, GameConfigPlayerName, GameSource } from '../../../common/games/configuration'
 import { makeSbUserId } from '../../../common/users/user-info'
 import transact from '../db/transaction'
-import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
 import { findUsersByName } from '../users/user-model'
+import { createGameRecord } from './game-models'
 import { genResultCode } from './gen-result-code'
 
 /**

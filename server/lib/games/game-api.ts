@@ -1,16 +1,22 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
+import Joi from 'joi'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { GameStatus } from '../../../common/game-status'
+import { GetGamePayload, toGameRecordJson } from '../../../common/games/games'
+import { toMapInfoJson } from '../../../common/maps'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
-import { countCompletedGames } from '../models/games'
+import { getMapInfo } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { findUsersById } from '../users/user-model'
+import { validateRequest } from '../validation/joi-validator'
 import gameLoader from './game-loader'
+import { countCompletedGames, getGameRecord } from './game-models'
 
 const throttle = createThrottle('games', {
   rate: 20,
@@ -72,6 +78,39 @@ class GameCountEmitter {
 
 @httpApi('/games')
 export class GameApi {
+  @httpGet('/:gameId')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  async getGame(ctx: RouterContext): Promise<GetGamePayload> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ gameId: string }>({
+        gameId: Joi.string().required(),
+      }),
+    })
+
+    const game = await getGameRecord(gameId)
+    if (!game) {
+      throw new httpErrors.NotFound('game not found')
+    }
+
+    const mapPromise = getMapInfo([game.mapId], ctx.session!.userId)
+    const usersPromise = findUsersById(
+      game.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id)),
+    )
+
+    const mapArray = await mapPromise
+    if (!mapArray.length) {
+      throw new Error("map wasn't found")
+    }
+
+    return {
+      game: toGameRecordJson(game),
+      map: toMapInfoJson(mapArray[0]),
+      users: Array.from((await usersPromise).values()),
+    }
+  }
+
   // TODO(tec27): Make this a sub-route under /:gameId, e.g. /:gameId/status or something
   @httpPut('/:gameId')
   @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))

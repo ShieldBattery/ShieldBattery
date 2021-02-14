@@ -20,6 +20,7 @@ import ChatList from './chat/list'
 import { openDialog } from './dialogs/action-creators'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { DialogType } from './dialogs/dialog-type'
+import { ConnectedGameResultsPage } from './games/results'
 import LadderIcon from './icons/material/emoji_events_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
@@ -323,6 +324,11 @@ class MainLayout extends React.Component {
               <Route path='/chat' component={ChatList} />
               <Route path='/chat/:channel' component={ChatChannel} />
               <Route path='/ladder/:rest*' component={Ladder} />
+              <Route path='/games/:gameId/:subPage?'>
+                {params => (
+                  <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage} />
+                )}
+              </Route>
               {lobbyRoute}
               {matchmakingRoute}
               {partyRoute}

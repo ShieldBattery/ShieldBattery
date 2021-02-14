@@ -6,6 +6,7 @@ import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
+import { navigateToGameResults } from '../games/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -143,7 +144,10 @@ export function ConnectedGameListEntry({
   const onClick = useCallback(() => {
     onSetActive(id)
   }, [id, onSetActive])
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const onDoubleClick = useCallback(() => {
+    navigateToGameResults(id)
+  }, [id])
+  const [buttonProps, rippleRef] = useButtonState({ onClick, onDoubleClick })
 
   const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
 

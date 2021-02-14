@@ -116,7 +116,7 @@ export default class MatchmakingMatch extends React.Component {
         <Headline3>{map.name}</Headline3>
         <TopHalfContainer>
           <Spacer />
-          <StyledMapThumbnail map={map} size={512} />
+          <StyledMapThumbnail map={map} size={320} />
           <StatusContainer>{this.renderStatus()}</StatusContainer>
         </TopHalfContainer>
         <PlayersContainer>
