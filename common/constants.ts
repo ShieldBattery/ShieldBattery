@@ -19,8 +19,7 @@ export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
 
 export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
 
-export type GameType = 'melee' | 'ffa' | 'topVBottom' | 'teamMelee' | 'teamFfa' | 'ums' | 'oneVOne'
-export const GAME_TYPES: GameType[] = [
+export const GAME_TYPES = [
   'melee',
   'ffa',
   'topVBottom',
@@ -28,7 +27,8 @@ export const GAME_TYPES: GameType[] = [
   'teamFfa',
   'ums',
   'oneVOne',
-]
+] as const
+export type GameType = typeof GAME_TYPES[number]
 
 export const MAP_VISIBILITY_OFFICIAL = 'OFFICIAL'
 export const MAP_VISIBILITY_PRIVATE = 'PRIVATE'
@@ -65,7 +65,7 @@ export function isValidLobbyName(name: string): boolean {
 }
 
 export function isValidGameType(type: string): boolean {
-  return (GAME_TYPES as string[]).includes(type)
+  return GAME_TYPES.includes(type as GameType)
 }
 
 export function isValidGameSubType(type?: number | null): boolean {
