@@ -49,18 +49,18 @@ function getPartyPath(partyId: string): string {
 @singleton()
 export default class PartyService {
   private parties = new Map<string, PartyRecord>()
-  private clientToPartyId = new Map<ClientSocketsGroup, string>()
+  private clientSocketsToPartyId = new Map<ClientSocketsGroup, string>()
 
   constructor(
     private nydus: NydusServer,
-    private clientSockets: ClientSocketsManager,
-    private userSockets: UserSocketsManager,
+    private clientSocketsManager: ClientSocketsManager,
+    private userSocketsManager: UserSocketsManager,
   ) {}
 
   invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]) {
-    const leaderClient = this.getClient(leader.id, leaderClientId)
+    const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
-    let party: PartyRecord | undefined = this.getClientParty(leaderClient)
+    let party: PartyRecord | undefined = this.getClientParty(leaderClientSockets)
     if (party) {
       if (party.leader !== leader.id) {
         throw new PartyServiceError(
@@ -87,23 +87,24 @@ export default class PartyService {
       }
 
       this.parties.set(partyId, party)
-      this.clientToPartyId.set(leaderClient, partyId)
-      this.subscribeToParty(leaderClient, party)
+      this.clientSocketsToPartyId.set(leaderClientSockets, partyId)
+      this.subscribeToParty(leaderClientSockets, party)
     }
 
-    const inviteUsers = invites.map(i => this.getUser(i.name))
-    inviteUsers.forEach(user => {
-      user.subscribe(
-        getInvitesPath(party!.id),
-        () => ({
-          action: 'invite',
-          from: party!.leader,
-        }),
-        () => {
-          // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
-        },
-      )
-    })
+    invites
+      .map(i => this.getUserSockets(i.name))
+      .forEach(userSockets => {
+        userSockets.subscribe(
+          getInvitesPath(party!.id),
+          () => ({
+            action: 'invite',
+            from: party!.leader,
+          }),
+          () => {
+            // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
+          },
+        )
+      })
   }
 
   removeInvite(partyId: string, target: PartyUser, leader?: PartyUser) {
@@ -128,12 +129,12 @@ export default class PartyService {
     // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
     // and no outstanding invites?
 
-    const targetUser = this.getUser(target.name)
-    targetUser.unsubscribe(getInvitesPath(partyId))
+    const targetUserSockets = this.getUserSockets(target.name)
+    targetUserSockets.unsubscribe(getInvitesPath(partyId))
   }
 
   acceptInvite(partyId: string, user: PartyUser, clientId: string) {
-    const client = this.getClient(user.id, clientId)
+    const clientSockets = this.getClientSockets(user.id, clientId)
 
     const party = this.parties.get(partyId)
     if (!party) {
@@ -144,47 +145,47 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
     }
 
-    const oldParty = this.getClientParty(client)
+    const oldParty = this.getClientParty(clientSockets)
     if (oldParty) {
       // TODO(2Pac): Handle switching parties
     }
 
     party.invites.delete(user.id)
     party.members.set(user.id, user)
-    this.clientToPartyId.set(client, partyId)
+    this.clientSocketsToPartyId.set(clientSockets, partyId)
 
     this.publishToParty(partyId, {
       type: 'join',
       user,
     })
 
-    const userSockets = this.getUser(user.name)
+    const userSockets = this.getUserSockets(user.name)
     userSockets.unsubscribe(getInvitesPath(partyId))
-    this.subscribeToParty(client, party)
+    this.subscribeToParty(clientSockets, party)
   }
 
-  private subscribeToParty(client: ClientSocketsGroup, party: PartyRecord) {
-    client.subscribe(
+  private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
+    clientSockets.subscribe(
       getPartyPath(party.id),
       () => ({
         action: 'init',
         party,
       }),
-      client => this.handleClientQuit(client),
+      sockets => this.handleClientQuit(sockets),
     )
   }
 
-  private handleClientQuit(client: ClientSocketsGroup) {
-    const party = this.getClientParty(client)
+  private handleClientQuit(clientSockets: ClientSocketsGroup) {
+    const party = this.getClientParty(clientSockets)
     if (!party) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
-    party.members.delete(client.userId)
-    this.clientToPartyId.delete(client)
+    party.members.delete(clientSockets.userId)
+    this.clientSocketsToPartyId.delete(clientSockets)
     this.publishToParty(party.id, {
       type: 'leave',
-      user: client.userId,
+      user: clientSockets.userId,
     })
 
     // TODO(2Pac): Handle party leader leaving
@@ -196,26 +197,26 @@ export default class PartyService {
     this.nydus.publish(getPartyPath(partyId), data)
   }
 
-  private getUser(username: string): UserSocketsGroup {
-    const user = this.userSockets.getByName(username)
-    if (!user) {
+  private getUserSockets(username: string): UserSocketsGroup {
+    const userSockets = this.userSocketsManager.getByName(username)
+    if (!userSockets) {
       throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'User is offline')
     }
 
-    return user
+    return userSockets
   }
 
-  private getClient(userId: number, clientId: string): ClientSocketsGroup {
-    const client = this.clientSockets.getById(userId, clientId)
-    if (!client) {
+  private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {
+    const clientSockets = this.clientSocketsManager.getById(userId, clientId)
+    if (!clientSockets) {
       throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'Authorization required')
     }
 
-    return client
+    return clientSockets
   }
 
-  private getClientParty(client: ClientSocketsGroup): PartyRecord | undefined {
-    const partyId = this.clientToPartyId.get(client)
+  private getClientParty(clientSockets: ClientSocketsGroup): PartyRecord | undefined {
+    const partyId = this.clientSocketsToPartyId.get(clientSockets)
     return this.parties.get(partyId as string)
   }
 }
