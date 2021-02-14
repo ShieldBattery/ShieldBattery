@@ -1,6 +1,8 @@
-let mapStore
+import type { MapStore } from './map-store'
+
+let mapStore: MapStore | undefined
 if (IS_ELECTRON) {
-  const MapStore = require('./map-store').default
+  const { MapStore } = require('./map-store')
   const path = require('path')
   const { remote } = require('electron')
 

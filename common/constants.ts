@@ -19,14 +19,23 @@ export const MATCHMAKING_ACCEPT_MATCH_TIME = 15000
 
 export const STARCRAFT_DOWNLOAD_URL = 'https://us.battle.net/account/download/?show=classic'
 
-export const GAME_TYPES = ['melee', 'ffa', 'topVBottom', 'teamMelee', 'teamFfa', 'ums', 'oneVOne']
+export type GameType = 'melee' | 'ffa' | 'topVBottom' | 'teamMelee' | 'teamFfa' | 'ums' | 'oneVOne'
+export const GAME_TYPES: GameType[] = [
+  'melee',
+  'ffa',
+  'topVBottom',
+  'teamMelee',
+  'teamFfa',
+  'ums',
+  'oneVOne',
+]
 
 export const MAP_VISIBILITY_OFFICIAL = 'OFFICIAL'
 export const MAP_VISIBILITY_PRIVATE = 'PRIVATE'
 export const MAP_VISIBILITY_PUBLIC = 'PUBLIC'
 
-export function isValidUsername(username) {
-  return (
+export function isValidUsername(username: string): boolean {
+  return !!(
     username &&
     username.length >= USERNAME_MINLENGTH &&
     username.length <= USERNAME_MAXLENGTH &&
@@ -34,8 +43,8 @@ export function isValidUsername(username) {
   )
 }
 
-export function isValidEmail(email) {
-  return (
+export function isValidEmail(email: string): boolean {
+  return !!(
     email &&
     email.length >= EMAIL_MINLENGTH &&
     email.length <= EMAIL_MAXLENGTH &&
@@ -43,26 +52,26 @@ export function isValidEmail(email) {
   )
 }
 
-export function isValidPassword(password) {
-  return password && password.length >= PASSWORD_MINLENGTH
+export function isValidPassword(password: string): boolean {
+  return !!(password && password.length >= PASSWORD_MINLENGTH)
 }
 
-export function isValidChannelName(channel) {
-  return channel && channel.length <= CHANNEL_MAXLENGTH && CHANNEL_PATTERN.test(channel)
+export function isValidChannelName(channel: string): boolean {
+  return !!(channel && channel.length <= CHANNEL_MAXLENGTH && CHANNEL_PATTERN.test(channel))
 }
 
-export function isValidLobbyName(name) {
+export function isValidLobbyName(name: string): boolean {
   return typeof name === 'string' && name.length > 0 && name.length <= LOBBY_NAME_MAXLENGTH
 }
 
-export function isValidGameType(type) {
-  return GAME_TYPES.includes(type)
+export function isValidGameType(type: string): boolean {
+  return (GAME_TYPES as string[]).includes(type)
 }
 
-export function isValidGameSubType(type) {
-  return type => !type || (type >= 1 && type <= 7)
+export function isValidGameSubType(type?: number | null): boolean {
+  return type === null || type === undefined || (type >= 1 && type <= 7)
 }
 
-export function validRace(r) {
+export function validRace(r: string): boolean {
   return r === 'r' || r === 't' || r === 'z' || r === 'p'
 }

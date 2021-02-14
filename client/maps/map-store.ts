@@ -1,20 +1,21 @@
 import fs, { promises as fsPromises } from 'fs'
-import path from 'path'
-import mkdirp from 'mkdirp'
 import { Map } from 'immutable'
+import mkdirp from 'mkdirp'
+import path from 'path'
 import HashThrough from '../../common/hash-through'
-import { fetchReadableStream } from '../network/fetch'
 import log from '../logging/logger'
+import { fetchReadableStream } from '../network/fetch'
 
-export default class MapStore {
-  constructor(basePath) {
-    this.basePath = basePath
-    this._dirCreated = mkdirp(basePath)
+export class MapStore {
+  private dirCreated: Promise<string | undefined>
+  private activeDownloads = Map<string, Promise<boolean>>()
 
-    this._activeDownloads = new Map()
+  constructor(readonly basePath: string) {
+    this.dirCreated = mkdirp(basePath)
   }
 
-  getPath(mapHash, mapFormat) {
+  // TODO(tec27): mapFormat can be a string enum instead?
+  getPath(mapHash: string, mapFormat: string): string {
     const b64 = Buffer.from(mapHash, 'hex').toString('base64')
     // Goal of dirs is twofold:
     // - Avoid a huge number of files in a single directory
@@ -24,19 +25,23 @@ export default class MapStore {
     return path.join(this.basePath, firstDir, secondDir, `map.${mapFormat}`)
   }
 
-  async downloadMap(mapHash, mapFormat, mapUrl) {
-    if (!this._activeDownloads.has(mapHash)) {
-      this._activeDownloads = this._activeDownloads.set(
+  async downloadMap(mapHash: string, mapFormat: string, mapUrl: string): Promise<boolean> {
+    if (!this.activeDownloads.has(mapHash)) {
+      this.activeDownloads = this.activeDownloads.set(
         mapHash,
-        this._checkAndDownloadMap(mapHash, mapFormat, mapUrl),
+        this.checkAndDownloadMap(mapHash, mapFormat, mapUrl),
       )
     }
 
-    return this._activeDownloads.get(mapHash)
+    return this.activeDownloads.get(mapHash)!
   }
 
-  async _checkAndDownloadMap(mapHash, mapFormat, mapUrl) {
-    await this._dirCreated
+  private async checkAndDownloadMap(
+    mapHash: string,
+    mapFormat: string,
+    mapUrl: string,
+  ): Promise<boolean> {
+    await this.dirCreated
     const mapPath = this.getPath(mapHash, mapFormat)
 
     let exists = false
@@ -74,7 +79,7 @@ export default class MapStore {
 
       return true
     } finally {
-      this._activeDownloads = this._activeDownloads.delete(mapHash)
+      this.activeDownloads = this.activeDownloads.delete(mapHash)
     }
   }
 }

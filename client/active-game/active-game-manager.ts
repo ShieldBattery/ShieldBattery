@@ -1,32 +1,74 @@
 import { ipcRenderer, remote } from 'electron'
-import path from 'path'
 import { promises as fsPromises } from 'fs'
-import { EventEmitter } from 'events'
 import { Set } from 'immutable'
+import path from 'path'
+import { GameClientPlayerResult } from '../../common/game-results'
+import { GameStatus, statusToString } from '../../common/game-status'
+import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
+import { TypedEventEmitter } from '../../common/typed-emitter'
+import log from '../logging/logger'
+import type { MapStore } from '../maps/map-store'
 import fetch from '../network/fetch'
 import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
-import log from '../logging/logger'
-import {
-  GAME_STATUS_UNKNOWN,
-  GAME_STATUS_LAUNCHING,
-  GAME_STATUS_CONFIGURING,
-  GAME_STATUS_PLAYING,
-  GAME_STATUS_FINISHED,
-  GAME_STATUS_ERROR,
-  statusToString,
-  GAME_STATUS_HAS_RESULT,
-  GAME_STATUS_RESULT_SENT,
-} from '../../common/game-status'
-import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
+import { GameConfig, GameRoute, isReplayMapInfo } from './game-config'
 
 const { launchProcess } = remote.require('./native/process')
 
-export default class ActiveGameManager extends EventEmitter {
-  constructor(mapStore) {
+interface ActiveGameInfo {
+  id: string
+  status?: {
+    state: GameStatus
+    extra: any // TODO(tec27): Type the extra param based on the GameStatus
+  }
+  /**
+   * A promise for when the game process has been launched, returning an instance of the process.
+   */
+  promise?: Promise<any>
+  config?: GameConfig
+  routes?: GameRoute[]
+  /**
+   * Whether or not this game instance has been told it can start.
+   */
+  allowStartSent?: boolean
+  /**
+   * The results of the game delivered once our local process has completed.
+   */
+  result?: {
+    result: any
+    /** How long the game was played, in milliseconds. */
+    time: number
+  }
+  /**
+   * Whether or not the game result was successfully reported to the server by the game process.
+   */
+  resultSent?: boolean
+}
+
+function isGameConfig(
+  possibleConfig: GameConfig | Record<string, never>,
+): possibleConfig is GameConfig {
+  return !!(possibleConfig as any).setup
+}
+
+export interface ActiveGameManagerEvents {
+  gameCommand: (gameId: string, command: string, ...args: any[]) => void
+  gameResult: (info: {
+    gameId: string
+    /** A mapping of player name -> result. */
+    result: Record<string, GameClientPlayerResult>
+    /** The time the game took in milliseconds. */
+    time: number
+  }) => void
+  gameStatus: (statusInfo: { id: string; state: string; extra?: any }) => void
+  replaySave: (gameId: string, path: string) => void
+}
+
+export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents> {
+  private activeGame: ActiveGameInfo | null = null
+  private serverPort = 0
+
+  constructor(private mapStore: MapStore) {
     super()
-    this.mapStore = mapStore
-    this.activeGame = null
-    this.serverPort = 0
   }
 
   getStatus() {
@@ -34,35 +76,41 @@ export default class ActiveGameManager extends EventEmitter {
     if (game) {
       return {
         id: game.id,
-        state: statusToString(game.status.state),
-        extra: game.status.extra,
+        state: statusToString(game.status?.state ?? GameStatus.Unknown),
+        extra: game.status?.extra,
       }
     } else {
       return null
     }
   }
 
-  setServerPort(port) {
+  setServerPort(port: number) {
     this.serverPort = port
   }
 
-  setGameConfig(config) {
+  /**
+   * Sets the current game configuration. If this differs from the previous one, a new game client
+   * will be launched.
+   *
+   * @returns the ID of the active game client, or null if there isn't one
+   */
+  setGameConfig(config: GameConfig | Record<string, never>): string | null {
     const current = this.activeGame
-    if (current && current.id !== config.gameId) {
+    if (current && current.id !== config.setup?.gameId) {
       // Means that a previous game left hanging somehow; quit it
       this.emit('gameCommand', current.id, 'quit')
     }
-    if (!config.setup) {
-      this._setStatus(GAME_STATUS_UNKNOWN)
+    if (!isGameConfig(config)) {
+      this.setStatus(GameStatus.Unknown)
       this.activeGame = null
       return null
     }
-    if (current && current.routes && config.setup) {
-      const routesIds = new Set(current.routes.map(r => r.for))
-      const slotIds = new Set(config.setup.slots.map(s => s.id))
+    if (current && current.routes && isGameConfig(config)) {
+      const routesIds = Set(current.routes.map(r => r.for))
+      const slotIds = Set(config.setup.slots.map(s => s.id))
 
       if (!slotIds.isSuperset(routesIds)) {
-        this._setStatus(GAME_STATUS_ERROR)
+        this.setStatus(GameStatus.Error)
         this.activeGame = null
 
         throw new Error("Slots and routes don't match")
@@ -83,26 +131,27 @@ export default class ActiveGameManager extends EventEmitter {
       ...current,
       id: gameId,
       promise: activeGamePromise,
+      // NOTE(tec27): this
       config,
-      status: { state: GAME_STATUS_UNKNOWN, extra: null },
+      status: { state: GameStatus.Unknown, extra: null },
     }
     log.verbose(`Creating new game ${gameId}`)
-    this._setStatus(GAME_STATUS_LAUNCHING)
+    this.setStatus(GameStatus.Launching)
     return gameId
   }
 
-  setGameRoutes(gameId, routes) {
+  setGameRoutes(gameId: string, routes: GameRoute[]) {
     const current = this.activeGame
     if (current && current.id !== gameId) {
       return
     }
 
     if (current && current.config) {
-      const routesIds = new Set(routes.map(r => r.for))
-      const slotIds = new Set(current.config.setup.slots.map(s => s.id))
+      const routesIds = Set(routes.map(r => r.for))
+      const slotIds = Set(current.config.setup.slots.map(s => s.id))
 
       if (!slotIds.isSuperset(routesIds)) {
-        this._setStatus(GAME_STATUS_ERROR)
+        this.setStatus(GameStatus.Error)
         this.activeGame = null
 
         throw new Error("Slots and routes don't match")
@@ -114,7 +163,7 @@ export default class ActiveGameManager extends EventEmitter {
       id: gameId,
       routes,
     }
-    this._setStatus(GAME_STATUS_LAUNCHING)
+    this.setStatus(GameStatus.Launching)
 
     // `setGameRoutes` can be called before `setGameConfig`, in which case the config won't be set
     // yet; we also don't send the routes, since the game couldn't be connected in that case either.
@@ -124,7 +173,8 @@ export default class ActiveGameManager extends EventEmitter {
     }
   }
 
-  allowStart(gameId) {
+  /** Tells a particular game instance that it is okay to begin (starting actual gameplay). */
+  allowStart(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
@@ -133,7 +183,8 @@ export default class ActiveGameManager extends EventEmitter {
     this.activeGame.allowStartSent = true
   }
 
-  async handleGameConnected(id) {
+  /** Notifies the manager that a game instance has connected and is ready for configuration. */
+  async handleGameConnected(id: string) {
     if (!this.activeGame || this.activeGame.id !== id) {
       // Not our active game, must be one we started before and abandoned
       this.emit('gameCommand', id, 'quit')
@@ -142,18 +193,19 @@ export default class ActiveGameManager extends EventEmitter {
     }
 
     const game = this.activeGame
-    this._setStatus(GAME_STATUS_CONFIGURING)
-    const { map } = game.config.setup
-    game.config.setup.mapPath = map.path
+    this.setStatus(GameStatus.Configuring)
+    const config = game.config!
+    const { map } = config.setup
+    config.setup.mapPath = isReplayMapInfo(map)
       ? map.path
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
-    this.emit('gameCommand', id, 'localUser', game.config.localUser)
-    this.emit('gameCommand', id, 'settings', game.config.settings)
+    this.emit('gameCommand', id, 'localUser', config.localUser)
+    this.emit('gameCommand', id, 'settings', config.settings)
 
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)
-      this.emit('gameCommand', id, 'setupGame', game.config.setup)
+      this.emit('gameCommand', id, 'setupGame', config.setup)
     }
 
     // If the `allowStart` command was already sent by this point, it means it was sent while the
@@ -163,29 +215,29 @@ export default class ActiveGameManager extends EventEmitter {
     }
   }
 
-  handleGameLaunchError(id, err) {
+  handleGameLaunchError(id: string, err: Error) {
     log.error(`Error while launching game ${id}: ${err}`)
     if (this.activeGame && this.activeGame.id === id) {
-      this._setStatus(GAME_STATUS_ERROR, err)
+      this.setStatus(GameStatus.Error, err)
       this.activeGame = null
     }
   }
 
-  handleSetupProgress(gameId, info) {
+  handleSetupProgress(gameId: string, info: any) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    this._setStatus(info.state, info.extra)
+    this.setStatus(info.state, info.extra)
   }
 
-  handleGameStart(gameId) {
+  handleGameStart(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
-    this._setStatus(GAME_STATUS_PLAYING)
+    this.setStatus(GameStatus.Playing)
   }
 
-  handleGameResult(gameId, result, time) {
+  handleGameResult(gameId: string, result: Record<string, GameClientPlayerResult>, time: number) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
@@ -196,12 +248,12 @@ export default class ActiveGameManager extends EventEmitter {
       ...this.activeGame,
       result: { result, time },
     }
-    this._setStatus(GAME_STATUS_HAS_RESULT)
+    this.setStatus(GameStatus.HasResult)
 
-    this.emit('gameResult', { result, time })
+    this.emit('gameResult', { gameId, result, time })
   }
 
-  handleGameResultSent(gameId) {
+  handleGameResultSent(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
@@ -210,58 +262,60 @@ export default class ActiveGameManager extends EventEmitter {
       ...this.activeGame,
       resultSent: true,
     }
-    this._setStatus(GAME_STATUS_RESULT_SENT)
+    this.setStatus(GameStatus.ResultSent)
   }
 
-  handleGameFinished(gameId) {
+  handleGameFinished(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    this._setStatus(GAME_STATUS_FINISHED)
+    this.setStatus(GameStatus.Finished)
     this.emit('gameCommand', gameId, 'cleanup_and_quit')
   }
 
-  handleReplaySave(gameId, path) {
+  handleReplaySave(gameId: string, path: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
     log.verbose(`Replay saved to: ${path}`)
-    this.emit('replaySave', path)
+    this.emit('replaySave', gameId, path)
   }
 
-  handleGameExit(id, exitCode) {
+  handleGameExit(id: string, exitCode: number) {
     if (!this.activeGame || this.activeGame.id !== id) {
       return
     }
 
     log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
 
-    if (this.activeGame.status.state < GAME_STATUS_FINISHED) {
-      if (this.activeGame.status.state >= GAME_STATUS_PLAYING) {
+    let status = this.activeGame.status?.state ?? GameStatus.Unknown
+    if (status < GameStatus.Finished) {
+      if (status >= GameStatus.Playing) {
         // TODO(tec27): report a disc to the server
-        this._setStatus(GAME_STATUS_UNKNOWN)
+        this.setStatus(GameStatus.Unknown)
       } else {
-        this._setStatus(
-          GAME_STATUS_ERROR,
+        this.setStatus(
+          GameStatus.Error,
           new Error(`Game exited unexpectedly with code 0x${exitCode.toString(16)}`),
         )
       }
     }
 
+    status = this.activeGame.status?.state ?? GameStatus.Unknown
     // TODO(#541): Convert a game config to a "blank" result if one was not delivered by the
     // game before exit
     if (
-      this.activeGame.status.state >= GAME_STATUS_PLAYING &&
+      status >= GameStatus.Playing &&
       !this.activeGame.resultSent &&
       this.activeGame.result &&
-      !this.activeGame.config.map.isReplay
+      !isReplayMapInfo(this.activeGame.config!.setup.map)
     ) {
       // TODO(#542): Retry submission of these results more times/for longer to try and ensure
       // complete resutls on the server
       log.verbose('Game failed to send result, retrying once from the app')
-      const { config } = this.activeGame
+      const config = this.activeGame.config!
       const submission = {
         userId: config.localUser.id,
         resultCode: config.setup.resultCode,
@@ -284,20 +338,21 @@ export default class ActiveGameManager extends EventEmitter {
     this.activeGame = null
   }
 
-  handleGameExitWaitError(id, err) {
+  handleGameExitWaitError(id: string, err: Error) {
     log.error(`Error while waiting for game ${id} to exit: ${err}`)
   }
 
-  _setStatus(state, extra = null) {
+  private setStatus(state: GameStatus, extra: any = null) {
     if (this.activeGame) {
       this.activeGame.status = { state, extra }
-      this.emit('gameStatus', this.getStatus())
+      this.emit('gameStatus', this.getStatus()!)
       log.verbose(`Game status updated to '${statusToString(state)}' [${JSON.stringify(extra)}]`)
     }
   }
 }
 
-function silentTerminate(proc) {
+// TODO(tec27): add typings for launchProcess
+function silentTerminate(proc: any) {
   try {
     proc.terminate()
   } catch (err) {
@@ -307,10 +362,10 @@ function silentTerminate(proc) {
 
 const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
 
-async function removeIfOld(path, maxAge) {
+async function removeIfOld(path: string, maxAge: number) {
   try {
     const stat = await fsPromises.stat(path)
-    if (Date.now() - stat.mtime > maxAge) {
+    if (Date.now() - Number(stat.mtime) > maxAge) {
       await fsPromises.unlink(path)
     }
   } catch (e) {
@@ -318,7 +373,7 @@ async function removeIfOld(path, maxAge) {
   }
 }
 
-async function doLaunch(gameId, serverPort, settings) {
+async function doLaunch(gameId: string, serverPort: number, settings: GameConfig['settings']) {
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
@@ -367,7 +422,7 @@ async function doLaunch(gameId, serverPort, settings) {
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
     ],
     debuggerLaunch: isRemastered,
-    logCallback: msg => log.verbose(`[Inject] ${msg}`),
+    logCallback: (msg: string) => log.verbose(`[Inject] ${msg}`),
   })
   log.verbose('Process launched')
 
