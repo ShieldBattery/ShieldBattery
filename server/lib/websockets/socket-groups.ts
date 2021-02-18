@@ -23,15 +23,9 @@ abstract class SocketGroup extends EventEmitter {
   sockets = Set<NydusClient>()
   subscriptions = Map<string, Readonly<SubscriptionInfo<this>>>()
 
-  constructor(private nydus: NydusServer, readonly session: SessionInfo, initSocket: NydusClient) {
+  constructor(private nydus: NydusServer, readonly session: SessionInfo) {
     super()
     this.name = session.userName
-
-    if (initSocket) {
-      process.nextTick(() => {
-        this.add(initSocket)
-      })
-    }
   }
 
   /**
@@ -141,8 +135,8 @@ export class ClientSocketsGroup extends SocketGroup {
   readonly userId: number
   readonly clientId: string
 
-  constructor(nydus: NydusServer, session: SessionInfo, socket: NydusClient) {
-    super(nydus, session, socket)
+  constructor(nydus: NydusServer, session: SessionInfo) {
+    super(nydus, session)
     this.userId = session.userId
     this.clientId = session.clientId
   }
@@ -182,7 +176,8 @@ export class UserSocketsManager extends EventEmitter {
 
       const userName: string = session.userName
       if (!this.users.has(userName)) {
-        const user = new UserSocketsGroup(this.nydus, session!, socket)
+        const user = new UserSocketsGroup(this.nydus, session!)
+        user.add(socket)
         this.users = this.users.set(userName, user)
         this.emit('newUser', user)
         user.once('close', () => this.removeUser(userName))
@@ -232,7 +227,8 @@ export class ClientSocketsManager extends EventEmitter {
 
       const userClientId = this.keyFor(session.userId, session.clientId)
       if (!this.clients.has(userClientId)) {
-        const client = new ClientSocketsGroup(this.nydus, session, socket)
+        const client = new ClientSocketsGroup(this.nydus, session)
+        client.add(socket)
         this.clients = this.clients.set(userClientId, client)
         client.once('close', () => this.removeClient(userClientId))
       } else {
