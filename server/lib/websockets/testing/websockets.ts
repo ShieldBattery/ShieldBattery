@@ -14,42 +14,24 @@ export class FakeNydusServer
   implements Omit<Pick<NydusServer, keyof NydusServer>, keyof EventEmitter> {
   clients: IMap<string, NydusClient> = IMap()
 
-  readonly subscribes = new Map<NydusClient, Array<{ path: string; initialData: any }>>()
-  readonly publishes: Array<{ path: string; data?: any }> = []
-
   attach() {}
   close() {}
   setIdGen() {}
 
   registerRoute(pathPattern: string, ...handlers: RouteHandler[]) {}
 
-  subscribeClient(client: NydusClient, path: string, initialData?: any) {
-    console.log(`subscribe for ${client.id} at ${path}`)
-    if (this.subscribes.has(client)) {
-      this.subscribes.get(client)!.push({ path, initialData })
-    } else {
-      this.subscribes.set(client, [{ path, initialData }])
-    }
-  }
-
-  unsubscribeClient(client: NydusClient, path: string) {
-    return false
-  }
-
-  unsubscribeAll(path: string) {
-    return false
-  }
-
-  publish(path: string, data?: any) {
-    this.publishes.push({
-      path,
-      data,
-    })
-  }
+  subscribeClient = jest.fn()
+  // TODO(tec27): Make this return value correct?
+  unsubscribeClient = jest.fn(() => false)
+  // TODO(tec27): Make this return value correct?
+  unsubscribeAll = jest.fn(() => false)
+  publish = jest.fn()
 
   testonlyClear() {
-    this.subscribes.clear()
-    this.publishes.length = 0
+    this.subscribeClient.mockClear()
+    this.unsubscribeClient.mockClear()
+    this.unsubscribeAll.mockClear()
+    this.publish.mockClear()
   }
 
   testonlyAddClient(client: NydusClient) {
@@ -63,20 +45,6 @@ export function clearTestLogs(nydus: NydusServer) {
     throw new Error('Must use a FakeNydusServer')
   }
   nydus.testonlyClear()
-}
-
-export function getSubscribes(nydus: NydusServer) {
-  if (!(nydus instanceof FakeNydusServer)) {
-    throw new Error('Must use a FakeNydusServer')
-  }
-  return nydus.subscribes
-}
-
-export function getPublishes(nydus: NydusServer) {
-  if (!(nydus instanceof FakeNydusServer)) {
-    throw new Error('Must use a FakeNydusServer')
-  }
-  return nydus.publishes
 }
 
 export function createFakeNydusServer(): NydusServer {

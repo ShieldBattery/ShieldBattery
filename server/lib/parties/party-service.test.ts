@@ -4,7 +4,6 @@ import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-g
 import {
   clearTestLogs,
   createFakeNydusServer,
-  getSubscribes,
   NydusConnector,
 } from '../websockets/testing/websockets'
 import PartyService, { getPartyPath, PartyUser } from './party-service'
@@ -52,14 +51,9 @@ describe('parties/party-service', () => {
 
       expect(party.invites.size).toBe(2)
 
-      const subscribes = getSubscribes(nydus)
-      expect(subscribes.has(client1)).toBe(true)
-      expect(subscribes.get(client1)).toContainEqual({
-        path: getPartyPath(party.id),
-        initialData: {
-          action: 'init',
-          party,
-        },
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(client1, getPartyPath(party.id), {
+        action: 'init',
+        party,
       })
     })
   })

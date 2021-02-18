@@ -31,7 +31,7 @@
 
   "overrides": [
     {
-      "files": ["**/*.test.js", "**/*.test.ts"],
+      "files": ["**/*.test.js", "**/*.test.ts", "**/testing/**/*.js", "**/testing/**/*.ts"],
       "env": {
         "browser": true,
         "es6": true,
