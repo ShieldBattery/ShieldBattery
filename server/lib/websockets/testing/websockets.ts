@@ -14,18 +14,45 @@ export class FakeNydusServer
   implements Omit<Pick<NydusServer, keyof NydusServer>, keyof EventEmitter> {
   clients: IMap<string, NydusClient> = IMap()
 
+  fakeSubscriptions = new Map<string, Set<InspectableNydusClient>>()
+
   attach() {}
   close() {}
   setIdGen() {}
 
   registerRoute(pathPattern: string, ...handlers: RouteHandler[]) {}
 
-  subscribeClient = jest.fn()
-  // TODO(tec27): Make this return value correct?
-  unsubscribeClient = jest.fn(() => false)
-  // TODO(tec27): Make this return value correct?
-  unsubscribeAll = jest.fn(() => false)
-  publish = jest.fn()
+  subscribeClient = jest.fn((client: NydusClient, path: string, initialData?: any) => {
+    if (!(client instanceof InspectableNydusClient)) {
+      throw new Error(
+        'Only InspectableNydusClients should be connected to FakeNydusServer. ' +
+          'Use NydusConnector for connecting clients.',
+      )
+    }
+
+    if (!this.fakeSubscriptions.has(path)) {
+      this.fakeSubscriptions.set(path, new Set())
+    }
+
+    const subs = this.fakeSubscriptions.get(path)!
+    if (!subs.has(client)) {
+      subs.add(client)
+      if (initialData) {
+        client.publish(path, initialData)
+      }
+    }
+  })
+  unsubscribeClient = jest.fn((client: NydusClient, path: string) => {
+    return !!this.fakeSubscriptions.get(path)?.delete(client as InspectableNydusClient)
+  })
+  unsubscribeAll = jest.fn((path: string) => {
+    return this.fakeSubscriptions.delete(path)
+  })
+  publish = jest.fn((path: string, data?: any) => {
+    this.fakeSubscriptions.get(path)?.forEach(client => {
+      client.publish(path, data)
+    })
+  })
 
   testonlyClear() {
     this.subscribeClient.mockClear()
@@ -38,6 +65,16 @@ export class FakeNydusServer
     this.clients = this.clients.set(client.id, client)
     this.emit('connection', client)
   }
+}
+
+/**
+ * An extension of NydusClient that allows tests to check messages that were published to it (via
+ * a Jest mock).
+ */
+export class InspectableNydusClient extends NydusClient {
+  // NOTE(tec27): We add an explicit type because it makes calling the method have better
+  // documentation (the arguments are named, vs the arg_0, arg_1 stuff from Jest)
+  publish: (path: string, data: any) => void = jest.fn()
 }
 
 export function clearTestLogs(nydus: NydusServer) {
@@ -64,7 +101,7 @@ export class NydusConnector {
     this.fakeNydus = nydus
   }
 
-  connectClient(user: { id: number; name: string }, clientId: string): NydusClient {
+  connectClient(user: { id: number; name: string }, clientId: string): InspectableNydusClient {
     const id = String(clientIdCounter++)
     const fakeRequest = ({
       headers: [],
@@ -80,7 +117,7 @@ export class NydusConnector {
       address: '127.0.0.1',
     }
     this.sessionLookup.set(fakeRequest, fakeSession)
-    const client = new NydusClient(
+    const client = new InspectableNydusClient(
       id,
       ({
         id,

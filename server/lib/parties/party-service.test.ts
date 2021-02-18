@@ -1,9 +1,10 @@
-import { NydusClient, NydusServer } from 'nydus'
+import { NydusServer } from 'nydus'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
 import {
   clearTestLogs,
   createFakeNydusServer,
+  InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
 import PartyService, { getPartyPath, PartyUser } from './party-service'
@@ -17,9 +18,9 @@ describe('parties/party-service', () => {
   const USER2_CLIENT_ID = 'USER2_CLIENT_ID'
   const USER3_CLIENT_ID = 'USER3_CLIENT_ID'
 
-  let client1: NydusClient
-  let client2: NydusClient
-  let client3: NydusClient
+  let client1: InspectableNydusClient
+  let client2: InspectableNydusClient
+  let client3: InspectableNydusClient
 
   let nydus: NydusServer
   let partyService: PartyService
@@ -50,8 +51,7 @@ describe('parties/party-service', () => {
       const party = partyService.invite(leader, USER1_CLIENT_ID, invites)
 
       expect(party.invites.size).toBe(2)
-
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(client1, getPartyPath(party.id), {
+      expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         action: 'init',
         party,
       })
