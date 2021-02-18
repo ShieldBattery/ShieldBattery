@@ -38,11 +38,11 @@ export class PartyServiceError extends Error {
   }
 }
 
-function getInvitesPath(partyId: string): string {
+export function getInvitesPath(partyId: string): string {
   return `/parties/invites/${partyId}`
 }
 
-function getPartyPath(partyId: string): string {
+export function getPartyPath(partyId: string): string {
   return `/parties/invites/${partyId}`
 }
 
@@ -57,7 +57,7 @@ export default class PartyService {
     private userSocketsManager: UserSocketsManager,
   ) {}
 
-  invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]) {
+  invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]): Readonly<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
     let party: PartyRecord | undefined = this.getClientParty(leaderClientSockets)
@@ -105,6 +105,8 @@ export default class PartyService {
           },
         )
       })
+
+    return party
   }
 
   removeInvite(partyId: string, target: PartyUser, leader?: PartyUser) {
