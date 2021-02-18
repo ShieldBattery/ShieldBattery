@@ -8,9 +8,14 @@
     "sourceType": "module"
   },
 
-  "extends": ["prettier", "plugin:@typescript-eslint/recommended"],
+  "extends": [
+    "prettier",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:jest/recommended",
+    "plugin:jest/style"
+  ],
 
-  "plugins": ["@typescript-eslint", "prettier", "react"],
+  "plugins": ["@typescript-eslint", "jest", "prettier", "react"],
 
   "settings": {
     "react": {
@@ -23,6 +28,18 @@
     "es6": true,
     "node": true
   },
+
+  "overrides": [
+    {
+      "files": ["**/*.test.js", "**/*.test.ts"],
+      "env": {
+        "browser": true,
+        "es6": true,
+        "jest/globals": true,
+        "node": true
+      }
+    }
+  ],
 
   "globals": {
     "document": "readonly",
@@ -207,6 +224,8 @@
     "wrap-iife": [2, "any"],
     "wrap-regex": 0,
     "yoda": 0,
+
+    "jest/expect-expect": 0,
 
     "prettier/prettier": 2,
 

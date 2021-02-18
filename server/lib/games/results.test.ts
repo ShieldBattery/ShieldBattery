@@ -1,11 +1,6 @@
-import { expect } from 'chai'
-import { GameClientPlayerResult, GameClientResult } from '../../../../common/game-results'
-import { AssignedRaceChar } from '../../../../common/races'
-import {
-  hasCompletedResults,
-  ReconciledPlayerResult,
-  reconcileResults,
-} from '../../../../server/lib/games/results'
+import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
+import { AssignedRaceChar } from '../../../common/races'
+import { hasCompletedResults, ReconciledPlayerResult, reconcileResults } from './results'
 
 function makePlayerResult(
   userId: number,
@@ -17,7 +12,7 @@ function makePlayerResult(
 }
 
 describe('games/results/hasCompletedResults', () => {
-  it('should return false when one player is still playing in a 1v1', () => {
+  test('should return false when one player is still playing in a 1v1', () => {
     const results = [
       {
         reporter: 2,
@@ -30,10 +25,10 @@ describe('games/results/hasCompletedResults', () => {
       null,
     ]
 
-    expect(hasCompletedResults(results)).to.equal(false)
+    expect(hasCompletedResults(results)).toBeFalse()
   })
 
-  it('should return true when all players have a terminal result in a 1v1', () => {
+  test('should return true when all players have a terminal result in a 1v1', () => {
     const results = [
       {
         reporter: 2,
@@ -53,10 +48,10 @@ describe('games/results/hasCompletedResults', () => {
       },
     ]
 
-    expect(hasCompletedResults(results)).to.equal(true)
+    expect(hasCompletedResults(results)).toBeTrue()
   })
 
-  it('should return false when one player is still playing in a 4 player game', () => {
+  test('should return false when one player is still playing in a 4 player game', () => {
     const results = [
       {
         reporter: 2,
@@ -82,10 +77,10 @@ describe('games/results/hasCompletedResults', () => {
       null,
     ]
 
-    expect(hasCompletedResults(results)).to.equal(false)
+    expect(hasCompletedResults(results)).toBeFalse()
   })
 
-  it('should return true when all players have a terminal state in a 4 player game', () => {
+  test('should return true when all players have a terminal state in a 4 player game', () => {
     const results = [
       {
         reporter: 2,
@@ -120,7 +115,7 @@ describe('games/results/hasCompletedResults', () => {
       null,
     ]
 
-    expect(hasCompletedResults(results)).to.equal(true)
+    expect(hasCompletedResults(results)).toBeTrue()
   })
 })
 
@@ -128,14 +123,12 @@ function evaluateResults(
   resultsMap: Map<number, ReconciledPlayerResult>,
   expectedObj: { [key: number]: ReconciledPlayerResult },
 ) {
-  expect(resultsMap).to.have.all.keys(Object.keys(expectedObj).map(k => +k))
-  for (const key of Object.keys(expectedObj)) {
-    expect(resultsMap.get(+key), `unexpected result for ${key}`).to.deep.equal(expectedObj[+key])
-  }
+  const obj = Object.fromEntries(resultsMap.entries())
+  expect(obj).toContainAllEntries(Object.entries(expectedObj))
 }
 
 describe('games/results/reconcileResults', () => {
-  it('should reconcile a simple, undisputed 1v1 with complete results', () => {
+  test('should reconcile a simple, undisputed 1v1 with complete results', () => {
     const results = [
       {
         reporter: 2,
@@ -157,15 +150,15 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(false)
-    expect(reconciled.time).to.equal(33)
+    expect(reconciled.disputed).toEqual(false)
+    expect(reconciled.time).toEqual(33)
     evaluateResults(reconciled.results, {
       1: { result: 'win', race: 't', apm: 25 },
       2: { result: 'loss', race: 'z', apm: 60 },
     })
   })
 
-  it('should reconcile a disputed 1v1 with complete results', () => {
+  test('should reconcile a disputed 1v1 with complete results', () => {
     const results = [
       {
         reporter: 2,
@@ -187,14 +180,14 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(true)
+    expect(reconciled.disputed).toEqual(true)
     evaluateResults(reconciled.results, {
       1: { result: 'unknown', race: 't', apm: 25 },
       2: { result: 'unknown', race: 'z', apm: 60 },
     })
   })
 
-  it('should reconcile a 4 player game with undisputed, but incomplete results', () => {
+  test('should reconcile a 4 player game with undisputed, but incomplete results', () => {
     const results = [
       {
         reporter: 2,
@@ -231,8 +224,8 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(false)
-    expect(reconciled.time).to.equal(50)
+    expect(reconciled.disputed).toEqual(false)
+    expect(reconciled.time).toEqual(50)
     evaluateResults(reconciled.results, {
       1: { result: 'loss', race: 't', apm: 40 },
       2: { result: 'win', race: 'z', apm: 20 },
@@ -241,7 +234,7 @@ describe('games/results/reconcileResults', () => {
     })
   })
 
-  it('should reconcile a 4 player game without final results', () => {
+  test('should reconcile a 4 player game without final results', () => {
     const results = [
       {
         reporter: 2,
@@ -269,8 +262,8 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(true)
-    expect(reconciled.time).to.equal(9)
+    expect(reconciled.disputed).toEqual(true)
+    expect(reconciled.time).toEqual(9)
     evaluateResults(reconciled.results, {
       1: { result: 'unknown', race: 't', apm: 40 },
       2: { result: 'unknown', race: 'z', apm: 20 },
@@ -279,7 +272,7 @@ describe('games/results/reconcileResults', () => {
     })
   })
 
-  it('should reconcile a 4 player game with disputed results for 1 player', () => {
+  test('should reconcile a 4 player game with disputed results for 1 player', () => {
     const results = [
       {
         reporter: 2,
@@ -325,7 +318,7 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(true)
+    expect(reconciled.disputed).toEqual(true)
     evaluateResults(reconciled.results, {
       1: { result: 'loss', race: 't', apm: 40 },
       2: { result: 'win', race: 'z', apm: 20 },
@@ -334,7 +327,7 @@ describe('games/results/reconcileResults', () => {
     })
   })
 
-  it('should mark a match disputed if players disagree on assigned races', () => {
+  test('should mark a match disputed if players disagree on assigned races', () => {
     const results = [
       {
         reporter: 2,
@@ -356,7 +349,7 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).to.equal(true)
+    expect(reconciled.disputed).toEqual(true)
     evaluateResults(reconciled.results, {
       1: { result: 'win', race: 'p', apm: 20 },
       2: { result: 'loss', race: 'z', apm: 30 },

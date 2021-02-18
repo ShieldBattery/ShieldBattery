@@ -1,116 +1,110 @@
-import { expect } from 'chai'
-
-import { create, findIndex, insert } from '../../common/sorted-list'
+import { create, findIndex, insert } from './sorted-list'
 
 const alphaSort = (a, b) => a.localeCompare(b)
 
 describe('sorted-list', function () {
-  // NOTE(tec27): This test suite is flaky on CI for reasons I cannot figure out, maybe this will
-  // help?
-  this.timeout(5000)
-
   describe('create', () => {
-    it('should create an empty list', () => {
+    test('should create an empty list', () => {
       const result = create(alphaSort)
-      expect(result.size).to.eql(0)
+      expect(result.size).toBe(0)
     })
 
-    it('should create a filled list', () => {
+    test('should create a filled list', () => {
       const result = create(alphaSort, ['z', 'a', 'b'])
-      expect(result.size).to.eql(3)
-      expect(result.get(0)).to.eql('a')
-      expect(result.get(1)).to.eql('b')
-      expect(result.get(2)).to.eql('z')
+      expect(result.size).toBe(3)
+      expect(result.get(0)).toBe('a')
+      expect(result.get(1)).toBe('b')
+      expect(result.get(2)).toBe('z')
     })
   })
 
   describe('findIndex', () => {
-    it('should find nothing in an empty list', () => {
+    test('should find nothing in an empty list', () => {
       const result = findIndex(alphaSort, create(alphaSort), 'a')
-      expect(result).to.eql(-1)
+      expect(result).toEqual(-1)
     })
 
-    it('should find a single item in a one item list', () => {
+    test('should find a single item in a one item list', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['a']), 'a')
-      expect(result).to.eql(0)
+      expect(result).toBe(0)
     })
 
-    it('should not find a single item in a non-equal one item list', () => {
+    test('should not find a single item in a non-equal one item list', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['b']), 'a')
-      expect(result).to.eql(-1)
+      expect(result).toEqual(-1)
     })
 
-    it('should find a single item in a three item list, early item', () => {
+    test('should find a single item in a three item list, early item', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'a')
-      expect(result).to.eql(0)
+      expect(result).toBe(0)
     })
 
-    it('should find a single item in a three item list, middle item', () => {
+    test('should find a single item in a three item list, middle item', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'b')
-      expect(result).to.eql(1)
+      expect(result).toBe(1)
     })
 
-    it('should find a single item in a three item list, late item', () => {
+    test('should find a single item in a three item list, late item', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['a', 'b', 'c']), 'c')
-      expect(result).to.eql(2)
+      expect(result).toBe(2)
     })
 
-    it('should find a single item in a large list', () => {
+    test('should find a single item in a large list', () => {
       const result = findIndex(
         alphaSort,
         create(alphaSort, ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']),
         'c',
       )
-      expect(result).to.eql(4)
+      expect(result).toBe(4)
     })
 
-    it('should not find a single item in a large list, no equal item present', () => {
+    test('should not find a single item in a large list, no equal item present', () => {
       const result = findIndex(
         alphaSort,
         create(alphaSort, ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']),
         'g',
       )
-      expect(result).to.eql(-1)
+      expect(result).toEqual(-1)
     })
   })
 
   describe('insert', () => {
-    it('should insert into an empty list', () => {
+    test('should insert into an empty list', () => {
       const result = insert(alphaSort, create(alphaSort), 'a')
-      expect(result.toJS()).to.eql(['a'])
+      expect(result.toJS()).toEqual(['a'])
     })
 
-    it('should insert into a one element list, earlier entry', () => {
+    test('should insert into a one element list, earlier entry', () => {
       const result = insert(alphaSort, create(alphaSort, ['b']), 'a')
-      expect(result.toJS()).to.eql(['a', 'b'])
+      expect(result.toJS()).toEqual(['a', 'b'])
     })
 
-    it('should insert into a one element list, later entry', () => {
+    test('should insert into a one element list, later entry', () => {
       const result = insert(alphaSort, create(alphaSort, ['a']), 'b')
-      expect(result.toJS()).to.eql(['a', 'b'])
+      expect(result.toJS()).toEqual(['a', 'b'])
     })
 
-    it('should insert into a two element list, early entry', () => {
+    test('should insert into a two element list, early entry', () => {
       const result = insert(alphaSort, create(alphaSort, ['b', 'c']), 'a')
-      expect(result.toJS()).to.eql(['a', 'b', 'c'])
+      expect(result.toJS()).toEqual(['a', 'b', 'c'])
     })
 
-    it('should insert into a two element list, middle entry', () => {
+    test('should insert into a two element list, middle entry', () => {
       const result = insert(alphaSort, create(alphaSort, ['a', 'c']), 'b')
-      expect(result.toJS()).to.eql(['a', 'b', 'c'])
+      expect(result.toJS()).toEqual(['a', 'b', 'c'])
     })
 
-    it('should insert into a two element list, later entry', () => {
+    test('should insert into a two element list, later entry', () => {
       const result = insert(alphaSort, create(alphaSort, ['a', 'b']), 'c')
-      expect(result.toJS()).to.eql(['a', 'b', 'c'])
+      expect(result.toJS()).toEqual(['a', 'b', 'c'])
     })
 
-    it('should insert into a list with an equal element', () => {
+    test('should insert into a list with an equal element', () => {
       const result = insert(alphaSort, create(alphaSort, ['a', 'b', 'c', 'd']), 'b')
-      expect(result.toJS()).to.eql(['a', 'b', 'b', 'c', 'd'])
+      expect(result.toJS()).toEqual(['a', 'b', 'b', 'c', 'd'])
     })
 
-    it('should insert into a large list', () => {
+    test('should insert into a large list', () => {
       const result = insert(
         alphaSort,
         create(alphaSort, [
@@ -132,7 +126,7 @@ describe('sorted-list', function () {
         ]),
         'c',
       )
-      expect(result.toJS()).to.eql([
+      expect(result.toJS()).toEqual([
         'a',
         'c',
         'f',
