@@ -28,7 +28,9 @@ abstract class SocketGroup extends EventEmitter {
     this.name = session.userName
 
     if (initSocket) {
-      this.add(initSocket)
+      process.nextTick(() => {
+        this.add(initSocket)
+      })
     }
   }
 
