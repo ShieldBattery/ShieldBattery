@@ -271,7 +271,7 @@ function setupCspProtocol(curSession) {
         const result = data
           .replace(
             /%SCRIPT_URL%/g,
-            isHot ? 'http://localhost:5566/dist/bundle.js' : 'dist/bundle.js',
+            isHot ? 'http://localhost:5566/dist/bundle.js' : '/dist/bundle.js',
           )
           .replace(/%CSP_NONCE%/g, nonce)
           .replace(
