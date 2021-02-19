@@ -46,7 +46,7 @@ const createMapInfo = async info => {
   const hashString = map.hash.toString('hex')
 
   const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
-    getUrl(mapPath(hashString, map.mapData.format)),
+    getUrl(mapPath(hashString, map.mapData.format), true),
     getUrl(imagePath(hashString, 256)),
     getUrl(imagePath(hashString, 512)),
     getUrl(imagePath(hashString, 1024)),

@@ -19,6 +19,9 @@ function formatOptions(options: any = {}) {
   if (options.expires) {
     formatted.Expires = options.expires
   }
+  if (options.acl) {
+    formatted.ACL = options.acl
+  }
 
   return formatted
 }
@@ -26,6 +29,7 @@ function formatOptions(options: any = {}) {
 // This is a generic implementation of a file-store using the aws-sdk. Note however, that it can be
 // used by any compatible storage provider, e.g. DigitalOcean Spaces or Amazon S3.
 export default class Aws implements FileStore {
+  readonly endpoint: string
   readonly bucket: string
   readonly client: aws.S3
   readonly cdnHost: string | undefined
@@ -59,6 +63,7 @@ export default class Aws implements FileStore {
       options.region = region
     }
 
+    this.endpoint = endpoint
     this.bucket = bucket
     this.client = new aws.S3(options)
     this.cdnHost = cdnHost
@@ -125,16 +130,18 @@ export default class Aws implements FileStore {
   // `getSignedUrlPromise` function. Besides those, we allow sending some of the more frequently
   // used options in a more friendlier format, e.g. `expires` can be sent instead of `Expires`
   // which defines how long the fetched URL will be accessible for (default is 15mins).
-  async url(filename: string, options: any = {}): Promise<string> {
+  async url(filename: string, signUrl = false, options: any = {}): Promise<string> {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
-    const signedUrl = await this.client.getSignedUrlPromise('getObject', params)
+    const url = signUrl
+      ? await this.client.getSignedUrlPromise('getObject', params)
+      : `https://${this.bucket}.${this.endpoint}/${filename}`
     if (this.cdnHost) {
-      const url = new URL(signedUrl)
-      url.host = this.cdnHost
-      return url.toString()
+      const cdnUrl = new URL(url)
+      cdnUrl.host = this.cdnHost
+      return cdnUrl.toString()
     } else {
-      return signedUrl
+      return url
     }
   }
 

@@ -28,16 +28,22 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
   const mapParams = { mapData, extension, uploadedBy, visibility }
   const map = await addMap(mapParams, async () => {
     const image256Promise = image256Stream
-      ? writeFile(imagePath(hash, 256), image256Stream, { type: 'image/jpeg' })
+      ? writeFile(imagePath(hash, 256), image256Stream, { acl: 'public-read', type: 'image/jpeg' })
       : Promise.resolve()
     const image512Promise = image512Stream
-      ? writeFile(imagePath(hash, 512), image512Stream, { type: 'image/jpeg' })
+      ? writeFile(imagePath(hash, 512), image512Stream, { acl: 'public-read', type: 'image/jpeg' })
       : Promise.resolve()
     const image1024Promise = image1024Stream
-      ? writeFile(imagePath(hash, 1024), image1024Stream, { type: 'image/jpeg' })
+      ? writeFile(imagePath(hash, 1024), image1024Stream, {
+          acl: 'public-read',
+          type: 'image/jpeg',
+        })
       : Promise.resolve()
     const image2048Promise = image2048Stream
-      ? writeFile(imagePath(hash, 2048), image2048Stream, { type: 'image/jpeg' })
+      ? writeFile(imagePath(hash, 2048), image2048Stream, {
+          acl: 'public-read',
+          type: 'image/jpeg',
+        })
       : Promise.resolve()
     const mapPromise = writeFile(mapPath(hash, extension), fs.createReadStream(path))
 
@@ -64,16 +70,16 @@ export async function storeRegeneratedImages(path, extension) {
   const { hash } = mapData
 
   const image256Promise = image256Stream
-    ? writeFile(imagePath(hash, 256), image256Stream, { type: 'image/jpeg' })
+    ? writeFile(imagePath(hash, 256), image256Stream, { acl: 'public-read', type: 'image/jpeg' })
     : Promise.resolve()
   const image512Promise = image512Stream
-    ? writeFile(imagePath(hash, 512), image512Stream, { type: 'image/jpeg' })
+    ? writeFile(imagePath(hash, 512), image512Stream, { acl: 'public-read', type: 'image/jpeg' })
     : Promise.resolve()
   const image1024Promise = image1024Stream
-    ? writeFile(imagePath(hash, 1024), image1024Stream, { type: 'image/jpeg' })
+    ? writeFile(imagePath(hash, 1024), image1024Stream, { acl: 'public-read', type: 'image/jpeg' })
     : Promise.resolve()
   const image2048Promise = image2048Stream
-    ? writeFile(imagePath(hash, 2048), image2048Stream, { type: 'image/jpeg' })
+    ? writeFile(imagePath(hash, 2048), image2048Stream, { acl: 'public-read', type: 'image/jpeg' })
     : Promise.resolve()
 
   await Promise.all([image256Promise, image512Promise, image1024Promise, image2048Promise])
