@@ -36,8 +36,6 @@ if not exist "%scriptroot%\dist\d3dcompiler_47.dll" (
     )
   )
 )
-if not exist %scriptroot%\dist\bspatch.exe xcopy "%scriptroot%\..\tools\bspatch.exe" "%scriptroot%\dist" /y /f /c
-if not exist %scriptroot%\dist\ICSharpCode.SharpZipLib.dll xcopy "%scriptroot%\..\tools\ICSharpCode.SharpZipLib.dll" "%scriptroot%\dist" /y /f /c
 
 xcopy "%scriptroot%\..\tools\sb_init.dll" "%scriptroot%\dist" /y /f /c
 
