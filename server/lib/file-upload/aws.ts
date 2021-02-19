@@ -28,6 +28,7 @@ function formatOptions(options: any = {}) {
 export default class Aws implements FileStore {
   readonly bucket: string
   readonly client: aws.S3
+  readonly cdnHost: string | undefined
 
   constructor({
     endpoint,
@@ -35,12 +36,14 @@ export default class Aws implements FileStore {
     secretAccessKey,
     region,
     bucket,
+    cdnHost,
   }: {
     endpoint: string
     accessKeyId: string
     secretAccessKey: string
     region: string
     bucket: string
+    cdnHost?: string
   }) {
     const options: aws.S3.ClientConfiguration = {
       accessKeyId,
@@ -121,10 +124,17 @@ export default class Aws implements FileStore {
   // `getSignedUrlPromise` function. Besides those, we allow sending some of the more frequently
   // used options in a more friendlier format, e.g. `expires` can be sent instead of `Expires`
   // which defines how long the fetched URL will be accessible for (default is 15mins).
-  async url(filename: string, options: any = {}) {
+  async url(filename: string, options: any = {}): Promise<string> {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
-    return this.client.getSignedUrlPromise('getObject', params)
+    const signedUrl = await this.client.getSignedUrlPromise('getObject', params)
+    if (this.cdnHost) {
+      const url = new URL(signedUrl)
+      url.host = this.cdnHost
+      return url.toString()
+    } else {
+      return signedUrl
+    }
   }
 
   addMiddleware() {}
