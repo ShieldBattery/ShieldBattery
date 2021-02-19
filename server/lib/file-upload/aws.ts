@@ -61,6 +61,7 @@ export default class Aws implements FileStore {
 
     this.bucket = bucket
     this.client = new aws.S3(options)
+    this.cdnHost = cdnHost
   }
 
   private getNormalizedPath(filename: string): string {
