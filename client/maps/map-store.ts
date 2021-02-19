@@ -74,7 +74,12 @@ export class MapStore {
       await new Promise((resolve, reject) => {
         const outStream = fs.createWriteStream(mapPath)
         outStream.on('error', reject).on('finish', resolve)
-        fetchReadableStream(mapUrl).on('error', reject).pipe(outStream)
+        fetchReadableStream(mapUrl, {
+          headers: { Accept: 'application/octet-stream' },
+          credentials: 'omit',
+        })
+          .on('error', reject)
+          .pipe(outStream)
       })
 
       return true

@@ -75,7 +75,7 @@ const eventToAction = {
     const { hash, mapData, mapUrl } = event.lobby.map
     mapStore
       .downloadMap(hash, mapData.format, mapUrl)
-      .catch(err => log.error('Error while downloading map: ' + err))
+      .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack))
     rallyPointManager.refreshPings()
 
     return {

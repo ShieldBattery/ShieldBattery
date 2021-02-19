@@ -171,7 +171,7 @@ const eventToAction = {
     // we're still leaving this as a check to make sure the map exists before starting a game.
     mapStore
       .downloadMap(hash, format, mapUrl)
-      .catch(err => log.error('Error while downloading map: ' + err))
+      .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack))
 
     const config = {
       localUser: user,
@@ -300,7 +300,7 @@ const eventToAction = {
           .forEach(map =>
             mapStore
               .downloadMap(map.hash, map.mapData.format, map.mapUrl)
-              .catch(err => log.error('Error while downloading map: ' + err)),
+              .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack)),
           )
       }
     }
