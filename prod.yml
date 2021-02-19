@@ -24,6 +24,7 @@ files:
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
+  certificateSubjectName: Fast Expo Collective LLC
   icon: icon.ico
   target: nsis-web
 

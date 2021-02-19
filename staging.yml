@@ -26,6 +26,7 @@ nsis:
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
 win:
+  certificateSubjectName: Fast Expo Collective LLC
   icon: icon.ico
   target: nsis-web
 
