@@ -20,12 +20,14 @@ const defaultDataGetter: DataGetter<any> = () => {}
 // TODO(tec27): type the events this emits
 abstract class SocketGroup extends EventEmitter {
   readonly name: string
+  readonly userId: number
   sockets = Set<NydusClient>()
   subscriptions = Map<string, Readonly<SubscriptionInfo<this>>>()
 
   constructor(private nydus: NydusServer, readonly session: SessionInfo) {
     super()
     this.name = session.userName
+    this.userId = session.userId
   }
 
   /**
@@ -123,7 +125,7 @@ abstract class SocketGroup extends EventEmitter {
 
 export class UserSocketsGroup extends SocketGroup {
   getPath() {
-    return `/users/${this.session.userId}`
+    return `/users/${this.userId}`
   }
 
   getType() {
@@ -132,12 +134,10 @@ export class UserSocketsGroup extends SocketGroup {
 }
 
 export class ClientSocketsGroup extends SocketGroup {
-  readonly userId: number
   readonly clientId: string
 
   constructor(nydus: NydusServer, session: SessionInfo) {
     super(nydus, session)
-    this.userId = session.userId
     this.clientId = session.clientId
   }
 

@@ -3,6 +3,7 @@ import cuid from 'cuid'
 
 const Slot = new Record({
   type: null,
+  userId: null,
   name: null,
   race: null,
   id: null,
@@ -39,9 +40,10 @@ export function createClosed(race = 'r', hasForcedRace = false, playerId = null)
   })
 }
 
-export function createHuman(name, race = 'r', hasForcedRace = false, playerId = null) {
+export function createHuman(name, userId, race = 'r', hasForcedRace = false, playerId = null) {
   return new Slot({
     type: 'human',
+    userId,
     name,
     race,
     id: cuid(),
@@ -105,9 +107,10 @@ export function createUmsComputer(race, playerId, typeId) {
 
 // Creates an observer slot, which is a human in a lobby who is not playing, but rather watching
 // other people play.
-export function createObserver(name) {
+export function createObserver(name, userId) {
   return new Slot({
     type: 'observer',
+    userId,
     name,
     id: cuid(),
     joinedAt: Date.now(),

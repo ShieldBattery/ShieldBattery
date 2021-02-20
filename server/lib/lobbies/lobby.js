@@ -239,6 +239,9 @@ function createInitialTeams(map, gameType, gameSubType, numSlots) {
 }
 
 // Creates a new lobby, and an initial host player in the first slot.
+// TODO(tec27): This should be refactored to have less params but I'm not doing that while this
+// isn't in TS code
+// eslint-disable-next-line max-params
 export function create(
   name,
   map,
@@ -246,6 +249,7 @@ export function create(
   gameSubType = 0,
   numSlots,
   hostName,
+  hostUserId,
   hostRace = 'r',
   allowObservers,
 ) {
@@ -277,9 +281,15 @@ export function create(
     .min()
 
   if (!isUms(gameType)) {
-    host = Slots.createHuman(hostName, hostRace)
+    host = Slots.createHuman(hostName, hostUserId, hostRace)
   } else {
-    host = Slots.createHuman(hostName, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
+    host = Slots.createHuman(
+      hostName,
+      hostUserId,
+      hostSlot.race,
+      hostSlot.hasForcedRace,
+      hostSlot.playerId,
+    )
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host).set('host', host)
 }

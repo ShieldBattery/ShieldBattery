@@ -19,6 +19,7 @@ const BOXER_LOBBY = Lobbies.create(
   0,
   4,
   'Slayers`Boxer',
+  27,
 )
 
 const BOXER_LOBBY_WITH_OBSERVERS = Lobbies.create(
@@ -28,6 +29,7 @@ const BOXER_LOBBY_WITH_OBSERVERS = Lobbies.create(
   0,
   4,
   'Slayers`Boxer',
+  27,
   'r',
   true,
 )
@@ -95,7 +97,7 @@ describe('Lobbies - melee', () => {
     expect(t1).toBe(0)
     expect(s1).toBe(1)
 
-    const fullLobby = Lobbies.create('Full', BigGameHunters, 'melee', 0, 1, 'pachi')
+    const fullLobby = Lobbies.create('Full', BigGameHunters, 'melee', 0, 1, 'pachi', 2)
     const [t2, s2] = Lobbies.findAvailableSlot(fullLobby)
     expect(t2).toBe(-1)
     expect(s2).toBe(-1)
@@ -107,6 +109,7 @@ describe('Lobbies - melee', () => {
       0,
       1,
       'pachi',
+      2,
       'r',
       true,
     )
@@ -120,8 +123,8 @@ describe('Lobbies - melee', () => {
   })
 
   test('should support adding players', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
-    const pachi = Slots.createHuman('pachi', 'p')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
+    const pachi = Slots.createHuman('pachi', 2, 'p')
 
     const orig = BOXER_LOBBY
     let lobby = orig
@@ -148,7 +151,7 @@ describe('Lobbies - melee', () => {
     let lobby = Lobbies.removePlayer(orig, t1, s1, p1)
     expect(lobby).toEqual(orig)
 
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     const [t2, s2] = Lobbies.findAvailableSlot(lobby)
     lobby = Lobbies.addPlayer(lobby, t2, s2, babo)
     const beforeRemoval = lobby
@@ -218,8 +221,8 @@ describe('Lobbies - melee', () => {
 
   test('should support transferring host status to the next oldest player on host removal', () => {
     const computer = Slots.createComputer('p')
-    const babo = Slots.createHuman('dronebabo', 'z')
-    const pachi = Slots.createHuman('pachi', 't')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
+    const pachi = Slots.createHuman('pachi', 2, 't')
     const [t1, s1] = Lobbies.findAvailableSlot(BOXER_LOBBY)
     let lobby = Lobbies.addPlayer(BOXER_LOBBY, t1, s1, computer)
     const [t2, s2] = Lobbies.findAvailableSlot(lobby)
@@ -234,7 +237,7 @@ describe('Lobbies - melee', () => {
   })
 
   test('should support moving players between slots', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     const [t1, s1] = Lobbies.findAvailableSlot(BOXER_LOBBY)
     let lobby = Lobbies.addPlayer(BOXER_LOBBY, t1, s1, babo)
     lobby = Lobbies.movePlayerToSlot(lobby, t1, s1, 0, 3)
@@ -301,8 +304,8 @@ describe('Lobbies - melee', () => {
     expect(players.slots.get(2).type).toBe('open')
     expect(observers.slots.get(4).id).toBe(lobby.host.id)
 
-    const babo = Slots.createHuman('dronebabo', 'z')
-    const pachi = Slots.createHuman('pachi', 'p')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
+    const pachi = Slots.createHuman('pachi', 2, 'p')
     const computer = Slots.createComputer('p')
     lobby = Lobbies.addPlayer(lobby, 0, 0, babo)
     lobby = Lobbies.addPlayer(lobby, 0, 1, pachi)
@@ -331,7 +334,7 @@ describe('Lobbies - melee', () => {
   test('should support removing observer slots', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
 
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     lobby = Lobbies.addPlayer(lobby, 0, 1, babo)
 
     let players = lobby.teams.get(0)
@@ -365,7 +368,15 @@ describe('Lobbies - melee', () => {
   })
 })
 
-const TEAM_LOBBY = Lobbies.create('2v6 BGH', BigGameHunters, 'topVBottom', 2, 8, 'Slayers`Boxer')
+const TEAM_LOBBY = Lobbies.create(
+  '2v6 BGH',
+  BigGameHunters,
+  'topVBottom',
+  2,
+  8,
+  'Slayers`Boxer',
+  27,
+)
 
 describe('Lobbies - Top vs bottom', () => {
   test('should create the lobby correctly', () => {
@@ -396,14 +407,14 @@ describe('Lobbies - Top vs bottom', () => {
     const [t1, s1] = Lobbies.findAvailableSlot(TEAM_LOBBY)
     expect(t1).toBe(1)
     expect(s1).toBe(0)
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let l = Lobbies.addPlayer(TEAM_LOBBY, t1, s1, babo)
     expect(hasOpposingSides(l)).toBeTrue()
 
     const [t2, s2] = Lobbies.findAvailableSlot(l)
     expect(t2).toBe(1)
     expect(s2).toBe(1)
-    const pachi = Slots.createHuman('pachi', 't')
+    const pachi = Slots.createHuman('pachi', 2, 't')
     l = Lobbies.addPlayer(l, t2, s2, pachi)
 
     const [t3, s3] = Lobbies.findAvailableSlot(l)
@@ -443,7 +454,7 @@ describe('Lobbies - Top vs bottom', () => {
 
   test('should support moving players between slots', () => {
     const [t1, s1] = Lobbies.findAvailableSlot(TEAM_LOBBY)
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let lobby = Lobbies.addPlayer(TEAM_LOBBY, t1, s1, babo)
     lobby = Lobbies.movePlayerToSlot(lobby, t1, s1, 1, 3)
 
@@ -460,6 +471,7 @@ const TEAM_MELEE_2 = Lobbies.create(
   2,
   8,
   'Slayers`Boxer',
+  27,
 )
 const TEAM_MELEE_3 = Lobbies.create(
   '3v3v2 Team Melee',
@@ -468,6 +480,7 @@ const TEAM_MELEE_3 = Lobbies.create(
   3,
   8,
   'Slayers`Boxer',
+  27,
 )
 const TEAM_MELEE_4 = Lobbies.create(
   '2v2v2v2 Team Melee',
@@ -476,6 +489,7 @@ const TEAM_MELEE_4 = Lobbies.create(
   4,
   8,
   'Slayers`Boxer',
+  27,
 )
 
 const evaluateControlledSlot = (slot, type, race, controlledBy) => {
@@ -557,7 +571,7 @@ describe('Lobbies - Team melee', () => {
   })
 
   test('should fill team slots when a player is added to an empty team', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     const l = Lobbies.addPlayer(TEAM_MELEE_2, 1, 0, babo)
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBeTrue()
@@ -567,7 +581,7 @@ describe('Lobbies - Team melee', () => {
 
   test('should allow players to join slots that were previously controlled opens', () => {
     expect(TEAM_MELEE_4.teams.get(0).slots.get(1).type).toBe('controlledOpen')
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     const l = Lobbies.addPlayer(TEAM_MELEE_4, 0, 1, babo)
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBeFalse()
@@ -588,14 +602,14 @@ describe('Lobbies - Team melee', () => {
     const [t1, s1] = Lobbies.findAvailableSlot(TEAM_MELEE_4)
     expect(t1).toBe(1)
     expect(s1).toBe(0)
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let l = Lobbies.addPlayer(TEAM_MELEE_4, t1, s1, babo)
     expect(hasOpposingSides(l)).toBeTrue()
 
     const [t2, s2] = Lobbies.findAvailableSlot(l)
     expect(t2).toBe(2)
     expect(s2).toBe(0)
-    const pachi = Slots.createHuman('pachi', 't')
+    const pachi = Slots.createHuman('pachi', 2, 't')
     l = Lobbies.addPlayer(l, t2, s2, pachi)
 
     const [t3, s3] = Lobbies.findAvailableSlot(l)
@@ -607,19 +621,19 @@ describe('Lobbies - Team melee', () => {
     const [t4, s4] = Lobbies.findAvailableSlot(l)
     expect(t4).toBe(0)
     expect(s4).toBe(1)
-    const trozz = Slots.createHuman('trozz', 'p')
+    const trozz = Slots.createHuman('trozz', 3, 'p')
     l = Lobbies.addPlayer(l, t4, s4, trozz)
 
     const [t5, s5] = Lobbies.findAvailableSlot(l)
     expect(t5).toBe(1)
     expect(s5).toBe(1)
-    const intothetest = Slots.createHuman('IntoTheTest', 'p')
+    const intothetest = Slots.createHuman('IntoTheTest', 4, 'p')
     l = Lobbies.addPlayer(l, t5, s5, intothetest)
 
     const [t6, s6] = Lobbies.findAvailableSlot(l)
     expect(t6).toBe(2)
     expect(s6).toBe(1)
-    const harem = Slots.createHuman('harem', 'p')
+    const harem = Slots.createHuman('harem', 5, 'p')
     l = Lobbies.addPlayer(l, t6, s6, harem)
 
     const [t7, s7] = Lobbies.findAvailableSlot(l)
@@ -628,7 +642,7 @@ describe('Lobbies - Team melee', () => {
   })
 
   test('should remove the controlled open slots when the last player on a team leaves', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let l = Lobbies.addPlayer(TEAM_MELEE_4, 1, 0, babo)
     evaluateControlledSlot(l.teams.get(1).slots.get(1), 'controlledOpen', babo.race, babo.id)
     l = Lobbies.removePlayer(l, 1, 0, babo)
@@ -658,7 +672,7 @@ describe('Lobbies - Team melee', () => {
   })
 
   test('should reassign slot control if the controller leaves', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let l = Lobbies.addPlayer(TEAM_MELEE_2, 0, 1, babo)
     l = Lobbies.removePlayer(l, 0, 0, l.host)
 
@@ -675,7 +689,7 @@ describe('Lobbies - Team melee', () => {
   })
 
   test('should support moving players between slots in the same team', () => {
-    const babo = Slots.createHuman('dronebabo', 'z')
+    const babo = Slots.createHuman('dronebabo', 1, 'z')
     let l = Lobbies.addPlayer(TEAM_MELEE_2, 0, 1, babo)
     l = Lobbies.movePlayerToSlot(l, 0, 1, 0, 2)
 
@@ -885,10 +899,10 @@ const UMS_MAP_4 = {
     ],
   },
 }
-const UMS_LOBBY_1 = Lobbies.create('Sunken Defence', UMS_MAP_1, 'ums', 0, 8, 'Slayers`Boxer')
-const UMS_LOBBY_2 = Lobbies.create('tappavat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer')
-const UMS_LOBBY_3 = Lobbies.create('Accipiter', UMS_MAP_3, 'ums', 0, 4, 'Slayers`Boxer')
-const UMS_LOBBY_4 = Lobbies.create('Team Micro', UMS_MAP_4, 'ums', 0, 8, 'Slayers`Boxer')
+const UMS_LOBBY_1 = Lobbies.create('Sunken Defence', UMS_MAP_1, 'ums', 0, 8, 'Slayers`Boxer', 27)
+const UMS_LOBBY_2 = Lobbies.create('tappavat', UMS_MAP_2, 'ums', 0, 8, 'Slayers`Boxer', 27)
+const UMS_LOBBY_3 = Lobbies.create('Accipiter', UMS_MAP_3, 'ums', 0, 4, 'Slayers`Boxer', 27)
+const UMS_LOBBY_4 = Lobbies.create('Team Micro', UMS_MAP_4, 'ums', 0, 8, 'Slayers`Boxer', 27)
 
 const evaluateUmsLobby = (lobby, teamCount, humanSlotsCount, opposingSides, host) => {
   expect(lobby.teams).toHaveProperty('size', teamCount)
@@ -979,7 +993,7 @@ describe('Lobbies - Use map settings', () => {
   })
 
   test('should support removing players', () => {
-    const babo = Slots.createHuman('dronebabo', 'z', true, 1)
+    const babo = Slots.createHuman('dronebabo', 1, 'z', true, 1)
     let lobby = Lobbies.addPlayer(UMS_LOBBY_1, 0, 1, babo)
 
     let team1 = lobby.teams.get(0)

@@ -155,6 +155,7 @@ export class LobbyApi {
       gameSubType,
       numSlots,
       client.name,
+      client.userId,
       undefined /* hostRace */,
       // TODO(#571): pass the allowObservers value from the request body instead
       false /* allowObservers */,
@@ -205,15 +206,25 @@ export class LobbyApi {
       player = Slots.createObserver(client.name)
     } else {
       player = isUms(lobby.gameType)
-        ? Slots.createHuman(client.name, availableSlot.race, true, availableSlot.playerId)
-        : Slots.createHuman(client.name)
+        ? Slots.createHuman(
+            client.name,
+            client.userId,
+            availableSlot.race,
+            true,
+            availableSlot.playerId,
+          )
+        : Slots.createHuman(client.name, client.userId)
     }
 
-    const updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+    let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
     if (!activityRegistry.registerActiveClient(user.name, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
+
+    // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
+    const mapInfo = (await getMapInfo([lobby.map.id], lobby.host.userId))[0]
+    updated = updated.set('map', mapInfo)
 
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyClients = this.lobbyClients.set(client, name)

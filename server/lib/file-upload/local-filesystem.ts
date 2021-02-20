@@ -57,11 +57,14 @@ export default class LocalFsStore implements FileStore {
     await rimrafAsync(full)
   }
 
-  async url(filename: string) {
+  async url(filename: string, signUrl: boolean) {
     const full = this.getFullPath(filename)
+    // NOTE(tec27): This just simulates the cache-busting properties of having a signed URL in
+    // a dev environment, it provides no actual signature protection :)
+    const signature = signUrl ? `?${Date.now()}` : ''
     try {
       await access(full)
-      return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}`
+      return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}${signature}`
     } catch (_) {
       return null
     }

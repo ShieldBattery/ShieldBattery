@@ -186,9 +186,7 @@ export class MatchmakingApi {
         // there are more than two players.
         const randomPlayerIndex = getRandomInt(players.size)
         slots = players.map((p, i) =>
-          i === randomPlayerIndex
-            ? createHuman(p.name, p.alternateRace)
-            : createHuman(p.name, p.race),
+          createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
         )
       } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
         // All players have the same race, but only some of them are choosing to use an alternate
@@ -196,14 +194,12 @@ export class MatchmakingApi {
         // use their main. Again, this is only done for the first player.
         const useAlternateRacePlayer = players.find(p => p.useAlternateRace === true)
         slots = players.map(p =>
-          p.id === useAlternateRacePlayer.id
-            ? createHuman(p.name, p.alternateRace)
-            : createHuman(p.name, p.race),
+          createHuman(p.name, p.id, p.id === useAlternateRacePlayer.id ? p.alternateRace : p.race),
         )
       } else {
         // All players have different race or don't want to use alternate race; nothing special to
         // do here.
-        slots = players.map(p => createHuman(p.name, p.race))
+        slots = players.map(p => createHuman(p.name, p.id, p.race))
       }
 
       const { mapsByPlayer, preferredMaps, randomMaps, chosenMap } = await pickMap(
