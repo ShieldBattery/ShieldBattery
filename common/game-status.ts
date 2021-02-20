@@ -3,7 +3,9 @@ import { assertUnreachable } from './assert-unreachable'
 /**
  * Represents the status of a game in progress. These are considered "ordered" (that is, a higher
  * number means a later state). Their values/existence do not need to be preserved across versions,
- * as these values are transient and not stored across application launches.
+ * as these values are transient and not stored across application launches. Note that they *are*
+ * passed to the server in some cases (but not stored in the DB), so they should match between the
+ * server and client for a particular version.
  */
 export enum GameStatus {
   Unknown = 0,
