@@ -24,21 +24,21 @@ const TopLinksList = styled.ul`
   padding: 0px 16px;
   height: 22px;
 
-  @media screen and (max-width: 640px) {
+  @media screen and (max-width: 720px) {
     justify-content: space-around;
   }
 
   li:not(:first-child) {
     margin-left: 32px;
 
-    @media screen and (max-width: 640px) {
+    @media screen and (max-width: 720px) {
       margin-left: 16px;
     }
   }
 `
 
 const BroodWarLink = styled.li`
-  @media screen and (max-width: 640px) {
+  @media screen and (max-width: 720px) {
     display: none;
   }
 `
@@ -65,7 +65,7 @@ const StyledTwitterLogo = styled(TwitterLogo)`
 const Spacer = styled.div`
   flex: 1 1 auto;
 
-  @media screen and (max-width: 640px) {
+  @media screen and (max-width: 720px) {
     width: 16px;
     flex: 0 0;
   }
