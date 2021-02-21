@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import GithubLogo from './github.svg'
+import TwitterLogo from './twitter.svg'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { amberA400 } from '../styles/colors'
+import { body2 } from '../styles/typography'
 
 const TopLinksList = styled.ul`
+  ${body2};
+
   display: flex;
   justify-content: center;
   align-items: center;
@@ -20,32 +24,40 @@ const TopLinksList = styled.ul`
   padding: 0px 16px;
   height: 22px;
 
+  @media screen and (max-width: 640px) {
+    justify-content: space-around;
+  }
+
   li:not(:first-child) {
     margin-left: 32px;
 
-    @media screen and (max-width: 600px) {
+    @media screen and (max-width: 640px) {
       margin-left: 16px;
     }
   }
 `
 
 const BroodWarLink = styled.li`
-  @media screen and (max-width: 600px) {
+  @media screen and (max-width: 640px) {
     display: none;
   }
 `
 
-const GithubLink = styled.li`
+const IconLink = styled.a`
   display: flex;
   align-items: center;
-
-  @media screen and (max-width: 600px) {
-    margin-left: 16px;
-  }
 `
 
 const StyledGithubLogo = styled(GithubLogo)`
   width: 16px;
+  height: auto;
+  color: ${amberA400};
+  margin-right: 8px;
+`
+
+const StyledTwitterLogo = styled(TwitterLogo)`
+  width: 16px;
+  height: auto;
   color: ${amberA400};
   margin-right: 8px;
 `
@@ -53,8 +65,9 @@ const StyledGithubLogo = styled(GithubLogo)`
 const Spacer = styled.div`
   flex: 1 1 auto;
 
-  @media screen and (max-width: 600px) {
-    display: none;
+  @media screen and (max-width: 640px) {
+    width: 16px;
+    flex: 0 0;
   }
 `
 
@@ -65,25 +78,31 @@ const TopLinks = () => {
         <Link to='/splash'>Home</Link>
       </li>
       <BroodWarLink>
-        <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer'>
+        <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
           Download Brood War
         </a>
       </BroodWarLink>
       <li>
         <Link to='/faq'>FAQ</Link>
       </li>
+      <Spacer />
       <li>
-        <a href='https://twitter.com/shieldbatterybw' target='_blank'>
+        <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
+          <StyledTwitterLogo />
           Twitter
+        </IconLink>
+      </li>
+      <li>
+        <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
+          <StyledGithubLogo />
+          GitHub
+        </IconLink>
+      </li>
+      <li>
+        <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+          Patreon
         </a>
       </li>
-      <Spacer />
-      <GithubLink>
-        <StyledGithubLogo />
-        <a href='https://github.com/ShieldBattery' target='_blank'>
-          View on GitHub
-        </a>
-      </GithubLink>
       <Spacer />
       <li>
         <Link to='/login'>Log in</Link>

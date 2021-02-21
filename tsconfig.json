@@ -9,10 +9,8 @@
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
-    // Babel operates on single files, so we need to make sure tsc's semantics match
     "isolatedModules": true,
     "jsx": "react",
-    // We use babel to convert to JS, so tsc should just check types but not emit anything
     "noEmit": true
   },
 
