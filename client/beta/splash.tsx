@@ -277,13 +277,13 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     image: <StyledChatImage alt='' />,
   },
   {
-    title: 'Realizing untapped potential',
+    title: 'Full potential unlocked',
     body: [
       <p key='p1'>
         StarCraft has an amazing competitive history, and ShieldBattery is a foundation for
         delivering the top-notch playing and watching experience it deserves. Open-source,
         community-driven, and set to deliver features and experiences that even modern games wish
-        they could have: ShieldBattery is a revolutionary step for the StarCraft community.
+        they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.
       </p>,
     ],
     image: <StyledChatImage alt='' />,
