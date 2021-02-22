@@ -10,7 +10,7 @@ import { Label } from '../material/button'
 import Card from '../material/card'
 import RaisedButton from '../material/raised-button'
 import { makeServerUrl } from '../network/server-url'
-import { colorTextSecondary, grey850, grey900 } from '../styles/colors'
+import { colorTextSecondary, grey700, grey850, grey900 } from '../styles/colors'
 import { headline3, headline4, headline5 } from '../styles/typography'
 import ChatImage from './chat.svg'
 import TopLinks from './top-links'
@@ -19,13 +19,41 @@ const SplashContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: auto !important;
   background-color: ${grey850};
   margin: 0px auto;
-  overflow: auto;
+  overflow: auto scroll;
 
   & * {
     user-select: text;
+  }
+
+  /** TODO(tec27): Clean this up and move it somewhere common (or make it a component) */
+  &::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background-color: ${grey700};
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    width: 100%;
+    border: 2px solid transparent;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: ${grey900};
+    background-clip: padding-box;
+    /**
+     * NOTE(tec27): This is more than the "usual" because it is inside of something that already
+     * has border-radius, this makes it appear to match the outer radius
+     */
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-button:start:decrement,
+  ::-webkit-scrollbar-button:end:increment {
+    height: 0px;
   }
 `
 
