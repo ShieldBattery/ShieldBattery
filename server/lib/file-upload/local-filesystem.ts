@@ -7,7 +7,7 @@ import path from 'path'
 import rimraf from 'rimraf'
 import { Readable } from 'stream'
 import util from 'util'
-import { FileStore } from './store.js'
+import { FileStore } from './store'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time

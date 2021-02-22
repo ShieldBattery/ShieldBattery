@@ -18,6 +18,7 @@ import {
   getPastMatchmakingTimes,
   removeMatchmakingTime,
 } from '../models/matchmaking-times'
+import { getSingleQueryParam } from '../network/query-param'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { joiValidator } from '../validation/joi-validator'
@@ -109,14 +110,13 @@ async function getHistory(ctx: RouterContext, next: Koa.Next) {
 
 async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
-  let { limit, page } = ctx.query
 
-  limit = parseInt(limit, 10)
-  if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
+  let limit = parseInt(getSingleQueryParam(ctx.query.limit) ?? '', 10)
+  if (!limit || isNaN(limit) || limit < 1 || limit > 100) {
     limit = 10
   }
 
-  page = parseInt(page, 10)
+  let page = parseInt(getSingleQueryParam(ctx.query.page) ?? '', 10)
   if (!page || isNaN(page) || page < 0) {
     page = 0
   }
@@ -139,14 +139,13 @@ async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
 
 async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
   const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
-  let { limit, page } = ctx.query
 
-  limit = parseInt(limit, 10)
+  let limit = parseInt(getSingleQueryParam(ctx.query.limit) ?? '', 10)
   if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
     limit = 10
   }
 
-  page = parseInt(page, 10)
+  let page = parseInt(getSingleQueryParam(ctx.query.page) ?? '', 10)
   if (!page || isNaN(page) || page < 0) {
     page = 0
   }

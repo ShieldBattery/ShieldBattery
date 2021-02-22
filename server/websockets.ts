@@ -7,6 +7,7 @@ import path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
 import log from './lib/logging/logger'
 import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
+import { getSingleQueryParam } from './lib/network/query-param'
 import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
 import getAddress from './lib/websockets/get-address'
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
@@ -121,7 +122,7 @@ export class WebsocketServer {
         throw new Error('User is not logged in')
       }
 
-      const clientId = ctx.query.clientId || cuid()
+      const clientId = getSingleQueryParam(ctx.query.clientId) ?? cuid()
       const handshakeData: SessionInfo = {
         sessionId: ctx.sessionId,
         userId: ctx.session.userId,

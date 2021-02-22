@@ -47,6 +47,7 @@ const babelOpts = {
     ['@babel/plugin-proposal-class-properties', { loose: true }],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-optional-chaining'],
+    ['babel-plugin-const-enum'],
     ['react-hot-loader/babel'],
   ],
 }
