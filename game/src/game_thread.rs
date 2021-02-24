@@ -26,6 +26,17 @@ static SETUP_INFO: OnceCell<Arc<GameSetupInfo>> = OnceCell::new();
 /// Global for shieldbattery-specific replay data.
 /// Will not be initialized outside replays. (Or if the replay doesn't have that data)
 static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
+/// Contains game id, shieldbattery user id pairs after the slots have been randomized,
+/// human player slots / obeservers only.
+/// Once this is set it is expected to be valid for the entire game.
+/// Could also be easily extended to have storm ids if mapping between them is needed.
+static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
+
+pub struct PlayerIdMapping {
+    /// None at least for observers
+    pub game_id: Option<u8>,
+    pub sb_user_id: u32,
+}
 
 pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
     if let Err(_) = SBAT_REPLAY_DATA.set(data) {
@@ -122,6 +133,21 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             }
         }
     }
+}
+
+pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
+    if let Err(_) = PLAYER_ID_MAPPING.set(mapping) {
+        warn!("Player id mapping set twice");
+    }
+}
+
+pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
+    PLAYER_ID_MAPPING.get()
+        .map(|x| &**x)
+        .unwrap_or_else(|| {
+            warn!("Tried to access player id mapping before it was set");
+            &[]
+        })
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]

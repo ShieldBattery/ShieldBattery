@@ -137,6 +137,9 @@ quick_error! {
         UnexpectedPlayer(name: String) {
             display("Unexpected player name: {}", name)
         }
+        NoShieldbatteryId(name: String) {
+            display("Player {} doesn't have shieldbattery user id", name)
+        }
         StormIdChanged(name: String) {
             display("Unexpected storm id change for player {}", name)
         }
@@ -339,7 +342,10 @@ impl GameState {
                 }
                 select! {
                     _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
-                    _ = players_joined => break,
+                    res = players_joined => {
+                        res?;
+                        break;
+                    }
                 }
             }
             debug!("All players have joined");
@@ -493,6 +499,14 @@ impl GameState {
                             );
                         }
                     }
+                    let mapping = state.joined_players
+                        .iter()
+                        .map(|player| game_thread::PlayerIdMapping {
+                            game_id: player.player_id,
+                            sb_user_id: player.sb_user_id,
+                        })
+                        .collect();
+                    game_thread::set_player_id_mapping(mapping);
                 } else {
                     warn!("Player randomization received too early");
                 }
@@ -576,6 +590,7 @@ struct JoinedPlayer {
     name: String,
     storm_id: StormPlayerId,
     player_id: Option<u8>,
+    sb_user_id: u32,
 }
 
 impl InitInProgress {
@@ -708,11 +723,17 @@ impl InitInProgress {
                     if self.joined_players.iter().any(|x| x.player_id == player_id) {
                         return Err(GameInitError::UnexpectedPlayer(name.into()));
                     }
+                    // I believe there isn't any reason why a slot associated with
+                    // human wouldn't have shieldbattery user ids, so just fail here
+                    // instead of keeping sb_user_id as Option<u32>.
+                    let sb_user_id = slot.user_id
+                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
                     self.joined_players.push(JoinedPlayer {
                         name: name.into(),
                         storm_id,
                         player_id,
+                        sb_user_id,
                     });
                 } else {
                     return Err(GameInitError::UnexpectedPlayer(name.into()));

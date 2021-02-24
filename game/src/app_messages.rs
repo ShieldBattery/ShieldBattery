@@ -119,10 +119,14 @@ pub struct PlayerInfo {
     pub name: String,
     pub race: Option<String>,
     pub user_id: Option<u32>,
+    /// BW player slot index. Only set in UMS; for other game types the index is equal to
+    /// GameSetupInfo.slots index.
+    /// And either way this value becomes useless after BW randomizes the slots during
+    /// game initialization.
     pub player_id: Option<u8>,
     pub team_id: Option<u8>,
-    // Player type can have shieldbattery-specific players (e.g. "observer"),
-    // player type id is the id in BW structures.
+    /// Player type can have shieldbattery-specific players (e.g. "observer"),
+    /// player type id is the id in BW structures.
     #[serde(rename = "type")]
     pub player_type: String,
     #[serde(rename = "typeId")]

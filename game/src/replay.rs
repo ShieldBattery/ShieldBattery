@@ -8,6 +8,7 @@ use libc::c_void;
 
 use crate::app_messages::GameSetupInfo;
 use crate::bw::Bw;
+use crate::game_thread;
 use crate::windows;
 
 static REPLAY_MAGIC: &[u8] = &[
@@ -48,6 +49,7 @@ pub unsafe fn add_shieldbattery_data(
     bw: &dyn Bw,
     exe_build: u32,
     setup_info: &GameSetupInfo,
+    player_id_mapping: &[game_thread::PlayerIdMapping],
 ) -> Result<(), io::Error> {
     windows::file_seek(file, std::io::SeekFrom::End(0))?;
     // Current format: (The first two u32s are required by SC:R, after that we can have anything)
@@ -65,8 +67,10 @@ pub unsafe fn add_shieldbattery_data(
     //      This is also needed for team game replays.
     // 0x26     u128 game_id_uuid
     // 0x36     u32 user_ids[0x8]
+    //      Shieldbattery ids; Same order as ingame players (Which are saved in BW's replay
+    //      header, though there are 12 of them)
     let game = bw.game();
-    let mut buffer = Vec::with_capacity(32);
+    let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
     buffer.write_u32::<LE>(0)?;
     buffer.write_u16::<LE>(0)?;
@@ -82,13 +86,16 @@ pub unsafe fn add_shieldbattery_data(
     let starting_races = (*game).starting_races;
     buffer.extend_from_slice(&starting_races);
     write_uuid(&mut buffer, &setup_info.game_id)?;
-    for slot in &setup_info.slots {
-        let user_id = match slot.user_id {
-            Some(user_id) => user_id,
-            None => 0xffffffff as u32,
-        };
+
+    for i in 0..8 {
+        let user_id = player_id_mapping
+            .iter()
+            .find(|x| x.game_id == Some(i))
+            .map(|x| x.sb_user_id)
+            .unwrap_or_else(|| u32::MAX);
         buffer.write_u32::<LE>(user_id)?;
     }
+
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
     windows::file_write(file, &buffer)?;

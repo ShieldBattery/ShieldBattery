@@ -1393,6 +1393,7 @@ impl BwScr {
                 self,
                 self.exe_build,
                 game_thread::setup_info(),
+                game_thread::player_id_mapping(),
             ) {
                 error!("Unable to write extended replay data: {}", e);
             }
