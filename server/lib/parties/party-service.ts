@@ -19,7 +19,7 @@ export interface PartyRecord {
   id: string
   invites: Map<number, PartyUser>
   members: Map<number, PartyUser>
-  leader: number
+  leaderId: number
 }
 
 export enum PartyServiceErrorCode {
@@ -43,7 +43,7 @@ export function getInvitesPath(partyId: string): string {
 }
 
 export function getPartyPath(partyId: string): string {
-  return `/parties/invites/${partyId}`
+  return `/parties/${partyId}`
 }
 
 @singleton()
@@ -60,9 +60,9 @@ export default class PartyService {
   invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]): Readonly<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
-    let party: PartyRecord | undefined = this.getClientParty(leaderClientSockets)
+    let party = this.getClientParty(leaderClientSockets)
     if (party) {
-      if (party.leader !== leader.id) {
+      if (party.leaderId !== leader.id) {
         throw new PartyServiceError(
           PartyServiceErrorCode.InsufficientPermissions,
           'Only party leader can invite people',
@@ -83,7 +83,7 @@ export default class PartyService {
         id: partyId,
         invites: new Map(invites.map(i => [i.id, i])),
         members: new Map([[leader.id, leader]]),
-        leader: leader.id,
+        leaderId: leader.id,
       }
 
       this.parties.set(partyId, party)
@@ -97,8 +97,8 @@ export default class PartyService {
         userSockets.subscribe(
           getInvitesPath(party!.id),
           () => ({
-            action: 'invite',
-            from: party!.leader,
+            type: 'invite',
+            from: party!.leaderId,
           }),
           () => {
             // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
@@ -115,12 +115,14 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
-    if (leader && leader.id !== party.leader) {
+    if (leader && leader.id !== party.leaderId) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can remove invites to other people',
       )
     }
+
+    // TODO(2Pac): Check if the target is invited first before trying to do any of the below?
 
     party.invites.delete(target.id)
     this.publishToParty(partyId, {
@@ -143,9 +145,11 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
-    if (party.members.size > MAX_PARTY_SIZE) {
+    if (party.members.size >= MAX_PARTY_SIZE) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
     }
+
+    // TODO(2Pac): Check if the target is invited first before trying to do any of the below?
 
     const oldParty = this.getClientParty(clientSockets)
     if (oldParty) {
@@ -170,7 +174,7 @@ export default class PartyService {
     clientSockets.subscribe(
       getPartyPath(party.id),
       () => ({
-        action: 'init',
+        type: 'init',
         party,
       }),
       sockets => this.handleClientQuit(sockets),
