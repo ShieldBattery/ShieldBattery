@@ -458,6 +458,11 @@ class Splash extends React.Component<DispatchProp> {
                     'Keep up with your friends (and enemies) without needing to install anything.'
                   }
                 />
+
+                <FeatureEntry
+                  title='Working Team Melee replays'
+                  description={'Play back any games played in Team Melee mode on ShieldBattery!'}
+                />
               </FeatureSectionList>
             </FeatureSection>
             <FeatureSection>
