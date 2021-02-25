@@ -27,6 +27,8 @@ export interface PlayerInfo {
     | 'closed'
   /** The BW id of the type of this slot. */
   typeId: number
+  /** Shieldbattery user ID of the player. Only set for 'human' and 'observer' */
+  userId?: number
 }
 
 export interface ReplayMapInfo {

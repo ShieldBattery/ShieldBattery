@@ -16,7 +16,7 @@ use crate::windows;
 // instead, but this was copy-pasted from older code that did it this way so this'll do for now.
 
 macro_rules! hook_winapi_exports {
-    ($active:expr, $expected_name:expr, $($name:expr, $hook:ident, $func:path;)*) => {{
+    ($active:expr, $expected_name:expr, $($name:expr, $hook:ident, $func:ident;)*) => {{
         let lib = crate::windows::load_library($expected_name).unwrap();
         let mut default_patcher = $active.patch_library($expected_name, 0);
         const fn zero(_name: &'static str) -> usize {

@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::io;
 use std::mem;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
@@ -22,9 +23,10 @@ use crate::bw::{self, get_bw, GameType, StormPlayerId};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
-    GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
+    self, GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
 use crate::network_manager::{NetworkError, NetworkManager};
+use crate::replay;
 use crate::snp;
 use crate::windows;
 
@@ -134,6 +136,9 @@ quick_error! {
         }
         UnexpectedPlayer(name: String) {
             display("Unexpected player name: {}", name)
+        }
+        NoShieldbatteryId(name: String) {
+            display("Player {} doesn't have shieldbattery user id", name)
         }
         StormIdChanged(name: String) {
             display("Unexpected storm id change for player {}", name)
@@ -257,6 +262,10 @@ impl GameState {
             .send(())
             .expect("Main thread should be waiting for a wakeup");
         async move {
+            let sbat_replay_data = match info.is_replay() {
+                true => Some(read_sbat_replay_data(Path::new(&info.map_path))),
+                false => None,
+            };
             // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
             // ready to start the game - remaining initialization is done from other threads.
             // Could possibly aim to keep all of BW initialization in the main thread, but this
@@ -333,10 +342,30 @@ impl GameState {
                 }
                 select! {
                     _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
-                    _ = players_joined => break,
+                    res = players_joined => {
+                        res?;
+                        break;
+                    }
                 }
             }
             debug!("All players have joined");
+            if let Some(sbat_replay_data_promise) = sbat_replay_data {
+                // Assuming that the extra replay data isn't needed in the above lobby
+                // initialization.
+                match sbat_replay_data_promise.await {
+                    Ok(Some(o)) => {
+                        debug!("Loaded shieldbattery replay extension");
+                        game_thread::set_sbat_replay_data(o);
+                    }
+                    Ok(None) => (),
+                    Err(e) => {
+                        // Going to assume that most of the time if we fail to read the
+                        // extra replay data, it won't be fatal, so just log the error
+                        // and continue.
+                        error!("Failed to read shieldbattery replay data: {}", e);
+                    }
+                }
+            }
             allow_start.await;
             unsafe {
                 do_lobby_game_init(&info).await;
@@ -470,6 +499,14 @@ impl GameState {
                             );
                         }
                     }
+                    let mapping = state.joined_players
+                        .iter()
+                        .map(|player| game_thread::PlayerIdMapping {
+                            game_id: player.player_id,
+                            sb_user_id: player.sb_user_id,
+                        })
+                        .collect();
+                    game_thread::set_player_id_mapping(mapping);
                 } else {
                     warn!("Player randomization received too early");
                 }
@@ -553,6 +590,7 @@ struct JoinedPlayer {
     name: String,
     storm_id: StormPlayerId,
     player_id: Option<u8>,
+    sb_user_id: u32,
 }
 
 impl InitInProgress {
@@ -685,11 +723,17 @@ impl InitInProgress {
                     if self.joined_players.iter().any(|x| x.player_id == player_id) {
                         return Err(GameInitError::UnexpectedPlayer(name.into()));
                     }
+                    // I believe there isn't any reason why a slot associated with
+                    // human wouldn't have shieldbattery user ids, so just fail here
+                    // instead of keeping sb_user_id as Option<u32>.
+                    let sb_user_id = slot.user_id
+                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
                     self.joined_players.push(JoinedPlayer {
                         name: name.into(),
                         storm_id,
                         player_id,
+                        sb_user_id,
                     });
                 } else {
                     return Err(GameInitError::UnexpectedPlayer(name.into()));
@@ -1104,4 +1148,52 @@ fn start_game_request(
 
     sender.send(request).map_err(|_| ())?;
     Ok(wait_done)
+}
+
+async fn read_sbat_replay_data(
+    path: &Path,
+) -> Result<Option<replay::SbatReplayData>, io::Error> {
+    use byteorder::{ByteOrder, LittleEndian};
+    use tokio::io::{AsyncReadExt};
+    use tokio::fs;
+
+    let mut file = fs::File::open(path).await?;
+    let mut buffer = [0u8; 0x14];
+    file.read_exact(&mut buffer).await?;
+    let magic = LittleEndian::read_u32(&buffer[0xc..]);
+    let scr_extension_offset = LittleEndian::read_u32(&buffer[0x10..]);
+    if magic != 0x53526573 {
+        return Ok(None);
+    }
+    let end_pos = file.seek(io::SeekFrom::End(0)).await?;
+    file.seek(io::SeekFrom::Start(scr_extension_offset as u64)).await?;
+    let length = end_pos.saturating_sub(scr_extension_offset as u64) as usize;
+    let mut buffer = vec![0u8; length];
+    file.read_exact(&mut buffer).await?;
+    let mut pos = 0;
+    while pos < length {
+        let header = match buffer.get(pos..(pos + 8)) {
+            Some(s) => s,
+            None => break,
+        };
+        let id = LittleEndian::read_u32(&header);
+        let section_length = LittleEndian::read_u32(&header[4..]) as usize;
+        if id == replay::SECTION_ID {
+            let data = Some(())
+                .and_then(|()| {
+                    Some(buffer.get(pos.checked_add(8)?..)?.get(..section_length)?)
+                })
+                .and_then(|input| replay::parse_shieldbattery_data(input));
+            return match data {
+                Some(o) => Ok(Some(o)),
+                None => Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Failed to parse shieldbattery section",
+                )),
+            };
+        } else {
+            pos = pos.saturating_add(section_length).saturating_add(8);
+        }
+    }
+    Ok(None)
 }

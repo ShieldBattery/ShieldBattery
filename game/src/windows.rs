@@ -1,5 +1,8 @@
+pub mod version;
+
 use std::ffi::{OsStr, OsString};
 use std::io;
+use std::mem;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr::null_mut;
 
@@ -245,5 +248,67 @@ impl Drop for MemoryProtectionGuard {
                 error!("Couldn't reprotect memory: {}", io::Error::last_os_error());
             }
         }
+    }
+}
+
+pub unsafe fn file_seek(file: *mut c_void, from: io::SeekFrom) -> Result<u64, io::Error> {
+    use winapi::um::fileapi::SetFilePointerEx;
+    use winapi::um::winbase::{FILE_BEGIN, FILE_CURRENT, FILE_END};
+
+    let (pos, method) = match from {
+        io::SeekFrom::Start(s) => (s as i64, FILE_BEGIN),
+        io::SeekFrom::End(s) => (s, FILE_END),
+        io::SeekFrom::Current(s) => (s, FILE_CURRENT),
+    };
+    let mut result = 0u64;
+    let ok = SetFilePointerEx(
+        file as *mut _,
+        mem::transmute(pos),
+        &mut result as *mut u64 as *mut _,
+        method,
+    );
+    match ok {
+        0 => Err(io::Error::last_os_error()),
+        _ => Ok(result),
+    }
+}
+
+pub unsafe fn file_read(file: *mut c_void, out: &mut [u8]) -> Result<(), io::Error> {
+    use winapi::um::fileapi::ReadFile;
+
+    let mut read = 0u32;
+    let ok = ReadFile(
+        file as *mut _,
+        out.as_mut_ptr() as *mut _,
+        out.len() as u32,
+        &mut read,
+        null_mut(),
+    );
+    match ok {
+        0 => Err(io::Error::last_os_error()),
+        _ if read != out.len() as u32 => {
+            Err(io::Error::new(io::ErrorKind::Other, "Failed to read everything"))
+        }
+        _ => Ok(()),
+    }
+}
+
+pub unsafe fn file_write(file: *mut c_void, data: &[u8]) -> Result<(), io::Error> {
+    use winapi::um::fileapi::WriteFile;
+
+    let mut written = 0u32;
+    let ok = WriteFile(
+        file as *mut _,
+        data.as_ptr() as *const _,
+        data.len() as u32,
+        &mut written,
+        null_mut(),
+    );
+    match ok {
+        0 => Err(io::Error::last_os_error()),
+        _ if written != data.len() as u32 => {
+            Err(io::Error::new(io::ErrorKind::Other, "Failed to write everything"))
+        }
+        _ => Ok(()),
     }
 }

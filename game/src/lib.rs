@@ -21,6 +21,7 @@ mod game_state;
 mod game_thread;
 mod network_manager;
 mod rally_point;
+mod replay;
 mod snp;
 mod udp;
 mod windows;

@@ -43,11 +43,12 @@ tungstenite = { version = "0.11", default-features = false }
 tokio-tungstenite = "0.11"
 
 [dependencies.winapi]
-version = "0.3.3"
+version = "0.3.9"
 features = [
     "combaseapi", "dsound", "debugapi", "d3d11", "dxgi", "errhandlingapi", "handleapi",
     "knownfolders", "libloaderapi", "memoryapi", "processthreadsapi", "shlobj", "stringapiset",
-    "synchapi", "sysinfoapi", "unknwnbase", "winuser", "wingdi", "winsock2", "ws2def", "ws2ipdef",
+    "synchapi", "sysinfoapi", "unknwnbase", "winuser", "wingdi", "winsock2", "winver", "ws2def",
+    "ws2ipdef",
 ]
 
 [dependencies.whack]
@@ -56,6 +57,7 @@ rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
 
 [build-dependencies]
 anyhow = "1.0.33"
+serde_json = "1.0.39"
 
 # -- Local helper crates --
 [workspace]

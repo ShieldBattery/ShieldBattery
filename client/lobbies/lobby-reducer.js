@@ -39,6 +39,7 @@ export const Slot = new Record({
   hasForcedRace: false,
   playerId: null,
   typeId: 0,
+  userId: null,
 })
 export const Team = new Record({
   name: null,

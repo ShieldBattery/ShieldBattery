@@ -9,8 +9,9 @@ use lazy_static::lazy_static;
 use once_cell::sync::OnceCell;
 
 use crate::app_messages::{GameSetupInfo};
-use crate::bw::{self, get_bw, StormPlayerId};
+use crate::bw::{self, Bw, get_bw, StormPlayerId};
 use crate::forge;
+use crate::replay;
 use crate::snp;
 
 lazy_static! {
@@ -20,8 +21,32 @@ lazy_static! {
         Mutex::new(None);
 }
 
-// Global for accessing game type/slots/etc from hooks.
+/// Global for accessing game type/slots/etc from hooks.
 static SETUP_INFO: OnceCell<Arc<GameSetupInfo>> = OnceCell::new();
+/// Global for shieldbattery-specific replay data.
+/// Will not be initialized outside replays. (Or if the replay doesn't have that data)
+static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
+/// Contains game id, shieldbattery user id pairs after the slots have been randomized,
+/// human player slots / obeservers only.
+/// Once this is set it is expected to be valid for the entire game.
+/// Could also be easily extended to have storm ids if mapping between them is needed.
+static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
+
+pub struct PlayerIdMapping {
+    /// None at least for observers
+    pub game_id: Option<u8>,
+    pub sb_user_id: u32,
+}
+
+pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
+    if let Err(_) = SBAT_REPLAY_DATA.set(data) {
+        warn!("Tried to set shieldbattery replay data twice");
+    }
+}
+
+fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
+    SBAT_REPLAY_DATA.get()
+}
 
 // Async tasks request game thread to do some work
 pub struct GameThreadRequest {
@@ -108,6 +133,21 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             }
         }
     }
+}
+
+pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
+    if let Err(_) = PLAYER_ID_MAPPING.set(mapping) {
+        warn!("Player id mapping set twice");
+    }
+}
+
+pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
+    PLAYER_ID_MAPPING.get()
+        .map(|x| &**x)
+        .unwrap_or_else(|| {
+            warn!("Tried to access player id mapping before it was set");
+            &[]
+        })
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -198,6 +238,8 @@ pub unsafe fn after_init_game_data() {
 }
 
 pub fn is_ums() -> bool {
+    // TODO This returns false on replays. Also same thing about looking at BW's
+    // structures as for is_team_game
     SETUP_INFO.get()
         .and_then(|x| x.game_type())
         .filter(|x| x.is_ums())
@@ -205,16 +247,28 @@ pub fn is_ums() -> bool {
 }
 
 pub fn is_team_game() -> bool {
-    SETUP_INFO.get()
-        .and_then(|x| x.game_type())
-        .filter(|x| x.is_team_game())
-        .is_some()
+    // Technically it would be better to look at BW's structures instead, but we don't
+    // have them available for SC:R right now.
+    if is_replay() {
+        sbat_replay_data()
+            .filter(|x| x.team_game_main_players != [0, 0, 0, 0])
+            .is_some()
+    } else {
+        SETUP_INFO.get()
+            .and_then(|x| x.game_type())
+            .filter(|x| x.is_team_game())
+            .is_some()
+    }
 }
 
 pub fn is_replay() -> bool {
     SETUP_INFO.get()
         .and_then(|x| x.map.is_replay)
         .unwrap_or(false)
+}
+
+pub fn setup_info() -> &'static GameSetupInfo {
+    &*SETUP_INFO.get().unwrap()
 }
 
 /// Bw impl is expected to call this after step_game,
@@ -336,3 +390,66 @@ impl<'a> ReplayFrame<'a> {
     }
 }
 
+/// Bw impl is expected to hook the point before init_unit_data and call this.
+/// (It happens to be easy function for SC:R analysis to find and in a nice
+/// spot to inject game init hooks for things that require initialization to
+/// have progressed a bit but not too much)
+pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
+    let game = bw.game();
+    if let Some(ext) = sbat_replay_data() {
+        // This makes team game replays work.
+        // This hook is unfortunately after the game has calculated
+        // max supply for team games (It can be over 200), so we'll have to fix
+        // those as well.
+        //
+        // (I don't think we have a better way to check for team game replay right now
+        // other than just assuming that non-team games have main players as [0, 0, 0, 0])
+        if ext.team_game_main_players != [0, 0, 0, 0] {
+            (*game).team_game_main_player = ext.team_game_main_players;
+            (*game).starting_races = ext.starting_races;
+            let team_count = ext.team_game_main_players
+                .iter()
+                .take_while(|&&x| x != 0xff)
+                .count();
+            let players_per_team = match team_count {
+                2 => 4,
+                3 => 3,
+                4 => 2,
+                _ => 0,
+            };
+
+            // Non-main players get 0 max supply.
+            // Clear what bw had already initialized.
+            // (Other players having unused max supply likely won't matter but you never know)
+            for race_supplies in (*game).supplies.iter_mut() {
+                for max in race_supplies.max.iter_mut() {
+                    *max = 0;
+                }
+            }
+
+            let mut pos = 0;
+            for i in 0..team_count {
+                let main_player = ext.team_game_main_players[i] as usize;
+                let first_pos = pos;
+                let mut race_counts = [0; 3];
+                for _ in 0..players_per_team {
+                    // The third team of 3-team game has only two slots, they
+                    // get their first slot counted twice
+                    let index = match pos < 8 {
+                        true => pos,
+                        false => first_pos,
+                    };
+                    let race = ext.starting_races[index];
+                    race_counts[race as usize] += 1;
+                    pos += 1;
+                }
+                for race in 0..3 {
+                    let count = race_counts[race].max(1);
+                    // This value is twice the displayed, so 200 max supply for each
+                    // player in team. (Or 200 if none)
+                    (*game).supplies[race].max[main_player] = count * 400;
+                }
+            }
+        }
+    }
+}
