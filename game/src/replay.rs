@@ -1,4 +1,4 @@
-//! Fucntions for writing/reading our replay extensions.
+//! Functions for writing/reading our replay extensions.
 
 use std::convert::TryInto;
 use std::io;
