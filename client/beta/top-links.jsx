@@ -49,15 +49,15 @@ const IconLink = styled.a`
 `
 
 const StyledGithubLogo = styled(GithubLogo)`
-  width: 16px;
-  height: auto;
+  width: auto;
+  height: 18px;
   color: ${amberA400};
   margin-right: 8px;
 `
 
 const StyledTwitterLogo = styled(TwitterLogo)`
-  width: 16px;
-  height: auto;
+  width: auto;
+  height: 16px;
   color: ${amberA400};
   margin-right: 8px;
 `

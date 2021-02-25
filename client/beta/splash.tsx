@@ -10,10 +10,14 @@ import { Label } from '../material/button'
 import Card from '../material/card'
 import RaisedButton from '../material/raised-button'
 import { makeServerUrl } from '../network/server-url'
-import { colorTextSecondary, grey700, grey850, grey900 } from '../styles/colors'
-import { headline3, headline4, headline5 } from '../styles/typography'
+import { colorTextPrimary, colorTextSecondary, grey700, grey850, grey900 } from '../styles/colors'
+import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
+import DiscordIcon from './discord.svg'
+import GithubIcon from './github.svg'
+import PatreonIcon from './patreon.svg'
 import TopLinks from './top-links'
+import TwitterIcon from './twitter.svg'
 
 const SplashContainer = styled.div`
   display: flex;
@@ -222,7 +226,7 @@ const FeatureContainer = styled.div`
 const FeatureSection = styled.div`
   width: 100%;
   max-width: 1000px;
-  padding: 0 16px 64px 16px;
+  padding: 0 8px 40px 8px;
 `
 
 const FeatureSectionTitle = styled.div`
@@ -230,20 +234,28 @@ const FeatureSectionTitle = styled.div`
   margin-left: 16px;
 `
 
-interface FeatureSectionListProps {
-  columnCount?: string
-  columnGap?: string
-}
+const FeatureSectionList = styled.dl`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 32px;
+  row-gap: 40px;
+  padding-left: 16px;
+  margin: 24px 0;
 
-const FeatureSectionList = styled.ul<FeatureSectionListProps>`
-  padding-left: 32px;
-  column-count: ${props => props.columnCount ?? 'auto'};
-  column-gap: ${props => props.columnGap ?? 'normal'};
+  @media screen and (max-width: 800px) {
+    grid-template-columns: 1fr;
+  }
 
-  & > li {
-    font-size: 20px;
+  & dt {
+    ${headline5};
     font-weight: 300;
-    line-height: 40px;
+  }
+
+  & dd {
+    ${headline5};
+    color: ${colorTextSecondary};
+    font-weight: 300;
+    margin: 0;
   }
 `
 
@@ -290,6 +302,92 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
   },
 ]
 
+const FeatureEntryContainer = styled.div`
+  grid-column: auto / span 1;
+`
+
+interface FeatureEntryProps {
+  className?: string
+  title: string
+  description: string
+}
+
+function FeatureEntry({ className, title, description }: FeatureEntryProps) {
+  return (
+    <FeatureEntryContainer>
+      <dt>{title}</dt>
+      <dd>{description}</dd>
+    </FeatureEntryContainer>
+  )
+}
+
+const LinksSection = styled.div`
+  width: 100%;
+  max-width: 1000px;
+  padding: 40px 24px;
+  background-color: ${grey850};
+`
+
+const LinksHeader = styled.div`
+  ${headline4};
+`
+
+const LinkEntries = styled.div`
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+
+  a,
+  a:link,
+  a:visited {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    color: ${colorTextSecondary};
+    overflow: hidden;
+
+    &:hover,
+    &:active {
+      color: ${colorTextPrimary};
+    }
+  }
+
+  a + a {
+    margin-left: 40px;
+  }
+`
+
+const DisclaimerSection = styled.div`
+  width: 100%;
+  background-color: ${grey900};
+`
+
+const DisclaimerText = styled.div`
+  ${subtitle1};
+  width: 100%;
+  max-width: 1000px;
+  padding: 40px 24px;
+  margin: 0 auto;
+  color: ${colorTextSecondary};
+`
+
+const StyledDiscordIcon = styled(DiscordIcon)`
+  height: 48px;
+  margin-top: 4px;
+`
+
+const StyledGithubIcon = styled(GithubIcon)`
+  height: 40px;
+`
+
+const StyledPatreonIcon = styled(PatreonIcon)`
+  height: 24px;
+`
+
+const StyledTwitterIcon = styled(TwitterIcon)`
+  height: 32px;
+`
+
 class Splash extends React.Component<DispatchProp> {
   render() {
     return (
@@ -328,37 +426,167 @@ class Splash extends React.Component<DispatchProp> {
             <FeatureSection>
               <FeatureSectionTitle>Features</FeatureSectionTitle>
               <FeatureSectionList>
-                <li>Innovative new network stack</li>
-                <li>
-                  Support for fullscreen, borderless, and normal windowed mode with resolution
-                  scaling
-                </li>
-                <li>Windows 7 and 10 support</li>
-                <li>Observer mode, with up to 6 observers per game</li>
-                <li>Lobby join alerts</li>
-                <li>Web-based client for chat and community features</li>
-                <li>Server-based map distribution and hosting</li>
-                <li>Automatic replay saving</li>
+                <FeatureEntry
+                  title='StarCraft: Remastered support'
+                  description={
+                    'Support for all the new Remastered features, including HD graphics (if ' +
+                    'purchased from Blizzard) and custom hotkeys.'
+                  }
+                />
+
+                <FeatureEntry
+                  title='Cloud-based map distribution and hosting'
+                  description={
+                    'Play on any of the maps in our official library, or upload your own. Upload ' +
+                    'all your favorite maps, share them with your friends, host them from anywhere.'
+                  }
+                />
+
+                <FeatureEntry
+                  title='1v1 Matchmaking'
+                  description='Find matches quickly and easily.'
+                />
+
+                <FeatureEntry
+                  title='Improved netcode'
+                  description='Less lag, drops, and packet loss!'
+                />
+
+                <FeatureEntry
+                  title='Web-based chat client'
+                  description={
+                    'Keep up with your friends (and enemies) without needing to install anything.'
+                  }
+                />
               </FeatureSectionList>
             </FeatureSection>
             <FeatureSection>
               <FeatureSectionTitle>
                 In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
               </FeatureSectionTitle>
-              <FeatureSectionList columnCount='2' columnGap='24px'>
-                <li>Matchmaking</li>
-                <li>Ranked ladder</li>
-                <li>Custom map uploading</li>
-                <li>Cloud-synced replays</li>
-                <li>Configurable pixel scaling</li>
-                <li>Live match streaming</li>
-                <li>First person replays</li>
-                <li>Player profiles and statistics</li>
-                <li>Replay analysis</li>
-                <li>Friends list</li>
+              <FeatureSectionList>
+                <FeatureEntry
+                  title='Ranked ladder'
+                  description={
+                    'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
+                  }
+                />
+                <FeatureEntry
+                  title='Team matchmaking'
+                  description='Easily find games for 2v2 and 3v3, with arranged or random teams.'
+                />
+                <FeatureEntry
+                  title='Parties'
+                  description={
+                    'Party up with your friends to easily host private matches, watch replays ' +
+                    'together, or join matchmaking.'
+                  }
+                />
+                <FeatureEntry
+                  title='Cloud-synced replays'
+                  description={
+                    'Automatic uploading for replays. Share them with others, watch them from ' +
+                    'anywhere!'
+                  }
+                />
+                <FeatureEntry
+                  title='Configurable pixel scaling'
+                  description={
+                    'Improve the look of SD graphics on modern screens with custom scaling ' +
+                    'algorithms.'
+                  }
+                />
+                <FeatureEntry
+                  title='Live match streaming'
+                  description={
+                    'Jump into in-progress matches and watch them live, with all the ' +
+                    'benefits of ingame observing.'
+                  }
+                />
+                <FeatureEntry
+                  title='First person replays'
+                  description={
+                    'Record mouse and screen movements and play them back for all players.'
+                  }
+                />
+                <FeatureEntry
+                  title='Player profiles and statistics'
+                  description={
+                    'Check out your skills across different matchups and maps, find ways to ' +
+                    'improve, and see how you stack up against the competition.'
+                  }
+                />
+                <FeatureEntry
+                  title='Replay analysis'
+                  description={
+                    'Built-in support for BWChart-like replay analysis, as well as more advanced ' +
+                    'statistics and charting.'
+                  }
+                />
+                <FeatureEntry
+                  title='Friends list'
+                  description={
+                    'Track when your friends are online, easily send them messages and invite ' +
+                    'them to games.'
+                  }
+                />
+                <FeatureEntry
+                  title='Training/sandbox mode'
+                  description={
+                    'Test out new builds, practice your worker split, improve your micro.'
+                  }
+                />
+                <FeatureEntry
+                  title='New built-in mapmaking features'
+                  description={
+                    'Destructible rocks, ideal worker starting positions, advanced creep ' +
+                    ' placement, and more!'
+                  }
+                />
+                <FeatureEntry
+                  title='Automated tournaments and leagues'
+                  description={
+                    'Find tournaments and leagues that match your skill level, run automatically.'
+                  }
+                />
               </FeatureSectionList>
             </FeatureSection>
           </FeatureContainer>
+          <LinksSection>
+            <LinksHeader>Links</LinksHeader>
+            <LinkEntries>
+              <a
+                href='https://twitter.com/ShieldBatteryBW'
+                title='Twitter'
+                target='_blank'
+                rel='noopener'>
+                <StyledTwitterIcon />
+              </a>
+              <a
+                href='https://github.com/ShieldBattery/ShieldBattery'
+                target='_blank'
+                rel='noopener'>
+                <StyledGithubIcon />
+              </a>
+              <a
+                href='https://discord.gg/S8dfMx94a4'
+                title='Discord'
+                target='_blank'
+                rel='noopener'>
+                <StyledDiscordIcon />
+              </a>
+              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+                <StyledPatreonIcon />
+              </a>
+            </LinkEntries>
+          </LinksSection>
+          <DisclaimerSection>
+            <DisclaimerText>
+              StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is
+              developed solely by members of the community, unaffiliated with Blizzard, and is not
+              officially endorsed or supported by Blizzard.
+            </DisclaimerText>
+          </DisclaimerSection>
         </SplashContainer>
         <ConnectedDialogOverlay />
       </React.Fragment>
