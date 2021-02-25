@@ -19,11 +19,17 @@ export default class Replays extends React.Component {
     const fileTypes = {
       rep: { icon: <Replay />, onSelect: this.onStartReplay },
     }
+    const defaultFolder = {
+      id: 'default',
+      name: 'Replays',
+      path: getReplayFolder(),
+    }
     const props = {
       browseId: 'replays',
       title: 'Local Replays',
-      rootFolderName: 'Replays',
-      root: getReplayFolder(),
+      rootFolders: {
+        [defaultFolder.id]: defaultFolder,
+      },
       fileTypes,
     }
     return <BrowseFiles {...props} />

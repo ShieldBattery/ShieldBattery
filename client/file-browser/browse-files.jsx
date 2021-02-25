@@ -18,6 +18,8 @@ import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px
 import KeyListener from '../keyboard/key-listener'
 import LoadingIndicator from '../progress/dots'
 import IconButton from '../material/icon-button'
+import Option from '../material/select/option'
+import Select from '../material/select/select'
 import { ScrollableContent } from '../material/scroll-bar'
 import { shadow4dp } from '../material/shadows'
 import {
@@ -41,6 +43,7 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 const FOCUSED_KEY = 'FocusedPath'
+const ROOT_ID = 'RootId'
 
 const ENTER = keycode('enter')
 const UP = keycode('up')
@@ -255,6 +258,10 @@ const ContentTitle = styled(HeadlineOld)`
   margin: 0;
 `
 
+const RootFolderSelect = styled(Select)`
+  padding: 0 16px;
+`
+
 const BreadcrumbsAndActions = styled.div`
   width: 100%;
   height: 48px;
@@ -301,20 +308,21 @@ const LoadingContainer = styled.div`
 export default class Files extends React.Component {
   static propTypes = {
     browseId: PropTypes.string.isRequired,
-    root: PropTypes.string.isRequired,
-    rootFolderName: PropTypes.string,
+    rootFolders: PropTypes.object.isRequired,
     title: PropTypes.string,
     titleButton: PropTypes.element,
     fileTypes: PropTypes.object.isRequired,
   }
 
   static defaultProps = {
-    rootFolderName: 'Files',
     title: 'Files',
   }
 
   state = {
     focusedPath: window.localStorage.getItem(this.props.browseId + FOCUSED_KEY),
+    rootFolder: this.props.rootFolders[
+      window.localStorage.getItem(this.props.browseId + ROOT_ID) || 'default'
+    ],
   }
 
   contentRef = React.createRef()
@@ -327,10 +335,11 @@ export default class Files extends React.Component {
   }
 
   getEntries = memoize(
-    props => {
-      const { browseId, fileBrowser, root, fileTypes } = props
+    (props, state) => {
+      const { browseId, fileBrowser, fileTypes } = props
+      const { rootFolder } = state
       const { path, files, folders } = fileBrowser[browseId]
-      const isRootFolder = path === root
+      const isRootFolder = path === rootFolder.path
       const upOneDir = isRootFolder
         ? new List([])
         : new List([{ type: 'up', path: `${path}${pathApi.sep}..` }])
@@ -350,37 +359,47 @@ export default class Files extends React.Component {
   )
 
   _saveToLocalStorage = () => {
-    const { focusedPath } = this.state
+    const { focusedPath, rootFolder } = this.state
 
     if (focusedPath) {
       window.localStorage.setItem(this.props.browseId + FOCUSED_KEY, focusedPath)
     }
+    if (rootFolder) {
+      window.localStorage.setItem(this.props.browseId + ROOT_ID, rootFolder.id)
+    }
+  }
+
+  _changeInitialPath = () => {
+    const { browseId } = this.props
+    const { focusedPath, rootFolder } = this.state
+    const initialPath =
+      focusedPath && focusedPath.toLowerCase().startsWith(rootFolder.path.toLowerCase())
+        ? pathApi.parse(focusedPath).dir
+        : rootFolder.path
+
+    this.props.dispatch(changePath(browseId, initialPath))
   }
 
   componentDidMount() {
-    const { browseId, root } = this.props
-    const { focusedPath } = this.state
-    const initialPath =
-      focusedPath && focusedPath.toLowerCase().startsWith(root.toLowerCase())
-        ? pathApi.parse(focusedPath).dir
-        : root
-
-    this.props.dispatch(changePath(browseId, initialPath))
-
+    this._changeInitialPath()
     window.addEventListener('beforeunload', this._saveToLocalStorage)
   }
 
   componentDidUpdate(prevProps, prevState) {
     const { browseId } = this.props
-    const { focusedPath } = this.state
+    const { focusedPath, rootFolder } = this.state
+    const { rootFolder: prevRootFolder } = prevState
     const { path, isRequesting } = this.props.fileBrowser[browseId]
     const { path: prevPath, isRequesting: prevIsRequesting } = prevProps.fileBrowser[browseId]
+    if (prevRootFolder !== rootFolder) {
+      this._changeInitialPath()
+    }
     if (prevPath !== path) {
       this.props.dispatch(getFiles(browseId, path))
     }
 
     const hasFocusedPath = items => items.map(i => i.path).includes(focusedPath)
-    const entries = this.getEntries(this.props)
+    const entries = this.getEntries(this.props, this.state)
 
     if (prevIsRequesting && !isRequesting && entries.size > 0) {
       if (hasFocusedPath(entries)) {
@@ -427,7 +446,7 @@ export default class Files extends React.Component {
       return null
     }
 
-    const entries = this.getEntries(this.props)
+    const entries = this.getEntries(this.props, this.state)
     const _rowRenderer = ({ index, style }) => {
       const { fileTypes } = this.props
       const { focusedPath } = this.state
@@ -489,9 +508,16 @@ export default class Files extends React.Component {
   }
 
   render() {
-    const { rootFolderName, title, titleButton, root, error } = this.props
+    const { title, titleButton, rootFolders, error } = this.props
+    const { rootFolder } = this.state
     const { path } = this.props.fileBrowser[this.props.browseId]
-    const displayedPath = `${rootFolderName}${pathApi.sep}${pathApi.relative(root, path)}`
+    const displayedPath = `${rootFolder.name}${pathApi.sep}${pathApi.relative(
+      rootFolder.path,
+      path,
+    )}`
+    const rootFolderOptions = Object.values(rootFolders).map(f => (
+      <Option key={f.id} value={f.id} text={f.name} />
+    ))
     return (
       <Root ref={this._focusBrowser} tabIndex='-1'>
         <TopBar>
@@ -499,6 +525,14 @@ export default class Files extends React.Component {
             {titleButton ? titleButton : null}
             <ContentTitle>{title}</ContentTitle>
           </TitleContainer>
+          {Object.values(rootFolders).length > 1 ? (
+            <RootFolderSelect
+              value={rootFolder.id}
+              label='Root folder'
+              onChange={this.onRootFolderChange}>
+              {rootFolderOptions}
+            </RootFolderSelect>
+          ) : null}
           <BreadcrumbsAndActions>
             <StyledPathBreadcrumbs path={displayedPath} onNavigate={this.onBreadcrumbNavigate} />
             <IconButton icon={<Refresh />} onClick={this.onRefreshClick} title={'Refresh'} />
@@ -512,10 +546,16 @@ export default class Files extends React.Component {
     )
   }
 
+  onRootFolderChange = rootId => {
+    this.setState({ rootFolder: this.props.rootFolders[rootId] })
+  }
+
   onBreadcrumbNavigate = path => {
-    const { root } = this.props
-    const pathWithoutRoot = path.slice(this.props.rootFolderName.length + 1)
-    this.props.dispatch(changePath(this.props.browseId, pathApi.join(root, pathWithoutRoot)))
+    const { rootFolder } = this.state
+    const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
+    this.props.dispatch(
+      changePath(this.props.browseId, pathApi.join(rootFolder.path, pathWithoutRoot)),
+    )
   }
 
   onUpLevelClick = () => {
@@ -566,7 +606,7 @@ export default class Files extends React.Component {
     const { focusedPath } = this.state
     const { scrollToTop, scrollToBottom } = this.contentRef.current
 
-    const entries = this.getEntries(this.props)
+    const entries = this.getEntries(this.props, this.state)
     const focusedIndex = entries.findIndex(f => f.path === focusedPath)
     if (focusedIndex === -1) return
 
@@ -638,7 +678,7 @@ export default class Files extends React.Component {
         return true
       case HOME:
       case END:
-        const entries = this.getEntries(this.props)
+        const entries = this.getEntries(this.props, this.state)
         const newFocusedEntry = event.which === HOME ? entries.first() : entries.last()
         if (!newFocusedEntry || newFocusedEntry.path === focusedPath) return true
 
@@ -647,8 +687,9 @@ export default class Files extends React.Component {
         else if (event.which === END) this.contentRef.current.scrollToBottom()
         return true
       case BACKSPACE:
-        const { browseId, fileBrowser, root } = this.props
-        const isRootFolder = fileBrowser[browseId].path === root
+        const { browseId, fileBrowser } = this.props
+        const { rootFolder } = this.state
+        const isRootFolder = fileBrowser[browseId].path === rootFolder.path
         if (!isRootFolder) this.onUpLevelClick()
         return true
     }
