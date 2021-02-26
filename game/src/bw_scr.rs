@@ -106,13 +106,13 @@ pub struct BwScr {
     prism_pixel_shaders: Vec<scarf::VirtualAddress>,
     prism_renderer_vtable: scarf::VirtualAddress,
     replay_minimap_patch: Option<scr_analysis::Patch>,
-    /// Some only if hd graphics are to be disabled
-    open_file: Option<scarf::VirtualAddress>,
+    open_file: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
     // State
     exe_build: u32,
+    disable_hd: bool,
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
@@ -862,13 +862,8 @@ impl BwScr {
             Some(s) => s == "1",
             None => false,
         };
-        let open_file = if disable_hd {
-            let open_file = analysis.file_hook()
-                .ok_or("open_file (Required due to SB_NO_HD)")?;
-            Some(open_file)
-        } else {
-            None
-        };
+        let open_file = analysis.file_hook()
+            .ok_or("open_file (Required due to SB_NO_HD)")?;
 
         let replay_minimap_patch = analysis.replay_minimap_unexplored_fog_patch();
 
@@ -945,6 +940,7 @@ impl BwScr {
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
+            disable_hd,
             shader_replaces: ShaderReplaces::new(),
             renderer_state: Mutex::new(RendererState {
                 renderer: None,
@@ -1081,12 +1077,12 @@ impl BwScr {
             exe.replace(address, &patch.data);
         }
 
-        if let Some(open_file) = self.open_file {
-            let address = open_file.0 as usize - base;
-            exe.hook_closure_address(OpenFile, file_hook::open_file_hook, address);
-        }
+        let address = self.open_file.0 as usize - base;
+        exe.hook_closure_address(OpenFile, move |a, b, c, orig| {
+            file_hook::open_file_hook(self, a, b, c, orig)
+        }, address);
 
-        self.clone().patch_shaders(&mut exe, base);
+        self.patch_shaders(&mut exe, base);
 
         sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
