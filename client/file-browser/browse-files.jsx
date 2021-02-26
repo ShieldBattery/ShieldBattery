@@ -393,6 +393,7 @@ export default class Files extends React.Component {
     const { path: prevPath, isRequesting: prevIsRequesting } = prevProps.fileBrowser[browseId]
     if (prevRootFolder !== rootFolder) {
       this._changeInitialPath()
+      return
     }
     if (prevPath !== path) {
       this.props.dispatch(getFiles(browseId, path))
