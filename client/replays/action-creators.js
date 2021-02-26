@@ -24,7 +24,13 @@ function getReplayHeader(filePath) {
 }
 
 async function setGameConfig(replay, user, settings) {
-  const player = new Slot({ type: 'human', name: user.name, id: cuid(), teamId: 0 })
+  const player = new Slot({
+    type: 'human',
+    name: user.name,
+    id: cuid(),
+    teamId: 0,
+    userId: user.id,
+  })
   const slots = List.of(player)
 
   const header = await getReplayHeader(replay.path)
