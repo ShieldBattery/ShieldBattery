@@ -10,11 +10,12 @@ use std::time::{Duration, Instant};
 
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use bytes::Bytes;
-use futures::{select, pin_mut};
+use futures::{pin_mut};
 use futures::future::{Either};
 use futures::prelude::*;
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
+use tokio::select;
 
 use crate::cancel_token::{cancelable_channel, CancelToken, CancelableSender, Canceler};
 use crate::udp::{self, UdpRecv, UdpSend};
@@ -103,7 +104,7 @@ fn send_bytes_future(
     message: Bytes,
     to: SocketAddrV6,
 ) -> impl Future<Output = ()> + 'static {
-    let mut send = send_bytes.clone();
+    let send = send_bytes.clone();
     async move {
         let _ = send.send((message, to, None)).await;
     }
@@ -137,17 +138,18 @@ impl State {
                     },
                 );
                 self.joined_servers.insert(address);
-                let mut send_self_requests = self.send_requests.clone();
+                let send_self_requests = self.send_requests.clone();
                 let recv_error = async move {
-                    let opt_err = recv_error.next().await;
+                    let opt_err = recv_error.recv().await;
                     opt_err.ok_or(())
                 };
-                let mut send_bytes = self.send_bytes.clone();
+                let send_bytes = self.send_bytes.clone();
                 let send_requests = async move {
                     let mut interval = resend_interval();
-                    while let Some(_) = interval.next().await {
+                    loop {
+                        interval.tick().await;
                         let (send_this_error, recv_this_error) = oneshot::channel();
-                        let mut send_error = send_error.clone();
+                        let send_error = send_error.clone();
                         let forward_error = async move {
                             if let Ok(error) = recv_this_error.await {
                                 let _ = send_error.send(error).await;
@@ -212,8 +214,8 @@ impl State {
                 );
                 let message = ping_message(id);
 
-                let mut send_bytes = self.send_bytes.clone();
-                let mut send_requests = self.send_requests.clone();
+                let send_bytes = self.send_bytes.clone();
+                let send_requests = self.send_requests.clone();
                 let send = async move {
                     let _ = send_bytes.send((message, address, Some(send_error))).await;
                 };
@@ -252,7 +254,7 @@ impl State {
             }
             ExternalRequest::Forward(route, player, data, address) => {
                 let message = forward_message(&route, player, &data);
-                let mut send_bytes = self.send_bytes.clone();
+                let send_bytes = self.send_bytes.clone();
                 let send = async move {
                     let _ = send_bytes.send((message, address, None)).await;
                 };
@@ -274,7 +276,7 @@ impl State {
             ExternalRequest::KeepAlive(route, player, address) => {
                 // I don't think there's any way to confirm the route is actually still alive
                 let message = keep_alive_message(&route, player);
-                let mut send_bytes = self.send_bytes.clone();
+                let send_bytes = self.send_bytes.clone();
                 let send = async move {
                     let _ = send_bytes.send((message, address, None));
                 };
@@ -379,7 +381,7 @@ impl State {
                                         closed_indices.push(i);
                                     }
                                     mpsc::error::TrySendError::Full(bytes) => {
-                                        let mut send = send.clone();
+                                        let send = send.clone();
                                         let future = async move {
                                             let _ = send.send(bytes).await;
                                         };
@@ -454,7 +456,7 @@ async fn udp_send_task(
 
 async fn udp_recv_task(
     mut udp_recv: UdpRecv,
-    mut send_requests: mpsc::Sender<Request>,
+    send_requests: mpsc::Sender<Request>,
 ) {
     while let Some(result) = udp_recv.next().await {
         let (bytes, addr) = match result {
@@ -470,8 +472,8 @@ async fn udp_recv_task(
     }
 }
 
-fn resend_interval() -> impl Stream<Item = ()> {
-    tokio::time::interval(RESEND_TIMEOUT).map(|_| ())
+fn resend_interval() -> tokio::time::Interval {
+    tokio::time::interval(RESEND_TIMEOUT)
 }
 
 pub fn init() -> RallyPoint {
@@ -483,18 +485,16 @@ pub fn init() -> RallyPoint {
     // future. Acks sent to server can/should have it as None.
     let addr = "[::]:0".parse().unwrap();
 
-    let (send_requests, recv_requests) = mpsc::channel(16);
+    let (send_requests, mut recv_requests) = mpsc::channel(16);
     // Separate channel for internal communication, so that dropping RallyPoint
     // will cause main_future to stop.
-    let (internal_send_requests, internal_recv_requests) = mpsc::channel(16);
+    let (internal_send_requests, mut internal_recv_requests) = mpsc::channel(16);
     let mut state = State::new(&addr, internal_send_requests).expect("Couldn't bind rally-point");
-    let mut recv_requests = recv_requests.fuse();
-    let mut internal_recv_requests = internal_recv_requests.fuse();
     let main_future = async move {
         loop {
             let request = select! {
-                x = recv_requests.next() => x,
-                x = internal_recv_requests.next() => x,
+                x = recv_requests.recv() => x,
+                x = internal_recv_requests.recv() => x,
             };
             let request = match request {
                 Some(s) => s,
@@ -591,7 +591,7 @@ impl RallyPoint {
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::JoinRoute(route_id, player_id, address, timeout, send);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -608,7 +608,7 @@ impl RallyPoint {
 
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::Ping(address, send);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -625,7 +625,7 @@ impl RallyPoint {
         let (send, recv) = oneshot::channel();
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::WaitRouteReady(*route, address, send);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -642,7 +642,7 @@ impl RallyPoint {
     ) -> impl Future<Output = Result<(), RallyPointError>> {
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::KeepAlive(*route, player_id, address);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -658,7 +658,7 @@ impl RallyPoint {
         let address = to_ipv6_addr(&address);
         let (send, recv) = mpsc::channel(32);
         let request = ExternalRequest::ListenData(*route, address, send);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         let sent = async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;
@@ -666,7 +666,7 @@ impl RallyPoint {
         };
         sent.into_stream()
             .try_filter_map(|_| future::ready(Ok(None)))
-            .chain(recv.map(Ok))
+            .chain(tokio_stream::wrappers::ReceiverStream::new(recv).map(Ok))
     }
 
     pub fn forward(
@@ -678,7 +678,7 @@ impl RallyPoint {
     ) -> impl Future<Output = Result<(), RallyPointError>> {
         let address = to_ipv6_addr(&address);
         let request = ExternalRequest::Forward(*route, player, data, address);
-        let mut sender = self.send_requests.clone();
+        let sender = self.send_requests.clone();
         async move {
             sender.send(Request::External(request)).await
                 .map_err(|_| RallyPointError::NotActive)?;

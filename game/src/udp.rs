@@ -161,7 +161,7 @@ impl Stream for UdpRecv {
     type Item = Result<(Bytes, SocketAddrV6), io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.thread_receiver).poll_next(cx)
+        self.thread_receiver.poll_recv(cx)
     }
 }
 
@@ -187,7 +187,7 @@ impl Sink<(Bytes, SocketAddr)> for UdpSend {
         cx: &mut task::Context,
     ) -> Poll<Result<(), io::Error>> {
         while self.pending_results != 0 {
-            match Pin::new(&mut self.results).poll_next(cx) {
+            match self.results.poll_recv(cx) {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(Some(Ok(()))) => {
                     self.pending_results -= 1;

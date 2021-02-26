@@ -348,15 +348,14 @@ fn process_init_hook() {
 /// Task that registers itself to receive messages from game thread and forwards them
 /// to the arguments given to function.
 async fn handle_messages_from_game_thread(
-    mut ws_send: app_socket::SendMessages,
-    mut game_send: game_state::SendMessages,
+    ws_send: app_socket::SendMessages,
+    game_send: game_state::SendMessages,
 ) {
     use crate::app_messages::WindowMove;
-    use futures::prelude::*;
 
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
-    while let Some(message) = recv.next().await {
+    while let Some(message) = recv.recv().await {
         let result = match message {
             GameThreadMessage::WindowMove(x, y) => {
                 let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y });
@@ -420,7 +419,7 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  listening to it, which practically is just a child task of the network manager task, but
     //  not the main task which receives messages from game_state.
     //  Not sure if that's the smartest way to do that.
-    let mut runtime = tokio::runtime::Runtime::new().unwrap();
+    let runtime = tokio::runtime::Runtime::new().unwrap();
     let handle = runtime.handle();
     *ASYNC_RUNTIME.lock() = Some(handle.clone());
     runtime.block_on(future::lazy(|_| ()).then(|()| {

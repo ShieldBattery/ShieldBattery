@@ -9,9 +9,10 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use futures::prelude::*;
-use futures::{pin_mut, select};
+use futures::{pin_mut};
 use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
+use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
@@ -246,13 +247,13 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
-        let mut players_joined = init_state.wait_for_players().fuse();
+        let mut players_joined = init_state.wait_for_players();
         let results = init_state.wait_for_results();
         self.init_state = InitState::Started(init_state);
 
-        let mut send_messages_to_state = self.internal_send.clone();
+        let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
-        let mut ws_send = self.ws_send.clone();
+        let ws_send = self.ws_send.clone();
 
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
@@ -341,8 +342,8 @@ impl GameState {
                     }
                 }
                 select! {
-                    _ = tokio::time::delay_for(Duration::from_millis(100)).fuse() => continue,
-                    res = players_joined => {
+                    _ = tokio::time::sleep(Duration::from_millis(100)) => continue,
+                    res = &mut players_joined => {
                         res?;
                         break;
                     }
@@ -371,7 +372,7 @@ impl GameState {
                 do_lobby_game_init(&info).await;
             }
             forge::end_wnd_proc();
-            app_socket::send_message(&mut ws_send, "/game/start", ())
+            app_socket::send_message(&ws_send, "/game/start", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
@@ -381,10 +382,10 @@ impl GameState {
             let results = results.await?;
 
             if !info.is_replay() {
-                send_game_result(&results, &info, &local_user, &mut ws_send).await;
+                send_game_result(&results, &info, &local_user, &ws_send).await;
             }
 
-            app_socket::send_message(&mut ws_send, "/game/finished", ())
+            app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
@@ -435,7 +436,7 @@ impl GameState {
                                 .await;
                     }
                     debug!("Game setup & play task ended");
-                    tokio::time::delay_for(Duration::from_millis(10000)).await;
+                    tokio::time::sleep(Duration::from_millis(10000)).await;
                     // The app is supposed to send a CleanupQuit command to acknowledge
                     // that it received /game/end, or simple quit on error, but maybe it died?
                     //
@@ -527,7 +528,7 @@ async fn send_game_result(
     results: &GameResults,
     info: &GameSetupInfo,
     local_user: &LocalUser,
-    ws_send: &mut app_socket::SendMessages,
+    ws_send: &app_socket::SendMessages,
 ) {
     // Send results to the app.
     // If the app is closed, ignore the error and try to still send results to server.
@@ -931,7 +932,8 @@ unsafe fn join_lobby(
     };
     async move {
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
-        while let Some(_) = repeat_interval.next().await {
+        loop {
+            repeat_interval.tick().await;
             match try_join_lobby_once(game_info.clone(), map_path.clone()).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
@@ -1083,18 +1085,18 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
         if done {
             break;
         }
-        tokio::time::delay_for(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
 
 pub async fn create_future(
     ws_send: app_socket::SendMessages,
     async_stop: SharedCanceler,
-    messages: mpsc::Receiver<GameStateMessage>,
+    mut messages: mpsc::Receiver<GameStateMessage>,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
 ) {
-    let (internal_send, internal_recv) = mpsc::channel(8);
+    let (internal_send, mut internal_recv) = mpsc::channel(8);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             settings_set: false,
@@ -1110,12 +1112,10 @@ pub async fn create_future(
         async_stop,
         can_start_game: CanStartGame::No(Vec::new()),
     };
-    let mut internal_recv = internal_recv.fuse();
-    let mut messages = messages.fuse();
     loop {
         let message = select! {
-            x = messages.next() => x,
-            x = internal_recv.next() => x,
+            x = messages.recv() => x,
+            x = internal_recv.recv() => x,
         };
         match message {
             Some(m) => game_state.handle_message(m).await,
@@ -1154,7 +1154,7 @@ async fn read_sbat_replay_data(
     path: &Path,
 ) -> Result<Option<replay::SbatReplayData>, io::Error> {
     use byteorder::{ByteOrder, LittleEndian};
-    use tokio::io::{AsyncReadExt};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
     use tokio::fs;
 
     let mut file = fs::File::open(path).await?;

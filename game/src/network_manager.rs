@@ -5,9 +5,10 @@ use std::time::{Duration};
 
 use bytes::Bytes;
 use futures::prelude::*;
-use futures::{pin_mut, select};
+use futures::{pin_mut};
 use quick_error::quick_error;
 use tokio::sync::{mpsc, oneshot};
+use tokio::select;
 
 use crate::app_messages;
 use crate::app_messages::Route as RouteInput;
@@ -134,7 +135,7 @@ impl State {
             .map(|route| {
                 let route = Arc::new(route);
                 let route1 = route.clone();
-                let mut send_messages = self.send_messages.clone();
+                let send_messages = self.send_messages.clone();
                 let rally_point = self.rally_point.clone();
                 let server_future = self.pick_server(&route.server);
                 async move {
@@ -194,7 +195,7 @@ impl State {
             let rally_point = &self.rally_point;
             entry
                 .or_insert_with(|| {
-                    let mut sender = send_messages.clone();
+                    let sender = send_messages.clone();
                     let (cancel_token, canceler) = CancelToken::new();
                     let ping = ping_server(rally_point, input);
                     let cancelable = async move {
@@ -233,7 +234,7 @@ impl State {
             } else {
                 let ping = ping.get_mut();
                 ping.retry_count -= 1;
-                let mut sender = self.send_messages.clone();
+                let sender = self.send_messages.clone();
                 let ping_result = ping_server(&self.rally_point, &ping.input);
                 let (cancel_token, canceler) = CancelToken::new();
                 let cancelable = async move {
@@ -259,7 +260,7 @@ impl State {
         match message {
             NetworkManagerMessage::Routes(setup) => {
                 let future = self.join_routes(setup);
-                let mut send = self.send_messages.clone();
+                let send = self.send_messages.clone();
                 let (cancel_token, canceler) = CancelToken::new();
                 let cancelable = async move {
                     let task = async move {
@@ -343,7 +344,8 @@ impl State {
                 let cancelable = async move {
                     let task = async move {
                         let mut interval = tokio::time::interval(Duration::from_millis(500));
-                        while let Some(_) = interval.next().await {
+                        loop {
+                            interval.tick().await;
                             let result = rally_point
                                 .keep_alive(&route.route_id, route.player_id, &route.address)
                                 .await;
@@ -497,8 +499,8 @@ fn ping_server(
 
 impl NetworkManager {
     pub fn new() -> NetworkManager {
-        let (send_messages, receive_messages) = mpsc::channel(64);
-        let (internal_send_messages, internal_receive_messages) = mpsc::channel(16);
+        let (send_messages, mut receive_messages) = mpsc::channel(64);
+        let (internal_send_messages, mut internal_receive_messages) = mpsc::channel(16);
         let mut state = State {
             network: NetworkState::Incomplete(Default::default()),
             waiting_for_network: Vec::new(),
@@ -509,12 +511,10 @@ impl NetworkManager {
             pings: PingState::default(),
         };
         let task = async move {
-            let mut internal_receive_messages = internal_receive_messages.fuse();
-            let mut receive_messages = receive_messages.fuse();
             loop {
                 let message = select! {
-                    x = receive_messages.next() => x,
-                    x = internal_receive_messages.next() => x,
+                    x = receive_messages.recv() => x,
+                    x = internal_receive_messages.recv() => x,
                 };
                 match message {
                     Some(m) => state.handle_message(m),
@@ -535,7 +535,7 @@ impl NetworkManager {
     /// signaled automatically.
     pub fn wait_network_ready(&self) -> impl Future<Output = Result<()>> {
         let (send, recv) = oneshot::channel();
-        let mut sender = self.send_messages.clone();
+        let sender = self.send_messages.clone();
         async move {
             sender.send(NetworkManagerMessage::WaitNetworkReady(send)).await
                 .map_err(|_| NetworkError::NotActive)?;
@@ -549,7 +549,7 @@ impl NetworkManager {
         &self,
         routes: Vec<RouteInput>,
     ) -> impl Future<Output = Result<()>> {
-        let mut send = self.send_messages.clone();
+        let send = self.send_messages.clone();
         async move {
             send.send(NetworkManagerMessage::Routes(routes)).await
                 .map_err(|_| NetworkError::NotActive)
@@ -557,7 +557,7 @@ impl NetworkManager {
     }
 
     pub fn send_snp_message(&self, message: SnpMessage) -> impl Future<Output = Result<()>> {
-        let mut send = self.send_messages.clone();
+        let send = self.send_messages.clone();
         async move {
             send.send(NetworkManagerMessage::Snp(message)).await
                 .map_err(|_| NetworkError::NotActive)
@@ -568,7 +568,7 @@ impl NetworkManager {
         &self,
         info: Arc<app_messages::GameSetupInfo>,
     ) -> impl Future<Output = Result<()>> {
-        let mut send = self.send_messages.clone();
+        let send = self.send_messages.clone();
         async move {
             send.send(NetworkManagerMessage::SetGameInfo(info)).await
                 .map_err(|_| NetworkError::NotActive)

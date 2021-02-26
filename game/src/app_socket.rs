@@ -1,9 +1,9 @@
 use std::time::{Duration};
 
-use futures::select;
 use futures::prelude::*;
 use quick_error::{quick_error, ResultExt};
 use serde::{Deserialize, Serialize};
+use tokio::select;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
@@ -43,15 +43,14 @@ enum ConnectionEndReason {
 async fn app_websocket_connection(
     client: WebSocketStream,
     recv_messages: mpsc::Receiver<WsMessage>,
-    mut game_send: game_state::SendMessages,
+    game_send: game_state::SendMessages,
     async_stop: SharedCanceler,
 ) -> ConnectionEndReason {
-    let (mut ws_sink, ws_stream) = client.split();
-    let mut ws_stream = ws_stream.fuse();
-    let mut recv_messages = recv_messages.fuse();
+    let (mut ws_sink, mut ws_stream) = client.split();
+    let mut recv_messages = recv_messages;
     'handle_messages: loop {
         let message = select! {
-            x = recv_messages.next() => match x {
+            x = recv_messages.recv() => match x {
                 Some(s) => MessageResult::WebSocket(s),
                 None => return ConnectionEndReason::MpscChannelClosed,
             },
@@ -114,7 +113,7 @@ pub async fn websocket_connection_future(
             Ok(o) => o,
             Err(e) => {
                 error!("Couldn't connect to Shieldbattery: {}", e);
-                tokio::time::delay_for(Duration::from_millis(1000)).await;
+                tokio::time::sleep(Duration::from_millis(1000)).await;
                 retries -= 1;
                 if retries == 0 {
                     // Normally the app initiates game quitting, so if we fail
@@ -206,7 +205,7 @@ pub fn encode_message<T: Serialize>(command: &str, data: T) -> Option<WsMessage>
 }
 
 pub fn send_message<'a, T: serde::Serialize>(
-    send: &'a mut mpsc::Sender<WsMessage>,
+    send: &'a mpsc::Sender<WsMessage>,
     command: &str,
     data: T,
 ) -> impl Future<Output = Result<(), ()>> + 'a {
