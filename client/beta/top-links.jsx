@@ -57,6 +57,7 @@ const StyledGithubLogo = styled(GithubLogo)`
 
 const StyledTwitterLogo = styled(TwitterLogo)`
   width: auto;
+  /** The Twitter icon doesn't have built-in padding so it appears a bit larger. */
   height: 16px;
   color: ${amberA400};
   margin-right: 8px;
