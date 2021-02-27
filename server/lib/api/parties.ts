@@ -95,6 +95,8 @@ function convertPartyServiceError(err: Error) {
       throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
       throw new httpErrors.Unauthorized(err.message)
+    case PartyServiceErrorCode.InvalidAction:
+      throw new httpErrors.BadRequest(err.message)
     default:
       assertUnreachable(err.code as never)
   }

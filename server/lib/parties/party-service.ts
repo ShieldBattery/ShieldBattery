@@ -27,6 +27,7 @@ export enum PartyServiceErrorCode {
   InsufficientPermissions,
   PartyFull,
   UserOffline,
+  InvalidAction,
 }
 
 export class PartyServiceError extends Error {
@@ -122,9 +123,14 @@ export default class PartyService {
       )
     }
 
-    // TODO(2Pac): Check if the target is invited first before trying to do any of the below?
+    const isRemoved = party.invites.delete(target.id)
+    if (!isRemoved) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        "Can't remove invite for a user that wasn't invited",
+      )
+    }
 
-    party.invites.delete(target.id)
     this.publishToParty(partyId, {
       type: 'decline',
       target,
@@ -149,10 +155,15 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
     }
 
-    // TODO(2Pac): Check if the target is invited first before trying to do any of the below?
+    if (!party.invites.has(user.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InsufficientPermissions,
+        "Can't join party without an invite",
+      )
+    }
 
-    const oldParty = this.getClientParty(clientSockets)
-    if (oldParty) {
+    const userParty = this.getClientParty(clientSockets)
+    if (userParty) {
       // TODO(2Pac): Handle switching parties
     }
 

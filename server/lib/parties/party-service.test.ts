@@ -182,6 +182,15 @@ describe('parties/party-service', () => {
       )
     })
 
+    test('should throw if not in party', () => {
+      expect(() => partyService.removeInvite(party.id, user4)).toThrow(
+        new PartyServiceError(
+          PartyServiceErrorCode.InvalidAction,
+          "Can't remove invite for a user that wasn't invited",
+        ),
+      )
+    })
+
     test('should update the party record when declined', () => {
       partyService.removeInvite(party.id, user2)
 
@@ -239,6 +248,15 @@ describe('parties/party-service', () => {
 
       expect(() => partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID)).toThrow(
         new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full'),
+      )
+    })
+
+    test('should throw if the user is not invited', () => {
+      expect(() => partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID)).toThrow(
+        new PartyServiceError(
+          PartyServiceErrorCode.InsufficientPermissions,
+          "Can't join party without an invite",
+        ),
       )
     })
 
