@@ -4,6 +4,8 @@ import Joi from 'joi'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
+import { PARTIES } from '../../../common/flags'
+import { featureEnabled } from '../flags/feature-enabled'
 import users from '../models/users'
 import PartyService, {
   PartyServiceError,
@@ -59,18 +61,21 @@ export default function (router: Router) {
     .use(ensureLoggedIn)
     .post(
       '/invites',
+      featureEnabled(PARTIES),
       throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
       joiValidator({ body: invitesPostchema }),
       invite,
     )
     .delete(
       '/invites/:partyId/:targetId',
+      featureEnabled(PARTIES),
       throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
       joiValidator({ params: declineParamsSchema }),
       decline,
     )
     .post(
       '/:partyId',
+      featureEnabled(PARTIES),
       throttleMiddleware(partyThrottle, ctx => ctx.session!.userId),
       joiValidator({ params: partyIdSchema }),
       accept,
