@@ -110,7 +110,12 @@ export async function addMap(mapParams, transactionFn) {
         VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', $3, $4, $5)
         ON CONFLICT (map_hash, uploaded_by, visibility)
         DO UPDATE
-        SET removed_at = NULL
+        SET
+          removed_at = NULL,
+          upload_date = CURRENT_TIMESTAMP AT TIME ZONE 'UTC',
+          visibility = $3,
+          name = $4,
+          description = $5
         WHERE um.map_hash = $1 AND um.uploaded_by = $2 AND um.visibility = $3
         RETURNING *
       )
