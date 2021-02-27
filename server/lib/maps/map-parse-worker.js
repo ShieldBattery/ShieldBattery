@@ -84,6 +84,16 @@ function generateImage(map, bwDataPath, width = 1024) {
   })
 }
 
+/**
+ * Filters out unprintable characters used for color codes in BW (we don't utilize these in our
+ * client, and they just show up as tofu).
+ */
+function filterColorCodes(str) {
+  return Array.from(str)
+    .filter(c => c.charCodeAt(0) > 0x1f)
+    .join('')
+}
+
 function createStreamPromise(data, fd) {
   return new Promise((resolve, reject) => {
     const stream = fs.createWriteStream('', { fd, flags: 'w' })
@@ -118,8 +128,8 @@ process.once('message', async msg => {
       process.send(
         {
           hash,
-          title: map.title,
-          description: map.description,
+          title: filterColorCodes(map.title),
+          description: filterColorCodes(map.description),
           width: map.size[0],
           height: map.size[1],
           tileset: map.tileset,

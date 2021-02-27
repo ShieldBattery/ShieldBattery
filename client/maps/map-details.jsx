@@ -264,7 +264,13 @@ export default class MapDetails extends React.Component {
             />
           ) : (
             <MapName canEdit={canEdit}>
-              {map.name}
+              {
+                // NOTE(tec27): atm if the map name is missing this will end up with 0 height, so
+                // we replace it with a non-breaking space character in that case.
+                // TODO(tec27): Do this layout differently such that the button actually
+                // contributes to the layout size and isn't just positioned absolutely in padding
+                map.name || ' '
+              }
               {canEdit ? this._getEditButton('name') : null}
             </MapName>
           )}
