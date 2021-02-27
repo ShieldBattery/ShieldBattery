@@ -220,13 +220,18 @@ const FeatureContainer = styled.div`
   align-items: center;
   width: 100%;
   padding-top: 40px;
+  padding-bottom: 40px;
   background-color: ${grey900};
 `
 
 const FeatureSection = styled.div`
   width: 100%;
   max-width: 1000px;
-  padding: 0 8px 40px 8px;
+  padding: 0 8px;
+
+  & + & {
+    margin-top: 80px;
+  }
 `
 
 const FeatureSectionTitle = styled.div`
@@ -433,7 +438,6 @@ class Splash extends React.Component<DispatchProp> {
                     'purchased from Blizzard) and custom hotkeys.'
                   }
                 />
-
                 <FeatureEntry
                   title='Cloud-based map distribution and hosting'
                   description={
@@ -441,24 +445,20 @@ class Splash extends React.Component<DispatchProp> {
                     'all your favorite maps, share them with your friends, host them from anywhere.'
                   }
                 />
-
                 <FeatureEntry
                   title='1v1 Matchmaking'
                   description='Find matches quickly and easily.'
                 />
-
                 <FeatureEntry
                   title='Improved netcode'
                   description='Less lag, drops, and packet loss!'
                 />
-
                 <FeatureEntry
                   title='Web-based chat client'
                   description={
                     'Keep up with your friends (and enemies) without needing to install anything.'
                   }
                 />
-
                 <FeatureEntry
                   title='Working Team Melee replays'
                   description={'Play back any games played in Team Melee mode on ShieldBattery!'}
@@ -481,13 +481,6 @@ class Splash extends React.Component<DispatchProp> {
                   description='Easily find games for 2v2 and 3v3, with arranged or random teams.'
                 />
                 <FeatureEntry
-                  title='Parties'
-                  description={
-                    'Party up with your friends to easily host private matches, watch replays ' +
-                    'together, or join matchmaking.'
-                  }
-                />
-                <FeatureEntry
                   title='Cloud-synced replays'
                   description={
                     'Automatic uploading for replays. Share them with others, watch them from ' +
@@ -502,16 +495,17 @@ class Splash extends React.Component<DispatchProp> {
                   }
                 />
                 <FeatureEntry
+                  title='Parties'
+                  description={
+                    'Party up with your friends to easily host private matches, watch replays ' +
+                    'together, or join matchmaking.'
+                  }
+                />
+                <FeatureEntry
                   title='Live match streaming'
                   description={
                     'Jump into in-progress matches and watch them live, with all the ' +
                     'benefits of ingame observing.'
-                  }
-                />
-                <FeatureEntry
-                  title='First person replays'
-                  description={
-                    'Record mouse and screen movements and play them back for all players.'
                   }
                 />
                 <FeatureEntry
@@ -529,16 +523,22 @@ class Splash extends React.Component<DispatchProp> {
                   }
                 />
                 <FeatureEntry
-                  title='Friends list'
+                  title='First person replays'
                   description={
-                    'Track when your friends are online, easily send them messages and invite ' +
-                    'them to games.'
+                    'Record mouse and screen movements and play them back for all players.'
                   }
                 />
                 <FeatureEntry
                   title='Training/sandbox mode'
                   description={
                     'Test out new builds, practice your worker split, improve your micro.'
+                  }
+                />
+                <FeatureEntry
+                  title='Friends list'
+                  description={
+                    'Track when your friends are online, easily send them messages and invite ' +
+                    'them to games.'
                   }
                 />
                 <FeatureEntry
@@ -552,6 +552,19 @@ class Splash extends React.Component<DispatchProp> {
                   title='Automated tournaments and leagues'
                   description={
                     'Find tournaments and leagues that match your skill level, run automatically.'
+                  }
+                />
+                <FeatureEntry
+                  title='Expanded chat features'
+                  description={
+                    'Express yourself using emotes, embed maps, matches, and replays, and more!'
+                  }
+                />
+                <FeatureEntry
+                  title='Use Map Settings portal'
+                  description={
+                    'Find and explore UMS maps with ease, then quickly gather players and get ' +
+                    'the game started.'
                   }
                 />
               </FeatureSectionList>
