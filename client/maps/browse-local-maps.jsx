@@ -57,13 +57,13 @@ export default class LocalMaps extends React.Component {
     }
     const defaultFolder = {
       id: 'default',
-      name: 'Default maps',
+      name: 'Program folder',
       path: path.join(this.props.settings.local.starcraftPath, 'Maps'),
     }
     const downloadsFolder = {
-      id: 'downloads',
-      name: 'Downloaded maps',
-      path: path.join(remote.app.getPath('documents'), 'Starcraft', 'maps', 'Download'),
+      id: 'documents',
+      name: 'Documents folder',
+      path: path.join(remote.app.getPath('documents'), 'Starcraft', 'maps'),
     }
     const props = {
       browseId: 'maps',

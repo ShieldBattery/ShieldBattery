@@ -320,9 +320,10 @@ export default class Files extends React.Component {
 
   state = {
     focusedPath: window.localStorage.getItem(this.props.browseId + FOCUSED_KEY),
-    rootFolder: this.props.rootFolders[
-      window.localStorage.getItem(this.props.browseId + ROOT_ID) || 'default'
-    ],
+    rootFolder:
+      this.props.rootFolders[
+        window.localStorage.getItem(this.props.browseId + ROOT_ID) || 'default'
+      ] || this.props.rootFolders.default,
   }
 
   contentRef = React.createRef()
