@@ -7,7 +7,14 @@ import {
   InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
-import PartyService, { getInvitesPath, getPartyPath, PartyRecord, PartyUser } from './party-service'
+import PartyService, {
+  getInvitesPath,
+  getPartyPath,
+  PartyRecord,
+  PartyServiceError,
+  PartyServiceErrorCode,
+  PartyUser,
+} from './party-service'
 
 describe('parties/party-service', () => {
   const user1: PartyUser = { id: 1, name: 'pachi' }
@@ -83,9 +90,12 @@ describe('parties/party-service', () => {
       })
 
       test('should throw if invited by non-leader', () => {
-        const result = () => partyService.invite(user2, USER2_CLIENT_ID, [user3])
-
-        expect(result).toThrow()
+        expect(() => partyService.invite(user2, USER2_CLIENT_ID, [user3])).toThrow(
+          new PartyServiceError(
+            PartyServiceErrorCode.InsufficientPermissions,
+            'Only party leader can invite people',
+          ),
+        )
       })
 
       test('should update the party record', () => {
@@ -107,10 +117,11 @@ describe('parties/party-service', () => {
     describe("when party doesn't exist", () => {
       beforeEach(() => {
         leader = user1
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
       })
 
       test('should create a party record', () => {
+        party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+
         expect(party).toMatchObject({
           id: party.id,
           invites: new Map([
@@ -123,6 +134,8 @@ describe('parties/party-service', () => {
       })
 
       test('should subscribe leader to the party path', () => {
+        party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
           party,
@@ -155,15 +168,18 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is not found', () => {
-      const result = () => partyService.removeInvite('INVALID_PARTY_ID', user2)
-
-      expect(result).toThrow()
+      expect(() => partyService.removeInvite('INVALID_PARTY_ID', user2)).toThrow(
+        new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found'),
+      )
     })
 
     test('should throw if removed by non-leader', () => {
-      const result = () => partyService.removeInvite(party.id, user2, user3)
-
-      expect(result).toThrow()
+      expect(() => partyService.removeInvite(party.id, user2, user3)).toThrow(
+        new PartyServiceError(
+          PartyServiceErrorCode.InsufficientPermissions,
+          'Only party leaders can remove invites to other people',
+        ),
+      )
     })
 
     test('should update the party record when declined', () => {
@@ -204,9 +220,9 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is not found', () => {
-      const result = () => partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID)
-
-      expect(result).toThrow()
+      expect(() => partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID)).toThrow(
+        new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found'),
+      )
     })
 
     test('should throw if the party is full', () => {
@@ -220,9 +236,10 @@ describe('parties/party-service', () => {
       partyService.acceptInvite(party.id, user8, USER8_CLIENT_ID)
 
       party = partyService.invite(leader, USER1_CLIENT_ID, [user9])
-      const result = () => partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID)
 
-      expect(result).toThrow()
+      expect(() => partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID)).toThrow(
+        new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full'),
+      )
     })
 
     test('should update the party record', () => {
