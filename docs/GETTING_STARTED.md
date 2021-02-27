@@ -174,8 +174,9 @@ The server needs access to some of BW's data files in order to generate map imag
 editor, such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download
 "listfiles" from that website as well, which you'll need to use in the mpq editor. Use the mpq
 editor to extract BW's data files from `stardat.mpq`, `broodat.mpq`, in that order, having
-`broodat.mpq` overwrite any conflicting files from `stardat.mpq`. You can obtain `stardat.mpq` and `broodat.mpq`
-directly from Blizzard by downloading the final release of [StarEdit](http://download.blizzard.com/pub/starcraft/StarEdit/StarEdit.zip).
+`broodat.mpq` overwrite any conflicting files from `stardat.mpq`. You can obtain `stardat.mpq`
+and `broodat.mpq` directly from Blizzard by downloading the final release of
+[StarEdit](http://download.blizzard.com/pub/starcraft/StarEdit/StarEdit.zip).
 The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
 structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 
