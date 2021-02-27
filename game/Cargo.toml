@@ -52,7 +52,7 @@ features = [
 ]
 
 [dependencies.whack]
-git = "https://github.com/neivv/whack/"
+git = "https://github.com/neivv/whack.git"
 rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
 
 [build-dependencies]
