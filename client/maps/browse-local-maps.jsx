@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import path from 'path'
+import { remote } from 'electron'
 import styled from 'styled-components'
 
 import ActivityBackButton from '../activities/activity-back-button'
@@ -54,13 +55,24 @@ export default class LocalMaps extends React.Component {
       scm: { icon: <MapIcon />, onSelect: this.onMapSelect },
       scx: { icon: <MapIcon />, onSelect: this.onMapSelect },
     }
-    const root = path.join(this.props.settings.local.starcraftPath, 'Maps')
+    const defaultFolder = {
+      id: 'default',
+      name: 'Program folder',
+      path: path.join(this.props.settings.local.starcraftPath, 'Maps'),
+    }
+    const downloadsFolder = {
+      id: 'documents',
+      name: 'Documents folder',
+      path: path.join(remote.app.getPath('documents'), 'Starcraft', 'maps'),
+    }
     const props = {
       browseId: 'maps',
       title: 'Local Maps',
       titleButton: <ActivityBackButton />,
-      rootFolderName: 'Maps',
-      root,
+      rootFolders: {
+        [defaultFolder.id]: defaultFolder,
+        [downloadsFolder.id]: downloadsFolder,
+      },
       fileTypes,
     }
 
