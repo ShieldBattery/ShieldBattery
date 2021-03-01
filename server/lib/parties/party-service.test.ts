@@ -14,6 +14,7 @@ import PartyService, {
   PartyServiceError,
   PartyServiceErrorCode,
   PartyUser,
+  toPartyJson,
 } from './party-service'
 
 describe('parties/party-service', () => {
@@ -138,7 +139,7 @@ describe('parties/party-service', () => {
 
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
-          party,
+          party: toPartyJson(party),
         })
       })
     })
@@ -149,11 +150,11 @@ describe('parties/party-service', () => {
 
       expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
         type: 'invite',
-        from: party.leaderId,
+        from: leader.name,
       })
       expect(client3.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
         type: 'invite',
-        from: party.leaderId,
+        from: leader.name,
       })
     })
   })
@@ -292,7 +293,7 @@ describe('parties/party-service', () => {
     test('should subscribe user to the party path', () => {
       expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
-        party,
+        party: toPartyJson(party),
       })
     })
   })

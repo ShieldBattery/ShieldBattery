@@ -47,6 +47,22 @@ export function getPartyPath(partyId: string): string {
   return `/parties/${partyId}`
 }
 
+export interface PartyJson {
+  id: string
+  invites: Array<[number, PartyUser]>
+  members: Array<[number, PartyUser]>
+  leaderId: number
+}
+
+export function toPartyJson(party: PartyRecord): PartyJson {
+  return {
+    id: party.id,
+    invites: Array.from(party.invites),
+    members: Array.from(party.members),
+    leaderId: party.leaderId,
+  }
+}
+
 @singleton()
 export default class PartyService {
   private parties = new Map<string, PartyRecord>()
@@ -99,7 +115,7 @@ export default class PartyService {
           getInvitesPath(party!.id),
           () => ({
             type: 'invite',
-            from: party!.leaderId,
+            from: leader.name,
           }),
           () => {
             // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
@@ -186,7 +202,7 @@ export default class PartyService {
       getPartyPath(party.id),
       () => ({
         type: 'init',
-        party,
+        party: toPartyJson(party),
       }),
       sockets => this.handleClientQuit(sockets),
     )
