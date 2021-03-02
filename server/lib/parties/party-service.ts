@@ -19,7 +19,7 @@ export interface PartyRecord {
   id: string
   invites: Map<number, PartyUser>
   members: Map<number, PartyUser>
-  leaderId: number
+  leader: PartyUser
 }
 
 export enum PartyServiceErrorCode {
@@ -51,7 +51,7 @@ export interface PartyJson {
   id: string
   invites: Array<[number, PartyUser]>
   members: Array<[number, PartyUser]>
-  leaderId: number
+  leader: PartyUser
 }
 
 export function toPartyJson(party: PartyRecord): PartyJson {
@@ -59,7 +59,7 @@ export function toPartyJson(party: PartyRecord): PartyJson {
     id: party.id,
     invites: Array.from(party.invites),
     members: Array.from(party.members),
-    leaderId: party.leaderId,
+    leader: party.leader,
   }
 }
 
@@ -86,7 +86,7 @@ export default class PartyService {
 
     let party = this.getClientParty(leaderClientSockets)
     if (party) {
-      if (party.leaderId !== leader.id) {
+      if (party.leader.id !== leader.id) {
         throw new PartyServiceError(
           PartyServiceErrorCode.InsufficientPermissions,
           'Only party leader can invite people',
@@ -107,7 +107,7 @@ export default class PartyService {
         id: partyId,
         invites: new Map(invites.map(i => [i.id, i])),
         members: new Map([[leader.id, leader]]),
-        leaderId: leader.id,
+        leader,
       }
 
       this.parties.set(partyId, party)
@@ -122,7 +122,7 @@ export default class PartyService {
           getInvitesPath(party!.id),
           () => ({
             type: 'invite',
-            from: leader.name,
+            from: leader,
           }),
           () => {
             // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
@@ -139,7 +139,7 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
-    if (leader && leader.id !== party.leaderId) {
+    if (leader && leader.id !== party.leader.id) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can remove invites to other people',

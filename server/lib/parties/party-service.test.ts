@@ -139,7 +139,7 @@ describe('parties/party-service', () => {
             [user3.id, user3],
           ]),
           members: new Map([[leader.id, leader]]),
-          leaderId: leader.id,
+          leader,
         })
       })
 
@@ -159,11 +159,11 @@ describe('parties/party-service', () => {
 
       expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
         type: 'invite',
-        from: leader.name,
+        from: leader,
       })
       expect(client3.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
         type: 'invite',
-        from: leader.name,
+        from: leader,
       })
     })
   })
