@@ -83,6 +83,15 @@ describe('parties/party-service', () => {
     let leader: PartyUser
     let party: PartyRecord
 
+    test('should throw if inviting yourself', () => {
+      expect(() => partyService.invite(user2, USER2_CLIENT_ID, [user2, user3])).toThrow(
+        new PartyServiceError(
+          PartyServiceErrorCode.InvalidAction,
+          "Can't invite yourself to the party",
+        ),
+      )
+    })
+
     describe('when party exists', () => {
       beforeEach(() => {
         leader = user1

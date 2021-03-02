@@ -112,26 +112,20 @@ async function invite(ctx: RouterContext) {
 
   try {
     const invites = await Promise.all<PartyUser>(
-      targets
-        .filter((target: string) => target !== ctx.session!.userName)
-        .map(
-          async (target: string): Promise<PartyUser> => {
-            const foundTarget = await users.find(target)
-            if (!foundTarget) {
-              throw new httpErrors.NotFound('Target user not found')
-            }
+      targets.map(
+        async (target: string): Promise<PartyUser> => {
+          const foundTarget = await users.find(target)
+          if (!foundTarget) {
+            throw new httpErrors.NotFound('Target user not found')
+          }
 
-            // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
-            // the request. Or potentially use friends list when implemented.
+          // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
+          // the request. Or potentially use friends list when implemented.
 
-            return { id: foundTarget.id, name: foundTarget.name } as PartyUser
-          },
-        ),
+          return { id: foundTarget.id, name: foundTarget.name } as PartyUser
+        },
+      ),
     )
-
-    if (invites.length !== targets.length) {
-      throw new httpErrors.BadRequest("Can't invite yourself to the party")
-    }
 
     const leader: PartyUser = {
       id: ctx.session!.userId,

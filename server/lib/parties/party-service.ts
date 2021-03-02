@@ -77,6 +77,13 @@ export default class PartyService {
   invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]): Readonly<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
+    if (invites.some(i => i.id === leader.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        "Can't invite yourself to the party",
+      )
+    }
+
     let party = this.getClientParty(leaderClientSockets)
     if (party) {
       if (party.leaderId !== leader.id) {
