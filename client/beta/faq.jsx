@@ -39,7 +39,7 @@ const questions = [
     ],
   },
   {
-    question: 'Does ShieldBattery cost anything? Is there a way to donate?',
+    question: 'Does ShieldBattery cost anything? How can I support the project?',
     answer: [
       <p key='p1'>ShieldBattery is totally free to use!</p>,
       <p key='p2'>
