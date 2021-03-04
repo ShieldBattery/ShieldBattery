@@ -80,7 +80,7 @@ const TopLinks = () => {
       </li>
       <BroodWarLink>
         <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
-          Download Brood War
+          Download StarCraft
         </a>
       </BroodWarLink>
       <li>

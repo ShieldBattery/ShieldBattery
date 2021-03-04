@@ -407,7 +407,7 @@ class Splash extends React.Component<DispatchProp> {
             <Logo src={makeServerUrl('/images/logo.svg')} />
             <StyledLogoText />
           </LogoLockup>
-          <TagLine>Play StarCraft: Brood War on the premier community-run platform</TagLine>
+          <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>
           {!IS_ELECTRON ? (
             <ButtonsContainer>
               <SplashButton label='Sign Up' color='primary' onClick={this.onSignUpClick} />
