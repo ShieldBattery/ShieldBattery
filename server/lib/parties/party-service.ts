@@ -54,16 +54,16 @@ export function getPartyPath(partyId: string): string {
 
 export interface PartyJson {
   id: string
-  invites: Array<[number, PartyUser]>
-  members: Array<[number, PartyUser]>
+  invites: Array<PartyUser>
+  members: Array<PartyUser>
   leader: PartyUser
 }
 
 export function toPartyJson(party: PartyRecord): PartyJson {
   return {
     id: party.id,
-    invites: Array.from(party.invites),
-    members: Array.from(party.members),
+    invites: Array.from(party.invites.values()),
+    members: Array.from(party.members.values()),
     leader: party.leader,
   }
 }
