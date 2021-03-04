@@ -61,6 +61,25 @@ const questions = [
     ],
   },
   {
+    question: 'How can I report bugs or issues?',
+    answer: [
+      <p key='p1'>
+        The easiest way to report bugs or issues is through our{' '}
+        <a href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
+          Discord
+        </a>
+        . If you are comfortable with doing so, you can also file issues on our{' '}
+        <a
+          href='https://github.com/ShieldBattery/ShieldBattery/issues'
+          target='_blank'
+          rel='noopener'>
+          GitHub
+        </a>
+        .
+      </p>,
+    ],
+  },
+  {
     question: 'Is the project open source?',
     answer: [
       <p key='p1'>
