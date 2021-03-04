@@ -8,6 +8,11 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 
+/**
+ * The maximum number of players allowed to be in the same party at once. Note that this only
+ * restricts the amount of players *in* the party, it doesn't limit the number of invites to the
+ * party.
+ */
 const MAX_PARTY_SIZE = 8
 
 export interface PartyUser {
@@ -39,8 +44,8 @@ export class PartyServiceError extends Error {
   }
 }
 
-export function getInvitesPath(partyId: string): string {
-  return `/parties/invites/${partyId}`
+export function getInvitesPath(partyId: string, userId: number): string {
+  return `/parties/invites/${partyId}/${userId}`
 }
 
 export function getPartyPath(partyId: string): string {
@@ -119,9 +124,9 @@ export default class PartyService {
       .map(i => this.getUserSockets(i.name))
       .forEach(userSockets => {
         userSockets.subscribe(
-          getInvitesPath(party!.id),
+          getInvitesPath(party!.id, userSockets.userId),
           () => ({
-            type: 'invite',
+            type: 'addInvite',
             from: leader,
           }),
           () => {
@@ -162,8 +167,7 @@ export default class PartyService {
     // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
     // and no outstanding invites?
 
-    const targetUserSockets = this.getUserSockets(target.name)
-    targetUserSockets.unsubscribe(getInvitesPath(partyId))
+    this.unsubscribeFromInvites(party, target)
   }
 
   acceptInvite(partyId: string, user: PartyUser, clientId: string) {
@@ -199,9 +203,14 @@ export default class PartyService {
       user,
     })
 
-    const userSockets = this.getUserSockets(user.name)
-    userSockets.unsubscribe(getInvitesPath(partyId))
+    this.unsubscribeFromInvites(party, user)
     this.subscribeToParty(clientSockets, party)
+  }
+
+  private unsubscribeFromInvites(party: PartyRecord, user: PartyUser) {
+    this.nydus.publish(getInvitesPath(party.id, user.id), { type: 'removeInvite' })
+    const userSockets = this.getUserSockets(user.name)
+    userSockets.unsubscribe(getInvitesPath(party.id, user.id))
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {

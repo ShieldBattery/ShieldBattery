@@ -157,12 +157,12 @@ describe('parties/party-service', () => {
       leader = user1
       party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
 
-      expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
-        type: 'invite',
+      expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
+        type: 'addInvite',
         from: leader,
       })
-      expect(client3.publish).toHaveBeenCalledWith(getInvitesPath(party.id), {
-        type: 'invite',
+      expect(client3.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user3.id), {
+        type: 'addInvite',
         from: leader,
       })
     })
@@ -225,7 +225,13 @@ describe('parties/party-service', () => {
     test('should unsubscribe user from the invites path', () => {
       partyService.removeInvite(party.id, user2)
 
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(client2, getInvitesPath(party.id))
+      expect(nydus.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
+        type: 'removeInvite',
+      })
+      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
+        client2,
+        getInvitesPath(party.id, user2.id),
+      )
     })
   })
 
@@ -296,7 +302,13 @@ describe('parties/party-service', () => {
     test('should unsubscribe user from the invites path', () => {
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(client2, getInvitesPath(party.id))
+      expect(nydus.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
+        type: 'removeInvite',
+      })
+      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
+        client2,
+        getInvitesPath(party.id, user2.id),
+      )
     })
 
     test('should subscribe user to the party path', () => {
