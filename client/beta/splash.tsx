@@ -2,20 +2,29 @@ import { push } from 'connected-react-router'
 import { rgba } from 'polished'
 import React, { ReactChild, ReactNode } from 'react'
 import { connect, DispatchProp } from 'react-redux'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { openDialog } from '../dialogs/action-creators'
 import ConnectedDialogOverlay from '../dialogs/connected-dialog-overlay'
+import LockOpenIcon from '../icons/material/lock_open_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { Label } from '../material/button'
 import Card from '../material/card'
 import RaisedButton from '../material/raised-button'
 import { makeServerUrl } from '../network/server-url'
-import { colorTextPrimary, colorTextSecondary, grey700, grey850, grey900 } from '../styles/colors'
+import {
+  amberA400,
+  colorTextPrimary,
+  colorTextSecondary,
+  grey700,
+  grey850,
+  grey900,
+} from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
 import DiscordIcon from './discord.svg'
 import GithubIcon from './github.svg'
 import PatreonIcon from './patreon.svg'
+import TacticallyFaithfulImage from './tactically-faithful.svg'
 import TopLinks from './top-links'
 import TwitterIcon from './twitter.svg'
 
@@ -166,15 +175,30 @@ const BenefitCard = styled(Card)`
   padding: 24px;
 `
 
-const StyledChatImage = styled(ChatImage)`
+const benefitIconCss = css`
   width: 100%;
   height: auto;
   grid-column: auto / span 4;
   padding: 24px;
+  margin: auto;
 
   @media screen and (max-width: 800px) {
     display: none;
   }
+`
+
+const StyledChatImage = styled(ChatImage)`
+  ${benefitIconCss};
+`
+
+const StyledLockOpenIcon = styled(LockOpenIcon)`
+  ${benefitIconCss};
+  width: 80%; /* give this even visual weight with the other icons */
+  color: ${amberA400};
+`
+
+const StyledTacticallyFaithfulImage = styled(TacticallyFaithfulImage)`
+  ${benefitIconCss};
 `
 
 const BenefitTitle = styled.div`
@@ -291,7 +315,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
         features and improvements to make your StarCraft experience better than ever.
       </p>,
     ],
-    image: <StyledChatImage alt='' />,
+    image: <StyledTacticallyFaithfulImage alt='' />,
   },
   {
     title: 'Full potential unlocked',
@@ -303,7 +327,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
         they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.
       </p>,
     ],
-    image: <StyledChatImage alt='' />,
+    image: <StyledLockOpenIcon alt='' />,
   },
 ]
 
