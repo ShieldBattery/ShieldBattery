@@ -90,9 +90,13 @@ export default class RallyPointManager extends EventEmitter {
     }
 
     this.servers.splice(0, this.servers.length, ...matched)
-    for (const server of this.servers) {
-      server.refreshPing()
-    }
+    // NOTE(tec27): This is a dumb hack to push the ping checking *after* the application's
+    // intensive initialization process has completed and the CPU is more free. If we don't do this,
+    // the resulting pings for the first check tend to be a lot higher than they actually are.
+    // Ideally we would do this in a cleaner way, though :)
+    setTimeout(() => {
+      this.refreshPings()
+    }, 2000)
   }
 
   async refreshPings() {

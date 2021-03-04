@@ -8923,20 +8923,20 @@ raf@^3.1.0:
   dependencies:
     performance-now "^2.1.0"
 
-rally-point-creator@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/rally-point-creator/-/rally-point-creator-1.0.0.tgz#e9a0539956262808f228fe8f637db001e4164eb7"
-  integrity sha1-6aBTmVYmKAjyKP6PY32wAeQWTrc=
+rally-point-creator@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/rally-point-creator/-/rally-point-creator-2.0.0.tgz#e5767e44b91323a2687ea396b7428823de219416"
+  integrity sha512-Dl1OO4U60ew0UJWxQkcDBkl4tL+s0jYiDzwwExZByVjNQRNTKPNn0RGSUC638vRYqymybVKBNhnuvd5plTsRgg==
 
-rally-point-player@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/rally-point-player/-/rally-point-player-1.0.0.tgz#05bdfd96e6158ad977765bfc1cb6cde636a26265"
-  integrity sha1-Bb39luYVitl3dlv8HLbN5jaiYmU=
+rally-point-player@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/rally-point-player/-/rally-point-player-2.0.0.tgz#af4be34a921a687a48929148b95f78fb0b319291"
+  integrity sha512-LyxE5+yrhWf8/R9aXDLXOcT1wILuEjx1lN1RFICFzQtcaowQhoycK5GgjSlI04G6jySUNI4vQIc3AOOkKkyjwA==
 
-rally-point-server@^1.0.0:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/rally-point-server/-/rally-point-server-1.0.1.tgz#62b8bf29f82ca73a54163b98bfa4ace8bf3b57ab"
-  integrity sha1-Yri/KfgspzpUFjuYv6Ss6L87V6s=
+rally-point-server@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/rally-point-server/-/rally-point-server-2.0.0.tgz#017c4d347f07a8cf59f56e69a2b50c2023399245"
+  integrity sha512-46uRBpPhgRk3ESzdLj+5WAObyNst/RLHa4VQl19ktgYYlvXL7EVq9ndsKZmNiLetGJYcnYErJmibuC30XPGHgg==
 
 random-bytes@~1.0.0:
   version "1.0.0"
