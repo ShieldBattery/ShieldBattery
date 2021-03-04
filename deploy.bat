@@ -1,6 +1,5 @@
 @rem This script should be called with the current version number of the
-@rem server. It should generally not be called manually, but rather by using the
-@rem NPM scripts (`yarn deploy` or `yarn deploystaging`).
+@rem server.
 @rem
 @rem Since it is intended for building deployable artifacts, it requires a clean
 @rem git working directory (e.g. no uncommitted changes).
