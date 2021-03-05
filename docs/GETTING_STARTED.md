@@ -182,7 +182,7 @@ structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 
 ### Run the server
 
-The standard way to run the server is (assuming you are in the projet root directory):
+The standard way to run the server is (assuming you are in the project root directory):
 
 ```
 yarn run start-server
