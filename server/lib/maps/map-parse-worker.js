@@ -91,7 +91,7 @@ function generateImage(map, bwDataPath, width = 1024) {
 function filterColorCodes(str) {
   return Array.from(str)
     .filter(c => {
-      const code = c.charCodeat(0)
+      const code = c.charCodeAt(0)
       return (
         code > 0x1f ||
         /** newline */
