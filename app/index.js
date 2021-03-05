@@ -3,7 +3,7 @@ require('@babel/register')({
     [
       '@babel/preset-env',
       {
-        targets: { electron: '10.1' },
+        targets: { electron: '11.3' },
         useBuiltIns: 'usage',
         corejs: 3,
       },
@@ -12,11 +12,13 @@ require('@babel/register')({
   ],
 
   plugins: [
+    'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['babel-plugin-const-enum'],
   ],
 
   extensions: ['.es6', '.es', '.jsx', '.js', '.mjs', '.ts', '.tsx'],
 })
 
-require('./startup.js')
+require('./startup')

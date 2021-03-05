@@ -1,10 +1,14 @@
 import fs, { promises as fsPromises } from 'fs'
+import got from 'got'
 import { Map } from 'immutable'
 import mkdirp from 'mkdirp'
 import path from 'path'
+import { pipeline } from 'stream'
+import { promisify } from 'util'
 import HashThrough from '../../common/hash-through'
-import log from '../logging/logger'
-import { fetchReadableStream } from '../network/fetch'
+import log from '../logger'
+
+const pipelinePromise = promisify(pipeline)
 
 export class MapStore {
   private dirCreated: Promise<string | undefined>
@@ -71,18 +75,12 @@ export class MapStore {
       }
 
       await mkdirp(path.dirname(mapPath))
-      await new Promise((resolve, reject) => {
-        const outStream = fs.createWriteStream(mapPath)
-        outStream.on('error', reject).on('finish', resolve)
-        fetchReadableStream(mapUrl, {
-          headers: { Accept: 'application/octet-stream' },
-          credentials: 'omit',
-        })
-          .on('error', reject)
-          .pipe(outStream)
-      })
-
+      log.verbose(`Downloading map from ${mapUrl} to ${mapPath}`)
+      await pipelinePromise(got.stream(mapUrl), fs.createWriteStream(mapPath))
       return true
+    } catch (err) {
+      log.error(`Error checking/downloading map: ${err.message}\n${err.stack}`)
+      throw err
     } finally {
       this.activeDownloads = this.activeDownloads.delete(mapHash)
     }

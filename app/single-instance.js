@@ -40,7 +40,7 @@ export default function () {
 
       // This will only be executed by the first instance, because it will try to connect to a
       // socket on a server which is not running yet.
-      getMainWindow = require('./app.js').getMainWindow
+      getMainWindow = require('./app').getMainWindow
       net
         .createServer(connection => {
           connection.on('data', () => {

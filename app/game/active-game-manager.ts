@@ -1,18 +1,18 @@
-import { ipcRenderer, remote } from 'electron'
+import { app } from 'electron'
 import { promises as fsPromises } from 'fs'
+import got from 'got'
 import { Set } from 'immutable'
 import path from 'path'
+import { singleton } from 'tsyringe'
+import { GameConfig, GameRoute, isReplayMapInfo } from '../../common/game-config'
 import { GameClientPlayerResult } from '../../common/game-results'
 import { GameStatus, statusToString } from '../../common/game-status'
-import { SCR_SETTINGS_OVERWRITE } from '../../common/ipc-constants'
 import { TypedEventEmitter } from '../../common/typed-emitter'
-import log from '../logging/logger'
-import type { MapStore } from '../maps/map-store'
-import fetch from '../network/fetch'
-import { checkStarcraftPath } from '../starcraft/check-starcraft-path'
-import { GameConfig, GameRoute, isReplayMapInfo } from './game-config'
-
-const { launchProcess } = remote.require('./native/process')
+import log from '../logger'
+import { launchProcess } from '../native/process'
+import { ScrSettings } from '../settings'
+import { checkStarcraftPath } from './check-starcraft-path'
+import { MapStore } from './map-store'
 
 interface ActiveGameInfo {
   id: string
@@ -63,11 +63,12 @@ export interface ActiveGameManagerEvents {
   replaySave: (gameId: string, path: string) => void
 }
 
+@singleton()
 export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
   private serverPort = 0
 
-  constructor(private mapStore: MapStore) {
+  constructor(private mapStore: MapStore, private scrSettings: ScrSettings) {
     super()
   }
 
@@ -118,7 +119,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     }
 
     const gameId = config.setup.gameId
-    const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings)
+    const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings, this.scrSettings)
       .then(
         proc => proc.waitForExit(),
         err => this.handleGameLaunchError(gameId, err),
@@ -216,7 +217,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   }
 
   handleGameLaunchError(id: string, err: Error) {
-    log.error(`Error while launching game ${id}: ${err}`)
+    log.error(`Error while launching game ${id}: ${err.stack}`)
     if (this.activeGame && this.activeGame.id === id) {
       this.setStatus(GameStatus.Error, err)
       this.activeGame = null
@@ -323,7 +324,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         playerResults: Array.from(Object.entries(this.activeGame.result.result)),
       }
 
-      fetch(`/api/1/gameResults/${encodeURIComponent(this.activeGame.id)}`, {
+      got(`/api/1/gameResults/${encodeURIComponent(this.activeGame.id)}`, {
         method: 'post',
         body: JSON.stringify(submission),
       })
@@ -360,7 +361,7 @@ function silentTerminate(proc: any) {
   }
 }
 
-const injectPath = path.resolve(remote.app.getAppPath(), '../game/dist/shieldbattery.dll')
+const injectPath = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
 
 async function removeIfOld(path: string, maxAge: number) {
   try {
@@ -373,7 +374,12 @@ async function removeIfOld(path: string, maxAge: number) {
   }
 }
 
-async function doLaunch(gameId: string, serverPort: number, settings: GameConfig['settings']) {
+async function doLaunch(
+  gameId: string,
+  serverPort: number,
+  settings: GameConfig['settings'],
+  scrSettings: ScrSettings,
+) {
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
@@ -392,10 +398,10 @@ async function doLaunch(gameId: string, serverPort: number, settings: GameConfig
   if (isRemastered) {
     // Blizzard reinitializes their settings file everytime the SC:R is opened through their
     // launcher. So we must do the same thing with our own version of settings before each game.
-    await ipcRenderer.invoke(SCR_SETTINGS_OVERWRITE)
+    await scrSettings.overwrite()
   }
 
-  const userDataPath = remote.app.getPath('userData')
+  const userDataPath = app.getPath('userData')
   let appPath
   if (isRemastered) {
     appPath = path.join(starcraftPath, 'x86/starcraft.exe')
@@ -411,7 +417,7 @@ async function doLaunch(gameId: string, serverPort: number, settings: GameConfig
   }
   const proc = await launchProcess({
     appPath,
-    args,
+    args: args as any,
     launchSuspended: !isRemastered,
     currentDir: starcraftPath,
     environment: [
@@ -427,7 +433,7 @@ async function doLaunch(gameId: string, serverPort: number, settings: GameConfig
   log.verbose('Process launched')
 
   log.debug(`Injecting ${injectPath} into the process...`)
-  const dataRoot = remote.app.getPath('userData')
+  const dataRoot = app.getPath('userData')
   const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
   // Remove the error dump if it's older than 2 weeks, as can be really large
   await removeIfOld(errorDumpPath, 2 * 24 * 3600 * 1000)

@@ -18,13 +18,6 @@ import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
-let ReduxDevTools, ReduxDevToolsContainer
-if (IS_ELECTRON && isDev) {
-  const devtools = require('./debug/redux-devtools')
-  ReduxDevToolsContainer = devtools.default
-  ReduxDevTools = devtools.DevTools
-}
-
 if (IS_ELECTRON) {
   process
     .on('uncaughtException', function (err) {
@@ -41,8 +34,13 @@ if (IS_ELECTRON) {
       }
       // Other promise rejections are likely less severe, leave the process up but log it
     })
+}
 
-  require('./active-game/game-server')
+let ReduxDevTools, ReduxDevToolsContainer
+if (IS_ELECTRON && isDev) {
+  const devtools = require('./debug/redux-devtools')
+  ReduxDevToolsContainer = devtools.default
+  ReduxDevTools = devtools.DevTools
 }
 
 if (module.hot) {

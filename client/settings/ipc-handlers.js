@@ -8,6 +8,7 @@ import {
   SCR_SETTINGS_SET,
 } from '../actions'
 import {
+  CHECK_STARCRAFT_PATH,
   LOCAL_SETTINGS_CHANGED,
   LOCAL_SETTINGS_GET,
   LOCAL_SETTINGS_GET_ERROR,
@@ -17,10 +18,6 @@ import {
   SCR_SETTINGS_GET_ERROR,
   SCR_SETTINGS_MERGE_ERROR,
 } from '../../common/ipc-constants'
-
-const checkStarcraftPath = IS_ELECTRON
-  ? require('../starcraft/check-starcraft-path').checkStarcraftPath
-  : null
 
 export default function registerModule({ ipcRenderer }) {
   if (!ipcRenderer) {
@@ -48,7 +45,7 @@ export default function registerModule({ ipcRenderer }) {
 
       lastPath = settings.starcraftPath
       lastPathWasValid = false
-      checkStarcraftPath(settings.starcraftPath).then(result => {
+      ipcRenderer.invoke(CHECK_STARCRAFT_PATH, settings.starcraftPath).then(result => {
         lastPathWasValid = result.path && result.version
         dispatch(handleCheckStarcraftPathResult(result))
       })

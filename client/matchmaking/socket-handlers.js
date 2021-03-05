@@ -1,8 +1,6 @@
-import activeGameManager from '../active-game/active-game-manager-instance'
+import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 import rallyPointManager from '../network/rally-point-manager-instance'
-import mapStore from '../maps/map-store-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
-import log from '../logging/logger'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
@@ -24,7 +22,7 @@ import { replace } from 'connected-react-router'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
-import { USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
+import { MAP_STORE_DOWNLOAD_MAP, USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
@@ -169,13 +167,17 @@ const eventToAction = {
     } = event.chosenMap
     // Even though we're downloading the whole map pool as soon as the player enters the queue,
     // we're still leaving this as a check to make sure the map exists before starting a game.
-    mapStore
-      .downloadMap(hash, format, mapUrl)
-      .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack))
+    ipcRenderer.invoke(MAP_STORE_DOWNLOAD_MAP, hash, format, mapUrl).catch(err => {
+      // TODO(tec27): Report this to the server so the loading is canceled immediately
+
+      // This is already logged to our file by the map store, so we just log it to the console for
+      // easy visibility during development
+      console.error('Error downloading map: ' + err + '\n' + err.stack)
+    })
 
     const config = {
-      localUser: user,
-      settings,
+      localUser: user.toJS(),
+      settings: settings.toJS(),
       setup: {
         gameId: event.setup.gameId,
         name: 'Matchmaking game', // Does this even matter for anything?
@@ -189,13 +191,13 @@ const eventToAction = {
       },
     }
 
-    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManager.setGameConfig(config) })
+    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManagerIpc.setGameConfig(config) })
   },
 
   setRoutes: (name, event) => dispatch => {
     const { routes, gameId } = event
 
-    activeGameManager.setGameRoutes(gameId, routes)
+    activeGameManagerIpc.setGameRoutes(gameId, routes)
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
@@ -235,7 +237,7 @@ const eventToAction = {
     }
     dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
 
-    activeGameManager.allowStart(gameId)
+    activeGameManagerIpc.allowStart(gameId)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {
@@ -252,7 +254,7 @@ const eventToAction = {
     }
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
-      payload: activeGameManager.setGameConfig({}),
+      payload: activeGameManagerIpc.setGameConfig({}),
     })
     dispatch({ type: MATCHMAKING_UPDATE_LOADING_CANCELED })
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
@@ -295,13 +297,15 @@ const eventToAction = {
       // a map already exists before attempting to download it.
       const mapPool = mapPoolTypes.get(event.matchmaking.type)
       if (mapPool) {
-        mapPool.byId
-          .valueSeq()
-          .forEach(map =>
-            mapStore
-              .downloadMap(map.hash, map.mapData.format, map.mapUrl)
-              .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack)),
-          )
+        mapPool.byId.valueSeq().forEach(map =>
+          ipcRenderer
+            .invoke(MAP_STORE_DOWNLOAD_MAP, map.hash, map.mapData.format, map.mapUrl)
+            .catch(err => {
+              // This is already logged to our file by the map store, so we just log it to the
+              // console for easy visibility during development
+              console.error('Error downloading map: ' + err + '\n' + err.stack)
+            }),
+        )
       }
     }
 

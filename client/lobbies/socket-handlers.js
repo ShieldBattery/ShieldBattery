@@ -22,19 +22,17 @@ import {
   LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
-import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
+import { MAP_STORE_DOWNLOAD_MAP, NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
 import { replace } from 'connected-react-router'
 import rallyPointManager from '../network/rally-point-manager-instance'
-import mapStore from '../maps/map-store-instance'
-import activeGameManager from '../active-game/active-game-manager-instance'
+import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 import { makeServerUrl } from '../network/server-url'
-import log from '../logging/logger'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -71,11 +69,14 @@ function clearCountdownTimer(leaveAtmosphere = false) {
 const eventToAction = {
   init: (name, event) => {
     clearCountdownTimer()
-    // TODO(tec27): handle errors on this?
     const { hash, mapData, mapUrl } = event.lobby.map
-    mapStore
-      .downloadMap(hash, mapData.format, mapUrl)
-      .catch(err => log.error('Error while downloading map: ' + err + '\n' + err.stack))
+    ipcRenderer.invoke(MAP_STORE_DOWNLOAD_MAP, hash, mapData.format, mapUrl).catch(err => {
+      // TODO(tec27): Report this to the server so the loading is canceled immediately
+
+      // This is already logged to our file by the map store, so we just log it to the console for
+      // easy visibility during development
+      console.error('Error downloading map: ' + err + '\n' + err.stack)
+    })
     rallyPointManager.refreshPings()
 
     return {
@@ -226,43 +227,45 @@ const eventToAction = {
       auth: { user },
     } = getState()
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
-    const slots = getIngameLobbySlotsWithIndexes(lobby.info).map(
-      ([teamIndex, , slot]) =>
-        new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
-    )
+    const slots = getIngameLobbySlotsWithIndexes(lobby.info)
+      .map(
+        ([teamIndex, , slot]) =>
+          new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
+      )
+      .toJS()
     const {
       info: { name: lobbyName, map, gameType, gameSubType, host },
     } = lobby
     const config = {
-      localUser: user,
-      settings,
+      localUser: user.toJS(),
+      settings: settings.toJS(),
       setup: {
         gameId: event.setup.gameId,
         name: lobbyName,
-        map,
+        map: map.toJS(),
         gameType,
         gameSubType,
         slots,
-        host,
+        host: host.toJS(),
         seed: event.setup.seed,
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),
       },
     }
 
-    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManager.setGameConfig(config) })
+    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManagerIpc.setGameConfig(config) })
   },
 
   setRoutes: (name, event) => dispatch => {
     const { routes, gameId } = event
 
-    activeGameManager.setGameRoutes(gameId, routes)
+    activeGameManagerIpc.setGameRoutes(gameId, routes)
   },
 
   allowStart: (name, event) => {
     const { gameId } = event
 
-    activeGameManager.allowStart(gameId)
+    activeGameManagerIpc.allowStart(gameId)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {
@@ -280,7 +283,7 @@ const eventToAction = {
 
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
-      payload: activeGameManager.setGameConfig({}),
+      payload: activeGameManagerIpc.setGameConfig({}),
     })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED })
   },

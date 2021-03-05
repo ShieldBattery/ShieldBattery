@@ -1,7 +1,22 @@
-// Channel names for electron IPC (used in the main and renderer processes for passing messages)
+// Event names for electron IPC (used in the main and renderer processes for passing messages)
+
+// Tells the main process to allow the specified game to start
+export const ACTIVE_GAME_ALLOW_START = 'ACTIVE_GAME_ALLOW_START'
+// Tells the main process to set a new active game config
+export const ACTIVE_GAME_SET_CONFIG = 'ACTIVE_GAME_SET_CONFIG'
+// Tells the main process to set new active game routes
+export const ACTIVE_GAME_SET_ROUTES = 'ACTIVE_GAME_SET_ROUTES'
+// The status of the current active game has changed
+export const ACTIVE_GAME_STATUS = 'ACTIVE_GAME_STATUS'
+
+// Tells the main process to check the specified path to see if it's a valid StarCraft installation
+export const CHECK_STARCRAFT_PATH = 'CHECK_STARCRAFT_PATH'
 
 // A new log message is being emitted
 export const LOG_MESSAGE = 'LOG_MESSAGE'
+
+// Tells the main process to download a particular map
+export const MAP_STORE_DOWNLOAD_MAP = 'MAP_STORE_DOWNLOAD_MAP'
 
 // Tells the main process that a renderer process is now connected to the site
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'

@@ -1,14 +1,13 @@
 import fs from 'fs'
 import { push } from 'connected-react-router'
-import { List } from 'immutable'
 import cuid from 'cuid'
 import ReplayParser from 'jssuh'
 import logger from '../logging/logger'
-import activeGameManager from '../active-game/active-game-manager-instance'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { Slot } from '../lobbies/lobby-reducer'
 import { makeServerUrl } from '../network/server-url'
 import { REPLAYS_START_REPLAY } from '../actions'
+import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 
 function getReplayHeader(filePath) {
   return new Promise((resolve, reject) => {
@@ -30,12 +29,12 @@ async function setGameConfig(replay, user, settings) {
     id: cuid(),
     teamId: 0,
     userId: user.id,
-  })
-  const slots = List.of(player)
+  }).toJS()
+  const slots = [player]
 
   const header = await getReplayHeader(replay.path)
 
-  return activeGameManager.setGameConfig({
+  return activeGameManagerIpc.setGameConfig({
     settings,
     localUser: user,
     setup: {
@@ -54,8 +53,8 @@ async function setGameConfig(replay, user, settings) {
 }
 
 function setGameRoutes(gameId) {
-  activeGameManager.setGameRoutes(gameId, [])
-  activeGameManager.allowStart(gameId)
+  activeGameManagerIpc.setGameRoutes(gameId, [])
+  activeGameManagerIpc.allowStart(gameId)
 }
 
 export function startReplay(replay) {
@@ -72,7 +71,7 @@ export function startReplay(replay) {
 
     // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
     // to other people (like their friends) when a user is watching a replay.
-    setGameConfig(replay, user, settings).then(
+    setGameConfig(replay, user.toJS(), settings.toJS()).then(
       gameId => {
         setGameRoutes(gameId)
         dispatch(push('/active-game'))

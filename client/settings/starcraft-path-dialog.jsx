@@ -2,6 +2,8 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
+import { CHECK_STARCRAFT_PATH } from '../../common/ipc-constants'
+
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
 import form from '../forms/form'
@@ -16,15 +18,13 @@ import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { colorError } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
 
-const checkStarcraftPath = IS_ELECTRON
-  ? require('../starcraft/check-starcraft-path').checkStarcraftPath
-  : null
+const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
 const dialog = IS_ELECTRON ? require('electron').remote.dialog : null
 
 const starcraftPathValidator = () => {
   return async starcraftPath => {
-    const checkResult = await checkStarcraftPath(starcraftPath)
+    const checkResult = await ipcRenderer.invoke(CHECK_STARCRAFT_PATH, starcraftPath)
 
     if (!checkResult.path) {
       return 'Select a valid StarCraft path'

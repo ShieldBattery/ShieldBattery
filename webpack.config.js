@@ -30,7 +30,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '11.1' },
+        targets: { electron: '11.3' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -114,7 +114,7 @@ const mainBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '11.1' },
+        targets: { electron: '11.3' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -123,6 +123,7 @@ const mainBabelOpts = {
     ['@babel/preset-typescript'],
   ],
   plugins: [
+    'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
     ['babel-plugin-const-enum'],

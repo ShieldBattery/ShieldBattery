@@ -1,37 +1,35 @@
-import { getUserDataPath } from './user-data-path'
-getUserDataPath()
-
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
-import localShortcut from 'electron-localshortcut'
-import path from 'path'
-import isDev from 'electron-is-dev'
-import logger from './logger'
-import fs from 'fs'
 import crypto from 'crypto'
-import { Readable } from 'stream'
-import { URL } from 'url'
-
-app.setAppUserModelId('net.shieldbattery.client')
-
-import { LocalSettings, ScrSettings } from './settings'
-import currentSession from './current-session'
-import SystemTray from './system-tray'
+import { app, BrowserWindow, dialog, ipcMain, protocol, Session, shell } from 'electron'
+import isDev from 'electron-is-dev'
+import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
+import fs from 'fs'
+import path from 'path'
+import { Readable } from 'stream'
+import { container } from 'tsyringe'
+import { URL } from 'url'
+import { GameConfig, GameRoute } from '../common/game-config'
 import {
-  LOG_MESSAGE,
-  NETWORK_SITE_CONNECTED,
-  NEW_CHAT_MESSAGE,
-  NEW_VERSION_DOWNLOAD_ERROR,
-  NEW_VERSION_DOWNLOADED,
-  NEW_VERSION_FOUND,
-  NEW_VERSION_GET_STATE,
-  NEW_VERSION_RESTART,
-  NEW_VERSION_UP_TO_DATE,
+  ACTIVE_GAME_ALLOW_START,
+  ACTIVE_GAME_SET_CONFIG,
+  ACTIVE_GAME_SET_ROUTES,
+  ACTIVE_GAME_STATUS,
+  CHECK_STARCRAFT_PATH,
   LOCAL_SETTINGS_CHANGED,
   LOCAL_SETTINGS_GET,
   LOCAL_SETTINGS_GET_ERROR,
   LOCAL_SETTINGS_MERGE,
   LOCAL_SETTINGS_MERGE_ERROR,
+  LOG_MESSAGE,
+  MAP_STORE_DOWNLOAD_MAP,
+  NETWORK_SITE_CONNECTED,
+  NEW_CHAT_MESSAGE,
+  NEW_VERSION_DOWNLOADED,
+  NEW_VERSION_DOWNLOAD_ERROR,
+  NEW_VERSION_FOUND,
+  NEW_VERSION_GET_STATE,
+  NEW_VERSION_RESTART,
+  NEW_VERSION_UP_TO_DATE,
   SCR_SETTINGS_CHANGED,
   SCR_SETTINGS_GET,
   SCR_SETTINGS_GET_ERROR,
@@ -44,6 +42,18 @@ import {
   WINDOW_MAXIMIZED_STATE,
   WINDOW_MINIMIZE,
 } from '../common/ipc-constants'
+import currentSession from './current-session'
+import { ActiveGameManager } from './game/active-game-manager'
+import { checkStarcraftPath } from './game/check-starcraft-path'
+import createGameServer, { GameServer } from './game/game-server'
+import { MapStore } from './game/map-store'
+import logger from './logger'
+import { LocalSettings, ScrSettings } from './settings'
+import SystemTray from './system-tray'
+import { getUserDataPath } from './user-data-path'
+
+getUserDataPath()
+app.setAppUserModelId('net.shieldbattery.client')
 
 autoUpdater.logger = logger
 // We control the download ourselves to avoid problems with double-downloading that this library
@@ -69,11 +79,12 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 // TODO(tec27): Make process/native context-aware and then set this to true
-app.allowRendererProcessorReuse = false
+app.allowRendererProcessReuse = false
 
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
-let mainWindow
-let systemTray
+let mainWindow: BrowserWindow | null
+let systemTray: SystemTray
+let gameServer: GameServer
 
 export const getMainWindow = () => mainWindow
 
@@ -96,7 +107,7 @@ async function createScrSettings() {
   return settings
 }
 
-function setupIpc(localSettings, scrSettings) {
+function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   ipcMain.on(LOG_MESSAGE, (event, level, message) => {
     logger.log(level, message)
   })
@@ -233,13 +244,41 @@ function setupIpc(localSettings, scrSettings) {
 
   ipcMain.on(USER_ATTENTION_REQUIRED, (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
-      mainWindow.once('focus', () => mainWindow.flashFrame(false))
+      mainWindow.once('focus', () => mainWindow?.flashFrame(false))
       mainWindow.flashFrame(true)
     }
   })
+
+  ipcMain.handle(CHECK_STARCRAFT_PATH, async (event, path) => {
+    return checkStarcraftPath(path)
+  })
+
+  const activeGameManager = container.resolve(ActiveGameManager)
+
+  activeGameManager.on('gameStatus', status => {
+    mainWindow?.webContents.send(ACTIVE_GAME_STATUS, status)
+  })
+
+  ipcMain.handle(ACTIVE_GAME_ALLOW_START, (event, gameId: string) =>
+    activeGameManager.allowStart(gameId),
+  )
+  ipcMain.handle(ACTIVE_GAME_SET_CONFIG, (event, config: GameConfig | Record<string, never>) =>
+    activeGameManager.setGameConfig(config),
+  )
+  ipcMain.handle(ACTIVE_GAME_SET_ROUTES, (event, gameId: string, routes: GameRoute[]) =>
+    activeGameManager.setGameRoutes(gameId, routes),
+  )
+
+  const mapStore = container.resolve(MapStore)
+
+  ipcMain.handle(
+    MAP_STORE_DOWNLOAD_MAP,
+    (event, mapHash: string, mapFormat: string, mapUrl: string) =>
+      mapStore.downloadMap(mapHash, mapFormat, mapUrl),
+  )
 }
 
-function setupCspProtocol(curSession) {
+function setupCspProtocol(curSession: Session) {
   // Register a protocol that will perform two functions:
   // - Return our index.html file and scripts/styles with the proper style/script values filled out
   // - Add fake headers to the response such that we set up CSP with a nonce (necessary for
@@ -309,18 +348,21 @@ function setupCspProtocol(curSession) {
 
 function registerHotkeys() {
   const isMac = process.platform === 'darwin'
-  localShortcut.register(mainWindow, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I', () =>
-    mainWindow.toggleDevTools(),
+  localShortcut.register(mainWindow!, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I', () =>
+    mainWindow?.webContents.toggleDevTools(),
   )
-  localShortcut.register(mainWindow, 'F12', () => mainWindow.toggleDevTools())
+  localShortcut.register(mainWindow!, 'F12', () => mainWindow?.webContents.toggleDevTools())
 
-  localShortcut.register(mainWindow, 'CmdOrCtrl+R', () =>
-    mainWindow.webContents.reloadIgnoringCache(),
+  localShortcut.register(mainWindow!, 'CmdOrCtrl+R', () =>
+    mainWindow?.webContents.reloadIgnoringCache(),
   )
-  localShortcut.register(mainWindow, 'F5', () => mainWindow.webContents.reloadIgnoringCache())
+  localShortcut.register(mainWindow!, 'F5', () => mainWindow?.webContents.reloadIgnoringCache())
 }
 
-async function createWindow(localSettings, curSession) {
+async function createWindow() {
+  const localSettings = container.resolve(LocalSettings)
+  const curSession = currentSession()
+
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
   const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
   mainWindow = new BrowserWindow({
@@ -361,7 +403,7 @@ async function createWindow(localSettings, curSession) {
     mainWindow.maximize()
   }
 
-  let debounceTimer = null
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
   const handleResizeOrMove = () => {
     debounceTimer = null
     if (!mainWindow || mainWindow.isMaximized()) {
@@ -378,13 +420,13 @@ async function createWindow(localSettings, curSession) {
       localSettings.merge({ winMaximized: true }).catch(err => {
         logger.error('Error saving new window maximized state: ' + err)
       })
-      mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, true)
+      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, true)
     })
     .on('unmaximize', () => {
       localSettings.merge({ winMaximized: false }).catch(err => {
         logger.error('Error saving new window maximized state: ' + err)
       })
-      mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, false)
+      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, false)
     })
     .on('resize', () => {
       if (debounceTimer) {
@@ -421,7 +463,7 @@ async function createWindow(localSettings, curSession) {
   registerHotkeys()
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow!.show()
   })
 
   mainWindow.on('closed', () => {
@@ -445,13 +487,22 @@ app.on('ready', async () => {
       scrSettingsPromise,
     ])
 
+    container.register(LocalSettings, { useValue: localSettings })
+    container.register(ScrSettings, { useValue: scrSettings })
+
+    const mapDirPath = path.join(app.getPath('userData'), 'maps')
+    const mapStore = new MapStore(mapDirPath)
+    container.register(MapStore, { useValue: mapStore })
+
     setupIpc(localSettings, scrSettings)
     setupCspProtocol(currentSession())
-    await createWindow(localSettings, currentSession())
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    gameServer = createGameServer(localSettings)
+    await createWindow()
     systemTray = new SystemTray(mainWindow, () => app.quit())
 
-    mainWindow.webContents.on('did-finish-load', () => {
-      mainWindow.webContents.send(WINDOW_MAXIMIZED_STATE, mainWindow.isMaximized())
+    mainWindow?.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, mainWindow?.isMaximized() ?? false)
     })
   } catch (err) {
     logger.error('Error initializing: ' + err)

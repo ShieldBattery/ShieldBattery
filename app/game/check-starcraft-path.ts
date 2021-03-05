@@ -1,28 +1,20 @@
-// This file should ONLY be imported for the Electron build
-
 import fs, { promises as fsPromises } from 'fs'
-import path from 'path'
 import glob from 'glob'
-import logger from '../logging/logger'
-import getFileHash from '../../common/get-file-hash'
-import { BW_1161 } from '../../common/flags'
+import path from 'path'
+import { promisify } from 'util'
 import checkFileExists from '../../common/check-file-exists'
+import { BW_1161 } from '../../common/flags'
+import getFileHash from '../../common/get-file-hash'
+import logger from '../logger'
 
-function globAsync(...args) {
-  return new Promise((resolve, reject) => {
-    glob(...args, (err, files) => {
-      if (err) reject(err)
-      else resolve(files)
-    })
-  })
-}
+const globAsync = promisify(glob)
 
 export const EXE_HASHES_1161 = ['ad6b58b27b8948845ccfa69bcfcc1b10d6aa7a27a371ee3e61453925288c6a46']
 export const STORM_HASHES_1161 = [
   '706ff2164ca472f27c44235ed55586644e5c86e68cd69b62d76f5a78778bff25',
 ]
 
-async function checkHash(path, validHashes) {
+async function checkHash(path: string, validHashes: string[]) {
   let hash
   try {
     hash = await getFileHash(path)
@@ -36,7 +28,8 @@ async function checkHash(path, validHashes) {
   return validHashes.includes(hash)
 }
 
-async function checkRemasteredPath(dirPath) {
+async function checkRemasteredPath(dirPath: string) {
+  logger.info(`checking remastered path: ${dirPath}`)
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
 
   try {
@@ -53,7 +46,7 @@ async function checkRemasteredPath(dirPath) {
 //  - is this a valid StarCraft path
 //  - does this path contain a supported StarCraft version
 //  - is this a StarCraft:Remastered version of the game
-export async function checkStarcraftPath(dirPath) {
+export async function checkStarcraftPath(dirPath: string) {
   const result = { path: false, version: false, remastered: false }
 
   if (await checkRemasteredPath(dirPath)) {

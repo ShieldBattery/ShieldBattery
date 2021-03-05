@@ -1,6 +1,6 @@
-import { GameType } from '../../common/constants'
-import { MapInfo } from '../../common/maps'
-import { RaceChar } from '../../common/races'
+import { GameType } from './constants'
+import { MapInfo } from './maps'
+import { RaceChar } from './races'
 
 // TODO(tec27): Pretty sure this is some lobby structure we could re-use/share? I built it from the
 // Rust version so I dunno

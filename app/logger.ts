@@ -1,5 +1,5 @@
 import path from 'path'
-import logger from '../common/logger'
+import logger from './create-logger'
 import { getUserDataPath } from './user-data-path'
 
 const logFile = path.join(getUserDataPath(), 'logs', 'app')

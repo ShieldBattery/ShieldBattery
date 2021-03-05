@@ -2,6 +2,7 @@
 // should avoid pulling in much until things have been configured and we're sure the app should
 // even run (e.g. check if another instance is already running)
 
+import 'core-js/proposals/reflect-metadata'
 import path from 'path'
 import isDev from 'electron-is-dev'
 import { app } from 'electron'
@@ -16,5 +17,5 @@ app.name = path.basename(getUserDataPath())
 if (!isDev) {
   ensureSingleInstance()
 } else {
-  require('./app.js')
+  require('./app')
 }
