@@ -231,6 +231,10 @@ export default class Popover extends React.Component {
     if (keepInWindow && this._ref.current) {
       const refRect = this._ref.current.getBoundingClientRect()
 
+      // Set the `height` property explicitly, so the popover children can show scrollbar if their
+      // contents exceed popover's max-height. Scrollbars won't work with `max-height` alone.
+      popoverPosition.height = refRect.height
+
       for (const pos of ['bottom', 'top']) {
         if (popoverPosition[pos] !== undefined) {
           if (popoverPosition[pos] <= safeZoneVertical) {
@@ -306,7 +310,7 @@ export default class Popover extends React.Component {
   }
 
   render() {
-    const { onDismiss, children, disableScaleTransition } = this.props
+    const { onDismiss, children, className, disableScaleTransition, safeZoneVertical } = this.props
     const { open, popoverPosition: pos } = this.state
 
     const renderContents = () => {
@@ -324,6 +328,8 @@ export default class Popover extends React.Component {
         bottom: pos.bottom,
         left: pos.left,
         right: pos.right,
+        height: pos.height,
+        maxHeight: `calc(100% - 2 * ${safeZoneVertical})`,
       }
 
       return (
@@ -332,7 +338,7 @@ export default class Popover extends React.Component {
           <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           {open ? (
-            <Container key={'popover'} style={popoverStyle} ref={this._ref}>
+            <Container className={className} key={'popover'} style={popoverStyle} ref={this._ref}>
               {disableScaleTransition ? null : (
                 <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
                   <ScaleVertical style={this.state.scaleVerticalStyle}>

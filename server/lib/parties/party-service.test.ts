@@ -1,4 +1,5 @@
 import { NydusServer } from 'nydus'
+import { PartyUser } from '../../../common/parties'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
 import {
@@ -11,7 +12,6 @@ import PartyService, {
   getInvitesPath,
   getPartyPath,
   PartyRecord,
-  PartyUser,
   toPartyJson,
 } from './party-service'
 

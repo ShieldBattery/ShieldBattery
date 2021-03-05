@@ -5,10 +5,14 @@ import { body1 } from '../styles/typography'
 
 const Container = styled.div<{ unread: boolean }>`
   position: relative;
-  display: flex;
   padding: 16px 0;
 
   background-color: ${props => (props.unread ? 'rgba(255, 255, 255, 0.04)' : 'transparent')};
+`
+
+const IconTextContainer = styled.div`
+  display: flex;
+  flex-direction: row;
 `
 
 const IconContainer = styled.div`
@@ -27,6 +31,17 @@ const TextContainer = styled.div`
   flex-grow: 1;
 `
 
+const ActionsContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-top: 16px;
+
+  button {
+    margin: 0;
+  }
+`
+
 const Divider = styled.div`
   height: 1px;
   position: absolute;
@@ -43,12 +58,35 @@ export interface NotificationProps {
   showDivider: boolean
 }
 
-export function ActionlessNotification(props: NotificationProps) {
-  return (
-    <Container unread={props.unread}>
-      <IconContainer>{props.icon}</IconContainer>
-      <TextContainer>{props.text}</TextContainer>
-      {props.showDivider && <Divider />}
-    </Container>
-  )
+export const ActionlessNotification = React.forwardRef<HTMLDivElement, NotificationProps>(
+  (props, ref) => {
+    return (
+      <Container ref={ref} unread={props.unread}>
+        <IconTextContainer>
+          <IconContainer>{props.icon}</IconContainer>
+          <TextContainer>{props.text}</TextContainer>
+        </IconTextContainer>
+        {props.showDivider && <Divider />}
+      </Container>
+    )
+  },
+)
+
+export interface ActionableNotificationProps extends NotificationProps {
+  actions: React.ReactNode[]
 }
+
+export const ActionableNotification = React.forwardRef<HTMLDivElement, ActionableNotificationProps>(
+  (props, ref) => {
+    return (
+      <Container ref={ref} unread={props.unread}>
+        <IconTextContainer>
+          <IconContainer>{props.icon}</IconContainer>
+          <TextContainer>{props.text}</TextContainer>
+        </IconTextContainer>
+        <ActionsContainer>{props.actions}</ActionsContainer>
+        {props.showDivider && <Divider />}
+      </Container>
+    )
+  },
+)

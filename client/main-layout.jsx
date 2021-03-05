@@ -31,6 +31,7 @@ import MatchmakingDisabledOverlay from './matchmaking/matchmaking-disabled-overl
 import MatchmakingSearchingOverlay from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import MatchmakingTitle from './matchmaking/app-bar-title'
+import NotificationPopups from './notifications/notifications-popup'
 import Whisper from './whispers/whisper'
 import WhispersTitle from './whispers/app-bar-title'
 
@@ -183,9 +184,8 @@ class MainLayout extends React.Component {
       if (!this.props.auth.emailVerified) {
         this.props.dispatch(
           addNotification({
-            type: NotificationType.EmailVerification,
             id: EMAIL_VERIFICATION_ID,
-            unread: true,
+            type: NotificationType.EmailVerification,
           }),
         )
       }
@@ -388,6 +388,7 @@ class MainLayout extends React.Component {
           <ActivityOverlay />
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
+          <NotificationPopups />
         </Layout>
       </Container>
     )

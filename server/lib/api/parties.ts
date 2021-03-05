@@ -5,13 +5,10 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
 import { PARTIES } from '../../../common/flags'
+import { PartyUser } from '../../../common/parties'
 import { featureEnabled } from '../flags/feature-enabled'
 import users from '../models/users'
-import PartyService, {
-  PartyServiceError,
-  PartyServiceErrorCode,
-  PartyUser,
-} from '../parties/party-service'
+import PartyService, { PartyServiceError, PartyServiceErrorCode } from '../parties/party-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'

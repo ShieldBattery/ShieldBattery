@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { List as VirtualizedList, ListRowRenderer } from 'react-virtualized'
 import styled, { css } from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
+import { SelfUserRecord } from '../auth/auth-records'
 import Avatar from '../avatars/avatar'
 import WindowListener from '../dom/window-listener'
 import MenuItem from '../material/menu/item'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
+import { inviteToParty } from '../parties/action-creators'
 import UserProfileOverlay from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -127,9 +129,11 @@ const UserListName = styled.span`
 
 interface UserListEntryProps {
   user: string
+  selfUser: SelfUserRecord
   faded?: boolean
   style?: any
   onWhisperClick: (user: string) => void
+  onInviteToPartyClick: (user: string) => void
 }
 
 const UserListEntry = React.memo<UserListEntryProps>(props => {
@@ -143,10 +147,24 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
     setOverlayOpen(false)
   }, [])
 
-  const { onWhisperClick: onWhisperClickProp, user } = props
+  const {
+    onInviteToPartyClick: onInviteToPartyClickProp,
+    onWhisperClick: onWhisperClickProp,
+    user,
+  } = props
   const onWhisperClick = useCallback(() => {
     onWhisperClickProp(user)
   }, [onWhisperClickProp, user])
+  const onInviteToPartyClick = useCallback(() => {
+    onInviteToPartyClickProp(user)
+    onCloseOverlay()
+  }, [onInviteToPartyClickProp, user, onCloseOverlay])
+
+  const actions = []
+  if (props.user !== props.selfUser.name) {
+    actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
+    actions.push(<MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />)
+  }
 
   return (
     <div style={props.style}>
@@ -156,7 +174,7 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         onDismiss={onCloseOverlay}
         anchor={userEntryRef.current}
         user={props.user}>
-        <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />
+        {actions}
       </UserProfileOverlay>
 
       <UserListEntryItem
@@ -181,7 +199,9 @@ const UsersVirtualizedList = styled(VirtualizedList)`
 
 interface UserListProps {
   users: ReturnType<typeof UsersRecord>
+  selfUser: SelfUserRecord
   onWhisperClick: (user: string) => void
+  onInviteToPartyClick: (user: string) => void
 }
 
 class UserList extends React.Component<UserListProps> {
@@ -253,7 +273,9 @@ class UserList extends React.Component<UserListProps> {
           style={style}
           user={active.get(index - 1)}
           key={index}
+          selfUser={this.props.selfUser}
           onWhisperClick={this.props.onWhisperClick}
+          onInviteToPartyClick={this.props.onInviteToPartyClick}
         />
       )
     }
@@ -272,7 +294,9 @@ class UserList extends React.Component<UserListProps> {
             style={style}
             user={idle.get(i - 1)}
             key={index}
+            selfUser={this.props.selfUser}
             onWhisperClick={this.props.onWhisperClick}
+            onInviteToPartyClick={this.props.onInviteToPartyClick}
           />
         )
       }
@@ -293,7 +317,9 @@ class UserList extends React.Component<UserListProps> {
             style={style}
             user={offline.get(i - 1)}
             key={index}
+            selfUser={this.props.selfUser}
             onWhisperClick={this.props.onWhisperClick}
+            onInviteToPartyClick={this.props.onInviteToPartyClick}
             faded={true}
           />
         )
@@ -383,6 +409,7 @@ export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
+  const selfUser = useAppSelector(s => s.auth.user)
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
@@ -422,6 +449,9 @@ export default function Channel(props: ChatChannelProps) {
   ])
 
   const onWhisperClick = useCallback((user: string) => navigateToWhisper(user), [])
+  const onInviteToPartyClick = useCallback((user: string) => dispatch(inviteToParty([user])), [
+    dispatch,
+  ])
 
   if (!channel) {
     return (
@@ -446,7 +476,12 @@ export default function Channel(props: ChatChannelProps) {
   return (
     <Container>
       <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList users={channel.users} onWhisperClick={onWhisperClick} />
+      <UserList
+        users={channel.users}
+        selfUser={selfUser}
+        onInviteToPartyClick={onInviteToPartyClick}
+        onWhisperClick={onWhisperClick}
+      />
     </Container>
   )
 }

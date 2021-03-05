@@ -24,6 +24,7 @@ export { default as matchmakingStatus } from './matchmaking/matchmaking-status-r
 export { default as matchmakingTimes } from './admin/matchmaking-times-reducer'
 export { default as notifications } from './notifications/notification-reducer'
 export { default as network } from './network/network-reducer'
+export { default as parties } from './parties/parties-reducer'
 export { default as permissions } from './admin/permissions-reducer'
 export { default as settings } from './settings/reducer'
 export { default as serverStatus } from './serverstatus/server-status-reducer'

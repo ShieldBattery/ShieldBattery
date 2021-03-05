@@ -7,7 +7,7 @@ import IconButton from '../material/icon-button'
 import Popover from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200, colorTextSecondary } from '../styles/colors'
-import { markNotificationsRead } from './action-creators'
+import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { ConnectedNotificationsList } from './notifications-list'
 
 const FadedNotificationsIcon = styled(NotificationsIcon)`
@@ -48,8 +48,13 @@ interface PopoverContentsProps {
   transitionDelay: number
 }
 
+const StyledPopover = styled(Popover)`
+  max-height: calc(100% - 128px);
+`
+
 const PopoverContents = styled.div<PopoverContentsProps>`
   width: 320px;
+  height: 100%;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -80,8 +85,12 @@ const PopoverContents = styled.div<PopoverContentsProps>`
 
 export function NotificationsButton() {
   const dispatch = useAppDispatch()
-  const notifications = useAppSelector(s => s.notifications.list)
-  const hasUnread = useMemo(() => notifications.some(n => n.unread), [notifications])
+  const map = useAppSelector(s => s.notifications.map)
+  const ids = useAppSelector(s => s.notifications.ids)
+  const group = ids.groupBy(id => map.get(id)?.local)
+  const localNotifications = group.get(true)
+  const serverNotifications = group.get(false)
+  const hasUnread = useMemo(() => map.some(n => !n.read), [map])
 
   const [anchor, setAnchor] = useState<EventTarget | null>(null)
   const onClick = useCallback((event: React.MouseEvent) => {
@@ -89,8 +98,13 @@ export function NotificationsButton() {
   }, [])
   const onDismiss = useCallback(() => {
     setAnchor(null)
-    dispatch(markNotificationsRead())
-  }, [dispatch])
+    if (localNotifications?.count()) {
+      dispatch(markLocalNotificationsRead(localNotifications.valueSeq().toArray()))
+    }
+    if (serverNotifications?.count()) {
+      dispatch(markNotificationsRead(serverNotifications.valueSeq().toArray()))
+    }
+  }, [localNotifications, serverNotifications, dispatch])
   const popoverContentsRef = useRef(null)
 
   return (
@@ -103,7 +117,7 @@ export function NotificationsButton() {
         />
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>
-      <Popover
+      <StyledPopover
         open={!!anchor}
         onDismiss={onDismiss}
         anchor={anchor}
@@ -148,7 +162,7 @@ export function NotificationsButton() {
             </CSSTransition>
           )
         }}
-      </Popover>
+      </StyledPopover>
     </>
   )
 }
