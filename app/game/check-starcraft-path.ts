@@ -29,7 +29,6 @@ async function checkHash(path: string, validHashes: string[]) {
 }
 
 async function checkRemasteredPath(dirPath: string) {
-  logger.info(`checking remastered path: ${dirPath}`)
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
 
   try {
