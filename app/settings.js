@@ -4,7 +4,6 @@ import deepEqual from 'deep-equal'
 import { Map } from 'immutable'
 import log from './logger'
 import { findInstallPath } from './find-install-path'
-import { singleton } from 'tsyringe'
 
 const VERSION = 6
 const SCR_VERSION = 1
