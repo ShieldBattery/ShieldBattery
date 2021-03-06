@@ -1,9 +1,8 @@
 import React from 'react'
 import styled from 'styled-components'
-import { makeServerUrl } from '../network/server-url'
-
-import Download from './download'
 import LogoText from '../logos/logotext-640x100.svg'
+import { makeServerUrl } from '../network/server-url'
+import Download from './download'
 
 const Wrapper = styled.div`
   /* TODO(tec27): Stop using IDs for styling in the root so this doesn't need a specificity hack */

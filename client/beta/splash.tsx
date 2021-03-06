@@ -5,6 +5,10 @@ import { connect, DispatchProp } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { openDialog } from '../dialogs/action-creators'
 import ConnectedDialogOverlay from '../dialogs/connected-dialog-overlay'
+import DiscordIcon from '../icons/brands/discord.svg'
+import GithubIcon from '../icons/brands/github.svg'
+import PatreonIcon from '../icons/brands/patreon.svg'
+import TwitterIcon from '../icons/brands/twitter.svg'
 import LockOpenIcon from '../icons/material/lock_open_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { Label } from '../material/button'
@@ -21,12 +25,8 @@ import {
 } from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
-import DiscordIcon from './discord.svg'
-import GithubIcon from './github.svg'
-import PatreonIcon from './patreon.svg'
 import TacticallyFaithfulImage from './tactically-faithful.svg'
 import TopLinks from './top-links'
-import TwitterIcon from './twitter.svg'
 
 const SplashContainer = styled.div`
   display: flex;
@@ -365,6 +365,8 @@ const LinkEntries = styled.div`
   display: flex;
   align-items: center;
   margin-top: 16px;
+  /** Offset for the inner padding of the first item */
+  margin-left: -16px;
 
   a,
   a:link,
@@ -373,16 +375,14 @@ const LinkEntries = styled.div`
     display: flex;
     align-items: center;
     color: ${colorTextSecondary};
+    padding-left: 16px;
+    padding-right: 16px;
     overflow: hidden;
 
     &:hover,
     &:active {
       color: ${colorTextPrimary};
     }
-  }
-
-  a + a {
-    margin-left: 40px;
   }
 `
 
@@ -606,6 +606,7 @@ class Splash extends React.Component<DispatchProp> {
               </a>
               <a
                 href='https://github.com/ShieldBattery/ShieldBattery'
+                title='GitHub'
                 target='_blank'
                 rel='noopener'>
                 <StyledGithubIcon />
@@ -617,7 +618,7 @@ class Splash extends React.Component<DispatchProp> {
                 rel='noopener'>
                 <StyledDiscordIcon />
               </a>
-              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+              <a href='https://patreon.com/tec27' title='Patreon' target='_blank' rel='noopener'>
                 <StyledPatreonIcon />
               </a>
             </LinkEntries>

@@ -2,8 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
-import GithubLogo from './github.svg'
-import TwitterLogo from './twitter.svg'
+import GithubLogo from '../icons/brands/github.svg'
+import TwitterLogo from '../icons/brands/twitter.svg'
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { amberA400 } from '../styles/colors'

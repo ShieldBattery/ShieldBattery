@@ -49,13 +49,19 @@ const questions = [
       </p>,
       <ul>
         <li>
-          <a href='https://github.com/sponsors/ShieldBattery'>Github Sponsors</a>
+          <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
+            Github Sponsors
+          </a>
         </li>
         <li>
-          <a href='https://ko-fi.com/tec27'>Ko-fi</a>
+          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
+            Ko-fi
+          </a>
         </li>
         <li>
-          <a href='https://patreon.com/tec27'>Patreon</a>
+          <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+            Patreon
+          </a>
         </li>
       </ul>,
     ],
