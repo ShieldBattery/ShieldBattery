@@ -9,10 +9,16 @@ import { GameClientPlayerResult } from '../../common/game-results'
 import { GameStatus, statusToString } from '../../common/game-status'
 import { TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
-import { launchProcess } from '../native/process'
 import { ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
+
+// NOTE(tec27): this needs to be a dynamic import so that the relative file locations line up
+// between dev and prod builds
+const nativeProcessModule = import(
+  /* webpackChunkName: "native/process" */
+  './native/process/index'
+)
 
 interface ActiveGameInfo {
   id: string
@@ -415,6 +421,9 @@ async function doLaunch(
     // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.
     args += ' -launch'
   }
+
+  const { launchProcess } = await nativeProcessModule
+
   const proc = await launchProcess({
     appPath,
     args: args as any,

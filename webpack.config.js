@@ -94,9 +94,6 @@ const mainWebpackOpts = {
   target: 'electron-main',
   entry: {
     index: './app/startup.js',
-    // Since this is required via Electron's remote stuff, the module needs to exist somewhere. And
-    // this also forces Webpack to process the file and copy the .node file over to outputs
-    process: './app/native/process/index.js',
   },
   output: {
     filename: '[name].js',
@@ -141,7 +138,8 @@ const electronMain = makeConfig({
         {
           loader: 'native-addon-loader',
           options: {
-            name: './[name]-[hash].[ext]',
+            name: './native/[name]-[hash].[ext]',
+            from: './native/',
           },
         },
       ],

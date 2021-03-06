@@ -1,5 +1,5 @@
 build/
-app/native/*/*.node
+app/game/native/*/*.node
 app/styles/
 dist/
 node_modules/

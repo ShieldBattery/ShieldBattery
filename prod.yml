@@ -16,10 +16,10 @@ files:
     to: './'
     filter:
       - 'index.js'
-  - from: 'dist/'
+  - from: 'dist/native/'
     to: './native/'
     filter:
-      - '**/process.js'
+      - '**/*.js'
       - '**/*.node'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
