@@ -11,7 +11,8 @@
     "experimentalDecorators": true,
     "jsx": "react",
     "noEmit": true,
-    "preserveConstEnums": true
+    "preserveConstEnums": true,
+    "skipLibCheck": true
   },
 
   "exclude": ["dist", "node_modules", "server/public", "app/dist", "app/node_modules", "game"]
