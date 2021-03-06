@@ -35,11 +35,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-
 
+      - name: Cache app node_modules
+        uses: actions/cache@v2
+        id: cache-app-node-modules
+        with:
+          path: app/node_modules
+          key: ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-
+
       - name: Maybe install the dependencies
         run: yarn
         if: |
           steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
           steps.cache-node-modules.outputs.cache-hit != 'true'
+
+      - name: Maybe install the app dependencies
+        run: yarn
+        working-directory: ./app
+        if: |
+          steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
+          steps.cache-app-node-modules.outputs.cache-hit != 'true'
 
       - name: Test
         run: yarn test
