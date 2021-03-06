@@ -5,6 +5,7 @@ import { VERSION, KEY, shouldShowChangelog } from './should-show-changelog'
 
 import changelogContent from '../../CHANGELOG.md'
 import { colorTextSecondary, colorTextPrimary } from '../styles/colors'
+import { subtitle1, headline5, headline6 } from '../styles/typography'
 const changelogHtml = { __html: changelogContent }
 
 const Content = styled.div`
@@ -29,8 +30,23 @@ const Content = styled.div`
   }
 
   li {
+    ${subtitle1};
     margin-top: 8px;
     color: ${colorTextSecondary};
+  }
+
+  li + li {
+    margin-top: 16px;
+  }
+
+  h4 {
+    ${headline5};
+    margin-bottom: 8px;
+  }
+
+  h5 {
+    ${headline6};
+    margin-bottom: 8px;
   }
 
   strong {

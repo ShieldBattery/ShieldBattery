@@ -27,6 +27,13 @@
   in-app sounds, just in case you didn't want to blast your whole neighborhood with incessant
   beeping every time you start a game. Weirdo.
 
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+
 #### 6.1.0 (April 24th, 2017)
 
 - **Support for newer game installs.** We can now handle installs of newer versions of StarCraft
