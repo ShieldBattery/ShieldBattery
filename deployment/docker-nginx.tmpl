@@ -251,7 +251,7 @@ server {
 	listen [::]:{{ $external_http_port }} {{ $default_server }};
 	{{ end }}
 	{{ $access_log }}
-	
+
 	# Do not HTTPS redirect Let'sEncrypt ACME challenge
 	location /.well-known/acme-challenge/ {
 		auth_basic off;
@@ -260,7 +260,7 @@ server {
 		try_files $uri =404;
 		break;
 	}
-	
+
 	location / {
 		return 301 https://$host$request_uri;
 	}
@@ -308,6 +308,8 @@ server {
 	{{ else if (exists "/etc/nginx/vhost.d/default") }}
 	include /etc/nginx/vhost.d/default;
 	{{ end }}
+
+  client_max_body_size 100m;
 
 	location / {
 		{{ if eq $proto "uwsgi" }}
@@ -357,6 +359,8 @@ server {
 	{{ else if (exists "/etc/nginx/vhost.d/default") }}
 	include /etc/nginx/vhost.d/default;
 	{{ end }}
+
+  client_max_body_size 100m;
 
 	location / {
 		{{ if eq $proto "uwsgi" }}
