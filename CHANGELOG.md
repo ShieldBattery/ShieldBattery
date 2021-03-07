@@ -33,6 +33,8 @@
   launched from their launcher once every 30 days to keep premium features enabled. We'll at the
   very least add a warning for this case in the future (or better yet, automate re-authing), but
   for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
 
 #### 6.1.0 (April 24th, 2017)
 
