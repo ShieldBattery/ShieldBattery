@@ -22,7 +22,7 @@ export async function registerGame(
   mapId: string,
   gameSource: GameSource,
   gameSourceExtra: string | undefined,
-  gameConfig: GameConfig<GameConfigPlayerName>,
+  gameConfig: Omit<GameConfig<GameConfigPlayerName>, 'gameSource' | 'gameSourceExtra'>,
   startTime = new Date(),
 ) {
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
