@@ -24,6 +24,7 @@ use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::game_thread;
 use crate::snp;
+use crate::windows;
 
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
@@ -1100,6 +1101,22 @@ impl BwScr {
             "CreateFileW", CreateFileW, create_file_hook_closure;
             "CloseHandle", CloseHandle, close_handle_hook;
         );
+
+        // SCR wants to update gamepad state every frame, but in the end it
+        // won't do any with it anyway. The query isn't completely free,
+        // so dummy it out to let game spend time on better things.
+        //
+        // Note: This patch gets only applied if the DLL is already loaded,
+        // so that we don't end up loading the DLL for no reason if a future
+        // patch stops using this function.
+        if windows::module_handle("xinput9_1_0").is_some() {
+            let xinput_get_state_hook = |_, _, _| {
+                winapi::shared::winerror::ERROR_DEVICE_NOT_CONNECTED
+            };
+            hook_winapi_exports!(&mut active_patcher, "xinput9_1_0",
+                "XInputGetState", XInputGetState, xinput_get_state_hook;
+            );
+        }
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
     }
@@ -1806,8 +1823,8 @@ impl bw::Bw for BwScr {
 }
 
 fn get_exe_build() -> u32 {
-    let exe_path = crate::windows::module_name(0 as *mut _).expect("Couldn't get exe path");
-    match crate::windows::version::get_version(Path::new(&exe_path)) {
+    let exe_path = windows::module_name(0 as *mut _).expect("Couldn't get exe path");
+    match windows::version::get_version(Path::new(&exe_path)) {
         Some(s) => s.3 as u32,
         None => 0,
     }
@@ -2059,6 +2076,7 @@ mod hooks {
             *const u8,
             *mut c_void,
         ) -> usize;
+        !0 => XInputGetState(u32, *mut c_void) -> u32;
     );
 }
 

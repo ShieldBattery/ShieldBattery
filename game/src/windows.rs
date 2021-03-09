@@ -11,7 +11,9 @@ use libc::c_void;
 use scopeguard::defer;
 use winapi::shared::minwindef::{FARPROC, HMODULE};
 use winapi::um::handleapi::{CloseHandle, DuplicateHandle};
-use winapi::um::libloaderapi::{FreeLibrary, GetModuleFileNameW, GetModuleHandleExW};
+use winapi::um::libloaderapi::{
+    FreeLibrary, GetModuleFileNameW, GetModuleHandleW, GetModuleHandleExW
+};
 use winapi::um::winnt::HANDLE;
 use winapi::um::winuser::MessageBoxW;
 
@@ -108,6 +110,17 @@ impl Drop for OwnedHandle {
     fn drop(&mut self) {
         unsafe {
             CloseHandle(self.0);
+        }
+    }
+}
+
+pub fn module_handle(name: &str) -> Option<HMODULE> {
+    unsafe {
+        let handle = GetModuleHandleW(winapi_str(name).as_ptr());
+        if handle.is_null() {
+            None
+        } else {
+            Some(handle)
         }
     }
 }
