@@ -16,6 +16,7 @@ import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acce
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import { getMatchmakingRating, MatchmakingRating } from '../matchmaking/models'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -468,26 +469,38 @@ export class MatchmakingApi {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
-    const queueEntry = createQueueEntry({ type, username: user.name })
-    this.queueEntries = this.queueEntries.set(user.name, queueEntry)
+    // TODO(tec27): Put this default generation outside of this API file
+    const mmr: MatchmakingRating = (await getMatchmakingRating(user.userId, type)) ?? {
+      userId: user.userId,
+      matchmakingType: type,
+      rating: 1500,
+      kFactor: 40,
+      uncertainty: 200,
+      numGamesPlayed: 0,
+      lastPlayedDate: new Date(0),
+    }
 
-    // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
-    // Until we implement the ranking system, make the search interval same for all players
-    const rating = 1000
+    const roundedRating = Math.round(mmr.rating)
+    const halfUncertainty = mmr.uncertainty / 2
+
     const player: MatchmakingPlayer = {
       id: user.session.userId,
       name: user.name,
-      rating,
+      rating: roundedRating,
       interval: {
-        low: rating - 100,
-        high: rating + 100,
+        low: Math.round(mmr.rating - halfUncertainty),
+        high: Math.round(mmr.rating + halfUncertainty),
       },
       race,
       useAlternateRace: !!useAlternateRace,
       alternateRace,
       preferredMaps: new Set(preferredMaps),
     }
+
     this.matchmakers.get(type)!.addToQueue(player)
+
+    const queueEntry = createQueueEntry({ type, username: user.name })
+    this.queueEntries = this.queueEntries.set(user.name, queueEntry)
 
     user.subscribe(MatchmakingApi.getUserPath(user.name), () => {
       return {
