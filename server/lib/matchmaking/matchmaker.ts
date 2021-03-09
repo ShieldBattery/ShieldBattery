@@ -1,8 +1,9 @@
-import { OrderedMap, Set } from 'immutable'
+import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
-import { createInterval, Player } from './matchmaking-player'
+import logger from '../logging/logger'
+import { MatchmakingPlayer } from './matchmaking-player'
 
-function findClosestRating(rating: number, overlappingPlayers: Player[]) {
+function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer[]) {
   let current = overlappingPlayers[0].rating
   let diff = Math.abs(rating - current)
 
@@ -22,7 +23,7 @@ function findClosestRating(rating: number, overlappingPlayers: Player[]) {
 // For now, we're iterating over the players in order they joined the queue, plus finding
 // the player with lowest rating difference; in future we should also take player's region
 // into consideration and anything else that might be relevant
-const DEFAULT_OPPONENT_CHOOSER = (player: Player, opponents: Player[]) => {
+const DEFAULT_OPPONENT_CHOOSER = (player: MatchmakingPlayer, opponents: MatchmakingPlayer[]) => {
   // TODO(2Pac): Check player's region and prefer the ones that are closer to each other
   const opponentRating = findClosestRating(player.rating, opponents)
   const matches = opponents.filter(player => opponentRating === player.rating)
@@ -37,12 +38,18 @@ const DEFAULT_OPPONENT_CHOOSER = (player: Player, opponents: Player[]) => {
   }
 }
 
-type OnMatchFoundFunc = (player: Player, opponent: Player) => void
-type OpponentChooser = (player: Player, opponents: Player[]) => Player
+type OnMatchFoundFunc = (
+  player: Readonly<MatchmakingPlayer>,
+  opponent: Readonly<MatchmakingPlayer>,
+) => void
+type OpponentChooser = (
+  player: Readonly<MatchmakingPlayer>,
+  opponents: Readonly<MatchmakingPlayer>[],
+) => Readonly<MatchmakingPlayer> | undefined
 
 export class Matchmaker {
-  protected tree = new IntervalTree<Player>()
-  protected players = OrderedMap<string, Player>()
+  protected tree = new IntervalTree<MatchmakingPlayer>()
+  protected players = OrderedMap<string, MatchmakingPlayer>()
 
   /**
    * Constructs a new Matchmaker.
@@ -62,7 +69,7 @@ export class Matchmaker {
    *
    * @returns true if the player was not already in the queue, false otherwise
    */
-  addToQueue(player: Player) {
+  addToQueue(player: MatchmakingPlayer) {
     if (this.players.has(player.name)) {
       return false
     }
@@ -89,9 +96,9 @@ export class Matchmaker {
   // Finds the best match for each player and removes them from a queue. If a match is not found,
   // the player stays in the queue, with their interval increased
   matchPlayers() {
-    let matchedPlayers = Set<Player>()
+    let matchedPlayers = new Set<MatchmakingPlayer>()
 
-    for (let player of this.players.values()) {
+    for (const player of this.players.values()) {
       if (matchedPlayers.has(player)) {
         // We already matched this player with someone else; skip them
         continue
@@ -102,20 +109,12 @@ export class Matchmaker {
       this.tree.remove(player.interval.low, player.interval.high, player)
       const results = this.tree.search(player.interval.low, player.interval.high)
 
-      if (!results || results.length === 0) {
-        // No matches for this player; increase their search interval and re-add them to the tree
+      let opponent: Readonly<MatchmakingPlayer> | undefined
+      if (results.length > 0) {
+        opponent = this.opponentChooser(player, results)
+      }
 
-        // TODO(2Pac): Replace this with the logic of our ranking system
-        const newLow = player.interval.low - 10 > 0 ? player.interval.low - 10 : 0
-        const newHigh = player.interval.high + 10
-        const newInterval = createInterval({ low: newLow, high: newHigh })
-        player = player.set('interval', newInterval)
-
-        this.tree.insert(player.interval.low, player.interval.high, player)
-        this.players = this.players.set(player.name, player)
-      } else {
-        const opponent = this.opponentChooser(player, results)
-
+      if (opponent) {
         // Remove the matched player from the tree
         this.tree.remove(opponent.interval.low, opponent.interval.high, opponent)
 
@@ -129,6 +128,18 @@ export class Matchmaker {
         matchedPlayers = matchedPlayers.add(opponent)
 
         this.onMatchFound(player, opponent)
+      } else {
+        // No matches for this player. Increase their search interval and re-add them to the tree
+        // TODO(2Pac): Replace this with the logic of our ranking system
+        const newLow = player.interval.low - 10 > 0 ? player.interval.low - 10 : 0
+        const newHigh = player.interval.high + 10
+        player.interval = {
+          low: newLow,
+          high: newHigh,
+        }
+
+        this.tree.insert(player.interval.low, player.interval.high, player)
+        this.players = this.players.set(player.name, player)
       }
     }
   }
@@ -136,7 +147,7 @@ export class Matchmaker {
 
 /** A `Matchmaker` that looks for matches at a set time interval. */
 export class TimedMatchmaker extends Matchmaker {
-  private timer: ReturnType<typeof setTimeout> | null = null
+  private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(
     private searchIntervalMs: number,
@@ -146,10 +157,16 @@ export class TimedMatchmaker extends Matchmaker {
     super(onMatchFound, opponentChooser)
   }
 
-  addToQueue(player: Player): boolean {
+  addToQueue(player: MatchmakingPlayer): boolean {
     const result = super.addToQueue(player)
     if (!this.timer && this.tree.count >= 2) {
-      this.timer = setInterval(() => this.matchPlayers(), this.searchIntervalMs)
+      this.timer = setInterval(() => {
+        try {
+          this.matchPlayers()
+        } catch (err) {
+          logger.error({ err }, 'error while matching players')
+        }
+      }, this.searchIntervalMs)
     }
 
     return result

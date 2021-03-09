@@ -1,5 +1,5 @@
 import errors from 'http-errors'
-import { List, Map as IMap, Range, Record, Set } from 'immutable'
+import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
 import { NextFunc, NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
@@ -14,7 +14,7 @@ import activityRegistry from '../games/gameplay-activity-registry'
 import { createHuman, Slot } from '../lobbies/slot'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
-import { createInterval, createPlayer, Player } from '../matchmaking/matchmaking-player'
+import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
@@ -28,7 +28,7 @@ import validateBody from '../websockets/validate-body'
 
 const createMatch = Record({
   type: MatchmakingType.Match1v1 as MatchmakingType,
-  players: List<Player>(),
+  players: List<MatchmakingPlayer>(),
 })
 
 type Match = ReturnType<typeof createMatch>
@@ -63,7 +63,7 @@ const MOUNT_BASE = '/matchmaking'
  * @returns an object with `{ mapsByPlayer, preferredMaps, randomMaps, chosenMap }` describing the
  *   maps that were used to make the selection, as well as the actual selection.
  */
-async function pickMap(matchmakingType: MatchmakingType, players: List<Player>) {
+async function pickMap(matchmakingType: MatchmakingType, players: List<MatchmakingPlayer>) {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
     throw new Error('invalid map pool')
@@ -82,12 +82,12 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Player>) 
   // during this selection process (there is a higher chance their map will
   // not be replaced with a random one).
 
-  const mapPool = Set(currentMapPool.maps)
-  let preferredMapIds = Set()
-  let mapIdsByPlayer = IMap<number, Set<string>>()
+  const mapPool = ISet(currentMapPool.maps)
+  let preferredMapIds = ISet()
+  let mapIdsByPlayer = IMap<number, ISet<string>>()
 
   for (const p of players) {
-    const available = p.preferredMaps.intersect(mapPool)
+    const available = ISet(p.preferredMaps).intersect(mapPool)
     preferredMapIds = preferredMapIds.concat(available)
     mapIdsByPlayer = mapIdsByPlayer.set(p.id, available)
   }
@@ -140,7 +140,7 @@ export class MatchmakingApi {
 
       let slots: List<Slot>
       const players = matchInfo.players
-      const firstPlayer = players.first() as Player
+      const firstPlayer = players.first<MatchmakingPlayer>()
       const playersHaveSameRace = players.every(p => p.race === firstPlayer.race)
       if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
         // All players have the same race and want to use an alternate race; select randomly one
@@ -242,7 +242,7 @@ export class MatchmakingApi {
   }
 
   matchmakerDelegate = {
-    onMatchFound: (player: Player, opponent: Player) => {
+    onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
       const { type } = this.queueEntries.get(player.name)!
       const matchInfo = createMatch({
         type,
@@ -447,6 +447,16 @@ export class MatchmakingApi {
   )
   async find(data: Map<string, any>, next: NextFunc) {
     const { type, race, useAlternateRace, alternateRace, preferredMaps } = data.get('body')
+
+    if (useAlternateRace) {
+      if (!validRace(alternateRace) || alternateRace === 'r') {
+        throw new errors.BadRequest('invalid alternate race')
+      }
+    }
+    if (!Array.isArray(preferredMaps) || preferredMaps.length > 2) {
+      throw new errors.BadRequest('invalid preferred maps, must be an array with length at most 2')
+    }
+
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -464,20 +474,19 @@ export class MatchmakingApi {
     // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
     // Until we implement the ranking system, make the search interval same for all players
     const rating = 1000
-    const interval = createInterval({
-      low: rating - 50,
-      high: rating + 50,
-    })
-    const player = createPlayer({
+    const player: MatchmakingPlayer = {
       id: user.session.userId,
       name: user.name,
       rating,
-      interval,
+      interval: {
+        low: rating - 100,
+        high: rating + 100,
+      },
       race,
-      useAlternateRace,
+      useAlternateRace: !!useAlternateRace,
       alternateRace,
-      preferredMaps: Set(preferredMaps),
-    })
+      preferredMaps: new Set(preferredMaps),
+    }
     this.matchmakers.get(type)!.addToQueue(player)
 
     user.subscribe(MatchmakingApi.getUserPath(user.name), () => {

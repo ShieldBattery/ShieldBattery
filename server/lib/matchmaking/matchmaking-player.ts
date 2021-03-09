@@ -1,22 +1,31 @@
-import { Record, Set } from 'immutable'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 
-export const createInterval = Record({
-  low: 0,
-  high: 0,
-})
-
-export type Interval = ReturnType<typeof createInterval>
-
-export const createPlayer = Record({
-  id: -1,
-  name: '',
-  rating: -1,
-  interval: createInterval(),
-  race: 'z' as RaceChar,
-  useAlternateRace: false,
-  alternateRace: 'z' as AssignedRaceChar,
-  preferredMaps: Set<string>(),
-})
-
-export type Player = ReturnType<typeof createPlayer>
+export interface MatchmakingPlayer {
+  /** The user's ID number (from the `users` table). */
+  id: number
+  /** The user's name. */
+  name: string
+  /** The user's current MMR. */
+  rating: number
+  /**
+   * The current search interval for matchmaking, i.e. the lowest and highest rating that would be
+   * considered a valid match.
+   */
+  interval: {
+    low: number
+    high: number
+  }
+  /** The race the user wants to play. */
+  race: RaceChar
+  /** Whether the user wants to use an alternate race if the match is a mirror. */
+  useAlternateRace: boolean
+  /**
+   * The race to use in the event of a mirror matchup (provided `useAlternateRace` is `true`).
+   */
+  alternateRace: AssignedRaceChar
+  /**
+   * A list of maps that this player prefers to play on, which will have their probability boosted
+   * versus the rest of the map pool.
+   */
+  preferredMaps: Set<string>
+}
