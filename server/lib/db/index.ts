@@ -9,7 +9,10 @@ const SLOW_QUERY_TIME_MS = 1000
 
 // Our DATETIME columns are all in UTC, so we mark the strings postgres returns this way so the
 // parsed dates are correct
-pg.types.setTypeParser(1114, (stringValue: string) => new Date(Date.parse(stringValue + '+0000')))
+pg.types.setTypeParser(
+  pg.types.builtins.TIMESTAMP,
+  (stringValue: string) => new Date(Date.parse(stringValue + '+0000')),
+)
 
 // Similar to above, we must also parse input dates as UTC so the servers running on different time
 // zones work correctly
