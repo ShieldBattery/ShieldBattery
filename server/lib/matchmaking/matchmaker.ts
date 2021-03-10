@@ -1,7 +1,7 @@
 import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
 import logger from '../logging/logger'
-import { MatchmakingPlayer } from './matchmaking-player'
+import { isNewPlayer, MatchmakingPlayer } from './matchmaking-player'
 
 /**
  * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
@@ -26,23 +26,50 @@ function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer
   return current
 }
 
-// The best match should be evaluated by taking into consideration various variables, eg.
-// the rating difference, time spent queueing, region, etc.
-// For now, we're iterating over the players in order they joined the queue, plus finding
-// the player with lowest rating difference; in future we should also take player's region
-// into consideration and anything else that might be relevant
-const DEFAULT_OPPONENT_CHOOSER = (player: MatchmakingPlayer, opponents: MatchmakingPlayer[]) => {
-  // TODO(2Pac): Check player's region and prefer the ones that are closer to each other
-  const opponentRating = findClosestRating(player.rating, opponents)
-  const matches = opponents.filter(player => opponentRating === player.rating)
+export const DEFAULT_OPPONENT_CHOOSER = (
+  player: MatchmakingPlayer,
+  opponents: MatchmakingPlayer[],
+) => {
+  let filtered = opponents
 
-  if (matches.length === 1) {
-    // Found the closest player to the searching player's rating
-    return matches[0]
+  if (filtered.length === 1) {
+    return filtered[0]
+  }
+
+  // 1) If you are a new player (<25 games), choose the opponent that also is a new player, else:
+  // 2) If you are not a new player, choose the opponent that also is not a new player, else:
+  const isNew = isNewPlayer(player)
+  const sameNewness = filtered.filter(o => isNewPlayer(o) === isNew)
+  if (sameNewness.length) {
+    filtered = sameNewness
+  }
+
+  if (filtered.length === 1) {
+    return filtered[0]
+  }
+
+  // TODO(tec27): 3) If applicable, choose the opponent in “Inactive” status.
+  // TODO(tec27): 4) Choose the opponent with the lowest ping (in 50ms buckets).
+
+  // 5) Choose the opponent that has been waiting in queue the longest.
+  filtered.sort((a, b) => b.searchIterations - a.searchIterations)
+  const mostSearchIterations = filtered[0].searchIterations
+  filtered = filtered.filter(o => o.searchIterations === mostSearchIterations)
+
+  if (filtered.length === 1) {
+    return filtered[0]
+  }
+
+  // 6) Choose the opponent with the closest rating.
+  const opponentRating = findClosestRating(player.rating, filtered)
+  const ratingDiff = Math.abs(opponentRating - player.rating)
+  filtered = filtered.filter(o => Math.abs(o.rating - player.rating) === ratingDiff)
+
+  if (filtered.length === 1) {
+    return filtered[0]
   } else {
-    // There are multiple players with the same rating closest to the searching player's
-    // rating. Randomly choose one
-    return matches[Math.floor(Math.random() * matches.length)]
+    // 7) Randomize among remaining candidates.
+    return filtered[Math.floor(Math.random() * filtered.length)]
   }
 }
 

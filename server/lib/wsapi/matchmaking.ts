@@ -480,11 +480,16 @@ export class MatchmakingApi {
       lastPlayedDate: new Date(0),
     }
 
+    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
+    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
+    // up to a maximum of 336 after 14 additional days."
+
     const halfUncertainty = mmr.uncertainty / 2
 
     const player: MatchmakingPlayer = {
       id: user.session.userId,
       name: user.name,
+      numGamesPlayed: mmr.numGamesPlayed,
       rating: mmr.rating,
       interval: {
         low: mmr.rating - halfUncertainty,

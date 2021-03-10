@@ -5,6 +5,8 @@ export interface MatchmakingPlayer {
   id: number
   /** The user's name. */
   name: string
+  /** How many games this user has played (in the current MMR section). */
+  numGamesPlayed: number
   /** The user's current MMR. */
   rating: number
   /**
@@ -33,4 +35,8 @@ export interface MatchmakingPlayer {
    * versus the rest of the map pool.
    */
   preferredMaps: Set<string>
+}
+
+export function isNewPlayer(player: MatchmakingPlayer) {
+  return player.numGamesPlayed >= 25
 }
