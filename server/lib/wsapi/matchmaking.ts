@@ -480,17 +480,17 @@ export class MatchmakingApi {
       lastPlayedDate: new Date(0),
     }
 
-    const roundedRating = Math.round(mmr.rating)
     const halfUncertainty = mmr.uncertainty / 2
 
     const player: MatchmakingPlayer = {
       id: user.session.userId,
       name: user.name,
-      rating: roundedRating,
+      rating: mmr.rating,
       interval: {
-        low: Math.round(mmr.rating - halfUncertainty),
-        high: Math.round(mmr.rating + halfUncertainty),
+        low: mmr.rating - halfUncertainty,
+        high: mmr.rating + halfUncertainty,
       },
+      searchIterations: 0,
       race,
       useAlternateRace: !!useAlternateRace,
       alternateRace,

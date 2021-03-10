@@ -3,6 +3,14 @@ import IntervalTree from 'node-interval-tree'
 import logger from '../logging/logger'
 import { MatchmakingPlayer } from './matchmaking-player'
 
+/**
+ * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
+ * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
+ */
+const IDEAL_MATCH_ITERATIONS = 8 /* Calculated to be 60 seconds with our standard timing */
+const SEARCH_BOUND_INCREASE = (12 / 10) * 7.5 /* Value from the doc, adjusted for our timing */
+const MAX_SEARCH_BOUND_INCREASES = 14 /* Calculated to be roughly 100 seconds of iterations */
+
 function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer[]) {
   let current = overlappingPlayers[0].rating
   let diff = Math.abs(rating - current)
@@ -65,37 +73,42 @@ export class Matchmaker {
   ) {}
 
   /**
-   * Adds a player to the tree and to the queue that's ordered by the start of search time.
+   * Adds a player to the queue used to find potential matches.
    *
-   * @returns true if the player was not already in the queue, false otherwise
+   * @returns `true` if the player was not already in the queue, `false` otherwise
    */
   addToQueue(player: MatchmakingPlayer) {
     if (this.players.has(player.name)) {
       return false
     }
-    const isAdded = this.tree.insert(player.interval.low, player.interval.high, player)
+    const isAdded = this.insertInTree(player)
     if (isAdded) {
       this.players = this.players.set(player.name, player)
     }
     return isAdded
   }
 
-  // Removes a player from the tree and from the queue
+  /** Removes a player from the matchmaking queue. */
   removeFromQueue(playerName: string) {
     if (!this.players.has(playerName)) {
       return false
     }
     const player = this.players.get(playerName)!
-    const isRemoved = this.tree.remove(player.interval.low, player.interval.high, player)
+    const isRemoved = this.removeFromTree(player)
     if (isRemoved) {
       this.players = this.players.delete(player.name)
     }
     return isRemoved
   }
 
-  // Finds the best match for each player and removes them from a queue. If a match is not found,
-  // the player stays in the queue, with their interval increased
-  matchPlayers() {
+  /**
+   * Finds the best match for each player and removes them from a queue. If a match is not found,
+   * the player stays in the queue, with their interval bounds increased as needed.
+   *
+   * @returns `true` if there are enough players to potentially find more matches in the future,
+   *     `false` if no matches could ever be found (e.g. if there is only 1 player left in queue)
+   */
+  matchPlayers(): boolean {
     let matchedPlayers = new Set<MatchmakingPlayer>()
 
     for (const player of this.players.values()) {
@@ -106,8 +119,22 @@ export class Matchmaker {
 
       // Before searching, remove the player searching from the tree so they're not included in
       // results
-      this.tree.remove(player.interval.low, player.interval.high, player)
-      const results = this.tree.search(player.interval.low, player.interval.high)
+      this.removeFromTree(player)
+      player.searchIterations += 1
+      if (
+        player.searchIterations > IDEAL_MATCH_ITERATIONS &&
+        player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES
+      ) {
+        // Player has been in the queue long enough to have their search bound increased (but not
+        // so long that they're at the max bounds)
+        player.interval.low = Math.max(player.interval.low - SEARCH_BOUND_INCREASE, 0)
+        player.interval.high += SEARCH_BOUND_INCREASE
+      }
+
+      const results = this.tree.search(
+        Math.round(player.interval.low),
+        Math.round(player.interval.high),
+      )
 
       let opponent: Readonly<MatchmakingPlayer> | undefined
       if (results.length > 0) {
@@ -115,8 +142,7 @@ export class Matchmaker {
       }
 
       if (opponent) {
-        // Remove the matched player from the tree
-        this.tree.remove(opponent.interval.low, opponent.interval.high, opponent)
+        this.removeFromTree(opponent)
 
         // Remove the matched players from the queue we use for iteration
         this.players = this.players.delete(player.name)
@@ -130,18 +156,32 @@ export class Matchmaker {
         this.onMatchFound(player, opponent)
       } else {
         // No matches for this player. Increase their search interval and re-add them to the tree
-        // TODO(2Pac): Replace this with the logic of our ranking system
-        const newLow = player.interval.low - 10 > 0 ? player.interval.low - 10 : 0
-        const newHigh = player.interval.high + 10
-        player.interval = {
-          low: newLow,
-          high: newHigh,
-        }
 
-        this.tree.insert(player.interval.low, player.interval.high, player)
+        this.insertInTree(player)
         this.players = this.players.set(player.name, player)
       }
     }
+
+    return this.players.size > 1
+  }
+
+  // NOTE(tec27): These just make it easier to do the "right" thing as far as rounding intervals.
+  // We don't want to store them pre-rounded because we're adjusting the interval after searches
+  // and this would introduce a lot of potential floating point error.
+  private insertInTree(player: MatchmakingPlayer): boolean {
+    return this.tree.insert(
+      Math.round(player.interval.low),
+      Math.round(player.interval.high),
+      player,
+    )
+  }
+
+  private removeFromTree(player: MatchmakingPlayer): boolean {
+    return this.tree.remove(
+      Math.round(player.interval.low),
+      Math.round(player.interval.high),
+      player,
+    )
   }
 }
 
@@ -159,10 +199,13 @@ export class TimedMatchmaker extends Matchmaker {
 
   addToQueue(player: MatchmakingPlayer): boolean {
     const result = super.addToQueue(player)
-    if (!this.timer && this.tree.count >= 2) {
+    if (!this.timer) {
       this.timer = setInterval(() => {
         try {
-          this.matchPlayers()
+          const hasMoreMatches = this.matchPlayers()
+          if (!hasMoreMatches) {
+            this.clearTimer()
+          }
         } catch (err) {
           logger.error({ err }, 'error while matching players')
         }
@@ -172,13 +215,10 @@ export class TimedMatchmaker extends Matchmaker {
     return result
   }
 
-  removeFromQueue(playerName: string): boolean {
-    const result = super.removeFromQueue(playerName)
-    if (this.timer && this.tree.count < 2) {
+  private clearTimer() {
+    if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
     }
-
-    return result
   }
 }
