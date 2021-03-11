@@ -473,7 +473,6 @@ export class MatchmakingApi {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
-    // TODO(tec27): Put this default generation outside of this API file
     const mmr: MatchmakingRating =
       (await getMatchmakingRating(user.userId, type)) ??
       (await createInitialMatchmakingRating(user.userId, type))
