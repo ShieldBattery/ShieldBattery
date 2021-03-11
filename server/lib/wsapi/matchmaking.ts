@@ -16,7 +16,11 @@ import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acce
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
-import { getMatchmakingRating, MatchmakingRating } from '../matchmaking/models'
+import {
+  createInitialMatchmakingRating,
+  getMatchmakingRating,
+  MatchmakingRating,
+} from '../matchmaking/models'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -470,15 +474,9 @@ export class MatchmakingApi {
     }
 
     // TODO(tec27): Put this default generation outside of this API file
-    const mmr: MatchmakingRating = (await getMatchmakingRating(user.userId, type)) ?? {
-      userId: user.userId,
-      matchmakingType: type,
-      rating: 1500,
-      kFactor: 40,
-      uncertainty: 200,
-      numGamesPlayed: 0,
-      lastPlayedDate: new Date(0),
-    }
+    const mmr: MatchmakingRating =
+      (await getMatchmakingRating(user.userId, type)) ??
+      (await createInitialMatchmakingRating(user.userId, type))
 
     // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
     // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,

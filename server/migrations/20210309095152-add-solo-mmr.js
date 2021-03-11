@@ -6,6 +6,7 @@ exports.up = async function (db) {
       rating real NOT NULL,
       k_factor real NOT NULL,
       uncertainty real NOT NULL,
+      unexpected_streak smallint NOT NULL,
       num_games_played integer NOT NULL,
       last_played_date timestamp without time zone NOT NULL,
 

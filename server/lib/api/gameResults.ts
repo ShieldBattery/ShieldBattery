@@ -3,8 +3,16 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
+import { MatchmakingType } from '../../../common/matchmaking'
 import transact from '../db/transaction'
 import { hasCompletedResults, reconcileResults } from '../games/results'
+import {
+  getMatchmakingRatingsWithLock,
+  insertMatchmakingRatingChange,
+  MatchmakingRating,
+  updateMatchmakingRating,
+} from '../matchmaking/models'
+import { calculateChangedRatings } from '../matchmaking/rating'
 import { getGameRecord, setReconciledResult } from '../models/games'
 import {
   getCurrentReportedResults,
@@ -124,10 +132,56 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
       }
 
       const reconciled = reconcileResults(currentResults)
+      const reconcileDate = new Date()
       await transact(async client => {
         // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
         // and "fixup" rank changes and win/loss counters
         const resultEntries = Array.from(reconciled.results.entries())
+
+        const matchmakingDbPromises: Array<Promise<unknown>> = []
+        if (gameRecord.config.gameSource === 'MATCHMAKING' && !reconciled.disputed) {
+          // Calculate and update the matchmaking ranks
+
+          // NOTE(tec27): We sort these so we always lock them in the same order and avoid deadlocks
+          const userIds = Array.from(reconciled.results.keys()).sort()
+
+          // TODO(tec27): I think there are still cases, if 2+ users are involved in multiple
+          // games that resolve at the same time, that this could deadlock. Won't be a problem for
+          // 1v1 but we should handle it when implementing team games
+
+          const mmrs = await getMatchmakingRatingsWithLock(
+            client,
+            userIds,
+            gameRecord.config.gameSourceExtra as MatchmakingType,
+          )
+          if (mmrs.length !== userIds.length) {
+            throw new Error('missing MMR for some users')
+          }
+
+          const ratingChanges = calculateChangedRatings(
+            gameId,
+            reconcileDate,
+            reconciled.results,
+            mmrs,
+          )
+
+          for (const mmr of mmrs) {
+            const change = ratingChanges.get(mmr.userId)!
+            matchmakingDbPromises.push(insertMatchmakingRatingChange(client, change))
+
+            const updatedMmr: MatchmakingRating = {
+              userId: mmr.userId,
+              matchmakingType: mmr.matchmakingType,
+              rating: change.rating,
+              kFactor: change.kFactor,
+              uncertainty: change.uncertainty,
+              unexpectedStreak: change.unexpectedStreak,
+              numGamesPlayed: mmr.numGamesPlayed + 1,
+              lastPlayedDate: reconcileDate,
+            }
+            matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
+          }
+        }
         const userPromises = resultEntries.map(([userId, result]) =>
           setUserReconciledResult(client, userId, gameId, result),
         )
@@ -135,9 +189,13 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
         // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
         // as when a user has an unknown result?
 
-        // TODO(tec27): update ranks, win/loss records, etc.
+        // TODO(tec27): update win/loss records, etc.
 
-        await Promise.all([...userPromises, setReconciledResult(client, gameId, reconciled)])
+        await Promise.all([
+          ...userPromises,
+          ...matchmakingDbPromises,
+          setReconciledResult(client, gameId, reconciled),
+        ])
       })
     })
     .catch(err => {

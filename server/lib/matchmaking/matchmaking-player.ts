@@ -1,4 +1,5 @@
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { NEW_PLAYER_GAME_COUNT } from './constants'
 
 export interface MatchmakingPlayer {
   /** The user's ID number (from the `users` table). */
@@ -38,5 +39,5 @@ export interface MatchmakingPlayer {
 }
 
 export function isNewPlayer(player: MatchmakingPlayer) {
-  return player.numGamesPlayed >= 25
+  return player.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
 }
