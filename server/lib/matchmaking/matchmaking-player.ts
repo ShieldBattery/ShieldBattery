@@ -1,10 +1,13 @@
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { NEW_PLAYER_GAME_COUNT } from './constants'
 
 export interface MatchmakingPlayer {
   /** The user's ID number (from the `users` table). */
   id: number
   /** The user's name. */
   name: string
+  /** How many games this user has played (in the current MMR section). */
+  numGamesPlayed: number
   /** The user's current MMR. */
   rating: number
   /**
@@ -15,6 +18,11 @@ export interface MatchmakingPlayer {
     low: number
     high: number
   }
+  /**
+   * The number of search iterations this user has gone through (should be initialized to 0, will
+   * be updated by the matchmaker).
+   */
+  searchIterations: number
   /** The race the user wants to play. */
   race: RaceChar
   /** Whether the user wants to use an alternate race if the match is a mirror. */
@@ -28,4 +36,8 @@ export interface MatchmakingPlayer {
    * versus the rest of the map pool.
    */
   preferredMaps: Set<string>
+}
+
+export function isNewPlayer(player: MatchmakingPlayer) {
+  return player.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
 }

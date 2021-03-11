@@ -16,6 +16,11 @@ import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acce
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import {
+  createInitialMatchmakingRating,
+  getMatchmakingRating,
+  MatchmakingRating,
+} from '../matchmaking/models'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -468,26 +473,36 @@ export class MatchmakingApi {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
-    const queueEntry = createQueueEntry({ type, username: user.name })
-    this.queueEntries = this.queueEntries.set(user.name, queueEntry)
+    const mmr: MatchmakingRating =
+      (await getMatchmakingRating(user.userId, type)) ??
+      (await createInitialMatchmakingRating(user.userId, type))
 
-    // TODO(2Pac): Get rating from the database and calculate the search interval for that player.
-    // Until we implement the ranking system, make the search interval same for all players
-    const rating = 1000
+    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
+    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
+    // up to a maximum of 336 after 14 additional days."
+
+    const halfUncertainty = mmr.uncertainty / 2
+
     const player: MatchmakingPlayer = {
       id: user.session.userId,
       name: user.name,
-      rating,
+      numGamesPlayed: mmr.numGamesPlayed,
+      rating: mmr.rating,
       interval: {
-        low: rating - 100,
-        high: rating + 100,
+        low: mmr.rating - halfUncertainty,
+        high: mmr.rating + halfUncertainty,
       },
+      searchIterations: 0,
       race,
       useAlternateRace: !!useAlternateRace,
       alternateRace,
       preferredMaps: new Set(preferredMaps),
     }
+
     this.matchmakers.get(type)!.addToQueue(player)
+
+    const queueEntry = createQueueEntry({ type, username: user.name })
+    this.queueEntries = this.queueEntries.set(user.name, queueEntry)
 
     user.subscribe(MatchmakingApi.getUserPath(user.name), () => {
       return {

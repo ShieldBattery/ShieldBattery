@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
 
 /**
@@ -18,10 +19,14 @@ pg.types.setTypeParser(
 // zones work correctly
 pg.defaults.parseInputDatesAsUTC = true
 
-const connectionString = process.env.DATABASE_URL
-if (!connectionString) throw new Error('DATABASE_URL must be set')
+let pool: pg.Pool | undefined
+// TODO(tec27): Inject this instead so that tests can initialize it if they need to
+if (!isTestRun()) {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) throw new Error('DATABASE_URL must be set')
 
-const pool = new pg.Pool({ connectionString })
+  pool = new pg.Pool({ connectionString })
+}
 
 export type DbDone = (release?: unknown) => void
 
@@ -73,7 +78,7 @@ export class DbClient {
 // keeping it simple for now
 export default function getDbClient() {
   return new Promise<ClientResult>((resolve, reject) => {
-    pool.connect((err, client, done) => {
+    pool!.connect((err, client, done) => {
       if (err) reject(err)
       else resolve({ client: new DbClient(client), done })
     })
