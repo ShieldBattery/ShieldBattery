@@ -119,7 +119,9 @@ export class WebsocketServer {
       await sessionMiddleware(ctx, async () => {})
 
       if (!ctx.session?.userId) {
-        throw new Error('User is not logged in')
+        // User is not logged in
+        cb(null, false)
+        return
       }
 
       const clientId = getSingleQueryParam(ctx.query.clientId) ?? cuid()
