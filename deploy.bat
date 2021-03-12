@@ -52,52 +52,13 @@ SET IMG=%NAME%:%gitsha%
 SET NPM_TAG=%NAME%:%version%
 SET LATEST_TAG=%NAME%:latest
 
-docker buildx build --platform linux/arm/v7,linux/arm64/v8,linux/amd64 -t %IMG%
+
+docker buildx build --platform linux/arm/v7,linux/arm64/v8,linux/amd64 -t %IMG% -t %NPM_TAG% -t %LATEST_TAG% --push .
 if errorlevel 1 (
   echo Error building the image
   goto exit
 )
 
-@rem Give the image the tag for the current NPM version
-docker tag %IMG% %NPM_TAG%
-if errorlevel 1 (
-  echo Error tagging the image with the current NPM version
-  goto exit
-)
-
-@rem Update the "latest" tag to point to the newest image.
-docker tag %IMG% %LATEST_TAG%
-if errorlevel 1 (
-  echo Error tagging the image with the latest tag
-  goto exit
-)
-
-echo -------------
-CHOICE /C:YN /N /M "Image has been built, push to Docker Hub? [yN]: "
-if %ERRORLEVEL% neq 1 (
-  echo Not pushing to Docker Hub, workflow complete.
-  goto :nopush
-)
-
-@rem Log in to the Docker Hub account where the image will be pushed. The console may prompt for
-@rem authentication. This account must have access to the shieldbattery organization.
-echo Logging into Docker Hub...
-docker login
-if errorlevel 1 (
-  echo Error logging into Docker Hub
-  goto exit
-)
-
-@rem Push the image to the Docker hub. Docker hub account needs to be setup for this step to work.
-docker push %NAME%
-if errorlevel 1 (
-  echo Error pushing the image
-  goto exit
-)
-
-exit /b 0
-
-:nopush
 exit /b 0
 
 :exit
