@@ -36,6 +36,17 @@ if (IS_ELECTRON) {
     })
 }
 
+window.addEventListener('error', event => {
+  log.error(`JavaScript error in Renderer:\n${event.error?.stack ?? event.error}`)
+})
+window.addEventListener('unhandledrejection', event => {
+  log.warning(`Unhandled rejection in Renderer:\n${event.reason?.stack ?? event.reason}`)
+})
+
+const p = new Promise((resolve, reject) => {
+  throw new Error('lol')
+})
+
 let ReduxDevTools, ReduxDevToolsContainer
 if (IS_ELECTRON && isDev) {
   const devtools = require('./debug/redux-devtools')
