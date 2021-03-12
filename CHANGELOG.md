@@ -27,7 +27,7 @@
 - **WHAT'S THAT? I CAN'T HEAR YOU OVER THE COUNTDOWN BEEPS!** We added a volume slider for our
   in-app sounds, just in case you didn't want to blast your whole neighborhood with incessant
   beeping every time you start a game. Weirdo.
-- **Donation station.** Much requested: we now have some ways to can contribute to the maintenance
+- **Donation station.** Much requested: we now have some ways you can contribute to the maintenance
   and hosting costs of all of this. Check out our
   <a href="https://shieldbattery.net/faq" target="_blank">FAQ page</a> for the links.
 - **More server locations.** Speaking of donations, thanks to some generous contributors we've
