@@ -52,7 +52,7 @@ SET IMG=%NAME%:%gitsha%
 SET NPM_TAG=%NAME%:%version%
 SET LATEST_TAG=%NAME%:latest
 
-docker build -t %IMG% .
+docker buildx build --platform linux/arm/v7,linux/arm64/v8,linux/amd64 -t %IMG%
 if errorlevel 1 (
   echo Error building the image
   goto exit

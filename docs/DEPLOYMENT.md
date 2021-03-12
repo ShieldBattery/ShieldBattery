@@ -31,6 +31,20 @@ Install the [Docker Desktop](https://docs.docker.com/docker-for-windows/) applic
 
 Optionally, create an account on Docker's [official image repository](https://hub.docker.com/) where the built image will be uploaded.
 
+### Set up a builder
+
+We build for multiple architectures so that we can deploy on a variety of cloud infrastructure. To
+do this, Docker requires you to set up a builder with the necessary software. Run the following
+commands to do so:
+
+```sh
+docker buildx create --name mybuilder
+docker buildx use mybuilder
+docker buildx inspect --bootstrap
+```
+
+This should only need to be done the first time you install Docker.
+
 ### Run the deployment script
 
 Use the included `deploy.bat` script to build the image. To run it, figure out what the desired
