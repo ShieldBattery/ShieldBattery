@@ -192,12 +192,14 @@ export class MatchmakingApi {
         ],
       }
 
+      const loadCancelToken = new CancelToken()
       const gameLoaded = gameLoader.loadGame({
         players: slots,
         mapId: chosenMap.id,
         gameSource: 'MATCHMAKING',
         gameSourceExtra: matchInfo.type,
         gameConfig,
+        cancelToken: loadCancelToken,
         onGameSetup: (setup, resultCodes) =>
           this.gameLoaderDelegate.onGameSetup({
             matchInfo,
@@ -209,6 +211,7 @@ export class MatchmakingApi {
             preferredMaps,
             randomMaps,
             chosenMap,
+            cancelToken: loadCancelToken,
           }),
         onRoutesSet: (playerName, routes, gameId) =>
           this.gameLoaderDelegate.onRoutesSet(clients, playerName, routes, gameId),
@@ -238,7 +241,9 @@ export class MatchmakingApi {
     },
     onError: (err, clients) => {
       for (const client of clients) {
-        if (!this.clientTimers.get(client.name)?.cancelToken.isCancelling) {
+        if (this.clientTimers.has(client.name)) {
+          // TODO(tec27): this event really needs a gameId and some better info about why we're
+          // canceling
           this.publishToActiveClient(client.name, {
             type: 'cancelLoading',
             // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
@@ -286,6 +291,7 @@ export class MatchmakingApi {
       preferredMaps,
       randomMaps,
       chosenMap,
+      cancelToken,
     }: {
       matchInfo: Match
       clients: List<ClientSocketsGroup>
@@ -299,7 +305,10 @@ export class MatchmakingApi {
       preferredMaps: MapInfo[]
       randomMaps: MapInfo[]
       chosenMap: MapInfo
+      cancelToken: CancelToken
     }) => {
+      cancelToken.throwIfCancelling()
+
       const playersJson = matchInfo.players.map(p => {
         const slot = slots.find(s => s.name === p.name)!
 
@@ -315,7 +324,7 @@ export class MatchmakingApi {
       // catches any of the errors inside.
       await Promise.all(
         clients.map(async client => {
-          this.publishToActiveClient(client.name, {
+          let published = this.publishToActiveClient(client.name, {
             type: 'matchReady',
             setup,
             resultCode: resultCodes.get(client.name),
@@ -327,26 +336,48 @@ export class MatchmakingApi {
             chosenMap,
           })
 
+          if (!published) {
+            throw new Error(`match cancelled, ${client.name} disconnected`)
+          }
+
           let mapSelectionTimerId
           let countdownTimerId
           try {
             const mapSelectionTimer = createDeferred<void>()
             mapSelectionTimer.catch(swallowNonBuiltins)
-            this.clientTimers = this.clientTimers.update(client.name, createTimers(), timers =>
-              timers.merge({ mapSelectionTimer }),
+            this.clientTimers = this.clientTimers.update(
+              client.name,
+              createTimers({ cancelToken }),
+              timers => timers.merge({ mapSelectionTimer }),
             )
             mapSelectionTimerId = setTimeout(() => mapSelectionTimer.resolve(), 5000)
             await mapSelectionTimer
-            this.publishToActiveClient(client.name, { type: 'startCountdown' })
+            cancelToken.throwIfCancelling()
+
+            published = this.publishToActiveClient(client.name, { type: 'startCountdown' })
+            if (!published) {
+              throw new Error(`match cancelled, ${client.name} disconnected`)
+            }
 
             const countdownTimer = createDeferred<void>()
             countdownTimer.catch(swallowNonBuiltins)
-            this.clientTimers = this.clientTimers.update(client.name, createTimers(), timers =>
-              timers.merge({ countdownTimer }),
+            this.clientTimers = this.clientTimers.update(
+              client.name,
+              createTimers({ cancelToken }),
+              timers => timers.merge({ countdownTimer }),
             )
             countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
+
             await countdownTimer
-            this.publishToActiveClient(client.name, { type: 'allowStart', gameId: setup.gameId })
+            cancelToken.throwIfCancelling()
+
+            published = this.publishToActiveClient(client.name, {
+              type: 'allowStart',
+              gameId: setup.gameId,
+            })
+            if (!published) {
+              throw new Error(`match cancelled, ${client.name} disconnected`)
+            }
           } finally {
             if (mapSelectionTimerId) {
               clearTimeout(mapSelectionTimerId)
@@ -554,10 +585,13 @@ export class MatchmakingApi {
     this.nydus.publish(MatchmakingApi.getUserPath(username), data)
   }
 
-  private publishToActiveClient(username: string, data?: any) {
+  private publishToActiveClient(username: string, data?: any): boolean {
     const client = activityRegistry.getClientForUser(username)
     if (client) {
       this.nydus.publish(MatchmakingApi.getClientPath(client), data)
+      return true
+    } else {
+      return false
     }
   }
 

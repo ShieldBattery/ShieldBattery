@@ -36,6 +36,10 @@ export interface ReplayMapInfo {
   path: string
 }
 
+export function isReplayConfig(config: GameConfig) {
+  return isReplayMapInfo(config.setup.map)
+}
+
 export function isReplayMapInfo(map: MapInfo | ReplayMapInfo): map is ReplayMapInfo {
   return (map as ReplayMapInfo).isReplay
 }

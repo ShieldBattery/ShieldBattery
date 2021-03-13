@@ -4,7 +4,7 @@ import got from 'got'
 import { Set } from 'immutable'
 import path from 'path'
 import { singleton } from 'tsyringe'
-import { GameConfig, GameRoute, isReplayMapInfo } from '../../common/game-config'
+import { GameConfig, GameRoute, isReplayConfig, isReplayMapInfo } from '../../common/game-config'
 import { GameClientPlayerResult } from '../../common/game-results'
 import { GameStatus, statusToString } from '../../common/game-status'
 import { TypedEventEmitter } from '../../common/typed-emitter'
@@ -65,7 +65,7 @@ export interface ActiveGameManagerEvents {
     /** The time the game took in milliseconds. */
     time: number
   }) => void
-  gameStatus: (statusInfo: { id: string; state: string; extra?: any }) => void
+  gameStatus: (statusInfo: { id: string; state: string; extra?: any; isReplay: boolean }) => void
   replaySave: (gameId: string, path: string) => void
 }
 
@@ -85,6 +85,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         id: game.id,
         state: statusToString(game.status?.state ?? GameStatus.Unknown),
         extra: game.status?.extra,
+        isReplay: game.config ? isReplayConfig(game.config) : false,
       }
     } else {
       return null
@@ -120,6 +121,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         this.setStatus(GameStatus.Error)
         this.activeGame = null
 
+        log.error(`Slots and routes don't match:\nslots: ${slotIds}\nroutes: ${routesIds}`)
         throw new Error("Slots and routes don't match")
       }
     }
@@ -161,7 +163,9 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         this.setStatus(GameStatus.Error)
         this.activeGame = null
 
-        throw new Error("Slots and routes don't match")
+        const err = new Error("Slots and routes don't match")
+        this.setStatus(GameStatus.Error, err)
+        return
       }
     }
 

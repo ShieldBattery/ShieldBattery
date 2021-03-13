@@ -37,15 +37,16 @@ async function updateGameStatus(ctx: RouterContext, next: Next) {
     throw new httpErrors.Conflict('game must be loading')
   }
 
-  switch (status) {
-    case GameStatus.Playing:
-      gameLoader.registerGameAsLoaded(gameId, ctx.session!.userName)
-      break
-    case GameStatus.Error:
-      gameLoader.maybeCancelLoading(gameId)
-      break
-    default:
-      throw new httpErrors.BadRequest('invalid game status')
+  if (status === GameStatus.Playing) {
+    if (!gameLoader.registerGameAsLoaded(gameId, ctx.session!.userName)) {
+      throw new httpErrors.NotFound('game not found')
+    }
+  } else if (status === GameStatus.Error) {
+    if (!gameLoader.maybeCancelLoading(gameId, ctx.session!.userName)) {
+      throw new httpErrors.NotFound('game not found')
+    }
+  } else {
+    throw new httpErrors.BadRequest('invalid game status')
   }
 
   ctx.status = 204

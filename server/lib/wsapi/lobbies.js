@@ -25,6 +25,7 @@ import {
   getObserverTeam,
 } from '../../../common/lobbies'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import CancelToken from '../../../common/async/cancel-token'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
@@ -696,11 +697,14 @@ export class LobbyApi {
     let allowStartTimerId
     try {
       let gameId
+      // TODO(tec27): actually make use of this CancelToken for disconnects
+      const cancelToken = new CancelToken()
       const gameLoaded = gameLoader.loadGame({
         players: getHumanSlots(lobby),
         mapId: lobby.map.id,
         gameSource: 'LOBBY',
         gameConfig,
+        cancelToken,
         onGameSetup: (setup, resultCodes) => {
           gameId = setup.gameId
           this._onGameSetup(lobby, setup, resultCodes)

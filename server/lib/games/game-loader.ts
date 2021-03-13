@@ -1,5 +1,5 @@
 import { List, Map as IMap, Record, Set } from 'immutable'
-import CancelToken from '../../../common/async/cancel-token'
+import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { GameRoute } from '../../../common/game-config'
@@ -131,6 +131,8 @@ export interface GameLoadRequest {
      */
     teams: GameConfigPlayerName[][]
   }
+  /** A `CancelToken` that can be used to cancel the loading process midway through. */
+  cancelToken: CancelToken
   /**
    * An optional callback for when the game setup info has been sent to clients.
    */
@@ -158,6 +160,7 @@ export class GameLoader {
     gameSource,
     gameSourceExtra,
     gameConfig,
+    cancelToken,
     onGameSetup,
     onRoutesSet,
   }: GameLoadRequest) {
@@ -165,21 +168,21 @@ export class GameLoader {
 
     registerGame(mapId, gameSource, gameSourceExtra, gameConfig)
       .then(({ gameId, resultCodes }) => {
-        const cancelToken = new CancelToken()
+        const loadingCancelToken = new MultiCancelToken(cancelToken)
         this.loadingGames = this.loadingGames.set(
           gameId,
           createLoadingData({
             players: Set(players),
-            cancelToken,
+            cancelToken: loadingCancelToken,
             deferred: gameLoaded,
           }),
         )
-        this.doGameLoad(gameId, resultCodes, onGameSetup, onRoutesSet).catch(() => {
-          this.maybeCancelLoading(gameId)
+        this.doGameLoad(gameId, resultCodes, onGameSetup, onRoutesSet).catch(err => {
+          this.maybeCancelLoadingFromSystem(gameId, err)
         })
 
-        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
-          this.maybeCancelLoading(gameId)
+        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(err => {
+          this.maybeCancelLoadingFromSystem(gameId, err)
         })
       })
       .catch(err => {
@@ -192,11 +195,15 @@ export class GameLoader {
     return gameLoaded
   }
 
-  // The game has successfully loaded for a specific player; once the game is loaded for all
-  // players, we register it in the DB for accepting results.
-  registerGameAsLoaded(gameId: string, playerName: string) {
+  /**
+   * The game has successfully loaded for a specific player. Once the game is loaded for all
+   * players, we clean up any remaining state to prevent it from being canceled.
+   *
+   * @returns whether the relevant game could be found
+   */
+  registerGameAsLoaded(gameId: string, playerName: string): boolean {
     if (!this.loadingGames.has(gameId)) {
-      return
+      return false
     }
 
     let loadingData = this.loadingGames.get(gameId)!
@@ -205,26 +212,47 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.set(gameId, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData)) {
-      // TODO(tec27): register this game in the DB for accepting results
       this.loadingGames = this.loadingGames.delete(gameId)
       loadingData.deferred.resolve()
     }
+
+    return true
   }
 
-  /** Cancels the loading state of the game if it was loading (no-op if it was not). */
-  maybeCancelLoading(gameId: string) {
+  /**
+   * Cancels the loading state of the game if it was loading (no-op if it was not).
+   *
+   * @returns whether the relevant game could be found
+   */
+  maybeCancelLoading(gameId: string, playerName: string): boolean {
     if (!this.loadingGames.has(gameId)) {
-      return
+      return false
+    }
+
+    const loadingData = this.loadingGames.get(gameId)!
+    if (!loadingData.players.some(p => p.name === playerName)) {
+      return false
+    }
+
+    // TODO(tec27): Make some error type that lets us pass this info back to users
+    return this.maybeCancelLoadingFromSystem(gameId, new Error(`${playerName} failed to load`))
+  }
+
+  private maybeCancelLoadingFromSystem(gameId: string, reason: Error) {
+    if (!this.loadingGames.has(gameId)) {
+      return false
     }
 
     const loadingData = this.loadingGames.get(gameId)!
     this.loadingGames = this.loadingGames.delete(gameId)
     loadingData.cancelToken.cancel()
-    loadingData.deferred.reject(new Error('Game loading cancelled'))
+    loadingData.deferred.reject(reason)
 
     Promise.all([deleteRecordForGame(gameId), deleteUserRecordsForGame(gameId)]).catch(err => {
-      log.error({ err }, 'error removing game records for cancelled gamed')
+      log.error({ err }, 'error removing game records for cancelled game')
     })
+
+    return true
   }
 
   isLoading(gameId: string) {
@@ -238,7 +266,7 @@ export class GameLoader {
     onRoutesSet?: OnRoutesSetFunc,
   ) {
     if (!this.loadingGames.has(gameId)) {
-      return
+      throw new Error(`tried to load a game that doesn't exist: ${gameId}`)
     }
 
     const loadingData = this.loadingGames.get(gameId)!

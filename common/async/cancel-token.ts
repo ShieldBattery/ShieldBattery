@@ -17,7 +17,7 @@ export default class CancelToken {
     return !!(err as any)[CANCEL_ERROR]
   }
 
-  private cancelling = false
+  protected cancelling = false
 
   cancel() {
     this.cancelling = true
@@ -30,6 +30,33 @@ export default class CancelToken {
   throwIfCancelling() {
     if (this.isCancelling) {
       throw new CancelError()
+    }
+  }
+}
+
+/**
+ * An extension of `CancelToken` that allows you to treat multiple other tokens as a single one.
+ * This is useful if you collect multiple tokens from callers and need a way to check on the status
+ * of any of them.
+ */
+export class MultiCancelToken extends CancelToken {
+  private tokens: CancelToken[]
+
+  constructor(...tokens: CancelToken[]) {
+    super()
+    this.tokens = tokens
+  }
+
+  addToken(token: CancelToken) {
+    this.tokens.push(token)
+  }
+
+  get isCancelling() {
+    if (this.cancelling) {
+      return true
+    } else {
+      this.cancelling = this.tokens.some(t => t.isCancelling)
+      return this.cancelling
     }
   }
 }
