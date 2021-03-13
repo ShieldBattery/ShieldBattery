@@ -2,6 +2,7 @@ import errors from 'http-errors'
 import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
 import { NextFunc, NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
+import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
@@ -48,6 +49,7 @@ type QueueEntry = ReturnType<typeof createQueueEntry>
 const createTimers = Record({
   mapSelectionTimer: null as Deferred<void> | null,
   countdownTimer: null as Deferred<void> | null,
+  cancelToken: new CancelToken(),
 })
 
 type Timers = ReturnType<typeof createTimers>
@@ -236,12 +238,14 @@ export class MatchmakingApi {
     },
     onError: (err, clients) => {
       for (const client of clients) {
-        this.publishToActiveClient(client.name, {
-          type: 'cancelLoading',
-          // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
-          reason: err && err.message,
-        })
-        this.unregisterActivity(client)
+        if (!this.clientTimers.get(client.name)?.cancelToken.isCancelling) {
+          this.publishToActiveClient(client.name, {
+            type: 'cancelLoading',
+            // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
+            reason: err && err.message,
+          })
+          this.handleLeave(client)
+        }
       }
     },
   }
@@ -415,13 +419,15 @@ export class MatchmakingApi {
 
     // Means the client disconnected during the loading process
     if (this.clientTimers.has(client.name)) {
-      const { mapSelectionTimer, countdownTimer } = this.clientTimers.get(client.name)!
+      const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(client.name)!
       if (countdownTimer) {
         countdownTimer.reject(new Error('Countdown cancelled'))
       }
       if (mapSelectionTimer) {
         mapSelectionTimer.reject(new Error('Map selection cancelled'))
       }
+
+      cancelToken.cancel()
 
       this.clientTimers = this.clientTimers.delete(client.name)
     }
