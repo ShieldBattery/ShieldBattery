@@ -157,6 +157,10 @@ container.register<NydusServer>(NydusServer, {
         credentials: true,
         maxAge: CORS_MAX_AGE_SECONDS,
       },
+
+      pingTimeout: 20000,
+      pingInterval: 25000,
+      upgradeTimeout: 10000,
       // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
     } as any) as Partial<NydusServerOptions>
     const nydus = new AuthorizingNydusServer(opts)
