@@ -108,7 +108,7 @@
     "koa-views": "^7.0.0",
     "mailgun-js": "^0.22.0",
     "node-interval-tree": "^1.3.3",
-    "nydus": "2.0.2",
+    "nydus": "^2.1.0",
     "nydus-client": "^2.0.1",
     "pg": "^8.1.0",
     "pino": "^6.2.1",
