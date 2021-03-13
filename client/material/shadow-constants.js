@@ -2,15 +2,14 @@ export const shadowKeyUmbraOpacity = 0.2
 export const shadowKeyPenumbraOpacity = 0.14
 export const shadowAmbientOpacity = 0.12
 
-/* eslint-disable max-params */
-const shadow = (depth, uOff, uBlur, uSpread, pOff, pBlur, pSpread, aOff, aBlur, aSpread) => {
+// eslint-disable-next-line max-params
+function shadow(depth, uOff, uBlur, uSpread, pOff, pBlur, pSpread, aOff, aBlur, aSpread) {
   return `
     0px ${uOff}px ${uBlur}px ${uSpread}px rgba(0, 0, 0, ${shadowKeyUmbraOpacity}),
     0px ${pOff}px ${pBlur}px ${pSpread}px rgba(0, 0, 0, ${shadowKeyPenumbraOpacity}),
     0px ${aOff}px ${aBlur}px ${aSpread}px rgba(0, 0, 0, ${shadowAmbientOpacity});
   `
 }
-/* eslint-enable max-params */
 
 export const shadowDef1dp = shadow(1, 2, 1, -1, 1, 1, 0, 1, 3, 0)
 export const shadowDef2dp = shadow(2, 3, 3, -2, 2, 2, 0, 1, 5, 0)
