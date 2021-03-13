@@ -43,7 +43,7 @@ enum ConnectionEndReason {
 async fn app_websocket_connection(
     client: WebSocketStream,
     recv_messages: mpsc::Receiver<WsMessage>,
-    game_send: game_state::SendMessages,
+    game_send: &game_state::SendMessages,
     async_stop: SharedCanceler,
 ) -> ConnectionEndReason {
     let (mut ws_sink, mut ws_stream) = client.split();
@@ -125,7 +125,11 @@ pub async fn websocket_connection_future(
             }
         };
         info!("Connected to Shieldbattery app");
-        app_websocket_connection(client, recv_messages, game_send, async_stop).await;
+        app_websocket_connection(client, recv_messages, &game_send, async_stop).await;
+        // If we lost connection to app before game started, clean up this
+        // process so that it won't stay around. Not going to close a game that
+        // is being played though =)
+        let _ = game_send.send(GameStateMessage::QuitIfNotStarted).await;
         return;
     }
 }

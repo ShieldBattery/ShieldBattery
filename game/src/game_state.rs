@@ -41,6 +41,7 @@ pub struct GameState {
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
     can_start_game: CanStartGame,
+    game_started: bool,
 }
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
@@ -92,8 +93,10 @@ pub enum GameStateMessage {
     AllowStart,
     InLobby,
     PlayerJoined,
+    GameSetupDone,
     GameThread(GameThreadMessage),
     CleanupQuit,
+    QuitIfNotStarted,
 }
 
 impl GameSetupInfo {
@@ -134,6 +137,9 @@ quick_error! {
         }
         GameInitAlreadyInProgress {
             display("Cannot have two game inits active at once")
+        }
+        GameInitNotInProgress {
+            display("Game isn't being inited")
         }
         UnexpectedPlayer(name: String) {
             display("Unexpected player name: {}", name)
@@ -214,8 +220,7 @@ impl GameState {
         }
     }
 
-    /// On success returns after the game is finished and results have been forwarded
-    /// to the app.
+    /// On success, returns once game is ready to be started & shown.
     fn init_game(
         &mut self,
         info: GameSetupInfo,
@@ -248,12 +253,10 @@ impl GameState {
         };
         let local_user = init_state.local_user.clone();
         let mut players_joined = init_state.wait_for_players();
-        let results = init_state.wait_for_results();
         self.init_state = InitState::Started(init_state);
 
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
-        let ws_send = self.ws_send.clone();
 
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
@@ -371,13 +374,37 @@ impl GameState {
             unsafe {
                 do_lobby_game_init(&info).await;
             }
+            send_messages_to_state
+                .send(GameStateMessage::GameSetupDone)
+                .await
+                .map_err(|_| GameInitError::Closed)?;
+            Ok(())
+        }
+        .boxed()
+    }
+
+    /// Future finishes after results have been sent to server
+    fn run_game(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+        let init_state = match self.init_state {
+            InitState::Started(ref mut s) => s,
+            _ => return future::err(GameInitError::GameInitNotInProgress).boxed(),
+        };
+        let local_user = init_state.local_user.clone();
+        let info = init_state.setup_info.clone();
+        self.game_started = true;
+
+        let ws_send = self.ws_send.clone();
+        let game_request_send = self.send_main_thread_requests.clone();
+        let results = init_state.wait_for_results();
+        async move {
             forge::end_wnd_proc();
+            let start_game_request = GameThreadRequestType::StartGame;
+            let game_done = send_game_request(&game_request_send, start_game_request);
+
             app_socket::send_message(&ws_send, "/game/start", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
 
-            let start_game_request = GameThreadRequestType::StartGame;
-            let game_done = send_game_request(&game_request_send, start_game_request);
             game_done.await;
             let results = results.await?;
 
@@ -388,7 +415,6 @@ impl GameState {
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
-
             Ok(())
         }
         .boxed()
@@ -417,11 +443,11 @@ impl GameState {
                 }
             },
             SetupGame(info) => {
-                let mut ws_send = self.ws_send.clone();
+                let ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
-                let game_done = self.init_game(info);
+                let game_ready = self.init_game(info);
                 let task = async move {
-                    if let Err(e) = game_done.await {
+                    if let Err(e) = game_ready.await {
                         let msg = format!("Failed to init game: {}", e);
                         error!("{}", msg);
 
@@ -432,18 +458,10 @@ impl GameState {
                             },
                         };
                         let _ =
-                            app_socket::send_message(&mut ws_send, "/game/setupProgress", message)
+                            app_socket::send_message(&ws_send, "/game/setupProgress", message)
                                 .await;
+                        expect_quit(&async_stop).await;
                     }
-                    debug!("Game setup & play task ended");
-                    tokio::time::sleep(Duration::from_millis(10000)).await;
-                    // The app is supposed to send a CleanupQuit command to acknowledge
-                    // that it received /game/end, or simple quit on error, but maybe it died?
-                    //
-                    // TODO(neive): Would be nice to do CleanupQuit if we finished game
-                    // succesfully even if the app didn't end up replying to us?
-                    warn!("Didn't receive close command, exiting automatically");
-                    async_stop.cancel();
                 };
                 let (cancel_token, canceler) = CancelToken::new();
                 self.running_game = Some(canceler);
@@ -459,6 +477,23 @@ impl GameState {
                     warn!("Player joined before init was started");
                 }
             }
+            GameSetupDone => {
+                let game_done = self.run_game();
+                let async_stop = self.async_stop.clone();
+                let task = async move {
+                    if let Err(e) = game_done.await {
+                        error!("Error on running game: {}", e);
+                    }
+                    debug!("Game play task ended");
+                    expect_quit(&async_stop).await;
+                };
+                let (cancel_token, canceler) = CancelToken::new();
+                self.running_game = Some(canceler);
+                tokio::spawn(async move {
+                    pin_mut!(task);
+                    cancel_token.bind(task).await
+                });
+            }
             GameThread(msg) => {
                 return self.handle_game_thread_message(msg);
             }
@@ -472,6 +507,14 @@ impl GameState {
                     async_stop.cancel();
                 };
                 tokio::spawn(task);
+            }
+            QuitIfNotStarted => {
+                if !self.game_started {
+                    debug!("Exiting since game has not started");
+                    // Not cleaning up (that is, saving user settings or anything)
+                    // since we didn't start in the first place
+                    self.async_stop.cancel();
+                }
             }
         }
         future::ready(()).boxed()
@@ -522,6 +565,17 @@ impl GameState {
         }
         future::ready(()).boxed()
     }
+}
+
+async fn expect_quit(async_stop: &SharedCanceler) {
+    tokio::time::sleep(Duration::from_millis(10000)).await;
+    // The app is supposed to send a CleanupQuit command to acknowledge
+    // that it received /game/end, or simple quit on error, but maybe it died?
+    //
+    // TODO(neive): Would be nice to do CleanupQuit if we finished game
+    // succesfully even if the app didn't end up replying to us?
+    warn!("Didn't receive close command, exiting automatically");
+    async_stop.cancel();
 }
 
 async fn send_game_result(
@@ -1111,6 +1165,7 @@ pub async fn create_future(
         running_game: None,
         async_stop,
         can_start_game: CanStartGame::No(Vec::new()),
+        game_started: false,
     };
     loop {
         let message = select! {
