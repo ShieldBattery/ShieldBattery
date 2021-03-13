@@ -605,6 +605,8 @@ export class LobbyApi {
     const updatedLobby = Lobbies.removePlayer(lobby, teamIndex, slotIndex, player)
 
     if (!updatedLobby) {
+      // The lobby is now empty and needs to be removed the this list
+
       // Ensure the client's local state gets updated to confirm the leave
       this._publishTo(lobby, {
         type: 'leave',
@@ -637,6 +639,11 @@ export class LobbyApi {
       this._publishToUser(lobby, userName, {
         type: 'cancelLoading',
       })
+
+      if (!updatedLobby) {
+        // Ensure that the lobby doesn't come back as a zombie loading lobby, ahhhhhhhhh! (#618)
+        this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+      }
     }
 
     user.unsubscribe(LobbyApi._getUserPath(lobby, userName))
@@ -722,8 +729,15 @@ export class LobbyApi {
       this._onGameLoaded(lobby)
     } catch (err) {
       // TODO(tec27): Ideally we'd log this error somewhere if it's not something we're expecting
-      this._maybeCancelCountdown(lobby)
-      this._onLoadingCanceled(lobby)
+
+      // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents
+      // once countdown/loading starts. I think a better implementation would be to add a stored
+      // CancelToken that we cancel if a lobby is closed, but that's a more involved change atm.
+      if (this.lobbies.get(lobby.name) === lobby) {
+        // This has been verified to be the same lobby, so sending cancel events is safe
+        this._maybeCancelCountdown(lobby)
+        this._onLoadingCanceled(lobby)
+      }
     } finally {
       if (countdownTimerId) {
         clearTimeout(countdownTimerId)
@@ -757,6 +771,12 @@ export class LobbyApi {
   }
 
   _onLoadingCanceled(lobby) {
+    if (!this.loadingLobbies.has(lobby.name)) {
+      // This lobby was closed before loading completed, likely because all the human users left or
+      // disconnected.
+      return
+    }
+
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
     this._publishTo(lobby, {
       type: 'cancelLoading',

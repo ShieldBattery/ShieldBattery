@@ -385,9 +385,11 @@ function removePlayerAndControlledSlots(lobby, teamIndex, playerIndex) {
   }
 }
 
-// Removes the player at the specified `teamIndex` and `slotIndex` from a lobby, returning the
-// updated lobby. If the lobby is closed (e.g. because it no longer has any human players), null
-// will be returned. Note that if the host is being removed, a new, suitable host will be chosen.
+/**
+ * Removes the player at the specified `teamIndex` and `slotIndex` from a lobby, returning the
+ * updated lobby. If the lobby is closed (e.g. because it no longer has any human players), null
+ * will be returned. Note that if the host is being removed, a new, suitable host will be chosen.
+ */
 export function removePlayer(lobby, teamIndex, slotIndex, toRemove) {
   if (!toRemove) {
     // nothing removed, e.g. player wasn't in the lobby
