@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import {
@@ -199,6 +200,10 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
       })
     })
     .catch(err => {
-      ctx.log.error(err, 'checking for reconcilable results on submission failed')
+      if (err.code === UNIQUE_VIOLATION && err.constraint === 'matchmaking_rating_changes_pkey') {
+        ctx.log.info({ err }, 'another request already updated rating information')
+      }
+
+      ctx.log.error({ err }, 'checking for reconcilable results on submission failed')
     })
 }
