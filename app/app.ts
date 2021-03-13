@@ -378,15 +378,6 @@ async function createWindow() {
     title: 'ShieldBattery',
     webPreferences: {
       session: curSession,
-      /**
-       * Turn off backgroundThrottling so that our websocket connections time out less often when
-       * minimized to the system tray.
-       *
-       * TODO(tec27): Probably reasonable to try to throttle React re-renders when in this state,
-       * though? Especially if people are ingame, but maybe we can test how resource-hungry that is
-       * anyway given that we batch on rAF.
-       */
-      backgroundThrottling: false,
       // TODO(tec27): Implement other ways to IPC than using the remote module, it's slow, and a
       // potential security risk
       enableRemoteModule: true,
