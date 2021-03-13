@@ -74,9 +74,16 @@ export class WebsocketServer {
       }),
     )
 
-    this.nydus.on('error', err => {
-      log.error({ err }, 'nydus error')
-    })
+    this.nydus
+      .on('error', err => {
+        log.error({ err }, 'nydus error')
+      })
+      .on('invokeError', (err, client, msg) => {
+        log.error({ err }, `client ${client.id} triggered a server error on path ${msg.path}`)
+      })
+      .on('parserError', (client, msg) => {
+        log.error(`client ${client.id} send a message that was unparseable: ${msg}`)
+      })
 
     for (const handler of apiHandlers) {
       if (handler) {
