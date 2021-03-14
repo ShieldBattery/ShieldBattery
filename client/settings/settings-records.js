@@ -17,18 +17,18 @@ export const LocalSettings = new Record({
 })
 export const ScrSettings = new Record({
   // Input settings
-  keyboardScrollSpeed: -1,
-  mouseScrollSpeed: -1,
+  keyboardScrollSpeed: 0,
+  mouseScrollSpeed: 0,
   mouseSensitivityOn: false,
-  mouseSensitivity: -1,
+  mouseSensitivity: 0,
   mouseScalingOn: false,
   hardwareCursorOn: false,
   mouseConfineOn: false,
   // Sound settings
   musicOn: false,
-  musicVolume: -1,
+  musicVolume: 0,
   soundOn: false,
-  soundVolume: -1,
+  soundVolume: 0,
   unitSpeechOn: false,
   unitAcknowledgementsOn: false,
   backgroundSoundsOn: false,
@@ -37,10 +37,10 @@ export const ScrSettings = new Record({
   cinematicSubtitlesOn: false,
   originalVoiceOversOn: false,
   // Video settings
-  displayMode: -1,
+  displayMode: 0,
   fpsLimitOn: false,
-  fpsLimit: -1,
-  sdGraphicsFilter: -1,
+  fpsLimit: 0,
+  sdGraphicsFilter: 0,
   vsyncOn: false,
   hdGraphicsOn: false,
   environmentEffectsOn: false,
@@ -51,11 +51,11 @@ export const ScrSettings = new Record({
   // Gameplay settings
   gameTimerOn: false,
   colorCyclingOn: false,
-  unitPortraits: -1,
+  unitPortraits: 0,
   minimapPosition: false,
   apmDisplayOn: false,
   apmAlertOn: false,
-  apmAlertValue: -1,
+  apmAlertValue: 0,
   apmAlertColorOn: false,
   apmAlertSoundOn: false,
 })
