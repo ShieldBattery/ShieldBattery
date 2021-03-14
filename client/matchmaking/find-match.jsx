@@ -211,24 +211,33 @@ class Find1vs1MatchForm extends React.Component {
         <SectionTitle>Race</SectionTitle>
         <RaceSelect {...bindCustom('race')} size={RACE_PICKER_SIZE_LARGE} />
         {race !== 'r' ? (
-          <CheckBox
-            {...bindCheckable('useAlternateRace')}
-            label='Use alternate race to avoid mirror matchups'
-          />
-        ) : null}
-        {useAlternateRace ? (
-          <>
-            <SectionTitle>Alternate race</SectionTitle>
-            <DescriptionText>
-              Select a race to be used whenever your opponent has selected the same primary race.
-            </DescriptionText>
-            <RaceSelect
-              {...bindCustom('alternateRace')}
-              size={RACE_PICKER_SIZE_LARGE}
-              allowRandom={false}
+          <div>
+            <CheckBox
+              {...bindCheckable('useAlternateRace')}
+              label='Use alternate race to avoid mirror matchups'
             />
-          </>
-        ) : null}
+            {useAlternateRace ? (
+              <>
+                <SectionTitle>Alternate race</SectionTitle>
+                <DescriptionText>
+                  Select a race to be used whenever your opponent has selected the same primary
+                  race.
+                </DescriptionText>
+                <RaceSelect
+                  {...bindCustom('alternateRace')}
+                  size={RACE_PICKER_SIZE_LARGE}
+                  allowRandom={false}
+                />
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <CheckBox
+            checked={false}
+            disabled={true}
+            label='Use alternate race to avoid mirror matchups (disabled for random)'
+          />
+        )}
         <PreferredMapsContainer>
           <PreferredHeader>
             <SectionTitle>Preferred maps</SectionTitle>
