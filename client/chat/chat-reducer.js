@@ -98,7 +98,7 @@ function updateUserState(user, addTo, removeFirst, removeSecond) {
 
 // Update the messages field for a channel, keeping the hasUnread flag in proper sync.
 // updateFn is m => messages, and should perform the update operation on the messages field
-function updateMessages(state, channelName, updateFn) {
+function updateMessages(state, channelName, makesUnread, updateFn) {
   return state.updateIn(['byName', channelName.toLowerCase()], c => {
     let updated = updateFn(c.messages)
     if (updated === c.messages) {
@@ -113,7 +113,7 @@ function updateMessages(state, channelName, updateFn) {
 
     return c
       .set('messages', updated)
-      .set('hasUnread', c.hasUnread || !c.activated)
+      .set('hasUnread', makesUnread ? c.hasUnread || !c.activated : c.hasUnread)
       .set('hasHistory', c.hasHistory || sliced)
   })
 }
@@ -132,7 +132,7 @@ export default keyedReducer(new ChatState(), {
       .update('channels', c => c.add(channel))
       .setIn(['byName', channel.toLowerCase()], record)
 
-    return updateMessages(updated, channel, m => {
+    return updateMessages(updated, channel, true, m => {
       return m.push(
         new SelfJoinChannelMessage({
           id: cuid(),
@@ -152,7 +152,7 @@ export default keyedReducer(new ChatState(), {
     })
 
     // TODO(2Pac): make this configurable
-    return updateMessages(updated, channel, m => {
+    return updateMessages(updated, channel, true, m => {
       return m.push(
         new JoinChannelMessage({
           id: cuid(),
@@ -174,7 +174,7 @@ export default keyedReducer(new ChatState(), {
     })
 
     // TODO(2Pac): make this configurable
-    updated = updateMessages(updated, channel, m => {
+    updated = updateMessages(updated, channel, true, m => {
       return m.push(
         new LeaveChannelMessage({
           id: cuid(),
@@ -185,7 +185,7 @@ export default keyedReducer(new ChatState(), {
     })
 
     return newOwner
-      ? updateMessages(updated, channel, m => {
+      ? updateMessages(updated, channel, true, m => {
           return m.push(
             new NewChannelOwnerMessage({
               id: cuid(),
@@ -217,7 +217,7 @@ export default keyedReducer(new ChatState(), {
     const updated = state.updateIn(['byName', lowerCaseChannel, 'chatMessages'], m =>
       m.push(newMessage),
     )
-    return updateMessages(updated, channel, m => m.push(newMessage))
+    return updateMessages(updated, channel, true, m => m.push(newMessage))
   },
 
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
@@ -237,7 +237,7 @@ export default keyedReducer(new ChatState(), {
     }
 
     if (!wasIdle) {
-      updated = updateMessages(updated, channel, m => {
+      updated = updateMessages(updated, channel, false, m => {
         return m.push(
           new UserOnlineMessage({
             id: cuid(),
@@ -274,7 +274,7 @@ export default keyedReducer(new ChatState(), {
       return updated
     }
 
-    return updateMessages(updated, channel, m => {
+    return updateMessages(updated, channel, false, m => {
       return m.push(
         new UserOfflineMessage({
           id: cuid(),
@@ -312,7 +312,7 @@ export default keyedReducer(new ChatState(), {
     updated = updated.updateIn(['byName', lowerCaseChannel, 'chatMessages'], messages =>
       newMessages.concat(messages),
     )
-    return updateMessages(updated, channel, messages => newMessages.concat(messages))
+    return updateMessages(updated, channel, false, messages => newMessages.concat(messages))
   },
 
   [CHAT_LOAD_USER_LIST_BEGIN](state, action) {
