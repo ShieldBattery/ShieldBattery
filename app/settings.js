@@ -6,7 +6,7 @@ import log from './logger'
 import { findInstallPath } from './find-install-path'
 
 const VERSION = 6
-const SCR_VERSION = 1
+const SCR_VERSION = 2
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -283,7 +283,8 @@ export class ScrSettings extends Settings {
         this._settings = await this._createDefaults()
         await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       } else if (this._settings.version !== SCR_VERSION) {
-        // TODO(2Pac): Migrate SC:R settings when their version changes
+        this._settings = this._migrateOldScrSettings(this._settings)
+        await fsPromises.writeFile(this._filepath, jsonify(this._settings), { encoding: 'utf8' })
       }
 
       fs.watch(this._filepath, event => this._onFileChange(event))
@@ -325,6 +326,30 @@ export class ScrSettings extends Settings {
       version: SCR_VERSION,
       ...fromScrToSb(scrSettings),
     }
+  }
+
+  _migrateOldScrSettings(settings) {
+    const newSettings = { ...settings }
+    // Fix integer settings to not be negative
+    const intSettings = [
+      'keyboardScrollSpeed',
+      'mouseScrollSpeed',
+      'mouseSensitivity',
+      'musicVolume',
+      'soundVolume',
+      'displayMode',
+      'fpsLimit',
+      'sdGraphicsFilter',
+      'unitPortraits',
+      'apmAlertValue',
+    ]
+    for (const setting of intSettings) {
+      if (newSettings[setting] < 0) {
+        newSettings[setting] = 0
+      }
+    }
+    newSettings.version = SCR_VERSION
+    return newSettings
   }
 
   _onScrFileChange(event) {
