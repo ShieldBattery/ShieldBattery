@@ -44,7 +44,7 @@ function rallyPointHandler({ siteSocket }) {
 
   rallyPointManager.on('ping', (serverIndex, desc, ping) => {
     siteSocket.invoke('/rallyPoint/pingResult', { serverIndex, ping })
-    logger.verbose(`rally-point ping result: server ${serverIndex} at ${ping}ms`)
+    logger.verbose(`rally-point ping result: server [${serverIndex} - ${desc}] at ${ping}ms`)
   })
 }
 
