@@ -34,6 +34,9 @@ const Messages = styled.div`
   }
 `
 
+// TODO(tec27): make this a user setting
+const ONLINE_OFFLINE_DISABLED = true
+
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
 class PureMessageList extends React.Component {
@@ -55,9 +58,9 @@ class PureMessageList extends React.Component {
       case 'selfJoinChannel':
         return <SelfJoinChannelMessage key={id} record={msg} />
       case 'userOnline':
-        return <UserOnlineMessage key={id} record={msg} />
+        return ONLINE_OFFLINE_DISABLED ? null : <UserOnlineMessage key={id} record={msg} />
       case 'userOffline':
-        return <UserOfflineMessage key={id} record={msg} />
+        return ONLINE_OFFLINE_DISABLED ? null : <UserOfflineMessage key={id} record={msg} />
       default:
         return null
     }
