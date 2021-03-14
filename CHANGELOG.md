@@ -1,3 +1,37 @@
+#### 7.0.1 (March 13th, 2021)
+
+- **Game loading... or not.** We've fixed a number of issues around players leaving or getting
+  disconnected during game loads/countdowns in both matchmaking and lobbies. Previously these could
+  leave the server in a pretty weird state and potentially prevent you from joining more matches in
+  the future.
+- **tec27 has come online. tec27 has gone offline. tec27 has come online.** We've turned online and
+  offline messages off in chat for the moment, as they were being pretty obnoxious. In the future
+  we might make this a configurable option (although depending on how this feels, this might just
+  be how it is! Feedback welcome!).
+- **Zombies eradicated.** StarCraft should do a better job of exiting if it failed to launch a game,
+  no more creepy zombie clients hanging around in the background.
+- **Logs. The text kind, not the wood kind.** Accessing our clients log files for reporting issues
+  is now a lot easier! Right-click the icon in your system tray and find that shiny, new
+  "Open Logs Folder" action. We've also added a bunch of other diagnostic logging around
+  connections and game launching and such, so hopefully we can track down a few more of those
+  pesky launch issues. (And if you _are_ having launch issues, sending us your logs in our
+  <a href="https://discord.gg/S8dfMx94a4" target="_blank" rel="noopener">Discord</a> would be very
+  helpful!)
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+- **Vibrating mineral patches.** You're not going crazy, I promise. Those mineral patches really are
+  vibrating. This is an unintentional side-effect of our fog of war change for some users, we're
+  working on it!
+
 #### 7.0.0 (March 11th, 2021)
 
 - **Wow, it's been a while.** Sorry about that. The hurdles involved in supporting a game that was
