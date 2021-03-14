@@ -186,10 +186,10 @@ class Find1vs1MatchForm extends React.Component {
       getInputValue,
       onSubmit,
     } = this.props
+    const race = getInputValue('race')
     const useAlternateRace = getInputValue('useAlternateRace')
     const preferredMapsItems = Range(0, 2).map(index => {
       const map = preferredMaps.get(index)
-
       return (
         <PreferredMap key={index}>
           {map ? (
@@ -210,10 +210,12 @@ class Find1vs1MatchForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SectionTitle>Race</SectionTitle>
         <RaceSelect {...bindCustom('race')} size={RACE_PICKER_SIZE_LARGE} />
-        <CheckBox
-          {...bindCheckable('useAlternateRace')}
-          label='Use alternate race to avoid mirror matchups'
-        />
+        {race !== 'r' ? (
+          <CheckBox
+            {...bindCheckable('useAlternateRace')}
+            label='Use alternate race to avoid mirror matchups'
+          />
+        ) : null}
         {useAlternateRace ? (
           <>
             <SectionTitle>Alternate race</SectionTitle>
