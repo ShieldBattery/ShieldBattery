@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styled from 'styled-components'
+import styled, { css, keyframes } from 'styled-components'
 
 import { ButtonCommon } from '../material/button'
 
@@ -37,6 +37,18 @@ const Container = styled(ButtonCommon)`
   }}
 `
 
+const glowScale = keyframes`
+  from {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+
+  to {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+`
+
 const IconContainer = styled.div`
   position: relative;
   width: 36px;
@@ -52,10 +64,12 @@ const IconContainer = styled.div`
 
   ${props => {
     if (props.glowing) {
-      return `
+      return css`
         svg:first-child {
           fill: ${blue50};
           filter: blur(4px);
+          will-change: transform;
+          animation: 2s ${glowScale} ease-out infinite alternate both;
         }
       `
     }
