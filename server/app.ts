@@ -6,7 +6,6 @@ import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
-import Csrf from 'koa-csrf'
 import koaError from 'koa-error'
 import views from 'koa-views'
 import net from 'net'
@@ -18,12 +17,11 @@ import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
-import onlyWebClients from './lib/network/only-web-clients'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import pingRegistry from './lib/rally-point/ping-registry'
 import routeCreator from './lib/rally-point/route-creator'
+import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
-import csrfCookie from './lib/security/csrf-cookie'
 import secureHeaders from './lib/security/headers'
 import secureJson from './lib/security/json'
 import sessionMiddleware from './lib/session/middleware'
@@ -202,11 +200,10 @@ app
     }),
   )
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
+  .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
   .use(sessionMiddleware)
   .use(cors())
-  .use(onlyWebClients(csrfCookie()))
-  .use(onlyWebClients(new Csrf()))
   .use(secureHeaders())
   .use(secureJson())
   .use(userIpsMiddleware())

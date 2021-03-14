@@ -6,9 +6,6 @@ declare module 'koa' {
   // extending the final `Context` type (and make TS complain about these properties missing on
   // `RouterContext`)
   interface ExtendableContext {
-    // for koa-csrf
-    csrf: string
-
     // for koa-generic-session
     session: Session | null
     sessionSave: boolean | null

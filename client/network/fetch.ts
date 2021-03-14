@@ -1,7 +1,6 @@
 import { Readable } from 'stream'
 import 'whatwg-fetch'
 import { FetchError } from './fetch-action-types'
-import readCookies from './read-cookies'
 import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
@@ -34,7 +33,6 @@ const DEFAULT_HEADERS: Record<string, string> = IS_ELECTRON
   : {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-XSRF-TOKEN': readCookies()['XSRF-TOKEN'],
     }
 
 const defaults: RequestInit = {
