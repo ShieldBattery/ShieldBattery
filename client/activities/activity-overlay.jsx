@@ -13,6 +13,7 @@ import { dialogScrim, grey850 } from '../styles/colors'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
+import { standardIncrement } from '../material/units'
 
 const {
   FindMatch,
@@ -59,7 +60,7 @@ const Overlay = styled.div`
   ${shadow8dp};
   position: fixed;
   right: 0;
-  top: 0;
+  top: ${standardIncrement};
   bottom: 0;
   width: 60%;
   min-width: 448px;
