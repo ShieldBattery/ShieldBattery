@@ -16,6 +16,7 @@ import EditIcon from '../icons/material/edit-24px.svg'
 import FeedbackIcon from '../icons/material/ic_feedback_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
 
+import EmailVerificationNotification from '../auth/email-verification-notification'
 import ChatNavEntry from '../chat/nav-entry'
 import GameActivityNavEntry from '../active-game/game-activity-nav-entry'
 import LobbyNavEntry from '../lobbies/nav-entry'
@@ -255,6 +256,15 @@ class ConnectedLeftNav extends React.Component {
         onProfileEntryClick={this.onProfileEntryClick}
       />,
     ]
+
+    if (!auth.emailVerified) {
+      footer.unshift(
+        <EmailVerificationNotification
+          key='email'
+          sendVerificationEmail={this.sendVerificationEmail}
+        />,
+      )
+    }
 
     return (
       <LeftNav footer={footer}>

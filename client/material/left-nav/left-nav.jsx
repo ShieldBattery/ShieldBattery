@@ -4,12 +4,7 @@ import styled from 'styled-components'
 
 import { colorBackground } from '../../styles/colors'
 
-const Footer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-`
+const Footer = styled.div``
 
 const Container = styled.nav`
   width: 240px;

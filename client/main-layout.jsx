@@ -310,9 +310,6 @@ class MainLayout extends React.Component {
     return (
       <Container>
         <AppBar>{appBarTitle}</AppBar>
-        {!auth.emailVerified ? (
-          <EmailVerificationNotification sendVerificationEmail={this.sendVerificationEmail} />
-        ) : null}
         <Layout>
           <ConnectedLeftNav />
           <Content>
