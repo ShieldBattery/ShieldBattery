@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import styled from 'styled-components'
+import logger from '../logging/logger'
 import LoadingIndicator from '../progress/dots'
 import { colorTextSecondary } from '../styles/colors'
 import { headline5 } from '../styles/typography'
@@ -42,7 +43,10 @@ export default function SiteConnectedFilter(props: SiteConnectedFilterProps) {
 
   useEffect(() => {
     siteSocket.connect()
-    return () => siteSocket.disconnect()
+    return () => {
+      logger.verbose('SiteConnectedFilter unmounted, disconnecting siteSocket')
+      siteSocket.disconnect()
+    }
   }, [])
 
   // TODO(tec27): just render an overlay if we were previously connected? (This would help avoid
