@@ -247,9 +247,9 @@ export function fromScrToSb(scrSettings) {
   return Object.entries(scrSettings).reduce((acc, [name, value]) => {
     const sbKeyName = scrToSbMapping.get(name)
 
-    if (!sbKeyName) return acc
-
-    acc[sbKeyName] = value
+    if (sbKeyName) {
+      acc[sbKeyName] = value
+    }
 
     return acc
   }, {})
@@ -259,7 +259,9 @@ export function fromSbToScr(sbSettings) {
   return Object.entries(sbSettings).reduce((acc, [name, value]) => {
     const scrKeyName = sbToScrMapping.get(name)
 
-    acc[scrKeyName] = value
+    if (scrKeyName) {
+      acc[scrKeyName] = value
+    }
 
     return acc
   }, {})
