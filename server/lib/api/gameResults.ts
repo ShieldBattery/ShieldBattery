@@ -202,8 +202,11 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
     .catch(err => {
       if (err.code === UNIQUE_VIOLATION && err.constraint === 'matchmaking_rating_changes_pkey') {
         ctx.log.info({ err }, 'another request already updated rating information')
+      } else {
+        ctx.log.error(
+          { err },
+          'checking for and/or updating reconcilable results on submission failed',
+        )
       }
-
-      ctx.log.error({ err }, 'checking for reconcilable results on submission failed')
     })
 }
