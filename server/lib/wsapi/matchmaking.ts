@@ -148,27 +148,28 @@ export class MatchmakingApi {
       let slots: List<Slot>
       const players = matchInfo.players
       const firstPlayer = players.first<MatchmakingPlayer>()
-      const playersHaveSameRace = players.every(p => p.race === firstPlayer.race)
+      const playersHaveSameRace =
+        firstPlayer.race !== 'r' && players.every(p => p.race === firstPlayer.race)
       if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
-        // All players have the same race and want to use an alternate race; select randomly one
-        // player to use the alternate race and everyone else their main race. This is only done for
-        // the first player, as the whole concept of the alternate race doesn't make much sense when
-        // there are more than two players.
+        // All players have the same race other than random and want to use an alternate race;
+        // select randomly one player to use the alternate race and everyone else their main race.
+        // This is only done for the first player, as the whole concept of the alternate race
+        // doesn't make much sense when there are more than two players.
         const randomPlayerIndex = getRandomInt(players.size)
         slots = players.map((p, i) =>
           createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
         )
       } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
-        // All players have the same race, but only some of them are choosing to use an alternate
-        // race; find the first player who wants to use the alternate race and have everyone else
-        // use their main. Again, this is only done for the first player.
+        // All players have the same race other than random, but only some of them are choosing
+        // to use an alternate race; find the first player who wants to use the alternate race and
+        // have everyone else use their main. Again, this is only done for the first player.
         const useAlternateRacePlayer = players.find(p => p.useAlternateRace === true)!
         slots = players.map(p =>
           createHuman(p.name, p.id, p.id === useAlternateRacePlayer.id ? p.alternateRace : p.race),
         )
       } else {
-        // All players have different race or don't want to use alternate race; nothing special to
-        // do here.
+        // All players have different races or don't want to use alternate race
+        // or at least one selected random; nothing special to do here and let BW do the rest
         slots = players.map(p => createHuman(p.name, p.id, p.race))
       }
 

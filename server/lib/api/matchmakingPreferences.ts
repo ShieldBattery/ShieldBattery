@@ -57,6 +57,10 @@ async function upsertPreferences(ctx: RouterContext) {
     throw new httpErrors.BadRequest('invalid matchmaking type')
   }
 
+  if (race === 'r' && useAlternateRace === true) {
+    throw new httpErrors.BadRequest('cannot use alternate race as random')
+  }
+
   const preferences = await upsertMatchmakingPreferences(ctx.session!.userId, {
     matchmakingType,
     race,
