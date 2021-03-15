@@ -33,11 +33,17 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
-`
 
-const UserListSection = styled.div`
   padding-left: 8px;
   padding-right: 8px;
+`
+
+const userListRow = css`
+  ${singleLine};
+
+  margin: 0;
+  padding: 0 8px;
+  line-height: 36px;
 
   &:first-child {
     margin-top: 8px;
@@ -46,46 +52,32 @@ const UserListSection = styled.div`
   &:last-child {
     margin-bottom: 8px;
   }
-
-  & + & {
-    margin-top: 24px;
-  }
-`
-
-const userListRow = css`
-  ${singleLine};
-
-  height: 36px;
-  margin: 0;
-  padding: 0 8px;
-  line-height: 36px;
 `
 
 const UserListOverline = styled.div`
   ${overline}
   ${userListRow};
+  height: 36px;
   color: ${colorTextSecondary};
 `
 
-const UserSublist = styled.ul`
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
+const StyledAvatar = styled(Avatar)`
+  width: 32px;
+  height: 32px;
 
-  ${props => {
-    if (props.faded) {
-      return `
-        color: ${colorTextSecondary};
-        ${StyledAvatar} {
-          opacity: ${alphaDisabled};
-        }
-      `
-    }
-    return ''
-  }}
+  display: inline-block;
+
+  margin: 2px 16px 2px 0;
 `
 
-const UserListEntryItem = styled.li`
+const fadedCss = css`
+  color: ${colorTextSecondary};
+  ${StyledAvatar} {
+    opacity: ${alphaDisabled};
+  }
+`
+
+const UserListEntryItem = styled.div`
   ${body2};
   ${userListRow};
   height: 44px;
@@ -103,15 +95,17 @@ const UserListEntryItem = styled.li`
     }
     return ''
   }}
-`
 
-const StyledAvatar = styled(Avatar)`
-  width: 32px;
-  height: 32px;
+  ${props => {
+    if (props.faded) {
+      return fadedCss
+    }
+    return ''
+  }}
 
-  display: inline-block;
-
-  margin: 2px 16px 2px 0;
+  & + ${UserListOverline} {
+    margin-top: 24px;
+  }
 `
 
 const UserListName = styled.span`
@@ -123,6 +117,7 @@ class UserListEntry extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     onWhisperClick: PropTypes.func.isRequired,
+    faded: PropTypes.bool,
   }
 
   state = {
@@ -146,14 +141,15 @@ class UserListEntry extends React.Component {
   render() {
     return (
       <>
+        {this.renderUserOverlay()}
         <UserListEntryItem
           ref={this._userEntryRef}
+          faded={!!this.props.faded}
           isOverlayOpen={this.state.userOverlayOpen}
           onClick={this.onOpenUserOverlay}>
           <StyledAvatar user={this.props.user} />
           <UserListName>{this.props.user}</UserListName>
         </UserListEntryItem>
-        {this.renderUserOverlay()}
       </>
     )
   }
@@ -189,16 +185,19 @@ class UserList extends React.Component {
     const faded = title === 'Offline'
 
     return (
-      <UserListSection>
+      <>
         <UserListOverline>
           {title} ({users.size})
         </UserListOverline>
-        <UserSublist faded={faded}>
-          {users.map(u => (
-            <UserListEntry user={u} key={u} onWhisperClick={this.props.onWhisperClick} />
-          ))}
-        </UserSublist>
-      </UserListSection>
+        {users.map(u => (
+          <UserListEntry
+            user={u}
+            key={u}
+            onWhisperClick={this.props.onWhisperClick}
+            faded={faded}
+          />
+        ))}
+      </>
     )
   }
 
