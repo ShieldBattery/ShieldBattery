@@ -6,6 +6,8 @@ import {
   colorBackground,
   colorTextFaint,
   colorTextPrimary,
+  grey500,
+  grey600,
   grey700,
   grey800,
 } from './colors'
@@ -60,15 +62,51 @@ const GlobalStyle = createGlobalStyle`
 
   input:-webkit-autofill {
     -webkit-box-shadow: 0 0 0px 1000px ${grey800} inset !important;
+    box-shadow: 0 0 0px 1000px ${grey800} inset !important;
     -webkit-text-fill-color: ${colorTextPrimary} !important;
     caret-color: #fff !important;
 
     ${CardLayer} & {
       -webkit-box-shadow: 0 0 0px 1000px ${grey700} inset !important;
+      box-shadow: 0 0 0px 1000px ${grey700} inset !important;
       -webkit-text-fill-color: ${colorTextPrimary} !important;
       caret-color: #fff !important;
     }
   }
+
+  /** Style default scrollbar (at least in Webkit-based browsers) */
+  *::-webkit-scrollbar {
+    width: 16px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background-color: ${grey800};
+    border-radius: 2px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    width: 100%;
+    border: 2px solid transparent;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: ${grey600};
+    background-clip: padding-box;
+    /**
+     * NOTE(tec27): This is more than the "usual" because it is inside of something that already
+     * has border-radius, this makes it appear to match the outer radius
+     */
+    border-radius: 4px;
+
+    &:hover, &:active {
+      background-color: ${grey500};
+    }
+  }
+
+  *::-webkit-scrollbar-button:start:decrement,
+  *::-webkit-scrollbar-button:end:increment {
+    height: 0px;
+  }
+  /** End scrollbar styling */
 `
 
 export default GlobalStyle
