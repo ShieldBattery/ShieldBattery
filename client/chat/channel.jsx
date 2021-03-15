@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { push } from 'connected-react-router'
 import styled, { css } from 'styled-components'
+import { List as VirtualizedList } from 'react-virtualized'
 import {
   sendMessage,
   retrieveInitialMessageHistory,
@@ -20,7 +21,6 @@ import LoadingIndicator from '../progress/dots'
 import MessageList from '../messaging/message-list'
 import MenuItem from '../material/menu/item'
 import UserProfileOverlay from '../profile/user-profile-overlay'
-import { ScrollableContent } from '../material/scroll-bar'
 import { colorDividers, colorTextSecondary, alphaDisabled } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 
@@ -33,32 +33,30 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
-
-  padding-left: 8px;
-  padding-right: 8px;
 `
 
 const userListRow = css`
   ${singleLine};
 
-  margin: 0;
+  margin: 0 8px;
   padding: 0 8px;
   line-height: 36px;
-
-  &:first-child {
-    margin-top: 8px;
-  }
-
-  &:last-child {
-    margin-bottom: 8px;
-  }
 `
+
+const OVERLINE_HEIGHT = 36 + 24
+const FIRST_OVERLINE_HEIGHT = 36 + 8
 
 const UserListOverline = styled.div`
   ${overline}
   ${userListRow};
-  height: 36px;
+  height: ${OVERLINE_HEIGHT}px;
   color: ${colorTextSecondary};
+
+  padding-top: 24px;
+
+  &:first-child {
+    padding-top: 8px;
+  }
 `
 
 const StyledAvatar = styled(Avatar)`
@@ -77,10 +75,13 @@ const fadedCss = css`
   }
 `
 
+const USER_ENTRY_HEIGHT = 44
+
 const UserListEntryItem = styled.div`
   ${body2};
   ${userListRow};
-  height: 44px;
+  height: ${USER_ENTRY_HEIGHT}px;
+  border-radius: 2px;
   padding-top: 4px;
   padding-bottom: 4px;
 
@@ -102,10 +103,13 @@ const UserListEntryItem = styled.div`
     }
     return ''
   }}
+`
 
-  & + ${UserListOverline} {
-    margin-top: 24px;
-  }
+const USER_LIST_PADDING_HEIGHT = 8
+
+const UserListPadding = styled.div`
+  width: 100%;
+  height: ${USER_LIST_PADDING_HEIGHT}px;
 `
 
 const UserListName = styled.span`
@@ -113,59 +117,57 @@ const UserListName = styled.span`
   display: inline-block;
 `
 
-class UserListEntry extends React.Component {
-  static propTypes = {
-    user: PropTypes.string.isRequired,
-    onWhisperClick: PropTypes.func.isRequired,
-    faded: PropTypes.bool,
-  }
+const UserListEntry = React.memo(props => {
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const userEntryRef = useRef(null)
 
-  state = {
-    userOverlayOpen: false,
-  }
+  const onOpenOverlay = useCallback(() => {
+    setOverlayOpen(true)
+  }, [])
+  const onCloseOverlay = useCallback(() => {
+    setOverlayOpen(false)
+  }, [])
+  const onWhisperClick = useCallback(() => {
+    props.onWhisperClick(props.user)
+  }, [props.onWhisperClick, props.user])
 
-  _userEntryRef = React.createRef()
-
-  renderUserOverlay() {
-    return (
+  return (
+    <div style={props.style}>
       <UserProfileOverlay
-        open={this.state.userOverlayOpen}
-        onDismiss={this.onCloseUserOverlay}
-        anchor={this._userEntryRef.current}
-        user={this.props.user}>
-        <MenuItem text='Whisper' onClick={this.onWhisperClick} />
+        key={'overlay'}
+        open={overlayOpen}
+        onDismiss={onCloseOverlay}
+        anchor={userEntryRef.current}
+        user={props.user}>
+        <MenuItem text='Whisper' onClick={onWhisperClick} />
       </UserProfileOverlay>
-    )
-  }
 
-  render() {
-    return (
-      <>
-        {this.renderUserOverlay()}
-        <UserListEntryItem
-          ref={this._userEntryRef}
-          faded={!!this.props.faded}
-          isOverlayOpen={this.state.userOverlayOpen}
-          onClick={this.onOpenUserOverlay}>
-          <StyledAvatar user={this.props.user} />
-          <UserListName>{this.props.user}</UserListName>
-        </UserListEntryItem>
-      </>
-    )
-  }
+      <UserListEntryItem
+        ref={userEntryRef}
+        key={'entry'}
+        faded={!!props.faded}
+        isOverlayOpen={overlayOpen}
+        onClick={onOpenOverlay}>
+        <StyledAvatar user={props.user} />
+        <UserListName>{props.user}</UserListName>
+      </UserListEntryItem>
+    </div>
+  )
+})
 
-  onOpenUserOverlay = () => {
-    this.setState({ userOverlayOpen: true })
-  }
-
-  onCloseUserOverlay = () => {
-    this.setState({ userOverlayOpen: false })
-  }
-
-  onWhisperClick = () => {
-    this.props.onWhisperClick(this.props.user)
-  }
+UserListEntry.propTypes = {
+  user: PropTypes.string.isRequired,
+  onWhisperClick: PropTypes.func.isRequired,
+  faded: PropTypes.bool,
+  style: PropTypes.any,
 }
+
+const UsersVirtualizedList = styled(VirtualizedList)`
+  &:focus,
+  & > div:focus {
+    outline: none;
+  }
+`
 
 class UserList extends React.Component {
   static propTypes = {
@@ -173,43 +175,135 @@ class UserList extends React.Component {
     onWhisperClick: PropTypes.func.isRequired,
   }
 
+  _contentRef = React.createRef()
+
   shouldComponentUpdate(nextProps) {
     return this.props.users !== nextProps.users
   }
 
-  renderSection(title, users) {
-    if (!users.size) {
-      return null
+  getRowHeight = ({ index }) => {
+    const { active, idle, offline } = this.props.users
+    if (index === 0) {
+      return FIRST_OVERLINE_HEIGHT
+    } else if (index < active.size + 1) {
+      return USER_ENTRY_HEIGHT
     }
 
-    const faded = title === 'Offline'
+    let i = index - (active.size + 1)
+    if (idle.size) {
+      if (i === 0) {
+        return OVERLINE_HEIGHT
+      } else if (i < idle.size + 1) {
+        return USER_ENTRY_HEIGHT
+      }
 
-    return (
-      <>
-        <UserListOverline>
-          {title} ({users.size})
+      i -= idle.size + 1
+    }
+
+    if (offline.size) {
+      if (i === 0) {
+        return OVERLINE_HEIGHT
+      } else if (i < offline.size + 1) {
+        return USER_ENTRY_HEIGHT
+      }
+
+      i -= offline.size + 1
+    }
+
+    if (i === 0) {
+      return USER_LIST_PADDING_HEIGHT
+    }
+
+    throw new Error('Asked to size nonexistent user: ' + index)
+  }
+
+  renderRow = ({ index, style }) => {
+    const { active, idle, offline } = this.props.users
+    if (index === 0) {
+      // NOTE(tec27): We know the active header is always visible because this user is online
+      return (
+        <UserListOverline style={style} key={index}>
+          Active ({active.size})
         </UserListOverline>
-        {users.map(u => (
+      )
+    } else if (index < active.size + 1) {
+      return (
+        <UserListEntry
+          style={style}
+          user={active.get(index - 1)}
+          key={index}
+          onWhisperClick={this.props.onWhisperClick}
+        />
+      )
+    }
+
+    let i = index - (active.size + 1)
+    if (idle.size) {
+      if (i === 0) {
+        return (
+          <UserListOverline style={style} key={index}>
+            Idle ({idle.size})
+          </UserListOverline>
+        )
+      } else if (i < idle.size + 1) {
+        return (
           <UserListEntry
-            user={u}
-            key={u}
+            style={style}
+            user={idle.get(i - 1)}
+            key={index}
             onWhisperClick={this.props.onWhisperClick}
-            faded={faded}
           />
-        ))}
-      </>
-    )
+        )
+      }
+
+      i -= idle.size + 1
+    }
+
+    if (offline.size) {
+      if (i === 0) {
+        return (
+          <UserListOverline style={style} key={index}>
+            Offline ({offline.size})
+          </UserListOverline>
+        )
+      } else if (i < offline.size + 1) {
+        return (
+          <UserListEntry
+            style={style}
+            user={offline.get(i - 1)}
+            key={index}
+            onWhisperClick={this.props.onWhisperClick}
+            faded={true}
+          />
+        )
+      }
+
+      i -= offline.size + 1
+    }
+
+    if (i === 0) {
+      return <UserListPadding style={style} key={index} />
+    }
+
+    throw new Error('Asked to render nonexistent user: ' + index)
   }
 
   render() {
+    const width = this._contentRef.current?.clientWidth ?? 0
+    const height = this._contentRef.current?.clientHeight ?? 0
     const { active, idle, offline } = this.props.users
+    const rowCount =
+      1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size + 1
+
     return (
-      <UserListContainer>
-        <ScrollableContent>
-          {this.renderSection('Active', active)}
-          {this.renderSection('Idle', idle)}
-          {this.renderSection('Offline', offline)}
-        </ScrollableContent>
+      <UserListContainer ref={this._contentRef}>
+        <UsersVirtualizedList
+          width={width}
+          height={height}
+          rowCount={rowCount}
+          rowHeight={this.getRowHeight}
+          rowRenderer={this.renderRow}
+        />
       </UserListContainer>
     )
   }

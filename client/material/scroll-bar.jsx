@@ -79,6 +79,11 @@ function renderThumbVertical({ style }) {
   return <ThumbVertical style={style} />
 }
 
+/**
+ * A scrollable area that uses our custom scrollbar
+ *
+ * @deprecated Just use normal scrollbars instead, this has all kinds of weird layout properties
+ */
 export class ScrollableContent extends React.Component {
   static propTypes = {
     viewElement: PropTypes.element,
