@@ -6,8 +6,6 @@ import {
   colorBackground,
   colorTextFaint,
   colorTextPrimary,
-  grey500,
-  grey600,
   grey700,
   grey800,
 } from './colors'
@@ -80,7 +78,7 @@ const GlobalStyle = createGlobalStyle`
   }
 
   *::-webkit-scrollbar-track {
-    background-color: ${grey800};
+    background-color: rgba(255, 255, 255, 0.08);
     border-radius: 2px;
   }
 
@@ -89,7 +87,7 @@ const GlobalStyle = createGlobalStyle`
     border: 2px solid transparent;
     margin-left: auto;
     margin-right: auto;
-    background-color: ${grey600};
+    background-color: rgba(255, 255, 255, 0.12);
     background-clip: padding-box;
     /**
      * NOTE(tec27): This is more than the "usual" because it is inside of something that already
@@ -98,7 +96,7 @@ const GlobalStyle = createGlobalStyle`
     border-radius: 4px;
 
     &:hover, &:active {
-      background-color: ${grey500};
+      background-color: rgba(255, 255, 255, 0.16);
     }
   }
 
