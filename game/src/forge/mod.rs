@@ -340,6 +340,7 @@ unsafe extern "system" fn wnd_proc_scr(
 
 unsafe fn msg_game_started(window: HWND) {
     let mut display_change_request = None;
+    debug!("Forge: Game started");
     with_forge(|forge| {
         forge.game_started = true;
         // This request must be handled while forge is not being accessed,
