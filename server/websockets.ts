@@ -104,8 +104,13 @@ export class WebsocketServer {
       }
     })
 
-    // TODO(tec27): this timer can be longer (like 5 minutes) but is shorter for demo purposes
-    setInterval(() => this.nydus.publish('/status', { users: this.connectedUsers }), 1 * 60 * 1000)
+    let lastConnectedUsers = 0
+    setInterval(() => {
+      if (this.connectedUsers !== lastConnectedUsers) {
+        lastConnectedUsers = this.connectedUsers
+        this.nydus.publish('/status', { users: lastConnectedUsers })
+      }
+    }, 1 * 60 * 1000)
   }
 
   async onAuthorization(
