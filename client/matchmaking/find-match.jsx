@@ -215,13 +215,7 @@ class Find1vs1MatchForm extends React.Component {
             {...bindCheckable('useAlternateRace')}
             label='Use alternate race to avoid mirror matchups'
           />
-        ) : (
-          <CheckBox
-            checked={false}
-            disabled={true}
-            label='Use alternate race to avoid mirror matchups (disabled for random)'
-          />
-        )}
+        ) : null}
         {useAlternateRace ? (
           <>
             <SectionTitle>Alternate race</SectionTitle>
