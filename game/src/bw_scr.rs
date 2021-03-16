@@ -15,9 +15,11 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
 use parking_lot::Mutex;
-use scr_analysis::scarf;
+use scr_analysis::{DatType, scarf};
 use smallvec::SmallVec;
 use winapi::um::libloaderapi::{GetModuleHandleW};
+
+use bw_dat::UnitId;
 
 use crate::bw::{self, Bw, FowSpriteIterator, StormPlayerId};
 use crate::bw::commands;
@@ -54,6 +56,7 @@ pub struct BwScr {
     local_player_name: Value<*mut u8>,
     fonts: Value<*mut *mut scr::Font>,
     first_active_unit: Value<*mut bw::Unit>,
+    client_selection: Value<*mut *mut bw::Unit>,
     sprites_by_y_tile: Value<*mut *mut scr::Sprite>,
     sprites_by_y_tile_end: Value<*mut *mut scr::Sprite>,
     sprite_x: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
@@ -64,6 +67,12 @@ pub struct BwScr {
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
     free_images: LinkedList<bw::Image>,
+
+    // Array of bw::UnitStatusFunc for each unit id,
+    // called to update what controls on status screen are shown if the unit
+    // is single selected.
+    status_screen_funcs: Option<scarf::VirtualAddress>,
+    original_status_screen_update: Vec<unsafe extern fn(*mut bw::Dialog)>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
     step_network: unsafe extern "C" fn(),
@@ -823,6 +832,7 @@ impl BwScr {
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
+        let client_selection = analysis.client_selection().ok_or("client_selection")?;
         let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
         let sprite_y = analysis.sprite_y().ok_or("sprite_y")?;
         let sprites_by_y_tile = analysis.sprites_by_y_tile_start()
@@ -868,6 +878,18 @@ impl BwScr {
 
         let replay_minimap_patch = analysis.replay_minimap_unexplored_fog_patch();
 
+        let status_screen_funcs = analysis.status_screen_funcs();
+        let original_status_screen_update = if let Some(arr) = status_screen_funcs {
+            unsafe {
+                let arr = arr.0 as *const bw::UnitStatusFunc;
+                (0..228).map(|i| (*arr.add(i)).update_status).collect()
+            }
+        } else {
+            Vec::new()
+        };
+
+        init_bw_dat(&mut analysis)?;
+
         debug!("Found all necessary BW data");
 
         let sdf_cache = Arc::new(InitSdfCache::new());
@@ -893,6 +915,7 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
+            client_selection: Value::new(ctx, client_selection),
             sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
             sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
             sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
@@ -903,6 +926,8 @@ impl BwScr {
             active_fow_sprites,
             free_fow_sprites,
             free_images,
+            status_screen_funcs,
+            original_status_screen_update,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
@@ -1082,6 +1107,30 @@ impl BwScr {
         exe.hook_closure_address(OpenFile, move |a, b, c, orig| {
             file_hook::open_file_hook(self, a, b, c, orig)
         }, address);
+
+        if let Some(funcs) = self.status_screen_funcs {
+            let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
+            for func in funcs {
+                unsafe extern fn always_true() -> u32 {
+                    1
+                }
+                unsafe extern fn update_status(status_screen: *mut bw::Dialog) {
+                    let bw = bw::get_bw();
+                    let selected = match bw.client_selection()[0] {
+                        Some(s) => s,
+                        None => return,
+                    };
+                    bw.call_original_status_screen_fn(selected.id(), status_screen);
+                    let status_screen = bw_dat::dialog::Dialog::new(status_screen);
+                    game_thread::after_status_screen_update(bw, status_screen, selected);
+                }
+                // Updating status every frame by always returning 1 from has_changed
+                // should be very cheap relative to other SC:R stuff, and allows us
+                // to intercept the dialog layout with less work.
+                func.has_changed = always_true;
+                func.update_status = update_status;
+            }
+        }
 
         self.patch_shaders(&mut exe, base);
 
@@ -1313,7 +1362,13 @@ impl BwScr {
                 flags: (*in_image).flags,
                 x_offset: (*in_image).x_offset,
                 y_offset: (*in_image).y_offset,
-                iscript: (*in_image).iscript,
+                iscript: bw::Iscript {
+                    header: (*in_image).iscript.header,
+                    pos: (*in_image).iscript.pos,
+                    return_pos: (*in_image).iscript.return_pos,
+                    animation: (*in_image).iscript.animation,
+                    wait: (*in_image).iscript.wait,
+                },
                 frameset: (*in_image).frameset,
                 frame: (*in_image).frame,
                 map_position: (*in_image).map_position,
@@ -1323,7 +1378,7 @@ impl BwScr {
                 drawfunc_param: (*in_image).drawfunc_param,
                 draw: (*in_image).draw,
                 step_frame: (*in_image).step_frame,
-                parent: sprite.value() as *mut c_void,
+                parent: sprite.value() as *mut bw::Sprite,
             };
             if in_image == (*in_sprite).main_image {
                 (*sprite.value()).main_image = image.value();
@@ -1792,6 +1847,15 @@ impl bw::Bw for BwScr {
         }
     }
 
+    unsafe fn client_selection(&self) -> [Option<Unit>; 12] {
+        let selection = self.client_selection.resolve();
+        let mut out = [None; 12];
+        for i in 0..12 {
+            out[i] = Unit::from_ptr(*selection.add(i));
+        }
+        out
+    }
+
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
         let ptr = self.storm_players.resolve();
         let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
@@ -1820,6 +1884,61 @@ impl bw::Bw for BwScr {
     unsafe fn storm_set_last_error(&self, error: u32) {
         *self.storm_last_error_ptr() = error;
     }
+
+    unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut bw::Dialog) {
+        if let Some(&func) = self.original_status_screen_update.get(unit_id.0 as usize) {
+            func(dialog);
+        }
+    }
+}
+
+fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static str> {
+    unsafe fn copy_dat_table(
+        table: &scr_analysis::DatTablePtr<'_>,
+        out: &mut Vec<bw::DatTable>,
+        entries: usize,
+    ) {
+        // Dat tables in SC:R memory have at least one extra field, bw_dat expects
+        // 1.16.1 compatible format.
+        let mut value = resolve_operand(table.address, &[]) as *const u8;
+        for _ in 0..entries {
+            out.push(bw::DatTable {
+                data: *(value as *const _),
+                entry_size: *(value.add(4) as *const u32),
+                entries: *(value.add(8) as *const u32),
+            });
+            value = value.add(table.entry_size as usize);
+        }
+    }
+
+    let units = analysis.dat_table(DatType::Units).ok_or("units.dat")?;
+    let weapons = analysis.dat_table(DatType::Weapons).ok_or("weapons.dat")?;
+    let upgrades = analysis.dat_table(DatType::Upgrades).ok_or("upgrades.dat")?;
+    let techdata = analysis.dat_table(DatType::TechData).ok_or("techdata.dat")?;
+    let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
+    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13);
+    let malloc = analysis.smem_alloc().ok_or("SMemAlloc")?;
+    let free = analysis.smem_free().ok_or("SMemFree")?;
+    unsafe {
+        copy_dat_table(&units, &mut out, 0x36);
+        copy_dat_table(&weapons, &mut out, 0x18);
+        copy_dat_table(&upgrades, &mut out, 0xc);
+        copy_dat_table(&techdata, &mut out, 0xb);
+        copy_dat_table(&orders, &mut out, 0x13);
+        let mut table = out.leak().as_ptr();
+        bw_dat::init_units(table, 0x36);
+        table = table.add(0x36);
+        bw_dat::init_weapons(table, 0x18);
+        table = table.add(0x18);
+        bw_dat::init_upgrades(table, 0xc);
+        table = table.add(0xc);
+        bw_dat::init_techdata(table, 0xb);
+        table = table.add(0xb);
+        bw_dat::init_orders(table, 0x13);
+        bw_dat::set_is_scr(true);
+        bw_dat::set_bw_malloc(mem::transmute(malloc.0), mem::transmute(free.0));
+    }
+    Ok(())
 }
 
 fn get_exe_build() -> u32 {

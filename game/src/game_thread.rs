@@ -6,7 +6,11 @@ use std::sync::{Arc, Mutex};
 use byteorder::{ByteOrder, LittleEndian};
 use fxhash::FxHashSet;
 use lazy_static::lazy_static;
+use libc::c_void;
 use once_cell::sync::OnceCell;
+
+use bw_dat::dialog::Dialog;
+use bw_dat::{Unit, UnitId};
 
 use crate::app_messages::{GameSetupInfo};
 use crate::bw::{self, Bw, get_bw, StormPlayerId};
@@ -296,7 +300,7 @@ pub unsafe fn after_step_game() {
         for fow in bw.fow_sprites() {
             let sprite = (*fow).sprite;
             let pos = bw.sprite_position(sprite);
-            fow_sprites.insert((pos.x, pos.y, (*fow).unit_id));
+            fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
         }
         for unit in bw.active_units() {
             if unit.player() == 11 && unit.is_landed_building() {
@@ -305,7 +309,7 @@ pub unsafe fn after_step_game() {
                 // desired, checking that `sprite.player == 11` should only include
                 // buildings that existed from map start
                 let sprite = (**unit).sprite;
-                let pos = bw.sprite_position(sprite);
+                let pos = bw.sprite_position(sprite as *mut c_void);
                 if fow_sprites.insert((pos.x, pos.y, unit.id())) {
                     bw.create_fow_sprite(unit);
                 }
@@ -448,6 +452,61 @@ pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
                     // This value is twice the displayed, so 200 max supply for each
                     // player in team. (Or 200 if none)
                     (*game).supplies[race].max[main_player] = count * 400;
+                }
+            }
+        }
+    }
+}
+
+pub unsafe fn after_status_screen_update(bw: &dyn Bw, status_screen: Dialog, unit: Unit) {
+    // Show "Stacked (n)" text for stacked buildings
+    if unit.is_landed_building() {
+        fn normalize_id(id: UnitId) -> UnitId {
+            use bw_dat::unit;
+            // For mineral fields, consider any mineral field unit as equivalent.
+            // May be useful in some fastest maps.
+            match id {
+                unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => unit::MINERAL_FIELD_1,
+                x => x,
+            }
+        }
+
+        // Find units that have same unit id and collide with this unit's center
+        // (So they don't necessarily have to be perfectly stacked)
+        let mut count = 0;
+        let pos = unit.position();
+        let id = normalize_id(unit.id());
+        // Doing a loop like this through every active unit is definitely worse
+        // than using some position searching structure, but building that structure
+        // would still require looping through the units once.
+        // If we have such structure in future for some other code it should be used
+        // here too though.
+        for other in bw.active_units() {
+            if normalize_id(other.id()) == id {
+                if other.collision_rect().contains_point(&pos) {
+                    count += 1;
+                }
+            }
+        }
+        if count > 1 {
+            // Show the text at where unit rank/status is usually, as long as it hasn't
+            // been used.
+            if let Some(rank_status) = status_screen.child_by_id(-20) {
+                let existing_text = rank_status.string();
+                if rank_status.is_hidden() ||
+                    existing_text.starts_with("Stacked") ||
+                    existing_text == ""
+                {
+                    use std::io::Write;
+
+                    let mut buffer = [0; 32];
+                    let buf_len = buffer.len();
+                    let mut out = &mut buffer[..];
+                    // TODO: Could use translations in other SC:R languages :)
+                    let _ = write!(&mut out, "Stacked ({})", count);
+                    let len = buf_len - out.len();
+                    rank_status.set_string(&buffer[..len]);
+                    rank_status.show();
                 }
             }
         }
