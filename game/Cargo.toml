@@ -51,9 +51,15 @@ features = [
     "ws2ipdef",
 ]
 
+# Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
 rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
+
+# Struct declarations & convenience functions for ingame BW data
+[dependencies.bw_dat]
+git = "https://github.com/neivv/aise.git"
+rev = "4f9898f834a7a9bd75e9934feeb546791c57bdc1"
 
 [build-dependencies]
 anyhow = "1.0.33"

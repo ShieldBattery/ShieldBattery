@@ -105,10 +105,10 @@ pub unsafe fn load_dialog_hook(
     if !is_local_player_observer() {
         return;
     }
-    let name = CStr::from_ptr((*dialog).base.label as *const i8).to_bytes();
+    let name = CStr::from_ptr((*dialog).control.string as *const i8).to_bytes();
     if name == b"TextBox" {
         if let Some(to_allies) = find_dialog_child(dialog, 0x2) {
-            (*to_allies).label = b"To Observers:\0".as_ptr();
+            (*to_allies).string = b"To Observers:\0".as_ptr();
             // Of course the control has to be resized by hand <.<
             // Possibly could also just make it left aligned.
             // This can be determined "easily" by breaking 1.16.1 in debugger at 004F2FFF when
@@ -120,7 +120,7 @@ pub unsafe fn load_dialog_hook(
         }
     } else if name == b"MsgFltr" {
         if let Some(to_allies) = find_dialog_child(dialog, 0x3) {
-            (*to_allies).label = b"Send to observers\0".as_ptr();
+            (*to_allies).string = b"Send to observers\0".as_ptr();
         } else {
             error!("Couldn't find 'Send to allies' control");
         }
@@ -179,7 +179,7 @@ pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
         let mut label_count = 0;
         while !label.is_null() && label_count < 8 {
             // Flag 0x8 == Shown
-            if (*label).flags & 0x8 != 0 && (*label).custom_value as usize == bw_player as usize {
+            if (*label).flags & 0x8 != 0 && (*label).user_ptr as usize == bw_player as usize {
                 return Some(label);
             }
             label = (*label).next;
@@ -234,8 +234,8 @@ pub unsafe fn update_net_timeout_players(orig: unsafe extern fn()) {
                 // Technically player 10 can actually have units in some odd UMS maps, but we
                 // aren't allowing observing UMS games anyways, so whatever. Even if the someone
                 // noticed the color changing, I doubt they would care.
-                (*ctrl).label = vars::storm_players[storm_id as usize].name.as_ptr();
-                (*ctrl).custom_value = 10usize as *mut c_void;
+                (*ctrl).string = vars::storm_players[storm_id as usize].name.as_ptr();
+                (*ctrl).user_ptr = 10usize as *mut c_void;
                 (*vars::game).player_minimap_color[10] = *vars::resource_minimap_color;
             }
         }

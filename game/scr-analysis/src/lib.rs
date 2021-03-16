@@ -9,6 +9,7 @@
 //! whatever the main crate's BwScr::new wants.
 
 pub use samase_scarf::scarf;
+pub use samase_scarf::{DatType, DatTablePtr};
 
 use scarf::{BinaryFile, ExecutionStateX86, MemAccessSize, Operand, OperandCtx, VirtualAddress};
 use scarf::exec_state::VirtualAddress as VirtualAddressTrait;
@@ -245,6 +246,10 @@ impl<'e> Analysis<'e> {
         self.0.active_hidden_units().first_active_unit
     }
 
+    pub fn client_selection(&mut self) -> Option<Operand<'e>> {
+        self.0.game_screen_rclick().client_selection
+    }
+
     pub fn sprites_by_y_tile_start(&mut self) -> Option<Operand<'e>> {
         self.0.sprites().sprite_hlines
     }
@@ -324,5 +329,24 @@ impl<'e> Analysis<'e> {
 
     pub fn init_real_time_lighting(&mut self) -> Option<VirtualAddress> {
         self.0.init_real_time_lighting()
+    }
+
+    pub fn dat_table(&mut self, dat: DatType) -> Option<DatTablePtr<'e>> {
+        self.0.dat(dat)
+    }
+
+    pub fn smem_alloc(&mut self) -> Option<VirtualAddress> {
+        self.0.smem_alloc()
+    }
+
+    pub fn smem_free(&mut self) -> Option<VirtualAddress> {
+        self.0.smem_free()
+    }
+
+    pub fn status_screen_funcs(&mut self) -> Option<VirtualAddress> {
+        self.0.firegraft_addresses()
+            .unit_status_funcs
+            .get(0)
+            .copied()
     }
 }

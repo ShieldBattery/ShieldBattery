@@ -81,6 +81,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
 
 [[package]]
+name = "bw_dat"
+version = "0.1.0"
+source = "git+https://github.com/neivv/aise.git?rev=4f9898f834a7a9bd75e9934feeb546791c57bdc1#4f9898f834a7a9bd75e9934feeb546791c57bdc1"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "fxhash",
+ "libc",
+ "once_cell",
+ "winapi",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1068,6 +1081,7 @@ dependencies = [
  "anyhow",
  "arrayvec",
  "backtrace",
+ "bw_dat",
  "byteorder",
  "bytes",
  "chrono",

@@ -12,6 +12,8 @@ use std::ptr::null_mut;
 use libc::c_void;
 use winapi::um::winnt::HANDLE;
 
+use bw_dat::UnitId;
+
 use crate::bw::{self, FowSpriteIterator, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::chat;
@@ -214,6 +216,14 @@ impl bw::Bw for Bw1161 {
         }
     }
 
+    unsafe fn client_selection(&self) -> [Option<Unit>; 12] {
+        let mut out = [None; 12];
+        for i in 0..12 {
+            out[i] = Unit::from_ptr(vars::client_selection[i]);
+        }
+        out
+    }
+
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
         (*vars::storm_players)[..].into()
     }
@@ -225,11 +235,18 @@ impl bw::Bw for Bw1161 {
     unsafe fn storm_set_last_error(&self, error: u32) {
         storm::SErrSetLastError(error);
     }
+
+    unsafe fn call_original_status_screen_fn(&self, _: UnitId, _: *mut bw::Dialog) {
+        // 1.16.1 doesn't hook status screen in the first place currently.
+        // Will have to implement this when that is done.
+        unimplemented!()
+    }
 }
 
 impl Bw1161 {
     pub unsafe fn patch_game(&'static self) {
         patch_game(self);
+        init_bw_dat();
     }
 }
 
@@ -295,7 +312,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004207B0 => clean_up_for_exit(@ebx u32);
 
     // Unit id, base sprite
-    0x00488410 => create_fow_sprite(u32, *mut c_void) -> *mut bw::FowSprite;
+    0x00488410 => create_fow_sprite(u32, *mut bw::Sprite) -> *mut bw::FowSprite;
 
     0x004865D0 => process_commands(@eax *const u8, u32, u32);
 );
@@ -327,6 +344,7 @@ mod vars {
         0x006D5BC4 => timeout_bin: *mut bw::Dialog;
         0x006D0F14 => is_replay: u32;
         0x00597248 => primary_selected: *mut bw::Unit;
+        0x00597208 => client_selection: [*mut bw::Unit; 12];
         0x0057EE7C => storm_id_to_human_id: [u32; 8];
         0x00512678 => current_command_player: u32;
         0x00628430 => first_active_unit: *mut bw::Unit;
@@ -336,6 +354,12 @@ mod vars {
         0x00512678 => command_user: u32;
         0x0051267C => unique_command_user: u32;
         0x006D11C8 => enable_rng: u32;
+
+        0x00513C30 => units_dat: [bw::DatTable; 0x36];
+        0x005136E0 => upgrades_dat: [bw::DatTable; 0xc];
+        0x005137D8 => techdata_dat: [bw::DatTable; 0xb];
+        0x00513868 => weapons_dat: [bw::DatTable; 0x18];
+        0x00513EC8 => orders_dat: [bw::DatTable; 0x13];
     );
 }
 
@@ -455,6 +479,15 @@ unsafe fn patch_game(bw: &'static Bw1161) {
             }
         }
     }
+}
+
+unsafe fn init_bw_dat() {
+    bw_dat::init_units((*vars::units_dat).as_ptr(), 0x36);
+    bw_dat::init_weapons((*vars::weapons_dat).as_ptr(), 0x18);
+    bw_dat::init_upgrades((*vars::upgrades_dat).as_ptr(), 0xc);
+    bw_dat::init_techdata((*vars::techdata_dat).as_ptr(), 0xb);
+    bw_dat::init_orders((*vars::orders_dat).as_ptr(), 0x13);
+    bw_dat::set_is_scr(false);
 }
 
 fn scroll_screen(orig: unsafe extern fn()) {

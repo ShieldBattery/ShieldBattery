@@ -1039,7 +1039,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
     let players = bw.players();
     for i in 0..8 {
         *players.add(i) = bw::Player {
-            player_id: i as u32,
+            id: i as u32,
             storm_id: u32::max_value(),
             player_type: match slots.len() < i {
                 true => bw::PLAYER_TYPE_OPEN,
@@ -1069,7 +1069,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
             0
         };
         *players.add(slot_id) = bw::Player {
-            player_id: slot_id as u32,
+            id: slot_id as u32,
             storm_id: match slot.is_human() {
                 true => 27,
                 false => u32::max_value(),
