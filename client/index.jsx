@@ -37,10 +37,16 @@ if (IS_ELECTRON) {
 }
 
 window.addEventListener('error', event => {
-  log.error(`JavaScript error in Renderer:\n${event.error?.stack ?? event.error}`)
+  log.error(
+    `JavaScript error in Renderer: ${event.error?.message}\n${event.error?.stack ?? event.error}`,
+  )
 })
 window.addEventListener('unhandledrejection', event => {
-  log.warning(`Unhandled rejection in Renderer:\n${event.reason?.stack ?? event.reason}`)
+  log.warning(
+    `Unhandled rejection in Renderer: ${event.reason?.message}\n${
+      event.reason?.stack ?? event.reason
+    }`,
+  )
 })
 
 let ReduxDevTools, ReduxDevToolsContainer
