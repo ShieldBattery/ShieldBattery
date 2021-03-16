@@ -1,7 +1,7 @@
 import fs from 'fs'
 import React from 'react'
 import { connect } from 'react-redux'
-// import styled from 'styled-components'
+import styled from 'styled-components'
 // import { SubheadingOld } from '../styles/typography'
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
@@ -9,6 +9,29 @@ import ReplayParser from 'jssuh'
 import { startReplay } from './action-creators'
 import RaisedButton from '../material/raised-button'
 import { closeDialog } from '../dialogs/action-creators'
+import { StyledRaceIcon } from '../lobbies/race-picker'
+
+const Container = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 40px;
+  width: 100%;
+`
+
+const Team = styled.ul`
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  list-style-type: none;
+`
+
+const Player = styled.li``
+
+// NOTE(coin²): Please do not make fun of me :D
+const PlayerName = styled.span`
+  padding-left: 20px;
+  vertical-align: top;
+  line-height: 2;
+`
 
 // TODO(coin²): Implement game type mapping in jssuh.
 // This mapping is taken from my Python bot and goes from 0x00 to 0x10
@@ -52,11 +75,12 @@ export default class ReplayDialog extends React.Component {
   }
 
   componentDidMount() {
-    console.log('componentDidMount')
     const header = this.parseReplay(this.props.replay.path)
     this.setState({ header })
   }
 
+  // TODO(coin²): We should factorize some of this with getReplayHeader()
+  //              from client\replays\action-creators.js
   parseReplay(filePath) {
     const reppi = fs.createReadStream(filePath).pipe(new ReplayParser())
     reppi.on('replayHeader', replayDetails => {
@@ -64,17 +88,19 @@ export default class ReplayDialog extends React.Component {
       const minutes = Math.floor(durationFrames / 24 / 60)
       const seconds = Math.floor(durationFrames / 24) % 60
       replayDetails.duration = `${minutes} min ${seconds} s`
-      replayDetails.teams = {}
-      for (const { name, id, race, team, isComputer } of players) {
+      replayDetails.teamsMapping = {}
+      replayDetails.playersMapping = {}
+      for (const [idx, { name, id, race, team, isComputer }] of players.entries()) {
         if (isComputer) {
           console.log(`Computer ${name} (${id}): Race ${race}, team ${team}`)
         } else {
           console.log(`Player ${name} (${id}): Race ${race}, team ${team}`)
         }
-        if (team in replayDetails.teams) {
-          replayDetails.teams[team].push(id)
+        replayDetails.playersMapping[id] = idx
+        if (team in replayDetails.teamsMapping) {
+          replayDetails.teamsMapping[team].push(id)
         } else {
-          replayDetails.teams[team] = [id]
+          replayDetails.teamsMapping[team] = [id]
         }
       }
       this.setState({ replayDetails })
@@ -83,9 +109,29 @@ export default class ReplayDialog extends React.Component {
 
   onStartReplay = replay => {
     this.props.dispatch(closeDialog())
-    // NOTE(coin²): I think it's better not to close since we like to watch several replays
-    // this.props.dispatch(closeOverlay()) 
+    // NOTE(coin²): I think it's better not to close the overlay
+    // this.props.dispatch(closeOverlay())
     this.props.dispatch(startReplay(replay))
+  }
+
+  renderTeams(players, playersMapping, teamsMapping) {
+    const teamsContent = []
+    console.log(players, teamsMapping)
+    for (const [teamId, playerIds] of Object.entries(teamsMapping)) {
+      const playersContent = []
+      for (const id of playerIds) {
+        const player = players[playersMapping[id]]
+        // NOTE(coin²): Have a RACE_PICKER_SIZE_SMALL variable for StyledRaceIcon?
+        playersContent.push(
+          <Player key={id}>
+            <StyledRaceIcon active={true} race={player.race[0]} size={'MEDIUM'} />
+            <PlayerName>{player.name}</PlayerName>
+          </Player>,
+        )
+      }
+      teamsContent.push(<Team key={teamId}>{playersContent}</Team>)
+    }
+    return <Container>{teamsContent}</Container>
   }
 
   render() {
@@ -112,27 +158,28 @@ export default class ReplayDialog extends React.Component {
         gameName,
         mapName,
         gameType,
-        gameSubtype,
         players,
+        playersMapping,
         duration,
+        teamsMapping,
       } = this.state.replayDetails
       content = (
         <div>
-          <div>Replay date: {dateFormat.format(replay.date)}</div>
-          <div>Game name: {gameName}</div>
-          <div>Map name: {mapName}</div>
-          <div>Game type: {gameTypeMapping[gameType]}</div>
-          <div>Game subtype: {gameSubtype}</div>
-          <div>Game name: {gameName}</div>
-          <div>Game duration: {duration}</div>
+          <Container>
+            <div>Map: {mapName}</div>
+            <div>Type: {gameTypeMapping[gameType]}</div>
+            <div>Length: {duration}</div>
+            <div>Date: {dateFormat.format(replay.date)}</div>
+            <div>File name: {gameName}</div>
+          </Container>
+          {this.renderTeams(players, playersMapping, teamsMapping)}
         </div>
       )
-      console.log(players)
     }
 
     return (
       <Dialog
-        title={'Replay: ' + replay.name}
+        title={'Replay ' + replay.name}
         onCancel={onCancel}
         showCloseButton={true}
         buttons={buttons}>
