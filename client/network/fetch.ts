@@ -12,7 +12,7 @@ function ensureSuccessStatus(res: Response): Response {
   if (res.status >= 200 && res.status < 300) {
     return res
   } else {
-    throw new FetchError(res.statusText, res)
+    throw new FetchError(`${res.url} got ${res.status}: ${res.statusText}`, res)
   }
 }
 
