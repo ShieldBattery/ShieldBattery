@@ -16,6 +16,7 @@ import {
 import { navigateToWhisper } from '../whispers/action-creators'
 
 import Avatar from '../avatars/avatar'
+import WindowListener from '../dom/window-listener'
 import MessageInput from '../messaging/message-input'
 import LoadingIndicator from '../progress/dots'
 import MessageList from '../messaging/message-list'
@@ -175,10 +176,21 @@ class UserList extends React.Component {
     onWhisperClick: PropTypes.func.isRequired,
   }
 
+  state = {
+    width: 0,
+    height: 0,
+  }
   _contentRef = React.createRef()
+  _listRef = React.createRef()
 
-  shouldComponentUpdate(nextProps) {
-    return this.props.users !== nextProps.users
+  componentDidMount() {
+    this.updateDimensions()
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.users !== this.props.users) {
+      this._listRef.current?.recomputeRowHeights()
+    }
   }
 
   getRowHeight = ({ index }) => {
@@ -289,23 +301,31 @@ class UserList extends React.Component {
   }
 
   render() {
-    const width = this._contentRef.current?.clientWidth ?? 0
-    const height = this._contentRef.current?.clientHeight ?? 0
     const { active, idle, offline } = this.props.users
     const rowCount =
       1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size + 1
 
     return (
       <UserListContainer ref={this._contentRef}>
+        <WindowListener event='resize' listener={this.updateDimensions} />
         <UsersVirtualizedList
-          width={width}
-          height={height}
+          ref={this._listRef}
+          width={this.state.width}
+          height={this.state.height}
           rowCount={rowCount}
           rowHeight={this.getRowHeight}
           rowRenderer={this.renderRow}
         />
       </UserListContainer>
     )
+  }
+
+  updateDimensions = () => {
+    const width = this._contentRef.current?.clientWidth ?? 0
+    const height = this._contentRef.current?.clientHeight ?? 0
+    if (this.state.width !== width || this.state.height !== height) {
+      this.setState({ width, height })
+    }
   }
 }
 
