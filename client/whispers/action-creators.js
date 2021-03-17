@@ -1,5 +1,5 @@
 import siteSocket from '../network/site-socket'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import {
   WHISPERS_CLOSE_SESSION_BEGIN,
   WHISPERS_CLOSE_SESSION,
@@ -131,5 +131,5 @@ export function deactivateWhisperSession(target) {
 }
 
 export function navigateToWhisper(target) {
-  return push(`/whispers/${encodeURIComponent(target)}`)
+  push(`/whispers/${encodeURIComponent(target)}`)
 }

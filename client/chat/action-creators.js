@@ -1,5 +1,5 @@
 import siteSocket from '../network/site-socket'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,
@@ -163,5 +163,5 @@ export function deactivateChannel(channel) {
 }
 
 export function navigateToChannel(channel) {
-  return push(`/chat/${encodeURIComponent(channel)}`)
+  push(`/chat/${encodeURIComponent(channel)}`)
 }

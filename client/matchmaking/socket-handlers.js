@@ -18,7 +18,7 @@ import {
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
-import { replace } from 'connected-react-router'
+import { replace } from '../navigation/routing'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
@@ -153,7 +153,7 @@ const eventToAction = {
       type: MATCHMAKING_UPDATE_MATCH_READY,
       payload: event,
     })
-    dispatch(replace('/matchmaking/countdown'))
+    replace('/matchmaking/countdown')
 
     const {
       settings,
@@ -226,14 +226,10 @@ const eventToAction = {
 
   allowStart: (name, event) => (dispatch, getState) => {
     const { gameId } = event
-    const {
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = getState()
 
+    const currentPath = location.pathname
     if (currentPath === '/matchmaking/countdown') {
-      dispatch(replace('/matchmaking/game-starting'))
+      replace('/matchmaking/game-starting')
     }
     dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
 
@@ -243,14 +239,9 @@ const eventToAction = {
   cancelLoading: (name, event) => (dispatch, getState) => {
     clearCountdownTimer()
 
-    const {
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = getState()
-
+    const currentPath = location.pathname
     if (currentPath === '/matchmaking/countdown' || currentPath === '/matchmaking/game-starting') {
-      dispatch(replace('/'))
+      replace('/')
     }
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
@@ -265,13 +256,11 @@ const eventToAction = {
 
     const {
       matchmaking: { match },
-      router: {
-        location: { pathname: currentPath },
-      },
     } = getState()
 
+    const currentPath = location.pathname
     if (currentPath === '/matchmaking/game-starting') {
-      dispatch(replace('/matchmaking/active-game'))
+      replace('/matchmaking/active-game')
     }
     dispatch({
       type: MATCHMAKING_UPDATE_GAME_STARTED,

@@ -141,7 +141,7 @@ export default class JoinLobby extends React.Component {
 
   onLobbyClick(lobby) {
     this.props.dispatch(joinLobby(lobby.name))
-    this.props.dispatch(navigateToLobby(lobby.name))
     this.props.dispatch(closeOverlay())
+    navigateToLobby(lobby.name)
   }
 }

@@ -26,7 +26,7 @@ import { MAP_STORE_DOWNLOAD_MAP, NEW_CHAT_MESSAGE } from '../../common/ipc-const
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
-import { replace } from 'connected-react-router'
+import { replace } from '../navigation/routing'
 import rallyPointManager from '../network/rally-point-manager-instance'
 import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
@@ -199,15 +199,11 @@ const eventToAction = {
         clearCountdownTimer(true /* leaveAtmosphere */)
         dispatch({ type: LOBBY_UPDATE_LOADING_START })
 
-        const {
-          lobby,
-          router: {
-            location: { pathname: currentPath },
-          },
-        } = getState()
+        const { lobby } = getState()
 
-        if (currentPath === `/lobbies/${lobby.info.name}`) {
-          dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`))
+        const currentPath = location.pathname
+        if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}`) {
+          replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`)
         }
       }
     }, 1000)
@@ -271,14 +267,10 @@ const eventToAction = {
   cancelLoading: (name, event) => (dispatch, getState) => {
     fadeAtmosphere()
 
-    const {
-      lobby,
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = getState()
-    if (currentPath === `/lobbies/${lobby.info.name}/loading-game`) {
-      dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}`))
+    const { lobby } = getState()
+    const currentPath = location.pathname
+    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+      replace(`/lobbies/${encodeURIComponent(lobby.info.name)}`)
     }
 
     dispatch({
@@ -291,15 +283,11 @@ const eventToAction = {
   gameStarted: (name, event) => (dispatch, getState) => {
     fadeAtmosphere(false /* fast */)
 
-    const {
-      lobby,
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = getState()
+    const { lobby } = getState()
 
-    if (currentPath === `/lobbies/${lobby.info.name}/loading-game`) {
-      dispatch(replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/active-game`))
+    const currentPath = location.pathname
+    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
+      replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/active-game`)
     }
     dispatch({
       type: LOBBY_UPDATE_GAME_STARTED,

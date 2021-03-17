@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import queryString from 'query-string'
 import styled from 'styled-components'
 import fetch from '../network/fetch'
@@ -172,7 +172,6 @@ export default class Signup extends React.Component {
   render() {
     const {
       auth: { authChangeInProgress, lastFailure },
-      location,
     } = this.props
     let loadingContents
     if (authChangeInProgress) {
@@ -189,7 +188,7 @@ export default class Signup extends React.Component {
       errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
     }
 
-    const model = queryString.parse(location.search)
+    const model = queryString.parse(window.location.search)
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
@@ -209,8 +208,8 @@ export default class Signup extends React.Component {
   }
 
   onLogInClick = () => {
-    const { search } = this.props.location
-    this.props.dispatch(push({ pathname: '/login', search }))
+    const { search } = window.location
+    push({ pathname: '/login', search })
   }
 
   onSubmit = () => {

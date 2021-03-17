@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 
 import AdminBetaInvites from './invites'
 import AdminMapPools from './map-pools'
@@ -23,28 +23,28 @@ class AdminDashboard extends React.Component {
     const usersLink =
       perms.editPermissions || perms.banUsers ? (
         <li>
-          <Link to='/admin/users'>View user's profile</Link>
+          <Link href='/admin/users'>View user's profile</Link>
         </li>
       ) : null
     const mapsLink =
       (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
         <li>
-          <Link to='/admin/map-manager'>Manage maps</Link>
+          <Link href='/admin/map-manager'>Manage maps</Link>
         </li>
       ) : null
     const mapPoolsLink = perms.manageMapPools ? (
       <li>
-        <Link to='/admin/map-pools'>Manage matchmaking map pools</Link>
+        <Link href='/admin/map-pools'>Manage matchmaking map pools</Link>
       </li>
     ) : null
     const matchmakingTimesLink = perms.manageMatchmakingTimes ? (
       <li>
-        <Link to='/admin/matchmaking-times'>Manage matchmaking times</Link>
+        <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
       </li>
     ) : null
     const invitesLink = perms.acceptInvites ? (
       <li>
-        <Link to='/admin/invites'>View beta invites</Link>
+        <Link href='/admin/invites'>View beta invites</Link>
       </li>
     ) : null
 
@@ -67,7 +67,6 @@ export default class Panel extends React.Component {
 
     return (
       <Switch>
-        <Route path='/admin' exact={true} render={() => <AdminDashboard permissions={perms} />} />
         <ConditionalRoute
           path='/admin/users'
           filters={[CanViewUserProfileFilter]}
@@ -78,7 +77,7 @@ export default class Panel extends React.Component {
           filters={[CanAcceptBetaInvitesFilter]}
           component={AdminBetaInvites}
         />
-        {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : null}
+        {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
         <ConditionalRoute
           path='/admin/map-pools'
           filters={[CanManageMapPoolsFilter]}
@@ -89,6 +88,9 @@ export default class Panel extends React.Component {
           filters={[CanManageMatchmakingTimesFilter]}
           component={AdminMatchmakingTimes}
         />
+        <Route path='/admin'>
+          <AdminDashboard permissions={perms} />
+        </Route>
       </Switch>
     )
   }

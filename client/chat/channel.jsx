@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import styled, { css } from 'styled-components'
 import { List as VirtualizedList } from 'react-virtualized'
 import {
@@ -438,16 +438,16 @@ const mapStateToProps = state => {
 
 function isLeavingChannel(oldProps, newProps) {
   return (
-    oldProps.location === newProps.location &&
-    oldProps.chat.byName.has(oldProps.match.params.channel.toLowerCase()) &&
-    !newProps.chat.byName.has(oldProps.match.params.channel.toLowerCase())
+    oldProps.params.channel.toLowerCase() === newProps.params.channel.toLowerCase() &&
+    oldProps.chat.byName.has(oldProps.params.channel.toLowerCase()) &&
+    !newProps.chat.byName.has(oldProps.params.channel.toLowerCase())
   )
 }
 
 @connect(mapStateToProps)
 export default class ChatChannelView extends React.Component {
   componentDidMount() {
-    const routeChannel = this.props.match.params.channel
+    const routeChannel = this.props.params.channel
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
@@ -459,12 +459,12 @@ export default class ChatChannelView extends React.Component {
 
   componentDidUpdate(prevProps) {
     if (isLeavingChannel(prevProps, this.props)) {
-      this.props.dispatch(push('/'))
+      push('/')
       return
     }
 
-    const prevChannel = prevProps.match.params.channel
-    const routeChannel = this.props.match.params.channel
+    const prevChannel = prevProps.params.channel
+    const routeChannel = this.props.params.channel
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
@@ -476,7 +476,7 @@ export default class ChatChannelView extends React.Component {
       if (MULTI_CHANNEL) {
         this.props.dispatch(joinChannel(routeChannel))
       } else {
-        this.props.dispatch(push('/'))
+        push('/')
       }
     }
     if (prevChannel && prevChannel.toLowerCase() !== routeChannel.toLowerCase()) {
@@ -485,11 +485,11 @@ export default class ChatChannelView extends React.Component {
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(this.props.match.params.channel))
+    this.props.dispatch(deactivateChannel(this.props.params.channel))
   }
 
   render() {
-    const routeChannel = this.props.match.params.channel
+    const routeChannel = this.props.params.channel
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
     if (!channel) {
@@ -511,19 +511,19 @@ export default class ChatChannelView extends React.Component {
   }
 
   onSendChatMessage = msg => {
-    this.props.dispatch(sendMessage(this.props.match.params.channel, msg))
+    this.props.dispatch(sendMessage(this.props.params.channel, msg))
   }
 
   onRequestMoreHistory = () => {
-    this.props.dispatch(retrieveNextMessageHistory(this.props.match.params.channel))
+    this.props.dispatch(retrieveNextMessageHistory(this.props.params.channel))
   }
 
   onWhisperClick = user => {
-    this.props.dispatch(navigateToWhisper(user))
+    navigateToWhisper(user)
   }
 
   _isInChannel() {
-    const routeChannel = this.props.match.params.channel
+    const routeChannel = this.props.params.channel
     return this.props.chat.byName.has(routeChannel.toLowerCase())
   }
 }

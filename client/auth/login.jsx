@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import queryString from 'query-string'
 import { redirectIfLoggedIn } from './auth-utils'
 
@@ -181,23 +181,23 @@ export default class Login extends React.Component {
   }
 
   onSplashClick = () => {
-    this.props.dispatch(push({ pathname: '/splash' }))
+    push({ pathname: '/splash' })
   }
 
   onCreateAccountClick = () => {
     const search = queryString.stringify({
-      ...queryString.parse(this.props.location.search),
+      ...queryString.parse(location.search),
       username: this._form.getModel().username,
     })
-    this.props.dispatch(push({ pathname: '/signup', search }))
+    push({ pathname: '/signup', search })
   }
 
   onForgotUsernameClick = () => {
-    this.props.dispatch(push({ pathname: '/forgot-user' }))
+    push({ pathname: '/forgot-user' })
   }
 
   onForgotPasswordClick = () => {
-    this.props.dispatch(push({ pathname: '/forgot-password' }))
+    push({ pathname: '/forgot-password' })
   }
 
   onSubmit = () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { Link } from 'wouter'
 import queryString from 'query-string'
 import { Range } from 'immutable'
 import styled from 'styled-components'
@@ -46,7 +46,7 @@ const LIMIT = 25
 @connect(state => ({ invites: state.invites }))
 export default class Invites extends React.Component {
   _retrieveData() {
-    const { accepted, page } = queryString.parse(this.props.location.search)
+    const { accepted, page } = queryString.parse(location.search)
     let type
     if (accepted === 'true') {
       type = 'accepted'
@@ -142,7 +142,7 @@ export default class Invites extends React.Component {
         return <span key={pageNum}>{pageNum} </span>
       }
       return (
-        <Link to={'/admin/invites' + search + pageNum} key={pageNum}>
+        <Link href={'/admin/invites' + search + pageNum} key={pageNum}>
           {pageNum}{' '}
         </Link>
       )
@@ -156,9 +156,9 @@ export default class Invites extends React.Component {
       <Container>
         {this.renderError()}
         <Filter>
-          <Link to='/admin/invites'>All</Link>
-          <Link to='/admin/invites?accepted=true'>Accepted</Link>
-          <Link to='/admin/invites?accepted=false'>Unaccepted</Link>
+          <Link href='/admin/invites'>All</Link>
+          <Link href='/admin/invites?accepted=true'>Accepted</Link>
+          <Link href='/admin/invites?accepted=false'>Unaccepted</Link>
         </Filter>
         {this.renderInvites()}
         {this.renderPaging()}

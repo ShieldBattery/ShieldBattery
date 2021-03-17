@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import cuid from 'cuid'
 import ReplayParser from 'jssuh'
 import logger from '../logging/logger'
@@ -74,7 +74,7 @@ export function startReplay(replay) {
     setGameConfig(replay, user.toJS(), settings.toJS()).then(
       gameId => {
         setGameRoutes(gameId)
-        dispatch(push('/active-game'))
+        push('/active-game')
       },
       err => {
         logger.error(`Error starting replay file [${replay.path}]: ${err}`)

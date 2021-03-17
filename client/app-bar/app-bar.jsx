@@ -1,7 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 
 import ActiveUserCount from '../serverstatus/active-users'
 import Lockup from './lockup'
@@ -54,7 +53,6 @@ const RightSide = styled.div`
 
 const UserCount = styled(ActiveUserCount)`
   ${robotoCondensed};
-  display: inline-block;
   float: right;
   margin-top: ${windowControlsHeight};
   padding-right: 16px;
@@ -83,7 +81,7 @@ const DevIndicator = styled.div`
   -webkit-app-region: no-drag;
 `
 
-class AppBar extends React.Component {
+export default class AppBar extends React.Component {
   render() {
     return (
       <Container>
@@ -103,8 +101,6 @@ class AppBar extends React.Component {
   }
 
   goToDev = () => {
-    this.props.dispatch(push('/dev'))
+    push('/dev')
   }
 }
-
-export default connect()(AppBar)

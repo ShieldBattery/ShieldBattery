@@ -1,5 +1,5 @@
 import React from 'react'
-import { Route, Switch } from 'react-router-dom'
+import { Route, Switch } from 'wouter'
 import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
 import { hot } from 'react-hot-loader/root'
@@ -36,8 +36,6 @@ const LoadableDev = IS_PRODUCTION
 class App extends React.Component {
   render() {
     return (
-      // NOTE(2Pac): These are only the top-level routes. More specific routes are declared where
-      // they are used, as per react-router's new philosophy.
       <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
         <React.Fragment>
           <ResetStyle />
@@ -54,7 +52,7 @@ class App extends React.Component {
             <LoginRoute path='/reset-password' component={ResetPassword} />
             <LoginRoute path='/signup' component={Signup} />
             <LoginRoute path='/verify-email' component={VerifyEmail} />
-            {!IS_PRODUCTION ? <Route path='/dev' component={LoadableDev} /> : null}
+            {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
             <ConditionalRoute
               filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
               component={MainLayout}

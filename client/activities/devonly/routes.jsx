@@ -1,32 +1,27 @@
 import React from 'react'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 
 import DevActivityButtons from './activity-button-test'
 
+const BASE_URL = '/dev/activities'
+
 class DevActivityDashboard extends React.Component {
   render() {
-    const { baseUrl } = this.props
-
     return (
       <ul>
         <li>
-          <Link to={baseUrl + '/activity-button'}>Activity button</Link>
+          <Link href={`${BASE_URL}/activity-button`}>Activity button</Link>
         </li>
       </ul>
     )
   }
 }
 
-export default props => {
-  const baseUrl = props.match.url
+export default () => {
   return (
     <Switch>
-      <Route
-        path={baseUrl}
-        exact={true}
-        render={() => <DevActivityDashboard baseUrl={baseUrl} />}
-      />
-      <Route path={baseUrl + '/activity-button'} component={DevActivityButtons} />
+      <Route path={`${BASE_URL}/activity-button`} component={DevActivityButtons} />
+      <Route component={DevActivityDashboard} />
     </Switch>
   )
 }

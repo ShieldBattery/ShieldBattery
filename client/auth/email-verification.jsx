@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import queryString from 'query-string'
 
 import {
@@ -19,6 +19,7 @@ import LoadingIndicator from '../progress/dots'
 
 import { verifyEmail } from './action-creators'
 import { isLoggedIn, createNextPath } from './auth-utils'
+import { useLocation } from 'wouter'
 
 @connect(state => ({ auth: state.auth }))
 export class EmailVerification extends React.Component {
@@ -114,21 +115,22 @@ export class EmailVerification extends React.Component {
   }
 
   onContinueClick = () => {
-    this.props.dispatch(push({ pathname: '/' }))
+    push({ pathname: '/' })
   }
 
   onResendClick = () => {
-    this.props.dispatch(push({ pathname: '/send-verification-email' }))
+    push({ pathname: '/send-verification-email' })
   }
 
   onLogInClick = () => {
-    const search = createNextPath(this.props.location)
-    this.props.dispatch(push({ pathname: '/login', search }))
+    const search = createNextPath(location)
+    push({ pathname: '/login', search })
   }
 }
 
 const VERIFY_EMAIL_SUCCESS = 'Your email has been successfully verified.'
-export const VerifyEmail = ({ location }) => {
+export const VerifyEmail = () => {
+  const [location] = useLocation()
   const { token } = queryString.parse(location.search)
   return (
     <EmailVerification

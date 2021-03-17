@@ -1,4 +1,3 @@
-import { push } from 'connected-react-router'
 import { rgba } from 'polished'
 import React, { ReactChild, ReactNode } from 'react'
 import { connect, DispatchProp } from 'react-redux'
@@ -14,6 +13,7 @@ import LogoText from '../logos/logotext-640x100.svg'
 import { Label } from '../material/button'
 import Card from '../material/card'
 import RaisedButton from '../material/raised-button'
+import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { amberA400, colorTextPrimary, colorTextSecondary, grey850, grey900 } from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
@@ -307,7 +307,7 @@ interface FeatureEntryProps {
 
 function FeatureEntry({ className, title, description }: FeatureEntryProps) {
   return (
-    <FeatureEntryContainer>
+    <FeatureEntryContainer className={className}>
       <dt>{title}</dt>
       <dd>{description}</dd>
     </FeatureEntryContainer>
@@ -601,7 +601,7 @@ class Splash extends React.Component<DispatchProp> {
   }
 
   onSignUpClick = () => {
-    this.props.dispatch(push({ pathname: '/signup' }))
+    push({ pathname: '/signup' })
   }
 
   onDownloadClick = () => {

@@ -1,7 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route, Switch } from 'react-router-dom'
-import { replace, push } from 'connected-react-router'
+import { Route, Switch } from 'wouter'
 import keycode from 'keycode'
 import styled from 'styled-components'
 import loadable from '@loadable/component'
@@ -21,6 +20,7 @@ import ConnectedLeftNav from './navigation/connected-left-nav'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
 import Index from './navigation/index'
+import { replace, push } from './navigation/routing'
 import LoadingIndicator from './progress/dots'
 import LobbyView from './lobbies/view'
 import LobbyTitle from './lobbies/app-bar-title'
@@ -93,8 +93,8 @@ const VersionText = styled(CaptionOld)`
   color: ${colorTextSecondary};
 `
 
-let lobbyRoute
-let matchmakingRoute
+let lobbyRoute = <></>
+let matchmakingRoute = <></>
 if (IS_ELECTRON) {
   lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
   matchmakingRoute = <Route path='/matchmaking' component={MatchmakingView} />
@@ -111,7 +111,6 @@ function stateToProps(state) {
     auth: state.auth,
     inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     starcraft: state.starcraft,
-    router: state.router,
     matchmaking: state.matchmaking,
     matchmakingPreferences: state.matchmakingPreferences,
     matchmakingStatus: state.matchmakingStatus,
@@ -190,13 +189,8 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const {
-      auth,
-      inGameplayActivity,
-      router: {
-        location: { pathname },
-      },
-    } = this.props
+    const { auth, inGameplayActivity } = this.props
+    const { pathname } = location
 
     let appBarTitle
     if (pathname.startsWith('/admin')) {
@@ -314,7 +308,7 @@ class MainLayout extends React.Component {
           <Content>
             <Switch>
               <ConditionalRoute
-                path='/admin'
+                path='/admin/:rest*'
                 filters={[IsAdminFilter]}
                 component={LoadableAdminPanel}
               />
@@ -325,7 +319,9 @@ class MainLayout extends React.Component {
               <Route path='/whispers/:target' component={Whisper} />
               {/* If no paths match, redirect the page to the "index". Note: this means that we
                   can't actually have a 404 page, but I don't think we really need one? */}
-              <Index transitionFn={replace} />
+              <Route>
+                <Index transitionFn={replace} />
+              </Route>
             </Switch>
           </Content>
           <ActivityBar>
@@ -448,7 +444,7 @@ class MainLayout extends React.Component {
   }
 
   onAdminClick = () => {
-    this.props.dispatch(push('/admin'))
+    push('/admin')
   }
 }
 

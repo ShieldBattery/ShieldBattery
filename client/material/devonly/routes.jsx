@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 
 import DevButtons from './buttons-test'
 import DevMenu from './menu-test'
@@ -9,54 +9,51 @@ import DevSliders from './slider-test'
 import DevSteppers from './stepper-test'
 import DevTextFields from './text-field-test'
 
+const BASE_URL = '/dev/material'
+
 class DevMaterialDashboard extends React.Component {
   render() {
-    const { baseUrl } = this.props
-
     return (
       <ul>
         <li>
-          <Link to={baseUrl + '/button'}>Button component</Link>
+          <Link href={`${BASE_URL}/button`}>Button component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/menu'}>Menu component</Link>
+          <Link href={`${BASE_URL}/menu`}>Menu component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/popover'}>Popover component</Link>
+          <Link href={`${BASE_URL}/popover`}>Popover component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/select'}>Select component</Link>
+          <Link href={`${BASE_URL}/select`}>Select component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/slider'}>Slider component</Link>
+          <Link href={`${BASE_URL}/slider`}>Slider component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/stepper'}>Stepper component</Link>
+          <Link href={`${BASE_URL}/stepper`}>Stepper component</Link>
         </li>
         <li>
-          <Link to={baseUrl + '/textfield'}>Textfield component</Link>
+          <Link href={`${BASE_URL}/textfield`}>Textfield component</Link>
         </li>
       </ul>
     )
   }
 }
 
-export default props => {
-  const baseUrl = props.match.url
+export default () => {
   return (
     <Switch>
-      <Route
-        path={baseUrl}
-        exact={true}
-        render={() => <DevMaterialDashboard baseUrl={baseUrl} />}
-      />
-      <Route path={baseUrl + '/button'} component={DevButtons} />
-      <Route path={baseUrl + '/menu'} component={DevMenu} />
-      <Route path={baseUrl + '/popover'} component={DevPopover} />
-      <Route path={baseUrl + '/select'} component={DevSelects} />
-      <Route path={baseUrl + '/slider'} component={DevSliders} />
-      <Route path={baseUrl + '/stepper'} component={DevSteppers} />
-      <Route path={baseUrl + '/textfield'} component={DevTextFields} />
+      <Route path={`${BASE_URL}/button`} component={DevButtons} />
+      <Route path={`${BASE_URL}/menu`} component={DevMenu} />
+      <Route path={`${BASE_URL}/popover`} component={DevPopover} />
+      <Route path={`${BASE_URL}/select`} component={DevSelects} />
+      <Route path={`${BASE_URL}/slider`} component={DevSliders} />
+      <Route path={`${BASE_URL}/stepper`} component={DevSteppers} />
+      <Route path={`${BASE_URL}/textfield`} component={DevTextFields} />
+      <Route>
+        <DevMaterialDashboard />
+      </Route>
     </Switch>
   )
 }

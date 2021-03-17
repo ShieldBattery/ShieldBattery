@@ -9,15 +9,11 @@ const Container = styled.div`
   margin: 0 auto;
 `
 
-@connect(state => ({ whispers: state.whispers, router: state.router }))
+@connect(state => ({ whispers: state.whispers }))
 export default class WhispersTitle extends React.Component {
   render() {
-    const {
-      whispers,
-      router: {
-        location: { pathname },
-      },
-    } = this.props
+    const { whispers } = this.props
+    const { pathname } = location
 
     const target = pathname.slice(pathname.lastIndexOf('/') + 1)
     const session = whispers.byName.get(target.toLowerCase())

@@ -1,30 +1,23 @@
 import React from 'react'
-import { connect } from 'react-redux'
+import { useLocation } from 'wouter'
 
 import { AppBarTitle } from '../app-bar/app-bar'
 
-@connect(state => ({ router: state.router }))
-export default class AdminTitle extends React.Component {
-  render() {
-    const {
-      router: {
-        location: { pathname },
-      },
-    } = this.props
+export default function AdminTitle() {
+  const [location] = useLocation()
 
-    let appBarTitle
-    if (pathname === '/admin') {
-      appBarTitle = 'Admin panel'
-    } else if (pathname.startsWith('/admin/users')) {
-      appBarTitle = 'Users'
-    } else if (pathname.startsWith('/admin/invites')) {
-      appBarTitle = 'Invites'
-    } else if (pathname.startsWith('/admin/patch-upload')) {
-      appBarTitle = 'Upload StarCraft patch'
-    } else if (pathname.startsWith('/admin/map-upload')) {
-      appBarTitle = 'Map upload'
-    }
-
-    return <AppBarTitle as='span'>{appBarTitle}</AppBarTitle>
+  let appBarTitle
+  if (location === '/admin') {
+    appBarTitle = 'Admin panel'
+  } else if (location.startsWith('/admin/users')) {
+    appBarTitle = 'Users'
+  } else if (location.startsWith('/admin/invites')) {
+    appBarTitle = 'Invites'
+  } else if (location.startsWith('/admin/patch-upload')) {
+    appBarTitle = 'Upload StarCraft patch'
+  } else if (location.startsWith('/admin/map-upload')) {
+    appBarTitle = 'Map upload'
   }
+
+  return <AppBarTitle as='span'>{appBarTitle}</AppBarTitle>
 }

@@ -1,28 +1,29 @@
 import React from 'react'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 
 import DevCarousels from './carousel-test'
 
+const BASE_URL = '/dev/lists'
+
 class DevListsDashboard extends React.Component {
   render() {
-    const { baseUrl } = this.props
-
     return (
       <ul>
         <li>
-          <Link to={baseUrl + '/carousel'}>Carousel</Link>
+          <Link href={`${BASE_URL}/carousel`}>Carousel</Link>
         </li>
       </ul>
     )
   }
 }
 
-export default props => {
-  const baseUrl = props.match.url
+export default () => {
   return (
     <Switch>
-      <Route path={baseUrl} exact={true} render={() => <DevListsDashboard baseUrl={baseUrl} />} />
-      <Route path={baseUrl + '/Carousel'} component={DevCarousels} />
+      <Route path={`${BASE_URL}/carousel`} component={DevCarousels} />
+      <Route>
+        <DevListsDashboard />
+      </Route>
     </Switch>
   )
 }

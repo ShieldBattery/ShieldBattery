@@ -44,7 +44,6 @@ function stateToProps(state) {
     })),
     lobby: state.lobby,
     matchmaking: state.matchmaking,
-    router: state.router,
     whispers: state.whispers.sessions.map(s => ({
       name: s,
       hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
@@ -67,12 +66,11 @@ class ConnectedLeftNav extends React.Component {
         hasUnread,
         inLobby,
       },
-      router: {
-        location: { pathname: currentPath },
-      },
     } = this.props
 
     if (!inLobby || !IS_ELECTRON) return null
+
+    const currentPath = location.pathname
 
     return [
       <Subheader key='lobby-header'>Lobby</Subheader>,
@@ -90,13 +88,7 @@ class ConnectedLeftNav extends React.Component {
   }
 
   renderLoadingGame() {
-    const {
-      lobby,
-      matchmaking,
-      router: {
-        location: { pathname: currentPath },
-      },
-    } = this.props
+    const { lobby, matchmaking } = this.props
     const isLoading = lobby.info.isLoading || matchmaking.isLoading
 
     if (!isLoading || !IS_ELECTRON) return null
@@ -120,6 +112,8 @@ class ConnectedLeftNav extends React.Component {
       return null
     }
 
+    const currentPath = location.pathname
+
     return [
       <Section key='loading-game-section'>
         <GameActivityNavEntry
@@ -137,9 +131,6 @@ class ConnectedLeftNav extends React.Component {
   renderActiveGame() {
     const {
       activeGame: { isActive, info: gameInfo },
-      router: {
-        location: { pathname: currentPath },
-      },
     } = this.props
 
     if (!isActive || !gameInfo || !IS_ELECTRON) return null
@@ -155,6 +146,8 @@ class ConnectedLeftNav extends React.Component {
     } else {
       return null
     }
+
+    const currentPath = location.pathname
 
     return [
       <Section key='active-game-section'>
@@ -206,14 +199,9 @@ class ConnectedLeftNav extends React.Component {
   }
 
   render() {
-    const {
-      auth,
-      chatChannels,
-      whispers,
-      router: {
-        location: { pathname },
-      },
-    } = this.props
+    const { auth, chatChannels, whispers } = this.props
+
+    const { pathname } = location
 
     const channelNav = chatChannels.map(c => (
       <ChatNavEntry

@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import queryString from 'query-string'
 
 import LoadingIndicator from '../progress/dots'
@@ -129,7 +129,7 @@ class ForgotFormHolder extends React.Component {
   }
 
   onBackClick = () => {
-    this.props.dispatch(push({ pathname: '/login' }))
+    push({ pathname: '/login' })
   }
 
   onSubmit = () => {
@@ -315,7 +315,7 @@ class ResetPasswordForm extends React.Component {
 
 const RESET_PASSWORD_SUCCESS = 'Your password has been reset.'
 const doPasswordReset = values => resetPassword(values.username, values.token, values.password)
-export const ResetPassword = ({ location }) => {
+export const ResetPassword = () => {
   const model = queryString.parse(location.search)
   return (
     <ForgotFormHolder

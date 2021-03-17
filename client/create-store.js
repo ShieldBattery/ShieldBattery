@@ -1,6 +1,5 @@
 import { applyMiddleware, createStore, compose } from 'redux'
 import thunk from 'redux-thunk'
-import { routerMiddleware } from 'connected-react-router'
 import { batchedSubscribe } from 'redux-batched-subscribe'
 /*eslint-disable camelcase*/
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom'
@@ -35,9 +34,9 @@ function isPromise(obj) {
   )
 }
 
-export default function create(initialState, history, reduxDevTools) {
+export default function create(initialState, reduxDevTools) {
   const createMiddlewaredStore = compose(
-    applyMiddleware(thunk, promiseMiddleware, routerMiddleware(history)),
+    applyMiddleware(thunk, promiseMiddleware),
     batchedSubscribe(batchedUpdates),
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
     // We support both the manual integration of Redux Dev Tools (for Electron clients) and using

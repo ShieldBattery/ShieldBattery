@@ -379,7 +379,7 @@ export default class CreateLobby extends React.Component {
     const subType = isTeamType(gameType) ? gameSubType : undefined
 
     this.props.dispatch(createLobby(name, selectedMap, gameType, subType))
-    this.props.dispatch(navigateToLobby(name))
+    navigateToLobby(name)
     this.props.dispatch(closeOverlay())
   }
 

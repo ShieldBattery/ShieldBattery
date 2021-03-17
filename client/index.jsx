@@ -1,8 +1,7 @@
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider } from 'react-redux'
-import { ConnectedRouter } from 'connected-react-router'
-import { createBrowserHistory } from 'history'
+import { Router } from 'wouter'
 
 import log from './logging/logger'
 import createStore from './create-store'
@@ -98,8 +97,7 @@ Promise.all([rootElemPromise])
       initData.auth = authFromJs(initData.auth)
     }
 
-    const history = createBrowserHistory()
-    const store = createStore(initData, history, ReduxDevTools)
+    const store = createStore(initData, ReduxDevTools)
     registerDispatch(store.dispatch)
     registerSocketHandlers()
 
@@ -107,9 +105,9 @@ Promise.all([rootElemPromise])
       store.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
     })
 
-    return { elem, store, history }
+    return { elem, store }
   })
-  .then(async ({ elem, store, history }) => {
+  .then(async ({ elem, store }) => {
     const configPromise = fetch('/config', { method: 'get' })
     const { action, promise: sessionPromise } = getCurrentSession()
     store.dispatch(action)
@@ -121,17 +119,17 @@ Promise.all([rootElemPromise])
     }
     return { elem, store, history }
   })
-  .then(({ elem, store, history }) => {
+  .then(({ elem, store }) => {
     render(
       <Provider store={store}>
-        <ConnectedRouter history={history}>
+        <Router>
           <RedirectProvider>
             <>
               <App />
               {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
             </>
           </RedirectProvider>
-        </ConnectedRouter>
+        </Router>
       </Provider>,
       elem,
     )

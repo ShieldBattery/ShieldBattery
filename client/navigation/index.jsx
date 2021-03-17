@@ -1,8 +1,8 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { push } from 'connected-react-router'
 import { goToIndex } from './action-creators'
+import { push } from './routing'
 
 @connect()
 export default class Index extends React.Component {

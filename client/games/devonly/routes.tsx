@@ -1,35 +1,28 @@
 import React from 'react'
-import { Link, match as RouterMatch, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 import { ResultsTest } from './results-test'
 
-interface DashboardProps {
-  baseUrl: string
-}
+const BASE_URL = '/dev/games'
 
-class DevGamesDashboard extends React.Component<DashboardProps> {
+class DevGamesDashboard extends React.Component {
   render() {
-    const { baseUrl } = this.props
-
     return (
       <ul>
         <li>
-          <Link to={baseUrl + '/results'}>Game results</Link>
+          <Link href={`${BASE_URL}/results`}>Game results</Link>
         </li>
       </ul>
     )
   }
 }
 
-export interface DevGamesProps {
-  match: RouterMatch<never>
-}
-
-export function DevGames(props: DevGamesProps) {
-  const baseUrl = props.match.url
+export function DevGames() {
   return (
     <Switch>
-      <Route path={baseUrl} exact={true} render={() => <DevGamesDashboard baseUrl={baseUrl} />} />
-      <Route path={baseUrl + '/results'} component={ResultsTest} />
+      <Route path={`${BASE_URL}/results`} component={ResultsTest} />
+      <Route>
+        <DevGamesDashboard />
+      </Route>
     </Switch>
   )
 }

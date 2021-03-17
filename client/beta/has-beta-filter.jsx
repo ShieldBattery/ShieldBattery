@@ -1,4 +1,4 @@
-import { replace } from 'connected-react-router'
+import { replace } from '../navigation/routing'
 import createConditionalRedirect from '../navigation/conditional-redirect'
 import isReturningUser from './is-returning-user'
 

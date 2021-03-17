@@ -94,6 +94,6 @@ export default class JoinChannel extends React.Component {
   onSubmit = () => {
     const channel = this._form.getModel().channel
     this.props.dispatch(closeDialog())
-    this.props.dispatch(navigateToChannel(channel))
+    navigateToChannel(channel)
   }
 }

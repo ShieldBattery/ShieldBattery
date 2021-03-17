@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route, Switch } from 'react-router-dom'
-import { replace } from 'connected-react-router'
+import { Route, Switch } from 'wouter'
+import { replace } from '../navigation/routing'
 
 import Index from '../navigation/index'
 import MatchmakingMatch from './matchmaking-match'
@@ -10,14 +10,14 @@ import MatchmakingMatch from './matchmaking-match'
 export default class MatchmakingView extends React.Component {
   componentDidMount() {
     if (!this.props.matchmaking.isLoading && !this.props.activeGame.isActive) {
-      this.props.dispatch(replace('/'))
+      replace('/')
     }
   }
 
   componentDidUpdate(prevProps) {
     if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
-      this.props.dispatch(replace('/'))
+      replace('/')
     }
   }
 
@@ -47,9 +47,9 @@ export default class MatchmakingView extends React.Component {
   render() {
     return (
       <Switch>
-        <Route path='/matchmaking/countdown' render={this.renderMatchmakingMatch} />
-        <Route path='/matchmaking/game-starting' render={this.renderMatchmakingMatch} />
-        <Route path='/matchmaking/active-game' render={this.renderMatchmakingMatch} />
+        <Route path='/matchmaking/countdown'>{this.renderMatchmakingMatch}</Route>
+        <Route path='/matchmaking/game-starting'>{this.renderMatchmakingMatch}</Route>
+        <Route path='/matchmaking/active-game'>{this.renderMatchmakingMatch}</Route>
         <Index transitionFn={replace} />
       </Switch>
     )

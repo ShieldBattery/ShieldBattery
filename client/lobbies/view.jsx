@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route, Switch } from 'react-router-dom'
-import { push, replace } from 'connected-react-router'
+import { Route, Switch } from 'wouter'
+import { push, replace } from '../navigation/routing'
 import styled from 'styled-components'
 
 import ActiveLobby from './active-lobby'
@@ -45,9 +45,9 @@ const mapStateToProps = state => {
 // Returns true if the lobby store state shows that we have left the current lobby
 function isLeavingLobby(oldProps, newProps) {
   return (
-    oldProps.location === newProps.location /* rule out a route change */ &&
+    oldProps.params.lobby === newProps.params.lobby /* rule out a route change */ &&
     oldProps.lobby.inLobby &&
-    oldProps.lobby.info.name === oldProps.match.params.lobby /* we were in this lobby */ &&
+    oldProps.lobby.info.name === oldProps.params.lobby /* we were in this lobby */ &&
     !newProps.lobby.inLobby /* now we're not */
   )
 }
@@ -68,7 +68,7 @@ const PreLobbyArea = styled.div`
 export default class LobbyView extends React.Component {
   componentDidMount() {
     if (!this.props.lobby.inLobby) {
-      const routeLobby = this.props.match.params.lobby
+      const routeLobby = this.props.params.lobby
       this.props.dispatch(getLobbyState(routeLobby))
     } else {
       this.props.dispatch(activateLobby())
@@ -77,18 +77,18 @@ export default class LobbyView extends React.Component {
 
   componentDidUpdate(prevProps) {
     if (isLeavingLobby(prevProps, this.props) && !this.props.activeGame.isActive) {
-      this.props.dispatch(push('/'))
+      push('/')
       return
     }
 
     if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
-      this.props.dispatch(replace('/'))
+      replace('/')
       return
     }
 
-    const routeLobby = prevProps.match.params.lobby
-    const nextRouteLobby = this.props.match.params.lobby
+    const routeLobby = prevProps.params.lobby
+    const nextRouteLobby = this.props.params.lobby
     if (!prevProps.lobby.inLobby && routeLobby !== nextRouteLobby) {
       prevProps.dispatch(getLobbyState(nextRouteLobby))
     }
@@ -120,8 +120,8 @@ export default class LobbyView extends React.Component {
     return <ActiveLobby lobby={gameInfo.extra.lobby.info} />
   }
 
-  renderLobby = () => {
-    const routeLobby = this.props.match.params.lobby
+  renderLobby = params => {
+    const routeLobby = params.lobby
     const { lobby, maps, user } = this.props
 
     let content
@@ -160,9 +160,9 @@ export default class LobbyView extends React.Component {
   render() {
     return (
       <Switch>
-        <Route path='/lobbies/:lobby/loading-game' render={this.renderLoadingScreen} />
-        <Route path='/lobbies/:lobby/active-game' render={this.renderActiveLobby} />
-        <Route path='/lobbies/:lobby' exact={true} render={this.renderLobby} />
+        <Route path='/lobbies/:lobby/loading-game'>{this.renderLoadingScreen}</Route>
+        <Route path='/lobbies/:lobby/active-game'>{this.renderActiveLobby}</Route>
+        <Route path='/lobbies/:lobby'>{this.renderLobby}</Route>
       </Switch>
     )
   }
@@ -183,7 +183,7 @@ export default class LobbyView extends React.Component {
   }
 
   renderLobbyState() {
-    const routeLobby = this.props.match.params.lobby
+    const routeLobby = this.props.params.lobby
     const { lobbyState } = this.props
     if (!lobbyState.has(routeLobby)) {
       return null

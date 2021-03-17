@@ -1,32 +1,29 @@
 import React from 'react'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 
 import MatchTest from './match-test'
 
+const BASE_URL = '/dev/matchmaking'
+
 class DevMatchmakingDashboard extends React.Component {
   render() {
-    const { baseUrl } = this.props
-
     return (
       <ul>
         <li>
-          <Link to={baseUrl + '/match'}>Matchmaking match</Link>
+          <Link href={`${BASE_URL}/match`}>Matchmaking match</Link>
         </li>
       </ul>
     )
   }
 }
 
-export default props => {
-  const baseUrl = props.match.url
+export default () => {
   return (
     <Switch>
-      <Route
-        path={baseUrl}
-        exact={true}
-        render={() => <DevMatchmakingDashboard baseUrl={baseUrl} />}
-      />
-      <Route path={baseUrl + '/match'} component={MatchTest} />
+      <Route path={`${BASE_URL}/match`} component={MatchTest} />
+      <Route>
+        <DevMatchmakingDashboard />
+      </Route>
     </Switch>
   )
 }

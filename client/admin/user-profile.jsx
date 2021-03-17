@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route } from 'react-router-dom'
-import { push } from 'connected-react-router'
+import { Route } from 'wouter'
+import { push } from '../navigation/routing'
 import styled from 'styled-components'
 
 import FlatButton from '../material/flat-button'
@@ -22,9 +22,7 @@ export class UserProfile extends React.Component {
   render() {
     const {
       auth: { permissions: perms },
-      match: {
-        params: { username },
-      },
+      params: { username },
     } = this.props
 
     const children = []
@@ -79,7 +77,7 @@ export class UserFind extends React.Component {
 
   render() {
     const model = {
-      username: this.props.match.params.username,
+      username: this.props.params.username,
     }
     return (
       <Container>
@@ -100,6 +98,6 @@ export class UserFind extends React.Component {
   onSubmit = () => {
     const values = this._form.getModel()
     const username = values.username
-    this.props.dispatch(push(`/admin/users/${encodeURIComponent(username)}`))
+    push(`/admin/users/${encodeURIComponent(username)}`)
   }
 }

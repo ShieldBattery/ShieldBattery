@@ -1,17 +1,15 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
 import styled, { css } from 'styled-components'
 import { makeServerUrl } from '../network/server-url'
 
 import TopLinks from './top-links'
-import { ScrollableContent } from '../material/scroll-bar'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 
 import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
-import { headline1, headline5 } from '../styles/typography'
+import { headline1, headline4, headline5 } from '../styles/typography'
 import { shadowDef4dp } from '../material/shadow-constants'
 
 const questions = [
@@ -47,7 +45,7 @@ const questions = [
         like to help us cover those costs, we'd greatly appreciate it. We have set up a number of
         ways to contribute:
       </p>,
-      <ul>
+      <ul key='u1'>
         <li>
           <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
             Github Sponsors
@@ -103,27 +101,24 @@ const questions = [
   },
   {
     question: 'What are the system requirements to play on ShieldBattery?',
-    answer:
-      ((
-        <p key='p1'>
-          Our system requirements are mainly driven by those of
-          <a
-            href='https://us.battle.net/support/en/article/28438'
-            target='_blank'
-            rel='nofollow noopener'>
-            StarCraft: Remastered
-          </a>
-          , but in brief:
-        </p>
-      ),
-      (
-        <ul key='u1'>
-          <li>A computer running Windows 7 or later</li>
-          <li>2GB RAM</li>
-          <li>NVIDIA Gefore 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</li>
-          <li>A StarCraft: Remastered installation, patched to the latest version</li>
-        </ul>
-      )),
+    answer: [
+      <p key='p1'>
+        Our system requirements are mainly driven by those of{' '}
+        <a
+          href='https://us.battle.net/support/en/article/28438'
+          target='_blank'
+          rel='nofollow noopener'>
+          StarCraft: Remastered
+        </a>
+        , but in brief:
+      </p>,
+      <ul key='u1'>
+        <li>A computer running Windows 7 or later</li>
+        <li>2GB RAM</li>
+        <li>NVIDIA Gefore 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</li>
+        <li>A StarCraft: Remastered installation, patched to the latest version</li>
+      </ul>,
+    ],
   },
   {
     question: 'Is hotkey customization allowed or provided?',
@@ -148,7 +143,7 @@ const questions = [
 ]
 
 const makeQuestionId = question => {
-  return encodeURIComponent(question.replace(/\s/g, '-'))
+  return encodeURIComponent(question.replace(/\s/g, '-').replace('?', ''))
 }
 
 const pageWidth = css`
@@ -245,7 +240,7 @@ class QuestionSection extends React.PureComponent {
 
 class FragmentLink extends React.PureComponent {
   render() {
-    return <Link to={`${this.props.to}#${this.props.fragment}`}>{this.props.children}</Link>
+    return <a href={`${this.props.to}#${this.props.fragment}`}>{this.props.children}</a>
   }
 }
 
@@ -354,18 +349,29 @@ const FaqToc = styled.div`
   }
 `
 
+const FaqTitle = styled.div`
+  ${headline4}
+`
+
 @connect()
 export default class Faq extends React.Component {
-  componentDidUpdate(prevProps) {
-    const {
-      location: { hash: prevHash },
-    } = prevProps
-    const {
-      location: { hash: newHash },
-    } = this.props
+  _lastHash
 
-    if (prevHash !== newHash) {
-      this.scrollElementIntoView(newHash.slice(1))
+  componentDidMount() {
+    this.onHashChange()
+    window.addEventListener('hashchange', this.onHashChange)
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('hashchange', this.onHashChange)
+  }
+
+  onHashChange = () => {
+    if (this._lastHash !== location.hash) {
+      if (location.hash !== '' || this._lastHash !== undefined) {
+        this.scrollElementIntoView(location.hash.slice(1))
+      }
+      this._lastHash = location.hash
     }
   }
 
@@ -380,35 +386,33 @@ export default class Faq extends React.Component {
 
   render() {
     return (
-      <ScrollableContent>
-        <Splash>
-          <TopLinks />
-          <LogoContainer>
-            <Logo src={makeServerUrl('/images/splash-logo.png')} />
-            <StyledLogoText />
-          </LogoContainer>
-          <Intro>
-            <FaqHeaderContainer>
-              <FaqHeader>FAQ</FaqHeader>
-            </FaqHeaderContainer>
-          </Intro>
-          <FaqToc id={'faqToc'}>
-            <h3>Frequently Asked Questions</h3>
-            <ul>
-              {questions.map((q, i) => (
-                <li key={`question-${i}`}>
-                  <FragmentLink to='/faq' fragment={makeQuestionId(q.question)}>
-                    {q.question}
-                  </FragmentLink>
-                </li>
-              ))}
-            </ul>
-          </FaqToc>
-          {questions.map((q, i) => (
-            <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
-          ))}
-        </Splash>
-      </ScrollableContent>
+      <Splash>
+        <TopLinks />
+        <LogoContainer>
+          <Logo src={makeServerUrl('/images/splash-logo.png')} />
+          <StyledLogoText />
+        </LogoContainer>
+        <Intro>
+          <FaqHeaderContainer>
+            <FaqHeader>FAQ</FaqHeader>
+          </FaqHeaderContainer>
+        </Intro>
+        <FaqToc id={'faqToc'}>
+          <FaqTitle>Frequently Asked Questions</FaqTitle>
+          <ul>
+            {questions.map((q, i) => (
+              <li key={`link-${i}`}>
+                <FragmentLink to='/faq' fragment={makeQuestionId(q.question)}>
+                  {q.question}
+                </FragmentLink>
+              </li>
+            ))}
+          </ul>
+        </FaqToc>
+        {questions.map((q, i) => (
+          <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
+        ))}
+      </Splash>
     )
   }
 }

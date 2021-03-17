@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link, Route, Switch } from 'react-router-dom'
+import { Link, Route, Switch } from 'wouter'
 import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 
@@ -28,22 +28,22 @@ class DevDashboard extends React.Component {
         </DescriptionText>
         <ul>
           <li>
-            <Link to='/dev/activities'>Activity components</Link>
+            <Link href='/dev/activities'>Activity components</Link>
           </li>
           <li>
-            <Link to='/dev/games'>Games components</Link>
+            <Link href='/dev/games'>Games components</Link>
           </li>
           <li>
-            <Link to='/dev/lists'>List components</Link>
+            <Link href='/dev/lists'>List components</Link>
           </li>
           <li>
-            <Link to='/dev/lobbies'>Lobby components</Link>
+            <Link href='/dev/lobbies'>Lobby components</Link>
           </li>
           <li>
-            <Link to='/dev/matchmaking'>Matchmaking components</Link>
+            <Link href='/dev/matchmaking'>Matchmaking components</Link>
           </li>
           <li>
-            <Link to='/dev/material'>Material components</Link>
+            <Link href='/dev/material'>Material components</Link>
           </li>
         </ul>
       </div>
@@ -55,15 +55,15 @@ class Dev extends React.Component {
   render() {
     return (
       <Container>
-        <Link to='/'>Home</Link>
+        <Link href='/'>Home</Link>
         <Switch>
-          <Route path='/dev' exact={true} render={() => <DevDashboard />} />
-          <Route path='/dev/activities' component={DevActivities} />
-          <Route path='/dev/games' component={DevGames} />
-          <Route path='/dev/lists' component={DevLists} />
-          <Route path='/dev/lobbies' component={DevLobbies} />
-          <Route path='/dev/matchmaking' component={DevMatchmaking} />
-          <Route path='/dev/material' component={DevMaterial} />
+          <Route path='/dev/activities/:rest*' component={DevActivities} />
+          <Route path='/dev/games/:rest*' component={DevGames} />
+          <Route path='/dev/lists/:rest*' component={DevLists} />
+          <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
+          <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
+          <Route path='/dev/material/:rest*' component={DevMaterial} />
+          <Route component={DevDashboard} />
         </Switch>
       </Container>
     )

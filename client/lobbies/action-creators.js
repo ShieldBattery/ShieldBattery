@@ -1,7 +1,7 @@
 import fetch from '../network/fetch'
 import siteSocket from '../network/site-socket'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
-import { push } from 'connected-react-router'
+import { push } from '../navigation/routing'
 import {
   LOBBIES_GET_STATE_BEGIN,
   LOBBIES_GET_STATE,
@@ -166,5 +166,5 @@ export function deactivateLobby() {
 }
 
 export function navigateToLobby(lobbyName) {
-  return push(`/lobbies/${encodeURIComponent(lobbyName)}`)
+  push(`/lobbies/${encodeURIComponent(lobbyName)}`)
 }

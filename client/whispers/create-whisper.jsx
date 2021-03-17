@@ -95,6 +95,6 @@ export default class CreateWhisper extends React.Component {
   onSubmit = () => {
     const target = this._form.getModel().target
     this.props.dispatch(closeDialog())
-    this.props.dispatch(navigateToWhisper(target))
+    navigateToWhisper(target)
   }
 }

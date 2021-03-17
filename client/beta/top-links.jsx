@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'wouter'
 import styled from 'styled-components'
 
 import GithubLogo from '../icons/brands/github.svg'
@@ -76,7 +76,7 @@ const TopLinks = () => {
   return (
     <TopLinksList>
       <li>
-        <Link to='/splash'>Home</Link>
+        <Link href='/splash'>Home</Link>
       </li>
       <BroodWarLink>
         <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
@@ -84,7 +84,7 @@ const TopLinks = () => {
         </a>
       </BroodWarLink>
       <li>
-        <Link to='/faq'>FAQ</Link>
+        <Link href='/faq'>FAQ</Link>
       </li>
       <Spacer />
       <li>
@@ -106,7 +106,7 @@ const TopLinks = () => {
       </li>
       <Spacer />
       <li>
-        <Link to='/login'>Log in</Link>
+        <Link href='/login'>Log in</Link>
       </li>
     </TopLinksList>
   )
