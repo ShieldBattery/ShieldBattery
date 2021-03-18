@@ -1,4 +1,4 @@
-import { apiUrl } from '../network/api-url'
+import { apiUrl } from '../network/urls'
 import fetch from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import {

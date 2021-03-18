@@ -33,6 +33,7 @@ import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 import { makeServerUrl } from '../network/server-url'
+import { urlPath } from '../network/urls'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -202,8 +203,8 @@ const eventToAction = {
         const { lobby } = getState()
 
         const currentPath = location.pathname
-        if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}`) {
-          replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`)
+        if (currentPath === urlPath`/lobbies/${lobby.info.name}`) {
+          replace(urlPath`/lobbies/${lobby.info.name}/loading-game`)
         }
       }
     }, 1000)
@@ -269,8 +270,8 @@ const eventToAction = {
 
     const { lobby } = getState()
     const currentPath = location.pathname
-    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
-      replace(`/lobbies/${encodeURIComponent(lobby.info.name)}`)
+    if (currentPath === urlPath`/lobbies/${lobby.info.name}/loading-game`) {
+      replace(urlPath`/lobbies/${lobby.info.name}`)
     }
 
     dispatch({
@@ -286,8 +287,8 @@ const eventToAction = {
     const { lobby } = getState()
 
     const currentPath = location.pathname
-    if (currentPath === `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`) {
-      replace(`/lobbies/${encodeURIComponent(lobby.info.name)}/active-game`)
+    if (currentPath === urlPath`/lobbies/${lobby.info.name}/loading-game`) {
+      replace(urlPath`/lobbies/${lobby.info.name}/active-game`)
     }
     dispatch({
       type: LOBBY_UPDATE_GAME_STARTED,

@@ -47,7 +47,8 @@ function isLeavingLobby(oldProps, newProps) {
   return (
     oldProps.params.lobby === newProps.params.lobby /* rule out a route change */ &&
     oldProps.lobby.inLobby &&
-    oldProps.lobby.info.name === oldProps.params.lobby /* we were in this lobby */ &&
+    oldProps.lobby.info.name ===
+      decodeURIComponent(oldProps.params.lobby) /* we were in this lobby */ &&
     !newProps.lobby.inLobby /* now we're not */
   )
 }
@@ -68,7 +69,7 @@ const PreLobbyArea = styled.div`
 export default class LobbyView extends React.Component {
   componentDidMount() {
     if (!this.props.lobby.inLobby) {
-      const routeLobby = this.props.params.lobby
+      const routeLobby = decodeURIComponent(this.props.params.lobby)
       this.props.dispatch(getLobbyState(routeLobby))
     } else {
       this.props.dispatch(activateLobby())
@@ -90,7 +91,7 @@ export default class LobbyView extends React.Component {
     const routeLobby = prevProps.params.lobby
     const nextRouteLobby = this.props.params.lobby
     if (!prevProps.lobby.inLobby && routeLobby !== nextRouteLobby) {
-      prevProps.dispatch(getLobbyState(nextRouteLobby))
+      prevProps.dispatch(getLobbyState(decodeURIComponent(nextRouteLobby)))
     }
 
     if (this.props.lobby.inLobby) {
@@ -121,12 +122,12 @@ export default class LobbyView extends React.Component {
   }
 
   renderLobby = params => {
-    const routeLobby = params.lobby
+    const routeLobby = decodeURIComponent(params.lobby)
     const { lobby, maps, user } = this.props
 
     let content
     if (!lobby.inLobby) {
-      content = this.renderLobbyState()
+      content = this.renderLobbyState(routeLobby)
     } else if (lobby.info.name !== routeLobby) {
       content = this.renderLeaveAndJoin()
     } else {
@@ -182,8 +183,7 @@ export default class LobbyView extends React.Component {
     }
   }
 
-  renderLobbyState() {
-    const routeLobby = this.props.params.lobby
+  renderLobbyState(routeLobby) {
     const { lobbyState } = this.props
     if (!lobbyState.has(routeLobby)) {
       return null

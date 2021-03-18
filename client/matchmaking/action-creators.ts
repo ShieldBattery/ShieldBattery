@@ -16,9 +16,9 @@ import {
   MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
 } from '../actions'
 import { ThunkAction } from '../dispatch-registry'
-import { apiUrl } from '../network/api-url'
 import fetch from '../network/fetch'
 import siteSocket from '../network/site-socket'
+import { apiUrl } from '../network/urls'
 
 export function findMatch(
   type: MatchmakingType,

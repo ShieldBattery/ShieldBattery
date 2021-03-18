@@ -96,8 +96,8 @@ const VersionText = styled(CaptionOld)`
 let lobbyRoute = <></>
 let matchmakingRoute = <></>
 if (IS_ELECTRON) {
-  lobbyRoute = <Route path='/lobbies/:lobby' component={LobbyView} />
-  matchmakingRoute = <Route path='/matchmaking' component={MatchmakingView} />
+  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView} />
+  matchmakingRoute = <Route path='/matchmaking/:rest*' component={MatchmakingView} />
 }
 
 const LoadableAdminPanel = loadable(() => import('./admin/panel'), {
