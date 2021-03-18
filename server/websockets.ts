@@ -7,6 +7,7 @@ import path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
 import log from './lib/logging/logger'
 import matchmakingStatusInstance from './lib/matchmaking/matchmaking-status-instance'
+import { isElectronClient } from './lib/network/only-web-clients'
 import { getSingleQueryParam } from './lib/network/query-param'
 import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
 import getAddress from './lib/websockets/get-address'
@@ -98,9 +99,11 @@ export class WebsocketServer {
     this.nydus.on('connection', socket => {
       this.nydus.subscribeClient(socket, '/status', { users: this.connectedUsers })
 
-      // TODO(2Pac): Only do this for Electron clients
-      if (matchmakingStatusInstance) {
-        matchmakingStatusInstance.subscribe(socket)
+      const sessionInfo = this.sessionLookup.fromSocket(socket)
+      if (sessionInfo?.clientType === 'electron') {
+        if (matchmakingStatusInstance) {
+          matchmakingStatusInstance.subscribe(socket)
+        }
       }
     })
 
@@ -143,6 +146,7 @@ export class WebsocketServer {
         clientId,
         userName: ctx.session.userName,
         address: getAddress(req),
+        clientType: isElectronClient(ctx) ? 'electron' : 'web',
       }
       this.sessionLookup.set(req, handshakeData)
       cb(null, true)

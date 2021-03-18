@@ -168,7 +168,7 @@ export class UserSocketsManager extends EventEmitter {
     container.resolve(ClientSocketsManager)
 
     this.nydus.on('connection', socket => {
-      const session = this.sessionLookup.get(socket.conn.request)
+      const session = this.sessionLookup.fromSocket(socket)
       if (!session) {
         log.error({ req: socket.conn.request }, "couldn't find a session for the request")
         return
@@ -219,7 +219,7 @@ export class ClientSocketsManager extends EventEmitter {
   constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
     super()
     this.nydus.on('connection', socket => {
-      const session = this.sessionLookup.get(socket.conn.request)
+      const session = this.sessionLookup.fromSocket(socket)
       if (!session) {
         log.error({ req: socket.conn.request }, "couldn't find a session for the request")
         return
@@ -238,7 +238,7 @@ export class ClientSocketsManager extends EventEmitter {
   }
 
   getCurrentClient(socket: NydusClient): ClientSocketsGroup | undefined {
-    const session = this.sessionLookup.get(socket.conn.request)
+    const session = this.sessionLookup.fromSocket(socket)
     if (!session) {
       log.error({ req: socket.conn.request }, "couldn't find a session for the request")
       return undefined
