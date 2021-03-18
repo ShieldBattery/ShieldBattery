@@ -16,5 +16,3 @@ Verify email ( {{{HOST}}}/verify-email?token={{token}} )
 gl hf gogogo
 
 — The ShieldBattery team
-
-Follow @ShieldBatteryBW ( http://twitter.com/ShieldBatteryBW ) on Twitter.
