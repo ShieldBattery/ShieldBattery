@@ -132,7 +132,7 @@ export default keyedReducer(new ChatState(), {
       .update('channels', c => c.add(channel))
       .setIn(['byName', channel.toLowerCase()], record)
 
-    return updateMessages(updated, channel, true, m => {
+    return updateMessages(updated, channel, false, m => {
       return m.push(
         new SelfJoinChannelMessage({
           id: cuid(),
