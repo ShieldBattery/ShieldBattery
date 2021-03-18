@@ -234,6 +234,7 @@ class MainLayout extends React.Component {
         onClick={this.onSearchingMatchOverlayOpen}
         keycode={KEY_F}
         altKey={true}
+        count={matchmakingCount}
       />
     )
     const activityButtons = IS_ELECTRON

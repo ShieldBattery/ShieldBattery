@@ -144,6 +144,7 @@ export class MatchmakingApi {
           map.delete(client.name)
         }
       })
+      this.nydus.publish('/matchmakingCount', { count: this.queueEntries.size })
 
       let slots: List<Slot>
       const players = matchInfo.players
@@ -230,6 +231,7 @@ export class MatchmakingApi {
           this.unregisterActivity(client)
         }
       })
+      this.nydus.publish('/matchmakingCount', { count: this.queueEntries.size })
 
       for (const client of requeueClients) {
         const player = matchInfo.players.find(p => p.name === client.name)!
@@ -435,6 +437,12 @@ export class MatchmakingApi {
         new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
       ]),
     )
+
+    this.clientSockets.on('newClient', client => {
+      if (client.clientType === 'electron') {
+        client.subscribe('/matchmakingCount', () => ({ count: this.queueEntries.size }))
+      }
+    })
   }
 
   private handleLeave = (client: ClientSocketsGroup) => {
@@ -446,6 +454,7 @@ export class MatchmakingApi {
       this.queueEntries = this.queueEntries.delete(client.name)
       this.matchmakers.get(entry.type)!.removeFromQueue(entry.username)
       this.acceptor.registerDisconnect(client)
+      this.nydus.publish('/matchmakingCount', { count: this.queueEntries.size })
     }
 
     // Means the client disconnected during the loading process
@@ -548,6 +557,7 @@ export class MatchmakingApi {
       }
     })
     client.subscribe(MatchmakingApi.getClientPath(client), undefined, this.handleLeave)
+    this.nydus.publish('/matchmakingCount', { count: this.queueEntries.size })
   }
 
   @Api('/cancel')
