@@ -35,7 +35,7 @@ interface ActiveGameInfo {
   /**
    * Whether or not this game instance has been told it can start.
    */
-  allowStartSent?: boolean
+  startWhenReadySent?: boolean
   /**
    * The results of the game delivered once our local process has completed.
    */
@@ -185,13 +185,13 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   }
 
   /** Tells a particular game instance that it is okay to begin (starting actual gameplay). */
-  allowStart(gameId: string) {
+  startWhenReady(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
-    this.emit('gameCommand', gameId, 'allowStart')
-    this.activeGame.allowStartSent = true
+    this.emit('gameCommand', gameId, 'startWhenReady')
+    this.activeGame.startWhenReadySent = true
   }
 
   /** Notifies the manager that a game instance has connected and is ready for configuration. */
@@ -224,10 +224,10 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       this.emit('gameCommand', id, 'setupGame', config.setup)
     }
 
-    // If the `allowStart` command was already sent by this point, it means it was sent while the
-    // game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
-    if (this.activeGame.allowStartSent) {
-      this.emit('gameCommand', this.activeGame.id, 'allowStart')
+    // If the `startWhenReady` command was already sent by this point, it means it was sent while
+    // the game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
+    if (this.activeGame.startWhenReadySent) {
+      this.emit('gameCommand', this.activeGame.id, 'startWhenReady')
     }
   }
 

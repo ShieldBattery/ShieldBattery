@@ -90,7 +90,7 @@ pub enum GameStateMessage {
     SetRoutes(Vec<Route>),
     SetLocalUser(LocalUser),
     SetupGame(GameSetupInfo),
-    AllowStart,
+    StartWhenReady,
     InLobby,
     PlayerJoined,
     GameSetupDone,
@@ -434,7 +434,7 @@ impl GameState {
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
-            AllowStart => match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
+            StartWhenReady => match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
                 CanStartGame::Yes => (),
                 CanStartGame::No(waiting) => {
                     for sender in waiting {

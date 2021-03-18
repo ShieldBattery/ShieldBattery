@@ -260,10 +260,10 @@ const eventToAction = {
     activeGameManagerIpc.setGameRoutes(gameId, routes)
   },
 
-  allowStart: (name, event) => {
+  startWhenReady: (name, event) => {
     const { gameId } = event
 
-    activeGameManagerIpc.allowStart(gameId)
+    activeGameManagerIpc.startWhenReady(gameId)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {

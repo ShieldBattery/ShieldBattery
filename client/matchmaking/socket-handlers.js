@@ -225,7 +225,7 @@ const eventToAction = {
     }, 1000)
   },
 
-  allowStart: (name, event) => (dispatch, getState) => {
+  startWhenReady: (name, event) => (dispatch, getState) => {
     const { gameId } = event
 
     const currentPath = location.pathname
@@ -234,7 +234,7 @@ const eventToAction = {
     }
     dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
 
-    activeGameManagerIpc.allowStart(gameId)
+    activeGameManagerIpc.startWhenReady(gameId)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {

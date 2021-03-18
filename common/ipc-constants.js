@@ -1,7 +1,7 @@
 // Event names for electron IPC (used in the main and renderer processes for passing messages)
 
 // Tells the main process to allow the specified game to start
-export const ACTIVE_GAME_ALLOW_START = 'ACTIVE_GAME_ALLOW_START'
+export const ACTIVE_GAME_START_WHEN_READY = 'ACTIVE_GAME_START_WHEN_READY'
 // Tells the main process to set a new active game config
 export const ACTIVE_GAME_SET_CONFIG = 'ACTIVE_GAME_SET_CONFIG'
 // Tells the main process to set new active game routes

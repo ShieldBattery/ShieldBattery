@@ -10,9 +10,9 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import { GameConfig, GameRoute } from '../common/game-config'
 import {
-  ACTIVE_GAME_ALLOW_START,
   ACTIVE_GAME_SET_CONFIG,
   ACTIVE_GAME_SET_ROUTES,
+  ACTIVE_GAME_START_WHEN_READY,
   ACTIVE_GAME_STATUS,
   CHECK_STARCRAFT_PATH,
   LOCAL_SETTINGS_CHANGED,
@@ -259,8 +259,8 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     mainWindow?.webContents.send(ACTIVE_GAME_STATUS, status)
   })
 
-  ipcMain.handle(ACTIVE_GAME_ALLOW_START, (event, gameId: string) =>
-    activeGameManager.allowStart(gameId),
+  ipcMain.handle(ACTIVE_GAME_START_WHEN_READY, (event, gameId: string) =>
+    activeGameManager.startWhenReady(gameId),
   )
   ipcMain.handle(ACTIVE_GAME_SET_CONFIG, (event, config: GameConfig | Record<string, never>) =>
     activeGameManager.setGameConfig(config),

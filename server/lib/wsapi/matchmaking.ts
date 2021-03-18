@@ -374,7 +374,7 @@ export class MatchmakingApi {
             cancelToken.throwIfCancelling()
 
             published = this.publishToActiveClient(client.name, {
-              type: 'allowStart',
+              type: 'startWhenReady',
               gameId: setup.gameId,
             })
             if (!published) {

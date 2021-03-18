@@ -700,7 +700,7 @@ export class LobbyApi {
         .toArray(),
     }
 
-    let allowStartTimerId
+    let startWhenReadyTimerId
     try {
       let gameId
       // TODO(tec27): actually make use of this CancelToken for disconnects
@@ -725,9 +725,9 @@ export class LobbyApi {
         .then(() => {
           // Have some leeway after the countdown finishes and before allowing the game to start so
           // we can, for example, show the loading screen for some minimum amount of time
-          allowStartTimerId = setTimeout(() => {
+          startWhenReadyTimerId = setTimeout(() => {
             this._publishTo(lobby, {
-              type: 'allowStart',
+              type: 'startWhenReady',
               gameId,
             })
           }, 2000)
@@ -753,9 +753,9 @@ export class LobbyApi {
         clearTimeout(countdownTimerId)
         countdownTimerId = null
       }
-      if (allowStartTimerId) {
-        clearTimeout(allowStartTimerId)
-        allowStartTimerId = null
+      if (startWhenReadyTimerId) {
+        clearTimeout(startWhenReadyTimerId)
+        startWhenReadyTimerId = null
       }
     }
   }
