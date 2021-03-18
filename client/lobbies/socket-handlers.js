@@ -1,5 +1,6 @@
 import {
   ACTIVE_GAME_LAUNCH,
+  LOBBIES_COUNT_UPDATE,
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
   LOBBY_UPDATE_BAN,
@@ -334,6 +335,16 @@ export default function registerModule({ siteSocket }) {
       payload: {
         message: action,
         data: payload,
+      },
+    })
+  })
+
+  siteSocket.registerRoute('/lobbiesCount', (route, event) => {
+    const { count } = event
+    dispatch({
+      type: LOBBIES_COUNT_UPDATE,
+      payload: {
+        count,
       },
     })
   })

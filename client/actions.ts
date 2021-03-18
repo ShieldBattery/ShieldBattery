@@ -105,6 +105,9 @@ export const FILE_BROWSER_GET_LIST_BEGIN = 'FILE_BROWSER_GET_LIST_BEGIN'
 // particular folder)
 export const FILE_BROWSER_GET_LIST = 'FILE_BROWSER_GET_LIST'
 
+// The server has sent us an updated count on the number of active lobbies
+export const LOBBIES_COUNT_UPDATE = 'LOBBIES_COUNT_UPDATE'
+
 // We are starting the process of getting the state of a particular lobby
 export const LOBBIES_GET_STATE_BEGIN = 'LOBBIES_GET_STATE_BEGIN'
 // The server has responded with success/failure to our request of lobby state

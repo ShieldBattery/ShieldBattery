@@ -68,6 +68,12 @@ export class LobbyApi {
     this.lobbyCountdowns = new Map()
     this.loadingLobbies = new Map()
     this.subscribedSockets = new Map()
+
+    this.clientSockets.on('newClient', client => {
+      if (client.clientType === 'electron') {
+        client.subscribe('/lobbiesCount', () => ({ count: this.lobbies.size }))
+      }
+    })
   }
 
   @Api('/subscribe')
@@ -906,6 +912,7 @@ export class LobbyApi {
 
   _publishListChange(action, summary) {
     this.nydus.publish(MOUNT_BASE, { action, payload: summary })
+    this.nydus.publish('/lobbiesCount', { count: this.lobbies.size })
   }
 
   _publishTo(lobby, data) {

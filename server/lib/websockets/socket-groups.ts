@@ -181,8 +181,8 @@ export class UserSocketsManager extends EventEmitter {
         const user = new UserSocketsGroup(this.nydus, session!)
         user.add(socket)
         this.users = this.users.set(userName, user)
-        this.emit('newUser', user)
         user.once('close', () => this.removeUser(userName))
+        this.emit('newUser', user)
       } else {
         this.users.get(userName)!.add(socket)
       }
@@ -233,6 +233,7 @@ export class ClientSocketsManager extends EventEmitter {
         client.add(socket)
         this.clients = this.clients.set(userClientId, client)
         client.once('close', () => this.removeClient(userClientId))
+        this.emit('newClient', client)
       } else {
         this.clients.get(userClientId)!.add(socket)
       }
@@ -259,7 +260,11 @@ export class ClientSocketsManager extends EventEmitter {
   }
 
   private removeClient(userClientId: string) {
-    this.clients = this.clients.delete(userClientId)
+    if (this.clients.has(userClientId)) {
+      const client = this.clients.get(userClientId)
+      this.clients = this.clients.delete(userClientId)
+      this.emit('clientQuit', client)
+    }
     return this
   }
 }

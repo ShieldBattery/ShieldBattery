@@ -25,12 +25,14 @@ class HotkeyedActivityButton extends React.Component {
   }
 
   render() {
-    const { buttonRef, disabled, label, icon, onClick } = this.props
+    const { buttonRef, disabled, label, icon, count, glowing, onClick } = this.props
     const activityButtonProps = {
       ref: buttonRef,
       label,
       icon,
       disabled,
+      count,
+      glowing,
       onClick,
     }
 

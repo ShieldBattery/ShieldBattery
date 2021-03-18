@@ -114,6 +114,7 @@ function stateToProps(state) {
     matchmaking: state.matchmaking,
     matchmakingPreferences: state.matchmakingPreferences,
     matchmakingStatus: state.matchmakingStatus,
+    serverStatus: state.serverStatus,
   }
 }
 
@@ -189,8 +190,12 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const { auth, inGameplayActivity } = this.props
+    const { auth, inGameplayActivity, serverStatus } = this.props
     const { pathname } = location
+
+    const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
+    const matchmakingCount =
+      serverStatus.matchmakingCount > 0 ? serverStatus.matchmakingCount : undefined
 
     let appBarTitle
     if (pathname.startsWith('/admin')) {
@@ -217,15 +222,18 @@ class MainLayout extends React.Component {
         disabled={inGameplayActivity}
         keycode={KEY_F}
         altKey={true}
+        count={matchmakingCount}
       />
     ) : (
-      <ActivityButton
+      <HotkeyedActivityButton
         key='searching-match'
         ref={this._searchingMatchButtonRef}
         icon={<FindMatchIcon />}
         glowing={true}
         label='Searching...'
         onClick={this.onSearchingMatchOverlayOpen}
+        keycode={KEY_F}
+        altKey={true}
       />
     )
     const activityButtons = IS_ELECTRON
@@ -247,6 +255,7 @@ class MainLayout extends React.Component {
             onClick={this.onJoinLobbyClick}
             keycode={KEY_J}
             altKey={true}
+            count={lobbyCount}
           />,
           <HotkeyedActivityButton
             key='maps'
