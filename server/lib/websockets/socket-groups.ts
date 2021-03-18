@@ -135,10 +135,12 @@ export class UserSocketsGroup extends SocketGroup {
 
 export class ClientSocketsGroup extends SocketGroup {
   readonly clientId: string
+  readonly clientType: 'electron' | 'web'
 
   constructor(nydus: NydusServer, session: SessionInfo) {
     super(nydus, session)
     this.clientId = session.clientId
+    this.clientType = session.clientType
   }
 
   getPath() {
