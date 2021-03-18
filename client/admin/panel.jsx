@@ -1,14 +1,13 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Link, Route, Switch } from 'wouter'
+import { hot } from 'react-hot-loader/root'
 
-import AdminBetaInvites from './invites'
 import AdminMapPools from './map-pools'
 import AdminMatchmakingTimes from './matchmaking-times'
 import { ConditionalRoute } from '../navigation/custom-routes'
 import { UserFind } from './user-profile'
 import {
-  CanAcceptBetaInvitesFilter,
   CanManageMapPoolsFilter,
   CanManageMatchmakingTimesFilter,
   CanViewUserProfileFilter,
@@ -42,11 +41,6 @@ class AdminDashboard extends React.Component {
         <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
       </li>
     ) : null
-    const invitesLink = perms.acceptInvites ? (
-      <li>
-        <Link href='/admin/invites'>View beta invites</Link>
-      </li>
-    ) : null
 
     return (
       <ul>
@@ -54,14 +48,13 @@ class AdminDashboard extends React.Component {
         {mapsLink}
         {mapPoolsLink}
         {matchmakingTimesLink}
-        {invitesLink}
       </ul>
     )
   }
 }
 
 @connect(state => ({ auth: state.auth }))
-export default class Panel extends React.Component {
+class Panel extends React.Component {
   render() {
     const perms = this.props.auth.permissions
 
@@ -71,11 +64,6 @@ export default class Panel extends React.Component {
           path='/admin/users'
           filters={[CanViewUserProfileFilter]}
           component={UserFind}
-        />
-        <ConditionalRoute
-          path='/admin/invites'
-          filters={[CanAcceptBetaInvitesFilter]}
-          component={AdminBetaInvites}
         />
         {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
         <ConditionalRoute
@@ -95,3 +83,7 @@ export default class Panel extends React.Component {
     )
   }
 }
+
+// NOTE(tec27): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
+// this root it's own hot context to keep things working inside here
+export default hot(Panel)

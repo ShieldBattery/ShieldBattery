@@ -5,8 +5,6 @@ import {
   ADMIN_BAN_USER,
   ADMIN_GET_BAN_HISTORY_BEGIN,
   ADMIN_GET_BAN_HISTORY,
-  ADMIN_GET_INVITES_BEGIN,
-  ADMIN_GET_INVITES,
   ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_GET_PERMISSIONS,
   ADMIN_ACCEPT_USER_BEGIN,
@@ -137,46 +135,6 @@ export function banUser(username, length, reason) {
           return bans
         }),
       meta: { username, length, reason },
-    })
-  }
-}
-
-export function getInvites(inviteeType, limit, pageNumber) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_GET_INVITES_BEGIN,
-      meta: { inviteeType },
-    })
-
-    let reqUrl = `/api/1/invites?limit=${limit}&page=${pageNumber}`
-    if (inviteeType === 'accepted') {
-      reqUrl += '&accepted=true'
-    } else if (inviteeType === 'unaccepted') {
-      reqUrl += '&accepted=false'
-    }
-
-    dispatch({
-      type: ADMIN_GET_INVITES,
-      payload: fetch(reqUrl),
-      meta: { inviteeType },
-    })
-  }
-}
-
-export function acceptUser(email) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_ACCEPT_USER_BEGIN,
-      meta: { email },
-    })
-
-    dispatch({
-      type: ADMIN_ACCEPT_USER,
-      payload: fetch('/api/1/invites/' + encodeURIComponent(email), {
-        method: 'put',
-        body: JSON.stringify({ isAccepted: true }),
-      }),
-      meta: { email },
     })
   }
 }
