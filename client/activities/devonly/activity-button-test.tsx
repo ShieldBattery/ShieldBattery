@@ -1,13 +1,10 @@
 import React from 'react'
 import styled from 'styled-components'
-
+import Icon from '../../icons/material/baseline-check_circle-24px.svg'
+import Card from '../../material/card'
+import { grey850 } from '../../styles/colors'
 import ActivityBar from '../activity-bar'
 import ActivityButton from '../activity-button'
-import Card from '../../material/card'
-
-import Icon from '../../icons/material/baseline-check_circle-24px.svg'
-
-import { grey850 } from '../../styles/colors'
 
 const Container = styled.div`
   display: flex;
@@ -36,6 +33,8 @@ export default class ActivityButtonsTest extends React.Component {
             <ActivityButton icon={<Icon />} label='Default' />
             <ActivityButton icon={<Icon />} label='Disabled' disabled={true} />
             <ActivityButton icon={<Icon />} label='Glowing' glowing={true} />
+            <ActivityButton icon={<Icon />} label='Count' count={27} />
+            <ActivityButton icon={<Icon />} label='CountGlow' glowing={true} count={666} />
           </ActivityBar>
         </StyledCard>
       </Container>
