@@ -813,6 +813,8 @@ export class LobbyApi {
       })
     this.lobbies = this.lobbies.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+
+    this.nydus.publish('/lobbiesCount', { count: this.lobbies.size })
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
