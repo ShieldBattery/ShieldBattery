@@ -1,3 +1,39 @@
+#### 7.0.2 (March 19th, 2021)
+
+- **Some random changes.** Or, well, changes for Random players. Players who have selected Random
+  will no longer be able to choose an alternate race. This didn't really work how most people
+  expected (it picked the alternate only if your opponent was also playing Random), so we fixed the
+  glitch.
+- **Stacks on stacks on stacks.** Buildings and resources that are stacked on top of each other
+  (for instance, stacked neutral buildings or stacked mineral patches) now display a stack count in
+  their unit card.
+- **We heard you liked numbers.** The matchmaking and lobby buttons will now display a count of
+  active players or lobbies, so you can figure out how badly you want to join. (Really badly, I'm
+  sure).
+- **More selective matches.** We fixed a bug in the matchmaker that was letting it pick matches that
+  only one player was happy with. Now you all have to be happy about every match you're given. I do
+  not make the rules. The matchmaker does, but it's been super benevolent so far...
+- **Anti-anti-virus.** ShieldBattery will now alert you if someone or something has deleted
+  important files (I'm looking at you, anti-virus makers). This can often be remedied by reporting
+  it as a false positive or removing the file from quarantine.
+- **Bugs bashed.** Fixed a game crash that could occur if you hadn't launched SC:R once after
+  installing it. Fixed our chat channels and whispers showing notifications for non-existent
+  messages. Improved the performance of chat channels with large numbers of users.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+- **Vibrating mineral patches.** You're not going crazy, I promise. Those mineral patches really are
+  vibrating. This is an unintentional side-effect of our fog of war change for some users, we're
+  working on it!
+
 #### 7.0.1 (March 13th, 2021)
 
 - **Game loading... or not.** We've fixed a number of issues around players leaving or getting
