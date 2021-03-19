@@ -29,10 +29,15 @@ function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer
 export const DEFAULT_OPPONENT_CHOOSER = (
   player: MatchmakingPlayer,
   opponents: MatchmakingPlayer[],
+  isHighRanked: boolean,
 ) => {
-  let filtered = opponents
+  let filtered = opponents.filter(
+    o => o.interval.low <= player.rating && player.rating <= o.interval.high,
+  )
 
-  if (filtered.length === 1) {
+  if (!filtered.length) {
+    return undefined
+  } else if (filtered.length === 1) {
     return filtered[0]
   }
 
@@ -44,7 +49,9 @@ export const DEFAULT_OPPONENT_CHOOSER = (
     filtered = sameNewness
   }
 
-  if (filtered.length === 1) {
+  if (!filtered.length) {
+    return undefined
+  } else if (filtered.length === 1) {
     return filtered[0]
   }
 
@@ -56,7 +63,9 @@ export const DEFAULT_OPPONENT_CHOOSER = (
   const mostSearchIterations = filtered[0].searchIterations
   filtered = filtered.filter(o => o.searchIterations === mostSearchIterations)
 
-  if (filtered.length === 1) {
+  if (!filtered.length) {
+    return undefined
+  } else if (filtered.length === 1) {
     return filtered[0]
   }
 
@@ -65,8 +74,8 @@ export const DEFAULT_OPPONENT_CHOOSER = (
   const ratingDiff = Math.abs(opponentRating - player.rating)
   filtered = filtered.filter(o => Math.abs(o.rating - player.rating) === ratingDiff)
 
-  if (filtered.length === 1) {
-    return filtered[0]
+  if (!filtered.length) {
+    return undefined
   } else {
     // 7) Randomize among remaining candidates.
     return filtered[Math.floor(Math.random() * filtered.length)]
@@ -77,14 +86,25 @@ type OnMatchFoundFunc = (
   player: Readonly<MatchmakingPlayer>,
   opponent: Readonly<MatchmakingPlayer>,
 ) => void
+
+/**
+ * A function that chooses an opponent for `player` among a pool of potential opponents.
+ *
+ * @param player the player to find an opponent for
+ * @param opponents the possible opponents to choose from
+ * @param isHighRanked whether or not the player is high ranked (and may need special logic applied
+ *   to them to ensure they find matches)
+ */
 type OpponentChooser = (
   player: Readonly<MatchmakingPlayer>,
   opponents: Readonly<MatchmakingPlayer>[],
+  isHighRanked: boolean,
 ) => Readonly<MatchmakingPlayer> | undefined
 
 export class Matchmaker {
   protected tree = new IntervalTree<MatchmakingPlayer>()
   protected players = OrderedMap<string, MatchmakingPlayer>()
+  protected highRankedRating = Number.MAX_SAFE_INTEGER
 
   /**
    * Constructs a new Matchmaker.
@@ -129,6 +149,17 @@ export class Matchmaker {
   }
 
   /**
+   * Sets the minimum MMR above which players are considered "high ranked" and have special
+   * matchmaking behavior applied to them to ensure that can still find matches.
+   */
+  setHighRankedRating(rating: number) {
+    this.highRankedRating = rating
+    // TODO(tec27): matchmaker may need to know what type of matchmaking it deals with to log
+    // useful messages here (and elsewhere)
+    logger.info('high ranked is now ' + rating + ' rating')
+  }
+
+  /**
    * Finds the best match for each player and removes them from a queue. If a match is not found,
    * the player stays in the queue, with their interval bounds increased as needed.
    *
@@ -148,14 +179,23 @@ export class Matchmaker {
       // results
       this.removeFromTree(player)
       player.searchIterations += 1
-      if (
-        player.searchIterations > IDEAL_MATCH_ITERATIONS &&
-        player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES
-      ) {
-        // Player has been in the queue long enough to have their search bound increased (but not
-        // so long that they're at the max bounds)
-        player.interval.low = Math.max(player.interval.low - SEARCH_BOUND_INCREASE, 0)
-        player.interval.high += SEARCH_BOUND_INCREASE
+
+      const isHighRanked = player.rating >= this.highRankedRating
+      if (player.searchIterations > IDEAL_MATCH_ITERATIONS) {
+        if (
+          isHighRanked ||
+          player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES
+        ) {
+          // Player has been in the queue long enough to have their search bound increased (but not
+          // so long that they're at the max bounds). If they are considered a "high ranked" player,
+          // (that is, one at the top X% of the ladder), their search bound will increase
+          // infinitely to ensure they can find matches
+          player.interval.low = Math.max(player.interval.low - SEARCH_BOUND_INCREASE, 0)
+          player.interval.high = Math.min(
+            player.interval.high + SEARCH_BOUND_INCREASE,
+            Number.MAX_SAFE_INTEGER,
+          )
+        }
       }
 
       const results = this.tree.search(
@@ -165,7 +205,7 @@ export class Matchmaker {
 
       let opponent: Readonly<MatchmakingPlayer> | undefined
       if (results.length > 0) {
-        opponent = this.opponentChooser(player, results)
+        opponent = this.opponentChooser(player, results, isHighRanked)
       }
 
       if (opponent) {

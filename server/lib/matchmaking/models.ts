@@ -150,6 +150,43 @@ export async function updateMatchmakingRating(
   `)
 }
 
+/**
+ * Calculates the rating above which players are considered "high ranked" and have special
+ * matchmaking logic applied to them.
+ */
+export async function getHighRankedRating(matchmakingType: MatchmakingType): Promise<number> {
+  const { client, done } = await db()
+  try {
+    const totalPlayersResult = await client.query<{ count: string }>(sql`
+      SELECT COUNT(*) as count
+      FROM matchmaking_ratings
+      WHERE matchmaking_type = ${matchmakingType} and num_games_played > 0;
+    `)
+
+    const totalPlayers = Number(totalPlayersResult.rows[0].count ?? '0')
+    if (totalPlayers <= 1) {
+      return Number.MAX_SAFE_INTEGER
+    }
+
+    // Players are "high ranked" if they are in the top 1% of ranked players
+    const highRankedCount = Math.ceil(Math.max(totalPlayers * 0.01, 1))
+    const result = await client.query<{ rating: number }>(sql`
+      SELECT MIN(top.rating) as rating
+      FROM (
+        SELECT matchmaking_type, rating
+        FROM matchmaking_ratings
+        WHERE matchmaking_type = ${matchmakingType}
+        ORDER BY rating DESC
+        LIMIT ${highRankedCount}
+      ) top;
+    `)
+
+    return Math.floor(result.rows[0].rating)
+  } finally {
+    done()
+  }
+}
+
 export type MatchmakingResult = 'loss' | 'win'
 
 export interface MatchmakingRatingChange {

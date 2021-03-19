@@ -19,11 +19,13 @@ import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
 import {
   createInitialMatchmakingRating,
+  getHighRankedRating,
   getMatchmakingRating,
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
+import { monotonicNow } from '../time/monotonic-now'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
   ClientSocketsGroup,
@@ -61,6 +63,12 @@ const MATCHMAKING_INTERVAL = 7500
 // Extra time that is added to the matchmaking accept time to account for latency in getting
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
+/**
+ * How long retrieved "high rank" MMRs are valid for. If the cached data is older than this, it
+ * will be re-retrieved.
+ */
+const MAX_HIGH_RANKED_AGE_MS = 10 * 60 * 1000
+
 const MOUNT_BASE = '/matchmaking'
 
 /**
@@ -426,6 +434,8 @@ export class MatchmakingApi {
   // Maps username -> Timers
   private clientTimers = IMap<string, Timers>()
 
+  private highRankedMmrs = IMap<MatchmakingType, { retrieved: number; rating: number }>()
+
   constructor(
     private nydus: NydusServer,
     private userSockets: UserSocketsManager,
@@ -522,6 +532,18 @@ export class MatchmakingApi {
     const mmr: MatchmakingRating =
       (await getMatchmakingRating(user.userId, type)) ??
       (await createInitialMatchmakingRating(user.userId, type))
+
+    // TODO(tec27): Really this retrieval should be triggered by the matchmaking, since it knows
+    // when it's still running and for what matchmaking type
+    const currentTime = monotonicNow()
+    if (
+      !this.highRankedMmrs.has(type) ||
+      currentTime - this.highRankedMmrs.get(type)!.retrieved > MAX_HIGH_RANKED_AGE_MS
+    ) {
+      const highRankedRating = await getHighRankedRating(type)
+      this.highRankedMmrs.set(type, { retrieved: currentTime, rating: highRankedRating })
+      this.matchmakers.get(type)!.setHighRankedRating(highRankedRating)
+    }
 
     // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
     // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
