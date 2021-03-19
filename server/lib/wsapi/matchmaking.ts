@@ -13,6 +13,7 @@ import { isValidMatchmakingType, MatchmakingType } from '../../../common/matchma
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { createHuman, Slot } from '../lobbies/slot'
+import logger from '../logging/logger'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
@@ -25,6 +26,7 @@ import {
 } from '../matchmaking/models'
 import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
+import redis from '../redis/index'
 import { monotonicNow } from '../time/monotonic-now'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
@@ -453,6 +455,33 @@ export class MatchmakingApi {
         client.subscribe('/matchmakingCount', () => ({ count: this.queueEntries.size }))
       }
     })
+
+    // Clean up matchmaking queue size data older than 3 months
+    const cleanupBefore = new Date()
+    cleanupBefore.setDate(cleanupBefore.getDate() - 60)
+    const pipeline = redis.pipeline()
+    for (const type of Object.values(MatchmakingType)) {
+      pipeline.zremrangebyscore(`matchmaking:${type}:queue`, 0, +cleanupBefore)
+    }
+    pipeline.exec().catch(err => {
+      logger.error({ err }, 'error clearing old matchmaking queue sizes')
+    })
+
+    // Log the current matchmaking queue size to redis every 30 seconds
+    setInterval(() => {
+      const time = Date.now()
+      const pipeline = redis.pipeline()
+      for (const type of Object.values(MatchmakingType)) {
+        pipeline.zadd(
+          `matchmaking:${type}:queue`,
+          time,
+          JSON.stringify({ time, size: this.matchmakers.get(type)!.queueSize }),
+        )
+      }
+      pipeline.exec().catch(err => {
+        logger.error({ err }, 'error storing matchmaking queue size')
+      })
+    }, 30 * 1000)
   }
 
   private handleLeave = (client: ClientSocketsGroup) => {

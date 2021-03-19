@@ -119,6 +119,10 @@ export class Matchmaker {
     private opponentChooser: OpponentChooser = DEFAULT_OPPONENT_CHOOSER,
   ) {}
 
+  get queueSize(): number {
+    return this.players.size
+  }
+
   /**
    * Adds a player to the queue used to find potential matches.
    *
