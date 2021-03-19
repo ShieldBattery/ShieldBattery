@@ -52,32 +52,35 @@ const partyIdSchema = Joi.object().keys({
   partyId: Joi.string().required(),
 })
 
-const declineParamsSchema = partyIdSchema.keys({
-  targetId: Joi.number(),
+const removeInviteParamsSchema = partyIdSchema.keys({
+  targetId: Joi.number().required(),
 })
 
 export default function (router: Router) {
   router
-    .use(ensureLoggedIn)
+    .use(featureEnabled(PARTIES), ensureLoggedIn)
     .post(
       '/invites',
-      featureEnabled(PARTIES),
       throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
       joiValidator({ body: invitesPostSchema }),
       invite,
     )
     .delete(
-      '/invites/:partyId/:targetId',
-      featureEnabled(PARTIES),
+      '/invites/:partyId',
       throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
-      joiValidator({ params: declineParamsSchema }),
+      joiValidator({ params: partyIdSchema }),
       decline,
+    )
+    .delete(
+      '/invites/:partyId/:targetId',
+      throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
+      joiValidator({ params: removeInviteParamsSchema }),
+      removeInvite,
     )
     .post(
       '/:partyId',
-      featureEnabled(PARTIES),
       throttleMiddleware(partyThrottle, ctx => ctx.session!.userId),
-      joiValidator({ params: partyIdSchema }),
+      joiValidator({ params: partyIdSchema, body: clientIdSchema }),
       accept,
     )
 }
@@ -99,21 +102,32 @@ function convertPartyServiceError(err: Error) {
     case PartyServiceErrorCode.PartyFull:
       throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
-      throw new httpErrors.Unauthorized(err.message)
+      throw new httpErrors.NotFound(err.message)
     case PartyServiceErrorCode.InvalidAction:
       throw new httpErrors.BadRequest(err.message)
     default:
-      assertUnreachable(err.code as never)
+      assertUnreachable(err.code)
   }
 }
 
+// TODO(2Pac): Move this somewhere common and share with client
+export interface PartiesInviteBody {
+  clientId: string
+  targets: string[]
+}
+
+// TODO(2Pac): Move this somewhere common and share with client
+export interface PartiesAcceptBody {
+  clientId: string
+}
+
 async function invite(ctx: RouterContext) {
-  const { clientId, targets } = ctx.request.body
+  const { clientId, targets } = ctx.request.body as PartiesInviteBody
 
   try {
     const invites = await Promise.all<PartyUser>(
       targets.map(
-        async (target: string): Promise<PartyUser> => {
+        async (target): Promise<PartyUser> => {
           const foundTarget = await users.find(target)
           if (!foundTarget) {
             throw new httpErrors.NotFound('Target user not found')
@@ -122,7 +136,7 @@ async function invite(ctx: RouterContext) {
           // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
           // the request. Or potentially use friends list when implemented.
 
-          return { id: foundTarget.id, name: foundTarget.name } as PartyUser
+          return { id: foundTarget.id as number, name: foundTarget.name }
         },
       ),
     )
@@ -141,25 +155,32 @@ async function invite(ctx: RouterContext) {
 }
 
 async function decline(ctx: RouterContext) {
+  const { partyId } = ctx.params
+
+  try {
+    const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+
+    partyService.decline(partyId, target)
+
+    ctx.status = 204
+  } catch (err) {
+    convertPartyServiceError(err)
+  }
+}
+
+async function removeInvite(ctx: RouterContext) {
   const { partyId, targetId } = ctx.params
 
   try {
-    let leader: PartyUser | undefined
-    let target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-
-    // If the `targetId` is provided, that means the user issuing the request wants to cancel an
-    // invite to someone else.
-    if (targetId) {
-      const foundTarget = await users.find(targetId)
-      if (!foundTarget) {
-        throw new httpErrors.NotFound('Target user not found')
-      }
-
-      leader = target
-      target = { id: foundTarget.id, name: foundTarget.name } as PartyUser
+    const foundTarget = await users.find(targetId)
+    if (!foundTarget) {
+      throw new httpErrors.NotFound('Target user not found')
     }
 
-    partyService.removeInvite(partyId, target, leader)
+    const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    const target: PartyUser = { id: foundTarget.id as number, name: foundTarget.name }
+
+    partyService.removeInvite(partyId, removingUser, target)
 
     ctx.status = 204
   } catch (err) {
@@ -169,7 +190,7 @@ async function decline(ctx: RouterContext) {
 
 async function accept(ctx: RouterContext) {
   const { partyId } = ctx.params
-  const { clientId } = ctx.request.body
+  const { clientId } = ctx.request.body as PartiesAcceptBody
 
   try {
     const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }

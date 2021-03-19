@@ -115,6 +115,7 @@ export class NydusConnector {
       userName: user.name,
       clientId,
       address: '127.0.0.1',
+      clientType: 'electron',
     }
     this.sessionLookup.set(fakeRequest, fakeSession)
     const client = new InspectableNydusClient(
@@ -126,6 +127,7 @@ export class NydusConnector {
           return this
         },
       } as any) as eio.Socket,
+      () => {},
       () => {},
       () => {},
     )

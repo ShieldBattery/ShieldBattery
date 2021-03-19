@@ -1,6 +1,7 @@
 import cuid from 'cuid'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
+import logger from '../logging/logger'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
@@ -36,11 +37,8 @@ export enum PartyServiceErrorCode {
 }
 
 export class PartyServiceError extends Error {
-  public code: PartyServiceErrorCode
-
-  constructor(code: PartyServiceErrorCode, message: string) {
+  constructor(readonly code: PartyServiceErrorCode, message: string) {
     super(message)
-    this.code = code
   }
 }
 
@@ -138,31 +136,55 @@ export default class PartyService {
     return party
   }
 
-  removeInvite(partyId: string, target: PartyUser, leader?: PartyUser) {
+  decline(partyId: string, target: PartyUser) {
     const party = this.parties.get(partyId)
     if (!party) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
     }
 
-    if (leader && leader.id !== party.leader.id) {
+    if (!party.invites.has(target.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InsufficientPermissions,
+        "Can't decline a party invitation without an invite",
+      )
+    }
+
+    party.invites.delete(target.id)
+
+    this.publishToParty(partyId, {
+      type: 'decline',
+      target,
+    })
+
+    // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
+    // and no outstanding invites?
+
+    this.unsubscribeFromInvites(party, target)
+  }
+
+  removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
+    const party = this.parties.get(partyId)
+    if (!party) {
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+    }
+
+    if (removingUser.id !== party.leader.id) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can remove invites to other people',
       )
     }
 
-    const isRemoved = party.invites.delete(target.id)
-    if (!isRemoved) {
+    if (!party.invites.has(target.id)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
         "Can't remove invite for a user that wasn't invited",
       )
     }
 
-    this.publishToParty(partyId, {
-      type: 'decline',
-      target,
-    })
+    party.invites.delete(target.id)
+
+    // TODO(2Pac): Publish *something* to the party that an invite was removed?
 
     // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
     // and no outstanding invites?
@@ -227,7 +249,8 @@ export default class PartyService {
   private handleClientQuit(clientSockets: ClientSocketsGroup) {
     const party = this.getClientParty(clientSockets)
     if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+      logger.error('error while handling client quitting, party not found')
+      return
     }
 
     party.members.delete(clientSockets.userId)
@@ -258,7 +281,7 @@ export default class PartyService {
   private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
-      throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'Authorization required')
+      throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'Client could not be found')
     }
 
     return clientSockets
